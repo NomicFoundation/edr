@@ -2718,9 +2718,11 @@ dependencies = [
 name = "edr_debugger_bytecode"
 version = "0.3.8"
 dependencies = [
+ "edr_debugger_protocol",
  "edr_evm_spec",
  "edr_primitives",
  "log",
+ "serde_json",
  "thiserror 1.0.69",
 ]
 

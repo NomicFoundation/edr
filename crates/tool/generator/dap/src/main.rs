@@ -114,7 +114,9 @@ fn write_schema_to_disk(
         commit_sha,
     }: Schema,
 ) -> anyhow::Result<()> {
-    let settings = TypeSpaceSettings::default();
+    let mut settings = TypeSpaceSettings::default();
+    settings.with_derive("Default".to_owned());
+
     let mut type_space = TypeSpace::new(&settings);
 
     let schema = serde_json::from_str(&content)?;

@@ -1,7 +1,7 @@
 // WARNING: This file is auto-generated. Do not edit manually.
 // source: https://github.com/microsoft/debug-adapter-protocol/tree/c586d88de577caee962da186022c4bb79b1103e7/debugAdapterProtocol.json
 //
-// To update, run `cargo run -p dap-generator` from the workspace root.
+// To update, run `cargo gen-dap` inside the workspace.
 
 #[doc = r" Error types."]
 pub mod error {
@@ -62,7 +62,7 @@ pub mod error {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct AttachRequest {
     pub arguments: AttachRequestArguments,
     pub command: AttachRequestCommand,
@@ -101,7 +101,7 @@ impl ::std::convert::From<&AttachRequest> for AttachRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct AttachRequestArguments {
     #[doc = "Arbitrary data from the previous, restarted session.\nThe data is sent as the `restart` attribute of the `terminated` event.\nThe client should leave the data intact."]
     #[serde(
@@ -142,6 +142,7 @@ impl ::std::default::Default for AttachRequestArguments {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -214,6 +215,7 @@ impl ::std::convert::TryFrom<::std::string::String> for AttachRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -285,7 +287,7 @@ impl ::std::convert::TryFrom<::std::string::String> for AttachRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct AttachResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -328,6 +330,7 @@ impl ::std::convert::From<&AttachResponse> for AttachResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -445,7 +448,7 @@ impl ::std::convert::TryFrom<::std::string::String> for AttachResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Breakpoint {
     #[doc = "Start position of the source range covered by the breakpoint. It is measured in UTF-16 code units and the client capability `columnsStartAt1` determines whether it is 0- or 1-based."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -549,7 +552,7 @@ impl ::std::convert::From<&Breakpoint> for Breakpoint {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct BreakpointEvent {
     pub body: BreakpointEventBody,
     pub event: BreakpointEventEvent,
@@ -592,7 +595,7 @@ impl ::std::convert::From<&BreakpointEvent> for BreakpointEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct BreakpointEventBody {
     #[doc = "The `id` attribute is used to find the target breakpoint, the other attributes are used as the new values."]
     pub breakpoint: Breakpoint,
@@ -623,6 +626,7 @@ impl ::std::convert::From<&BreakpointEventBody> for BreakpointEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -695,6 +699,7 @@ impl ::std::convert::TryFrom<::std::string::String> for BreakpointEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -780,7 +785,7 @@ impl ::std::convert::TryFrom<::std::string::String> for BreakpointEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct BreakpointLocation {
     #[doc = "The start position of a breakpoint location. Position is measured in UTF-16 code units and the client capability `columnsStartAt1` determines whether it is 0- or 1-based."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -844,7 +849,7 @@ impl ::std::convert::From<&BreakpointLocation> for BreakpointLocation {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct BreakpointLocationsArguments {
     #[doc = "Start position within `line` to search possible breakpoint locations in. It is measured in UTF-16 code units and the client capability `columnsStartAt1` determines whether it is 0- or 1-based. If no column is given, the first position in the start line is assumed."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -905,7 +910,7 @@ impl ::std::convert::From<&BreakpointLocationsArguments> for BreakpointLocations
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct BreakpointLocationsRequest {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arguments: ::std::option::Option<BreakpointLocationsArguments>,
@@ -939,6 +944,7 @@ impl ::std::convert::From<&BreakpointLocationsRequest> for BreakpointLocationsRe
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -1011,6 +1017,7 @@ impl ::std::convert::TryFrom<::std::string::String> for BreakpointLocationsReque
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -1102,7 +1109,7 @@ impl ::std::convert::TryFrom<::std::string::String> for BreakpointLocationsReque
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct BreakpointLocationsResponse {
     pub body: BreakpointLocationsResponseBody,
     #[doc = "The command requested."]
@@ -1146,7 +1153,7 @@ impl ::std::convert::From<&BreakpointLocationsResponse> for BreakpointLocationsR
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct BreakpointLocationsResponseBody {
     #[doc = "Sorted set of possible breakpoint locations."]
     pub breakpoints: ::std::vec::Vec<BreakpointLocation>,
@@ -1175,6 +1182,7 @@ impl ::std::convert::From<&BreakpointLocationsResponseBody> for BreakpointLocati
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -1265,7 +1273,7 @@ impl ::std::convert::TryFrom<::std::string::String> for BreakpointLocationsRespo
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct BreakpointMode {
     #[doc = "Describes one or more type of breakpoint this mode applies to."]
     #[serde(rename = "appliesTo")]
@@ -1311,6 +1319,7 @@ impl ::std::convert::From<&BreakpointMode> for BreakpointMode {
     :: serde :: Serialize,
     Clone,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -1372,6 +1381,7 @@ impl ::std::fmt::Display for BreakpointModeApplicability {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -1450,7 +1460,7 @@ impl ::std::convert::TryFrom<::std::string::String> for BreakpointReason {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct CancelArguments {
     #[doc = "The ID (attribute `progressId`) of the progress to cancel. If missing no progress is cancelled.\nBoth a `requestId` and a `progressId` can be specified in one request."]
     #[serde(
@@ -1512,7 +1522,7 @@ impl ::std::default::Default for CancelArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct CancelRequest {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arguments: ::std::option::Option<CancelArguments>,
@@ -1546,6 +1556,7 @@ impl ::std::convert::From<&CancelRequest> for CancelRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -1618,6 +1629,7 @@ impl ::std::convert::TryFrom<::std::string::String> for CancelRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -1689,7 +1701,7 @@ impl ::std::convert::TryFrom<::std::string::String> for CancelRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct CancelResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -1732,6 +1744,7 @@ impl ::std::convert::From<&CancelResponse> for CancelResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -1982,7 +1995,7 @@ impl ::std::convert::TryFrom<::std::string::String> for CancelResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Capabilities {
     #[doc = "The set of additional module information exposed by the debug adapter."]
     #[serde(
@@ -2374,7 +2387,7 @@ impl ::std::default::Default for Capabilities {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct CapabilitiesEvent {
     pub body: CapabilitiesEventBody,
     pub event: CapabilitiesEventEvent,
@@ -2407,7 +2420,7 @@ impl ::std::convert::From<&CapabilitiesEvent> for CapabilitiesEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct CapabilitiesEventBody {
     #[doc = "The set of updated capabilities."]
     pub capabilities: Capabilities,
@@ -2436,6 +2449,7 @@ impl ::std::convert::From<&CapabilitiesEventBody> for CapabilitiesEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -2508,6 +2522,7 @@ impl ::std::convert::TryFrom<::std::string::String> for CapabilitiesEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -2586,7 +2601,7 @@ impl ::std::convert::TryFrom<::std::string::String> for CapabilitiesEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Checksum {
     #[doc = "The algorithm used to calculate this checksum."]
     pub algorithm: ChecksumAlgorithm,
@@ -2621,6 +2636,7 @@ impl ::std::convert::From<&Checksum> for Checksum {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -2729,7 +2745,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ChecksumAlgorithm {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ColumnDescriptor {
     #[doc = "Name of the attribute rendered in this column."]
     #[serde(rename = "attributeName")]
@@ -2778,6 +2794,7 @@ impl ::std::convert::From<&ColumnDescriptor> for ColumnDescriptor {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -2895,7 +2912,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ColumnDescriptorType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct CompletionItem {
     #[doc = "A human-readable string with additional information about this item, like type or symbol information."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -2983,6 +3000,7 @@ impl ::std::convert::From<&CompletionItem> for CompletionItem {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -3141,7 +3159,7 @@ impl ::std::convert::TryFrom<::std::string::String> for CompletionItemType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct CompletionsArguments {
     #[doc = "The position within `text` for which to determine the completion proposals. It is measured in UTF-16 code units and the client capability `columnsStartAt1` determines whether it is 0- or 1-based."]
     pub column: i64,
@@ -3196,7 +3214,7 @@ impl ::std::convert::From<&CompletionsArguments> for CompletionsArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct CompletionsRequest {
     pub arguments: CompletionsArguments,
     pub command: CompletionsRequestCommand,
@@ -3229,6 +3247,7 @@ impl ::std::convert::From<&CompletionsRequest> for CompletionsRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -3301,6 +3320,7 @@ impl ::std::convert::TryFrom<::std::string::String> for CompletionsRequestComman
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -3392,7 +3412,7 @@ impl ::std::convert::TryFrom<::std::string::String> for CompletionsRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct CompletionsResponse {
     pub body: CompletionsResponseBody,
     #[doc = "The command requested."]
@@ -3436,7 +3456,7 @@ impl ::std::convert::From<&CompletionsResponse> for CompletionsResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct CompletionsResponseBody {
     #[doc = "The possible completions for ."]
     pub targets: ::std::vec::Vec<CompletionItem>,
@@ -3465,6 +3485,7 @@ impl ::std::convert::From<&CompletionsResponseBody> for CompletionsResponseBody 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -3529,7 +3550,7 @@ impl ::std::convert::TryFrom<::std::string::String> for CompletionsResponseType 
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 #[serde(transparent)]
 pub struct ConfigurationDoneArguments(
     pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
@@ -3591,7 +3612,7 @@ impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json:
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ConfigurationDoneRequest {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arguments: ::std::option::Option<ConfigurationDoneArguments>,
@@ -3625,6 +3646,7 @@ impl ::std::convert::From<&ConfigurationDoneRequest> for ConfigurationDoneReques
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -3697,6 +3719,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ConfigurationDoneRequest
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -3768,7 +3791,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ConfigurationDoneRequest
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ConfigurationDoneResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -3811,6 +3834,7 @@ impl ::std::convert::From<&ConfigurationDoneResponse> for ConfigurationDoneRespo
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -3888,7 +3912,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ConfigurationDoneRespons
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ContinueArguments {
     #[doc = "If this flag is true, execution is resumed only for the thread with given `threadId`."]
     #[serde(
@@ -3939,7 +3963,7 @@ impl ::std::convert::From<&ContinueArguments> for ContinueArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ContinueRequest {
     pub arguments: ContinueArguments,
     pub command: ContinueRequestCommand,
@@ -3972,6 +3996,7 @@ impl ::std::convert::From<&ContinueRequest> for ContinueRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -4044,6 +4069,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ContinueRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -4129,7 +4155,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ContinueRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ContinueResponse {
     pub body: ContinueResponseBody,
     #[doc = "The command requested."]
@@ -4167,7 +4193,7 @@ impl ::std::convert::From<&ContinueResponse> for ContinueResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ContinueResponseBody {
     #[doc = "If omitted or set to `true`, this response signals to the client that all threads have been resumed. The value `false` indicates that not all threads were resumed."]
     #[serde(
@@ -4208,6 +4234,7 @@ impl ::std::default::Default for ContinueResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -4307,7 +4334,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ContinueResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ContinuedEvent {
     pub body: ContinuedEventBody,
     pub event: ContinuedEventEvent,
@@ -4344,7 +4371,7 @@ impl ::std::convert::From<&ContinuedEvent> for ContinuedEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ContinuedEventBody {
     #[doc = "If omitted or set to `true`, this event signals to the client that all threads have been resumed. The value `false` indicates that not all threads were resumed."]
     #[serde(
@@ -4381,6 +4408,7 @@ impl ::std::convert::From<&ContinuedEventBody> for ContinuedEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -4453,6 +4481,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ContinuedEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -4538,7 +4567,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ContinuedEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DataBreakpoint {
     #[doc = "The access type of the data."]
     #[serde(
@@ -4588,6 +4617,7 @@ impl ::std::convert::From<&DataBreakpoint> for DataBreakpoint {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -4689,7 +4719,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DataBreakpointAccessType
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DataBreakpointInfoArguments {
     #[doc = "If `true`, the `name` is a memory address and the debugger should interpret it as a decimal value, or hex value if it is prefixed with `0x`.\n\nClients may set this property only if the `supportsDataBreakpointBytes`\ncapability is true."]
     #[serde(
@@ -4759,7 +4789,7 @@ impl ::std::convert::From<&DataBreakpointInfoArguments> for DataBreakpointInfoAr
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DataBreakpointInfoRequest {
     pub arguments: DataBreakpointInfoArguments,
     pub command: DataBreakpointInfoRequestCommand,
@@ -4792,6 +4822,7 @@ impl ::std::convert::From<&DataBreakpointInfoRequest> for DataBreakpointInfoRequ
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -4864,6 +4895,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DataBreakpointInfoReques
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -4971,7 +5003,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DataBreakpointInfoReques
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DataBreakpointInfoResponse {
     pub body: DataBreakpointInfoResponseBody,
     #[doc = "The command requested."]
@@ -5031,7 +5063,7 @@ impl ::std::convert::From<&DataBreakpointInfoResponse> for DataBreakpointInfoRes
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DataBreakpointInfoResponseBody {
     #[doc = "Attribute lists the available access types for a potential data breakpoint. A UI client could surface this information."]
     #[serde(
@@ -5077,6 +5109,7 @@ impl ::std::convert::From<&DataBreakpointInfoResponseBody> for DataBreakpointInf
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -5142,7 +5175,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DataBreakpointInfoRespon
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 #[serde(transparent)]
 pub struct DebugAdapterProtocol(pub ::serde_json::Map<::std::string::String, ::serde_json::Value>);
 impl ::std::ops::Deref for DebugAdapterProtocol {
@@ -5207,7 +5240,7 @@ impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json:
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DisassembleArguments {
     #[doc = "Number of instructions to disassemble starting at the specified location and offset.\nAn adapter must return exactly this number of instructions - any unavailable instructions should be replaced with an implementation-defined 'invalid instruction' value."]
     #[serde(rename = "instructionCount")]
@@ -5271,7 +5304,7 @@ impl ::std::convert::From<&DisassembleArguments> for DisassembleArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DisassembleRequest {
     pub arguments: DisassembleArguments,
     pub command: DisassembleRequestCommand,
@@ -5304,6 +5337,7 @@ impl ::std::convert::From<&DisassembleRequest> for DisassembleRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -5376,6 +5410,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DisassembleRequestComman
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -5464,7 +5499,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DisassembleRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DisassembleResponse {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub body: ::std::option::Option<DisassembleResponseBody>,
@@ -5509,7 +5544,7 @@ impl ::std::convert::From<&DisassembleResponse> for DisassembleResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DisassembleResponseBody {
     #[doc = "The list of disassembled instructions."]
     pub instructions: ::std::vec::Vec<DisassembledInstruction>,
@@ -5538,6 +5573,7 @@ impl ::std::convert::From<&DisassembleResponseBody> for DisassembleResponseBody 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -5652,7 +5688,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DisassembleResponseType 
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DisassembledInstruction {
     #[doc = "The address of the instruction. Treated as a hex value if prefixed with `0x`, or as a decimal value otherwise."]
     pub address: ::std::string::String,
@@ -5725,6 +5761,7 @@ impl ::std::convert::From<&DisassembledInstruction> for DisassembledInstruction 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -5807,7 +5844,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DisassembledInstructionP
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DisconnectArguments {
     #[doc = "A value of true indicates that this `disconnect` request is part of a restart sequence."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -5873,7 +5910,7 @@ impl ::std::default::Default for DisconnectArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DisconnectRequest {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arguments: ::std::option::Option<DisconnectArguments>,
@@ -5907,6 +5944,7 @@ impl ::std::convert::From<&DisconnectRequest> for DisconnectRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -5979,6 +6017,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DisconnectRequestCommand
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -6050,7 +6089,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DisconnectRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct DisconnectResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -6093,6 +6132,7 @@ impl ::std::convert::From<&DisconnectResponse> for DisconnectResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -6178,7 +6218,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DisconnectResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ErrorResponse {
     pub body: ErrorResponseBody,
     #[doc = "The command requested."]
@@ -6216,7 +6256,7 @@ impl ::std::convert::From<&ErrorResponse> for ErrorResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ErrorResponseBody {
     #[doc = "A structured error message."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -6253,6 +6293,7 @@ impl ::std::default::Default for ErrorResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -6364,7 +6405,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ErrorResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct EvaluateArguments {
     #[doc = "The contextual column where the expression should be evaluated. This may be provided if `line` is also provided.\n\nIt is measured in UTF-16 code units and the client capability `columnsStartAt1` determines whether it is 0- or 1-based."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -6429,7 +6470,7 @@ impl ::std::convert::From<&EvaluateArguments> for EvaluateArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct EvaluateRequest {
     pub arguments: EvaluateArguments,
     pub command: EvaluateRequestCommand,
@@ -6462,6 +6503,7 @@ impl ::std::convert::From<&EvaluateRequest> for EvaluateRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -6534,6 +6576,7 @@ impl ::std::convert::TryFrom<::std::string::String> for EvaluateRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -6651,7 +6694,7 @@ impl ::std::convert::TryFrom<::std::string::String> for EvaluateRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct EvaluateResponse {
     pub body: EvaluateResponseBody,
     #[doc = "The command requested."]
@@ -6721,7 +6764,7 @@ impl ::std::convert::From<&EvaluateResponse> for EvaluateResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct EvaluateResponseBody {
     #[doc = "The number of indexed child variables.\nThe client can use this information to present the variables in a paged UI and fetch them in chunks.\nThe value should be less than or equal to 2147483647 (2^31-1)."]
     #[serde(
@@ -6795,6 +6838,7 @@ impl ::std::convert::From<&EvaluateResponseBody> for EvaluateResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -6894,7 +6938,7 @@ impl ::std::convert::TryFrom<::std::string::String> for EvaluateResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Event {
     #[doc = "Event-specific information."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -6930,6 +6974,7 @@ impl ::std::convert::From<&Event> for Event {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -7006,6 +7051,7 @@ impl ::std::convert::TryFrom<::std::string::String> for EventType {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -7112,7 +7158,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ExceptionBreakMode {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExceptionBreakpointsFilter {
     #[doc = "A help text providing information about the condition. This string is shown as the placeholder text for a text box and can be translated."]
     #[serde(
@@ -7184,7 +7230,7 @@ impl ::std::convert::From<&ExceptionBreakpointsFilter> for ExceptionBreakpointsF
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExceptionDetails {
     #[doc = "An expression that can be evaluated in the current scope to obtain the exception object."]
     #[serde(
@@ -7270,7 +7316,7 @@ impl ::std::default::Default for ExceptionDetails {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExceptionFilterOptions {
     #[doc = "An expression for conditional exceptions.\nThe exception breaks into the debugger if the result of the condition is true."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -7307,7 +7353,7 @@ impl ::std::convert::From<&ExceptionFilterOptions> for ExceptionFilterOptions {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExceptionInfoArguments {
     #[doc = "Thread for which exception information should be retrieved."]
     #[serde(rename = "threadId")]
@@ -7351,7 +7397,7 @@ impl ::std::convert::From<&ExceptionInfoArguments> for ExceptionInfoArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExceptionInfoRequest {
     pub arguments: ExceptionInfoArguments,
     pub command: ExceptionInfoRequestCommand,
@@ -7384,6 +7430,7 @@ impl ::std::convert::From<&ExceptionInfoRequest> for ExceptionInfoRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -7456,6 +7503,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ExceptionInfoRequestComm
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -7557,7 +7605,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ExceptionInfoRequestType
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExceptionInfoResponse {
     pub body: ExceptionInfoResponseBody,
     #[doc = "The command requested."]
@@ -7611,7 +7659,7 @@ impl ::std::convert::From<&ExceptionInfoResponse> for ExceptionInfoResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExceptionInfoResponseBody {
     #[doc = "Mode that caused the exception notification to be raised."]
     #[serde(rename = "breakMode")]
@@ -7650,6 +7698,7 @@ impl ::std::convert::From<&ExceptionInfoResponseBody> for ExceptionInfoResponseB
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -7730,7 +7779,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ExceptionInfoResponseTyp
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExceptionOptions {
     #[doc = "Condition when a thrown exception should result in a break."]
     #[serde(rename = "breakMode")]
@@ -7771,7 +7820,7 @@ impl ::std::convert::From<&ExceptionOptions> for ExceptionOptions {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExceptionPathSegment {
     #[doc = "Depending on the value of `negate` the names that should match or not match."]
     pub names: ::std::vec::Vec<::std::string::String>,
@@ -7826,7 +7875,7 @@ impl ::std::convert::From<&ExceptionPathSegment> for ExceptionPathSegment {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExitedEvent {
     pub body: ExitedEventBody,
     pub event: ExitedEventEvent,
@@ -7859,7 +7908,7 @@ impl ::std::convert::From<&ExitedEvent> for ExitedEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ExitedEventBody {
     #[doc = "The exit code returned from the debuggee."]
     #[serde(rename = "exitCode")]
@@ -7889,6 +7938,7 @@ impl ::std::convert::From<&ExitedEventBody> for ExitedEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -7961,6 +8011,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ExitedEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -8042,7 +8093,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ExitedEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct FunctionBreakpoint {
     #[doc = "An expression for conditional breakpoints.\nIt is only honored by a debug adapter if the corresponding capability `supportsConditionalBreakpoints` is true."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -8087,7 +8138,7 @@ impl ::std::convert::From<&FunctionBreakpoint> for FunctionBreakpoint {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct GotoArguments {
     #[doc = "The location where the debuggee will continue to run."]
     #[serde(rename = "targetId")]
@@ -8134,7 +8185,7 @@ impl ::std::convert::From<&GotoArguments> for GotoArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct GotoRequest {
     pub arguments: GotoArguments,
     pub command: GotoRequestCommand,
@@ -8167,6 +8218,7 @@ impl ::std::convert::From<&GotoRequest> for GotoRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -8239,6 +8291,7 @@ impl ::std::convert::TryFrom<::std::string::String> for GotoRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -8310,7 +8363,7 @@ impl ::std::convert::TryFrom<::std::string::String> for GotoRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct GotoResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -8353,6 +8406,7 @@ impl ::std::convert::From<&GotoResponse> for GotoResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -8452,7 +8506,7 @@ impl ::std::convert::TryFrom<::std::string::String> for GotoResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct GotoTarget {
     #[doc = "The column of the goto target."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -8519,7 +8573,7 @@ impl ::std::convert::From<&GotoTarget> for GotoTarget {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct GotoTargetsArguments {
     #[doc = "The position within `line` for which the goto targets are determined. It is measured in UTF-16 code units and the client capability `columnsStartAt1` determines whether it is 0- or 1-based."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -8567,7 +8621,7 @@ impl ::std::convert::From<&GotoTargetsArguments> for GotoTargetsArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct GotoTargetsRequest {
     pub arguments: GotoTargetsArguments,
     pub command: GotoTargetsRequestCommand,
@@ -8600,6 +8654,7 @@ impl ::std::convert::From<&GotoTargetsRequest> for GotoTargetsRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -8672,6 +8727,7 @@ impl ::std::convert::TryFrom<::std::string::String> for GotoTargetsRequestComman
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -8763,7 +8819,7 @@ impl ::std::convert::TryFrom<::std::string::String> for GotoTargetsRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct GotoTargetsResponse {
     pub body: GotoTargetsResponseBody,
     #[doc = "The command requested."]
@@ -8807,7 +8863,7 @@ impl ::std::convert::From<&GotoTargetsResponse> for GotoTargetsResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct GotoTargetsResponseBody {
     #[doc = "The possible goto targets of the specified location."]
     pub targets: ::std::vec::Vec<GotoTarget>,
@@ -8836,6 +8892,7 @@ impl ::std::convert::From<&GotoTargetsResponseBody> for GotoTargetsResponseBody 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -8923,7 +8980,7 @@ impl ::std::convert::TryFrom<::std::string::String> for GotoTargetsResponseType 
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct InitializeRequest {
     pub arguments: InitializeRequestArguments,
     pub command: InitializeRequestCommand,
@@ -9025,7 +9082,7 @@ impl ::std::convert::From<&InitializeRequest> for InitializeRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct InitializeRequestArguments {
     #[doc = "The ID of the debug adapter."]
     #[serde(rename = "adapterID")]
@@ -9163,6 +9220,7 @@ impl ::std::convert::From<&InitializeRequestArguments> for InitializeRequestArgu
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -9235,6 +9293,7 @@ impl ::std::convert::TryFrom<::std::string::String> for InitializeRequestCommand
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -9312,7 +9371,7 @@ impl ::std::convert::TryFrom<::std::string::String> for InitializeRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct InitializeResponse {
     #[doc = "The capabilities of this debug adapter."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -9355,6 +9414,7 @@ impl ::std::convert::From<&InitializeResponse> for InitializeResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -9438,7 +9498,7 @@ impl ::std::convert::TryFrom<::std::string::String> for InitializeResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct InitializedEvent {
     #[doc = "Event-specific information."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -9473,6 +9533,7 @@ impl ::std::convert::From<&InitializedEvent> for InitializedEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -9545,6 +9606,7 @@ impl ::std::convert::TryFrom<::std::string::String> for InitializedEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -9634,7 +9696,7 @@ impl ::std::convert::TryFrom<::std::string::String> for InitializedEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct InstructionBreakpoint {
     #[doc = "An expression for conditional breakpoints.\nIt is only honored by a debug adapter if the corresponding capability `supportsConditionalBreakpoints` is true."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -9689,6 +9751,7 @@ impl ::std::convert::From<&InstructionBreakpoint> for InstructionBreakpoint {
     :: serde :: Serialize,
     Clone,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -9779,7 +9842,7 @@ impl ::std::fmt::Display for InvalidatedAreas {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct InvalidatedEvent {
     pub body: InvalidatedEventBody,
     pub event: InvalidatedEventEvent,
@@ -9820,7 +9883,7 @@ impl ::std::convert::From<&InvalidatedEvent> for InvalidatedEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct InvalidatedEventBody {
     #[doc = "Set of logical areas that got invalidated. This property has a hint characteristic: a client can only be expected to make a 'best effort' in honoring the areas but there are no guarantees. If this property is missing, empty, or if values are not understood, the client should assume a single value `all`."]
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
@@ -9873,6 +9936,7 @@ impl ::std::default::Default for InvalidatedEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -9945,6 +10009,7 @@ impl ::std::convert::TryFrom<::std::string::String> for InvalidatedEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -10031,7 +10096,7 @@ impl ::std::convert::TryFrom<::std::string::String> for InvalidatedEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LaunchRequest {
     pub arguments: LaunchRequestArguments,
     pub command: LaunchRequestCommand,
@@ -10074,7 +10139,7 @@ impl ::std::convert::From<&LaunchRequest> for LaunchRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LaunchRequestArguments {
     #[doc = "If true, the launch request should launch the program without enabling debugging."]
     #[serde(
@@ -10123,6 +10188,7 @@ impl ::std::default::Default for LaunchRequestArguments {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -10195,6 +10261,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LaunchRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -10266,7 +10333,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LaunchRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LaunchResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -10309,6 +10376,7 @@ impl ::std::convert::From<&LaunchResponse> for LaunchResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -10414,7 +10482,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LaunchResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LoadedSourceEvent {
     pub body: LoadedSourceEventBody,
     pub event: LoadedSourceEventEvent,
@@ -10457,7 +10525,7 @@ impl ::std::convert::From<&LoadedSourceEvent> for LoadedSourceEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LoadedSourceEventBody {
     #[doc = "The reason for the event."]
     pub reason: LoadedSourceEventBodyReason,
@@ -10491,6 +10559,7 @@ impl ::std::convert::From<&LoadedSourceEventBody> for LoadedSourceEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -10571,6 +10640,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LoadedSourceEventBodyRea
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -10643,6 +10713,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LoadedSourceEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -10707,7 +10778,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LoadedSourceEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 #[serde(transparent)]
 pub struct LoadedSourcesArguments(
     pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
@@ -10769,7 +10840,7 @@ impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json:
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LoadedSourcesRequest {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arguments: ::std::option::Option<LoadedSourcesArguments>,
@@ -10803,6 +10874,7 @@ impl ::std::convert::From<&LoadedSourcesRequest> for LoadedSourcesRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -10875,6 +10947,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LoadedSourcesRequestComm
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -10966,7 +11039,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LoadedSourcesRequestType
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LoadedSourcesResponse {
     pub body: LoadedSourcesResponseBody,
     #[doc = "The command requested."]
@@ -11010,7 +11083,7 @@ impl ::std::convert::From<&LoadedSourcesResponse> for LoadedSourcesResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LoadedSourcesResponseBody {
     #[doc = "Set of loaded sources."]
     pub sources: ::std::vec::Vec<Source>,
@@ -11039,6 +11112,7 @@ impl ::std::convert::From<&LoadedSourcesResponseBody> for LoadedSourcesResponseB
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -11112,7 +11186,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LoadedSourcesResponseTyp
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LocationsArguments {
     #[doc = "Location reference to resolve."]
     #[serde(rename = "locationReference")]
@@ -11156,7 +11230,7 @@ impl ::std::convert::From<&LocationsArguments> for LocationsArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LocationsRequest {
     pub arguments: LocationsArguments,
     pub command: LocationsRequestCommand,
@@ -11189,6 +11263,7 @@ impl ::std::convert::From<&LocationsRequest> for LocationsRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -11261,6 +11336,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LocationsRequestCommand 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -11363,7 +11439,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LocationsRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LocationsResponse {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub body: ::std::option::Option<LocationsResponseBody>,
@@ -11422,7 +11498,7 @@ impl ::std::convert::From<&LocationsResponse> for LocationsResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct LocationsResponseBody {
     #[doc = "Position of the location within the `line`. It is measured in UTF-16 code units and the client capability `columnsStartAt1` determines whether it is 0- or 1-based. If no column is given, the first position in the start line is assumed."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -11470,6 +11546,7 @@ impl ::std::convert::From<&LocationsResponseBody> for LocationsResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -11575,7 +11652,7 @@ impl ::std::convert::TryFrom<::std::string::String> for LocationsResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct MemoryEvent {
     pub body: MemoryEventBody,
     pub event: MemoryEventEvent,
@@ -11618,7 +11695,7 @@ impl ::std::convert::From<&MemoryEvent> for MemoryEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct MemoryEventBody {
     #[doc = "Number of bytes updated."]
     pub count: i64,
@@ -11652,6 +11729,7 @@ impl ::std::convert::From<&MemoryEventBody> for MemoryEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -11724,6 +11802,7 @@ impl ::std::convert::TryFrom<::std::string::String> for MemoryEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -11826,7 +11905,7 @@ impl ::std::convert::TryFrom<::std::string::String> for MemoryEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Message {
     #[doc = "A format string for the message. Embedded variables have the form `{name}`.\nIf variable name starts with an underscore character, the variable does not contain user data (PII) and can be safely used for telemetry purposes."]
     pub format: ::std::string::String,
@@ -11928,7 +12007,7 @@ impl ::std::convert::From<&Message> for Message {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Module {
     #[doc = "Address range covered by this module."]
     #[serde(
@@ -12040,7 +12119,7 @@ impl ::std::convert::From<&Module> for Module {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ModuleEvent {
     pub body: ModuleEventBody,
     pub event: ModuleEventEvent,
@@ -12083,7 +12162,7 @@ impl ::std::convert::From<&ModuleEvent> for ModuleEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ModuleEventBody {
     #[doc = "The new, changed, or removed module. In case of `removed` only the module id is used."]
     pub module: Module,
@@ -12117,6 +12196,7 @@ impl ::std::convert::From<&ModuleEventBody> for ModuleEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -12197,6 +12277,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ModuleEventBodyReason {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -12269,6 +12350,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ModuleEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -12336,7 +12418,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ModuleEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 #[serde(untagged)]
 pub enum ModuleId {
     String(::std::string::String),
@@ -12381,7 +12463,7 @@ impl ::std::convert::From<i64> for ModuleId {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ModulesArguments {
     #[doc = "The number of modules to return. If `moduleCount` is not specified or 0, all modules are returned."]
     #[serde(
@@ -12444,7 +12526,7 @@ impl ::std::default::Default for ModulesArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ModulesRequest {
     pub arguments: ModulesArguments,
     pub command: ModulesRequestCommand,
@@ -12477,6 +12559,7 @@ impl ::std::convert::From<&ModulesRequest> for ModulesRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -12549,6 +12632,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ModulesRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -12644,7 +12728,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ModulesRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ModulesResponse {
     pub body: ModulesResponseBody,
     #[doc = "The command requested."]
@@ -12692,7 +12776,7 @@ impl ::std::convert::From<&ModulesResponse> for ModulesResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ModulesResponseBody {
     #[doc = "All modules or range of modules."]
     pub modules: ::std::vec::Vec<Module>,
@@ -12728,6 +12812,7 @@ impl ::std::convert::From<&ModulesResponseBody> for ModulesResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -12809,7 +12894,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ModulesResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct NextArguments {
     #[doc = "Stepping granularity. If no granularity is specified, a granularity of `statement` is assumed."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -12863,7 +12948,7 @@ impl ::std::convert::From<&NextArguments> for NextArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct NextRequest {
     pub arguments: NextArguments,
     pub command: NextRequestCommand,
@@ -12896,6 +12981,7 @@ impl ::std::convert::From<&NextRequest> for NextRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -12968,6 +13054,7 @@ impl ::std::convert::TryFrom<::std::string::String> for NextRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -13039,7 +13126,7 @@ impl ::std::convert::TryFrom<::std::string::String> for NextRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct NextResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -13082,6 +13169,7 @@ impl ::std::convert::From<&NextResponse> for NextResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -13241,7 +13329,7 @@ impl ::std::convert::TryFrom<::std::string::String> for NextResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct OutputEvent {
     pub body: OutputEventBody,
     pub event: OutputEventEvent,
@@ -13338,7 +13426,7 @@ impl ::std::convert::From<&OutputEvent> for OutputEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct OutputEventBody {
     #[doc = "The output category. If not specified or if the category is not understood by the client, `console` is assumed."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -13407,6 +13495,7 @@ impl ::std::convert::From<&OutputEventBody> for OutputEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -13487,6 +13576,7 @@ impl ::std::convert::TryFrom<::std::string::String> for OutputEventBodyGroup {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -13559,6 +13649,7 @@ impl ::std::convert::TryFrom<::std::string::String> for OutputEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -13632,7 +13723,7 @@ impl ::std::convert::TryFrom<::std::string::String> for OutputEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct PauseArguments {
     #[doc = "Pause execution for this thread."]
     #[serde(rename = "threadId")]
@@ -13676,7 +13767,7 @@ impl ::std::convert::From<&PauseArguments> for PauseArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct PauseRequest {
     pub arguments: PauseArguments,
     pub command: PauseRequestCommand,
@@ -13709,6 +13800,7 @@ impl ::std::convert::From<&PauseRequest> for PauseRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -13781,6 +13873,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PauseRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -13852,7 +13945,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PauseRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct PauseResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -13895,6 +13988,7 @@ impl ::std::convert::From<&PauseResponse> for PauseResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -14016,7 +14110,7 @@ impl ::std::convert::TryFrom<::std::string::String> for PauseResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ProcessEvent {
     pub body: ProcessEventBody,
     pub event: ProcessEventEvent,
@@ -14075,7 +14169,7 @@ impl ::std::convert::From<&ProcessEvent> for ProcessEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ProcessEventBody {
     #[doc = "If true, the process is running on the same computer as the debug adapter."]
     #[serde(
@@ -14140,6 +14234,7 @@ impl ::std::convert::From<&ProcessEventBody> for ProcessEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -14220,6 +14315,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ProcessEventBodyStartMet
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -14292,6 +14388,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ProcessEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -14391,7 +14488,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ProcessEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ProgressEndEvent {
     pub body: ProgressEndEventBody,
     pub event: ProgressEndEventEvent,
@@ -14428,7 +14525,7 @@ impl ::std::convert::From<&ProgressEndEvent> for ProgressEndEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ProgressEndEventBody {
     #[doc = "More detailed progress message. If omitted, the previous message (if any) is used."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -14461,6 +14558,7 @@ impl ::std::convert::From<&ProgressEndEventBody> for ProgressEndEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -14533,6 +14631,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ProgressEndEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -14649,7 +14748,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ProgressEndEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ProgressStartEvent {
     pub body: ProgressStartEventBody,
     pub event: ProgressStartEventEvent,
@@ -14703,7 +14802,7 @@ impl ::std::convert::From<&ProgressStartEvent> for ProgressStartEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ProgressStartEventBody {
     #[doc = "If true, the request that reports progress may be cancelled with a `cancel` request.\nSo this property basically controls whether the client should use UX that supports cancellation.\nClients that don't support cancellation are allowed to ignore the setting."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -14750,6 +14849,7 @@ impl ::std::convert::From<&ProgressStartEventBody> for ProgressStartEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -14822,6 +14922,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ProgressStartEventEvent 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -14925,7 +15026,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ProgressStartEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ProgressUpdateEvent {
     pub body: ProgressUpdateEventBody,
     pub event: ProgressUpdateEventEvent,
@@ -14966,7 +15067,7 @@ impl ::std::convert::From<&ProgressUpdateEvent> for ProgressUpdateEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ProgressUpdateEventBody {
     #[doc = "More detailed progress message. If omitted, the previous message (if any) is used."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -15001,6 +15102,7 @@ impl ::std::convert::From<&ProgressUpdateEventBody> for ProgressUpdateEventBody 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -15073,6 +15175,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ProgressUpdateEventEvent
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -15157,7 +15260,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ProgressUpdateEventType 
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ProtocolMessage {
     #[doc = "Sequence number of the message (also known as message ID). The `seq` for the first message sent by a client or debug adapter is 1, and for each subsequent message is 1 greater than the previous message sent by that actor. `seq` can be used to order requests, responses, and events, and to associate requests with their corresponding responses. For protocol messages of type `request` the sequence number can be used to cancel the request."]
     pub seq: i64,
@@ -15199,7 +15302,7 @@ impl ::std::convert::From<&ProtocolMessage> for ProtocolMessage {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ReadMemoryArguments {
     #[doc = "Number of bytes to read at the specified location and offset."]
     pub count: i64,
@@ -15248,7 +15351,7 @@ impl ::std::convert::From<&ReadMemoryArguments> for ReadMemoryArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ReadMemoryRequest {
     pub arguments: ReadMemoryArguments,
     pub command: ReadMemoryRequestCommand,
@@ -15281,6 +15384,7 @@ impl ::std::convert::From<&ReadMemoryRequest> for ReadMemoryRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -15353,6 +15457,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ReadMemoryRequestCommand
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -15446,7 +15551,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ReadMemoryRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ReadMemoryResponse {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub body: ::std::option::Option<ReadMemoryResponseBody>,
@@ -15496,7 +15601,7 @@ impl ::std::convert::From<&ReadMemoryResponse> for ReadMemoryResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ReadMemoryResponseBody {
     #[doc = "The address of the first byte of data returned.\nTreated as a hex value if prefixed with `0x`, or as a decimal value otherwise."]
     pub address: ::std::string::String,
@@ -15535,6 +15640,7 @@ impl ::std::convert::From<&ReadMemoryResponseBody> for ReadMemoryResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -15634,7 +15740,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ReadMemoryResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Request {
     #[doc = "Object containing arguments for the command."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -15670,6 +15776,7 @@ impl ::std::convert::From<&Request> for Request {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -15791,7 +15898,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Response {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -15834,6 +15941,7 @@ impl ::std::convert::From<&Response> for Response {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -15911,7 +16019,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RestartArguments {
     #[doc = "The latest version of the `launch` or `attach` configuration."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -15947,7 +16055,7 @@ impl ::std::default::Default for RestartArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 #[serde(untagged)]
 pub enum RestartArgumentsArguments {
     LaunchRequestArguments(LaunchRequestArguments),
@@ -15988,7 +16096,7 @@ impl ::std::convert::From<AttachRequestArguments> for RestartArgumentsArguments 
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RestartFrameArguments {
     #[doc = "Restart the stack frame identified by `frameId`. The `frameId` must have been obtained in the current suspended state. See 'Lifetime of Object References' in the Overview section for details."]
     #[serde(rename = "frameId")]
@@ -16032,7 +16140,7 @@ impl ::std::convert::From<&RestartFrameArguments> for RestartFrameArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RestartFrameRequest {
     pub arguments: RestartFrameArguments,
     pub command: RestartFrameRequestCommand,
@@ -16065,6 +16173,7 @@ impl ::std::convert::From<&RestartFrameRequest> for RestartFrameRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -16137,6 +16246,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RestartFrameRequestComma
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -16208,7 +16318,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RestartFrameRequestType 
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RestartFrameResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -16251,6 +16361,7 @@ impl ::std::convert::From<&RestartFrameResponse> for RestartFrameResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -16336,7 +16447,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RestartFrameResponseType
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RestartRequest {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arguments: ::std::option::Option<RestartArguments>,
@@ -16370,6 +16481,7 @@ impl ::std::convert::From<&RestartRequest> for RestartRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -16442,6 +16554,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RestartRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -16513,7 +16626,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RestartRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RestartResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -16556,6 +16669,7 @@ impl ::std::convert::From<&RestartResponse> for RestartResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -16633,7 +16747,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RestartResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ReverseContinueArguments {
     #[doc = "If this flag is true, backward execution is resumed only for the thread with given `threadId`."]
     #[serde(
@@ -16684,7 +16798,7 @@ impl ::std::convert::From<&ReverseContinueArguments> for ReverseContinueArgument
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ReverseContinueRequest {
     pub arguments: ReverseContinueArguments,
     pub command: ReverseContinueRequestCommand,
@@ -16717,6 +16831,7 @@ impl ::std::convert::From<&ReverseContinueRequest> for ReverseContinueRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -16789,6 +16904,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ReverseContinueRequestCo
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -16860,7 +16976,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ReverseContinueRequestTy
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ReverseContinueResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -16903,6 +17019,7 @@ impl ::std::convert::From<&ReverseContinueResponse> for ReverseContinueResponse 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -16990,7 +17107,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ReverseContinueResponseT
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RunInTerminalRequest {
     pub arguments: RunInTerminalRequestArguments,
     pub command: RunInTerminalRequestCommand,
@@ -17059,7 +17176,7 @@ impl ::std::convert::From<&RunInTerminalRequest> for RunInTerminalRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RunInTerminalRequestArguments {
     #[doc = "List of arguments. The first argument is the command to run."]
     pub args: ::std::vec::Vec<::std::string::String>,
@@ -17114,6 +17231,7 @@ impl ::std::convert::From<&RunInTerminalRequestArguments> for RunInTerminalReque
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -17190,6 +17308,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RunInTerminalRequestArgu
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -17262,6 +17381,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RunInTerminalRequestComm
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -17351,7 +17471,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RunInTerminalRequestType
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RunInTerminalResponse {
     pub body: RunInTerminalResponseBody,
     #[doc = "The command requested."]
@@ -17393,7 +17513,7 @@ impl ::std::convert::From<&RunInTerminalResponse> for RunInTerminalResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct RunInTerminalResponseBody {
     #[doc = "The process ID. The value should be less than or equal to 2147483647 (2^31-1)."]
     #[serde(
@@ -17442,6 +17562,7 @@ impl ::std::default::Default for RunInTerminalResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -17569,7 +17690,7 @@ impl ::std::convert::TryFrom<::std::string::String> for RunInTerminalResponseTyp
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Scope {
     #[doc = "Start position of the range covered by the scope. It is measured in UTF-16 code units and the client capability `columnsStartAt1` determines whether it is 0- or 1-based."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -17648,7 +17769,7 @@ impl ::std::convert::From<&Scope> for Scope {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ScopesArguments {
     #[doc = "Retrieve the scopes for the stack frame identified by `frameId`. The `frameId` must have been obtained in the current suspended state. See 'Lifetime of Object References' in the Overview section for details."]
     #[serde(rename = "frameId")]
@@ -17692,7 +17813,7 @@ impl ::std::convert::From<&ScopesArguments> for ScopesArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ScopesRequest {
     pub arguments: ScopesArguments,
     pub command: ScopesRequestCommand,
@@ -17725,6 +17846,7 @@ impl ::std::convert::From<&ScopesRequest> for ScopesRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -17797,6 +17919,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ScopesRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -17888,7 +18011,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ScopesRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ScopesResponse {
     pub body: ScopesResponseBody,
     #[doc = "The command requested."]
@@ -17932,7 +18055,7 @@ impl ::std::convert::From<&ScopesResponse> for ScopesResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ScopesResponseBody {
     #[doc = "The scopes of the stack frame. If the array has length zero, there are no scopes available."]
     pub scopes: ::std::vec::Vec<Scope>,
@@ -17961,6 +18084,7 @@ impl ::std::convert::From<&ScopesResponseBody> for ScopesResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -18052,7 +18176,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ScopesResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetBreakpointsArguments {
     #[doc = "The code locations of the breakpoints."]
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
@@ -18108,7 +18232,7 @@ impl ::std::convert::From<&SetBreakpointsArguments> for SetBreakpointsArguments 
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetBreakpointsRequest {
     pub arguments: SetBreakpointsArguments,
     pub command: SetBreakpointsRequestCommand,
@@ -18141,6 +18265,7 @@ impl ::std::convert::From<&SetBreakpointsRequest> for SetBreakpointsRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -18213,6 +18338,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetBreakpointsRequestCom
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -18304,7 +18430,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetBreakpointsRequestTyp
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetBreakpointsResponse {
     pub body: SetBreakpointsResponseBody,
     #[doc = "The command requested."]
@@ -18348,7 +18474,7 @@ impl ::std::convert::From<&SetBreakpointsResponse> for SetBreakpointsResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetBreakpointsResponseBody {
     #[doc = "Information about the breakpoints.\nThe array elements are in the same order as the elements of the `breakpoints` (or the deprecated `lines`) array in the arguments."]
     pub breakpoints: ::std::vec::Vec<Breakpoint>,
@@ -18377,6 +18503,7 @@ impl ::std::convert::From<&SetBreakpointsResponseBody> for SetBreakpointsRespons
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -18453,7 +18580,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetBreakpointsResponseTy
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetDataBreakpointsArguments {
     #[doc = "The contents of this array replaces all existing data breakpoints. An empty array clears all data breakpoints."]
     pub breakpoints: ::std::vec::Vec<DataBreakpoint>,
@@ -18496,7 +18623,7 @@ impl ::std::convert::From<&SetDataBreakpointsArguments> for SetDataBreakpointsAr
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetDataBreakpointsRequest {
     pub arguments: SetDataBreakpointsArguments,
     pub command: SetDataBreakpointsRequestCommand,
@@ -18529,6 +18656,7 @@ impl ::std::convert::From<&SetDataBreakpointsRequest> for SetDataBreakpointsRequ
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -18601,6 +18729,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetDataBreakpointsReques
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -18692,7 +18821,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetDataBreakpointsReques
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetDataBreakpointsResponse {
     pub body: SetDataBreakpointsResponseBody,
     #[doc = "The command requested."]
@@ -18736,7 +18865,7 @@ impl ::std::convert::From<&SetDataBreakpointsResponse> for SetDataBreakpointsRes
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetDataBreakpointsResponseBody {
     #[doc = "Information about the data breakpoints. The array elements correspond to the elements of the input argument `breakpoints` array."]
     pub breakpoints: ::std::vec::Vec<Breakpoint>,
@@ -18765,6 +18894,7 @@ impl ::std::convert::From<&SetDataBreakpointsResponseBody> for SetDataBreakpoint
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -18855,7 +18985,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetDataBreakpointsRespon
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetExceptionBreakpointsArguments {
     #[doc = "Configuration options for selected exceptions.\nThe attribute is only honored by a debug adapter if the corresponding capability `supportsExceptionOptions` is true."]
     #[serde(
@@ -18912,7 +19042,7 @@ impl ::std::convert::From<&SetExceptionBreakpointsArguments> for SetExceptionBre
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetExceptionBreakpointsRequest {
     pub arguments: SetExceptionBreakpointsArguments,
     pub command: SetExceptionBreakpointsRequestCommand,
@@ -18945,6 +19075,7 @@ impl ::std::convert::From<&SetExceptionBreakpointsRequest> for SetExceptionBreak
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -19017,6 +19148,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetExceptionBreakpointsR
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -19102,7 +19234,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetExceptionBreakpointsR
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetExceptionBreakpointsResponse {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub body: ::std::option::Option<SetExceptionBreakpointsResponseBody>,
@@ -19144,7 +19276,7 @@ impl ::std::convert::From<&SetExceptionBreakpointsResponse> for SetExceptionBrea
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetExceptionBreakpointsResponseBody {
     #[doc = "Information about the exception breakpoints or filters.\nThe breakpoints returned are in the same order as the elements of the `filters`, `filterOptions`, `exceptionOptions` arrays in the arguments. If both `filters` and `filterOptions` are given, the returned array must start with `filters` information first, followed by `filterOptions` information."]
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
@@ -19183,6 +19315,7 @@ impl ::std::default::Default for SetExceptionBreakpointsResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -19269,7 +19402,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetExceptionBreakpointsR
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetExpressionArguments {
     #[doc = "The l-value expression to assign to."]
     pub expression: ::std::string::String,
@@ -19324,7 +19457,7 @@ impl ::std::convert::From<&SetExpressionArguments> for SetExpressionArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetExpressionRequest {
     pub arguments: SetExpressionArguments,
     pub command: SetExpressionRequestCommand,
@@ -19357,6 +19490,7 @@ impl ::std::convert::From<&SetExpressionRequest> for SetExpressionRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -19429,6 +19563,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetExpressionRequestComm
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -19545,7 +19680,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetExpressionRequestType
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetExpressionResponse {
     pub body: SetExpressionResponseBody,
     #[doc = "The command requested."]
@@ -19614,7 +19749,7 @@ impl ::std::convert::From<&SetExpressionResponse> for SetExpressionResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetExpressionResponseBody {
     #[doc = "The number of indexed child variables.\nThe client can use this information to present the variables in a paged UI and fetch them in chunks.\nThe value should be less than or equal to 2147483647 (2^31-1)."]
     #[serde(
@@ -19692,6 +19827,7 @@ impl ::std::convert::From<&SetExpressionResponseBody> for SetExpressionResponseB
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -19768,7 +19904,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetExpressionResponseTyp
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetFunctionBreakpointsArguments {
     #[doc = "The function names of the breakpoints."]
     pub breakpoints: ::std::vec::Vec<FunctionBreakpoint>,
@@ -19811,7 +19947,7 @@ impl ::std::convert::From<&SetFunctionBreakpointsArguments> for SetFunctionBreak
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetFunctionBreakpointsRequest {
     pub arguments: SetFunctionBreakpointsArguments,
     pub command: SetFunctionBreakpointsRequestCommand,
@@ -19844,6 +19980,7 @@ impl ::std::convert::From<&SetFunctionBreakpointsRequest> for SetFunctionBreakpo
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -19916,6 +20053,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetFunctionBreakpointsRe
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -20007,7 +20145,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetFunctionBreakpointsRe
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetFunctionBreakpointsResponse {
     pub body: SetFunctionBreakpointsResponseBody,
     #[doc = "The command requested."]
@@ -20051,7 +20189,7 @@ impl ::std::convert::From<&SetFunctionBreakpointsResponse> for SetFunctionBreakp
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetFunctionBreakpointsResponseBody {
     #[doc = "Information about the breakpoints. The array elements correspond to the elements of the `breakpoints` array."]
     pub breakpoints: ::std::vec::Vec<Breakpoint>,
@@ -20082,6 +20220,7 @@ impl ::std::convert::From<&SetFunctionBreakpointsResponseBody>
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -20158,7 +20297,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetFunctionBreakpointsRe
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetInstructionBreakpointsArguments {
     #[doc = "The instruction references of the breakpoints"]
     pub breakpoints: ::std::vec::Vec<InstructionBreakpoint>,
@@ -20203,7 +20342,7 @@ impl ::std::convert::From<&SetInstructionBreakpointsArguments>
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetInstructionBreakpointsRequest {
     pub arguments: SetInstructionBreakpointsArguments,
     pub command: SetInstructionBreakpointsRequestCommand,
@@ -20236,6 +20375,7 @@ impl ::std::convert::From<&SetInstructionBreakpointsRequest> for SetInstructionB
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -20308,6 +20448,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetInstructionBreakpoint
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -20399,7 +20540,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetInstructionBreakpoint
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetInstructionBreakpointsResponse {
     pub body: SetInstructionBreakpointsResponseBody,
     #[doc = "The command requested."]
@@ -20445,7 +20586,7 @@ impl ::std::convert::From<&SetInstructionBreakpointsResponse>
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetInstructionBreakpointsResponseBody {
     #[doc = "Information about the breakpoints. The array elements correspond to the elements of the `breakpoints` array."]
     pub breakpoints: ::std::vec::Vec<Breakpoint>,
@@ -20476,6 +20617,7 @@ impl ::std::convert::From<&SetInstructionBreakpointsResponseBody>
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -20563,7 +20705,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetInstructionBreakpoint
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetVariableArguments {
     #[doc = "Specifies details on how to format the response value."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -20614,7 +20756,7 @@ impl ::std::convert::From<&SetVariableArguments> for SetVariableArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetVariableRequest {
     pub arguments: SetVariableArguments,
     pub command: SetVariableRequestCommand,
@@ -20647,6 +20789,7 @@ impl ::std::convert::From<&SetVariableRequest> for SetVariableRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -20719,6 +20862,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetVariableRequestComman
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -20831,7 +20975,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetVariableRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetVariableResponse {
     pub body: SetVariableResponseBody,
     #[doc = "The command requested."]
@@ -20896,7 +21040,7 @@ impl ::std::convert::From<&SetVariableResponse> for SetVariableResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SetVariableResponseBody {
     #[doc = "The number of indexed child variables.\nThe client can use this information to present the variables in a paged UI and fetch them in chunks.\nThe value should be less than or equal to 2147483647 (2^31-1)."]
     #[serde(
@@ -20967,6 +21111,7 @@ impl ::std::convert::From<&SetVariableResponseBody> for SetVariableResponseBody 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -21084,7 +21229,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SetVariableResponseType 
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Source {
     #[doc = "Additional data that a debug adapter might want to loop through the client.\nThe client should leave the data intact and persist it across sessions. The client should not interpret the data."]
     #[serde(
@@ -21166,7 +21311,7 @@ impl ::std::default::Default for Source {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SourceArguments {
     #[doc = "Specifies the source content to load. Either `source.path` or `source.sourceReference` must be specified."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -21220,7 +21365,7 @@ impl ::std::convert::From<&SourceArguments> for SourceArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SourceBreakpoint {
     #[doc = "Start position within source line of the breakpoint or logpoint. It is measured in UTF-16 code units and the client capability `columnsStartAt1` determines whether it is 0- or 1-based."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -21275,6 +21420,7 @@ impl ::std::convert::From<&SourceBreakpoint> for SourceBreakpoint {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -21369,7 +21515,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SourcePresentationHint {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SourceRequest {
     pub arguments: SourceArguments,
     pub command: SourceRequestCommand,
@@ -21402,6 +21548,7 @@ impl ::std::convert::From<&SourceRequest> for SourceRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -21474,6 +21621,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SourceRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -21566,7 +21714,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SourceRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SourceResponse {
     pub body: SourceResponseBody,
     #[doc = "The command requested."]
@@ -21611,7 +21759,7 @@ impl ::std::convert::From<&SourceResponse> for SourceResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct SourceResponseBody {
     #[doc = "Content of the source reference."]
     pub content: ::std::string::String,
@@ -21647,6 +21795,7 @@ impl ::std::convert::From<&SourceResponseBody> for SourceResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -21771,7 +21920,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SourceResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StackFrame {
     #[doc = "Indicates whether this frame can be restarted with the `restartFrame` request. Clients should only use this if the debug adapter supports the `restart` request and the corresponding capability `supportsRestartFrame` is true. If a debug adapter has this capability, then `canRestart` defaults to `true` if the property is absent."]
     #[serde(
@@ -21880,7 +22029,7 @@ impl ::std::convert::From<&StackFrame> for StackFrame {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StackFrameFormat {
     #[doc = "Display the value in hex."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -21956,7 +22105,7 @@ impl ::std::default::Default for StackFrameFormat {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 #[serde(untagged)]
 pub enum StackFrameModuleId {
     String(::std::string::String),
@@ -22002,6 +22151,7 @@ impl ::std::convert::From<i64> for StackFrameModuleId {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -22095,7 +22245,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StackFramePresentationHi
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StackTraceArguments {
     #[doc = "Specifies details on how to format the returned `StackFrame.name`. The debug adapter may format requested details in any way that would make sense to a developer.\nThe attribute is only honored by a debug adapter if the corresponding capability `supportsValueFormattingOptions` is true."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -22152,7 +22302,7 @@ impl ::std::convert::From<&StackTraceArguments> for StackTraceArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StackTraceRequest {
     pub arguments: StackTraceArguments,
     pub command: StackTraceRequestCommand,
@@ -22185,6 +22335,7 @@ impl ::std::convert::From<&StackTraceRequest> for StackTraceRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -22257,6 +22408,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StackTraceRequestCommand
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -22352,7 +22504,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StackTraceRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StackTraceResponse {
     pub body: StackTraceResponseBody,
     #[doc = "The command requested."]
@@ -22400,7 +22552,7 @@ impl ::std::convert::From<&StackTraceResponse> for StackTraceResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StackTraceResponseBody {
     #[doc = "The frames of the stack frame. If the array has length zero, there are no stack frames available.\nThis means that there is no location information available."]
     #[serde(rename = "stackFrames")]
@@ -22437,6 +22589,7 @@ impl ::std::convert::From<&StackTraceResponseBody> for StackTraceResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -22523,7 +22676,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StackTraceResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StartDebuggingRequest {
     pub arguments: StartDebuggingRequestArguments,
     pub command: StartDebuggingRequestCommand,
@@ -22567,7 +22720,7 @@ impl ::std::convert::From<&StartDebuggingRequest> for StartDebuggingRequest {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StartDebuggingRequestArguments {
     #[doc = "Arguments passed to the new debug session. The arguments must only contain properties understood by the `launch` or `attach` requests of the debug adapter and they must not contain any client-specific properties (e.g. `type`) or client-specific features (e.g. substitutable 'variables')."]
     pub configuration: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
@@ -22600,6 +22753,7 @@ impl ::std::convert::From<&StartDebuggingRequestArguments> for StartDebuggingReq
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -22676,6 +22830,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StartDebuggingRequestArg
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -22748,6 +22903,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StartDebuggingRequestCom
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -22819,7 +22975,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StartDebuggingRequestTyp
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StartDebuggingResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -22862,6 +23018,7 @@ impl ::std::convert::From<&StartDebuggingResponse> for StartDebuggingResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -22943,7 +23100,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StartDebuggingResponseTy
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepBackArguments {
     #[doc = "Stepping granularity to step. If no granularity is specified, a granularity of `statement` is assumed."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -22997,7 +23154,7 @@ impl ::std::convert::From<&StepBackArguments> for StepBackArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepBackRequest {
     pub arguments: StepBackArguments,
     pub command: StepBackRequestCommand,
@@ -23030,6 +23187,7 @@ impl ::std::convert::From<&StepBackRequest> for StepBackRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -23102,6 +23260,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepBackRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -23173,7 +23332,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepBackRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepBackResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -23216,6 +23375,7 @@ impl ::std::convert::From<&StepBackResponse> for StepBackResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -23301,7 +23461,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepBackResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepInArguments {
     #[doc = "Stepping granularity. If no granularity is specified, a granularity of `statement` is assumed."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -23362,7 +23522,7 @@ impl ::std::convert::From<&StepInArguments> for StepInArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepInRequest {
     pub arguments: StepInArguments,
     pub command: StepInRequestCommand,
@@ -23395,6 +23555,7 @@ impl ::std::convert::From<&StepInRequest> for StepInRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -23467,6 +23628,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepInRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -23538,7 +23700,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepInRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepInResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -23581,6 +23743,7 @@ impl ::std::convert::From<&StepInResponse> for StepInResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -23675,7 +23838,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepInResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepInTarget {
     #[doc = "Start position of the range covered by the step in target. It is measured in UTF-16 code units and the client capability `columnsStartAt1` determines whether it is 0- or 1-based."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -23727,7 +23890,7 @@ impl ::std::convert::From<&StepInTarget> for StepInTarget {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepInTargetsArguments {
     #[doc = "The stack frame for which to retrieve the possible step-in targets."]
     #[serde(rename = "frameId")]
@@ -23771,7 +23934,7 @@ impl ::std::convert::From<&StepInTargetsArguments> for StepInTargetsArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepInTargetsRequest {
     pub arguments: StepInTargetsArguments,
     pub command: StepInTargetsRequestCommand,
@@ -23804,6 +23967,7 @@ impl ::std::convert::From<&StepInTargetsRequest> for StepInTargetsRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -23876,6 +24040,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepInTargetsRequestComm
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -23967,7 +24132,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepInTargetsRequestType
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepInTargetsResponse {
     pub body: StepInTargetsResponseBody,
     #[doc = "The command requested."]
@@ -24011,7 +24176,7 @@ impl ::std::convert::From<&StepInTargetsResponse> for StepInTargetsResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepInTargetsResponseBody {
     #[doc = "The possible step-in targets of the specified source location."]
     pub targets: ::std::vec::Vec<StepInTarget>,
@@ -24040,6 +24205,7 @@ impl ::std::convert::From<&StepInTargetsResponseBody> for StepInTargetsResponseB
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -24121,7 +24287,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepInTargetsResponseTyp
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepOutArguments {
     #[doc = "Stepping granularity. If no granularity is specified, a granularity of `statement` is assumed."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -24175,7 +24341,7 @@ impl ::std::convert::From<&StepOutArguments> for StepOutArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepOutRequest {
     pub arguments: StepOutArguments,
     pub command: StepOutRequestCommand,
@@ -24208,6 +24374,7 @@ impl ::std::convert::From<&StepOutRequest> for StepOutRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -24280,6 +24447,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepOutRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -24351,7 +24519,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepOutRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StepOutResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -24394,6 +24562,7 @@ impl ::std::convert::From<&StepOutResponse> for StepOutResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -24474,6 +24643,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StepOutResponseType {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -24615,7 +24785,7 @@ impl ::std::convert::TryFrom<::std::string::String> for SteppingGranularity {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StoppedEvent {
     pub body: StoppedEventBody,
     pub event: StoppedEventEvent,
@@ -24686,7 +24856,7 @@ impl ::std::convert::From<&StoppedEvent> for StoppedEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct StoppedEventBody {
     #[doc = "If `allThreadsStopped` is true, a debug adapter can announce that all threads have stopped.\n- The client should use this information to enable that all threads can be expanded to access their stacktraces.\n- If the attribute is missing or false, only the thread with the given `threadId` can be expanded."]
     #[serde(
@@ -24749,6 +24919,7 @@ impl ::std::convert::From<&StoppedEventBody> for StoppedEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -24821,6 +24992,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StoppedEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -24891,7 +25063,7 @@ impl ::std::convert::TryFrom<::std::string::String> for StoppedEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct TerminateArguments {
     #[doc = "A value of true indicates that this `terminate` request is part of a restart sequence."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -24941,7 +25113,7 @@ impl ::std::default::Default for TerminateArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct TerminateRequest {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arguments: ::std::option::Option<TerminateArguments>,
@@ -24975,6 +25147,7 @@ impl ::std::convert::From<&TerminateRequest> for TerminateRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -25047,6 +25220,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TerminateRequestCommand 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -25118,7 +25292,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TerminateRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct TerminateResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -25161,6 +25335,7 @@ impl ::std::convert::From<&TerminateResponse> for TerminateResponse {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -25234,7 +25409,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TerminateResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct TerminateThreadsArguments {
     #[doc = "Ids of threads to be terminated."]
     #[serde(
@@ -25289,7 +25464,7 @@ impl ::std::default::Default for TerminateThreadsArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct TerminateThreadsRequest {
     pub arguments: TerminateThreadsArguments,
     pub command: TerminateThreadsRequestCommand,
@@ -25322,6 +25497,7 @@ impl ::std::convert::From<&TerminateThreadsRequest> for TerminateThreadsRequest 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -25394,6 +25570,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TerminateThreadsRequestC
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -25465,7 +25642,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TerminateThreadsRequestT
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct TerminateThreadsResponse {
     #[doc = "Contains request result if success is true and error details if success is false."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -25508,6 +25685,7 @@ impl ::std::convert::From<&TerminateThreadsResponse> for TerminateThreadsRespons
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -25607,7 +25785,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TerminateThreadsResponse
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct TerminatedEvent {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub body: ::std::option::Option<TerminatedEventBody>,
@@ -25646,7 +25824,7 @@ impl ::std::convert::From<&TerminatedEvent> for TerminatedEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct TerminatedEventBody {
     #[doc = "A debug adapter may set `restart` to true (or to an arbitrary object) to request that the client restarts the session.\nThe value is not interpreted by the client and passed unmodified as an attribute `__restart` to the `launch` and `attach` requests."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -25683,6 +25861,7 @@ impl ::std::default::Default for TerminatedEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -25755,6 +25934,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TerminatedEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -25833,7 +26013,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TerminatedEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Thread {
     #[doc = "Unique identifier for the thread."]
     pub id: i64,
@@ -25896,7 +26076,7 @@ impl ::std::convert::From<&Thread> for Thread {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ThreadEvent {
     pub body: ThreadEventBody,
     pub event: ThreadEventEvent,
@@ -25938,7 +26118,7 @@ impl ::std::convert::From<&ThreadEvent> for ThreadEvent {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ThreadEventBody {
     #[doc = "The reason for the event."]
     pub reason: ::std::string::String,
@@ -25970,6 +26150,7 @@ impl ::std::convert::From<&ThreadEventBody> for ThreadEventBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -26042,6 +26223,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ThreadEventEvent {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -26124,7 +26306,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ThreadEventType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ThreadsRequest {
     #[doc = "Object containing arguments for the command."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -26159,6 +26341,7 @@ impl ::std::convert::From<&ThreadsRequest> for ThreadsRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -26231,6 +26414,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ThreadsRequestCommand {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -26322,7 +26506,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ThreadsRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ThreadsResponse {
     pub body: ThreadsResponseBody,
     #[doc = "The command requested."]
@@ -26366,7 +26550,7 @@ impl ::std::convert::From<&ThreadsResponse> for ThreadsResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ThreadsResponseBody {
     #[doc = "All threads."]
     pub threads: ::std::vec::Vec<Thread>,
@@ -26395,6 +26579,7 @@ impl ::std::convert::From<&ThreadsResponseBody> for ThreadsResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -26465,7 +26650,7 @@ impl ::std::convert::TryFrom<::std::string::String> for ThreadsResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct ValueFormat {
     #[doc = "Display the value in hex."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -26545,7 +26730,7 @@ impl ::std::default::Default for ValueFormat {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct Variable {
     #[doc = "A reference that allows the client to request the location where the variable is declared. This should be present only if the adapter is likely to be able to resolve the location.\n\nThis reference shares the same lifetime as the `variablesReference`. See 'Lifetime of Object References' in the Overview section for details."]
     #[serde(
@@ -26701,7 +26886,7 @@ impl ::std::convert::From<&Variable> for Variable {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct VariablePresentationHint {
     #[doc = "Set of attributes represented as an array of strings. Before introducing additional values, try to use the listed values."]
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
@@ -26771,7 +26956,7 @@ impl ::std::default::Default for VariablePresentationHint {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct VariablesArguments {
     #[doc = "The number of variables to return. If count is missing or 0, all variables are returned.\nThe attribute is only honored by a debug adapter if the corresponding capability `supportsVariablePaging` is true."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -26815,6 +27000,7 @@ impl ::std::convert::From<&VariablesArguments> for VariablesArguments {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -26905,7 +27091,7 @@ impl ::std::convert::TryFrom<::std::string::String> for VariablesArgumentsFilter
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct VariablesRequest {
     pub arguments: VariablesArguments,
     pub command: VariablesRequestCommand,
@@ -26938,6 +27124,7 @@ impl ::std::convert::From<&VariablesRequest> for VariablesRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -27010,6 +27197,7 @@ impl ::std::convert::TryFrom<::std::string::String> for VariablesRequestCommand 
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -27101,7 +27289,7 @@ impl ::std::convert::TryFrom<::std::string::String> for VariablesRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct VariablesResponse {
     pub body: VariablesResponseBody,
     #[doc = "The command requested."]
@@ -27145,7 +27333,7 @@ impl ::std::convert::From<&VariablesResponse> for VariablesResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct VariablesResponseBody {
     #[doc = "All (or a range) of variables for the given variable reference."]
     pub variables: ::std::vec::Vec<Variable>,
@@ -27174,6 +27362,7 @@ impl ::std::convert::From<&VariablesResponseBody> for VariablesResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -27260,7 +27449,7 @@ impl ::std::convert::TryFrom<::std::string::String> for VariablesResponseType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct WriteMemoryArguments {
     #[doc = "Property to control partial writes. If true, the debug adapter should attempt to write memory even if the entire memory region is not writable. In such a case the debug adapter should stop after hitting the first byte of memory that cannot be written and return the number of bytes written in the response via the `offset` and `bytesWritten` properties.\nIf false or missing, a debug adapter should attempt to verify the region is writable before writing, and fail the response if it is not."]
     #[serde(
@@ -27316,7 +27505,7 @@ impl ::std::convert::From<&WriteMemoryArguments> for WriteMemoryArguments {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct WriteMemoryRequest {
     pub arguments: WriteMemoryArguments,
     pub command: WriteMemoryRequestCommand,
@@ -27349,6 +27538,7 @@ impl ::std::convert::From<&WriteMemoryRequest> for WriteMemoryRequest {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -27421,6 +27611,7 @@ impl ::std::convert::TryFrom<::std::string::String> for WriteMemoryRequestComman
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,
@@ -27507,7 +27698,7 @@ impl ::std::convert::TryFrom<::std::string::String> for WriteMemoryRequestType {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct WriteMemoryResponse {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub body: ::std::option::Option<WriteMemoryResponseBody>,
@@ -27550,7 +27741,7 @@ impl ::std::convert::From<&WriteMemoryResponse> for WriteMemoryResponse {
 #[doc = "}"]
 #[doc = r" ```"]
 #[doc = r" </details>"]
-#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, Default)]
 pub struct WriteMemoryResponseBody {
     #[doc = "Property that should be returned when `allowPartial` is true to indicate the number of bytes starting from address that were successfully written."]
     #[serde(
@@ -27595,6 +27786,7 @@ impl ::std::default::Default for WriteMemoryResponseBody {
     Clone,
     Copy,
     Debug,
+    Default,
     Eq,
     Hash,
     Ord,

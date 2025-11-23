@@ -1,0 +1,15 @@
+[package]
+name = "edr_debugger_bytecode"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_debugger_protocol.workspace = true
+edr_evm_spec.workspace = true
+edr_primitives.workspace = true
+log.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

@@ -16,6 +16,7 @@ members = [
     "crates/chain/spec/block",
     "crates/chain/spec/provider",
     "crates/database/components",
+    "crates/debugger/bytecode",
     "crates/debugger/protocol",
     "crates/edr_chain_l1",
     "crates/edr_chain_spec",
@@ -147,6 +148,8 @@ edr_chain_spec_provider = { path = "crates/chain/spec/provider" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
 edr_database_components = { path = "crates/database/components" }
+edr_debugger_bytecode = { path = "crates/debugger/bytecode" }
+edr_debugger_protocol = { path = "crates/debugger/protocol" }
 edr_defaults = { path = "crates/edr_defaults" }
 edr_eip1559 = { path = "crates/eips/1559" }
 edr_eip2930 = { path = "crates/eips/2930" }
