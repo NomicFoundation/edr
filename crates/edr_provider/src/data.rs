@@ -45,7 +45,9 @@ use edr_evm_spec::{config::EvmConfig, result::ExecutionResult, CfgEnv};
 use edr_gas_report::{GasReport, SyncOnCollectedGasReportCallback};
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
-use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
+use edr_primitives::{
+    Address, Bytecode, Bytes, HashMap, HashSet, TxKind, B256, KECCAK_EMPTY, U256,
+};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
 use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec, HeaderMap};
 use edr_runtime::{
@@ -65,7 +67,7 @@ use edr_state_api::{
 use edr_tracing::Trace;
 use edr_transaction::{
     request::TransactionRequestAndSender, BlockDataForTransaction, IsEip4844, IsSupported as _,
-    TransactionAndBlock, TransactionMut, TransactionType, TxKind,
+    TransactionAndBlock, TransactionMut, TransactionType,
 };
 use edr_utils::{random::RandomHashGenerator, CastArcInto};
 use gas::gas_used_ratio;

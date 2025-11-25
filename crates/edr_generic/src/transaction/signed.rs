@@ -1,10 +1,10 @@
 use edr_chain_l1::L1SignedTransaction;
 use edr_chain_spec::{ExecutableTransaction, TransactionValidation};
-use edr_primitives::{Address, Bytes, B256, U256};
+use edr_primitives::{Address, Bytes, TxKind, B256, U256};
 use edr_signer::Signature;
 use edr_transaction::{
     impl_revm_transaction_trait, IsEip155, IsEip4844, IsLegacy, IsSupported, SignedTransaction,
-    TransactionMut, TransactionType, TxKind,
+    TransactionMut, TransactionType,
 };
 
 /// The type of transaction.

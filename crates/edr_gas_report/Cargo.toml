@@ -14,7 +14,6 @@ edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_solidity.workspace = true
 edr_state_api.workspace = true
-edr_transaction.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 

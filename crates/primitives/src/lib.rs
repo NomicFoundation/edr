@@ -8,7 +8,7 @@ pub use revm_primitives::{
     b256, bytes,
     eip3860::MAX_INITCODE_SIZE,
     hardfork::UnknownHardfork,
-    hex, hex_literal, keccak256, Address, Bytes, B256, KECCAK_EMPTY, U256,
+    hex, hex_literal, keccak256, Address, Bytes, TxKind, B256, KECCAK_EMPTY, U256,
 };
 
 /// The KECCAK of the RLP encoding of empty data.

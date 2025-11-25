@@ -6,12 +6,12 @@ use std::sync::OnceLock;
 
 use alloy_rlp::Buf;
 use edr_chain_spec::{ExecutableTransaction, TransactionValidation};
-use edr_primitives::{Address, Bytes, B256, U256};
+use edr_primitives::{Address, Bytes, TxKind, B256, U256};
 use edr_signer::{FakeableSignature, Signature};
 pub use edr_transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_transaction::{
     impl_revm_transaction_trait, IsEip4844, IsLegacy, IsSupported, MaybeSignedTransaction,
-    TransactionMut, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+    TransactionMut, TransactionType, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 
 pub use self::deposit::Deposit;

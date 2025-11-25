@@ -36,8 +36,8 @@ impl<ContextT: ContextTrait> Inspector<ContextT, EthInterpreter> for ConsoleLogC
 pub(crate) mod tests {
     use anyhow::Context;
     use edr_chain_l1::L1ChainSpec;
-    use edr_primitives::{hex, Bytes, U256};
-    use edr_transaction::{request::TransactionRequestAndSender, TxKind};
+    use edr_primitives::{hex, Bytes, TxKind, U256};
+    use edr_transaction::request::TransactionRequestAndSender;
 
     use crate::{data::ProviderData, time::TimeSinceEpoch};
 

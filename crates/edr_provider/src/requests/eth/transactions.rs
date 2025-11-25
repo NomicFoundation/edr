@@ -361,9 +361,8 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 mod tests {
     use anyhow::Context;
     use edr_chain_l1::L1ChainSpec;
-    use edr_primitives::{Address, Bytes, U256};
+    use edr_primitives::{Address, Bytes, TxKind, U256};
     use edr_signer::FakeSign as _;
-    use edr_transaction::TxKind;
 
     use super::*;
     use crate::test_utils::{one_ether, ProviderTestFixture};

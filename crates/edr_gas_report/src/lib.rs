@@ -6,7 +6,7 @@ use dyn_clone::DynClone;
 use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{
     hash_map::{self, HashMap},
-    Address, Bytecode, Bytes,
+    Address, Bytecode, Bytes, TxKind,
 };
 use edr_receipt::ExecutionResult;
 use edr_solidity::{
@@ -14,7 +14,6 @@ use edr_solidity::{
     solidity_stack_trace::{UNRECOGNIZED_CONTRACT_NAME, UNRECOGNIZED_FUNCTION_NAME},
 };
 use edr_state_api::{State, StateError};
-use edr_transaction::TxKind;
 
 pub trait SyncOnCollectedGasReportCallback:
     Fn(GasReport) -> Result<(), Box<dyn std::error::Error + Send + Sync>> + DynClone + Send + Sync

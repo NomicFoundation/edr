@@ -19,9 +19,8 @@ pub use edr_primitives as primitives;
 use edr_primitives::{B256, U256};
 use edr_signer::Signature;
 pub use revm_context_interface::Transaction;
-pub use revm_primitives::{
-    alloy_primitives::TxKind,
-    ruint::{BaseConvertError as RuintBaseConvertError, ParseError as RuintParseError},
+pub use revm_primitives::ruint::{
+    BaseConvertError as RuintBaseConvertError, ParseError as RuintParseError,
 };
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
@@ -74,7 +73,7 @@ macro_rules! impl_revm_transaction_trait {
                 edr_chain_spec::ExecutableTransaction::nonce(self)
             }
 
-            fn kind(&self) -> $crate::TxKind {
+            fn kind(&self) -> $crate::primitives::TxKind {
                 edr_chain_spec::ExecutableTransaction::kind(self)
             }
 

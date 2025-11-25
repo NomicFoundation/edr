@@ -3,8 +3,7 @@ use edr_chain_l1::{
     L1ChainSpec,
 };
 use edr_chain_spec::EvmSpecId;
-use edr_primitives::{Bytes, U256};
-use edr_transaction::TxKind;
+use edr_primitives::{Bytes, TxKind, U256};
 
 use super::validation::validate_call_request;
 use crate::{

@@ -10,8 +10,8 @@ use edr_chain_spec::{
 };
 pub use edr_database_components::DatabaseComponentError;
 pub use revm_context::{
-    Block as BlockEnvTrait, CfgEnv, Context, ContextTr as ContextTrait, Database, Evm, Journal,
-    JournalEntry, JournalTr as JournalTrait, LocalContext,
+    Block as BlockEnvTrait, BlockEnv, CfgEnv, Context, ContextTr as ContextTrait, Database, Evm,
+    Journal, JournalEntry, JournalTr as JournalTrait, LocalContext,
 };
 pub use revm_handler::{ExecuteEvm, PrecompileProvider};
 use revm_inspector::NoOpInspector;

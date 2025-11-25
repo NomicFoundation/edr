@@ -10,17 +10,24 @@ use std::{collections::BTreeMap, sync::Arc};
 use edr_block_api::{sync::SyncBlock, BlockAndTotalDifficulty, EmptyBlock as _};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_block_local::EthLocalBlock;
+use edr_blockchain_api::{BlockHashByNumber, BlockchainMetadata};
 use edr_chain_l1::{receipt::builder::L1ExecutionReceiptBuilder, L1ChainSpec};
 use edr_chain_spec::{ChainSpec, ExecutableTransaction as _, HardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec as _;
-use edr_evm_spec::result::{ExecutionResult, Output, SuccessReason};
-use edr_primitives::{Address, Bytes, B256, U256};
+use edr_evm::run;
+use edr_evm_spec::{
+    config::EvmConfig,
+    result::{ExecutionResult, Output, SuccessReason},
+    BlockEnv,
+};
+use edr_primitives::{Address, Bytes, HashMap, TxKind, B256, U256};
 use edr_provider::spec::BlockchainForChainSpec;
 use edr_receipt::{log::ExecutionLog, TransactionReceipt};
 use edr_receipt_builder_api::ExecutionReceiptBuilder as _;
 use edr_receipt_spec::ReceiptChainSpec;
-use edr_state_api::StateDiff;
+use edr_signer::{public_key_to_address, SecretKey};
+use edr_state_api::{DynState, StateDiff};
 use edr_test_transaction::dummy_eip155_transaction;
 // Re-export types that are used by the macros.
 pub use paste;
@@ -136,6 +143,61 @@ pub fn create_dummy_block_with_header(
     partial_header: PartialHeader,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
     EthLocalBlock::empty(hardfork, partial_header)
+}
+
+/// Deploys the provided bytecode to the blockchain, returning the deployment
+/// address.
+pub fn deploy_contract<
+    BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync>
+        + BlockchainMetadata<edr_chain_l1::Hardfork, Error: std::error::Error>,
+>(
+    blockchain: &BlockchainT,
+    state: &mut dyn DynState,
+    bytecode: Bytes,
+    secret_key: &SecretKey,
+) -> anyhow::Result<Address> {
+    let caller = public_key_to_address(secret_key.public_key());
+
+    let nonce = state.basic(caller)?.map_or(0, |info| info.nonce);
+    let request = edr_chain_l1::request::Eip1559 {
+        chain_id: blockchain.chain_id(),
+        nonce,
+        max_priority_fee_per_gas: 1_000,
+        max_fee_per_gas: 1_000,
+        gas_limit: 1_000_000,
+        kind: TxKind::Create,
+        value: U256::ZERO,
+        input: bytecode,
+        access_list: Vec::new(),
+    };
+
+    let signed = request.sign(secret_key)?;
+
+    let evm_config = EvmConfig::with_chain_id(blockchain.chain_id());
+    let block_env = BlockEnv {
+        number: U256::from(blockchain.last_block_number() + 1),
+        ..BlockEnv::default()
+    };
+
+    let result = run::<L1ChainSpec, _, _, _>(
+        blockchain,
+        state,
+        evm_config.to_cfg_env(blockchain.hardfork()),
+        signed.into(),
+        block_env,
+        &HashMap::default(),
+    )?;
+    let address = if let ExecutionResult::Success {
+        output: Output::Create(_, Some(address)),
+        ..
+    } = result
+    {
+        address
+    } else {
+        panic!("Expected a contract creation, but got: {result:?}");
+    };
+
+    Ok(address)
 }
 
 /// A dummy block along with the contained singular transaction and its receipt.

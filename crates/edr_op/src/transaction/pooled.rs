@@ -1,9 +1,9 @@
 use edr_chain_spec::ExecutableTransaction;
-use edr_primitives::{Address, Bytes, B256, U256};
+use edr_primitives::{Address, Bytes, TxKind, B256, U256};
 use edr_provider::spec::HardforkValidationData;
 pub use edr_transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_transaction::{
-    pooled::eip4844::Blob, signed::PreOrPostEip155, IsEip155, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+    pooled::eip4844::Blob, signed::PreOrPostEip155, IsEip155, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 
 use crate::transaction::signed::OpSignedTransaction;

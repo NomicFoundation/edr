@@ -7,17 +7,14 @@ use edr_blockchain_local::LocalBlockchain;
 use edr_chain_l1::{L1ChainSpec, L1_BASE_FEE_PARAMS, L1_MIN_ETHASH_DIFFICULTY};
 use edr_chain_spec::{ChainSpec, HardforkChainSpec};
 use edr_coverage::CoverageHitCollector;
-use edr_evm::{dry_run_with_inspector, run};
-use edr_evm_spec::{
-    config::EvmConfig,
-    result::{ExecutionResult, Output},
-};
-use edr_primitives::{bytes, Address, Bytes, HashMap, HashSet, B256, U256};
+use edr_evm::dry_run_with_inspector;
+use edr_evm_spec::config::EvmConfig;
+use edr_primitives::{bytes, Address, Bytes, HashMap, HashSet, TxKind, B256, U256};
 use edr_receipt_spec::ReceiptChainSpec;
 use edr_signer::public_key_to_address;
 use edr_state_api::{AccountModifierFn, DynState, StateDiff};
+use edr_test_blockchain::deploy_contract;
 use edr_test_utils::secret_key::secret_key_from_str;
-use edr_transaction::TxKind;
 use revm_context::BlockEnv;
 
 const CHAIN_ID: u64 = 31337;
@@ -31,56 +28,6 @@ type LocalBlockchainForChainSpec<ChainSpecT> = LocalBlockchain<
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;
-
-fn deploy_contract(
-    blockchain: &LocalBlockchainForChainSpec<L1ChainSpec>,
-    state: &mut dyn DynState,
-    bytecode: Bytes,
-) -> anyhow::Result<Address> {
-    let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
-    let caller = public_key_to_address(secret_key.public_key());
-
-    let nonce = state.basic(caller)?.map_or(0, |info| info.nonce);
-    let request = edr_chain_l1::request::Eip1559 {
-        chain_id: CHAIN_ID,
-        nonce,
-        max_priority_fee_per_gas: 1_000,
-        max_fee_per_gas: 1_000,
-        gas_limit: 1_000_000,
-        kind: TxKind::Create,
-        value: U256::ZERO,
-        input: bytecode,
-        access_list: Vec::new(),
-    };
-
-    let signed = request.sign(&secret_key)?;
-
-    let evm_config = EvmConfig::with_chain_id(blockchain.chain_id());
-    let block_env = BlockEnv {
-        number: U256::from(1),
-        ..BlockEnv::default()
-    };
-
-    let result = run::<L1ChainSpec, _, _, _>(
-        blockchain,
-        state,
-        evm_config.to_cfg_env(blockchain.hardfork()),
-        signed.into(),
-        block_env,
-        &HashMap::default(),
-    )?;
-    let address = if let ExecutionResult::Success {
-        output: Output::Create(_, Some(address)),
-        ..
-    } = result
-    {
-        address
-    } else {
-        panic!("Expected a contract creation, but got: {result:?}");
-    };
-
-    Ok(address)
-}
 
 fn call_inc_by(
     blockchain: &LocalBlockchainForChainSpec<L1ChainSpec>,
@@ -174,10 +121,12 @@ fn record_hits() -> anyhow::Result<()> {
         })),
     )?;
 
+    let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
     let increment = deploy_contract(
         &blockchain,
         &mut state,
         Bytes::from_str(INCREMENT_DEPLOYED_BYTECODE).expect("Invalid bytecode"),
+        &secret_key,
     )
     .expect("Failed to deploy");
 

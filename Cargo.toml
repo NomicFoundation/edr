@@ -18,6 +18,7 @@ members = [
     "crates/database/components",
     "crates/debugger/bytecode",
     "crates/debugger/protocol",
+    "crates/debugger/tcp",
     "crates/edr_chain_l1",
     "crates/edr_chain_spec",
     "crates/edr_common",

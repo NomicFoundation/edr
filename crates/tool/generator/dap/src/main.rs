@@ -9,7 +9,7 @@ use std::{
 use anyhow::bail;
 use git2::{build::RepoBuilder, FetchOptions, Oid};
 use tempfile::tempdir;
-use typify::{TypeSpace, TypeSpaceSettings};
+use typify::{TypeSpace, TypeSpacePatch, TypeSpaceSettings};
 
 const REPO_URL: &str = "https://github.com/microsoft/debug-adapter-protocol";
 const SCHEMA_PATH: &str = "debugAdapterProtocol.json";
@@ -114,8 +114,12 @@ fn write_schema_to_disk(
         commit_sha,
     }: Schema,
 ) -> anyhow::Result<()> {
+    let mut derive_default = TypeSpacePatch::default();
+    derive_default.with_derive("Default");
+
     let mut settings = TypeSpaceSettings::default();
-    settings.with_derive("Default".to_owned());
+    settings.with_patch("Breakpoint", &derive_default);
+    settings.with_patch("Message", &derive_default);
 
     let mut type_space = TypeSpace::new(&settings);
 

@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, Transaction};
-use edr_transaction::TxKind;
+use edr_primitives::TxKind;
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 

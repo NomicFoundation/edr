@@ -9,10 +9,10 @@ use edr_chain_l1::{
     L1ChainSpec,
 };
 use edr_chain_spec::TransactionValidation;
-use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
+use edr_primitives::{Address, Bytes, HashMap, TxKind, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_transaction::{request::TransactionRequestAndSender, TxKind};
+use edr_transaction::request::TransactionRequestAndSender;
 use k256::SecretKey;
 use tokio::runtime;
 

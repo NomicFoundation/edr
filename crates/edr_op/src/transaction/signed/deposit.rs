@@ -2,8 +2,8 @@ use std::sync::OnceLock;
 
 use alloy_rlp::Encodable;
 use edr_chain_spec::ExecutableTransaction;
-use edr_primitives::{keccak256, Address, Bytes, B256, U256};
-use edr_transaction::{utils::enveloped, TxKind};
+use edr_primitives::{keccak256, Address, Bytes, TxKind, B256, U256};
+use edr_transaction::utils::enveloped;
 
 /// Deposit transaction.
 ///
@@ -156,7 +156,6 @@ mod tests {
 
     use edr_chain_spec::ExecutableTransaction as _;
     use edr_primitives::{address, b256, Bytes, U256};
-    use edr_transaction::TxKind;
 
     use super::*;
     use crate::transaction::signed::OpSignedTransaction;

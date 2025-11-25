@@ -10,7 +10,7 @@ use edr_blockchain_api::{
 use edr_blockchain_fork::ForkedBlockchainError;
 use edr_chain_l1::L1ChainSpec;
 use edr_chain_spec::ExecutableTransaction as _;
-use edr_primitives::{Address, HashSet, B256};
+use edr_primitives::{Address, HashSet, TxKind, B256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     ExecutionReceipt as _,
@@ -18,7 +18,6 @@ use edr_receipt::{
 use edr_state_api::StateDiff;
 use edr_test_blockchain::impl_test_blockchain_tests;
 use edr_test_transaction::dummy_eip155_transaction;
-use edr_transaction::TxKind;
 use serial_test::serial;
 
 use crate::common::{

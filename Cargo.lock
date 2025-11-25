@@ -2698,6 +2698,7 @@ dependencies = [
  "edr_receipt_spec",
  "edr_signer",
  "edr_state_api",
+ "edr_test_blockchain",
  "edr_test_utils",
  "edr_transaction",
  "revm-context",
@@ -2718,10 +2719,23 @@ dependencies = [
 name = "edr_debugger_bytecode"
 version = "0.3.8"
 dependencies = [
+ "anyhow",
+ "edr_block_api",
+ "edr_block_header",
+ "edr_blockchain_api",
+ "edr_chain_l1",
  "edr_debugger_protocol",
+ "edr_defaults",
+ "edr_evm",
  "edr_evm_spec",
  "edr_primitives",
+ "edr_provider",
+ "edr_signer",
+ "edr_state_api",
+ "edr_test_blockchain",
+ "edr_test_utils",
  "log",
+ "serde",
  "serde_json",
  "thiserror 1.0.69",
 ]
@@ -2731,6 +2745,29 @@ name = "edr_debugger_protocol"
 version = "0.3.8"
 dependencies = [
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "edr_debugger_tcp"
+version = "0.3.8"
+dependencies = [
+ "anyhow",
+ "edr_block_api",
+ "edr_block_header",
+ "edr_blockchain_api",
+ "edr_chain_l1",
+ "edr_debugger_bytecode",
+ "edr_debugger_protocol",
+ "edr_defaults",
+ "edr_evm",
+ "edr_evm_spec",
+ "edr_primitives",
+ "edr_provider",
+ "edr_signer",
+ "edr_state_api",
+ "edr_test_blockchain",
+ "edr_test_utils",
  "serde_json",
 ]
 
@@ -2853,7 +2890,6 @@ dependencies = [
  "edr_receipt",
  "edr_solidity",
  "edr_state_api",
- "edr_transaction",
  "serde",
  "thiserror 1.0.69",
 ]
@@ -3354,7 +3390,6 @@ dependencies = [
  "edr_test_mem_pool",
  "edr_test_transaction",
  "edr_test_utils",
- "edr_transaction",
  "edr_trie",
  "edr_utils",
  "futures",
@@ -3596,16 +3631,19 @@ dependencies = [
  "edr_block_api",
  "edr_block_header",
  "edr_block_local",
+ "edr_blockchain_api",
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_chain_spec_block",
  "edr_chain_spec_provider",
+ "edr_evm",
  "edr_evm_spec",
  "edr_primitives",
  "edr_provider",
  "edr_receipt",
  "edr_receipt_builder_api",
  "edr_receipt_spec",
+ "edr_signer",
  "edr_state_api",
  "edr_test_transaction",
  "paste",
@@ -3642,7 +3680,6 @@ dependencies = [
  "edr_chain_spec",
  "edr_primitives",
  "edr_runtime",
- "edr_transaction",
 ]
 
 [[package]]

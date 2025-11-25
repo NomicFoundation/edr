@@ -2,9 +2,8 @@
 #![warn(missing_docs)]
 
 use edr_chain_spec::EvmSpecId;
-use edr_primitives::{Address, Bytes, U256};
+use edr_primitives::{Address, Bytes, TxKind, U256};
 use edr_runtime::transaction;
-use edr_transaction::TxKind;
 
 /// Creates a dummy EIP-155 transaction.
 pub fn dummy_eip155_transaction(
