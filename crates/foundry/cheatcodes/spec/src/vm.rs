@@ -32,299 +32,295 @@ interface Vm {
     enum CallerMode {
         /// No caller modification is currently active.
         None,
-        /// A one time broadcast triggered by a `vm.broadcast()` call is currently active.
-        Broadcast,
-        /// A recurrent broadcast triggered by a `vm.startBroadcast()` call is currently active.
-        RecurrentBroadcast,
         /// A one time prank triggered by a `vm.prank()` call is currently active.
         Prank,
         /// A recurrent prank triggered by a `vm.startPrank()` call is currently active.
         RecurrentPrank,
     }
 
-    /// The kind of account access that occurred.
-    enum AccountAccessKind {
-        /// The account was called.
-        Call,
-        /// The account was called via delegatecall.
-        DelegateCall,
-        /// The account was called via callcode.
-        CallCode,
-        /// The account was called via staticcall.
-        StaticCall,
-        /// The account was created.
-        Create,
-        /// The account was selfdestructed.
-        SelfDestruct,
-        /// Synthetic access indicating the current context has resumed after a previous sub-context (AccountAccess).
-        Resume,
-        /// The account's balance was read.
-        Balance,
-        /// The account's codesize was read.
-        Extcodesize,
-        /// The account's codehash was read.
-        Extcodehash,
-        /// The account's code was copied.
-        Extcodecopy,
-    }
+/// The kind of account access that occurred.
+enum AccountAccessKind {
+    /// The account was called.
+    Call,
+    /// The account was called via delegatecall.
+    DelegateCall,
+    /// The account was called via callcode.
+    CallCode,
+    /// The account was called via staticcall.
+    StaticCall,
+    /// The account was created.
+    Create,
+    /// The account was selfdestructed.
+    SelfDestruct,
+    /// Synthetic access indicating the current context has resumed after a previous sub-context (AccountAccess).
+    Resume,
+    /// The account's balance was read.
+    Balance,
+    /// The account's codesize was read.
+    Extcodesize,
+    /// The account's codehash was read.
+    Extcodehash,
+    /// The account's code was copied.
+    Extcodecopy,
+}
 
-    /// Solidity test execution contexts.
-    enum ExecutionContext {
-        /// Test group execution context (test, coverage or snapshot).
-        TestGroup,
-        /// Test execution context.
-        Test,
-        /// Code coverage execution context.
-        Coverage,
-        /// Gas snapshot execution context.
-        Snapshot,
-        /// Unknown execution context.
-        Unknown
-    }
+/// Solidity test execution contexts.
+enum ExecutionContext {
+    /// Test group execution context (test, coverage or snapshot).
+    TestGroup,
+    /// Test execution context.
+    Test,
+    /// Code coverage execution context.
+    Coverage,
+    /// Gas snapshot execution context.
+    Snapshot,
+    /// Unknown execution context.
+    Unknown
+}
 
-    /// An Ethereum log. Returned by `getRecordedLogs`.
-    struct Log {
-        /// The topics of the log, including the signature, if any.
-        bytes32[] topics;
-        /// The raw data of the log.
-        bytes data;
-        /// The address of the log's emitter.
-        address emitter;
-    }
+/// An Ethereum log. Returned by `getRecordedLogs`.
+struct Log {
+    /// The topics of the log, including the signature, if any.
+    bytes32[] topics;
+    /// The raw data of the log.
+    bytes data;
+    /// The address of the log's emitter.
+    address emitter;
+}
 
-    /// Gas used. Returned by `lastCallGas`.
-    struct Gas {
-        /// The gas limit of the call.
-        uint64 gasLimit;
-        /// The total gas used.
-        uint64 gasTotalUsed;
-        /// DEPRECATED: The amount of gas used for memory expansion. Ref: <https://github.com/foundry-rs/foundry/pull/7934#pullrequestreview-2069236939>
-        uint64 gasMemoryUsed;
-        /// The amount of gas refunded.
-        int64 gasRefunded;
-        /// The amount of gas remaining.
-        uint64 gasRemaining;
-    }
+/// Gas used. Returned by `lastCallGas`.
+struct Gas {
+    /// The gas limit of the call.
+    uint64 gasLimit;
+    /// The total gas used.
+    uint64 gasTotalUsed;
+    /// DEPRECATED: The amount of gas used for memory expansion. Ref: <https://github.com/foundry-rs/foundry/pull/7934#pullrequestreview-2069236939>
+    uint64 gasMemoryUsed;
+    /// The amount of gas refunded.
+    int64 gasRefunded;
+    /// The amount of gas remaining.
+    uint64 gasRemaining;
+}
 
-    /// An RPC URL and its alias. Returned by `rpcUrlStructs`.
-    struct Rpc {
-        /// The alias of the RPC URL.
-        string key;
-        /// The RPC URL.
-        string url;
-    }
+/// An RPC URL and its alias. Returned by `rpcUrlStructs`.
+struct Rpc {
+    /// The alias of the RPC URL.
+    string key;
+    /// The RPC URL.
+    string url;
+}
 
-    /// An RPC log object. Returned by `eth_getLogs`.
-    struct EthGetLogs {
-        /// The address of the log's emitter.
-        address emitter;
-        /// The topics of the log, including the signature, if any.
-        bytes32[] topics;
-        /// The raw data of the log.
-        bytes data;
-        /// The block hash.
-        bytes32 blockHash;
-        /// The block number.
-        uint64 blockNumber;
-        /// The transaction hash.
-        bytes32 transactionHash;
-        /// The transaction index in the block.
-        uint64 transactionIndex;
-        /// The log index.
-        uint256 logIndex;
-        /// Whether the log was removed.
-        bool removed;
-    }
+/// An RPC log object. Returned by `eth_getLogs`.
+struct EthGetLogs {
+    /// The address of the log's emitter.
+    address emitter;
+    /// The topics of the log, including the signature, if any.
+    bytes32[] topics;
+    /// The raw data of the log.
+    bytes data;
+    /// The block hash.
+    bytes32 blockHash;
+    /// The block number.
+    uint64 blockNumber;
+    /// The transaction hash.
+    bytes32 transactionHash;
+    /// The transaction index in the block.
+    uint64 transactionIndex;
+    /// The log index.
+    uint256 logIndex;
+    /// Whether the log was removed.
+    bool removed;
+}
 
-    /// A single entry in a directory listing. Returned by `readDir`.
-    struct DirEntry {
-        /// The error message, if any.
-        string errorMessage;
-        /// The path of the entry.
-        string path;
-        /// The depth of the entry.
-        uint64 depth;
-        /// Whether the entry is a directory.
-        bool isDir;
-        /// Whether the entry is a symlink.
-        bool isSymlink;
-    }
+/// A single entry in a directory listing. Returned by `readDir`.
+struct DirEntry {
+    /// The error message, if any.
+    string errorMessage;
+    /// The path of the entry.
+    string path;
+    /// The depth of the entry.
+    uint64 depth;
+    /// Whether the entry is a directory.
+    bool isDir;
+    /// Whether the entry is a symlink.
+    bool isSymlink;
+}
 
-    /// Metadata information about a file.
+/// Metadata information about a file.
+///
+/// This structure is returned from the `fsMetadata` function and represents known
+/// metadata about a file such as its permissions, size, modification
+/// times, etc.
+struct FsMetadata {
+    /// True if this metadata is for a directory.
+    bool isDir;
+    /// True if this metadata is for a symlink.
+    bool isSymlink;
+    /// The size of the file, in bytes, this metadata is for.
+    uint256 length;
+    /// True if this metadata is for a readonly (unwritable) file.
+    bool readOnly;
+    /// The last modification time listed in this metadata.
+    uint256 modified;
+    /// The last access time of this metadata.
+    uint256 accessed;
+    /// The creation time listed in this metadata.
+    uint256 created;
+}
+
+/// A wallet with a public and private key.
+struct Wallet {
+    /// The wallet's address.
+    address addr;
+    /// The wallet's public key `X`.
+    uint256 publicKeyX;
+    /// The wallet's public key `Y`.
+    uint256 publicKeyY;
+    /// The wallet's private key.
+    uint256 privateKey;
+}
+
+/// The result of a `tryFfi` call.
+struct FfiResult {
+    /// The exit code of the call.
+    int32 exitCode;
+    /// The optionally hex-decoded `stdout` data.
+    bytes stdout;
+    /// The `stderr` data.
+    bytes stderr;
+}
+
+/// Information on the chain and fork.
+struct ChainInfo {
+    /// The fork identifier. Set to zero if no fork is active.
+    uint256 forkId;
+    /// The chain ID of the current fork.
+    uint256 chainId;
+}
+
+/// Information about a blockchain.
+struct Chain {
+    /// The chain name.
+    string name;
+    /// The chain's Chain ID.
+    uint256 chainId;
+    /// The chain's alias. (i.e. what gets specified in `foundry.toml`).
+    string chainAlias;
+    /// A default RPC endpoint for this chain.
+    string rpcUrl;
+}
+
+/// The storage accessed during an `AccountAccess`.
+struct StorageAccess {
+    /// The account whose storage was accessed.
+    address account;
+    /// The slot that was accessed.
+    bytes32 slot;
+    /// If the access was a write.
+    bool isWrite;
+    /// The previous value of the slot.
+    bytes32 previousValue;
+    /// The new value of the slot.
+    bytes32 newValue;
+    /// If the access was reverted.
+    bool reverted;
+}
+
+/// An EIP-2930 access list item.
+struct AccessListItem {
+    /// The address to be added in access list.
+    address target;
+    /// The storage keys to be added in access list.
+    bytes32[] storageKeys;
+}
+
+/// The result of a `stopAndReturnStateDiff` call.
+struct AccountAccess {
+    /// The chain and fork the access occurred.
+    ChainInfo chainInfo;
+    /// The kind of account access that determines what the account is.
+    /// If kind is Call, DelegateCall, StaticCall or CallCode, then the account is the callee.
+    /// If kind is Create, then the account is the newly created account.
+    /// If kind is SelfDestruct, then the account is the selfdestruct recipient.
+    /// If kind is a Resume, then account represents a account context that has resumed.
+    AccountAccessKind kind;
+    /// The account that was accessed.
+    /// It's either the account created, callee or a selfdestruct recipient for CREATE, CALL or SELFDESTRUCT.
+    address account;
+    /// What accessed the account.
+    address accessor;
+    /// If the account was initialized or empty prior to the access.
+    /// An account is considered initialized if it has code, a
+    /// non-zero nonce, or a non-zero balance.
+    bool initialized;
+    /// The previous balance of the accessed account.
+    uint256 oldBalance;
+    /// The potential new balance of the accessed account.
+    /// That is, all balance changes are recorded here, even if reverts occurred.
+    uint256 newBalance;
+    /// Code of the account deployed by CREATE.
+    bytes deployedCode;
+    /// Value passed along with the account access
+    uint256 value;
+    /// Input data provided to the CREATE or CALL
+    bytes data;
+    /// If this access reverted in either the current or parent context.
+    bool reverted;
+    /// An ordered list of storage accesses made during an account access operation.
+    StorageAccess[] storageAccesses;
+    /// Call depth traversed during the recording of state differences
+    uint64 depth;
+}
+
+/// The result of the `stopDebugTraceRecording` call
+struct DebugStep {
+    /// The stack before executing the step of the run.
+    /// stack\[0\] represents the top of the stack.
+    /// and only stack data relevant to the opcode execution is contained.
+    uint256[] stack;
+    /// The memory input data before executing the step of the run.
+    /// only input data relevant to the opcode execution is contained.
     ///
-    /// This structure is returned from the `fsMetadata` function and represents known
-    /// metadata about a file such as its permissions, size, modification
-    /// times, etc.
-    struct FsMetadata {
-        /// True if this metadata is for a directory.
-        bool isDir;
-        /// True if this metadata is for a symlink.
-        bool isSymlink;
-        /// The size of the file, in bytes, this metadata is for.
-        uint256 length;
-        /// True if this metadata is for a readonly (unwritable) file.
-        bool readOnly;
-        /// The last modification time listed in this metadata.
-        uint256 modified;
-        /// The last access time of this metadata.
-        uint256 accessed;
-        /// The creation time listed in this metadata.
-        uint256 created;
-    }
+    /// e.g. for MLOAD, it will have memory\[offset:offset+32\] copied here.
+    /// the offset value can be get by the stack data.
+    bytes memoryInput;
+    /// The opcode that was accessed.
+    uint8 opcode;
+    /// The call depth of the step.
+    uint64 depth;
+    /// Whether the call end up with out of gas error.
+    bool isOutOfGas;
+    /// The contract address where the opcode is running
+    address contractAddr;
+}
 
-    /// A wallet with a public and private key.
-    struct Wallet {
-        /// The wallet's address.
-        address addr;
-        /// The wallet's public key `X`.
-        uint256 publicKeyX;
-        /// The wallet's public key `Y`.
-        uint256 publicKeyY;
-        /// The wallet's private key.
-        uint256 privateKey;
-    }
+/// Holds a signed EIP-7702 authorization for an authority account to delegate to an implementation.
+struct SignedDelegation {
+    /// The y-parity of the recovered secp256k1 signature (0 or 1).
+    uint8 v;
+    /// First 32 bytes of the signature.
+    bytes32 r;
+    /// Second 32 bytes of the signature.
+    bytes32 s;
+    /// The current nonce of the authority account at signing time.
+    /// Used to ensure signature can't be replayed after account nonce changes.
+    uint64 nonce;
+    /// Address of the contract implementation that will be delegated to.
+    /// Gets encoded into delegation code: 0xef0100 || implementation.
+    address implementation;
+}
 
-    /// The result of a `tryFfi` call.
-    struct FfiResult {
-        /// The exit code of the call.
-        int32 exitCode;
-        /// The optionally hex-decoded `stdout` data.
-        bytes stdout;
-        /// The `stderr` data.
-        bytes stderr;
-    }
-
-    /// Information on the chain and fork.
-    struct ChainInfo {
-        /// The fork identifier. Set to zero if no fork is active.
-        uint256 forkId;
-        /// The chain ID of the current fork.
-        uint256 chainId;
-    }
-
-    /// Information about a blockchain.
-    struct Chain {
-        /// The chain name.
-        string name;
-        /// The chain's Chain ID.
-        uint256 chainId;
-        /// The chain's alias. (i.e. what gets specified in `foundry.toml`).
-        string chainAlias;
-        /// A default RPC endpoint for this chain.
-        string rpcUrl;
-    }
-
-    /// The storage accessed during an `AccountAccess`.
-    struct StorageAccess {
-        /// The account whose storage was accessed.
-        address account;
-        /// The slot that was accessed.
-        bytes32 slot;
-        /// If the access was a write.
-        bool isWrite;
-        /// The previous value of the slot.
-        bytes32 previousValue;
-        /// The new value of the slot.
-        bytes32 newValue;
-        /// If the access was reverted.
-        bool reverted;
-    }
-
-    /// An EIP-2930 access list item.
-    struct AccessListItem {
-        /// The address to be added in access list.
-        address target;
-        /// The storage keys to be added in access list.
-        bytes32[] storageKeys;
-    }
-
-    /// The result of a `stopAndReturnStateDiff` call.
-    struct AccountAccess {
-        /// The chain and fork the access occurred.
-        ChainInfo chainInfo;
-        /// The kind of account access that determines what the account is.
-        /// If kind is Call, DelegateCall, StaticCall or CallCode, then the account is the callee.
-        /// If kind is Create, then the account is the newly created account.
-        /// If kind is SelfDestruct, then the account is the selfdestruct recipient.
-        /// If kind is a Resume, then account represents a account context that has resumed.
-        AccountAccessKind kind;
-        /// The account that was accessed.
-        /// It's either the account created, callee or a selfdestruct recipient for CREATE, CALL or SELFDESTRUCT.
-        address account;
-        /// What accessed the account.
-        address accessor;
-        /// If the account was initialized or empty prior to the access.
-        /// An account is considered initialized if it has code, a
-        /// non-zero nonce, or a non-zero balance.
-        bool initialized;
-        /// The previous balance of the accessed account.
-        uint256 oldBalance;
-        /// The potential new balance of the accessed account.
-        /// That is, all balance changes are recorded here, even if reverts occurred.
-        uint256 newBalance;
-        /// Code of the account deployed by CREATE.
-        bytes deployedCode;
-        /// Value passed along with the account access
-        uint256 value;
-        /// Input data provided to the CREATE or CALL
-        bytes data;
-        /// If this access reverted in either the current or parent context.
-        bool reverted;
-        /// An ordered list of storage accesses made during an account access operation.
-        StorageAccess[] storageAccesses;
-        /// Call depth traversed during the recording of state differences
-        uint64 depth;
-    }
-
-    /// The result of the `stopDebugTraceRecording` call
-    struct DebugStep {
-        /// The stack before executing the step of the run.
-        /// stack\[0\] represents the top of the stack.
-        /// and only stack data relevant to the opcode execution is contained.
-        uint256[] stack;
-        /// The memory input data before executing the step of the run.
-        /// only input data relevant to the opcode execution is contained.
-        ///
-        /// e.g. for MLOAD, it will have memory\[offset:offset+32\] copied here.
-        /// the offset value can be get by the stack data.
-        bytes memoryInput;
-        /// The opcode that was accessed.
-        uint8 opcode;
-        /// The call depth of the step.
-        uint64 depth;
-        /// Whether the call end up with out of gas error.
-        bool isOutOfGas;
-        /// The contract address where the opcode is running
-        address contractAddr;
-    }
-
-    /// Holds a signed EIP-7702 authorization for an authority account to delegate to an implementation.
-    struct SignedDelegation {
-        /// The y-parity of the recovered secp256k1 signature (0 or 1).
-        uint8 v;
-        /// First 32 bytes of the signature.
-        bytes32 r;
-        /// Second 32 bytes of the signature.
-        bytes32 s;
-        /// The current nonce of the authority account at signing time.
-        /// Used to ensure signature can't be replayed after account nonce changes.
-        uint64 nonce;
-        /// Address of the contract implementation that will be delegated to.
-        /// Gets encoded into delegation code: 0xef0100 || implementation.
-        address implementation;
-    }
-
-    /// Represents a "potential" revert reason from a single subsequent call when using `vm.assumeNoReverts`.
-    /// Reverts that match will result in a FOUNDRY::ASSUME rejection, whereas unmatched reverts will be surfaced
-    /// as normal.
-    struct PotentialRevert {
-        /// The allowed origin of the revert opcode; address(0) allows reverts from any address
-        address reverter;
-        /// When true, only matches on the beginning of the revert data, otherwise, matches on entire revert data
-        bool partialMatch;
-        /// The data to use to match encountered reverts
-        bytes revertData;
-    }
+/// Represents a "potential" revert reason from a single subsequent call when using `vm.assumeNoReverts`.
+/// Reverts that match will result in a FOUNDRY::ASSUME rejection, whereas unmatched reverts will be surfaced
+/// as normal.
+struct PotentialRevert {
+    /// The allowed origin of the revert opcode; address(0) allows reverts from any address
+    address reverter;
+    /// When true, only matches on the beginning of the revert data, otherwise, matches on entire revert data
+    bool partialMatch;
+    /// The data to use to match encountered reverts
+    bytes revertData;
+}
 
     // ======== EVM ========
 
@@ -2006,7 +2002,7 @@ interface Vm {
         external view
         returns (bytes[] memory value);
 
-    /// Returns true if `forge` command was executed in given context.
+    /// Returns true if the test was executed in given context.
     #[cheatcode(group = Environment)]
     function isContext(ExecutionContext context) external view returns (bool result);
 

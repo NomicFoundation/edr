@@ -6,7 +6,7 @@ pragma solidity >=0.6.2 <0.9.0;
 pragma experimental ABIEncoderV2;
 
 interface Vm {
-    enum CallerMode { None, Broadcast, RecurrentBroadcast, Prank, RecurrentPrank }
+    enum CallerMode { None, Prank, RecurrentPrank }
     enum AccountAccessKind { Call, DelegateCall, CallCode, StaticCall, Create, SelfDestruct, Resume, Balance, Extcodesize, Extcodehash, Extcodecopy }
     enum ExecutionContext { TestGroup, Test, Coverage, Snapshot, Unknown }
     struct Log { bytes32[] topics; bytes data; address emitter; }
