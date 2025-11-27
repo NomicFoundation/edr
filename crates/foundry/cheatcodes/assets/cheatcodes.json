@@ -265,32 +265,6 @@
       ]
     },
     {
-      "name": "Wallet",
-      "description": "A wallet with a public and private key.",
-      "fields": [
-        {
-          "name": "addr",
-          "ty": "address",
-          "description": "The wallet's address."
-        },
-        {
-          "name": "publicKeyX",
-          "ty": "uint256",
-          "description": "The wallet's public key `X`."
-        },
-        {
-          "name": "publicKeyY",
-          "ty": "uint256",
-          "description": "The wallet's public key `Y`."
-        },
-        {
-          "name": "privateKey",
-          "ty": "uint256",
-          "description": "The wallet's private key."
-        }
-      ]
-    },
-    {
       "name": "FfiResult",
       "description": "The result of a `tryFfi` call.",
       "fields": [

@@ -14,7 +14,6 @@ interface Vm {
     struct EthGetLogs { address emitter; bytes32[] topics; bytes data; bytes32 blockHash; uint64 blockNumber; bytes32 transactionHash; uint64 transactionIndex; uint256 logIndex; bool removed; }
     struct DirEntry { string errorMessage; string path; uint64 depth; bool isDir; bool isSymlink; }
     struct FsMetadata { bool isDir; bool isSymlink; uint256 length; bool readOnly; uint256 modified; uint256 accessed; uint256 created; }
-    struct Wallet { address addr; uint256 publicKeyX; uint256 publicKeyY; uint256 privateKey; }
     struct FfiResult { int32 exitCode; bytes stdout; bytes stderr; }
     struct ChainInfo { uint256 forkId; uint256 chainId; }
     struct Chain { string name; uint256 chainId; string chainAlias; string rpcUrl; }
