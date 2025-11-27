@@ -168,18 +168,6 @@ struct FsMetadata {
     uint256 created;
 }
 
-/// A wallet with a public and private key.
-struct Wallet {
-    /// The wallet's address.
-    address addr;
-    /// The wallet's public key `X`.
-    uint256 publicKeyX;
-    /// The wallet's public key `Y`.
-    uint256 publicKeyY;
-    /// The wallet's private key.
-    uint256 privateKey;
-}
-
 /// The result of a `tryFfi` call.
 struct FfiResult {
     /// The exit code of the call.
