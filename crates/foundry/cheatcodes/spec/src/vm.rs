@@ -32,10 +32,6 @@ interface Vm {
     enum CallerMode {
         /// No caller modification is currently active.
         None,
-        /// A one time broadcast triggered by a `vm.broadcast()` call is currently active.
-        Broadcast,
-        /// A recurrent broadcast triggered by a `vm.startBroadcast()` call is currently active.
-        RecurrentBroadcast,
         /// A one time prank triggered by a `vm.prank()` call is currently active.
         Prank,
         /// A recurrent prank triggered by a `vm.startPrank()` call is currently active.
@@ -170,18 +166,6 @@ interface Vm {
         uint256 accessed;
         /// The creation time listed in this metadata.
         uint256 created;
-    }
-
-    /// A wallet with a public and private key.
-    struct Wallet {
-        /// The wallet's address.
-        address addr;
-        /// The wallet's public key `X`.
-        uint256 publicKeyX;
-        /// The wallet's public key `Y`.
-        uint256 publicKeyY;
-        /// The wallet's private key.
-        uint256 privateKey;
     }
 
     /// The result of a `tryFfi` call.
@@ -2006,7 +1990,7 @@ interface Vm {
         external view
         returns (bytes[] memory value);
 
-    /// Returns true if `forge` command was executed in given context.
+    /// Returns true if the test was executed in given context.
     #[cheatcode(group = Environment)]
     function isContext(ExecutionContext context) external view returns (bool result);
 
