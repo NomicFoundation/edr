@@ -2768,6 +2768,7 @@ dependencies = [
  "edr_state_api",
  "edr_test_blockchain",
  "edr_test_utils",
+ "serde",
  "serde_json",
 ]
 

@@ -23,6 +23,7 @@ edr_signer.workspace = true
 edr_state_api.workspace = true
 edr_test_blockchain.workspace = true
 edr_test_utils.workspace = true
+serde.workspace = true
 
 [lints]
 workspace = true

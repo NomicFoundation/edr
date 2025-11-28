@@ -19,6 +19,8 @@ pub fn create_tcp_debugger(
         let mut buffer = String::new();
         request_stream.read_to_string(&mut buffer)?;
 
+        println!("Received request: {}", buffer);
+
         let request: edr_debugger_protocol::Request = serde_json::from_str(&buffer)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
 

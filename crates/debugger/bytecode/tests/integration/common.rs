@@ -16,7 +16,7 @@ use edr_evm_spec::{config::EvmConfig, BlockEnv};
 use edr_primitives::{Address, Bytes, HashMap, TxKind, B256, U256};
 use edr_provider::spec::LocalBlockchainForChainSpec;
 use edr_signer::{public_key_to_address, SecretKey};
-use edr_state_api::{State, StateDiff, StateError};
+use edr_state_api::{AccountModifierFn, State, StateDiff, StateError};
 use edr_test_blockchain::deploy_contract;
 use edr_test_utils::secret_key::secret_key_from_str;
 
@@ -90,8 +90,16 @@ impl DebuggerFixture {
             block_config,
         )?;
 
-        let mut state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
         let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
+        let caller = public_key_to_address(secret_key.public_key());
+
+        let mut state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
+        state.modify_account(
+            caller,
+            AccountModifierFn::new(Box::new(|balance, _nonce, _code| {
+                *balance = U256::from(100_000_000_000_000u128);
+            })),
+        )?;
 
         let call_inc_address = deploy_contract(
             &blockchain,

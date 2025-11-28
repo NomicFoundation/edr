@@ -54,6 +54,17 @@ impl BytecodeDebugger {
     }
 }
 
+impl Drop for BytecodeDebugger {
+    fn drop(&mut self) {
+        // Ignore failures as we are already exited the debug session
+        let _result = self.send_event(
+            edr_debugger_protocol::ExitedEventEvent::Exited,
+            // TODO: Return actual exit code
+            edr_debugger_protocol::ExitedEventBody { exit_code: 0 },
+        );
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Failed to parse instruction reference: {0}")]
@@ -277,6 +288,7 @@ impl BytecodeDebugger {
     fn wait_for_continue(&mut self) {
         while self.is_paused {
             if let Ok(request) = (self.receive_request_fn)() {
+                println!("Received request while paused: {:?}", request);
                 let response = self.handle_request(request);
 
                 if (self.send_response_fn)(response).is_err() {
@@ -284,6 +296,7 @@ impl BytecodeDebugger {
                     return;
                 }
             } else {
+                println!("Debugger disconnected while paused");
                 self.on_debugger_disconnected();
                 return;
             }
@@ -312,6 +325,9 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
             };
 
             self.is_paused = true;
+        }
+
+        if self.is_paused {
             self.wait_for_continue();
         }
     }
