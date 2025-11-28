@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use dyn_clone::DynClone;
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     interpreter::{
         CallInputs, CallOutcome, EthInterpreter, Gas, InstructionResult, InterpreterResult,
     },

@@ -7,11 +7,11 @@ use edr_block_api::{Block, EthBlockData};
 use edr_block_remote::RemoteBlock;
 use edr_block_storage::{InsertBlockError, SparseBlockStorage};
 use edr_chain_spec::ExecutableTransaction;
+use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
 use edr_eth::{filter::OneOrMore, BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ReceiptTrait};
 use edr_rpc_eth::client::{EthRpcClient, RpcClientError};
-use edr_rpc_spec::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime;
 
@@ -509,9 +509,9 @@ mod tests {
     };
     use edr_chain_spec::ChainSpec;
     use edr_chain_spec_block::BlockChainSpec;
-    use edr_receipt_spec::ReceiptChainSpec;
+    use edr_chain_spec_receipt::ReceiptChainSpec;
+    use edr_chain_spec_rpc::RpcChainSpec;
     use edr_rpc_eth::client::EthRpcClientForChainSpec;
-    use edr_rpc_spec::RpcChainSpec;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;

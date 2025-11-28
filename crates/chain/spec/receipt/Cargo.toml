@@ -1,14 +1,14 @@
 [package]
-name = "edr_receipt_spec"
+name = "edr_chain_spec_receipt"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
 edr_chain_spec.workspace = true
+edr_chain_spec_rpc.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_receipt_builder_api.workspace = true
-edr_rpc_spec.workspace = true
 
 [features]
 tracing = ["edr_receipt_builder_api/tracing"]

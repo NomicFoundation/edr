@@ -1,4 +1,4 @@
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     interpreter::{CallInputs, CallOutcome, EthInterpreter},
     ContextTrait, Inspector,
 };

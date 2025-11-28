@@ -5,9 +5,9 @@ edition.workspace = true
 
 [dependencies]
 derive-where.workspace = true
+edr_chain_spec_rpc.workspace = true
 edr_primitives.workspace = true
 edr_rpc_eth.workspace = true
-edr_rpc_spec.workspace = true
 edr_state_api.workspace = true
 edr_state_persistent_trie.workspace = true
 edr_state_remote.workspace = true

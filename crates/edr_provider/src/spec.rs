@@ -11,10 +11,10 @@ use edr_chain_l1::{
 use edr_chain_spec::{ChainSpec, ExecutableTransaction, HardforkChainSpec};
 use edr_chain_spec_block::{BlockChainSpec, SyncBlockChainSpec};
 use edr_chain_spec_provider::ProviderChainSpec;
+use edr_chain_spec_receipt::ReceiptChainSpec;
+use edr_chain_spec_rpc::RpcChainSpec;
 use edr_eth::{Blob, BlockSpec};
 use edr_primitives::{Address, B256};
-use edr_receipt_spec::ReceiptChainSpec;
-use edr_rpc_spec::RpcChainSpec;
 use edr_runtime::overrides::StateOverrides;
 use edr_signer::{FakeSign, Sign};
 use edr_transaction::{IsSupported, TransactionAndBlock};

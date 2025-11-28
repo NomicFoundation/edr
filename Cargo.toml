@@ -14,7 +14,10 @@ members = [
     "crates/blockchain/remote",
     "crates/chain/config",
     "crates/chain/spec/block",
+    "crates/chain/spec/evm",
     "crates/chain/spec/provider",
+    "crates/chain/spec/receipt",
+    "crates/chain/spec/rpc",
     "crates/database/components",
     "crates/edr_chain_l1",
     "crates/edr_chain_spec",
@@ -22,7 +25,6 @@ members = [
     "crates/edr_coverage",
     "crates/edr_defaults",
     "crates/edr_eth",
-    "crates/edr_evm_spec",
     "crates/edr_gas_report",
     "crates/edr_instrument",
     "crates/edr_macros",
@@ -30,10 +32,8 @@ members = [
     "crates/edr_op",
     "crates/edr_provider",
     "crates/edr_receipt",
-    "crates/edr_receipt_spec",
     "crates/edr_rpc_client",
     "crates/edr_rpc_eth",
-    "crates/edr_rpc_spec",
     "crates/edr_runtime",
     "crates/edr_scenarios",
     "crates/edr_signer",
@@ -141,7 +141,10 @@ edr_chain_config = { path = "crates/chain/config" }
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_chain_spec = { path = "crates/edr_chain_spec" }
 edr_chain_spec_block = { path = "crates/chain/spec/block" }
+edr_chain_spec_evm = { path = "crates/chain/spec/evm" }
 edr_chain_spec_provider = { path = "crates/chain/spec/provider" }
+edr_chain_spec_receipt = { path = "crates/chain/spec/receipt" }
+edr_chain_spec_rpc = { path = "crates/chain/spec/rpc" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
 edr_database_components = { path = "crates/database/components" }
@@ -152,7 +155,6 @@ edr_eip4844 = { path = "crates/eips/4844" }
 edr_eip7702 = { path = "crates/eips/7702" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/evm" }
-edr_evm_spec = { path = "crates/edr_evm_spec" }
 edr_gas_report = { path = "crates/edr_gas_report" }
 edr_generic = { path = "crates/edr_generic" }
 edr_instrument = { path = "crates/edr_instrument" }
@@ -165,10 +167,8 @@ edr_precompile = { path = "crates/precompile" }
 edr_provider = { path = "crates/edr_provider" }
 edr_receipt = { path = "crates/edr_receipt" }
 edr_receipt_builder_api = { path = "crates/receipt/builder/api" }
-edr_receipt_spec = { path = "crates/edr_receipt_spec" }
 edr_rpc_client = { path = "crates/edr_rpc_client" }
 edr_rpc_eth = { path = "crates/edr_rpc_eth" }
-edr_rpc_spec = { path = "crates/edr_rpc_spec" }
 edr_runtime = { path = "crates/edr_runtime" }
 edr_scenarios = { path = "crates/edr_scenarios" }
 edr_signer = { path = "crates/edr_signer" }
