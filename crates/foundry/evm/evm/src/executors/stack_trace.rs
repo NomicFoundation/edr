@@ -6,9 +6,9 @@ use std::{
 use alloy_primitives::{Address, Bytes};
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
+    nested_trace::NestedTrace,
     solidity_stack_trace::StackTraceEntry,
     solidity_tracer::{self, SolidityTracerError},
-    trace_arena_conversion::convert_call_trace_arena_to_nested_trace,
 };
 use foundry_evm_core::{
     backend::IndeterminismReasons,
@@ -32,8 +32,6 @@ pub enum StackTraceError<HaltReasonT> {
     #[error("Test setup unexpectedly failed during execution with revert reason: {0}")]
     FailingSetup(String),
     #[error(transparent)]
-    TraceConversion(#[from] edr_solidity::trace_arena_conversion::TraceConversionError),
-    #[error(transparent)]
     Tracer(#[from] SolidityTracerError<HaltReasonT>),
     #[error(transparent)]
     ExecutorBuilder(#[from] ExecutorBuilderError),
@@ -51,7 +49,6 @@ impl<HaltReasonT> StackTraceError<HaltReasonT> {
             StackTraceError::ContractDecoder(err) => StackTraceError::ContractDecoder(err),
             StackTraceError::Evm(err) => StackTraceError::Evm(err),
             StackTraceError::FailingSetup(reason) => StackTraceError::FailingSetup(reason),
-            StackTraceError::TraceConversion(err) => StackTraceError::TraceConversion(err),
             StackTraceError::Tracer(err) => {
                 StackTraceError::Tracer(err.map_halt_reason(conversion_fn))
             }
@@ -122,11 +119,12 @@ pub fn get_stack_trace<
     }
 
     if let Some((_, last_trace)) = traces.last() {
-        let trace = convert_call_trace_arena_to_nested_trace(
+        let trace = NestedTrace::from_call_trace_arena(
             &address_to_creation_code,
             &address_to_runtime_code,
             last_trace,
-        )?;
+        )
+        .map_err(|err| StackTraceError::Evm(err.to_string()))?;
         let trace = contract_decoder.try_to_decode_nested_trace(trace)?;
         let stack_trace = solidity_tracer::get_stack_trace(trace)?;
         Ok(Some(stack_trace))
