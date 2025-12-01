@@ -1,6 +1,6 @@
 //! Naive Rust port of the `MessageTrace` et al. from Hardhat.
 
-mod conversion;
+pub mod conversion;
 
 use std::{collections::HashMap, sync::Arc};
 

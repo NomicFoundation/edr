@@ -6,7 +6,7 @@ use std::{
 use alloy_primitives::{Address, Bytes};
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
-    nested_trace::NestedTrace,
+    nested_trace::{conversion::TraceConversionError, NestedTrace},
     solidity_stack_trace::StackTraceEntry,
     solidity_tracer::{self, SolidityTracerError},
 };
@@ -32,6 +32,8 @@ pub enum StackTraceError<HaltReasonT> {
     #[error("Test setup unexpectedly failed during execution with revert reason: {0}")]
     FailingSetup(String),
     #[error(transparent)]
+    TraceConversion(#[from] TraceConversionError),
+    #[error(transparent)]
     Tracer(#[from] SolidityTracerError<HaltReasonT>),
     #[error(transparent)]
     ExecutorBuilder(#[from] ExecutorBuilderError),
@@ -49,6 +51,7 @@ impl<HaltReasonT> StackTraceError<HaltReasonT> {
             StackTraceError::ContractDecoder(err) => StackTraceError::ContractDecoder(err),
             StackTraceError::Evm(err) => StackTraceError::Evm(err),
             StackTraceError::FailingSetup(reason) => StackTraceError::FailingSetup(reason),
+            StackTraceError::TraceConversion(err) => StackTraceError::TraceConversion(err),
             StackTraceError::Tracer(err) => {
                 StackTraceError::Tracer(err.map_halt_reason(conversion_fn))
             }
@@ -123,8 +126,7 @@ pub fn get_stack_trace<
             &address_to_creation_code,
             &address_to_runtime_code,
             last_trace,
-        )
-        .map_err(|err| StackTraceError::Evm(err.to_string()))?;
+        )?;
         let trace = contract_decoder.try_to_decode_nested_trace(trace)?;
         let stack_trace = solidity_tracer::get_stack_trace(trace)?;
         Ok(Some(stack_trace))
