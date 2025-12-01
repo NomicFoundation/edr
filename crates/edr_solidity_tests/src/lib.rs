@@ -18,7 +18,7 @@ pub use config::{
 
 pub mod result;
 
-pub use foundry_evm::executors::stack_trace::StackTraceError;
+pub use foundry_evm::executors::stack_trace::SolidityTestStackTraceError;
 
 mod error;
 mod test_filter;

@@ -8,7 +8,7 @@ use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::result::ExecutionResult;
 use edr_primitives::{Bytes, B256};
 use edr_state_api::{DynState, StateDiff};
-use edr_tracing::Trace;
+use foundry_evm_traces::SparsedTraceArena;
 
 /// The result of mining a block, including the state, in debug mode. This
 /// result needs to be inserted into the blockchain to be persistent.
@@ -22,7 +22,7 @@ pub struct DebugMineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlock
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction traces
-    pub transaction_traces: Vec<Trace<HaltReasonT>>,
+    pub transaction_traces: Vec<SparsedTraceArena>,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
 }
@@ -34,7 +34,7 @@ impl<HaltReasonT: HaltReasonTrait, LocalBlockT>
     /// transaction traces, and decoded console log messages.
     pub fn new(
         result: BuiltBlockAndState<HaltReasonT, LocalBlockT>,
-        transaction_traces: Vec<Trace<HaltReasonT>>,
+        call_traces: Vec<SparsedTraceArena>,
         console_log_decoded_messages: Vec<Bytes>,
     ) -> Self {
         Self {
@@ -42,7 +42,7 @@ impl<HaltReasonT: HaltReasonTrait, LocalBlockT>
             state: result.state,
             state_diff: result.state_diff,
             transaction_results: result.transaction_results,
-            transaction_traces,
+            transaction_traces: call_traces,
             console_log_inputs: console_log_decoded_messages,
         }
     }
@@ -64,7 +64,7 @@ pub struct DebugMineBlockResult<BlockT, HaltReasonT: HaltReasonTrait, SignedTran
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction traces
-    pub transaction_traces: Vec<Trace<HaltReasonT>>,
+    pub transaction_traces: Vec<SparsedTraceArena>,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
     phantom: PhantomData<SignedTransactionT>,
@@ -77,7 +77,7 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
     pub fn new(
         block: BlockT,
         transaction_results: Vec<ExecutionResult<HaltReasonT>>,
-        transaction_traces: Vec<Trace<HaltReasonT>>,
+        transaction_traces: Vec<SparsedTraceArena>,
         console_log_inputs: Vec<Bytes>,
     ) -> Self {
         Self {

@@ -19,7 +19,7 @@ pub trait SyncProvider: Send + Sync {
         &self,
         request: String,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<EvmHaltReason>>;
+    ) -> napi::Result<Response>;
 
     /// Set to `true` to make the traces returned with `eth_call`,
     /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
