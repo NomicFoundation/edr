@@ -3,30 +3,22 @@ use std::{
     collections::{HashMap, HashSet},
 };
 
-use alloy_primitives::{Address, Bytes, U160};
+use alloy_primitives::{Address, Bytes};
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
-    exit_code::ExitCode,
-    nested_trace::{
-        CallMessage, CreateMessage, EvmStep, NestedTrace, NestedTraceStep, PrecompileMessage,
-    },
     solidity_stack_trace::StackTraceEntry,
     solidity_tracer::{self, SolidityTracerError},
+    trace_arena_conversion::convert_call_trace_arena_to_nested_trace,
 };
 use foundry_evm_core::{
     backend::IndeterminismReasons,
-    constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
     },
 };
 use foundry_evm_traces::{SparsedTraceArena, TraceKind};
-use revm::{
-    context::result::HaltReasonTr,
-    interpreter::{InternalResult, SuccessOrHalt},
-};
-use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
+use revm::context::result::HaltReasonTr;
 
 use crate::executors::{EvmError, ExecutorBuilderError};
 
@@ -39,8 +31,8 @@ pub enum StackTraceError<HaltReasonT> {
     Evm(String),
     #[error("Test setup unexpectedly failed during execution with revert reason: {0}")]
     FailingSetup(String),
-    #[error("Invalid root node in call trace arena")]
-    InvalidRootNode,
+    #[error(transparent)]
+    TraceConversion(#[from] edr_solidity::trace_arena_conversion::TraceConversionError),
     #[error(transparent)]
     Tracer(#[from] SolidityTracerError<HaltReasonT>),
     #[error(transparent)]
@@ -59,7 +51,7 @@ impl<HaltReasonT> StackTraceError<HaltReasonT> {
             StackTraceError::ContractDecoder(err) => StackTraceError::ContractDecoder(err),
             StackTraceError::Evm(err) => StackTraceError::Evm(err),
             StackTraceError::FailingSetup(reason) => StackTraceError::FailingSetup(reason),
-            StackTraceError::InvalidRootNode => StackTraceError::InvalidRootNode,
+            StackTraceError::TraceConversion(err) => StackTraceError::TraceConversion(err),
             StackTraceError::Tracer(err) => {
                 StackTraceError::Tracer(err.map_halt_reason(conversion_fn))
             }
@@ -143,149 +135,6 @@ pub fn get_stack_trace<
     }
 }
 
-fn convert_call_trace_arena_to_nested_trace<HaltReasonT: HaltReasonTr>(
-    address_to_creation_code: &HashMap<Address, &Bytes>,
-    address_to_runtime_code: &HashMap<Address, &Bytes>,
-    arena: &CallTraceArena,
-) -> Result<NestedTrace<HaltReasonT>, StackTraceError<HaltReasonT>> {
-    // Start conversion from the root node (index 0)
-    if arena.nodes().is_empty() {
-        return Err(StackTraceError::InvalidRootNode);
-    }
-
-    convert_node_to_nested_trace(address_to_creation_code, address_to_runtime_code, arena, 0)
-}
-
-fn convert_node_to_nested_trace<HaltReasonT: HaltReasonTr>(
-    address_to_creation_code: &HashMap<Address, &Bytes>,
-    address_to_runtime_code: &HashMap<Address, &Bytes>,
-    arena: &CallTraceArena,
-    node_idx: usize,
-) -> Result<NestedTrace<HaltReasonT>, StackTraceError<HaltReasonT>> {
-    let node = arena
-        .nodes()
-        .get(node_idx)
-        .expect("node index should be valid");
-    let trace = &node.trace;
-
-    // Based on https://github.com/paradigmxyz/revm-inspectors/blob/ceef3f3624ca51bf3c41c97d6c013606db3a6019/src/tracing/types.rs#L257
-    let mut steps = Vec::new();
-    let mut child_index = 0;
-    for step in &trace.steps {
-        if is_calllike_op(step) {
-            // The opcode of this step is a call, but it's possible that this step resulted
-            // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
-            if let Some(call_id) = node.children.get(child_index).copied() {
-                child_index += 1;
-                let child_trace = convert_node_to_nested_trace(
-                    address_to_creation_code,
-                    address_to_runtime_code,
-                    arena,
-                    call_id,
-                )?;
-                steps.push(match child_trace {
-                    NestedTrace::Create(msg) => NestedTraceStep::Create(msg),
-                    NestedTrace::Call(msg) => NestedTraceStep::Call(msg),
-                    NestedTrace::Precompile(msg) => NestedTraceStep::Precompile(msg),
-                });
-            }
-        } else {
-            steps.push(NestedTraceStep::Evm(EvmStep { pc: step.pc as u32 }));
-        }
-    }
-
-    // Convert based on call type and precompile status
-    if node.is_precompile() {
-        let precompile: U160 = trace.address.into();
-        let precompile: u32 = precompile
-            .try_into()
-            .expect("MAX_PRECOMPILE_NUMBER is of type u16 so it fits");
-        Ok(NestedTrace::Precompile(PrecompileMessage {
-            precompile,
-            calldata: trace.data.clone(),
-            value: trace.value,
-            return_data: trace.output.clone(),
-            exit: convert_instruction_result_to_exit_code(trace.status),
-            gas_used: trace.gas_used,
-            depth: trace.depth,
-        }))
-    } else if trace.kind.is_any_create() {
-        Ok(NestedTrace::Create(CreateMessage {
-            number_of_subtraces: node.children.len() as u32,
-            steps,
-            contract_meta: None, // This will be populated by the nested trace decoder
-            deployed_contract: Some(trace.output.clone()),
-            code: address_to_creation_code
-                .get(&trace.address)
-                .map(|c| (*c).clone())
-                .expect("Create must have code"),
-            value: trace.value,
-            return_data: trace.output.clone(),
-            exit: convert_instruction_result_to_exit_code(trace.status),
-            gas_used: trace.gas_used,
-            depth: trace.depth,
-        }))
-    } else {
-        let code = if trace.address == HARDHAT_CONSOLE_ADDRESS || trace.address == CHEATCODE_ADDRESS
-        {
-            // HACK: use address as code if the library is implemented in Rust
-            Bytes::from(trace.address.to_vec())
-        } else {
-            address_to_runtime_code
-                .get(&trace.address)
-                // Code might not exist if it's a mocked contract
-                // Mimicking behavior here: https://github.com/NomicFoundation/edr/blob/4e7491d8631da27b4bd1ba2bde4914bb704e2c52/crates/foundry/cheatcodes/src/evm/mock.rs#L75
-                .map_or_else(|| Bytes::from_static(&[0u8]), |c| (*c).clone())
-        };
-        Ok(NestedTrace::Call(CallMessage {
-            number_of_subtraces: node.children.len() as u32,
-            steps,
-            contract_meta: None, // This will be populated by the nested trace decoder
-            calldata: trace.data.clone(),
-            address: trace.address,
-            code_address: trace.address,
-            code,
-            value: trace.value,
-            return_data: trace.output.clone(),
-            exit: convert_instruction_result_to_exit_code(trace.status),
-            gas_used: trace.gas_used,
-            depth: trace.depth,
-        }))
-    }
-}
-
-fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTr>(
-    result: Option<revm::interpreter::InstructionResult>,
-) -> ExitCode<HaltReasonT> {
-    let Some(result) = result else {
-        return ExitCode::InternalContinue;
-    };
-    let success_or_halt: revm::interpreter::SuccessOrHalt<HaltReasonT> = result.into();
-    match success_or_halt {
-        SuccessOrHalt::Success(_) => ExitCode::Success,
-        SuccessOrHalt::Revert => ExitCode::Revert,
-        SuccessOrHalt::Halt(halt) => ExitCode::Halt(halt),
-        SuccessOrHalt::FatalExternalError => ExitCode::FatalExternalError,
-        SuccessOrHalt::Internal(result) => match result {
-            InternalResult::CreateInitCodeStartingEF00 => ExitCode::CreateInitCodeStartingEF00,
-            InternalResult::InvalidExtDelegateCallTarget => ExitCode::InvalidExtDelegateCallTarget,
-        },
-    }
-}
-
-fn is_calllike_op(step: &CallTraceStep) -> bool {
-    use revm::bytecode::opcode;
-
-    matches!(
-        step.op.get(),
-        opcode::CALL
-            | opcode::DELEGATECALL
-            | opcode::STATICCALL
-            | opcode::CREATE
-            | opcode::CALLCODE
-            | opcode::CREATE2
-    )
-}
 
 /// The possible outcomes from computing stack traces.
 #[derive(Clone, Debug)]

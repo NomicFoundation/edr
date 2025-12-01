@@ -18,6 +18,7 @@ pub mod nested_trace;
 pub mod nested_tracer;
 pub mod solidity_stack_trace;
 pub mod solidity_tracer;
+pub mod trace_arena_conversion;
 
 mod bytecode_trie;
 mod error_inferrer;
