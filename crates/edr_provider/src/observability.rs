@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use edr_block_builder_api::WrapDatabaseRef;
 use edr_blockchain_api::BlockHashByNumber;
-use edr_chain_spec::HaltReasonTrait;
 use edr_chain_spec_evm::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, Interpreter,
@@ -13,9 +12,10 @@ use edr_chain_spec_evm::{
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_database_components::DatabaseComponents;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
+use edr_primitives::HashMap;
 use edr_state_api::State;
-use edr_tracing::TraceCollector;
 use revm_inspector::JournalExt;
+use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 
 use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
 
@@ -73,26 +73,49 @@ impl From<&ObservabilityConfig> for EvmObserverConfig {
 
 /// An observer for the EVM that collects information about the execution by
 /// directly inspecting the EVM.
-pub struct EvmObserver<HaltReasonT: HaltReasonTrait> {
+pub struct EvmObserver {
     pub code_coverage: Option<CodeCoverageReporter>,
     pub console_logger: ConsoleLogCollector,
     pub mocker: Mocker,
-    pub trace_collector: TraceCollector<HaltReasonT>,
+    pub tracing_inspector: TracingInspector,
 }
 
-impl<HaltReasonT: HaltReasonTrait> EvmObserver<HaltReasonT> {
+impl EvmObserver {
     /// Creates a new instance with the provided configuration.
     pub fn new(config: EvmObserverConfig) -> Self {
         let code_coverage = config
             .on_collected_coverage_fn
             .map(CodeCoverageReporter::new);
 
+        let tracing_config = if config.verbose_raw_tracing {
+            TracingInspectorConfig::all()
+        } else {
+            TracingInspectorConfig::default_parity().set_steps(true)
+        };
+
         Self {
             code_coverage,
             console_logger: ConsoleLogCollector::default(),
             mocker: Mocker::new(config.call_override.clone()),
-            trace_collector: TraceCollector::new(config.verbose_raw_tracing),
+            tracing_inspector: TracingInspector::new(tracing_config),
         }
+    }
+
+    /// Takes the tracing inspector and converts its arena to Traces
+    pub fn take_traces(&mut self) -> foundry_evm_traces::Traces {
+        let inspector = std::mem::replace(
+            &mut self.tracing_inspector,
+            TracingInspector::new(TracingInspectorConfig::default_parity().set_steps(true)),
+        );
+        let arena = inspector.into_traces();
+
+        vec![(
+            foundry_evm_traces::TraceKind::Execution,
+            foundry_evm_traces::SparsedTraceArena {
+                arena,
+                ignored: HashMap::default(),
+            },
+        )]
     }
 }
 
@@ -104,21 +127,20 @@ impl<
                 Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
             >,
         >,
-        HaltReasonT: HaltReasonTrait,
         StateT: State<Error: std::error::Error>,
-    > Inspector<ContextT, EthInterpreter> for EvmObserver<HaltReasonT>
+    > Inspector<ContextT, EthInterpreter> for EvmObserver
 {
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
         self.console_logger.call(context, inputs);
         if let Some(code_coverage) = &mut self.code_coverage {
             Inspector::<_, EthInterpreter>::call(&mut code_coverage.collector, context, inputs);
         }
-        self.trace_collector.call(context, inputs);
+        self.tracing_inspector.call(context, inputs);
         self.mocker.call(context, inputs)
     }
 
     fn call_end(&mut self, context: &mut ContextT, inputs: &CallInputs, outcome: &mut CallOutcome) {
-        self.trace_collector.call_end(context, inputs, outcome);
+        self.tracing_inspector.call_end(context, inputs, outcome);
     }
 
     fn create(
@@ -126,7 +148,7 @@ impl<
         context: &mut ContextT,
         inputs: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
-        self.trace_collector.create(context, inputs)
+        self.tracing_inspector.create(context, inputs)
     }
 
     fn create_end(
@@ -135,10 +157,10 @@ impl<
         inputs: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
-        self.trace_collector.create_end(context, inputs, outcome);
+        self.tracing_inspector.create_end(context, inputs, outcome);
     }
 
     fn step(&mut self, interp: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
-        self.trace_collector.step(interp, context);
+        self.tracing_inspector.step(interp, context);
     }
 }

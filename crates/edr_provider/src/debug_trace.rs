@@ -13,7 +13,7 @@ use edr_evm::{dry_run_with_inspector, run};
 use edr_primitives::{B256, U256};
 use edr_runtime::inspector::DualInspector;
 use edr_state_api::{DynState, StateError};
-use edr_tracing::Trace;
+use foundry_evm_traces::SparsedTraceArena;
 use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, MuxError, TransactionContext};
 
 use crate::{
@@ -34,10 +34,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
     observer_config: EvmObserverConfig,
-) -> Result<
-    DebugTraceResultWithTraces<ChainSpecT::HaltReason>,
-    DebugTraceErrorForChainSpec<ChainSpecT>,
-> {
+) -> Result<DebugTraceResultWithCallTraces, DebugTraceErrorForChainSpec<ChainSpecT>> {
     let evm_spec_id = evm_config.spec.into();
     if evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
@@ -73,7 +70,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                 code_coverage,
                 console_logger: _console_logger,
                 mocker: _mocker,
-                trace_collector,
+                tracing_inspector,
             } = evm_observer;
 
             if let Some(code_coverage) = code_coverage {
@@ -235,10 +232,10 @@ impl<TransactionValidationErrorT> JsonRpcError for DebugTraceError<TransactionVa
     }
 }
 
-/// Result of a `debug_traceTransaction` call with traces.
-pub struct DebugTraceResultWithTraces<HaltReasonT: HaltReasonTrait> {
+/// Result of a `debug_traceTransaction` call with call trace.
+pub struct DebugTraceResultWithCallTraces {
     /// The result of the transaction.
     pub result: GethTrace,
     /// The raw traces of the debugged transaction.
-    pub traces: Vec<Trace<HaltReasonT>>,
+    pub call_traces: Vec<CallTraceArena>,
 }

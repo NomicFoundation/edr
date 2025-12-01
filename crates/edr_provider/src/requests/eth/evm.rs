@@ -9,7 +9,7 @@ use crate::{
     error::ProviderErrorForChainSpec,
     spec::{ProviderSpec, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, ProviderResultWithTraces, Timestamp,
+    ProviderError, ProviderResultWithCallTraces, Timestamp,
 };
 
 pub fn handle_increase_time_request<
@@ -34,7 +34,7 @@ pub fn handle_mine_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     timestamp: Option<Timestamp>,
-) -> ProviderResultWithTraces<String, ChainSpecT> {
+) -> ProviderResultWithCallTraces<String, ChainSpecT> {
     let mine_block_result = data.mine_and_commit_block(HeaderOverrides {
         timestamp: timestamp.map(Into::into),
         ..HeaderOverrides::default()

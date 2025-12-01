@@ -3226,6 +3226,7 @@ dependencies = [
  "edr_tracing",
  "edr_transaction",
  "edr_utils",
+ "foundry-evm-traces",
  "indexmap 2.9.0",
  "itertools 0.12.1",
  "k256",
@@ -3471,6 +3472,9 @@ dependencies = [
  "itertools 0.10.5",
  "log",
  "parking_lot 0.12.3",
+ "revm-bytecode",
+ "revm-inspectors",
+ "revm-interpreter",
  "semver 1.0.26",
  "serde",
  "serde_json",
@@ -3778,6 +3782,7 @@ dependencies = [
  "edr_primitives",
  "edr_state_api",
  "revm-inspector",
+ "revm-inspectors",
 ]
 
 [[package]]

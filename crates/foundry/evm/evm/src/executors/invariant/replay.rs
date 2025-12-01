@@ -32,7 +32,7 @@ use super::{
     shrink_sequence, CallAfterInvariantResult, CallInvariantResult,
 };
 use crate::executors::{
-    stack_trace::{get_stack_trace, StackTraceResult},
+    stack_trace::{get_stack_trace, SolidityTestStackTraceResult, StackTraceCreationResult},
     Executor,
 };
 
@@ -77,7 +77,7 @@ pub struct ReplayRunArgs<
 #[derive_where(Default)]
 pub struct ReplayResult<HaltReasonT: HaltReasonTr> {
     pub counterexample_sequence: Vec<BaseCounterExample>,
-    pub stack_trace_result: Option<StackTraceResult<HaltReasonT>>,
+    pub stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>>,
     pub revert_reason: Option<String>,
 }
 
@@ -176,8 +176,12 @@ pub fn replay_run<
                     Some(indeterminism_reasons.into())
                 } else {
                     contract_decoder
-                        .and_then(|decoder| get_stack_trace(decoder, traces).transpose())
-                        .map(StackTraceResult::from)
+                        .and_then(|decoder| {
+                            get_stack_trace(decoder, traces.iter().map(|(_, arena)| &arena.arena))
+                                .transpose()
+                        })
+                        .map(StackTraceCreationResult::from)
+                        .map(SolidityTestStackTraceResult::from)
                 };
             let revert_reason =
                 revert_decoder.maybe_decode(call_result.result.as_ref(), call_result.exit_reason);
@@ -231,20 +235,22 @@ pub fn replay_run<
         logs.extend(after_invariant_result.logs);
     }
 
-    let stack_trace_result: Option<StackTraceResult<HaltReasonT>> = generate_stack_trace
-        .then(|| {
-            invariant_result
-                .indeterminism_reasons
-                .map(StackTraceResult::from)
-                .or_else(|| {
-                    contract_decoder.and_then(|decoder| {
-                        get_stack_trace(decoder, traces)
-                            .transpose()
-                            .map(StackTraceResult::from)
+    let stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>> =
+        generate_stack_trace
+            .then(|| {
+                invariant_result
+                    .indeterminism_reasons
+                    .map(SolidityTestStackTraceResult::from)
+                    .or_else(|| {
+                        contract_decoder.and_then(|decoder| {
+                            get_stack_trace(decoder, traces.iter().map(|(_, arena)| &arena.arena))
+                                .transpose()
+                                .map(StackTraceCreationResult::from)
+                                .map(SolidityTestStackTraceResult::from)
+                        })
                     })
-                })
-        })
-        .flatten();
+            })
+            .flatten();
 
     let revert_reason = revert_decoder.maybe_decode(
         invariant_result.result.as_ref(),

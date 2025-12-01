@@ -7,7 +7,7 @@ use std::{
 
 use edr_solidity_tests::{
     constants::CHEATCODE_ADDRESS,
-    executors::stack_trace::StackTraceResult,
+    executors::stack_trace::SolidityTestStackTraceResult,
     traces::{self, CallTraceArena, SparsedTraceArena},
 };
 use napi::{
@@ -113,7 +113,7 @@ pub struct TestResult {
     #[napi(readonly)]
     pub value_snapshot_groups: Option<Vec<ValueSnapshotGroup>>,
 
-    stack_trace_result: Option<Arc<StackTraceResult<String>>>,
+    stack_trace_result: Option<Arc<SolidityTestStackTraceResult<String>>>,
     call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
 }
 
@@ -180,7 +180,7 @@ impl TestResult {
     ) -> Option<Either4<StackTrace, UnexpectedError, HeuristicFailed, UnsafeToReplay>> {
         self.stack_trace_result.as_ref().map(|stack_trace_result| {
             match stack_trace_result.as_ref() {
-                StackTraceResult::Success(stack_trace) => Either4::A(StackTrace {
+                SolidityTestStackTraceResult::Success(stack_trace) => Either4::A(StackTrace {
                     kind: "StackTrace",
                     entries: stack_trace
                         .iter()
@@ -189,14 +189,14 @@ impl TestResult {
                         .collect::<Result<Vec<_>, Infallible>>()
                         .expect("infallible"),
                 }),
-                StackTraceResult::Error(error) => Either4::B(UnexpectedError {
+                SolidityTestStackTraceResult::Error(error) => Either4::B(UnexpectedError {
                     kind: "UnexpectedError",
                     error_message: error.to_string(),
                 }),
-                StackTraceResult::HeuristicFailed => Either4::C(HeuristicFailed {
+                SolidityTestStackTraceResult::HeuristicFailed => Either4::C(HeuristicFailed {
                     kind: "HeuristicFailed",
                 }),
-                StackTraceResult::UnsafeToReplay {
+                SolidityTestStackTraceResult::UnsafeToReplay {
                     global_fork_latest,
                     impure_cheatcodes,
                 } => Either4::D(UnsafeToReplay {
