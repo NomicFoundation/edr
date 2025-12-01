@@ -10,9 +10,9 @@ use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 use super::{CallMessage, CreateMessage, EvmStep, NestedTrace, NestedTraceStep, PrecompileMessage};
 use crate::exit_code::ExitCode;
 
-/// Error type for trace arena conversion.
+/// Error type for converting `CallTraceArena` to `NestedTrace`.
 #[derive(Clone, Debug, thiserror::Error)]
-pub enum TraceConversionError {
+pub enum CallTraceArenaConversionError {
     /// Invalid root node in call trace arena
     #[error("Invalid root node in call trace arena")]
     InvalidRootNode,
@@ -23,10 +23,10 @@ pub(super) fn convert_from_arena<HaltReasonT: HaltReasonTrait>(
     address_to_creation_code: &HashMap<Address, &Bytes>,
     address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
-) -> Result<NestedTrace<HaltReasonT>, TraceConversionError> {
+) -> Result<NestedTrace<HaltReasonT>, CallTraceArenaConversionError> {
     // Start conversion from the root node (index 0)
     if arena.nodes().is_empty() {
-        return Err(TraceConversionError::InvalidRootNode);
+        return Err(CallTraceArenaConversionError::InvalidRootNode);
     }
 
     convert_node(address_to_creation_code, address_to_runtime_code, arena, 0)
@@ -37,7 +37,7 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
     address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
     node_idx: usize,
-) -> Result<NestedTrace<HaltReasonT>, TraceConversionError> {
+) -> Result<NestedTrace<HaltReasonT>, CallTraceArenaConversionError> {
     let node = arena
         .nodes()
         .get(node_idx)

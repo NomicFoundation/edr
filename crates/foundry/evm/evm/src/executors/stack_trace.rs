@@ -6,7 +6,7 @@ use std::{
 use alloy_primitives::{Address, Bytes};
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
-    nested_trace::{conversion::TraceConversionError, NestedTrace},
+    nested_trace::{CallTraceArenaConversionError, NestedTrace},
     solidity_stack_trace::StackTraceEntry,
     solidity_tracer::{self, SolidityTracerError},
 };
@@ -32,7 +32,7 @@ pub enum StackTraceError<HaltReasonT> {
     #[error("Test setup unexpectedly failed during execution with revert reason: {0}")]
     FailingSetup(String),
     #[error(transparent)]
-    TraceConversion(#[from] TraceConversionError),
+    TraceConversion(#[from] CallTraceArenaConversionError),
     #[error(transparent)]
     Tracer(#[from] SolidityTracerError<HaltReasonT>),
     #[error(transparent)]
