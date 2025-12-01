@@ -1,5 +1,7 @@
 //! Naive Rust port of the `MessageTrace` et al. from Hardhat.
 
+mod conversion;
+
 use std::{collections::HashMap, sync::Arc};
 
 use derive_where::derive_where;
@@ -7,8 +9,6 @@ use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{Address, Bytes, U256};
 
 use crate::{build_model::ContractMetadata, exit_code::ExitCode};
-
-mod conversion;
 
 /// An EVM trace where the steps are nested according to the call stack.
 #[derive(Clone, Debug)]
