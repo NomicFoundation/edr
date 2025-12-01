@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{Address, Bytes, U160};
-use revm::interpreter::{InternalResult, SuccessOrHalt};
+use revm_interpreter::{InternalResult, SuccessOrHalt};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 
 use crate::{
@@ -182,7 +182,7 @@ fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTrait>(
 }
 
 fn is_calllike_op(step: &CallTraceStep) -> bool {
-    use revm::bytecode::opcode;
+    use revm_bytecode::opcode;
 
     matches!(
         step.op.get(),
