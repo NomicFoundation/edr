@@ -30,7 +30,6 @@ use core::fmt::Debug;
 
 use edr_chain_spec::{ChainSpec, HaltReasonTrait};
 use edr_primitives::HashSet;
-use edr_tracing::Trace;
 use lazy_static::lazy_static;
 
 pub use self::{
@@ -71,7 +70,7 @@ pub type ProviderResultWithTraces<T, ChainSpecT> = Result<
 #[derive(Clone, Debug)]
 pub struct ResponseWithTraces<HaltReasonT: HaltReasonTrait> {
     pub result: serde_json::Value,
-    pub traces: Vec<Trace<HaltReasonT>>,
+    pub traces: Vec<edr_solidity::nested_trace::NestedTrace<HaltReasonT>>,
 }
 
 fn to_json<
@@ -94,7 +93,7 @@ fn to_json_with_trace<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    value: (T, Trace<ChainSpecT::HaltReason>),
+    value: (T, edr_solidity::nested_trace::NestedTrace<ChainSpecT::HaltReason>),
 ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 

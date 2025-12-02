@@ -539,7 +539,7 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<Halt
 #[derive(Clone, Debug, thiserror::Error)]
 pub struct TransactionFailureWithTraces<HaltReasonT: HaltReasonTrait> {
     pub failure: TransactionFailure<HaltReasonT>,
-    pub traces: Vec<Trace<HaltReasonT>>,
+    pub traces: Vec<edr_solidity::nested_trace::NestedTrace<HaltReasonT>>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailureWithTraces<HaltReasonT> {
@@ -555,7 +555,7 @@ pub struct TransactionFailure<HaltReasonT: HaltReasonTrait> {
     pub reason: TransactionFailureReason<HaltReasonT>,
     pub data: String,
     #[serde(skip)]
-    pub solidity_trace: Trace<HaltReasonT>,
+    pub solidity_trace: edr_solidity::nested_trace::NestedTrace<HaltReasonT>,
     pub transaction_hash: Option<B256>,
 }
 

@@ -55,6 +55,41 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
     ) -> Result<Self, CallTraceArenaConversionError> {
         conversion::convert_from_arena(address_to_creation_code, address_to_runtime_code, arena)
     }
+
+    /// Converts a `CallTraceArena` to a `NestedTrace` by automatically extracting
+    /// code mappings from the arena.
+    ///
+    /// This is a convenience method that extracts creation and runtime code from
+    /// CREATE traces in the arena and then performs the conversion.
+    ///
+    /// # Arguments
+    ///
+    /// * `arena` - The call trace arena to convert
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the arena is empty or has an invalid root node.
+    pub fn from_call_trace_arena_with_extracted_code(
+        arena: &revm_inspectors::tracing::CallTraceArena,
+    ) -> Result<Self, CallTraceArenaConversionError> {
+        let mut address_to_creation_code = HashMap::new();
+        let mut address_to_runtime_code = HashMap::new();
+
+        // Extract code mappings from CREATE traces
+        for node in arena.nodes() {
+            let address = node.trace.address;
+            if node.trace.kind.is_any_create() {
+                address_to_creation_code.insert(address, &node.trace.data);
+                address_to_runtime_code.insert(address, &node.trace.output);
+            }
+        }
+
+        Self::from_call_trace_arena(
+            &address_to_creation_code,
+            &address_to_runtime_code,
+            arena,
+        )
+    }
 }
 
 /// Represents a precompile message.

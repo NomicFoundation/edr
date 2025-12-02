@@ -116,13 +116,13 @@ const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
 pub struct CallResult<HaltReasonT: HaltReasonTrait> {
     pub console_log_inputs: Vec<Bytes>,
     pub execution_result: ExecutionResult<HaltReasonT>,
-    pub trace: Trace<HaltReasonT>,
+    pub trace: edr_solidity::nested_trace::NestedTrace<HaltReasonT>,
 }
 
 #[derive(Clone)]
 pub struct EstimateGasResult<HaltReasonT: HaltReasonTrait> {
     pub estimation: u64,
-    pub traces: Vec<Trace<HaltReasonT>>,
+    pub traces: Vec<edr_solidity::nested_trace::NestedTrace<HaltReasonT>>,
 }
 
 /// Helper type for a chain-specific [`SendTransactionResult`].

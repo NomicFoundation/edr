@@ -14,8 +14,8 @@ use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReport
 use edr_database_components::DatabaseComponents;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
 use edr_state_api::State;
-use edr_tracing::TraceCollector;
 use revm_inspector::JournalExt;
+use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 
 use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
 
@@ -77,7 +77,8 @@ pub struct EvmObserver<HaltReasonT: HaltReasonTrait> {
     pub code_coverage: Option<CodeCoverageReporter>,
     pub console_logger: ConsoleLogCollector,
     pub mocker: Mocker,
-    pub trace_collector: TraceCollector<HaltReasonT>,
+    pub tracing_inspector: TracingInspector,
+    _phantom: std::marker::PhantomData<HaltReasonT>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> EvmObserver<HaltReasonT> {
@@ -87,12 +88,27 @@ impl<HaltReasonT: HaltReasonTrait> EvmObserver<HaltReasonT> {
             .on_collected_coverage_fn
             .map(CodeCoverageReporter::new);
 
+        let tracing_config = if config.verbose_raw_tracing {
+            TracingInspectorConfig::all()
+        } else {
+            TracingInspectorConfig::default_parity().set_steps(true)
+        };
+
         Self {
             code_coverage,
             console_logger: ConsoleLogCollector::default(),
             mocker: Mocker::new(config.call_override.clone()),
-            trace_collector: TraceCollector::new(config.verbose_raw_tracing),
+            tracing_inspector: TracingInspector::new(tracing_config),
+            _phantom: std::marker::PhantomData,
         }
+    }
+
+    /// Takes the tracing inspector and returns it, leaving a new one in its place
+    pub fn take_tracing_inspector(&mut self) -> TracingInspector {
+        std::mem::replace(
+            &mut self.tracing_inspector,
+            TracingInspector::new(TracingInspectorConfig::default_parity().set_steps(true)),
+        )
     }
 }
 
@@ -113,12 +129,15 @@ impl<
         if let Some(code_coverage) = &mut self.code_coverage {
             Inspector::<_, EthInterpreter>::call(&mut code_coverage.collector, context, inputs);
         }
-        self.trace_collector.call(context, inputs);
+        let result = Inspector::<_, EthInterpreter>::call(&mut self.tracing_inspector, context, inputs);
+        if result.is_some() {
+            return result;
+        }
         self.mocker.call(context, inputs)
     }
 
     fn call_end(&mut self, context: &mut ContextT, inputs: &CallInputs, outcome: &mut CallOutcome) {
-        self.trace_collector.call_end(context, inputs, outcome);
+        Inspector::<_, EthInterpreter>::call_end(&mut self.tracing_inspector, context, inputs, outcome);
     }
 
     fn create(
@@ -126,7 +145,7 @@ impl<
         context: &mut ContextT,
         inputs: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
-        self.trace_collector.create(context, inputs)
+        Inspector::<_, EthInterpreter>::create(&mut self.tracing_inspector, context, inputs)
     }
 
     fn create_end(
@@ -135,10 +154,10 @@ impl<
         inputs: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
-        self.trace_collector.create_end(context, inputs, outcome);
+        Inspector::<_, EthInterpreter>::create_end(&mut self.tracing_inspector, context, inputs, outcome);
     }
 
     fn step(&mut self, interp: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
-        self.trace_collector.step(interp, context);
+        Inspector::<_, EthInterpreter>::step(&mut self.tracing_inspector, interp, context);
     }
 }
