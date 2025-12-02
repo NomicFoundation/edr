@@ -1,8 +1,11 @@
 //! Types used for tracing EVM calls
 #![warn(missing_docs)]
 
+mod arena_conversion;
+
 use std::fmt::Debug;
 
+pub use arena_conversion::convert_arena_to_trace;
 use derive_where::derive_where;
 use edr_block_builder_api::WrapDatabaseRef;
 use edr_blockchain_api::BlockHashByNumber;

@@ -3172,6 +3172,7 @@ dependencies = [
  "paste",
  "rand 0.9.1",
  "revm-inspector",
+ "revm-inspectors",
  "rpds",
  "serde",
  "serde_json",
@@ -3709,6 +3710,7 @@ dependencies = [
  "edr_primitives",
  "edr_state_api",
  "revm-inspector",
+ "revm-inspectors",
 ]
 
 [[package]]
