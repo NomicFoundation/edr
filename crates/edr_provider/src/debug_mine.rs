@@ -21,7 +21,7 @@ pub struct DebugMineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlock
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction traces
-    pub transaction_traces: Vec<edr_solidity::nested_trace::NestedTrace<HaltReasonT>>,
+    pub transaction_traces: foundry_evm_traces::Traces,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
 }
@@ -33,7 +33,7 @@ impl<HaltReasonT: HaltReasonTrait, LocalBlockT>
     /// transaction traces, and decoded console log messages.
     pub fn new(
         result: BuiltBlockAndState<HaltReasonT, LocalBlockT>,
-        transaction_traces: Vec<edr_solidity::nested_trace::NestedTrace<HaltReasonT>>,
+        transaction_traces: foundry_evm_traces::Traces,
         console_log_decoded_messages: Vec<Bytes>,
     ) -> Self {
         Self {
@@ -63,7 +63,7 @@ pub struct DebugMineBlockResult<BlockT, HaltReasonT: HaltReasonTrait, SignedTran
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction traces
-    pub transaction_traces: Vec<edr_solidity::nested_trace::NestedTrace<HaltReasonT>>,
+    pub transaction_traces: foundry_evm_traces::Traces,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
     phantom: PhantomData<SignedTransactionT>,
@@ -76,7 +76,7 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
     pub fn new(
         block: BlockT,
         transaction_results: Vec<ExecutionResult<HaltReasonT>>,
-        transaction_traces: Vec<edr_solidity::nested_trace::NestedTrace<HaltReasonT>>,
+        transaction_traces: foundry_evm_traces::Traces,
         console_log_inputs: Vec<Bytes>,
     ) -> Self {
         Self {

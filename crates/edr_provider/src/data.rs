@@ -116,13 +116,13 @@ const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
 pub struct CallResult<HaltReasonT: HaltReasonTrait> {
     pub console_log_inputs: Vec<Bytes>,
     pub execution_result: ExecutionResult<HaltReasonT>,
-    pub trace: edr_solidity::nested_trace::NestedTrace<HaltReasonT>,
+    pub trace: foundry_evm_traces::Traces,
 }
 
 #[derive(Clone)]
 pub struct EstimateGasResult<HaltReasonT: HaltReasonTrait> {
     pub estimation: u64,
-    pub traces: Vec<edr_solidity::nested_trace::NestedTrace<HaltReasonT>>,
+    pub traces: foundry_evm_traces::Traces,
 }
 
 /// Helper type for a chain-specific [`SendTransactionResult`].

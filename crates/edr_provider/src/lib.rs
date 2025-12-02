@@ -70,7 +70,8 @@ pub type ProviderResultWithTraces<T, ChainSpecT> = Result<
 #[derive(Clone, Debug)]
 pub struct ResponseWithTraces<HaltReasonT: HaltReasonTrait> {
     pub result: serde_json::Value,
-    pub traces: Vec<edr_solidity::nested_trace::NestedTrace<HaltReasonT>>,
+    pub traces: foundry_evm_traces::Traces,
+    _phantom: std::marker::PhantomData<HaltReasonT>,
 }
 
 fn to_json<
@@ -85,6 +86,7 @@ fn to_json<
     Ok(ResponseWithTraces {
         result: response,
         traces: Vec::new(),
+        _phantom: std::marker::PhantomData,
     })
 }
 
@@ -99,7 +101,8 @@ fn to_json_with_trace<
 
     Ok(ResponseWithTraces {
         result: response,
-        traces: vec![value.1],
+        traces: value.1,
+        _phantom: std::marker::PhantomData,
     })
 }
 
@@ -115,5 +118,6 @@ fn to_json_with_traces<
     Ok(ResponseWithTraces {
         result: response,
         traces: value.1,
+        _phantom: std::marker::PhantomData,
     })
 }
