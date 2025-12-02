@@ -34,13 +34,15 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
 
     /// Converts a `CallTraceArena` from `revm_inspectors` into a `NestedTrace`.
     ///
-    /// This function bridges the gap between the halt-reason-agnostic `TracingInspector` and the
-    /// halt-reason-aware `NestedTrace` format.
+    /// This function bridges the gap between the halt-reason-agnostic
+    /// `TracingInspector` and the halt-reason-aware `NestedTrace` format.
     ///
     /// # Arguments
     ///
-    /// * `address_to_creation_code` - Mapping from contract addresses to their creation code
-    /// * `address_to_runtime_code` - Mapping from contract addresses to their runtime code
+    /// * `address_to_creation_code` - Mapping from contract addresses to their
+    ///   creation code
+    /// * `address_to_runtime_code` - Mapping from contract addresses to their
+    ///   runtime code
     /// * `arena` - The call trace arena to convert
     ///
     /// # Errors

@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{Address, Bytes, U160};
-use revm_interpreter::{InternalResult, SuccessOrHalt};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
+use revm_interpreter::{InternalResult, SuccessOrHalt};
 
 use super::{CallMessage, CreateMessage, EvmStep, NestedTrace, NestedTraceStep, PrecompileMessage};
 use crate::exit_code::ExitCode;
@@ -53,8 +53,12 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
             // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
             if let Some(call_id) = node.children.get(child_index).copied() {
                 child_index += 1;
-                let child_trace =
-                    convert_node(address_to_creation_code, address_to_runtime_code, arena, call_id)?;
+                let child_trace = convert_node(
+                    address_to_creation_code,
+                    address_to_runtime_code,
+                    arena,
+                    call_id,
+                )?;
                 steps.push(match child_trace {
                     NestedTrace::Create(msg) => NestedTraceStep::Create(msg),
                     NestedTrace::Call(msg) => NestedTraceStep::Call(msg),
@@ -103,14 +107,15 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
     }
 
     // Handle regular calls
-    // HACK: use address as code for contracts implemented in Rust (console/cheatcodes)
+    // HACK: use address as code for contracts implemented in Rust
+    // (console/cheatcodes)
     const CHEATCODE_ADDRESS: Address = Address::new([
-        0x71, 0x09, 0x70, 0x9E, 0xcf, 0xa9, 0x1a, 0x80, 0x62, 0x6f, 0xf3, 0x98, 0x9d, 0x68,
-        0xf6, 0x7f, 0x5b, 0x1d, 0xd1, 0x2d,
+        0x71, 0x09, 0x70, 0x9E, 0xcf, 0xa9, 0x1a, 0x80, 0x62, 0x6f, 0xf3, 0x98, 0x9d, 0x68, 0xf6,
+        0x7f, 0x5b, 0x1d, 0xd1, 0x2d,
     ]);
     const HARDHAT_CONSOLE_ADDRESS: Address = Address::new([
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x01,
     ]);
 
     let code = if trace.address == HARDHAT_CONSOLE_ADDRESS || trace.address == CHEATCODE_ADDRESS {
@@ -152,9 +157,7 @@ fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTrait>(
         SuccessOrHalt::FatalExternalError => ExitCode::FatalExternalError,
         SuccessOrHalt::Internal(result) => match result {
             InternalResult::CreateInitCodeStartingEF00 => ExitCode::CreateInitCodeStartingEF00,
-            InternalResult::InvalidExtDelegateCallTarget => {
-                ExitCode::InvalidExtDelegateCallTarget
-            }
+            InternalResult::InvalidExtDelegateCallTarget => ExitCode::InvalidExtDelegateCallTarget,
         },
     }
 }

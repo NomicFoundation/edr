@@ -134,7 +134,6 @@ pub fn get_stack_trace<
     }
 }
 
-
 /// The possible outcomes from computing stack traces.
 #[derive(Clone, Debug)]
 pub enum StackTraceResult<HaltReasonT> {
