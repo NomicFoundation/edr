@@ -100,17 +100,12 @@ impl EvmObserver {
         }
     }
 
-    /// Takes the tracing inspector and returns it, leaving a new one in its place
-    pub fn take_tracing_inspector(&mut self) -> TracingInspector {
-        std::mem::replace(
-            &mut self.tracing_inspector,
-            TracingInspector::new(TracingInspectorConfig::default_parity().set_steps(true)),
-        )
-    }
-
     /// Takes the tracing inspector and converts its arena to Traces
     pub fn take_traces(&mut self) -> foundry_evm_traces::Traces {
-        let inspector = self.take_tracing_inspector();
+        let inspector = std::mem::replace(
+            &mut self.tracing_inspector,
+            TracingInspector::new(TracingInspectorConfig::default_parity().set_steps(true)),
+        );
         let arena = inspector.into_traces();
 
         vec![(
