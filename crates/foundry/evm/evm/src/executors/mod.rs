@@ -586,7 +586,7 @@ impl<
             TransactionErrorT,
         >,
     > {
-        let calldata = Bytes::from(func.abi_encode_input(args)?);
+        let calldata = abi_encode_args(func, args)?;
         let result = self.call_raw(from, to, calldata, value)?;
         result.into_decoded_result(func, rd)
     }
@@ -660,7 +660,7 @@ impl<
             TransactionErrorT,
         >,
     > {
-        let calldata = Bytes::from(func.abi_encode_input(args)?);
+        let calldata = abi_encode_args(func, args)?;
         let result = self.transact_raw(from, to, calldata, value)?;
         result.into_decoded_result(func, rd)
     }
@@ -1805,4 +1805,32 @@ impl FuzzTestTimer {
         self.inner
             .is_some_and(|(start, duration)| start.elapsed() > duration)
     }
+}
+
+// Doesn't make sense to refactor. We could only hide the `EvmError` behind
+// custom `Result`.
+#[allow(clippy::type_complexity)]
+#[inline]
+fn abi_encode_args<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+>(
+    func: &Function,
+    args: &[DynSolValue],
+) -> Result<
+    Bytes,
+    EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+> {
+    let result = if args.is_empty() {
+        Bytes::from(func.selector())
+    } else {
+        // This is expensive even if `args` is empty.
+        Bytes::from(func.abi_encode_input(args)?)
+    };
+    Ok(result)
 }
