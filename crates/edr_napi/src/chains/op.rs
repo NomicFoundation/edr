@@ -136,7 +136,7 @@ pub fn op_hardfork_to_string(hardfork: OpHardfork) -> &'static str {
 /// The returned value will be updated after each network upgrade.
 #[napi(catch_unwind)]
 pub fn op_latest_hardfork() -> OpHardfork {
-    OpHardfork::Holocene
+    OpHardfork::Isthmus
 }
 
 #[napi]
