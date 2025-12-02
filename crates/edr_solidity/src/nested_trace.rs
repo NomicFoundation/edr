@@ -50,7 +50,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
         address_to_creation_code: &HashMap<Address, &Bytes>,
         address_to_runtime_code: &HashMap<Address, &Bytes>,
         arena: &revm_inspectors::tracing::CallTraceArena,
-    ) -> Result<Self, conversion::TraceConversionError> {
+    ) -> Result<Self, CallTraceArenaConversionError> {
         conversion::convert_from_arena(address_to_creation_code, address_to_runtime_code, arena)
     }
 }

@@ -3,7 +3,6 @@ use std::{
     collections::{HashMap, HashSet},
 };
 
-use alloy_primitives::{Address, Bytes};
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::{CallTraceArenaConversionError, NestedTrace},
