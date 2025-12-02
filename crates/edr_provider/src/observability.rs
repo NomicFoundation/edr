@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use edr_block_builder_api::WrapDatabaseRef;
 use edr_blockchain_api::BlockHashByNumber;
-use edr_chain_spec::HaltReasonTrait;
 use edr_chain_spec_evm::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, Interpreter,
@@ -73,15 +72,14 @@ impl From<&ObservabilityConfig> for EvmObserverConfig {
 
 /// An observer for the EVM that collects information about the execution by
 /// directly inspecting the EVM.
-pub struct EvmObserver<HaltReasonT: HaltReasonTrait> {
+pub struct EvmObserver {
     pub code_coverage: Option<CodeCoverageReporter>,
     pub console_logger: ConsoleLogCollector,
     pub mocker: Mocker,
     pub tracing_inspector: TracingInspector,
-    pub _phantom: std::marker::PhantomData<HaltReasonT>,
 }
 
-impl<HaltReasonT: HaltReasonTrait> EvmObserver<HaltReasonT> {
+impl EvmObserver {
     /// Creates a new instance with the provided configuration.
     pub fn new(config: EvmObserverConfig) -> Self {
         let code_coverage = config
@@ -99,7 +97,6 @@ impl<HaltReasonT: HaltReasonTrait> EvmObserver<HaltReasonT> {
             console_logger: ConsoleLogCollector::default(),
             mocker: Mocker::new(config.call_override.clone()),
             tracing_inspector: TracingInspector::new(tracing_config),
-            _phantom: std::marker::PhantomData,
         }
     }
 
@@ -134,9 +131,8 @@ impl<
                 Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
             >,
         >,
-        HaltReasonT: HaltReasonTrait,
         StateT: State<Error: std::error::Error>,
-    > Inspector<ContextT, EthInterpreter> for EvmObserver<HaltReasonT>
+    > Inspector<ContextT, EthInterpreter> for EvmObserver
 {
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
         self.console_logger.call(context, inputs);

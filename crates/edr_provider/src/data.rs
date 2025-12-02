@@ -1355,7 +1355,7 @@ where
             &mut ProviderData<ChainSpecT, TimerT>,
             &EvmConfig,
             HeaderOverrides<ChainSpecT::Hardfork>,
-            &mut EvmObserver<ChainSpecT::HaltReason>,
+            &mut EvmObserver,
         ) -> Result<
             BuiltBlockAndState<
                 ChainSpecT::HaltReason,
@@ -1416,7 +1416,7 @@ where
             &mut ProviderData<ChainSpecT, TimerT>,
             &EvmConfig,
             HeaderOverrides<ChainSpecT::Hardfork>,
-            &mut EvmObserver<ChainSpecT::HaltReason>,
+            &mut EvmObserver,
         ) -> Result<
             BuiltBlockAndState<
                 ChainSpecT::HaltReason,
@@ -1458,7 +1458,6 @@ where
             console_logger,
             mocker: _mocker,
             tracing_inspector,
-            _phantom,
         } = evm_observer;
 
         if let Some(code_coverage) = code_coverage {
@@ -1766,11 +1765,10 @@ where
     ) -> Result<DebugTraceResultWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
-        let mut evm_observer: EvmObserver<ChainSpecT::HaltReason> =
-            EvmObserver::new(EvmObserverConfig {
-                call_override: None,
-                ..EvmObserverConfig::from(&self.observability)
-            });
+        let mut evm_observer = EvmObserver::new(EvmObserverConfig {
+            call_override: None,
+            ..EvmObserverConfig::from(&self.observability)
+        });
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
 
         let custom_precompiles = self.precompile_overrides.clone();
@@ -1793,7 +1791,6 @@ where
                 console_logger: _console_logger,
                 mocker: _mocker,
                 tracing_inspector,
-                _phantom,
             } = evm_observer;
 
             if let Some(code_coverage) = code_coverage {
@@ -2186,8 +2183,7 @@ where
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let mut evm_observer: EvmObserver<ChainSpecT::HaltReason> =
-            EvmObserver::new(EvmObserverConfig::from(&self.observability));
+        let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
 
         let gas_report_args =
             self.observability
@@ -2219,7 +2215,6 @@ where
                 console_logger,
                 mocker: _mocker,
                 tracing_inspector,
-                _phantom,
             } = evm_observer;
 
             if let Some(code_coverage) = code_coverage {
@@ -2301,7 +2296,7 @@ where
         &mut self,
         evm_config: &EvmConfig,
         options: HeaderOverrides<ChainSpecT::Hardfork>,
-        evm_observer: &mut EvmObserver<ChainSpecT::HaltReason>,
+        evm_observer: &mut EvmObserver,
     ) -> Result<
         BuiltBlockAndState<ChainSpecT::HaltReason, <ChainSpecT as GenesisBlockFactory>::LocalBlock>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2331,7 +2326,7 @@ where
         evm_config: &EvmConfig,
         options: HeaderOverrides<ChainSpecT::Hardfork>,
         transaction: ChainSpecT::SignedTransaction,
-        evm_observer: &mut EvmObserver<ChainSpecT::HaltReason>,
+        evm_observer: &mut EvmObserver,
     ) -> Result<
         BuiltBlockAndState<ChainSpecT::HaltReason, <ChainSpecT as GenesisBlockFactory>::LocalBlock>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2594,8 +2589,7 @@ where
                 .initial_gas;
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let mut evm_observer: EvmObserver<ChainSpecT::HaltReason> =
-            EvmObserver::new(EvmObserverConfig::from(&self.observability));
+        let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
         let observer_config = EvmObserverConfig::from(&self.observability);
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
@@ -2619,7 +2613,6 @@ where
                 console_logger,
                 mocker: _mocker,
                 tracing_inspector,
-                _phantom,
             } = evm_observer;
 
             if let Some(code_coverage) = code_coverage {

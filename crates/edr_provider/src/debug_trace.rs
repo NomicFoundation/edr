@@ -58,8 +58,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
     for transaction in transactions {
         if transaction.transaction_hash() == transaction_hash {
             let mut eip3155_tracer = TracerEip3155::new(trace_config);
-            let mut evm_observer: EvmObserver<ChainSpecT::HaltReason> =
-                EvmObserver::new(observer_config);
+            let mut evm_observer = EvmObserver::new(observer_config);
 
             let ExecutionResultAndState { result, .. } =
                 dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
@@ -77,7 +76,6 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
                 console_logger: _console_logger,
                 mocker: _mocker,
                 tracing_inspector,
-                _phantom,
             } = evm_observer;
 
             if let Some(code_coverage) = code_coverage {
