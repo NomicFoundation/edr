@@ -78,7 +78,7 @@ pub struct EvmObserver<HaltReasonT: HaltReasonTrait> {
     pub console_logger: ConsoleLogCollector,
     pub mocker: Mocker,
     pub tracing_inspector: TracingInspector,
-    _phantom: std::marker::PhantomData<HaltReasonT>,
+    pub _phantom: std::marker::PhantomData<HaltReasonT>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> EvmObserver<HaltReasonT> {
@@ -109,6 +109,20 @@ impl<HaltReasonT: HaltReasonTrait> EvmObserver<HaltReasonT> {
             &mut self.tracing_inspector,
             TracingInspector::new(TracingInspectorConfig::default_parity().set_steps(true)),
         )
+    }
+
+    /// Takes the tracing inspector and converts its arena to Traces
+    pub fn take_traces(&mut self) -> foundry_evm_traces::Traces {
+        let inspector = self.take_tracing_inspector();
+        let arena = inspector.into_traces();
+
+        vec![(
+            foundry_evm_traces::TraceKind::Execution,
+            foundry_evm_traces::SparsedTraceArena {
+                arena,
+                ignored: Default::default(),
+            },
+        )]
     }
 }
 

@@ -22,7 +22,6 @@ use edr_primitives::{
 };
 use edr_runtime::inspector::DualInspector;
 use edr_state_api::{DynState, StateError};
-use edr_tracing::{Trace, TraceCollector};
 use revm_inspector::JournalExt;
 
 use crate::{
@@ -44,7 +43,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
     transaction_hash: &B256,
     observer_config: EvmObserverConfig,
 ) -> Result<
-    DebugTraceResultWithTraces<ChainSpecT::HaltReason>,
+    DebugTraceResultWithTraces,
     DebugTraceErrorForChainSpec<ChainSpecT>,
 > {
     let evm_spec_id = evm_config.spec.into();
@@ -59,7 +58,8 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
     for transaction in transactions {
         if transaction.transaction_hash() == transaction_hash {
             let mut eip3155_tracer = TracerEip3155::new(trace_config);
-            let mut evm_observer = EvmObserver::new(observer_config);
+            let mut evm_observer: EvmObserver<ChainSpecT::HaltReason> =
+                EvmObserver::new(observer_config);
 
             let ExecutionResultAndState { result, .. } =
                 dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
@@ -76,7 +76,8 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
                 code_coverage,
                 console_logger: _console_logger,
                 mocker: _mocker,
-                trace_collector,
+                tracing_inspector,
+                _phantom,
             } = evm_observer;
 
             if let Some(code_coverage) = code_coverage {
@@ -87,7 +88,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
 
             return Ok(execution_result_to_debug_result(
                 result,
-                trace_collector,
+                tracing_inspector,
                 eip3155_tracer,
             ));
         } else {
@@ -111,10 +112,17 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
 /// Convert an `ExecutionResult` to a `DebugTraceResult`.
 pub fn execution_result_to_debug_result<HaltReasonT: HaltReasonTrait>(
     execution_result: ExecutionResult<HaltReasonT>,
-    raw_tracer: TraceCollector<HaltReasonT>,
+    tracing_inspector: revm_inspectors::tracing::TracingInspector,
     eip3155_tracer: TracerEip3155,
-) -> DebugTraceResultWithTraces<HaltReasonT> {
-    let traces = raw_tracer.into_traces();
+) -> DebugTraceResultWithTraces {
+    let arena = tracing_inspector.into_traces();
+    let traces = vec![(
+        foundry_evm_traces::TraceKind::Execution,
+        foundry_evm_traces::SparsedTraceArena {
+            arena,
+            ignored: Default::default(),
+        },
+    )];
 
     let result = match execution_result {
         ExecutionResult::Success {
@@ -207,11 +215,11 @@ pub struct DebugTraceResult {
 }
 
 /// Result of a `debug_traceTransaction` call with traces.
-pub struct DebugTraceResultWithTraces<HaltReasonT: HaltReasonTrait> {
+pub struct DebugTraceResultWithTraces {
     /// The result of the transaction.
     pub result: DebugTraceResult,
     /// The raw traces of the debugged transaction.
-    pub traces: Vec<Trace<HaltReasonT>>,
+    pub traces: foundry_evm_traces::Traces,
 }
 
 /// The output of an EIP-3155 trace.

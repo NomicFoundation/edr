@@ -3162,6 +3162,7 @@ dependencies = [
  "edr_tracing",
  "edr_transaction",
  "edr_utils",
+ "foundry-evm-traces",
  "indexmap 2.9.0",
  "itertools 0.12.1",
  "k256",

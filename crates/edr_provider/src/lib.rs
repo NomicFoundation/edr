@@ -28,7 +28,6 @@ mod utils;
 
 use core::fmt::Debug;
 
-use edr_chain_spec::{ChainSpec, HaltReasonTrait};
 use edr_primitives::HashSet;
 use lazy_static::lazy_static;
 
@@ -63,15 +62,14 @@ lazy_static! {
 }
 
 pub type ProviderResultWithTraces<T, ChainSpecT> = Result<
-    (T, Vec<Trace<<ChainSpecT as ChainSpec>::HaltReason>>),
+    (T, foundry_evm_traces::Traces),
     ProviderErrorForChainSpec<ChainSpecT>,
 >;
 
 #[derive(Clone, Debug)]
-pub struct ResponseWithTraces<HaltReasonT: HaltReasonTrait> {
+pub struct ResponseWithTraces {
     pub result: serde_json::Value,
     pub traces: foundry_evm_traces::Traces,
-    _phantom: std::marker::PhantomData<HaltReasonT>,
 }
 
 fn to_json<
@@ -80,29 +78,12 @@ fn to_json<
     TimerT: Clone + TimeSinceEpoch,
 >(
     value: T,
-) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<ResponseWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {
         result: response,
         traces: Vec::new(),
-        _phantom: std::marker::PhantomData,
-    })
-}
-
-fn to_json_with_trace<
-    T: serde::Serialize,
-    ChainSpecT: ProviderSpec<TimerT>,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    value: (T, edr_solidity::nested_trace::NestedTrace<ChainSpecT::HaltReason>),
-) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
-    let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
-
-    Ok(ResponseWithTraces {
-        result: response,
-        traces: value.1,
-        _phantom: std::marker::PhantomData,
     })
 }
 
@@ -111,13 +92,12 @@ fn to_json_with_traces<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    value: (T, Vec<Trace<ChainSpecT::HaltReason>>),
-) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
+    value: (T, foundry_evm_traces::Traces),
+) -> Result<ResponseWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {
         result: response,
         traces: value.1,
-        _phantom: std::marker::PhantomData,
     })
 }

@@ -11,7 +11,7 @@ use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
 use edr_state_api::DynState;
-use edr_tracing::TraceCollector;
+use crate::observability::EvmObserver;
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
 
@@ -26,7 +26,7 @@ pub(super) struct CheckGasLimitArgs<'a, HaltReasonT: HaltReasonTrait, HardforkT,
     pub transaction: SignedTransactionT,
     pub gas_limit: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
+    pub observer: &'a mut EvmObserver<HaltReasonT>,
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
@@ -48,7 +48,7 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         mut transaction,
         gas_limit,
         custom_precompiles,
-        trace_collector,
+        observer,
     } = args;
 
     transaction.set_gas_limit(gas_limit);
@@ -60,7 +60,7 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         cfg_env,
         transaction,
         custom_precompiles,
-        trace_collector,
+        observer,
     )?;
 
     Ok(matches!(result, ExecutionResult::Success { .. }))
@@ -80,7 +80,7 @@ pub(super) struct BinarySearchEstimationArgs<
     pub lower_bound: u64,
     pub upper_bound: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
+    pub observer: &'a mut EvmObserver<HaltReasonT>,
 }
 
 /// Search for a tight upper bound on the gas limit that will allow the
@@ -107,7 +107,7 @@ pub(super) fn binary_search_estimation<
         mut lower_bound,
         mut upper_bound,
         custom_precompiles,
-        trace_collector,
+        observer,
     } = args;
 
     let mut i = 0;
@@ -129,7 +129,7 @@ pub(super) fn binary_search_estimation<
             transaction: transaction.clone(),
             gas_limit: mid,
             custom_precompiles,
-            trace_collector,
+            observer,
         })?;
 
         if success {

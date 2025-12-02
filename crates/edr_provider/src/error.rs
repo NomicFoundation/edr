@@ -25,7 +25,6 @@ use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
 use edr_solidity::contract_decoder::ContractDecoderError;
 use edr_state_api::StateError;
-use edr_tracing::Trace;
 use serde::Serialize;
 
 use crate::{
@@ -566,7 +565,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     >(
         execution_result: &ExecutionResult<HaltReasonT>,
         transaction_hash: Option<&B256>,
-        solidity_trace: &Trace<HaltReasonT>,
+        solidity_trace: &foundry_evm_traces::Traces,
     ) -> Option<TransactionFailure<HaltReasonT>> {
         match execution_result {
             ExecutionResult::Success { .. } => None,
@@ -586,7 +585,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn halt(
         reason: TransactionFailureReason<HaltReasonT>,
         tx_hash: Option<B256>,
-        solidity_trace: Trace<HaltReasonT>,
+        solidity_trace: foundry_evm_traces::Traces,
     ) -> Self {
         Self {
             reason,
@@ -599,7 +598,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn revert(
         output: Bytes,
         transaction_hash: Option<B256>,
-        solidity_trace: Trace<HaltReasonT>,
+        solidity_trace: foundry_evm_traces::Traces,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
         Self {

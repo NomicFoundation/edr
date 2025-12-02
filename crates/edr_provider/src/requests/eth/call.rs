@@ -4,7 +4,6 @@ use edr_primitives::Bytes;
 use edr_rpc_eth::StateOverrideOptions;
 use edr_runtime::{overrides::StateOverrides, transaction};
 use edr_signer::FakeSign as _;
-use edr_tracing::Trace;
 
 use crate::{
     data::ProviderData,
@@ -25,7 +24,7 @@ pub fn handle_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Trace<ChainSpecT::HaltReason>), ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<(Bytes, foundry_evm_traces::Traces), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
 
     let state_overrides =
@@ -49,7 +48,7 @@ pub fn handle_call_request<
         return Err(ProviderError::TransactionFailed(Box::new(
             TransactionFailureWithTraces {
                 failure,
-                traces: vec![result.trace],
+                traces: result.trace,
             },
         )));
     }
