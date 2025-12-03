@@ -3,7 +3,8 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
 import { bytesToHex, privateToAddress, toBytes } from "@ethereumjs/util";
-import Papa from "papaparse";
+import { parse } from "csv-parse/sync";
+import { stringify } from "csv-stringify/sync";
 import {
   EdrContext,
   L1_CHAIN_TYPE,
@@ -82,7 +83,7 @@ interface Scenario {
   config?: any;
 }
 
-async function main() {
+async function main(): Promise<boolean> {
   const parser = new ArgumentParser({
     description: "Scenario benchmark runner",
   });
@@ -150,13 +151,10 @@ async function main() {
     } else {
       await benchmarkAllScenarios(benchmarkOutputPath);
     }
-    await flushStdout();
   } else if (args.command === "verify-provider-benchmark") {
-    const success = await verify(benchmarkOutputPath);
-    process.exit(success ? 0 : 1);
+    return verify(benchmarkOutputPath);
   } else if (args.command === "report-provider-benchmark") {
     await report(benchmarkOutputPath);
-    await flushStdout();
   } else if (args.command === "solidity-tests-benchmark") {
     await runSolidityTestsBenchmark(benchmarkOutputPath);
   } else if (args.command === "solidity-tests") {
@@ -179,20 +177,20 @@ async function main() {
       console.log(csvResults);
     } else {
       console.error("Error: --repo is required for solidity-tests command");
-      process.exit(1);
+      return false;
     }
   } else if (args.command === "compare-forge") {
     if (args.csv_output === undefined) {
       console.error(
         "Error: --csv-output is required for compare-forge command"
       );
-      process.exit(1);
+      return false;
     }
     if (args.forge_path === undefined) {
       console.error(
         "Error: --forge-path is required for compare-forge command"
       );
-      process.exit(1);
+      return false;
     }
 
     if (args.repo !== undefined) {
@@ -219,7 +217,7 @@ async function main() {
   } else if (args.command === "report-forge") {
     if (args.csv_input === undefined) {
       console.error("Error: --csv-input is required for report-forge command");
-      process.exit(1);
+      return false;
     }
 
     const reportResults = await generateForgeReport(args.csv_input);
@@ -227,6 +225,7 @@ async function main() {
   } else {
     const _exhaustiveCheck: never = args.command;
   }
+  return true;
 }
 
 async function repoArgToRepoPath(
@@ -372,6 +371,7 @@ async function benchmarkAllScenarios(outPath: string) {
           // Pipe stdout, proxy the rest
           stdio: [process.stdin, "pipe", process.stderr],
           encoding: "utf-8",
+          maxBuffer: 100 * 1024 * 1024,
         });
         const resultFromStdout: any = JSON.parse(processResult.stdout);
         scenarioResults.push(resultFromStdout);
@@ -633,6 +633,7 @@ async function runSolidityTestsInSubprocess(repo: string): Promise<string> {
     timeout: 60 * 60 * 1000, // 1 hour timeout
     stdio: [process.stdin, "pipe", process.stderr],
     encoding: "utf-8",
+    maxBuffer: 100 * 1024 * 1024,
   });
 
   if (processResult.error !== undefined) {
@@ -670,13 +671,13 @@ async function runCompareTests(
     const edrResultsCsv = await runSolidityTestsInSubprocess(hardhatRepoPath);
 
     // Parse EDR CSV results
-    const edrParseResult = Papa.parse(edrResultsCsv, {
-      header: true,
-      skipEmptyLines: true,
+    const edrParseResult = parse(edrResultsCsv, {
+      columns: true,
+      skip_empty_lines: true,
     });
 
     // Add run number to each row
-    for (const row of edrParseResult.data as any[]) {
+    for (const row of edrParseResult as any[]) {
       allCsvData.push({
         ...row,
         runNumber: (i + 1).toString(),
@@ -688,13 +689,13 @@ async function runCompareTests(
     const forgeResultsCsv = await runForgeTests(forgeRepoPath, forgePath);
 
     // Parse Forge CSV results
-    const forgeParseResult = Papa.parse(forgeResultsCsv, {
-      header: true,
-      skipEmptyLines: true,
+    const forgeParseResult = parse(forgeResultsCsv, {
+      columns: true,
+      skip_empty_lines: true,
     });
 
     // Add run number to each row
-    for (const row of forgeParseResult.data as any[]) {
+    for (const row of forgeParseResult as any[]) {
       allCsvData.push({
         ...row,
         runNumber: (i + 1).toString(),
@@ -703,9 +704,9 @@ async function runCompareTests(
   }
 
   // Save merged results to the CSV file
-  const csvContent = Papa.unparse(allCsvData, { header: !append });
+  const csvContent = stringify(allCsvData, { header: !append });
   if (append) {
-    fs.appendFileSync(csvOutputPath, "\r\n");
+    fs.appendFileSync(csvOutputPath, "\n");
     fs.appendFileSync(csvOutputPath, csvContent);
   } else {
     fs.writeFileSync(csvOutputPath, csvContent);
@@ -750,19 +751,14 @@ interface CompareForgeRow {
 async function generateForgeReport(csvInputPath: string): Promise<string> {
   const csvContent = fs.readFileSync(csvInputPath, "utf-8");
 
-  const parseResult = Papa.parse<CompareForgeRow>(csvContent, {
-    header: true,
-    skipEmptyLines: true,
-  });
-
-  if (parseResult.errors.length > 0) {
-    throw new Error(
-      `CSV parsing errors: ${parseResult.errors.map((e) => e.message).join(", ")}`
-    );
-  }
+  const parseResult = parse(csvContent, {
+    columns: true,
+    skip_empty_lines: true,
+    skip_records_with_empty_values: true,
+  }) as CompareForgeRow[];
 
   // Parse data rows and filter only actual tests (rows with test names)
-  const testRows = parseResult.data.filter((row) => {
+  const testRows = parseResult.filter((row) => {
     // Only include rows that have a test name (exclude suite totals and overall totals)
     // and where the test succeeded
     return row.testName !== undefined && row.testName.trim() !== "";
@@ -771,6 +767,7 @@ async function generateForgeReport(csvInputPath: string): Promise<string> {
   // Group tests by test identification to calculate medians
   const testGroups = new Map<string, TestGroup>();
 
+  let i = 0;
   for (const row of testRows) {
     const testKey = `${row.repo}|${row.testSuiteSource}|${row.testSuiteName}|${row.testName}`;
 
@@ -793,8 +790,11 @@ async function generateForgeReport(csvInputPath: string): Promise<string> {
     } else if (row.executor === "forge") {
       group.forge.push(duration);
     } else {
-      throw new Error(`Unknown executor for row: '${row}'`);
+      throw new Error(
+        `Unknown executor for row ${i}: '${JSON.stringify(row)}'`
+      );
     }
+    i += 1;
   }
 
   const repoStats = new Map<string, RepoStats>();
@@ -881,7 +881,7 @@ async function generateForgeReport(csvInputPath: string): Promise<string> {
     });
   }
 
-  return Papa.unparse(reportRows);
+  return stringify(reportRows, { header: true });
 }
 
 function calculateMedianBigInt(values: bigint[]): bigint {
@@ -902,10 +902,12 @@ async function flushStdout() {
 }
 
 main()
-  .then(() => {
-    process.exit(0);
+  .then(async (success) => {
+    await flushStdout();
+    process.exit(success ? 0 : 1);
   })
-  .catch((error) => {
+  .catch(async (error) => {
     console.error(error);
+    await flushStdout();
     process.exit(1);
   });
