@@ -15,9 +15,6 @@ concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: true
 
-env:
-  SVM_RELEASES_LIST_JSON: ${{github.workspace}}/data/svm-releases-fallback.json
-
 jobs:
   check-edr-safety:
     name: Check EDR dependencies safety (${{ matrix.os }})
@@ -50,7 +47,6 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - run: echo $SVM_RELEASES_LIST_JSON
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
