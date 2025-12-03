@@ -2,13 +2,13 @@
 
 // Re-export types that are used in the macros as `$crate::...`
 pub use edr_chain_spec::{ChainSpec, ContextChainSpec};
+pub use edr_chain_spec_receipt::{ReceiptChainSpec, ReceiptConstructor};
+pub use edr_chain_spec_rpc::{RpcChainSpec, RpcTypeFrom};
 pub use edr_primitives::{Address, B256};
 pub use edr_receipt::{
     log::{FilterLog, FullBlockLog, ReceiptLog},
     MapReceiptLogs, TransactionReceipt,
 };
-pub use edr_receipt_spec::{ReceiptChainSpec, ReceiptConstructor};
-pub use edr_rpc_spec::{RpcChainSpec, RpcTypeFrom};
 
 /// Helper macro for testing serialization and deserialization roundtrips of
 /// execution receipts.

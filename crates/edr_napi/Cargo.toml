@@ -14,8 +14,14 @@ derive_more.workspace = true
 derive-where.workspace = true
 edr_block_header.workspace = true
 edr_block_miner.workspace = true
+edr_blockchain_fork.workspace = true
+edr_chain_config.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
+edr_chain_spec_block.workspace = true
+edr_chain_spec_evm.workspace = true
+edr_chain_spec_rpc.workspace = true
+edr_common.workspace = true
 edr_coverage.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
@@ -24,12 +30,13 @@ edr_generic.workspace = true
 edr_instrument.workspace = true
 edr_napi_core.workspace = true
 edr_op = { workspace = true, optional = true }
+edr_precompile.workspace = true
 edr_primitives.workspace = true
 edr_provider.workspace = true
 edr_receipt.workspace = true
 edr_rpc_client.workspace = true
-edr_rpc_spec.workspace = true
 edr_scenarios = { workspace = true, optional = true }
+edr_solidity_tests.workspace = true
 edr_state_api.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
@@ -71,16 +78,9 @@ tracing-subscriber = { version = "0.3.18", default-features = false, features = 
 ] }
 
 # Solidity tests
-edr_solidity_tests.workspace = true
 foundry-cheatcodes.workspace = true
 foundry-compilers.workspace = true
-edr_common.workspace = true
 tempfile = "3.10.1"
-edr_blockchain_fork.workspace = true
-edr_chain_spec_block.workspace = true
-edr_chain_config.workspace = true
-edr_precompile.workspace = true
-edr_evm_spec.workspace = true
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 openssl-sys = { version = "0.9.93", features = ["vendored"] }
@@ -106,7 +106,7 @@ tracing = [
     "edr_blockchain_fork/tracing",
     "edr_chain_l1/tracing",
     "edr_chain_spec_block/tracing",
-    "edr_evm_spec/tracing",
+    "edr_chain_spec_evm/tracing",
     "edr_gas_report/tracing",
     "edr_generic/tracing",
     "edr_napi_core/tracing",

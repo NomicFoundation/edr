@@ -1,6 +1,6 @@
 use edr_chain_l1::receipt::L1BlockReceipt;
+use edr_chain_spec_rpc::RpcTypeFrom;
 use edr_receipt::{AsExecutionReceipt as _, ExecutionReceipt as _, TransactionReceipt};
-use edr_rpc_spec::RpcTypeFrom;
 use edr_transaction::TransactionType as _;
 
 use crate::{

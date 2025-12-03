@@ -17,14 +17,6 @@
           "description": "No caller modification is currently active."
         },
         {
-          "name": "Broadcast",
-          "description": "A one time broadcast triggered by a `vm.broadcast()` call is currently active."
-        },
-        {
-          "name": "RecurrentBroadcast",
-          "description": "A recurrent broadcast triggered by a `vm.startBroadcast()` call is currently active."
-        },
-        {
           "name": "Prank",
           "description": "A one time prank triggered by a `vm.prank()` call is currently active."
         },
@@ -269,32 +261,6 @@
           "name": "created",
           "ty": "uint256",
           "description": "The creation time listed in this metadata."
-        }
-      ]
-    },
-    {
-      "name": "Wallet",
-      "description": "A wallet with a public and private key.",
-      "fields": [
-        {
-          "name": "addr",
-          "ty": "address",
-          "description": "The wallet's address."
-        },
-        {
-          "name": "publicKeyX",
-          "ty": "uint256",
-          "description": "The wallet's public key `X`."
-        },
-        {
-          "name": "publicKeyY",
-          "ty": "uint256",
-          "description": "The wallet's public key `Y`."
-        },
-        {
-          "name": "privateKey",
-          "ty": "uint256",
-          "description": "The wallet's private key."
         }
       ]
     },
@@ -5601,7 +5567,7 @@
     {
       "func": {
         "id": "isContext",
-        "description": "Returns true if `forge` command was executed in given context.",
+        "description": "Returns true if the test was executed in given context.",
         "declaration": "function isContext(ExecutionContext context) external view returns (bool result);",
         "visibility": "external",
         "mutability": "view",

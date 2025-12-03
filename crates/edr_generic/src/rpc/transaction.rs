@@ -1,7 +1,7 @@
 use edr_block_api::Block;
 use edr_chain_l1::rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature};
+use edr_chain_spec_rpc::{RpcTransaction, RpcTypeFrom};
 use edr_primitives::B256;
-use edr_rpc_spec::{RpcTransaction, RpcTypeFrom};
 use edr_transaction::{BlockDataForTransaction, SignedTransaction as _, TransactionAndBlock};
 use serde::{Deserialize, Serialize};
 

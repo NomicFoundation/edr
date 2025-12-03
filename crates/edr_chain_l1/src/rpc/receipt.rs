@@ -1,9 +1,9 @@
 //! L1 Ethereum JSON-RPC receipt types
+use edr_chain_spec_rpc::RpcTypeFrom;
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
     log::FilterLog, AsExecutionReceipt as _, ExecutionReceipt as _, TransactionReceipt,
 };
-use edr_rpc_spec::RpcTypeFrom;
 use edr_transaction::TransactionType as _;
 use serde::{Deserialize, Serialize};
 

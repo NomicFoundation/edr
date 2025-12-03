@@ -1,6 +1,6 @@
 use edr_chain_l1::{receipt::L1BlockReceipt, rpc::receipt::L1RpcTransactionReceipt};
+use edr_chain_spec_rpc::RpcTypeFrom;
 use edr_receipt::{log::FilterLog, AsExecutionReceipt as _};
-use edr_rpc_spec::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
 use crate::eip2718::TypedEnvelope;

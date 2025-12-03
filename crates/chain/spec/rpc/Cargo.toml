@@ -1,5 +1,5 @@
 [package]
-name = "edr_rpc_spec"
+name = "edr_chain_spec_rpc"
 version.workspace = true
 edition.workspace = true
 
