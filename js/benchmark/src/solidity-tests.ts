@@ -20,7 +20,7 @@ import path from "path";
 import { simpleGit } from "simple-git";
 import { exec } from "child_process";
 import { promisify } from "util";
-import Papa from "papaparse";
+import { stringify } from "csv-stringify/sync";
 
 const execAsync = promisify(exec);
 import {
@@ -67,8 +67,8 @@ interface RepoData {
 // The external repos are patched with a Hardhat 3 config and to make sure that results are comparable (e.g. by setting fuzz seeds for both HH3 and Foundry or explicitly setting the solc version).
 export const REPOS: Record<string, RepoData> = {
   "forge-std": {
-    url: "https://github.com/NomicFoundation/forge-std.git",
-    commit: "a3dca253700f19f15b1837c57c67b9388f5cc3fb",
+    url: "https://github.com/foundry-rs/forge-std.git",
+    commit: "3f999523613ab5454a5c4ae4abeaa8ea2ba7bcae",
     // Some tests for cheatcodes not supported by EDR have been commented out.
     // Tests that write files on disk have been edited for improved reliability.
     patchFile: "forge-std.patch",
@@ -294,8 +294,8 @@ function generateCsvResults(
     executor: "edr",
   });
 
-  // Convert to CSV string using papaparse
-  return Papa.unparse(csvData);
+  // Convert to CSV string
+  return stringify(csvData, { header: true });
 }
 
 function normalizeSuiteResultSource(source: string): string {
@@ -407,8 +407,8 @@ function generateForgeTestCsvResults(
     executor: "forge",
   });
 
-  // Convert to CSV string using papaparse
-  return Papa.unparse(csvData);
+  // Convert to CSV string
+  return stringify(csvData, { header: true });
 }
 
 function extractTestSuiteName(suitePath: string): string {
@@ -650,14 +650,16 @@ async function createSolidityTestsInput(repoPath: string) {
 
   const { artifacts, testSuiteIds, tracingConfig } =
     await buildSolidityTestsInput(hre);
-  const solidityTestsConfig = solidityTestConfigToSolidityTestRunnerConfigArgs(
-    "l1",
-    repoPath,
-    userConfig.solidityTest,
-    /* verbosity */ 0,
-    /* observability */ undefined,
-    /* testPattern */ undefined
-  );
+  const solidityTestsConfig =
+    await solidityTestConfigToSolidityTestRunnerConfigArgs({
+      chainType: "l1",
+      projectRoot: repoPath,
+      config: userConfig.solidityTest,
+      verbosity: 0,
+      observability: undefined,
+      testPattern: undefined,
+      generateGasReport: false,
+    });
   // Temporary workaround for `testFuzz_AssumeNotPrecompile` in forge-std which assumes no predeploys on mainnet.
   solidityTestsConfig.localPredeploys = undefined;
 
