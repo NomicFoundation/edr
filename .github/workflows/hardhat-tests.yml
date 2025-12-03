@@ -9,6 +9,9 @@ on:
       - "**"
   workflow_dispatch:
 
+env:
+  SVM_RELEASES_LIST_JSON: ${{github.workspace}}/data/svm-releases-fallback.json
+
 jobs:
   run-hardhat-tests:
     name: Run Hardhat tests (${{ matrix.os }}, Node ${{ matrix.node }})
