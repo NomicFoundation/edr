@@ -19,6 +19,11 @@ env:
   SVM_RELEASES_LIST_JSON: ${GITHUB_WORKSPACE}/data/svm-releases-fallback.json
 
 jobs:
+  test-sth:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo $SVM_RELEASES_LIST_JSON
+
   check-edr-safety:
     name: Check EDR dependencies safety (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
