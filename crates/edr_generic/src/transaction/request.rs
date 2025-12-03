@@ -97,7 +97,10 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT>
 
         let chain_id = data.chain_id_at_block_spec(block_spec)?;
         let sender = from.unwrap_or_else(|| data.default_caller());
-        let gas_limit = gas.unwrap_or_else(|| data.block_gas_limit());
+        let gas_limit = gas.unwrap_or_else(|| {
+            data.transaction_gas_cap()
+                .unwrap_or_else(|| data.block_gas_limit())
+        });
         let input = input.map_or(Bytes::new(), Bytes::from);
         let nonce = data.nonce(&sender, Some(block_spec), state_overrides)?;
         let value = value.unwrap_or(U256::ZERO);
@@ -202,7 +205,10 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1RpcTransactionRequest, TimerT
         } = value;
 
         let chain_id = chain_id.unwrap_or_else(|| data.chain_id());
-        let gas_limit = gas.unwrap_or_else(|| data.block_gas_limit());
+        let gas_limit = gas.unwrap_or_else(|| {
+            data.transaction_gas_cap()
+                .unwrap_or_else(|| data.block_gas_limit())
+        });
         let input = input.map_or(Bytes::new(), Into::into);
         let nonce = nonce.map_or_else(|| data.account_next_nonce(&from), Ok)?;
         let value = value.unwrap_or(U256::ZERO);

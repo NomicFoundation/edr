@@ -147,6 +147,7 @@ describe("Code coverage", () => {
       );
 
       const transactionHash = JSON.parse(sendTransactionResponse.data).result;
+      assert.isDefined(transactionHash, "Transaction failed");
 
       const transactionReceiptResponse = await provider.handleRequest(
         JSON.stringify({
