@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SVM_RELEASES_LIST_JSON: ${GITHUB_WORKSPACE}/data/svm-releases-fallback.json
+  SVM_RELEASES_LIST_JSON: ${{github.workspace}}/data/svm-releases-fallback.json
 
 jobs:
   test-sth:
