@@ -109,7 +109,10 @@ mod alchemy {
             .await
             .expect_err("should have failed");
 
-        assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
+        assert!(
+            matches!(error, RpcClientError::JsonRpcError { .. }),
+            "Unexpected error: {error:?}"
+        );
     }
 
     #[tokio::test]
