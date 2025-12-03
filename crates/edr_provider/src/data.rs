@@ -1491,7 +1491,7 @@ where
             foundry_evm_traces::TraceKind::Execution,
             foundry_evm_traces::SparsedTraceArena {
                 arena,
-                ignored: Default::default(),
+                ignored: HashMap::default(),
             },
         )];
         let console_log_inputs = console_logger.into_encoded_messages();
@@ -2245,7 +2245,7 @@ where
                 foundry_evm_traces::TraceKind::Execution,
                 foundry_evm_traces::SparsedTraceArena {
                     arena,
-                    ignored: Default::default(),
+                    ignored: HashMap::default(),
                 },
             )];
             let console_log_inputs = console_logger.into_encoded_messages();
@@ -2626,7 +2626,7 @@ where
                 foundry_evm_traces::TraceKind::Execution,
                 foundry_evm_traces::SparsedTraceArena {
                     arena,
-                    ignored: Default::default(),
+                    ignored: HashMap::default(),
                 },
             )];
             let console_log_inputs = console_logger.into_encoded_messages();

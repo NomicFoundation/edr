@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::fmt::Debug;
 
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
@@ -18,7 +18,7 @@ use edr_chain_spec_evm::{
 use edr_evm::{dry_run_with_inspector, run};
 use edr_primitives::{
     bytecode::opcode::{self, OpCode},
-    hex, Address, Bytes, B256, U256,
+    hex, Address, Bytes, HashMap, B256, U256,
 };
 use edr_runtime::inspector::DualInspector;
 use edr_state_api::{DynState, StateError};
@@ -118,7 +118,7 @@ pub fn execution_result_to_debug_result<HaltReasonT: HaltReasonTrait>(
         foundry_evm_traces::TraceKind::Execution,
         foundry_evm_traces::SparsedTraceArena {
             arena,
-            ignored: Default::default(),
+            ignored: HashMap::default(),
         },
     )];
 

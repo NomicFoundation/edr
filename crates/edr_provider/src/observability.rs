@@ -12,6 +12,7 @@ use edr_chain_spec_evm::{
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_database_components::DatabaseComponents;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
+use edr_primitives::HashMap;
 use edr_state_api::State;
 use revm_inspector::JournalExt;
 use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
@@ -112,7 +113,7 @@ impl EvmObserver {
             foundry_evm_traces::TraceKind::Execution,
             foundry_evm_traces::SparsedTraceArena {
                 arena,
-                ignored: Default::default(),
+                ignored: HashMap::default(),
             },
         )]
     }
