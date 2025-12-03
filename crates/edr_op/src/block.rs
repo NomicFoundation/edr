@@ -1,6 +1,7 @@
 mod builder;
 
 pub use builder::decode_base_params;
+pub use builder::decode_min_base_fee;
 use edr_block_local::EthLocalBlock;
 use edr_chain_spec::ChainSpec;
 use edr_chain_spec_block::BlockChainSpec;

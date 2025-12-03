@@ -40,7 +40,7 @@ use revm_context::{result::EVMError, CfgEnv, Journal, JournalTr as _};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    block::{decode_base_params, LocalBlock, OpBlockBuilder},
+    block::{decode_base_params, decode_min_base_fee, LocalBlock, OpBlockBuilder},
     eip1559::encode_dynamic_base_fee_params,
     eip2718::TypedEnvelope,
     hardfork::{op_chain_configs, op_default_base_fee_params},
@@ -229,7 +229,8 @@ impl GenesisBlockFactory for OpChainSpec {
                     .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
-                Some(encode_dynamic_base_fee_params(base_fee_params))
+                // TODO: should we allow user to configure min_base_fee?
+                Some(encode_dynamic_base_fee_params(base_fee_params, Some(0)))
             });
         }
 
@@ -264,6 +265,26 @@ pub(crate) fn op_base_fee_params_for_block(
     }
 }
 
+pub(crate) fn op_next_base_fee(
+    parent_header: &BlockHeader,
+    hardfork: Hardfork,
+    base_fee_params: &BaseFeeParams<Hardfork>,
+) -> u128 {
+    let base_fee_per_gas =
+        calculate_next_base_fee_per_gas(parent_header, base_fee_params, hardfork);
+    if hardfork >= Hardfork::JOVIAN {
+        let min_base_fee = decode_min_base_fee(&parent_header.extra_data)
+            .expect("Jovian should have min base fee defined in extra data");
+        if base_fee_per_gas < min_base_fee {
+            min_base_fee
+        } else {
+            base_fee_per_gas
+        }
+    } else {
+        base_fee_per_gas
+    }
+}
+
 impl ProviderChainSpec for OpChainSpec {
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
 
@@ -282,13 +303,14 @@ impl ProviderChainSpec for OpChainSpec {
     ) -> u128 {
         let block_base_fee_params = op_base_fee_params_for_block(header, hardfork);
 
-        calculate_next_base_fee_per_gas(
+        op_next_base_fee(
             header,
+            hardfork,
             block_base_fee_params
                 .as_ref()
                 .unwrap_or(default_base_fee_params),
-            hardfork,
         )
+        
     }
 }
 
