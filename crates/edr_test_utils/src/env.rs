@@ -37,6 +37,7 @@ pub enum NetworkType {
     Optimism,
     Arbitrum,
     Polygon,
+    Avalanche,
 }
 
 /// Return the URL of a specific network Alchemy from environment variables.
@@ -56,5 +57,6 @@ pub fn get_alchemy_url_for_network(network_type: NetworkType) -> String {
         NetworkType::Optimism => format!("https://opt-mainnet{url_without_network}"),
         NetworkType::Arbitrum => format!("https://arb-mainnet{url_without_network}"),
         NetworkType::Polygon => format!("https://polygon-mainnet{url_without_network}"),
+        NetworkType::Avalanche => format!("https://avax-mainnet{url_without_network}"),
     }
 }

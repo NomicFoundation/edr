@@ -10,7 +10,7 @@ use edr_provider::spec::ForkedBlockchainForChainSpec;
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::{irregular::IrregularState, AccountModifierFn, StateDebug};
 use edr_state_fork::ForkedState;
-use edr_test_utils::env::get_alchemy_url;
+use edr_test_utils::env::{get_alchemy_url, get_alchemy_url_for_network, NetworkType};
 use edr_utils::random::RandomHashGenerator;
 use parking_lot::Mutex;
 use tokio::runtime;
@@ -53,8 +53,8 @@ async fn issue_336_set_balance_after_forking() -> anyhow::Result<()> {
 async fn issue_hh_4974_forking_avalanche_c_chain() -> anyhow::Result<()> {
     const FORK_BLOCK_NUMBER: u64 = 12_508_443;
 
-    let url = "https://coston-api.flare.network/ext/bc/C/rpc";
-    let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(url, CACHE_DIR.into(), None)?;
+    let url = get_alchemy_url_for_network(NetworkType::Avalanche);
+    let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(&url, CACHE_DIR.into(), None)?;
     let mut irregular_state = IrregularState::default();
     let state_root_generator = Arc::new(Mutex::new(RandomHashGenerator::with_seed("test")));
 
