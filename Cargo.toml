@@ -443,8 +443,3 @@ useless_transmute = "warn"
 verbose_file_reads = "warn"
 wildcard-imports = "warn"
 zero_sized_map_values = "warn"
-
-# Patch svm-rs to a specific commit to avoid issue <https://github.com/alloy-rs/svm-rs/issues/177>
-[patch.crates-io]
-svm-rs-builds = { git = "https://github.com/alloy-rs/svm-rs", rev = "ee99800a8a1b803263fcc12fe3ed8c059e2302c4" }
-svm-rs = { git = "https://github.com/alloy-rs/svm-rs", rev = "ee99800a8a1b803263fcc12fe3ed8c059e2302c4" }

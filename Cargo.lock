@@ -8020,8 +8020,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "svm-rs"
-version = "0.5.21"
-source = "git+https://github.com/alloy-rs/svm-rs?rev=ee99800a8a1b803263fcc12fe3ed8c059e2302c4#ee99800a8a1b803263fcc12fe3ed8c059e2302c4"
+version = "0.5.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "909e8ff825120cd2b34ceb236ab72e2a7f74b1d3a86c247936c8ff7a80c5d408"
 dependencies = [
  "const-hex",
  "dirs",
@@ -8038,8 +8039,9 @@ dependencies = [
 
 [[package]]
 name = "svm-rs-builds"
-version = "0.5.21"
-source = "git+https://github.com/alloy-rs/svm-rs?rev=ee99800a8a1b803263fcc12fe3ed8c059e2302c4#ee99800a8a1b803263fcc12fe3ed8c059e2302c4"
+version = "0.5.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1ebe77b200f965e8dbec3ef1d8337e974179ca1ecaa9fc28f67288d6b438159"
 dependencies = [
  "const-hex",
  "semver 1.0.26",
