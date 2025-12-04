@@ -112,7 +112,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
                     .at_condition(hardfork, next_block_number)
                     .expect("Chain spec must have base fee params for post-London hardforks");
                 // TODO: instead of decoding min_base_fee from parent extra data we should get
-                // the info from OP chain config analogously to base_fee_params
+                // the info from OP chain config analogously to base_fee_params?
                 encode_dynamic_base_fee_params(
                     extra_data_base_fee_params,
                     decode_min_base_fee(&parent_header.extra_data),
@@ -136,8 +136,8 @@ impl<'builder, BlockchainErrorT: std::error::Error>
         }
 
         if hardfork >= Hardfork::JOVIAN {
-            // since Jovian hardfork base_fee calculation in OP stacks differs from standard
-            // EVM calculation
+            // Need to override `base_fee` field since from Jovian hardfork OP stack differs
+            // from standard EVM calculation.
             overrides.base_fee = overrides.base_fee.or_else(|| {
                 overrides.base_fee_params.as_ref().map(|base_fee_params| {
                     op_next_base_fee(parent_header, hardfork, base_fee_params)
@@ -277,7 +277,7 @@ pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
                 ConstantBaseFeeParams{max_change_denominator, elasticity_multiplier}
         }
         _ => panic!(
-            "Unsupported base fee params version: {version}. Expected up to {JOVIAN_BASE_FEE_PARAM_VERSION}."
+            "Unsupported base fee params version: {version}. Maximum expected version: {JOVIAN_BASE_FEE_PARAM_VERSION}."
         )
     }
 }
@@ -299,7 +299,7 @@ pub fn decode_min_base_fee(extra_data: &Bytes) -> Option<u128> {
             Some(min_base_fee)
         },
         _ => panic!(
-            "Unsupported base fee params version: {version:?}. Expected up to {JOVIAN_BASE_FEE_PARAM_VERSION}."
+            "Unsupported base fee params version: {version:?}. Maximum expected version: {JOVIAN_BASE_FEE_PARAM_VERSION}."
         )
 }
 }

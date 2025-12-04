@@ -229,7 +229,8 @@ impl GenesisBlockFactory for OpChainSpec {
                     .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
-                // TODO: should we allow user to configure min_base_fee?
+                // TODO: once EDR fully supports Jovian, should allow user to configure
+                // min_base_fee?
                 let min_base_fee = if block_config.hardfork >= Hardfork::JOVIAN {
                     Some(0)
                 } else {
@@ -273,6 +274,10 @@ pub(crate) fn op_base_fee_params_for_block(
     }
 }
 
+/// Calculate next `base_fee` for OP stack block
+///
+/// If Jovian is activated, clamps the standard EVM calculation result to the
+/// minimum encoded in `extra_data` field See <https://specs.optimism.io/protocol/jovian/exec-engine.html#minimum-base-fee-in-block-header>
 pub(crate) fn op_next_base_fee(
     parent_header: &BlockHeader,
     hardfork: Hardfork,

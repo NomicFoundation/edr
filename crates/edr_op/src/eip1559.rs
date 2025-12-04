@@ -9,6 +9,7 @@ pub const JOVIAN_BASE_FEE_PARAM_VERSION: u8 = 0x1;
 /// Encodes the dynamic base fee parameters into a byte array.
 ///
 /// <https://specs.optimism.io/protocol/holocene/exec-engine.html#dynamic-eip-1559-parameters>
+/// <https://specs.optimism.io/protocol/jovian/exec-engine.html#minimum-base-fee-in-block-header>
 pub fn encode_dynamic_base_fee_params(
     base_fee_params: &ConstantBaseFeeParams,
     min_base_fee: Option<u128>,
