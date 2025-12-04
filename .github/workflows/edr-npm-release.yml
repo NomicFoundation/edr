@@ -120,13 +120,15 @@ jobs:
 
       - name: Install dependencies (non-Windows)
         if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
-        run: sfw pnpm install --frozen-lockfile --prefer-offline
+        run: |
+          sfw pnpm install --frozen-lockfile --prefer-offline
+          sfw cargo check
 
       # SFW doesn't install dependencies correctly on Windows
       # https://github.com/NomicFoundation/edr/issues/1199
       - name: Install dependencies (Windows)
         if: ${{ !matrix.settings.docker && runner.os == 'Windows' }}
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
@@ -151,6 +153,7 @@ jobs:
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
             npm i -g sfw
+            sfw cargo check
             sfw pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
 
@@ -176,7 +179,8 @@ jobs:
 
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
-            pnpm install --frozen-lockfile --prefer-offline
+            npm i -g sfw
+            sfw pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
 
       - name: Upload artifact
