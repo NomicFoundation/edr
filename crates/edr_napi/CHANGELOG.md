@@ -1,5 +1,13 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.17
+
+### Patch Changes
+
+- 5e3968d: Changed latest OP stack hardfork to Isthmus
+- 5e3968d: Changed latest L1 hardfork to Osaka
+- 5e3968d: Fixed default transaction gas limit for post-Osaka hardforks in OP stack and generic chains
+
 ## 0.12.0-next.16
 
 ### Minor Changes
