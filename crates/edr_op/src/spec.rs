@@ -230,7 +230,15 @@ impl GenesisBlockFactory for OpChainSpec {
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
                 // TODO: should we allow user to configure min_base_fee?
-                Some(encode_dynamic_base_fee_params(base_fee_params, Some(0)))
+                let min_base_fee = if block_config.hardfork >= Hardfork::JOVIAN {
+                    Some(0)
+                } else {
+                    None
+                };
+                Some(encode_dynamic_base_fee_params(
+                    base_fee_params,
+                    min_base_fee,
+                ))
             });
         }
 
@@ -310,7 +318,6 @@ impl ProviderChainSpec for OpChainSpec {
                 .as_ref()
                 .unwrap_or(default_base_fee_params),
         )
-        
     }
 }
 
