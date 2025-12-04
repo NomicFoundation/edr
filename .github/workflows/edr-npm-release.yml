@@ -97,7 +97,7 @@ jobs:
         uses: dtolnay/rust-toolchain@0f44b27771c32bda9f458f75a1e241b09791b331 # latest main commit (2025-11-17)
         if: ${{ !matrix.settings.docker }}
         with:
-          toolchain: stable
+          toolchain: "1.89.0"
           targets: ${{ matrix.settings.target }}
           components: rust-src
 
@@ -122,6 +122,7 @@ jobs:
         if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
         run: |
           sfw pnpm install --frozen-lockfile --prefer-offline
+          rustup set auto-self-update disable
           sfw cargo check
 
       # SFW doesn't install dependencies correctly on Windows
