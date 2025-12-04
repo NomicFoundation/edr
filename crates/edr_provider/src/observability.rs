@@ -135,15 +135,12 @@ impl<
         if let Some(code_coverage) = &mut self.code_coverage {
             Inspector::<_, EthInterpreter>::call(&mut code_coverage.collector, context, inputs);
         }
-        let result = Inspector::<_, EthInterpreter>::call(&mut self.tracing_inspector, context, inputs);
-        if result.is_some() {
-            return result;
-        }
+        self.tracing_inspector.call(context, inputs);
         self.mocker.call(context, inputs)
     }
 
     fn call_end(&mut self, context: &mut ContextT, inputs: &CallInputs, outcome: &mut CallOutcome) {
-        Inspector::<_, EthInterpreter>::call_end(&mut self.tracing_inspector, context, inputs, outcome);
+        self.tracing_inspector.call_end(context, inputs, outcome);
     }
 
     fn create(
@@ -151,7 +148,7 @@ impl<
         context: &mut ContextT,
         inputs: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
-        Inspector::<_, EthInterpreter>::create(&mut self.tracing_inspector, context, inputs)
+        self.tracing_inspector.create(context, inputs)
     }
 
     fn create_end(
@@ -160,10 +157,10 @@ impl<
         inputs: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
-        Inspector::<_, EthInterpreter>::create_end(&mut self.tracing_inspector, context, inputs, outcome);
+        self.tracing_inspector.create_end(context, inputs, outcome);
     }
 
     fn step(&mut self, interp: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
-        Inspector::<_, EthInterpreter>::step(&mut self.tracing_inspector, interp, context);
+        self.tracing_inspector.step(interp, context);
     }
 }

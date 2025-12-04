@@ -22,6 +22,7 @@ use edr_primitives::{
 };
 use edr_runtime::inspector::DualInspector;
 use edr_state_api::{DynState, StateError};
+use foundry_evm_traces::SparsedTraceArena;
 use revm_inspector::JournalExt;
 
 use crate::{
@@ -42,10 +43,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
     observer_config: EvmObserverConfig,
-) -> Result<
-    DebugTraceResultWithTraces,
-    DebugTraceErrorForChainSpec<ChainSpecT>,
-> {
+) -> Result<DebugTraceResultWithTraces, DebugTraceErrorForChainSpec<ChainSpecT>> {
     let evm_spec_id = evm_config.spec.into();
     if evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
@@ -217,7 +215,7 @@ pub struct DebugTraceResultWithTraces {
     /// The result of the transaction.
     pub result: DebugTraceResult,
     /// The raw traces of the debugged transaction.
-    pub traces: foundry_evm_traces::Traces,
+    pub traces: Vec<SparsedTraceArena>,
 }
 
 /// The output of an EIP-3155 trace.

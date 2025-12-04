@@ -1,6 +1,10 @@
 use edr_chain_spec::EvmHaltReason;
 use edr_napi_core::spec::SolidityTraceData;
 use edr_solidity::contract_decoder::NestedTraceDecoder as _;
+use edr_solidity_tests::{
+    executors::stack_trace::{get_stack_trace, StackTraceResult},
+    traces::TraceKind,
+};
 use napi::Either;
 use napi_derive::napi;
 
@@ -11,11 +15,11 @@ use crate::{
 
 #[napi]
 pub struct Response {
-    inner: edr_napi_core::spec::Response<EvmHaltReason>,
+    inner: edr_napi_core::spec::Response,
 }
 
-impl From<edr_napi_core::spec::Response<EvmHaltReason>> for Response {
-    fn from(value: edr_napi_core::spec::Response<EvmHaltReason>) -> Self {
+impl From<edr_napi_core::spec::Response> for Response {
+    fn from(value: edr_napi_core::spec::Response) -> Self {
         Self { inner: value }
     }
 }
@@ -39,6 +43,12 @@ impl Response {
         else {
             return Ok(None);
         };
+
+        let result = StackTraceResult::from(get_stack_trace(
+            contract_decoder.as_ref(),
+            &[(TraceKind::Execution, trace)],
+        ));
+
         let nested_trace = edr_solidity::nested_tracer::convert_trace_messages_to_nested_trace(
             trace.as_ref().clone(),
         )

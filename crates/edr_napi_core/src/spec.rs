@@ -8,29 +8,32 @@ use edr_provider::{
 };
 use edr_rpc_client::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity_tests::{
+    executors::stack_trace::{get_stack_trace, StackTraceResult},
+    traces::SparsedTraceArena,
+};
 use edr_tracing::Trace;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use napi::{Either, Status};
 
 pub type ResponseData = Either<String, serde_json::Value>;
 
-pub struct Response<HaltReasonT: HaltReasonTrait> {
+pub struct Response {
     // N-API is known to be slow when marshalling `serde_json::Value`s, so we try to return a
     // `String`. If the object is too large to be represented as a `String`, we return a `Buffer`
     // instead.
     pub data: ResponseData,
-    /// When a transaction fails to execute, the provider returns a trace of the
-    /// transaction.
+    /// When a transaction fails to execute, the provider returns a stack trace
+    /// of the transaction.
     ///
-    /// Only present for L1 Ethereum chains.
-    pub solidity_trace: Option<SolidityTraceData<HaltReasonT>>,
+    /// If the heuristic failed the vec is set but emtpy.
+    /// Error if there was an error computing the stack trace.
+    pub solidity_trace: Option<StackTraceResult<String>>,
     /// This may contain zero or more traces, depending on the (batch) request
-    ///
-    /// Always empty for non-L1 Ethereum chains.
-    pub traces: Vec<Arc<Trace<HaltReasonT>>>,
+    pub traces: Vec<SparsedTraceArena>,
 }
 
-impl<HaltReasonT: HaltReasonTrait> From<String> for Response<HaltReasonT> {
+impl From<String> for Response {
     fn from(value: String) -> Self {
         Response {
             data: Either::A(value),
@@ -38,12 +41,6 @@ impl<HaltReasonT: HaltReasonTrait> From<String> for Response<HaltReasonT> {
             traces: Vec::new(),
         }
     }
-}
-
-#[derive(Debug)]
-pub struct SolidityTraceData<HaltReasonT: HaltReasonTrait> {
-    pub trace: Arc<Trace<HaltReasonT>>,
-    pub contract_decoder: Arc<ContractDecoder>,
 }
 
 /// Trait for a defining a chain's associated type in the N-API.
@@ -78,23 +75,33 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
         contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Response<EvmHaltReason>> {
         // We can take the solidity trace as it won't be used for anything else
-        let solidity_trace: Option<Arc<Trace<EvmHaltReason>>> =
-            response.as_mut().err().and_then(|error| {
-                if let edr_provider::ProviderError::TransactionFailed(failure) = error {
-                    if matches!(
-                        failure.failure.reason,
-                        edr_provider::TransactionFailureReason::OutOfGas(_)
-                    ) {
-                        None
-                    } else {
-                        Some(Arc::new(std::mem::take(
-                            &mut failure.failure.solidity_trace,
-                        )))
-                    }
-                } else {
+        let solidity_trace = response.as_mut().err().and_then(|error| {
+            if let edr_provider::ProviderError::TransactionFailed(failure) = error {
+                if matches!(
+                    failure.failure.reason,
+                    edr_provider::TransactionFailureReason::OutOfGas(_)
+                ) {
                     None
+                } else {
+                    let trace = std::mem::take(&mut failure.failure.solidity_trace);
+
+                    let result =
+                        StackTraceResult::from(get_stack_trace::<edr_chain_l1::HaltReason, _>(
+                            contract_decoder.as_ref(),
+                            &[(TraceKind::Execution, trace)],
+                        ));
+
+                    let result = result.map_halt_reason(|halt_reason: HaltReasonT| {
+                        serde_json::to_string(&halt_reason)
+                            .expect("Failed to serialize halt reason")
+                    });
+
+                    Some(result)
                 }
-            });
+            } else {
+                None
+            }
+        });
 
         // We can take the traces as they won't be used for anything else
         let traces = match &mut response {
@@ -107,17 +114,10 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
 
         let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
 
-        marshal_response_data(response).map(|data| {
-            let solidity_trace = solidity_trace.map(|solidity_trace| SolidityTraceData {
-                trace: solidity_trace,
-                contract_decoder,
-            });
-
-            Response {
-                solidity_trace,
-                data,
-                traces: traces.into_iter().map(Arc::new).collect(),
-            }
+        marshal_response_data(response).map(|data| Response {
+            solidity_trace,
+            data,
+            traces,
         })
     }
 }
@@ -139,9 +139,20 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
                     ) {
                         None
                     } else {
-                        Some(Arc::new(std::mem::take(
-                            &mut failure.failure.solidity_trace,
-                        )))
+                        let trace = std::mem::take(&mut failure.failure.solidity_trace);
+
+                        let result =
+                            StackTraceResult::from(get_stack_trace::<edr_chain_l1::HaltReason, _>(
+                                contract_decoder.as_ref(),
+                                &[(TraceKind::Execution, trace)],
+                            ));
+
+                        let result = result.map_halt_reason(|halt_reason: HaltReasonT| {
+                            serde_json::to_string(&halt_reason)
+                                .expect("Failed to serialize halt reason")
+                        });
+
+                        Some(result)
                     }
                 } else {
                     None
@@ -159,17 +170,10 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
 
         let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
 
-        marshal_response_data(response).map(|data| {
-            let solidity_trace = solidity_trace.map(|solidity_trace| SolidityTraceData {
-                trace: solidity_trace,
-                contract_decoder,
-            });
-
-            Response {
-                solidity_trace,
-                data,
-                traces: traces.into_iter().map(Arc::new).collect(),
-            }
+        marshal_response_data(response).map(|data| Response {
+            solidity_trace,
+            data,
+            traces,
         })
     }
 }

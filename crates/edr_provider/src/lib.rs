@@ -29,6 +29,7 @@ mod utils;
 use core::fmt::Debug;
 
 use edr_primitives::HashSet;
+use foundry_evm_traces::SparsedTraceArena;
 use lazy_static::lazy_static;
 
 pub use self::{
@@ -61,15 +62,13 @@ lazy_static! {
         ["hardhat_setLoggingEnabled",].into_iter().collect();
 }
 
-pub type ProviderResultWithTraces<T, ChainSpecT> = Result<
-    (T, foundry_evm_traces::Traces),
-    ProviderErrorForChainSpec<ChainSpecT>,
->;
+pub type ProviderResultWithTraces<T, ChainSpecT> =
+    Result<(T, Traces), ProviderErrorForChainSpec<ChainSpecT>>;
 
 #[derive(Clone, Debug)]
 pub struct ResponseWithTraces {
     pub result: serde_json::Value,
-    pub traces: foundry_evm_traces::Traces,
+    pub traces: Traces,
 }
 
 fn to_json<
@@ -87,12 +86,27 @@ fn to_json<
     })
 }
 
+fn to_json_with_trace<
+    T: serde::Serialize,
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    value: (T, SparsedTraceArena),
+) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
+    let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
+
+    Ok(ResponseWithTraces {
+        result: response,
+        traces: vec![value.1],
+    })
+}
+
 fn to_json_with_traces<
     T: serde::Serialize,
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    value: (T, foundry_evm_traces::Traces),
+    value: (T, Vec<SparsedTraceArena>),
 ) -> Result<ResponseWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 

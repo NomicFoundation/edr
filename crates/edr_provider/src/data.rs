@@ -67,6 +67,7 @@ use edr_transaction::{
     TransactionAndBlock, TransactionMut, TransactionType, TxKind,
 };
 use edr_utils::{random::RandomHashGenerator, CastArcInto};
+use foundry_evm_traces::SparsedTraceArena;
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
@@ -115,13 +116,13 @@ const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
 pub struct CallResult<HaltReasonT: HaltReasonTrait> {
     pub console_log_inputs: Vec<Bytes>,
     pub execution_result: ExecutionResult<HaltReasonT>,
-    pub trace: foundry_evm_traces::Traces,
+    pub trace: SparsedTraceArena,
 }
 
 #[derive(Clone)]
 pub struct EstimateGasResult {
     pub estimation: u64,
-    pub traces: foundry_evm_traces::Traces,
+    pub traces: Vec<SparsedTraceArena>,
 }
 
 /// Helper type for a chain-specific [`SendTransactionResult`].
@@ -148,12 +149,12 @@ impl<
         self.mining_results.iter().find_map(|result| {
             izip!(
                 result.block.transactions().iter(),
-                result.transaction_results.iter()
+                result.transaction_results.iter(),
+                result.transaction_traces.iter()
             )
-            .find_map(|(transaction, exec_result)| {
+            .find_map(|(transaction, exec_result, trace)| {
                 if *transaction.transaction_hash() == self.transaction_hash {
-                    // Return the execution result and the traces for the entire block
-                    Some((exec_result, &result.transaction_traces))
+                    Some((exec_result, trace))
                 } else {
                     None
                 }
@@ -164,7 +165,7 @@ impl<
 
 impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
     From<SendTransactionResult<BlockT, HaltReasonT, SignedTransactionT>>
-    for (B256, foundry_evm_traces::Traces)
+    for (B256, Vec<SparsedTraceArena>)
 {
     fn from(value: SendTransactionResult<BlockT, HaltReasonT, SignedTransactionT>) -> Self {
         let SendTransactionResult {
@@ -184,7 +185,7 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
 /// The result of executing a transaction.
 pub type ExecutionResultAndTrace<'provider, HaltReasonT> = (
     &'provider ExecutionResult<HaltReasonT>,
-    &'provider foundry_evm_traces::Traces,
+    &'provider SparsedTraceArena,
 );
 
 pub struct ProviderData<
@@ -2487,10 +2488,7 @@ where
         &mut self,
         transaction_hash: &B256,
         trace_config: DebugTraceConfig,
-    ) -> Result<
-        DebugTraceResultWithTraces,
-        ProviderErrorForChainSpec<ChainSpecT>,
-    > {
+    ) -> Result<DebugTraceResultWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
         let block = self
             .blockchain
             .block_by_transaction_hash(transaction_hash)?
@@ -2579,8 +2577,7 @@ where
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         block_spec: &BlockSpec,
-    ) -> Result<EstimateGasResult, ProviderErrorForChainSpec<ChainSpecT>>
-    {
+    ) -> Result<EstimateGasResult, ProviderErrorForChainSpec<ChainSpecT>> {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
         // Minimum gas cost that is required for transaction to be included in
         // a block
@@ -2633,11 +2630,9 @@ where
 
             let mut initial_estimation = match result {
                 ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
-                ExecutionResult::Revert { output, .. } => Err(TransactionFailure::revert(
-                    output,
-                    None,
-                    traces.clone(),
-                )),
+                ExecutionResult::Revert { output, .. } => {
+                    Err(TransactionFailure::revert(output, None, traces.clone()))
+                }
                 ExecutionResult::Halt { reason, .. } => Err(TransactionFailure::halt(
                     ChainSpecT::cast_halt_reason(reason),
                     None,
@@ -2699,10 +2694,7 @@ where
                 })?;
 
             let traces = observer.take_traces();
-            Ok(EstimateGasResult {
-                estimation,
-                traces,
-            })
+            Ok(EstimateGasResult { estimation, traces })
         })?
     }
 }

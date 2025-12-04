@@ -538,7 +538,7 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<Halt
 #[derive(Clone, Debug, thiserror::Error)]
 pub struct TransactionFailureWithTraces<HaltReasonT: HaltReasonTrait> {
     pub failure: TransactionFailure<HaltReasonT>,
-    pub traces: foundry_evm_traces::Traces,
+    pub traces: Vec<SparsedTraceArena>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailureWithTraces<HaltReasonT> {
@@ -554,7 +554,7 @@ pub struct TransactionFailure<HaltReasonT: HaltReasonTrait> {
     pub reason: TransactionFailureReason<HaltReasonT>,
     pub data: String,
     #[serde(skip)]
-    pub solidity_trace: foundry_evm_traces::Traces,
+    pub solidity_trace: SparsedTraceArena,
     pub transaction_hash: Option<B256>,
 }
 
@@ -565,7 +565,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     >(
         execution_result: &ExecutionResult<HaltReasonT>,
         transaction_hash: Option<&B256>,
-        solidity_trace: &foundry_evm_traces::Traces,
+        solidity_trace: &SparsedTraceArena,
     ) -> Option<TransactionFailure<HaltReasonT>> {
         match execution_result {
             ExecutionResult::Success { .. } => None,
@@ -585,7 +585,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn halt(
         reason: TransactionFailureReason<HaltReasonT>,
         tx_hash: Option<B256>,
-        solidity_trace: foundry_evm_traces::Traces,
+        solidity_trace: SparsedTraceArena,
     ) -> Self {
         Self {
             reason,
@@ -598,7 +598,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn revert(
         output: Bytes,
         transaction_hash: Option<B256>,
-        solidity_trace: foundry_evm_traces::Traces,
+        solidity_trace: SparsedTraceArena,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
         Self {

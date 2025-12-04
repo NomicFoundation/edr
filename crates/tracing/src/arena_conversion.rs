@@ -43,7 +43,7 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
     verbose: bool,
 ) {
     let nodes = arena.nodes();
-    let node = &nodes[node_idx];
+    let node = nodes.get(node_idx).expect("node index should be valid");
     let trace = &node.trace;
 
     // Emit Before message

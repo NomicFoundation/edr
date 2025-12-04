@@ -28,7 +28,7 @@ use foundry_evm::{
             check_sequence, replay_error, replay_run, InvariantConfig, InvariantExecutor,
             InvariantFuzzError, ReplayErrorArgs, ReplayResult, ReplayRunArgs,
         },
-        stack_trace::{get_stack_trace, StackTraceError, StackTraceResult},
+        stack_trace::{get_stack_trace_from_traces, StackTraceError, StackTraceResult},
         CallResult, EvmError, Executor, ExecutorBuilder, ITest, RawCallResult,
     },
     fuzz::{
@@ -553,7 +553,7 @@ impl<
 
             setup.stack_trace_result = if executor.tracer_records_steps() {
                 // We collected steps during setup, so we can generate the stack trace
-                get_stack_trace(&*self.contract_decoder, &setup.traces)
+                get_stack_trace_from_traces(&*self.contract_decoder, &setup.traces)
                     .transpose()
                     .map(Into::into)
             } else if let Some(indeterminism_reasons) = setup.indeterminism_reasons.as_ref() {
@@ -566,7 +566,7 @@ impl<
                 executor.set_tracing(TracingMode::WithSteps);
                 let setup_for_stack_traces = self.setup(&mut executor, call_setup);
 
-                get_stack_trace(&*self.contract_decoder, &setup_for_stack_traces.traces)
+                get_stack_trace_from_traces(&*self.contract_decoder, &setup_for_stack_traces.traces)
                     .transpose()
                     .map(Into::into)
             };
@@ -838,7 +838,7 @@ impl<
         self.result.stack_trace_result = if !success {
             let stack_trace_result: StackTraceResult<HaltReasonT> =
                 if self.executor.tracer_records_steps() {
-                    get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
+                    get_stack_trace_from_traces(&*self.cr.contract_decoder, &self.result.traces)
                         .transpose()
                         .expect("traces are not empty")
                         .into()
@@ -987,7 +987,7 @@ impl<
 
                 let stack_trace_result: StackTraceResult<HaltReasonT> =
                     if self.executor.tracer_records_steps() {
-                        get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
+                        get_stack_trace_from_traces(&*self.cr.contract_decoder, &self.result.traces)
                             .transpose()
                             .expect("traces are not empty")
                             .into()
@@ -1140,7 +1140,7 @@ impl<
 
                 let stack_trace_result: StackTraceResult<HaltReasonT> =
                     if self.executor.tracer_records_steps() {
-                        get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
+                        get_stack_trace_from_traces(&*self.cr.contract_decoder, &self.result.traces)
                             .transpose()
                             .expect("traces are not empty")
                             .into()
@@ -1322,7 +1322,7 @@ impl<
         {
             let stack_trace_result: StackTraceResult<_> = if fuzzed_executor.tracer_records_steps()
             {
-                get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
+                get_stack_trace_from_traces(&*self.cr.contract_decoder, &self.result.traces)
                     .transpose()
                     .expect("traces are not empty")
                     .into()
@@ -1470,7 +1470,7 @@ impl<
         let mut traces = setup.traces;
         traces.push((TraceKind::Execution, new_traces));
 
-        get_stack_trace(&*self.cr.contract_decoder, &traces)
+        get_stack_trace_from_traces(&*self.cr.contract_decoder, &traces)
             .transpose()
             .expect("traces are not empty")
     }
@@ -1533,7 +1533,7 @@ fn re_run_fuzz_counterexample_for_stack_traces<
     let mut traces = setup.traces;
     traces.push((TraceKind::Execution, call.traces.expect("tracing is on")));
 
-    get_stack_trace(&*contract_runner.contract_decoder, &traces)
+    get_stack_trace_from_traces(&*contract_runner.contract_decoder, &traces)
         .transpose()
         .expect("traces are not empty")
 }
