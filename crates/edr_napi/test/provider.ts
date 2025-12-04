@@ -19,6 +19,7 @@ import {
   opProviderFactory,
   opHardforkToString,
   OpHardfork,
+  SpecId,
 } from "..";
 import {
   collectMessages,
@@ -503,6 +504,8 @@ describe("Provider", () => {
         genesisState: providerConfig.genesisState.concat(
           l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
         ),
+        // Use a pre-Osaka hardfork to ensure the precompile is not available by default
+        hardfork: l1HardforkToString(SpecId.Prague),
         ...(enabled ? { precompileOverrides: [precompileP256Verify()] } : {}),
       },
       loggerConfig,

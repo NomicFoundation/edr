@@ -238,7 +238,7 @@ pub fn l1_hardfork_to_string(harfork: SpecId) -> &'static str {
 /// The returned value will be updated after each network upgrade.
 #[napi]
 pub fn l1_hardfork_latest() -> SpecId {
-    SpecId::Prague
+    SpecId::Osaka
 }
 
 macro_rules! export_spec_id {
