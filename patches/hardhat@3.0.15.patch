@@ -1,0 +1,163 @@
+diff --git a/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js b/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js
+index 65e0a2e59f500cb8b424dd3ac038fb2b32f1db9f..c8ba3a149503daaecb7e8328b8560d996d8e6a4b 100644
+--- a/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js
++++ b/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js
+@@ -1,4 +1,4 @@
+-import { opGenesisState, opHardforkFromString, l1GenesisState, l1HardforkFromString, ContractDecoder, } from "@nomicfoundation/edr";
++import { l1GenesisState, l1HardforkFromString, ContractDecoder, } from "@nomicfoundation/edr";
+ import { assertHardhatInvariant, HardhatError, } from "@nomicfoundation/hardhat-errors";
+ import { toSeconds } from "@nomicfoundation/hardhat-utils/date";
+ import { ensureError } from "@nomicfoundation/hardhat-utils/error";
+@@ -263,7 +263,7 @@ export async function getProviderConfig(networkConfig, coverageConfig, gasReport
+     const chainGenesisState = networkConfig.forking !== undefined
+         ? [] // TODO: Add support for overriding remote fork state when the local fork is different
+         : networkConfig.chainType === OPTIMISM_CHAIN_TYPE
+-            ? opGenesisState(opHardforkFromString(specId))
++            ? []
+             : l1GenesisState(l1HardforkFromString(specId));
+     for (const account of chainGenesisState) {
+         const existingOverride = genesisState.get(account.address);
+diff --git a/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js b/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js
+index c01bfaecf5ec69b8b48311ac3b3f619cfecb5ebf..9d1f1f03dcf98f036c5534b24baa0f092085b455 100644
+--- a/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js
++++ b/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js
+@@ -1,4 +1,4 @@
+-import { MineOrdering, FRONTIER, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, BEDROCK, REGOLITH, CANYON, ECOTONE, FJORD, GRANITE, HOLOCENE, ISTHMUS, GasReportExecutionStatus, } from "@nomicfoundation/edr";
++import { MineOrdering, FRONTIER, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, GasReportExecutionStatus, } from "@nomicfoundation/edr";
+ import { getUnprefixedHexString } from "@nomicfoundation/hardhat-utils/hex";
+ import { GENERIC_CHAIN_TYPE, L1_CHAIN_TYPE, OPTIMISM_CHAIN_TYPE, } from "../../../../constants.js";
+ import { FixedValueConfigurationVariable } from "../../../../core/configuration-variables.js";
+diff --git a/dist/src/internal/builtin-plugins/solidity-test/helpers.js b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
+index 90b3cb13ed8e14becab9357b0b2ed632623c77ba..dfce62935a65e8bc38973ff64b15214e680fc7cd 100644
+--- a/dist/src/internal/builtin-plugins/solidity-test/helpers.js
++++ b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
+@@ -1,4 +1,4 @@
+-import { opGenesisState, opLatestHardfork, l1GenesisState, l1HardforkLatest, IncludeTraces, FsAccessPermission, CollectStackTraces, } from "@nomicfoundation/edr";
++import { l1GenesisState, l1HardforkLatest, IncludeTraces, FsAccessPermission, CollectStackTraces, } from "@nomicfoundation/edr";
+ import { hexStringToBytes } from "@nomicfoundation/hardhat-utils/hex";
+ import chalk from "chalk";
+ import { DEFAULT_VERBOSITY, OPTIMISM_CHAIN_TYPE } from "../../constants.js";
+@@ -44,7 +44,7 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({ chainTy
+         ? undefined
+         : hexStringToBuffer(config.coinbase);
+     const localPredeploys = chainType === OPTIMISM_CHAIN_TYPE
+-        ? opGenesisState(opLatestHardfork())
++        ? []
+         : l1GenesisState(l1HardforkLatest());
+     let includeTraces = IncludeTraces.None;
+     if (verbosity >= 5) {
+@@ -65,7 +65,12 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({ chainTy
+     if (config.forking?.rpcEndpoints !== undefined) {
+         rpcEndpoints = {};
+         for (const [name, configValue] of Object.entries(config.forking.rpcEndpoints)) {
+-            rpcEndpoints[name] = await configValue.get();
++            // We don't have the variable resolver in EDR
++            try {
++                rpcEndpoints[name] = await configValue.get();
++            } catch (e) {
++                rpcEndpoints[name] = configValue;
++            }
+         }
+     }
+     const shouldAlwaysCollectStackTraces = verbosity > DEFAULT_VERBOSITY;
+diff --git a/dist/src/internal/edr/chain-type.js b/dist/src/internal/edr/chain-type.js
+index 6c688f1ca9ff94bb76d2b07664d4fea61c12b841..bfdeb49f54248b4a66e4a118a66e94e6a146d0d2 100644
+--- a/dist/src/internal/edr/chain-type.js
++++ b/dist/src/internal/edr/chain-type.js
+@@ -1,4 +1,4 @@
+-import { OP_CHAIN_TYPE as EDR_OP_CHAIN_TYPE, L1_CHAIN_TYPE as EDR_L1_CHAIN_TYPE, GENERIC_CHAIN_TYPE as EDR_GENERIC_CHAIN_TYPE, } from "@nomicfoundation/edr";
++import { L1_CHAIN_TYPE as EDR_L1_CHAIN_TYPE, GENERIC_CHAIN_TYPE as EDR_GENERIC_CHAIN_TYPE, } from "@nomicfoundation/edr";
+ import { GENERIC_CHAIN_TYPE, L1_CHAIN_TYPE, OPTIMISM_CHAIN_TYPE, } from "../constants.js";
+ export function isSupportedChainType(chainType) {
+     return (chainType === GENERIC_CHAIN_TYPE ||
+@@ -7,7 +7,7 @@ export function isSupportedChainType(chainType) {
+ }
+ export function hardhatChainTypeToEdrChainType(chainType) {
+     if (chainType === OPTIMISM_CHAIN_TYPE) {
+-        return EDR_OP_CHAIN_TYPE;
++        return "foo";
+     }
+     if (chainType === L1_CHAIN_TYPE) {
+         return EDR_L1_CHAIN_TYPE;
+diff --git a/dist/src/internal/edr/context.js b/dist/src/internal/edr/context.js
+index 1af68872b3801d4a6c9384d2ac79a7113a6ab9e6..12ddc1192efc69f2e49f8d3a11066a49d5ed069e 100644
+--- a/dist/src/internal/edr/context.js
++++ b/dist/src/internal/edr/context.js
+@@ -1,13 +1,13 @@
+-import { EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1ProviderFactory, l1SolidityTestRunnerFactory, OP_CHAIN_TYPE, opProviderFactory, opSolidityTestRunnerFactory, } from "@nomicfoundation/edr";
++import { EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1ProviderFactory, l1SolidityTestRunnerFactory } from "@nomicfoundation/edr";
+ let _globalEdrContext;
+ export async function getGlobalEdrContext() {
+     if (_globalEdrContext === undefined) {
+         _globalEdrContext = new EdrContext();
+         await _globalEdrContext.registerProviderFactory(GENERIC_CHAIN_TYPE, genericChainProviderFactory());
+         await _globalEdrContext.registerProviderFactory(L1_CHAIN_TYPE, l1ProviderFactory());
+-        await _globalEdrContext.registerProviderFactory(OP_CHAIN_TYPE, opProviderFactory());
++        // await _globalEdrContext.registerProviderFactory(OP_CHAIN_TYPE, opProviderFactory());
+         await _globalEdrContext.registerSolidityTestRunnerFactory(L1_CHAIN_TYPE, l1SolidityTestRunnerFactory());
+-        await _globalEdrContext.registerSolidityTestRunnerFactory(OP_CHAIN_TYPE, opSolidityTestRunnerFactory());
++        // await _globalEdrContext.registerSolidityTestRunnerFactory(OP_CHAIN_TYPE, opSolidityTestRunnerFactory());
+     }
+     return _globalEdrContext;
+ }
+diff --git a/package.json b/package.json
+index 2cd2c84d5f55cc0cd1281384547dcdd8a1bba9a6..38e43c5249542f03650248aa1f0841232cc1bfbd 100644
+--- a/package.json
++++ b/package.json
+@@ -38,7 +38,11 @@
+     "./console.sol": "./console.sol",
+     "./internal/coverage": "./dist/src/internal/builtin-plugins/coverage/exports.js",
+     "./internal/gas-analytics": "./dist/src/internal/builtin-plugins/gas-analytics/exports.js",
+-    "./utils/contract-names": "./dist/src/utils/contract-names.js"
++    "./utils/contract-names": "./dist/src/utils/contract-names.js",
++    "./internal/builtin-plugins/solidity/build-results": "./dist/src/internal/builtin-plugins/solidity/build-results.js",
++    "./internal/builtin-plugins/solidity-test/edr-artifacts": "./dist/src/internal/builtin-plugins/solidity-test/edr-artifacts.js",
++    "./internal/builtin-plugins/solidity-test/helpers": "./dist/src/internal/builtin-plugins/solidity-test/helpers.js",
++    "./internal/builtin-plugins/artifacts/artifact-manager": "./dist/src/internal/builtin-plugins/artifacts/artifact-manager.js"
+   },
+   "keywords": [
+     "ethereum",
+diff --git a/src/internal/builtin-plugins/network-manager/edr/edr-provider.ts b/src/internal/builtin-plugins/network-manager/edr/edr-provider.ts
+index d39864cabc7fa9433a94abbcf85d22967ac1cad0..9a7e95201fc5ba10c899b3ff07085216184ca0a3 100644
+--- a/src/internal/builtin-plugins/network-manager/edr/edr-provider.ts
++++ b/src/internal/builtin-plugins/network-manager/edr/edr-provider.ts
+@@ -27,8 +27,6 @@ import type {
+ } from "@nomicfoundation/edr";
+ 
+ import {
+-  opGenesisState,
+-  opHardforkFromString,
+   l1GenesisState,
+   l1HardforkFromString,
+   ContractDecoder,
+@@ -464,7 +462,7 @@ export async function getProviderConfig(
+     networkConfig.forking !== undefined
+       ? [] // TODO: Add support for overriding remote fork state when the local fork is different
+       : networkConfig.chainType === OPTIMISM_CHAIN_TYPE
+-        ? opGenesisState(opHardforkFromString(specId))
++        ? []
+         : l1GenesisState(l1HardforkFromString(specId));
+ 
+   for (const account of chainGenesisState) {
+diff --git a/src/internal/builtin-plugins/solidity-test/helpers.ts b/src/internal/builtin-plugins/solidity-test/helpers.ts
+index ac35aefa95bc53f3d50b45b907eb09ffcc42b21a..23a9b3b50c772662d0f3b913dea5f606294ec2a0 100644
+--- a/src/internal/builtin-plugins/solidity-test/helpers.ts
++++ b/src/internal/builtin-plugins/solidity-test/helpers.ts
+@@ -10,8 +10,6 @@ import type {
+ } from "@nomicfoundation/edr";
+ 
+ import {
+-  opGenesisState,
+-  opLatestHardfork,
+   l1GenesisState,
+   l1HardforkLatest,
+   IncludeTraces,
+@@ -94,7 +92,7 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({
+ 
+   const localPredeploys =
+     chainType === OPTIMISM_CHAIN_TYPE
+-      ? opGenesisState(opLatestHardfork())
++      ? []
+       : l1GenesisState(l1HardforkLatest());
+ 
+   let includeTraces: IncludeTraces = IncludeTraces.None;
