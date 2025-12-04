@@ -20,11 +20,12 @@ impl_full_block_tests! {
         url: super::op::mainnet_url(),
         header_overrides_constructor: header_overrides,
     },
-    mainnet_fjord => OpChainSpec {
-        block_number: 122_514_212,
-        url: super::op::mainnet_url(),
-        header_overrides_constructor: header_overrides,
-    },
+    // See: https://github.com/NomicFoundation/edr/issues/1215
+    // mainnet_fjord => OpChainSpec {
+    //     block_number: 122_514_212,
+    //     url: super::op::mainnet_url(),
+    //     header_overrides_constructor: header_overrides,
+    // },
     mainnet_granite => OpChainSpec {
         block_number: 125_235_823,
         url: super::op::mainnet_url(),
