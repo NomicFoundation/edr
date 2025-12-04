@@ -1,6 +1,9 @@
 #![cfg(feature = "test-remote")]
 
-use edr_op::{OpChainSpec, test_utils::{isthmus_header_overrides, jovian_header_overrides}};
+use edr_op::{
+    test_utils::{isthmus_header_overrides, jovian_header_overrides},
+    OpChainSpec,
+};
 use edr_provider::test_utils::header_overrides;
 use edr_test_block_replay::impl_full_block_tests;
 

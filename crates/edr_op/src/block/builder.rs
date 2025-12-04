@@ -4,9 +4,7 @@ use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
     BlockTransactionError, BuiltBlockAndState, DatabaseComponents, PrecompileFn, WrapDatabaseRef,
 };
-use edr_block_header::{
-    overridden_block_number, HeaderOverrides, PartialHeader,
-};
+use edr_block_header::{overridden_block_number, HeaderOverrides, PartialHeader};
 use edr_chain_l1::block::EthBlockBuilder;
 use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_block::BlockChainSpec;
@@ -138,12 +136,13 @@ impl<'builder, BlockchainErrorT: std::error::Error>
         }
 
         if hardfork >= Hardfork::JOVIAN {
-            // since Jovian hardfork base_fee calculation in OP stacks differs from standard EVM calculation
-            overrides.base_fee = overrides.base_fee.or_else(|| 
+            // since Jovian hardfork base_fee calculation in OP stacks differs from standard
+            // EVM calculation
+            overrides.base_fee = overrides.base_fee.or_else(|| {
                 overrides.base_fee_params.as_ref().map(|base_fee_params| {
-                    op_next_base_fee(parent_header, hardfork, &base_fee_params)
+                    op_next_base_fee(parent_header, hardfork, base_fee_params)
                 })
-            );
+            });
         }
 
         let l1_block_info = {
@@ -285,12 +284,11 @@ pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
 
 /// extract min base fee from block header extra data
 pub fn decode_min_base_fee(extra_data: &Bytes) -> Option<u128> {
-    let version = *extra_data
-        .first()
-        .expect("Extra data should have at least 1 byte for version");
+    let version = extra_data.first().cloned();
     match version {
-        HOLOCENE_BASE_FEE_PARAM_VERSION => None,
-        JOVIAN_BASE_FEE_PARAM_VERSION => {
+        None| // For Holocene activation block the parent header extra data is empty
+        Some(HOLOCENE_BASE_FEE_PARAM_VERSION) => None,
+        Some(JOVIAN_BASE_FEE_PARAM_VERSION) => {
             let min_base_fee_bytes: [u8; 8] = extra_data
                 .get(9..=16)
                 .expect("Extra data should have at least 17 bytes for dynamic base fee params")
@@ -301,7 +299,7 @@ pub fn decode_min_base_fee(extra_data: &Bytes) -> Option<u128> {
             Some(min_base_fee)
         },
         _ => panic!(
-            "Unsupported base fee params version: {version}. Expected up to {JOVIAN_BASE_FEE_PARAM_VERSION}."
+            "Unsupported base fee params version: {version:?}. Expected up to {JOVIAN_BASE_FEE_PARAM_VERSION}."
         )
 }
 }

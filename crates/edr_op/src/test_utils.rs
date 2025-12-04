@@ -12,7 +12,8 @@ pub fn isthmus_header_overrides(replay_header: &BlockHeader) -> HeaderOverrides<
     }
 }
 
-/// Jovian overrides the `blob_gas` value field since it is now repurposed to store the DA footprint
+/// Jovian overrides the `blob_gas` value field since it is now repurposed to
+/// store the DA footprint
 pub fn jovian_header_overrides(replay_header: &BlockHeader) -> HeaderOverrides<OpSpecId> {
     HeaderOverrides {
         blob_gas: replay_header.blob_gas.clone(),

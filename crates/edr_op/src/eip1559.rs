@@ -33,10 +33,7 @@ pub fn encode_dynamic_base_fee_params(
     if let Some(min_base_fee) = min_base_fee {
         let min_base_fee_bytes: [u8; 8] = u64::try_from(min_base_fee)
             .unwrap_or_else(|_| {
-                panic!(
-                    "Min base fee can only be up to u64::MAX, but got {}",
-                    min_base_fee
-                )
+                panic!("Min base fee can only be up to u64::MAX, but got {min_base_fee}",)
             })
             .to_be_bytes();
         let mut extra_data = [0u8; 17];
