@@ -123,7 +123,7 @@ jobs:
         run: |
           sfw pnpm install --frozen-lockfile --prefer-offline
           rustup set auto-self-update disable
-          sfw cargo check
+          sfw cargo --config net.git-fetch-with-cli=true fetch
 
       # SFW doesn't install dependencies correctly on Windows
       # https://github.com/NomicFoundation/edr/issues/1199
