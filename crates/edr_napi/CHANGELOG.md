@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.18
+
+### Patch Changes
+
+- c52f1f6: Added basic support for Jovian hardfork (OP stack)
+
 ## 0.12.0-next.17
 
 ### Patch Changes
