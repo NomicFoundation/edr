@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Adapt to Jovian hardfork (OP stack) breaking changes
+Added basic support for Jovian hardfork (OP stack)

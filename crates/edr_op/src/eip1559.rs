@@ -1,9 +1,9 @@
 use edr_eip1559::ConstantBaseFeeParams;
 use edr_primitives::Bytes;
 
-/// Holocene version of the dynamic base fee parameter.
+/// Post-Holocene version of the dynamic base fee parameter.
 pub const HOLOCENE_BASE_FEE_PARAM_VERSION: u8 = 0x0;
-/// Currently used version of the dynamic base fee parameter.
+/// Post-Jovian version of the dynamic base fee parameter.
 pub const JOVIAN_BASE_FEE_PARAM_VERSION: u8 = 0x1;
 
 /// Encodes the dynamic base fee parameters into a byte array.
