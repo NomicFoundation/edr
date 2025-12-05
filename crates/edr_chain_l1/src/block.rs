@@ -187,7 +187,7 @@ impl<
         // transactions go through this validation since the validation may
         // fail. This is because Jovian repurposes the block header
         // `blobGasUsed` field to store the DA footprint. See <https://specs.optimism.io/protocol/jovian/exec-engine.html#da-footprint-block-limit>
-        // TODO: Use a custom OP validator for OP transactions
+        // TODO: Use a custom OP validator for OP transactions <https://github.com/NomicFoundation/edr/issues/1212>
         if !transaction.blob_hashes().is_empty()
             && let Some(BlobGas {
                 gas_used: block_blob_gas_used,
