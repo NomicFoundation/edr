@@ -204,13 +204,13 @@ foundry-compilers = { version = "0.18.0", default-features = false, features = [
 ] }
 
 ## revm
-op-revm = { version = "12.0.0", default-features = false, features = [
+op-revm = { version = "14.1.0", default-features = false, features = [
     "c-kzg",
     "dev",
     "serde",
     "std",
 ] }
-revm = { version = "31.0.0", default-features = false, features = [
+revm = { version = "33.1.0", default-features = false, features = [
     "arbitrary",
     "blst",
     "c-kzg",
@@ -222,34 +222,34 @@ revm = { version = "31.0.0", default-features = false, features = [
     "serde",
     "std",
 ] }
-revm-bytecode = { version = "7.1.0", default-features = false, features = [
+revm-bytecode = { version = "7.1.1", default-features = false, features = [
     "serde",
     "std",
 ] }
-revm-context = { version = "11.0.0", default-features = false }
-revm-context-interface = { version = "12.0.0", default-features = false }
-revm-database-interface = { version = "8.0.4", default-features = false }
-revm-handler = { version = "12.0.0", default-features = false }
-revm-inspector = { version = "12.0.0", default-features = false }
-revm-interpreter = { version = "29.0.0", default-features = false }
-revm-precompile = { version = "29.0.0", default-features = false, features = [
+revm-context = { version = "12.1.0", default-features = false }
+revm-context-interface = { version = "13.1.0", default-features = false }
+revm-database-interface = { version = "8.0.5", default-features = false }
+revm-handler = { version = "14.1.0", default-features = false }
+revm-inspector = { version = "14.1.0", default-features = false }
+revm-interpreter = { version = "31.1.0", default-features = false }
+revm-precompile = { version = "31.0.0", default-features = false, features = [
     "blst",
     "c-kzg",
     "std",
 ] }
-revm-primitives = { version = "21.0.1", default-features = false, features = [
+revm-primitives = { version = "21.0.2", default-features = false, features = [
     "hashbrown",
     "rand",
     "serde",
     "std",
 ] }
-revm-state = { version = "8.1.0", default-features = false }
+revm-state = { version = "8.1.1", default-features = false }
 c-kzg = { version = "2.1.4", default-features = false, features = [
     "ethereum_kzg_settings",
 ] }
 
-revm-inspectors = { version = "0.32.0", features = ["serde"] }
-foundry-fork-db = "0.20"
+revm-inspectors = { version = "0.33.1", features = ["serde"] }
+foundry-fork-db = "0.21"
 
 ## ethers
 ethers-contract-abigen = { version = "2.0.14", default-features = false }

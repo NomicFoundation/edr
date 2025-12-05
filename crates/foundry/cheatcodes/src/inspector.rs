@@ -887,6 +887,8 @@ impl<
                             gas,
                         },
                         memory_offset: call.return_memory_offset.clone(),
+                        was_precompile_called: false,
+                        precompile_call_logs: vec![],
                     });
                 }
             };
@@ -905,6 +907,8 @@ impl<
                         gas,
                     },
                     memory_offset: call.return_memory_offset.clone(),
+                    was_precompile_called: true,
+                    precompile_call_logs: vec![],
                 }),
                 Err(err) => Some(CallOutcome {
                     result: InterpreterResult {
@@ -913,6 +917,8 @@ impl<
                         gas,
                     },
                     memory_offset: call.return_memory_offset.clone(),
+                    was_precompile_called: false,
+                    precompile_call_logs: vec![],
                 }),
             };
         }
@@ -978,6 +984,8 @@ impl<
                         gas,
                     },
                     memory_offset: call.return_memory_offset.clone(),
+                    was_precompile_called: true,
+                    precompile_call_logs: vec![],
                 });
             }
         }
@@ -1302,7 +1310,7 @@ impl<
         }
     }
 
-    fn log(
+    fn log_full(
         &mut self,
         interpreter: &mut Interpreter,
         _ecx: &mut revm::context::Context<
