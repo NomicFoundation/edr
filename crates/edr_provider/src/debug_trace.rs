@@ -44,7 +44,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
     observer_config: EvmObserverConfig,
-) -> Result<DebugTraceResultWithCallTrace, DebugTraceErrorForChainSpec<ChainSpecT>> {
+) -> Result<DebugTraceResultWithCallTraces, DebugTraceErrorForChainSpec<ChainSpecT>> {
     let evm_spec_id = evm_config.spec.into();
     if evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
@@ -56,7 +56,8 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
     let block_number = block.number();
     for transaction in transactions {
         if transaction.transaction_hash() == transaction_hash {
-            let mut eip3155_tracer = TracerEip3155::new(trace_config);
+            let mut debug_inspector = DebugInspector::new(trace_config.clone());
+
             let mut evm_observer = EvmObserver::new(observer_config);
 
             let ExecutionResultAndState { result, .. } =
@@ -110,15 +111,16 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
 pub fn execution_result_to_debug_result<HaltReasonT: HaltReasonTrait>(
     execution_result: ExecutionResult<HaltReasonT>,
     tracing_inspector: TracingInspector,
-    eip3155_tracer: TracerEip3155,
-) -> DebugTraceResultWithCallTrace {
+) -> DebugTraceResultWithCallTraces {
     let arena = tracing_inspector.into_traces();
     let call_trace = SparsedTraceArena {
         arena,
         ignored: HashMap::default(),
     };
 
-    call_trace.arena.nodes()
+    call_trace.arena.nodes().first().map(|node| {
+        node.trace.steps
+    })
 
     let result = match execution_result {
         ExecutionResult::Success {
@@ -143,9 +145,9 @@ pub fn execution_result_to_debug_result<HaltReasonT: HaltReasonTrait>(
         },
     };
 
-    DebugTraceResultWithCallTrace {
+    DebugTraceResultWithCallTraces {
         result,
-        call_trace,
+        call_traces: call_trace,
     }
 }
 
@@ -214,11 +216,11 @@ pub struct DebugTraceResult {
 }
 
 /// Result of a `debug_traceTransaction` call with call trace.
-pub struct DebugTraceResultWithCallTrace {
+pub struct DebugTraceResultWithCallTraces {
     /// The result of the transaction.
     pub result: DebugTraceResult,
     /// The raw traces of the debugged transaction.
-    pub call_trace: SparsedTraceArena,
+    pub call_traces: Vec<SparsedTraceArena>,
 }
 
 /// The output of an EIP-3155 trace.

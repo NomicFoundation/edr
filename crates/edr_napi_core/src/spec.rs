@@ -4,7 +4,7 @@ use edr_chain_l1::L1ChainSpec;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait, TransactionValidation};
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    time::TimeSinceEpoch, ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec,
+    time::TimeSinceEpoch, ProviderErrorForChainSpec, ResponseWithCallTraces, SyncProviderSpec,
 };
 use edr_rpc_client::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -62,7 +62,7 @@ pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
     /// This is implemented as an associated function to avoid problems when
     /// implementing type conversions for third-party types.
     fn cast_response(
-        response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
+        response: Result<ResponseWithCallTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
         contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Response<EvmHaltReason>>;
 }
@@ -71,7 +71,10 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
     const CHAIN_TYPE: &'static str = edr_chain_l1::CHAIN_TYPE;
 
     fn cast_response(
-        mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
+        mut response: Result<
+            ResponseWithCallTraces<Self::HaltReason>,
+            ProviderErrorForChainSpec<Self>,
+        >,
         contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Response<EvmHaltReason>> {
         // We can take the solidity trace as it won't be used for anything else
@@ -105,9 +108,9 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
 
         // We can take the traces as they won't be used for anything else
         let traces = match &mut response {
-            Ok(response) => std::mem::take(&mut response.traces),
+            Ok(response) => std::mem::take(&mut response.call_traces),
             Err(edr_provider::ProviderError::TransactionFailed(failure)) => {
-                std::mem::take(&mut failure.traces)
+                std::mem::take(&mut failure.call_traces)
             }
             Err(_) => Vec::new(),
         };
@@ -126,7 +129,10 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
     const CHAIN_TYPE: &'static str = edr_generic::CHAIN_TYPE;
 
     fn cast_response(
-        mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
+        mut response: Result<
+            ResponseWithCallTraces<Self::HaltReason>,
+            ProviderErrorForChainSpec<Self>,
+        >,
         contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Response<EvmHaltReason>> {
         // We can take the solidity trace as it won't be used for anything else
@@ -161,9 +167,9 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
 
         // We can take the traces as they won't be used for anything else
         let traces = match &mut response {
-            Ok(response) => std::mem::take(&mut response.traces),
+            Ok(response) => std::mem::take(&mut response.call_traces),
             Err(edr_provider::ProviderError::TransactionFailed(failure)) => {
-                std::mem::take(&mut failure.traces)
+                std::mem::take(&mut failure.call_traces)
             }
             Err(_) => Vec::new(),
         };

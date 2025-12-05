@@ -8,7 +8,7 @@ use foundry_evm_traces::SparsedTraceArena;
 
 use crate::{
     data::ProviderData,
-    error::{ProviderErrorForChainSpec, TransactionFailureWithTraces},
+    error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
     spec::{CallContext, FromRpcType, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError, TransactionFailure,
@@ -43,19 +43,19 @@ pub fn handle_call_request<
         && let Some(failure) = TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
             &result.execution_result,
             None,
-            &result.trace,
+            &result.call_traces,
         )
     {
         return Err(ProviderError::TransactionFailed(Box::new(
-            TransactionFailureWithTraces {
+            TransactionFailureWithCallTraces {
                 failure,
-                traces: result.trace,
+                call_traces: result.call_traces,
             },
         )));
     }
 
     let output = result.execution_result.into_output().unwrap_or_default();
-    Ok((output, result.trace))
+    Ok((output, result.call_traces))
 }
 
 pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>) -> BlockSpec {

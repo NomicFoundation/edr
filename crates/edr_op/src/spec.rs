@@ -338,7 +338,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
 
     fn cast_response(
         response: Result<
-            edr_provider::ResponseWithTraces<HaltReason>,
+            edr_provider::ResponseWithCallTraces<HaltReason>,
             edr_provider::ProviderErrorForChainSpec<Self>,
         >,
         _contract_decoder: Arc<ContractDecoder>,

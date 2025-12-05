@@ -248,7 +248,7 @@ c-kzg = { version = "2.1.4", default-features = false, features = [
     "ethereum_kzg_settings",
 ] }
 
-revm-inspectors = { version = "0.32.0", features = ["serde"] }
+revm-inspectors = { version = "0.33.1", features = ["serde"] }
 foundry-fork-db = "0.20"
 
 ## ethers

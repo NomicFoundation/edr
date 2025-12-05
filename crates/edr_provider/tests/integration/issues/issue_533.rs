@@ -43,7 +43,7 @@ async fn issue_533() -> anyhow::Result<()> {
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     ))?;
 
-    assert!(!result.traces.is_empty());
+    assert!(!result.call_traces.is_empty());
 
     Ok(())
 }

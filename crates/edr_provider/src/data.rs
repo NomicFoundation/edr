@@ -82,11 +82,11 @@ use crate::{
     },
     debug_trace::{
         debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
-        DebugTraceResultWithCallTrace, TracerEip3155,
+        DebugTraceResultWithCallTraces, TracerEip3155,
     },
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, ProviderErrorForChainSpec,
-        TransactionFailure, TransactionFailureWithTraces,
+        TransactionFailure, TransactionFailureWithCallTraces,
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
@@ -116,13 +116,13 @@ const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
 pub struct CallResult<HaltReasonT: HaltReasonTrait> {
     pub console_log_inputs: Vec<Bytes>,
     pub execution_result: ExecutionResult<HaltReasonT>,
-    pub trace: SparsedTraceArena,
+    pub call_traces: SparsedTraceArena,
 }
 
 #[derive(Clone)]
 pub struct EstimateGasResult {
     pub estimation: u64,
-    pub traces: Vec<SparsedTraceArena>,
+    pub call_traces: Vec<SparsedTraceArena>,
 }
 
 /// Helper type for a chain-specific [`SendTransactionResult`].
@@ -1488,18 +1488,15 @@ where
         }
 
         let arena = tracing_inspector.into_traces();
-        let traces = vec![(
-            foundry_evm_traces::TraceKind::Execution,
-            foundry_evm_traces::SparsedTraceArena {
-                arena,
-                ignored: HashMap::default(),
-            },
-        )];
+        let call_trace = foundry_evm_traces::SparsedTraceArena {
+            arena,
+            ignored: HashMap::default(),
+        };
         let console_log_inputs = console_logger.into_encoded_messages();
 
         Ok(DebugMineBlockResultAndState::new(
             result,
-            traces,
+            call_trace,
             console_log_inputs,
         ))
     }
@@ -1763,7 +1760,7 @@ where
         transaction: ChainSpecT::SignedTransaction,
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResultWithCallTrace, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<DebugTraceResultWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let mut evm_observer = EvmObserver::new(EvmObserverConfig {
@@ -2488,7 +2485,7 @@ where
         &mut self,
         transaction_hash: &B256,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResultWithCallTrace, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<DebugTraceResultWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
         let block = self
             .blockchain
             .block_by_transaction_hash(transaction_hash)?
@@ -2642,8 +2639,8 @@ where
             .map_err(|failure| {
                 Box::new(EstimateGasFailure {
                     console_log_inputs,
-                    transaction_failure: TransactionFailureWithTraces {
-                        traces: failure.solidity_trace.clone(),
+                    transaction_failure: TransactionFailureWithCallTraces {
+                        call_traces: failure.solidity_trace.clone(),
                         failure,
                     },
                 })
@@ -2673,7 +2670,7 @@ where
             if success {
                 return Ok(EstimateGasResult {
                     estimation: initial_estimation,
-                    traces: observer.take_traces(),
+                    call_traces: observer.take_traces(),
                 });
             }
 
@@ -2694,7 +2691,10 @@ where
                 })?;
 
             let traces = observer.take_traces();
-            Ok(EstimateGasResult { estimation, traces })
+            Ok(EstimateGasResult {
+                estimation,
+                call_traces: traces,
+            })
         })?
     }
 }

@@ -297,7 +297,7 @@ pub enum ProviderError<
     /// `eth_sendTransaction` failed and
     /// [`crate::config::Provider::bail_on_call_failure`] was enabled
     #[error(transparent)]
-    TransactionFailed(Box<TransactionFailureWithTraces<HaltReasonT>>),
+    TransactionFailed(Box<TransactionFailureWithCallTraces<HaltReasonT>>),
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
@@ -375,7 +375,7 @@ impl<
     >
 {
     /// Returns the transaction failure if the error contains one.
-    pub fn as_transaction_failure(&self) -> Option<&TransactionFailureWithTraces<HaltReasonT>> {
+    pub fn as_transaction_failure(&self) -> Option<&TransactionFailureWithCallTraces<HaltReasonT>> {
         match self {
             ProviderError::EstimateGasTransactionFailure(transaction_failure) => {
                 Some(&transaction_failure.transaction_failure)
@@ -527,7 +527,7 @@ impl<
 #[derive(Debug, thiserror::Error)]
 pub struct EstimateGasFailure<HaltReasonT: HaltReasonTrait> {
     pub console_log_inputs: Vec<Bytes>,
-    pub transaction_failure: TransactionFailureWithTraces<HaltReasonT>,
+    pub transaction_failure: TransactionFailureWithCallTraces<HaltReasonT>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<HaltReasonT> {
@@ -537,12 +537,14 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<Halt
 }
 
 #[derive(Clone, Debug, thiserror::Error)]
-pub struct TransactionFailureWithTraces<HaltReasonT: HaltReasonTrait> {
+pub struct TransactionFailureWithCallTraces<HaltReasonT: HaltReasonTrait> {
     pub failure: TransactionFailure<HaltReasonT>,
-    pub traces: Vec<SparsedTraceArena>,
+    pub call_traces: SparsedTraceArena,
 }
 
-impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailureWithTraces<HaltReasonT> {
+impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
+    for TransactionFailureWithCallTraces<HaltReasonT>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.failure)
     }

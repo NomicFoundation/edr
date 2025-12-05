@@ -62,13 +62,13 @@ lazy_static! {
         ["hardhat_setLoggingEnabled",].into_iter().collect();
 }
 
-pub type ProviderResultWithTraces<T, ChainSpecT> =
+pub type ProviderResultWithCallTraces<T, ChainSpecT> =
     Result<(T, Vec<SparsedTraceArena>), ProviderErrorForChainSpec<ChainSpecT>>;
 
 #[derive(Clone, Debug)]
-pub struct ResponseWithTraces {
+pub struct ResponseWithCallTraces {
     pub result: serde_json::Value,
-    pub traces: Vec<SparsedTraceArena>,
+    pub call_traces: Vec<SparsedTraceArena>,
 }
 
 fn to_json<
@@ -77,12 +77,12 @@ fn to_json<
     TimerT: Clone + TimeSinceEpoch,
 >(
     value: T,
-) -> Result<ResponseWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value).map_err(ProviderError::Serialization)?;
 
-    Ok(ResponseWithTraces {
+    Ok(ResponseWithCallTraces {
         result: response,
-        traces: Vec::new(),
+        call_traces: Vec::new(),
     })
 }
 
@@ -92,12 +92,12 @@ fn to_json_with_trace<
     TimerT: Clone + TimeSinceEpoch,
 >(
     value: (T, SparsedTraceArena),
-) -> Result<ResponseWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
-    Ok(ResponseWithTraces {
+    Ok(ResponseWithCallTraces {
         result: response,
-        traces: vec![value.1],
+        call_traces: vec![value.1],
     })
 }
 
@@ -107,11 +107,11 @@ fn to_json_with_traces<
     TimerT: Clone + TimeSinceEpoch,
 >(
     value: (T, Vec<SparsedTraceArena>),
-) -> Result<ResponseWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
-    Ok(ResponseWithTraces {
+    Ok(ResponseWithCallTraces {
         result: response,
-        traces: value.1,
+        call_traces: value.1,
     })
 }
