@@ -41,7 +41,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     block::{decode_base_params, decode_min_base_fee, LocalBlock, OpBlockBuilder},
-    eip1559::encode_dynamic_base_fee_params,
+    eip1559::{encode_dynamic_base_fee_params_holocene, encode_dynamic_base_fee_params_jovian},
     eip2718::TypedEnvelope,
     hardfork::{op_chain_configs, op_default_base_fee_params},
     predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS,
@@ -229,17 +229,14 @@ impl GenesisBlockFactory for OpChainSpec {
                     .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
-                // TODO: once EDR fully supports Jovian, should allow user to configure
-                // min_base_fee?
-                let min_base_fee = if block_config.hardfork >= Hardfork::JOVIAN {
-                    Some(0)
+                let encoded_extra_data = if block_config.hardfork >= Hardfork::JOVIAN {
+                    // TODO: once EDR fully supports Jovian, should allow user to configure
+                    // min_base_fee?
+                    encode_dynamic_base_fee_params_jovian(base_fee_params, 0)
                 } else {
-                    None
+                    encode_dynamic_base_fee_params_holocene(base_fee_params)
                 };
-                Some(encode_dynamic_base_fee_params(
-                    base_fee_params,
-                    min_base_fee,
-                ))
+                Some(encoded_extra_data)
             });
         }
 

@@ -16,8 +16,8 @@ use edr_state_api::{DynState, StateError};
 use crate::{
     block::LocalBlock,
     eip1559::{
-        encode_dynamic_base_fee_params, HOLOCENE_BASE_FEE_PARAM_VERSION,
-        JOVIAN_BASE_FEE_PARAM_VERSION,
+        encode_dynamic_base_fee_params_holocene, encode_dynamic_base_fee_params_jovian,
+        HOLOCENE_BASE_FEE_PARAM_VERSION, JOVIAN_BASE_FEE_PARAM_VERSION,
     },
     predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS,
     receipt::{block::OpBlockReceipt, execution::OpExecutionReceiptBuilder},
@@ -113,10 +113,12 @@ impl<'builder, BlockchainErrorT: std::error::Error>
                     .expect("Chain spec must have base fee params for post-London hardforks");
                 // TODO: instead of decoding min_base_fee from parent extra data we should get
                 // the info from OP chain config analogously to base_fee_params?
-                encode_dynamic_base_fee_params(
-                    extra_data_base_fee_params,
-                    decode_min_base_fee(&parent_header.extra_data),
-                )
+                if hardfork >= Hardfork::JOVIAN {
+                    let min_base_fee = decode_min_base_fee(&parent_header.extra_data).expect("min_base_fee should be present in header.extra_data field post Jovian activation");
+                    encode_dynamic_base_fee_params_jovian(extra_data_base_fee_params, min_base_fee)
+                } else {
+                    encode_dynamic_base_fee_params_holocene(extra_data_base_fee_params)
+                }
             }));
 
             overrides.base_fee_params = if let Some(base_fee_params) = overrides.base_fee_params {
