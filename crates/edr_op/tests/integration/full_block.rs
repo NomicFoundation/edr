@@ -1,6 +1,9 @@
 #![cfg(feature = "test-remote")]
 
-use edr_op::{test_utils::isthmus_header_overrides, OpChainSpec};
+use edr_op::{
+    test_utils::{isthmus_header_overrides, jovian_header_overrides},
+    OpChainSpec,
+};
 use edr_provider::test_utils::header_overrides;
 use edr_test_block_replay::impl_full_block_tests;
 
@@ -69,5 +72,10 @@ impl_full_block_tests! {
         block_number: 137_620_147,
         url: super::op::mainnet_url(),
         header_overrides_constructor: isthmus_header_overrides,
+    },
+    mainnet_jovian => OpChainSpec {
+        block_number: 144_546_703,
+        url: super::op::mainnet_url(),
+        header_overrides_constructor: jovian_header_overrides,
     },
 }

@@ -183,10 +183,16 @@ impl<
         }
 
         let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();
-        if let Some(BlobGas {
-            gas_used: block_blob_gas_used,
-            ..
-        }) = self.header.blob_gas.as_ref()
+        // Checking `blob_hashes` is a hack for preventing OP stack Jovian block
+        // transactions go through this validation since the validation may
+        // fail. This is because Jovian repurposes the block header
+        // `blobGasUsed` field to store the DA footprint. See <https://specs.optimism.io/protocol/jovian/exec-engine.html#da-footprint-block-limit>
+        // TODO: Use a custom OP validator for OP transactions <https://github.com/NomicFoundation/edr/issues/1212>
+        if !transaction.blob_hashes().is_empty()
+            && let Some(BlobGas {
+                gas_used: block_blob_gas_used,
+                ..
+            }) = self.header.blob_gas.as_ref()
         {
             let blob_params = blob_params_for_hardfork(self.config().spec.into());
 

@@ -15,10 +15,13 @@ use edr_state_api::{DynState, StateError};
 
 use crate::{
     block::LocalBlock,
-    eip1559::{encode_dynamic_base_fee_params, DYNAMIC_BASE_FEE_PARAM_VERSION},
+    eip1559::{
+        encode_dynamic_base_fee_params_holocene, encode_dynamic_base_fee_params_jovian,
+        HOLOCENE_BASE_FEE_PARAM_VERSION, JOVIAN_BASE_FEE_PARAM_VERSION,
+    },
     predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS,
     receipt::{block::OpBlockReceipt, execution::OpExecutionReceiptBuilder},
-    spec::op_base_fee_params_for_block,
+    spec::{op_base_fee_params_for_block, op_next_base_fee},
     transaction::signed::OpSignedTransaction,
     HaltReason, Hardfork, OpChainSpec,
 };
@@ -108,7 +111,14 @@ impl<'builder, BlockchainErrorT: std::error::Error>
                 let extra_data_base_fee_params = chain_base_fee_params
                     .at_condition(hardfork, next_block_number)
                     .expect("Chain spec must have base fee params for post-London hardforks");
-                encode_dynamic_base_fee_params(extra_data_base_fee_params)
+                // TODO: instead of decoding min_base_fee from parent extra data we should get
+                // the info from OP chain config analogously to base_fee_params?
+                if hardfork >= Hardfork::JOVIAN {
+                    let min_base_fee = decode_min_base_fee(&parent_header.extra_data).expect("min_base_fee should be present in header.extra_data field post Jovian activation");
+                    encode_dynamic_base_fee_params_jovian(extra_data_base_fee_params, min_base_fee)
+                } else {
+                    encode_dynamic_base_fee_params_holocene(extra_data_base_fee_params)
+                }
             }));
 
             overrides.base_fee_params = if let Some(base_fee_params) = overrides.base_fee_params {
@@ -125,6 +135,16 @@ impl<'builder, BlockchainErrorT: std::error::Error>
 
                 op_base_fee_params_for_block(parent_header, parent_hardfork)
             };
+        }
+
+        if hardfork >= Hardfork::JOVIAN {
+            // Need to override `base_fee` field since from Jovian hardfork OP stack differs
+            // from standard EVM calculation.
+            overrides.base_fee = overrides.base_fee.or_else(|| {
+                overrides.base_fee_params.as_ref().map(|base_fee_params| {
+                    op_next_base_fee(parent_header, hardfork, base_fee_params)
+                })
+            });
         }
 
         let l1_block_info = {
@@ -241,7 +261,7 @@ pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
         .first()
         .expect("Extra data should have at least 1 byte for version");
     match version {
-        DYNAMIC_BASE_FEE_PARAM_VERSION => {
+        HOLOCENE_BASE_FEE_PARAM_VERSION | JOVIAN_BASE_FEE_PARAM_VERSION => {
             let denominator_bytes: [u8; 4] = extra_data
                 .get(1..=4)
                 .expect("Extra data should have at least 9 bytes for dynamic base fee params")
@@ -259,11 +279,32 @@ pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
                 ConstantBaseFeeParams{max_change_denominator, elasticity_multiplier}
         }
         _ => panic!(
-            "Unsupported base fee params version: {version}. Expected {DYNAMIC_BASE_FEE_PARAM_VERSION}."
+            "Unsupported base fee params version: {version}. Maximum expected version: {JOVIAN_BASE_FEE_PARAM_VERSION}."
         )
     }
 }
 
+/// extract min base fee from block header extra data
+pub fn decode_min_base_fee(extra_data: &Bytes) -> Option<u128> {
+    let version = extra_data.first().cloned();
+    match version {
+        None| // For Holocene activation block the parent header extra data is empty
+        Some(HOLOCENE_BASE_FEE_PARAM_VERSION) => None,
+        Some(JOVIAN_BASE_FEE_PARAM_VERSION) => {
+            let min_base_fee_bytes: [u8; 8] = extra_data
+                .get(9..=16)
+                .expect("Extra data should have at least 17 bytes for dynamic base fee params")
+                .try_into()
+                .expect("The slice should be exactly 8 bytes");
+
+            let min_base_fee = u64::from_be_bytes(min_base_fee_bytes).into();
+            Some(min_base_fee)
+        },
+        _ => panic!(
+            "Unsupported base fee params version: {version:?}. Maximum expected version: {JOVIAN_BASE_FEE_PARAM_VERSION}."
+        )
+}
+}
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;

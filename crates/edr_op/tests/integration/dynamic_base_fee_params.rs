@@ -66,6 +66,7 @@ impl_test_dynamic_base_fee_params! {
     op_mainnet: op::mainnet_url() => [
         135_513_416,
         136_165_876,
+        144_546_703, // jovian activated block
     ],
     base_mainnet: base::mainnet_url() => [
         25_955_889,
@@ -73,6 +74,7 @@ impl_test_dynamic_base_fee_params! {
         31_747_084,
         37_483_302,
         38_088_319,
+        38_951_425, // jovian activated block
     ],
     op_sepolia: op::sepolia_url() => [
         26_806_602,
