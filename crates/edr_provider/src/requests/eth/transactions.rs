@@ -15,14 +15,14 @@ use edr_utils::CastArcInto as _;
 
 use crate::{
     data::ProviderData,
-    error::{ProviderErrorForChainSpec, TransactionFailureWithTraces},
+    error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
     requests::validation::{
         validate_eip3860_max_initcode_size, validate_post_merge_block_tags,
         validate_transaction_and_call_request,
     },
     spec::{FromRpcType, Sender as _, SyncProviderSpec, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError, ProviderResultWithTraces, ProviderSpec, TransactionFailure,
+    ProviderError, ProviderResultWithCallTraces, ProviderSpec, TransactionFailure,
 };
 
 pub fn handle_get_transaction_by_block_hash_and_index<
@@ -169,7 +169,7 @@ pub fn handle_send_transaction_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: ChainSpecT::RpcTransactionRequest,
-) -> ProviderResultWithTraces<B256, ChainSpecT> {
+) -> ProviderResultWithCallTraces<B256, ChainSpecT> {
     let sender = *request.sender();
 
     let context = TransactionContext { data };
@@ -193,7 +193,7 @@ pub fn handle_send_raw_transaction_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     raw_transaction: Bytes,
-) -> ProviderResultWithTraces<B256, ChainSpecT> {
+) -> ProviderResultWithCallTraces<B256, ChainSpecT> {
     use alloy_rlp::Decodable as _;
 
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
@@ -284,7 +284,7 @@ fn send_raw_transaction_and_log<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     signed_transaction: ChainSpecT::SignedTransaction,
-) -> ProviderResultWithTraces<B256, ChainSpecT> {
+) -> ProviderResultWithCallTraces<B256, ChainSpecT> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
     let hardfork = data.hardfork();
@@ -307,7 +307,10 @@ fn send_raw_transaction_and_log<
         if let Some(failure) = transaction_failure {
             let (_transaction_hash, traces) = result.into();
             return Err(ProviderError::TransactionFailed(Box::new(
-                TransactionFailureWithTraces { failure, traces },
+                TransactionFailureWithCallTraces {
+                    failure,
+                    call_traces: traces,
+                },
             )));
         }
     }

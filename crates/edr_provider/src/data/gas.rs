@@ -3,7 +3,7 @@ use core::cmp;
 use edr_block_api::{Block as _, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
-use edr_chain_spec::{ExecutableTransaction as _, HaltReasonTrait};
+use edr_chain_spec::ExecutableTransaction as _;
 use edr_chain_spec_evm::{result::ExecutionResult, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eth::reward_percentile::RewardPercentile;
@@ -11,14 +11,13 @@ use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
 use edr_state_api::DynState;
-use edr_tracing::TraceCollector;
+use crate::observability::EvmObserver;
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
 
 use crate::{data::call, error::ProviderErrorForChainSpec, ProviderError};
 
-pub(super) struct CheckGasLimitArgs<'a, HaltReasonT: HaltReasonTrait, HardforkT, SignedTransactionT>
-{
+pub(super) struct CheckGasLimitArgs<'a, HardforkT, SignedTransactionT> {
     pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
     pub header: &'a BlockHeader,
     pub state: &'a dyn DynState,
@@ -26,19 +25,14 @@ pub(super) struct CheckGasLimitArgs<'a, HaltReasonT: HaltReasonTrait, HardforkT,
     pub transaction: SignedTransactionT,
     pub gas_limit: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
+    pub observer: &'a mut EvmObserver,
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
 pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
-    args: CheckGasLimitArgs<
-        '_,
-        ChainSpecT::HaltReason,
-        ChainSpecT::Hardfork,
-        ChainSpecT::SignedTransaction,
-    >,
+    args: CheckGasLimitArgs<'_, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>,
 ) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     let CheckGasLimitArgs {
         blockchain,
@@ -48,7 +42,7 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         mut transaction,
         gas_limit,
         custom_precompiles,
-        trace_collector,
+        observer,
     } = args;
 
     transaction.set_gas_limit(gas_limit);
@@ -60,18 +54,13 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         cfg_env,
         transaction,
         custom_precompiles,
-        trace_collector,
+        observer,
     )?;
 
     Ok(matches!(result, ExecutionResult::Success { .. }))
 }
 
-pub(super) struct BinarySearchEstimationArgs<
-    'a,
-    HaltReasonT: HaltReasonTrait,
-    HardforkT,
-    SignedTransactionT,
-> {
+pub(super) struct BinarySearchEstimationArgs<'a, HardforkT, SignedTransactionT> {
     pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
     pub header: &'a BlockHeader,
     pub state: &'a dyn DynState,
@@ -80,7 +69,7 @@ pub(super) struct BinarySearchEstimationArgs<
     pub lower_bound: u64,
     pub upper_bound: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
+    pub observer: &'a mut EvmObserver,
 }
 
 /// Search for a tight upper bound on the gas limit that will allow the
@@ -89,12 +78,7 @@ pub(super) struct BinarySearchEstimationArgs<
 pub(super) fn binary_search_estimation<
     ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>,
 >(
-    args: BinarySearchEstimationArgs<
-        '_,
-        ChainSpecT::HaltReason,
-        ChainSpecT::Hardfork,
-        ChainSpecT::SignedTransaction,
-    >,
+    args: BinarySearchEstimationArgs<'_, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>,
 ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
     const MAX_ITERATIONS: usize = 20;
 
@@ -107,7 +91,7 @@ pub(super) fn binary_search_estimation<
         mut lower_bound,
         mut upper_bound,
         custom_precompiles,
-        trace_collector,
+        observer,
     } = args;
 
     let mut i = 0;
@@ -129,7 +113,7 @@ pub(super) fn binary_search_estimation<
             transaction: transaction.clone(),
             gas_limit: mid,
             custom_precompiles,
-            trace_collector,
+            observer,
         })?;
 
         if success {

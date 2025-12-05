@@ -13,7 +13,7 @@ use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::address;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderError, ProviderErrorForChainSpec, ProviderRequest, ResponseWithTraces,
+    ProviderError, ProviderErrorForChainSpec, ProviderRequest, ResponseWithCallTraces,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
@@ -48,7 +48,7 @@ fn new_provider(
 fn send_transaction(
     provider: &Provider<L1ChainSpec>,
     gas_limit: u64,
-) -> Result<ResponseWithTraces<EvmHaltReason>, ProviderErrorForChainSpec<L1ChainSpec>> {
+) -> Result<ResponseWithCallTraces<EvmHaltReason>, ProviderErrorForChainSpec<L1ChainSpec>> {
     let caller = secret_key_to_address(SECRET_KEYS[0])?;
     let transaction = TransactionRequest {
         from: caller,

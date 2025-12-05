@@ -25,7 +25,7 @@ use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
 use edr_solidity::contract_decoder::ContractDecoderError;
 use edr_state_api::StateError;
-use edr_tracing::Trace;
+use foundry_evm_traces::SparsedTraceArena;
 use serde::Serialize;
 
 use crate::{
@@ -297,7 +297,7 @@ pub enum ProviderError<
     /// `eth_sendTransaction` failed and
     /// [`crate::config::Provider::bail_on_call_failure`] was enabled
     #[error(transparent)]
-    TransactionFailed(Box<TransactionFailureWithTraces<HaltReasonT>>),
+    TransactionFailed(Box<TransactionFailureWithCallTraces<HaltReasonT>>),
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
@@ -375,7 +375,7 @@ impl<
     >
 {
     /// Returns the transaction failure if the error contains one.
-    pub fn as_transaction_failure(&self) -> Option<&TransactionFailureWithTraces<HaltReasonT>> {
+    pub fn as_transaction_failure(&self) -> Option<&TransactionFailureWithCallTraces<HaltReasonT>> {
         match self {
             ProviderError::EstimateGasTransactionFailure(transaction_failure) => {
                 Some(&transaction_failure.transaction_failure)
@@ -527,7 +527,7 @@ impl<
 #[derive(Debug, thiserror::Error)]
 pub struct EstimateGasFailure<HaltReasonT: HaltReasonTrait> {
     pub console_log_inputs: Vec<Bytes>,
-    pub transaction_failure: TransactionFailureWithTraces<HaltReasonT>,
+    pub transaction_failure: TransactionFailureWithCallTraces<HaltReasonT>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<HaltReasonT> {
@@ -537,12 +537,14 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<Halt
 }
 
 #[derive(Clone, Debug, thiserror::Error)]
-pub struct TransactionFailureWithTraces<HaltReasonT: HaltReasonTrait> {
+pub struct TransactionFailureWithCallTraces<HaltReasonT: HaltReasonTrait> {
     pub failure: TransactionFailure<HaltReasonT>,
-    pub traces: Vec<Trace<HaltReasonT>>,
+    pub call_traces: SparsedTraceArena,
 }
 
-impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailureWithTraces<HaltReasonT> {
+impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
+    for TransactionFailureWithCallTraces<HaltReasonT>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.failure)
     }
@@ -555,7 +557,7 @@ pub struct TransactionFailure<HaltReasonT: HaltReasonTrait> {
     pub reason: TransactionFailureReason<HaltReasonT>,
     pub data: String,
     #[serde(skip)]
-    pub solidity_trace: Trace<HaltReasonT>,
+    pub solidity_trace: SparsedTraceArena,
     pub transaction_hash: Option<B256>,
 }
 
@@ -566,7 +568,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     >(
         execution_result: &ExecutionResult<HaltReasonT>,
         transaction_hash: Option<&B256>,
-        solidity_trace: &Trace<HaltReasonT>,
+        solidity_trace: &SparsedTraceArena,
     ) -> Option<TransactionFailure<HaltReasonT>> {
         match execution_result {
             ExecutionResult::Success { .. } => None,
@@ -586,7 +588,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn halt(
         reason: TransactionFailureReason<HaltReasonT>,
         tx_hash: Option<B256>,
-        solidity_trace: Trace<HaltReasonT>,
+        solidity_trace: SparsedTraceArena,
     ) -> Self {
         Self {
             reason,
@@ -599,7 +601,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn revert(
         output: Bytes,
         transaction_hash: Option<B256>,
-        solidity_trace: Trace<HaltReasonT>,
+        solidity_trace: SparsedTraceArena,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
         Self {

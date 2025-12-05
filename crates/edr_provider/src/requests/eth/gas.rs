@@ -12,7 +12,7 @@ use crate::{
     requests::validation::validate_post_merge_block_tags,
     spec::{CallContext, FromRpcType as _, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, ProviderResultWithTraces,
+    ProviderError, ProviderResultWithCallTraces,
 };
 
 pub fn handle_estimate_gas<
@@ -27,7 +27,7 @@ pub fn handle_estimate_gas<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
-) -> ProviderResultWithTraces<U64, ChainSpecT> {
+) -> ProviderResultWithCallTraces<U64, ChainSpecT> {
     // Matching Hardhat behavior in defaulting to "pending" instead of "latest" for
     // estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);
@@ -48,7 +48,7 @@ pub fn handle_estimate_gas<
         )))
     } else {
         let result = result?;
-        Ok((U64::from(result.estimation), result.traces))
+        Ok((U64::from(result.estimation), result.call_traces))
     }
 }
 

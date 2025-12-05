@@ -91,7 +91,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
     );
 
     let gas_used = if let TraceMessage::After(message) = response
-        .traces
+        .call_traces
         .first()
         .expect("Trace should exist")
         .messages
@@ -143,7 +143,7 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
     );
 
     let gas_used = if let TraceMessage::After(message) = response
-        .traces
+        .call_traces
         .first()
         .expect("Trace should exist")
         .messages
