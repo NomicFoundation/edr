@@ -25,6 +25,7 @@ use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
 use edr_solidity::contract_decoder::ContractDecoderError;
 use edr_state_api::StateError;
+use foundry_evm_traces::SparsedTraceArena;
 use serde::Serialize;
 
 use crate::{

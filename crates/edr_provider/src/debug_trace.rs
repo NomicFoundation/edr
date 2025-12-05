@@ -24,6 +24,7 @@ use edr_runtime::inspector::DualInspector;
 use edr_state_api::{DynState, StateError};
 use foundry_evm_traces::SparsedTraceArena;
 use revm_inspector::JournalExt;
+use revm_inspectors::tracing::TracingInspector;
 
 use crate::{
     observability::{EvmObserver, EvmObserverConfig},
@@ -43,7 +44,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
     observer_config: EvmObserverConfig,
-) -> Result<DebugTraceResultWithTraces, DebugTraceErrorForChainSpec<ChainSpecT>> {
+) -> Result<DebugTraceResultWithCallTrace, DebugTraceErrorForChainSpec<ChainSpecT>> {
     let evm_spec_id = evm_config.spec.into();
     if evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
@@ -108,17 +109,16 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
 /// Convert an `ExecutionResult` to a `DebugTraceResult`.
 pub fn execution_result_to_debug_result<HaltReasonT: HaltReasonTrait>(
     execution_result: ExecutionResult<HaltReasonT>,
-    tracing_inspector: revm_inspectors::tracing::TracingInspector,
+    tracing_inspector: TracingInspector,
     eip3155_tracer: TracerEip3155,
-) -> DebugTraceResultWithTraces {
+) -> DebugTraceResultWithCallTrace {
     let arena = tracing_inspector.into_traces();
-    let traces = vec![(
-        foundry_evm_traces::TraceKind::Execution,
-        foundry_evm_traces::SparsedTraceArena {
-            arena,
-            ignored: HashMap::default(),
-        },
-    )];
+    let call_trace = SparsedTraceArena {
+        arena,
+        ignored: HashMap::default(),
+    };
+
+    call_trace.arena.nodes()
 
     let result = match execution_result {
         ExecutionResult::Success {
@@ -143,7 +143,10 @@ pub fn execution_result_to_debug_result<HaltReasonT: HaltReasonTrait>(
         },
     };
 
-    DebugTraceResultWithTraces { result, traces }
+    DebugTraceResultWithCallTrace {
+        result,
+        call_trace,
+    }
 }
 
 /// Config options for `debug_traceTransaction`
@@ -210,12 +213,12 @@ pub struct DebugTraceResult {
     pub logs: Vec<DebugTraceLogItem>,
 }
 
-/// Result of a `debug_traceTransaction` call with traces.
-pub struct DebugTraceResultWithTraces {
+/// Result of a `debug_traceTransaction` call with call trace.
+pub struct DebugTraceResultWithCallTrace {
     /// The result of the transaction.
     pub result: DebugTraceResult,
     /// The raw traces of the debugged transaction.
-    pub traces: Vec<SparsedTraceArena>,
+    pub call_trace: SparsedTraceArena,
 }
 
 /// The output of an EIP-3155 trace.

@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer};
 
 use crate::{
     data::ProviderData,
-    debug_trace::{DebugTraceResult, DebugTraceResultWithTraces},
+    debug_trace::{DebugTraceResult, DebugTraceResultWithCallTrace},
     requests::eth::{resolve_block_spec_for_call_request, resolve_call_request},
     spec::SyncProviderSpec,
     time::TimeSinceEpoch,
@@ -24,7 +24,10 @@ pub fn handle_debug_trace_transaction<
     transaction_hash: B256,
     config: Option<DebugTraceConfig>,
 ) -> ProviderResultWithTraces<DebugTraceResult, ChainSpecT> {
-    let DebugTraceResultWithTraces { result, traces } = data
+    let DebugTraceResultWithCallTrace {
+        result,
+        call_trace: traces,
+    } = data
         .debug_trace_transaction(
             &transaction_hash,
             config.map(Into::into).unwrap_or_default(),
@@ -57,7 +60,10 @@ where
     let transaction =
         resolve_call_request(data, call_request, &block_spec, &StateOverrides::default())?;
 
-    let DebugTraceResultWithTraces { result, traces } = data.debug_trace_call(
+    let DebugTraceResultWithCallTrace {
+        result,
+        call_trace: traces,
+    } = data.debug_trace_call(
         transaction,
         &block_spec,
         config.map(Into::into).unwrap_or_default(),

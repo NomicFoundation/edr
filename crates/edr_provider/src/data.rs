@@ -82,7 +82,7 @@ use crate::{
     },
     debug_trace::{
         debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
-        DebugTraceResultWithTraces, TracerEip3155,
+        DebugTraceResultWithCallTrace, TracerEip3155,
     },
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, ProviderErrorForChainSpec,
@@ -1763,7 +1763,7 @@ where
         transaction: ChainSpecT::SignedTransaction,
         block_spec: &BlockSpec,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResultWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<DebugTraceResultWithCallTrace, ProviderErrorForChainSpec<ChainSpecT>> {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let mut evm_observer = EvmObserver::new(EvmObserverConfig {
@@ -2488,7 +2488,7 @@ where
         &mut self,
         transaction_hash: &B256,
         trace_config: DebugTraceConfig,
-    ) -> Result<DebugTraceResultWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<DebugTraceResultWithCallTrace, ProviderErrorForChainSpec<ChainSpecT>> {
         let block = self
             .blockchain
             .block_by_transaction_hash(transaction_hash)?

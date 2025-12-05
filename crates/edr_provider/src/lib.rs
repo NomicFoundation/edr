@@ -63,12 +63,12 @@ lazy_static! {
 }
 
 pub type ProviderResultWithTraces<T, ChainSpecT> =
-    Result<(T, Traces), ProviderErrorForChainSpec<ChainSpecT>>;
+    Result<(T, Vec<SparsedTraceArena>), ProviderErrorForChainSpec<ChainSpecT>>;
 
 #[derive(Clone, Debug)]
 pub struct ResponseWithTraces {
     pub result: serde_json::Value,
-    pub traces: Traces,
+    pub traces: Vec<SparsedTraceArena>,
 }
 
 fn to_json<
@@ -92,7 +92,7 @@ fn to_json_with_trace<
     TimerT: Clone + TimeSinceEpoch,
 >(
     value: (T, SparsedTraceArena),
-) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<ResponseWithTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithTraces {
