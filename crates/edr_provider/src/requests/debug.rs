@@ -1,3 +1,4 @@
+use alloy_rpc_types_trace::geth::GethTrace;
 use edr_chain_spec::TransactionValidation;
 use edr_eth::BlockSpec;
 use edr_primitives::B256;
@@ -23,7 +24,7 @@ pub fn handle_debug_trace_transaction<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     transaction_hash: B256,
     config: Option<DebugTraceConfig>,
-) -> ProviderResultWithTraces<DebugTraceResult, ChainSpecT> {
+) -> ProviderResultWithTraces<GethTrace, ChainSpecT> {
     let DebugTraceResultWithTraces { result, traces } = data
         .debug_trace_transaction(
             &transaction_hash,
@@ -44,7 +45,7 @@ pub fn handle_debug_trace_call<ChainSpecT, TimerT>(
     call_request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     config: Option<DebugTraceConfig>,
-) -> ProviderResultWithTraces<DebugTraceResult, ChainSpecT>
+) -> ProviderResultWithTraces<GethTrace, ChainSpecT>
 where
     ChainSpecT: SyncProviderSpec<
         TimerT,

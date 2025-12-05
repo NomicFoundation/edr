@@ -7,6 +7,7 @@ edition.workspace = true
 alloy-dyn-abi.workspace = true
 alloy-eips.workspace = true
 alloy-rlp.workspace = true
+alloy-rpc-types-trace = "1.1.2"
 alloy-serde.workspace = true
 alloy-sol-types.workspace = true
 anyhow = { workspace = true, optional = true }
@@ -70,6 +71,7 @@ lru = "0.12.2"
 parking_lot.workspace = true
 rand.workspace = true
 revm-inspector.workspace = true
+revm-inspectors.workspace = true
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true
