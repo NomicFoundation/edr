@@ -15,7 +15,7 @@ patchedDependencies:
     hash: 7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd
     path: patches/hardhat@2.26.1.patch
   hardhat@3.0.15:
-    hash: 96cd605ca0a0eeaecb2da9af957a5f67084e16f192e3e8d549deeea34641cfa4
+    hash: 88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5
     path: patches/hardhat@3.0.15.patch
 
 importers:
@@ -319,7 +319,7 @@ importers:
         version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
       hardhat:
         specifier: 3.0.15
-        version: 3.0.15(patch_hash=96cd605ca0a0eeaecb2da9af957a5f67084e16f192e3e8d549deeea34641cfa4)
+        version: 3.0.15(patch_hash=88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5)
       hardhat2:
         specifier: npm:hardhat@2.26.1
         version: hardhat@2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
@@ -391,7 +391,7 @@ importers:
         version: 7.0.1
       hardhat:
         specifier: 3.0.15
-        version: 3.0.15(patch_hash=96cd605ca0a0eeaecb2da9af957a5f67084e16f192e3e8d549deeea34641cfa4)
+        version: 3.0.15(patch_hash=88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5)
       prettier:
         specifier: ^3.2.5
         version: 3.2.5
@@ -421,7 +421,7 @@ importers:
         version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/b93cf4bc34ff214c099dc970b153f85ade8c9f66
       hardhat:
         specifier: 3.0.15
-        version: 3.0.15(patch_hash=96cd605ca0a0eeaecb2da9af957a5f67084e16f192e3e8d549deeea34641cfa4)
+        version: 3.0.15(patch_hash=88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5)
       prettier:
         specifier: ^3.2.5
         version: 3.2.5
@@ -962,24 +962,28 @@ packages:
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   '@nomicfoundation/solidity-analyzer-linux-arm64-musl@0.1.1':
     resolution: {integrity: sha512-WJ3CE5Oek25OGE3WwzK7oaopY8xMw9Lhb0mlYuJl/maZVo+WtP36XoQTb7bW/i8aAdHW5Z+BqrHMux23pvxG3w==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   '@nomicfoundation/solidity-analyzer-linux-x64-gnu@0.1.1':
     resolution: {integrity: sha512-5WN7leSr5fkUBBjE4f3wKENUy9HQStu7HmWqbtknfXkkil+eNWiBV275IOlpXku7v3uLsXTOKpnnGHJYI2qsdA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   '@nomicfoundation/solidity-analyzer-linux-x64-musl@0.1.1':
     resolution: {integrity: sha512-KdYMkJOq0SYPQMmErv/63CwGwMm5XHenEna9X9aB8mQmhDBrYrlAOSsIPgFCUSL0hjxE3xHP65/EPXR/InD2+w==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   '@nomicfoundation/solidity-analyzer-win32-arm64-msvc@0.1.1':
     resolution: {integrity: sha512-VFZASBfl4qiBYwW5xeY20exWhmv6ww9sWu/krWSesv3q5hA0o1JuzmPHR4LPN6SUZj5vcqci0O6JOL8BPw+APg==}
@@ -5395,7 +5399,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  hardhat@3.0.15(patch_hash=96cd605ca0a0eeaecb2da9af957a5f67084e16f192e3e8d549deeea34641cfa4):
+  hardhat@3.0.15(patch_hash=88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5):
     dependencies:
       '@nomicfoundation/edr': link:crates/edr_napi
       '@nomicfoundation/hardhat-errors': 3.0.5
