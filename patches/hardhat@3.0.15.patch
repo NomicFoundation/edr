@@ -1,0 +1,34 @@
+diff --git a/dist/src/internal/builtin-plugins/solidity-test/helpers.js b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
+index 90b3cb13ed8e14becab9357b0b2ed632623c77ba..5fe71d3dd311bcc880097c6b624c589cb719cd7a 100644
+--- a/dist/src/internal/builtin-plugins/solidity-test/helpers.js
++++ b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
+@@ -65,7 +65,12 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({ chainTy
+     if (config.forking?.rpcEndpoints !== undefined) {
+         rpcEndpoints = {};
+         for (const [name, configValue] of Object.entries(config.forking.rpcEndpoints)) {
+-            rpcEndpoints[name] = await configValue.get();
++            // We don't have the variable resolver in EDR
++            try {
++                rpcEndpoints[name] = await configValue.get();
++            } catch (e) {
++                rpcEndpoints[name] = configValue;
++            }
+         }
+     }
+     const shouldAlwaysCollectStackTraces = verbosity > DEFAULT_VERBOSITY;
+diff --git a/package.json b/package.json
+index 2cd2c84d5f55cc0cd1281384547dcdd8a1bba9a6..e889649f48e5a8f589e33c82cced74768cf4abd8 100644
+--- a/package.json
++++ b/package.json
+@@ -38,7 +38,10 @@
+     "./console.sol": "./console.sol",
+     "./internal/coverage": "./dist/src/internal/builtin-plugins/coverage/exports.js",
+     "./internal/gas-analytics": "./dist/src/internal/builtin-plugins/gas-analytics/exports.js",
+-    "./utils/contract-names": "./dist/src/utils/contract-names.js"
++    "./utils/contract-names": "./dist/src/utils/contract-names.js",
++    "./internal/builtin-plugins/solidity-test/edr-artifacts": "./dist/src/internal/builtin-plugins/solidity-test/edr-artifacts.js",
++    "./internal/builtin-plugins/solidity-test/helpers": "./dist/src/internal/builtin-plugins/solidity-test/helpers.js",
++    "./internal/builtin-plugins/artifacts/artifact-manager": "./dist/src/internal/builtin-plugins/artifacts/artifact-manager.js"
+   },
+   "keywords": [
+     "ethereum",

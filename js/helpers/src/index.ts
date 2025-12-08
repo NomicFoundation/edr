@@ -1,6 +1,5 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getAllFilesMatching } from "@nomicfoundation/hardhat-utils/fs";
 import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
 import {
   Artifact,
@@ -11,9 +10,9 @@ import {
   TestResult,
   TracingConfigWithBuffers,
   SolidityTestResult,
+  BuildInfoAndOutput,
 } from "@nomicfoundation/edr";
 import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
-import { BuildOptions } from "hardhat/types/solidity";
 import { Abi } from "hardhat/types/artifacts";
 
 import { resolveFromRoot } from "@nomicfoundation/hardhat-utils/path";
@@ -21,7 +20,8 @@ import {
   getBuildInfos,
   getEdrArtifacts,
 } from "hardhat/internal/builtin-plugins/solidity-test/edr-artifacts";
-import { throwIfSolidityBuildFailed } from "hardhat/internal/builtin-plugins/solidity/build-results";
+import { warnDeprecatedTestFail } from "hardhat/internal/builtin-plugins/solidity-test/helpers";
+import { ArtifactManagerImplementation } from "hardhat/internal/builtin-plugins/artifacts/artifact-manager";
 
 let BUILD_MUTEX: MultiProcessMutex | undefined;
 
@@ -77,7 +77,7 @@ export async function runAllSolidityTests(
 
 /*
  Build Solidity tests in a Hardhat v3 project.
- Based on https://github.com/NomicFoundation/hardhat/blob/c1e3202e7dbcf39588e687a7263d035751a074df/v-next/hardhat/src/internal/builtin-plugins/solidity-test/task-action.ts
+ Based on https://github.com/NomicFoundation/hardhat/blob/6e9903439fcf145e4b603be60c4c1c036095a241/v-next/hardhat/src/internal/builtin-plugins/solidity-test/task-action.ts
  */
 export async function buildSolidityTestsInput(
   hre: HardhatRuntimeEnvironment
@@ -86,58 +86,72 @@ export async function buildSolidityTestsInput(
   testSuiteIds: ArtifactId[];
   tracingConfig: TracingConfigWithBuffers;
 }> {
+  let testRootPaths: string[];
+
   // Cache assumes one build process at a time.
   await buildMutex().use(async () => {
-    // NOTE: We run the compile task first to ensure all the artifacts for them are generated
-    // Then, we compile just the test sources. We don't do it in one go because the user
-    // is likely to use different compilation options for the tests and the sources.
-    await hre.tasks.getTask("compile").run({ quiet: true });
+    await hre.tasks.getTask("build").run({
+      noTests: true,
+      quiet: true,
+    });
+    // Run the build task for test files
+    const result: { testRootPaths: string[] } = await hre.tasks
+      .getTask("build")
+      .run({
+        // If no specific files are passed, it means compile all source files
+        files: [],
+        noContracts: true,
+        quiet: true,
+      });
+    testRootPaths = result.testRootPaths;
   });
 
-  // NOTE: A test file is either a file with a `.sol` extension in the `tests.solidity`
-  // directory or a file with a `.t.sol` extension in the `sources.solidity` directory
-  let rootFilePaths = (
-    await Promise.all([
-      getAllFilesMatching(hre.config.paths.tests.solidity, (f) =>
-        f.endsWith(".sol")
-      ),
-      ...hre.config.paths.sources.solidity.map(async (dir) => {
-        return getAllFilesMatching(dir, (f) => f.endsWith(".t.sol"));
-      }),
+  // EDR needs all artifacts (contracts + tests)
+  const edrArtifacts: Array<{
+    edrAtifact: Artifact;
+    userSourceName: string;
+  }> = [];
+  const buildInfos: BuildInfoAndOutput[] = [];
+  for (const scope of ["contracts", "tests"] as const) {
+    const artifactsDir = await hre.solidity.getArtifactsDirectory(scope);
+    const artifactManager = new ArtifactManagerImplementation(artifactsDir);
+    edrArtifacts.push(...(await getEdrArtifacts(artifactManager)));
+    buildInfos.push(...(await getBuildInfos(artifactManager)));
+  }
+
+  const sourceNameToUserSourceName = new Map(
+    edrArtifacts.map(({ userSourceName, edrAtifact }) => [
+      edrAtifact.id.source,
+      userSourceName,
     ])
-  ).flat(1);
-  // NOTE: We remove duplicates in case there is an intersection between
-  // the tests.solidity paths and the sources paths
-  rootFilePaths = Array.from(new Set(rootFilePaths));
-  const buildOptions: BuildOptions = {
-    force: false,
-    buildProfile: hre.globalOptions.buildProfile ?? "default",
-    quiet: true,
-  };
-
-  // Cache assumes one build process at a time.
-  const results = await buildMutex().use(() =>
-    hre.solidity.build(rootFilePaths, buildOptions)
   );
-  throwIfSolidityBuildFailed(results);
 
-  const buildInfos = await getBuildInfos(hre.artifacts);
-  const edrArtifacts = await getEdrArtifacts(hre.artifacts);
+  edrArtifacts.forEach(({ userSourceName, edrAtifact }) => {
+    if (
+      testRootPaths.includes(
+        resolveFromRoot(hre.config.paths.root, userSourceName)
+      ) &&
+      isTestSuiteArtifact(edrAtifact)
+    ) {
+      warnDeprecatedTestFail(edrAtifact, sourceNameToUserSourceName);
+    }
+  });
+
   const testSuiteIds = edrArtifacts
     .filter(({ userSourceName }) =>
-      rootFilePaths.includes(
+      testRootPaths.includes(
         resolveFromRoot(hre.config.paths.root, userSourceName)
       )
     )
     .filter(({ edrAtifact }) => isTestSuiteArtifact(edrAtifact))
     .map(({ edrAtifact }) => edrAtifact.id);
 
+  const artifacts = edrArtifacts.map(({ edrAtifact }) => edrAtifact);
+
   const tracingConfig: TracingConfigWithBuffers = {
     buildInfos,
     ignoreContracts: false,
   };
-
-  const artifacts = edrArtifacts.map(({ edrAtifact }) => edrAtifact);
 
   return { artifacts, testSuiteIds, tracingConfig };
 }
