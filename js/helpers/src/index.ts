@@ -1,6 +1,5 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getAllFilesMatching } from "@nomicfoundation/hardhat-utils/fs";
 import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
 import {
   Artifact,
@@ -14,7 +13,6 @@ import {
   BuildInfoAndOutput,
 } from "@nomicfoundation/edr";
 import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
-import { BuildOptions } from "hardhat/types/solidity";
 import { Abi } from "hardhat/types/artifacts";
 
 import { resolveFromRoot } from "@nomicfoundation/hardhat-utils/path";
@@ -22,7 +20,6 @@ import {
   getBuildInfos,
   getEdrArtifacts,
 } from "hardhat/internal/builtin-plugins/solidity-test/edr-artifacts";
-import { throwIfSolidityBuildFailed } from "hardhat/internal/builtin-plugins/solidity/build-results";
 import { warnDeprecatedTestFail } from "hardhat/internal/builtin-plugins/solidity-test/helpers";
 import { ArtifactManagerImplementation } from "hardhat/internal/builtin-plugins/artifacts/artifact-manager";
 
