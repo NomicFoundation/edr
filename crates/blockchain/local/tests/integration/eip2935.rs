@@ -25,6 +25,7 @@ fn local_blockchain(
         base_fee_params: L1ChainSpec::default_base_fee_params(),
         hardfork: edr_chain_l1::Hardfork::PRAGUE,
         min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
     };
 
     let genesis_block = L1ChainSpec::genesis_block(

@@ -1,5 +1,5 @@
 use edr_eip1559::BaseFeeParams;
-use edr_eip7892::{BlobScheduleBlobParams, ScheduledBlobParams};
+use edr_eip7892::ScheduledBlobParams;
 
 /// Fork condition for a hardfork.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]

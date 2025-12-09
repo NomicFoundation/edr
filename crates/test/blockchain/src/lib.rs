@@ -88,6 +88,7 @@ pub fn create_dummy_block_with_difficulty<BlockchainErrorT: Debug>(
                 base_fee_params: blockchain.base_fee_params(),
                 hardfork: blockchain.hardfork(),
                 min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
+                scheduled_blob_params: None,
             },
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
@@ -116,6 +117,7 @@ pub fn create_dummy_block_with_hash<BlockchainErrorT>(
                 base_fee_params: blockchain.base_fee_params(),
                 hardfork: blockchain.hardfork(),
                 min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
+                scheduled_blob_params: None,
             },
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
@@ -166,6 +168,7 @@ pub fn insert_dummy_block_with_transaction<
             base_fee_params: blockchain.base_fee_params(),
             hardfork: blockchain.hardfork(),
             min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: None,
         },
         HeaderOverrides::default(),
         Some(blockchain.last_block()?.block_header()),

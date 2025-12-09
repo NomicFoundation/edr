@@ -326,6 +326,7 @@ mod tests {
             hardfork,
             base_fee_params: &op::MAINNET_BASE_FEE_PARAMS,
             min_ethash_difficulty: OpChainSpec::MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: None,
         };
         let genesis_block = OpChainSpec::genesis_block(
             StateDiff::default(),

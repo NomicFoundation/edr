@@ -23,6 +23,7 @@ use edr_chain_config::{ChainConfig, HardforkActivations};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     BlockSpec, PreEip1898BlockSpec,
@@ -197,6 +198,7 @@ pub struct ForkedBlockchain<
     hardfork: HardforkT,
     hardfork_activations: Option<HardforkActivations<HardforkT>>,
     min_ethash_difficulty: u64,
+    scheduled_blob_params: Option<ScheduledBlobParams>,
     _phantom: PhantomData<fn() -> BlockT>,
 }
 
@@ -247,6 +249,7 @@ impl<
             base_fee_params: default_base_fee_params,
             hardfork,
             min_ethash_difficulty,
+            scheduled_blob_params,
         } = block_config;
 
         let ForkMetadata {
@@ -412,6 +415,7 @@ impl<
             hardfork_activations,
             min_ethash_difficulty,
             _phantom: PhantomData,
+            scheduled_blob_params,
         })
     }
 }
@@ -600,6 +604,10 @@ impl<
 
     fn network_id(&self) -> u64 {
         self.network_id
+    }
+    
+    fn scheduled_blob_params(&self) -> Option< &ScheduledBlobParams>  {
+        self.scheduled_blob_params.as_ref()
     }
 }
 
@@ -991,6 +999,7 @@ impl<
                 base_fee_params: &self.base_fee_params,
                 hardfork: self.hardfork.clone(),
                 min_ethash_difficulty: self.min_ethash_difficulty,
+                scheduled_blob_params: self.scheduled_blob_params.clone(),
             },
         );
 

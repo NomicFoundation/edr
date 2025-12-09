@@ -6,6 +6,7 @@ use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{ExecutableTransaction as _, HaltReasonTrait};
 use edr_chain_spec_evm::{result::ExecutionResult, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
+use edr_eip7892::ScheduledBlobParams;
 use edr_eth::reward_percentile::RewardPercentile;
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
@@ -27,6 +28,7 @@ pub(super) struct CheckGasLimitArgs<'a, HaltReasonT: HaltReasonTrait, HardforkT,
     pub gas_limit: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
     pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
+    pub scheduled_blob_params: Option<ScheduledBlobParams>,
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
@@ -49,6 +51,7 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         gas_limit,
         custom_precompiles,
         trace_collector,
+        scheduled_blob_params,
     } = args;
 
     transaction.set_gas_limit(gas_limit);
@@ -61,6 +64,7 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         transaction,
         custom_precompiles,
         trace_collector,
+        scheduled_blob_params
     )?;
 
     Ok(matches!(result, ExecutionResult::Success { .. }))
@@ -81,6 +85,7 @@ pub(super) struct BinarySearchEstimationArgs<
     pub upper_bound: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
     pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
+    pub scheduled_blob_params: Option<ScheduledBlobParams>,
 }
 
 /// Search for a tight upper bound on the gas limit that will allow the
@@ -108,6 +113,7 @@ pub(super) fn binary_search_estimation<
         mut upper_bound,
         custom_precompiles,
         trace_collector,
+        scheduled_blob_params,
     } = args;
 
     let mut i = 0;
@@ -130,6 +136,7 @@ pub(super) fn binary_search_estimation<
             gas_limit: mid,
             custom_precompiles,
             trace_collector,
+            scheduled_blob_params: scheduled_blob_params.clone(),
         })?;
 
         if success {

@@ -126,6 +126,7 @@ async fn get_fork_state<
         base_fee_params,
         hardfork,
         min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
     };
 
     let blockchain = ForkedBlockchain::new(

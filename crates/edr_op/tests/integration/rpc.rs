@@ -87,6 +87,7 @@ async fn block_with_deposit_transaction() -> anyhow::Result<()> {
             base_fee_params: &chain_config.base_fee_params,
             hardfork,
             min_ethash_difficulty: OpChainSpec::MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: None,
         },
         runtime.clone(),
         rpc_client.clone(),

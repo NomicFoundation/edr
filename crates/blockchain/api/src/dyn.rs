@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use edr_block_api::BlockAndTotalDifficulty;
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 use edr_state_api::{DynState, StateDiff, StateOverride};
@@ -190,6 +191,10 @@ impl<
 
     fn network_id(&self) -> u64 {
         self.inner.network_id()
+    }
+    
+    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams>  {
+        self.inner.scheduled_blob_params()
     }
 }
 

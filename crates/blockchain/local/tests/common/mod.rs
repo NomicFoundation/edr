@@ -22,6 +22,7 @@ pub fn create_dummy_local_blockchain() -> LocalBlockchainForChainSpec<L1ChainSpe
         base_fee_params: &chain_config.base_fee_params,
         hardfork: edr_chain_l1::Hardfork::default(),
         min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
     };
 
     let genesis_diff = StateDiff::default();

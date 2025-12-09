@@ -13,6 +13,7 @@ use edr_blockchain_api::{
 };
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::{DynState, StateDiff, StateOverride};
@@ -41,6 +42,7 @@ pub struct LocalBlockchain<BlockReceiptT: ReceiptTrait, HardforkT, LocalBlockT, 
     chain_id: u64,
     hardfork: HardforkT,
     min_ethash_difficulty: u64,
+    scheduled_blob_params: Option<ScheduledBlobParams>,
     storage: ReservableSparseBlockStorage<
         Arc<BlockReceiptT>,
         Arc<LocalBlockT>,
@@ -69,6 +71,7 @@ impl<
             base_fee_params,
             hardfork,
             min_ethash_difficulty,
+            scheduled_blob_params,
         } = block_config;
 
         let genesis_header = genesis_block.block_header();
@@ -97,6 +100,7 @@ impl<
             chain_id,
             hardfork,
             min_ethash_difficulty,
+            scheduled_blob_params,
         })
     }
 }
@@ -197,6 +201,10 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 
     fn network_id(&self) -> u64 {
         self.chain_id
+    }
+    
+    fn scheduled_blob_params(&self) -> Option< &ScheduledBlobParams>  {
+        self.scheduled_blob_params.as_ref()
     }
 }
 
@@ -369,6 +377,7 @@ impl<
                 base_fee_params: &self.base_fee_params,
                 hardfork: self.hardfork.clone(),
                 min_ethash_difficulty: self.min_ethash_difficulty,
+                scheduled_blob_params: self.scheduled_blob_params.clone(),
             },
         );
 
@@ -479,6 +488,7 @@ mod tests {
             base_fee_params: &chain_config.base_fee_params,
             hardfork: edr_chain_l1::Hardfork::SHANGHAI,
             min_ethash_difficulty: edr_chain_l1::L1_MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: None,
         };
 
         let genesis_block = L1ChainSpec::genesis_block(
