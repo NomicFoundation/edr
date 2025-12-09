@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "dependencies": {
     "@nomicfoundation/hardhat-utils": "3.0.0-next.0",
-    "papaparse": "^5.5.3"
+    "csv-parse": "^6.1.0",
+    "csv-stringify": "^6.6.0"
   },
   "devDependencies": {
     "@ethereumjs/util": "^9.1.0",
@@ -12,7 +13,6 @@
     "@types/argparse": "^2.0.16",
     "@types/lodash": "^4.14.123",
     "@types/node": "^20.0.0",
-    "@types/papaparse": "^5.3.16",
     "@typescript-eslint/eslint-plugin": "5.61.0",
     "@typescript-eslint/parser": "5.61.0",
     "argparse": "^2.0.1",
@@ -20,7 +20,7 @@
     "eslint-config-prettier": "9.1.0",
     "eslint-plugin-import": "2.27.5",
     "eslint-plugin-prettier": "5.2.1",
-    "hardhat": "3.0.0",
+    "hardhat": "3.0.15",
     "hardhat2": "npm:hardhat@2.26.1",
     "lodash": "^4.17.11",
     "prettier": "^3.2.5",

@@ -4059,7 +4059,7 @@ dependencies = [
  "edr_solidity",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
- "foundry-cheatcodes-spec 1.3.6",
+ "foundry-cheatcodes-spec 1.5.0",
  "foundry-compilers",
  "foundry-evm-core",
  "foundry-evm-traces",
@@ -4096,8 +4096,8 @@ dependencies = [
 
 [[package]]
 name = "foundry-cheatcodes-spec"
-version = "1.3.6"
-source = "git+https://github.com/foundry-rs/foundry?tag=v1.3.6#d2415887096b10226d13af9240b5bef5e6b0d815"
+version = "1.5.0"
+source = "git+https://github.com/foundry-rs/foundry?tag=v1.5.0#1c57854462289b2e71ee7654cd6666217ed86ffd"
 dependencies = [
  "alloy-sol-types",
  "foundry-macros",
@@ -4380,8 +4380,8 @@ dependencies = [
 
 [[package]]
 name = "foundry-macros"
-version = "1.3.6"
-source = "git+https://github.com/foundry-rs/foundry?tag=v1.3.6#d2415887096b10226d13af9240b5bef5e6b0d815"
+version = "1.5.0"
+source = "git+https://github.com/foundry-rs/foundry?tag=v1.5.0#1c57854462289b2e71ee7654cd6666217ed86ffd"
 dependencies = [
  "proc-macro-error2",
  "proc-macro2",
