@@ -43,6 +43,8 @@ impl LogCollector {
                     gas: Gas::new(inputs.gas_limit),
                 },
                 memory_offset: inputs.return_memory_offset.clone(),
+                was_precompile_called: true,
+                precompile_call_logs: vec![],
             });
         }
         None
@@ -66,7 +68,7 @@ impl<
         EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
     > for LogCollector
 {
-    fn log(
+    fn log_full(
         &mut self,
         _interp: &mut Interpreter,
         _context: &mut EvmContext<

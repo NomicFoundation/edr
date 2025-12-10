@@ -76,14 +76,19 @@ where
         self.mutable.step_end(interp, context);
     }
 
-    fn log(
+    fn log(&mut self, context: &mut ContextT, log: ExecutionLog) {
+        self.immutable.log(context, log.clone());
+        self.mutable.log(context, log);
+    }
+
+    fn log_full(
         &mut self,
         interp: &mut Interpreter<InterpreterT>,
         context: &mut ContextT,
         log: ExecutionLog,
     ) {
-        self.immutable.log(interp, context, log.clone());
-        self.mutable.log(interp, context, log);
+        self.immutable.log_full(interp, context, log.clone());
+        self.mutable.log_full(interp, context, log);
     }
 
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
