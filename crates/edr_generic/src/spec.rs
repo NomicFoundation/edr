@@ -27,7 +27,7 @@ use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
-use edr_primitives::{Address, Bytes, HashMap, B256, U256};
+use edr_primitives::{Address, B256, Bytes, HashMap, U64, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_state_api::StateDiff;
@@ -97,10 +97,10 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
             // If the hardfork requires it, set ExcessGasAndPrice default value
             // see https://github.com/NomicFoundation/edr/issues/947
             if self.inner.hardfork >= edr_chain_l1::Hardfork::CANCUN {
-                // FIXME: pass proper timestamp
+                let (timestamp, _) = self.inner.timestamp().most_significant_bits();
                 let blob_params = blob_params_for_hardfork(
                     self.inner.hardfork,
-                    0,
+                    timestamp,
                     self.inner.scheduled_blob_params.as_ref(),
                 );
 
