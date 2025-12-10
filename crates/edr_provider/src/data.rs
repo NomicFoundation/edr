@@ -22,7 +22,8 @@ use edr_block_header::{
 };
 use edr_block_miner::{mine_block, mine_block_with_single_transaction};
 use edr_blockchain_api::{
-    BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock as _, StateAtBlock as _, r#dyn::{DynBlockchain, DynBlockchainError}
+    r#dyn::{DynBlockchain, DynBlockchainError},
+    BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock as _, StateAtBlock as _,
 };
 use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
@@ -1697,8 +1698,12 @@ where
         }
 
         let last_block = self.last_block()?;
-        let base_fee =
-            calculate_next_base_fee_per_blob_gas(last_block.block_header(), self.hardfork(), last_block.block_header().timestamp, self.blockchain.scheduled_blob_params());
+        let base_fee = calculate_next_base_fee_per_blob_gas(
+            last_block.block_header(),
+            self.hardfork(),
+            last_block.block_header().timestamp,
+            self.blockchain.scheduled_blob_params(),
+        );
 
         Ok(Some(base_fee))
     }
@@ -1780,7 +1785,7 @@ where
                 transaction,
                 &custom_precompiles,
                 &mut inspector,
-                scheduled_blob_params
+                scheduled_blob_params,
             )?;
 
             let EvmObserver {
@@ -2206,7 +2211,7 @@ where
                 transaction,
                 &custom_precompiles,
                 &mut evm_observer,
-                scheduled_blob_params
+                scheduled_blob_params,
             )?;
 
             let EvmObserver {
@@ -2251,7 +2256,7 @@ where
         })?
     }
 
-    fn execute_in_block_context<T >(
+    fn execute_in_block_context<T>(
         &mut self,
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
@@ -2507,7 +2512,11 @@ where
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec, scheduled_blob_params);
+                let block_env = ChainSpecT::BlockEnv::new_block_env(
+                    header,
+                    cfg_env.spec,
+                    scheduled_blob_params,
+                );
 
                 debug_trace_transaction::<ChainSpecT>(
                     blockchain,
@@ -2600,7 +2609,7 @@ where
                 transaction.clone(),
                 &custom_precompiles,
                 &mut evm_observer,
-                scheduled_blob_params.clone()
+                scheduled_blob_params.clone(),
             )?;
 
             let EvmObserver {
@@ -2687,7 +2696,7 @@ where
                     upper_bound: header.gas_limit,
                     custom_precompiles: &custom_precompiles,
                     trace_collector: &mut trace_collector,
-                    scheduled_blob_params
+                    scheduled_blob_params,
                 })?;
 
             let traces = trace_collector.into_traces();
@@ -2789,7 +2798,9 @@ fn create_blockchain_and_state<
                 });
         }
 
-        let scheduled_blob_params = chain_configs.get(&config.chain_id).and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
+        let scheduled_blob_params = chain_configs
+            .get(&config.chain_id)
+            .and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
         let block_config = BlockConfig {
             base_fee_params: ChainSpecT::default_base_fee_params(),
             hardfork: config.hardfork,
@@ -2990,7 +3001,9 @@ fn create_blockchain_and_state<
                 })
         });
 
-        let scheduled_blob_params = ChainSpecT::chain_configs().get(&config.chain_id).and_then(|config| config.bpo_hardfork_schedule.clone());
+        let scheduled_blob_params = ChainSpecT::chain_configs()
+            .get(&config.chain_id)
+            .and_then(|config| config.bpo_hardfork_schedule.clone());
 
         let block_config = BlockConfig {
             base_fee_params,

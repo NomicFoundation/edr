@@ -1,5 +1,5 @@
 use edr_block_header::BlockHeader;
-use edr_blockchain_api::{BlockHashByNumber, r#dyn::DynBlockchainError};
+use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{BlobExcessGasAndPrice, BlockEnvConstructor};
 use edr_chain_spec_evm::{
     result::ExecutionResult, BlockEnvTrait, CfgEnv, ContextForChainSpec, Inspector,
@@ -54,6 +54,7 @@ impl<BlockEnvT: BlockEnvTrait> BlockEnvTrait for BlockEnvWithZeroBaseFee<BlockEn
 }
 
 /// Execute a transaction as a call. Returns the gas used and the output.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
     blockchain: BlockchainT,
     block_header: &'call BlockHeader,
@@ -62,7 +63,7 @@ pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
     transaction: ChainSpecT::SignedTransaction,
     custom_precompiles: &'call HashMap<Address, PrecompileFn>,
     inspector: &'call mut InspectorT,
-    scheduled_blob_params: Option<ScheduledBlobParams>
+    scheduled_blob_params: Option<ScheduledBlobParams>,
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
     BlockchainT: BlockHashByNumber<Error = DynBlockchainError>,
@@ -76,7 +77,8 @@ where
     >,
     StateT: State<Error = StateError>,
 {
-    let block_env = ChainSpecT::BlockEnv::new_block_env(block_header, cfg_env.spec, scheduled_blob_params);
+    let block_env =
+        ChainSpecT::BlockEnv::new_block_env(block_header, cfg_env.spec, scheduled_blob_params);
 
     guaranteed_dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
         blockchain,

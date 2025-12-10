@@ -2,7 +2,7 @@ mod difficulty;
 mod overrides;
 
 pub use alloy_eips::eip4895::Withdrawal;
-use alloy_eips::{eip7840::BlobParams};
+use alloy_eips::eip7840::BlobParams;
 use edr_chain_spec::{
     BlobExcessGasAndPrice, BlockEnvConstructor, BlockEnvForHardfork, BlockEnvTrait, EvmSpecId,
 };
@@ -218,7 +218,11 @@ impl<'header, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
         hardfork: HardforkT,
         scheduled_blob_params: Option<ScheduledBlobParams>,
     ) -> HeaderAndEvmSpec<'header, BlockHeaderT, HardforkT> {
-        HeaderAndEvmSpec { hardfork, header , scheduled_blob_params}
+        HeaderAndEvmSpec {
+            hardfork,
+            header,
+            scheduled_blob_params,
+        }
     }
 }
 
@@ -254,8 +258,10 @@ impl<HardforkT: Copy + Into<EvmSpecId>, BlockHeaderT: BlockEnvForHardfork<Hardfo
     }
 
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
-        self.header
-            .blob_excess_gas_and_price_for_hardfork(self.hardfork, self.scheduled_blob_params.as_ref())
+        self.header.blob_excess_gas_and_price_for_hardfork(
+            self.hardfork,
+            self.scheduled_blob_params.as_ref(),
+        )
     }
 }
 
@@ -530,10 +536,15 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for PartialHeade
     fn blob_excess_gas_and_price_for_hardfork(
         &self,
         hardfork: HardforkT,
-        scheduled_blob_params: Option<&ScheduledBlobParams>
+        scheduled_blob_params: Option<&ScheduledBlobParams>,
     ) -> Option<BlobExcessGasAndPrice> {
         self.blob_gas.as_ref().map(|blob_gas| {
-            blob_excess_gas_and_price_for_evm_spec(blob_gas, hardfork.into(), self.timestamp, scheduled_blob_params)
+            blob_excess_gas_and_price_for_evm_spec(
+                blob_gas,
+                hardfork.into(),
+                self.timestamp,
+                scheduled_blob_params,
+            )
         })
     }
 }
@@ -644,7 +655,7 @@ pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<EvmSpecId>>(
         .as_ref()
         .map_or(0u128, |BlobGas { excess_gas, .. }| {
             let blob_params =
-                blob_params_for_hardfork(evm_spec_id, timestamp, scheduled_blob_params); 
+                blob_params_for_hardfork(evm_spec_id, timestamp, scheduled_blob_params);
 
             blob_params.calc_blob_fee(*excess_gas)
         })

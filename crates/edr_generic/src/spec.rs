@@ -438,8 +438,9 @@ mod tests {
         let header = build_block_header(Some(blob_gas)); // blob gas present
         let spec_id = edr_chain_l1::Hardfork::CANCUN;
 
-        let block =
-            <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, spec_id, None);
+        let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header, spec_id, None,
+        );
 
         let blob_excess_gas = block
             .blob_excess_gas_and_price()

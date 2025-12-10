@@ -392,8 +392,12 @@ where
     let hardfork = blockchain.hardfork();
 
     if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
-        let base_fee_per_blob_gas =
-            calculate_next_base_fee_per_blob_gas(parent_block.block_header(), hardfork, parent_block.block_header().timestamp, blockchain.scheduled_blob_params()); //TODO: revisit using parent header timestamp for this
+        let base_fee_per_blob_gas = calculate_next_base_fee_per_blob_gas(
+            parent_block.block_header(),
+            hardfork,
+            parent_block.block_header().timestamp,
+            blockchain.scheduled_blob_params(),
+        ); //TODO: revisit using parent header timestamp for this
         if *max_fee_per_blob_gas < base_fee_per_blob_gas {
             return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
                 expected: base_fee_per_blob_gas,

@@ -202,8 +202,8 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
     fn network_id(&self) -> u64 {
         self.chain_id
     }
-    
-    fn scheduled_blob_params(&self) -> Option< &ScheduledBlobParams>  {
+
+    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
         self.scheduled_blob_params.as_ref()
     }
 }

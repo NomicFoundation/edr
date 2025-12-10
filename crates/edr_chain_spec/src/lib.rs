@@ -37,7 +37,11 @@ pub trait BlockEnvChainSpec: HardforkChainSpec {
 /// A trait for constructing a (partial) block header into an EVM block.
 pub trait BlockEnvConstructor<HardforkT, HeaderT> {
     /// Converts the instance into an EVM block.
-    fn new_block_env(header: HeaderT, hardfork: HardforkT, scheduled_blob_params: Option<ScheduledBlobParams>) -> Self;
+    fn new_block_env(
+        header: HeaderT,
+        hardfork: HardforkT,
+        scheduled_blob_params: Option<ScheduledBlobParams>,
+    ) -> Self;
 }
 
 /// Trait for providing block environment values for a specific hardfork.
@@ -87,7 +91,6 @@ pub trait BlockEnvForHardfork<HardforkT> {
         hardfork: HardforkT,
         scheduled_blob_params: Option<&ScheduledBlobParams>,
     ) -> Option<BlobExcessGasAndPrice>;
-
 }
 
 /// Trait for specifying the contextual information type of a chain.

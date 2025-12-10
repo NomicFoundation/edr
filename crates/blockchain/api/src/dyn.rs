@@ -192,8 +192,8 @@ impl<
     fn network_id(&self) -> u64 {
         self.inner.network_id()
     }
-    
-    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams>  {
+
+    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
         self.inner.scheduled_blob_params()
     }
 }

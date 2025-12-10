@@ -424,8 +424,11 @@ mod tests {
     fn op_block_constructor_should_not_default_excess_blob_gas_for_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block =
-            <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, Hardfork::ECOTONE, None);
+        let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header,
+            Hardfork::ECOTONE,
+            None,
+        );
         assert_eq!(block.blob_excess_gas_and_price(), None);
     }
 
@@ -433,8 +436,11 @@ mod tests {
     fn op_block_constructor_should_not_default_excess_blob_gas_before_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block =
-            <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, Hardfork::CANYON, None);
+        let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header,
+            Hardfork::CANYON,
+            None,
+        );
         assert_eq!(block.blob_excess_gas_and_price(), None);
     }
 
@@ -442,8 +448,11 @@ mod tests {
     fn op_block_constructor_should_not_default_excess_blob_gas_after_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block =
-            <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, Hardfork::ISTHMUS, None);
+        let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header,
+            Hardfork::ISTHMUS,
+            None,
+        );
         assert_eq!(block.blob_excess_gas_and_price(), None);
     }
 
@@ -456,8 +465,11 @@ mod tests {
         };
         let header = build_block_header(Some(blob_gas)); // blob gas present
 
-        let block =
-            <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, Hardfork::ECOTONE, None);
+        let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header,
+            Hardfork::ECOTONE,
+            None,
+        );
 
         let blob_excess_gas = block
             .blob_excess_gas_and_price()

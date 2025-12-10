@@ -370,7 +370,7 @@ impl<
                             base_fee_params: &reservation.base_fee_params,
                             hardfork: reservation.hardfork,
                             min_ethash_difficulty: reservation.min_ethash_difficulty,
-                            scheduled_blob_params: None // TODO: is this ok?
+                            scheduled_blob_params: None, // TODO: is this ok?
                         },
                         HeaderOverrides {
                             number: Some(block_number),

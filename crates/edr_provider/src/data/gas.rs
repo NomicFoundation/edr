@@ -64,7 +64,7 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         transaction,
         custom_precompiles,
         trace_collector,
-        scheduled_blob_params
+        scheduled_blob_params,
     )?;
 
     Ok(matches!(result, ExecutionResult::Success { .. }))
