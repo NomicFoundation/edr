@@ -488,7 +488,7 @@ mod tests {
             base_fee_params: &chain_config.base_fee_params,
             hardfork: edr_chain_l1::Hardfork::SHANGHAI,
             min_ethash_difficulty: edr_chain_l1::L1_MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params: None,
+            scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),
         };
 
         let genesis_block = L1ChainSpec::genesis_block(

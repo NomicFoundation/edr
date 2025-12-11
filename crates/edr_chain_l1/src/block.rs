@@ -305,7 +305,7 @@ impl<
                 base_fee_params: blockchain.base_fee_params(),
                 hardfork,
                 min_ethash_difficulty: blockchain.min_ethash_difficulty(),
-                scheduled_blob_params: None,
+                scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
             },
             overrides,
             Some(parent_header),

@@ -111,6 +111,9 @@ async fn get_fork_state<
         .as_ref()
         .map(|config| config.hardfork_activations.clone())
         .ok_or(anyhow!("Unsupported chain id"))?;
+    let scheduled_blob_params = chain_config
+        .as_ref()
+        .and_then(|config| config.bpo_hardfork_schedule.clone());
 
     let replay_header = replay_block.block_header();
     let hardfork = hardfork_activations
@@ -126,7 +129,7 @@ async fn get_fork_state<
         base_fee_params,
         hardfork,
         min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
-        scheduled_blob_params: None,
+        scheduled_blob_params,
     };
 
     let blockchain = ForkedBlockchain::new(

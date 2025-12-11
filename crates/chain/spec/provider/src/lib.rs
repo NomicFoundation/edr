@@ -71,6 +71,7 @@ pub fn default_block_config<'params, ChainSpecT: ProviderChainSpec>(
         base_fee_params: ChainSpecT::default_base_fee_params(),
         hardfork,
         min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
-        scheduled_blob_params: None,
+        scheduled_blob_params: None, /* TODO: should we add a default_sbpo_schedule as well in
+                                      * each ChainSpec? */
     }
 }

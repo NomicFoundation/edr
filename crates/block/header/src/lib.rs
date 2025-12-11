@@ -947,7 +947,8 @@ mod tests {
     }
 
     #[test]
-    fn test_blob_params_for_hardfork_should_not_return_bpo_values_after_osaka_if_not_activated_yet() {
+    fn test_blob_params_for_hardfork_should_not_return_bpo_values_after_osaka_if_not_activated_yet()
+    {
         let now = to_timestamp(SystemTime::now());
         let in_one_hour = to_timestamp(SystemTime::now().checked_add(ONE_HOUR).unwrap());
         let scheduled_blob_params: ScheduledBlobParams =
