@@ -88,6 +88,10 @@ const MAINNET_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
         condition: ForkCondition::Timestamp(1_746_612_311),
         hardfork: Hardfork::PRAGUE,
     },
+    HardforkActivation {
+        condition: ForkCondition::Timestamp(1_764_798_551),
+        hardfork: Hardfork::OSAKA,
+    },
 ];
 
 fn mainnet_config() -> &'static ChainConfig<Hardfork> {
@@ -124,6 +128,10 @@ const HOLESKY_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
         condition: ForkCondition::Timestamp(1_740_434_112),
         hardfork: Hardfork::PRAGUE,
     },
+    HardforkActivation {
+        condition: ForkCondition::Timestamp(1_759_308_480),
+        hardfork: Hardfork::OSAKA,
+    },
 ];
 
 fn holesky_config() -> &'static ChainConfig<Hardfork> {
@@ -151,6 +159,10 @@ const HOODI_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
     HardforkActivation {
         condition: ForkCondition::Timestamp(1_742_999_832),
         hardfork: Hardfork::PRAGUE,
+    },
+    HardforkActivation {
+        condition: ForkCondition::Timestamp(1_761_677_592),
+        hardfork: Hardfork::OSAKA,
     },
 ];
 
@@ -191,6 +203,10 @@ const SEPOLIA_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
     HardforkActivation {
         condition: ForkCondition::Timestamp(1_741_159_776),
         hardfork: Hardfork::PRAGUE,
+    },
+    HardforkActivation {
+        condition: ForkCondition::Timestamp(1_760_427_360),
+        hardfork: Hardfork::OSAKA,
     },
 ];
 

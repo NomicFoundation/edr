@@ -4266,6 +4266,11 @@ mod tests {
                 url: get_alchemy_url(),
                 header_overrides_constructor: l1_header_overrides,
             },
+            mainnet_osaka => L1ChainSpec {
+                block_number: 23_957_251,
+                url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
+            },
         }
     }
 }
