@@ -10,7 +10,7 @@ semver.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 sha3.workspace = true
-slang_solidity = { git = "https://github.com/NomicFoundation/slang", tag = "v1.2.1" }
+slang_solidity = { git = "https://github.com/NomicFoundation/slang", tag = "v1.3.1" }
 thiserror.workspace = true
 
 [lints]
