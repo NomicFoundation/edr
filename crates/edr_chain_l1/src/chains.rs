@@ -88,6 +88,10 @@ const MAINNET_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
         condition: ForkCondition::Timestamp(1_746_612_311),
         hardfork: Hardfork::PRAGUE,
     },
+    HardforkActivation {
+        condition: ForkCondition::Timestamp(1_764_798_551),
+        hardfork: Hardfork::OSAKA,
+    },
 ];
 
 fn mainnet_config() -> &'static ChainConfig<Hardfork> {
