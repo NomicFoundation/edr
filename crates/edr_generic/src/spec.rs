@@ -27,7 +27,7 @@ use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
-use edr_primitives::{Address, B256, Bytes, HashMap, U64, U256};
+use edr_primitives::{Address, Bytes, HashMap, B256, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_state_api::StateDiff;

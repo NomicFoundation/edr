@@ -47,7 +47,10 @@ impl ScheduledBlobParams {
 }
 
 impl From<Vec<(u64, BlobParams)>> for ScheduledBlobParams {
-    fn from(value: Vec<(u64, BlobParams)>) -> Self {
+    fn from(mut value: Vec<(u64, BlobParams)>) -> Self {
+        value.sort_by(|(timestamp_a, _params_a), (timestamp_b, _params_b)| {
+            timestamp_a.cmp(timestamp_b)
+        });
         ScheduledBlobParams { schedule: value }
     }
 }

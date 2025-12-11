@@ -118,12 +118,14 @@ pub fn blob_params_for_hardfork(
     timestamp: u64,
     scheduled_blob_params: Option<&ScheduledBlobParams>,
 ) -> BlobParams {
-    if let Some(blob_param) = scheduled_blob_params
-        .and_then(|params| params.active_scheduled_params_at_timestamp(timestamp))
-    {
-        *blob_param
-    } else if evm_spec_id >= EvmSpecId::OSAKA {
-        BlobParams::osaka()
+    if evm_spec_id >= EvmSpecId::OSAKA {
+        if let Some(blob_param) = scheduled_blob_params
+            .and_then(|params| params.active_scheduled_params_at_timestamp(timestamp))
+        {
+            *blob_param
+        } else {
+            BlobParams::osaka()
+        }
     } else if evm_spec_id >= EvmSpecId::PRAGUE {
         BlobParams::prague()
     } else {
@@ -663,7 +665,10 @@ pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<EvmSpecId>>(
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::{
+        str::FromStr,
+        time::{Duration, SystemTime, UNIX_EPOCH},
+    };
 
     use alloy_rlp::Decodable as _;
     use edr_primitives::{hex, KECCAK_RLP_EMPTY_ARRAY};
@@ -922,5 +927,59 @@ mod tests {
         let encoded = alloy_rlp::encode(&header);
         assert_eq!(encoded, expected_encoding);
         assert_eq!(header.hash(), expected_hash);
+    }
+
+    fn to_timestamp(time: SystemTime) -> u64 {
+        time.duration_since(UNIX_EPOCH).unwrap().as_secs()
+    }
+    const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
+    const ONE_DAY: Duration = Duration::from_secs(60 * 6 * 24);
+
+    #[test]
+    fn test_blob_params_for_hardfork_should_not_return_bpo_values_before_osaka() {
+        let now = to_timestamp(SystemTime::now());
+        let an_hour_ago = to_timestamp(SystemTime::now().checked_sub(ONE_HOUR).unwrap());
+        let scheduled_blob_params: ScheduledBlobParams =
+            vec![(an_hour_ago, BlobParams::bpo1())].into();
+        let blob_params =
+            blob_params_for_hardfork(EvmSpecId::PRAGUE, now, Some(&scheduled_blob_params));
+        assert_eq!(blob_params, BlobParams::prague());
+    }
+
+    #[test]
+    fn test_blob_params_for_hardfork_should_not_return_bpo_values_after_osaka_if_not_activated_yet() {
+        let now = to_timestamp(SystemTime::now());
+        let in_one_hour = to_timestamp(SystemTime::now().checked_add(ONE_HOUR).unwrap());
+        let scheduled_blob_params: ScheduledBlobParams =
+            vec![(in_one_hour, BlobParams::bpo1())].into();
+        let blob_params =
+            blob_params_for_hardfork(EvmSpecId::OSAKA, now, Some(&scheduled_blob_params));
+        assert_eq!(blob_params, BlobParams::osaka());
+    }
+
+    #[test]
+    fn test_blob_params_for_hardfork_should_return_bpo_values_after_osaka_if_activated() {
+        let now = to_timestamp(SystemTime::now());
+        let an_hour_ago = to_timestamp(SystemTime::now().checked_sub(ONE_HOUR).unwrap());
+        let scheduled_blob_params: ScheduledBlobParams =
+            vec![(an_hour_ago, BlobParams::bpo1())].into();
+        let blob_params =
+            blob_params_for_hardfork(EvmSpecId::OSAKA, now, Some(&scheduled_blob_params));
+        assert_eq!(blob_params, BlobParams::bpo1());
+    }
+
+    #[test]
+    fn test_blob_params_for_hardfork_should_return_more_recent_activated_param() {
+        let now = to_timestamp(SystemTime::now());
+        let an_hour_ago = to_timestamp(SystemTime::now().checked_sub(ONE_HOUR).unwrap());
+        let a_day_ago = to_timestamp(SystemTime::now().checked_sub(ONE_DAY).unwrap());
+        let scheduled_blob_params: ScheduledBlobParams = vec![
+            (an_hour_ago, BlobParams::bpo2()),
+            (a_day_ago, BlobParams::bpo1()),
+        ]
+        .into();
+        let blob_params =
+            blob_params_for_hardfork(EvmSpecId::OSAKA, now, Some(&scheduled_blob_params));
+        assert_eq!(blob_params, BlobParams::bpo2());
     }
 }
