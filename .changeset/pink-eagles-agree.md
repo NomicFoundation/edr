@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Add OSAKA hardfork activation so EDR can accurately infer it from the block timestamp.
+Added Osaka hardfork activations so EDR can accurately infer the hardfork from the block timestamp

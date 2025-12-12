@@ -6,7 +6,7 @@
 
 - 25b2b2d: Added unsupported cheatcode errors for unsupported cheatcodes up to and including Foundry 1.5.0
 - 7cc0868: Added support for instrumenting Solidity 0.8.31 source code
-- 93a1484: Add OSAKA hardfork activation so EDR can accurately infer it from the block timestamp.
+- 93a1484: Added Osaka hardfork activations so EDR can accurately infer the hardfork from the block timestamp
 - c52f1f6: Added basic support for Jovian hardfork (OP stack)
 
 ## 0.12.0-next.17
