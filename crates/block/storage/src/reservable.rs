@@ -5,6 +5,7 @@ use edr_block_api::{Block, BlockReceipts, EmptyBlock, FetchBlockReceipts, LocalB
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::StateDiff;
@@ -27,6 +28,7 @@ struct Reservation<HardforkT> {
     hardfork: HardforkT,
     base_fee_params: BaseFeeParams<HardforkT>,
     min_ethash_difficulty: u64,
+    scheduled_blob_params: Option<ScheduledBlobParams>,
 }
 
 /// A storage solution for storing a subset of a blockchain's blocks in-memory,
@@ -264,6 +266,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
             hardfork: block_config.hardfork,
             base_fee_params: (*block_config.base_fee_params).clone(),
             min_ethash_difficulty: block_config.min_ethash_difficulty,
+            scheduled_blob_params: block_config.scheduled_blob_params,
         };
 
         self.reservations.get_mut().push(reservation);
@@ -370,7 +373,7 @@ impl<
                             base_fee_params: &reservation.base_fee_params,
                             hardfork: reservation.hardfork,
                             min_ethash_difficulty: reservation.min_ethash_difficulty,
-                            scheduled_blob_params: None, // TODO: is this ok?
+                            scheduled_blob_params: reservation.scheduled_blob_params,
                         },
                         HeaderOverrides {
                             number: Some(block_number),
