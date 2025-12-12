@@ -24,6 +24,7 @@ use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_napi_core::{
     napi,
     spec::{marshal_response_data, Response, SyncNapiSpec},
@@ -320,6 +321,10 @@ impl ProviderChainSpec for OpChainSpec {
                 .as_ref()
                 .unwrap_or(default_base_fee_params),
         )
+    }
+
+    fn default_schedulded_blob_params() -> Option<ScheduledBlobParams> {
+        None
     }
 }
 

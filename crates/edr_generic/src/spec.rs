@@ -291,6 +291,10 @@ impl ProviderChainSpec for GenericChainSpec {
     ) -> u128 {
         L1ChainSpec::next_base_fee_per_gas(header, hardfork, default_base_fee_params)
     }
+
+    fn default_schedulded_blob_params() -> Option<ScheduledBlobParams> {
+        L1ChainSpec::default_schedulded_blob_params()
+    }
 }
 
 impl ReceiptChainSpec for GenericChainSpec {
