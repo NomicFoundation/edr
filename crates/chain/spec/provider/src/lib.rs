@@ -9,6 +9,7 @@ use edr_chain_spec_block::{BlockChainSpec, SyncBlockChainSpec};
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcChainSpec, RpcEthBlock, RpcTransaction, RpcTypeFrom};
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{HashMap, B256};
 use edr_transaction::{TransactionAndBlock, TransactionType};
 
@@ -49,6 +50,10 @@ pub trait ProviderChainSpec: BlockChainSpec<
     /// Returns the default base fee params to fallback to for the given spec
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork>;
 
+    /// Returns the default scheduled blob params to fallback to for the given
+    /// spec
+    fn default_schedulded_blob_params() -> Option<ScheduledBlobParams>;
+
     /// Returns the `base_fee_per_gas` for the next block.
     fn next_base_fee_per_gas(
         header: &BlockHeader,
@@ -64,12 +69,13 @@ pub trait SyncProviderChainSpec: ProviderChainSpec + SyncBlockChainSpec {}
 impl<ChainSpecT: ProviderChainSpec + SyncBlockChainSpec> SyncProviderChainSpec for ChainSpecT {}
 
 /// Returns the default block configuration for the given chain specification.
-pub fn default_block_config<'params, ChainSpecT: ProviderChainSpec>(
+pub fn default_block_config<ChainSpecT: ProviderChainSpec>(
     hardfork: ChainSpecT::Hardfork,
-) -> BlockConfig<'params, ChainSpecT::Hardfork> {
+) -> BlockConfig<ChainSpecT::Hardfork> {
     BlockConfig {
-        base_fee_params: ChainSpecT::default_base_fee_params(),
+        base_fee_params: ChainSpecT::default_base_fee_params().clone(),
         hardfork,
         min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: ChainSpecT::default_schedulded_blob_params(),
     }
 }

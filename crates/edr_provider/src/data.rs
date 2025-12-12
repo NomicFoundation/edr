@@ -23,7 +23,7 @@ use edr_block_header::{
 use edr_block_miner::{mine_block, mine_block_with_single_transaction};
 use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
-    BlockHashByNumber, BlockchainMetadata as _, GetBlockchainBlock as _, StateAtBlock as _,
+    BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock as _, StateAtBlock as _,
 };
 use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
@@ -1698,8 +1698,11 @@ where
         }
 
         let last_block = self.last_block()?;
-        let base_fee =
-            calculate_next_base_fee_per_blob_gas(last_block.block_header(), self.hardfork());
+        let base_fee = calculate_next_base_fee_per_blob_gas(
+            last_block.block_header(),
+            self.hardfork(),
+            self.blockchain.scheduled_blob_params(),
+        );
 
         Ok(Some(base_fee))
     }
@@ -1768,6 +1771,7 @@ where
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
 
         let custom_precompiles = self.precompile_overrides.clone();
+        let scheduled_blob_params = self.blockchain.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
             let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut evm_observer);
@@ -1780,6 +1784,7 @@ where
                 transaction,
                 &custom_precompiles,
                 &mut inspector,
+                scheduled_blob_params,
             )?;
 
             let EvmObserver {
@@ -2192,6 +2197,7 @@ where
                 });
 
         let contract_decoder = Arc::clone(&self.contract_decoder);
+        let scheduled_blob_params = self.blockchain.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
@@ -2204,6 +2210,7 @@ where
                 transaction,
                 &custom_precompiles,
                 &mut evm_observer,
+                scheduled_blob_params,
             )?;
 
             let EvmObserver {
@@ -2500,10 +2507,15 @@ where
             ..EvmObserverConfig::from(&self.observability)
         };
 
+        let scheduled_blob_params = self.blockchain.scheduled_blob_params().cloned();
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec);
+                let block_env = ChainSpecT::BlockEnv::new_block_env(
+                    header,
+                    cfg_env.spec,
+                    scheduled_blob_params,
+                );
 
                 debug_trace_transaction::<ChainSpecT>(
                     blockchain,
@@ -2580,6 +2592,7 @@ where
 
         let custom_precompiles = self.precompile_overrides.clone();
         let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
+        let scheduled_blob_params = self.blockchain.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.block_header();
@@ -2595,6 +2608,7 @@ where
                 transaction.clone(),
                 &custom_precompiles,
                 &mut evm_observer,
+                scheduled_blob_params.clone(),
             )?;
 
             let EvmObserver {
@@ -2656,6 +2670,7 @@ where
                 gas_limit: initial_estimation,
                 custom_precompiles: &custom_precompiles,
                 trace_collector: &mut trace_collector,
+                scheduled_blob_params: scheduled_blob_params.clone(),
             })?;
 
             // Return the initial estimation if it was successful
@@ -2680,6 +2695,7 @@ where
                     upper_bound: header.gas_limit,
                     custom_precompiles: &custom_precompiles,
                     trace_collector: &mut trace_collector,
+                    scheduled_blob_params,
                 })?;
 
             let traces = trace_collector.into_traces();
@@ -2777,13 +2793,18 @@ fn create_blockchain_and_state<
                         .base_fee_params
                         .clone()
                         .unwrap_or_else(|| ChainSpecT::default_base_fee_params().clone()),
+                    bpo_hardfork_schedule: None,
                 });
         }
 
+        let scheduled_blob_params = chain_configs
+            .get(&config.chain_id)
+            .and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
         let block_config = BlockConfig {
-            base_fee_params: ChainSpecT::default_base_fee_params(),
+            base_fee_params: ChainSpecT::default_base_fee_params().clone(),
             hardfork: config.hardfork,
             min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params,
         };
 
         let (blockchain, mut irregular_state) = tokio::task::block_in_place(
@@ -2979,10 +3000,15 @@ fn create_blockchain_and_state<
                 })
         });
 
+        let scheduled_blob_params = ChainSpecT::chain_configs()
+            .get(&config.chain_id)
+            .and_then(|config| config.bpo_hardfork_schedule.clone());
+
         let block_config = BlockConfig {
-            base_fee_params,
+            base_fee_params: base_fee_params.clone(),
             hardfork: config.hardfork,
             min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params,
         };
 
         let genesis_diff = StateDiff::from(genesis_state);
@@ -4268,6 +4294,11 @@ mod tests {
             },
             mainnet_osaka => L1ChainSpec {
                 block_number: 23_957_251,
+                url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
+            },
+            mainnet_osaka_bpo1 => L1ChainSpec {
+                block_number: 23_990_516,
                 url: get_alchemy_url(),
                 header_overrides_constructor: l1_header_overrides,
             },

@@ -8,6 +8,7 @@ use edr_chain_spec::{
 };
 use edr_eip1559::BaseFeeParams;
 pub use edr_eip4844::BlobGas;
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{b256, keccak256, Address, Bloom, Bytes, B256, B64, KECCAK_NULL_RLP, U256};
 use edr_trie::ordered_trie_root;
 
@@ -112,9 +113,19 @@ impl BlockHeader {
     }
 }
 
-pub fn blob_params_for_hardfork(evm_spec_id: EvmSpecId) -> BlobParams {
+pub fn blob_params_for_hardfork(
+    evm_spec_id: EvmSpecId,
+    timestamp: u64,
+    scheduled_blob_params: Option<&ScheduledBlobParams>,
+) -> BlobParams {
     if evm_spec_id >= EvmSpecId::OSAKA {
-        BlobParams::osaka()
+        if let Some(blob_param) = scheduled_blob_params
+            .and_then(|params| params.active_scheduled_params_at_timestamp(timestamp))
+        {
+            *blob_param
+        } else {
+            BlobParams::osaka()
+        }
     } else if evm_spec_id >= EvmSpecId::PRAGUE {
         BlobParams::prague()
     } else {
@@ -126,8 +137,10 @@ pub fn blob_params_for_hardfork(evm_spec_id: EvmSpecId) -> BlobParams {
 fn blob_excess_gas_and_price_for_evm_spec(
     blob_gas: &BlobGas,
     evm_spec_id: EvmSpecId,
+    timestamp: u64,
+    scheduled_blob_params: Option<&ScheduledBlobParams>,
 ) -> BlobExcessGasAndPrice {
-    let blob_params = blob_params_for_hardfork(evm_spec_id);
+    let blob_params = blob_params_for_hardfork(evm_spec_id, timestamp, scheduled_blob_params);
 
     BlobExcessGasAndPrice::new(
         blob_gas.excess_gas,
@@ -176,10 +189,16 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for BlockHeader 
     fn blob_excess_gas_and_price_for_hardfork(
         &self,
         hardfork: HardforkT,
+        scheduled_blob_params: Option<&ScheduledBlobParams>,
     ) -> Option<BlobExcessGasAndPrice> {
-        self.blob_gas
-            .as_ref()
-            .map(|blob_gas| blob_excess_gas_and_price_for_evm_spec(blob_gas, hardfork.into()))
+        self.blob_gas.as_ref().map(|blob_gas| {
+            blob_excess_gas_and_price_for_evm_spec(
+                blob_gas,
+                hardfork.into(),
+                self.timestamp,
+                scheduled_blob_params,
+            )
+        })
     }
 }
 
@@ -189,6 +208,7 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for BlockHeader 
 pub struct HeaderAndEvmSpec<'header, BlockHeaderT: BlockEnvForHardfork<HardforkT>, HardforkT> {
     pub hardfork: HardforkT,
     pub header: &'header BlockHeaderT,
+    pub scheduled_blob_params: Option<ScheduledBlobParams>,
 }
 
 impl<'header, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
@@ -198,8 +218,13 @@ impl<'header, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
     fn new_block_env(
         header: &'header BlockHeaderT,
         hardfork: HardforkT,
+        scheduled_blob_params: Option<ScheduledBlobParams>,
     ) -> HeaderAndEvmSpec<'header, BlockHeaderT, HardforkT> {
-        HeaderAndEvmSpec { hardfork, header }
+        HeaderAndEvmSpec {
+            hardfork,
+            header,
+            scheduled_blob_params,
+        }
     }
 }
 
@@ -235,8 +260,10 @@ impl<HardforkT: Copy + Into<EvmSpecId>, BlockHeaderT: BlockEnvForHardfork<Hardfo
     }
 
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
-        self.header
-            .blob_excess_gas_and_price_for_hardfork(self.hardfork)
+        self.header.blob_excess_gas_and_price_for_hardfork(
+            self.hardfork,
+            self.scheduled_blob_params.as_ref(),
+        )
     }
 }
 
@@ -291,7 +318,7 @@ impl PartialHeader {
     /// Constructs a new instance based on the provided [`HeaderOverrides`] and
     /// parent [`BlockHeader`] for the given [`EvmSpecId`].
     pub fn new<HardforkT: Clone + Into<EvmSpecId> + PartialOrd>(
-        block_config: BlockConfig<'_, HardforkT>,
+        block_config: BlockConfig<HardforkT>,
         overrides: HeaderOverrides<HardforkT>,
         parent: Option<&BlockHeader>,
         ommers: &Vec<BlockHeader>,
@@ -301,6 +328,7 @@ impl PartialHeader {
             base_fee_params,
             hardfork,
             min_ethash_difficulty,
+            scheduled_blob_params,
         } = block_config;
 
         let timestamp = overrides.timestamp.unwrap_or_default();
@@ -324,7 +352,7 @@ impl PartialHeader {
                         overrides
                             .base_fee_params
                             .as_ref()
-                            .unwrap_or(base_fee_params),
+                            .unwrap_or(&base_fee_params),
                         hardfork,
                     )
                 } else {
@@ -392,7 +420,11 @@ impl PartialHeader {
                              gas_used,
                              excess_gas,
                          }| {
-                            let blob_params = blob_params_for_hardfork(evm_spec_id);
+                            let blob_params = blob_params_for_hardfork(
+                                evm_spec_id,
+                                timestamp,
+                                scheduled_blob_params.as_ref(),
+                            );
 
                             let base_fee = if evm_spec_id >= EvmSpecId::OSAKA {
                                 base_fee.expect("base fee must be set for post-Osaka blocks")
@@ -506,22 +538,30 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for PartialHeade
     fn blob_excess_gas_and_price_for_hardfork(
         &self,
         hardfork: HardforkT,
+        scheduled_blob_params: Option<&ScheduledBlobParams>,
     ) -> Option<BlobExcessGasAndPrice> {
-        self.blob_gas
-            .as_ref()
-            .map(|blob_gas| blob_excess_gas_and_price_for_evm_spec(blob_gas, hardfork.into()))
+        self.blob_gas.as_ref().map(|blob_gas| {
+            blob_excess_gas_and_price_for_evm_spec(
+                blob_gas,
+                hardfork.into(),
+                self.timestamp,
+                scheduled_blob_params,
+            )
+        })
     }
 }
 
 /// Defines the configurations needed for building a block
 #[derive(Clone, Debug)]
-pub struct BlockConfig<'params, HardforkT> {
+pub struct BlockConfig<HardforkT> {
     /// Associated base fee params
-    pub base_fee_params: &'params BaseFeeParams<HardforkT>,
+    pub base_fee_params: BaseFeeParams<HardforkT>,
     /// Associated hardfork
     pub hardfork: HardforkT,
     /// Associated minimum ethash difficulty
     pub min_ethash_difficulty: u64,
+    /// Scheduled blob parameter only hardfork parameters
+    pub scheduled_blob_params: Option<ScheduledBlobParams>,
 }
 
 /// Determines the block number based on the provided parent header and
@@ -607,6 +647,7 @@ pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
 pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<EvmSpecId>>(
     parent: &BlockHeader,
     hardfork: HardforkT,
+    scheduled_blob_params: Option<&ScheduledBlobParams>,
 ) -> u128 {
     let evm_spec_id = hardfork.into();
 
@@ -614,7 +655,8 @@ pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<EvmSpecId>>(
         .blob_gas
         .as_ref()
         .map_or(0u128, |BlobGas { excess_gas, .. }| {
-            let blob_params = blob_params_for_hardfork(evm_spec_id);
+            let blob_params =
+                blob_params_for_hardfork(evm_spec_id, parent.timestamp, scheduled_blob_params);
 
             blob_params.calc_blob_fee(*excess_gas)
         })
@@ -622,7 +664,10 @@ pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<EvmSpecId>>(
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::{
+        str::FromStr,
+        time::{Duration, SystemTime, UNIX_EPOCH},
+    };
 
     use alloy_rlp::Decodable as _;
     use edr_primitives::{hex, KECCAK_RLP_EMPTY_ARRAY};
@@ -881,5 +926,60 @@ mod tests {
         let encoded = alloy_rlp::encode(&header);
         assert_eq!(encoded, expected_encoding);
         assert_eq!(header.hash(), expected_hash);
+    }
+
+    fn to_timestamp(time: SystemTime) -> u64 {
+        time.duration_since(UNIX_EPOCH).unwrap().as_secs()
+    }
+    const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
+    const ONE_DAY: Duration = Duration::from_secs(60 * 6 * 24);
+
+    #[test]
+    fn test_blob_params_for_hardfork_should_not_return_bpo_values_before_osaka() {
+        let now = to_timestamp(SystemTime::now());
+        let an_hour_ago = to_timestamp(SystemTime::now().checked_sub(ONE_HOUR).unwrap());
+        let scheduled_blob_params: ScheduledBlobParams =
+            vec![(an_hour_ago, BlobParams::bpo1())].into();
+        let blob_params =
+            blob_params_for_hardfork(EvmSpecId::PRAGUE, now, Some(&scheduled_blob_params));
+        assert_eq!(blob_params, BlobParams::prague());
+    }
+
+    #[test]
+    fn test_blob_params_for_hardfork_should_not_return_bpo_values_after_osaka_if_not_activated_yet()
+    {
+        let now = to_timestamp(SystemTime::now());
+        let in_one_hour = to_timestamp(SystemTime::now().checked_add(ONE_HOUR).unwrap());
+        let scheduled_blob_params: ScheduledBlobParams =
+            vec![(in_one_hour, BlobParams::bpo1())].into();
+        let blob_params =
+            blob_params_for_hardfork(EvmSpecId::OSAKA, now, Some(&scheduled_blob_params));
+        assert_eq!(blob_params, BlobParams::osaka());
+    }
+
+    #[test]
+    fn test_blob_params_for_hardfork_should_return_bpo_values_after_osaka_if_activated() {
+        let now = to_timestamp(SystemTime::now());
+        let an_hour_ago = to_timestamp(SystemTime::now().checked_sub(ONE_HOUR).unwrap());
+        let scheduled_blob_params: ScheduledBlobParams =
+            vec![(an_hour_ago, BlobParams::bpo1())].into();
+        let blob_params =
+            blob_params_for_hardfork(EvmSpecId::OSAKA, now, Some(&scheduled_blob_params));
+        assert_eq!(blob_params, BlobParams::bpo1());
+    }
+
+    #[test]
+    fn test_blob_params_for_hardfork_should_return_more_recent_activated_param() {
+        let now = to_timestamp(SystemTime::now());
+        let an_hour_ago = to_timestamp(SystemTime::now().checked_sub(ONE_HOUR).unwrap());
+        let a_day_ago = to_timestamp(SystemTime::now().checked_sub(ONE_DAY).unwrap());
+        let scheduled_blob_params: ScheduledBlobParams = vec![
+            (an_hour_ago, BlobParams::bpo2()),
+            (a_day_ago, BlobParams::bpo1()),
+        ]
+        .into();
+        let blob_params =
+            blob_params_for_hardfork(EvmSpecId::OSAKA, now, Some(&scheduled_blob_params));
+        assert_eq!(blob_params, BlobParams::bpo2());
     }
 }

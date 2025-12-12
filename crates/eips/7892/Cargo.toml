@@ -1,11 +1,11 @@
 [package]
-name = "edr_chain_config"
+name = "edr_eip7892"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-edr_eip1559.workspace = true
-edr_eip7892.workspace = true
+alloy-eips.workspace = true
+alloy-hardforks.workspace = true
 serde.workspace = true
 
 [lints]

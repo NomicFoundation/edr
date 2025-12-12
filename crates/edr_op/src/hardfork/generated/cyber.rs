@@ -3,7 +3,7 @@
 // generated. To make changes, update the generator script instead in
 // `crates/tool/op_chain_config_generator/src/op_chain_config.rs`.
 //
-// source: https://github.com/ethereum-optimism/superchain-registry/tree/f33efe105393d892365fda9fda42eb69951d011a/superchain/configs
+// source: https://github.com/ethereum-optimism/superchain-registry/tree/0b03f5387c86c018343dc758c7b8913429a60c6b/superchain/configs
 
 use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation, HardforkActivations};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
@@ -44,6 +44,7 @@ pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
                 hardfork: OpSpecId::ECOTONE,
             },
         ]),
+        bpo_hardfork_schedule: None,
     }
 }
 
@@ -82,5 +83,6 @@ pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
                 hardfork: OpSpecId::ECOTONE,
             },
         ]),
+        bpo_hardfork_schedule: None,
     }
 }

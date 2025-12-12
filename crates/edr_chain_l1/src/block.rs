@@ -194,7 +194,11 @@ impl<
                 ..
             }) = self.header.blob_gas.as_ref()
         {
-            let blob_params = blob_params_for_hardfork(self.config().spec.into());
+            let blob_params = blob_params_for_hardfork(
+                self.config().spec.into(),
+                self.header.timestamp,
+                self.blockchain.scheduled_blob_params(),
+            );
 
             if block_blob_gas_used + blob_gas_used > blob_params.max_blob_gas_per_block() {
                 return Err(BlockTransactionError::ExceedsBlockBlobGasLimit);
@@ -298,9 +302,10 @@ impl<
         let cfg = evm_config.to_cfg_env(hardfork);
         let header = PartialHeader::new(
             BlockConfig {
-                base_fee_params: blockchain.base_fee_params(),
+                base_fee_params: blockchain.base_fee_params().clone(),
                 hardfork,
                 min_ethash_difficulty: blockchain.min_ethash_difficulty(),
+                scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
             },
             overrides,
             Some(parent_header),
@@ -339,10 +344,11 @@ impl<
     > {
         self.validate_transaction(&transaction)?;
 
-        let block_env = HeaderAndEvmSpec {
-            header: &self.header,
-            hardfork: self.cfg.spec.into(),
-        };
+        let block_env = HeaderAndEvmSpec::new_block_env(
+            &self.header,
+            self.cfg.spec.into(),
+            self.blockchain().scheduled_blob_params().cloned(),
+        );
 
         let receipt_builder =
             ExecutionReceiptBuilderT::new_receipt_builder(&self.state, &transaction).map_err(
@@ -402,7 +408,11 @@ impl<
     {
         self.validate_transaction(&transaction)?;
 
-        let block_env = ChainSpecT::BlockEnv::new_block_env(&self.header, self.cfg.spec);
+        let block_env = ChainSpecT::BlockEnv::new_block_env(
+            &self.header,
+            self.cfg.spec,
+            self.blockchain().scheduled_blob_params().cloned(),
+        );
 
         let receipt_builder =
             ExecutionReceiptBuilderT::new_receipt_builder(&self.state, &transaction).map_err(

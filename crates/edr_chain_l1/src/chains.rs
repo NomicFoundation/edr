@@ -3,6 +3,7 @@
 use std::sync::OnceLock;
 
 use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation};
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::HashMap;
 pub use revm_primitives::hardfork::name;
 
@@ -104,6 +105,7 @@ fn mainnet_config() -> &'static ChainConfig<Hardfork> {
             name: "Mainnet".to_owned(),
             hardfork_activations,
             base_fee_params: L1_BASE_FEE_PARAMS,
+            bpo_hardfork_schedule: Some(ScheduledBlobParams::mainnet()),
         }
     })
 }
@@ -144,6 +146,7 @@ fn holesky_config() -> &'static ChainConfig<Hardfork> {
             name: "Holesky".to_owned(),
             hardfork_activations,
             base_fee_params: L1_BASE_FEE_PARAMS,
+            bpo_hardfork_schedule: Some(ScheduledBlobParams::holesky()),
         }
     })
 }
@@ -176,6 +179,7 @@ fn hoodi_config() -> &'static ChainConfig<Hardfork> {
             name: "Hoodi".to_owned(),
             hardfork_activations,
             base_fee_params: L1_BASE_FEE_PARAMS,
+            bpo_hardfork_schedule: Some(ScheduledBlobParams::hoodi()),
         }
     })
 }
@@ -220,6 +224,7 @@ fn sepolia_config() -> &'static ChainConfig<Hardfork> {
             name: "Sepolia".to_owned(),
             hardfork_activations,
             base_fee_params: L1_BASE_FEE_PARAMS,
+            bpo_hardfork_schedule: Some(ScheduledBlobParams::sepolia()),
         }
     })
 }

@@ -26,6 +26,7 @@ use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, Bytes, HashMap, B256, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
@@ -49,9 +50,13 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>>
     BlockEnvConstructor<EvmSpecId, &'header BlockHeaderT>
     for HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
 {
-    fn new_block_env(header: &'header BlockHeaderT, hardfork: EvmSpecId) -> Self {
+    fn new_block_env(
+        header: &'header BlockHeaderT,
+        hardfork: EvmSpecId,
+        scheduled_blob_params: Option<ScheduledBlobParams>,
+    ) -> Self {
         Self {
-            inner: HeaderAndEvmSpec::new_block_env(header, hardfork),
+            inner: HeaderAndEvmSpec::new_block_env(header, hardfork, scheduled_blob_params),
         }
     }
 }
@@ -92,7 +97,12 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
             // If the hardfork requires it, set ExcessGasAndPrice default value
             // see https://github.com/NomicFoundation/edr/issues/947
             if self.inner.hardfork >= edr_chain_l1::Hardfork::CANCUN {
-                let blob_params = blob_params_for_hardfork(self.inner.hardfork);
+                let (timestamp, _) = self.inner.timestamp().most_significant_bits();
+                let blob_params = blob_params_for_hardfork(
+                    self.inner.hardfork,
+                    timestamp,
+                    self.inner.scheduled_blob_params.as_ref(),
+                );
 
                 let update_fraction = blob_params
                     .update_fraction
@@ -245,7 +255,7 @@ impl GenesisBlockFactory for GenericChainSpec {
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: BlockConfig<'_, Self::Hardfork>,
+        block_config: BlockConfig<Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
@@ -280,6 +290,10 @@ impl ProviderChainSpec for GenericChainSpec {
         default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> u128 {
         L1ChainSpec::next_base_fee_per_gas(header, hardfork, default_base_fee_params)
+    }
+
+    fn default_schedulded_blob_params() -> Option<ScheduledBlobParams> {
+        L1ChainSpec::default_schedulded_blob_params()
     }
 }
 
@@ -351,8 +365,9 @@ mod tests {
         let header = build_block_header(None); // No blob gas information
         let spec_id = edr_chain_l1::Hardfork::CANCUN;
 
-        let block =
-            <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, spec_id);
+        let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header, spec_id, None,
+        );
         assert_eq!(
             block.blob_excess_gas_and_price(),
             Some(BlobExcessGasAndPrice::new(
@@ -370,8 +385,9 @@ mod tests {
         let header = build_block_header(None); // No blob gas information
         let spec_id = edr_chain_l1::Hardfork::PRAGUE;
 
-        let block =
-            <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, spec_id);
+        let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header, spec_id, None,
+        );
         assert_eq!(
             block.blob_excess_gas_and_price(),
             Some(BlobExcessGasAndPrice::new(
@@ -389,8 +405,9 @@ mod tests {
         let header = build_block_header(None); // No blob gas information
         let spec_id = edr_chain_l1::Hardfork::OSAKA;
 
-        let block =
-            <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, spec_id);
+        let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header, spec_id, None,
+        );
         assert_eq!(
             block.blob_excess_gas_and_price(),
             Some(BlobExcessGasAndPrice::new(
@@ -410,6 +427,7 @@ mod tests {
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
             edr_chain_l1::Hardfork::SHANGHAI,
+            None,
         );
         assert_eq!(block.blob_excess_gas_and_price(), None);
     }
@@ -424,8 +442,9 @@ mod tests {
         let header = build_block_header(Some(blob_gas)); // blob gas present
         let spec_id = edr_chain_l1::Hardfork::CANCUN;
 
-        let block =
-            <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, spec_id);
+        let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header, spec_id, None,
+        );
 
         let blob_excess_gas = block
             .blob_excess_gas_and_price()

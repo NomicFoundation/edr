@@ -7,6 +7,7 @@ edition.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
+edr_eip7892.workspace = true
 edr_primitives.workspace = true
 revm-context-interface.workspace = true
 revm-primitives.workspace = true

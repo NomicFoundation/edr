@@ -15,6 +15,7 @@ edr_chain_config.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_rpc.workspace = true
 edr_eip1559.workspace = true
+edr_eip7892.workspace = true
 edr_eth.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
