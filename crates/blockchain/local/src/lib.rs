@@ -65,7 +65,7 @@ impl<
         genesis_block: LocalBlockT,
         genesis_diff: StateDiff,
         chain_id: u64,
-        block_config: BlockConfig<'_, HardforkT>,
+        block_config: BlockConfig<HardforkT>,
     ) -> Result<Self, InvalidGenesisBlock> {
         let BlockConfig {
             base_fee_params,
@@ -374,7 +374,7 @@ impl<
             last_header.state_root,
             previous_total_difficulty,
             BlockConfig {
-                base_fee_params: &self.base_fee_params,
+                base_fee_params: self.base_fee_params.clone(),
                 hardfork: self.hardfork.clone(),
                 min_ethash_difficulty: self.min_ethash_difficulty,
                 scheduled_blob_params: self.scheduled_blob_params.clone(),
@@ -485,7 +485,7 @@ mod tests {
             .expect("L1 Mainnet chain config exists");
 
         let block_config = BlockConfig {
-            base_fee_params: &chain_config.base_fee_params,
+            base_fee_params: chain_config.base_fee_params.clone(),
             hardfork: edr_chain_l1::Hardfork::SHANGHAI,
             min_ethash_difficulty: edr_chain_l1::L1_MIN_ETHASH_DIFFICULTY,
             scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),

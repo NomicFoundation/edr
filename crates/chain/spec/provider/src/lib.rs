@@ -64,11 +64,11 @@ pub trait SyncProviderChainSpec: ProviderChainSpec + SyncBlockChainSpec {}
 impl<ChainSpecT: ProviderChainSpec + SyncBlockChainSpec> SyncProviderChainSpec for ChainSpecT {}
 
 /// Returns the default block configuration for the given chain specification.
-pub fn default_block_config<'params, ChainSpecT: ProviderChainSpec>(
+pub fn default_block_config<ChainSpecT: ProviderChainSpec>(
     hardfork: ChainSpecT::Hardfork,
-) -> BlockConfig<'params, ChainSpecT::Hardfork> {
+) -> BlockConfig<ChainSpecT::Hardfork> {
     BlockConfig {
-        base_fee_params: ChainSpecT::default_base_fee_params(),
+        base_fee_params: ChainSpecT::default_base_fee_params().clone(),
         hardfork,
         min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: None, /* TODO: should we add a default_sbpo_schedule as well in

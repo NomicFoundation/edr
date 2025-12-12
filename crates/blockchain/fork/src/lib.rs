@@ -236,7 +236,7 @@ impl<
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        block_config: BlockConfig<'_, HardforkT>,
+        block_config: BlockConfig<HardforkT>,
         runtime: runtime::Handle,
         rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
         irregular_state: &mut IrregularState,
@@ -996,7 +996,7 @@ impl<
             last_header.state_root,
             previous_total_difficulty,
             BlockConfig {
-                base_fee_params: &self.base_fee_params,
+                base_fee_params: self.base_fee_params.clone(),
                 hardfork: self.hardfork.clone(),
                 min_ethash_difficulty: self.min_ethash_difficulty,
                 scheduled_blob_params: self.scheduled_blob_params.clone(),

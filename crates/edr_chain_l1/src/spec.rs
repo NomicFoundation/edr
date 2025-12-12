@@ -184,7 +184,7 @@ impl GenesisBlockFactory for L1ChainSpec {
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: BlockConfig<'_, Self::Hardfork>,
+        block_config: BlockConfig<Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.

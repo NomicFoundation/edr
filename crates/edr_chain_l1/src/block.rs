@@ -302,7 +302,7 @@ impl<
         let cfg = evm_config.to_cfg_env(hardfork);
         let header = PartialHeader::new(
             BlockConfig {
-                base_fee_params: blockchain.base_fee_params(),
+                base_fee_params: blockchain.base_fee_params().clone(),
                 hardfork,
                 min_ethash_difficulty: blockchain.min_ethash_difficulty(),
                 scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),

@@ -126,7 +126,7 @@ async fn get_fork_state<
     );
 
     let block_config = BlockConfig {
-        base_fee_params,
+        base_fee_params: base_fee_params.clone(),
         hardfork,
         min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params,

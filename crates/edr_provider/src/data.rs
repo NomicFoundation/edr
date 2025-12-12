@@ -2802,7 +2802,7 @@ fn create_blockchain_and_state<
             .get(&config.chain_id)
             .and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
         let block_config = BlockConfig {
-            base_fee_params: ChainSpecT::default_base_fee_params(),
+            base_fee_params: ChainSpecT::default_base_fee_params().clone(),
             hardfork: config.hardfork,
             min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
             scheduled_blob_params,
@@ -3006,7 +3006,7 @@ fn create_blockchain_and_state<
             .and_then(|config| config.bpo_hardfork_schedule.clone());
 
         let block_config = BlockConfig {
-            base_fee_params,
+            base_fee_params: base_fee_params.clone(),
             hardfork: config.hardfork,
             min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
             scheduled_blob_params,

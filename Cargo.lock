@@ -2476,8 +2476,6 @@ dependencies = [
  "edr_block_api",
  "edr_block_header",
  "edr_chain_spec",
- "edr_eip1559",
- "edr_eip7892",
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",

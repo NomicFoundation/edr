@@ -318,7 +318,7 @@ impl PartialHeader {
     /// Constructs a new instance based on the provided [`HeaderOverrides`] and
     /// parent [`BlockHeader`] for the given [`EvmSpecId`].
     pub fn new<HardforkT: Clone + Into<EvmSpecId> + PartialOrd>(
-        block_config: BlockConfig<'_, HardforkT>,
+        block_config: BlockConfig<HardforkT>,
         overrides: HeaderOverrides<HardforkT>,
         parent: Option<&BlockHeader>,
         ommers: &Vec<BlockHeader>,
@@ -352,7 +352,7 @@ impl PartialHeader {
                         overrides
                             .base_fee_params
                             .as_ref()
-                            .unwrap_or(base_fee_params),
+                            .unwrap_or(&base_fee_params),
                         hardfork,
                     )
                 } else {
@@ -553,9 +553,9 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for PartialHeade
 
 /// Defines the configurations needed for building a block
 #[derive(Clone, Debug)]
-pub struct BlockConfig<'params, HardforkT> {
+pub struct BlockConfig<HardforkT> {
     /// Associated base fee params
-    pub base_fee_params: &'params BaseFeeParams<HardforkT>,
+    pub base_fee_params: BaseFeeParams<HardforkT>,
     /// Associated hardfork
     pub hardfork: HardforkT,
     /// Associated minimum ethash difficulty

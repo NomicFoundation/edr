@@ -324,7 +324,7 @@ mod tests {
     ) -> anyhow::Result<LocalBlockchainForChainSpec<OpChainSpec>> {
         let block_config = BlockConfig {
             hardfork,
-            base_fee_params: &op::MAINNET_BASE_FEE_PARAMS,
+            base_fee_params: op::MAINNET_BASE_FEE_PARAMS.clone(),
             min_ethash_difficulty: OpChainSpec::MIN_ETHASH_DIFFICULTY,
             scheduled_blob_params: None,
         };

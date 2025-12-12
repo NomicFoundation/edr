@@ -214,7 +214,7 @@ impl GenesisBlockFactory for OpChainSpec {
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: BlockConfig<'_, Self::Hardfork>,
+        block_config: BlockConfig<Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         let genesis_state = PersistentStateTrie::from(genesis_diff);
@@ -225,7 +225,7 @@ impl GenesisBlockFactory for OpChainSpec {
             // EIP-1559 parameters.
             options.extra_data = options.extra_data.or_else(|| {
                 let base_fee_params = config_base_fee_params
-                    .unwrap_or(block_config.base_fee_params)
+                    .unwrap_or(&block_config.base_fee_params)
                     .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 

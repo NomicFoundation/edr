@@ -19,7 +19,7 @@ pub fn create_dummy_local_blockchain() -> LocalBlockchainForChainSpec<L1ChainSpe
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("Chain config must exist for L1 mainnet");
 
     let block_config = BlockConfig {
-        base_fee_params: &chain_config.base_fee_params,
+        base_fee_params: chain_config.base_fee_params.clone(),
         hardfork: edr_chain_l1::Hardfork::default(),
         min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),

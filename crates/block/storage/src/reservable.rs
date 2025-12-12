@@ -4,8 +4,6 @@ use std::num::NonZeroU64;
 use edr_block_api::{Block, BlockReceipts, EmptyBlock, FetchBlockReceipts, LocalBlock};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
-use edr_eip1559::BaseFeeParams;
-use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::StateDiff;
@@ -25,10 +23,7 @@ struct Reservation<HardforkT> {
     previous_state_root: B256,
     previous_total_difficulty: U256,
     previous_diff_index: usize,
-    hardfork: HardforkT,
-    base_fee_params: BaseFeeParams<HardforkT>,
-    min_ethash_difficulty: u64,
-    scheduled_blob_params: Option<ScheduledBlobParams>,
+    block_config: BlockConfig<HardforkT>,
 }
 
 /// A storage solution for storing a subset of a blockchain's blocks in-memory,
@@ -253,7 +248,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
         previous_base_fee: Option<u128>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
-        block_config: BlockConfig<'_, HardforkT>,
+        block_config: BlockConfig<HardforkT>,
     ) {
         let reservation = Reservation {
             first_number: self.last_block_number + 1,
@@ -263,10 +258,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
             previous_state_root,
             previous_total_difficulty,
             previous_diff_index: self.state_diffs.len() - 1,
-            hardfork: block_config.hardfork,
-            base_fee_params: (*block_config.base_fee_params).clone(),
-            min_ethash_difficulty: block_config.min_ethash_difficulty,
-            scheduled_blob_params: block_config.scheduled_blob_params,
+            block_config,
         };
 
         self.reservations.get_mut().push(reservation);
@@ -367,14 +359,9 @@ impl<
                 );
 
                 let block = BlockT::empty(
-                    reservation.hardfork.clone(),
+                    reservation.block_config.hardfork.clone(),
                     PartialHeader::new(
-                        BlockConfig {
-                            base_fee_params: &reservation.base_fee_params,
-                            hardfork: reservation.hardfork,
-                            min_ethash_difficulty: reservation.min_ethash_difficulty,
-                            scheduled_blob_params: reservation.scheduled_blob_params,
-                        },
+                        reservation.block_config,
                         HeaderOverrides {
                             number: Some(block_number),
                             state_root: Some(reservation.previous_state_root),
@@ -437,5 +424,7 @@ fn find_reservation<HardforkT>(
 ) -> Option<&Reservation<HardforkT>> {
     reservations
         .iter()
-        .find(|reservation| reservation.first_number <= number && number <= reservation.last_number)
+        .find(|reservation: &&Reservation<HardforkT>| {
+            reservation.first_number <= number && number <= reservation.last_number
+        })
 }
