@@ -647,7 +647,6 @@ pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
 pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<EvmSpecId>>(
     parent: &BlockHeader,
     hardfork: HardforkT,
-    timestamp: u64,
     scheduled_blob_params: Option<&ScheduledBlobParams>,
 ) -> u128 {
     let evm_spec_id = hardfork.into();
@@ -657,7 +656,7 @@ pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<EvmSpecId>>(
         .as_ref()
         .map_or(0u128, |BlobGas { excess_gas, .. }| {
             let blob_params =
-                blob_params_for_hardfork(evm_spec_id, timestamp, scheduled_blob_params);
+                blob_params_for_hardfork(evm_spec_id, parent.timestamp, scheduled_blob_params);
 
             blob_params.calc_blob_fee(*excess_gas)
         })

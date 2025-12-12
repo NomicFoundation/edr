@@ -1701,7 +1701,6 @@ where
         let base_fee = calculate_next_base_fee_per_blob_gas(
             last_block.block_header(),
             self.hardfork(),
-            last_block.block_header().timestamp,
             self.blockchain.scheduled_blob_params(),
         );
 
