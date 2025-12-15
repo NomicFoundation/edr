@@ -29,7 +29,7 @@ jobs:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
     env:
-      NO_PROXY: static.rust-lang.org
+      NO_PROXY: static.rust-lang.org,static.crates.io,github.com
     permissions:
       contents: read
     strategy:
@@ -158,7 +158,7 @@ jobs:
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
 
-            export NO_PROXY=static.rust-lang.org
+            export NO_PROXY="static.rust-lang.org"
 
             # Download SFW binary
             if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-gnu" ]; then
@@ -195,7 +195,7 @@ jobs:
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
 
-            export NO_PROXY=static.rust-lang.org
+            export NO_PROXY="static.rust-lang.org"
 
             # Download SFW binary
             if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
