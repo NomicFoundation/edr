@@ -189,17 +189,14 @@ pub struct ForkedBlockchain<
     >,
     state_root_generator: Arc<Mutex<RandomHashGenerator>>,
     fork_block_number: u64,
-    base_fee_params: BaseFeeParams<HardforkT>,
     /// The chan id of the forked blockchain is either the local chain id
     /// override or the chain id of the remote blockchain.
     chain_id: u64,
+    block_config: BlockConfig<HardforkT>,
     /// The chain id of the remote blockchain. It might deviate from `chain_id`.
     remote_chain_id: u64,
     network_id: u64,
-    hardfork: HardforkT,
     hardfork_activations: Option<HardforkActivations<HardforkT>>,
-    min_ethash_difficulty: u64,
-    scheduled_blob_params: Option<ScheduledBlobParams>,
     _phantom: PhantomData<fn() -> BlockT>,
 }
 
@@ -237,7 +234,7 @@ impl<
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        block_config: BlockConfig<HardforkT>,
+        mut block_config: BlockConfig<HardforkT>,
         runtime: runtime::Handle,
         rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
         irregular_state: &mut IrregularState,
@@ -246,13 +243,6 @@ impl<
         fork_block_number: Option<u64>,
         chain_id_override: Option<u64>,
     ) -> Result<Self, ForkedBlockchainCreationError<HardforkT>> {
-        let BlockConfig {
-            base_fee_params: default_base_fee_params,
-            hardfork,
-            min_ethash_difficulty,
-            scheduled_blob_params,
-        } = block_config;
-
         let ForkMetadata {
             chain_id: remote_chain_id,
             network_id,
@@ -293,10 +283,9 @@ impl<
             rpc_client.get_block_by_number(PreEip1898BlockSpec::Number(fork_block_number));
 
         let chain_config = chain_configs.get(&remote_chain_id);
-        let base_fee_params = chain_config.map_or_else(
-            || default_base_fee_params.clone(),
-            |config| config.base_fee_params.clone(),
-        );
+        if let Some(config) = chain_config {
+            block_config.base_fee_params = config.base_fee_params.clone();
+        };
         let hardfork_activations = chain_config.as_ref().and_then(
             |ChainConfig {
                  hardfork_activations,
@@ -333,7 +322,7 @@ impl<
                 });
             }
 
-            let local_evm_spec_id = hardfork.clone().into();
+            let local_evm_spec_id = block_config.hardfork.clone().into();
             if remote_evm_spec_id < EvmSpecId::PRAGUE && local_evm_spec_id >= EvmSpecId::PRAGUE {
                 let state_root = state_root_generator.lock().next_value();
 
@@ -407,16 +396,13 @@ impl<
             local_storage: ReservableSparseBlockStorage::empty(fork_block_number),
             remote: RemoteBlockchain::new(rpc_client, runtime),
             state_root_generator,
-            base_fee_params,
             chain_id: chain_id_override.unwrap_or(remote_chain_id),
             remote_chain_id,
             fork_block_number,
             network_id,
-            hardfork,
             hardfork_activations,
-            min_ethash_difficulty,
             _phantom: PhantomData,
-            scheduled_blob_params,
+            block_config,
         })
     }
 }
@@ -538,7 +524,7 @@ impl<
     >;
 
     fn base_fee_params(&self) -> &BaseFeeParams<HardforkT> {
-        &self.base_fee_params
+        &self.block_config.base_fee_params
     }
 
     fn chain_id(&self) -> u64 {
@@ -587,12 +573,12 @@ impl<
                 }
             })
         } else {
-            Ok(self.hardfork.clone())
+            Ok(self.hardfork())
         }
     }
 
     fn hardfork(&self) -> HardforkT {
-        self.hardfork.clone()
+        self.block_config.hardfork.clone()
     }
 
     fn last_block_number(&self) -> u64 {
@@ -600,7 +586,7 @@ impl<
     }
 
     fn min_ethash_difficulty(&self) -> u64 {
-        self.min_ethash_difficulty
+        self.block_config.min_ethash_difficulty
     }
 
     fn network_id(&self) -> u64 {
@@ -634,7 +620,7 @@ impl<
     >
 {
     fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
-        self.scheduled_blob_params.as_ref()
+        self.block_config.scheduled_blob_params.as_ref()
     }
 }
 impl<
@@ -884,7 +870,7 @@ impl<
     ) -> Result<BlockAndTotalDifficulty<Arc<BlockT>, SignedTransactionT>, Self::Error> {
         let last_block = self.last_block()?;
 
-        validate_next_block(self.hardfork.clone(), &last_block, &block)?;
+        validate_next_block(self.hardfork(), &last_block, &block)?;
 
         let previous_total_difficulty = self
             .total_difficulty_by_hash(last_block.block_hash())
@@ -1021,12 +1007,7 @@ impl<
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            BlockConfig {
-                base_fee_params: self.base_fee_params.clone(),
-                hardfork: self.hardfork.clone(),
-                min_ethash_difficulty: self.min_ethash_difficulty,
-                scheduled_blob_params: self.scheduled_blob_params.clone(),
-            },
+            self.block_config.clone(),
         );
 
         Ok(())
