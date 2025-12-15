@@ -1,3 +1,7 @@
+#![warn(missing_docs)]
+
+//! Types related to EIP-7892.
+
 use alloy_eips::eip7840::BlobParams;
 use alloy_hardforks::{holesky, hoodi, mainnet, sepolia};
 
@@ -8,6 +12,7 @@ pub struct ScheduledBlobParams {
 }
 
 impl ScheduledBlobParams {
+    /// Ethereum Mainnet Blob Parameter Only hardforks schedules
     pub fn mainnet() -> Self {
         vec![
             (mainnet::MAINNET_BPO1_TIMESTAMP, BlobParams::bpo1()),
@@ -15,6 +20,8 @@ impl ScheduledBlobParams {
         ]
         .into()
     }
+
+    /// Holesky Blob Parameter Only hardforks schedules
     pub fn holesky() -> Self {
         vec![
             (holesky::HOLESKY_BPO1_TIMESTAMP, BlobParams::bpo1()),
@@ -22,6 +29,7 @@ impl ScheduledBlobParams {
         ]
         .into()
     }
+    /// Sepolia Blob Parameter Only hardforks schedules
     pub fn sepolia() -> Self {
         vec![
             (sepolia::SEPOLIA_BPO1_TIMESTAMP, BlobParams::bpo1()),
@@ -29,6 +37,7 @@ impl ScheduledBlobParams {
         ]
         .into()
     }
+    /// Hoodi Blob Parameter Only hardforks schedules
     pub fn hoodi() -> Self {
         vec![
             (hoodi::HOODI_BPO1_TIMESTAMP, BlobParams::bpo1()),
@@ -37,6 +46,8 @@ impl ScheduledBlobParams {
         .into()
     }
 
+    /// Determines the active `BlobParams` for a given timestamp, based on BPO
+    /// hardfork schedules
     pub fn active_scheduled_params_at_timestamp(&self, timestamp: u64) -> Option<&BlobParams> {
         self.schedule
             .iter()
