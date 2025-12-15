@@ -129,7 +129,7 @@ jobs:
         if: ${{ !matrix.settings.docker && runner.os == 'Windows' }}
         run: |
           curl -sL -o sfw.exe https://github.com/SocketDev/sfw-free/releases/download/v1.3.3/sfw-free-windows-x86_64.exe
-          sfw.exe pnpm install --frozen-lockfile --prefer-offline
+          .\sfw.exe pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
