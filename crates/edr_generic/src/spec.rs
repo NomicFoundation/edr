@@ -97,7 +97,11 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
             // If the hardfork requires it, set ExcessGasAndPrice default value
             // see https://github.com/NomicFoundation/edr/issues/947
             if self.inner.hardfork >= edr_chain_l1::Hardfork::CANCUN {
-                let (timestamp, _) = self.inner.timestamp().most_significant_bits();
+                let timestamp: u64 = self
+                    .inner
+                    .timestamp()
+                    .try_into()
+                    .expect("Timestamp must not exceed u64");
                 let blob_params = blob_params_for_hardfork(
                     self.inner.hardfork,
                     timestamp,
