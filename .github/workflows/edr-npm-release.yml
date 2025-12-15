@@ -29,7 +29,7 @@ jobs:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
     env:
-      NO_PROXY: static.rust-lang.org,static.crates.io,github.com
+      NO_PROXY: static.rust-lang.org,static.crates.io,github.com,index.crates.io
     permissions:
       contents: read
     strategy:
@@ -169,6 +169,7 @@ jobs:
             chmod +x sfw
 
             ./sfw pnpm install --frozen-lockfile --prefer-offline
+            rustup update
             ./sfw cargo fetch
             pnpm run build --strip
 
@@ -206,6 +207,7 @@ jobs:
             chmod +x sfw
 
             ./sfw pnpm install --frozen-lockfile --prefer-offline
+            rustup update
             ./sfw cargo fetch
             pnpm run build --strip
 
