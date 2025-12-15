@@ -23,7 +23,7 @@ use edr_block_header::{
 use edr_block_miner::{mine_block, mine_block_with_single_transaction};
 use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
-    BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock as _, StateAtBlock as _,
+    BlockHashByNumber, BlockchainMetadata as _, GetBlockchainBlock as _, StateAtBlock as _,
 };
 use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;

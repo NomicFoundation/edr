@@ -424,7 +424,5 @@ fn find_reservation<HardforkT>(
 ) -> Option<&Reservation<HardforkT>> {
     reservations
         .iter()
-        .find(|reservation: &&Reservation<HardforkT>| {
-            reservation.first_number <= number && number <= reservation.last_number
-        })
+        .find(|reservation| reservation.first_number <= number && number <= reservation.last_number)
 }
