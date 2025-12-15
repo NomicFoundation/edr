@@ -2,7 +2,7 @@ use alloy_eips::eip7840::BlobParams;
 use alloy_hardforks::{holesky, hoodi, mainnet, sepolia};
 
 /// EIP 7982 new node configuration for stablishing Blob Parameter only harforks
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct ScheduledBlobParams {
     schedule: Vec<(u64, BlobParams)>,
 }

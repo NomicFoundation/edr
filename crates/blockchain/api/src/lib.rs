@@ -58,7 +58,9 @@ pub trait BlockchainMetadata<HardforkT> {
     /// Retrieves the network ID of the blockchain.
     fn network_id(&self) -> u64;
 
-    /// BPO scheduled hardforks
+    /// Scheduled block parameter only hardforks ([EIP-7892])
+    ///
+    /// [EIP-7892]: https://eips.ethereum.org/EIPS/eip-7892
     fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams>;
 }
 
