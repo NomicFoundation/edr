@@ -61,7 +61,6 @@ pub trait BlockchainMetadata<HardforkT> {
 
 /// Trait that defines Blob Parameter Only hardforks schedule for a blockchain
 #[auto_impl(&)]
-
 pub trait BlockchainScheduledBlobParams {
     /// Scheduled block parameter only hardforks ([EIP-7892])
     ///
@@ -146,7 +145,8 @@ pub trait ReserveBlocks {
 
     /// Reserves the provided number of blocks, starting from the next block
     /// number.
-    // TODO: analyze if we can receibe the BlockConfig here so blockachain does not
+    // TODO: https://github.com/NomicFoundation/edr/issues/1228
+    // Analyze whether we can receive the BlockConfig here so blockachain does not
     // have to keep track of it
     fn reserve_blocks(&mut self, additional: u64, interval: u64) -> Result<(), Self::Error>;
 }
