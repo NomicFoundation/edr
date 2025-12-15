@@ -28,6 +28,8 @@ jobs:
   build:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
+    env:
+      NO_PROXY: static.rust-lang.org
     permissions:
       contents: read
     strategy:
@@ -122,6 +124,7 @@ jobs:
         if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
         run: |
           sfw pnpm install --frozen-lockfile --prefer-offline
+          sfw cargo fetch
 
       # SFW doesn't install dependencies correctly on Windows
       # https://github.com/NomicFoundation/edr/issues/1199
@@ -130,6 +133,7 @@ jobs:
         run: |
           curl -sL -o sfw.exe https://github.com/SocketDev/sfw-free/releases/download/v1.3.3/sfw-free-windows-x86_64.exe
           .\sfw.exe pnpm install --frozen-lockfile --prefer-offline
+          .\sfw cargo fetch
 
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
@@ -154,6 +158,8 @@ jobs:
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
 
+            export NO_PROXY=static.rust-lang.org
+
             # Download SFW binary
             if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-gnu" ]; then
               curl -sL -o sfw https://github.com/SocketDev/sfw-free/releases/download/v1.3.3/sfw-free-linux-arm64
@@ -163,6 +169,7 @@ jobs:
             chmod +x sfw
 
             ./sfw pnpm install --frozen-lockfile --prefer-offline
+            ./sfw cargo fetch
             pnpm run build --strip
 
       # SFW is not provided on musl versions of Linux
@@ -188,6 +195,8 @@ jobs:
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
 
+            export NO_PROXY=static.rust-lang.org
+
             # Download SFW binary
             if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
               curl -sL -o sfw https://github.com/SocketDev/sfw-free/releases/download/v1.3.3/sfw-free-musl-linux-arm64
@@ -197,6 +206,7 @@ jobs:
             chmod +x sfw
 
             ./sfw pnpm install --frozen-lockfile --prefer-offline
+            ./sfw cargo fetch
             pnpm run build --strip
 
       - name: Upload artifact
