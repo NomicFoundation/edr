@@ -169,7 +169,7 @@ jobs:
             chmod +x sfw
 
             ./sfw pnpm install --frozen-lockfile --prefer-offline
-            rustup update
+            rustup update 1.89.0
             ./sfw cargo fetch
             pnpm run build --strip
 
@@ -207,7 +207,7 @@ jobs:
             chmod +x sfw
 
             ./sfw pnpm install --frozen-lockfile --prefer-offline
-            rustup update
+            rustup update 1.89.0
             ./sfw cargo fetch
             pnpm run build --strip
 
