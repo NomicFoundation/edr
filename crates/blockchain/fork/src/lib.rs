@@ -14,9 +14,10 @@ use edr_block_storage::{
     InsertBlockAndReceiptsError, InsertBlockError, ReservableSparseBlockStorage,
 };
 use edr_blockchain_api::{
-    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock,
-    GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
-    StateAtBlock, TotalDifficultyByBlockHash,
+    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata,
+    BlockchainScheduledBlobParams, GetBlockchainBlock, GetBlockchainLogs, InsertBlock,
+    ReceiptByTransactionHash, ReserveBlocks, RevertToBlock, StateAtBlock,
+    TotalDifficultyByBlockHash,
 };
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
 use edr_chain_config::{ChainConfig, HardforkActivations};
@@ -605,12 +606,37 @@ impl<
     fn network_id(&self) -> u64 {
         self.network_id
     }
+}
 
+impl<
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockT: ?Sized + Block<SignedTransactionT>,
+        FetchReceiptErrorT,
+        HardforkT: Clone,
+        LocalBlockT,
+        RpcBlockChainSpecT: RpcBlockChainSpec<
+            RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
+        >,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > BlockchainScheduledBlobParams
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        FetchReceiptErrorT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
     fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
         self.scheduled_blob_params.as_ref()
     }
 }
-
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
         BlockT: ?Sized

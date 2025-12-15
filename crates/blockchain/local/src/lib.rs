@@ -7,9 +7,10 @@ use edr_block_api::{
 use edr_block_header::BlockConfig;
 use edr_block_storage::ReservableSparseBlockStorage;
 use edr_blockchain_api::{
-    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock,
-    GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
-    StateAtBlock, TotalDifficultyByBlockHash,
+    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata,
+    BlockchainScheduledBlobParams, GetBlockchainBlock, GetBlockchainLogs, InsertBlock,
+    ReceiptByTransactionHash, ReserveBlocks, RevertToBlock, StateAtBlock,
+    TotalDifficultyByBlockHash,
 };
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eip1559::BaseFeeParams;
@@ -202,7 +203,12 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
     fn network_id(&self) -> u64 {
         self.chain_id
     }
+}
 
+impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransactionT>
+    BlockchainScheduledBlobParams
+    for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
+{
     fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
         self.scheduled_blob_params.as_ref()
     }

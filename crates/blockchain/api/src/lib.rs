@@ -57,7 +57,12 @@ pub trait BlockchainMetadata<HardforkT> {
 
     /// Retrieves the network ID of the blockchain.
     fn network_id(&self) -> u64;
+}
 
+/// Trait that defines Blob Parameter Only hardforks schedule for a blockchain
+#[auto_impl(&)]
+
+pub trait BlockchainScheduledBlobParams {
     /// Scheduled block parameter only hardforks ([EIP-7892])
     ///
     /// [EIP-7892]: https://eips.ethereum.org/EIPS/eip-7892
@@ -141,6 +146,8 @@ pub trait ReserveBlocks {
 
     /// Reserves the provided number of blocks, starting from the next block
     /// number.
+    // TODO: analyze if we can receibe the BlockConfig here so blockachain does not
+    // have to keep track of it
     fn reserve_blocks(&mut self, additional: u64, interval: u64) -> Result<(), Self::Error>;
 }
 
@@ -192,7 +199,7 @@ pub trait Blockchain<
     LocalBlockT,
     SignedTransactionT,
 >:
-    BlockHashByNumber<Error = BlockchainErrorT>
+    BlockHashByNumberAndScheduledBlobParams<BlockchainErrorT>
     + BlockchainMetadata<HardforkT, Error = BlockchainErrorT>
     + GetBlockchainBlock<BlockT, HardforkT, Error = BlockchainErrorT>
     + GetBlockchainLogs<Error = BlockchainErrorT>
@@ -217,7 +224,7 @@ impl<
     Blockchain<BlockReceiptT, BlockT, BlockchainErrorT, HardforkT, LocalBlockT, SignedTransactionT>
     for BlockchainT
 where
-    BlockchainT: BlockHashByNumber<Error = BlockchainErrorT>
+    BlockchainT: BlockHashByNumberAndScheduledBlobParams<BlockchainErrorT>
         + BlockchainMetadata<HardforkT, Error = BlockchainErrorT>
         + GetBlockchainBlock<BlockT, HardforkT, Error = BlockchainErrorT>
         + GetBlockchainLogs<Error = BlockchainErrorT>
@@ -227,5 +234,19 @@ where
         + RevertToBlock<Error = BlockchainErrorT>
         + StateAtBlock<BlockchainError = BlockchainErrorT>
         + TotalDifficultyByBlockHash<Error = BlockchainErrorT>,
+{
+}
+
+/// Supertrait for combining `BlockHashByNumber` together with
+/// `BlockchainScheduledBlobParams`
+pub trait BlockHashByNumberAndScheduledBlobParams<BlockchainErrorT>:
+    BlockHashByNumber<Error = BlockchainErrorT> + BlockchainScheduledBlobParams
+{
+}
+
+impl<BlockchainT, BlockchainErrorT> BlockHashByNumberAndScheduledBlobParams<BlockchainErrorT>
+    for BlockchainT
+where
+    BlockchainT: BlockHashByNumber<Error = BlockchainErrorT> + BlockchainScheduledBlobParams,
 {
 }

@@ -1,12 +1,13 @@
 use edr_block_header::BlockHeader;
-use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
+use edr_blockchain_api::{
+    r#dyn::DynBlockchainError, BlockHashByNumber, BlockchainScheduledBlobParams,
+};
 use edr_chain_spec::{BlobExcessGasAndPrice, BlockEnvConstructor};
 use edr_chain_spec_evm::{
     result::ExecutionResult, BlockEnvTrait, CfgEnv, ContextForChainSpec, Inspector,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
-use edr_eip7892::ScheduledBlobParams;
 use edr_evm::guaranteed_dry_run_with_inspector;
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, B256, U256};
@@ -54,7 +55,6 @@ impl<BlockEnvT: BlockEnvTrait> BlockEnvTrait for BlockEnvWithZeroBaseFee<BlockEn
 }
 
 /// Execute a transaction as a call. Returns the gas used and the output.
-#[allow(clippy::too_many_arguments)]
 pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
     blockchain: BlockchainT,
     block_header: &'call BlockHeader,
@@ -63,10 +63,9 @@ pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
     transaction: ChainSpecT::SignedTransaction,
     custom_precompiles: &'call HashMap<Address, PrecompileFn>,
     inspector: &'call mut InspectorT,
-    scheduled_blob_params: Option<ScheduledBlobParams>,
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    BlockchainT: BlockHashByNumber<Error = DynBlockchainError>,
+    BlockchainT: BlockHashByNumber<Error = DynBlockchainError> + BlockchainScheduledBlobParams,
     ChainSpecT: ProviderChainSpec,
     InspectorT: Inspector<
         ContextForChainSpec<
@@ -77,8 +76,11 @@ where
     >,
     StateT: State<Error = StateError>,
 {
-    let block_env =
-        ChainSpecT::BlockEnv::new_block_env(block_header, cfg_env.spec, scheduled_blob_params);
+    let block_env = ChainSpecT::BlockEnv::new_block_env(
+        block_header,
+        cfg_env.spec,
+        blockchain.scheduled_blob_params().cloned(),
+    );
 
     guaranteed_dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
         blockchain,

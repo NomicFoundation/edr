@@ -23,7 +23,8 @@ use edr_block_header::{
 use edr_block_miner::{mine_block, mine_block_with_single_transaction};
 use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
-    BlockHashByNumber, BlockchainMetadata as _, GetBlockchainBlock as _, StateAtBlock as _,
+    BlockHashByNumberAndScheduledBlobParams, BlockchainMetadata, GetBlockchainBlock as _,
+    StateAtBlock as _,
 };
 use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
@@ -1771,7 +1772,6 @@ where
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let scheduled_blob_params = self.blockchain.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
             let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut evm_observer);
@@ -1784,7 +1784,6 @@ where
                 transaction,
                 &custom_precompiles,
                 &mut inspector,
-                scheduled_blob_params,
             )?;
 
             let EvmObserver {
@@ -2197,7 +2196,6 @@ where
                 });
 
         let contract_decoder = Arc::clone(&self.contract_decoder);
-        let scheduled_blob_params = self.blockchain.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
@@ -2210,7 +2208,6 @@ where
                 transaction,
                 &custom_precompiles,
                 &mut evm_observer,
-                scheduled_blob_params,
             )?;
 
             let EvmObserver {
@@ -2259,7 +2256,7 @@ where
         &mut self,
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
-            &dyn BlockHashByNumber<Error = DynBlockchainError>,
+            &dyn BlockHashByNumberAndScheduledBlobParams<DynBlockchainError>,
             &Arc<ChainSpecT::Block>,
             &Box<dyn DynState>,
         ) -> T,
@@ -2592,7 +2589,6 @@ where
 
         let custom_precompiles = self.precompile_overrides.clone();
         let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
-        let scheduled_blob_params = self.blockchain.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.block_header();
@@ -2608,7 +2604,6 @@ where
                 transaction.clone(),
                 &custom_precompiles,
                 &mut evm_observer,
-                scheduled_blob_params.clone(),
             )?;
 
             let EvmObserver {
@@ -2670,7 +2665,6 @@ where
                 gas_limit: initial_estimation,
                 custom_precompiles: &custom_precompiles,
                 trace_collector: &mut trace_collector,
-                scheduled_blob_params: scheduled_blob_params.clone(),
             })?;
 
             // Return the initial estimation if it was successful
@@ -2695,7 +2689,6 @@ where
                     upper_bound: header.gas_limit,
                     custom_precompiles: &custom_precompiles,
                     trace_collector: &mut trace_collector,
-                    scheduled_blob_params,
                 })?;
 
             let traces = trace_collector.into_traces();
