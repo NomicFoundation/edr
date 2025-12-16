@@ -139,9 +139,6 @@ pub trait ReserveBlocks<HardforkT> {
 
     /// Reserves the provided number of blocks, starting from the next block
     /// number.
-    // TODO: https://github.com/NomicFoundation/edr/issues/1228
-    // Analyze whether we can receive the BlockConfig here so blockachain does not
-    // have to keep track of it
     fn reserve_blocks(
         &mut self,
         block_config: &BlockConfig<HardforkT>,

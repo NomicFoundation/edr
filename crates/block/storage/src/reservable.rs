@@ -23,7 +23,7 @@ struct Reservation<HardforkT> {
     previous_state_root: B256,
     previous_total_difficulty: U256,
     previous_diff_index: usize,
-    block_config: BlockConfig<HardforkT>, //TODO: change to reference
+    block_config: BlockConfig<HardforkT>,
 }
 
 /// A storage solution for storing a subset of a blockchain's blocks in-memory,
