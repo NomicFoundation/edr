@@ -1,5 +1,7 @@
 use edr_block_header::BlockHeader;
-use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
+use edr_blockchain_api::{
+    r#dyn::DynBlockchainError, BlockHashByNumber, BlockchainScheduledBlobParams,
+};
 use edr_chain_spec::{BlobExcessGasAndPrice, BlockEnvConstructor};
 use edr_chain_spec_evm::{
     result::ExecutionResult, BlockEnvTrait, CfgEnv, ContextForChainSpec, Inspector,
@@ -63,7 +65,7 @@ pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
     inspector: &'call mut InspectorT,
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    BlockchainT: BlockHashByNumber<Error = DynBlockchainError>,
+    BlockchainT: BlockHashByNumber<Error = DynBlockchainError> + BlockchainScheduledBlobParams,
     ChainSpecT: ProviderChainSpec,
     InspectorT: Inspector<
         ContextForChainSpec<
@@ -74,7 +76,11 @@ where
     >,
     StateT: State<Error = StateError>,
 {
-    let block_env = ChainSpecT::BlockEnv::new_block_env(block_header, cfg_env.spec);
+    let block_env = ChainSpecT::BlockEnv::new_block_env(
+        block_header,
+        cfg_env.spec,
+        blockchain.scheduled_blob_params().cloned(),
+    );
 
     guaranteed_dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
         blockchain,

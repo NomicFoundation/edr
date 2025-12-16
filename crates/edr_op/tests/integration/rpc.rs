@@ -84,9 +84,10 @@ async fn block_with_deposit_transaction() -> anyhow::Result<()> {
 
     let _blockchain = ForkedBlockchainForChainSpec::<OpChainSpec>::new(
         BlockConfig {
-            base_fee_params: &chain_config.base_fee_params,
+            base_fee_params: chain_config.base_fee_params.clone(),
             hardfork,
             min_ethash_difficulty: OpChainSpec::MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),
         },
         runtime.clone(),
         rpc_client.clone(),

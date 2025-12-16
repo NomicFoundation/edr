@@ -141,9 +141,10 @@ fn call_inc_by(
 #[test]
 fn record_hits() -> anyhow::Result<()> {
     let block_config = BlockConfig {
-        base_fee_params: &L1_BASE_FEE_PARAMS,
+        base_fee_params: L1_BASE_FEE_PARAMS.clone(),
         hardfork: edr_chain_l1::Hardfork::CANCUN,
         min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
     };
 
     let genesis_diff = StateDiff::default();

@@ -1,4 +1,5 @@
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 
 /// Fork condition for a hardfork.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
@@ -88,6 +89,8 @@ pub struct ChainConfig<HardforkT> {
     pub hardfork_activations: HardforkActivations<HardforkT>,
     /// Base fee param activations for the chain
     pub base_fee_params: BaseFeeParams<HardforkT>,
+    /// Blob Parameter Only hardforks schedule
+    pub bpo_hardfork_schedule: Option<ScheduledBlobParams>,
 }
 
 impl<HardforkT: Clone> ChainConfig<HardforkT> {

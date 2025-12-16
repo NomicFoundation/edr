@@ -23,7 +23,8 @@ use edr_block_header::{
 use edr_block_miner::{mine_block, mine_block_with_single_transaction};
 use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
-    BlockHashByNumber, BlockchainMetadata as _, GetBlockchainBlock as _, StateAtBlock as _,
+    BlockHashByNumberAndScheduledBlobParams, BlockchainMetadata, GetBlockchainBlock as _,
+    StateAtBlock as _,
 };
 use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
@@ -1698,8 +1699,11 @@ where
         }
 
         let last_block = self.last_block()?;
-        let base_fee =
-            calculate_next_base_fee_per_blob_gas(last_block.block_header(), self.hardfork());
+        let base_fee = calculate_next_base_fee_per_blob_gas(
+            last_block.block_header(),
+            self.hardfork(),
+            self.blockchain.scheduled_blob_params(),
+        );
 
         Ok(Some(base_fee))
     }
@@ -2252,7 +2256,7 @@ where
         &mut self,
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
-            &dyn BlockHashByNumber<Error = DynBlockchainError>,
+            &dyn BlockHashByNumberAndScheduledBlobParams<DynBlockchainError>,
             &Arc<ChainSpecT::Block>,
             &Box<dyn DynState>,
         ) -> T,
@@ -2500,10 +2504,15 @@ where
             ..EvmObserverConfig::from(&self.observability)
         };
 
+        let scheduled_blob_params = self.blockchain.scheduled_blob_params().cloned();
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec);
+                let block_env = ChainSpecT::BlockEnv::new_block_env(
+                    header,
+                    cfg_env.spec,
+                    scheduled_blob_params,
+                );
 
                 debug_trace_transaction::<ChainSpecT>(
                     blockchain,
@@ -2777,13 +2786,18 @@ fn create_blockchain_and_state<
                         .base_fee_params
                         .clone()
                         .unwrap_or_else(|| ChainSpecT::default_base_fee_params().clone()),
+                    bpo_hardfork_schedule: None,
                 });
         }
 
+        let scheduled_blob_params = chain_configs
+            .get(&config.chain_id)
+            .and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
         let block_config = BlockConfig {
-            base_fee_params: ChainSpecT::default_base_fee_params(),
+            base_fee_params: ChainSpecT::default_base_fee_params().clone(),
             hardfork: config.hardfork,
             min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params,
         };
 
         let (blockchain, mut irregular_state) = tokio::task::block_in_place(
@@ -2979,10 +2993,15 @@ fn create_blockchain_and_state<
                 })
         });
 
+        let scheduled_blob_params = ChainSpecT::chain_configs()
+            .get(&config.chain_id)
+            .and_then(|config| config.bpo_hardfork_schedule.clone());
+
         let block_config = BlockConfig {
-            base_fee_params,
+            base_fee_params: base_fee_params.clone(),
             hardfork: config.hardfork,
             min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params,
         };
 
         let genesis_diff = StateDiff::from(genesis_state);
@@ -4268,6 +4287,11 @@ mod tests {
             },
             mainnet_osaka => L1ChainSpec {
                 block_number: 23_957_251,
+                url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
+            },
+            mainnet_osaka_bpo1 => L1ChainSpec {
+                block_number: 23_990_516,
                 url: get_alchemy_url(),
                 header_overrides_constructor: l1_header_overrides,
             },

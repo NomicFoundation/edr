@@ -2,7 +2,7 @@ use core::cmp;
 
 use edr_block_api::{Block as _, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
-use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
+use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumberAndScheduledBlobParams};
 use edr_chain_spec::{ExecutableTransaction as _, HaltReasonTrait};
 use edr_chain_spec_evm::{result::ExecutionResult, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
@@ -19,7 +19,7 @@ use crate::{data::call, error::ProviderErrorForChainSpec, ProviderError};
 
 pub(super) struct CheckGasLimitArgs<'a, HaltReasonT: HaltReasonTrait, HardforkT, SignedTransactionT>
 {
-    pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
+    pub blockchain: &'a dyn BlockHashByNumberAndScheduledBlobParams<DynBlockchainError>,
     pub header: &'a BlockHeader,
     pub state: &'a dyn DynState,
     pub cfg_env: CfgEnv<HardforkT>,
@@ -72,7 +72,7 @@ pub(super) struct BinarySearchEstimationArgs<
     HardforkT,
     SignedTransactionT,
 > {
-    pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
+    pub blockchain: &'a dyn BlockHashByNumberAndScheduledBlobParams<DynBlockchainError>,
     pub header: &'a BlockHeader,
     pub state: &'a dyn DynState,
     pub cfg_env: CfgEnv<HardforkT>,

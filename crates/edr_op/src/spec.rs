@@ -24,6 +24,7 @@ use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_napi_core::{
     napi,
     spec::{marshal_response_data, Response, SyncNapiSpec},
@@ -214,7 +215,7 @@ impl GenesisBlockFactory for OpChainSpec {
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: BlockConfig<'_, Self::Hardfork>,
+        block_config: BlockConfig<Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         let genesis_state = PersistentStateTrie::from(genesis_diff);
@@ -225,7 +226,7 @@ impl GenesisBlockFactory for OpChainSpec {
             // EIP-1559 parameters.
             options.extra_data = options.extra_data.or_else(|| {
                 let base_fee_params = config_base_fee_params
-                    .unwrap_or(block_config.base_fee_params)
+                    .unwrap_or(&block_config.base_fee_params)
                     .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
@@ -320,6 +321,10 @@ impl ProviderChainSpec for OpChainSpec {
                 .as_ref()
                 .unwrap_or(default_base_fee_params),
         )
+    }
+
+    fn default_schedulded_blob_params() -> Option<ScheduledBlobParams> {
+        None
     }
 }
 
@@ -424,8 +429,11 @@ mod tests {
     fn op_block_constructor_should_not_default_excess_blob_gas_for_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block =
-            <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, Hardfork::ECOTONE);
+        let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header,
+            Hardfork::ECOTONE,
+            None,
+        );
         assert_eq!(block.blob_excess_gas_and_price(), None);
     }
 
@@ -433,8 +441,11 @@ mod tests {
     fn op_block_constructor_should_not_default_excess_blob_gas_before_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block =
-            <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, Hardfork::CANYON);
+        let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header,
+            Hardfork::CANYON,
+            None,
+        );
         assert_eq!(block.blob_excess_gas_and_price(), None);
     }
 
@@ -442,8 +453,11 @@ mod tests {
     fn op_block_constructor_should_not_default_excess_blob_gas_after_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block =
-            <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, Hardfork::ISTHMUS);
+        let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header,
+            Hardfork::ISTHMUS,
+            None,
+        );
         assert_eq!(block.blob_excess_gas_and_price(), None);
     }
 
@@ -456,8 +470,11 @@ mod tests {
         };
         let header = build_block_header(Some(blob_gas)); // blob gas present
 
-        let block =
-            <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, Hardfork::ECOTONE);
+        let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header,
+            Hardfork::ECOTONE,
+            None,
+        );
 
         let blob_excess_gas = block
             .blob_excess_gas_and_price()

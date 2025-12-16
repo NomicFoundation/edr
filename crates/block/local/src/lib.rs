@@ -171,7 +171,7 @@ impl<
     /// Constructs a block with the provided genesis state and options.
     pub fn with_genesis_state(
         genesis_state: PersistentStateTrie,
-        block_config: BlockConfig<'_, HardforkT>,
+        block_config: BlockConfig<HardforkT>,
         options: GenesisBlockOptions<HardforkT>,
     ) -> Result<Self, LocalBlockCreationError> {
         let evm_spec_id = block_config.hardfork.clone().into();

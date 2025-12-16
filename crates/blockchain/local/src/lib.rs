@@ -7,12 +7,14 @@ use edr_block_api::{
 use edr_block_header::BlockConfig;
 use edr_block_storage::ReservableSparseBlockStorage;
 use edr_blockchain_api::{
-    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock,
-    GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
-    StateAtBlock, TotalDifficultyByBlockHash,
+    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata,
+    BlockchainScheduledBlobParams, GetBlockchainBlock, GetBlockchainLogs, InsertBlock,
+    ReceiptByTransactionHash, ReserveBlocks, RevertToBlock, StateAtBlock,
+    TotalDifficultyByBlockHash,
 };
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::{DynState, StateDiff, StateOverride};
@@ -37,10 +39,8 @@ pub enum InvalidGenesisBlock {
 #[derive(Debug)]
 pub struct LocalBlockchain<BlockReceiptT: ReceiptTrait, HardforkT, LocalBlockT, SignedTransactionT>
 {
-    base_fee_params: BaseFeeParams<HardforkT>,
     chain_id: u64,
-    hardfork: HardforkT,
-    min_ethash_difficulty: u64,
+    block_config: BlockConfig<HardforkT>,
     storage: ReservableSparseBlockStorage<
         Arc<BlockReceiptT>,
         Arc<LocalBlockT>,
@@ -63,14 +63,8 @@ impl<
         genesis_block: LocalBlockT,
         genesis_diff: StateDiff,
         chain_id: u64,
-        block_config: BlockConfig<'_, HardforkT>,
+        block_config: BlockConfig<HardforkT>,
     ) -> Result<Self, InvalidGenesisBlock> {
-        let BlockConfig {
-            base_fee_params,
-            hardfork,
-            min_ethash_difficulty,
-        } = block_config;
-
         let genesis_header = genesis_block.block_header();
 
         if genesis_header.number != 0 {
@@ -79,7 +73,7 @@ impl<
             });
         }
 
-        let evm_spec_id = hardfork.clone().into();
+        let evm_spec_id = block_config.hardfork.clone().into();
         if evm_spec_id >= EvmSpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
             return Err(InvalidGenesisBlock::MissingWithdrawals);
         }
@@ -92,11 +86,9 @@ impl<
         );
 
         Ok(Self {
-            storage,
-            base_fee_params: base_fee_params.clone(),
             chain_id,
-            hardfork,
-            min_ethash_difficulty,
+            block_config,
+            storage,
         })
     }
 }
@@ -163,7 +155,7 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
     type Error = LocalBlockchainError;
 
     fn base_fee_params(&self) -> &BaseFeeParams<HardforkT> {
-        &self.base_fee_params
+        &self.block_config.base_fee_params
     }
 
     fn chain_id(&self) -> u64 {
@@ -180,11 +172,11 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
             return Err(LocalBlockchainError::UnknownBlockNumber);
         }
 
-        Ok(self.hardfork.clone())
+        Ok(self.block_config.hardfork.clone())
     }
 
     fn hardfork(&self) -> HardforkT {
-        self.hardfork.clone()
+        self.block_config.hardfork.clone()
     }
 
     fn last_block_number(&self) -> u64 {
@@ -192,11 +184,20 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
     }
 
     fn min_ethash_difficulty(&self) -> u64 {
-        self.min_ethash_difficulty
+        self.block_config.min_ethash_difficulty
     }
 
     fn network_id(&self) -> u64 {
         self.chain_id
+    }
+}
+
+impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransactionT>
+    BlockchainScheduledBlobParams
+    for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
+{
+    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
+        self.block_config.scheduled_blob_params.as_ref()
     }
 }
 
@@ -295,7 +296,7 @@ impl<
     ) -> Result<BlockAndTotalDifficulty<Arc<BlockT>, SignedTransactionT>, Self::Error> {
         let last_block = self.last_local_block()?;
 
-        validate_next_block(self.hardfork.clone(), &last_block, &block)?;
+        validate_next_block(self.block_config.hardfork.clone(), &last_block, &block)?;
 
         let previous_total_difficulty = self
             .total_difficulty_by_hash(last_block.block_hash())
@@ -365,11 +366,7 @@ impl<
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            BlockConfig {
-                base_fee_params: &self.base_fee_params,
-                hardfork: self.hardfork.clone(),
-                min_ethash_difficulty: self.min_ethash_difficulty,
-            },
+            self.block_config.clone(),
         );
 
         Ok(())
@@ -476,9 +473,10 @@ mod tests {
             .expect("L1 Mainnet chain config exists");
 
         let block_config = BlockConfig {
-            base_fee_params: &chain_config.base_fee_params,
+            base_fee_params: chain_config.base_fee_params.clone(),
             hardfork: edr_chain_l1::Hardfork::SHANGHAI,
             min_ethash_difficulty: edr_chain_l1::L1_MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),
         };
 
         let genesis_block = L1ChainSpec::genesis_block(

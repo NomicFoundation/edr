@@ -24,9 +24,10 @@ fn test_partial_header_uses_base_fee_override() {
 
     let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
         BlockConfig {
-            base_fee_params: &chain_config.base_fee_params,
+            base_fee_params: chain_config.base_fee_params.clone(),
             hardfork: edr_chain_l1::Hardfork::LONDON,
             min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: None,
         },
         overrides,
         None,
@@ -56,9 +57,10 @@ fn test_partial_header_base_fee_override_takes_precedence_over_base_fee_params_o
 
     let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
         BlockConfig {
-            base_fee_params: &chain_config.base_fee_params,
+            base_fee_params: chain_config.base_fee_params.clone(),
             hardfork: edr_chain_l1::Hardfork::LONDON,
             min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: None,
         },
         overrides,
         None,
@@ -85,9 +87,10 @@ fn test_partial_header_ignores_base_fee_params_if_before_london() {
 
     let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
         BlockConfig {
-            base_fee_params: &chain_config.base_fee_params,
+            base_fee_params: chain_config.base_fee_params.clone(),
             hardfork: edr_chain_l1::Hardfork::BERLIN,
             min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: None,
         },
         overrides,
         None,
@@ -108,9 +111,10 @@ fn test_partial_header_defaults_base_fee_if_no_override_after_london() {
 
     let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
         BlockConfig {
-            base_fee_params: &chain_config.base_fee_params,
+            base_fee_params: chain_config.base_fee_params.clone(),
             hardfork: edr_chain_l1::Hardfork::LONDON,
             min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: None,
         },
         overrides,
         None,
@@ -137,9 +141,10 @@ fn test_partial_header_defaults_base_fee_if_no_parent_after_london() {
 
     let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
         BlockConfig {
-            base_fee_params: &chain_config.base_fee_params,
+            base_fee_params: chain_config.base_fee_params.clone(),
             hardfork: edr_chain_l1::Hardfork::LONDON,
             min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: None,
         },
         overrides,
         None,
@@ -173,9 +178,10 @@ fn test_partial_header_uses_override_with_parent_after_london() {
     };
     let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
         BlockConfig {
-            base_fee_params: &chain_config.base_fee_params,
+            base_fee_params: chain_config.base_fee_params.clone(),
             hardfork: edr_chain_l1::Hardfork::LONDON,
             min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+            scheduled_blob_params: None,
         },
         overrides,
         Some(&parent_header),

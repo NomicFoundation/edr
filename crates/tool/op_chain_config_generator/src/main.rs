@@ -375,7 +375,8 @@ fn write_chain_module(
                 pub(super) fn {chain_config_function} -> ChainConfig<OpSpecId>{{ ChainConfig {{
                     name: \"{chain_name}\".into(),
                     base_fee_params: {chain_base_fee_params}, 
-                    hardfork_activations: {chain_hardfork_activations}
+                    hardfork_activations: {chain_hardfork_activations},
+                    bpo_hardfork_schedule: None
                     }}
                 }}
                 ",
@@ -448,7 +449,7 @@ fn generate_hardfork_activations_for(
             )
         })
         .collect();
-    format!("HardforkActivations::new(vec![{activations_str}]),")
+    format!("HardforkActivations::new(vec![{activations_str}])")
 }
 
 fn get_op_hardfork_from(hardfork_str: &str) -> anyhow::Result<Option<OpSpecId>> {

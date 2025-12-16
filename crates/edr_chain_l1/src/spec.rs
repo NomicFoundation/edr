@@ -24,6 +24,7 @@ use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Bytes, HashMap};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_state_api::StateDiff;
@@ -184,7 +185,7 @@ impl GenesisBlockFactory for L1ChainSpec {
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: BlockConfig<'_, Self::Hardfork>,
+        block_config: BlockConfig<Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
@@ -219,6 +220,10 @@ impl ProviderChainSpec for L1ChainSpec {
         default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> u128 {
         calculate_next_base_fee_per_gas(header, default_base_fee_params, hardfork)
+    }
+
+    fn default_schedulded_blob_params() -> Option<ScheduledBlobParams> {
+        Some(ScheduledBlobParams::mainnet())
     }
 }
 

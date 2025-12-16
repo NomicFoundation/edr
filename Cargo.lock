@@ -2400,6 +2400,7 @@ dependencies = [
  "edr_chain_spec",
  "edr_eip1559",
  "edr_eip4844",
+ "edr_eip7892",
  "edr_primitives",
  "edr_trie",
  "serde",
@@ -2475,7 +2476,6 @@ dependencies = [
  "edr_block_api",
  "edr_block_header",
  "edr_chain_spec",
- "edr_eip1559",
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
@@ -2493,6 +2493,7 @@ dependencies = [
  "edr_block_storage",
  "edr_chain_spec",
  "edr_eip1559",
+ "edr_eip7892",
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
@@ -2518,6 +2519,7 @@ dependencies = [
  "edr_chain_spec_rpc",
  "edr_defaults",
  "edr_eip1559",
+ "edr_eip7892",
  "edr_eth",
  "edr_primitives",
  "edr_provider",
@@ -2555,6 +2557,7 @@ dependencies = [
  "edr_chain_spec_provider",
  "edr_defaults",
  "edr_eip1559",
+ "edr_eip7892",
  "edr_primitives",
  "edr_provider",
  "edr_receipt",
@@ -2601,6 +2604,7 @@ name = "edr_chain_config"
 version = "0.3.8"
 dependencies = [
  "edr_eip1559",
+ "edr_eip7892",
  "serde",
 ]
 
@@ -2630,6 +2634,7 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_eip7892",
  "edr_evm",
  "edr_primitives",
  "edr_receipt",
@@ -2657,6 +2662,7 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_eip7892",
  "edr_primitives",
  "revm-context-interface",
  "revm-primitives",
@@ -2704,6 +2710,7 @@ dependencies = [
  "edr_chain_spec_receipt",
  "edr_chain_spec_rpc",
  "edr_eip1559",
+ "edr_eip7892",
  "edr_primitives",
  "edr_transaction",
  "serde",
@@ -2830,6 +2837,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip7892"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+ "alloy-hardforks",
+ "serde",
+]
+
+[[package]]
 name = "edr_eth"
 version = "0.3.8"
 dependencies = [
@@ -2926,6 +2942,7 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_eip7892",
  "edr_eth",
  "edr_primitives",
  "edr_provider",
@@ -3106,6 +3123,7 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_eip7892",
  "edr_eth",
  "edr_napi_core",
  "edr_primitives",
@@ -3192,6 +3210,7 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_eip7892",
  "edr_eth",
  "edr_evm",
  "edr_gas_report",

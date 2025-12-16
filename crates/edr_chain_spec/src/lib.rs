@@ -2,6 +2,7 @@
 
 mod transaction;
 
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, B256, U256};
 pub use revm_context_interface::{
     block::BlobExcessGasAndPrice,
@@ -36,7 +37,11 @@ pub trait BlockEnvChainSpec: HardforkChainSpec {
 /// A trait for constructing a (partial) block header into an EVM block.
 pub trait BlockEnvConstructor<HardforkT, HeaderT> {
     /// Converts the instance into an EVM block.
-    fn new_block_env(header: HeaderT, hardfork: HardforkT) -> Self;
+    fn new_block_env(
+        header: HeaderT,
+        hardfork: HardforkT,
+        scheduled_blob_params: Option<ScheduledBlobParams>,
+    ) -> Self;
 }
 
 /// Trait for providing block environment values for a specific hardfork.
@@ -84,27 +89,8 @@ pub trait BlockEnvForHardfork<HardforkT> {
     fn blob_excess_gas_and_price_for_hardfork(
         &self,
         hardfork: HardforkT,
+        scheduled_blob_params: Option<&ScheduledBlobParams>,
     ) -> Option<BlobExcessGasAndPrice>;
-
-    /// See [EIP-4844].
-    ///
-    /// Returns `None` if `Cancun` is not enabled.
-    ///
-    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-    fn blob_gasprice_for_hardfork(&self, hardfork: HardforkT) -> Option<u128> {
-        self.blob_excess_gas_and_price_for_hardfork(hardfork)
-            .map(|a| a.blob_gasprice)
-    }
-
-    /// Return `blob_excess_gas` header field. See [EIP-4844].
-    ///
-    /// Returns `None` if `Cancun` is not enabled.
-    ///
-    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-    fn blob_excess_gas_for_hardfork(&self, hardfork: HardforkT) -> Option<u64> {
-        self.blob_excess_gas_and_price_for_hardfork(hardfork)
-            .map(|a| a.excess_blob_gas)
-    }
 }
 
 /// Trait for specifying the contextual information type of a chain.

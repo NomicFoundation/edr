@@ -22,9 +22,10 @@ fn local_blockchain(
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
     let block_config = BlockConfig {
-        base_fee_params: L1ChainSpec::default_base_fee_params(),
+        base_fee_params: L1ChainSpec::default_base_fee_params().clone(),
         hardfork: edr_chain_l1::Hardfork::PRAGUE,
         min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
     };
 
     let genesis_block = L1ChainSpec::genesis_block(

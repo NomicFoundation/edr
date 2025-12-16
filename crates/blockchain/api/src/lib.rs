@@ -10,6 +10,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use auto_impl::auto_impl;
 use edr_block_api::BlockAndTotalDifficulty;
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 use edr_state_api::{DynState, StateDiff, StateOverride};
@@ -56,6 +57,15 @@ pub trait BlockchainMetadata<HardforkT> {
 
     /// Retrieves the network ID of the blockchain.
     fn network_id(&self) -> u64;
+}
+
+/// Trait that defines Blob Parameter Only hardforks schedule for a blockchain
+#[auto_impl(&)]
+pub trait BlockchainScheduledBlobParams {
+    /// Scheduled block parameter only hardforks ([EIP-7892])
+    ///
+    /// [EIP-7892]: https://eips.ethereum.org/EIPS/eip-7892
+    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams>;
 }
 
 /// Trait for implementations of an Ethereum blockchain.
@@ -135,6 +145,9 @@ pub trait ReserveBlocks {
 
     /// Reserves the provided number of blocks, starting from the next block
     /// number.
+    // TODO: https://github.com/NomicFoundation/edr/issues/1228
+    // Analyze whether we can receive the BlockConfig here so blockachain does not
+    // have to keep track of it
     fn reserve_blocks(&mut self, additional: u64, interval: u64) -> Result<(), Self::Error>;
 }
 
@@ -186,7 +199,7 @@ pub trait Blockchain<
     LocalBlockT,
     SignedTransactionT,
 >:
-    BlockHashByNumber<Error = BlockchainErrorT>
+    BlockHashByNumberAndScheduledBlobParams<BlockchainErrorT>
     + BlockchainMetadata<HardforkT, Error = BlockchainErrorT>
     + GetBlockchainBlock<BlockT, HardforkT, Error = BlockchainErrorT>
     + GetBlockchainLogs<Error = BlockchainErrorT>
@@ -211,7 +224,7 @@ impl<
     Blockchain<BlockReceiptT, BlockT, BlockchainErrorT, HardforkT, LocalBlockT, SignedTransactionT>
     for BlockchainT
 where
-    BlockchainT: BlockHashByNumber<Error = BlockchainErrorT>
+    BlockchainT: BlockHashByNumberAndScheduledBlobParams<BlockchainErrorT>
         + BlockchainMetadata<HardforkT, Error = BlockchainErrorT>
         + GetBlockchainBlock<BlockT, HardforkT, Error = BlockchainErrorT>
         + GetBlockchainLogs<Error = BlockchainErrorT>
@@ -221,5 +234,19 @@ where
         + RevertToBlock<Error = BlockchainErrorT>
         + StateAtBlock<BlockchainError = BlockchainErrorT>
         + TotalDifficultyByBlockHash<Error = BlockchainErrorT>,
+{
+}
+
+/// Supertrait for combining `BlockHashByNumber` together with
+/// `BlockchainScheduledBlobParams`
+pub trait BlockHashByNumberAndScheduledBlobParams<BlockchainErrorT>:
+    BlockHashByNumber<Error = BlockchainErrorT> + BlockchainScheduledBlobParams
+{
+}
+
+impl<BlockchainT, BlockchainErrorT> BlockHashByNumberAndScheduledBlobParams<BlockchainErrorT>
+    for BlockchainT
+where
+    BlockchainT: BlockHashByNumber<Error = BlockchainErrorT> + BlockchainScheduledBlobParams,
 {
 }
