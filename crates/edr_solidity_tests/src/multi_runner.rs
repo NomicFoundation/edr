@@ -1,6 +1,12 @@
 //! Forge test runner for multiple contracts.
 
-use std::{collections::BTreeMap, marker::PhantomData, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+    path::PathBuf,
+    sync::Arc,
+    time::Instant,
+};
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
@@ -36,8 +42,8 @@ use crate::{
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
-    ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
-    TestFilter,
+    ConfigOverride, ContractRunner, IncludeTraces, SolidityTestRunnerConfig,
+    SolidityTestRunnerConfigError, TestFilter,
 };
 
 pub struct SuiteResultAndArtifactId<HaltReasonT> {
@@ -129,6 +135,9 @@ pub struct MultiContractRunner<
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running the tests.
     generate_gas_report: bool,
+    /// Test function level config overrides. The keys in the hash map are in
+    /// the format "`ContractName::functionName`".
+    test_function_overrides: HashMap<String, ConfigOverride>,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
@@ -192,6 +201,7 @@ impl<
             local_predeploys,
             on_collected_coverage_fn,
             generate_gas_report,
+            test_function_overrides,
         } = config;
 
         // Do canonicalization in blocking context.
@@ -232,6 +242,7 @@ impl<
             on_collected_coverage_fn,
             _phantom: PhantomData,
             generate_gas_report,
+            test_function_overrides,
         })
     }
 
@@ -368,6 +379,7 @@ impl<
                     enable_table_tests: self.enable_table_tests,
                     fuzz_config: &self.fuzz_config,
                     invariant_config: &self.invariant_config,
+                    test_function_overrides: &self.test_function_overrides,
                 },
                 span,
             );

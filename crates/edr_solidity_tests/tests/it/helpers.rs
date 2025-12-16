@@ -7,7 +7,10 @@ pub use config::{assert_multiple, TestConfig};
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
-use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf, sync::Mutex};
+use std::{
+    borrow::Cow, collections::HashMap, env, fmt, io::Write, marker::PhantomData, path::PathBuf,
+    sync::Mutex,
+};
 
 use alloy_primitives::{Bytes, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
@@ -171,6 +174,7 @@ impl ForgeTestProfile {
             local_predeploys: Vec::default(),
             on_collected_coverage_fn: None,
             generate_gas_report: false,
+            test_function_overrides: HashMap::default(),
         }
     }
 

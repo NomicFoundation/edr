@@ -17,7 +17,7 @@ use alloy_consensus::{constants::SELECTOR_LEN, BlobTransactionSidecar};
 use alloy_primitives::{
     hex,
     map::{AddressHashMap, HashMap, HashSet},
-    Address, Bytes, Log, TxKind, B256, U256,
+    Address, Bytes, Log, Selector, TxKind, B256, U256,
 };
 use alloy_rpc_types::AccessList;
 use alloy_sol_types::{SolCall, SolInterface};
@@ -1449,10 +1449,47 @@ impl<
 
                 if needs_processing {
                     let mut expected_revert = std::mem::take(&mut self.expected_revert).unwrap();
+
+                    let internal_expect_revert =
+                        self.config.internal_expect_revert || expected_revert.allow_internal || {
+                            // Check if there is function-level internal_expect_revert override,
+                            // only if we don't have a global config allowing it
+                            let identifier = ecx
+                                .journaled_state
+                                .load_account(call.target_address)
+                                .ok()
+                                .and_then(|account| account.info.code.as_ref())
+                                .and_then(|code| {
+                                    self.config
+                                        .available_artifacts
+                                        .find_by_deployed_code(code.original_byte_slice())
+                                })
+                                .and_then(|(artifact_id, contract_data)| {
+                                    let input = call.input.bytes(ecx);
+                                    (input.len() >= 4).then(|| {
+                                        let selector = input
+                                            .get(..4)
+                                            .map(Selector::from_slice)
+                                            .expect("Input must have at least 4 bytes");
+                                        contract_data
+                                            .abi
+                                            .functions()
+                                            .find(|f| f.selector() == selector)
+                                            .map(|function| {
+                                                format!("{}::{}", artifact_id.name, function.name)
+                                            })
+                                    })?
+                                });
+
+                            identifier.as_ref().is_some_and(|id| {
+                                self.config.functions_internal_expect_revert.contains(id)
+                            })
+                        };
+
                     return match revert_handlers::handle_expect_revert(
                         cheatcode_call,
                         false,
-                        self.config.internal_expect_revert || expected_revert.allow_internal,
+                        internal_expect_revert,
                         &expected_revert,
                         outcome.result.result,
                         outcome.result.output.clone(),

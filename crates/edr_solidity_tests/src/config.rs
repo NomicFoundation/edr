@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_primitives::{Address, B256, U256};
@@ -59,6 +59,9 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running tests
     pub generate_gas_report: bool,
+    /// Test function level config overrides. The keys in the hash map are in
+    /// the format "`ContractName::functionName`".
+    pub test_function_overrides: HashMap<String, ConfigOverride>,
 }
 
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
@@ -164,4 +167,46 @@ pub enum IncludeTraces {
     Failing,
     /// Traces will be included in all test results.
     All,
+}
+
+#[derive(Clone, Debug)]
+pub struct ConfigOverride {
+    /// Allow expecting reverts with `expectRevert` at the same callstack depth
+    /// as the test.
+    pub allow_internal_expect_revert: bool,
+    /// Configuration override for fuzz testing
+    pub fuzz: FuzzConfigOverride,
+    /// Configuration override for invariant testing
+    pub invariant: InvariantConfigOverride,
+}
+
+#[derive(Clone, Debug)]
+pub struct FuzzConfigOverride {
+    /// The number of test cases that must execute for each property test
+    pub runs: u32,
+    /// The maximum number of test case rejections allowed by proptest, to be
+    /// encountered during usage of `vm.assume` cheatcode. This will be used
+    /// to set the `max_global_rejects` value in proptest test runner config.
+    /// `max_local_rejects` option isn't exposed here since we're not using
+    /// `prop_filter`.
+    pub max_test_rejects: u32,
+    /// show `console.log` in fuzz test, defaults to `false`
+    pub show_logs: bool,
+    /// Optional timeout (in seconds) for each property test
+    pub timeout: Option<u32>,
+}
+
+#[derive(Clone, Debug)]
+pub struct InvariantConfigOverride {
+    /// The number of runs that must execute for each invariant test group.
+    pub runs: u32,
+    /// The number of calls executed to attempt to break invariants in one run.
+    pub depth: u32,
+    /// Fails the invariant fuzzing if a revert occurs
+    pub fail_on_revert: bool,
+    /// Allows overriding an unsafe external call when running invariant tests.
+    /// eg. reentrancy checks
+    pub call_override: bool,
+    /// Optional timeout (in seconds) for each invariant test.
+    pub timeout: Option<u32>,
 }

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use edr_primitives::{Address, U256};
 use edr_solidity_tests::{
@@ -6,8 +6,8 @@ use edr_solidity_tests::{
     evm_context::HardforkTr,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inspectors::cheatcodes::CheatsConfigOptions,
-    CollectStackTraces, IncludeTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
-    TestFilterConfig,
+    CollectStackTraces, ConfigOverride, IncludeTraces, SolidityTestRunnerConfig,
+    SyncOnCollectedCoverageCallback, TestFilterConfig,
 };
 use napi::{bindgen_prelude::Uint8Array, Either};
 
@@ -174,6 +174,9 @@ pub struct TestRunnerConfig {
     /// Whether to generate a gas report after running the tests.
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
+    /// Test function level config overrides. The keys in the hash map are in
+    /// the format "`ContractName::functionName`". Defaults to None.
+    pub test_function_overrides: Option<HashMap<String, ConfigOverride>>,
 }
 
 impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConfig<HardforkT> {
@@ -209,6 +212,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             on_collected_coverage_fn,
             test_pattern: _,
             generate_gas_report,
+            test_function_overrides,
         } = value;
 
         let mut evm_opts = SolidityTestRunnerConfig::default_evm_opts();
@@ -279,6 +283,8 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
 
         let generate_gas_report = generate_gas_report.unwrap_or(false);
 
+        let test_function_overrides = test_function_overrides.unwrap_or(HashMap::new());
+
         Ok(SolidityTestRunnerConfig {
             project_root,
             collect_stack_traces,
@@ -295,6 +301,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             enable_fuzz_fixtures: false,
             enable_table_tests: false,
             generate_gas_report,
+            test_function_overrides,
         })
     }
 }

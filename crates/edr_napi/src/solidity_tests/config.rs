@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use derive_more::Debug;
 use edr_primitives::hex;
@@ -158,6 +161,9 @@ pub struct SolidityTestRunnerConfigArgs {
     /// mode.
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
+    /// Test function level config overrides. The keys in the hash map are in
+    /// the format "`ContractName::functionName`". Defaults to None.
+    pub test_function_overrides: Option<HashMap<String, ConfigOverride>>,
 }
 
 impl SolidityTestRunnerConfigArgs {
@@ -203,6 +209,7 @@ impl SolidityTestRunnerConfigArgs {
             observability,
             test_pattern,
             generate_gas_report,
+            test_function_overrides,
         } = self;
 
         let test_pattern = TestFilterConfig {
@@ -233,6 +240,18 @@ impl SolidityTestRunnerConfigArgs {
             .unwrap_or_default();
 
         let fuzz: FuzzConfig = fuzz.map(TryFrom::try_from).transpose()?.unwrap_or_default();
+
+        // Collect the functions that allow internal expect revert
+        let functions_internal_expect_revert: HashSet<String> = test_function_overrides
+            .as_ref()
+            .map(|overrides| {
+                overrides
+                    .iter()
+                    .filter(|(_, config)| config.allow_internal_expect_revert)
+                    .map(|(key, _)| key.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
 
         let cheatcode = CheatsConfigOptions {
             // TODO https://github.com/NomicFoundation/edr/issues/657
@@ -266,6 +285,7 @@ impl SolidityTestRunnerConfigArgs {
                 .collect::<Result<_, napi::Error>>()?,
             seed: fuzz.seed,
             allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
+            functions_internal_expect_revert,
         };
 
         let on_collected_coverage_fn = observability.map_or_else(
@@ -309,6 +329,12 @@ impl SolidityTestRunnerConfigArgs {
             on_collected_coverage_fn,
             test_pattern,
             generate_gas_report,
+            test_function_overrides: test_function_overrides.map(|overrides| {
+                overrides
+                    .into_iter()
+                    .map(|(key, value)| (key, value.into()))
+                    .collect::<HashMap<_, _>>()
+            }),
         };
 
         Ok(config)
@@ -794,6 +820,87 @@ impl From<edr_solidity_tests::IncludeTraces> for IncludeTraces {
             edr_solidity_tests::IncludeTraces::None => IncludeTraces::None,
             edr_solidity_tests::IncludeTraces::Failing => IncludeTraces::Failing,
             edr_solidity_tests::IncludeTraces::All => IncludeTraces::All,
+        }
+    }
+}
+
+/// Test function or test contract level config override.
+#[napi(object)]
+#[derive(Clone, Default, Debug, serde::Serialize)]
+pub struct ConfigOverride {
+    /// Allow expecting reverts with `expectRevert` at the same callstack depth
+    /// as the test.
+    pub allow_internal_expect_revert: bool,
+    /// Configuration override for fuzz testing
+    pub fuzz: FuzzConfigOverride,
+    /// Configuration override for invariant testing
+    pub invariant: InvariantConfigOverride,
+}
+
+impl From<ConfigOverride> for edr_solidity_tests::ConfigOverride {
+    fn from(value: ConfigOverride) -> Self {
+        Self {
+            allow_internal_expect_revert: value.allow_internal_expect_revert,
+            fuzz: value.fuzz.into(),
+            invariant: value.invariant.into(),
+        }
+    }
+}
+
+/// Test function or test contract level fuzz config override.
+#[napi(object)]
+#[derive(Clone, Default, Debug, serde::Serialize)]
+pub struct FuzzConfigOverride {
+    /// The number of test cases that must execute for each property test
+    pub runs: u32,
+    /// The maximum number of test case rejections allowed by proptest, to be
+    /// encountered during usage of `vm.assume` cheatcode. This will be used
+    /// to set the `max_global_rejects` value in proptest test runner config.
+    /// `max_local_rejects` option isn't exposed here since we're not using
+    /// `prop_filter`.
+    pub max_test_rejects: u32,
+    /// show `console.log` in fuzz test, defaults to `false`
+    pub show_logs: bool,
+    /// Optional timeout (in seconds) for each property test
+    pub timeout: Option<u32>,
+}
+
+impl From<FuzzConfigOverride> for edr_solidity_tests::FuzzConfigOverride {
+    fn from(value: FuzzConfigOverride) -> Self {
+        Self {
+            runs: value.runs,
+            max_test_rejects: value.max_test_rejects,
+            show_logs: value.show_logs,
+            timeout: value.timeout,
+        }
+    }
+}
+
+/// Test function or test contract level invariant config override.
+#[napi(object)]
+#[derive(Clone, Default, Debug, serde::Serialize)]
+pub struct InvariantConfigOverride {
+    /// The number of runs that must execute for each invariant test group.
+    pub runs: u32,
+    /// The number of calls executed to attempt to break invariants in one run.
+    pub depth: u32,
+    /// Fails the invariant fuzzing if a revert occurs
+    pub fail_on_revert: bool,
+    /// Allows overriding an unsafe external call when running invariant tests.
+    /// eg. reentrancy checks
+    pub call_override: bool,
+    /// Optional timeout (in seconds) for each invariant test.
+    pub timeout: Option<u32>,
+}
+
+impl From<InvariantConfigOverride> for edr_solidity_tests::InvariantConfigOverride {
+    fn from(value: InvariantConfigOverride) -> Self {
+        Self {
+            runs: value.runs,
+            depth: value.depth,
+            fail_on_revert: value.fail_on_revert,
+            call_override: value.call_override,
+            timeout: value.timeout,
         }
     }
 }

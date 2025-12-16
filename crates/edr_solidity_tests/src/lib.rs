@@ -11,8 +11,8 @@ pub use runner::ContractRunner;
 
 mod config;
 pub use config::{
-    CollectStackTraces, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
-    SyncOnCollectedCoverageCallback,
+    CollectStackTraces, ConfigOverride, FuzzConfigOverride, IncludeTraces, InvariantConfigOverride,
+    SolidityTestRunnerConfig, SolidityTestRunnerConfigError, SyncOnCollectedCoverageCallback,
 };
 
 pub mod result;

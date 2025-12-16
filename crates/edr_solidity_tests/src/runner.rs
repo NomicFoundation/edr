@@ -1,6 +1,11 @@
 //! The Forge test runner.
 use std::{
-    borrow::Cow, cmp::min, collections::BTreeMap, marker::PhantomData, path::Path, sync::Arc,
+    borrow::Cow,
+    cmp::min,
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+    path::Path,
+    sync::Arc,
     time::Instant,
 };
 
@@ -50,7 +55,7 @@ use crate::{
     multi_runner::TestContract,
     result::{SuiteResult, TestResult, TestSetup},
     revm::context::result::HaltReason,
-    TestFilter,
+    ConfigOverride, TestFilter,
 };
 
 /// A type that executes all tests of a contract
@@ -94,6 +99,9 @@ pub struct ContractRunner<
     executor_builder: ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>,
     /// The span of the contract.
     span: tracing::Span,
+    /// Test function level config overrides. The keys in the hash map are in
+    /// the format "`ContractName::functionName`".
+    test_function_overrides: &'a HashMap<String, ConfigOverride>,
 
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (EvmBuilderT, HaltReasonT, TransactionErrorT)>,
@@ -114,6 +122,9 @@ pub struct ContractRunnerOptions<'a> {
     pub fuzz_config: &'a FuzzConfig,
     /// Invariant config
     pub invariant_config: &'a InvariantConfig,
+    /// Test function level config overrides. The keys in the hash map are in
+    /// the format "`ContractName::functionName`".
+    pub test_function_overrides: &'a HashMap<String, ConfigOverride>,
 }
 
 /// Contract artifact related arguments to the contract runner.
@@ -174,6 +185,7 @@ impl<
             enable_table_tests,
             fuzz_config,
             invariant_config,
+            test_function_overrides,
         } = options;
 
         Self {
@@ -191,6 +203,7 @@ impl<
             invariant_config,
             executor_builder,
             span,
+            test_function_overrides,
             _phantom: PhantomData,
         }
     }
@@ -1042,7 +1055,23 @@ impl<
         };
 
         let runner = self.invariant_runner();
-        let invariant_config = self.cr.invariant_config;
+        let mut invariant_config = self.cr.invariant_config.clone();
+
+        // Apply function config overrides if any.
+        let test_identifier = format!("{}::{}", self.cr.name, func.name);
+        let overrides = self
+            .cr
+            .test_function_overrides
+            .get(&test_identifier)
+            .cloned();
+
+        if let Some(overrides) = overrides {
+            invariant_config.runs = overrides.invariant.runs;
+            invariant_config.depth = overrides.invariant.depth;
+            invariant_config.fail_on_revert = overrides.invariant.fail_on_revert;
+            invariant_config.call_override = overrides.invariant.call_override;
+            invariant_config.timeout = overrides.invariant.timeout;
+        }
 
         let mut executor = self.clone_executor();
         // Enable edge coverage if running with coverage guided fuzzing or with edge
@@ -1299,7 +1328,22 @@ impl<
         }
 
         let runner = self.fuzz_runner();
-        let fuzz_config = self.cr.fuzz_config.clone();
+        let mut fuzz_config = self.cr.fuzz_config.clone();
+
+        // Apply function config overrides if any.
+        let test_identifier = format!("{}::{}", self.cr.name, func.name);
+        let overrides = self
+            .cr
+            .test_function_overrides
+            .get(&test_identifier)
+            .cloned();
+
+        if let Some(overrides) = overrides {
+            fuzz_config.runs = overrides.fuzz.runs;
+            fuzz_config.max_test_rejects = overrides.fuzz.max_test_rejects;
+            fuzz_config.show_logs = overrides.fuzz.show_logs;
+            fuzz_config.timeout = overrides.fuzz.timeout;
+        }
 
         // Run fuzz test.
         let fuzzed_executor = FuzzedExecutor::new(
