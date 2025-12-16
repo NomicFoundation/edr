@@ -17,7 +17,7 @@ use edr_block_api::{
     Block, BlockAndTotalDifficulty, FetchBlockReceipts as _, GenesisBlockFactory,
     GenesisBlockOptions,
 };
-use edr_block_builder_api::BuiltBlockAndState;
+use edr_block_builder_api::{BuiltBlockAndState, DatabaseComponents, WrapDatabaseRef};
 use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, BlockHeader, HeaderOverrides,
 };
@@ -44,6 +44,7 @@ use edr_eth::{
     reward_percentile::RewardPercentile,
     BlockSpec, BlockTag, Eip1898BlockSpec,
 };
+use edr_evm::guaranteed_dry_run_with_inspector;
 use edr_gas_report::{GasReport, SyncOnCollectedGasReportCallback};
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
@@ -79,7 +80,10 @@ use rpds::HashTrieMapSync;
 use tokio::runtime;
 
 use crate::{
-    data::gas::{compute_rewards, BinarySearchEstimationArgs, CheckGasLimitArgs},
+    data::{
+        call::BlockEnvWithZeroBaseFee,
+        gas::{compute_rewards, BinarySearchEstimationArgs, CheckGasLimitArgs},
+    },
     debug_mine::{
         DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
     },
@@ -100,8 +104,8 @@ use crate::{
         SyncBlockchainForChainSpec, SyncProviderSpec, TransactionAndBlockForChainSpec,
     },
     time::{CurrentTime, TimeSinceEpoch},
-    MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
-    SyncSubscriberCallback,
+    DebugTraceError, MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent,
+    SubscriptionEventData, SyncSubscriberCallback,
 };
 
 const DEFAULT_INITIAL_BASE_FEE_PER_GAS: u128 = 1_000_000_000;
@@ -1770,11 +1774,15 @@ where
     > {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
+        let mut debug_inspector = DebugInspector::new(tracing_options)
+            .map_err(DebugTraceError::from_debug_inspector_creation_error)?;
+
+        println!("Debug inspector: {:?}", debug_inspector);
+
         let mut evm_observer = EvmObserver::new(EvmObserverConfig {
             call_override: None,
             ..EvmObserverConfig::from(&self.observability)
         });
-        let mut debug_inspector = DebugInspector::new(tracing_options);
 
         let custom_precompiles = self.precompile_overrides.clone();
 
@@ -1787,14 +1795,19 @@ where
                 scheduled_blob_params.as_ref(),
             );
 
-            let result = call::run_call::<ChainSpecT, _, _, _>(
+            let block_env = BlockEnvWithZeroBaseFee::new(ChainSpecT::BlockEnv::new_block_env(
+                block_header,
+                hardfork,
+            ));
+
+            let result = guaranteed_dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
                 blockchain,
-                block_env,
                 state.as_ref(),
                 cfg_env,
-                transaction,
+                transaction.clone(),
+                &block_env,
                 &custom_precompiles,
-                &mut inspector,
+                &mut DualInspector::new(&mut debug_inspector, &mut evm_observer),
             )?;
 
             let EvmObserver {
@@ -1810,10 +1823,19 @@ where
                     .map_err(ProviderError::OnCollectedCoverageCallback)?;
             }
 
-            let debug_result =
-                execution_result_to_debug_result(result, trace_collector, eip3155_tracer);
+            let mut database = WrapDatabaseRef(DatabaseComponents {
+                blockchain,
+                state: state.as_ref(),
+            });
 
-            Ok(debug_result)
+            let geth_trace = debug_inspector
+                .get_result(None, &transaction, &block_env, &result, &mut database)
+                .map_err(DebugTraceError::from_debug_inspector_result_error)?;
+
+            Ok(DebugTraceResultWithTraces {
+                result: geth_trace,
+                traces: trace_collector.into_traces(),
+            })
         })?
     }
 
@@ -2499,7 +2521,7 @@ where
     pub fn debug_trace_transaction(
         &mut self,
         transaction_hash: &B256,
-        trace_config: DebugTraceConfig,
+        tracing_options: GethDebugTracingOptions,
     ) -> Result<
         DebugTraceResultWithTraces<ChainSpecT::HaltReason>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2537,7 +2559,7 @@ where
                     blockchain,
                     state.clone(),
                     cfg_env,
-                    trace_config,
+                    tracing_options,
                     block_env,
                     transactions,
                     transaction_hash,

@@ -48,8 +48,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
         .block_hash_by_number(block_number.try_into().expect("block number too large"))
         .map_err(DebugTraceError::Blockchain)?;
 
-    let mut transaction_index = 0;
-    for transaction in transactions {
+    for (transaction_index, transaction) in transactions.into_iter().enumerate() {
         if transaction.transaction_hash() == transaction_hash {
             let mut debug_inspector = DebugInspector::new(tracing_options)
                 .map_err(DebugTraceError::from_debug_inspector_creation_error)?;
@@ -113,8 +112,6 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                 &edr_primitives::HashMap::default(),
             )?;
         }
-
-        transaction_index += 1;
     }
 
     Err(DebugTraceError::InvalidTransactionHash {
@@ -156,7 +153,7 @@ pub enum DebugTraceError<TransactionValidationErrorT> {
     /// JS tracer is not enabled
     #[error("JS Tracer is not enabled")]
     JsTracerNotEnabled,
-    /// Error from MuxInspector
+    /// Error from `MuxInspector`
     #[error(transparent)]
     MuxInspector(#[from] MuxError),
     /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
