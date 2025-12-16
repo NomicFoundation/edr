@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.19
+
+### Patch Changes
+
+- faef065: Added support for EIP-7892 (Blob Parameter Only hardforks)
+
 ## 0.12.0-next.18
 
 ### Patch Changes
