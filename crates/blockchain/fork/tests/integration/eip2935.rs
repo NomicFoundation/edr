@@ -39,7 +39,7 @@ async fn forked_blockchain(
     .expect("url ok");
 
     ForkedBlockchainForChainSpec::<L1ChainSpec>::new(
-        default_block_config::<L1ChainSpec>(local_hardfork),
+        &default_block_config::<L1ChainSpec>(local_hardfork),
         runtime,
         Arc::new(rpc_client),
         irregular_state,

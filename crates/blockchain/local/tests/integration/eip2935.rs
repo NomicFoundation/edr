@@ -37,7 +37,7 @@ fn local_blockchain(
         },
     )?;
 
-    let blockchain = LocalBlockchain::new(genesis_block, genesis_diff, CHAIN_ID, block_config)?;
+    let blockchain = LocalBlockchain::new(genesis_block, genesis_diff, CHAIN_ID, &block_config)?;
     Ok(blockchain)
 }
 

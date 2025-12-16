@@ -42,7 +42,7 @@ pub fn create_dummy_local_blockchain() -> LocalBlockchainForChainSpec<L1ChainSpe
         genesis_block,
         genesis_diff,
         L1_MAINNET_CHAIN_ID,
-        block_config,
+        &block_config,
     )
     .expect("Should construct without issues")
 }

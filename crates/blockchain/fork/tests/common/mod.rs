@@ -36,7 +36,7 @@ pub async fn create_dummy_forked_blockchain(
 
     let mut irregular_state = IrregularState::default();
     ForkedBlockchainForChainSpec::<L1ChainSpec>::new(
-        block_config,
+        &block_config,
         tokio::runtime::Handle::current(),
         Arc::new(rpc_client),
         &mut irregular_state,

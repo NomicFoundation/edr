@@ -63,7 +63,7 @@ impl<
         genesis_block: LocalBlockT,
         genesis_diff: StateDiff,
         chain_id: u64,
-        block_config: BlockConfig<HardforkT>,
+        block_config: &BlockConfig<HardforkT>,
     ) -> Result<Self, InvalidGenesisBlock> {
         let genesis_header = genesis_block.block_header();
 
@@ -489,7 +489,7 @@ mod tests {
         )?;
 
         let mut blockchain =
-            LocalBlockchain::new(genesis_block, genesis_diff, 123, block_config.clone()).unwrap();
+            LocalBlockchain::new(genesis_block, genesis_diff, 123, &block_config).unwrap();
 
         let irregular_state = IrregularState::default();
         let expected = blockchain.state_at_block_number(0, irregular_state.state_overrides())?;

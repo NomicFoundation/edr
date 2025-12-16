@@ -61,7 +61,7 @@ async fn issue_hh_4974_forking_avalanche_c_chain() -> anyhow::Result<()> {
     let block_config = default_block_config::<L1ChainSpec>(edr_chain_l1::Hardfork::default());
 
     let _blockchain = ForkedBlockchainForChainSpec::new(
-        block_config,
+        &block_config,
         runtime::Handle::current(),
         Arc::new(rpc_client),
         &mut irregular_state,

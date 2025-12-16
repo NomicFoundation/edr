@@ -83,7 +83,7 @@ async fn block_with_deposit_transaction() -> anyhow::Result<()> {
         .ok_or(anyhow!("Unsupported block"))?;
 
     let _blockchain = ForkedBlockchainForChainSpec::<OpChainSpec>::new(
-        BlockConfig {
+        &BlockConfig {
             base_fee_params: chain_config.base_fee_params.clone(),
             hardfork,
             min_ethash_difficulty: OpChainSpec::MIN_ETHASH_DIFFICULTY,

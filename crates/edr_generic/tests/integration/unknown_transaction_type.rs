@@ -30,7 +30,7 @@ async fn unknown_transaction_types() -> anyhow::Result<()> {
     let block_config = default_block_config::<GenericChainSpec>(edr_chain_l1::Hardfork::default());
 
     let blockchain = ForkedBlockchainForChainSpec::<GenericChainSpec>::new(
-        block_config,
+        &block_config,
         runtime::Handle::current(),
         Arc::new(rpc_client),
         &mut irregular_state,

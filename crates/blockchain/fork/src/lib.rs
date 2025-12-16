@@ -236,7 +236,7 @@ impl<
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        mut block_config: BlockConfig<HardforkT>,
+        block_config: &BlockConfig<HardforkT>,
         runtime: runtime::Handle,
         rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
         irregular_state: &mut IrregularState,
@@ -285,9 +285,10 @@ impl<
             rpc_client.get_block_by_number(PreEip1898BlockSpec::Number(fork_block_number));
 
         let chain_config = chain_configs.get(&remote_chain_id);
-        if let Some(config) = chain_config {
-            block_config.base_fee_params = config.base_fee_params.clone();
-        };
+        // TODO: move this logic somewhere it makes sense
+        // if let Some(config) = chain_config {
+        //     block_config.base_fee_params = config.base_fee_params.clone();
+        // };
         let hardfork_activations = chain_config.as_ref().and_then(
             |ChainConfig {
                  hardfork_activations,
@@ -404,7 +405,7 @@ impl<
             network_id,
             hardfork: block_config.hardfork.clone(),
             hardfork_activations,
-            scheduled_blob_params: block_config.scheduled_blob_params,
+            scheduled_blob_params: block_config.scheduled_blob_params.clone(),
             _phantom: PhantomData,
         })
     }
