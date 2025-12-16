@@ -4,7 +4,7 @@ use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
     BlockTransactionError, BuiltBlockAndState, DatabaseComponents, PrecompileFn, WrapDatabaseRef,
 };
-use edr_block_header::{overridden_block_number, HeaderOverrides, PartialHeader};
+use edr_block_header::{overridden_block_number, BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_l1::block::EthBlockBuilder;
 use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_block::BlockChainSpec;
@@ -57,6 +57,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
             Self::LocalBlock,
             OpSignedTransaction,
         >,
+        block_config: &BlockConfig<Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         mut inputs: BlockInputs,
@@ -102,14 +103,14 @@ impl<'builder, BlockchainErrorT: std::error::Error>
                 let chain_base_fee_params = overrides
                     .base_fee_params
                     .as_ref()
-                    .unwrap_or_else(|| blockchain.base_fee_params())
+                    .unwrap_or(&block_config.base_fee_params)
                     .clone();
 
                 let current_block_number = blockchain.last_block_number() + 1;
                 let next_block_number = current_block_number + 1;
 
                 let extra_data_base_fee_params = chain_base_fee_params
-                    .at_condition(hardfork, next_block_number)
+                    .at_condition(&hardfork, next_block_number)
                     .expect("Chain spec must have base fee params for post-London hardforks");
                 // TODO: instead of decoding min_base_fee from parent extra data we should get
                 // the info from OP chain config analogously to base_fee_params?
@@ -133,7 +134,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
                         ))
                     })?;
 
-                op_base_fee_params_for_block(parent_header, parent_hardfork)
+                op_base_fee_params_for_block(parent_header, &parent_hardfork)
             };
         }
 
@@ -142,7 +143,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
             // from standard EVM calculation.
             overrides.base_fee = overrides.base_fee.or_else(|| {
                 overrides.base_fee_params.as_ref().map(|base_fee_params| {
-                    op_next_base_fee(parent_header, hardfork, base_fee_params)
+                    op_next_base_fee(parent_header, &hardfork, base_fee_params)
                 })
             });
         }
@@ -161,6 +162,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
         let eth = EthBlockBuilder::new(
             l1_block_info,
             blockchain,
+            block_config,
             state,
             evm_config,
             inputs,
@@ -330,7 +332,7 @@ mod tests {
         };
         let genesis_block = OpChainSpec::genesis_block(
             StateDiff::default(),
-            block_config.clone(),
+            &block_config,
             GenesisBlockOptions {
                 mix_hash: Some(B256::ZERO),
                 ..GenesisBlockOptions::default()

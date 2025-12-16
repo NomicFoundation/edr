@@ -81,15 +81,19 @@ pub fn create_dummy_block_with_difficulty<BlockchainErrorT: Debug>(
         .expect("Failed to retrieve last block")
         .block_hash();
 
+    let block_config = BlockConfig {
+        base_fee_params: L1ChainSpec::default_base_fee_params().clone(), /* blockchain.
+                                                                          * base_fee_params().
+                                                                          * clone(), TODO:
+                                                                          * revisit */
+        hardfork: blockchain.hardfork(),
+        min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
+    };
     create_dummy_block_with_header(
         blockchain.hardfork(),
         PartialHeader::new::<edr_chain_l1::Hardfork>(
-            BlockConfig {
-                base_fee_params: blockchain.base_fee_params().clone(),
-                hardfork: blockchain.hardfork(),
-                min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
-                scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
-            },
+            &block_config,
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
                 number: Some(number),
@@ -110,15 +114,19 @@ pub fn create_dummy_block_with_hash<BlockchainErrorT>(
     number: u64,
     parent_hash: B256,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
+    let block_config = BlockConfig {
+        base_fee_params: L1ChainSpec::default_base_fee_params().clone(), /* blockchain.
+                                                                          * base_fee_params().
+                                                                          * clone(), TODO:
+                                                                          * revisit */
+        hardfork: blockchain.hardfork(),
+        min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
+    };
     create_dummy_block_with_header(
         blockchain.hardfork(),
         PartialHeader::new::<edr_chain_l1::Hardfork>(
-            BlockConfig {
-                base_fee_params: blockchain.base_fee_params().clone(),
-                hardfork: blockchain.hardfork(),
-                min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
-                scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
-            },
+            &block_config,
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
                 number: Some(number),
@@ -163,13 +171,17 @@ pub fn insert_dummy_block_with_transaction<
     let transaction = dummy_eip155_transaction(caller, 0)?;
     let transaction_hash = *transaction.transaction_hash();
 
+    let block_config = BlockConfig {
+        base_fee_params: L1ChainSpec::default_base_fee_params().clone(), /* blockchain.
+                                                                          * base_fee_params().
+                                                                          * clone(), TODO:
+                                                                          * revisit */
+        hardfork: blockchain.hardfork(),
+        min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
+    };
     let mut header = PartialHeader::new::<edr_chain_l1::Hardfork>(
-        BlockConfig {
-            base_fee_params: blockchain.base_fee_params().clone(),
-            hardfork: blockchain.hardfork(),
-            min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
-        },
+        &block_config,
         HeaderOverrides::default(),
         Some(blockchain.last_block()?.block_header()),
         &Vec::new(),

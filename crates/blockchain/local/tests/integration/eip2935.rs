@@ -30,7 +30,7 @@ fn local_blockchain(
 
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        block_config.clone(),
+        &block_config,
         GenesisBlockOptions {
             mix_hash: Some(prev_randao_generator.generate_next()),
             ..GenesisBlockOptions::default()

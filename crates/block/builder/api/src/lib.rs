@@ -2,7 +2,7 @@
 
 use std::fmt::Debug;
 
-use edr_block_header::{BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
+use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 pub use edr_blockchain_api::Blockchain;
 use edr_chain_spec::{
     BlockEnvChainSpec, ChainSpec, EvmSpecId, HaltReasonTrait, HardforkChainSpec,
@@ -143,6 +143,7 @@ pub trait BlockBuilder<
             Self::LocalBlock,
             ChainSpecT::SignedTransaction,
         >,
+        block_config: &BlockConfig<ChainSpecT::Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,

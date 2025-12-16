@@ -23,7 +23,7 @@ struct Reservation<HardforkT> {
     previous_state_root: B256,
     previous_total_difficulty: U256,
     previous_diff_index: usize,
-    block_config: BlockConfig<HardforkT>,
+    block_config: BlockConfig<HardforkT>, //TODO: change to reference
 }
 
 /// A storage solution for storing a subset of a blockchain's blocks in-memory,
@@ -248,7 +248,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
         previous_base_fee: Option<u128>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
-        block_config: BlockConfig<HardforkT>,
+        block_config: &BlockConfig<HardforkT>,
     ) {
         let reservation = Reservation {
             first_number: self.last_block_number + 1,
@@ -258,7 +258,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
             previous_state_root,
             previous_total_difficulty,
             previous_diff_index: self.state_diffs.len() - 1,
-            block_config,
+            block_config: block_config.clone(),
         };
 
         self.reservations.get_mut().push(reservation);
@@ -361,7 +361,7 @@ impl<
                 let block = BlockT::empty(
                     reservation.block_config.hardfork.clone(),
                     PartialHeader::new(
-                        reservation.block_config,
+                        &reservation.block_config,
                         HeaderOverrides {
                             number: Some(block_number),
                             state_root: Some(reservation.previous_state_root),

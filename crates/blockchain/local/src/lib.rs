@@ -13,7 +13,6 @@ use edr_blockchain_api::{
     TotalDifficultyByBlockHash,
 };
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
-use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
@@ -40,7 +39,8 @@ pub enum InvalidGenesisBlock {
 pub struct LocalBlockchain<BlockReceiptT: ReceiptTrait, HardforkT, LocalBlockT, SignedTransactionT>
 {
     chain_id: u64,
-    block_config: BlockConfig<HardforkT>,
+    hardfork: HardforkT,
+    scheduled_blob_params: Option<ScheduledBlobParams>, // TODO: can this ve removed as well?
     storage: ReservableSparseBlockStorage<
         Arc<BlockReceiptT>,
         Arc<LocalBlockT>,
@@ -87,7 +87,8 @@ impl<
 
         Ok(Self {
             chain_id,
-            block_config,
+            hardfork: block_config.hardfork.clone(),
+            scheduled_blob_params: block_config.scheduled_blob_params.clone(),
             storage,
         })
     }
@@ -154,10 +155,6 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 {
     type Error = LocalBlockchainError;
 
-    fn base_fee_params(&self) -> &BaseFeeParams<HardforkT> {
-        &self.block_config.base_fee_params
-    }
-
     fn chain_id(&self) -> u64 {
         self.chain_id
     }
@@ -172,19 +169,15 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
             return Err(LocalBlockchainError::UnknownBlockNumber);
         }
 
-        Ok(self.block_config.hardfork.clone())
+        Ok(self.hardfork.clone())
     }
 
     fn hardfork(&self) -> HardforkT {
-        self.block_config.hardfork.clone()
+        self.hardfork.clone()
     }
 
     fn last_block_number(&self) -> u64 {
         self.storage.last_block_number()
-    }
-
-    fn min_ethash_difficulty(&self) -> u64 {
-        self.block_config.min_ethash_difficulty
     }
 
     fn network_id(&self) -> u64 {
@@ -197,7 +190,7 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
     for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
 {
     fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
-        self.block_config.scheduled_blob_params.as_ref()
+        self.scheduled_blob_params.as_ref()
     }
 }
 
@@ -296,7 +289,7 @@ impl<
     ) -> Result<BlockAndTotalDifficulty<Arc<BlockT>, SignedTransactionT>, Self::Error> {
         let last_block = self.last_local_block()?;
 
-        validate_next_block(self.block_config.hardfork.clone(), &last_block, &block)?;
+        validate_next_block(self.hardfork.clone(), &last_block, &block)?;
 
         let previous_total_difficulty = self
             .total_difficulty_by_hash(last_block.block_hash())
@@ -341,12 +334,18 @@ impl<
             + EmptyBlock<HardforkT>
             + LocalBlock<Arc<BlockReceiptT>>,
         SignedTransactionT: ExecutableTransaction,
-    > ReserveBlocks for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
+    > ReserveBlocks<HardforkT>
+    for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
 {
     type Error = LocalBlockchainError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn reserve_blocks(&mut self, additional: u64, interval: u64) -> Result<(), Self::Error> {
+    fn reserve_blocks(
+        &mut self,
+        block_config: &BlockConfig<HardforkT>,
+        additional: u64,
+        interval: u64,
+    ) -> Result<(), Self::Error> {
         let additional = if let Some(additional) = NonZeroU64::new(additional) {
             additional
         } else {
@@ -366,7 +365,7 @@ impl<
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            self.block_config.clone(),
+            block_config,
         );
 
         Ok(())
@@ -481,7 +480,7 @@ mod tests {
 
         let genesis_block = L1ChainSpec::genesis_block(
             genesis_diff.clone(),
-            block_config.clone(),
+            &block_config,
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
                 mix_hash: Some(B256::random()),
@@ -490,12 +489,12 @@ mod tests {
         )?;
 
         let mut blockchain =
-            LocalBlockchain::new(genesis_block, genesis_diff, 123, block_config).unwrap();
+            LocalBlockchain::new(genesis_block, genesis_diff, 123, block_config.clone()).unwrap();
 
         let irregular_state = IrregularState::default();
         let expected = blockchain.state_at_block_number(0, irregular_state.state_overrides())?;
 
-        blockchain.reserve_blocks(1_000_000_000, 1)?;
+        blockchain.reserve_blocks(&block_config, 1_000_000_000, 1)?;
 
         let actual =
             blockchain.state_at_block_number(1_000_000_000, irregular_state.state_overrides())?;

@@ -23,7 +23,6 @@ use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, Remo
 use edr_chain_config::{ChainConfig, HardforkActivations};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
-use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
@@ -160,12 +159,20 @@ pub struct ForkedBlockchain<
     RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
     SignedTransactionT: Debug + ExecutableTransaction,
 > {
+    /// The chan id of the forked blockchain is either the local chain id
+    /// override or the chain id of the remote blockchain.
+    chain_id: u64,
+    fork_block_number: u64,
+    hardfork: HardforkT,
+    hardfork_activations: Option<HardforkActivations<HardforkT>>,
     local_storage: ReservableSparseBlockStorage<
         Arc<BlockReceiptT>,
         Arc<LocalBlockT>,
         HardforkT,
         SignedTransactionT,
     >,
+    network_id: u64,
+    _phantom: PhantomData<fn() -> BlockT>,
     // We can force caching here because we only fork from a safe block number.
     #[allow(clippy::type_complexity)]
     remote: RemoteBlockchain<
@@ -187,17 +194,12 @@ pub struct ForkedBlockchain<
         SignedTransactionT,
         true,
     >,
-    state_root_generator: Arc<Mutex<RandomHashGenerator>>,
-    fork_block_number: u64,
-    /// The chan id of the forked blockchain is either the local chain id
-    /// override or the chain id of the remote blockchain.
-    chain_id: u64,
-    block_config: BlockConfig<HardforkT>,
     /// The chain id of the remote blockchain. It might deviate from `chain_id`.
     remote_chain_id: u64,
-    network_id: u64,
-    hardfork_activations: Option<HardforkActivations<HardforkT>>,
-    _phantom: PhantomData<fn() -> BlockT>,
+    state_root_generator: Arc<Mutex<RandomHashGenerator>>,
+
+    scheduled_blob_params: Option<ScheduledBlobParams>, /* TODO: can this be removed from
+                                                         * blockchain as well? */
 }
 
 impl<
@@ -400,9 +402,10 @@ impl<
             remote_chain_id,
             fork_block_number,
             network_id,
+            hardfork: block_config.hardfork.clone(),
             hardfork_activations,
+            scheduled_blob_params: block_config.scheduled_blob_params,
             _phantom: PhantomData,
-            block_config,
         })
     }
 }
@@ -523,10 +526,6 @@ impl<
         <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
     >;
 
-    fn base_fee_params(&self) -> &BaseFeeParams<HardforkT> {
-        &self.block_config.base_fee_params
-    }
-
     fn chain_id(&self) -> u64 {
         self.chain_id
     }
@@ -578,15 +577,11 @@ impl<
     }
 
     fn hardfork(&self) -> HardforkT {
-        self.block_config.hardfork.clone()
+        self.hardfork.clone()
     }
 
     fn last_block_number(&self) -> u64 {
         self.local_storage.last_block_number()
-    }
-
-    fn min_ethash_difficulty(&self) -> u64 {
-        self.block_config.min_ethash_difficulty
     }
 
     fn network_id(&self) -> u64 {
@@ -620,7 +615,7 @@ impl<
     >
 {
     fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
-        self.block_config.scheduled_blob_params.as_ref()
+        self.scheduled_blob_params.as_ref()
     }
 }
 impl<
@@ -966,7 +961,7 @@ impl<
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: RpcTransaction + serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
-    > ReserveBlocks
+    > ReserveBlocks<HardforkT>
     for ForkedBlockchain<
         BlockReceiptT,
         BlockT,
@@ -988,7 +983,12 @@ impl<
     >;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn reserve_blocks(&mut self, additional: u64, interval: u64) -> Result<(), Self::Error> {
+    fn reserve_blocks(
+        &mut self,
+        block_config: &BlockConfig<HardforkT>,
+        additional: u64,
+        interval: u64,
+    ) -> Result<(), Self::Error> {
         let additional = if let Some(additional) = NonZeroU64::new(additional) {
             additional
         } else {
@@ -1007,7 +1007,7 @@ impl<
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            self.block_config.clone(),
+            block_config,
         );
 
         Ok(())

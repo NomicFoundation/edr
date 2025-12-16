@@ -318,7 +318,7 @@ impl PartialHeader {
     /// Constructs a new instance based on the provided [`HeaderOverrides`] and
     /// parent [`BlockHeader`] for the given [`EvmSpecId`].
     pub fn new<HardforkT: Clone + Into<EvmSpecId> + PartialOrd>(
-        block_config: BlockConfig<HardforkT>,
+        block_config: &BlockConfig<HardforkT>,
         overrides: HeaderOverrides<HardforkT>,
         parent: Option<&BlockHeader>,
         ommers: &Vec<BlockHeader>,
@@ -352,7 +352,7 @@ impl PartialHeader {
                         overrides
                             .base_fee_params
                             .as_ref()
-                            .unwrap_or(&base_fee_params),
+                            .unwrap_or(base_fee_params),
                         hardfork,
                     )
                 } else {
@@ -379,7 +379,7 @@ impl PartialHeader {
                         parent,
                         number,
                         timestamp,
-                        min_ethash_difficulty,
+                        *min_ethash_difficulty,
                     )
                 } else {
                     U256::from(1)
@@ -588,7 +588,7 @@ pub fn overridden_block_number<HardforkT>(
 pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
     parent: &BlockHeader,
     base_fee_params: &BaseFeeParams<HardforkT>,
-    hardfork: HardforkT,
+    hardfork: &HardforkT,
 ) -> u128 {
     let base_fee_params = base_fee_params
         .at_condition(hardfork, parent.number + 1)

@@ -199,6 +199,7 @@ pub struct ProviderData<
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     bail_on_transaction_failure: bool,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
+    block_config: BlockConfig<ChainSpecT::Hardfork>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     mining_config: MiningConfig,
@@ -622,6 +623,7 @@ where
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
         let BlockchainAndState {
             blockchain,
+            block_config,
             fork_metadata,
             rpc_client,
             state,
@@ -682,6 +684,7 @@ where
             bail_on_transaction_failure: config.bail_on_transaction_failure,
             base_fee_params: config.base_fee_params,
             blockchain,
+            block_config,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
             mining_config: config.mining,
@@ -1722,8 +1725,8 @@ where
     fn calculate_next_block_base_fee(&self, header: &BlockHeader) -> u128 {
         ChainSpecT::next_base_fee_per_gas(
             header,
-            self.hardfork(),
-            self.blockchain.base_fee_params(),
+            &self.hardfork(),
+            &self.block_config.base_fee_params,
         )
     }
 }
@@ -2102,7 +2105,7 @@ where
             let current_state = (*self.current_state()?).clone();
 
             self.blockchain
-                .reserve_blocks(remaining_blocks - 1, interval)?;
+                .reserve_blocks(&self.block_config, remaining_blocks - 1, interval)?;
 
             // Ensure there is a cache entry for the last reserved block, to avoid
             // recomputation
@@ -2300,6 +2303,7 @@ where
 
         let result = mine_block::<ChainSpecT, _, _>(
             self.blockchain.as_ref(),
+            &self.block_config,
             state_to_be_modified,
             &self.mem_pool,
             evm_config,
@@ -2330,6 +2334,7 @@ where
 
         let result = mine_block_with_single_transaction::<ChainSpecT, _, _>(
             self.blockchain.as_ref(),
+            &self.block_config,
             state_to_be_modified,
             transaction,
             evm_config,
@@ -2731,6 +2736,7 @@ fn block_time_offset_seconds<ChainSpecT: ProviderChainSpec, TimerT: TimeSinceEpo
 
 struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
+    block_config: BlockConfig<ChainSpecT::Hardfork>,
     fork_metadata: Option<ForkMetadata>,
     rpc_client: Option<Arc<EthRpcClientForChainSpec<ChainSpecT>>>,
     state: Box<dyn DynState>,
@@ -2805,7 +2811,7 @@ fn create_blockchain_and_state<
                 let mut irregular_state = IrregularState::default();
                 let blockchain =
                     runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
-                        block_config,
+                        block_config.clone(),
                         runtime.clone(),
                         rpc_client.clone(),
                         &mut irregular_state,
@@ -2942,6 +2948,7 @@ fn create_blockchain_and_state<
             }),
             rpc_client: Some(rpc_client),
             blockchain: Box::new(DynBlockchain::new(blockchain)),
+            block_config,
             state: Box::new(state),
             irregular_state,
             prev_randao_generator,
@@ -3007,7 +3014,7 @@ fn create_blockchain_and_state<
         let genesis_diff = StateDiff::from(genesis_state);
         let genesis_block = ChainSpecT::genesis_block(
             genesis_diff.clone(),
-            block_config.clone(),
+            &block_config,
             GenesisBlockOptions {
                 extra_data: None,
                 withdrawals_root: None,
@@ -3029,7 +3036,7 @@ fn create_blockchain_and_state<
             genesis_block,
             genesis_diff,
             config.chain_id,
-            block_config,
+            block_config.clone(),
         )
         .map_err(CreationError::InvalidGenesisBlock)?;
 
@@ -3045,6 +3052,7 @@ fn create_blockchain_and_state<
             fork_metadata: None,
             rpc_client: None,
             blockchain: Box::new(DynBlockchain::new(blockchain)),
+            block_config,
             state,
             irregular_state,
             block_time_offset_seconds,

@@ -29,7 +29,7 @@ impl<HardforkT: PartialOrd> DynamicBaseFeeParams<HardforkT> {
     /// any.
     pub fn at_condition(
         &self,
-        hardfork: HardforkT,
+        hardfork: &HardforkT,
         block_number: u64,
     ) -> Option<&ConstantBaseFeeParams> {
         self.activations
@@ -39,9 +39,7 @@ impl<HardforkT: PartialOrd> DynamicBaseFeeParams<HardforkT> {
                 BaseFeeActivation::BlockNumber(activation_number) => {
                     *activation_number <= block_number
                 }
-                BaseFeeActivation::Hardfork(activation_hardfork) => {
-                    *activation_hardfork <= hardfork
-                }
+                BaseFeeActivation::Hardfork(activation_hardfork) => activation_hardfork <= hardfork,
             })
             .map(|(_, params)| params)
     }
@@ -64,7 +62,7 @@ impl<HardforkT: PartialOrd> BaseFeeParams<HardforkT> {
     /// if any.
     pub fn at_condition(
         &self,
-        hardfork: HardforkT,
+        hardfork: &HardforkT,
         block_number: u64,
     ) -> Option<&ConstantBaseFeeParams> {
         match self {
@@ -121,15 +119,15 @@ mod tests {
         ]);
 
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::LONDON, LONDON_ACTIVATION + 1),
+            base_fee_params.at_condition(&Hardfork::LONDON, LONDON_ACTIVATION + 1),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::SHANGHAI, SHANGHAI_ACTIVATION + 1),
+            base_fee_params.at_condition(&Hardfork::SHANGHAI, SHANGHAI_ACTIVATION + 1),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::LONDON, PRAGUE_ACTIVATION + 1),
+            base_fee_params.at_condition(&Hardfork::LONDON, PRAGUE_ACTIVATION + 1),
             Some(&prague_params)
         );
     }
@@ -142,7 +140,7 @@ mod tests {
         )]);
 
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::BERLIN, BERLIN_ACTIVATION),
+            base_fee_params.at_condition(&Hardfork::BERLIN, BERLIN_ACTIVATION),
             None
         );
     }
@@ -151,15 +149,15 @@ mod tests {
     fn base_fee_params_constant_at_condition_returns_constant_value() {
         let base_fee_params = BaseFeeParams::Constant(LONDON_PARAMS);
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::FRONTIER, 0),
+            base_fee_params.at_condition(&Hardfork::FRONTIER, 0),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::LONDON, LONDON_ACTIVATION),
+            base_fee_params.at_condition(&Hardfork::LONDON, LONDON_ACTIVATION),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::PRAGUE, PRAGUE_ACTIVATION),
+            base_fee_params.at_condition(&Hardfork::PRAGUE, PRAGUE_ACTIVATION),
             Some(&LONDON_PARAMS)
         );
     }
@@ -173,16 +171,16 @@ mod tests {
         let base_fee_params = BaseFeeParams::Dynamic(variable_base_fee_params.clone());
 
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::FRONTIER, 0),
-            variable_base_fee_params.at_condition(Hardfork::FRONTIER, 0)
+            base_fee_params.at_condition(&Hardfork::FRONTIER, 0),
+            variable_base_fee_params.at_condition(&Hardfork::FRONTIER, 0)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::LONDON, LONDON_ACTIVATION),
-            variable_base_fee_params.at_condition(Hardfork::LONDON, LONDON_ACTIVATION)
+            base_fee_params.at_condition(&Hardfork::LONDON, LONDON_ACTIVATION),
+            variable_base_fee_params.at_condition(&Hardfork::LONDON, LONDON_ACTIVATION)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::PRAGUE, PRAGUE_ACTIVATION),
-            variable_base_fee_params.at_condition(Hardfork::PRAGUE, PRAGUE_ACTIVATION)
+            base_fee_params.at_condition(&Hardfork::PRAGUE, PRAGUE_ACTIVATION),
+            variable_base_fee_params.at_condition(&Hardfork::PRAGUE, PRAGUE_ACTIVATION)
         );
     }
 }

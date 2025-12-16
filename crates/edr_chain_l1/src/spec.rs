@@ -185,7 +185,7 @@ impl GenesisBlockFactory for L1ChainSpec {
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: BlockConfig<Self::Hardfork>,
+        block_config: &BlockConfig<Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
@@ -216,7 +216,7 @@ impl ProviderChainSpec for L1ChainSpec {
 
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        hardfork: Self::Hardfork,
+        hardfork: &Self::Hardfork,
         default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> u128 {
         calculate_next_base_fee_per_gas(header, default_base_fee_params, hardfork)

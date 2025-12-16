@@ -22,18 +22,14 @@ fn test_partial_header_uses_base_fee_override() {
     let chain_config =
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("L1 Mainnet config should exist");
 
-    let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
-        BlockConfig {
-            base_fee_params: chain_config.base_fee_params.clone(),
-            hardfork: edr_chain_l1::Hardfork::LONDON,
-            min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params: None,
-        },
-        overrides,
-        None,
-        &ommers,
-        None,
-    );
+    let block_config = BlockConfig {
+        base_fee_params: chain_config.base_fee_params.clone(),
+        hardfork: edr_chain_l1::Hardfork::LONDON,
+        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
+    };
+    let partial_header =
+        PartialHeader::new::<edr_chain_l1::Hardfork>(&block_config, overrides, None, &ommers, None);
 
     assert_eq!(partial_header.base_fee, Some(configured_base_fee));
 }
@@ -55,18 +51,14 @@ fn test_partial_header_base_fee_override_takes_precedence_over_base_fee_params_o
     let chain_config =
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("L1 Mainnet config should exist");
 
-    let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
-        BlockConfig {
-            base_fee_params: chain_config.base_fee_params.clone(),
-            hardfork: edr_chain_l1::Hardfork::LONDON,
-            min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params: None,
-        },
-        overrides,
-        None,
-        &ommers,
-        None,
-    );
+    let block_config = BlockConfig {
+        base_fee_params: chain_config.base_fee_params.clone(),
+        hardfork: edr_chain_l1::Hardfork::LONDON,
+        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
+    };
+    let partial_header =
+        PartialHeader::new::<edr_chain_l1::Hardfork>(&block_config, overrides, None, &ommers, None);
 
     assert_eq!(partial_header.base_fee, Some(configured_base_fee));
 }
@@ -85,18 +77,14 @@ fn test_partial_header_ignores_base_fee_params_if_before_london() {
     let chain_config =
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("L1 Mainnet config should exist");
 
-    let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
-        BlockConfig {
-            base_fee_params: chain_config.base_fee_params.clone(),
-            hardfork: edr_chain_l1::Hardfork::BERLIN,
-            min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params: None,
-        },
-        overrides,
-        None,
-        &ommers,
-        None,
-    );
+    let block_config = BlockConfig {
+        base_fee_params: chain_config.base_fee_params.clone(),
+        hardfork: edr_chain_l1::Hardfork::BERLIN,
+        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
+    };
+    let partial_header =
+        PartialHeader::new::<edr_chain_l1::Hardfork>(&block_config, overrides, None, &ommers, None);
 
     assert_eq!(partial_header.base_fee, None);
 }
@@ -109,18 +97,15 @@ fn test_partial_header_defaults_base_fee_if_no_override_after_london() {
     let chain_config =
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("L1 Mainnet config should exist");
 
-    let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
-        BlockConfig {
-            base_fee_params: chain_config.base_fee_params.clone(),
-            hardfork: edr_chain_l1::Hardfork::LONDON,
-            min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params: None,
-        },
-        overrides,
-        None,
-        &ommers,
-        None,
-    );
+    let block_config = BlockConfig {
+        base_fee_params: chain_config.base_fee_params.clone(),
+        hardfork: edr_chain_l1::Hardfork::LONDON,
+        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
+    };
+
+    let partial_header =
+        PartialHeader::new::<edr_chain_l1::Hardfork>(&block_config, overrides, None, &ommers, None);
 
     assert_eq!(partial_header.base_fee, Some(DEFAULT_INITIAL_BASE_FEE));
 }
@@ -139,18 +124,14 @@ fn test_partial_header_defaults_base_fee_if_no_parent_after_london() {
     let chain_config =
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("L1 Mainnet config should exist");
 
-    let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
-        BlockConfig {
-            base_fee_params: chain_config.base_fee_params.clone(),
-            hardfork: edr_chain_l1::Hardfork::LONDON,
-            min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params: None,
-        },
-        overrides,
-        None,
-        &ommers,
-        None,
-    );
+    let block_config = BlockConfig {
+        base_fee_params: chain_config.base_fee_params.clone(),
+        hardfork: edr_chain_l1::Hardfork::LONDON,
+        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
+    };
+    let partial_header =
+        PartialHeader::new::<edr_chain_l1::Hardfork>(&block_config, overrides, None, &ommers, None);
 
     assert_eq!(partial_header.base_fee, Some(DEFAULT_INITIAL_BASE_FEE));
 }
@@ -176,13 +157,14 @@ fn test_partial_header_uses_override_with_parent_after_london() {
         gas_used: 200,
         ..BlockHeader::default()
     };
+    let block_config = BlockConfig {
+        base_fee_params: chain_config.base_fee_params.clone(),
+        hardfork: edr_chain_l1::Hardfork::LONDON,
+        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params: None,
+    };
     let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
-        BlockConfig {
-            base_fee_params: chain_config.base_fee_params.clone(),
-            hardfork: edr_chain_l1::Hardfork::LONDON,
-            min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params: None,
-        },
+        &block_config,
         overrides,
         Some(&parent_header),
         &ommers,
@@ -194,7 +176,7 @@ fn test_partial_header_uses_override_with_parent_after_london() {
         Some(calculate_next_base_fee_per_gas(
             &parent_header,
             &base_fee_params,
-            edr_chain_l1::Hardfork::LONDON
+            &edr_chain_l1::Hardfork::LONDON
         ))
     );
 }

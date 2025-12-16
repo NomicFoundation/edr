@@ -9,7 +9,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_block_api::BlockAndTotalDifficulty;
-use edr_eip1559::BaseFeeParams;
+use edr_block_header::BlockConfig;
 use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
@@ -31,9 +31,6 @@ pub trait BlockchainMetadata<HardforkT> {
     /// The blockchain's error type
     type Error;
 
-    /// Retrieves the base fee parameters for the blockchain.
-    fn base_fee_params(&self) -> &BaseFeeParams<HardforkT>;
-
     /// Retrieves the instances chain ID.
     fn chain_id(&self) -> u64;
 
@@ -51,9 +48,6 @@ pub trait BlockchainMetadata<HardforkT> {
 
     /// Retrieves the last block number in the blockchain.
     fn last_block_number(&self) -> u64;
-
-    /// Retrieves the minimum difficulty for the Ethash proof-of-work algorithm.
-    fn min_ethash_difficulty(&self) -> u64;
 
     /// Retrieves the network ID of the blockchain.
     fn network_id(&self) -> u64;
@@ -139,7 +133,7 @@ pub trait ReceiptByTransactionHash<BlockReceiptT> {
 }
 
 /// Trait for reserving blocks in the blockchain.
-pub trait ReserveBlocks {
+pub trait ReserveBlocks<HardforkT> {
     /// The blockchain's error type
     type Error;
 
@@ -148,7 +142,12 @@ pub trait ReserveBlocks {
     // TODO: https://github.com/NomicFoundation/edr/issues/1228
     // Analyze whether we can receive the BlockConfig here so blockachain does not
     // have to keep track of it
-    fn reserve_blocks(&mut self, additional: u64, interval: u64) -> Result<(), Self::Error>;
+    fn reserve_blocks(
+        &mut self,
+        block_config: &BlockConfig<HardforkT>,
+        additional: u64,
+        interval: u64,
+    ) -> Result<(), Self::Error>;
 }
 
 /// Trait for reverting the blockchain to a previous block.
@@ -205,7 +204,7 @@ pub trait Blockchain<
     + GetBlockchainLogs<Error = BlockchainErrorT>
     + InsertBlock<BlockT, LocalBlockT, SignedTransactionT, Error = BlockchainErrorT>
     + ReceiptByTransactionHash<BlockReceiptT, Error = BlockchainErrorT>
-    + ReserveBlocks<Error = BlockchainErrorT>
+    + ReserveBlocks<HardforkT, Error = BlockchainErrorT>
     + RevertToBlock<Error = BlockchainErrorT>
     + StateAtBlock<BlockchainError = BlockchainErrorT>
     + TotalDifficultyByBlockHash<Error = BlockchainErrorT>
@@ -230,7 +229,7 @@ where
         + GetBlockchainLogs<Error = BlockchainErrorT>
         + InsertBlock<BlockT, LocalBlockT, SignedTransactionT, Error = BlockchainErrorT>
         + ReceiptByTransactionHash<BlockReceiptT, Error = BlockchainErrorT>
-        + ReserveBlocks<Error = BlockchainErrorT>
+        + ReserveBlocks<HardforkT, Error = BlockchainErrorT>
         + RevertToBlock<Error = BlockchainErrorT>
         + StateAtBlock<BlockchainError = BlockchainErrorT>
         + TotalDifficultyByBlockHash<Error = BlockchainErrorT>,

@@ -63,7 +63,7 @@ pub trait GenesisBlockFactory: HardforkChainSpec {
     /// Constructs a genesis block for the given chain spec.
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: BlockConfig<Self::Hardfork>,
+        block_config: &BlockConfig<Self::Hardfork>,
         options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError>;
 }

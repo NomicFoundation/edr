@@ -50,6 +50,7 @@ struct ForkedStateAndBlockchain<
     RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
     SignedTransactionT: Debug + ExecutableTransaction,
 > {
+    pub block_config: BlockConfig<HardforkT>,
     pub expected_block: RemoteBlock<
         BlockReceiptT,
         FetchReceiptErrorT,
@@ -133,7 +134,7 @@ async fn get_fork_state<
     };
 
     let blockchain = ForkedBlockchain::new(
-        block_config,
+        block_config.clone(),
         runtime.clone(),
         rpc_client,
         &mut irregular_state,
@@ -147,6 +148,7 @@ async fn get_fork_state<
     Ok(ForkedStateAndBlockchain {
         expected_block: replay_block,
         prior_blockchain: blockchain,
+        block_config,
         prior_irregular_state: irregular_state,
     })
 }
@@ -170,6 +172,7 @@ pub async fn run_full_block<
     header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
 ) -> anyhow::Result<()> {
     let ForkedStateAndBlockchain {
+        block_config,
         expected_block,
         prior_blockchain,
         prior_irregular_state,
@@ -192,6 +195,7 @@ pub async fn run_full_block<
 
     let mut builder = ChainSpecT::BlockBuilder::new_block_builder(
         &prior_blockchain,
+        &block_config,
         state,
         &evm_config,
         BlockInputs {
@@ -382,6 +386,7 @@ pub async fn assert_replay_header<
     header_validation: impl FnOnce(&BlockHeader, &PartialHeader) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
     let ForkedStateAndBlockchain {
+        block_config,
         expected_block,
         prior_blockchain,
         prior_irregular_state,
@@ -403,6 +408,7 @@ pub async fn assert_replay_header<
 
     let builder = ChainSpecT::BlockBuilder::new_block_builder(
         &prior_blockchain,
+        &block_config,
         state,
         &evm_config,
         BlockInputs {

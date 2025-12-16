@@ -255,6 +255,7 @@ impl<
 {
     /// Creates a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         context: ChainSpecT::Context,
         blockchain: &'builder dyn Blockchain<
@@ -265,6 +266,7 @@ impl<
             LocalBlockT,
             ChainSpecT::SignedTransaction,
         >,
+        block_config: &BlockConfig<ChainSpecT::Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,
@@ -301,12 +303,7 @@ impl<
 
         let cfg = evm_config.to_cfg_env(hardfork);
         let header = PartialHeader::new(
-            BlockConfig {
-                base_fee_params: blockchain.base_fee_params().clone(),
-                hardfork,
-                min_ethash_difficulty: blockchain.min_ethash_difficulty(),
-                scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
-            },
+            block_config,
             overrides,
             Some(parent_header),
             &inputs.ommers,
@@ -674,6 +671,7 @@ impl<
             LocalBlockT,
             ChainSpecT::SignedTransaction,
         >,
+        block_config: &BlockConfig<ChainSpecT::Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,
@@ -689,6 +687,7 @@ impl<
         Self::new(
             ChainSpecT::Context::default(),
             blockchain,
+            block_config,
             state,
             evm_config,
             inputs,
