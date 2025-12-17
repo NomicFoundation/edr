@@ -341,7 +341,6 @@ impl PartialHeader {
                 B256::ZERO
             }
         });
-
         let evm_spec_id = hardfork.clone().into();
 
         let base_fee = overrides.base_fee.or_else(|| {
@@ -353,7 +352,7 @@ impl PartialHeader {
                             .base_fee_params
                             .as_ref()
                             .unwrap_or(base_fee_params),
-                        hardfork,
+                        hardfork.clone(),
                     )
                 } else {
                     u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
@@ -588,7 +587,7 @@ pub fn overridden_block_number<HardforkT>(
 pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
     parent: &BlockHeader,
     base_fee_params: &BaseFeeParams<HardforkT>,
-    hardfork: &HardforkT,
+    hardfork: HardforkT,
 ) -> u128 {
     let base_fee_params = base_fee_params
         .at_condition(hardfork, parent.number + 1)

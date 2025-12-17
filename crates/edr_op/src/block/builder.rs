@@ -110,7 +110,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
                 let next_block_number = current_block_number + 1;
 
                 let extra_data_base_fee_params = chain_base_fee_params
-                    .at_condition(&hardfork, next_block_number)
+                    .at_condition(hardfork, next_block_number)
                     .expect("Chain spec must have base fee params for post-London hardforks");
                 // TODO: instead of decoding min_base_fee from parent extra data we should get
                 // the info from OP chain config analogously to base_fee_params?
@@ -134,7 +134,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
                         ))
                     })?;
 
-                op_base_fee_params_for_block(parent_header, &parent_hardfork)
+                op_base_fee_params_for_block(parent_header, parent_hardfork)
             };
         }
 
@@ -143,7 +143,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
             // from standard EVM calculation.
             overrides.base_fee = overrides.base_fee.or_else(|| {
                 overrides.base_fee_params.as_ref().map(|base_fee_params| {
-                    op_next_base_fee(parent_header, &hardfork, base_fee_params)
+                    op_next_base_fee(parent_header, hardfork, base_fee_params)
                 })
             });
         }

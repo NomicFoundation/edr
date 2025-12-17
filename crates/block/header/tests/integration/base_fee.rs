@@ -176,7 +176,7 @@ fn test_partial_header_uses_override_with_parent_after_london() {
         Some(calculate_next_base_fee_per_gas(
             &parent_header,
             &base_fee_params,
-            &edr_chain_l1::Hardfork::LONDON
+            edr_chain_l1::Hardfork::LONDON
         ))
     );
 }

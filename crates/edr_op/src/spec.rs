@@ -227,7 +227,7 @@ impl GenesisBlockFactory for OpChainSpec {
             options.extra_data = options.extra_data.or_else(|| {
                 let base_fee_params = config_base_fee_params
                     .unwrap_or(&block_config.base_fee_params)
-                    .at_condition(&block_config.hardfork, 0)
+                    .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
                 let encoded_extra_data = if block_config.hardfork >= Hardfork::JOVIAN {
@@ -259,11 +259,11 @@ impl HardforkChainSpec for OpChainSpec {
 /// Returns the base fee parameters to be used for the current block.
 pub(crate) fn op_base_fee_params_for_block(
     parent_header: &BlockHeader,
-    parent_hardfork: &Hardfork,
+    parent_hardfork: Hardfork,
 ) -> Option<BaseFeeParams<Hardfork>> {
     // For post-Holocene blocks, use the parent header extra_data to determine the
     // base fee parameters
-    if *parent_hardfork >= Hardfork::HOLOCENE {
+    if parent_hardfork >= Hardfork::HOLOCENE {
         Some(BaseFeeParams::Constant(decode_base_params(
             &parent_header.extra_data,
         )))
@@ -278,12 +278,12 @@ pub(crate) fn op_base_fee_params_for_block(
 /// minimum encoded in `extra_data` field See <https://specs.optimism.io/protocol/jovian/exec-engine.html#minimum-base-fee-in-block-header>
 pub(crate) fn op_next_base_fee(
     parent_header: &BlockHeader,
-    hardfork: &Hardfork,
+    hardfork: Hardfork,
     base_fee_params: &BaseFeeParams<Hardfork>,
 ) -> u128 {
     let base_fee_per_gas =
         calculate_next_base_fee_per_gas(parent_header, base_fee_params, hardfork);
-    if *hardfork >= Hardfork::JOVIAN {
+    if hardfork >= Hardfork::JOVIAN {
         let min_base_fee = decode_min_base_fee(&parent_header.extra_data)
             .expect("Jovian should have min base fee defined in extra data");
         if base_fee_per_gas < min_base_fee {
@@ -309,7 +309,7 @@ impl ProviderChainSpec for OpChainSpec {
 
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        hardfork: &Self::Hardfork,
+        hardfork: Self::Hardfork,
         default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> u128 {
         let block_base_fee_params = op_base_fee_params_for_block(header, hardfork);
