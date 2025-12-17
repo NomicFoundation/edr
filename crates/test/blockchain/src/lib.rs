@@ -88,7 +88,7 @@ pub fn create_dummy_block_with_difficulty<BlockchainErrorT: Debug>(
                                                                           * revisit */
         hardfork: blockchain.hardfork(),
         min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
-        scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
+        scheduled_blob_params: L1ChainSpec::default_schedulded_blob_params(),
     };
     create_dummy_block_with_header(
         blockchain.hardfork(),
@@ -121,7 +121,7 @@ pub fn create_dummy_block_with_hash<BlockchainErrorT>(
                                                                           * revisit */
         hardfork: blockchain.hardfork(),
         min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
-        scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
+        scheduled_blob_params: L1ChainSpec::default_schedulded_blob_params(),
     };
     create_dummy_block_with_header(
         blockchain.hardfork(),
@@ -178,7 +178,7 @@ pub fn insert_dummy_block_with_transaction<
                                                                           * revisit */
         hardfork: blockchain.hardfork(),
         min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
-        scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
+        scheduled_blob_params: L1ChainSpec::default_schedulded_blob_params(),
     };
     let mut header = PartialHeader::new::<edr_chain_l1::Hardfork>(
         &block_config,

@@ -5,15 +5,14 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use edr_block_api::BlockAndTotalDifficulty;
 use edr_block_header::BlockConfig;
-use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 use edr_state_api::{DynState, StateDiff, StateOverride};
 
 use crate::{
-    BlockHashByNumber, Blockchain, BlockchainMetadata, BlockchainScheduledBlobParams,
-    GetBlockchainBlock, GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks,
-    RevertToBlock, StateAtBlock, TotalDifficultyByBlockHash,
+    BlockHashByNumber, Blockchain, BlockchainMetadata, GetBlockchainBlock, GetBlockchainLogs,
+    InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock, StateAtBlock,
+    TotalDifficultyByBlockHash,
 };
 
 /// Wrapper around `Box<dyn std::error::Error` to allow implementation of
@@ -186,36 +185,6 @@ impl<
     }
 }
 
-impl<
-        BlockReceiptT,
-        BlockT: ?Sized,
-        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
-        BlockchainT: Blockchain<
-            BlockReceiptT,
-            BlockT,
-            BlockchainErrorT,
-            HardforkT,
-            LocalBlockT,
-            SignedTransactionT,
-        >,
-        HardforkT,
-        LocalBlockT,
-        SignedTransactionT,
-    > BlockchainScheduledBlobParams
-    for DynBlockchain<
-        BlockReceiptT,
-        BlockT,
-        BlockchainErrorT,
-        BlockchainT,
-        HardforkT,
-        LocalBlockT,
-        SignedTransactionT,
-    >
-{
-    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
-        self.inner.scheduled_blob_params()
-    }
-}
 impl<
         BlockReceiptT,
         BlockT: ?Sized,

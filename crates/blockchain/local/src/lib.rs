@@ -7,13 +7,11 @@ use edr_block_api::{
 use edr_block_header::BlockConfig;
 use edr_block_storage::ReservableSparseBlockStorage;
 use edr_blockchain_api::{
-    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata,
-    BlockchainScheduledBlobParams, GetBlockchainBlock, GetBlockchainLogs, InsertBlock,
-    ReceiptByTransactionHash, ReserveBlocks, RevertToBlock, StateAtBlock,
-    TotalDifficultyByBlockHash,
+    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock,
+    GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
+    StateAtBlock, TotalDifficultyByBlockHash,
 };
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
-use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::{DynState, StateDiff, StateOverride};
@@ -40,7 +38,6 @@ pub struct LocalBlockchain<BlockReceiptT: ReceiptTrait, HardforkT, LocalBlockT, 
 {
     chain_id: u64,
     hardfork: HardforkT,
-    scheduled_blob_params: Option<ScheduledBlobParams>, // TODO: can this ve removed as well?
     storage: ReservableSparseBlockStorage<
         Arc<BlockReceiptT>,
         Arc<LocalBlockT>,
@@ -88,7 +85,6 @@ impl<
         Ok(Self {
             chain_id,
             hardfork: block_config.hardfork.clone(),
-            scheduled_blob_params: block_config.scheduled_blob_params.clone(),
             storage,
         })
     }
@@ -182,15 +178,6 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 
     fn network_id(&self) -> u64 {
         self.chain_id
-    }
-}
-
-impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransactionT>
-    BlockchainScheduledBlobParams
-    for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
-{
-    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
-        self.scheduled_blob_params.as_ref()
     }
 }
 

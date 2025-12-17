@@ -62,6 +62,7 @@ pub struct EthBlockBuilder<
         LocalBlockT,
         EvmChainSpecT::SignedTransaction,
     >,
+    block_config: BlockConfig<EvmChainSpecT::Hardfork>,
     cfg: CfgEnv<EvmChainSpecT::Hardfork>,
     context: EvmChainSpecT::Context,
     header: PartialHeader,
@@ -197,7 +198,7 @@ impl<
             let blob_params = blob_params_for_hardfork(
                 self.config().spec.into(),
                 self.header.timestamp,
-                self.blockchain.scheduled_blob_params(),
+                self.block_config.scheduled_blob_params.as_ref(),
             );
 
             if block_blob_gas_used + blob_gas_used > blob_params.max_blob_gas_per_block() {
@@ -312,6 +313,7 @@ impl<
 
         Ok(Self {
             blockchain,
+            block_config: block_config.clone(), // TODO: can this be a reference?
             cfg,
             context,
             header,
@@ -344,7 +346,7 @@ impl<
         let block_env = HeaderAndEvmSpec::new_block_env(
             &self.header,
             self.cfg.spec.into(),
-            self.blockchain().scheduled_blob_params().cloned(),
+            self.block_config.scheduled_blob_params.clone(),
         );
 
         let receipt_builder =
@@ -408,7 +410,7 @@ impl<
         let block_env = ChainSpecT::BlockEnv::new_block_env(
             &self.header,
             self.cfg.spec,
-            self.blockchain().scheduled_blob_params().cloned(),
+            self.block_config.scheduled_blob_params.clone(),
         );
 
         let receipt_builder =

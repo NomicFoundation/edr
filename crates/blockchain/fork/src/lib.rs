@@ -14,16 +14,14 @@ use edr_block_storage::{
     InsertBlockAndReceiptsError, InsertBlockError, ReservableSparseBlockStorage,
 };
 use edr_blockchain_api::{
-    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata,
-    BlockchainScheduledBlobParams, GetBlockchainBlock, GetBlockchainLogs, InsertBlock,
-    ReceiptByTransactionHash, ReserveBlocks, RevertToBlock, StateAtBlock,
-    TotalDifficultyByBlockHash,
+    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock,
+    GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
+    StateAtBlock, TotalDifficultyByBlockHash,
 };
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
 use edr_chain_config::{ChainConfig, HardforkActivations};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
-use edr_eip7892::ScheduledBlobParams;
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     BlockSpec, PreEip1898BlockSpec,
@@ -197,9 +195,6 @@ pub struct ForkedBlockchain<
     /// The chain id of the remote blockchain. It might deviate from `chain_id`.
     remote_chain_id: u64,
     state_root_generator: Arc<Mutex<RandomHashGenerator>>,
-
-    scheduled_blob_params: Option<ScheduledBlobParams>, /* TODO: can this be removed from
-                                                         * blockchain as well? */
 }
 
 impl<
@@ -405,7 +400,6 @@ impl<
             network_id,
             hardfork: block_config.hardfork.clone(),
             hardfork_activations,
-            scheduled_blob_params: block_config.scheduled_blob_params.clone(),
             _phantom: PhantomData,
         })
     }
@@ -590,35 +584,6 @@ impl<
     }
 }
 
-impl<
-        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
-        BlockT: ?Sized + Block<SignedTransactionT>,
-        FetchReceiptErrorT,
-        HardforkT: Clone,
-        LocalBlockT,
-        RpcBlockChainSpecT: RpcBlockChainSpec<
-            RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
-        >,
-        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
-        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
-        SignedTransactionT: Debug + ExecutableTransaction,
-    > BlockchainScheduledBlobParams
-    for ForkedBlockchain<
-        BlockReceiptT,
-        BlockT,
-        FetchReceiptErrorT,
-        HardforkT,
-        LocalBlockT,
-        RpcBlockChainSpecT,
-        RpcReceiptT,
-        RpcTransactionT,
-        SignedTransactionT,
-    >
-{
-    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
-        self.scheduled_blob_params.as_ref()
-    }
-}
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
         BlockT: ?Sized
