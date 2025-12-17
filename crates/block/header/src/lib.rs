@@ -205,21 +205,21 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for BlockHeader 
 /// Wrapper type combining a header with its associated hardfork.
 ///
 /// Both are needed to implement the [`BlockEnvTrait`] trait.
-pub struct HeaderAndEvmSpec<'header, BlockHeaderT: BlockEnvForHardfork<HardforkT>, HardforkT> {
+pub struct HeaderAndEvmSpec<'spec, BlockHeaderT: BlockEnvForHardfork<HardforkT>, HardforkT> {
     pub hardfork: HardforkT,
-    pub header: &'header BlockHeaderT,
-    pub scheduled_blob_params: Option<ScheduledBlobParams>,
+    pub header: &'spec BlockHeaderT,
+    pub scheduled_blob_params: Option<&'spec ScheduledBlobParams>,
 }
 
-impl<'header, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
-    BlockEnvConstructor<HardforkT, &'header BlockHeaderT>
-    for HeaderAndEvmSpec<'header, BlockHeaderT, HardforkT>
+impl<'env, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
+    BlockEnvConstructor<'env, HardforkT, &'env BlockHeaderT>
+    for HeaderAndEvmSpec<'env, BlockHeaderT, HardforkT>
 {
     fn new_block_env(
-        header: &'header BlockHeaderT,
+        header: &'env BlockHeaderT,
         hardfork: HardforkT,
-        scheduled_blob_params: Option<ScheduledBlobParams>,
-    ) -> HeaderAndEvmSpec<'header, BlockHeaderT, HardforkT> {
+        scheduled_blob_params: Option<&'env ScheduledBlobParams>,
+    ) -> HeaderAndEvmSpec<'env, BlockHeaderT, HardforkT> {
         HeaderAndEvmSpec {
             hardfork,
             header,
@@ -260,10 +260,8 @@ impl<HardforkT: Copy + Into<EvmSpecId>, BlockHeaderT: BlockEnvForHardfork<Hardfo
     }
 
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
-        self.header.blob_excess_gas_and_price_for_hardfork(
-            self.hardfork,
-            self.scheduled_blob_params.as_ref(),
-        )
+        self.header
+            .blob_excess_gas_and_price_for_hardfork(self.hardfork, self.scheduled_blob_params)
     }
 }
 

@@ -46,14 +46,14 @@ pub struct HeaderAndEvmSpecWithFallback<'header, BlockHeaderT: BlockEnvForHardfo
     inner: HeaderAndEvmSpec<'header, BlockHeaderT, EvmSpecId>,
 }
 
-impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>>
-    BlockEnvConstructor<EvmSpecId, &'header BlockHeaderT>
-    for HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
+impl<'env, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>>
+    BlockEnvConstructor<'env, EvmSpecId, &'env BlockHeaderT>
+    for HeaderAndEvmSpecWithFallback<'env, BlockHeaderT>
 {
     fn new_block_env(
-        header: &'header BlockHeaderT,
+        header: &'env BlockHeaderT,
         hardfork: EvmSpecId,
-        scheduled_blob_params: Option<ScheduledBlobParams>,
+        scheduled_blob_params: Option<&'env ScheduledBlobParams>,
     ) -> Self {
         Self {
             inner: HeaderAndEvmSpec::new_block_env(header, hardfork, scheduled_blob_params),
@@ -105,7 +105,7 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
                 let blob_params = blob_params_for_hardfork(
                     self.inner.hardfork,
                     timestamp,
-                    self.inner.scheduled_blob_params.as_ref(),
+                    self.inner.scheduled_blob_params,
                 );
 
                 let update_fraction = blob_params

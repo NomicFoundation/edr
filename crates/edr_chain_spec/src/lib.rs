@@ -28,19 +28,19 @@ pub type EvmTransactionValidationError = revm_context_interface::result::Invalid
 pub trait BlockEnvChainSpec: HardforkChainSpec {
     /// Type representing a block environment; i.e. the header of the block
     /// (being mined) and its hardfork.
-    type BlockEnv<'header, BlockHeaderT>: BlockEnvConstructor<Self::Hardfork, &'header BlockHeaderT>
+    type BlockEnv<'env, BlockHeaderT>: BlockEnvConstructor<'env, Self::Hardfork, &'env BlockHeaderT>
         + BlockEnvTrait
     where
-        BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
+        BlockHeaderT: 'env + BlockEnvForHardfork<Self::Hardfork>;
 }
 
 /// A trait for constructing a (partial) block header into an EVM block.
-pub trait BlockEnvConstructor<HardforkT, HeaderT> {
+pub trait BlockEnvConstructor<'constructor, HardforkT, HeaderT> {
     /// Converts the instance into an EVM block.
     fn new_block_env(
         header: HeaderT,
         hardfork: HardforkT,
-        scheduled_blob_params: Option<ScheduledBlobParams>,
+        scheduled_blob_params: Option<&'constructor ScheduledBlobParams>,
     ) -> Self;
 }
 

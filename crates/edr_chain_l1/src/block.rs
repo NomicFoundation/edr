@@ -62,7 +62,7 @@ pub struct EthBlockBuilder<
         LocalBlockT,
         EvmChainSpecT::SignedTransaction,
     >,
-    block_config: BlockConfig<EvmChainSpecT::Hardfork>,
+    block_config: &'builder BlockConfig<EvmChainSpecT::Hardfork>,
     cfg: CfgEnv<EvmChainSpecT::Hardfork>,
     context: EvmChainSpecT::Context,
     header: PartialHeader,
@@ -267,7 +267,7 @@ impl<
             LocalBlockT,
             ChainSpecT::SignedTransaction,
         >,
-        block_config: &BlockConfig<ChainSpecT::Hardfork>,
+        block_config: &'builder BlockConfig<ChainSpecT::Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,
@@ -313,7 +313,7 @@ impl<
 
         Ok(Self {
             blockchain,
-            block_config: block_config.clone(), // TODO: can this be a reference?
+            block_config,
             cfg,
             context,
             header,
@@ -346,7 +346,7 @@ impl<
         let block_env = HeaderAndEvmSpec::new_block_env(
             &self.header,
             self.cfg.spec.into(),
-            self.block_config.scheduled_blob_params.clone(),
+            self.block_config.scheduled_blob_params.as_ref(),
         );
 
         let receipt_builder =
@@ -410,7 +410,7 @@ impl<
         let block_env = ChainSpecT::BlockEnv::new_block_env(
             &self.header,
             self.cfg.spec,
-            self.block_config.scheduled_blob_params.clone(),
+            self.block_config.scheduled_blob_params.as_ref(),
         );
 
         let receipt_builder =
@@ -673,7 +673,7 @@ impl<
             LocalBlockT,
             ChainSpecT::SignedTransaction,
         >,
-        block_config: &BlockConfig<ChainSpecT::Hardfork>,
+        block_config: &'builder BlockConfig<ChainSpecT::Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,

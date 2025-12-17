@@ -143,7 +143,7 @@ pub trait BlockBuilder<
             Self::LocalBlock,
             ChainSpecT::SignedTransaction,
         >,
-        block_config: &BlockConfig<ChainSpecT::Hardfork>,
+        block_config: &'builder BlockConfig<ChainSpecT::Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,

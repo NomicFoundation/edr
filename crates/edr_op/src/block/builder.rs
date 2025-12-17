@@ -57,7 +57,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
             Self::LocalBlock,
             OpSignedTransaction,
         >,
-        block_config: &BlockConfig<Hardfork>,
+        block_config: &'builder BlockConfig<Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         mut inputs: BlockInputs,

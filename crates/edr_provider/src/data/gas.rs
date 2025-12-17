@@ -56,7 +56,7 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
 
     transaction.set_gas_limit(gas_limit);
     let block_env =
-        ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec, scheduled_blob_params.cloned());
+        ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec, scheduled_blob_params);
 
     let result = call::run_call::<ChainSpecT, _, _, _>(
         blockchain,

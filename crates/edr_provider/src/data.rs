@@ -35,6 +35,7 @@ use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_eth::{
     block::miner_reward,
     fee_history::FeeHistoryResult,
@@ -576,6 +577,9 @@ where
         }
     }
 
+    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
+        self.block_config.scheduled_blob_params.as_ref()
+    }
     pub fn sign(
         &self,
         address: &Address,
@@ -1704,7 +1708,7 @@ where
         let base_fee = calculate_next_base_fee_per_blob_gas(
             last_block.block_header(),
             self.hardfork(),
-            self.block_config.scheduled_blob_params.as_ref(),
+            self.scheduled_blob_params(),
         );
 
         Ok(Some(base_fee))
@@ -1775,13 +1779,13 @@ where
 
         let custom_precompiles = self.precompile_overrides.clone();
 
-        let scheduled_blob_params = self.block_config.scheduled_blob_params.clone();
+        let scheduled_blob_params = self.scheduled_blob_params().cloned();
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
             let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut evm_observer);
             let block_env = ChainSpecT::BlockEnv::new_block_env(
                 block.block_header(),
                 cfg_env.spec,
-                scheduled_blob_params,
+                scheduled_blob_params.as_ref(),
             );
 
             let result = call::run_call::<ChainSpecT, _, _, _>(
@@ -2204,7 +2208,7 @@ where
                 });
 
         let contract_decoder = Arc::clone(&self.contract_decoder);
-        let scheduled_blob_params = self.block_config.scheduled_blob_params.clone();
+        let scheduled_blob_params = self.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
@@ -2212,7 +2216,7 @@ where
             let block_env = ChainSpecT::BlockEnv::new_block_env(
                 block.block_header(),
                 cfg_env.spec,
-                scheduled_blob_params,
+                scheduled_blob_params.as_ref(),
             );
             let execution_result = call::run_call::<ChainSpecT, _, _, _>(
                 blockchain,
@@ -2520,14 +2524,14 @@ where
             ..EvmObserverConfig::from(&self.observability)
         };
 
-        let scheduled_blob_params = self.block_config.scheduled_blob_params.clone();
+        let scheduled_blob_params = self.scheduled_blob_params().cloned();
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
                 let block_env = ChainSpecT::BlockEnv::new_block_env(
                     header,
                     cfg_env.spec,
-                    scheduled_blob_params,
+                    scheduled_blob_params.as_ref(),
                 );
 
                 debug_trace_transaction::<ChainSpecT>(
@@ -2605,7 +2609,7 @@ where
 
         let custom_precompiles = self.precompile_overrides.clone();
         let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
-        let scheduled_blob_params = self.block_config.scheduled_blob_params.clone();
+        let scheduled_blob_params = self.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.block_header();
@@ -2616,7 +2620,7 @@ where
             let block_env = ChainSpecT::BlockEnv::new_block_env(
                 block.block_header(),
                 cfg_env.spec,
-                scheduled_blob_params.clone(),
+                scheduled_blob_params.as_ref(),
             );
             let result = call::run_call::<'_, ChainSpecT, _, _, _>(
                 blockchain,
