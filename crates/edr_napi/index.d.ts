@@ -752,6 +752,11 @@ export interface SolidityTestRunnerConfigArgs {
    * Defaults to false.
    */
   generateGasReport?: boolean
+  /**
+   * Test function level config overrides. The keys in the hash map are in
+   * the format "`ContractName::functionName`". Defaults to None.
+   */
+  testFunctionOverrides?: Record<string, ConfigOverride>
 }
 /** Fuzz testing configuration */
 export interface FuzzConfigArgs {
@@ -797,6 +802,11 @@ export interface FuzzConfigArgs {
    * Defaults to true.
    */
   includePushBytes?: boolean
+  /**
+   * Optional timeout (in seconds) for each property test
+   * Defaults to None.
+   */
+  timeout?: number
 }
 /** Invariant testing configuration. */
 export interface InvariantConfigArgs {
@@ -853,6 +863,11 @@ export interface InvariantConfigArgs {
    * Defaults to 65536.
    */
   maxAssumeRejects?: number
+  /**
+   * Optional timeout (in seconds) for each invariant test.
+   * Defaults to None.
+   */
+  timeout?: number
 }
 /** Settings to configure caching of remote RPC endpoints. */
 export interface StorageCachingConfig {
@@ -946,6 +961,55 @@ export enum IncludeTraces {
   Failing = 1,
   /** Traces will be included in all test results. */
   All = 2
+}
+/** Test function or test contract level config override. */
+export interface ConfigOverride {
+  /**
+   * Allow expecting reverts with `expectRevert` at the same callstack depth
+   * as the test.
+   */
+  allowInternalExpectRevert?: boolean
+  /** Configuration override for fuzz testing */
+  fuzz?: FuzzConfigOverride
+  /** Configuration override for invariant testing */
+  invariant?: InvariantConfigOverride
+}
+export interface TimeoutConfig {
+  /** Optional timeout (in seconds) */
+  time?: number
+}
+/** Test function or test contract level fuzz config override. */
+export interface FuzzConfigOverride {
+  /** The number of test cases that must execute for each property test */
+  runs?: number
+  /**
+   * The maximum number of test case rejections allowed by proptest, to be
+   * encountered during usage of `vm.assume` cheatcode. This will be used
+   * to set the `max_global_rejects` value in proptest test runner config.
+   * `max_local_rejects` option isn't exposed here since we're not using
+   * `prop_filter`.
+   */
+  maxTestRejects?: number
+  /** show `console.log` in fuzz test, defaults to `false` */
+  showLogs?: boolean
+  /** Optional timeout (in seconds) for each property test */
+  timeout?: TimeoutConfig
+}
+/** Test function or test contract level invariant config override. */
+export interface InvariantConfigOverride {
+  /** The number of runs that must execute for each invariant test group. */
+  runs?: number
+  /** The number of calls executed to attempt to break invariants in one run. */
+  depth?: number
+  /** Fails the invariant fuzzing if a revert occurs */
+  failOnRevert?: boolean
+  /**
+   * Allows overriding an unsafe external call when running invariant tests.
+   * eg. reentrancy checks
+   */
+  callOverride?: boolean
+  /** Optional timeout (in seconds) for each invariant test. */
+  timeout?: TimeoutConfig
 }
 export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory
 export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory

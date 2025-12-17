@@ -1054,7 +1054,6 @@ impl<
             return self.result;
         };
 
-        let runner = self.invariant_runner();
         let mut invariant_config = self.cr.invariant_config.clone();
 
         // Apply function config overrides if any.
@@ -1065,13 +1064,30 @@ impl<
             .get(&test_identifier)
             .cloned();
 
-        if let Some(overrides) = overrides {
-            invariant_config.runs = overrides.invariant.runs;
-            invariant_config.depth = overrides.invariant.depth;
-            invariant_config.fail_on_revert = overrides.invariant.fail_on_revert;
-            invariant_config.call_override = overrides.invariant.call_override;
-            invariant_config.timeout = overrides.invariant.timeout;
+        if let Some(invariant_overrides) = overrides.as_ref().and_then(|o| o.invariant.as_ref()) {
+            if let Some(runs) = invariant_overrides.runs {
+                invariant_config.runs = runs;
+            }
+            if let Some(depth) = invariant_overrides.depth {
+                invariant_config.depth = depth;
+            }
+            if let Some(fail_on_revert) = invariant_overrides.fail_on_revert {
+                invariant_config.fail_on_revert = fail_on_revert;
+            }
+            if let Some(call_override) = invariant_overrides.call_override {
+                invariant_config.call_override = call_override;
+            }
+            if let Some(timeout) = invariant_overrides.timeout {
+                invariant_config.timeout = timeout.time;
+            }
         }
+
+        let runner = fuzzer_with_cases(
+            self.cr.fuzz_config.seed,
+            invariant_config.runs,
+            invariant_config.max_assume_rejects,
+            None,
+        );
 
         let mut executor = self.clone_executor();
         // Enable edge coverage if running with coverage guided fuzzing or with edge
@@ -1327,7 +1343,6 @@ impl<
             return self.result;
         }
 
-        let runner = self.fuzz_runner();
         let mut fuzz_config = self.cr.fuzz_config.clone();
 
         // Apply function config overrides if any.
@@ -1338,12 +1353,27 @@ impl<
             .get(&test_identifier)
             .cloned();
 
-        if let Some(overrides) = overrides {
-            fuzz_config.runs = overrides.fuzz.runs;
-            fuzz_config.max_test_rejects = overrides.fuzz.max_test_rejects;
-            fuzz_config.show_logs = overrides.fuzz.show_logs;
-            fuzz_config.timeout = overrides.fuzz.timeout;
+        if let Some(fuzz_overrides) = overrides.as_ref().and_then(|o| o.fuzz.as_ref()) {
+            if let Some(runs) = fuzz_overrides.runs {
+                fuzz_config.runs = runs;
+            }
+            if let Some(max_test_rejects) = fuzz_overrides.max_test_rejects {
+                fuzz_config.max_test_rejects = max_test_rejects;
+            }
+            if let Some(show_logs) = fuzz_overrides.show_logs {
+                fuzz_config.show_logs = show_logs;
+            }
+            if let Some(timeout) = fuzz_overrides.timeout {
+                fuzz_config.timeout = timeout.time;
+            }
         }
+
+        let runner = fuzzer_with_cases(
+            fuzz_config.seed,
+            fuzz_config.runs,
+            fuzz_config.max_test_rejects,
+            fuzz_config.file_failure_persistence(),
+        );
 
         // Run fuzz test.
         let fuzzed_executor = FuzzedExecutor::new(
@@ -1444,26 +1474,6 @@ impl<
             }
         }
         Ok(())
-    }
-
-    fn fuzz_runner(&self) -> TestRunner {
-        let config = self.cr.fuzz_config;
-        fuzzer_with_cases(
-            config.seed,
-            config.runs,
-            config.max_test_rejects,
-            config.file_failure_persistence(),
-        )
-    }
-
-    fn invariant_runner(&self) -> TestRunner {
-        let config = self.cr.invariant_config;
-        fuzzer_with_cases(
-            self.cr.fuzz_config.seed,
-            config.runs,
-            config.max_assume_rejects,
-            None,
-        )
     }
 
     fn clone_executor(

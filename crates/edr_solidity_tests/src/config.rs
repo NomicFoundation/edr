@@ -173,40 +173,46 @@ pub enum IncludeTraces {
 pub struct ConfigOverride {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test.
-    pub allow_internal_expect_revert: bool,
+    pub allow_internal_expect_revert: Option<bool>,
     /// Configuration override for fuzz testing
-    pub fuzz: FuzzConfigOverride,
+    pub fuzz: Option<FuzzConfigOverride>,
     /// Configuration override for invariant testing
-    pub invariant: InvariantConfigOverride,
+    pub invariant: Option<InvariantConfigOverride>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy, Default)]
+pub struct TimeoutConfig {
+    /// Optional timeout (in seconds)
+    pub time: Option<u32>,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct FuzzConfigOverride {
     /// The number of test cases that must execute for each property test
-    pub runs: u32,
+    pub runs: Option<u32>,
     /// The maximum number of test case rejections allowed by proptest, to be
     /// encountered during usage of `vm.assume` cheatcode. This will be used
     /// to set the `max_global_rejects` value in proptest test runner config.
     /// `max_local_rejects` option isn't exposed here since we're not using
     /// `prop_filter`.
-    pub max_test_rejects: u32,
-    /// show `console.log` in fuzz test, defaults to `false`
-    pub show_logs: bool,
+    pub max_test_rejects: Option<u32>,
+    /// Show `console.log` in fuzz test.
+    pub show_logs: Option<bool>,
     /// Optional timeout (in seconds) for each property test
-    pub timeout: Option<u32>,
+    pub timeout: Option<TimeoutConfig>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct InvariantConfigOverride {
     /// The number of runs that must execute for each invariant test group.
-    pub runs: u32,
+    pub runs: Option<u32>,
     /// The number of calls executed to attempt to break invariants in one run.
-    pub depth: u32,
+    pub depth: Option<u32>,
     /// Fails the invariant fuzzing if a revert occurs
-    pub fail_on_revert: bool,
+    pub fail_on_revert: Option<bool>,
     /// Allows overriding an unsafe external call when running invariant tests.
     /// eg. reentrancy checks
-    pub call_override: bool,
+    pub call_override: Option<bool>,
     /// Optional timeout (in seconds) for each invariant test.
-    pub timeout: Option<u32>,
+    pub timeout: Option<TimeoutConfig>,
 }
