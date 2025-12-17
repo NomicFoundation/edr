@@ -161,7 +161,7 @@ fn record_hits() -> anyhow::Result<()> {
         genesis_block,
         genesis_diff,
         CHAIN_ID,
-        &block_config,
+        block_config.hardfork,
     )?;
 
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;

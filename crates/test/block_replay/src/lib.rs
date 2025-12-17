@@ -134,7 +134,7 @@ async fn get_fork_state<
     };
 
     let blockchain = ForkedBlockchain::new(
-        &block_config,
+        block_config.hardfork,
         runtime.clone(),
         rpc_client,
         &mut irregular_state,

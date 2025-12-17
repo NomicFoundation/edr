@@ -3,7 +3,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use edr_chain_l1::L1ChainSpec;
-use edr_chain_spec_provider::{default_block_config, ProviderChainSpec as _};
+use edr_chain_spec_provider::ProviderChainSpec as _;
 use edr_defaults::CACHE_DIR;
 use edr_primitives::{Address, U256};
 use edr_provider::spec::ForkedBlockchainForChainSpec;
@@ -58,10 +58,8 @@ async fn issue_hh_4974_forking_avalanche_c_chain() -> anyhow::Result<()> {
     let mut irregular_state = IrregularState::default();
     let state_root_generator = Arc::new(Mutex::new(RandomHashGenerator::with_seed("test")));
 
-    let block_config = default_block_config::<L1ChainSpec>(edr_chain_l1::Hardfork::default());
-
     let _blockchain = ForkedBlockchainForChainSpec::new(
-        &block_config,
+        edr_chain_l1::Hardfork::default(),
         runtime::Handle::current(),
         Arc::new(rpc_client),
         &mut irregular_state,

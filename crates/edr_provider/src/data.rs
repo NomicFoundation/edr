@@ -2834,7 +2834,7 @@ fn create_blockchain_and_state<
                 let mut irregular_state = IrregularState::default();
                 let blockchain =
                     runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
-                        &block_config,
+                        block_config.hardfork,
                         runtime.clone(),
                         rpc_client.clone(),
                         &mut irregular_state,
@@ -3059,7 +3059,7 @@ fn create_blockchain_and_state<
             genesis_block,
             genesis_diff,
             config.chain_id,
-            &block_config,
+            block_config.hardfork,
         )
         .map_err(CreationError::InvalidGenesisBlock)?;
 

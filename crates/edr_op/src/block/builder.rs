@@ -343,7 +343,7 @@ mod tests {
             genesis_block,
             StateDiff::default(),
             1234,
-            &block_config,
+            hardfork,
         )?)
     }
 

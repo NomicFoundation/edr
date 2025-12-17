@@ -60,7 +60,7 @@ impl<
         genesis_block: LocalBlockT,
         genesis_diff: StateDiff,
         chain_id: u64,
-        block_config: &BlockConfig<HardforkT>,
+        hardfork: HardforkT,
     ) -> Result<Self, InvalidGenesisBlock> {
         let genesis_header = genesis_block.block_header();
 
@@ -70,7 +70,7 @@ impl<
             });
         }
 
-        let evm_spec_id = block_config.hardfork.clone().into();
+        let evm_spec_id = hardfork.clone().into();
         if evm_spec_id >= EvmSpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
             return Err(InvalidGenesisBlock::MissingWithdrawals);
         }
@@ -84,7 +84,7 @@ impl<
 
         Ok(Self {
             chain_id,
-            hardfork: block_config.hardfork.clone(),
+            hardfork,
             storage,
         })
     }
@@ -476,7 +476,7 @@ mod tests {
         )?;
 
         let mut blockchain =
-            LocalBlockchain::new(genesis_block, genesis_diff, 123, &block_config).unwrap();
+            LocalBlockchain::new(genesis_block, genesis_diff, 123, block_config.hardfork).unwrap();
 
         let irregular_state = IrregularState::default();
         let expected = blockchain.state_at_block_number(0, irregular_state.state_overrides())?;

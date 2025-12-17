@@ -231,7 +231,7 @@ impl<
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        block_config: &BlockConfig<HardforkT>,
+        hardfork: HardforkT,
         runtime: runtime::Handle,
         rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
         irregular_state: &mut IrregularState,
@@ -316,7 +316,7 @@ impl<
                 });
             }
 
-            let local_evm_spec_id = block_config.hardfork.clone().into();
+            let local_evm_spec_id = hardfork.clone().into();
             if remote_evm_spec_id < EvmSpecId::PRAGUE && local_evm_spec_id >= EvmSpecId::PRAGUE {
                 let state_root = state_root_generator.lock().next_value();
 
@@ -394,7 +394,7 @@ impl<
             remote_chain_id,
             fork_block_number,
             network_id,
-            hardfork: block_config.hardfork.clone(),
+            hardfork,
             hardfork_activations,
             _phantom: PhantomData,
         })

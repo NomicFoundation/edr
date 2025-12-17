@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use edr_block_api::Block as _;
-use edr_block_header::BlockConfig;
 use edr_chain_spec_block::RemoteBlockForChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_defaults::CACHE_DIR;
@@ -83,12 +82,7 @@ async fn block_with_deposit_transaction() -> anyhow::Result<()> {
         .ok_or(anyhow!("Unsupported block"))?;
 
     let _blockchain = ForkedBlockchainForChainSpec::<OpChainSpec>::new(
-        &BlockConfig {
-            base_fee_params: chain_config.base_fee_params.clone(),
-            hardfork,
-            min_ethash_difficulty: OpChainSpec::MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),
-        },
+        hardfork,
         runtime.clone(),
         rpc_client.clone(),
         &mut irregular_state,
