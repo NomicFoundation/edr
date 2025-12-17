@@ -280,10 +280,6 @@ impl<
             rpc_client.get_block_by_number(PreEip1898BlockSpec::Number(fork_block_number));
 
         let chain_config = chain_configs.get(&remote_chain_id);
-        // TODO: move this logic somewhere it makes sense
-        // if let Some(config) = chain_config {
-        //     block_config.base_fee_params = config.base_fee_params.clone();
-        // };
         let hardfork_activations = chain_config.as_ref().and_then(
             |ChainConfig {
                  hardfork_activations,

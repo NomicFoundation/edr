@@ -82,10 +82,7 @@ pub fn create_dummy_block_with_difficulty<BlockchainErrorT: Debug>(
         .block_hash();
 
     let block_config = BlockConfig {
-        base_fee_params: L1ChainSpec::default_base_fee_params().clone(), /* blockchain.
-                                                                          * base_fee_params().
-                                                                          * clone(), TODO:
-                                                                          * revisit */
+        base_fee_params: L1ChainSpec::default_base_fee_params().clone(),
         hardfork: blockchain.hardfork(),
         min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: L1ChainSpec::default_schedulded_blob_params(),
@@ -115,10 +112,7 @@ pub fn create_dummy_block_with_hash<BlockchainErrorT>(
     parent_hash: B256,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
     let block_config = BlockConfig {
-        base_fee_params: L1ChainSpec::default_base_fee_params().clone(), /* blockchain.
-                                                                          * base_fee_params().
-                                                                          * clone(), TODO:
-                                                                          * revisit */
+        base_fee_params: L1ChainSpec::default_base_fee_params().clone(),
         hardfork: blockchain.hardfork(),
         min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: L1ChainSpec::default_schedulded_blob_params(),
@@ -172,10 +166,7 @@ pub fn insert_dummy_block_with_transaction<
     let transaction_hash = *transaction.transaction_hash();
 
     let block_config = BlockConfig {
-        base_fee_params: L1ChainSpec::default_base_fee_params().clone(), /* blockchain.
-                                                                          * base_fee_params().
-                                                                          * clone(), TODO:
-                                                                          * revisit */
+        base_fee_params: L1ChainSpec::default_base_fee_params().clone(),
         hardfork: blockchain.hardfork(),
         min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: L1ChainSpec::default_schedulded_blob_params(),
