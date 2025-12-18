@@ -427,7 +427,9 @@ impl PartialHeader {
                             );
 
                             let base_fee = if evm_spec_id >= EvmSpecId::OSAKA {
-                                base_fee.expect("base fee must be set for post-Osaka blocks")
+                                parent
+                                    .and_then(|header| header.base_fee_per_gas)
+                                    .expect("base fee must be set for post-Osaka blocks")
                             } else {
                                 // In pre-Osaka (EIP-4844) scenarios, the base fee parameter is not
                                 // used in excess blob gas calculation. Passing 0 is acceptable here
@@ -443,7 +445,6 @@ impl PartialHeader {
                             )
                         },
                     );
-
                     Some(BlobGas {
                         gas_used: 0,
                         excess_gas,
