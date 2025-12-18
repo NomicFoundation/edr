@@ -205,10 +205,10 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for BlockHeader 
 /// Wrapper type combining a header with its associated hardfork.
 ///
 /// Both are needed to implement the [`BlockEnvTrait`] trait.
-pub struct HeaderAndEvmSpec<'spec, BlockHeaderT: BlockEnvForHardfork<HardforkT>, HardforkT> {
+pub struct HeaderAndEvmSpec<'env, BlockHeaderT: BlockEnvForHardfork<HardforkT>, HardforkT> {
     pub hardfork: HardforkT,
-    pub header: &'spec BlockHeaderT,
-    pub scheduled_blob_params: Option<&'spec ScheduledBlobParams>,
+    pub header: &'env BlockHeaderT,
+    pub scheduled_blob_params: Option<&'env ScheduledBlobParams>,
 }
 
 impl<'env, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
