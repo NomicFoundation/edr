@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_primitives::{Address, B256, U256};
-use edr_solidity::artifacts::ArtifactId;
+use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     backend::Predeploy,
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
@@ -167,43 +167,6 @@ pub enum IncludeTraces {
     Failing,
     /// Traces will be included in all test results.
     All,
-}
-
-/// Test function identifier.
-/// Note: Equality and hashing ignore the version field in `contract_artifact`.
-#[derive(Clone, Debug)]
-pub struct TestFunctionIdentifier {
-    /// The contract artifact id
-    pub contract_artifact: ArtifactId,
-    /// The function selector as hex string
-    pub function_selector: String,
-}
-
-impl PartialEq for TestFunctionIdentifier {
-    fn eq(&self, other: &Self) -> bool {
-        self.contract_artifact.name == other.contract_artifact.name
-            && self.contract_artifact.source == other.contract_artifact.source
-            && self.function_selector == other.function_selector
-    }
-}
-
-impl Eq for TestFunctionIdentifier {}
-
-impl std::hash::Hash for TestFunctionIdentifier {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.contract_artifact.name.hash(state);
-        self.contract_artifact.source.hash(state);
-        self.function_selector.hash(state);
-    }
-}
-
-impl From<TestFunctionIdentifier> for foundry_cheatcodes::TestFunctionIdentifier {
-    fn from(value: TestFunctionIdentifier) -> Self {
-        Self {
-            contract_artifact: value.contract_artifact,
-            function_selector: value.function_selector,
-        }
-    }
 }
 
 /// Test function level config override.

@@ -754,7 +754,7 @@ export interface SolidityTestRunnerConfigArgs {
   generateGasReport?: boolean
   /**
    * Test function level config overrides.
-   * Defaults to None.
+   * Defaults to none.
    */
   testFunctionOverrides?: Array<TestFunctionOverride>
 }
@@ -803,8 +803,8 @@ export interface FuzzConfigArgs {
    */
   includePushBytes?: boolean
   /**
-   * Optional timeout (in seconds) for each property test
-   * Defaults to None.
+   * Optional timeout (in seconds) for each property test.
+   * Defaults to none (no timeout).
    */
   timeout?: number
 }
@@ -865,7 +865,7 @@ export interface InvariantConfigArgs {
   maxAssumeRejects?: number
   /**
    * Optional timeout (in seconds) for each invariant test.
-   * Defaults to None.
+   * Defaults to none (no timeout).
    */
   timeout?: number
 }
@@ -969,33 +969,33 @@ export interface TestFunctionConfigOverride {
    * as the test.
    */
   allowInternalExpectRevert?: boolean
-  /** Configuration override for fuzz testing */
+  /** Configuration override for fuzz testing. */
   fuzz?: FuzzConfigOverride
-  /** Configuration override for invariant testing */
+  /** Configuration override for invariant testing. */
   invariant?: InvariantConfigOverride
 }
 /** Test function override configuration. */
 export interface TestFunctionOverride {
-  /** The test function identifier */
+  /** The test function identifier. */
   identifier: TestFunctionIdentifier
-  /** The configuration override */
+  /** The configuration override. */
   config: TestFunctionConfigOverride
 }
 /** Test function identifier. */
 export interface TestFunctionIdentifier {
-  /** The contract artifact id */
+  /** The contract artifact id. */
   contractArtifact: ArtifactId
-  /** The function selector as hex string */
+  /** The function selector as hex string. */
   functionSelector: string
 }
 /** Timeout configuration. */
 export interface TimeoutConfig {
-  /** Optional timeout (in seconds) */
+  /** Optional timeout (in seconds). */
   time?: number
 }
 /** Test function or test contract level fuzz config override. */
 export interface FuzzConfigOverride {
-  /** The number of test cases that must execute for each property test */
+  /** The number of test cases that must execute for each property test. */
   runs?: number
   /**
    * The maximum number of test case rejections allowed by proptest, to be
@@ -1005,9 +1005,9 @@ export interface FuzzConfigOverride {
    * `prop_filter`.
    */
   maxTestRejects?: number
-  /** show `console.log` in fuzz test, defaults to `false` */
+  /** show `console.log` in fuzz test, defaults to `false`. */
   showLogs?: boolean
-  /** Optional timeout (in seconds) for each property test */
+  /** Optional timeout (in seconds) for each property test. */
   timeout?: TimeoutConfig
 }
 /** Test function or test contract level invariant config override. */
@@ -1016,7 +1016,7 @@ export interface InvariantConfigOverride {
   runs?: number
   /** The number of calls executed to attempt to break invariants in one run. */
   depth?: number
-  /** Fails the invariant fuzzing if a revert occurs */
+  /** Fails the invariant fuzzing if a revert occurs. */
   failOnRevert?: boolean
   /**
    * Allows overriding an unsafe external call when running invariant tests.

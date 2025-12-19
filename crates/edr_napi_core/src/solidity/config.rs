@@ -7,10 +7,10 @@ use edr_solidity_tests::{
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inspectors::cheatcodes::CheatsConfigOptions,
     CollectStackTraces, IncludeTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
-    TestFilterConfig, TestFunctionConfigOverride, TestFunctionIdentifier,
+    TestFilterConfig, TestFunctionConfigOverride,
 };
+use foundry_cheatcodes::TestFunctionIdentifier;
 use napi::{bindgen_prelude::Uint8Array, Either};
-
 /// Hardhat V3 build info where the compiler output is not part of the build
 /// info file.
 pub struct BuildInfoAndOutput {

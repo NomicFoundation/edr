@@ -1271,7 +1271,7 @@ async fn test_invariant_function_override_fail_on_revert() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_invariant_function_overrride_call_override() {
+async fn test_invariant_function_override_call_override() {
     let filter = SolidityTestFilter::new(
         ".*",
         ".*",

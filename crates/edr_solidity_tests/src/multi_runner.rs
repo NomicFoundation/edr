@@ -16,6 +16,7 @@ use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
+use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     backend::Predeploy,
     contracts::ContractsByArtifact,
@@ -43,7 +44,7 @@ use crate::{
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
-    TestFilter, TestFunctionConfigOverride, TestFunctionIdentifier,
+    TestFilter, TestFunctionConfigOverride,
 };
 
 pub struct SuiteResultAndArtifactId<HaltReasonT> {

@@ -19,6 +19,7 @@ use edr_solidity::{
     solidity_stack_trace::StackTraceEntry,
 };
 use eyre::Result;
+use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     abi::{TestFunctionExt, TestFunctionKind},
     constants::{CALLER, LIBRARY_DEPLOYER},
@@ -56,7 +57,7 @@ use crate::{
     multi_runner::TestContract,
     result::{SuiteResult, TestResult, TestSetup},
     revm::context::result::HaltReason,
-    TestFilter, TestFunctionConfigOverride, TestFunctionIdentifier,
+    TestFilter, TestFunctionConfigOverride,
 };
 
 /// A type that executes all tests of a contract

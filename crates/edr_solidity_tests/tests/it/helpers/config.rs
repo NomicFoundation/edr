@@ -12,8 +12,9 @@ use edr_solidity::{
 };
 use edr_solidity_tests::{
     result::{SuiteResult, TestStatus},
-    MultiContractRunner, TestFunctionIdentifier,
+    MultiContractRunner,
 };
+use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     decode::decode_console_logs,
     evm_context::{

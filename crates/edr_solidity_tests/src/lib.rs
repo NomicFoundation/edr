@@ -13,7 +13,7 @@ mod config;
 pub use config::{
     CollectStackTraces, FuzzConfigOverride, IncludeTraces, InvariantConfigOverride,
     SolidityTestRunnerConfig, SolidityTestRunnerConfigError, SyncOnCollectedCoverageCallback,
-    TestFunctionConfigOverride, TestFunctionIdentifier, TimeoutConfig,
+    TestFunctionConfigOverride, TimeoutConfig,
 };
 
 pub mod result;

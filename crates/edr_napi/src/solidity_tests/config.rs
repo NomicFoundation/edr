@@ -163,7 +163,7 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
     /// Test function level config overrides.
-    /// Defaults to None.
+    /// Defaults to none.
     pub test_function_overrides: Option<Vec<TestFunctionOverride>>,
 }
 
@@ -392,8 +392,8 @@ pub struct FuzzConfigArgs {
     /// The flag indicating whether to include push bytes values.
     /// Defaults to true.
     pub include_push_bytes: Option<bool>,
-    /// Optional timeout (in seconds) for each property test
-    /// Defaults to None.
+    /// Optional timeout (in seconds) for each property test.
+    /// Defaults to none (no timeout).
     pub timeout: Option<u32>,
 }
 
@@ -511,7 +511,7 @@ pub struct InvariantConfigArgs {
     /// Defaults to 65536.
     pub max_assume_rejects: Option<u32>,
     /// Optional timeout (in seconds) for each invariant test.
-    /// Defaults to None.
+    /// Defaults to none (no timeout).
     pub timeout: Option<u32>,
 }
 
@@ -863,9 +863,9 @@ pub struct TestFunctionConfigOverride {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test.
     pub allow_internal_expect_revert: Option<bool>,
-    /// Configuration override for fuzz testing
+    /// Configuration override for fuzz testing.
     pub fuzz: Option<FuzzConfigOverride>,
-    /// Configuration override for invariant testing
+    /// Configuration override for invariant testing.
     pub invariant: Option<InvariantConfigOverride>,
 }
 
@@ -883,9 +883,9 @@ impl From<TestFunctionConfigOverride> for edr_solidity_tests::TestFunctionConfig
 #[napi(object)]
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct TestFunctionOverride {
-    /// The test function identifier
+    /// The test function identifier.
     pub identifier: TestFunctionIdentifier,
-    /// The configuration override
+    /// The configuration override.
     pub config: TestFunctionConfigOverride,
 }
 
@@ -893,21 +893,10 @@ pub struct TestFunctionOverride {
 #[napi(object)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize)]
 pub struct TestFunctionIdentifier {
-    /// The contract artifact id
+    /// The contract artifact id.
     pub contract_artifact: ArtifactId,
-    /// The function selector as hex string
+    /// The function selector as hex string.
     pub function_selector: String,
-}
-
-impl TryFrom<TestFunctionIdentifier> for edr_solidity_tests::TestFunctionIdentifier {
-    type Error = napi::Error;
-
-    fn try_from(value: TestFunctionIdentifier) -> napi::Result<Self> {
-        Ok(edr_solidity_tests::TestFunctionIdentifier {
-            contract_artifact: value.contract_artifact.try_into()?,
-            function_selector: value.function_selector,
-        })
-    }
 }
 
 impl TryFrom<TestFunctionIdentifier> for foundry_cheatcodes::TestFunctionIdentifier {
@@ -925,7 +914,7 @@ impl TryFrom<TestFunctionIdentifier> for foundry_cheatcodes::TestFunctionIdentif
 #[napi(object)]
 #[derive(Clone, Default, Debug, serde::Serialize)]
 pub struct TimeoutConfig {
-    /// Optional timeout (in seconds)
+    /// Optional timeout (in seconds).
     pub time: Option<u32>,
 }
 
@@ -939,7 +928,7 @@ impl From<TimeoutConfig> for edr_solidity_tests::TimeoutConfig {
 #[napi(object)]
 #[derive(Clone, Default, Debug, serde::Serialize)]
 pub struct FuzzConfigOverride {
-    /// The number of test cases that must execute for each property test
+    /// The number of test cases that must execute for each property test.
     pub runs: Option<u32>,
     /// The maximum number of test case rejections allowed by proptest, to be
     /// encountered during usage of `vm.assume` cheatcode. This will be used
@@ -947,9 +936,9 @@ pub struct FuzzConfigOverride {
     /// `max_local_rejects` option isn't exposed here since we're not using
     /// `prop_filter`.
     pub max_test_rejects: Option<u32>,
-    /// show `console.log` in fuzz test, defaults to `false`
+    /// show `console.log` in fuzz test, defaults to `false`.
     pub show_logs: Option<bool>,
-    /// Optional timeout (in seconds) for each property test
+    /// Optional timeout (in seconds) for each property test.
     pub timeout: Option<TimeoutConfig>,
 }
 
@@ -972,7 +961,7 @@ pub struct InvariantConfigOverride {
     pub runs: Option<u32>,
     /// The number of calls executed to attempt to break invariants in one run.
     pub depth: Option<u32>,
-    /// Fails the invariant fuzzing if a revert occurs
+    /// Fails the invariant fuzzing if a revert occurs.
     pub fail_on_revert: Option<bool>,
     /// Allows overriding an unsafe external call when running invariant tests.
     /// eg. reentrancy checks
