@@ -76,12 +76,10 @@ describe("Unit tests", () => {
 
   describe("IsolateMode", function () {
     it("IsolateMode on", async function () {
-      const { totalTests, failedTests, stackTraces } = await testContext.runTestsWithStats(
-        "IsolateTest",
-        {
+      const { totalTests, failedTests, stackTraces } =
+        await testContext.runTestsWithStats("IsolateTest", {
           isolate: true,
-        }
-      );
+        });
 
       assert.equal(failedTests, 0);
       assert.equal(totalTests, 2);
@@ -97,10 +95,15 @@ describe("Unit tests", () => {
   });
 
   it("TestFail", async function () {
-    const { totalTests, failedTests, stackTraces } = await testContext.runTestsWithStats("TestFailTest",);
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("TestFailTest");
     assert.equal(totalTests, 1);
     assert.equal(failedTests, 1);
-    assert.ok(stackTraces.get("testFailRevert()")?.reason?.includes("`testFail*` has been removed"))
+    assert.ok(
+      stackTraces
+        .get("testFailRevert()")
+        ?.reason?.includes("`testFail*` has been removed")
+    );
   });
 
   it("EnvVarTest", async function () {
@@ -528,7 +531,7 @@ describe("Unit tests", () => {
   describe("ExpectEmitError", function () {
     async function expectEmitErrorTest(isolate: boolean) {
       const { totalTests, failedTests, stackTraces } =
-        await testContext.runTestsWithStats("ExpectEmitErrorTest", {isolate});
+        await testContext.runTestsWithStats("ExpectEmitErrorTest", { isolate });
 
       assert.equal(failedTests, 1);
       assert.equal(totalTests, 2);
@@ -547,14 +550,14 @@ describe("Unit tests", () => {
       );
     }
 
-    it("isolate off", async function() {
-      await expectEmitErrorTest(false)
-    })
+    it("isolate off", async function () {
+      await expectEmitErrorTest(false);
+    });
 
     // Repro for https://github.com/NomicFoundation/hardhat/issues/7677
-    it("isolate on", async function() {
-      await expectEmitErrorTest(true)
-    })
+    it("isolate on", async function () {
+      await expectEmitErrorTest(true);
+    });
   });
 
   describe("Stack traces for a contract with impure cheatcodes, that is unsafe to replay", function () {
@@ -606,6 +609,33 @@ describe("Unit tests", () => {
 
       const stackTrace = stackTraces.get("testThatFails()");
       assert(stackTrace !== undefined);
+    });
+  });
+
+  describe("FunctionLevelConfigOverride", function () {
+    it("AllowInternalExepectRevert", async function () {
+      const artifact = testContext.matchingTest("InternalRevertingTest")[0];
+      const testFunctionOverrides = [
+        {
+          identifier: {
+            contractArtifact: artifact,
+            functionSelector: "0x3a1da94e", // testInternalRevert()
+          },
+          config: {
+            allowInternalExpectRevert: true,
+          },
+        },
+      ];
+
+      const result = await testContext.runTestsWithStats(
+        "InternalRevertingTest",
+        {
+          testFunctionOverrides,
+        }
+      );
+
+      assert.equal(result.totalTests, 1);
+      assert.equal(result.failedTests, 0);
     });
   });
 });

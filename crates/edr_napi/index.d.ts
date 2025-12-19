@@ -753,10 +753,10 @@ export interface SolidityTestRunnerConfigArgs {
    */
   generateGasReport?: boolean
   /**
-   * Test function level config overrides. The keys in the hash map are in
-   * the format "`ContractName::functionName`". Defaults to None.
+   * Test function level config overrides.
+   * Defaults to None.
    */
-  testFunctionOverrides?: Record<string, ConfigOverride>
+  testFunctionOverrides?: Array<TestFunctionOverride>
 }
 /** Fuzz testing configuration */
 export interface FuzzConfigArgs {
@@ -962,8 +962,8 @@ export enum IncludeTraces {
   /** Traces will be included in all test results. */
   All = 2
 }
-/** Test function or test contract level config override. */
-export interface ConfigOverride {
+/** Test function level config override. */
+export interface TestFunctionConfigOverride {
   /**
    * Allow expecting reverts with `expectRevert` at the same callstack depth
    * as the test.
@@ -974,6 +974,21 @@ export interface ConfigOverride {
   /** Configuration override for invariant testing */
   invariant?: InvariantConfigOverride
 }
+/** Test function override configuration. */
+export interface TestFunctionOverride {
+  /** The test function identifier */
+  identifier: TestFunctionIdentifier
+  /** The configuration override */
+  config: TestFunctionConfigOverride
+}
+/** Test function identifier. */
+export interface TestFunctionIdentifier {
+  /** The contract artifact id */
+  contractArtifact: ArtifactId
+  /** The function selector as hex string */
+  functionSelector: string
+}
+/** Timeout configuration. */
 export interface TimeoutConfig {
   /** Optional timeout (in seconds) */
   time?: number

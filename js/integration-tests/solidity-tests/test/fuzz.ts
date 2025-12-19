@@ -272,14 +272,14 @@ describe("Fuzz and invariant testing", function () {
     };
 
     const originalArtifacts = testContext.artifacts.filter((artifact) => {
-      return artifact.id.source.endsWith("InvariantSourceChange.t.sol")
+      return artifact.id.source.endsWith("InvariantSourceChange.t.sol");
     });
     const originalTestArtifact = originalArtifacts.find((artifact) => {
-      return artifact.id.name === "InvariantSourceChangeTest"
-    })
+      return artifact.id.name === "InvariantSourceChangeTest";
+    });
     const originalHandlerArtifact = originalArtifacts.find((artifact) => {
-      return artifact.id.name === "AssumeHandler"
-    })
+      return artifact.id.name === "AssumeHandler";
+    });
     assert.equal(originalArtifacts.length, 2);
 
     const [, originalResults] = await runAllSolidityTests(
@@ -300,22 +300,23 @@ describe("Fuzz and invariant testing", function () {
       }
     );
     assert.equal(originalResults.length, 1);
-    assert.ok(originalResults[0].id.source.endsWith("InvariantSourceChange.t.sol"));
+    assert.ok(
+      originalResults[0].id.source.endsWith("InvariantSourceChange.t.sol")
+    );
     assert.equal(originalResults[0].testResults.length, 1);
     assert.equal(originalResults[0].testResults[0].name, "invariant_assume()");
     assert.equal(originalResults[0].testResults[0].status, "Failure");
     assert.equal(originalResults[0].testResults[0].reason, "Invariant failure");
 
-
     const changedArtifacts = testContext.artifacts.filter((artifact) => {
-      return artifact.id.source.endsWith("InvariantSourceChangeTwo.t.sol")
+      return artifact.id.source.endsWith("InvariantSourceChangeTwo.t.sol");
     });
     const changedTestArtifact = changedArtifacts.find((artifact) => {
-      return artifact.id.name === "InvariantSourceChangeTest"
-    })
+      return artifact.id.name === "InvariantSourceChangeTest";
+    });
     const changedHandlerArtifact = changedArtifacts.find((artifact) => {
-      return artifact.id.name === "AssumeHandler"
-    })
+      return artifact.id.name === "AssumeHandler";
+    });
     originalTestArtifact!.contract = changedTestArtifact!.contract;
     originalHandlerArtifact!.contract = changedHandlerArtifact!.contract;
 
@@ -330,7 +331,7 @@ describe("Fuzz and invariant testing", function () {
         invariant: {
           ...invariantConfig,
           failurePersistDir: failureDir,
-          maxAssumeRejects: 10
+          maxAssumeRejects: 10,
         },
         fuzz: {
           seed: "100",
@@ -338,11 +339,16 @@ describe("Fuzz and invariant testing", function () {
       }
     );
     assert.equal(changedResults.length, 1);
-    assert.ok(changedResults[0].id.source.endsWith("InvariantSourceChange.t.sol"));
+    assert.ok(
+      changedResults[0].id.source.endsWith("InvariantSourceChange.t.sol")
+    );
     assert.equal(changedResults[0].testResults.length, 1);
     assert.equal(changedResults[0].testResults[0].name, "invariant_assume()");
     assert.equal(changedResults[0].testResults[0].status, "Failure");
-    assert.equal(changedResults[0].testResults[0].reason, "`vm.assume` rejected too many inputs (10 allowed)");
+    assert.equal(
+      changedResults[0].testResults[0].reason,
+      "`vm.assume` rejected too many inputs (10 allowed)"
+    );
   });
 
   it("ShouldRevertWithAssumeCode", async function () {
@@ -485,5 +491,126 @@ describe("Fuzz and invariant testing", function () {
         );
       }
     }
+  });
+
+  it("FuzzFunctionOverrides", async function () {
+    const artifact = testContext.matchingTest("FuzzConfigOverrideTest")[0];
+
+    const fuzzConfig = {
+      runs: 100,
+      maxTestRejects: 0,
+    };
+
+    const testFunctionOverrides = [
+      {
+        identifier: {
+          contractArtifact: artifact,
+          functionSelector: "0x6d301800", // testFuzz_OverrideRuns(uint256)
+        },
+        config: {
+          fuzz: {
+            runs: 10,
+          },
+        },
+      },
+      {
+        identifier: {
+          contractArtifact: artifact,
+          functionSelector: "0x1a2888a7", // testFuzz_OverrideTimeoutAndRejects(uint256)
+        },
+        config: {
+          fuzz: {
+            runs: 256,
+            maxTestRejects: 50000,
+            timeout: {
+              time: 1,
+            },
+          },
+        },
+      },
+      {
+        identifier: {
+          contractArtifact: artifact,
+          functionSelector: "0xff055599", // testFuzz_NoOverrideTimeout(uint256)
+        },
+        config: {
+          fuzz: {
+            maxTestRejects: 5000,
+          },
+        },
+      },
+    ];
+
+    const result = await testContext.runTestsWithStats(
+      "FuzzConfigOverrideTest",
+      {
+        fuzz: fuzzConfig,
+        testFunctionOverrides: testFunctionOverrides,
+      }
+    );
+
+    assert.equal(result.failedTests, 2);
+    assert.equal(result.totalTests, 5);
+
+    assert.equal(
+      result.stackTraces.get("testFuzz_NoOverrideRejects(uint256)")?.reason,
+      "`vm.assume` rejected too many inputs (0 allowed)"
+    );
+
+    assert.equal(
+      result.stackTraces.get("testFuzz_NoOverrideTimeout(uint256)")?.reason,
+      "`vm.assume` rejected too many inputs (5000 allowed)"
+    );
+
+    const suite_result = result.suiteResults[0];
+    for (const test_result of suite_result.testResults) {
+      if (test_result.name === "testFuzz_OverrideRuns(uint256)") {
+        const fuzzKind = test_result.kind as FuzzTestKind;
+        assert.equal(fuzzKind.runs, 10n); // Overridden
+      } else if (test_result.name === "testFuzz_NoOverrideRuns(uint256)") {
+        const fuzzKind = test_result.kind as FuzzTestKind;
+        assert.equal(fuzzKind.runs, 100n); // Not overridden, controlled by top-level config
+      }
+    }
+  });
+
+  it("InvariantFunctionOverrides", async function () {
+    const artifact = testContext.matchingTest("InvariantTest1")[0];
+
+    const invariantConfig = {
+      runs: 2,
+      depth: 10,
+    };
+
+    const result1 = await testContext.runTestsWithStats("InvariantTest1", {
+      invariant: invariantConfig,
+    });
+
+    const test_result1 = result1.suiteResults[0].testResults[0];
+    const invariantKind = test_result1.kind as InvariantTestKind;
+    assert.equal(invariantKind.runs, 2n);
+    assert.equal(invariantKind.calls, 20n);
+
+    const result2 = await testContext.runTestsWithStats("InvariantTest1", {
+      invariant: invariantConfig,
+      testFunctionOverrides: [
+        {
+          identifier: {
+            contractArtifact: artifact,
+            functionSelector: "0xd6e738f5", // invariant_neverFalse()
+          },
+          config: {
+            invariant: {
+              runs: 1,
+              depth: 5,
+            },
+          },
+        },
+      ],
+    });
+    const test_result2 = result2.suiteResults[0].testResults[0];
+    const invariantKind2 = test_result2.kind as InvariantTestKind;
+    assert.equal(invariantKind2.runs, 1n); // Overridden
+    assert.equal(invariantKind2.calls, 5n); // Overridden
   });
 });
