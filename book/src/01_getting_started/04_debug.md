@@ -85,20 +85,20 @@ Create or edit the `.vscode/launch.json` file in the EDR VSCode workspace. Add t
 
 ```json
 {
-    "name": "Debug Hardhat v2 (OpenZeppelin Contracts)",
-    "type": "lldb",
-    "request": "launch",
-    // Path to the Hardhat project to debug (in this case: OpenZeppelin Contracts)
-    "cwd": "${workspaceFolder}/../openzeppelin-contracts",
-    // Path to the Node.js executable
-    "program": "/usr/local/share/nvm/versions/node/v22.21.1/bin/node",
-    "args": [
-        // Path to Hardhat's CLI.js
-        "${workspaceFolder}/../hardhat/packages/hardhat-core/internal/cli/cli.js",
-        "test",
-        // Filter to a specific test file to debug (in this case: OpenZeppelin Contracts RSA.test.js)
-        "${workspaceFolder}/../openzeppelin-contracts/test/utils/cryptography/RSA.test.js"
-    ]
+  "name": "Debug Hardhat v2 (OpenZeppelin Contracts)",
+  "type": "lldb",
+  "request": "launch",
+  // Path to the Hardhat project to debug (in this case: OpenZeppelin Contracts)
+  "cwd": "${workspaceFolder}/../openzeppelin-contracts",
+  // Path to the Node.js executable
+  "program": "/usr/local/share/nvm/versions/node/v22.21.1/bin/node",
+  "args": [
+    // Path to Hardhat's CLI.js
+    "${workspaceFolder}/../hardhat/packages/hardhat-core/internal/cli/cli.js",
+    "test",
+    // Filter to a specific test file to debug (in this case: OpenZeppelin Contracts RSA.test.js)
+    "${workspaceFolder}/../openzeppelin-contracts/test/utils/cryptography/RSA.test.js"
+  ]
 }
 ```
 
