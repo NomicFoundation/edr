@@ -75,6 +75,7 @@ impl_test_dynamic_base_fee_params! {
         37_483_302,
         38_088_319,
         38_951_425, // jovian activated block
+        39_647_879, // SystemConfig EIP-1559 update 2025-12-18
     ],
     op_sepolia: op::sepolia_url() => [
         26_806_602,
