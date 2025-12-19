@@ -988,7 +988,10 @@ export interface TestFunctionIdentifier {
   /** The function selector as hex string. */
   functionSelector: string
 }
-/** Timeout configuration. */
+/**
+ * Timeout configuration.
+ * Note: This wrapper is needed to avoid ambiguity with NAPI conversion.
+ */
 export interface TimeoutConfig {
   /** Optional timeout (in seconds). */
   time?: number

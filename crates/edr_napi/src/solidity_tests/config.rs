@@ -911,6 +911,7 @@ impl TryFrom<TestFunctionIdentifier> for foundry_cheatcodes::TestFunctionIdentif
 }
 
 /// Timeout configuration.
+/// Note: This wrapper is needed to avoid ambiguity with NAPI conversion.
 #[napi(object)]
 #[derive(Clone, Default, Debug, serde::Serialize)]
 pub struct TimeoutConfig {
