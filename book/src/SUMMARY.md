@@ -7,8 +7,9 @@
   - [Setup](./01_getting_started/01_setup.md)
   - [Build](./01_getting_started/02_build.md)
   - [Test](./01_getting_started/03_test.md)
-  - [Benchmark](./01_getting_started/04_benchmark.md)
-  - [Profiling](./01_getting_started/05_profiling.md)
+  - [Debug](./01_getting_started/04_debug.md)
+  - [Benchmark](./01_getting_started/05_benchmark.md)
+  - [Profiling](./01_getting_started/06_profiling.md)
 
 - [Development](./02_development.md)
 
