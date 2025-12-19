@@ -9,7 +9,9 @@ use edr_solidity_tests::{
     result::{SuiteResult, TestKind, TestStatus},
 };
 
-use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TEST_DATA_DEFAULT};
+use crate::helpers::{
+    assert_multiple, make_test_identifier, SolidityTestFilter, TestFuzzConfig, TEST_DATA_DEFAULT,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz() {
@@ -351,9 +353,11 @@ async fn test_fuzz_function_overrides() {
     config.fuzz.max_test_rejects = 0;
 
     config.test_function_overrides.insert(
-        "default/fuzz/FuzzConfigOverride.t.sol:FuzzConfigOverrideTest::testFuzz_OverrideRuns"
-            .to_string(),
-        edr_solidity_tests::ConfigOverride {
+        make_test_identifier(
+            "default/fuzz/FuzzConfigOverride.t.sol:FuzzConfigOverrideTest",
+            "testFuzz_OverrideRuns(uint256)",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             fuzz: Some(edr_solidity_tests::FuzzConfigOverride {
                 runs: Some(10),
@@ -364,9 +368,11 @@ async fn test_fuzz_function_overrides() {
     );
 
     config.test_function_overrides.insert(
-        "default/fuzz/FuzzConfigOverride.t.sol:FuzzConfigOverrideTest::testFuzz_OverrideTimeoutAndRejects"
-            .to_string(),
-        edr_solidity_tests::ConfigOverride {
+        make_test_identifier(
+            "default/fuzz/FuzzConfigOverride.t.sol:FuzzConfigOverrideTest",
+            "testFuzz_OverrideTimeoutAndRejects(uint256)",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             fuzz: Some(edr_solidity_tests::FuzzConfigOverride {
                 runs: Some(256),
@@ -379,9 +385,11 @@ async fn test_fuzz_function_overrides() {
     );
 
     config.test_function_overrides.insert(
-        "default/fuzz/FuzzConfigOverride.t.sol:FuzzConfigOverrideTest::testFuzz_NoOverrideTimeout"
-            .to_string(),
-        edr_solidity_tests::ConfigOverride {
+        make_test_identifier(
+            "default/fuzz/FuzzConfigOverride.t.sol:FuzzConfigOverrideTest",
+            "testFuzz_NoOverrideTimeout(uint256)",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             fuzz: Some(edr_solidity_tests::FuzzConfigOverride {
                 max_test_rejects: Some(5000),

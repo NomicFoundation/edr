@@ -6,8 +6,8 @@ use edr_solidity_tests::{
     evm_context::HardforkTr,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inspectors::cheatcodes::CheatsConfigOptions,
-    CollectStackTraces, ConfigOverride, IncludeTraces, SolidityTestRunnerConfig,
-    SyncOnCollectedCoverageCallback, TestFilterConfig,
+    CollectStackTraces, IncludeTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
+    TestFilterConfig, TestFunctionConfigOverride, TestFunctionIdentifier,
 };
 use napi::{bindgen_prelude::Uint8Array, Either};
 
@@ -174,9 +174,10 @@ pub struct TestRunnerConfig {
     /// Whether to generate a gas report after running the tests.
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
-    /// Test function level config overrides. The keys in the hash map are in
-    /// the format "`ContractName::functionName`". Defaults to None.
-    pub test_function_overrides: Option<HashMap<String, ConfigOverride>>,
+    /// Test function level config overrides.
+    /// Defaults to None.
+    pub test_function_overrides:
+        Option<HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>>,
 }
 
 impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConfig<HardforkT> {

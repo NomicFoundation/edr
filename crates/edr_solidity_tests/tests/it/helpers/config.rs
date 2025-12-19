@@ -2,15 +2,17 @@
 
 use std::{collections::BTreeMap, marker::PhantomData};
 
+use alloy_json_abi::Function;
 use derive_where::derive_where;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
+    artifacts::ArtifactId,
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::NestedTrace,
 };
 use edr_solidity_tests::{
     result::{SuiteResult, TestStatus},
-    MultiContractRunner,
+    MultiContractRunner, TestFunctionIdentifier,
 };
 use foundry_evm::{
     decode::decode_console_logs,
@@ -324,5 +326,26 @@ pub fn assert_multiple<HaltReasonT: HaltReasonTrait>(
                 );
             }
         }
+    }
+}
+
+// Helper function to create a TestFunctionIdentifier from contract path
+// and function signature
+pub fn make_test_identifier(contract_id: &str, function_sig: &str) -> TestFunctionIdentifier {
+    // Parse contract_id which is in format "path/to/file.sol:ContractName"
+    let (source, name) = contract_id
+        .rsplit_once(':')
+        .expect("Invalid contract identifier format");
+
+    let artifact_id = ArtifactId {
+        name: name.to_string(),
+        source: source.into(),
+        version: semver::Version::new(0, 8, 0), // Dummy version, not used for comparison
+    };
+
+    let function = Function::parse(function_sig).expect("Invalid function signature");
+    TestFunctionIdentifier {
+        contract_artifact: artifact_id,
+        function_selector: function.selector().to_string(),
     }
 }

@@ -66,7 +66,7 @@ use crate::{
         revert_handlers,
     },
     utils::IgnoredTraces,
-    CheatsConfig, CheatsCtxt, DynCheatcode, Error, Result,
+    CheatsConfig, CheatsCtxt, DynCheatcode, Error, Result, TestFunctionIdentifier,
     Vm::{self, AccountAccess},
 };
 
@@ -1452,8 +1452,8 @@ impl<
 
                     let internal_expect_revert =
                         self.config.internal_expect_revert || expected_revert.allow_internal || {
-                            // Check if there is function-level internal_expect_revert override,
-                            // only if we don't have a global config allowing it
+                            // Check if there is function-level
+                            // only if we don't have a global config allowing
                             let identifier = ecx
                                 .journaled_state
                                 .load_account(call.target_address)
@@ -1475,8 +1475,9 @@ impl<
                                             .abi
                                             .functions()
                                             .find(|f| f.selector() == selector)
-                                            .map(|function| {
-                                                format!("{}::{}", artifact_id.name, function.name)
+                                            .map(|function| TestFunctionIdentifier {
+                                                contract_artifact: artifact_id.clone(),
+                                                function_selector: function.selector().to_string(),
                                             })
                                     })?
                                 });

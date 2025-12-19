@@ -7,7 +7,8 @@ use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{fuzz::CounterExample, result::TestKind};
 
 use crate::helpers::{
-    assert_multiple, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT,
+    assert_multiple, make_test_identifier, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig,
+    TEST_DATA_DEFAULT,
 };
 
 macro_rules! get_counterexample {
@@ -1172,9 +1173,11 @@ async fn test_invariant_function_override_runs() {
 
     // Override to 1 run and 5 depth.
     config.test_function_overrides.insert(
-        "default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantTest::invariant_neverFalse"
-            .to_string(),
-        edr_solidity_tests::ConfigOverride {
+        make_test_identifier(
+            "default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantTest",
+            "invariant_neverFalse()",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             fuzz: None,
             invariant: Some(edr_solidity_tests::InvariantConfigOverride {
@@ -1234,9 +1237,11 @@ async fn test_invariant_function_override_fail_on_revert() {
 
     // Override to fail on revert.
     config.test_function_overrides.insert(
-        "default/fuzz/invariant/common/InvariantHandlerFailure.t.sol:InvariantHandlerFailure::statefulFuzz_BrokenInvariant"
-            .to_string(),
-        edr_solidity_tests::ConfigOverride {
+        make_test_identifier(
+            "default/fuzz/invariant/common/InvariantHandlerFailure.t.sol:InvariantHandlerFailure",
+            "statefulFuzz_BrokenInvariant()",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             fuzz: None,
             invariant: Some(edr_solidity_tests::InvariantConfigOverride {
@@ -1292,9 +1297,11 @@ async fn test_invariant_function_overrride_call_override() {
 
     // Override config to enable call override.
     config.test_function_overrides.insert(
-        "default/fuzz/invariant/common/InvariantReentrancy.t.sol:InvariantReentrancy::invariantNotStolen"
-            .to_string(),
-        edr_solidity_tests::ConfigOverride {
+        make_test_identifier(
+            "default/fuzz/invariant/common/InvariantReentrancy.t.sol:InvariantReentrancy",
+            "invariantNotStolen()",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             fuzz: None,
             invariant: Some(edr_solidity_tests::InvariantConfigOverride {
@@ -1335,9 +1342,11 @@ async fn test_invariant_function_override_timeout() {
     // >= 10000. Not tested here because it would slow down the test suite.
 
     config.test_function_overrides.insert(
-        "default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest::invariant_counter_timeout"
-            .to_string(),
-        edr_solidity_tests::ConfigOverride {
+        make_test_identifier(
+            "default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest",
+            "invariant_counter_timeout()",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             fuzz: None,
             invariant: Some(edr_solidity_tests::InvariantConfigOverride {

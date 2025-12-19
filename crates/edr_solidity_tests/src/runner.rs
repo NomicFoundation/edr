@@ -15,7 +15,8 @@ use alloy_primitives::{Address, Bytes, U256};
 use derive_where::derive_where;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
-    contract_decoder::SyncNestedTraceDecoder, solidity_stack_trace::StackTraceEntry,
+    artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder,
+    solidity_stack_trace::StackTraceEntry,
 };
 use eyre::Result;
 use foundry_evm::{
@@ -55,7 +56,7 @@ use crate::{
     multi_runner::TestContract,
     result::{SuiteResult, TestResult, TestSetup},
     revm::context::result::HaltReason,
-    ConfigOverride, TestFilter,
+    TestFilter, TestFunctionConfigOverride, TestFunctionIdentifier,
 };
 
 /// A type that executes all tests of a contract
@@ -73,6 +74,8 @@ pub struct ContractRunner<
 > {
     /// The name of the contract.
     name: &'a str,
+    /// The artifact ID of the contract.
+    artifact_id: &'a ArtifactId,
     /// The data of the contract being ran.
     contract: &'a TestContract,
     /// Revert decoder. Contains all known errors.
@@ -99,9 +102,8 @@ pub struct ContractRunner<
     executor_builder: ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>,
     /// The span of the contract.
     span: tracing::Span,
-    /// Test function level config overrides. The keys in the hash map are in
-    /// the format "`ContractName::functionName`".
-    test_function_overrides: &'a HashMap<String, ConfigOverride>,
+    /// Test function level config overrides.
+    test_function_overrides: &'a HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
 
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (EvmBuilderT, HaltReasonT, TransactionErrorT)>,
@@ -122,9 +124,8 @@ pub struct ContractRunnerOptions<'a> {
     pub fuzz_config: &'a FuzzConfig,
     /// Invariant config
     pub invariant_config: &'a InvariantConfig,
-    /// Test function level config overrides. The keys in the hash map are in
-    /// the format "`ContractName::functionName`".
-    pub test_function_overrides: &'a HashMap<String, ConfigOverride>,
+    /// Test function level config overrides.
+    pub test_function_overrides: &'a HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
 }
 
 /// Contract artifact related arguments to the contract runner.
@@ -165,6 +166,7 @@ impl<
 {
     pub fn new(
         name: &'a str,
+        artifact_id: &'a ArtifactId,
         executor_builder: ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>,
         contract: &'a TestContract,
         artifacts: ContractRunnerArtifacts<'a, HaltReasonT, NestedTraceDecoderT>,
@@ -190,6 +192,7 @@ impl<
 
         Self {
             name,
+            artifact_id,
             contract,
             revert_decoder,
             known_contracts,
@@ -1057,7 +1060,10 @@ impl<
         let mut invariant_config = self.cr.invariant_config.clone();
 
         // Apply function config overrides if any.
-        let test_identifier = format!("{}::{}", self.cr.name, func.name);
+        let test_identifier = TestFunctionIdentifier {
+            contract_artifact: self.cr.artifact_id.clone(),
+            function_selector: func.selector().to_string(),
+        };
         let overrides = self
             .cr
             .test_function_overrides
@@ -1346,7 +1352,10 @@ impl<
         let mut fuzz_config = self.cr.fuzz_config.clone();
 
         // Apply function config overrides if any.
-        let test_identifier = format!("{}::{}", self.cr.name, func.name);
+        let test_identifier = TestFunctionIdentifier {
+            contract_artifact: self.cr.artifact_id.clone(),
+            function_selector: func.selector().to_string(),
+        };
         let overrides = self
             .cr
             .test_function_overrides

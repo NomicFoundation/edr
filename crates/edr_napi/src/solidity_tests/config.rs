@@ -27,6 +27,7 @@ use crate::{
         serialize_optional_bigint_as_struct, serialize_optional_uint8array_as_hex,
         serialize_uint8array_as_hex,
     },
+    solidity_tests::artifact::ArtifactId,
 };
 
 /// Solidity test runner configuration arguments exposed through the ffi.
@@ -161,9 +162,9 @@ pub struct SolidityTestRunnerConfigArgs {
     /// mode.
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
-    /// Test function level config overrides. The keys in the hash map are in
-    /// the format "`ContractName::functionName`". Defaults to None.
-    pub test_function_overrides: Option<HashMap<String, ConfigOverride>>,
+    /// Test function level config overrides.
+    /// Defaults to None.
+    pub test_function_overrides: Option<Vec<TestFunctionOverride>>,
 }
 
 impl SolidityTestRunnerConfigArgs {
@@ -242,16 +243,22 @@ impl SolidityTestRunnerConfigArgs {
         let fuzz: FuzzConfig = fuzz.map(TryFrom::try_from).transpose()?.unwrap_or_default();
 
         // Collect the functions that allow internal expect revert
-        let functions_internal_expect_revert: HashSet<String> = test_function_overrides
-            .as_ref()
-            .map(|overrides| {
-                overrides
-                    .iter()
-                    .filter(|(_, config)| config.allow_internal_expect_revert.unwrap_or_default())
-                    .map(|(key, _)| key.clone())
-                    .collect()
-            })
-            .unwrap_or_default();
+        let functions_internal_expect_revert: HashSet<TestFunctionIdentifier> =
+            test_function_overrides
+                .as_ref()
+                .map(|overrides| {
+                    overrides
+                        .iter()
+                        .filter(|override_item| {
+                            override_item
+                                .config
+                                .allow_internal_expect_revert
+                                .unwrap_or_default()
+                        })
+                        .map(|override_item| override_item.identifier.clone())
+                        .collect()
+                })
+                .unwrap_or_default();
 
         let cheatcode = CheatsConfigOptions {
             // TODO https://github.com/NomicFoundation/edr/issues/657
@@ -285,7 +292,10 @@ impl SolidityTestRunnerConfigArgs {
                 .collect::<Result<_, napi::Error>>()?,
             seed: fuzz.seed,
             allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
-            functions_internal_expect_revert,
+            functions_internal_expect_revert: functions_internal_expect_revert
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<_, _>>()?,
         };
 
         let on_collected_coverage_fn = observability.map_or_else(
@@ -329,12 +339,19 @@ impl SolidityTestRunnerConfigArgs {
             on_collected_coverage_fn,
             test_pattern,
             generate_gas_report,
-            test_function_overrides: test_function_overrides.map(|overrides| {
-                overrides
-                    .into_iter()
-                    .map(|(key, value)| (key, value.into()))
-                    .collect::<HashMap<_, _>>()
-            }),
+            test_function_overrides: test_function_overrides
+                .map(|overrides| {
+                    overrides
+                        .into_iter()
+                        .map(|override_item| {
+                            Ok::<_, napi::Error>((
+                                override_item.identifier.try_into()?,
+                                override_item.config.into(),
+                            ))
+                        })
+                        .collect::<Result<HashMap<_, _>, _>>()
+                })
+                .transpose()?,
         };
 
         Ok(config)
@@ -839,10 +856,10 @@ impl From<edr_solidity_tests::IncludeTraces> for IncludeTraces {
     }
 }
 
-/// Test function or test contract level config override.
+/// Test function level config override.
 #[napi(object)]
 #[derive(Clone, Default, Debug, serde::Serialize)]
-pub struct ConfigOverride {
+pub struct TestFunctionConfigOverride {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test.
     pub allow_internal_expect_revert: Option<bool>,
@@ -852,8 +869,8 @@ pub struct ConfigOverride {
     pub invariant: Option<InvariantConfigOverride>,
 }
 
-impl From<ConfigOverride> for edr_solidity_tests::ConfigOverride {
-    fn from(value: ConfigOverride) -> Self {
+impl From<TestFunctionConfigOverride> for edr_solidity_tests::TestFunctionConfigOverride {
+    fn from(value: TestFunctionConfigOverride) -> Self {
         Self {
             allow_internal_expect_revert: value.allow_internal_expect_revert,
             fuzz: value.fuzz.map(Into::into),
@@ -862,6 +879,49 @@ impl From<ConfigOverride> for edr_solidity_tests::ConfigOverride {
     }
 }
 
+/// Test function override configuration.
+#[napi(object)]
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct TestFunctionOverride {
+    /// The test function identifier
+    pub identifier: TestFunctionIdentifier,
+    /// The configuration override
+    pub config: TestFunctionConfigOverride,
+}
+
+/// Test function identifier.
+#[napi(object)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize)]
+pub struct TestFunctionIdentifier {
+    /// The contract artifact id
+    pub contract_artifact: ArtifactId,
+    /// The function selector as hex string
+    pub function_selector: String,
+}
+
+impl TryFrom<TestFunctionIdentifier> for edr_solidity_tests::TestFunctionIdentifier {
+    type Error = napi::Error;
+
+    fn try_from(value: TestFunctionIdentifier) -> napi::Result<Self> {
+        Ok(edr_solidity_tests::TestFunctionIdentifier {
+            contract_artifact: value.contract_artifact.try_into()?,
+            function_selector: value.function_selector,
+        })
+    }
+}
+
+impl TryFrom<TestFunctionIdentifier> for foundry_cheatcodes::TestFunctionIdentifier {
+    type Error = napi::Error;
+
+    fn try_from(value: TestFunctionIdentifier) -> napi::Result<Self> {
+        Ok(foundry_cheatcodes::TestFunctionIdentifier {
+            contract_artifact: value.contract_artifact.try_into()?,
+            function_selector: value.function_selector,
+        })
+    }
+}
+
+/// Timeout configuration.
 #[napi(object)]
 #[derive(Clone, Default, Debug, serde::Serialize)]
 pub struct TimeoutConfig {

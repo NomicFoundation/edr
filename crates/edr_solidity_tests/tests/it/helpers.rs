@@ -3,7 +3,7 @@
 mod config;
 mod tracing;
 
-pub use config::{assert_multiple, TestConfig};
+pub use config::{assert_multiple, make_test_identifier, TestConfig};
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
