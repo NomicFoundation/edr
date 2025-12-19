@@ -2,15 +2,12 @@ use core::marker::PhantomData;
 use std::sync::Arc;
 
 use edr_block_api::Block;
-use edr_blockchain_api::{
-    r#dyn::DynBlockchainError, BlockHashByNumber, BlockHashByNumberAndScheduledBlobParams,
-    BlockchainScheduledBlobParams,
-};
+use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_primitives::B256;
 
 /// A blockchain with a pending block.
 pub(crate) struct BlockchainWithPending<'blockchain, LocalBlockT, SignedTransactionT> {
-    blockchain: &'blockchain dyn BlockHashByNumberAndScheduledBlobParams<DynBlockchainError>,
+    blockchain: &'blockchain dyn BlockHashByNumber<Error = DynBlockchainError>,
     pending_block: Arc<LocalBlockT>,
     _phantom: PhantomData<SignedTransactionT>,
 }
@@ -21,7 +18,7 @@ impl<'blockchain, LocalBlockT, SignedTransactionT>
     /// Constructs a new instance with the provided blockchain and pending
     /// block.
     pub fn new(
-        blockchain: &'blockchain dyn BlockHashByNumberAndScheduledBlobParams<DynBlockchainError>,
+        blockchain: &'blockchain dyn BlockHashByNumber<Error = DynBlockchainError>,
         pending_block: LocalBlockT,
     ) -> Self {
         Self {
@@ -48,13 +45,5 @@ impl<LocalBlockT: Block<SignedTransactionT>, SignedTransactionT> BlockHashByNumb
         } else {
             self.blockchain.block_hash_by_number(block_number)
         }
-    }
-}
-
-impl<LocalBlockT: Block<SignedTransactionT>, SignedTransactionT> BlockchainScheduledBlobParams
-    for BlockchainWithPending<'_, LocalBlockT, SignedTransactionT>
-{
-    fn scheduled_blob_params(&self) -> Option<&edr_eip7892::ScheduledBlobParams> {
-        self.blockchain.scheduled_blob_params()
     }
 }

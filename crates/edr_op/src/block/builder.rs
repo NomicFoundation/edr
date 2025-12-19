@@ -4,7 +4,7 @@ use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
     BlockTransactionError, BuiltBlockAndState, DatabaseComponents, PrecompileFn, WrapDatabaseRef,
 };
-use edr_block_header::{overridden_block_number, HeaderOverrides, PartialHeader};
+use edr_block_header::{overridden_block_number, BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_l1::block::EthBlockBuilder;
 use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_block::BlockChainSpec;
@@ -57,6 +57,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
             Self::LocalBlock,
             OpSignedTransaction,
         >,
+        block_config: &'builder BlockConfig<Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         mut inputs: BlockInputs,
@@ -102,7 +103,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
                 let chain_base_fee_params = overrides
                     .base_fee_params
                     .as_ref()
-                    .unwrap_or_else(|| blockchain.base_fee_params())
+                    .unwrap_or(&block_config.base_fee_params)
                     .clone();
 
                 let current_block_number = blockchain.last_block_number() + 1;
@@ -161,6 +162,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
         let eth = EthBlockBuilder::new(
             l1_block_info,
             blockchain,
+            block_config,
             state,
             evm_config,
             inputs,
@@ -330,7 +332,7 @@ mod tests {
         };
         let genesis_block = OpChainSpec::genesis_block(
             StateDiff::default(),
-            block_config.clone(),
+            &block_config,
             GenesisBlockOptions {
                 mix_hash: Some(B256::ZERO),
                 ..GenesisBlockOptions::default()
@@ -341,7 +343,7 @@ mod tests {
             genesis_block,
             StateDiff::default(),
             1234,
-            block_config,
+            hardfork,
         )?)
     }
 

@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use edr_blockchain_api::GetBlockchainBlock as _;
-use edr_chain_spec_provider::{default_block_config, ProviderChainSpec};
+use edr_chain_spec_provider::ProviderChainSpec;
 use edr_defaults::CACHE_DIR;
 use edr_generic::GenericChainSpec;
 use edr_provider::spec::ForkedBlockchainForChainSpec;
@@ -27,10 +27,8 @@ async fn unknown_transaction_types() -> anyhow::Result<()> {
     let mut irregular_state = IrregularState::default();
     let state_root_generator = Arc::new(Mutex::new(RandomHashGenerator::with_seed("test")));
 
-    let block_config = default_block_config::<GenericChainSpec>(edr_chain_l1::Hardfork::default());
-
     let blockchain = ForkedBlockchainForChainSpec::<GenericChainSpec>::new(
-        block_config,
+        edr_chain_l1::Hardfork::default(),
         runtime::Handle::current(),
         Arc::new(rpc_client),
         &mut irregular_state,

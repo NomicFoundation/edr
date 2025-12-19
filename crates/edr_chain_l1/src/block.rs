@@ -62,6 +62,7 @@ pub struct EthBlockBuilder<
         LocalBlockT,
         EvmChainSpecT::SignedTransaction,
     >,
+    block_config: &'builder BlockConfig<EvmChainSpecT::Hardfork>,
     cfg: CfgEnv<EvmChainSpecT::Hardfork>,
     context: EvmChainSpecT::Context,
     header: PartialHeader,
@@ -197,7 +198,7 @@ impl<
             let blob_params = blob_params_for_hardfork(
                 self.config().spec.into(),
                 self.header.timestamp,
-                self.blockchain.scheduled_blob_params(),
+                self.block_config.scheduled_blob_params.as_ref(),
             );
 
             if block_blob_gas_used + blob_gas_used > blob_params.max_blob_gas_per_block() {
@@ -255,6 +256,7 @@ impl<
 {
     /// Creates a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         context: ChainSpecT::Context,
         blockchain: &'builder dyn Blockchain<
@@ -265,6 +267,7 @@ impl<
             LocalBlockT,
             ChainSpecT::SignedTransaction,
         >,
+        block_config: &'builder BlockConfig<ChainSpecT::Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,
@@ -301,12 +304,7 @@ impl<
 
         let cfg = evm_config.to_cfg_env(hardfork);
         let header = PartialHeader::new(
-            BlockConfig {
-                base_fee_params: blockchain.base_fee_params().clone(),
-                hardfork,
-                min_ethash_difficulty: blockchain.min_ethash_difficulty(),
-                scheduled_blob_params: blockchain.scheduled_blob_params().cloned(),
-            },
+            block_config,
             overrides,
             Some(parent_header),
             &inputs.ommers,
@@ -315,6 +313,7 @@ impl<
 
         Ok(Self {
             blockchain,
+            block_config,
             cfg,
             context,
             header,
@@ -347,7 +346,7 @@ impl<
         let block_env = HeaderAndEvmSpec::new_block_env(
             &self.header,
             self.cfg.spec.into(),
-            self.blockchain().scheduled_blob_params().cloned(),
+            self.block_config.scheduled_blob_params.as_ref(),
         );
 
         let receipt_builder =
@@ -411,7 +410,7 @@ impl<
         let block_env = ChainSpecT::BlockEnv::new_block_env(
             &self.header,
             self.cfg.spec,
-            self.blockchain().scheduled_blob_params().cloned(),
+            self.block_config.scheduled_blob_params.as_ref(),
         );
 
         let receipt_builder =
@@ -674,6 +673,7 @@ impl<
             LocalBlockT,
             ChainSpecT::SignedTransaction,
         >,
+        block_config: &'builder BlockConfig<ChainSpecT::Hardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,
@@ -689,6 +689,7 @@ impl<
         Self::new(
             ChainSpecT::Context::default(),
             blockchain,
+            block_config,
             state,
             evm_config,
             inputs,

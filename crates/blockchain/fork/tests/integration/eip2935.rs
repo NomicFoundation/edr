@@ -8,7 +8,7 @@ use edr_blockchain_fork::{
     ForkedBlockchainCreationError,
 };
 use edr_chain_l1::L1ChainSpec;
-use edr_chain_spec_provider::{default_block_config, ProviderChainSpec as _};
+use edr_chain_spec_provider::ProviderChainSpec;
 use edr_primitives::{bytes, Bytecode, Bytes};
 use edr_provider::spec::ForkedBlockchainForChainSpec;
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
@@ -39,7 +39,7 @@ async fn forked_blockchain(
     .expect("url ok");
 
     ForkedBlockchainForChainSpec::<L1ChainSpec>::new(
-        default_block_config::<L1ChainSpec>(local_hardfork),
+        local_hardfork,
         runtime,
         Arc::new(rpc_client),
         irregular_state,

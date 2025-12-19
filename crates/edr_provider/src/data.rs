@@ -23,8 +23,7 @@ use edr_block_header::{
 use edr_block_miner::{mine_block, mine_block_with_single_transaction};
 use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
-    BlockHashByNumberAndScheduledBlobParams, BlockchainMetadata, GetBlockchainBlock as _,
-    StateAtBlock as _,
+    BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock as _, StateAtBlock as _,
 };
 use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
@@ -36,6 +35,7 @@ use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip1559::BaseFeeParams;
+use edr_eip7892::ScheduledBlobParams;
 use edr_eth::{
     block::miner_reward,
     fee_history::FeeHistoryResult,
@@ -199,6 +199,7 @@ pub struct ProviderData<
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     bail_on_transaction_failure: bool,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
+    block_config: BlockConfig<ChainSpecT::Hardfork>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     mining_config: MiningConfig,
@@ -576,6 +577,9 @@ where
         }
     }
 
+    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
+        self.block_config.scheduled_blob_params.as_ref()
+    }
     pub fn sign(
         &self,
         address: &Address,
@@ -622,6 +626,7 @@ where
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
         let BlockchainAndState {
             blockchain,
+            block_config,
             fork_metadata,
             rpc_client,
             state,
@@ -682,6 +687,7 @@ where
             bail_on_transaction_failure: config.bail_on_transaction_failure,
             base_fee_params: config.base_fee_params,
             blockchain,
+            block_config,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
             mining_config: config.mining,
@@ -1702,7 +1708,7 @@ where
         let base_fee = calculate_next_base_fee_per_blob_gas(
             last_block.block_header(),
             self.hardfork(),
-            self.blockchain.scheduled_blob_params(),
+            self.scheduled_blob_params(),
         );
 
         Ok(Some(base_fee))
@@ -1723,7 +1729,7 @@ where
         ChainSpecT::next_base_fee_per_gas(
             header,
             self.hardfork(),
-            self.blockchain.base_fee_params(),
+            &self.block_config.base_fee_params,
         )
     }
 }
@@ -1773,12 +1779,18 @@ where
 
         let custom_precompiles = self.precompile_overrides.clone();
 
+        let scheduled_blob_params = self.scheduled_blob_params().cloned();
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
             let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut evm_observer);
+            let block_env = ChainSpecT::BlockEnv::new_block_env(
+                block.block_header(),
+                cfg_env.spec,
+                scheduled_blob_params.as_ref(),
+            );
 
             let result = call::run_call::<ChainSpecT, _, _, _>(
                 blockchain,
-                block.block_header(),
+                block_env,
                 state.as_ref(),
                 cfg_env,
                 transaction,
@@ -2102,7 +2114,7 @@ where
             let current_state = (*self.current_state()?).clone();
 
             self.blockchain
-                .reserve_blocks(remaining_blocks - 1, interval)?;
+                .reserve_blocks(&self.block_config, remaining_blocks - 1, interval)?;
 
             // Ensure there is a cache entry for the last reserved block, to avoid
             // recomputation
@@ -2196,13 +2208,19 @@ where
                 });
 
         let contract_decoder = Arc::clone(&self.contract_decoder);
+        let scheduled_blob_params = self.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
 
+            let block_env = ChainSpecT::BlockEnv::new_block_env(
+                block.block_header(),
+                cfg_env.spec,
+                scheduled_blob_params.as_ref(),
+            );
             let execution_result = call::run_call::<ChainSpecT, _, _, _>(
                 blockchain,
-                block.block_header(),
+                block_env,
                 state_overrider,
                 cfg_env,
                 transaction,
@@ -2256,7 +2274,7 @@ where
         &mut self,
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
-            &dyn BlockHashByNumberAndScheduledBlobParams<DynBlockchainError>,
+            &dyn BlockHashByNumber<Error = DynBlockchainError>,
             &Arc<ChainSpecT::Block>,
             &Box<dyn DynState>,
         ) -> T,
@@ -2300,6 +2318,7 @@ where
 
         let result = mine_block::<ChainSpecT, _, _>(
             self.blockchain.as_ref(),
+            &self.block_config,
             state_to_be_modified,
             &self.mem_pool,
             evm_config,
@@ -2330,6 +2349,7 @@ where
 
         let result = mine_block_with_single_transaction::<ChainSpecT, _, _>(
             self.blockchain.as_ref(),
+            &self.block_config,
             state_to_be_modified,
             transaction,
             evm_config,
@@ -2504,14 +2524,14 @@ where
             ..EvmObserverConfig::from(&self.observability)
         };
 
-        let scheduled_blob_params = self.blockchain.scheduled_blob_params().cloned();
+        let scheduled_blob_params = self.scheduled_blob_params().cloned();
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
                 let block_env = ChainSpecT::BlockEnv::new_block_env(
                     header,
                     cfg_env.spec,
-                    scheduled_blob_params,
+                    scheduled_blob_params.as_ref(),
                 );
 
                 debug_trace_transaction::<ChainSpecT>(
@@ -2589,6 +2609,7 @@ where
 
         let custom_precompiles = self.precompile_overrides.clone();
         let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
+        let scheduled_blob_params = self.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.block_header();
@@ -2596,9 +2617,14 @@ where
             // Measure the gas used by the transaction with optional limit from call request
             // defaulting to block limit. Report errors from initial call as if from
             // `eth_call`.
+            let block_env = ChainSpecT::BlockEnv::new_block_env(
+                block.block_header(),
+                cfg_env.spec,
+                scheduled_blob_params.as_ref(),
+            );
             let result = call::run_call::<'_, ChainSpecT, _, _, _>(
                 blockchain,
-                header,
+                block_env,
                 state,
                 cfg_env.clone(),
                 transaction.clone(),
@@ -2665,6 +2691,7 @@ where
                 gas_limit: initial_estimation,
                 custom_precompiles: &custom_precompiles,
                 trace_collector: &mut trace_collector,
+                scheduled_blob_params: scheduled_blob_params.as_ref(),
             })?;
 
             // Return the initial estimation if it was successful
@@ -2689,6 +2716,7 @@ where
                     upper_bound: header.gas_limit,
                     custom_precompiles: &custom_precompiles,
                     trace_collector: &mut trace_collector,
+                    scheduled_blob_params: scheduled_blob_params.as_ref(),
                 })?;
 
             let traces = trace_collector.into_traces();
@@ -2731,6 +2759,7 @@ fn block_time_offset_seconds<ChainSpecT: ProviderChainSpec, TimerT: TimeSinceEpo
 
 struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
+    block_config: BlockConfig<ChainSpecT::Hardfork>,
     fork_metadata: Option<ForkMetadata>,
     rpc_client: Option<Arc<EthRpcClientForChainSpec<ChainSpecT>>>,
     state: Box<dyn DynState>,
@@ -2805,7 +2834,7 @@ fn create_blockchain_and_state<
                 let mut irregular_state = IrregularState::default();
                 let blockchain =
                     runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
-                        block_config,
+                        block_config.hardfork,
                         runtime.clone(),
                         rpc_client.clone(),
                         &mut irregular_state,
@@ -2942,6 +2971,7 @@ fn create_blockchain_and_state<
             }),
             rpc_client: Some(rpc_client),
             blockchain: Box::new(DynBlockchain::new(blockchain)),
+            block_config,
             state: Box::new(state),
             irregular_state,
             prev_randao_generator,
@@ -3007,7 +3037,7 @@ fn create_blockchain_and_state<
         let genesis_diff = StateDiff::from(genesis_state);
         let genesis_block = ChainSpecT::genesis_block(
             genesis_diff.clone(),
-            block_config.clone(),
+            &block_config,
             GenesisBlockOptions {
                 extra_data: None,
                 withdrawals_root: None,
@@ -3029,7 +3059,7 @@ fn create_blockchain_and_state<
             genesis_block,
             genesis_diff,
             config.chain_id,
-            block_config,
+            block_config.hardfork,
         )
         .map_err(CreationError::InvalidGenesisBlock)?;
 
@@ -3045,6 +3075,7 @@ fn create_blockchain_and_state<
             fork_metadata: None,
             rpc_client: None,
             blockchain: Box::new(DynBlockchain::new(blockchain)),
+            block_config,
             state,
             irregular_state,
             block_time_offset_seconds,

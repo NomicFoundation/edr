@@ -30,14 +30,15 @@ fn local_blockchain(
 
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        block_config.clone(),
+        &block_config,
         GenesisBlockOptions {
             mix_hash: Some(prev_randao_generator.generate_next()),
             ..GenesisBlockOptions::default()
         },
     )?;
 
-    let blockchain = LocalBlockchain::new(genesis_block, genesis_diff, CHAIN_ID, block_config)?;
+    let blockchain =
+        LocalBlockchain::new(genesis_block, genesis_diff, CHAIN_ID, block_config.hardfork)?;
     Ok(blockchain)
 }
 

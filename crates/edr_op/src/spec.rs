@@ -215,7 +215,7 @@ impl GenesisBlockFactory for OpChainSpec {
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: BlockConfig<Self::Hardfork>,
+        block_config: &BlockConfig<Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         let genesis_state = PersistentStateTrie::from(genesis_diff);

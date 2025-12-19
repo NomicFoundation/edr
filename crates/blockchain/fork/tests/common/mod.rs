@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use edr_chain_l1::L1ChainSpec;
-use edr_chain_spec_provider::{default_block_config, ProviderChainSpec as _};
+use edr_chain_spec_provider::ProviderChainSpec as _;
 use edr_provider::spec::ForkedBlockchainForChainSpec;
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::irregular::IrregularState;
@@ -32,11 +32,9 @@ pub async fn create_dummy_forked_blockchain(
     )
     .expect("url ok");
 
-    let block_config = default_block_config::<L1ChainSpec>(edr_chain_l1::Hardfork::default());
-
     let mut irregular_state = IrregularState::default();
     ForkedBlockchainForChainSpec::<L1ChainSpec>::new(
-        block_config,
+        edr_chain_l1::Hardfork::default(),
         tokio::runtime::Handle::current(),
         Arc::new(rpc_client),
         &mut irregular_state,

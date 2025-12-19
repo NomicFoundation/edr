@@ -205,21 +205,21 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for BlockHeader 
 /// Wrapper type combining a header with its associated hardfork.
 ///
 /// Both are needed to implement the [`BlockEnvTrait`] trait.
-pub struct HeaderAndEvmSpec<'header, BlockHeaderT: BlockEnvForHardfork<HardforkT>, HardforkT> {
+pub struct HeaderAndEvmSpec<'env, BlockHeaderT: BlockEnvForHardfork<HardforkT>, HardforkT> {
     pub hardfork: HardforkT,
-    pub header: &'header BlockHeaderT,
-    pub scheduled_blob_params: Option<ScheduledBlobParams>,
+    pub header: &'env BlockHeaderT,
+    pub scheduled_blob_params: Option<&'env ScheduledBlobParams>,
 }
 
-impl<'header, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
-    BlockEnvConstructor<HardforkT, &'header BlockHeaderT>
-    for HeaderAndEvmSpec<'header, BlockHeaderT, HardforkT>
+impl<'env, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
+    BlockEnvConstructor<'env, HardforkT, &'env BlockHeaderT>
+    for HeaderAndEvmSpec<'env, BlockHeaderT, HardforkT>
 {
     fn new_block_env(
-        header: &'header BlockHeaderT,
+        header: &'env BlockHeaderT,
         hardfork: HardforkT,
-        scheduled_blob_params: Option<ScheduledBlobParams>,
-    ) -> HeaderAndEvmSpec<'header, BlockHeaderT, HardforkT> {
+        scheduled_blob_params: Option<&'env ScheduledBlobParams>,
+    ) -> HeaderAndEvmSpec<'env, BlockHeaderT, HardforkT> {
         HeaderAndEvmSpec {
             hardfork,
             header,
@@ -260,10 +260,8 @@ impl<HardforkT: Copy + Into<EvmSpecId>, BlockHeaderT: BlockEnvForHardfork<Hardfo
     }
 
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
-        self.header.blob_excess_gas_and_price_for_hardfork(
-            self.hardfork,
-            self.scheduled_blob_params.as_ref(),
-        )
+        self.header
+            .blob_excess_gas_and_price_for_hardfork(self.hardfork, self.scheduled_blob_params)
     }
 }
 
@@ -318,7 +316,7 @@ impl PartialHeader {
     /// Constructs a new instance based on the provided [`HeaderOverrides`] and
     /// parent [`BlockHeader`] for the given [`EvmSpecId`].
     pub fn new<HardforkT: Clone + Into<EvmSpecId> + PartialOrd>(
-        block_config: BlockConfig<HardforkT>,
+        block_config: &BlockConfig<HardforkT>,
         overrides: HeaderOverrides<HardforkT>,
         parent: Option<&BlockHeader>,
         ommers: &Vec<BlockHeader>,
@@ -341,7 +339,6 @@ impl PartialHeader {
                 B256::ZERO
             }
         });
-
         let evm_spec_id = hardfork.clone().into();
 
         let base_fee = overrides.base_fee.or_else(|| {
@@ -352,8 +349,8 @@ impl PartialHeader {
                         overrides
                             .base_fee_params
                             .as_ref()
-                            .unwrap_or(&base_fee_params),
-                        hardfork,
+                            .unwrap_or(base_fee_params),
+                        hardfork.clone(),
                     )
                 } else {
                     u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
@@ -379,7 +376,7 @@ impl PartialHeader {
                         parent,
                         number,
                         timestamp,
-                        min_ethash_difficulty,
+                        *min_ethash_difficulty,
                     )
                 } else {
                     U256::from(1)

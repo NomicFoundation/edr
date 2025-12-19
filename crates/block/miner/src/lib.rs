@@ -5,7 +5,9 @@ use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
     BlockTransactionError, Blockchain, BuiltBlockAndState, PrecompileFn, WrapDatabaseRef,
 };
-use edr_block_header::{calculate_next_base_fee_per_blob_gas, HeaderOverrides, PartialHeader};
+use edr_block_header::{
+    calculate_next_base_fee_per_blob_gas, BlockConfig, HeaderOverrides, PartialHeader,
+};
 use edr_chain_spec::{
     ChainSpec, EvmTransactionValidationError, ExecutableTransaction, HardforkChainSpec,
     TransactionValidation,
@@ -94,6 +96,7 @@ pub fn mine_block<
         ChainSpecT::LocalBlock,
         ChainSpecT::SignedTransaction,
     >,
+    block_config: &BlockConfig<ChainSpecT::Hardfork>,
     state: Box<dyn DynState>,
     mem_pool: &MemPool<ChainSpecT::SignedTransaction>,
     evm_config: &EvmConfig,
@@ -131,6 +134,7 @@ where
     let block_inputs = BlockInputs::empty(blockchain.hardfork());
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
         blockchain,
+        block_config,
         state,
         evm_config,
         block_inputs,
@@ -322,6 +326,7 @@ pub fn mine_block_with_single_transaction<
         ChainSpecT::LocalBlock,
         ChainSpecT::SignedTransaction,
     >,
+    block_config: &BlockConfig<ChainSpecT::Hardfork>,
     state: Box<dyn DynState>,
     transaction: ChainSpecT::SignedTransaction,
     evm_config: &EvmConfig,
@@ -395,7 +400,7 @@ where
         let base_fee_per_blob_gas = calculate_next_base_fee_per_blob_gas(
             parent_block.block_header(),
             hardfork,
-            blockchain.scheduled_blob_params(),
+            block_config.scheduled_blob_params.as_ref(),
         );
         if *max_fee_per_blob_gas < base_fee_per_blob_gas {
             return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
@@ -429,6 +434,7 @@ where
 
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
         blockchain,
+        block_config,
         state,
         evm_config,
         BlockInputs::empty(hardfork),

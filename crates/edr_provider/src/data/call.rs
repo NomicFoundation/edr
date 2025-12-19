@@ -1,8 +1,6 @@
 use edr_block_header::BlockHeader;
-use edr_blockchain_api::{
-    r#dyn::DynBlockchainError, BlockHashByNumber, BlockchainScheduledBlobParams,
-};
-use edr_chain_spec::{BlobExcessGasAndPrice, BlockEnvConstructor};
+use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
+use edr_chain_spec::BlobExcessGasAndPrice;
 use edr_chain_spec_evm::{
     result::ExecutionResult, BlockEnvTrait, CfgEnv, ContextForChainSpec, Inspector,
 };
@@ -57,7 +55,7 @@ impl<BlockEnvT: BlockEnvTrait> BlockEnvTrait for BlockEnvWithZeroBaseFee<BlockEn
 /// Execute a transaction as a call. Returns the gas used and the output.
 pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
     blockchain: BlockchainT,
-    block_header: &'call BlockHeader,
+    block_env: ChainSpecT::BlockEnv<'call, BlockHeader>,
     state: StateT,
     cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
@@ -65,7 +63,7 @@ pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
     inspector: &'call mut InspectorT,
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    BlockchainT: BlockHashByNumber<Error = DynBlockchainError> + BlockchainScheduledBlobParams,
+    BlockchainT: BlockHashByNumber<Error = DynBlockchainError>,
     ChainSpecT: ProviderChainSpec,
     InspectorT: Inspector<
         ContextForChainSpec<
@@ -76,12 +74,6 @@ where
     >,
     StateT: State<Error = StateError>,
 {
-    let block_env = ChainSpecT::BlockEnv::new_block_env(
-        block_header,
-        cfg_env.spec,
-        blockchain.scheduled_blob_params().cloned(),
-    );
-
     guaranteed_dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
         blockchain,
         state,

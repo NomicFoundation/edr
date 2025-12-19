@@ -28,7 +28,7 @@ pub fn create_dummy_local_blockchain() -> LocalBlockchainForChainSpec<L1ChainSpe
     let genesis_diff = StateDiff::default();
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        block_config.clone(),
+        &block_config,
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),
@@ -42,7 +42,7 @@ pub fn create_dummy_local_blockchain() -> LocalBlockchainForChainSpec<L1ChainSpe
         genesis_block,
         genesis_diff,
         L1_MAINNET_CHAIN_ID,
-        block_config,
+        block_config.hardfork,
     )
     .expect("Should construct without issues")
 }

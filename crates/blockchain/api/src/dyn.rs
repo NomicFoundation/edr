@@ -4,16 +4,15 @@ use core::marker::PhantomData;
 use std::{collections::BTreeMap, sync::Arc};
 
 use edr_block_api::BlockAndTotalDifficulty;
-use edr_eip1559::BaseFeeParams;
-use edr_eip7892::ScheduledBlobParams;
+use edr_block_header::BlockConfig;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 use edr_state_api::{DynState, StateDiff, StateOverride};
 
 use crate::{
-    BlockHashByNumber, Blockchain, BlockchainMetadata, BlockchainScheduledBlobParams,
-    GetBlockchainBlock, GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks,
-    RevertToBlock, StateAtBlock, TotalDifficultyByBlockHash,
+    BlockHashByNumber, Blockchain, BlockchainMetadata, GetBlockchainBlock, GetBlockchainLogs,
+    InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock, StateAtBlock,
+    TotalDifficultyByBlockHash,
 };
 
 /// Wrapper around `Box<dyn std::error::Error` to allow implementation of
@@ -157,10 +156,6 @@ impl<
 {
     type Error = DynBlockchainError;
 
-    fn base_fee_params(&self) -> &BaseFeeParams<HardforkT> {
-        self.inner.base_fee_params()
-    }
-
     fn chain_id(&self) -> u64 {
         self.inner.chain_id()
     }
@@ -185,45 +180,11 @@ impl<
         self.inner.last_block_number()
     }
 
-    fn min_ethash_difficulty(&self) -> u64 {
-        self.inner.min_ethash_difficulty()
-    }
-
     fn network_id(&self) -> u64 {
         self.inner.network_id()
     }
 }
 
-impl<
-        BlockReceiptT,
-        BlockT: ?Sized,
-        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
-        BlockchainT: Blockchain<
-            BlockReceiptT,
-            BlockT,
-            BlockchainErrorT,
-            HardforkT,
-            LocalBlockT,
-            SignedTransactionT,
-        >,
-        HardforkT,
-        LocalBlockT,
-        SignedTransactionT,
-    > BlockchainScheduledBlobParams
-    for DynBlockchain<
-        BlockReceiptT,
-        BlockT,
-        BlockchainErrorT,
-        BlockchainT,
-        HardforkT,
-        LocalBlockT,
-        SignedTransactionT,
-    >
-{
-    fn scheduled_blob_params(&self) -> Option<&ScheduledBlobParams> {
-        self.inner.scheduled_blob_params()
-    }
-}
 impl<
         BlockReceiptT,
         BlockT: ?Sized,
@@ -411,7 +372,7 @@ impl<
         HardforkT,
         LocalBlockT,
         SignedTransactionT,
-    > ReserveBlocks
+    > ReserveBlocks<HardforkT>
     for DynBlockchain<
         BlockReceiptT,
         BlockT,
@@ -424,9 +385,14 @@ impl<
 {
     type Error = DynBlockchainError;
 
-    fn reserve_blocks(&mut self, additional: u64, interval: u64) -> Result<(), Self::Error> {
+    fn reserve_blocks(
+        &mut self,
+        block_config: &BlockConfig<HardforkT>,
+        additional: u64,
+        interval: u64,
+    ) -> Result<(), Self::Error> {
         self.inner
-            .reserve_blocks(additional, interval)
+            .reserve_blocks(block_config, additional, interval)
             .map_err(DynBlockchainError::new)
     }
 }

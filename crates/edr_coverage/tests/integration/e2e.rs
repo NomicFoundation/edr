@@ -150,7 +150,7 @@ fn record_hits() -> anyhow::Result<()> {
     let genesis_diff = StateDiff::default();
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        block_config.clone(),
+        &block_config,
         GenesisBlockOptions {
             mix_hash: Some(B256::random()),
             ..GenesisBlockOptions::default()
@@ -161,7 +161,7 @@ fn record_hits() -> anyhow::Result<()> {
         genesis_block,
         genesis_diff,
         CHAIN_ID,
-        block_config,
+        block_config.hardfork,
     )?;
 
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
