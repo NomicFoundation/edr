@@ -4326,6 +4326,12 @@ mod tests {
                 url: get_alchemy_url(),
                 header_overrides_constructor: l1_header_overrides,
             },
+            mainnet_blob_excess_gas_calculation_issue => L1ChainSpec {
+                block_number: 24_035_797,
+                url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
+            },
+
         }
     }
 }

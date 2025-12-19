@@ -409,34 +409,44 @@ impl PartialHeader {
             }),
             blob_gas: overrides.blob_gas.or_else(|| {
                 if evm_spec_id >= EvmSpecId::CANCUN {
-                    let excess_gas = parent.and_then(|parent| parent.blob_gas.as_ref()).map_or(
-                        // For the first (post-fork) block, both parent.blob_gas_used and
-                        // parent.excess_blob_gas are evaluated as 0.
+                    let excess_gas = parent.map_or(
+                        // For the first block, both `blob_gas_used` and `excess_blob_gas` are
+                        // evaluated as 0.
                         0,
-                        |BlobGas {
-                             gas_used,
-                             excess_gas,
-                         }| {
-                            let blob_params = blob_params_for_hardfork(
-                                evm_spec_id,
-                                timestamp,
-                                scheduled_blob_params.as_ref(),
-                            );
+                        |parent| {
+                            parent.blob_gas.as_ref().map_or(
+                                // For the first post-fork block, both `blob_gas_used` and
+                                // `excess_blob_gas` are evaluated as 0.
+                                0,
+                                |BlobGas {
+                                     gas_used,
+                                     excess_gas,
+                                 }| {
+                                    let blob_params = blob_params_for_hardfork(
+                                        evm_spec_id,
+                                        timestamp,
+                                        scheduled_blob_params.as_ref(),
+                                    );
 
-                            let base_fee = if evm_spec_id >= EvmSpecId::OSAKA {
-                                base_fee.expect("base fee must be set for post-Osaka blocks")
-                            } else {
-                                // In pre-Osaka (EIP-4844) scenarios, the base fee parameter is not
-                                // used in excess blob gas calculation. Passing 0 is acceptable here
-                                // because `next_block_excess_blob_gas_osaka` ignores the base fee
-                                // value for these hardforks.
-                                0
-                            };
+                                    let base_fee = if evm_spec_id >= EvmSpecId::OSAKA {
+                                        parent
+                                            .base_fee_per_gas
+                                            .expect("base fee must be set for post-Osaka blocks")
+                                    } else {
+                                        // In pre-Osaka (EIP-4844) scenarios, the base fee parameter
+                                        // is not used in excess blob gas calculation. Passing 0 is
+                                        // acceptable here because
+                                        // `next_block_excess_blob_gas_osaka` ignores the base fee
+                                        // value for these hardforks.
+                                        0
+                                    };
 
-                            blob_params.next_block_excess_blob_gas_osaka(
-                                *excess_gas,
-                                *gas_used,
-                                base_fee.try_into().expect("base fee is too large"),
+                                    blob_params.next_block_excess_blob_gas_osaka(
+                                        *excess_gas,
+                                        *gas_used,
+                                        base_fee.try_into().expect("base fee is too large"),
+                                    )
+                                },
                             )
                         },
                     );
