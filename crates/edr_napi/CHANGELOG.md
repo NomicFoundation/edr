@@ -1,5 +1,12 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.20
+
+### Patch Changes
+
+- 34e1ab4: Updated base mainnet eip1559 parameters after SystemConfig update on 2025-12-18
+- 2272bc0: Fixed `excess_blob_gas` calculation after Osaka
+
 ## 0.12.0-next.19
 
 ### Patch Changes
