@@ -118,6 +118,7 @@ pub struct CheatsConfigOptions {
     pub functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
 }
 
+// TODO: https://github.com/NomicFoundation/edr/issues/1184
 /// Test function identifier.
 /// Note: Equality and hashing ignore `contract_artifact.version`.
 #[derive(Clone, Debug)]

@@ -1145,6 +1145,63 @@ impl<
             None => false,
         }
     }
+
+    /// Identifies the test function being called by looking up the contract
+    /// artifact and matching the function selector from the call input.
+    fn identify_test_function_from_call<DatabaseT>(
+        &self,
+        call: &CallInputs,
+        ecx: &mut revm::context::Context<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) -> Option<TestFunctionIdentifier>
+    where
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    {
+        // Load account and get its deployed code
+        let account = ecx.journaled_state.load_account(call.target_address).ok()?;
+        let code = account.info.code.as_ref()?;
+
+        // Find the artifact matching the deployed code
+        let (artifact_id, contract_data) = self
+            .config
+            .available_artifacts
+            .find_by_deployed_code(code.original_byte_slice())?;
+
+        // Extract the 4-byte function selector from call input
+        let input = call.input.bytes(ecx);
+        if input.len() < 4 {
+            return None;
+        }
+
+        let selector = input
+            .get(..4)
+            .map(Selector::from_slice)
+            .expect("Input must have at least 4 bytes");
+
+        // Find matching function in the contract ABI
+        contract_data
+            .abi
+            .functions()
+            .find(|f| f.selector() == selector)
+            .map(|function| TestFunctionIdentifier {
+                contract_artifact: artifact_id.clone(),
+                function_selector: function.selector().to_string(),
+            })
+    }
 }
 
 impl<
@@ -1452,39 +1509,12 @@ impl<
 
                     let internal_expect_revert =
                         self.config.internal_expect_revert || expected_revert.allow_internal || {
-                            // Check if there is function-level
-                            // only if we don't have a global config allowing
-                            let identifier = ecx
-                                .journaled_state
-                                .load_account(call.target_address)
-                                .ok()
-                                .and_then(|account| account.info.code.as_ref())
-                                .and_then(|code| {
-                                    self.config
-                                        .available_artifacts
-                                        .find_by_deployed_code(code.original_byte_slice())
+                            // If no global config enables it, check for function-level override
+                            self.identify_test_function_from_call(call, ecx)
+                                .as_ref()
+                                .is_some_and(|id| {
+                                    self.config.functions_internal_expect_revert.contains(id)
                                 })
-                                .and_then(|(artifact_id, contract_data)| {
-                                    let input = call.input.bytes(ecx);
-                                    (input.len() >= 4).then(|| {
-                                        let selector = input
-                                            .get(..4)
-                                            .map(Selector::from_slice)
-                                            .expect("Input must have at least 4 bytes");
-                                        contract_data
-                                            .abi
-                                            .functions()
-                                            .find(|f| f.selector() == selector)
-                                            .map(|function| TestFunctionIdentifier {
-                                                contract_artifact: artifact_id.clone(),
-                                                function_selector: function.selector().to_string(),
-                                            })
-                                    })?
-                                });
-
-                            identifier.as_ref().is_some_and(|id| {
-                                self.config.functions_internal_expect_revert.contains(id)
-                            })
                         };
 
                     return match revert_handlers::handle_expect_revert(

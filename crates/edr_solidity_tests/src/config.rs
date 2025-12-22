@@ -182,7 +182,7 @@ pub struct TestFunctionConfigOverride {
 }
 
 /// Timeout configuration.
-#[derive(Clone, Debug, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct TimeoutConfig {
     /// Optional timeout (in seconds)
     pub time: Option<u32>,

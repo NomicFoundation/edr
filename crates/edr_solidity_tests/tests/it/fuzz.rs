@@ -401,8 +401,6 @@ async fn test_fuzz_function_overrides() {
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
-    // println!("Results: {results:#?}");
-
     assert_multiple(
         &results,
         BTreeMap::from([(

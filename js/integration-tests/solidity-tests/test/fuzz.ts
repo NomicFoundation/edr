@@ -494,10 +494,12 @@ describe("Fuzz and invariant testing", function () {
   });
 
   it("FuzzFunctionOverrides", async function () {
+    const GLOBAL_RUNS = 100;
+    const OVERRIDEN_RUNS = 10;
     const artifact = testContext.matchingTest("FuzzConfigOverrideTest")[0];
 
     const fuzzConfig = {
-      runs: 100,
+      runs: GLOBAL_RUNS,
       maxTestRejects: 0,
     };
 
@@ -509,7 +511,7 @@ describe("Fuzz and invariant testing", function () {
         },
         config: {
           fuzz: {
-            runs: 10,
+            runs: OVERRIDEN_RUNS,
           },
         },
       },
@@ -566,20 +568,25 @@ describe("Fuzz and invariant testing", function () {
     for (const test_result of suite_result.testResults) {
       if (test_result.name === "testFuzz_OverrideRuns(uint256)") {
         const fuzzKind = test_result.kind as FuzzTestKind;
-        assert.equal(fuzzKind.runs, 10n); // Overridden
+        assert.equal(fuzzKind.runs, BigInt(OVERRIDEN_RUNS)); // Overridden
       } else if (test_result.name === "testFuzz_NoOverrideRuns(uint256)") {
         const fuzzKind = test_result.kind as FuzzTestKind;
-        assert.equal(fuzzKind.runs, 100n); // Not overridden, controlled by top-level config
+        assert.equal(fuzzKind.runs, BigInt(GLOBAL_RUNS)); // Not overridden, controlled by top-level config
       }
     }
   });
 
   it("InvariantFunctionOverrides", async function () {
+    const GLOBAL_RUNS = 2;
+    const GLOBAL_DEPTH = 10;
+    const OVERRIDEN_RUNS = 1;
+    const OVERRIDEN_DEPTH = 5;
+
     const artifact = testContext.matchingTest("InvariantTest1")[0];
 
     const invariantConfig = {
-      runs: 2,
-      depth: 10,
+      runs: GLOBAL_RUNS,
+      depth: GLOBAL_DEPTH,
     };
 
     const result1 = await testContext.runTestsWithStats("InvariantTest1", {
@@ -588,8 +595,8 @@ describe("Fuzz and invariant testing", function () {
 
     const test_result1 = result1.suiteResults[0].testResults[0];
     const invariantKind = test_result1.kind as InvariantTestKind;
-    assert.equal(invariantKind.runs, 2n);
-    assert.equal(invariantKind.calls, 20n);
+    assert.equal(invariantKind.runs, BigInt(GLOBAL_RUNS));
+    assert.equal(invariantKind.calls, BigInt(GLOBAL_RUNS * GLOBAL_DEPTH));
 
     const result2 = await testContext.runTestsWithStats("InvariantTest1", {
       invariant: invariantConfig,
@@ -601,8 +608,8 @@ describe("Fuzz and invariant testing", function () {
           },
           config: {
             invariant: {
-              runs: 1,
-              depth: 5,
+              runs: OVERRIDEN_RUNS,
+              depth: OVERRIDEN_DEPTH,
             },
           },
         },
@@ -610,7 +617,10 @@ describe("Fuzz and invariant testing", function () {
     });
     const test_result2 = result2.suiteResults[0].testResults[0];
     const invariantKind2 = test_result2.kind as InvariantTestKind;
-    assert.equal(invariantKind2.runs, 1n); // Overridden
-    assert.equal(invariantKind2.calls, 5n); // Overridden
+    assert.equal(invariantKind2.runs, BigInt(OVERRIDEN_RUNS)); // Overridden
+    assert.equal(
+      invariantKind2.calls,
+      BigInt(OVERRIDEN_RUNS * OVERRIDEN_DEPTH)
+    ); // Overridden
   });
 });

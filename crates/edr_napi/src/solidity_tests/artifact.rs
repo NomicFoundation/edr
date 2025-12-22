@@ -16,7 +16,7 @@ pub struct Artifact {
 }
 
 /// The identifier of a Solidity contract.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 #[napi(object)]
 pub struct ArtifactId {
     /// The name of the contract.

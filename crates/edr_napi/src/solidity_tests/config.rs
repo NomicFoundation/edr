@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use derive_more::Debug;
 use edr_primitives::hex;
@@ -242,24 +239,6 @@ impl SolidityTestRunnerConfigArgs {
 
         let fuzz: FuzzConfig = fuzz.map(TryFrom::try_from).transpose()?.unwrap_or_default();
 
-        // Collect the functions that allow internal expect revert
-        let functions_internal_expect_revert: HashSet<TestFunctionIdentifier> =
-            test_function_overrides
-                .as_ref()
-                .map(|overrides| {
-                    overrides
-                        .iter()
-                        .filter(|override_item| {
-                            override_item
-                                .config
-                                .allow_internal_expect_revert
-                                .unwrap_or_default()
-                        })
-                        .map(|override_item| override_item.identifier.clone())
-                        .collect()
-                })
-                .unwrap_or_default();
-
         let cheatcode = CheatsConfigOptions {
             // TODO https://github.com/NomicFoundation/edr/issues/657
             // If gas reporting or coverage is supported, take that into account here.
@@ -292,10 +271,22 @@ impl SolidityTestRunnerConfigArgs {
                 .collect::<Result<_, napi::Error>>()?,
             seed: fuzz.seed,
             allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
-            functions_internal_expect_revert: functions_internal_expect_revert
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<_, _>>()?,
+            functions_internal_expect_revert: test_function_overrides
+                .as_ref()
+                .map(|overrides| {
+                    overrides
+                        .iter()
+                        .filter(|override_item| {
+                            override_item
+                                .config
+                                .allow_internal_expect_revert
+                                .unwrap_or_default()
+                        })
+                        .map(|override_item| override_item.identifier.clone().try_into())
+                        .collect::<Result<_, _>>()
+                })
+                .transpose()?
+                .unwrap_or_default(),
         };
 
         let on_collected_coverage_fn = observability.map_or_else(
@@ -360,7 +351,7 @@ impl SolidityTestRunnerConfigArgs {
 
 /// Fuzz testing configuration
 #[napi(object)]
-#[derive(Clone, Default, Debug, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct FuzzConfigArgs {
     /// Path where fuzz failures are recorded and replayed if set.
     pub failure_persist_dir: Option<String>,
@@ -473,7 +464,7 @@ impl SolidityTestRunnerConfigArgs {
 
 /// Invariant testing configuration.
 #[napi(object)]
-#[derive(Clone, Default, Debug, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct InvariantConfigArgs {
     /// Path where invariant failures are recorded and replayed if set.
     pub failure_persist_dir: Option<String>,
@@ -858,7 +849,7 @@ impl From<edr_solidity_tests::IncludeTraces> for IncludeTraces {
 
 /// Test function level config override.
 #[napi(object)]
-#[derive(Clone, Default, Debug, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct TestFunctionConfigOverride {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test.
@@ -891,7 +882,7 @@ pub struct TestFunctionOverride {
 
 /// Test function identifier.
 #[napi(object)]
-#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct TestFunctionIdentifier {
     /// The contract artifact id.
     pub contract_artifact: ArtifactId,
@@ -913,7 +904,7 @@ impl TryFrom<TestFunctionIdentifier> for foundry_cheatcodes::TestFunctionIdentif
 /// Timeout configuration.
 /// Note: This wrapper is needed to avoid ambiguity with NAPI conversion.
 #[napi(object)]
-#[derive(Clone, Default, Debug, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct TimeoutConfig {
     /// Optional timeout (in seconds).
     pub time: Option<u32>,
@@ -927,7 +918,7 @@ impl From<TimeoutConfig> for edr_solidity_tests::TimeoutConfig {
 
 /// Test function or test contract level fuzz config override.
 #[napi(object)]
-#[derive(Clone, Default, Debug, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct FuzzConfigOverride {
     /// The number of test cases that must execute for each property test.
     pub runs: Option<u32>,
@@ -956,7 +947,7 @@ impl From<FuzzConfigOverride> for edr_solidity_tests::FuzzConfigOverride {
 
 /// Test function or test contract level invariant config override.
 #[napi(object)]
-#[derive(Clone, Default, Debug, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct InvariantConfigOverride {
     /// The number of runs that must execute for each invariant test group.
     pub runs: Option<u32>,
