@@ -1,7 +1,8 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_primitives::{Address, B256, U256};
+use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     backend::Predeploy,
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
@@ -59,6 +60,8 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running tests
     pub generate_gas_report: bool,
+    /// Test function level config overrides.
+    pub test_function_overrides: HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
 }
 
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
@@ -164,4 +167,56 @@ pub enum IncludeTraces {
     Failing,
     /// Traces will be included in all test results.
     All,
+}
+
+/// Test function level config override.
+#[derive(Clone, Debug)]
+pub struct TestFunctionConfigOverride {
+    /// Allow expecting reverts with `expectRevert` at the same callstack depth
+    /// as the test.
+    pub allow_internal_expect_revert: Option<bool>,
+    /// Configuration override for fuzz testing
+    pub fuzz: Option<FuzzConfigOverride>,
+    /// Configuration override for invariant testing
+    pub invariant: Option<InvariantConfigOverride>,
+}
+
+/// Timeout configuration.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TimeoutConfig {
+    /// Optional timeout (in seconds)
+    pub time: Option<u32>,
+}
+
+/// Test function or test contract level fuzz config override.
+#[derive(Clone, Debug, Default)]
+pub struct FuzzConfigOverride {
+    /// The number of test cases that must execute for each property test
+    pub runs: Option<u32>,
+    /// The maximum number of test case rejections allowed by proptest, to be
+    /// encountered during usage of `vm.assume` cheatcode. This will be used
+    /// to set the `max_global_rejects` value in proptest test runner config.
+    /// `max_local_rejects` option isn't exposed here since we're not using
+    /// `prop_filter`.
+    pub max_test_rejects: Option<u32>,
+    /// Show `console.log` in fuzz test.
+    pub show_logs: Option<bool>,
+    /// Optional timeout (in seconds) for each property test
+    pub timeout: Option<TimeoutConfig>,
+}
+
+/// Test function or test contract level invariant config override.
+#[derive(Clone, Debug, Default)]
+pub struct InvariantConfigOverride {
+    /// The number of runs that must execute for each invariant test group.
+    pub runs: Option<u32>,
+    /// The number of calls executed to attempt to break invariants in one run.
+    pub depth: Option<u32>,
+    /// Fails the invariant fuzzing if a revert occurs
+    pub fail_on_revert: Option<bool>,
+    /// Allows overriding an unsafe external call when running invariant tests.
+    /// eg. reentrancy checks
+    pub call_override: Option<bool>,
+    /// Optional timeout (in seconds) for each invariant test.
+    pub timeout: Option<TimeoutConfig>,
 }

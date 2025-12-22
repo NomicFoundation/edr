@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -51,8 +51,12 @@ pub struct CheatsConfig<HardforkT> {
     pub running_artifact: Option<ArtifactId>,
     /// Optional seed for the RNG algorithm.
     pub seed: Option<U256>,
-    /// Whether to allow `expectRevert` to work for internal calls.
+    /// Whether to allow `expectRevert` to work for internal calls. Global
+    /// setting.
     pub internal_expect_revert: bool,
+    /// Allow expecting reverts with `expectRevert` at the same callstack depth
+    /// as the test. Overrides the global setting for specific test functions.
+    pub functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
     /// Mapping of chain aliases to chain data
     pub chains: HashMap<String, ChainData>,
     /// Mapping of chain IDs to their aliases
@@ -109,6 +113,38 @@ pub struct CheatsConfigOptions {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test.
     pub allow_internal_expect_revert: bool,
+    /// Allow expecting reverts with `expectRevert` at the same callstack depth
+    /// as the test. Overrides the global setting for specific test functions.
+    pub functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
+}
+
+// TODO: https://github.com/NomicFoundation/edr/issues/1184
+/// Test function identifier.
+/// Note: Equality and hashing ignore `contract_artifact.version`.
+#[derive(Clone, Debug)]
+pub struct TestFunctionIdentifier {
+    /// The contract artifact id
+    pub contract_artifact: ArtifactId,
+    /// The function selector as hex string
+    pub function_selector: String,
+}
+
+impl PartialEq for TestFunctionIdentifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.contract_artifact.name == other.contract_artifact.name
+            && self.contract_artifact.source == other.contract_artifact.source
+            && self.function_selector == other.function_selector
+    }
+}
+
+impl Eq for TestFunctionIdentifier {}
+
+impl std::hash::Hash for TestFunctionIdentifier {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.contract_artifact.name.hash(state);
+        self.contract_artifact.source.hash(state);
+        self.function_selector.hash(state);
+    }
 }
 
 impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
@@ -130,6 +166,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             labels,
             seed,
             allow_internal_expect_revert,
+            functions_internal_expect_revert,
         } = config;
 
         // TODO
@@ -153,6 +190,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             running_artifact,
             seed,
             internal_expect_revert: allow_internal_expect_revert,
+            functions_internal_expect_revert,
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
         }
@@ -345,6 +383,7 @@ impl<HardforkT: HardforkTr> Default for CheatsConfig<HardforkT> {
             running_artifact: None,
             seed: None,
             internal_expect_revert: false,
+            functions_internal_expect_revert: HashSet::new(),
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
         }
@@ -756,6 +795,7 @@ mod tests {
             labels: AddressHashMap::<String>::default(),
             seed: None,
             allow_internal_expect_revert: false,
+            functions_internal_expect_revert: HashSet::new(),
         };
 
         CheatsConfig::new(

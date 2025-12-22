@@ -3085,6 +3085,7 @@ dependencies = [
  "edr_solidity_tests",
  "edr_tracing",
  "edr_transaction",
+ "foundry-cheatcodes",
  "itertools 0.12.1",
  "napi",
  "serde",

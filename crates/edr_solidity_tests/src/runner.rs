@@ -1,6 +1,11 @@
 //! The Forge test runner.
 use std::{
-    borrow::Cow, cmp::min, collections::BTreeMap, marker::PhantomData, path::Path, sync::Arc,
+    borrow::Cow,
+    cmp::min,
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+    path::Path,
+    sync::Arc,
     time::Instant,
 };
 
@@ -10,9 +15,11 @@ use alloy_primitives::{Address, Bytes, U256};
 use derive_where::derive_where;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
-    contract_decoder::SyncNestedTraceDecoder, solidity_stack_trace::StackTraceEntry,
+    artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder,
+    solidity_stack_trace::StackTraceEntry,
 };
 use eyre::Result;
+use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     abi::{TestFunctionExt, TestFunctionKind},
     constants::{CALLER, LIBRARY_DEPLOYER},
@@ -50,7 +57,7 @@ use crate::{
     multi_runner::TestContract,
     result::{SuiteResult, TestResult, TestSetup},
     revm::context::result::HaltReason,
-    TestFilter,
+    TestFilter, TestFunctionConfigOverride,
 };
 
 /// A type that executes all tests of a contract
@@ -68,6 +75,8 @@ pub struct ContractRunner<
 > {
     /// The name of the contract.
     name: &'a str,
+    /// The artifact ID of the contract.
+    artifact_id: &'a ArtifactId,
     /// The data of the contract being ran.
     contract: &'a TestContract,
     /// Revert decoder. Contains all known errors.
@@ -94,6 +103,8 @@ pub struct ContractRunner<
     executor_builder: ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>,
     /// The span of the contract.
     span: tracing::Span,
+    /// Test function level config overrides.
+    test_function_overrides: &'a HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
 
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (EvmBuilderT, HaltReasonT, TransactionErrorT)>,
@@ -114,6 +125,8 @@ pub struct ContractRunnerOptions<'a> {
     pub fuzz_config: &'a FuzzConfig,
     /// Invariant config
     pub invariant_config: &'a InvariantConfig,
+    /// Test function level config overrides.
+    pub test_function_overrides: &'a HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
 }
 
 /// Contract artifact related arguments to the contract runner.
@@ -154,6 +167,7 @@ impl<
 {
     pub fn new(
         name: &'a str,
+        artifact_id: &'a ArtifactId,
         executor_builder: ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>,
         contract: &'a TestContract,
         artifacts: ContractRunnerArtifacts<'a, HaltReasonT, NestedTraceDecoderT>,
@@ -174,10 +188,12 @@ impl<
             enable_table_tests,
             fuzz_config,
             invariant_config,
+            test_function_overrides,
         } = options;
 
         Self {
             name,
+            artifact_id,
             contract,
             revert_decoder,
             known_contracts,
@@ -191,6 +207,7 @@ impl<
             invariant_config,
             executor_builder,
             span,
+            test_function_overrides,
             _phantom: PhantomData,
         }
     }
@@ -1041,8 +1058,43 @@ impl<
             return self.result;
         };
 
-        let runner = self.invariant_runner();
-        let invariant_config = self.cr.invariant_config;
+        let mut invariant_config = self.cr.invariant_config.clone();
+
+        // Apply function config overrides if any.
+        let test_identifier = TestFunctionIdentifier {
+            contract_artifact: self.cr.artifact_id.clone(),
+            function_selector: func.selector().to_string(),
+        };
+        let overrides = self
+            .cr
+            .test_function_overrides
+            .get(&test_identifier)
+            .cloned();
+
+        if let Some(invariant_overrides) = overrides.as_ref().and_then(|o| o.invariant.as_ref()) {
+            if let Some(runs) = invariant_overrides.runs {
+                invariant_config.runs = runs;
+            }
+            if let Some(depth) = invariant_overrides.depth {
+                invariant_config.depth = depth;
+            }
+            if let Some(fail_on_revert) = invariant_overrides.fail_on_revert {
+                invariant_config.fail_on_revert = fail_on_revert;
+            }
+            if let Some(call_override) = invariant_overrides.call_override {
+                invariant_config.call_override = call_override;
+            }
+            if let Some(timeout) = invariant_overrides.timeout {
+                invariant_config.timeout = timeout.time;
+            }
+        }
+
+        let runner = fuzzer_with_cases(
+            self.cr.fuzz_config.seed,
+            invariant_config.runs,
+            invariant_config.max_assume_rejects,
+            None,
+        );
 
         let mut executor = self.clone_executor();
         // Enable edge coverage if running with coverage guided fuzzing or with edge
@@ -1298,8 +1350,40 @@ impl<
             return self.result;
         }
 
-        let runner = self.fuzz_runner();
-        let fuzz_config = self.cr.fuzz_config.clone();
+        let mut fuzz_config = self.cr.fuzz_config.clone();
+
+        // Apply function config overrides if any.
+        let test_identifier = TestFunctionIdentifier {
+            contract_artifact: self.cr.artifact_id.clone(),
+            function_selector: func.selector().to_string(),
+        };
+        let overrides = self
+            .cr
+            .test_function_overrides
+            .get(&test_identifier)
+            .cloned();
+
+        if let Some(fuzz_overrides) = overrides.as_ref().and_then(|o| o.fuzz.as_ref()) {
+            if let Some(runs) = fuzz_overrides.runs {
+                fuzz_config.runs = runs;
+            }
+            if let Some(max_test_rejects) = fuzz_overrides.max_test_rejects {
+                fuzz_config.max_test_rejects = max_test_rejects;
+            }
+            if let Some(show_logs) = fuzz_overrides.show_logs {
+                fuzz_config.show_logs = show_logs;
+            }
+            if let Some(timeout) = fuzz_overrides.timeout {
+                fuzz_config.timeout = timeout.time;
+            }
+        }
+
+        let runner = fuzzer_with_cases(
+            fuzz_config.seed,
+            fuzz_config.runs,
+            fuzz_config.max_test_rejects,
+            fuzz_config.file_failure_persistence(),
+        );
 
         // Run fuzz test.
         let fuzzed_executor = FuzzedExecutor::new(
@@ -1400,26 +1484,6 @@ impl<
             }
         }
         Ok(())
-    }
-
-    fn fuzz_runner(&self) -> TestRunner {
-        let config = self.cr.fuzz_config;
-        fuzzer_with_cases(
-            config.seed,
-            config.runs,
-            config.max_test_rejects,
-            config.file_failure_persistence(),
-        )
-    }
-
-    fn invariant_runner(&self) -> TestRunner {
-        let config = self.cr.invariant_config;
-        fuzzer_with_cases(
-            self.cr.fuzz_config.seed,
-            config.runs,
-            config.max_assume_rejects,
-            None,
-        )
     }
 
     fn clone_executor(

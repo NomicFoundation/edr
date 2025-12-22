@@ -51,6 +51,18 @@ async fn test_core() {
                 vec![("testRevert()", true, None, None, None)],
             ),
             (
+                "default/core/InternalRevert.t.sol:InternalRevertingTest",
+                vec![(
+                    "testInternalRevert()",
+                    false,
+                    Some(
+                        "call didn't revert at a lower depth than cheatcode call depth".to_string(),
+                    ),
+                    None,
+                    None,
+                )],
+            ),
+            (
                 "default/core/SetupConsistency.t.sol:SetupConsistencyCheck",
                 vec![
                     ("testAdd()", true, None, None, None),
@@ -913,5 +925,23 @@ async fn test_gas_report_revert() {
     assert_eq!(
         pay_failure.unwrap().status,
         GasReportExecutionStatus::Revert
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_function_override_allow_internal_expect_revert() {
+    let filter = SolidityTestFilter::new(".*", ".*", "default/core/InternalRevert.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.cheats_config_options.allow_internal_expect_revert = true;
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/core/InternalRevert.t.sol:InternalRevertingTest",
+            vec![("testInternalRevert()", true, None, None, None)],
+        )]),
     );
 }

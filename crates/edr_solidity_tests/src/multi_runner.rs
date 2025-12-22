@@ -1,6 +1,12 @@
 //! Forge test runner for multiple contracts.
 
-use std::{collections::BTreeMap, marker::PhantomData, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    collections::{BTreeMap, HashMap},
+    marker::PhantomData,
+    path::PathBuf,
+    sync::Arc,
+    time::Instant,
+};
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
@@ -10,6 +16,7 @@ use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
+use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     backend::Predeploy,
     contracts::ContractsByArtifact,
@@ -37,7 +44,7 @@ use crate::{
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
-    TestFilter,
+    TestFilter, TestFunctionConfigOverride,
 };
 
 pub struct SuiteResultAndArtifactId<HaltReasonT> {
@@ -129,6 +136,8 @@ pub struct MultiContractRunner<
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running the tests.
     generate_gas_report: bool,
+    /// Test function level config overrides.
+    test_function_overrides: HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
@@ -192,6 +201,7 @@ impl<
             local_predeploys,
             on_collected_coverage_fn,
             generate_gas_report,
+            test_function_overrides,
         } = config;
 
         // Do canonicalization in blocking context.
@@ -232,6 +242,7 @@ impl<
             on_collected_coverage_fn,
             _phantom: PhantomData,
             generate_gas_report,
+            test_function_overrides,
         })
     }
 
@@ -352,6 +363,7 @@ impl<
         let runner: ContractRunner<'_, _, _, EvmBuilderT, HaltReasonT, _, _, _, _> =
             ContractRunner::new(
                 &identifier,
+                artifact_id,
                 executor_builder,
                 contract,
                 ContractRunnerArtifacts {
@@ -368,6 +380,7 @@ impl<
                     enable_table_tests: self.enable_table_tests,
                     fuzz_config: &self.fuzz_config,
                     invariant_config: &self.invariant_config,
+                    test_function_overrides: &self.test_function_overrides,
                 },
                 span,
             );

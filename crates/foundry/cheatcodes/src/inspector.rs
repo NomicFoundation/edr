@@ -17,7 +17,7 @@ use alloy_consensus::{constants::SELECTOR_LEN, BlobTransactionSidecar};
 use alloy_primitives::{
     hex,
     map::{AddressHashMap, HashMap, HashSet},
-    Address, Bytes, Log, TxKind, B256, U256,
+    Address, Bytes, Log, Selector, TxKind, B256, U256,
 };
 use alloy_rpc_types::AccessList;
 use alloy_sol_types::{SolCall, SolInterface};
@@ -66,7 +66,7 @@ use crate::{
         revert_handlers,
     },
     utils::IgnoredTraces,
-    CheatsConfig, CheatsCtxt, DynCheatcode, Error, Result,
+    CheatsConfig, CheatsCtxt, DynCheatcode, Error, Result, TestFunctionIdentifier,
     Vm::{self, AccountAccess},
 };
 
@@ -1153,6 +1153,63 @@ impl<
             None => false,
         }
     }
+
+    /// Identifies the test function being called by looking up the contract
+    /// artifact and matching the function selector from the call input.
+    fn identify_test_function_from_call<DatabaseT>(
+        &self,
+        call: &CallInputs,
+        ecx: &mut revm::context::Context<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) -> Option<TestFunctionIdentifier>
+    where
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    {
+        // Load account and get its deployed code
+        let account = ecx.journaled_state.load_account(call.target_address).ok()?;
+        let code = account.info.code.as_ref()?;
+
+        // Find the artifact matching the deployed code
+        let (artifact_id, contract_data) = self
+            .config
+            .available_artifacts
+            .find_by_deployed_code(code.original_byte_slice())?;
+
+        // Extract the 4-byte function selector from call input
+        let input = call.input.bytes(ecx);
+        if input.len() < 4 {
+            return None;
+        }
+
+        let selector = input
+            .get(..4)
+            .map(Selector::from_slice)
+            .expect("Input must have at least 4 bytes");
+
+        // Find matching function in the contract ABI
+        contract_data
+            .abi
+            .functions()
+            .find(|f| f.selector() == selector)
+            .map(|function| TestFunctionIdentifier {
+                contract_artifact: artifact_id.clone(),
+                function_selector: function.selector().to_string(),
+            })
+    }
 }
 
 impl<
@@ -1457,10 +1514,21 @@ impl<
 
                 if needs_processing {
                     let mut expected_revert = std::mem::take(&mut self.expected_revert).unwrap();
+
+                    let internal_expect_revert =
+                        self.config.internal_expect_revert || expected_revert.allow_internal || {
+                            // If no global config enables it, check for function-level override
+                            self.identify_test_function_from_call(call, ecx)
+                                .as_ref()
+                                .is_some_and(|id| {
+                                    self.config.functions_internal_expect_revert.contains(id)
+                                })
+                        };
+
                     return match revert_handlers::handle_expect_revert(
                         cheatcode_call,
                         false,
-                        self.config.internal_expect_revert || expected_revert.allow_internal,
+                        internal_expect_revert,
                         &expected_revert,
                         outcome.result.result,
                         outcome.result.output.clone(),

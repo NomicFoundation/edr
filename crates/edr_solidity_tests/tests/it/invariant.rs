@@ -4,10 +4,11 @@ use std::collections::BTreeMap;
 
 use alloy_primitives::U256;
 use edr_gas_report::GasReportExecutionStatus;
-use edr_solidity_tests::fuzz::CounterExample;
+use edr_solidity_tests::{fuzz::CounterExample, result::TestKind};
 
 use crate::helpers::{
-    assert_multiple, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT,
+    assert_multiple, make_test_identifier, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig,
+    TEST_DATA_DEFAULT,
 };
 
 macro_rules! get_counterexample {
@@ -1138,6 +1139,231 @@ async fn test_invariant_selectors_weight() {
                 None,
                 None,
             )],
+        )]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_function_override_runs() {
+    let filter =
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTest1.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.invariant.runs = 2;
+    config.invariant.depth = 10;
+
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fuzz_persistence(config.clone())
+        .await;
+    let results = runner.test_collect(filter.clone()).await.suite_results;
+
+    let test_result = results
+        .get("default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantTest")
+        .unwrap()
+        .test_results
+        .get("invariant_neverFalse()")
+        .unwrap();
+    assert!(matches!(
+        test_result.kind,
+        TestKind::Invariant {
+            runs: 2,
+            calls: 20,
+            ..
+        }
+    ));
+
+    // Override to 1 run and 5 depth.
+    config.test_function_overrides.insert(
+        make_test_identifier(
+            "default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantTest",
+            "invariant_neverFalse()",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
+            allow_internal_expect_revert: None,
+            fuzz: None,
+            invariant: Some(edr_solidity_tests::InvariantConfigOverride {
+                runs: Some(1),
+                depth: Some(5),
+                ..Default::default()
+            }),
+        },
+    );
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let test_result = results
+        .get("default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantTest")
+        .unwrap()
+        .test_results
+        .get("invariant_neverFalse()")
+        .unwrap();
+    assert!(matches!(
+        test_result.kind,
+        TestKind::Invariant {
+            runs: 1,
+            calls: 5,
+            ..
+        }
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_function_override_fail_on_revert() {
+    let filter = SolidityTestFilter::new(
+        ".*",
+        ".*",
+        ".*fuzz/invariant/common/InvariantHandlerFailure.t.sol",
+    );
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.invariant.runs = 1;
+    config.invariant.depth = 10;
+    // This is already the default, but being explicit here for clarity.
+    config.invariant.fail_on_revert = false;
+
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fuzz_persistence(config.clone())
+        .await;
+    let results = runner.test_collect(filter.clone()).await.suite_results;
+
+    // Succeeds when not failing on revert.
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/invariant/common/InvariantHandlerFailure.t.sol:InvariantHandlerFailure",
+            vec![("statefulFuzz_BrokenInvariant()", true, None, None, None)],
+        )]),
+    );
+
+    // Override to fail on revert.
+    config.test_function_overrides.insert(
+        make_test_identifier(
+            "default/fuzz/invariant/common/InvariantHandlerFailure.t.sol:InvariantHandlerFailure",
+            "statefulFuzz_BrokenInvariant()",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
+            allow_internal_expect_revert: None,
+            fuzz: None,
+            invariant: Some(edr_solidity_tests::InvariantConfigOverride {
+                fail_on_revert: Some(true),
+                ..Default::default()
+            }),
+        },
+    );
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    // Fails when overridden to fail on revert.
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/invariant/common/InvariantHandlerFailure.t.sol:InvariantHandlerFailure",
+            vec![(
+                "statefulFuzz_BrokenInvariant()",
+                false,
+                Some("failed on revert".into()),
+                None,
+                None,
+            )],
+        )]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_function_override_call_override() {
+    let filter = SolidityTestFilter::new(
+        ".*",
+        ".*",
+        ".*fuzz/invariant/common/InvariantReentrancy.t.sol",
+    );
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    // This is already the default, but being explicit here for clarity.
+    config.invariant.call_override = false;
+
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fuzz_persistence(config.clone())
+        .await;
+    let results = runner.test_collect(filter.clone()).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/invariant/common/InvariantReentrancy.t.sol:InvariantReentrancy",
+            vec![("invariantNotStolen()", true, None, None, None)],
+        )]),
+    );
+
+    // Override config to enable call override.
+    config.test_function_overrides.insert(
+        make_test_identifier(
+            "default/fuzz/invariant/common/InvariantReentrancy.t.sol:InvariantReentrancy",
+            "invariantNotStolen()",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
+            allow_internal_expect_revert: None,
+            fuzz: None,
+            invariant: Some(edr_solidity_tests::InvariantConfigOverride {
+                call_override: Some(true),
+                ..Default::default()
+            }),
+        },
+    );
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/invariant/common/InvariantReentrancy.t.sol:InvariantReentrancy",
+            vec![(
+                "invariantNotStolen()",
+                false,
+                Some("stolen".into()),
+                None,
+                None,
+            )],
+        )]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_function_override_timeout() {
+    let filter =
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTimeout.t.sol");
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.invariant.runs = 10000;
+    config.invariant.depth = 20000;
+
+    // With no timeout the test takes a long time and eventually fails when counter
+    // >= 10000. Not tested here because it would slow down the test suite.
+
+    config.test_function_overrides.insert(
+        make_test_identifier(
+            "default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest",
+            "invariant_counter_timeout()",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
+            allow_internal_expect_revert: None,
+            fuzz: None,
+            invariant: Some(edr_solidity_tests::InvariantConfigOverride {
+                timeout: Some(edr_solidity_tests::TimeoutConfig { time: Some(1u32) }),
+                ..Default::default()
+            }),
+        },
+    );
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest",
+            vec![("invariant_counter_timeout()", true, None, None, None)],
         )]),
     );
 }

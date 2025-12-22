@@ -13,7 +13,9 @@ pub extern crate foundry_cheatcodes_spec as spec;
 extern crate tracing;
 
 use alloy_primitives::Address;
-pub use config::{CheatsConfig, CheatsConfigOptions, ExecutionContextConfig};
+pub use config::{
+    CheatsConfig, CheatsConfigOptions, ExecutionContextConfig, TestFunctionIdentifier,
+};
 pub use endpoints::{RpcEndpoint, RpcEndpointUrl, RpcEndpoints};
 pub use error::{Error, ErrorKind, Result};
 use foundry_evm_core::{

@@ -24,8 +24,14 @@ edr_solidity.workspace = true
 edr_solidity_tests.workspace = true
 edr_tracing.workspace = true
 edr_transaction.workspace = true
+foundry-cheatcodes.workspace = true
 itertools = { version = "0.12.0", default-features = false }
-napi = { version = "2.16.10", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
+napi = { version = "2.16.10", default-features = false, features = [
+    "async",
+    "error_anyhow",
+    "napi8",
+    "serde-json",
+] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
