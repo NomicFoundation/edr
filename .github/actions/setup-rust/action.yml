@@ -9,7 +9,7 @@ inputs:
     required: false
   cache:
     description: Automatically configure Rust cache
-    default: true
+    default: "true"
 
 runs:
   using: composite
