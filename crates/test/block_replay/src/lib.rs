@@ -25,6 +25,7 @@ use edr_primitives::{HashMap, B256};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait};
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::irregular::IrregularState;
+use edr_blockchain_api::GetBlockchainBlock as _;
 use edr_utils::random::RandomHashGenerator;
 
 type ForkedStateAndBlockchainForChainSpec<ChainSpecT> = ForkedStateAndBlockchain<
@@ -390,7 +391,7 @@ pub async fn assert_replay_header<
     url: String,
     block_number: u64,
     header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
-    header_validation: impl FnOnce(&BlockHeader, &PartialHeader) -> anyhow::Result<()>,
+    header_validation: impl FnOnce(&BlockHeader, &PartialHeader, &BlockHeader) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
     let ForkedStateAndBlockchain {
         block_config,
@@ -398,6 +399,8 @@ pub async fn assert_replay_header<
         prior_blockchain,
         prior_irregular_state,
     } = get_fork_state::<ChainSpecT>(runtime, url, block_number).await?;
+
+    let last_block = prior_blockchain.last_block()?;
 
     let replay_header = expected_block.block_header();
 
@@ -425,7 +428,7 @@ pub async fn assert_replay_header<
         header_overrides_constructor(replay_header),
         &custom_precompiles,
     )?;
-    header_validation(replay_header, builder.header())
+    header_validation(replay_header, builder.header(), last_block.block_header())
 }
 
 /// Implements full block tests for the provided chain specs.

@@ -49,6 +49,7 @@ tokio = { version = "1.21.2", default-features = false, features = ["macros", "r
 
 [dev-dependencies]
 anyhow = "1.0.100"
+alloy-eips.workspace = true
 edr_block_api.workspace = true
 edr_defaults.workspace = true
 edr_eth.workspace = true

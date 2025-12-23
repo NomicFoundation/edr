@@ -3098,6 +3098,7 @@ dependencies = [
 name = "edr_op"
 version = "0.3.8"
 dependencies = [
+ "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
  "anyhow",
