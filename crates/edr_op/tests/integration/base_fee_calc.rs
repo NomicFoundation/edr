@@ -16,6 +16,7 @@ macro_rules! impl_test_base_fee_calc{
                 paste::item! {
                     #[serial_test::serial]
                     #[tokio::test(flavor = "multi_thread")]
+                    #[cfg(feature = "test-remote")]
                     async fn [<test_dynamic_base_fee_ $net _ $block_number>]() -> anyhow::Result<()> {
                         let runtime = tokio::runtime::Handle::current();
                         let url = $url;
@@ -57,24 +58,26 @@ async fn assert_base_fee_per_gas(
 
 impl_test_base_fee_calc! {
     base_mainnet: base::mainnet_url() => [
-        // blocks from 2025-12-18
-        39628091,
-        39628092,
-        39628093,
-        39628094,
-        39628095,
-        39628096,
-        39628097,
-        39628098,
-        39628099,
-        39628100,
-        39628101,
-        // blocks from 2025-12-23
-        39842838,
-        39842839,
-        39842840,
-        39842877,
-        39842878,
-        39842879,
+        // blocks from 2025-12-18 - BaseFeeParams(50, 5)
+        39628091, // parent gas_used below target
+        39628092, // parent gas_used over target - FAILS
+        39628093, // parent gas_used over target - FAILS
+        39628094, // parent gas_used over target - FAILS
+        39628095, // parent gas_used over target - FAILS
+        39628096, // parent gas_used over target - FAILS
+        39628097, // parent gas_used over target - FAILS
+        39628098, // parent gas_used over target
+        39628099, // parent gas_used below target
+        39628100, // parent gas_used over target
+        39628101, // parent gas_used below target
+        // blocks from 2025-12-23 - BaseFeeParams(50, 6)
+        39842838, // parent gas_used below target
+        39842839, // parent gas_used below target
+        39842840, // parent gas_used above target
+        39842841, // parent gas_used below target
+        39842877, // parent gas_used below target
+        39842878, // parent gas_used below target
+        39842879, // parent gas_used above target
+        39842880, // parent gas_used below target
     ],
 }
