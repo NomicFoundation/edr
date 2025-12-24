@@ -309,6 +309,8 @@ mod alchemy {
         // TODO: consider asserting something about the logs bloom
     }
 
+    // TODO https://github.com/NomicFoundation/edr/issues/1190
+    #[ignore]
     #[tokio::test]
     async fn get_logs_future_from_block() {
         let alchemy_url = get_alchemy_url();
@@ -338,6 +340,8 @@ mod alchemy {
         }
     }
 
+    // TODO https://github.com/NomicFoundation/edr/issues/1190
+    #[ignore]
     #[tokio::test]
     async fn get_logs_future_to_block() {
         let alchemy_url = get_alchemy_url();
@@ -457,6 +461,8 @@ mod alchemy {
         assert_eq!(transaction_count, U256::from(1));
     }
 
+    // TODO https://github.com/NomicFoundation/edr/issues/1190
+    #[ignore]
     #[tokio::test]
     async fn get_transaction_count_future_block() {
         let alchemy_url = get_alchemy_url();
@@ -577,6 +583,8 @@ mod alchemy {
             .expect("should have succeeded");
     }
 
+    // TODO https://github.com/NomicFoundation/edr/issues/1190
+    #[ignore]
     #[tokio::test]
     async fn get_storage_at_future_block() {
         let alchemy_url = get_alchemy_url();
