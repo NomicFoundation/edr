@@ -5644,8 +5644,8 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
 name = "metaslang_bindings"
-version = "1.3.1"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.1#c5540f1a10cb723e5d495d2aea99fde619f52081"
+version = "1.3.2"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
 dependencies = [
  "metaslang_cst",
  "metaslang_graph_builder",
@@ -5656,8 +5656,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_cst"
-version = "1.3.1"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.1#c5540f1a10cb723e5d495d2aea99fde619f52081"
+version = "1.3.2"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
 dependencies = [
  "nom",
  "serde",
@@ -5666,8 +5666,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_graph_builder"
-version = "1.3.1"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.1#c5540f1a10cb723e5d495d2aea99fde619f52081"
+version = "1.3.2"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
 dependencies = [
  "log",
  "metaslang_cst",
@@ -5680,8 +5680,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_stack_graphs"
-version = "1.3.1"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.1#c5540f1a10cb723e5d495d2aea99fde619f52081"
+version = "1.3.2"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
 dependencies = [
  "bitvec",
  "controlled-option",
@@ -7909,8 +7909,8 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity"
-version = "1.3.1"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.1#c5540f1a10cb723e5d495d2aea99fde619f52081"
+version = "1.3.2"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
 dependencies = [
  "metaslang_bindings",
  "metaslang_cst",
