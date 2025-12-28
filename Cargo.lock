@@ -2370,7 +2370,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2385,7 +2385,7 @@ dependencies = [
  "edr_primitives",
  "edr_state_api",
  "revm-precompile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2424,7 +2424,7 @@ dependencies = [
  "edr_trie",
  "edr_utils",
  "itertools 0.12.1",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2446,7 +2446,7 @@ dependencies = [
  "edr_test_mem_pool",
  "edr_test_transaction",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
@@ -2464,7 +2464,7 @@ dependencies = [
  "edr_rpc_eth",
  "edr_utils",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -2480,7 +2480,7 @@ dependencies = [
  "edr_receipt",
  "edr_state_api",
  "parking_lot 0.12.3",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
@@ -2496,7 +2496,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2533,7 +2533,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "serde",
  "serial_test",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
 ]
@@ -2562,7 +2562,7 @@ dependencies = [
  "edr_test_transaction",
  "edr_utils",
  "serial_test",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
 ]
@@ -2589,7 +2589,7 @@ dependencies = [
  "edr_test_utils",
  "serde",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
 ]
@@ -2646,7 +2646,7 @@ dependencies = [
  "revm-primitives",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
@@ -2690,7 +2690,7 @@ dependencies = [
  "revm-handler",
  "revm-inspector",
  "revm-interpreter",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2750,7 +2750,7 @@ dependencies = [
  "serde",
  "serde_json",
  "similar-asserts",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "walkdir",
  "yansi",
@@ -2789,7 +2789,7 @@ dependencies = [
  "edr_primitives",
  "edr_state_api",
  "revm-database-interface",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2872,7 +2872,7 @@ dependencies = [
  "revm-state",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -2907,7 +2907,7 @@ dependencies = [
  "edr_state_api",
  "edr_transaction",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2957,7 +2957,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -2972,7 +2972,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "slang_solidity",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2998,7 +2998,7 @@ dependencies = [
  "edr_transaction",
  "indexmap 2.9.0",
  "paste",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
@@ -3055,7 +3055,7 @@ dependencies = [
  "static_assertions",
  "strum 0.26.3",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
  "tracing-flame",
  "tracing-subscriber 0.3.19",
@@ -3090,7 +3090,7 @@ dependencies = [
  "napi",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -3147,7 +3147,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -3240,7 +3240,7 @@ dependencies = [
  "serial_test",
  "sha3",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "toml 0.9.5",
  "tracing",
@@ -3305,7 +3305,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "url",
@@ -3345,7 +3345,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "walkdir",
@@ -3408,7 +3408,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -3443,7 +3443,7 @@ dependencies = [
  "k256",
  "serde",
  "sha3",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -3471,7 +3471,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum 0.26.3",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -3515,7 +3515,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.19",
@@ -3534,7 +3534,7 @@ dependencies = [
  "edr_trie",
  "revm-database-interface",
  "revm-state",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -3792,7 +3792,7 @@ dependencies = [
  "revm-primitives",
  "serde",
  "sha2",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -4133,7 +4133,7 @@ dependencies = [
  "serde",
  "serde_json",
  "similar-asserts",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "toml 0.8.20",
  "tracing",
  "walkdir",
@@ -4289,7 +4289,7 @@ dependencies = [
  "revm-inspectors",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "uuid 1.18.1",
@@ -4340,7 +4340,7 @@ dependencies = [
  "serde_json",
  "similar-asserts",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tower 0.4.13",
  "tracing",
@@ -4381,7 +4381,7 @@ dependencies = [
  "rand 0.9.1",
  "revm",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
