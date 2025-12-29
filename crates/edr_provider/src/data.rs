@@ -4090,7 +4090,9 @@ mod tests {
 
         use super::*;
         use crate::{
-            test_utils::{l1_header_overrides, l1_header_overrides_before_merge},
+            test_utils::{
+                l1_header_overrides, l1_header_overrides_before_merge, prague_header_overrides,
+            },
             ForkConfig,
         };
 
@@ -4314,27 +4316,27 @@ mod tests {
             mainnet_prague => L1ChainSpec {
                 block_number: 23_376_625,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: prague_header_overrides,
             },
             mainnet_osaka => L1ChainSpec {
                 block_number: 23_957_251,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: prague_header_overrides,
             },
             mainnet_osaka_bpo1 => L1ChainSpec {
                 block_number: 23_990_516,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: prague_header_overrides,
             },
             mainnet_blob_excess_gas_calculation_issue => L1ChainSpec {
                 block_number: 24_035_797,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: prague_header_overrides,
             },
             mainnet_requests_hash_not_empty => L1ChainSpec {
-                block_number: 24105015,
+                block_number: 24_105_015,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: prague_header_overrides,
             },
 
         }

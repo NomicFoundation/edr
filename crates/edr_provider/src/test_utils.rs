@@ -60,6 +60,18 @@ pub fn l1_header_overrides(
     }
 }
 
+/// Default header overrides for replaying L1 blocks after Prague hardfork.
+pub fn prague_header_overrides(
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
+    HeaderOverrides {
+        // EDR does not compute the `requests_hash`, as full support for EIP-7685 introduced in
+        // Prague is not implemented.
+        requests_hash: replay_header.requests_hash,
+        ..l1_header_overrides(replay_header)
+    }
+}
+
 /// Default header overrides for replaying blocks.
 pub fn header_overrides<HardforkT: Default>(
     replay_header: &BlockHeader,
@@ -71,9 +83,6 @@ pub fn header_overrides<HardforkT: Default>(
         parent_beacon_block_root: replay_header.parent_beacon_block_root,
         state_root: Some(replay_header.state_root),
         timestamp: Some(replay_header.timestamp),
-        // EDR does not compute the `requests_hash`, as full support for EIP-7685 is not
-        // implemented.
-        requests_hash: replay_header.requests_hash,
         ..HeaderOverrides::<HardforkT>::default()
     }
 }
