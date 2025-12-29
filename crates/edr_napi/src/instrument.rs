@@ -107,3 +107,9 @@ pub fn add_statement_coverage_instrumentation(
         )
     })
 }
+
+/// Retrieves the latest version of `Solidity` supported for instrumentation.
+#[napi(catch_unwind)]
+pub fn latest_supported_solidity_version() -> String {
+    edr_instrument::LATEST_SUPPORTED_SOLIDITY_VERSION.to_string()
+}
