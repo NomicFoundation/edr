@@ -4331,6 +4331,11 @@ mod tests {
                 url: get_alchemy_url(),
                 header_overrides_constructor: l1_header_overrides,
             },
+            mainnet_requests_hash_not_empty => L1ChainSpec {
+                block_number: 24105015,
+                url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
+            },
 
         }
     }

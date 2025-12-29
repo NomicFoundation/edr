@@ -71,6 +71,9 @@ pub fn header_overrides<HardforkT: Default>(
         parent_beacon_block_root: replay_header.parent_beacon_block_root,
         state_root: Some(replay_header.state_root),
         timestamp: Some(replay_header.timestamp),
+        // EDR does not compute the `requests_hash`, as full support for EIP-7685 is not
+        // implemented.
+        requests_hash: replay_header.requests_hash,
         ..HeaderOverrides::<HardforkT>::default()
     }
 }
