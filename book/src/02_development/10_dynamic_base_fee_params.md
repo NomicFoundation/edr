@@ -14,7 +14,7 @@ To determine the dynamic `base_fee_params` for a given chain, follow the steps b
 
 Find the chain’s `SystemConfigProxy` address and `chain_id` in the Superchain Registry:
 
-* [https://github.com/ethereum-optimism/superchain-registry/tree/38c054f1d4179252c91e856fe7115dcbe28962f0/superchain/configs/mainnet](https://github.com/ethereum-optimism/superchain-registry/tree/38c054f1d4179252c91e856fe7115dcbe28962f0/superchain/configs/mainnet)
+- [https://github.com/ethereum-optimism/superchain-registry/tree/38c054f1d4179252c91e856fe7115dcbe28962f0/superchain/configs/mainnet](https://github.com/ethereum-optimism/superchain-registry/tree/38c054f1d4179252c91e856fe7115dcbe28962f0/superchain/configs/mainnet)
 
 ### 2. Fetch EIP‑1559 parameter update events
 
@@ -36,7 +36,7 @@ Retrieve the timestamp associated with the log entry.
 
 #### 3.2 Map the timestamp to an L2 block
 
-Find the closest L2 block *after* the timestamp.
+Find the closest L2 block _after_ the timestamp.
 
 Replace `apiKey`, `chainId`, and `timestamp`:
 
@@ -60,8 +60,8 @@ https://api.etherscan.io/v2/api?apikey=<apiKey>&chainid=<chainId>&module=proxy&a
 
 ##### Activation point logic in EDR
 
-* Let `n` be the **first** block where the correct `extra_data` appears.
-* In EDR, the activation point must be set to `blockNumber = n + 1`.
+- Let `n` be the **first** block where the correct `extra_data` appears.
+- In EDR, the activation point must be set to `blockNumber = n + 1`.
 
 This is required because EDR applies base fee parameters when calculating the gas price using **parent block** information.
 
