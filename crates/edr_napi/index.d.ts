@@ -450,6 +450,8 @@ export interface InstrumentationMetadata {
  * code.
  */
 export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string, coverageLibraryPath: string): InstrumentationResult
+/** Retrieves the latest version of `Solidity` supported for instrumentation. */
+export declare function latestSupportedSolidityVersion(): string
 /** Ethereum execution log. */
 export interface ExecutionLog {
   address: Uint8Array
