@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.22
+
+### Minor Changes
+
+- b5a7b75: Added an API that reports the latest supported Solidity version for source instrumentation
+
 ## 0.12.0-next.21
 
 ### Minor Changes
