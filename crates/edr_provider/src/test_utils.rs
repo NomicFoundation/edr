@@ -45,7 +45,7 @@ pub fn l1_header_overrides_before_merge(
 ) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
     HeaderOverrides {
         nonce: Some(replay_header.nonce),
-        ..l1_header_overrides_before_prague(replay_header)
+        ..header_overrides(replay_header)
     }
 }
 
