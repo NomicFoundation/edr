@@ -39,24 +39,36 @@ pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
     create_test_config_with_fork(None)
 }
 
-/// Default header overrides for replaying L1 blocks before The Merge
-pub fn l1_header_overrides_before_merge(
-    replay_header: &BlockHeader,
-) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
-    HeaderOverrides {
-        nonce: Some(replay_header.nonce),
-        ..l1_header_overrides(replay_header)
-    }
-}
-
-/// Default header overrides for replaying L1 blocks.
-pub fn l1_header_overrides(
+/// Default base header overrides for replaying L1 blocks.
+pub fn l1_base_header_overrides(
     replay_header: &BlockHeader,
 ) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
     HeaderOverrides {
         // Extra_data field in L1 has arbitrary additional data
         extra_data: Some(replay_header.extra_data.clone()),
         ..header_overrides(replay_header)
+    }
+}
+
+/// Default header overrides for replaying L1 blocks before The Merge
+pub fn l1_header_overrides_before_merge(
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
+    HeaderOverrides {
+        nonce: Some(replay_header.nonce),
+        ..l1_base_header_overrides(replay_header)
+    }
+}
+
+/// Default header overrides for replaying L1 blocks after Prague hardfork.
+pub fn prague_header_overrides(
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
+    HeaderOverrides {
+        // EDR does not compute the `requests_hash`, as full support for EIP-7685 introduced in
+        // Prague is not implemented.
+        requests_hash: replay_header.requests_hash,
+        ..l1_base_header_overrides(replay_header)
     }
 }
 
