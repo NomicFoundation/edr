@@ -218,6 +218,13 @@ pub async fn run_full_block<
     let mined_block = builder.finalize_block(rewards)?;
 
     let mined_header = mined_block.block.block_header();
+
+    debug_assert_eq!(
+        expected_block.block_hash(),
+        mined_block.block.block_hash(),
+        "{:?}",
+        "Block hashes differ"
+    );
     for (expected, actual) in expected_block
         .fetch_transaction_receipts()?
         .into_iter()
@@ -356,12 +363,6 @@ pub async fn run_full_block<
                 .expect("transaction index is valid")
         );
     }
-    debug_assert_eq!(
-        expected_block.block_hash(),
-        mined_block.block.block_hash(),
-        "{:?}",
-        "Block hashes differ"
-    );
 
     assert_eq!(replay_header, mined_header);
 

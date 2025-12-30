@@ -1,5 +1,15 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.21
+
+### Minor Changes
+
+- 44e779c: Added function-level configuration overrides for Solidity tests
+
+### Patch Changes
+
+- b5ad15c: Added support for instrumentation of Solidity `0.8.32` and `0.8.33`
+
 ## 0.12.0-next.20
 
 ### Patch Changes
