@@ -31,7 +31,11 @@ import {
   PROVIDERS,
 } from "../../../helpers/providers";
 import { sendDummyTransaction } from "../../../helpers/sendDummyTransaction";
-import { deployContract } from "../../../helpers/transactions";
+import {
+  deployContract,
+  getTxToDeployBytecode,
+  sendDeploymentTx,
+} from "../../../helpers/transactions";
 import { assertEqualTraces } from "../../utils/assertEqualTraces";
 
 // TODO: temporarily skip some of the tests because the latest version of ethereumjs
@@ -66,22 +70,27 @@ describe("Debug module", function () {
           assert.deepEqual(trace, {
             gas: 21_000,
             failed: false,
-            returnValue: "",
+            returnValue: "0x",
             structLogs: [],
           });
         });
 
         it("Should throw an error when the value passed as tracer is not supported", async function () {
+          const txHash = await sendDummyTransaction(this.provider, 0, {
+            from: DEFAULT_ACCOUNTS_ADDRESSES[1],
+          });
+
           await assertInvalidArgumentsError(
             this.provider,
             "debug_traceTransaction",
             [
-              "0x1234567876543234567876543456765434567aeaeaed67616732632762762373",
+              txHash,
               {
                 tracer: "unsupportedTracer",
               },
             ],
-            "Hardhat currently only supports the default tracer, so no tracer parameter should be passed."
+            // TODO: https://github.com/NomicFoundation/edr/issues/1250
+            "JS Tracer is not enabled"
           );
         });
 
@@ -118,7 +127,7 @@ describe("Debug module", function () {
           assert.deepEqual(trace, {
             gas: 21_000,
             failed: false,
-            returnValue: "",
+            returnValue: "0x",
             structLogs: [],
           });
         });
@@ -134,12 +143,18 @@ describe("Debug module", function () {
               from: DEFAULT_ACCOUNTS_ADDRESSES[1],
               to: contractAddress,
               data: `${EXAMPLE_CONTRACT.selectors.modifiesState}000000000000000000000000000000000000000000000000000000000000000a`,
+              gas: numberToRpcQuantity(6_000_000),
             },
           ]);
 
           const trace: RpcDebugTraceOutput = await this.provider.send(
             "debug_traceTransaction",
-            [txHash]
+            [
+              txHash,
+              {
+                enableMemory: true,
+              },
+            ]
           );
 
           assertEqualTraces(trace, modifiesStateTrace);
@@ -165,7 +180,7 @@ describe("Debug module", function () {
           assert.deepEqual(trace, {
             gas: 21_000,
             failed: true,
-            returnValue: "",
+            returnValue: "0x",
             structLogs: [],
           });
         });
@@ -173,20 +188,31 @@ describe("Debug module", function () {
         // Regression test, see issue: https://github.com/NomicFoundation/hardhat/issues/3858
         it("The memory property should not have additional superfluous zeros", async function () {
           // push0 push0 mstore push0
-          const bytecode = "0x5F5F525F";
-          const address = "0x1234567890123456789012345678901234567890";
+          const bytecode = "5F5F525F";
+          const deploymentTx = {
+            ...getTxToDeployBytecode(bytecode),
+            gas: undefined,
+            gasPrice: undefined,
+          };
 
-          await this.provider.send("hardhat_setCode", [address, bytecode]);
+          const contractAddress = await sendDeploymentTx(
+            this.provider,
+            deploymentTx
+          );
 
           const tx = await this.provider.send("eth_sendTransaction", [
             {
               from: DEFAULT_ACCOUNTS_ADDRESSES[2],
-              to: address,
+              to: contractAddress,
+              gas: numberToRpcQuantity(6_000_000),
             },
           ]);
 
           const trace = await this.provider.send("debug_traceTransaction", [
             tx,
+            {
+              enableMemory: true,
+            },
           ]);
 
           assertEqualTraces(trace, elongatedMemoryRegressionTestTrace);
@@ -215,7 +241,7 @@ describe("Debug module", function () {
             assert.deepEqual(trace, {
               gas: 23_400,
               failed: false,
-              returnValue: "",
+              returnValue: "0x",
               structLogs: [],
             });
           });
@@ -337,6 +363,7 @@ describe("Debug module", function () {
           "0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148",
           {
             disableStorage: true,
+            enableMemory: true,
           },
         ]
       );

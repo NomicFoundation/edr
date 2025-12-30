@@ -1777,8 +1777,6 @@ where
         let mut debug_inspector = DebugInspector::new(tracing_options)
             .map_err(DebugTraceError::from_debug_inspector_creation_error)?;
 
-        println!("Debug inspector: {:?}", debug_inspector);
-
         let mut evm_observer = EvmObserver::new(EvmObserverConfig {
             call_override: None,
             ..EvmObserverConfig::from(&self.observability)

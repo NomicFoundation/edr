@@ -8,24 +8,27 @@ export function assertEqualTraces(
 ) {
   assert.equal(actual.failed, expected.failed);
   assert.equal(actual.gas, expected.gas);
-
-  // geth doesn't seem to include the returnValue
-  // assert.equal(actual.returnValue, expected.returnValue);
-
+  assert.equal(actual.returnValue, expected.returnValue);
   assert.equal(actual.structLogs.length, expected.structLogs.length);
 
-  for (const [i, log] of expected.structLogs.entries()) {
-    // we ignore the gasCost of the last step because
-    // we don't guarantee that it's correct
-    if (i === expected.structLogs.length - 1) {
-      actual.structLogs[i].gasCost = 0;
-      log.gasCost = 0;
+  // Eslint complains about not modifying `i`, but we need to modify `expectedLog`.
+  // eslint-disable-next-line prefer-const
+  for (let [i, expectedLog] of expected.structLogs.entries()) {
+    const actualLog = actual.structLogs[i];
+
+    /// Reth returns an empty array for memory, whereas Geth omits it when it's empty
+    if (
+      actualLog.memory !== undefined &&
+      actualLog.memory.length === 0 &&
+      expectedLog.memory === undefined
+    ) {
+      expectedLog.memory = [];
     }
 
     assert.deepEqual(
-      actual.structLogs[i],
-      log,
-      `Different logs at ${i} (pc: ${log.pc}, opcode: ${log.op}, gas: ${log.gas})`
+      actualLog,
+      expectedLog,
+      `Different logs at ${i} (pc: ${expectedLog.pc}, opcode: ${expectedLog.op}, gas: ${expectedLog.gas})`
     );
   }
 }

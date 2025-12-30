@@ -33,6 +33,16 @@ use crate::{
     ProviderSpec,
 };
 
+pub(crate) const INVALID_INPUT: i16 = -32000;
+pub(crate) const INTERNAL_ERROR: i16 = -32603;
+pub(crate) const INVALID_PARAMS: i16 = -32602;
+
+/// Trait for errors that can be converted to JSON-RPC errors.
+pub trait JsonRpcError {
+    /// Returns the JSON-RPC error code.
+    fn error_code(&self) -> i16;
+}
+
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
     <ChainSpecT as GenesisBlockFactory>::GenesisBlockCreationError,
@@ -434,10 +444,6 @@ impl<
             TransactionValidationErrorT,
         >,
     ) -> Self {
-        const INVALID_INPUT: i16 = -32000;
-        const INTERNAL_ERROR: i16 = -32603;
-        const INVALID_PARAMS: i16 = -32602;
-
         #[allow(clippy::match_same_arms)]
         let code = match &value {
             ProviderError::AccountOverrideConversionError(_) => INVALID_INPUT,
@@ -450,7 +456,7 @@ impl<
             ProviderError::BlobMemPoolUnsupported => INVALID_INPUT,
             ProviderError::Blockchain(_) => INVALID_INPUT,
             ProviderError::Creation(_) => INVALID_INPUT,
-            ProviderError::DebugTrace(_) => INTERNAL_ERROR,
+            ProviderError::DebugTrace(error) => error.error_code(),
             ProviderError::Eip4844CallRequestUnsupported => INVALID_INPUT,
             ProviderError::Eip4844TransactionMissingReceiver => INVALID_INPUT,
             ProviderError::Eip4844TransactionUnsupported => INVALID_INPUT,

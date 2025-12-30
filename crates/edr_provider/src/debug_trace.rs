@@ -16,7 +16,10 @@ use edr_state_api::{DynState, StateError};
 use edr_tracing::Trace;
 use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, MuxError, TransactionContext};
 
-use crate::observability::{EvmObserver, EvmObserverConfig};
+use crate::{
+    error::{JsonRpcError, INTERNAL_ERROR, INVALID_PARAMS},
+    observability::{EvmObserver, EvmObserverConfig},
+};
 
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -211,6 +214,23 @@ impl<TransactionValidationErrorT> DebugTraceError<TransactionValidationErrorT> {
                     "These `DebugInspectorError`s should not occur while calling `DebugInspector::::get_result`"
                 )
             }
+        }
+    }
+}
+
+impl<TransactionValidationErrorT> JsonRpcError for DebugTraceError<TransactionValidationErrorT> {
+    fn error_code(&self) -> i16 {
+        match self {
+            DebugTraceError::InvalidTracerConfig
+            | DebugTraceError::InvalidTransactionHash { .. }
+            | DebugTraceError::JsTracerNotEnabled
+            | DebugTraceError::MuxInspector(_)
+            | DebugTraceError::UnsupportedTracer => INVALID_PARAMS,
+            DebugTraceError::InvalidSpecId { .. }
+            | DebugTraceError::OnCollectedCoverageCallback(_)
+            | DebugTraceError::Blockchain(_)
+            | DebugTraceError::State(_)
+            | DebugTraceError::TransactionError(_) => INTERNAL_ERROR,
         }
     }
 }
