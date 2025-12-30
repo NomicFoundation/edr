@@ -4091,7 +4091,8 @@ mod tests {
         use super::*;
         use crate::{
             test_utils::{
-                l1_header_overrides, l1_header_overrides_before_merge, prague_header_overrides,
+                l1_header_overrides, l1_header_overrides_before_merge,
+                l1_header_overrides_before_prague,
             },
             ForkConfig,
         };
@@ -4279,64 +4280,64 @@ mod tests {
             mainnet_shanghai => L1ChainSpec {
                 block_number: 17_050_001,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_prague,
             },
             // This block contains a sequence of transaction that first raise
             // an empty account's balance and then decrease it
             mainnet_19318016 => L1ChainSpec {
                 block_number: 19_318_016,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_prague,
             },
             // This block has both EIP-2930 and EIP-1559 transactions
             sepolia_eip_1559_2930 => L1ChainSpec {
                 block_number: 5_632_795,
                 url: get_alchemy_url().replace("mainnet", "sepolia"),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_prague,
             },
             sepolia_shanghai => L1ChainSpec {
                 block_number: 3_095_000,
                 url: get_alchemy_url().replace("mainnet", "sepolia"),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_prague,
             },
             // This block has an EIP-4844 transaction
             mainnet_cancun => L1ChainSpec {
                 block_number: 19_529_021,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_prague,
             },
             // This block contains a transaction that uses the KZG point evaluation
             // precompile, introduced in Cancun
             mainnet_cancun2 => L1ChainSpec {
                 block_number: 19_562_047,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_prague,
             },
             // This block contains both valid and invalid EIP-7702 transactions, introduced in Prague
             mainnet_prague => L1ChainSpec {
                 block_number: 23_376_625,
                 url: get_alchemy_url(),
-                header_overrides_constructor: prague_header_overrides,
+                header_overrides_constructor: l1_header_overrides,
             },
             mainnet_osaka => L1ChainSpec {
                 block_number: 23_957_251,
                 url: get_alchemy_url(),
-                header_overrides_constructor: prague_header_overrides,
+                header_overrides_constructor: l1_header_overrides,
             },
             mainnet_osaka_bpo1 => L1ChainSpec {
                 block_number: 23_990_516,
                 url: get_alchemy_url(),
-                header_overrides_constructor: prague_header_overrides,
+                header_overrides_constructor: l1_header_overrides,
             },
             mainnet_blob_excess_gas_calculation_issue => L1ChainSpec {
                 block_number: 24_035_797,
                 url: get_alchemy_url(),
-                header_overrides_constructor: prague_header_overrides,
+                header_overrides_constructor: l1_header_overrides,
             },
             mainnet_requests_hash_not_empty => L1ChainSpec {
                 block_number: 24_105_015,
                 url: get_alchemy_url(),
-                header_overrides_constructor: prague_header_overrides,
+                header_overrides_constructor: l1_header_overrides,
             },
 
         }

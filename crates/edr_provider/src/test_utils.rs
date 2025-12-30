@@ -45,12 +45,12 @@ pub fn l1_header_overrides_before_merge(
 ) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
     HeaderOverrides {
         nonce: Some(replay_header.nonce),
-        ..l1_header_overrides(replay_header)
+        ..l1_header_overrides_before_prague(replay_header)
     }
 }
 
 /// Default header overrides for replaying L1 blocks.
-pub fn l1_header_overrides(
+pub fn l1_header_overrides_before_prague(
     replay_header: &BlockHeader,
 ) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
     HeaderOverrides {
@@ -61,14 +61,14 @@ pub fn l1_header_overrides(
 }
 
 /// Default header overrides for replaying L1 blocks after Prague hardfork.
-pub fn prague_header_overrides(
+pub fn l1_header_overrides(
     replay_header: &BlockHeader,
 ) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
     HeaderOverrides {
         // EDR does not compute the `requests_hash`, as full support for EIP-7685 introduced in
         // Prague is not implemented.
         requests_hash: replay_header.requests_hash,
-        ..l1_header_overrides(replay_header)
+        ..l1_header_overrides_before_prague(replay_header)
     }
 }
 
