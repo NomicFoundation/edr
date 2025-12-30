@@ -61,7 +61,7 @@ pub fn l1_header_overrides_before_merge(
 }
 
 /// Default header overrides for replaying L1 blocks after Prague hardfork.
-pub fn l1_header_overrides(
+pub fn prague_header_overrides(
     replay_header: &BlockHeader,
 ) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
     HeaderOverrides {
