@@ -4091,8 +4091,7 @@ mod tests {
         use super::*;
         use crate::{
             test_utils::{
-                l1_header_overrides, l1_header_overrides_before_merge,
-                l1_header_overrides_before_prague,
+                l1_base_header_overrides, l1_header_overrides, l1_header_overrides_before_merge,
             },
             ForkConfig,
         };
@@ -4280,38 +4279,38 @@ mod tests {
             mainnet_shanghai => L1ChainSpec {
                 block_number: 17_050_001,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides_before_prague,
+                header_overrides_constructor: l1_base_header_overrides,
             },
             // This block contains a sequence of transaction that first raise
             // an empty account's balance and then decrease it
             mainnet_19318016 => L1ChainSpec {
                 block_number: 19_318_016,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides_before_prague,
+                header_overrides_constructor: l1_base_header_overrides,
             },
             // This block has both EIP-2930 and EIP-1559 transactions
             sepolia_eip_1559_2930 => L1ChainSpec {
                 block_number: 5_632_795,
                 url: get_alchemy_url().replace("mainnet", "sepolia"),
-                header_overrides_constructor: l1_header_overrides_before_prague,
+                header_overrides_constructor: l1_base_header_overrides,
             },
             sepolia_shanghai => L1ChainSpec {
                 block_number: 3_095_000,
                 url: get_alchemy_url().replace("mainnet", "sepolia"),
-                header_overrides_constructor: l1_header_overrides_before_prague,
+                header_overrides_constructor: l1_base_header_overrides,
             },
             // This block has an EIP-4844 transaction
             mainnet_cancun => L1ChainSpec {
                 block_number: 19_529_021,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides_before_prague,
+                header_overrides_constructor: l1_base_header_overrides,
             },
             // This block contains a transaction that uses the KZG point evaluation
             // precompile, introduced in Cancun
             mainnet_cancun2 => L1ChainSpec {
                 block_number: 19_562_047,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides_before_prague,
+                header_overrides_constructor: l1_base_header_overrides,
             },
             // This block contains both valid and invalid EIP-7702 transactions, introduced in Prague
             mainnet_prague => L1ChainSpec {
