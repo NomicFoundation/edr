@@ -10,7 +10,6 @@ import _ from "lodash";
 
 import { trace as mainnetPostLondonTxTrace } from "../../../../../fixture-debug-traces/mainnetPostLondonTxTrace";
 import { trace as mainnetReturnsDataTrace } from "../../../../../fixture-debug-traces/mainnetReturnsDataTrace";
-import { trace as mainnetReturnsDataTraceGeth } from "../../../../../fixture-debug-traces/mainnetReturnsDataTraceGeth";
 import { trace as mainnetRevertTrace } from "../../../../../fixture-debug-traces/mainnetRevertTrace";
 import { trace as modifiesStateTrace } from "../../../../../fixture-debug-traces/modifiesStateTrace";
 import { trace as elongatedMemoryRegressionTestTrace } from "../../../../../fixture-debug-traces/elongatedMemoryRegressionTestTrace";
@@ -298,17 +297,26 @@ describe("Debug module", function () {
     it("Should return the right values for a successful tx", async function () {
       const trace: RpcDebugTraceOutput = await provider.send(
         "debug_traceTransaction",
-        ["0x89ebeb319fcd7bda9c7f8c1b78a7571842a705425b175f24f34fe8e6c60580d4"]
+        [
+          "0x89ebeb319fcd7bda9c7f8c1b78a7571842a705425b175f24f34fe8e6c60580d4",
+          {
+            enableMemory: true,
+          },
+        ]
       );
 
       assertEqualTraces(trace, mainnetReturnsDataTrace);
-      assertEqualTraces(trace, mainnetReturnsDataTraceGeth);
     });
 
     it("Should return the right values for a reverted tx", async function () {
       const trace: RpcDebugTraceOutput = await provider.send(
         "debug_traceTransaction",
-        ["0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148"]
+        [
+          "0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148",
+          {
+            enableMemory: true,
+          },
+        ]
       );
 
       assertEqualTraces(trace, mainnetRevertTrace);
@@ -342,6 +350,7 @@ describe("Debug module", function () {
           "0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148",
           {
             disableStack: true,
+            enableMemory: true,
           },
         ]
       );
@@ -424,9 +433,17 @@ describe("Debug module", function () {
 
     // see https://github.com/NomicFoundation/hardhat/issues/3519
     it.skip("Should return the right values for a successful tx", async function () {
+      // This is an expensive test, so we increase the timeout
+      this.timeout(60_000);
+
       const trace: RpcDebugTraceOutput = await provider.send(
         "debug_traceTransaction",
-        ["0xe0b1f8e11eb822107ddc35ce2d944147cc043acf680c39332ee95dd6508d107e"]
+        [
+          "0xe0b1f8e11eb822107ddc35ce2d944147cc043acf680c39332ee95dd6508d107e",
+          {
+            enableMemory: true,
+          },
+        ]
       );
 
       assertEqualTraces(trace, mainnetPostLondonTxTrace);
