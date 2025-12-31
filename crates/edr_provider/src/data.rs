@@ -1786,16 +1786,10 @@ where
 
         let scheduled_blob_params = self.scheduled_blob_params().cloned();
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
-            let mut inspector = DualInspector::new(&mut debug_inspector, &mut evm_observer);
-            let block_env = ChainSpecT::BlockEnv::new_block_env(
+            let block_env = BlockEnvWithZeroBaseFee::new(ChainSpecT::BlockEnv::new_block_env(
                 block.block_header(),
                 cfg_env.spec,
                 scheduled_blob_params.as_ref(),
-            );
-
-            let block_env = BlockEnvWithZeroBaseFee::new(ChainSpecT::BlockEnv::new_block_env(
-                block_header,
-                hardfork,
             ));
 
             let result = guaranteed_dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
