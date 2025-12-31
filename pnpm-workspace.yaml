@@ -11,4 +11,5 @@ minimumReleaseAge: 10080
 
 # Allow immediate installs for the following packages
 minimumReleaseAgeExclude:
-  - '@nomicfoundation/*'
+  - "@nomicfoundation/*"
+  - "hardhat"

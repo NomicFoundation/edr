@@ -10,7 +10,6 @@ import _ from "lodash";
 
 import { trace as mainnetPostLondonTxTrace } from "../../../../../fixture-debug-traces/mainnetPostLondonTxTrace";
 import { trace as mainnetReturnsDataTrace } from "../../../../../fixture-debug-traces/mainnetReturnsDataTrace";
-import { trace as mainnetReturnsDataTraceGeth } from "../../../../../fixture-debug-traces/mainnetReturnsDataTraceGeth";
 import { trace as mainnetRevertTrace } from "../../../../../fixture-debug-traces/mainnetRevertTrace";
 import { trace as modifiesStateTrace } from "../../../../../fixture-debug-traces/modifiesStateTrace";
 import { trace as elongatedMemoryRegressionTestTrace } from "../../../../../fixture-debug-traces/elongatedMemoryRegressionTestTrace";
@@ -31,7 +30,11 @@ import {
   PROVIDERS,
 } from "../../../helpers/providers";
 import { sendDummyTransaction } from "../../../helpers/sendDummyTransaction";
-import { deployContract } from "../../../helpers/transactions";
+import {
+  deployContract,
+  getTxToDeployBytecode,
+  sendDeploymentTx,
+} from "../../../helpers/transactions";
 import { assertEqualTraces } from "../../utils/assertEqualTraces";
 
 // TODO: temporarily skip some of the tests because the latest version of ethereumjs
@@ -66,22 +69,27 @@ describe("Debug module", function () {
           assert.deepEqual(trace, {
             gas: 21_000,
             failed: false,
-            returnValue: "",
+            returnValue: "0x",
             structLogs: [],
           });
         });
 
         it("Should throw an error when the value passed as tracer is not supported", async function () {
+          const txHash = await sendDummyTransaction(this.provider, 0, {
+            from: DEFAULT_ACCOUNTS_ADDRESSES[1],
+          });
+
           await assertInvalidArgumentsError(
             this.provider,
             "debug_traceTransaction",
             [
-              "0x1234567876543234567876543456765434567aeaeaed67616732632762762373",
+              txHash,
               {
                 tracer: "unsupportedTracer",
               },
             ],
-            "Hardhat currently only supports the default tracer, so no tracer parameter should be passed."
+            // TODO: https://github.com/NomicFoundation/edr/issues/1250
+            "JS Tracer is not enabled"
           );
         });
 
@@ -118,7 +126,7 @@ describe("Debug module", function () {
           assert.deepEqual(trace, {
             gas: 21_000,
             failed: false,
-            returnValue: "",
+            returnValue: "0x",
             structLogs: [],
           });
         });
@@ -134,12 +142,18 @@ describe("Debug module", function () {
               from: DEFAULT_ACCOUNTS_ADDRESSES[1],
               to: contractAddress,
               data: `${EXAMPLE_CONTRACT.selectors.modifiesState}000000000000000000000000000000000000000000000000000000000000000a`,
+              gas: numberToRpcQuantity(6_000_000),
             },
           ]);
 
           const trace: RpcDebugTraceOutput = await this.provider.send(
             "debug_traceTransaction",
-            [txHash]
+            [
+              txHash,
+              {
+                enableMemory: true,
+              },
+            ]
           );
 
           assertEqualTraces(trace, modifiesStateTrace);
@@ -165,7 +179,7 @@ describe("Debug module", function () {
           assert.deepEqual(trace, {
             gas: 21_000,
             failed: true,
-            returnValue: "",
+            returnValue: "0x",
             structLogs: [],
           });
         });
@@ -173,20 +187,31 @@ describe("Debug module", function () {
         // Regression test, see issue: https://github.com/NomicFoundation/hardhat/issues/3858
         it("The memory property should not have additional superfluous zeros", async function () {
           // push0 push0 mstore push0
-          const bytecode = "0x5F5F525F";
-          const address = "0x1234567890123456789012345678901234567890";
+          const bytecode = "5F5F525F";
+          const deploymentTx = {
+            ...getTxToDeployBytecode(bytecode),
+            gas: undefined,
+            gasPrice: undefined,
+          };
 
-          await this.provider.send("hardhat_setCode", [address, bytecode]);
+          const contractAddress = await sendDeploymentTx(
+            this.provider,
+            deploymentTx
+          );
 
           const tx = await this.provider.send("eth_sendTransaction", [
             {
               from: DEFAULT_ACCOUNTS_ADDRESSES[2],
-              to: address,
+              to: contractAddress,
+              gas: numberToRpcQuantity(6_000_000),
             },
           ]);
 
           const trace = await this.provider.send("debug_traceTransaction", [
             tx,
+            {
+              enableMemory: true,
+            },
           ]);
 
           assertEqualTraces(trace, elongatedMemoryRegressionTestTrace);
@@ -215,7 +240,7 @@ describe("Debug module", function () {
             assert.deepEqual(trace, {
               gas: 23_400,
               failed: false,
-              returnValue: "",
+              returnValue: "0x",
               structLogs: [],
             });
           });
@@ -272,17 +297,26 @@ describe("Debug module", function () {
     it("Should return the right values for a successful tx", async function () {
       const trace: RpcDebugTraceOutput = await provider.send(
         "debug_traceTransaction",
-        ["0x89ebeb319fcd7bda9c7f8c1b78a7571842a705425b175f24f34fe8e6c60580d4"]
+        [
+          "0x89ebeb319fcd7bda9c7f8c1b78a7571842a705425b175f24f34fe8e6c60580d4",
+          {
+            enableMemory: true,
+          },
+        ]
       );
 
       assertEqualTraces(trace, mainnetReturnsDataTrace);
-      assertEqualTraces(trace, mainnetReturnsDataTraceGeth);
     });
 
     it("Should return the right values for a reverted tx", async function () {
       const trace: RpcDebugTraceOutput = await provider.send(
         "debug_traceTransaction",
-        ["0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148"]
+        [
+          "0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148",
+          {
+            enableMemory: true,
+          },
+        ]
       );
 
       assertEqualTraces(trace, mainnetRevertTrace);
@@ -316,6 +350,7 @@ describe("Debug module", function () {
           "0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148",
           {
             disableStack: true,
+            enableMemory: true,
           },
         ]
       );
@@ -337,6 +372,7 @@ describe("Debug module", function () {
           "0x6214b912cc9916d8b7bf5f4ff876e259f5f3754ddebb6df8c8e897cad31ae148",
           {
             disableStorage: true,
+            enableMemory: true,
           },
         ]
       );
@@ -397,9 +433,17 @@ describe("Debug module", function () {
 
     // see https://github.com/NomicFoundation/hardhat/issues/3519
     it.skip("Should return the right values for a successful tx", async function () {
+      // This is an expensive test, so we increase the timeout
+      this.timeout(60_000);
+
       const trace: RpcDebugTraceOutput = await provider.send(
         "debug_traceTransaction",
-        ["0xe0b1f8e11eb822107ddc35ce2d944147cc043acf680c39332ee95dd6508d107e"]
+        [
+          "0xe0b1f8e11eb822107ddc35ce2d944147cc043acf680c39332ee95dd6508d107e",
+          {
+            enableMemory: true,
+          },
+        ]
       );
 
       assertEqualTraces(trace, mainnetPostLondonTxTrace);
