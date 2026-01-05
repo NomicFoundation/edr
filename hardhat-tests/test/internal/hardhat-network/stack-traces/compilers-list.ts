@@ -13,6 +13,8 @@ export interface SolidityCompiler {
   optimizer?: SolidityCompilerOptimizer;
 }
 
+// Versions can be obtained from a `solc` compiler list like this one:
+// <https://binaries.soliditylang.org/linux-amd64/list.json>
 export const solidityCompilers: SolidityCompiler[] = [
   // 0.5
   {
