@@ -18,7 +18,6 @@ function getEnv(key: string): string | undefined {
 export const INFURA_URL = getEnv("INFURA_URL");
 export const ALCHEMY_URL = getEnv("ALCHEMY_URL");
 
-
 if (INFURA_URL === undefined && ALCHEMY_URL === undefined) {
   console.warn(
     chalk.yellow(
@@ -26,4 +25,3 @@ if (INFURA_URL === undefined && ALCHEMY_URL === undefined) {
     )
   );
 }
-
