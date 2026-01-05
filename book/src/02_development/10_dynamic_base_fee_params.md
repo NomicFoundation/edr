@@ -46,11 +46,11 @@ https://api.etherscan.io/v2/api?apikey=<apiKey>&chainid=<chainId>&module=block&a
 
 #### 3.3 Determine the activation block
 
-Starting from the returned `blockNumber`, search forward for the first block whose `extra_data` field contains the base fee parameters from the `ConfigUpdate` event.
+Starting from the L2 `blockNumber` returned in step 3.2, search forward through **L2 blockchain blocks** for the first block whose `extra_data` field contains the base fee parameters from the `ConfigUpdate` event.
 
-> ⚠️ **Note**: At the time of writing, there is no deterministic or automated way to locate this block. Manual inspection of subsequent blocks is required.
+> ⚠️ **Note**: At the time of writing, there is no deterministic or automated way to locate this block. Manual inspection of subsequent L2 blocks is required.
 
-Fetch block data using:
+Fetch L2 block data using:
 
 Replace `apiKey`, `chainId`, and `blockNumber`:
 
