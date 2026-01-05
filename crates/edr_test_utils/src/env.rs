@@ -21,15 +21,6 @@ pub fn get_alchemy_url() -> String {
     get_non_empty_env_var_or_panic("ALCHEMY_URL")
 }
 
-/// Returns the Infura URL from the environment variables.
-///
-/// # Panics
-///
-/// Panics if the environment variable is not defined, or if it is empty.
-pub fn get_infura_url() -> String {
-    get_non_empty_env_var_or_panic("INFURA_URL")
-}
-
 /// Enum representing the different types of networks.
 pub enum NetworkType {
     Ethereum,
