@@ -10,7 +10,7 @@ use edr_provider::{
     test_utils::create_test_config_with_fork, time::MockTime, ForkConfig, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::env::get_alchemy_url;
+use edr_test_utils::env::JsonRpcUrlProvider;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -23,7 +23,7 @@ async fn issue_588() -> anyhow::Result<()> {
         cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_overrides: HashMap::default(),
         http_headers: None,
-        url: get_alchemy_url(),
+        url: JsonRpcUrlProvider::ethereum_mainnet(),
     }));
 
     let current_time_is_1970 = Arc::new(MockTime::with_seconds(0));

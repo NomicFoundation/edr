@@ -2635,7 +2635,7 @@ mod tests {
     use alloy_chains::NamedChain;
     use alloy_primitives::{Address, U256};
     use alloy_provider::Provider;
-    use edr_test_utils::env::get_alchemy_url;
+    use edr_test_utils::env::JsonRpcUrlProvider;
     use foundry_fork_db::cache::{BlockchainDb, BlockchainDbMeta};
     use revm::{
         context::{
@@ -2656,7 +2656,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn can_read_write_cache() {
-        let endpoint = get_alchemy_url();
+        let endpoint = JsonRpcUrlProvider::ethereum_mainnet();
         let cache_dir = tempdir().expect("Should create tempdir");
 
         let provider = get_http_provider(&endpoint);

@@ -10,7 +10,7 @@ use edr_provider::spec::ForkedBlockchainForChainSpec;
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::{irregular::IrregularState, AccountModifierFn, StateDebug};
 use edr_state_fork::ForkedState;
-use edr_test_utils::env::get_alchemy_url;
+use edr_test_utils::env::JsonRpcUrlProvider;
 use edr_utils::random::RandomHashGenerator;
 use parking_lot::Mutex;
 use tokio::runtime;
@@ -23,7 +23,7 @@ async fn issue_336_set_balance_after_forking() -> anyhow::Result<()> {
     let contract_address = Address::from_str(TEST_CONTRACT_ADDRESS).unwrap();
 
     let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
-        &get_alchemy_url().replace("mainnet", "sepolia"),
+        &JsonRpcUrlProvider::ethereum_sepolia(),
         CACHE_DIR.into(),
         None,
     )?;

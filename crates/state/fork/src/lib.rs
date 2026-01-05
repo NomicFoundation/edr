@@ -268,7 +268,7 @@ mod tests {
     use edr_chain_l1::L1ChainSpec;
     use edr_eth::PreEip1898BlockSpec;
     use edr_rpc_eth::client::EthRpcClientForChainSpec;
-    use edr_test_utils::env::get_alchemy_url;
+    use edr_test_utils::env::JsonRpcUrlProvider;
 
     use super::*;
 
@@ -293,7 +293,7 @@ mod tests {
 
             let runtime = runtime::Handle::current();
             let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
-                &get_alchemy_url(),
+                &JsonRpcUrlProvider::ethereum_mainnet(),
                 tempdir.path().to_path_buf(),
                 None,
             )

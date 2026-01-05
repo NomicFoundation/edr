@@ -7,27 +7,29 @@ mod provider;
 mod rpc;
 
 #[cfg(feature = "test-remote")]
+// TODO: remove now that's encapsulated
 mod op {
-    pub fn mainnet_url() -> String {
-        use edr_test_utils::env::get_alchemy_url;
+    use edr_test_utils::env::JsonRpcUrlProvider;
 
-        get_alchemy_url().replace("eth-", "opt-")
+    pub fn mainnet_url() -> String {
+        JsonRpcUrlProvider::op_mainnet()
     }
 
     pub fn sepolia_url() -> String {
-        mainnet_url().replace("mainnet", "sepolia")
+        JsonRpcUrlProvider::op_sepolia()
     }
 }
 
+// TODO: remove now that's encapsulated
 #[cfg(feature = "test-remote")]
 mod base {
-    pub fn mainnet_url() -> String {
-        use edr_test_utils::env::get_alchemy_url;
+    use edr_test_utils::env::JsonRpcUrlProvider;
 
-        get_alchemy_url().replace("eth-", "base-")
+    pub fn mainnet_url() -> String {
+        JsonRpcUrlProvider::base_mainnet()
     }
 
     pub fn sepolia_url() -> String {
-        mainnet_url().replace("mainnet", "sepolia")
+        JsonRpcUrlProvider::base_sepolia()
     }
 }

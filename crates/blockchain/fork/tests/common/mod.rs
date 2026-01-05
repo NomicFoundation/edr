@@ -7,7 +7,7 @@ use edr_chain_spec_provider::ProviderChainSpec as _;
 use edr_provider::spec::ForkedBlockchainForChainSpec;
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::irregular::IrregularState;
-use edr_test_utils::env::get_alchemy_url;
+use edr_test_utils::env::JsonRpcUrlProvider;
 use edr_utils::random::RandomHashGenerator;
 use parking_lot::Mutex;
 
@@ -26,7 +26,7 @@ pub async fn create_dummy_forked_blockchain(
     fork_block_number: Option<u64>,
 ) -> ForkedBlockchainForChainSpec<L1ChainSpec> {
     let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
-        &get_alchemy_url(),
+        &JsonRpcUrlProvider::ethereum_mainnet(),
         edr_defaults::CACHE_DIR.into(),
         None,
     )

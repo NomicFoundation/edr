@@ -13,9 +13,9 @@ mod alchemy {
                         use edr_chain_spec::ExecutableTransaction;
                         use edr_primitives::B256;
                         use edr_rpc_eth::client::EthRpcClientForChainSpec;
-                        use edr_test_utils::env::get_alchemy_url;
+                        use edr_test_utils::env::JsonRpcUrlProvider;
 
-                        let client = EthRpcClientForChainSpec::<L1ChainSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None).expect("url ok");
+                        let client = EthRpcClientForChainSpec::<L1ChainSpec>::new(&JsonRpcUrlProvider::ethereum_mainnet(), edr_defaults::CACHE_DIR.into(), None).expect("url ok");
 
                         let block = client
                             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number($block_number))

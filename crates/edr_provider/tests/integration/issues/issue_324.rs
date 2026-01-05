@@ -7,7 +7,7 @@ use edr_provider::{
     NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::env::get_alchemy_url;
+use edr_test_utils::env::JsonRpcUrlProvider;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -29,7 +29,7 @@ async fn issue_324() -> anyhow::Result<()> {
         cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_overrides: HashMap::default(),
         http_headers: None,
-        url: get_alchemy_url().replace("mainnet", "sepolia"),
+        url: JsonRpcUrlProvider::ethereum_sepolia(),
     }));
     config.hardfork = edr_chain_l1::Hardfork::CANCUN;
 

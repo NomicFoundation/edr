@@ -12,40 +12,55 @@ fn get_non_empty_env_var_or_panic(name: &'static str) -> String {
     }
 }
 
-/// Returns the Alchemy URL from the environment variables.
-///
-/// # Panics
-///
-/// Panics if the environment variable is not defined, or if it is empty.
-pub fn get_alchemy_url() -> String {
-    get_non_empty_env_var_or_panic("ALCHEMY_URL")
-}
+pub struct JsonRpcUrlProvider;
 
-/// Enum representing the different types of networks.
-pub enum NetworkType {
-    Ethereum,
-    Sepolia,
-    Optimism,
-    Arbitrum,
-    Polygon,
-}
+impl JsonRpcUrlProvider {
+    /// Returns Alchemy JSON RPC provider URL from the environment variables.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the environment variable is not defined, or if it is empty.
+    fn base_alchemy_url() -> String {
+        get_non_empty_env_var_or_panic("ALCHEMY_URL")
+    }
+    fn convert_mainnet_to_sepolia(alchemy_url: String) -> String {
+        alchemy_url.replace("mainnet", "sepolia")
+    }
 
-/// Return the URL of a specific network Alchemy from environment variables.
-///
-/// # Panics
-///
-/// Panics if the environment variable is not defined, or if it is empty.
-pub fn get_alchemy_url_for_network(network_type: NetworkType) -> String {
-    let alchemy_url = get_alchemy_url();
+    pub fn ethereum_mainnet() -> String {
+        Self::base_alchemy_url()
+    }
+    pub fn ethereum_sepolia() -> String {
+        Self::convert_mainnet_to_sepolia(Self::ethereum_mainnet())
+    }
 
-    let url_without_network = alchemy_url
-        .strip_prefix("https://eth-mainnet")
-        .expect("Failed to remove alchemy url network prefix");
-    match network_type {
-        NetworkType::Ethereum => alchemy_url,
-        NetworkType::Sepolia => format!("https://eth-sepolia{url_without_network}"),
-        NetworkType::Optimism => format!("https://opt-mainnet{url_without_network}"),
-        NetworkType::Arbitrum => format!("https://arb-mainnet{url_without_network}"),
-        NetworkType::Polygon => format!("https://polygon-mainnet{url_without_network}"),
+    pub fn op_mainnet() -> String {
+        Self::base_alchemy_url().replace("eth-", "opt-")
+    }
+    pub fn op_sepolia() -> String {
+        Self::convert_mainnet_to_sepolia(Self::op_mainnet())
+    }
+
+    pub fn base_mainnet() -> String {
+        Self::base_alchemy_url().replace("eth-", "base-")
+    }
+    pub fn base_sepolia() -> String {
+        Self::convert_mainnet_to_sepolia(Self::base_mainnet())
+    }
+
+    pub fn arbitrum_mainnet() -> String {
+        Self::base_alchemy_url().replace("eth-", "arb-")
+    }
+
+    pub fn avalanche_mainnet() -> String {
+        Self::base_alchemy_url().replace("eth-", "avax-")
+    }
+
+    pub fn avalanche_fuji() -> String {
+        "https://api.avax-test.network/ext/bc/C/rpc".into()
+    }
+
+    pub fn polygon_mainnet() -> String {
+        Self::base_alchemy_url().replace("eth-", "polygon-")
     }
 }

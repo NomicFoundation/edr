@@ -11,7 +11,7 @@ use edr_provider::{
     time::CurrentTime, DebugTraceError, MethodInvocation, Provider, ProviderError, ProviderRequest,
     ProviderSpec, SyncProviderSpec,
 };
-use edr_test_utils::env::get_alchemy_url;
+use edr_test_utils::env::JsonRpcUrlProvider;
 use serial_test::serial;
 
 use crate::integration::helpers::get_chain_fork_provider;
@@ -38,7 +38,7 @@ fn get_provider<
         name: "Arbitrum".to_owned(),
         hardfork_activation_overrides: Some(HardforkActivations::with_spec_id(hardfork)),
     };
-    let url = get_alchemy_url().replace("eth-mainnet", "arb-mainnet");
+    let url = JsonRpcUrlProvider::arbitrum_mainnet();
     // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
     // ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true") };

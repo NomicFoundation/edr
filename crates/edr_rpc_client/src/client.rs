@@ -844,7 +844,7 @@ mod tests {
         use std::ops::Deref;
 
         use edr_primitives::U64;
-        use edr_test_utils::env::get_alchemy_url;
+        use edr_test_utils::env::JsonRpcUrlProvider;
         use futures::future::join_all;
         use hyper::StatusCode;
         use tempfile::TempDir;
@@ -919,7 +919,7 @@ mod tests {
 
         #[tokio::test]
         async fn concurrent_writes_to_cache_smoke_test() {
-            let client = TestRpcClient::new(&get_alchemy_url());
+            let client = TestRpcClient::new(&JsonRpcUrlProvider::ethereum_mainnet());
 
             let test_contents = "some random test data 42";
             let cache_key = "cache-key";
@@ -939,7 +939,7 @@ mod tests {
 
         #[tokio::test]
         async fn get_block_by_number_with_transaction_data_unsafe_no_cache() -> anyhow::Result<()> {
-            let alchemy_url = get_alchemy_url();
+            let alchemy_url = JsonRpcUrlProvider::ethereum_mainnet();
             let client = TestRpcClient::new(&alchemy_url);
 
             assert_eq!(client.files_in_cache().len(), 0);
@@ -980,7 +980,7 @@ mod tests {
 
         #[tokio::test]
         async fn is_cacheable_block_number() {
-            let client = TestRpcClient::new(&get_alchemy_url());
+            let client = TestRpcClient::new(&JsonRpcUrlProvider::ethereum_mainnet());
 
             let latest_block_number = client.block_number().await.unwrap();
 
@@ -999,7 +999,7 @@ mod tests {
 
         #[tokio::test]
         async fn network_id_from_cache() {
-            let alchemy_url = get_alchemy_url();
+            let alchemy_url = JsonRpcUrlProvider::ethereum_mainnet();
             let client = TestRpcClient::new(&alchemy_url);
 
             assert_eq!(client.files_in_cache().len(), 0);
