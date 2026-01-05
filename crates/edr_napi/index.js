@@ -399,4 +399,3 @@ module.exports.UNKNOWN_FUNCTION_NAME = UNKNOWN_FUNCTION_NAME
 module.exports.PRECOMPILE_FUNCTION_NAME = PRECOMPILE_FUNCTION_NAME
 module.exports.UNRECOGNIZED_CONTRACT_NAME = UNRECOGNIZED_CONTRACT_NAME
 module.exports.RawTrace = RawTrace
-module.exports.getLatestSupportedSolcVersion = getLatestSupportedSolcVersion
