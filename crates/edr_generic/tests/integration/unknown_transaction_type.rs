@@ -9,7 +9,7 @@ use edr_generic::GenericChainSpec;
 use edr_provider::spec::ForkedBlockchainForChainSpec;
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::irregular::IrregularState;
-use edr_test_utils::env::JsonRpcUrlProvider;
+use edr_test_utils::env::json_rpc_url_provider;
 use edr_utils::random::RandomHashGenerator;
 use parking_lot::Mutex;
 use tokio::runtime;
@@ -21,7 +21,7 @@ async fn unknown_transaction_types() -> anyhow::Result<()> {
     // Make sure that we do not error out when encountering unknown Ethereum
     // transaction types (e.g. found in OP), as we want to fallback to
     // legacy transactions for the for the generic (aka fallback) chain spec.
-    let url = JsonRpcUrlProvider::op_mainnet();
+    let url = json_rpc_url_provider::op_mainnet();
     let rpc_client =
         EthRpcClientForChainSpec::<GenericChainSpec>::new(&url, CACHE_DIR.into(), None)?;
     let mut irregular_state = IrregularState::default();

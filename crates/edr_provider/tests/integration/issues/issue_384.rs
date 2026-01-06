@@ -7,7 +7,7 @@ use edr_provider::{
     NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::env::JsonRpcUrlProvider;
+use edr_test_utils::env::json_rpc_url_provider;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -22,7 +22,7 @@ async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
         cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_overrides: HashMap::default(),
         http_headers: None,
-        url: JsonRpcUrlProvider::avalanche_mainnet(),
+        url: json_rpc_url_provider::avalanche_mainnet(),
     }));
 
     let provider = Provider::new(

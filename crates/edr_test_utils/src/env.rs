@@ -12,55 +12,55 @@ fn get_non_empty_env_var_or_panic(name: &'static str) -> String {
     }
 }
 
-pub struct JsonRpcUrlProvider;
+/// This module exposes a provider-agnostic interface to obtain JSON-RPC
+/// provider URLs for the different chains used across the codebase.
+pub mod json_rpc_url_provider {
+    use crate::env::get_non_empty_env_var_or_panic;
 
-impl JsonRpcUrlProvider {
-    /// Returns Alchemy JSON RPC provider URL from the environment variables.
+    /// Returns Alchemy JSON RPC provider URL from the environment variable.
     ///
     /// # Panics
     ///
-    /// Panics if the environment variable is not defined, or if it is empty.
-    fn base_alchemy_url() -> String {
+    /// Panics if the `ALCHEMY_URL` environment variable is not defined or is
+    /// empty.
+    fn raw_eth_mainnet_alchemy_url() -> String {
         get_non_empty_env_var_or_panic("ALCHEMY_URL")
-    }
-    fn convert_mainnet_to_sepolia(alchemy_url: String) -> String {
-        alchemy_url.replace("mainnet", "sepolia")
     }
 
     pub fn ethereum_mainnet() -> String {
-        Self::base_alchemy_url()
+        raw_eth_mainnet_alchemy_url()
     }
     pub fn ethereum_sepolia() -> String {
-        Self::convert_mainnet_to_sepolia(Self::ethereum_mainnet())
+        raw_eth_mainnet_alchemy_url().replace("mainnet", "sepolia")
     }
 
     pub fn op_mainnet() -> String {
-        Self::base_alchemy_url().replace("eth-", "opt-")
+        raw_eth_mainnet_alchemy_url().replace("eth-", "opt-")
     }
     pub fn op_sepolia() -> String {
-        Self::convert_mainnet_to_sepolia(Self::op_mainnet())
+        raw_eth_mainnet_alchemy_url().replace("eth-mainnet", "opt-sepolia")
     }
 
     pub fn base_mainnet() -> String {
-        Self::base_alchemy_url().replace("eth-", "base-")
+        raw_eth_mainnet_alchemy_url().replace("eth-", "base-")
     }
     pub fn base_sepolia() -> String {
-        Self::convert_mainnet_to_sepolia(Self::base_mainnet())
+        raw_eth_mainnet_alchemy_url().replace("eth-mainnet", "base-sepolia")
     }
 
     pub fn arbitrum_mainnet() -> String {
-        Self::base_alchemy_url().replace("eth-", "arb-")
+        raw_eth_mainnet_alchemy_url().replace("eth-", "arb-")
     }
 
     pub fn avalanche_mainnet() -> String {
-        Self::base_alchemy_url().replace("eth-", "avax-")
+        raw_eth_mainnet_alchemy_url().replace("eth-", "avax-")
     }
 
     pub fn avalanche_fuji() -> String {
-        "https://api.avax-test.network/ext/bc/C/rpc".into()
+        raw_eth_mainnet_alchemy_url().replace("eth-", "avax-fuji")
     }
 
     pub fn polygon_mainnet() -> String {
-        Self::base_alchemy_url().replace("eth-", "polygon-")
+        raw_eth_mainnet_alchemy_url().replace("eth-", "polygon-")
     }
 }

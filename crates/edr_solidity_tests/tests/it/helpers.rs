@@ -24,7 +24,7 @@ use edr_solidity_tests::{
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, IncludeTraces, MultiContractRunner, SolidityTestRunnerConfig,
 };
-use edr_test_utils::{env::JsonRpcUrlProvider, new_fd_lock};
+use edr_test_utils::{env::json_rpc_url_provider, new_fd_lock};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpointUrl, RpcEndpoints};
 use foundry_compilers::{
     artifacts::{CompactContractBytecode, CompactContractBytecodeCow, EvmVersion, Libraries},
@@ -860,28 +860,28 @@ fn remote_rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
         (
             "mainnet",
-            RpcEndpointUrl::new(JsonRpcUrlProvider::ethereum_mainnet()),
+            RpcEndpointUrl::new(json_rpc_url_provider::ethereum_mainnet()),
         ),
         (
             "sepolia",
-            RpcEndpointUrl::new(JsonRpcUrlProvider::ethereum_sepolia()),
+            RpcEndpointUrl::new(json_rpc_url_provider::ethereum_sepolia()),
         ),
         (
             "optimism",
-            RpcEndpointUrl::new(JsonRpcUrlProvider::op_mainnet()),
+            RpcEndpointUrl::new(json_rpc_url_provider::op_mainnet()),
         ),
         (
             "polygon",
-            RpcEndpointUrl::new(JsonRpcUrlProvider::polygon_mainnet()),
+            RpcEndpointUrl::new(json_rpc_url_provider::polygon_mainnet()),
         ),
         (
             "arbitrum",
-            RpcEndpointUrl::new(JsonRpcUrlProvider::arbitrum_mainnet()),
+            RpcEndpointUrl::new(json_rpc_url_provider::arbitrum_mainnet()),
         ),
         (
             // TODO: should we replace it with Avalanche mainnet?
             "avaxTestnet",
-            RpcEndpointUrl::new(JsonRpcUrlProvider::avalanche_fuji()),
+            RpcEndpointUrl::new(json_rpc_url_provider::avalanche_fuji()),
         ),
         // TODO: should we add the rest of the rpc provider urls here?
     ])

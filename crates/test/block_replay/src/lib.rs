@@ -433,7 +433,7 @@ pub async fn assert_replay_header<
 /// use edr_block_header::{BlockHeader, HeaderOverrides};
 /// use edr_chain_l1::L1ChainSpec;
 /// use edr_test_block_replay::impl_full_block_tests;
-/// use edr_test_utils::env::JsonRpcUrlProvider;
+/// use edr_test_utils::env::json_rpc_url_provider;
 ///
 /// fn timestamp_overrides<HardforkT: Default>(replay_header: &BlockHeader) -> HeaderOverrides<HardforkT> {
 ///     HeaderOverrides {
@@ -445,7 +445,7 @@ pub async fn assert_replay_header<
 /// impl_full_block_tests! {
 ///     mainnet_byzantium => L1ChainSpec {
 ///         block_number: 4_370_001,
-///         url: JsonRpcUrlProvider::ethereum_mainnet(),
+///         url: json_rpc_url_provider::ethereum_mainnet(),
 ///         header_overrides_constructor: timestamp_overrides,
 ///     },
 /// }

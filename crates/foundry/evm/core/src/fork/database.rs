@@ -298,7 +298,7 @@ mod tests {
     /// return the `AccountInfo`
     #[tokio::test(flavor = "multi_thread")]
     async fn fork_db_insert_basic_default() {
-        let rpc = edr_test_utils::env::JsonRpcUrlProvider::ethereum_mainnet();
+        let rpc = edr_test_utils::env::json_rpc_url_provider::ethereum_mainnet();
         let provider = get_http_provider(rpc.clone());
         let meta = BlockchainDbMeta::new(revm::context::BlockEnv::default(), rpc);
 

@@ -73,7 +73,7 @@ mod alchemy {
 
     use edr_eth::{filter::OneOrMore, BlockSpec, PreEip1898BlockSpec};
     use edr_primitives::{Address, Bytes, U256};
-    use edr_test_utils::env::JsonRpcUrlProvider;
+    use edr_test_utils::env::json_rpc_url_provider;
     use walkdir::WalkDir;
 
     use super::*;
@@ -99,7 +99,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_account_info_unknown_block() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");
@@ -117,7 +117,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_account_infos() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");
@@ -138,7 +138,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_block_by_hash_some() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let hash =
             B256::from_str("0x71d5e7c8ff9ea737034c16e333a75575a4a94d29482e0c2b88f0a6a8369c1812")
@@ -158,7 +158,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_block_by_hash_with_transaction_data_some() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let hash =
             B256::from_str("0x71d5e7c8ff9ea737034c16e333a75575a4a94d29482e0c2b88f0a6a8369c1812")
@@ -178,7 +178,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_block_by_number_finalized_resolves() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
         let client = TestRpcClient::new(&provider_url);
 
         assert_eq!(client.files_in_cache().len(), 0);
@@ -194,7 +194,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_block_by_number_some() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let block_number = 16222385;
 
@@ -210,7 +210,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_block_with_transaction_data_cached() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
         let client = TestRpcClient::new(&provider_url);
 
         let block_spec = PreEip1898BlockSpec::Number(16220843);
@@ -234,7 +234,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_earliest_block_with_transaction_data_resolves() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
         let client = TestRpcClient::new(&provider_url);
 
         assert_eq!(client.files_in_cache().len(), 0);
@@ -250,7 +250,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_latest_block() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let _block = TestRpcClient::new(&provider_url)
             .get_block_by_number(PreEip1898BlockSpec::latest())
@@ -260,7 +260,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_latest_block_with_transaction_data() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let _block = TestRpcClient::new(&provider_url)
             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::latest())
@@ -270,7 +270,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_pending_block() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let _block = TestRpcClient::new(&provider_url)
             .get_block_by_number(PreEip1898BlockSpec::pending())
@@ -280,7 +280,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_pending_block_with_transaction_data() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let _block = TestRpcClient::new(&provider_url)
             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::pending())
@@ -290,7 +290,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_logs_some() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
         let logs = TestRpcClient::new(&provider_url)
             .get_logs_by_range(
                 BlockSpec::Number(10496585),
@@ -311,7 +311,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_logs_future_from_block() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
         let result = TestRpcClient::new(&provider_url)
             .get_logs_by_range(
                 BlockSpec::Number(MAX_BLOCK_NUMBER),
@@ -340,7 +340,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_logs_future_to_block() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
         let logs = TestRpcClient::new(&provider_url)
             .get_logs_by_range(
                 BlockSpec::Number(10496585),
@@ -359,7 +359,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_transaction_by_hash_some() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let hash =
             B256::from_str("0xc008e9f9bb92057dd0035496fbf4fb54f66b4b18b370928e46d6603933054d5a")
@@ -444,7 +444,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_transaction_count_some() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");
@@ -459,7 +459,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_transaction_count_future_block() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let missing_address = Address::from_str("0xffffffffffffffffffffffffffffffffffffffff")
             .expect("failed to parse address");
@@ -481,7 +481,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_transaction_receipt_some() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let hash =
             B256::from_str("0xc008e9f9bb92057dd0035496fbf4fb54f66b4b18b370928e46d6603933054d5a")
@@ -530,7 +530,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_storage_at_some() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");
@@ -558,7 +558,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_storage_at_latest() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");
@@ -579,7 +579,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn get_storage_at_future_block() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");
@@ -605,7 +605,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn network_id_success() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let version = TestRpcClient::new(&provider_url)
             .network_id()
@@ -617,7 +617,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn stores_result_in_cache() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
         let client = TestRpcClient::new(&provider_url);
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");
@@ -643,7 +643,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn handles_invalid_type_in_cache_single_call() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
         let client = TestRpcClient::new(&provider_url);
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");
@@ -674,7 +674,7 @@ mod alchemy {
 
     #[tokio::test]
     async fn fee_history() {
-        let provider_url = JsonRpcUrlProvider::ethereum_mainnet();
+        let provider_url = json_rpc_url_provider::ethereum_mainnet();
 
         let _fee_history = TestRpcClient::new(&provider_url)
             .fee_history(

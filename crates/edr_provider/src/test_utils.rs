@@ -219,9 +219,9 @@ where
 
     /// Creates a new `ProviderTestFixture` with a forked provider.
     pub fn new_forked(url: Option<String>) -> anyhow::Result<Self> {
-        use edr_test_utils::env::JsonRpcUrlProvider;
+        use edr_test_utils::env::json_rpc_url_provider;
 
-        let fork_url = url.unwrap_or(JsonRpcUrlProvider::ethereum_mainnet());
+        let fork_url = url.unwrap_or(json_rpc_url_provider::ethereum_mainnet());
         Self::with_fork(Some(fork_url))
     }
 

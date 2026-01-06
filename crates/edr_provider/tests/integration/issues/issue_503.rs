@@ -7,7 +7,7 @@ use edr_provider::{
     NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::env::JsonRpcUrlProvider;
+use edr_test_utils::env::json_rpc_url_provider;
 use tokio::runtime;
 
 // https://github.com/NomicFoundation/edr/issues/503
@@ -21,7 +21,7 @@ async fn issue_503() -> anyhow::Result<()> {
         cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_overrides: HashMap::default(),
         http_headers: None,
-        url: JsonRpcUrlProvider::ethereum_mainnet(),
+        url: json_rpc_url_provider::ethereum_mainnet(),
     }));
     config.hardfork = edr_chain_l1::Hardfork::CANCUN;
 

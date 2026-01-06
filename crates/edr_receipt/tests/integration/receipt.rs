@@ -15,10 +15,10 @@ mod remote {
                         use edr_eth::PreEip1898BlockSpec;
                         use edr_receipt::{log::FilterLog};
                         use edr_rpc_eth::client::EthRpcClientForChainSpec;
-                        use edr_test_utils::env::JsonRpcUrlProvider;
+                        use edr_test_utils::env::json_rpc_url_provider;
                         use edr_trie::ordered_trie_root;
 
-                        let client = EthRpcClientForChainSpec::<L1ChainSpec>::new(&JsonRpcUrlProvider::ethereum_mainnet(), edr_defaults::CACHE_DIR.into(), None)?;
+                        let client = EthRpcClientForChainSpec::<L1ChainSpec>::new(&json_rpc_url_provider::ethereum_mainnet(), edr_defaults::CACHE_DIR.into(), None)?;
 
                         let block = client
                             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number($block_number))
@@ -68,11 +68,11 @@ mod remote {
                         use edr_primitives::B256;
                         use edr_receipt::{log::{ExecutionLog, FilterLog}, MapReceiptLogs as _};
                         use edr_rpc_eth::client::EthRpcClientForChainSpec;
-                        use edr_test_utils::env::JsonRpcUrlProvider;
+                        use edr_test_utils::env::json_rpc_url_provider;
                         use tempfile::TempDir;
 
                         let tempdir = TempDir::new().unwrap();
-                        let client = EthRpcClientForChainSpec::<L1ChainSpec>::new(&JsonRpcUrlProvider::ethereum_mainnet(), tempdir.path().into(), None).unwrap();
+                        let client = EthRpcClientForChainSpec::<L1ChainSpec>::new(&json_rpc_url_provider::ethereum_mainnet(), tempdir.path().into(), None).unwrap();
 
                         let transaction_hash = B256::from_slice(&hex::decode($transaction_hash).unwrap());
 
