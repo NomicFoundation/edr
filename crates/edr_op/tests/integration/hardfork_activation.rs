@@ -3,8 +3,7 @@
 use edr_eth::BlockSpec;
 use edr_op::OpChainSpec;
 use edr_provider::test_utils::ProviderTestFixture;
-
-use crate::integration::{base, op};
+use edr_test_utils::env::json_rpc_url_provider;
 
 macro_rules! impl_test_hardfork_activation {
     ($($net:ident: $url:expr => {
@@ -44,7 +43,7 @@ macro_rules! impl_test_hardfork_activation {
 
 // Block numbers were determined using `cast find-block <timestamp>`
 impl_test_hardfork_activation! {
-    op_mainnet: op::mainnet_url() => {
+    op_mainnet: json_rpc_url_provider::op_mainnet() => {
         regolith: 105_235_063 => edr_op::Hardfork::REGOLITH,
         canyon: 114_696_812 => edr_op::Hardfork::CANYON,
         ecotone: 117_387_812 => edr_op::Hardfork::ECOTONE,
@@ -53,7 +52,7 @@ impl_test_hardfork_activation! {
         holocene: 130_423_412 => edr_op::Hardfork::HOLOCENE,
         isthmus: 135_603_812 => edr_op::Hardfork::ISTHMUS,
     },
-    op_sepolia: op::sepolia_url() => {
+    op_sepolia: json_rpc_url_provider::op_sepolia() => {
         regolith: 0 => edr_op::Hardfork::REGOLITH,
         canyon: 4_089_330 => edr_op::Hardfork::CANYON,
         ecotone: 8_366_130 => edr_op::Hardfork::ECOTONE,
@@ -62,7 +61,7 @@ impl_test_hardfork_activation! {
         holocene: 20_415_330 => edr_op::Hardfork::HOLOCENE,
         isthmus: 26_551_530 => edr_op::Hardfork::ISTHMUS,
     },
-    base_mainnet: base::mainnet_url() => {
+    base_mainnet: json_rpc_url_provider::base_mainnet() => {
         regolith: 0 => edr_op::Hardfork::REGOLITH,
         canyon: 9_101_527 => edr_op::Hardfork::CANYON,
         ecotone: 11_792_527 => edr_op::Hardfork::ECOTONE,
@@ -71,7 +70,7 @@ impl_test_hardfork_activation! {
         holocene: 24_828_127 => edr_op::Hardfork::HOLOCENE,
         isthmus: 30_008_527 => edr_op::Hardfork::ISTHMUS,
     },
-    base_sepolia: base::sepolia_url() => {
+    base_sepolia: json_rpc_url_provider::base_sepolia() => {
         regolith: 0 => edr_op::Hardfork::REGOLITH,
         canyon: 2_106_456 => edr_op::Hardfork::CANYON,
         ecotone: 6_383_256 => edr_op::Hardfork::ECOTONE,
