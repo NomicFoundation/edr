@@ -445,7 +445,7 @@ pub async fn assert_replay_header<
 /// impl_full_block_tests! {
 ///     mainnet_byzantium => L1ChainSpec {
 ///         block_number: 4_370_001,
-///         url: JsonRpcUrlProvider::ethereum_mainnet,
+///         url: JsonRpcUrlProvider::ethereum_mainnet(),
 ///         header_overrides_constructor: timestamp_overrides,
 ///     },
 /// }
