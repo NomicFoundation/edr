@@ -18,10 +18,18 @@ function getEnv(key: string): string | undefined {
 export const INFURA_URL = getEnv("INFURA_URL");
 export const ALCHEMY_URL = getEnv("ALCHEMY_URL");
 
-if (INFURA_URL === undefined && ALCHEMY_URL === undefined) {
+function printForkingLogicNotBeingTestedWarning(varName: string) {
   console.warn(
     chalk.yellow(
-      `TEST RUN INCOMPLETE: You need to define one of the env variable INFURA_URL or ALCHEMY_URL`
+      `TEST RUN INCOMPLETE: You need to define the env variable ${varName}`
     )
   );
+}
+
+if (INFURA_URL === undefined) {
+  printForkingLogicNotBeingTestedWarning("INFURA_URL");
+}
+
+if (ALCHEMY_URL === undefined) {
+  printForkingLogicNotBeingTestedWarning("ALCHEMY_URL");
 }
