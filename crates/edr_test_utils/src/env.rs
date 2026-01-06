@@ -57,7 +57,7 @@ pub mod json_rpc_url_provider {
     }
 
     pub fn avalanche_fuji() -> String {
-        raw_eth_mainnet_alchemy_url().replace("eth-", "avax-fuji")
+        raw_eth_mainnet_alchemy_url().replace("eth-mainnet", "avax-fuji")
     }
 
     pub fn polygon_mainnet() -> String {
