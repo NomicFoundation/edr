@@ -10,5 +10,5 @@ op-chain-config         = "run --locked --release --bin edr_tool_op_chain_config
 linker = "aarch64-linux-musl-gcc"
 rustflags = ["-C", "target-feature=-crt-static"]
 
-[target.x86_64-pc-windows-msvc]
+[target.'cfg(all(windows, target_env = "msvc"))']
 rustflags = ["-C", "target-feature=+crt-static"]
