@@ -5,3 +5,10 @@ scenario-with-tracing   = "run --locked --release --features tracing --bin edr_t
 replay-block            = "run --locked --release --bin edr_tool_cli -- replay-block"
 generate-cheats-interface = "test -p foundry-cheatcodes-spec --features schema --locked tests::"
 op-chain-config         = "run --locked --release --bin edr_tool_op_chain_config_generator"
+
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+rustflags = ["-C", "target-feature=-crt-static"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
