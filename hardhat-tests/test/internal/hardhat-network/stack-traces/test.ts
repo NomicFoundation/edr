@@ -18,7 +18,6 @@ import {
   SolidityStackTraceEntry,
   StackTraceEntryType,
 } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
-import { SUPPORTED_SOLIDITY_VERSION_RANGE } from "hardhat/internal/hardhat-network/stack-traces/constants";
 import {
   BuildInfo,
   CompilerInput,
