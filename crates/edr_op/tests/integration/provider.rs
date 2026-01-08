@@ -14,9 +14,8 @@ use edr_provider::{
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_test_utils::env::json_rpc_url_provider;
 use tokio::runtime;
-
-use crate::integration::{base, op};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
@@ -31,7 +30,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
         cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_overrides: HashMap::default(),
         http_headers: None,
-        url: op::sepolia_url(),
+        url: json_rpc_url_provider::op_sepolia(),
     }));
 
     // Set a different chain ID than the forked chain ID
@@ -93,10 +92,10 @@ macro_rules! impl_test_chain_id {
 }
 
 impl_test_chain_id! {
-    op_mainnet: op::mainnet_url() => edr_op::hardfork::op::MAINNET_CHAIN_ID,
-    op_sepolia: op::sepolia_url() => edr_op::hardfork::op::SEPOLIA_CHAIN_ID,
-    base_mainnet: base::mainnet_url() => edr_op::hardfork::base::MAINNET_CHAIN_ID,
-    base_sepolia: base::sepolia_url() => edr_op::hardfork::base::SEPOLIA_CHAIN_ID,
+    op_mainnet: json_rpc_url_provider::op_mainnet() => edr_op::hardfork::op::MAINNET_CHAIN_ID,
+    op_sepolia: json_rpc_url_provider::op_sepolia() => edr_op::hardfork::op::SEPOLIA_CHAIN_ID,
+    base_mainnet: json_rpc_url_provider::base_mainnet() => edr_op::hardfork::base::MAINNET_CHAIN_ID,
+    base_sepolia: json_rpc_url_provider::base_sepolia() => edr_op::hardfork::base::SEPOLIA_CHAIN_ID,
 }
 
 #[tokio::test(flavor = "multi_thread")]

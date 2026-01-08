@@ -113,7 +113,6 @@ jobs:
       - name: Run cargo tests (with coverage)
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
-          INFURA_URL: ${{ secrets.INFURA_URL }}
         run: cargo llvm-cov --workspace --all-targets --all-features --locked --no-fail-fast --codecov --output-path codecov.json
 
       - name: Upload coverage to Codecov

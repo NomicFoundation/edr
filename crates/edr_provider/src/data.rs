@@ -4099,7 +4099,7 @@ mod tests {
         use edr_chain_spec::EvmTransactionValidationError;
         use edr_chain_spec_evm::TransactionError;
         use edr_test_block_replay::impl_full_block_tests;
-        use edr_test_utils::env::get_alchemy_url;
+        use edr_test_utils::env::json_rpc_url_provider;
 
         use super::*;
         use crate::{
@@ -4165,7 +4165,7 @@ mod tests {
                 cache_dir: edr_defaults::CACHE_DIR.into(),
                 chain_overrides: HashMap::default(),
                 http_headers: None,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
             }));
 
             let config = ProviderConfig {
@@ -4271,84 +4271,84 @@ mod tests {
         impl_full_block_tests! {
             mainnet_byzantium => L1ChainSpec {
                 block_number: 4_370_001,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_constantinople => L1ChainSpec {
                 block_number: 7_280_001,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_istanbul => L1ChainSpec {
                 block_number: 9_069_001,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_muir_glacier => L1ChainSpec {
                 block_number: 9_300_077,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_shanghai => L1ChainSpec {
                 block_number: 17_050_001,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_base_header_overrides,
             },
             // This block contains a sequence of transaction that first raise
             // an empty account's balance and then decrease it
             mainnet_19318016 => L1ChainSpec {
                 block_number: 19_318_016,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_base_header_overrides,
             },
             // This block has both EIP-2930 and EIP-1559 transactions
             sepolia_eip_1559_2930 => L1ChainSpec {
                 block_number: 5_632_795,
-                url: get_alchemy_url().replace("mainnet", "sepolia"),
+                url: json_rpc_url_provider::ethereum_mainnet().replace("mainnet", "sepolia"),
                 header_overrides_constructor: l1_base_header_overrides,
             },
             sepolia_shanghai => L1ChainSpec {
                 block_number: 3_095_000,
-                url: get_alchemy_url().replace("mainnet", "sepolia"),
+                url: json_rpc_url_provider::ethereum_mainnet().replace("mainnet", "sepolia"),
                 header_overrides_constructor: l1_base_header_overrides,
             },
             // This block has an EIP-4844 transaction
             mainnet_cancun => L1ChainSpec {
                 block_number: 19_529_021,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_base_header_overrides,
             },
             // This block contains a transaction that uses the KZG point evaluation
             // precompile, introduced in Cancun
             mainnet_cancun2 => L1ChainSpec {
                 block_number: 19_562_047,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_base_header_overrides,
             },
             // This block contains both valid and invalid EIP-7702 transactions, introduced in Prague
             mainnet_prague => L1ChainSpec {
                 block_number: 23_376_625,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: prague_header_overrides,
             },
             mainnet_osaka => L1ChainSpec {
                 block_number: 23_957_251,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: prague_header_overrides,
             },
             mainnet_osaka_bpo1 => L1ChainSpec {
                 block_number: 23_990_516,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: prague_header_overrides,
             },
             mainnet_blob_excess_gas_calculation_issue => L1ChainSpec {
                 block_number: 24_035_797,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: prague_header_overrides,
             },
             mainnet_requests_hash_not_empty => L1ChainSpec {
                 block_number: 24_105_015,
-                url: get_alchemy_url(),
+                url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: prague_header_overrides,
             },
 
