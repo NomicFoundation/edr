@@ -13,7 +13,7 @@ use edr_primitives::{bytes, Bytecode, Bytes};
 use edr_provider::spec::ForkedBlockchainForChainSpec;
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::irregular::IrregularState;
-use edr_test_utils::env::get_alchemy_url;
+use edr_test_utils::env::json_rpc_url_provider;
 use edr_utils::random::RandomHashGenerator;
 use parking_lot::Mutex;
 
@@ -32,7 +32,7 @@ async fn forked_blockchain(
     let runtime = tokio::runtime::Handle::current();
 
     let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
-        &get_alchemy_url(),
+        &json_rpc_url_provider::ethereum_mainnet(),
         edr_defaults::CACHE_DIR.into(),
         None,
     )

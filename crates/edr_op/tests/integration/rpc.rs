@@ -17,7 +17,7 @@ use edr_primitives::{b256, B256};
 use edr_provider::spec::ForkedBlockchainForChainSpec;
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::irregular::IrregularState;
-use edr_test_utils::env::get_alchemy_url;
+use edr_test_utils::env::json_rpc_url_provider;
 use edr_transaction::TransactionType as _;
 use edr_utils::random::RandomHashGenerator;
 use tokio::runtime;
@@ -26,7 +26,7 @@ use tokio::runtime;
 async fn block_with_transactions() -> anyhow::Result<()> {
     const BLOCK_NUMBER_WITH_TRANSACTIONS: u64 = 117_156_000;
 
-    let url = get_alchemy_url().replace("eth-", "opt-");
+    let url = json_rpc_url_provider::op_mainnet();
     let rpc_client = EthRpcClientForChainSpec::<OpChainSpec>::new(&url, CACHE_DIR.into(), None)?;
 
     let block = rpc_client
@@ -51,7 +51,7 @@ async fn block_with_deposit_transaction() -> anyhow::Result<()> {
 
     let runtime = tokio::runtime::Handle::current();
 
-    let url = get_alchemy_url().replace("eth-", "opt-");
+    let url = json_rpc_url_provider::op_mainnet();
     let rpc_client = EthRpcClientForChainSpec::<OpChainSpec>::new(&url, CACHE_DIR.into(), None)?;
     let rpc_client = Arc::new(rpc_client);
 
@@ -102,7 +102,7 @@ async fn deposit_transaction_and_receipt_regolith() -> anyhow::Result<()> {
     const TRANSACTION_HASH: B256 =
         b256!("dd8e089476419b44cc37d72e631c44c57b38ac5a25fe5dea7b38688b83022fa1");
 
-    let url = get_alchemy_url().replace("eth-", "opt-");
+    let url = json_rpc_url_provider::op_mainnet();
     let rpc_client = EthRpcClientForChainSpec::<OpChainSpec>::new(&url, CACHE_DIR.into(), None)?;
 
     let transaction = rpc_client
@@ -141,7 +141,7 @@ async fn deposit_transaction_and_receipt_canyon() -> anyhow::Result<()> {
     const TRANSACTION_HASH: B256 =
         b256!("64c32c8d474e8befdea12e25338ad86d53950b1156c413f409e785112cfed4d3");
 
-    let url = get_alchemy_url().replace("eth-", "opt-");
+    let url = json_rpc_url_provider::op_mainnet();
     let rpc_client = EthRpcClientForChainSpec::<OpChainSpec>::new(&url, CACHE_DIR.into(), None)?;
 
     let transaction = rpc_client
@@ -180,7 +180,7 @@ async fn deposit_transaction_and_receipt_ecotone() -> anyhow::Result<()> {
     const TRANSACTION_HASH: B256 =
         b256!("cca2f31992022e3a833959c505de021285a7c5339c8d1b8ad75100074e1c6aea");
 
-    let url = get_alchemy_url().replace("eth-", "opt-");
+    let url = json_rpc_url_provider::op_mainnet();
     let rpc_client = EthRpcClientForChainSpec::<OpChainSpec>::new(&url, CACHE_DIR.into(), None)?;
 
     let transaction = rpc_client
@@ -218,7 +218,7 @@ async fn receipt_with_l1_block_info() -> anyhow::Result<()> {
     const TRANSACTION_HASH: B256 =
         b256!("f0b04a1c6f61b2818ac2c62ed0c3fc22cd7ebd2f51161759714f75dd27fa7caa");
 
-    let url = get_alchemy_url().replace("eth-", "opt-");
+    let url = json_rpc_url_provider::op_mainnet();
     let rpc_client = EthRpcClientForChainSpec::<OpChainSpec>::new(&url, CACHE_DIR.into(), None)?;
 
     let receipt = rpc_client
