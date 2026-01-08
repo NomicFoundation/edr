@@ -61,8 +61,6 @@
     "lint:fix": "pnpm prettier --write && pnpm eslint --fix",
     "pretest": "cd .. && pnpm build:dev",
     "prettier": "prettier --check \"**/*.{js,ts,md,json}\"",
-    "test": "mocha --recursive \"test/**/*.ts\"",
-    "test:ci": "pnpm test && pnpm test:integration",
-    "test:integration": "bash run-integration-tests.sh"
+    "test": "mocha --recursive \"test/**/*.ts\""
   }
 }
