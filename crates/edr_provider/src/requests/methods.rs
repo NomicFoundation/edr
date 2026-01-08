@@ -1,4 +1,5 @@
 use alloy_dyn_abi::eip712::TypedData;
+use alloy_rpc_types_trace::geth::GethDebugTracingOptions;
 use derive_where::derive_where;
 use edr_chain_spec_rpc::RpcChainSpec;
 use edr_eth::{
@@ -11,7 +12,6 @@ use edr_rpc_eth::StateOverrideOptions;
 use serde::{Deserialize, Serialize};
 
 use super::serde::{RpcAddress, Timestamp};
-use crate::requests::debug::DebugTraceConfig;
 
 mod optional_block_spec {
     use super::BlockSpec;
@@ -277,17 +277,18 @@ pub enum MethodInvocation<ChainSpecT: RpcChainSpec> {
     #[serde(rename = "evm_snapshot", with = "edr_eth::serde::empty_params")]
     EvmSnapshot(()),
 
-    // `debug_traceTransaction`
+    // `debug_traceCall`
+    // TODO: Add support for `GethDebugTracingCallOptions`
+    // <https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall>
     #[serde(rename = "debug_traceCall")]
     DebugTraceCall(
         ChainSpecT::RpcCallRequest,
         #[serde(default)] Option<BlockSpec>,
-        #[serde(default)] Option<DebugTraceConfig>,
+        #[serde(default)] Option<GethDebugTracingOptions>,
     ),
     // `debug_traceTransaction`
     #[serde(rename = "debug_traceTransaction")]
-    DebugTraceTransaction(B256, #[serde(default)] Option<DebugTraceConfig>),
-
+    DebugTraceTransaction(B256, #[serde(default)] Option<GethDebugTracingOptions>),
     /// `hardhat_dropTransaction`
     #[serde(rename = "hardhat_dropTransaction", with = "edr_eth::serde::sequence")]
     DropTransaction(B256),
