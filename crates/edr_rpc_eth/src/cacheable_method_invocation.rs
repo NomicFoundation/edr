@@ -53,6 +53,12 @@ pub enum CachedRequestMethod<'a> {
     GetLogs {
         params: CacheableLogFilterOptions<'a>,
     },
+    /// `eth_getProof`
+    GetProof {
+        address: &'a Address,
+        storage_keys: &'a Vec<U256>,
+        block_spec: CacheableBlockSpec<'a>,
+    },
     /// `eth_getStorageAt`
     GetStorageAt {
         address: &'a Address,
@@ -107,6 +113,14 @@ impl CachedRequestMethod<'_> {
                 block_spec,
             } => hasher.hash_address(address).hash_block_spec(block_spec)?,
             CachedRequestMethod::GetLogs { params } => hasher.hash_log_filter_options(params)?,
+            CachedRequestMethod::GetProof {
+                address,
+                storage_keys,
+                block_spec,
+            } => hasher
+                .hash_address(address)
+                .hash_storage_keys(storage_keys)
+                .hash_block_spec(block_spec)?,
             CachedRequestMethod::GetStorageAt {
                 address,
                 position,
@@ -180,6 +194,13 @@ impl<'a> TryFrom<&'a RequestMethod> for CachedRequestMethod<'a> {
             RequestMethod::GetLogs(params) => Ok(CachedRequestMethod::GetLogs {
                 params: params.try_into()?,
             }),
+            RequestMethod::GetProof(address, storage_keys, block_spec) => {
+                Ok(CachedRequestMethod::GetProof {
+                    address,
+                    storage_keys,
+                    block_spec: block_spec.try_into()?,
+                })
+            }
             RequestMethod::GetStorageAt(address, position, block_spec) => {
                 Ok(CachedRequestMethod::GetStorageAt {
                     address,
@@ -252,6 +273,7 @@ impl RpcMethod for RequestMethod {
             Self::GetBlockByHash(_, _) => "eth_getBlockByHash",
             Self::GetCode(_, _) => "eth_getCode",
             Self::GetLogs(_) => "eth_getLogs",
+            Self::GetProof(_, _, _) => "eth_getProof",
             Self::GetStorageAt(_, _, _) => "eth_getStorageAt",
             Self::GetTransactionByHash(_) => "eth_getTransactionByHash",
             Self::GetTransactionCount(_, _) => "eth_getTransactionCount",
@@ -311,6 +333,11 @@ impl CacheableMethod for CachedRequestMethod<'_> {
                 CachedRequestMethod::GetLogs {
                     params: CacheableLogFilterOptions { range, .. },
                 } => WriteCacheKey::needs_range_check(hasher, range),
+                CachedRequestMethod::GetProof {
+                    address: _,
+                    storage_keys: _,
+                    block_spec,
+                } => WriteCacheKey::needs_safety_check(hasher, block_spec),
                 CachedRequestMethod::GetStorageAt {
                     address: _,
                     position: _,
@@ -353,6 +380,7 @@ impl CacheKeyVariant for CachedRequestMethod<'_> {
             CachedRequestMethod::GetTransactionReceipt { .. } => 13,
             CachedRequestMethod::NetVersion => 14,
             CachedRequestMethod::FeeHistory { .. } => 15,
+            CachedRequestMethod::GetProof { .. } => 16,
         }
     }
 }

@@ -62,6 +62,14 @@ pub enum RequestMethod {
     /// `eth_getLogs`
     #[serde(rename = "eth_getLogs", with = "edr_eth::serde::sequence")]
     GetLogs(LogFilterOptions),
+    /// `eth_getProof`
+    #[serde(rename = "eth_getProof")]
+    GetProof(
+        Address,
+        /// storage-keys which should be proofed and included
+        Vec<U256>,
+        BlockSpec,
+    ),
     /// `eth_getStorageAt`
     #[serde(rename = "eth_getStorageAt")]
     GetStorageAt(
