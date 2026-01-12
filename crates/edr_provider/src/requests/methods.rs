@@ -6,7 +6,7 @@ use edr_eth::{
     serde::{optional_single_to_sequence, sequence_to_optional_single},
     BlockSpec, PreEip1898BlockSpec,
 };
-use edr_primitives::{Address, Bytes, B256, U128, U256, U64};
+use edr_primitives::{Address, Bytes, StorageKey, B256, U128, U256, U64};
 use edr_rpc_eth::StateOverrideOptions;
 use serde::{Deserialize, Serialize};
 
@@ -145,7 +145,7 @@ pub enum MethodInvocation<ChainSpecT: RpcChainSpec> {
     #[serde(rename = "eth_getProof")]
     GetProof(
         #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
-        Vec<B256>, // TODO: do we need a custom deserializer for this?
+        Vec<StorageKey>, // TODO: do we need a custom deserializer for this?
         BlockSpec,
     ),
     /// `eth_getStorageAt`

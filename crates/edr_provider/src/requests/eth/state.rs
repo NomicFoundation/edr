@@ -1,7 +1,7 @@
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use edr_chain_spec::TransactionValidation;
 use edr_eth::BlockSpec;
-use edr_primitives::{Address, Bytes, B256, U256};
+use edr_primitives::{Address, Bytes, StorageKey, U256};
 
 use crate::{
     data::ProviderData, requests::validation::validate_post_merge_block_tags,
@@ -54,7 +54,7 @@ pub fn handle_get_proof_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     address: Address,
-    storage_keys: Vec<B256>,
+    storage_keys: Vec<StorageKey>,
     block_spec: BlockSpec,
 ) -> Result<EIP1186AccountProofResponse, ProviderErrorForChainSpec<ChainSpecT>> {
     validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), &block_spec)?;

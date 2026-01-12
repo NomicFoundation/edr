@@ -3,7 +3,9 @@ use std::sync::Arc;
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use derive_where::derive_where;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec, RpcEthBlock};
-use edr_primitives::{Address, Bytecode, HashMap, HashSet, B256, KECCAK_NULL_RLP, U256};
+use edr_primitives::{
+    Address, Bytecode, HashMap, HashSet, StorageKey, B256, KECCAK_NULL_RLP, U256,
+};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_state_api::{
     account::{Account, AccountInfo},
@@ -271,7 +273,7 @@ impl<
     fn proof(
         &self,
         _address: Address,
-        _storage_keys: Vec<B256>,
+        _storage_keys: Vec<StorageKey>,
     ) -> Result<EIP1186AccountProofResponse, Self::Error> {
         Err(StateError::UnsupportedGetProof)
     }

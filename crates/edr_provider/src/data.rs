@@ -47,7 +47,9 @@ use edr_eth::{
 use edr_gas_report::{GasReport, SyncOnCollectedGasReportCallback};
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
-use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
+use edr_primitives::{
+    Address, Bytecode, Bytes, HashMap, HashSet, StorageKey, B256, KECCAK_EMPTY, U256,
+};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
 use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec, HeaderMap};
 use edr_runtime::{
@@ -1993,7 +1995,7 @@ where
     pub fn get_proof(
         &mut self,
         address: Address,
-        storage_keys: Vec<B256>,
+        storage_keys: Vec<StorageKey>,
         block_spec: &BlockSpec,
     ) -> Result<EIP1186AccountProofResponse, ProviderErrorForChainSpec<ChainSpecT>> {
         self.execute_in_block_context::<Result<EIP1186AccountProofResponse, ProviderErrorForChainSpec<ChainSpecT>>>(

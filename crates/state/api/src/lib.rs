@@ -11,7 +11,7 @@ use core::{fmt::Debug, ops::Deref};
 
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use auto_impl::auto_impl;
-use edr_primitives::{Address, Bytecode, HashMap, B256, U256};
+use edr_primitives::{Address, Bytecode, HashMap, StorageKey, B256, U256};
 use edr_trie::sec_trie_root;
 pub use revm_database_interface::DatabaseCommit as StateCommit;
 pub use revm_state::{EvmState, EvmStorage, EvmStorageSlot};
@@ -130,7 +130,7 @@ pub trait StateProof {
     fn proof(
         &self,
         address: Address,
-        storage_keys: Vec<B256>,
+        storage_keys: Vec<StorageKey>,
     ) -> Result<EIP1186AccountProofResponse, Self::Error>;
 }
 
