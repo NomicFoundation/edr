@@ -56,7 +56,7 @@ pub enum CachedRequestMethod<'a> {
     /// `eth_getProof`
     GetProof {
         address: &'a Address,
-        storage_keys: &'a Vec<U256>,
+        storage_keys: &'a Vec<B256>,
         block_spec: CacheableBlockSpec<'a>,
     },
     /// `eth_getStorageAt`

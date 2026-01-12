@@ -9,6 +9,7 @@ mod r#override;
 
 use core::{fmt::Debug, ops::Deref};
 
+use alloy_rpc_types::EIP1186AccountProofResponse;
 use auto_impl::auto_impl;
 use edr_primitives::{Address, Bytecode, HashMap, B256, U256};
 use edr_trie::sec_trie_root;
@@ -117,6 +118,20 @@ pub trait StateDebug {
 
     /// Retrieves the storage root of the database.
     fn state_root(&self) -> Result<B256, Self::Error>;
+}
+
+#[auto_impl(&mut, Box)]
+pub trait StateProof {
+    /// The state's error type.
+    type Error;
+
+    // Returns the account and storage-values of the specified account including the
+    // Merkle-proof.
+    fn proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<B256>,
+    ) -> Result<EIP1186AccountProofResponse, Self::Error>;
 }
 
 /// Trait for reading state information.

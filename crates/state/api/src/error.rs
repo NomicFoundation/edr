@@ -21,4 +21,7 @@ pub enum StateError {
     /// Error from the underlying RPC client
     #[error(transparent)]
     Remote(#[from] RpcClientError),
+    ///Get Proof is not supported
+    #[error("Get Proof is not supported")]
+    UnsupportedGetProof,
 }

@@ -67,7 +67,7 @@ pub enum RequestMethod {
     GetProof(
         Address,
         /// storage-keys which should be proofed and included
-        Vec<U256>,
+        Vec<B256>,
         BlockSpec,
     ),
     /// `eth_getStorageAt`

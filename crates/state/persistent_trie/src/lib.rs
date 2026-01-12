@@ -1,7 +1,8 @@
+use alloy_rpc_types::EIP1186AccountProofResponse;
 use edr_primitives::{Address, Bytecode, HashMap, B256, KECCAK_EMPTY, U256};
 use edr_state_api::{
     account::{Account, AccountInfo},
-    AccountModifierFn, State, StateCommit, StateDebug, StateDiff, StateError,
+    AccountModifierFn, State, StateCommit, StateDebug, StateDiff, StateError, StateProof,
 };
 
 pub use self::state::PersistentAccountAndStorageTrie;
@@ -278,6 +279,20 @@ impl StateDebug for PersistentStateTrie {
 
     fn state_root(&self) -> Result<B256, Self::Error> {
         Ok(self.accounts_and_storage.state_root())
+    }
+}
+
+impl StateProof for PersistentStateTrie {
+    ///The state's error type
+    type Error = StateError;
+
+    fn proof(
+        &self,
+        _address: Address,
+        _storage_keys: Vec<B256>,
+    ) -> Result<EIP1186AccountProofResponse, Self::Error> {
+        // TODO: implement logic
+        Ok(EIP1186AccountProofResponse::default())
     }
 }
 

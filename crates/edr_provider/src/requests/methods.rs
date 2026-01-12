@@ -141,6 +141,13 @@ pub enum MethodInvocation<ChainSpecT: RpcChainSpec> {
     /// `eth_getLogs`
     #[serde(rename = "eth_getLogs", with = "edr_eth::serde::sequence")]
     GetLogs(LogFilterOptions),
+    /// `eth_getProof`
+    #[serde(rename = "eth_getProof")]
+    GetProof(
+        #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
+        Vec<B256>, // TODO: do we need a custom deserializer for this?
+        BlockSpec,
+    ),
     /// `eth_getStorageAt`
     #[serde(rename = "eth_getStorageAt")]
     GetStorageAt(
@@ -402,6 +409,7 @@ impl<ChainSpecT: RpcChainSpec> MethodInvocation<ChainSpecT> {
             MethodInvocation::GetFilterChanges(_) => "eth_getFilterChanges",
             MethodInvocation::GetFilterLogs(_) => "eth_getFilterLogs",
             MethodInvocation::GetLogs(_) => "eth_getLogs",
+            MethodInvocation::GetProof(_, _, _) => "eth_getProof",
             MethodInvocation::GetStorageAt(_, _, _) => "eth_getStorageAt",
             MethodInvocation::GetTransactionByBlockHashAndIndex(_, _) => {
                 "eth_getTransactionByBlockHashAndIndex"

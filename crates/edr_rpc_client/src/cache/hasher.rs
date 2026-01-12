@@ -170,10 +170,10 @@ impl KeyHasher {
     }
 
     /// Hashes a sequence of storage key values.
-    pub fn hash_storage_keys(self, value: &[U256]) -> Self {
+    pub fn hash_storage_keys(self, value: &[B256]) -> Self {
         let mut this = self.hash_u64(value.len() as u64);
         for v in value {
-            this = this.hash_u256(v);
+            this = this.hash_b256(v);
         }
         this
     }
