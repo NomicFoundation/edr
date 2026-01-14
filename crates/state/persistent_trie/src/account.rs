@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
 use alloy_rlp::Decodable;
-use alloy_trie::{proof::ProofRetainer, HashBuilder, Nibbles};
+use alloy_trie::Nibbles;
 use edr_primitives::{keccak256, Address, Bytes, B256};
 use edr_state_api::account::{AccountInfo, BasicAccount};
 
-use crate::{persistent_db::PersistentMemoryDB, query::TrieQuery};
+use crate::{
+    persistent_db::PersistentMemoryDB,
+    query::{build_proof_nodes, TrieQuery},
+};
 
 #[derive(Debug)]
 pub(super) struct PersistentAccountTrie {
@@ -22,26 +25,7 @@ impl PersistentAccountTrie {
     }
 
     pub fn generate_proof(&self, address: &Address) -> Vec<Bytes> {
-        let mut builder =
-            HashBuilder::default().with_proof_retainer(ProofRetainer::new(vec![Nibbles::unpack(
-                keccak256(address),
-            )]));
-
-        let mut accounts_by_key: Vec<(_, _)> = self
-            .trie_query()
-            .iter()
-            .map(|(key, value)| (Nibbles::unpack(key), value))
-            .collect();
-        accounts_by_key.sort_by(|(key1, _), (key2, _)| key1.cmp(key2));
-
-        for (key, account) in accounts_by_key {
-            builder.add_leaf(key, &account);
-        }
-
-        let _ = builder.root();
-
-        builder
-            .take_proof_nodes()
+        build_proof_nodes(self.trie_query(), vec![Nibbles::unpack(keccak256(address))])
             .into_nodes_sorted()
             .into_iter()
             .map(|(_, v)| v)
