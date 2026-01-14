@@ -4,17 +4,21 @@ use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::anyhow;
-use edr_chain_l1::L1ChainSpec;
+use edr_chain_l1::{Hardfork, L1ChainSpec};
 use edr_primitives::{address, hash_map::HashMap, Address, Bytes, StorageKey, U256};
 use edr_provider::{
-    test_utils::create_test_config_with_genesis_state_and_fork, time::CurrentTime,
+    test_utils::create_test_config_with_genesis_state_and_fork, time::CurrentTime, ForkConfig,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_test_utils::env::json_rpc_url_provider;
 use tokio::runtime;
 
-fn setup_provider() -> anyhow::Result<Provider<L1ChainSpec, CurrentTime>> {
-    let config = create_test_config_with_genesis_state_and_fork(vec![], HashMap::default(), None);
+fn setup_provider(
+    fork_config: Option<ForkConfig<Hardfork>>,
+) -> anyhow::Result<Provider<L1ChainSpec, CurrentTime>> {
+    let config =
+        create_test_config_with_genesis_state_and_fork(vec![], HashMap::default(), fork_config);
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     Provider::new(
@@ -88,7 +92,7 @@ fn verify_storage_proof<'proof>(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_account_proof() -> anyhow::Result<()> {
-    let provider = setup_provider()?;
+    let provider = setup_provider(None)?;
 
     provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
         address!("0x2031f89b3ea8014eb51a78c316e42af3e0d7695f"),
@@ -142,7 +146,7 @@ async fn test_account_proof() -> anyhow::Result<()> {
 async fn test_storage_proof() -> anyhow::Result<()> {
     let target = address!("0x1ed9b1dd266b607ee278726d324b855a093394a6");
 
-    let provider = setup_provider()?;
+    let provider = setup_provider(None)?;
 
     let storage: BTreeMap<U256, U256> =
         serde_json::from_str(include_str!("../fixtures/storage_sample.json")).unwrap();
@@ -180,18 +184,47 @@ async fn test_storage_proof() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn can_get_random_account_proofs() -> anyhow::Result<()> {
-    let provider = setup_provider()?;
+async fn test_can_get_random_account_proofs() -> anyhow::Result<()> {
+    let provider = setup_provider(None)?;
 
-    for address in std::iter::repeat_with(Address::random).take(10) {
-        provider
-            .handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
-                address,
-                Vec::new(),
-                edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),
-            )))
-            .unwrap_or_else(|_| panic!("Failed to get proof for {address:?}"));
-    }
+    let address = Address::random();
+    provider
+        .handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+            address,
+            Vec::new(),
+            edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),
+        )))
+        .unwrap_or_else(|_| panic!("Failed to get proof for {address:?}"));
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[cfg(feature = "test-remote")]
+async fn test_get_proof_in_fork_mode_fails() -> anyhow::Result<()> {
+    use edr_provider::ProviderError;
+    use edr_state_api::StateError;
+
+    let provider = setup_provider(Some(ForkConfig {
+        block_number: None,
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::default(),
+        http_headers: None,
+        url: json_rpc_url_provider::op_mainnet(),
+    }))?;
+    let address = Address::random();
+
+    let proof_result =
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+            address,
+            Vec::new(),
+            edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),
+        )));
+
+    assert!(matches!(
+        proof_result.unwrap_err(),
+        ProviderError::State(StateError::UnsupportedGetProof)
+    ));
 
     Ok(())
 }
