@@ -1,7 +1,8 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use alloy_rlp::Decodable;
-use edr_primitives::{B256, U256};
+use alloy_trie::{proof::ProofRetainer, HashBuilder, Nibbles};
+use edr_primitives::{keccak256, Bytes, StorageKey, B256, U256};
 use hasher::{Hasher, HasherKeccak};
 use revm_state::EvmStorage;
 
@@ -41,6 +42,43 @@ impl<'a> StorageTrie {
 
     pub fn root(&self) -> B256 {
         self.root
+    }
+
+    pub fn generate_proof(&self, keys: &[StorageKey]) -> Vec<Vec<Bytes>> {
+        let keys: Vec<_> = keys
+            .iter()
+            .map(|key| Nibbles::unpack(keccak256(key)))
+            .collect();
+
+        let mut builder =
+            HashBuilder::default().with_proof_retainer(ProofRetainer::new(keys.clone()));
+
+        let mut storage: Vec<(Nibbles, Vec<u8>)> = self
+            .trie_query()
+            .iter()
+            .map(|(key, value)| (Nibbles::unpack(key), value))
+            .collect();
+        storage.sort_by(|(key1, _), (key2, _)| key1.cmp(key2));
+        for (key, value) in storage {
+            builder.add_leaf(key, &value);
+        }
+
+        let _ = builder.root();
+
+        let mut proofs = Vec::new();
+        let all_proof_nodes = builder.take_proof_nodes();
+
+        for proof_key in keys {
+            // Iterate over all proof nodes and find the matching ones.
+            // The filtered results are guaranteed to be in order.
+            let matching_proof_nodes = all_proof_nodes
+                .matching_nodes_sorted(&proof_key)
+                .into_iter()
+                .map(|(_, node)| node);
+            proofs.push(matching_proof_nodes.collect());
+        }
+
+        proofs
     }
 
     fn trie_query(&'a self) -> TrieQuery {

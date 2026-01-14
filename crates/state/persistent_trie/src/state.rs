@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
-use edr_primitives::{Address, HashMap, B256, U256};
+use edr_primitives::{Address, Bytes, HashMap, StorageKey, B256, U256};
 use edr_state_api::account::{Account, AccountInfo, BasicAccount};
 use hasher::{Hasher, HasherKeccak};
 use rpds::HashTrieMapSync;
@@ -21,7 +21,6 @@ impl PersistentAccountAndStorageTrie {
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     pub fn with_accounts(accounts: &HashMap<Address, AccountInfo>) -> Self {
         let mut account_trie = Self::default();
-
         {
             let mut account_trie_mutation = account_trie.mutate();
 
@@ -166,6 +165,26 @@ impl PersistentAccountAndStorageTrie {
             account_trie_mut: self.account_trie.mutate(),
             storage_tries: &mut self.storage_tries,
         }
+    }
+
+    /// Account proof
+    pub fn account_proof(&self, address: &Address) -> Vec<Bytes> {
+        self.account_trie.generate_proof(address)
+    }
+
+    /// Storage proof
+    /// Prove a storage key's existence or nonexistence in the account's storage
+    /// trie.
+    ///
+    /// `storage_key` is the hash of the desired storage key, meaning
+    /// this will only work correctly under a secure trie.
+    /// `storage_key` == keccak(key)
+    pub fn storage_proof(&self, address: &Address, keys: &[StorageKey]) -> Vec<Vec<Bytes>> {
+        let storage = match self.storage_tries.get(address) {
+            Some(storage) => storage,
+            None => &StorageTrie::default(),
+        };
+        storage.generate_proof(keys)
     }
 }
 

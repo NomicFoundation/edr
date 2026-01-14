@@ -1,12 +1,14 @@
-use alloy_rpc_types::EIP1186AccountProofResponse;
+use alloy_rpc_types::{EIP1186AccountProofResponse, EIP1186StorageProof};
+use alloy_serde::JsonStorageKey;
 use edr_primitives::{Address, Bytecode, HashMap, StorageKey, B256, KECCAK_EMPTY, U256};
 use edr_state_api::{
     account::{Account, AccountInfo},
     AccountModifierFn, State, StateCommit, StateDebug, StateDiff, StateError, StateProof,
 };
+use tracing::trace;
 
 pub use self::state::PersistentAccountAndStorageTrie;
-use crate::{account::PersistentAccountTrie, shared_map::SharedMap};
+use crate::{account::PersistentAccountTrie, shared_map::SharedMap, storage::StorageTrie};
 
 mod account;
 mod persistent_db;
@@ -288,11 +290,46 @@ impl StateProof for PersistentStateTrie {
 
     fn proof(
         &self,
-        _address: Address,
-        _storage_keys: Vec<StorageKey>,
+        address: Address,
+        storage_keys: Vec<StorageKey>,
     ) -> Result<EIP1186AccountProofResponse, Self::Error> {
-        // TODO: implement logic
-        Ok(EIP1186AccountProofResponse::default())
+        trace!(target: "PersistentStateTrie", "get proof for {:?} and storage keys {:?}", address, storage_keys);
+        let account = self.basic(address)?.unwrap_or_default();
+
+        let account_proof = self.accounts_and_storage.account_proof(&address);
+        let storage_proofs = self
+            .accounts_and_storage
+            .storage_proof(&address, &storage_keys);
+
+        let account_proof = EIP1186AccountProofResponse {
+            address,
+            balance: account.balance,
+            nonce: account.nonce,
+            code_hash: account.code_hash,
+            storage_hash: self
+                .account_storage_root(&address)?
+                .unwrap_or_else(|| StorageTrie::default().root()),
+            account_proof,
+            storage_proof: storage_keys
+                .into_iter()
+                .zip(storage_proofs) // TODO: I think order might not guaranteed since we are sorting the storage_proofs
+                // by nibble
+                .map(|(key, proof)| {
+                    let storage_key: U256 = key.into();
+                    let value = self
+                        .accounts_and_storage
+                        .account_storage_slot(&address, &storage_key) //account
+                        .unwrap_or_default();
+                    EIP1186StorageProof {
+                        key: JsonStorageKey::Hash(key),
+                        value,
+                        proof,
+                    }
+                })
+                .collect(),
+        };
+
+        Ok(account_proof)
     }
 }
 

@@ -3568,6 +3568,8 @@ version = "0.3.8"
 dependencies = [
  "alloy-rlp",
  "alloy-rpc-types",
+ "alloy-serde",
+ "alloy-trie",
  "anyhow",
  "cita_trie",
  "edr_primitives",

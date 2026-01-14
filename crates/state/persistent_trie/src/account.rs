@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use alloy_rlp::Decodable;
-use edr_primitives::{Address, B256};
+use alloy_trie::{proof::ProofRetainer, HashBuilder, Nibbles};
+use edr_primitives::{keccak256, Address, Bytes, B256};
 use edr_state_api::account::{AccountInfo, BasicAccount};
 
 use crate::{persistent_db::PersistentMemoryDB, query::TrieQuery};
@@ -18,6 +19,33 @@ impl PersistentAccountTrie {
         self.trie_query().get(address).map(|encoded_account| {
             BasicAccount::decode(&mut encoded_account.as_slice()).expect("Valid RLP")
         })
+    }
+
+    pub fn generate_proof(&self, address: &Address) -> Vec<Bytes> {
+        let mut builder =
+            HashBuilder::default().with_proof_retainer(ProofRetainer::new(vec![Nibbles::unpack(
+                keccak256(address),
+            )]));
+
+        let mut accounts_by_key: Vec<(_, _)> = self
+            .trie_query()
+            .iter()
+            .map(|(key, value)| (Nibbles::unpack(key), value))
+            .collect();
+        accounts_by_key.sort_by(|(key1, _), (key2, _)| key1.cmp(key2));
+
+        for (key, account) in accounts_by_key {
+            builder.add_leaf(key, &account);
+        }
+
+        let _ = builder.root();
+
+        builder
+            .take_proof_nodes()
+            .into_nodes_sorted()
+            .into_iter()
+            .map(|(_, v)| v)
+            .collect()
     }
 
     /// Create a helper struct that allows setting and removing multiple

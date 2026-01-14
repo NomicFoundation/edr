@@ -5,16 +5,16 @@ use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::anyhow;
 use edr_chain_l1::L1ChainSpec;
-use edr_primitives::{address, Address, Bytes, StorageKey, U256};
+use edr_primitives::{address, hash_map::HashMap, Address, Bytes, StorageKey, U256};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    test_utils::create_test_config_with_genesis_state_and_fork, time::CurrentTime,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
 fn setup_provider() -> anyhow::Result<Provider<L1ChainSpec, CurrentTime>> {
-    let config = create_test_config();
+    let config = create_test_config_with_genesis_state_and_fork(vec![], HashMap::default(), None);
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     Provider::new(
