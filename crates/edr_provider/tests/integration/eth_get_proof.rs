@@ -11,7 +11,6 @@ use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::env::json_rpc_url_provider;
 use tokio::runtime;
 
 fn setup_provider(
@@ -204,6 +203,7 @@ async fn test_can_get_random_account_proofs() -> anyhow::Result<()> {
 async fn test_get_proof_in_fork_mode_fails() -> anyhow::Result<()> {
     use edr_provider::ProviderError;
     use edr_state_api::StateError;
+    use edr_test_utils::env::json_rpc_url_provider;
 
     let provider = setup_provider(Some(ForkConfig {
         block_number: None,
