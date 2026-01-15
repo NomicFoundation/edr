@@ -42,9 +42,10 @@ describe("Provider", () => {
     await context.registerProviderFactory(OP_CHAIN_TYPE, opProviderFactory());
   });
 
+  const genesisAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
   const genesisState: AccountOverride[] = [
     {
-      address: toBytes("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
+      address: toBytes(genesisAddress),
       balance: 1000n * 10n ** 18n,
     },
   ];
@@ -658,6 +659,41 @@ describe("Provider", () => {
     // with Holocene hardfork, which is after Canyon
     assert.equal(250, dataView.getUint8(denominatorLeastSignificantByte));
     assert.equal(6, dataView.getUint8(elasticityLeastSignificantByte));
+  });
+
+  it("encodes an error within data when requesting eth_getProof in fork mode", async function () {
+    if (ALCHEMY_URL === undefined) {
+      this.skip();
+    }
+
+    const provider = await context.createProvider(
+      GENERIC_CHAIN_TYPE,
+      {
+        ...providerConfig,
+        fork: {
+          url: ALCHEMY_URL,
+        },
+      },
+      loggerConfig,
+      {
+        subscriptionCallback: (_event) => {},
+      },
+      new ContractDecoder()
+    );
+
+    const response = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_getProof",
+        params: [genesisAddress, [], "latest"],
+      })
+    );
+    const responseData = JSON.parse(response.data);
+    assert.equal(
+      responseData.error.message,
+      "The action `get_proof_on_forked_state` is unsupported. See https://github.com/NomicFoundation/edr/issues/1260"
+    );
   });
 });
 

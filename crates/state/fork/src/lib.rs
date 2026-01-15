@@ -275,7 +275,10 @@ impl<
         _address: Address,
         _storage_keys: Vec<StorageKey>,
     ) -> Result<EIP1186AccountProofResponse, Self::Error> {
-        Err(StateError::UnsupportedGetProof)
+        Err(StateError::Unsupported {
+            action: "get_proof_on_forked_state".into(),
+            details: Some("See https://github.com/NomicFoundation/edr/issues/1260".into()),
+        })
     }
 }
 #[cfg(all(test, feature = "test-remote"))]

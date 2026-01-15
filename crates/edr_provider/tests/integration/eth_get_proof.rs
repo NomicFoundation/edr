@@ -223,7 +223,7 @@ async fn test_get_proof_in_fork_mode_fails() -> anyhow::Result<()> {
 
     assert!(matches!(
         proof_result.unwrap_err(),
-        ProviderError::State(StateError::UnsupportedGetProof)
+        ProviderError::State(StateError::Unsupported { .. })
     ));
 
     Ok(())

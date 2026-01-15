@@ -5,7 +5,6 @@ use edr_state_api::{
     account::{Account, AccountInfo},
     AccountModifierFn, State, StateCommit, StateDebug, StateDiff, StateError, StateProof,
 };
-use tracing::trace;
 
 pub use self::state::PersistentAccountAndStorageTrie;
 use crate::{account::PersistentAccountTrie, shared_map::SharedMap, storage::StorageTrie};
@@ -293,7 +292,6 @@ impl StateProof for PersistentStateTrie {
         address: Address,
         storage_keys: Vec<StorageKey>,
     ) -> Result<EIP1186AccountProofResponse, Self::Error> {
-        trace!(target: "PersistentStateTrie", "get proof for {:?} and storage keys {:?}", address, storage_keys);
         let account = self.basic(address)?.unwrap_or_default();
 
         let account_proof = self.accounts_and_storage.account_proof(&address);
