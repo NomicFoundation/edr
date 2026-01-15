@@ -47,6 +47,10 @@ impl<'a> StorageTrie {
         self.root
     }
 
+    /// Generates Merkle proofs for storage slots' existence or nonexistence.
+    ///
+    /// Each key is looked up using `keccak256(key)` as the trie key.
+    /// Returns proofs in the same order as the provided keys.
     pub fn generate_proof(&self, keys: &[StorageKey]) -> Vec<Vec<Bytes>> {
         let keys: Vec<_> = keys
             .iter()

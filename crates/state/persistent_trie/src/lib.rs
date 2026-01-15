@@ -312,8 +312,7 @@ impl StateProof for PersistentStateTrie {
             account_proof,
             storage_proof: storage_keys
                 .into_iter()
-                .zip(storage_proofs) // TODO: I think order might not guaranteed since we are sorting the storage_proofs
-                // by nibble
+                .zip(storage_proofs)
                 .map(|(key, proof)| {
                     let storage_key: U256 = key.into();
                     let value = self

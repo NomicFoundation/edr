@@ -167,18 +167,16 @@ impl PersistentAccountAndStorageTrie {
         }
     }
 
-    /// Account proof
+    /// Generates a Merkle proof for an account's existence or nonexistence.
     pub fn account_proof(&self, address: &Address) -> Vec<Bytes> {
         self.account_trie.generate_proof(address)
     }
 
-    /// Storage proof
-    /// Prove a storage key's existence or nonexistence in the account's storage
-    /// trie.
+    /// Generates Merkle proofs for storage slots in an account's storage trie.
     ///
-    /// `storage_key` is the hash of the desired storage key, meaning
-    /// this will only work correctly under a secure trie.
-    /// `storage_key` == keccak(key)
+    /// Returns one proof per storage key from the storage root to the slot.
+    /// If the account doesn't exist, proofs are generated against an empty
+    /// storage trie.
     pub fn storage_proof(&self, address: &Address, keys: &[StorageKey]) -> Vec<Vec<Bytes>> {
         let storage = match self.storage_tries.get(address) {
             Some(storage) => storage,

@@ -24,6 +24,9 @@ impl PersistentAccountTrie {
         })
     }
 
+    /// Generates a Merkle proof for an account's existence or nonexistence.
+    ///
+    /// The account is looked up using `keccak256(address)` as the trie key.
     pub fn generate_proof(&self, address: &Address) -> Vec<Bytes> {
         build_proof_nodes(self.trie_query(), vec![Nibbles::unpack(keccak256(address))])
             .into_nodes_sorted()
