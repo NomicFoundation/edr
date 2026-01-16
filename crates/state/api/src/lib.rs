@@ -125,8 +125,8 @@ pub trait StateProof {
     /// The state's error type.
     type Error;
 
-    // Returns the account information together with the Merkle proofs for the
-    // account and its associated storage keys.
+    /// Returns the account information together with the Merkle proofs for the
+    /// account and its associated storage keys.
     fn proof(
         &self,
         address: Address,

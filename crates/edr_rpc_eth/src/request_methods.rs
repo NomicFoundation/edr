@@ -66,7 +66,7 @@ pub enum RequestMethod {
     #[serde(rename = "eth_getProof")]
     GetProof(
         Address,
-        /// storage-keys which should be proofed and included
+        /// storage-keys which should be proved and included
         Vec<B256>,
         BlockSpec,
     ),

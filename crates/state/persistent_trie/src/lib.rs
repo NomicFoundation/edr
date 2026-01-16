@@ -284,7 +284,7 @@ impl StateDebug for PersistentStateTrie {
 }
 
 impl StateProof for PersistentStateTrie {
-    ///The state's error type
+    /// The state's error type
     type Error = StateError;
 
     fn proof(
