@@ -49,7 +49,7 @@ pub fn handle_call_request<
         return Err(ProviderError::TransactionFailed(Box::new(
             TransactionFailureWithCallTraces {
                 failure,
-                call_traces: result.call_trace_arena,
+                call_trace_arenas: result.call_trace_arena,
             },
         )));
     }

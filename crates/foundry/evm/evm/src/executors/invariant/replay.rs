@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::Log;
 use derive_where::derive_where;
-use edr_solidity::contract_decoder::NestedTraceDecoder;
+use edr_solidity::{contract_decoder::NestedTraceDecoder, solidity_stack_trace::get_stack_trace};
 use eyre::Result;
 use foundry_evm_core::{
     contracts::{ContractsByAddress, ContractsByArtifact},
@@ -32,7 +32,7 @@ use super::{
     shrink_sequence, CallAfterInvariantResult, CallInvariantResult,
 };
 use crate::executors::{
-    stack_trace::{get_stack_trace, SolidityTestStackTraceResult, StackTraceCreationResult},
+    stack_trace::{SolidityTestStackTraceError, SolidityTestStackTraceResult},
     Executor,
 };
 
@@ -178,9 +178,9 @@ pub fn replay_run<
                     contract_decoder
                         .and_then(|decoder| {
                             get_stack_trace(decoder, traces.iter().map(|(_, arena)| &arena.arena))
+                                .map_err(SolidityTestStackTraceError::from)
                                 .transpose()
                         })
-                        .map(StackTraceCreationResult::from)
                         .map(SolidityTestStackTraceResult::from)
                 };
             let revert_reason =
@@ -244,8 +244,8 @@ pub fn replay_run<
                     .or_else(|| {
                         contract_decoder.and_then(|decoder| {
                             get_stack_trace(decoder, traces.iter().map(|(_, arena)| &arena.arena))
+                                .map_err(SolidityTestStackTraceError::from)
                                 .transpose()
-                                .map(StackTraceCreationResult::from)
                                 .map(SolidityTestStackTraceResult::from)
                         })
                     })

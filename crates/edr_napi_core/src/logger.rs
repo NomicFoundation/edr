@@ -302,7 +302,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         self.indented(|logger| {
             logger.log_contract_and_function_name::<true>(
                 hardfork,
-                &transaction_failure.failure.solidity_trace,
+                &transaction_failure.failure.stack_trace_result,
             );
 
             logger.log_with_title("From", format!("0x{:x}", transaction.caller()));
@@ -429,7 +429,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                     izip!(
                         result.block.transactions(),
                         result.transaction_results.iter(),
-                        result.transaction_traces.iter()
+                        result.transaction_call_trace_arenas.iter()
                     )
                     .find(|(block_transaction, _, _)| {
                         *block_transaction.transaction_hash() == *transaction.transaction_hash()
@@ -549,7 +549,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let DebugMineBlockResult {
             block,
             transaction_results,
-            transaction_traces,
+            transaction_call_trace_arenas: transaction_traces,
             console_log_inputs,
             ..
         } = result;
@@ -850,7 +850,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let DebugMineBlockResult {
             block,
             transaction_results,
-            transaction_traces,
+            transaction_call_trace_arenas: transaction_traces,
             console_log_inputs,
             ..
         } = result;
@@ -900,7 +900,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let DebugMineBlockResult {
             block,
             transaction_results,
-            transaction_traces,
+            transaction_call_trace_arenas: transaction_traces,
             console_log_inputs,
             ..
         } = result;
@@ -1019,7 +1019,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         transaction: &ChainSpecT::SignedTransaction,
     ) -> Result<(), LoggerError> {
         let trace = result
-            .transaction_traces
+            .transaction_call_trace_arenas
             .first()
             .expect("A transaction exists, so the trace must exist as well.");
 

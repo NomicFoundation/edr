@@ -40,7 +40,7 @@ pub fn handle_mine_request<
         ..HeaderOverrides::default()
     })?;
 
-    let traces = mine_block_result.transaction_traces.clone();
+    let traces = mine_block_result.transaction_call_trace_arenas.clone();
 
     let hardfork = data.hardfork();
     data.logger_mut()

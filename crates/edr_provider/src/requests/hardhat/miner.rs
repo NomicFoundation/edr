@@ -28,7 +28,7 @@ pub fn handle_mine<
 
     let traces = mined_block_results
         .into_iter()
-        .flat_map(|result| result.transaction_traces)
+        .flat_map(|result| result.transaction_call_trace_arenas)
         .collect();
 
     Ok((true, traces))

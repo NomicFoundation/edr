@@ -309,7 +309,7 @@ fn send_raw_transaction_and_log<
             return Err(ProviderError::TransactionFailed(Box::new(
                 TransactionFailureWithCallTraces {
                     failure,
-                    call_traces: traces,
+                    call_trace_arenas: traces,
                 },
             )));
         }
