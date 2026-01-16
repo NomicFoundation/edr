@@ -145,7 +145,7 @@ pub enum MethodInvocation<ChainSpecT: RpcChainSpec> {
     #[serde(rename = "eth_getProof")]
     GetProof(
         #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
-        Vec<StorageKey>, // TODO: do we need a custom deserializer for this?
+        Vec<StorageKey>,
         BlockSpec,
     ),
     /// `eth_getStorageAt`

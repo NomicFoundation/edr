@@ -661,39 +661,98 @@ describe("Provider", () => {
     assert.equal(6, dataView.getUint8(elasticityLeastSignificantByte));
   });
 
-  it("encodes an error within data when requesting eth_getProof in fork mode", async function () {
-    if (ALCHEMY_URL === undefined) {
-      this.skip();
-    }
+  describe("eth_getProof", () => {
+    it("encodes an error within data when in fork mode", async function () {
+      if (ALCHEMY_URL === undefined) {
+        this.skip();
+      }
 
-    const provider = await context.createProvider(
-      GENERIC_CHAIN_TYPE,
-      {
-        ...providerConfig,
-        fork: {
-          url: ALCHEMY_URL,
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          fork: {
+            url: ALCHEMY_URL,
+          },
         },
-      },
-      loggerConfig,
-      {
-        subscriptionCallback: (_event) => {},
-      },
-      new ContractDecoder()
-    );
+        loggerConfig,
+        {
+          subscriptionCallback: (_event) => {},
+        },
+        new ContractDecoder()
+      );
 
-    const response = await provider.handleRequest(
-      JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_getProof",
-        params: [genesisAddress, [], "latest"],
-      })
-    );
-    const responseData = JSON.parse(response.data);
-    assert.equal(
-      responseData.error.message,
-      "The action `get_proof_on_forked_state` is unsupported. See https://github.com/NomicFoundation/edr/issues/1260"
-    );
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_getProof",
+          params: [genesisAddress, [], "latest"],
+        })
+      );
+      const responseData = JSON.parse(response.data);
+      assert.equal(
+        responseData.error.message,
+        "The action `get_proof_on_forked_state` is unsupported. See https://github.com/NomicFoundation/edr/issues/1260"
+      );
+    });
+
+    it("fails on invalid storage key", async function () {
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event) => {},
+        },
+        new ContractDecoder()
+      );
+
+      const storageKey = "b421";
+
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_getProof",
+          params: [genesisAddress, [storageKey], "latest"],
+        })
+      );
+      const INVALID_PARAM_CODE = -32602;
+      const responseData = JSON.parse(response.data);
+      assert.equal(responseData.error.code, INVALID_PARAM_CODE);
+    });
+
+    it("deserializes storage keys correctly", async function () {
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event) => {},
+        },
+        new ContractDecoder()
+      );
+
+      const storageKey =
+        "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_getProof",
+          params: [genesisAddress, [storageKey], "latest"],
+        })
+      );
+      const responseData = JSON.parse(response.data);
+      const storageProof = responseData.result.storageProof[0];
+      assert.equal(storageProof.key, storageKey);
+      assert.equal(storageProof.value, "0x0");
+    });
   });
 });
 
