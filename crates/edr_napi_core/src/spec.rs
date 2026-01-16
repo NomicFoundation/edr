@@ -86,13 +86,15 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
                 ) {
                     None
                 } else {
-                    let trace = std::mem::take(&mut failure.failure.solidity_trace);
+                    let trace = std::mem::take(&mut failure.failure.stack_trace_result);
 
-                    let result =
-                        SolidityTestStackTraceResult::from(get_stack_trace::<edr_chain_l1::HaltReason, _>(
-                            contract_decoder.as_ref(),
-                            &[(TraceKind::Execution, trace)],
-                        ));
+                    let result = SolidityTestStackTraceResult::from(get_stack_trace::<
+                        edr_chain_l1::HaltReason,
+                        _,
+                    >(
+                        contract_decoder.as_ref(),
+                        &[(TraceKind::Execution, trace)],
+                    ));
 
                     let result = result.map_halt_reason(|halt_reason: HaltReasonT| {
                         serde_json::to_string(&halt_reason)
@@ -110,7 +112,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
         let traces = match &mut response {
             Ok(response) => std::mem::take(&mut response.call_traces),
             Err(edr_provider::ProviderError::TransactionFailed(failure)) => {
-                std::mem::take(&mut failure.call_traces)
+                std::mem::take(&mut failure.call_trace_arenas)
             }
             Err(_) => Vec::new(),
         };
@@ -145,13 +147,15 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
                     ) {
                         None
                     } else {
-                        let trace = std::mem::take(&mut failure.failure.solidity_trace);
+                        let trace = std::mem::take(&mut failure.failure.stack_trace_result);
 
-                        let result =
-                            SolidityTestStackTraceResult::from(get_stack_trace::<edr_chain_l1::HaltReason, _>(
-                                contract_decoder.as_ref(),
-                                &[(TraceKind::Execution, trace)],
-                            ));
+                        let result = SolidityTestStackTraceResult::from(get_stack_trace::<
+                            edr_chain_l1::HaltReason,
+                            _,
+                        >(
+                            contract_decoder.as_ref(),
+                            &[(TraceKind::Execution, trace)],
+                        ));
 
                         let result = result.map_halt_reason(|halt_reason: HaltReasonT| {
                             serde_json::to_string(&halt_reason)
@@ -169,7 +173,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
         let traces = match &mut response {
             Ok(response) => std::mem::take(&mut response.call_traces),
             Err(edr_provider::ProviderError::TransactionFailed(failure)) => {
-                std::mem::take(&mut failure.call_traces)
+                std::mem::take(&mut failure.call_trace_arenas)
             }
             Err(_) => Vec::new(),
         };

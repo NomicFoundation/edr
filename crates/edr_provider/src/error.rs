@@ -23,9 +23,12 @@ use edr_primitives::{hex, Address, Bytes, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
-use edr_solidity::contract_decoder::ContractDecoderError;
+use edr_solidity::{
+    contract_decoder::{ContractDecoder, ContractDecoderError},
+    solidity_stack_trace::{get_stack_trace, StackTraceCreationResult},
+};
 use edr_state_api::StateError;
-use foundry_evm_traces::SparsedTraceArena;
+use foundry_evm_traces::CallTraceArena;
 use serde::Serialize;
 
 use crate::{
@@ -545,7 +548,7 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<Halt
 #[derive(Clone, Debug, thiserror::Error)]
 pub struct TransactionFailureWithCallTraces<HaltReasonT: HaltReasonTrait> {
     pub failure: TransactionFailure<HaltReasonT>,
-    pub call_traces: SparsedTraceArena,
+    pub call_trace_arenas: Vec<CallTraceArena>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
@@ -563,7 +566,7 @@ pub struct TransactionFailure<HaltReasonT: HaltReasonTrait> {
     pub reason: TransactionFailureReason<HaltReasonT>,
     pub data: String,
     #[serde(skip)]
-    pub solidity_trace: StackTraceResult<HaltReasonT>,
+    pub stack_trace_result: StackTraceCreationResult<HaltReasonT>,
     pub transaction_hash: Option<B256>,
 }
 
@@ -574,19 +577,22 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     >(
         execution_result: &ExecutionResult<HaltReasonT>,
         transaction_hash: Option<&B256>,
-        solidity_trace: &SparsedTraceArena,
+        call_trace_arena: &CallTraceArena,
+        contract_decoder: &ContractDecoder,
     ) -> Option<TransactionFailure<HaltReasonT>> {
         match execution_result {
             ExecutionResult::Success { .. } => None,
             ExecutionResult::Revert { output, .. } => Some(TransactionFailure::revert(
                 output.clone(),
                 transaction_hash.copied(),
-                solidity_trace.clone(),
+                call_trace_arena,
+                contract_decoder,
             )),
             ExecutionResult::Halt { reason, .. } => Some(TransactionFailure::halt(
                 NewChainSpecT::cast_halt_reason(reason.clone()),
                 transaction_hash.copied(),
-                solidity_trace.clone(),
+                call_trace_arena,
+                contract_decoder,
             )),
         }
     }
@@ -594,12 +600,19 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn halt(
         reason: TransactionFailureReason<HaltReasonT>,
         tx_hash: Option<B256>,
-        solidity_trace: SparsedTraceArena,
+        call_trace_arena: &CallTraceArena,
+        contract_decoder: &ContractDecoder,
     ) -> Self {
+        let stack_trace_result =
+            get_stack_trace(contract_decoder, std::iter::once(call_trace_arena))
+                .transpose()
+                .expect("Contains a single call trace arena")
+                .into();
+
         Self {
             reason,
             data: "0x".to_string(),
-            solidity_trace,
+            stack_trace_result,
             transaction_hash: tx_hash,
         }
     }
@@ -607,13 +620,20 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn revert(
         output: Bytes,
         transaction_hash: Option<B256>,
-        solidity_trace: SparsedTraceArena,
+        call_trace_arena: &CallTraceArena,
+        contract_decoder: &ContractDecoder,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
+        let stack_trace_result =
+            get_stack_trace(contract_decoder, std::iter::once(call_trace_arena))
+                .transpose()
+                .expect("Contains a single call trace arena")
+                .into();
+
         Self {
             reason: TransactionFailureReason::Revert(output),
             data,
-            solidity_trace,
+            stack_trace_result,
             transaction_hash,
         }
     }

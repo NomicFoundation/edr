@@ -73,6 +73,9 @@ impl From<&ObservabilityConfig> for EvmObserverConfig {
 
 /// An observer for the EVM that collects information about the execution by
 /// directly inspecting the EVM.
+///
+/// The observer is stateless, without any awareness of when a transaction
+/// starts or ends.
 pub struct EvmObserver {
     pub code_coverage: Option<CodeCoverageReporter>,
     pub console_logger: ConsoleLogCollector,

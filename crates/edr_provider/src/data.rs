@@ -157,7 +157,7 @@ impl<
             izip!(
                 result.block.transactions().iter(),
                 result.transaction_results.iter(),
-                result.transaction_traces.iter()
+                result.transaction_call_trace_arenas.iter()
             )
             .find_map(|(transaction, exec_result, trace)| {
                 if *transaction.transaction_hash() == self.transaction_hash {
@@ -172,7 +172,7 @@ impl<
 
 impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
     From<SendTransactionResult<BlockT, HaltReasonT, SignedTransactionT>>
-    for (B256, Vec<SparsedTraceArena>)
+    for (B256, Vec<CallTraceArena>)
 {
     fn from(value: SendTransactionResult<BlockT, HaltReasonT, SignedTransactionT>) -> Self {
         let SendTransactionResult {
@@ -182,7 +182,7 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
 
         let traces = mining_results
             .into_iter()
-            .flat_map(|result| result.transaction_traces)
+            .flat_map(|result| result.transaction_call_trace_arenas)
             .collect();
 
         (transaction_hash, traces)
@@ -192,7 +192,7 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
 /// The result of executing a transaction.
 pub type ExecutionResultAndTrace<'provider, HaltReasonT> = (
     &'provider ExecutionResult<HaltReasonT>,
-    &'provider SparsedTraceArena,
+    &'provider CallTraceArena,
 );
 
 pub struct ProviderData<
@@ -2631,7 +2631,9 @@ where
                 .initial_gas;
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
+        let observer_config = EvmObserverConfig::from(&self.observability);
+        let mut evm_observer = EvmObserver::new(observer_config.clone());
+        let contract_decoder = Arc::clone(&self.contract_decoder);
         let scheduled_blob_params = self.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
@@ -2668,32 +2670,29 @@ where
                     .map_err(ProviderError::OnCollectedCoverageCallback)?;
             }
 
-            let arena = tracing_inspector.into_traces();
-            let traces = vec![(
-                foundry_evm_traces::TraceKind::Execution,
-                foundry_evm_traces::SparsedTraceArena {
-                    arena,
-                    ignored: HashMap::default(),
-                },
-            )];
+            let call_trace_arena = tracing_inspector.into_traces();
             let console_log_inputs = console_logger.into_encoded_messages();
 
             let mut initial_estimation = match result {
                 ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
-                ExecutionResult::Revert { output, .. } => {
-                    Err(TransactionFailure::revert(output, None, traces.clone()))
-                }
+                ExecutionResult::Revert { output, .. } => Err(TransactionFailure::revert(
+                    output,
+                    None,
+                    &call_trace_arena,
+                    contract_decoder.as_ref(),
+                )),
                 ExecutionResult::Halt { reason, .. } => Err(TransactionFailure::halt(
                     ChainSpecT::cast_halt_reason(reason),
                     None,
-                    traces.clone(),
+                    &call_trace_arena,
+                    contract_decoder.as_ref(),
                 )),
             }
             .map_err(|failure| {
                 Box::new(EstimateGasFailure {
                     console_log_inputs,
                     transaction_failure: TransactionFailureWithCallTraces {
-                        call_traces: failure.solidity_trace.clone(),
+                        call_trace_arenas: vec![call_trace_arena],
                         failure,
                     },
                 })

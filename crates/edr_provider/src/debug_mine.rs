@@ -8,7 +8,7 @@ use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::result::ExecutionResult;
 use edr_primitives::{Bytes, B256};
 use edr_state_api::{DynState, StateDiff};
-use foundry_evm_traces::SparsedTraceArena;
+use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
 
 /// The result of mining a block, including the state, in debug mode. This
 /// result needs to be inserted into the blockchain to be persistent.
@@ -21,8 +21,8 @@ pub struct DebugMineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlock
     pub state_diff: StateDiff,
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
-    /// Transaction traces
-    pub transaction_traces: Vec<SparsedTraceArena>,
+    /// Transaction call trace arenas
+    pub transaction_traces: Vec<CallTraceArena>,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
 }
@@ -63,8 +63,8 @@ pub struct DebugMineBlockResult<BlockT, HaltReasonT: HaltReasonTrait, SignedTran
     pub block: BlockT,
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
-    /// Transaction traces
-    pub transaction_traces: Vec<SparsedTraceArena>,
+    /// Transaction call trace arenas
+    pub transaction_call_trace_arenas: Vec<CallTraceArena>,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
     phantom: PhantomData<SignedTransactionT>,
@@ -77,13 +77,13 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
     pub fn new(
         block: BlockT,
         transaction_results: Vec<ExecutionResult<HaltReasonT>>,
-        transaction_traces: Vec<SparsedTraceArena>,
+        transaction_call_trace_arenas: Vec<CallTraceArena>,
         console_log_inputs: Vec<Bytes>,
     ) -> Self {
         Self {
             block,
             transaction_results,
-            transaction_traces,
+            transaction_call_trace_arenas,
             console_log_inputs,
             phantom: PhantomData,
         }

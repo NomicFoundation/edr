@@ -15,8 +15,9 @@ use alloy_primitives::{Address, Bytes, U256};
 use derive_where::derive_where;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
-    artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder,
-    solidity_stack_trace::StackTraceEntry,
+    artifacts::ArtifactId,
+    contract_decoder::SyncNestedTraceDecoder,
+    solidity_stack_trace::{get_stack_trace, StackTraceEntry},
 };
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
@@ -35,10 +36,7 @@ use foundry_evm::{
             check_sequence, replay_error, replay_run, InvariantConfig, InvariantExecutor,
             InvariantFuzzError, ReplayErrorArgs, ReplayResult, ReplayRunArgs,
         },
-        stack_trace::{
-            get_stack_trace, SolidityTestStackTraceError, SolidityTestStackTraceResult,
-            StackTraceCreationResult,
-        },
+        stack_trace::{SolidityTestStackTraceError, SolidityTestStackTraceResult},
         CallResult, EvmError, Executor, ExecutorBuilder, ITest, RawCallResult,
     },
     fuzz::{
@@ -577,8 +575,8 @@ impl<
                     &*self.contract_decoder,
                     setup.traces.iter().map(|(_, arena)| &arena.arena),
                 )
+                .map_err(SolidityTestStackTraceError::from)
                 .transpose()
-                .map(StackTraceCreationResult::from)
                 .map(SolidityTestStackTraceResult::from)
             } else if let Some(indeterminism_reasons) = setup.indeterminism_reasons.as_ref() {
                 // We cannot re-run the setup due to indeterminism, so we return the
@@ -597,8 +595,8 @@ impl<
                         .iter()
                         .map(|(_, arena)| &arena.arena),
                 )
+                .map_err(SolidityTestStackTraceError::from)
                 .transpose()
-                .map(StackTraceCreationResult::from)
                 .map(SolidityTestStackTraceResult::from)
             };
 
@@ -873,6 +871,7 @@ impl<
                         &*self.cr.contract_decoder,
                         self.result.traces.iter().map(|(_, arena)| &arena.arena),
                     )
+                    .map_err(SolidityTestStackTraceError::from)
                     .transpose()
                     .expect("traces are not empty")
                     .into()
@@ -882,7 +881,7 @@ impl<
                     indeterminism_reasons.into()
                 } else {
                     self.re_run_test_for_stack_traces(func, &[], self.setup.has_setup_method)
-                        .map(SolidityTestStackTraceResult::from)
+                        .into()
                 };
             Some(stack_trace_result)
         } else {
@@ -1025,6 +1024,7 @@ impl<
                             &*self.cr.contract_decoder,
                             self.result.traces.iter().map(|(_, arena)| &arena.arena),
                         )
+                        .map_err(SolidityTestStackTraceError::from)
                         .transpose()
                         .expect("traces are not empty")
                         .into()
@@ -1216,6 +1216,7 @@ impl<
                             &*self.cr.contract_decoder,
                             self.result.traces.iter().map(|(_, arena)| &arena.arena),
                         )
+                        .map_err(SolidityTestStackTraceError::from)
                         .transpose()
                         .expect("traces are not empty")
                         .into()
@@ -1433,6 +1434,7 @@ impl<
                         &*self.cr.contract_decoder,
                         self.result.traces.iter().map(|(_, arena)| &arena.arena),
                     )
+                    .map_err(SolidityTestStackTraceError::from)
                     .transpose()
                     .expect("traces are not empty")
                     .into()
