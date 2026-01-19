@@ -315,7 +315,7 @@ impl StateProof for PersistentStateTrie {
                     let storage_key: U256 = key.into();
                     let value = self
                         .accounts_and_storage
-                        .account_storage_slot(&address, &storage_key) //account
+                        .account_storage_slot(&address, &storage_key)
                         .unwrap_or_default();
                     EIP1186StorageProof {
                         key: JsonStorageKey::Hash(key),
