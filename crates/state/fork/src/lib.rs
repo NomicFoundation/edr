@@ -275,9 +275,7 @@ impl<
         address: Address,
         storage_keys: Vec<StorageKey>,
     ) -> Result<EIP1186AccountProofResponse, Self::Error> {
-        let local_modifications =
-            self.current_state.read().1 != PersistentStateTrie::default().state_root()?;
-        if local_modifications {
+        if !self.local_state.is_empty() {
             return Err(StateError::Unsupported {
                 action: "get_proof_on_forked_state".into(),
                 details: Some(
