@@ -89,6 +89,10 @@ fn verify_storage_proof<'proof>(
     );
 }
 
+/// Ported from foundry `https://github.com/foundry-rs/foundry/blob/f8904bd/crates/anvil/tests/it/proof.rs`
+/// under the MIT and Apache Licenses
+/// - `https://github.com/foundry-rs/foundry/blob/f8904bd/LICENSE-APACHE`
+/// - `https://github.com/foundry-rs/foundry/blob/f8904bd/LICENSE-MIT`
 #[tokio::test(flavor = "multi_thread")]
 async fn test_account_proof() -> anyhow::Result<()> {
     let provider = setup_provider(None)?;
@@ -141,6 +145,10 @@ async fn test_account_proof() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Ported from foundry `https://github.com/foundry-rs/foundry/blob/f8904bd/crates/anvil/tests/it/proof.rs`
+/// under the MIT and Apache Licenses
+/// - `https://github.com/foundry-rs/foundry/blob/f8904bd/LICENSE-APACHE`
+/// - `https://github.com/foundry-rs/foundry/blob/f8904bd/LICENSE-MIT`
 #[tokio::test(flavor = "multi_thread")]
 async fn test_storage_proof() -> anyhow::Result<()> {
     let target = address!("0x1ed9b1dd266b607ee278726d324b855a093394a6");
