@@ -119,8 +119,7 @@ mod local_tests {
             U256::from(120000000000000000_u128),
         )))?;
 
-        verify_account_proof(&provider, address!("0x2031f89b3ea8014eb51a78c316e42af3e0d7695f"), 
-        edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),[
+        verify_account_proof(&provider, address!("0x2031f89b3ea8014eb51a78c316e42af3e0d7695f"), edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest), [
             "0xe48200a7a040f916999be583c572cc4dd369ec53b0a99f7de95f13880cf203d98f935ed1b3",
             "0xf87180a04fb9bab4bb88c062f32452b7c94c8f64d07b5851d44a39f1e32ba4b1829fdbfb8080808080a0b61eeb2eb82808b73c4ad14140a2836689f4ab8445d69dd40554eaf1fce34bc080808080808080a0dea230ff2026e65de419288183a340125b04b8405cc61627b3b4137e2260a1e880",
             "0xf8719f31355ec1c8f7e26bb3ccbcb0b75d870d15846c0b98e5cc452db46c37faea40b84ff84d80890270801d946c940000a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
