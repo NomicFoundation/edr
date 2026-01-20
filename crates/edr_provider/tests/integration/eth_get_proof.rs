@@ -6,11 +6,11 @@ use alloy_rpc_types::EIP1186AccountProofResponse;
 use anyhow::anyhow;
 use edr_chain_l1::{Hardfork, L1ChainSpec};
 use edr_eth::BlockSpec;
-use edr_primitives::{address, Address, Bytes, HashMap, StorageKey, U256};
+use edr_primitives::{address, Address, Bytes, StorageKey, U256};
 use edr_provider::{
     test_utils::{create_test_config_with, BasicProviderConfig},
     time::CurrentTime,
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
@@ -214,7 +214,8 @@ mod local_tests {
 }
 #[cfg(feature = "test-remote")]
 mod fork_tests {
-    use edr_provider::ProviderError;
+    use edr_primitives::HashMap;
+    use edr_provider::{ForkConfig, ProviderError};
     use edr_state_api::StateError;
     use edr_test_utils::env::json_rpc_url_provider;
 
