@@ -348,6 +348,7 @@ describe("Provider logs", function () {
 
       await intervalMine(logger, mockTimer);
 
+      console.log(logger.lines);
       assert.lengthOf(logger.lines, 9);
       // prettier-ignore
       {

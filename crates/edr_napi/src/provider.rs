@@ -102,10 +102,8 @@ impl Provider {
             crate::scenarios::write_request(scenario_file, &request).await?;
         }
 
-        let contract_decoder = Arc::clone(&self.contract_decoder);
-
         self.runtime
-            .spawn_blocking(move || provider.handle_request(request, contract_decoder))
+            .spawn_blocking(move || provider.handle_request(request))
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?
             .map(Response::from)
