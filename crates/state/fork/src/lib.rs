@@ -270,7 +270,7 @@ impl<
     /// The state's error type.
     type Error = StateError;
 
-    fn proof(
+    fn get_proof(
         &self,
         address: Address,
         storage_keys: Vec<StorageKey>,
@@ -284,7 +284,7 @@ impl<
             });
         }
 
-        self.remote_state.lock().proof(address, storage_keys)
+        self.remote_state.lock().get_proof(address, storage_keys)
     }
 }
 #[cfg(all(test, feature = "test-remote"))]

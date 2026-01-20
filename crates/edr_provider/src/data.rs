@@ -2000,7 +2000,7 @@ where
     ) -> Result<EIP1186AccountProofResponse, ProviderErrorForChainSpec<ChainSpecT>> {
         self.execute_in_block_context::<Result<EIP1186AccountProofResponse, ProviderErrorForChainSpec<ChainSpecT>>>(
             Some(block_spec),
-            move |_blockchain, _block, state| Ok(state.proof(address, storage_keys)?), )?
+            move |_blockchain, _block, state| Ok(state.get_proof(address, storage_keys)?), )?
     }
 
     pub fn get_storage_at(

@@ -295,7 +295,7 @@ impl StateProof for PersistentStateTrie {
     /// The state's error type
     type Error = StateError;
 
-    fn proof(
+    fn get_proof(
         &self,
         address: Address,
         storage_keys: Vec<StorageKey>,

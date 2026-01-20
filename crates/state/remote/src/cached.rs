@@ -143,12 +143,12 @@ impl<
 {
     type Error = StateError;
 
-    fn proof(
+    fn get_proof(
         &self,
         address: Address,
         storage_keys: Vec<StorageKey>,
     ) -> Result<EIP1186AccountProofResponse, Self::Error> {
-        self.remote.proof(address, storage_keys)
+        self.remote.get_proof(address, storage_keys)
     }
 }
 /// Fetches an account from the remote state. If it exists, code is split off
