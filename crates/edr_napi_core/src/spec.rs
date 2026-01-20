@@ -138,7 +138,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
             });
 
         // We can take the traces as they won't be used for anything else
-        let traces = match &mut response {
+        let call_trace_arenas = match &mut response {
             Ok(response) => std::mem::take(&mut response.call_trace_arenas),
             Err(edr_provider::ProviderError::TransactionFailed(failure)) => {
                 std::mem::take(&mut failure.call_trace_arenas)
@@ -151,7 +151,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
         marshal_response_data(response).map(|data| Response {
             data,
             stack_trace_result,
-            call_trace_arenas: traces,
+            call_trace_arenas,
         })
     }
 }

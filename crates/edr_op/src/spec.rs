@@ -30,10 +30,12 @@ use edr_napi_core::{
     spec::{marshal_response_data, Response, SyncNapiSpec},
 };
 use edr_primitives::HashMap;
-use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
+use edr_provider::{
+    time::TimeSinceEpoch, ProviderError, ProviderErrorForChainSpec, ProviderSpec,
+    ResponseWithCallTraces, TransactionFailureReason,
+};
 use edr_receipt::ExecutionReceiptChainSpec;
 use edr_rpc_eth::jsonrpc;
-use edr_solidity::contract_decoder::ContractDecoder;
 use edr_state_api::{StateDebug as _, StateDiff};
 use edr_state_persistent_trie::PersistentStateTrie;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
@@ -373,19 +375,46 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
     const CHAIN_TYPE: &'static str = crate::CHAIN_TYPE;
 
     fn cast_response(
-        response: Result<
-            edr_provider::ResponseWithCallTraces<HaltReason>,
-            edr_provider::ProviderErrorForChainSpec<Self>,
-        >,
-        _contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<edr_napi_core::spec::Response<EvmHaltReason>> {
+        mut response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
+    ) -> napi::Result<edr_napi_core::spec::Response> {
+        let stack_trace_result =
+            response.as_ref().err().and_then(|error| {
+                if let ProviderError::TransactionFailed(failure) = error {
+                    if matches!(
+                        failure.failure.reason,
+                        TransactionFailureReason::OutOfGas(_)
+                    ) {
+                        None
+                    } else {
+                        let result = failure.failure.stack_trace_result.clone().map_halt_reason(
+                            |halt_reason| {
+                                serde_json::to_string(&halt_reason)
+                                    .expect("Failed to serialize halt reason")
+                            },
+                        );
+
+                        Some(result)
+                    }
+                } else {
+                    None
+                }
+            });
+
+        // We can take the traces as they won't be used for anything else
+        let call_trace_arenas = match &mut response {
+            Ok(response) => std::mem::take(&mut response.call_trace_arenas),
+            Err(ProviderError::TransactionFailed(failure)) => {
+                std::mem::take(&mut failure.call_trace_arenas)
+            }
+            Err(_) => Vec::new(),
+        };
+
         let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
 
         marshal_response_data(response).map(|data| Response {
             data,
-            // TODO: Add support for Solidity stack traces in OP
-            solidity_trace: None,
-            call_trace_arenas: Vec::new(),
+            stack_trace_result,
+            call_trace_arenas,
         })
     }
 }

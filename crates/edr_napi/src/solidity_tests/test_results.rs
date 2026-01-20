@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    convert::Infallible,
     fmt::{Debug, Formatter},
     sync::Arc,
 };
@@ -17,10 +16,15 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
-    cast::TryCast,
     gas_report::GasReport,
     solidity_tests::{artifact::ArtifactId, config::IncludeTraces},
-    trace::{solidity_stack_trace::SolidityStackTraceEntry, u256_to_bigint},
+    trace::{
+        solidity_stack_trace::{
+            solidity_stack_trace_error_to_napi, solidity_stack_trace_heuristic_failed_to_napi,
+            solidity_stack_trace_success_to_napi, SolidityStackTraceEntry,
+        },
+        u256_to_bigint,
+    },
 };
 
 /// A grouping of value snapshot entries for a test.
@@ -180,22 +184,15 @@ impl TestResult {
     ) -> Option<Either4<StackTrace, UnexpectedError, HeuristicFailed, UnsafeToReplay>> {
         self.stack_trace_result.as_ref().map(|stack_trace_result| {
             match stack_trace_result.as_ref() {
-                SolidityTestStackTraceResult::Success(stack_trace) => Either4::A(StackTrace {
-                    kind: "StackTrace",
-                    entries: stack_trace
-                        .iter()
-                        .cloned()
-                        .map(TryCast::try_cast)
-                        .collect::<Result<Vec<_>, Infallible>>()
-                        .expect("infallible"),
-                }),
-                SolidityTestStackTraceResult::Error(error) => Either4::B(UnexpectedError {
-                    kind: "UnexpectedError",
-                    error_message: error.to_string(),
-                }),
-                SolidityTestStackTraceResult::HeuristicFailed => Either4::C(HeuristicFailed {
-                    kind: "HeuristicFailed",
-                }),
+                SolidityTestStackTraceResult::Success(stack_trace) => {
+                    Either4::A(solidity_stack_trace_success_to_napi(stack_trace))
+                }
+                SolidityTestStackTraceResult::Error(error) => {
+                    Either4::B(solidity_stack_trace_error_to_napi(error))
+                }
+                SolidityTestStackTraceResult::HeuristicFailed => {
+                    Either4::C(solidity_stack_trace_heuristic_failed_to_napi())
+                }
                 SolidityTestStackTraceResult::UnsafeToReplay {
                     global_fork_latest,
                     impure_cheatcodes,
@@ -636,7 +633,7 @@ impl CallTrace {
     }
 
     /// Creates a tree of `CallTrace` rooted at some node in a trace arena.
-    fn from_arena_node(arena: &CallTraceArena, arena_index: usize) -> Self {
+    pub(crate) fn from_arena_node(arena: &CallTraceArena, arena_index: usize) -> Self {
         struct StackItem {
             visited: bool,
             parent_stack_index: Option<usize>,
