@@ -3,7 +3,7 @@ use core::cmp;
 use edr_block_api::{Block as _, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
-use edr_chain_spec::ExecutableTransaction as _;
+use edr_chain_spec::{BlockEnvConstructor as _, ExecutableTransaction as _};
 use edr_chain_spec_evm::{result::ExecutionResult, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip7892::ScheduledBlobParams;
@@ -16,7 +16,10 @@ use edr_transaction::TransactionMut;
 use itertools::Itertools;
 
 use crate::{
-    data::call, error::ProviderErrorForChainSpec, observability::EvmObserver, ProviderError,
+    data::{call, EstimateGasResult},
+    error::ProviderErrorForChainSpec,
+    observability::{EvmObservedData, EvmObserver, EvmObserverConfig},
+    ProviderError,
 };
 
 pub(super) struct CheckGasLimitArgs<'a, HardforkT, SignedTransactionT> {
@@ -75,7 +78,7 @@ pub(super) struct BinarySearchEstimationArgs<'a, HardforkT, SignedTransactionT> 
     pub lower_bound: u64,
     pub upper_bound: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub observer: &'a mut EvmObserver,
+    pub observer_config: EvmObserverConfig,
     pub scheduled_blob_params: Option<&'a ScheduledBlobParams>,
 }
 
@@ -86,7 +89,7 @@ pub(super) fn binary_search_estimation<
     ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>,
 >(
     args: BinarySearchEstimationArgs<'_, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>,
-) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<EstimateGasResult, ProviderErrorForChainSpec<ChainSpecT>> {
     const MAX_ITERATIONS: usize = 20;
 
     let BinarySearchEstimationArgs {
@@ -98,12 +101,13 @@ pub(super) fn binary_search_estimation<
         mut lower_bound,
         mut upper_bound,
         custom_precompiles,
-        observer,
+        observer_config,
         scheduled_blob_params,
     } = args;
 
     let mut i = 0;
 
+    let mut call_trace_arenas = Vec::new();
     while upper_bound - lower_bound > min_difference(lower_bound) && i < MAX_ITERATIONS {
         let mut mid = lower_bound + (upper_bound - lower_bound) / 2;
         if i == 0 {
@@ -113,6 +117,9 @@ pub(super) fn binary_search_estimation<
             mid = cmp::min(mid, initial_mid);
         }
 
+        // Create a new observer for each check
+        let mut observer = EvmObserver::new(observer_config.clone());
+
         let success = check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
             blockchain,
             header,
@@ -121,9 +128,16 @@ pub(super) fn binary_search_estimation<
             transaction: transaction.clone(),
             gas_limit: mid,
             custom_precompiles,
-            observer,
+            observer: &mut observer,
             scheduled_blob_params,
         })?;
+
+        let EvmObservedData {
+            call_trace_arena,
+            encoded_console_logs: _,
+        } = observer.report_and_collect()?;
+
+        call_trace_arenas.push(call_trace_arena);
 
         if success {
             upper_bound = mid;
@@ -134,7 +148,10 @@ pub(super) fn binary_search_estimation<
         i += 1;
     }
 
-    Ok(upper_bound)
+    Ok(EstimateGasResult {
+        call_trace_arenas,
+        estimation: upper_bound,
+    })
 }
 
 // Matches Hardhat

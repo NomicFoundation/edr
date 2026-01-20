@@ -80,7 +80,7 @@ async fn issue_570_env_var() -> anyhow::Result<()> {
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     ))?;
 
-    assert!(!result.call_traces.is_empty());
+    assert!(!result.call_trace_arenas.is_empty());
 
     Ok(())
 }

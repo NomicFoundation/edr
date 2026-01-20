@@ -4,21 +4,19 @@ use alloy_rpc_types_trace::geth::{GethDebugTracingOptions, GethTrace};
 use edr_block_builder_api::{DatabaseComponents, WrapDatabaseRef};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
-use edr_chain_spec::{
-    ChainSpec, EvmSpecId, ExecutableTransaction as _, HaltReasonTrait, TransactionValidation,
-};
+use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction as _, TransactionValidation};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{BlockEnvTrait as _, CfgEnv, DatabaseComponentError, TransactionError};
 use edr_evm::{dry_run_with_inspector, run};
 use edr_primitives::{B256, U256};
 use edr_runtime::inspector::DualInspector;
 use edr_state_api::{DynState, StateError};
-use foundry_evm_traces::SparsedTraceArena;
+use foundry_evm_traces::CallTraceArena;
 use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, MuxError, TransactionContext};
 
 use crate::{
     error::{JsonRpcError, INTERNAL_ERROR, INVALID_PARAMS},
-    observability::{EvmObserver, EvmObserverConfig},
+    observability::{EvmObservedData, EvmObserver, EvmObserverCollectionError, EvmObserverConfig},
 };
 
 /// Get trace output for `debug_traceTransaction`
@@ -66,18 +64,10 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                 &mut DualInspector::new(&mut debug_inspector, &mut evm_observer),
             )?;
 
-            let EvmObserver {
-                code_coverage,
-                console_logger: _console_logger,
-                mocker: _mocker,
-                tracing_inspector,
-            } = evm_observer;
-
-            if let Some(code_coverage) = code_coverage {
-                code_coverage
-                    .report()
-                    .map_err(DebugTraceError::OnCollectedCoverageCallback)?;
-            }
+            let EvmObservedData {
+                call_trace_arena,
+                encoded_console_logs: _,
+            } = evm_observer.report_and_collect()?;
 
             let mut database = WrapDatabaseRef(DatabaseComponents {
                 blockchain,
@@ -98,9 +88,9 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                 )
                 .map_err(DebugTraceError::from_debug_inspector_result_error)?;
 
-            return Ok(DebugTraceResultWithTraces {
+            return Ok(DebugTraceResultWithCallTraces {
+                call_trace_arenas: vec![call_trace_arena],
                 result: geth_trace,
-                traces: trace_collector.into_traces(),
             });
         } else {
             run::<ChainSpecT, _, _, _>(
@@ -215,6 +205,18 @@ impl<TransactionValidationErrorT> DebugTraceError<TransactionValidationErrorT> {
     }
 }
 
+impl<TransactionValidationErrorT> From<EvmObserverCollectionError>
+    for DebugTraceError<TransactionValidationErrorT>
+{
+    fn from(value: EvmObserverCollectionError) -> Self {
+        match value {
+            EvmObserverCollectionError::OnCollectedCoverageCallback(error) => {
+                DebugTraceError::OnCollectedCoverageCallback(error)
+            }
+        }
+    }
+}
+
 impl<TransactionValidationErrorT> JsonRpcError for DebugTraceError<TransactionValidationErrorT> {
     fn error_code(&self) -> i16 {
         match self {
@@ -234,8 +236,8 @@ impl<TransactionValidationErrorT> JsonRpcError for DebugTraceError<TransactionVa
 
 /// Result of a `debug_traceTransaction` call with call trace.
 pub struct DebugTraceResultWithCallTraces {
+    /// The raw traces of the debugged transaction.
+    pub call_trace_arenas: Vec<CallTraceArena>,
     /// The result of the transaction.
     pub result: GethTrace,
-    /// The raw traces of the debugged transaction.
-    pub call_traces: Vec<CallTraceArena>,
 }

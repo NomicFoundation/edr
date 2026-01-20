@@ -6,7 +6,7 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     InvalidTransaction, L1ChainSpec,
 };
-use edr_chain_spec::{EvmHaltReason, EvmSpecId};
+use edr_chain_spec::EvmSpecId;
 use edr_chain_spec_evm::TransactionError;
 use edr_defaults::SECRET_KEYS;
 use edr_mem_pool::MemPoolAddTransactionError;
@@ -48,7 +48,7 @@ fn new_provider(
 fn send_transaction(
     provider: &Provider<L1ChainSpec>,
     gas_limit: u64,
-) -> Result<ResponseWithCallTraces<EvmHaltReason>, ProviderErrorForChainSpec<L1ChainSpec>> {
+) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<L1ChainSpec>> {
     let caller = secret_key_to_address(SECRET_KEYS[0])?;
     let transaction = TransactionRequest {
         from: caller,

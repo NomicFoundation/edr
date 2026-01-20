@@ -73,7 +73,7 @@ use edr_transaction::{
     TransactionAndBlock, TransactionMut, TransactionType, TxKind,
 };
 use edr_utils::{random::RandomHashGenerator, CastArcInto};
-use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
+use foundry_evm_traces::CallTraceArena;
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
@@ -93,12 +93,12 @@ use crate::{
     debug_trace::{debug_trace_transaction, DebugTraceResultWithCallTraces},
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, ProviderErrorForChainSpec,
-        TransactionFailure, TransactionFailureWithCallTraces,
+        TransactionFailure, TransactionFailureWithCallTrace,
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
     mock::SyncCallOverride,
-    observability::{EvmObserver, EvmObserverConfig, ObservabilityConfig},
+    observability::{EvmObservedData, EvmObserver, EvmObserverConfig, ObservabilityConfig},
     pending::BlockchainWithPending,
     requests::hardhat::rpc_types::ForkMetadata,
     snapshot::Snapshot,
@@ -128,8 +128,8 @@ pub struct CallResult<HaltReasonT: HaltReasonTrait> {
 
 #[derive(Clone)]
 pub struct EstimateGasResult {
-    pub estimation: u64,
     pub call_trace_arenas: Vec<CallTraceArena>,
+    pub estimation: u64,
 }
 
 /// Helper type for a chain-specific [`SendTransactionResult`].
@@ -1417,7 +1417,7 @@ where
         Ok(DebugMineBlockResult::new(
             block_and_total_difficulty.block,
             result.transaction_results,
-            result.transaction_traces,
+            result.transaction_call_trace_arenas,
             result.console_log_inputs,
         ))
     }
@@ -1467,18 +1467,10 @@ where
 
         let result = mine_fn(self, &evm_config, options, &mut evm_observer)?;
 
-        let EvmObserver {
-            code_coverage,
-            console_logger,
-            mocker: _mocker,
-            tracing_inspector,
-        } = evm_observer;
-
-        if let Some(code_coverage) = code_coverage {
-            code_coverage
-                .report()
-                .map_err(ProviderError::OnCollectedCoverageCallback)?;
-        }
+        let EvmObservedData {
+            call_trace_arena,
+            encoded_console_logs,
+        } = evm_observer.report_and_collect()?;
 
         if let Some(callback) = self.observability.on_collected_gas_report_fn.as_ref() {
             let mut report = GasReport::default();
@@ -1500,17 +1492,10 @@ where
             callback(report).map_err(ProviderError::OnCollectedGasReportCallback)?;
         }
 
-        let arena = tracing_inspector.into_traces();
-        let call_trace = foundry_evm_traces::SparsedTraceArena {
-            arena,
-            ignored: HashMap::default(),
-        };
-        let console_log_inputs = console_logger.into_encoded_messages();
-
         Ok(DebugMineBlockResultAndState::new(
             result,
-            vec![call_trace],
-            console_log_inputs,
+            vec![call_trace_arena],
+            encoded_console_logs,
         ))
     }
 
@@ -1782,6 +1767,7 @@ where
         let mut debug_inspector = DebugInspector::new(tracing_options)
             .map_err(DebugTraceError::from_debug_inspector_creation_error)?;
 
+        // Disable call overrides for `debug_traceCall`
         let mut evm_observer = EvmObserver::new(EvmObserverConfig {
             call_override: None,
             ..EvmObserverConfig::from(&self.observability)
@@ -1807,18 +1793,10 @@ where
                 &mut DualInspector::new(&mut debug_inspector, &mut evm_observer),
             )?;
 
-            let EvmObserver {
-                code_coverage,
-                console_logger: _console_logger,
-                mocker: _mocker,
-                tracing_inspector,
-            } = evm_observer;
-
-            if let Some(code_coverage) = code_coverage {
-                code_coverage
-                    .report()
-                    .map_err(ProviderError::OnCollectedCoverageCallback)?;
-            }
+            let EvmObservedData {
+                call_trace_arena,
+                encoded_console_logs: _,
+            } = evm_observer.report_and_collect()?;
 
             let mut database = WrapDatabaseRef(DatabaseComponents {
                 blockchain,
@@ -1831,7 +1809,7 @@ where
 
             Ok(DebugTraceResultWithCallTraces {
                 result: geth_trace,
-                call_traces: vec![tracing_inspector.into_traces()],
+                call_trace_arenas: vec![call_trace_arena],
             })
         })?
     }
@@ -2257,18 +2235,10 @@ where
                 &mut evm_observer,
             )?;
 
-            let EvmObserver {
-                code_coverage,
-                console_logger,
-                mocker: _mocker,
-                tracing_inspector,
-            } = evm_observer;
-
-            if let Some(code_coverage) = code_coverage {
-                code_coverage
-                    .report()
-                    .map_err(ProviderError::OnCollectedCoverageCallback)?;
-            }
+            let EvmObservedData {
+                call_trace_arena,
+                encoded_console_logs,
+            } = evm_observer.report_and_collect()?;
 
             if let Some(GasReportArgs {
                 callback,
@@ -2287,12 +2257,10 @@ where
                 callback(gas_report).map_err(ProviderError::OnCollectedGasReportCallback)?;
             }
 
-            let console_log_inputs = console_logger.into_encoded_messages();
-
             Ok(CallResult {
-                console_log_inputs,
+                console_log_inputs: encoded_console_logs,
                 execution_result,
-                call_trace_arena: tracing_inspector.into_traces(),
+                call_trace_arena,
             })
         })?
     }
@@ -2657,21 +2625,10 @@ where
                 &mut evm_observer,
             )?;
 
-            let EvmObserver {
-                code_coverage,
-                console_logger,
-                mocker: _mocker,
-                tracing_inspector,
-            } = evm_observer;
-
-            if let Some(code_coverage) = code_coverage {
-                code_coverage
-                    .report()
-                    .map_err(ProviderError::OnCollectedCoverageCallback)?;
-            }
-
-            let call_trace_arena = tracing_inspector.into_traces();
-            let console_log_inputs = console_logger.into_encoded_messages();
+            let EvmObservedData {
+                call_trace_arena,
+                encoded_console_logs,
+            } = evm_observer.report_and_collect()?;
 
             let mut initial_estimation = match result {
                 ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
@@ -2690,21 +2647,23 @@ where
             }
             .map_err(|failure| {
                 Box::new(EstimateGasFailure {
-                    console_log_inputs,
-                    transaction_failure: TransactionFailureWithCallTraces {
-                        call_trace_arenas: vec![call_trace_arena],
+                    encoded_console_logs,
+                    transaction_failure: TransactionFailureWithCallTrace {
+                        call_trace_arena: call_trace_arena.clone(),
                         failure,
                     },
                 })
             })?;
+
+            let mut call_trace_arenas = vec![call_trace_arena];
 
             // Ensure that the initial estimation is at least the minimum cost + 1.
             if initial_estimation <= minimum_cost {
                 initial_estimation = minimum_cost + 1;
             }
 
-            // Create a new observer for the binary search phase
-            let mut observer = EvmObserver::new(observer_config);
+            // Create a new observer for the check
+            let mut evm_observer = EvmObserver::new(observer_config.clone());
 
             // Test if the transaction would be successful with the initial estimation
             let success = gas::check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
@@ -2715,39 +2674,49 @@ where
                 transaction: transaction.clone(),
                 gas_limit: initial_estimation,
                 custom_precompiles: &custom_precompiles,
-                observer: &mut observer,
+                observer: &mut evm_observer,
                 scheduled_blob_params: scheduled_blob_params.as_ref(),
             })?;
+
+            let EvmObservedData {
+                call_trace_arena,
+                encoded_console_logs: _,
+            } = evm_observer.report_and_collect()?;
+
+            call_trace_arenas.push(call_trace_arena);
 
             // Return the initial estimation if it was successful
             if success {
                 return Ok(EstimateGasResult {
                     estimation: initial_estimation,
-                    call_trace_arenas: observer.take_traces(),
+                    call_trace_arenas,
                 });
             }
 
             // Correct the initial estimation if the transaction failed with the actually
             // used gas limit. This can happen if the execution logic is based
             // on the available gas.
-            let estimation =
-                gas::binary_search_estimation::<ChainSpecT>(BinarySearchEstimationArgs {
-                    blockchain,
-                    header,
-                    state,
-                    cfg_env: cfg_env.clone(),
-                    transaction,
-                    lower_bound: initial_estimation,
-                    upper_bound: header.gas_limit,
-                    custom_precompiles: &custom_precompiles,
-                    observer: &mut observer,
-                    scheduled_blob_params: scheduled_blob_params.as_ref(),
-                })?;
-
-            let traces = observer.take_traces();
-            Ok(EstimateGasResult {
+            let EstimateGasResult {
+                call_trace_arenas: estimation_call_trace_arenas,
                 estimation,
-                call_trace_arenas: traces,
+            } = gas::binary_search_estimation::<ChainSpecT>(BinarySearchEstimationArgs {
+                blockchain,
+                header,
+                state,
+                cfg_env: cfg_env.clone(),
+                transaction,
+                lower_bound: initial_estimation,
+                upper_bound: header.gas_limit,
+                custom_precompiles: &custom_precompiles,
+                observer_config,
+                scheduled_blob_params: scheduled_blob_params.as_ref(),
+            })?;
+
+            call_trace_arenas.extend(estimation_call_trace_arenas);
+
+            Ok(EstimateGasResult {
+                call_trace_arenas,
+                estimation,
             })
         })?
     }

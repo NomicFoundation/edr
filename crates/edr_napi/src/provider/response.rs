@@ -75,7 +75,7 @@ impl Response {
     #[napi(catch_unwind, getter)]
     pub fn traces(&self) -> Vec<RawTrace> {
         self.inner
-            .traces
+            .call_trace_arenas
             .iter()
             .map(|trace| RawTrace::from(trace.clone()))
             .collect()
