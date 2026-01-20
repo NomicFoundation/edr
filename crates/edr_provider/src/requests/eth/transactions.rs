@@ -301,6 +301,7 @@ fn send_raw_transaction_and_log<
                         execution_result,
                         Some(&result.transaction_hash),
                         trace,
+                        data.contract_decoder(),
                     )
                 });
 

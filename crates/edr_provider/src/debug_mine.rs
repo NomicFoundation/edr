@@ -8,7 +8,7 @@ use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::result::ExecutionResult;
 use edr_primitives::{Bytes, B256};
 use edr_state_api::{DynState, StateDiff};
-use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
+use foundry_evm_traces::CallTraceArena;
 
 /// The result of mining a block, including the state, in debug mode. This
 /// result needs to be inserted into the blockchain to be persistent.
@@ -22,7 +22,7 @@ pub struct DebugMineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlock
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction call trace arenas
-    pub transaction_traces: Vec<CallTraceArena>,
+    pub transaction_call_trace_arenas: Vec<CallTraceArena>,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
 }
@@ -34,7 +34,7 @@ impl<HaltReasonT: HaltReasonTrait, LocalBlockT>
     /// transaction traces, and decoded console log messages.
     pub fn new(
         result: BuiltBlockAndState<HaltReasonT, LocalBlockT>,
-        call_traces: Vec<SparsedTraceArena>,
+        transaction_call_trace_arenas: Vec<CallTraceArena>,
         console_log_decoded_messages: Vec<Bytes>,
     ) -> Self {
         Self {
@@ -42,7 +42,7 @@ impl<HaltReasonT: HaltReasonTrait, LocalBlockT>
             state: result.state,
             state_diff: result.state_diff,
             transaction_results: result.transaction_results,
-            transaction_traces: call_traces,
+            transaction_call_trace_arenas,
             console_log_inputs: console_log_decoded_messages,
         }
     }

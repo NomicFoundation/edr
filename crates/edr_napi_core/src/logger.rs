@@ -5,15 +5,18 @@ use ansi_term::{Color, Style};
 use derive_where::derive_where;
 use edr_block_api::Block as _;
 use edr_chain_spec::ExecutableTransaction;
-use edr_chain_spec_evm::result::{ExecutionResult, Output};
+use edr_chain_spec_evm::result::ExecutionResult;
 use edr_precompile::{PrecompileSpecId, Precompiles};
-use edr_primitives::{Bytecode, Bytes, B256, U256};
+use edr_primitives::{Bytes, B256, U256};
 use edr_provider::{
     time::TimeSinceEpoch, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
     EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
 };
-use edr_solidity::contract_decoder::{ContractAndFunctionName, ContractDecoder};
-use edr_tracing::{AfterMessage, Trace, TraceMessage};
+use edr_solidity::{
+    contract_decoder::ContractDecoder,
+    solidity_stack_trace::{UNRECOGNIZED_CONTRACT_NAME, UNRECOGNIZED_FUNCTION_NAME},
+};
+use edr_solidity_tests::traces::CallTraceArena;
 use itertools::izip;
 
 /// Trait for a function that decodes console log inputs.
@@ -256,13 +259,14 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let CallResult {
             console_log_inputs,
             execution_result,
-            trace,
+            call_trace_arena,
         } = result;
 
         self.state = LoggingState::Empty;
 
+        let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
-            logger.log_contract_and_function_name::<true>(hardfork, trace);
+            logger.log_contract_and_function_name(hardfork, call_trace_arena);
 
             logger.log_with_title("From", format!("0x{:x}", transaction.caller()));
             if let Some(to) = transaction.kind().to() {
@@ -274,10 +278,13 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
             logger.log_console_log_messages(console_log_inputs)?;
 
-            if let Some(transaction_failure) = TransactionFailure::from_execution_result::<
-                ChainSpecT,
-                TimerT,
-            >(execution_result, None, trace)
+            if let Some(transaction_failure) =
+                TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
+                    execution_result,
+                    None,
+                    call_trace_arena,
+                    contract_decoder.as_ref(),
+                )
             {
                 logger.log_transaction_failure(&transaction_failure);
             }
@@ -293,17 +300,14 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         result: &EstimateGasFailure<ChainSpecT::HaltReason>,
     ) -> Result<(), LoggerError> {
         let EstimateGasFailure {
-            console_log_inputs,
+            encoded_console_logs: console_log_inputs,
             transaction_failure,
         } = result;
 
         self.state = LoggingState::Empty;
 
         self.indented(|logger| {
-            logger.log_contract_and_function_name::<true>(
-                hardfork,
-                &transaction_failure.failure.stack_trace_result,
-            );
+            logger.log_contract_and_function_name(hardfork, &transaction_failure.call_trace_arena);
 
             logger.log_with_title("From", format!("0x{:x}", transaction.caller()));
             if let Some(to) = transaction.kind().to() {
@@ -549,7 +553,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let DebugMineBlockResult {
             block,
             transaction_results,
-            transaction_call_trace_arenas: transaction_traces,
+            transaction_call_trace_arenas,
             console_log_inputs,
             ..
         } = result;
@@ -558,7 +562,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let num_transactions = transactions.len();
 
         debug_assert_eq!(num_transactions, transaction_results.len());
-        debug_assert_eq!(num_transactions, transaction_traces.len());
+        debug_assert_eq!(num_transactions, transaction_call_trace_arenas.len());
 
         let block_header = block.block_header();
 
@@ -568,11 +572,11 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
             logger.indented(|logger| {
                 logger.log_base_fee(block_header.base_fee_per_gas.as_ref());
 
-                for (idx, transaction, result, trace) in izip!(
+                for (idx, transaction, result, call_trace_arena) in izip!(
                     0..num_transactions,
                     transactions,
                     transaction_results,
-                    transaction_traces
+                    transaction_call_trace_arenas
                 ) {
                     let should_highlight_hash =
                         *transaction.transaction_hash() == *transaction_hash_to_highlight;
@@ -580,7 +584,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                         hardfork,
                         transaction,
                         result,
-                        trace,
+                        call_trace_arena,
                         console_log_inputs,
                         should_highlight_hash,
                     )?;
@@ -624,7 +628,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::SignedTransaction,
         result: &ExecutionResult<ChainSpecT::HaltReason>,
-        trace: &Trace<ChainSpecT::HaltReason>,
+        call_trace_arena: &CallTraceArena,
         console_log_inputs: &[Bytes],
         should_highlight_hash: bool,
     ) -> Result<(), LoggerError> {
@@ -638,8 +642,9 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
             self.log_with_title("Transaction", transaction_hash.to_string());
         }
 
+        let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
-            logger.log_contract_and_function_name::<false>(hardfork, trace);
+            logger.log_contract_and_function_name(hardfork, call_trace_arena);
             logger.log_with_title("From", format!("0x{:x}", transaction.caller()));
             if let Some(to) = transaction.kind().to() {
                 logger.log_with_title("To", format!("0x{to:x}"));
@@ -656,10 +661,13 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
             logger.log_console_log_messages(console_log_inputs)?;
 
-            let transaction_failure = edr_provider::TransactionFailure::from_execution_result::<
-                ChainSpecT,
-                TimerT,
-            >(result, Some(transaction_hash), trace);
+            let transaction_failure =
+                edr_provider::TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
+                    result,
+                    Some(transaction_hash),
+                    call_trace_arena,
+                    contract_decoder.as_ref(),
+                );
 
             if let Some(transaction_failure) = transaction_failure {
                 logger.log_transaction_failure(&transaction_failure);
@@ -703,14 +711,28 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         Ok(())
     }
 
-    fn log_contract_and_function_name<const PRINT_INVALID_CONTRACT_WARNING: bool>(
+    fn log_contract_and_function_name(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
-        trace: &Trace<ChainSpecT::HaltReason>,
+        call_trace_arena: &CallTraceArena,
     ) {
-        if let Some(TraceMessage::Before(before_message)) = trace.messages.first() {
-            if let Some(to) = before_message.to {
+        if let Some(node) = call_trace_arena.nodes().first() {
+            let trace = &node.trace;
+
+            if trace.kind.is_any_create() {
+                // Create
+                let contract_name = trace
+                    .decoded
+                    .as_ref()
+                    .and_then(|decoded| decoded.label.as_deref())
+                    .unwrap_or(UNRECOGNIZED_CONTRACT_NAME);
+
+                self.log_with_title("Contract deployment", contract_name);
+                self.log_with_title("Contract address", format!("0x{:x}", trace.address));
+            } else {
                 // Call
+                let to = trace.address;
+
                 let is_precompile = {
                     let precompiles =
                         Precompiles::new(PrecompileSpecId::from_spec_id(hardfork.into()));
@@ -729,69 +751,34 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                         format!("<PrecompileContract {precompile}>"),
                     );
                 } else {
-                    let is_code_empty = before_message.code.as_ref().is_none_or(Bytecode::is_empty);
+                    let contract_name = trace
+                        .decoded
+                        .as_ref()
+                        .and_then(|decoded| decoded.label.as_deref())
+                        .unwrap_or(UNRECOGNIZED_CONTRACT_NAME);
 
-                    if is_code_empty {
-                        if PRINT_INVALID_CONTRACT_WARNING {
-                            self.log("WARNING: Calling an account which is not a contract");
-                        }
-                    } else {
-                        let code = before_message
-                            .code
-                            .as_ref()
-                            .map(Bytecode::original_bytes)
-                            .expect("Call must be defined");
+                    let function_name = trace
+                        .decoded
+                        .as_ref()
+                        .and_then(|decoded| {
+                            decoded.call_data.as_ref().map(|call_data| {
+                                call_data
+                                    .signature
+                                    .split('(')
+                                    .next()
+                                    .expect("invalid function signature")
+                            })
+                        })
+                        .unwrap_or(UNRECOGNIZED_FUNCTION_NAME);
 
-                        let ContractAndFunctionName {
-                            contract_name,
-                            function_name,
-                        } = self
-                            .contract_decoder
-                            .get_contract_and_function_names_for_call(
-                                &code,
-                                Some(&before_message.data),
-                            );
-
-                        let function_name = function_name.expect("Function name must be defined");
-                        self.log_with_title(
-                            "Contract call",
-                            if function_name.is_empty() {
-                                contract_name
-                            } else {
-                                format!("{contract_name}#{function_name}")
-                            },
-                        );
-                    }
-                }
-            } else {
-                let result = if let Some(TraceMessage::After(AfterMessage {
-                    execution_result,
-                    ..
-                })) = trace.messages.last()
-                {
-                    execution_result
-                } else {
-                    unreachable!("Before messages must have an after message: {:?}", trace)
-                };
-
-                // Create
-                let ContractAndFunctionName { contract_name, .. } = self
-                    .contract_decoder
-                    .get_contract_and_function_names_for_call(&before_message.data, None);
-
-                self.log_with_title("Contract deployment", contract_name);
-
-                if let ExecutionResult::Success { output, .. } = result {
-                    if let Output::Create(_, address) = output {
-                        if let Some(deployed_address) = address {
-                            self.log_with_title(
-                                "Contract address",
-                                format!("0x{deployed_address:x}"),
-                            );
-                        }
-                    } else {
-                        unreachable!("Create calls must return a Create output")
-                    }
+                    self.log_with_title(
+                        "Contract call",
+                        if function_name.is_empty() {
+                            contract_name.to_owned()
+                        } else {
+                            format!("{contract_name}#{function_name}")
+                        },
+                    );
                 }
             }
         }
@@ -992,7 +979,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         block_result: &DebugMineBlockResultForChainSpec<ChainSpecT>,
         transaction: &ChainSpecT::SignedTransaction,
         transaction_result: &ExecutionResult<ChainSpecT::HaltReason>,
-        trace: &Trace<ChainSpecT::HaltReason>,
+        call_trace_arena: &CallTraceArena,
     ) -> Result<(), LoggerError> {
         self.indented(|logger| {
             logger.log("Currently sent transaction:");
@@ -1006,7 +993,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
             block_result,
             transaction,
             transaction_result,
-            trace,
+            call_trace_arena,
         )?;
 
         Ok(())
@@ -1018,7 +1005,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         result: &DebugMineBlockResultForChainSpec<ChainSpecT>,
         transaction: &ChainSpecT::SignedTransaction,
     ) -> Result<(), LoggerError> {
-        let trace = result
+        let call_trace_arena = result
             .transaction_call_trace_arenas
             .first()
             .expect("A transaction exists, so the trace must exist as well.");
@@ -1028,7 +1015,13 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
             .first()
             .expect("A transaction exists, so the result must exist as well.");
 
-        self.log_transaction(hardfork, result, transaction, transaction_result, trace)?;
+        self.log_transaction(
+            hardfork,
+            result,
+            transaction,
+            transaction_result,
+            call_trace_arena,
+        )?;
 
         Ok(())
     }
@@ -1039,10 +1032,11 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         block_result: &DebugMineBlockResultForChainSpec<ChainSpecT>,
         transaction: &ChainSpecT::SignedTransaction,
         transaction_result: &ExecutionResult<ChainSpecT::HaltReason>,
-        trace: &Trace<ChainSpecT::HaltReason>,
+        call_trace_arena: &CallTraceArena,
     ) -> Result<(), LoggerError> {
+        let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
-            logger.log_contract_and_function_name::<false>(hardfork, trace);
+            logger.log_contract_and_function_name(hardfork, call_trace_arena);
 
             let transaction_hash = transaction.transaction_hash();
             logger.log_with_title("Transaction", transaction_hash);
@@ -1069,12 +1063,13 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
             logger.log_console_log_messages(&block_result.console_log_inputs)?;
 
-            let transaction_failure = edr_provider::TransactionFailure::from_execution_result::<
-                ChainSpecT,
-                TimerT,
-            >(
-                transaction_result, Some(transaction_hash), trace
-            );
+            let transaction_failure =
+                edr_provider::TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
+                    transaction_result,
+                    Some(transaction_hash),
+                    call_trace_arena,
+                    contract_decoder.as_ref(),
+                );
 
             if let Some(transaction_failure) = transaction_failure {
                 logger.log_transaction_failure(&transaction_failure);

@@ -32,6 +32,15 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
         }
     }
 
+    /// Returns the gas used by the trace.
+    pub fn gas_used(&self) -> u64 {
+        match self {
+            Self::Create(create) => create.gas_used,
+            Self::Call(call) => call.gas_used,
+            Self::Precompile(precompile) => precompile.gas_used,
+        }
+    }
+
     /// Converts a `CallTraceArena` from `revm_inspectors` into a `NestedTrace`.
     ///
     /// This function bridges the gap between the halt-reason-agnostic
@@ -56,11 +65,11 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
         conversion::convert_from_arena(address_to_creation_code, address_to_runtime_code, arena)
     }
 
-    /// Converts a `CallTraceArena` to a `NestedTrace` by automatically extracting
-    /// code mappings from the arena.
+    /// Converts a `CallTraceArena` to a `NestedTrace` by automatically
+    /// extracting code mappings from the arena.
     ///
-    /// This is a convenience method that extracts creation and runtime code from
-    /// CREATE traces in the arena and then performs the conversion.
+    /// This is a convenience method that extracts creation and runtime code
+    /// from CREATE traces in the arena and then performs the conversion.
     ///
     /// # Arguments
     ///
@@ -84,11 +93,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
             }
         }
 
-        Self::from_call_trace_arena(
-            &address_to_creation_code,
-            &address_to_runtime_code,
-            arena,
-        )
+        Self::from_call_trace_arena(&address_to_creation_code, &address_to_runtime_code, arena)
     }
 }
 

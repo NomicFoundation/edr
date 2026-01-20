@@ -1,18 +1,12 @@
-use std::sync::Arc;
-
 use edr_chain_l1::L1ChainSpec;
-use edr_chain_spec::{EvmHaltReason, HaltReasonTrait, TransactionValidation};
+use edr_chain_spec::TransactionValidation;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
     time::TimeSinceEpoch, ProviderErrorForChainSpec, ResponseWithCallTraces, SyncProviderSpec,
 };
 use edr_rpc_client::jsonrpc;
-use edr_solidity::contract_decoder::ContractDecoder;
-use edr_solidity_tests::{
-    executors::stack_trace::{get_stack_trace, SolidityTestStackTraceResult},
-    traces::SparsedTraceArena,
-};
-use edr_tracing::Trace;
+use edr_solidity::solidity_stack_trace::StackTraceCreationResult;
+use edr_solidity_tests::traces::CallTraceArena;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use napi::{Either, Status};
 
@@ -26,19 +20,19 @@ pub struct Response {
     /// When a transaction fails to execute, the provider returns a stack trace
     /// of the transaction.
     ///
-    /// If the heuristic failed the vec is set but emtpy.
+    /// If the heuristic failed the vec is set but empty.
     /// Error if there was an error computing the stack trace.
-    pub solidity_trace: Option<SolidityTestStackTraceResult<String>>,
+    pub stack_trace_result: Option<StackTraceCreationResult<String>>,
     /// This may contain zero or more traces, depending on the (batch) request
-    pub traces: Vec<SparsedTraceArena>,
+    pub call_trace_arenas: Vec<CallTraceArena>,
 }
 
 impl From<String> for Response {
     fn from(value: String) -> Self {
         Response {
             data: Either::A(value),
-            solidity_trace: None,
-            traces: Vec::new(),
+            stack_trace_result: None,
+            call_trace_arenas: Vec::new(),
         }
     }
 }
@@ -62,55 +56,42 @@ pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
     /// This is implemented as an associated function to avoid problems when
     /// implementing type conversions for third-party types.
     fn cast_response(
-        response: Result<ResponseWithCallTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
-        contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<EvmHaltReason>>;
+        response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
+    ) -> napi::Result<Response>;
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
     const CHAIN_TYPE: &'static str = edr_chain_l1::CHAIN_TYPE;
 
     fn cast_response(
-        mut response: Result<
-            ResponseWithCallTraces<Self::HaltReason>,
-            ProviderErrorForChainSpec<Self>,
-        >,
-        contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<EvmHaltReason>> {
-        // We can take the solidity trace as it won't be used for anything else
-        let solidity_trace = response.as_mut().err().and_then(|error| {
-            if let edr_provider::ProviderError::TransactionFailed(failure) = error {
-                if matches!(
-                    failure.failure.reason,
-                    edr_provider::TransactionFailureReason::OutOfGas(_)
-                ) {
-                    None
+        mut response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
+    ) -> napi::Result<Response> {
+        let stack_trace_result =
+            response.as_ref().err().and_then(|error| {
+                if let edr_provider::ProviderError::TransactionFailed(failure) = error {
+                    if matches!(
+                        failure.failure.reason,
+                        edr_provider::TransactionFailureReason::OutOfGas(_)
+                    ) {
+                        None
+                    } else {
+                        let result = failure.failure.stack_trace_result.clone().map_halt_reason(
+                            |halt_reason| {
+                                serde_json::to_string(&halt_reason)
+                                    .expect("Failed to serialize halt reason")
+                            },
+                        );
+
+                        Some(result)
+                    }
                 } else {
-                    let trace = std::mem::take(&mut failure.failure.stack_trace_result);
-
-                    let result = SolidityTestStackTraceResult::from(get_stack_trace::<
-                        edr_chain_l1::HaltReason,
-                        _,
-                    >(
-                        contract_decoder.as_ref(),
-                        &[(TraceKind::Execution, trace)],
-                    ));
-
-                    let result = result.map_halt_reason(|halt_reason: HaltReasonT| {
-                        serde_json::to_string(&halt_reason)
-                            .expect("Failed to serialize halt reason")
-                    });
-
-                    Some(result)
+                    None
                 }
-            } else {
-                None
-            }
-        });
+            });
 
-        // We can take the traces as they won't be used for anything else
-        let traces = match &mut response {
-            Ok(response) => std::mem::take(&mut response.call_traces),
+        // We can take the call trace arenas as they won't be used for anything else
+        let call_trace_arenas = match &mut response {
+            Ok(response) => std::mem::take(&mut response.call_trace_arenas),
             Err(edr_provider::ProviderError::TransactionFailed(failure)) => {
                 std::mem::take(&mut failure.call_trace_arenas)
             }
@@ -120,9 +101,9 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
         let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
 
         marshal_response_data(response).map(|data| Response {
-            solidity_trace,
             data,
-            traces,
+            stack_trace_result,
+            call_trace_arenas,
         })
     }
 }
@@ -131,15 +112,10 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
     const CHAIN_TYPE: &'static str = edr_generic::CHAIN_TYPE;
 
     fn cast_response(
-        mut response: Result<
-            ResponseWithCallTraces<Self::HaltReason>,
-            ProviderErrorForChainSpec<Self>,
-        >,
-        contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<EvmHaltReason>> {
-        // We can take the solidity trace as it won't be used for anything else
-        let solidity_trace: Option<Arc<Trace<EvmHaltReason>>> =
-            response.as_mut().err().and_then(|error| {
+        mut response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
+    ) -> napi::Result<Response> {
+        let stack_trace_result =
+            response.as_ref().err().and_then(|error| {
                 if let edr_provider::ProviderError::TransactionFailed(failure) = error {
                     if matches!(
                         failure.failure.reason,
@@ -147,20 +123,12 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
                     ) {
                         None
                     } else {
-                        let trace = std::mem::take(&mut failure.failure.stack_trace_result);
-
-                        let result = SolidityTestStackTraceResult::from(get_stack_trace::<
-                            edr_chain_l1::HaltReason,
-                            _,
-                        >(
-                            contract_decoder.as_ref(),
-                            &[(TraceKind::Execution, trace)],
-                        ));
-
-                        let result = result.map_halt_reason(|halt_reason: HaltReasonT| {
-                            serde_json::to_string(&halt_reason)
-                                .expect("Failed to serialize halt reason")
-                        });
+                        let result = failure.failure.stack_trace_result.clone().map_halt_reason(
+                            |halt_reason| {
+                                serde_json::to_string(&halt_reason)
+                                    .expect("Failed to serialize halt reason")
+                            },
+                        );
 
                         Some(result)
                     }
@@ -171,7 +139,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
 
         // We can take the traces as they won't be used for anything else
         let traces = match &mut response {
-            Ok(response) => std::mem::take(&mut response.call_traces),
+            Ok(response) => std::mem::take(&mut response.call_trace_arenas),
             Err(edr_provider::ProviderError::TransactionFailed(failure)) => {
                 std::mem::take(&mut failure.call_trace_arenas)
             }
@@ -181,9 +149,9 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
         let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
 
         marshal_response_data(response).map(|data| Response {
-            solidity_trace,
             data,
-            traces,
+            stack_trace_result,
+            call_trace_arenas: traces,
         })
     }
 }

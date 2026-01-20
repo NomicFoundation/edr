@@ -44,7 +44,7 @@ pub fn handle_estimate_gas<
             .map_err(ProviderError::Logger)?;
 
         Err(ProviderError::TransactionFailed(Box::new(
-            failure.transaction_failure,
+            failure.transaction_failure.into(),
         )))
     } else {
         let result = result?;

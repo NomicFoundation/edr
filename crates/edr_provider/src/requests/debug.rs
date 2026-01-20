@@ -23,10 +23,10 @@ pub fn handle_debug_trace_transaction<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     transaction_hash: B256,
     tracing_options: Option<GethDebugTracingOptions>,
-) -> ProviderResultWithTraces<GethTrace, ChainSpecT> {
+) -> ProviderResultWithCallTraces<GethTrace, ChainSpecT> {
     let DebugTraceResultWithCallTraces {
         result,
-        call_traces,
+        call_trace_arenas,
     } = data
         .debug_trace_transaction(&transaction_hash, tracing_options.unwrap_or_default())
         .map_err(|error| match error {
@@ -36,7 +36,7 @@ pub fn handle_debug_trace_transaction<
             _ => error,
         })?;
 
-    Ok((result, call_traces))
+    Ok((result, call_trace_arenas))
 }
 
 pub fn handle_debug_trace_call<ChainSpecT, TimerT>(
@@ -59,7 +59,7 @@ where
 
     let DebugTraceResultWithCallTraces {
         result,
-        call_traces: traces,
+        call_trace_arenas: traces,
     } = data.debug_trace_call(
         transaction,
         &block_spec,

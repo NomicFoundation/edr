@@ -3,10 +3,8 @@ mod factory;
 
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_chain_spec::EvmHaltReason;
 use edr_provider::{time::TimeSinceEpoch, InvalidRequestReason, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
-use edr_solidity::contract_decoder::ContractDecoder;
 
 pub use self::{config::Config, factory::SyncProviderFactory};
 use crate::spec::{Response, SyncNapiSpec};
@@ -15,11 +13,7 @@ use crate::spec::{Response, SyncNapiSpec};
 /// objects.
 pub trait SyncProvider: Send + Sync {
     /// Blocking method to handle a request.
-    fn handle_request(
-        &self,
-        request: String,
-        contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response>;
+    fn handle_request(&self, request: String) -> napi::Result<Response>;
 
     /// Set to `true` to make the traces returned with `eth_call`,
     /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
@@ -34,11 +28,7 @@ pub trait SyncProvider: Send + Sync {
 impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvider
     for edr_provider::Provider<ChainSpecT, TimerT>
 {
-    fn handle_request(
-        &self,
-        request: String,
-        contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<EvmHaltReason>> {
+    fn handle_request(&self, request: String) -> napi::Result<Response> {
         let request = match serde_json::from_str(&request) {
             Ok(request) => request,
             Err(error) => {
@@ -83,7 +73,7 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
 
         let response = edr_provider::Provider::handle_request(self, request);
 
-        ChainSpecT::cast_response(response, contract_decoder)
+        ChainSpecT::cast_response(response)
     }
 
     fn set_call_override_callback(&self, call_override_callback: Arc<dyn SyncCallOverride>) {

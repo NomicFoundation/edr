@@ -32,8 +32,8 @@ use foundry_evm_traces::CallTraceArena;
 use serde::Serialize;
 
 use crate::{
-    config::IntervalConfigConversionError, debug_trace::DebugTraceError, time::TimeSinceEpoch,
-    ProviderSpec,
+    config::IntervalConfigConversionError, debug_trace::DebugTraceError,
+    observability::EvmObserverCollectionError, time::TimeSinceEpoch, ProviderSpec,
 };
 
 pub(crate) const INVALID_INPUT: i16 = -32000;
@@ -388,13 +388,38 @@ impl<
     >
 {
     /// Returns the transaction failure if the error contains one.
-    pub fn as_transaction_failure(&self) -> Option<&TransactionFailureWithCallTraces<HaltReasonT>> {
+    pub fn as_transaction_failure(&self) -> Option<&TransactionFailure<HaltReasonT>> {
         match self {
             ProviderError::EstimateGasTransactionFailure(transaction_failure) => {
-                Some(&transaction_failure.transaction_failure)
+                Some(&transaction_failure.transaction_failure.failure)
             }
-            ProviderError::TransactionFailed(transaction_failure) => Some(transaction_failure),
+            ProviderError::TransactionFailed(transaction_failure) => {
+                Some(&transaction_failure.failure)
+            }
             _ => None,
+        }
+    }
+}
+impl<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: Debug,
+        TransactionValidationErrorT,
+    > From<EvmObserverCollectionError>
+    for ProviderError<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT,
+        HardforkT,
+        TransactionValidationErrorT,
+    >
+{
+    fn from(value: EvmObserverCollectionError) -> Self {
+        match value {
+            EvmObserverCollectionError::OnCollectedCoverageCallback(error) => {
+                Self::OnCollectedCoverageCallback(error)
+            }
         }
     }
 }
@@ -519,7 +544,7 @@ impl<
         };
 
         let data = value.as_transaction_failure().map(|transaction_failure| {
-            serde_json::to_value(&transaction_failure.failure).expect("transaction_failure to json")
+            serde_json::to_value(transaction_failure).expect("transaction_failure to json")
         });
 
         let message = value.to_string();
@@ -535,13 +560,27 @@ impl<
 /// Failure that occurred while estimating gas.
 #[derive(Debug, thiserror::Error)]
 pub struct EstimateGasFailure<HaltReasonT: HaltReasonTrait> {
-    pub console_log_inputs: Vec<Bytes>,
-    pub transaction_failure: TransactionFailureWithCallTraces<HaltReasonT>,
+    pub encoded_console_logs: Vec<Bytes>,
+    pub transaction_failure: TransactionFailureWithCallTrace<HaltReasonT>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<HaltReasonT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.transaction_failure)
+    }
+}
+
+#[derive(Clone, Debug, thiserror::Error)]
+pub struct TransactionFailureWithCallTrace<HaltReasonT: HaltReasonTrait> {
+    pub failure: TransactionFailure<HaltReasonT>,
+    pub call_trace_arena: CallTraceArena,
+}
+
+impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
+    for TransactionFailureWithCallTrace<HaltReasonT>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.failure)
     }
 }
 
@@ -556,6 +595,17 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.failure)
+    }
+}
+
+impl<HaltReasonT: HaltReasonTrait> From<TransactionFailureWithCallTrace<HaltReasonT>>
+    for TransactionFailureWithCallTraces<HaltReasonT>
+{
+    fn from(value: TransactionFailureWithCallTrace<HaltReasonT>) -> Self {
+        Self {
+            failure: value.failure,
+            call_trace_arenas: vec![value.call_trace_arena],
+        }
     }
 }
 

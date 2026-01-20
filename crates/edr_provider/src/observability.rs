@@ -12,8 +12,9 @@ use edr_chain_spec_evm::{
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_database_components::DatabaseComponents;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
-use edr_primitives::HashMap;
+use edr_primitives::Bytes;
 use edr_state_api::State;
+use foundry_evm_traces::CallTraceArena;
 use revm_inspector::JournalExt;
 use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 
@@ -55,6 +56,7 @@ impl Debug for ObservabilityConfig {
 }
 
 /// Configuration for a [`EvmObserver`].
+#[derive(Clone)]
 pub struct EvmObserverConfig {
     pub call_override: Option<Arc<dyn SyncCallOverride>>,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
@@ -77,10 +79,22 @@ impl From<&ObservabilityConfig> for EvmObserverConfig {
 /// The observer is stateless, without any awareness of when a transaction
 /// starts or ends.
 pub struct EvmObserver {
-    pub code_coverage: Option<CodeCoverageReporter>,
-    pub console_logger: ConsoleLogCollector,
-    pub mocker: Mocker,
-    pub tracing_inspector: TracingInspector,
+    code_coverage: Option<CodeCoverageReporter>,
+    console_logger: ConsoleLogCollector,
+    mocker: Mocker,
+    tracing_inspector: TracingInspector,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum EvmObserverCollectionError {
+    /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
+    #[error(transparent)]
+    OnCollectedCoverageCallback(Box<dyn std::error::Error + Send + Sync>),
+}
+
+pub struct EvmObservedData {
+    pub call_trace_arena: CallTraceArena,
+    pub encoded_console_logs: Vec<Bytes>,
 }
 
 impl EvmObserver {
@@ -104,21 +118,25 @@ impl EvmObserver {
         }
     }
 
-    /// Takes the tracing inspector and converts its arena to Traces
-    pub fn take_traces(&mut self) -> foundry_evm_traces::Traces {
-        let inspector = std::mem::replace(
-            &mut self.tracing_inspector,
-            TracingInspector::new(TracingInspectorConfig::default_parity().set_steps(true)),
-        );
-        let arena = inspector.into_traces();
+    /// Reports and collects the observed data of a single transaction.
+    pub fn report_and_collect(self) -> Result<EvmObservedData, EvmObserverCollectionError> {
+        let Self {
+            code_coverage,
+            console_logger,
+            mocker: _mocker,
+            tracing_inspector,
+        } = self;
 
-        vec![(
-            foundry_evm_traces::TraceKind::Execution,
-            foundry_evm_traces::SparsedTraceArena {
-                arena,
-                ignored: HashMap::default(),
-            },
-        )]
+        if let Some(code_coverage) = code_coverage {
+            code_coverage
+                .report()
+                .map_err(EvmObserverCollectionError::OnCollectedCoverageCallback)?;
+        }
+
+        Ok(EvmObservedData {
+            call_trace_arena: tracing_inspector.into_traces(),
+            encoded_console_logs: console_logger.into_encoded_messages(),
+        })
     }
 }
 

@@ -385,7 +385,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
             data,
             // TODO: Add support for Solidity stack traces in OP
             solidity_trace: None,
-            traces: Vec::new(),
+            call_trace_arenas: Vec::new(),
         })
     }
 }
