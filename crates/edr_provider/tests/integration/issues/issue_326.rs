@@ -6,7 +6,7 @@ use edr_chain_l1::{
 };
 use edr_primitives::Address;
 use edr_provider::{
-    test_utils::{create_test_config_with_fork, one_ether},
+    test_utils::{create_test_config_with, one_ether, BasicProviderConfig},
     time::CurrentTime,
     AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
@@ -18,7 +18,7 @@ async fn issue_326() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
-    let mut config = create_test_config_with_fork(None);
+    let mut config = create_test_config_with(BasicProviderConfig::local_with_accounts());
     config.hardfork = edr_chain_l1::Hardfork::CANCUN;
     config.mining = MiningConfig {
         auto_mine: false,

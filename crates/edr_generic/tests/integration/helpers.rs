@@ -3,8 +3,9 @@ use std::sync::Arc;
 use edr_chain_config::ChainOverride;
 use edr_chain_spec::TransactionValidation;
 use edr_provider::{
-    test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, NoopLogger, Provider,
-    ProviderSpec, SyncProviderSpec,
+    test_utils::{create_test_config_with, BasicProviderConfig},
+    time::CurrentTime,
+    ForkConfig, NoopLogger, Provider, ProviderSpec, SyncProviderSpec,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
@@ -29,7 +30,7 @@ pub(crate) fn get_chain_fork_provider<
 
     let chain_overrides = [(chain_id, chain_override)].into_iter().collect();
 
-    let mut config = create_test_config_with_fork(Some(ForkConfig {
+    let mut config = create_test_config_with(BasicProviderConfig::fork_with_accounts(ForkConfig {
         block_number: Some(block_number),
         cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_overrides,

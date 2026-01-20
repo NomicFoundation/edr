@@ -34,9 +34,9 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
-/// Constructs a test config with a single account with 1 ether
+/// Constructs a test config in local mode with configured accounts
 pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
-    create_test_config_with_fork(None)
+    create_test_config_with(BasicProviderConfig::local_with_accounts())
 }
 
 /// Default base header overrides for replaying L1 blocks.
@@ -161,17 +161,7 @@ impl<HardforkT> BasicProviderConfig<HardforkT> {
     }
 }
 
-pub fn create_test_config_with_fork<HardforkT: Default>(
-    fork: Option<ForkConfig<HardforkT>>,
-) -> ProviderConfig<HardforkT> {
-    let config = fork.map_or_else(
-        || BasicProviderConfig::local_with_accounts(),
-        |fork| BasicProviderConfig::fork_with_accounts(fork),
-    );
-    create_test_config_with_genesis_state_and_fork(config)
-}
-
-pub fn create_test_config_with_genesis_state_and_fork<HardforkT: Default>(
+pub fn create_test_config_with<HardforkT: Default>(
     config: BasicProviderConfig<HardforkT>,
 ) -> ProviderConfig<HardforkT> {
     ProviderConfig {
@@ -266,27 +256,24 @@ where
 {
     /// Creates a new `ProviderTestFixture` with a local provider.
     pub fn new_local() -> anyhow::Result<Self> {
-        Self::with_fork(None)
+        Self::with_config(BasicProviderConfig::local_with_accounts())
     }
 
     /// Creates a new `ProviderTestFixture` with a forked provider.
     pub fn new_forked(url: Option<String>) -> anyhow::Result<Self> {
         use edr_test_utils::env::json_rpc_url_provider;
 
-        let fork_url = url.unwrap_or(json_rpc_url_provider::ethereum_mainnet());
-        Self::with_fork(Some(fork_url))
-    }
-
-    fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
-        let fork = fork.map(|json_rpc_url| ForkConfig {
+        Self::with_config(BasicProviderConfig::fork_with_accounts(ForkConfig {
             block_number: None,
             cache_dir: edr_defaults::CACHE_DIR.into(),
             chain_overrides: HashMap::default(),
             http_headers: None,
-            url: json_rpc_url,
-        });
+            url: url.unwrap_or(json_rpc_url_provider::ethereum_mainnet()),
+        }))
+    }
 
-        let config = create_test_config_with_fork(fork);
+    fn with_config(config: BasicProviderConfig<ChainSpecT::Hardfork>) -> anyhow::Result<Self> {
+        let config = create_test_config_with(config);
 
         let runtime = runtime::Builder::new_multi_thread()
             .worker_threads(1)

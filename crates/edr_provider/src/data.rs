@@ -4116,7 +4116,8 @@ mod tests {
             use edr_chain_l1::rpc::call::L1CallRequest;
 
             use crate::{
-                requests::eth::resolve_call_request, test_utils::create_test_config_with_fork,
+                requests::eth::resolve_call_request,
+                test_utils::{create_test_config_with, BasicProviderConfig},
             };
 
             sol! { function Hello() public pure returns (string); }
@@ -4161,13 +4162,14 @@ mod tests {
                 .thread_name("provider-data-test")
                 .build()?;
 
-            let default_config = create_test_config_with_fork(Some(ForkConfig {
-                block_number: Some(EIP_1559_ACTIVATION_BLOCK),
-                cache_dir: edr_defaults::CACHE_DIR.into(),
-                chain_overrides: HashMap::default(),
-                http_headers: None,
-                url: json_rpc_url_provider::ethereum_mainnet(),
-            }));
+            let default_config =
+                create_test_config_with(BasicProviderConfig::fork_with_accounts(ForkConfig {
+                    block_number: Some(EIP_1559_ACTIVATION_BLOCK),
+                    cache_dir: edr_defaults::CACHE_DIR.into(),
+                    chain_overrides: HashMap::default(),
+                    http_headers: None,
+                    url: json_rpc_url_provider::ethereum_mainnet(),
+                }));
 
             let config = ProviderConfig {
                 // SAFETY: literal is non-zero

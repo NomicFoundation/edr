@@ -8,7 +8,7 @@ use edr_chain_l1::{Hardfork, L1ChainSpec};
 use edr_eth::BlockSpec;
 use edr_primitives::{address, Address, Bytes, HashMap, StorageKey, U256};
 use edr_provider::{
-    test_utils::{create_test_config_with_genesis_state_and_fork, BasicProviderConfig},
+    test_utils::{create_test_config_with, BasicProviderConfig},
     time::CurrentTime,
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
@@ -18,7 +18,7 @@ use tokio::runtime;
 fn setup_provider(
     provider_config: BasicProviderConfig<Hardfork>,
 ) -> anyhow::Result<Provider<L1ChainSpec, CurrentTime>> {
-    let config = create_test_config_with_genesis_state_and_fork(provider_config);
+    let config = create_test_config_with(provider_config);
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     Provider::new(

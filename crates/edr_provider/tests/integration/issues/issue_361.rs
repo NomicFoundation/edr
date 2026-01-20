@@ -4,7 +4,7 @@ use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_eth::{filter::LogFilterOptions, BlockSpec};
 use edr_primitives::Address;
 use edr_provider::{
-    test_utils::{create_test_config_with_fork, one_ether},
+    test_utils::{create_test_config_with, one_ether, BasicProviderConfig},
     time::CurrentTime,
     AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
@@ -16,7 +16,7 @@ async fn issue_361() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
-    let mut config = create_test_config_with_fork(None);
+    let mut config = create_test_config_with(BasicProviderConfig::local_with_accounts());
     config.hardfork = edr_chain_l1::Hardfork::MUIR_GLACIER;
 
     let impersonated_account = Address::random();

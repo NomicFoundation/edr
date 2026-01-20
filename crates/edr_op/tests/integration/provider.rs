@@ -9,7 +9,9 @@ use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_op::{Hardfork, OpChainSpec};
 use edr_primitives::{address, bytes, Address, HashMap, U64};
 use edr_provider::{
-    test_utils::{create_test_config, create_test_config_with_fork, ProviderTestFixture},
+    test_utils::{
+        create_test_config, create_test_config_with, BasicProviderConfig, ProviderTestFixture,
+    },
     time::CurrentTime,
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
@@ -25,7 +27,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<OpChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
-    let mut config = create_test_config_with_fork(Some(ForkConfig {
+    let mut config = create_test_config_with(BasicProviderConfig::fork_with_accounts(ForkConfig {
         block_number: None,
         cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_overrides: HashMap::default(),

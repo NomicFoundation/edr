@@ -4,8 +4,9 @@ use anyhow::Context;
 use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_primitives::{Address, Bytes, HashMap};
 use edr_provider::{
-    test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
-    NoopLogger, Provider, ProviderRequest,
+    test_utils::{create_test_config_with, BasicProviderConfig},
+    time::CurrentTime,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
@@ -25,7 +26,7 @@ async fn issue_356() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
-    let mut config = create_test_config_with_fork(Some(ForkConfig {
+    let mut config = create_test_config_with(BasicProviderConfig::fork_with_accounts(ForkConfig {
         // Pre-cancun Sepolia block
         block_number: Some(4243456),
         cache_dir: edr_defaults::CACHE_DIR.into(),

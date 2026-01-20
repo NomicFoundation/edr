@@ -3,8 +3,9 @@ use std::{str::FromStr as _, sync::Arc};
 use edr_chain_l1::L1ChainSpec;
 use edr_primitives::{HashMap, B256};
 use edr_provider::{
-    test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
-    NoopLogger, Provider, ProviderRequest,
+    test_utils::{create_test_config_with, BasicProviderConfig},
+    time::CurrentTime,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
@@ -16,7 +17,7 @@ async fn issue_533() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
-    let mut config = create_test_config_with_fork(Some(ForkConfig {
+    let mut config = create_test_config_with(BasicProviderConfig::fork_with_accounts(ForkConfig {
         block_number: Some(20_384_300),
         cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_overrides: HashMap::default(),
