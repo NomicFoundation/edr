@@ -102,32 +102,77 @@ pub fn set_genesis_state_with_owned_accounts<HardforkT>(
     config.owned_accounts = owned_accounts;
 }
 
+pub struct BasicProviderConfig<HardforkT> {
+    fork: Option<ForkConfig<HardforkT>>,
+    genesis_state: HashMap<Address, AccountOverride>,
+    owned_accounts: Vec<SecretKey>,
+}
+
+impl<HardforkT> BasicProviderConfig<HardforkT> {
+    pub fn fork_empty(fork_config: ForkConfig<HardforkT>) -> BasicProviderConfig<HardforkT> {
+        BasicProviderConfig {
+            fork: Some(fork_config),
+            genesis_state: HashMap::default(),
+            owned_accounts: vec![],
+        }
+    }
+    pub fn local_empty() -> BasicProviderConfig<HardforkT> {
+        BasicProviderConfig {
+            fork: None,
+            genesis_state: HashMap::default(),
+            owned_accounts: vec![],
+        }
+    }
+
+    pub fn fork_with_accounts(
+        fork_config: ForkConfig<HardforkT>,
+    ) -> BasicProviderConfig<HardforkT> {
+        let owned_accounts = Self::default_accounts();
+        BasicProviderConfig {
+            fork: Some(fork_config),
+            genesis_state: genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether()),
+            owned_accounts,
+        }
+    }
+    pub fn local_with_accounts() -> BasicProviderConfig<HardforkT> {
+        let owned_accounts = Self::default_accounts();
+        BasicProviderConfig {
+            fork: None,
+            genesis_state: genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether()),
+            owned_accounts,
+        }
+    }
+
+    fn default_accounts() -> Vec<SecretKey> {
+        // This is test code, it's ok to use `DangerousSecretKeyStr`
+        #[allow(deprecated)]
+        use edr_signer::DangerousSecretKeyStr;
+
+        // This is test code, it's ok to use `DangerousSecretKeyStr`
+        // Can't use `edr_test_utils` as a dependency here.
+        vec![
+            #[allow(deprecated)]
+            secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY))
+                .expect("should construct secret key from string"),
+            #[allow(deprecated)]
+            secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY_SIGN_TYPED_DATA_V4))
+                .expect("should construct secret key from string"),
+        ]
+    }
+}
+
 pub fn create_test_config_with_fork<HardforkT: Default>(
     fork: Option<ForkConfig<HardforkT>>,
 ) -> ProviderConfig<HardforkT> {
-    // This is test code, it's ok to use `DangerousSecretKeyStr`
-    #[allow(deprecated)]
-    use edr_signer::DangerousSecretKeyStr;
-
-    // This is test code, it's ok to use `DangerousSecretKeyStr`
-    // Can't use `edr_test_utils` as a dependency here.
-    #[allow(deprecated)]
-    let owned_accounts = vec![
-        secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY))
-            .expect("should construct secret key from string"),
-        secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY_SIGN_TYPED_DATA_V4))
-            .expect("should construct secret key from string"),
-    ];
-
-    let genesis_state = genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether());
-
-    create_test_config_with_genesis_state_and_fork(owned_accounts, genesis_state, fork)
+    let config = fork.map_or_else(
+        || BasicProviderConfig::local_with_accounts(),
+        |fork| BasicProviderConfig::fork_with_accounts(fork),
+    );
+    create_test_config_with_genesis_state_and_fork(config)
 }
 
 pub fn create_test_config_with_genesis_state_and_fork<HardforkT: Default>(
-    owned_accounts: Vec<k256::SecretKey>,
-    genesis_state: HashMap<Address, AccountOverride>,
-    fork: Option<ForkConfig<HardforkT>>,
+    config: BasicProviderConfig<HardforkT>,
 ) -> ProviderConfig<HardforkT> {
     ProviderConfig {
         allow_blocks_with_same_timestamp: false,
@@ -139,8 +184,8 @@ pub fn create_test_config_with_genesis_state_and_fork<HardforkT: Default>(
         block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
         chain_id: 123,
         coinbase: Address::from(U160::from(1)),
-        fork,
-        genesis_state,
+        fork: config.fork,
+        genesis_state: config.genesis_state,
         hardfork: HardforkT::default(),
         initial_base_fee_per_gas: Some(1000000000),
         initial_blob_gas: Some(BlobGas {
@@ -153,7 +198,7 @@ pub fn create_test_config_with_genesis_state_and_fork<HardforkT: Default>(
         mining: config::Mining::default(),
         network_id: 123,
         observability: observability::ObservabilityConfig::default(),
-        owned_accounts,
+        owned_accounts: config.owned_accounts,
         precompile_overrides: HashMap::default(),
         transaction_gas_cap: None,
     }
