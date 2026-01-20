@@ -1,5 +1,9 @@
 use std::sync::Arc;
 
+use alloy_trie::{
+    proof::{ProofNodes, ProofRetainer},
+    HashBuilder, Nibbles,
+};
 use cita_trie::{PatriciaTrie, Trie};
 use edr_primitives::B256;
 use hasher::{Hasher, HasherKeccak};
@@ -78,4 +82,21 @@ impl TrieQuery {
 
 fn hash_key(key: impl AsRef<[u8]>) -> Vec<u8> {
     HasherKeccak::new().digest(key.as_ref())
+}
+
+pub fn build_proof_nodes(query: TrieQuery, targets: Vec<Nibbles>) -> ProofNodes {
+    let mut builder = HashBuilder::default().with_proof_retainer(ProofRetainer::new(targets));
+
+    let mut storage: Vec<(Nibbles, Vec<u8>)> = query
+        .iter()
+        .map(|(key, value)| (Nibbles::unpack(key), value))
+        .collect();
+    storage.sort_by(|(key1, _), (key2, _)| key1.cmp(key2));
+    for (key, value) in storage {
+        builder.add_leaf(key, &value);
+    }
+
+    let _ = builder.root();
+
+    builder.take_proof_nodes()
 }

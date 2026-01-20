@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 alloy-rlp.workspace = true
+alloy-rpc-types = { workspace = true, features = ["eth"] }
 auto_impl.workspace = true
 dyn-clone.workspace = true
 edr_primitives.workspace = true

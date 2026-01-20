@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
+use alloy_rpc_types::EIP1186AccountProofResponse;
 use derive_where::derive_where;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec, RpcEthBlock};
-use edr_primitives::{Address, Bytecode, HashMap, HashSet, B256, KECCAK_NULL_RLP, U256};
+use edr_primitives::{
+    Address, Bytecode, HashMap, HashSet, StorageKey, B256, KECCAK_NULL_RLP, U256,
+};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_state_api::{
     account::{Account, AccountInfo},
-    AccountModifierFn, State, StateCommit, StateDebug, StateError, StateMut as _,
+    AccountModifierFn, State, StateCommit, StateDebug, StateError, StateMut as _, StateProof,
 };
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_state_remote::{CachedRemoteState, RemoteState};
@@ -258,6 +261,26 @@ impl<
     }
 }
 
+impl<
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > StateProof for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
+    /// The state's error type.
+    type Error = StateError;
+
+    fn proof(
+        &self,
+        _address: Address,
+        _storage_keys: Vec<StorageKey>,
+    ) -> Result<EIP1186AccountProofResponse, Self::Error> {
+        Err(StateError::Unsupported {
+            action: "get_proof_on_forked_state".into(),
+            details: Some("See https://github.com/NomicFoundation/edr/issues/1260".into()),
+        })
+    }
+}
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
     use std::{

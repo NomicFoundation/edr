@@ -3177,6 +3177,7 @@ dependencies = [
  "alloy-dyn-abi",
  "alloy-eips",
  "alloy-rlp",
+ "alloy-rpc-types",
  "alloy-serde",
  "alloy-sol-types",
  "anyhow",
@@ -3527,6 +3528,7 @@ name = "edr_state_api"
 version = "0.3.8"
 dependencies = [
  "alloy-rlp",
+ "alloy-rpc-types",
  "auto_impl",
  "dyn-clone",
  "edr_primitives",
@@ -3541,6 +3543,7 @@ dependencies = [
 name = "edr_state_fork"
 version = "0.3.8"
 dependencies = [
+ "alloy-rpc-types",
  "derive-where",
  "edr_chain_l1",
  "edr_chain_spec_rpc",
@@ -3564,6 +3567,9 @@ name = "edr_state_persistent_trie"
 version = "0.3.8"
 dependencies = [
  "alloy-rlp",
+ "alloy-rpc-types",
+ "alloy-serde",
+ "alloy-trie",
  "anyhow",
  "cita_trie",
  "edr_primitives",

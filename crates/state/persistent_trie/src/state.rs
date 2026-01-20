@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
-use edr_primitives::{Address, HashMap, B256, U256};
+use edr_primitives::{Address, Bytes, HashMap, StorageKey, B256, U256};
 use edr_state_api::account::{Account, AccountInfo, BasicAccount};
 use hasher::{Hasher, HasherKeccak};
 use rpds::HashTrieMapSync;
@@ -21,7 +21,6 @@ impl PersistentAccountAndStorageTrie {
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     pub fn with_accounts(accounts: &HashMap<Address, AccountInfo>) -> Self {
         let mut account_trie = Self::default();
-
         {
             let mut account_trie_mutation = account_trie.mutate();
 
@@ -166,6 +165,24 @@ impl PersistentAccountAndStorageTrie {
             account_trie_mut: self.account_trie.mutate(),
             storage_tries: &mut self.storage_tries,
         }
+    }
+
+    /// Generates a Merkle proof for an account's existence or nonexistence.
+    pub fn account_proof(&self, address: &Address) -> Vec<Bytes> {
+        self.account_trie.generate_proof(address)
+    }
+
+    /// Generates Merkle proofs for storage slots in an account's storage trie.
+    ///
+    /// Returns one proof per storage key from the storage root to the slot.
+    /// If the account doesn't exist, proofs are generated against an empty
+    /// storage trie.
+    pub fn storage_proof(&self, address: &Address, keys: &[StorageKey]) -> Vec<Vec<Bytes>> {
+        let storage = match self.storage_tries.get(address) {
+            Some(storage) => storage,
+            None => &StorageTrie::default(),
+        };
+        storage.generate_proof(keys)
     }
 }
 

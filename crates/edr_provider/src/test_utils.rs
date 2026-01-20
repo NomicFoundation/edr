@@ -121,6 +121,14 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
 
     let genesis_state = genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether());
 
+    create_test_config_with_genesis_state_and_fork(owned_accounts, genesis_state, fork)
+}
+
+pub fn create_test_config_with_genesis_state_and_fork<HardforkT: Default>(
+    owned_accounts: Vec<k256::SecretKey>,
+    genesis_state: HashMap<Address, AccountOverride>,
+    fork: Option<ForkConfig<HardforkT>>,
+) -> ProviderConfig<HardforkT> {
     ProviderConfig {
         allow_blocks_with_same_timestamp: false,
         allow_unlimited_contract_size: false,
@@ -150,7 +158,6 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         transaction_gas_cap: None,
     }
 }
-
 /// Retrieves the pending base fee per gas from the provider data.
 pub fn pending_base_fee<
     ChainSpecT: SyncProviderSpec<

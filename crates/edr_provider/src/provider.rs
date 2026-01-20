@@ -279,6 +279,10 @@ impl<
                 eth::handle_get_logs_request(data, filter_options)
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
+            MethodInvocation::GetProof(address, storage_keys, block_spec) => {
+                eth::handle_get_proof_request(data, address, storage_keys, block_spec)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
+            }
             MethodInvocation::GetStorageAt(address, index, block_spec) => {
                 eth::handle_get_storage_at_request(data, address, index, block_spec)
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
