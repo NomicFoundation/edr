@@ -2516,6 +2516,384 @@ interface Vm {
     /// catch (bytes memory interceptedInitcode) { initcode = interceptedInitcode; }
     #[cheatcode(group = Utilities, safety = Unsafe)]
     function interceptInitcode() external;
+
+    // ======== Unsupported Cheatcodes ========
+
+    // -------- Data Structures --------
+
+    /// A wallet with a public and private key.
+    struct Wallet {
+        // The wallet's address.
+        address addr;
+        // The wallet's public key `X`.
+        uint256 publicKeyX;
+        // The wallet's public key `Y`.
+        uint256 publicKeyY;
+        // The wallet's private key.
+        uint256 privateKey;
+    }
+
+    /// Represents a transaction's broadcast details.
+    struct BroadcastTxSummary {
+        // The hash of the transaction that was broadcasted
+        bytes32 txHash;
+        // Represent the type of transaction among CALL, CREATE, CREATE2
+        BroadcastTxType txType;
+        // The address of the contract that was called or created.
+        // This is the address of the contract that is created if the txType is CREATE or CREATE2.
+        address contractAddress;
+        // The block number the transaction landed in.
+        uint64 blockNumber;
+        // Status of the transaction, retrieved from the transaction receipt.
+        bool success;
+    }
+
+    /// The transaction type (`txType`) of the broadcast.
+    enum BroadcastTxType {
+        // Represents a CALL broadcast tx.
+        Call,
+        // Represents a CREATE broadcast tx.
+        Create,
+        // Represents a CREATE2 broadcast tx.
+        Create2
+    }
+
+    // -------- Scripting --------
+
+    /// Has the next call (at this call depth only) create transactions that can later be signed and sent onchain.
+    ///
+    /// Broadcasting address is determined by checking the following in order:
+    /// 1. If `--sender` argument was provided, that address is used.
+    /// 2. If exactly one signer (e.g. private key, hw wallet, keystore) is set when `forge broadcast` is invoked, that signer is used.
+    /// 3. Otherwise, default foundry sender (1804c8AB1F12E6bbf3894d4083f33e07309d1f38) is used.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function broadcast() external;
+
+    /// Has the next call (at this call depth only) create a transaction with the address provided
+    /// as the sender that can later be signed and sent onchain.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function broadcast(address signer) external;
+
+    /// Has the next call (at this call depth only) create a transaction with the private key
+    /// provided as the sender that can later be signed and sent onchain.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function broadcast(uint256 privateKey) external;
+
+    /// Has all subsequent calls (at this call depth only) create transactions that can later be signed and sent onchain.
+    ///
+    /// Broadcasting address is determined by checking the following in order:
+    /// 1. If `--sender` argument was provided, that address is used.
+    /// 2. If exactly one signer (e.g. private key, hw wallet, keystore) is set when `forge broadcast` is invoked, that signer is used.
+    /// 3. Otherwise, default foundry sender (1804c8AB1F12E6bbf3894d4083f33e07309d1f38) is used.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function startBroadcast() external;
+
+    /// Has all subsequent calls (at this call depth only) create transactions with the address
+    /// provided that can later be signed and sent onchain.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function startBroadcast(address signer) external;
+
+    /// Has all subsequent calls (at this call depth only) create transactions with the private key
+    /// provided that can later be signed and sent onchain.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function startBroadcast(uint256 privateKey) external;
+
+    /// Stops collecting onchain transactions.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function stopBroadcast() external;
+
+    /// Takes a signed transaction and broadcasts it to the network.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function broadcastRawTransaction(bytes calldata data) external;
+
+    /// Sign an EIP-7702 authorization for delegation
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);
+
+    /// Sign an EIP-7702 authorization for delegation for specific nonce
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);
+
+    /// Sign an EIP-7702 authorization for delegation, with optional cross-chain validity.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);
+
+    /// Designate the next call as an EIP-7702 transaction
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function attachDelegation(SignedDelegation calldata signedDelegation) external;
+
+    /// Designate the next call as an EIP-7702 transaction, with optional cross-chain validity.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function attachDelegation(SignedDelegation calldata signedDelegation, bool crossChain) external;
+
+    /// Sign an EIP-7702 authorization and designate the next call as an EIP-7702 transaction
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signAndAttachDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);
+
+    /// Sign an EIP-7702 authorization and designate the next call as an EIP-7702 transaction for specific nonce
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signAndAttachDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);
+
+    /// Sign an EIP-7702 authorization and designate the next call as an EIP-7702 transaction, with optional cross-chain validity.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signAndAttachDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);
+
+    /// Attach an EIP-4844 blob to the next call
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function attachBlob(bytes calldata blob) external;
+
+    /// Returns addresses of available unlocked wallets in the script environment.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function getWallets() external returns (address[] memory wallets);
+
+    // -------- Filesystem --------
+
+    /// Gets the artifact path from code (aka. creation code).
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getArtifactPathByCode(bytes calldata code) external view returns (string memory path);
+
+    /// Gets the artifact path from deployed code (aka. runtime code).
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getArtifactPathByDeployedCode(bytes calldata deployedCode) external view returns (string memory path);
+
+    /// Deploys a contract from an artifact file. Takes in the relative path to the json file or the path to the
+    /// artifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath) external returns (address deployedAddress);
+
+    /// Deploys a contract from an artifact file. Takes in the relative path to the json file or the path to the
+    /// artifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.
+    ///
+    /// Additionally accepts abi-encoded constructor arguments.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, bytes calldata constructorArgs) external returns (address deployedAddress);
+
+    /// Deploys a contract from an artifact file. Takes in the relative path to the json file or the path to the
+    /// artifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.
+    ///
+    /// Additionally accepts `msg.value`.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, uint256 value) external returns (address deployedAddress);
+
+    /// Deploys a contract from an artifact file. Takes in the relative path to the json file or the path to the
+    /// artifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.
+    ///
+    /// Additionally accepts abi-encoded constructor arguments and `msg.value`.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, bytes calldata constructorArgs, uint256 value) external returns (address deployedAddress);
+
+    /// Deploys a contract from an artifact file, using the CREATE2 salt. Takes in the relative path to the json file or the path to the
+    /// artifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, bytes32 salt) external returns (address deployedAddress);
+
+    /// Deploys a contract from an artifact file, using the CREATE2 salt. Takes in the relative path to the json file or the path to the
+    /// artifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.
+    ///
+    /// Additionally accepts abi-encoded constructor arguments.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, bytes calldata constructorArgs, bytes32 salt) external returns (address deployedAddress);
+
+    /// Deploys a contract from an artifact file, using the CREATE2 salt. Takes in the relative path to the json file or the path to the
+    /// artifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.
+    ///
+    /// Additionally accepts `msg.value`.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, uint256 value, bytes32 salt) external returns (address deployedAddress);
+
+    /// Deploys a contract from an artifact file, using the CREATE2 salt. Takes in the relative path to the json file or the path to the
+    /// artifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.
+    ///
+    /// Additionally accepts abi-encoded constructor arguments and `msg.value`.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, bytes calldata constructorArgs, uint256 value, bytes32 salt) external returns (address deployedAddress);
+
+    /// Returns the most recent broadcast for the given contract on `chainId` matching `txType`.
+    ///
+    /// For example:
+    ///
+    /// The most recent deployment can be fetched by passing `txType` as `CREATE` or `CREATE2`.
+    ///
+    /// The most recent call can be fetched by passing `txType` as `CALL`.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getBroadcast(string calldata contractName, uint64 chainId, BroadcastTxType txType) external view returns (BroadcastTxSummary memory);
+
+    /// Returns all broadcasts for the given contract on `chainId` with the specified `txType`.
+    ///
+    /// Sorted such that the most recent broadcast is the first element, and the oldest is the last. i.e descending order of BroadcastTxSummary.blockNumber.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getBroadcasts(string calldata contractName, uint64 chainId, BroadcastTxType txType) external view returns (BroadcastTxSummary[] memory);
+
+    /// Returns all broadcasts for the given contract on `chainId`.
+    ///
+    /// Sorted such that the most recent broadcast is the first element, and the oldest is the last. i.e descending order of BroadcastTxSummary.blockNumber.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getBroadcasts(string calldata contractName, uint64 chainId) external view returns (BroadcastTxSummary[] memory);
+
+    /// Returns the most recent deployment for the current `chainId`.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getDeployment(string calldata contractName) external view returns (address deployedAddress);
+
+    /// Returns the most recent deployment for the given contract on `chainId`
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getDeployment(string calldata contractName, uint64 chainId) external view returns (address deployedAddress);
+
+    /// Returns all deployments for the given contract on `chainId`
+    ///
+    /// Sorted in descending order of deployment time i.e descending order of BroadcastTxSummary.blockNumber.
+    ///
+    /// The most recent deployment is the first element, and the oldest is the last.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getDeployments(string calldata contractName, uint64 chainId) external view returns (address[] memory deployedAddresses);
+
+    // -------- Key management --------
+
+    /// Derives a private key from the name, labels the account with that name, and returns the wallet.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function createWallet(string calldata walletLabel) external returns (Wallet memory wallet);
+
+    /// Generates a wallet from the private key and returns the wallet.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function createWallet(uint256 privateKey) external returns (Wallet memory wallet);
+
+    /// Generates a wallet from the private key, labels the account with that name, and returns the wallet.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function createWallet(uint256 privateKey, string calldata walletLabel) external returns (Wallet memory wallet);
+
+    /// Derive a private key from a provided mnemonic string (or mnemonic file path)
+    /// at the derivation path `m/44'/60'/0'/0/{index}`.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function deriveKey(string calldata mnemonic, uint32 index) external pure returns (uint256 privateKey);
+    /// Derive a private key from a provided mnemonic string (or mnemonic file path)
+    /// at `{derivationPath}{index}`.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index)
+        external
+        pure
+        returns (uint256 privateKey);
+    /// Derive a private key from a provided mnemonic string (or mnemonic file path) in the specified language
+    /// at the derivation path `m/44'/60'/0'/0/{index}`.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function deriveKey(string calldata mnemonic, uint32 index, string calldata language)
+        external
+        pure
+        returns (uint256 privateKey);
+    /// Derive a private key from a provided mnemonic string (or mnemonic file path) in the specified language
+    /// at `{derivationPath}{index}`.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index, string calldata language)
+        external
+        pure
+        returns (uint256 privateKey);
+
+    /// Adds a private key to the local forge wallet and returns the address.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function rememberKey(uint256 privateKey) external returns (address keyAddr);
+
+    /// Derive a set number of wallets from a mnemonic at the derivation path `m/44'/60'/0'/0/{0..count}`.
+    ///
+    /// The respective private keys are saved to the local forge wallet for later use and their addresses are returned.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function rememberKeys(string calldata mnemonic, string calldata derivationPath, uint32 count) external returns (address[] memory keyAddrs);
+
+    /// Derive a set number of wallets from a mnemonic in the specified language at the derivation path `m/44'/60'/0'/0/{0..count}`.
+    ///
+    /// The respective private keys are saved to the local forge wallet for later use and their addresses are returned.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function rememberKeys(string calldata mnemonic, string calldata derivationPath, string calldata language, uint32 count)
+        external
+        returns (address[] memory keyAddrs);
+
+    // -------- Utilities --------
+
+    /// Generates the hash of the canonical EIP-712 type representation.
+    ///
+    /// Supports 2 different inputs:
+    ///  1. Name of the type (i.e. "Transaction"):
+    ///     * requires previous binding generation with `forge bind-json`.
+    ///     * bindings will be retrieved from the path configured in `foundry.toml`.
+    ///
+    ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
+    ///     * Note: the cheatcode will output the canonical type even if the input is malformated
+    ///             with the wrong order of elements or with extra whitespaces.
+    #[cheatcode(group = Utilities, status = Unsupported)]
+    function eip712HashType(string calldata typeNameOrDefinition) external pure returns (bytes32 typeHash);
+
+    /// Generates the hash of the canonical EIP-712 type representation.
+    /// Requires previous binding generation with `forge bind-json`.
+    ///
+    /// Params:
+    ///  * `bindingsPath`: path where the output of `forge bind-json` is stored.
+    ///  * `typeName`: Name of the type (i.e. "Transaction").
+    #[cheatcode(group = Utilities, status = Unsupported)]
+    function eip712HashType(string calldata bindingsPath, string calldata typeName) external pure returns (bytes32 typeHash);
+
+    /// Generates the struct hash of the canonical EIP-712 type representation and its abi-encoded data.
+    ///
+    /// Supports 2 different inputs:
+    ///  1. Name of the type (i.e. "PermitSingle"):
+    ///     * requires previous binding generation with `forge bind-json`.
+    ///     * bindings will be retrieved from the path configured in `foundry.toml`.
+    ///
+    ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
+    ///     * Note: the cheatcode will use the canonical type even if the input is malformated
+    ///             with the wrong order of elements or with extra whitespaces.
+    #[cheatcode(group = Utilities, status = Unsupported)]
+    function eip712HashStruct(string calldata typeNameOrDefinition, bytes calldata abiEncodedData) external pure returns (bytes32 typeHash);
+
+    /// Generates the struct hash of the canonical EIP-712 type representation and its abi-encoded data.
+    /// Requires previous binding generation with `forge bind-json`.
+    ///
+    /// Params:
+    ///  * `bindingsPath`: path where the output of `forge bind-json` is stored.
+    ///  * `typeName`: Name of the type (i.e. "PermitSingle").
+    ///  * `abiEncodedData`: ABI-encoded data for the struct that is being hashed.
+    #[cheatcode(group = Utilities, status = Unsupported)]
+    function eip712HashStruct(string calldata bindingsPath, string calldata typeName, bytes calldata abiEncodedData) external pure returns (bytes32 typeHash);
+
+    /// Generates a ready-to-sign digest of human-readable typed data following the EIP-712 standard.
+    #[cheatcode(group = Utilities, status = Unsupported)]
+    function eip712HashTypedData(string calldata jsonData) external pure returns (bytes32 digest);
+
+    // -------- Testing --------
+
+    /// Writes a breakpoint to jump to in the debugger.
+    #[cheatcode(group = Testing, safety = Safe, status = Unsupported)]
+    function breakpoint(string calldata char) external pure;
+
+    /// Writes a conditional breakpoint to jump to in the debugger.
+    #[cheatcode(group = Testing, safety = Safe, status = Unsupported)]
+    function breakpoint(string calldata char, bool value) external pure;
+
+    /// Returns true if the current Foundry version is greater than or equal to the given version.
+    /// The given version string must be in the format `major.minor.patch`.
+    ///
+    /// This is equivalent to `foundryVersionCmp(version) >= 0`.
+    #[cheatcode(group = Testing, safety = Safe, status = Unsupported)]
+    function foundryVersionAtLeast(string calldata version) external view returns (bool);
+
+    /// Compares the current Foundry version with the given version string.
+    /// The given version string must be in the format `major.minor.patch`.
+    ///
+    /// Returns:
+    /// -1 if current Foundry version is less than the given version
+    /// 0 if current Foundry version equals the given version
+    /// 1 if current Foundry version is greater than the given version
+    ///
+    /// This result can then be used with a comparison operator against `0`.
+    /// For example, to check if the current Foundry version is greater than or equal to `1.0.0`:
+    /// `if (foundryVersionCmp("1.0.0") >= 0) { ... }`
+    #[cheatcode(group = Testing, safety = Safe, status = Unsupported)]
+    function foundryVersionCmp(string calldata version) external view returns (int256);
+
+    /// Returns the Foundry version.
+    /// Format: <cargo_version>-<tag>+<git_sha_short>.<unix_build_timestamp>.<profile>
+    /// Sample output: 0.3.0-nightly+3cb96bde9b.1737036656.debug
+    /// Note: Build timestamps may vary slightly across platforms due to separate CI jobs.
+    /// For reliable version comparisons, use UNIX format (e.g., >= 1700000000)
+    /// to compare timestamps while ignoring minor time differences.
+    #[cheatcode(group = Testing, safety = Safe, status = Unsupported)]
+    function getFoundryVersion() external view returns (string memory version);
 }
 }
 
