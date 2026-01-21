@@ -16,4 +16,5 @@ pub struct CheatcodeErrorDetails {
     #[doc = "The error code representing the type of cheatcode error."]
     pub code: CheatcodeErrorCode,
     #[doc = "The name of the cheatcode that caused the error."]
+    pub cheatcode: String,
 }

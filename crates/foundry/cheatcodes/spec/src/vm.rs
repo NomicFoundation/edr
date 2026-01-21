@@ -27,6 +27,7 @@ interface Vm {
 
     /// Error thrown by cheatcodes.
     error CheatcodeError(string message);
+    error StructuredCheatcodeError(StructuredCheatcodeError details);
 
     /// A modification applied to either `msg.sender` or `tx.origin`. Returned by `readCallers`.
     enum CallerMode {

@@ -3,12 +3,15 @@
 use alloy_sol_types::SolError;
 use edr_primitives::{Bytes, U256};
 
+use crate::return_data::StructuredCheatcodeError;
+
 // Built-in error types
 // See <https://docs.soliditylang.org/en/v0.8.26/control-structures.html#error-handling-assert-require-revert-and-exceptions>
 alloy_sol_types::sol! {
   error Error(string);
   error Panic(uint256);
   error CheatcodeError(string);
+  error StructuredCheatcodeError(StructuredCheatcodeError);
 }
 
 pub struct ReturnData<'a> {

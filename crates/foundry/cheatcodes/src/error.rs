@@ -91,6 +91,20 @@ pub struct Error {
     drop: bool,
     /// The error data. Always a valid pointer, and never modified.
     data: *const [u8],
+    /// Structured cheatcode error, if any.
+    structured: Option<Box<StructuredCheatcodeError>>,
+}
+
+#[derive(Debug)]
+pub enum CheatcodeErrorCode {
+    UnsupportedCheatcode,
+    MissingCheatcode,
+}
+
+#[derive(Debug)]
+pub struct StructuredCheatcodeError {
+    pub code: CheatcodeErrorCode,
+    pub cheatcode: String,
 }
 
 impl std::error::Error for Error {}
@@ -117,6 +131,8 @@ pub enum ErrorKind<'a> {
     String(&'a str),
     /// A raw bytes error. Does not get encoded.
     Bytes(&'a [u8]),
+
+    Structured(&'a StructuredCheatcodeError),
 }
 
 impl fmt::Display for ErrorKind<'_> {
@@ -124,6 +140,13 @@ impl fmt::Display for ErrorKind<'_> {
         match *self {
             Self::String(ss) => f.write_str(ss),
             Self::Bytes(b) => f.write_str(&hex::encode_prefixed(b)),
+            Self::Structured(structured) => {
+                write!(
+                    f,
+                    "Cheatcode Error - Code: {:?}, Cheatcode: {}",
+                    structured.code, structured.cheatcode
+                )
+            }
         }
     }
 }
@@ -156,6 +179,12 @@ impl Error {
             }
             .abi_encode(),
             ErrorKind::Bytes(bytes) => bytes.into(),
+            ErrorKind::Structured(structured) => {
+                let message = format!(
+                    "Cheatcode Error - Code: {:?}, Cheatcode: {}",
+                    structured.code, structured.cheatcode
+                );
+                Vm::CheatcodeError { message }.abi_encode()
         }
     }
 

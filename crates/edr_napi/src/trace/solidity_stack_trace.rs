@@ -579,6 +579,7 @@ pub struct CheatcodeErrorStackTraceEntry {
     // The parsed cheatcode error message that can be displayed to the user
     pub message: String,
     pub source_reference: SourceReference,
+    pub structured_error: Option<StructuredCheatcodeError>,
 }
 
 impl From<CheatcodeErrorStackTraceEntry> for SolidityStackTraceEntry {
