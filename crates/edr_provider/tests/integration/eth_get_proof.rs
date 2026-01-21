@@ -91,7 +91,7 @@ fn verify_storage_proof<'proof>(
     );
 }
 
-mod local_tests {
+mod local {
     use super::*;
 
     /// Ported from foundry `https://github.com/foundry-rs/foundry/blob/f8904bd/crates/anvil/tests/it/proof.rs`
@@ -212,7 +212,7 @@ mod local_tests {
     }
 }
 #[cfg(feature = "test-remote")]
-mod fork_tests {
+mod fork {
     use edr_primitives::HashMap;
     use edr_provider::{ForkConfig, ProviderError};
     use edr_state_api::StateError;

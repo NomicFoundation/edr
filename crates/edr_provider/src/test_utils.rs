@@ -109,6 +109,8 @@ pub struct MinimalProviderConfig<HardforkT> {
 }
 
 impl<HardforkT> MinimalProviderConfig<HardforkT> {
+    /// Fork minimal configuration without custom `owned_accounts` or
+    /// `genesis_state`
     pub fn fork_empty(fork_config: ForkConfig<HardforkT>) -> MinimalProviderConfig<HardforkT> {
         MinimalProviderConfig {
             fork: Some(fork_config),
@@ -116,6 +118,9 @@ impl<HardforkT> MinimalProviderConfig<HardforkT> {
             owned_accounts: vec![],
         }
     }
+
+    /// Local minimal configuration without custom `owned_accounts` or
+    /// `genesis_state`
     pub fn local_empty() -> MinimalProviderConfig<HardforkT> {
         MinimalProviderConfig {
             fork: None,
@@ -124,6 +129,8 @@ impl<HardforkT> MinimalProviderConfig<HardforkT> {
         }
     }
 
+    /// Fork minimal configuration with default custom `owned_accounts` or
+    /// `genesis_state`
     pub fn fork_with_accounts(
         fork_config: ForkConfig<HardforkT>,
     ) -> MinimalProviderConfig<HardforkT> {
@@ -134,6 +141,8 @@ impl<HardforkT> MinimalProviderConfig<HardforkT> {
             owned_accounts,
         }
     }
+    /// Local minimal configuration with default custom `owned_accounts` or
+    /// `genesis_state`
     pub fn local_with_accounts() -> MinimalProviderConfig<HardforkT> {
         let owned_accounts = Self::default_accounts();
         MinimalProviderConfig {
