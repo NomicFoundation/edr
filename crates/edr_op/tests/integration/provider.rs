@@ -10,7 +10,7 @@ use edr_op::{Hardfork, OpChainSpec};
 use edr_primitives::{address, bytes, Address, HashMap, U64};
 use edr_provider::{
     test_utils::{
-        create_test_config, create_test_config_with, BasicProviderConfig, ProviderTestFixture,
+        create_test_config, create_test_config_with, MinimalProviderConfig, ProviderTestFixture,
     },
     time::CurrentTime,
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
@@ -27,13 +27,14 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<OpChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
-    let mut config = create_test_config_with(BasicProviderConfig::fork_with_accounts(ForkConfig {
-        block_number: None,
-        cache_dir: edr_defaults::CACHE_DIR.into(),
-        chain_overrides: HashMap::default(),
-        http_headers: None,
-        url: json_rpc_url_provider::op_sepolia(),
-    }));
+    let mut config =
+        create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
+            block_number: None,
+            cache_dir: edr_defaults::CACHE_DIR.into(),
+            chain_overrides: HashMap::default(),
+            http_headers: None,
+            url: json_rpc_url_provider::op_sepolia(),
+        }));
 
     // Set a different chain ID than the forked chain ID
     config.chain_id = 31337;

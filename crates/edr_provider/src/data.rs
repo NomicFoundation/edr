@@ -4117,7 +4117,7 @@ mod tests {
 
             use crate::{
                 requests::eth::resolve_call_request,
-                test_utils::{create_test_config_with, BasicProviderConfig},
+                test_utils::{create_test_config_with, MinimalProviderConfig},
             };
 
             sol! { function Hello() public pure returns (string); }
@@ -4163,7 +4163,7 @@ mod tests {
                 .build()?;
 
             let default_config =
-                create_test_config_with(BasicProviderConfig::fork_with_accounts(ForkConfig {
+                create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
                     block_number: Some(EIP_1559_ACTIVATION_BLOCK),
                     cache_dir: edr_defaults::CACHE_DIR.into(),
                     chain_overrides: HashMap::default(),

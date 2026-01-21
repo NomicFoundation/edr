@@ -8,7 +8,7 @@ use edr_chain_l1::{Hardfork, L1ChainSpec};
 use edr_eth::BlockSpec;
 use edr_primitives::{address, Address, Bytes, StorageKey, U256};
 use edr_provider::{
-    test_utils::{create_test_config_with, BasicProviderConfig},
+    test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
@@ -16,7 +16,7 @@ use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
 fn setup_provider(
-    provider_config: BasicProviderConfig<Hardfork>,
+    provider_config: MinimalProviderConfig<Hardfork>,
 ) -> anyhow::Result<Provider<L1ChainSpec, CurrentTime>> {
     let config = create_test_config_with(provider_config);
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
@@ -100,7 +100,7 @@ mod local_tests {
     /// - `https://github.com/foundry-rs/foundry/blob/f8904bd/LICENSE-MIT`
     #[tokio::test(flavor = "multi_thread")]
     async fn test_account_proof() -> anyhow::Result<()> {
-        let provider = setup_provider(BasicProviderConfig::local_empty())?;
+        let provider = setup_provider(MinimalProviderConfig::local_empty())?;
 
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
             address!("0x2031f89b3ea8014eb51a78c316e42af3e0d7695f"),
@@ -158,7 +158,7 @@ mod local_tests {
     async fn test_storage_proof() -> anyhow::Result<()> {
         let target = address!("0x1ed9b1dd266b607ee278726d324b855a093394a6");
 
-        let provider = setup_provider(BasicProviderConfig::local_empty())?;
+        let provider = setup_provider(MinimalProviderConfig::local_empty())?;
 
         let storage: BTreeMap<U256, U256> =
             serde_json::from_str(include_str!("../fixtures/storage_sample.json")).unwrap();
@@ -197,7 +197,7 @@ mod local_tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_can_get_random_account_proofs() -> anyhow::Result<()> {
-        let provider = setup_provider(BasicProviderConfig::local_empty())?;
+        let provider = setup_provider(MinimalProviderConfig::local_empty())?;
 
         let address = Address::random();
         provider
@@ -225,7 +225,7 @@ mod fork_tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_get_proof_for_local_block_fails() -> anyhow::Result<()> {
-        let provider = setup_provider(BasicProviderConfig::fork_empty(ForkConfig {
+        let provider = setup_provider(MinimalProviderConfig::fork_empty(ForkConfig {
             block_number: Some(FORK_BLOCK_NUMBER),
             cache_dir: edr_defaults::CACHE_DIR.into(),
             chain_overrides: HashMap::default(),
@@ -255,7 +255,7 @@ mod fork_tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_get_proof_for_fork_block_works() -> anyhow::Result<()> {
-        let provider = setup_provider(BasicProviderConfig::fork_empty(ForkConfig {
+        let provider = setup_provider(MinimalProviderConfig::fork_empty(ForkConfig {
             block_number: Some(FORK_BLOCK_NUMBER),
             cache_dir: edr_defaults::CACHE_DIR.into(),
             chain_overrides: HashMap::default(),
@@ -280,7 +280,7 @@ mod fork_tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_get_proof_for_fork_block_with_genesis_state_fails() -> anyhow::Result<()> {
-        let provider = setup_provider(BasicProviderConfig::fork_with_accounts(ForkConfig {
+        let provider = setup_provider(MinimalProviderConfig::fork_with_accounts(ForkConfig {
             block_number: Some(FORK_BLOCK_NUMBER),
             cache_dir: edr_defaults::CACHE_DIR.into(),
             chain_overrides: HashMap::default(),
@@ -304,7 +304,7 @@ mod fork_tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_get_proof_for_previous_fork_block_works() -> anyhow::Result<()> {
-        let provider = setup_provider(BasicProviderConfig::fork_empty(ForkConfig {
+        let provider = setup_provider(MinimalProviderConfig::fork_empty(ForkConfig {
             block_number: Some(FORK_BLOCK_NUMBER),
             cache_dir: edr_defaults::CACHE_DIR.into(),
             chain_overrides: HashMap::default(),

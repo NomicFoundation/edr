@@ -3,7 +3,7 @@ use std::{str::FromStr as _, sync::Arc};
 use edr_chain_l1::L1ChainSpec;
 use edr_primitives::{HashMap, B256};
 use edr_provider::{
-    test_utils::{create_test_config_with, BasicProviderConfig},
+    test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
@@ -17,13 +17,14 @@ async fn issue_533() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
-    let mut config = create_test_config_with(BasicProviderConfig::fork_with_accounts(ForkConfig {
-        block_number: Some(20_384_300),
-        cache_dir: edr_defaults::CACHE_DIR.into(),
-        chain_overrides: HashMap::default(),
-        http_headers: None,
-        url: json_rpc_url_provider::ethereum_mainnet(),
-    }));
+    let mut config =
+        create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
+            block_number: Some(20_384_300),
+            cache_dir: edr_defaults::CACHE_DIR.into(),
+            chain_overrides: HashMap::default(),
+            http_headers: None,
+            url: json_rpc_url_provider::ethereum_mainnet(),
+        }));
 
     // The default chain id set by Hardhat
     config.chain_id = 31337;

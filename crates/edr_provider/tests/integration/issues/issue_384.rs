@@ -3,7 +3,7 @@ use std::sync::Arc;
 use edr_chain_l1::L1ChainSpec;
 use edr_primitives::HashMap;
 use edr_provider::{
-    test_utils::{create_test_config_with, BasicProviderConfig},
+    test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
@@ -18,7 +18,7 @@ async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
-    let config = create_test_config_with(BasicProviderConfig::fork_with_accounts(ForkConfig {
+    let config = create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
         block_number: Some(BLOCK_NUMBER),
         cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_overrides: HashMap::default(),

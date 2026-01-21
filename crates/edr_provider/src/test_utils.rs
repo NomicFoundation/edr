@@ -36,7 +36,7 @@ pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
 /// Constructs a test config in local mode with configured accounts
 pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
-    create_test_config_with(BasicProviderConfig::local_with_accounts())
+    create_test_config_with(MinimalProviderConfig::local_with_accounts())
 }
 
 /// Default base header overrides for replaying L1 blocks.
@@ -102,22 +102,22 @@ pub fn set_genesis_state_with_owned_accounts<HardforkT>(
     config.owned_accounts = owned_accounts;
 }
 
-pub struct BasicProviderConfig<HardforkT> {
+pub struct MinimalProviderConfig<HardforkT> {
     fork: Option<ForkConfig<HardforkT>>,
     genesis_state: HashMap<Address, AccountOverride>,
     owned_accounts: Vec<SecretKey>,
 }
 
-impl<HardforkT> BasicProviderConfig<HardforkT> {
-    pub fn fork_empty(fork_config: ForkConfig<HardforkT>) -> BasicProviderConfig<HardforkT> {
-        BasicProviderConfig {
+impl<HardforkT> MinimalProviderConfig<HardforkT> {
+    pub fn fork_empty(fork_config: ForkConfig<HardforkT>) -> MinimalProviderConfig<HardforkT> {
+        MinimalProviderConfig {
             fork: Some(fork_config),
             genesis_state: HashMap::default(),
             owned_accounts: vec![],
         }
     }
-    pub fn local_empty() -> BasicProviderConfig<HardforkT> {
-        BasicProviderConfig {
+    pub fn local_empty() -> MinimalProviderConfig<HardforkT> {
+        MinimalProviderConfig {
             fork: None,
             genesis_state: HashMap::default(),
             owned_accounts: vec![],
@@ -126,17 +126,17 @@ impl<HardforkT> BasicProviderConfig<HardforkT> {
 
     pub fn fork_with_accounts(
         fork_config: ForkConfig<HardforkT>,
-    ) -> BasicProviderConfig<HardforkT> {
+    ) -> MinimalProviderConfig<HardforkT> {
         let owned_accounts = Self::default_accounts();
-        BasicProviderConfig {
+        MinimalProviderConfig {
             fork: Some(fork_config),
             genesis_state: genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether()),
             owned_accounts,
         }
     }
-    pub fn local_with_accounts() -> BasicProviderConfig<HardforkT> {
+    pub fn local_with_accounts() -> MinimalProviderConfig<HardforkT> {
         let owned_accounts = Self::default_accounts();
-        BasicProviderConfig {
+        MinimalProviderConfig {
             fork: None,
             genesis_state: genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether()),
             owned_accounts,
@@ -162,7 +162,7 @@ impl<HardforkT> BasicProviderConfig<HardforkT> {
 }
 
 pub fn create_test_config_with<HardforkT: Default>(
-    config: BasicProviderConfig<HardforkT>,
+    config: MinimalProviderConfig<HardforkT>,
 ) -> ProviderConfig<HardforkT> {
     ProviderConfig {
         allow_blocks_with_same_timestamp: false,
@@ -256,14 +256,14 @@ where
 {
     /// Creates a new `ProviderTestFixture` with a local provider.
     pub fn new_local() -> anyhow::Result<Self> {
-        Self::with_config(BasicProviderConfig::local_with_accounts())
+        Self::with_config(MinimalProviderConfig::local_with_accounts())
     }
 
     /// Creates a new `ProviderTestFixture` with a forked provider.
     pub fn new_forked(url: Option<String>) -> anyhow::Result<Self> {
         use edr_test_utils::env::json_rpc_url_provider;
 
-        Self::with_config(BasicProviderConfig::fork_with_accounts(ForkConfig {
+        Self::with_config(MinimalProviderConfig::fork_with_accounts(ForkConfig {
             block_number: None,
             cache_dir: edr_defaults::CACHE_DIR.into(),
             chain_overrides: HashMap::default(),
@@ -272,7 +272,7 @@ where
         }))
     }
 
-    fn with_config(config: BasicProviderConfig<ChainSpecT::Hardfork>) -> anyhow::Result<Self> {
+    fn with_config(config: MinimalProviderConfig<ChainSpecT::Hardfork>) -> anyhow::Result<Self> {
         let config = create_test_config_with(config);
 
         let runtime = runtime::Builder::new_multi_thread()
