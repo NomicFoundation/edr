@@ -691,9 +691,9 @@ describe("Provider", () => {
         })
       );
       const responseData = JSON.parse(response.data);
-      assert.equal(
+      assert.include(
         responseData.error.message,
-        "The action `get_proof_on_forked_state` is unsupported. ForkState has local modifications, so `get_proof` is unsupported"
+        "The action `Proof of locally modified state in fork mode` is unsupported"
       );
     });
 

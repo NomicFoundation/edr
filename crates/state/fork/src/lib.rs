@@ -277,9 +277,9 @@ impl<
     ) -> Result<EIP1186AccountProofResponse, Self::Error> {
         if !self.local_state.is_empty() {
             return Err(StateError::Unsupported {
-                action: "get_proof_on_forked_state".into(),
+                action: "Proof of locally modified state in fork mode".into(),
                 details: Some(
-                    "ForkState has local modifications, so `get_proof` is unsupported".into(),
+                    "Obtaining a proof is not supported in fork mode when local changes have been made. E.g. manual changes to an account or a locally mined block.".into(),
                 ),
             });
         }
