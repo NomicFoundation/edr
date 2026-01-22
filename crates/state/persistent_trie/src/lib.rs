@@ -1,6 +1,8 @@
 use alloy_rpc_types::{EIP1186AccountProofResponse, EIP1186StorageProof};
 use alloy_serde::JsonStorageKey;
-use edr_primitives::{Address, Bytecode, HashMap, StorageKey, B256, KECCAK_EMPTY, U256};
+use edr_primitives::{
+    Address, Bytecode, HashMap, StorageKey, B256, KECCAK_EMPTY, KECCAK_NULL_RLP, U256,
+};
 use edr_state_api::{
     account::{Account, AccountInfo},
     AccountModifierFn, State, StateCommit, StateDebug, StateDiff, StateError, StateProof,
@@ -50,6 +52,12 @@ impl PersistentStateTrie {
         debug_assert_eq!(code_hash, code.hash_slow());
 
         self.contracts.insert(code_hash, code);
+    }
+
+    /// Checks whether the persistent state is empty by verifying that the
+    /// `state_root` equals `KECCAK_NULL_RLP`.
+    pub fn is_empty(&self) -> bool {
+        self.accounts_and_storage.state_root() == KECCAK_NULL_RLP
     }
 
     /// Modifies the account at the given address, if it exists. Otherwise, it

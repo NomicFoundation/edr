@@ -3319,6 +3319,7 @@ name = "edr_rpc_eth"
 version = "0.3.8"
 dependencies = [
  "alloy-eips",
+ "alloy-rpc-types",
  "alloy-serde",
  "anyhow",
  "assert-json-diff",
@@ -3587,6 +3588,7 @@ dependencies = [
 name = "edr_state_remote"
 version = "0.3.8"
 dependencies = [
+ "alloy-rpc-types",
  "derive-where",
  "edr_chain_l1",
  "edr_chain_spec_rpc",
