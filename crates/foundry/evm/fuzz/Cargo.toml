@@ -6,8 +6,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+edr_artifact.workspace = true
 edr_common.workspace = true
-edr_solidity.workspace = true
 foundry-evm-core.workspace = true
 foundry-evm-coverage.workspace = true
 foundry-evm-traces.workspace = true

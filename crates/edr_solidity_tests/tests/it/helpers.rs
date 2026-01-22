@@ -13,11 +13,9 @@ use std::{
 };
 
 use alloy_primitives::{Bytes, U256};
+use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
-use edr_solidity::{
-    artifacts::ArtifactId,
-    linker::{LinkOutput, Linker},
-};
+use edr_solidity::linker::{LinkOutput, Linker};
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
     multi_runner::{TestContract, TestContracts},

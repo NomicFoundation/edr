@@ -11,8 +11,8 @@ workspace = true
 [dependencies]
 foundry-cheatcodes-spec.workspace = true
 upstream-foundry-cheatcodes-spec = { git = "https://github.com/foundry-rs/foundry", tag = "v1.5.0", package = "foundry-cheatcodes-spec" }
+edr_artifact.workspace = true
 edr_common.workspace = true
-edr_solidity.workspace = true
 foundry-compilers.workspace = true
 foundry-evm-core.workspace = true
 foundry-evm-traces.workspace = true

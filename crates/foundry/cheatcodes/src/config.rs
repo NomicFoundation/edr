@@ -6,8 +6,8 @@ use std::{
 };
 
 use alloy_primitives::{map::AddressHashMap, U256};
+use edr_artifact::ArtifactId;
 use edr_common::fs::normalize_path;
-use edr_solidity::artifacts::ArtifactId;
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, evm_context::HardforkTr, opts::EvmOpts};
 

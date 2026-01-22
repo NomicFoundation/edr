@@ -34,7 +34,7 @@ pub mod identifier;
 use identifier::LocalTraceIdentifier;
 
 pub mod abi;
-mod decoder;
+pub mod decoder;
 pub use decoder::{CallTraceDecoder, CallTraceDecoderBuilder};
 use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 

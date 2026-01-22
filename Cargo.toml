@@ -1,6 +1,7 @@
 [workspace]
 members = [
     # EDR
+    "crates/artifact",
     "crates/block/api",
     "crates/block/builder/api",
     "crates/block/header",
@@ -127,6 +128,7 @@ foundry-evm-fuzz.opt-level = 3
 scrypt.opt-level = 3
 
 [workspace.dependencies]
+edr_artifact = { path = "crates/artifact" }
 edr_block_api = { path = "crates/block/api" }
 edr_block_builder_api = { path = "crates/block/builder/api" }
 edr_block_header = { path = "crates/block/header" }

@@ -3,8 +3,9 @@
 use std::{fmt::Debug, sync::Arc};
 
 use edr_chain_spec::HaltReasonTrait;
-use edr_primitives::Bytes;
+use edr_primitives::{Address, Bytes, HashSet};
 use parking_lot::RwLock;
+use revm_inspectors::tracing::types::CallTrace;
 
 use super::{
     nested_trace::CreateMessage,
@@ -187,6 +188,36 @@ impl ContractDecoder {
             }
         }
     }
+
+    pub fn populate_call_trace(
+        &self,
+        call_trace: &mut CallTrace,
+        code: &Bytes,
+        precompiles: &HashSet<Address>,
+    ) {
+        if precompiles.contains(&call_trace.address)
+            && let Some(decoded) = foundry_evm_traces::decoder::precompiles::decode(call_trace)
+        {
+            call_trace.decoded = Some(Box::new(decoded));
+            return;
+        }
+
+        let calldata = if call_trace.kind.is_any_create() {
+            None
+        } else {
+            Some(&call_trace.data)
+        };
+
+        // let ContractIdentifierAndFunctionSignature {
+        //     contract_identifier,
+        //     function_signature,
+        // } = self.get_contract_identifier_and_function_signature_for_call(&
+        // code, calldata);
+
+        // call_trace.decoded.
+    }
+
+    // fn decode_function()
 }
 
 impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for ContractDecoder {
