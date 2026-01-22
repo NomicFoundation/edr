@@ -582,39 +582,47 @@ describe("Fuzz and invariant testing", function () {
     const OVERRIDEN_RUNS = 1;
     const OVERRIDEN_DEPTH = 5;
 
-    const artifact = testContext.matchingTest("InvariantTest1")[0];
+    const artifact = testContext.matchingTest(
+      "InvariantTestFunctionOverride"
+    )[0];
 
     const invariantConfig = {
       runs: GLOBAL_RUNS,
       depth: GLOBAL_DEPTH,
     };
 
-    const result1 = await testContext.runTestsWithStats("InvariantTest1", {
-      invariant: invariantConfig,
-    });
+    const result1 = await testContext.runTestsWithStats(
+      "InvariantTestFunctionOverride",
+      {
+        invariant: invariantConfig,
+      }
+    );
 
     const test_result1 = result1.suiteResults[0].testResults[0];
     const invariantKind = test_result1.kind as InvariantTestKind;
     assert.equal(invariantKind.runs, BigInt(GLOBAL_RUNS));
     assert.equal(invariantKind.calls, BigInt(GLOBAL_RUNS * GLOBAL_DEPTH));
 
-    const result2 = await testContext.runTestsWithStats("InvariantTest1", {
-      invariant: invariantConfig,
-      testFunctionOverrides: [
-        {
-          identifier: {
-            contractArtifact: artifact,
-            functionSelector: "0xd6e738f5", // invariant_neverFalse()
-          },
-          config: {
-            invariant: {
-              runs: OVERRIDEN_RUNS,
-              depth: OVERRIDEN_DEPTH,
+    const result2 = await testContext.runTestsWithStats(
+      "InvariantTestFunctionOverride",
+      {
+        invariant: invariantConfig,
+        testFunctionOverrides: [
+          {
+            identifier: {
+              contractArtifact: artifact,
+              functionSelector: "0xd6e738f5", // invariant_neverFalse()
+            },
+            config: {
+              invariant: {
+                runs: OVERRIDEN_RUNS,
+                depth: OVERRIDEN_DEPTH,
+              },
             },
           },
-        },
-      ],
-    });
+        ],
+      }
+    );
     const test_result2 = result2.suiteResults[0].testResults[0];
     const invariantKind2 = test_result2.kind as InvariantTestKind;
     assert.equal(invariantKind2.runs, BigInt(OVERRIDEN_RUNS)); // Overridden
