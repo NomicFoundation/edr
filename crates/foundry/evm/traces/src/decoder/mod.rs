@@ -25,11 +25,7 @@ use itertools::Itertools;
 use revm_inspectors::tracing::types::{DecodedCallLog, DecodedCallTrace};
 
 use crate::{
-    abi::get_indexed_event,
-    identifier::{
-        IdentifiedAddress, LocalTraceIdentifier, SelectorKind, SignaturesIdentifier,
-        TraceIdentifier,
-    },
+    identifier::{IdentifiedAddress, LocalTraceIdentifier, TraceIdentifier},
     CallTrace, CallTraceArena, CallTraceNode, DecodedCallData,
 };
 
@@ -83,13 +79,6 @@ impl CallTraceDecoderBuilder {
 
     /// Sets the signature identifier for events and functions.
     #[inline]
-    pub fn with_signature_identifier(mut self, identifier: SignaturesIdentifier) -> Self {
-        self.decoder.signature_identifier = Some(identifier);
-        self
-    }
-
-    /// Sets the signature identifier for events and functions.
-    #[inline]
     pub fn with_label_disabled(mut self, disable_alias: bool) -> Self {
         self.decoder.disable_labels = disable_alias;
         self
@@ -135,8 +124,6 @@ pub struct CallTraceDecoder {
     /// Revert decoder. Contains all known custom errors.
     pub revert_decoder: RevertDecoder,
 
-    /// A signature identifier for events and functions.
-    pub signature_identifier: Option<SignaturesIdentifier>,
     /// Verbosity level
     pub verbosity: u8,
 
@@ -192,8 +179,6 @@ impl CallTraceDecoder {
                 .map(|event| ((event.selector(), indexed_inputs(&event)), vec![event]))
                 .collect(),
             revert_decoder: RevertDecoder::default(),
-
-            signature_identifier: None,
             verbosity: 0,
 
             disable_labels: false,
@@ -390,16 +375,10 @@ impl CallTraceDecoder {
                 .expect("calldata should have at least SELECTOR_LEN bytes");
             let selector = Selector::try_from(selector_bytes)
                 .expect("selector_bytes should convert to Selector");
-            let mut functions = Vec::new();
             let functions = if let Some(fs) = self.functions.get(&selector) {
                 fs
             } else {
-                if let Some(identifier) = &self.signature_identifier
-                    && let Some(function) = identifier.identify_function(selector).await
-                {
-                    functions.push(function);
-                }
-                &functions
+                &Vec::new()
             };
 
             // Check if unsupported fn selector: calldata dooes NOT point to one of its
@@ -734,16 +713,10 @@ impl CallTraceDecoder {
             };
         };
 
-        let mut events = Vec::new();
         let events = if let Some(es) = self.events.get(&(t0, log.topics().len() - 1)) {
             es
         } else {
-            if let Some(identifier) = &self.signature_identifier
-                && let Some(event) = identifier.identify_event(t0).await
-            {
-                events.push(get_indexed_event(event, log));
-            }
-            &events
+            &Vec::new()
         };
         for event in events {
             if let Ok(decoded) = event.decode_log(log) {
@@ -769,54 +742,6 @@ impl CallTraceDecoder {
             name: None,
             params: None,
         }
-    }
-
-    /// Prefetches function and event signatures into the identifier cache
-    pub async fn prefetch_signatures(&self, nodes: &[CallTraceNode]) {
-        let Some(identifier) = &self.signature_identifier else {
-            return;
-        };
-        let events = nodes
-            .iter()
-            .flat_map(|node| {
-                node.logs
-                    .iter()
-                    .map(|log| log.raw_log.topics())
-                    .filter(|&topics| {
-                        if let Some(&first) = topics.first()
-                            && self.events.contains_key(&(first, topics.len() - 1))
-                        {
-                            return false;
-                        }
-                        true
-                    })
-                    .filter_map(|topics| topics.first())
-            })
-            .copied();
-        let functions = nodes
-            .iter()
-            .filter(|&n| {
-                // Ignore known addresses.
-                if n.trace.address == DEFAULT_CREATE2_DEPLOYER
-                    || n.is_precompile()
-                    || precompiles::is_known_precompile(n.trace.address, 1)
-                {
-                    return false;
-                }
-                // Ignore non-ABI calldata.
-                if n.trace.kind.is_any_create() || !is_abi_call_data(&n.trace.data) {
-                    return false;
-                }
-                true
-            })
-            .filter_map(|n| n.trace.data.first_chunk().map(Selector::from))
-            .filter(|selector| !self.functions.contains_key(selector));
-        let selectors = events
-            .map(SelectorKind::Event)
-            .chain(functions.map(SelectorKind::Function))
-            .unique()
-            .collect::<Vec<_>>();
-        let _ = identifier.identify(&selectors).await;
     }
 
     /// Pretty-prints a value.
