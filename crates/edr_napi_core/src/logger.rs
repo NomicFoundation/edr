@@ -7,7 +7,7 @@ use edr_block_api::Block as _;
 use edr_chain_spec::ExecutableTransaction;
 use edr_chain_spec_evm::result::ExecutionResult;
 use edr_precompile::{PrecompileSpecId, Precompiles};
-use edr_primitives::{Bytes, B256, U256};
+use edr_primitives::{Address, Bytes, HashMap, B256, U256};
 use edr_provider::{
     time::TimeSinceEpoch, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
     EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
@@ -260,13 +260,18 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
             console_log_inputs,
             execution_result,
             call_trace_arena,
+            is_code_empty,
         } = result;
 
         self.state = LoggingState::Empty;
 
         let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
-            logger.log_contract_and_function_name(hardfork, call_trace_arena);
+            logger.log_contract_and_function_name::<true>(
+                hardfork,
+                call_trace_arena,
+                is_code_empty,
+            );
 
             logger.log_with_title("From", format!("0x{:x}", transaction.caller()));
             if let Some(to) = transaction.kind().to() {
@@ -307,7 +312,11 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         self.state = LoggingState::Empty;
 
         self.indented(|logger| {
-            logger.log_contract_and_function_name(hardfork, &transaction_failure.call_trace_arena);
+            logger.log_contract_and_function_name::<true>(
+                hardfork,
+                &transaction_failure.call_trace_arena,
+                &transaction_failure.is_code_empty,
+            );
 
             logger.log_with_title("From", format!("0x{:x}", transaction.caller()));
             if let Some(to) = transaction.kind().to() {
@@ -585,6 +594,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                         transaction,
                         result,
                         call_trace_arena,
+                        is_code_empty,
                         console_log_inputs,
                         should_highlight_hash,
                     )?;
@@ -629,6 +639,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         transaction: &ChainSpecT::SignedTransaction,
         result: &ExecutionResult<ChainSpecT::HaltReason>,
         call_trace_arena: &CallTraceArena,
+        is_code_empty: &HashMap<Address, bool>,
         console_log_inputs: &[Bytes],
         should_highlight_hash: bool,
     ) -> Result<(), LoggerError> {
@@ -644,7 +655,11 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
         let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
-            logger.log_contract_and_function_name(hardfork, call_trace_arena);
+            logger.log_contract_and_function_name::<false>(
+                hardfork,
+                call_trace_arena,
+                is_code_empty,
+            );
             logger.log_with_title("From", format!("0x{:x}", transaction.caller()));
             if let Some(to) = transaction.kind().to() {
                 logger.log_with_title("To", format!("0x{to:x}"));
@@ -711,10 +726,11 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         Ok(())
     }
 
-    fn log_contract_and_function_name(
+    fn log_contract_and_function_name<const PRINT_INVALID_CONTRACT_WARNING: bool>(
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         call_trace_arena: &CallTraceArena,
+        is_code_empty: &HashMap<Address, bool>,
     ) {
         if let Some(node) = call_trace_arena.nodes().first() {
             let trace = &node.trace;
@@ -750,6 +766,10 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                         "Precompile call",
                         format!("<PrecompileContract {precompile}>"),
                     );
+                } else if is_code_empty.get(&to).copied().unwrap_or(false) {
+                    if PRINT_INVALID_CONTRACT_WARNING {
+                        self.log("WARNING: Calling an account which is not a contract");
+                    }
                 } else {
                     let contract_name = trace
                         .decoded

@@ -30,7 +30,7 @@ use crate::{
     CallTrace, CallTraceArena, CallTraceNode, DecodedCallData,
 };
 
-mod precompiles;
+pub mod precompiles;
 
 /// Build a new [`CallTraceDecoder`].
 #[derive(Default)]
@@ -85,6 +85,14 @@ impl CallTraceDecoderBuilder {
         self
     }
 
+    /// Adds the provided precompile addresses to the known precompile
+    /// addresses.
+    #[inline]
+    pub fn with_precompiles(mut self, precompiles: impl IntoIterator<Item = Address>) -> Self {
+        self.decoder.precompiles.extend(precompiles);
+        self
+    }
+
     /// Build the decoder.
     #[inline]
     pub fn build(self) -> CallTraceDecoder {
@@ -115,6 +123,8 @@ pub struct CallTraceDecoder {
     /// Contract addresses that have do NOT have fallback functions, mapped to
     /// function selectors of that contract.
     pub non_fallback_contracts: HashMap<Address, HashSet<Selector>>,
+    /// Known precompile addresses.
+    pub precompiles: HashSet<Address>,
 
     /// All known functions.
     pub functions: HashMap<Selector, Vec<Function>>,
@@ -175,6 +185,26 @@ impl CallTraceDecoder {
             receive_contracts: HashSet::default(),
             fallback_contracts: HashMap::default(),
             non_fallback_contracts: HashMap::default(),
+            precompiles: HashSet::from_iter([
+                EC_RECOVER,
+                SHA_256,
+                RIPEMD_160,
+                IDENTITY,
+                MOD_EXP,
+                EC_ADD,
+                EC_MUL,
+                EC_PAIRING,
+                BLAKE_2F,
+                POINT_EVALUATION,
+                BLS12_G1ADD,
+                BLS12_G1MSM,
+                BLS12_G2ADD,
+                BLS12_G2MSM,
+                BLS12_PAIRING_CHECK,
+                BLS12_MAP_FP_TO_G1,
+                BLS12_MAP_FP2_TO_G2,
+                P256_VERIFY,
+            ]),
 
             functions: console::hh::abi::functions()
                 .into_values()
@@ -362,8 +392,10 @@ impl CallTraceDecoder {
             };
         }
 
-        if let Some(trace) = precompiles::decode(trace, 1) {
-            return trace;
+        if self.precompiles.contains(&trace.address)
+            && let Some(decoded) = precompiles::decode(trace)
+        {
+            return decoded;
         }
 
         let cdata = &trace.data;

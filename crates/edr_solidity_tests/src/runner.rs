@@ -13,9 +13,9 @@ use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Bytes, U256};
 use derive_where::derive_where;
+use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
-    artifacts::ArtifactId,
     contract_decoder::SyncNestedTraceDecoder,
     solidity_stack_trace::{get_stack_trace, StackTraceEntry},
 };

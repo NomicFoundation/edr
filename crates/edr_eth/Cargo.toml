@@ -4,45 +4,23 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = "1.0.100"
-alloy-eips.workspace = true
 alloy-serde.workspace = true
-auto_impl.workspace = true
 c-kzg.workspace = true
-derive-where.workspace = true
 edr_chain_spec.workspace = true
-edr_eip1559.workspace = true
-edr_eip2930.workspace = true
-edr_eip7702.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
-edr_signer.workspace = true
-hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
-itertools = { version = "0.10.5", default-features = false, features = ["use_alloc"] }
 log = { version = "0.4.17", default-features = false }
-once_cell = { version = "1.19.0", default-features = false, features = ["alloc", "race", "std"] }
-revm-context.workspace = true
-revm-context-interface.workspace = true
-revm-state.workspace = true
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 thiserror.workspace = true
 
 [dev-dependencies]
-anyhow = "1.0.100"
-edr_chain_l1.workspace = true
-edr_defaults.workspace = true
-edr_rpc_eth.workspace = true
-edr_test_utils.workspace = true
-lazy_static = "1.4.0"
-paste.workspace = true
 serde_json.workspace = true
-tokio = { version = "1.23.0", features = ["macros"] }
 
 [features]
 default = ["std"]
-serde = ["dep:serde", "dep:serde_json", "alloy-eips/serde", "c-kzg/serde", "revm-state/serde"]
-std = ["alloy-eips/std", "alloy-serde/std", "hex/std", "itertools/use_std", "revm-state/serde", "serde?/std"]
+serde = ["dep:serde", "dep:serde_json", "c-kzg/serde"]
+std = ["alloy-serde/std", "serde?/std"]
 test-remote = []
 
 [lints]
