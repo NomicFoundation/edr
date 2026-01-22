@@ -127,7 +127,7 @@ pub trait StateProof {
 
     /// Returns the account information together with the Merkle proofs for the
     /// account and its associated storage keys.
-    fn get_proof(
+    fn proof(
         &self,
         address: Address,
         storage_keys: Vec<StorageKey>,

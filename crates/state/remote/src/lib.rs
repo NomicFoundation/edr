@@ -147,7 +147,7 @@ impl<
 {
     type Error = StateError;
 
-    fn get_proof(
+    fn proof(
         &self,
         address: Address,
         storage_keys: Vec<StorageKey>,
