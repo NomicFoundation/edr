@@ -412,6 +412,13 @@
           "enum": [
             "internal"
           ]
+        },
+        {
+          "description": "The cheatcode is not supported.",
+          "type": "string",
+          "enum": [
+            "unsupported"
+          ]
         }
       ]
     },

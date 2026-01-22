@@ -282,22 +282,6 @@ interface Vm {
         address contractAddr;
     }
 
-    /// Holds a signed EIP-7702 authorization for an authority account to delegate to an implementation.
-    struct SignedDelegation {
-        /// The y-parity of the recovered secp256k1 signature (0 or 1).
-        uint8 v;
-        /// First 32 bytes of the signature.
-        bytes32 r;
-        /// Second 32 bytes of the signature.
-        bytes32 s;
-        /// The current nonce of the authority account at signing time.
-        /// Used to ensure signature can't be replayed after account nonce changes.
-        uint64 nonce;
-        /// Address of the contract implementation that will be delegated to.
-        /// Gets encoded into delegation code: 0xef0100 || implementation.
-        address implementation;
-    }
-
     /// Represents a "potential" revert reason from a single subsequent call when using `vm.assumeNoReverts`.
     /// Reverts that match will result in a FOUNDRY::ASSUME rejection, whereas unmatched reverts will be surfaced
     /// as normal.
@@ -2521,18 +2505,6 @@ interface Vm {
 
     // -------- Data Structures --------
 
-    /// A wallet with a public and private key.
-    struct Wallet {
-        // The wallet's address.
-        address addr;
-        // The wallet's public key `X`.
-        uint256 publicKeyX;
-        // The wallet's public key `Y`.
-        uint256 publicKeyY;
-        // The wallet's private key.
-        uint256 privateKey;
-    }
-
     /// Represents a transaction's broadcast details.
     struct BroadcastTxSummary {
         // The hash of the transaction that was broadcasted
@@ -2556,6 +2528,34 @@ interface Vm {
         Create,
         // Represents a CREATE2 broadcast tx.
         Create2
+    }
+
+    /// Holds a signed EIP-7702 authorization for an authority account to delegate to an implementation.
+    struct SignedDelegation {
+        /// The y-parity of the recovered secp256k1 signature (0 or 1).
+        uint8 v;
+        /// First 32 bytes of the signature.
+        bytes32 r;
+        /// Second 32 bytes of the signature.
+        bytes32 s;
+        /// The current nonce of the authority account at signing time.
+        /// Used to ensure signature can't be replayed after account nonce changes.
+        uint64 nonce;
+        /// Address of the contract implementation that will be delegated to.
+        /// Gets encoded into delegation code: 0xef0100 || implementation.
+        address implementation;
+    }
+
+    /// A wallet with a public and private key.
+    struct Wallet {
+        // The wallet's address.
+        address addr;
+        // The wallet's public key `X`.
+        uint256 publicKeyX;
+        // The wallet's public key `Y`.
+        uint256 publicKeyY;
+        // The wallet's private key.
+        uint256 privateKey;
     }
 
     // -------- Scripting --------
