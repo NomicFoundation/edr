@@ -1,5 +1,12 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.23
+
+### Minor Changes
+
+- e4920d5: Added support for the `eth_getProof` JSON-RPC method. Support is currently limited to the local blockchain.
+- 321af18: Added support for the `eth_getProof` JSON-RPC method on forked blockchains. Currently, only remote blocks are supported; requests for locally mined blocks will return an error.
+
 ## 0.12.0-next.22
 
 ### Minor Changes
