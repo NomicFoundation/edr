@@ -2,8 +2,12 @@
 
 use std::{fmt::Debug, sync::Arc};
 
+use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use edr_chain_spec::HaltReasonTrait;
-use edr_primitives::{Address, Bytes, HashSet};
+use edr_common::fmt::format_token;
+use edr_defaults::SELECTOR_LEN;
+use edr_primitives::{Address, Bytes, HashMap, HashSet};
+use foundry_evm_traces::{CallTraceArena, DecodedCallData, DecodedCallTrace};
 use parking_lot::RwLock;
 use revm_inspectors::tracing::types::CallTrace;
 
@@ -19,6 +23,7 @@ use crate::{
     build_model::{ContractFunctionType, ContractMetadata},
     compiler::create_models_and_decode_bytecodes,
     contracts_identifier::ContractsIdentifier,
+    error_inferrer::InferrerError,
     nested_trace::{NestedTrace, NestedTraceStep},
 };
 
@@ -151,7 +156,7 @@ impl ContractDecoder {
                         }
                     };
 
-                    let selector = &calldata.get(..4).unwrap_or(&calldata[..]);
+                    let selector = &calldata.get(..SELECTOR_LEN).unwrap_or(&calldata[..]);
 
                     let func = contract.get_function_from_selector(selector);
 
@@ -189,35 +194,145 @@ impl ContractDecoder {
         }
     }
 
-    pub fn populate_call_trace(
+    /// Populates the call trace arena with decoded call traces.
+    ///
+    /// This is done for a whole `CallTraceArena` to avoid locking the
+    /// `ContractsIdentifier` multiple times.
+    pub fn populate_call_trace_arena(
         &self,
-        call_trace: &mut CallTrace,
-        code: &Bytes,
+        call_trace_arena: &mut CallTraceArena,
+        address_to_runtime_code: &HashMap<Address, Bytes>,
         precompiles: &HashSet<Address>,
-    ) {
-        if precompiles.contains(&call_trace.address)
-            && let Some(decoded) = foundry_evm_traces::decoder::precompiles::decode(call_trace)
-        {
+    ) -> Result<(), serde_json::Error> {
+        let mut contracts_identifier = self.contracts_identifier.write();
+
+        for node in call_trace_arena.nodes_mut() {
+            let call_trace = &mut node.trace;
+
+            let decoded = if precompiles.contains(&call_trace.address)
+                && let Some(decoded) = foundry_evm_traces::decoder::precompiles::decode(call_trace)
+            {
+                decoded
+            } else {
+                let is_create = call_trace.kind.is_any_create();
+                let code = address_to_runtime_code
+                    .get(&call_trace.address)
+                    .unwrap_or_default();
+
+                let contract_metadata = contracts_identifier.get_bytecode_for_call(code, is_create);
+
+                if is_create {
+                    let contract_identifier = contract_metadata
+                        .map_or(UNRECOGNIZED_CONTRACT_NAME.to_string(), |metadata| {
+                            metadata.contract.read().name.clone()
+                        });
+
+                    DecodedCallTrace {
+                        label: Some(contract_identifier),
+                        ..DecodedCallTrace::default()
+                    }
+                } else if let Some(contract_metadata) = contract_metadata {
+                    let calldata = &call_trace.data;
+                    let selector = &calldata.get(..SELECTOR_LEN).unwrap_or(&calldata[..]);
+
+                    let contract = contract_metadata.contract.read();
+                    let label = Some(contract.name.clone());
+                    if let Some(function) = contract.get_function_from_selector(selector) {
+                        match function.r#type {
+                            ContractFunctionType::Fallback => DecodedCallTrace {
+                                label,
+                                return_data: todo!(),
+                                call_data: Some(decoded_call_data_for_fallback(calldata)),
+                            },
+                            ContractFunctionType::Receive => DecodedCallTrace {
+                                label,
+                                return_data: todo!(),
+                                call_data: Some(DecodedCallData {
+                                    signature: "receive()".to_owned(),
+                                    args: Vec::new(),
+                                }),
+                            },
+                            ContractFunctionType::Constructor
+                            | ContractFunctionType::Function
+                            | ContractFunctionType::Getter
+                            | ContractFunctionType::Modifier
+                            | ContractFunctionType::FreeFunction => {
+                                let abi = alloy_json_abi::Function::try_from(function.as_ref())?;
+
+                                let args = if let Some(input_data) = calldata.get(SELECTOR_LEN..)
+                                    && let Ok(args) = abi.abi_decode_input(input_data)
+                                {
+                                    args.iter()
+                                        .map(|value| {
+                                            if let DynSolValue::Address(address) = value {
+                                                format!(
+                                                    "{contract_name}: [{address}]",
+                                                    contract_name = contract.name
+                                                )
+                                            } else {
+                                                format_token(&value)
+                                            }
+                                        })
+                                        .collect()
+                                } else {
+                                    Vec::new()
+                                };
+
+                                DecodedCallTrace {
+                                    label,
+                                    return_data: todo!(),
+                                    call_data: Some(DecodedCallData {
+                                        signature: abi.signature(),
+                                        args,
+                                    }),
+                                }
+                            }
+                        }
+                    } else {
+                        DecodedCallTrace {
+                            label,
+                            return_data: todo!(),
+                            call_data: Some(DecodedCallData {
+                                signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
+                                args: if calldata.is_empty() {
+                                    Vec::new()
+                                } else {
+                                    vec![calldata.to_string()]
+                                },
+                            }),
+                        }
+                    }
+                } else {
+                    DecodedCallTrace {
+                        label: Some(UNRECOGNIZED_CONTRACT_NAME.to_string()),
+                        return_data: todo!(),
+                        call_data: if call_trace.data.is_empty() {
+                            None
+                        } else {
+                            Some(DecodedCallData {
+                                signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
+                                args: vec![call_trace.data.to_string()],
+                            })
+                        },
+                    }
+                }
+            };
+
             call_trace.decoded = Some(Box::new(decoded));
-            return;
         }
-
-        let calldata = if call_trace.kind.is_any_create() {
-            None
-        } else {
-            Some(&call_trace.data)
-        };
-
-        // let ContractIdentifierAndFunctionSignature {
-        //     contract_identifier,
-        //     function_signature,
-        // } = self.get_contract_identifier_and_function_signature_for_call(&
-        // code, calldata);
-
-        // call_trace.decoded.
+        Ok(())
     }
+}
 
-    // fn decode_function()
+fn decoded_call_data_for_fallback(calldata: &Bytes) -> DecodedCallData {
+    DecodedCallData {
+        signature: "fallback()".to_owned(),
+        args: if calldata.is_empty() {
+            Vec::new()
+        } else {
+            vec![calldata.to_string()]
+        },
+    }
 }
 
 impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for ContractDecoder {

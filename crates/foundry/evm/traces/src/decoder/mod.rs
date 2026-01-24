@@ -800,7 +800,7 @@ impl CallTraceDecoder {
 /// is ABI-encoded.
 ///
 /// This is a simple heuristic to avoid fetching non ABI-encoded selectors.
-fn is_abi_call_data(data: &[u8]) -> bool {
+pub fn is_abi_call_data(data: &[u8]) -> bool {
     match data.len().cmp(&SELECTOR_LEN) {
         std::cmp::Ordering::Less => false,
         std::cmp::Ordering::Equal => true,

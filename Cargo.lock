@@ -3414,6 +3414,8 @@ dependencies = [
  "edr_artifact",
  "edr_chain_spec",
  "edr_chain_spec_evm",
+ "edr_common",
+ "edr_defaults",
  "edr_eth",
  "edr_primitives",
  "edr_tracing",
