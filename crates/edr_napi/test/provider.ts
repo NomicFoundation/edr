@@ -662,7 +662,7 @@ describe("Provider", () => {
   });
 
   describe("eth_getProof", () => {
-    it("encodes an error within data when in fork mode", async function () {
+    it("encodes an error within data when not supported for fork mode", async function () {
       if (ALCHEMY_URL === undefined) {
         this.skip();
       }
@@ -691,9 +691,9 @@ describe("Provider", () => {
         })
       );
       const responseData = JSON.parse(response.data);
-      assert.equal(
+      assert.include(
         responseData.error.message,
-        "The action `get_proof_on_forked_state` is unsupported. See https://github.com/NomicFoundation/edr/issues/1260"
+        "The action `Proof of locally modified state in fork mode` is unsupported"
       );
     });
 

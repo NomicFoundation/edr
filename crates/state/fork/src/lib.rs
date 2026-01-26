@@ -272,13 +272,19 @@ impl<
 
     fn proof(
         &self,
-        _address: Address,
-        _storage_keys: Vec<StorageKey>,
+        address: Address,
+        storage_keys: Vec<StorageKey>,
     ) -> Result<EIP1186AccountProofResponse, Self::Error> {
-        Err(StateError::Unsupported {
-            action: "get_proof_on_forked_state".into(),
-            details: Some("See https://github.com/NomicFoundation/edr/issues/1260".into()),
-        })
+        if !self.local_state.is_empty() {
+            return Err(StateError::Unsupported {
+                action: "Proof of locally modified state in fork mode".into(),
+                details: Some(
+                    "Obtaining a proof is not supported in fork mode when local changes have been made. E.g. manual changes to an account or a locally mined block.".into(),
+                ),
+            });
+        }
+
+        self.remote_state.lock().proof(address, storage_keys)
     }
 }
 #[cfg(all(test, feature = "test-remote"))]

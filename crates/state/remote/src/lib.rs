@@ -4,12 +4,13 @@ mod cached;
 
 use std::sync::Arc;
 
+use alloy_rpc_types::EIP1186AccountProofResponse;
 use derive_where::derive_where;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock};
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
-use edr_primitives::{Address, Bytecode, B256, KECCAK_EMPTY, U256};
+use edr_primitives::{Address, Bytecode, StorageKey, B256, KECCAK_EMPTY, U256};
 use edr_rpc_eth::client::{EthRpcClient, RpcClientError};
-use edr_state_api::{account::AccountInfo, State, StateError};
+use edr_state_api::{account::AccountInfo, State, StateError, StateProof};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime;
 
@@ -138,6 +139,30 @@ impl<
     }
 }
 
+impl<
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > StateProof for RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
+    type Error = StateError;
+
+    fn proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<StorageKey>,
+    ) -> Result<EIP1186AccountProofResponse, Self::Error> {
+        tokio::task::block_in_place(move || {
+            self.runtime
+                .block_on(self.client.get_proof(
+                    address,
+                    storage_keys,
+                    BlockSpec::Number(self.block_number),
+                ))
+                .map_err(StateError::Remote)
+        })
+    }
+}
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
     use std::str::FromStr;

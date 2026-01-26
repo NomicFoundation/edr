@@ -1,7 +1,10 @@
+use alloy_rpc_types::EIP1186AccountProofResponse;
 use derive_where::derive_where;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock};
-use edr_primitives::{hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
-use edr_state_api::{account::AccountInfo, AccountStorage, State, StateError, StateMut};
+use edr_primitives::{hash_map::Entry, Address, Bytecode, HashMap, StorageKey, B256, U256};
+use edr_state_api::{
+    account::AccountInfo, AccountStorage, State, StateError, StateMut, StateProof,
+};
 use serde::{de::DeserializeOwned, Serialize};
 
 use super::RemoteState;
@@ -132,6 +135,22 @@ impl<
     }
 }
 
+impl<
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > StateProof for CachedRemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
+    type Error = StateError;
+
+    fn proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<StorageKey>,
+    ) -> Result<EIP1186AccountProofResponse, Self::Error> {
+        self.remote.proof(address, storage_keys)
+    }
+}
 /// Fetches an account from the remote state. If it exists, code is split off
 /// and stored separately in the provided cache.
 fn fetch_remote_account<

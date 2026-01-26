@@ -13,7 +13,6 @@ use edr_gas_report::{
 use edr_primitives::HashMap;
 use foundry_evm::{abi::TestFunctionExt, traces::CallKind};
 use serde::{Deserialize, Serialize};
-use yansi::Paint;
 
 use crate::{
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
@@ -48,28 +47,6 @@ impl GasReport {
             ignore,
             ..Default::default()
         }
-    }
-
-    /// Whether the given contract should be reported.
-    #[instrument(level = "trace", skip(self), ret)]
-    fn should_report(&self, contract_name: &str) -> bool {
-        if self.ignore.contains(contract_name) {
-            let contains_anyway = self.report_for.contains(contract_name);
-            if contains_anyway {
-                // If the user listed the contract in 'gas_reports' (the foundry.toml field) a
-                // report for the contract is generated even if it's listed in the ignore
-                // list. This is addressed this way because getting a report you don't expect is
-                // preferable than not getting one you expect. A warning is printed to stderr
-                // indicating the "double listing".
-                eprintln!(
-                    "{}: {} is listed in both 'gas_reports' and 'gas_reports_ignore'.",
-                    "warning".yellow().bold(),
-                    contract_name
-                );
-            }
-            return contains_anyway;
-        }
-        self.report_any || self.report_for.contains(contract_name)
     }
 
     /// Analyzes the given traces and generates a gas report.
