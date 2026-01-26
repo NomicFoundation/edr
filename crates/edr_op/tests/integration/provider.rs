@@ -25,7 +25,7 @@ fn create_op_provider(config: ProviderConfig<OpSpecId>) -> anyhow::Result<Provid
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )
     .map_err(Into::into)

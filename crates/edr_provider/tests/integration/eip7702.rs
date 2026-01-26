@@ -27,6 +27,7 @@ use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
 use k256::SecretKey;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 const CHAIN_ID: u64 = 0x7a69;
@@ -59,7 +60,7 @@ fn new_provider(
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 

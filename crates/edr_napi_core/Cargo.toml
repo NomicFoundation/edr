@@ -6,12 +6,14 @@ edition.workspace = true
 [dependencies]
 ansi_term = { version = "0.12.1", default-features = false }
 derive-where.workspace = true
+edr_artifact.workspace = true
 edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_chain_config.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_evm.workspace = true
+edr_decoder_revert.workspace = true
 edr_eip1559.workspace = true
 edr_eth.workspace = true
 edr_generic.workspace = true

@@ -15,6 +15,7 @@ use alloy_primitives::{Address, Bytes, U256};
 use derive_where::derive_where;
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{
     contract_decoder::SyncNestedTraceDecoder,
     solidity_stack_trace::{get_stack_trace, StackTraceEntry},
@@ -25,7 +26,6 @@ use foundry_evm::{
     abi::{TestFunctionExt, TestFunctionKind},
     constants::{CALLER, LIBRARY_DEPLOYER},
     contracts::{ContractsByAddress, ContractsByArtifact},
-    decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,

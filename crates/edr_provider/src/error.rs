@@ -19,7 +19,7 @@ use edr_chain_spec_evm::{result::ExecutionResult, DatabaseComponentError, Transa
 use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
 use edr_gas_report::GasReportCreationError;
 use edr_mem_pool::MemPoolAddTransactionError;
-use edr_primitives::{hex, Address, Bytes, HashMap, B256, U256};
+use edr_primitives::{hex, Address, Bytes, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
@@ -29,6 +29,7 @@ use edr_solidity::{
 };
 use edr_state_api::StateError;
 use foundry_evm_traces::CallTraceArena;
+use parking_lot::RwLock;
 use serde::Serialize;
 
 use crate::{
@@ -628,7 +629,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         execution_result: &ExecutionResult<HaltReasonT>,
         transaction_hash: Option<&B256>,
         call_trace_arena: &CallTraceArena,
-        contract_decoder: &ContractDecoder,
+        contract_decoder: &RwLock<ContractDecoder>,
     ) -> Option<TransactionFailure<HaltReasonT>> {
         match execution_result {
             ExecutionResult::Success { .. } => None,
@@ -651,7 +652,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         reason: TransactionFailureReason<HaltReasonT>,
         tx_hash: Option<B256>,
         call_trace_arena: &CallTraceArena,
-        contract_decoder: &ContractDecoder,
+        contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
         let stack_trace_result =
             get_stack_trace(contract_decoder, std::iter::once(call_trace_arena))
@@ -671,7 +672,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         output: Bytes,
         transaction_hash: Option<B256>,
         call_trace_arena: &CallTraceArena,
-        contract_decoder: &ContractDecoder,
+        contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
         let stack_trace_result =

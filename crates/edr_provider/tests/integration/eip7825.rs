@@ -17,6 +17,7 @@ use edr_provider::{
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 const TRANSACTION_GAS_CAP: u64 = 50_000;
@@ -38,7 +39,7 @@ fn new_provider(
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 

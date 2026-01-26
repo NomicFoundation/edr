@@ -27,7 +27,7 @@ fn create_isthmus_provider() -> anyhow::Result<Provider<OpChainSpec>> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
     Ok(provider)

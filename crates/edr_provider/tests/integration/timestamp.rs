@@ -11,6 +11,7 @@ use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderRequest, Timestamp,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 struct TimestampFixture {
@@ -33,7 +34,7 @@ impl TimestampFixture {
             logger,
             subscription_callback_noop,
             config.clone(),
-            Arc::<ContractDecoder>::default(),
+            Arc::new(RwLock::<ContractDecoder>::default()),
             mock_timer.clone(),
         )?;
 

@@ -20,6 +20,7 @@ members = [
     "crates/chain/spec/receipt",
     "crates/chain/spec/rpc",
     "crates/database/components",
+    "crates/decoder/revert",
     "crates/edr_chain_l1",
     "crates/edr_chain_spec",
     "crates/edr_common",
@@ -151,6 +152,7 @@ edr_chain_spec_rpc = { path = "crates/chain/spec/rpc" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
 edr_database_components = { path = "crates/database/components" }
+edr_decoder_revert = { path = "crates/decoder/revert" }
 edr_defaults = { path = "crates/edr_defaults" }
 edr_eip1559 = { path = "crates/eips/1559" }
 edr_eip2930 = { path = "crates/eips/2930" }

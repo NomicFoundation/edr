@@ -3,7 +3,7 @@ use std::sync::Arc;
 use edr_chain_spec::{HardforkChainSpec, TransactionValidation};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
 use crate::{
@@ -95,7 +95,7 @@ impl<
             dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
         >,
         config: ProviderConfig<<ChainSpecT as HardforkChainSpec>::Hardfork>,
-        contract_decoder: Arc<ContractDecoder>,
+        contract_decoder: Arc<RwLock<ContractDecoder>>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
         let data = ProviderData::new(

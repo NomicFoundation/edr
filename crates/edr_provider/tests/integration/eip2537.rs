@@ -10,6 +10,7 @@ use edr_provider::{
     ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1ChainSpec>> {
@@ -25,7 +26,7 @@ fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1C
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 

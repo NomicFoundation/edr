@@ -7,6 +7,7 @@ use alloy_primitives::{
     Address, LogData, Selector, B256,
 };
 use edr_common::fmt::format_token;
+use edr_decoder_revert::RevertDecoder;
 use edr_defaults::SELECTOR_LEN;
 use foundry_evm_core::{
     abi::{console, Vm},
@@ -15,7 +16,6 @@ use foundry_evm_core::{
         TEST_CONTRACT_ADDRESS,
     },
     contracts::ContractsByArtifact,
-    decode::RevertDecoder,
     precompiles::{
         BLAKE_2F, EC_ADD, EC_MUL, EC_PAIRING, EC_RECOVER, IDENTITY, MOD_EXP, POINT_EVALUATION,
         RIPEMD_160, SHA_256,
@@ -712,20 +712,8 @@ impl CallTraceDecoder {
     }
 
     /// The default decoded return data for a trace.
-    fn default_return_data(&self, trace: &CallTrace) -> Option<String> {
-        // For calls with status None or successful status, don't decode revert data
-        // This is due to trace.status is derived from the
-        // revm_interpreter::InstructionResult in revm-inspectors status will
-        // `None` post revm 27, as `InstructionResult::Continue` does not exists
-        // anymore.
-        if trace.status.is_none()
-            || trace
-                .status
-                .is_some_and(revm::interpreter::InstructionResult::is_ok)
-        {
-            return None;
-        }
-        (!trace.success).then(|| self.revert_decoder.decode(&trace.output, trace.status))
+    fn default_return_data(&self, call_trace: &CallTrace) -> Option<String> {
+        default_return_data(call_trace, &self.revert_decoder)
     }
 
     /// Decodes an event.
@@ -777,6 +765,26 @@ impl CallTraceDecoder {
         }
         format_token(value)
     }
+}
+
+/// The default decoded return data for a trace.
+pub fn default_return_data(
+    call_trace: &CallTrace,
+    revert_decoder: &RevertDecoder,
+) -> Option<String> {
+    // For calls with status None or successful status, don't decode revert data
+    // This is due to trace.status is derived from the
+    // revm_interpreter::InstructionResult in revm-inspectors status will
+    // `None` post revm 27, as `InstructionResult::Continue` does not exists
+    // anymore.
+    if call_trace.status.is_none()
+        || call_trace
+            .status
+            .is_some_and(revm::interpreter::InstructionResult::is_ok)
+    {
+        return None;
+    }
+    (!call_trace.success).then(|| revert_decoder.decode(&call_trace.output, call_trace.status))
 }
 
 /// Returns `true` if the given function calldata (including function selector)

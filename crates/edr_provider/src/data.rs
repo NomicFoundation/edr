@@ -78,6 +78,7 @@ use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
 use lru::LruCache;
+use parking_lot::RwLock;
 use revm_inspectors::tracing::DebugInspector;
 use rpds::HashTrieMapSync;
 use tokio::runtime;
@@ -246,7 +247,7 @@ pub struct ProviderData<
     block_state_cache: LruCache<StateId, Arc<Box<dyn DynState>>>,
     current_state_id: StateId,
     block_number_to_state_id: HashTrieMapSync<u64, StateId>,
-    contract_decoder: Arc<ContractDecoder>,
+    contract_decoder: Arc<RwLock<ContractDecoder>>,
 }
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
@@ -291,8 +292,8 @@ where
         self.beneficiary
     }
 
-    /// Get the locked contract decoder.
-    pub fn contract_decoder(&self) -> &ContractDecoder {
+    /// Get the contract decoder lock.
+    pub fn contract_decoder(&self) -> &RwLock<ContractDecoder> {
         &self.contract_decoder
     }
 
@@ -627,7 +628,7 @@ where
             dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
         >,
         config: ProviderConfig<ChainSpecT::Hardfork>,
-        contract_decoder: Arc<ContractDecoder>,
+        contract_decoder: Arc<RwLock<ContractDecoder>>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
         let BlockchainAndState {
@@ -1473,6 +1474,8 @@ where
         } = evm_observer.report_and_collect()?;
 
         if let Some(callback) = self.observability.on_collected_gas_report_fn.as_ref() {
+            let mut contract_decoder = self.contract_decoder.write();
+
             let mut report = GasReport::default();
             for (transaction, execution_result) in result
                 .block
@@ -1482,7 +1485,7 @@ where
             {
                 report.add(
                     &result.state,
-                    self.contract_decoder.as_ref(),
+                    &mut contract_decoder,
                     execution_result,
                     transaction.kind(),
                     transaction.data().clone(),
@@ -2246,13 +2249,9 @@ where
                 input,
             }) = gas_report_args
             {
-                let gas_report = GasReport::new(
-                    state,
-                    contract_decoder.as_ref(),
-                    &execution_result,
-                    kind,
-                    input,
-                )?;
+                let mut contract_decoder = contract_decoder.write();
+                let gas_report =
+                    GasReport::new(state, &mut contract_decoder, &execution_result, kind, input)?;
 
                 callback(gas_report).map_err(ProviderError::OnCollectedGasReportCallback)?;
             }

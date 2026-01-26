@@ -15,13 +15,13 @@ use derive_where::derive_where;
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
+use edr_decoder_revert::RevertDecoder;
 use edr_solidity::contract_decoder::SyncNestedTraceDecoder;
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     backend::Predeploy,
     contracts::ContractsByArtifact,
-    decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,

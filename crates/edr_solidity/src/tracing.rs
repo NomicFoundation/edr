@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
+use parking_lot::RwLock;
 use revm_inspectors::tracing::{CallTraceArena, TracingInspector};
 
 use crate::contract_decoder::ContractDecoder;
@@ -16,7 +17,7 @@ use crate::contract_decoder::ContractDecoder;
 /// the traces properly.
 pub struct SolidityTracingInspector {
     address_to_runtime_code: HashMap<Address, Bytes>,
-    decoder: Arc<ContractDecoder>,
+    decoder: Arc<RwLock<ContractDecoder>>,
     inspector: TracingInspector,
 }
 
@@ -34,9 +35,8 @@ impl SolidityTracingInspector {
         let mut arena = self.inspector.into_traces();
 
         for node in arena.nodes_mut() {
-            // self.decoder
-            //     .populate_call_trace(&mut node.trace, code,
-            // precompile_spec_id);
+            self.decoder
+                .populate_call_trace(&mut node.trace, code, precompile_spec_id);
         }
 
         arena
