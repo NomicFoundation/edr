@@ -9,6 +9,7 @@ use std::{
 use alloy_primitives::{map::AddressHashMap, Address, Log};
 use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
+use edr_decoder_revert::cheatcodes::skip::SkipReason;
 pub use foundry_evm::executors::invariant::InvariantMetrics;
 use foundry_evm::{
     coverage::HitMaps,
@@ -16,7 +17,9 @@ use foundry_evm::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
     },
-    executors::{invariant::InvariantFuzzError, stack_trace::SolidityTestStackTraceResult, RawCallResult},
+    executors::{
+        invariant::InvariantFuzzError, stack_trace::SolidityTestStackTraceResult, RawCallResult,
+    },
     fuzz::{CounterExample, FuzzFixtures},
     traces::{CallTraceArena, CallTraceDecoder, TraceKind, Traces},
 };
@@ -25,7 +28,7 @@ use yansi::Paint;
 
 use crate::{
     backend::IndeterminismReasons,
-    decode::{decode_console_logs, SkipReason},
+    decode::decode_console_logs,
     fuzz::{BaseCounterExample, FuzzTestResult, FuzzedCases},
     gas_report::GasReport,
 };

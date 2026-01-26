@@ -10,6 +10,7 @@ use edr_provider::{
     ProviderRequest,
 };
 use edr_solidity::{contract_decoder::ContractDecoder, nested_trace::NestedTrace};
+use parking_lot::RwLock;
 use tokio::runtime;
 
 // Example adapted from
@@ -30,7 +31,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 
@@ -68,7 +69,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 
@@ -116,7 +117,7 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 

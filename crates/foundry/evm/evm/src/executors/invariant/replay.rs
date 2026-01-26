@@ -3,11 +3,11 @@ use std::{collections::HashMap, sync::Arc};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::Log;
 use derive_where::derive_where;
+use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{contract_decoder::NestedTraceDecoder, solidity_stack_trace::get_stack_trace};
 use eyre::Result;
 use foundry_evm_core::{
     contracts::{ContractsByAddress, ContractsByArtifact},
-    decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,

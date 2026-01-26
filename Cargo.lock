@@ -2799,6 +2799,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_decoder_revert"
+version = "0.3.8"
+dependencies = [
+ "alloy-dyn-abi",
+ "alloy-json-abi",
+ "alloy-sol-types",
+ "edr_common",
+ "edr_defaults",
+ "edr_primitives",
+ "foundry-cheatcodes-spec 0.3.8",
+ "itertools 0.12.1",
+ "revm-interpreter",
+]
+
+[[package]]
 name = "edr_defaults"
 version = "0.3.8"
 dependencies = [
@@ -2859,7 +2874,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.12",
- "tokio",
 ]
 
 [[package]]
@@ -3048,12 +3062,14 @@ version = "0.3.8"
 dependencies = [
  "ansi_term",
  "derive-where",
+ "edr_artifact",
  "edr_block_api",
  "edr_block_header",
  "edr_chain_config",
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_chain_spec_evm",
+ "edr_decoder_revert",
  "edr_eip1559",
  "edr_eth",
  "edr_generic",
@@ -3302,7 +3318,6 @@ dependencies = [
 name = "edr_rpc_eth"
 version = "0.3.8"
 dependencies = [
- "alloy-eips",
  "alloy-rpc-types",
  "alloy-serde",
  "anyhow",
@@ -3415,6 +3430,7 @@ dependencies = [
  "edr_chain_spec",
  "edr_chain_spec_evm",
  "edr_common",
+ "edr_decoder_revert",
  "edr_defaults",
  "edr_eth",
  "edr_primitives",
@@ -3452,6 +3468,7 @@ dependencies = [
  "edr_chain_spec",
  "edr_common",
  "edr_coverage",
+ "edr_decoder_revert",
  "edr_defaults",
  "edr_gas_report",
  "edr_primitives",
@@ -4083,6 +4100,7 @@ dependencies = [
  "ecdsa",
  "edr_artifact",
  "edr_common",
+ "edr_decoder_revert",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
  "foundry-cheatcodes-spec 1.5.0",
@@ -4247,6 +4265,7 @@ dependencies = [
  "derive-where",
  "edr_common",
  "edr_coverage",
+ "edr_decoder_revert",
  "edr_solidity",
  "eyre",
  "foundry-cheatcodes",
@@ -4272,7 +4291,6 @@ version = "0.3.8"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
- "alloy-dyn-abi",
  "alloy-genesis",
  "alloy-json-abi",
  "alloy-json-rpc",
@@ -4366,6 +4384,7 @@ dependencies = [
  "alloy-sol-types",
  "edr_artifact",
  "edr_common",
+ "edr_decoder_revert",
  "edr_defaults",
  "eyre",
  "foundry-evm-core",

@@ -8,6 +8,7 @@ edition.workspace = true
 [dependencies]
 edr_artifact.workspace = true
 edr_common.workspace = true
+edr_decoder_revert.workspace = true
 edr_defaults.workspace = true
 foundry-evm-core.workspace = true
 

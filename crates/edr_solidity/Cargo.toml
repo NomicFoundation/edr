@@ -14,6 +14,7 @@ edr_artifact.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_evm.workspace = true
 edr_common.workspace = true
+edr_decoder_revert.workspace = true
 edr_defaults.workspace = true
 edr_eth.workspace = true
 edr_primitives.workspace = true
