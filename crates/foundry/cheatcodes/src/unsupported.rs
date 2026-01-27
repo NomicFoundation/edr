@@ -37,8 +37,8 @@ use crate::{
 /// Macro to implement unsupported cheatcodes that return an error when called.
 ///
 /// Use `pure` for cheatcodes marked as `pure` in the cheatcode spec,
-/// and `non_pure` for all others. This is done for correctness, it does not
-/// affect behavior since the cheatcodes are unsupported.
+/// and `non_pure` for all others. This is done for correctness, it has no
+/// effect since the cheatcodes are unsupported.
 macro_rules! impl_unsupported_cheatcode {
     (pure: $($call_type:ident => $cheatcode_name:literal),* $(,)?) => {
         $(
@@ -74,7 +74,7 @@ macro_rules! impl_unsupported_cheatcode {
                         TransactionErrorT,
                     >,
                 ) -> Result {
-                    bail!(concat!("cheatcode `", $cheatcode_name, "` is not supported"));
+                    bail!(concat!("cheatcode '", $cheatcode_name, "' is not supported"));
                 }
             }
         )*
@@ -113,7 +113,7 @@ macro_rules! impl_unsupported_cheatcode {
                         TransactionErrorT,
                     >,
                 ) -> Result {
-                    bail!(concat!("cheatcode `", $cheatcode_name, "` is not supported"));
+                    bail!(concat!("cheatcode '", $cheatcode_name, "' is not supported"));
                 }
             }
         )*
@@ -141,7 +141,7 @@ impl_unsupported_cheatcode! {
     breakpoint_1Call => "breakpoint(string,bool)",
 }
 
-// Non-pure cheatcodes (view or state-modifying)
+// Non-pure cheatcodes
 impl_unsupported_cheatcode! {
     non_pure:
     // Broadcasting cheatcodes
