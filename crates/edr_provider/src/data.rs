@@ -2815,6 +2815,8 @@ fn create_forked_blockchain_and_state<
     )?);
 
     let mut chain_configs = ChainSpecT::chain_configs().clone();
+    // TODO: what if the user defines a base_fee_params but there is no
+    // chain_overrides?
     for (chain_id, chain_override) in fork_config.chain_overrides.iter() {
         chain_configs
             .entry(*chain_id)
@@ -2836,8 +2838,16 @@ fn create_forked_blockchain_and_state<
     let scheduled_blob_params = chain_configs
         .get(&config.chain_id)
         .and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
+
+    let base_fee_params = config.base_fee_params.clone().unwrap_or_else(|| {
+        chain_configs.get(&config.chain_id).cloned().map_or_else(
+            || ChainSpecT::default_base_fee_params().clone(),
+            |chain_config| chain_config.base_fee_params,
+        )
+    });
+
     let block_config = BlockConfig {
-        base_fee_params: ChainSpecT::default_base_fee_params().clone(),
+        base_fee_params,
         hardfork: config.hardfork,
         min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params,
