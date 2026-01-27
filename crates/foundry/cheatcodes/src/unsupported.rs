@@ -130,10 +130,10 @@ impl_unsupported_cheatcode! {
     deriveKey_3Call => "deriveKey(string,string,uint32,string)",
 
     // EIP-712 cheatcodes
-    eip712HashType_0Call => "eip712HashType(string,string)",
-    eip712HashType_1Call => "eip712HashType(string,string,string)",
-    eip712HashStruct_0Call => "eip712HashStruct(string,string,bytes)",
-    eip712HashStruct_1Call => "eip712HashStruct(string,string,string,bytes)",
+    eip712HashType_0Call => "eip712HashType(string)",
+    eip712HashType_1Call => "eip712HashType(string,string)",
+    eip712HashStruct_0Call => "eip712HashStruct(string,bytes)",
+    eip712HashStruct_1Call => "eip712HashStruct(string,string,bytes)",
     eip712HashTypedDataCall => "eip712HashTypedData(string)",
 
     // Debugger cheatcodes
@@ -156,19 +156,19 @@ impl_unsupported_cheatcode! {
 
     // EIP-7702 delegation cheatcodes
     signDelegation_0Call => "signDelegation(address,uint256)",
-    signDelegation_1Call => "signDelegation(address,uint256,uint256)",
-    signDelegation_2Call => "signDelegation(address,uint256,uint64)",
-    attachDelegation_0Call => "attachDelegation((uint8,bytes32,bytes32,uint64,address))",
-    attachDelegation_1Call => "attachDelegation((uint8,bytes32,bytes32,uint64,address),address)",
+    signDelegation_1Call => "signDelegation(address,uint256,uint64)",
+    signDelegation_2Call => "signDelegation(address,uint256,bool)",
+    attachDelegation_0Call => "attachDelegation(SignedDelegation)",
+    attachDelegation_1Call => "attachDelegation(SignedDelegation,bool)",
     signAndAttachDelegation_0Call => "signAndAttachDelegation(address,uint256)",
-    signAndAttachDelegation_1Call => "signAndAttachDelegation(address,uint256,uint256)",
-    signAndAttachDelegation_2Call => "signAndAttachDelegation(address,uint256,uint64)",
+    signAndAttachDelegation_1Call => "signAndAttachDelegation(address,uint256,uint64)",
+    signAndAttachDelegation_2Call => "signAndAttachDelegation(address,uint256,bool)",
 
     // Blob cheatcodes (EIP-4844)
     attachBlobCall => "attachBlob(bytes)",
 
     // Wallet management cheatcodes
-    getWalletsCall => "getWallets()",
+    getWalletsCall => "getWallets(address[])",
     createWallet_0Call => "createWallet(string)",
     createWallet_1Call => "createWallet(uint256)",
     createWallet_2Call => "createWallet(uint256,string)",
@@ -183,19 +183,19 @@ impl_unsupported_cheatcode! {
     deployCode_1Call => "deployCode(string,bytes)",
     deployCode_2Call => "deployCode(string,uint256)",
     deployCode_3Call => "deployCode(string,bytes,uint256)",
-    deployCode_4Call => "deployCode(string,address)",
-    deployCode_5Call => "deployCode(string,bytes,address)",
-    deployCode_6Call => "deployCode(string,uint256,address)",
-    deployCode_7Call => "deployCode(string,bytes,uint256,address)",
-    getBroadcastCall => "getBroadcast(string,uint64,uint8)",
-    getBroadcasts_0Call => "getBroadcasts(string,uint64)",
-    getBroadcasts_1Call => "getBroadcasts(string,uint64,uint8)",
+    deployCode_4Call => "deployCode(string,bytes32)",
+    deployCode_5Call => "deployCode(string,bytes,bytes32)",
+    deployCode_6Call => "deployCode(string,uint256,bytes32)",
+    deployCode_7Call => "deployCode(string,bytes,uint256,bytes32)",
+    getBroadcastCall => "getBroadcast(string,uint64,BroadcastTxType)",
+    getBroadcasts_0Call => "getBroadcasts(string,uint64,BroadcastTxType)",
+    getBroadcasts_1Call => "getBroadcasts(string,uint64)",
     getDeployment_0Call => "getDeployment(string)",
     getDeployment_1Call => "getDeployment(string,uint64)",
     getDeploymentsCall => "getDeployments(string,uint64)",
 
     // Foundry version cheatcodes
-    foundryVersionAtLeastCall => "foundryVersionAtLeast(uint256,uint256,uint256)",
-    foundryVersionCmpCall => "foundryVersionCmp(uint256,uint256,uint256)",
+    foundryVersionAtLeastCall => "foundryVersionAtLeast(string)",
+    foundryVersionCmpCall => "foundryVersionCmp(string)",
     getFoundryVersionCall => "getFoundryVersion()",
 }
