@@ -2815,8 +2815,6 @@ fn create_forked_blockchain_and_state<
     )?);
 
     let mut chain_configs = ChainSpecT::chain_configs().clone();
-    // TODO: what if the user defines a base_fee_params but there is no
-    // chain_overrides?
     for (chain_id, chain_override) in fork_config.chain_overrides.iter() {
         chain_configs
             .entry(*chain_id)
