@@ -3229,7 +3229,7 @@
     {
       "func": {
         "id": "attachBlob",
-        "description": "Attach an EIP-4844 blob to the next call",
+        "description": "Scripting cheatcodes are not supported.",
         "declaration": "function attachBlob(bytes calldata blob) external;",
         "visibility": "external",
         "mutability": "",
@@ -3249,7 +3249,7 @@
     {
       "func": {
         "id": "attachDelegation_0",
-        "description": "Designate the next call as an EIP-7702 transaction",
+        "description": "EIP-7702 cheatcodes are not supported.",
         "declaration": "function attachDelegation(SignedDelegation calldata signedDelegation) external;",
         "visibility": "external",
         "mutability": "",
@@ -3269,7 +3269,7 @@
     {
       "func": {
         "id": "attachDelegation_1",
-        "description": "Designate the next call as an EIP-7702 transaction, with optional cross-chain validity.",
+        "description": "EIP-7702 cheatcodes are not supported.",
         "declaration": "function attachDelegation(SignedDelegation calldata signedDelegation, bool crossChain) external;",
         "visibility": "external",
         "mutability": "",
@@ -3329,7 +3329,7 @@
     {
       "func": {
         "id": "breakpoint_0",
-        "description": "Writes a breakpoint to jump to in the debugger.",
+        "description": "Debugging cheatcodes are not supported.",
         "declaration": "function breakpoint(string calldata char) external pure;",
         "visibility": "external",
         "mutability": "pure",
@@ -3349,7 +3349,7 @@
     {
       "func": {
         "id": "breakpoint_1",
-        "description": "Writes a conditional breakpoint to jump to in the debugger.",
+        "description": "Debugging cheatcodes are not supported.",
         "declaration": "function breakpoint(string calldata char, bool value) external pure;",
         "visibility": "external",
         "mutability": "pure",
@@ -3369,7 +3369,7 @@
     {
       "func": {
         "id": "broadcastRawTransaction",
-        "description": "Takes a signed transaction and broadcasts it to the network.",
+        "description": "Scripting cheatcodes are not supported.",
         "declaration": "function broadcastRawTransaction(bytes calldata data) external;",
         "visibility": "external",
         "mutability": "",
@@ -3389,7 +3389,7 @@
     {
       "func": {
         "id": "broadcast_0",
-        "description": "Has the next call (at this call depth only) create transactions that can later be signed and sent onchain.\nBroadcasting address is determined by checking the following in order:\n1. If `--sender` argument was provided, that address is used.\n2. If exactly one signer (e.g. private key, hw wallet, keystore) is set when `forge broadcast` is invoked, that signer is used.\n3. Otherwise, default foundry sender (1804c8AB1F12E6bbf3894d4083f33e07309d1f38) is used.",
+        "description": "Scripting cheatcodes are not supported.",
         "declaration": "function broadcast() external;",
         "visibility": "external",
         "mutability": "",
@@ -3409,7 +3409,7 @@
     {
       "func": {
         "id": "broadcast_1",
-        "description": "Has the next call (at this call depth only) create a transaction with the address provided\nas the sender that can later be signed and sent onchain.",
+        "description": "Scripting cheatcodes are not supported.",
         "declaration": "function broadcast(address signer) external;",
         "visibility": "external",
         "mutability": "",
@@ -3429,7 +3429,7 @@
     {
       "func": {
         "id": "broadcast_2",
-        "description": "Has the next call (at this call depth only) create a transaction with the private key\nprovided as the sender that can later be signed and sent onchain.",
+        "description": "Scripting cheatcodes are not supported.",
         "declaration": "function broadcast(uint256 privateKey) external;",
         "visibility": "external",
         "mutability": "",
@@ -3849,7 +3849,7 @@
     {
       "func": {
         "id": "createWallet_0",
-        "description": "Derives a private key from the name, labels the account with that name, and returns the wallet.",
+        "description": "Key management cheatcodes are not supported.",
         "declaration": "function createWallet(string calldata walletLabel) external returns (Wallet memory wallet);",
         "visibility": "external",
         "mutability": "",
@@ -3869,7 +3869,7 @@
     {
       "func": {
         "id": "createWallet_1",
-        "description": "Generates a wallet from the private key and returns the wallet.",
+        "description": "Key management cheatcodes are not supported.",
         "declaration": "function createWallet(uint256 privateKey) external returns (Wallet memory wallet);",
         "visibility": "external",
         "mutability": "",
@@ -3889,7 +3889,7 @@
     {
       "func": {
         "id": "createWallet_2",
-        "description": "Generates a wallet from the private key, labels the account with that name, and returns the wallet.",
+        "description": "Key management cheatcodes are not supported.",
         "declaration": "function createWallet(uint256 privateKey, string calldata walletLabel) external returns (Wallet memory wallet);",
         "visibility": "external",
         "mutability": "",
@@ -4013,7 +4013,7 @@
     {
       "func": {
         "id": "deployCode_0",
-        "description": "Deploys a contract from an artifact file. Takes in the relative path to the json file or the path to the\nartifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function deployCode(string calldata artifactPath) external returns (address deployedAddress);",
         "visibility": "external",
         "mutability": "",
@@ -4033,7 +4033,7 @@
     {
       "func": {
         "id": "deployCode_1",
-        "description": "Deploys a contract from an artifact file. Takes in the relative path to the json file or the path to the\nartifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.\nAdditionally accepts abi-encoded constructor arguments.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function deployCode(string calldata artifactPath, bytes calldata constructorArgs) external returns (address deployedAddress);",
         "visibility": "external",
         "mutability": "",
@@ -4053,7 +4053,7 @@
     {
       "func": {
         "id": "deployCode_2",
-        "description": "Deploys a contract from an artifact file. Takes in the relative path to the json file or the path to the\nartifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.\nAdditionally accepts `msg.value`.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function deployCode(string calldata artifactPath, uint256 value) external returns (address deployedAddress);",
         "visibility": "external",
         "mutability": "",
@@ -4073,7 +4073,7 @@
     {
       "func": {
         "id": "deployCode_3",
-        "description": "Deploys a contract from an artifact file. Takes in the relative path to the json file or the path to the\nartifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.\nAdditionally accepts abi-encoded constructor arguments and `msg.value`.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function deployCode(string calldata artifactPath, bytes calldata constructorArgs, uint256 value) external returns (address deployedAddress);",
         "visibility": "external",
         "mutability": "",
@@ -4093,7 +4093,7 @@
     {
       "func": {
         "id": "deployCode_4",
-        "description": "Deploys a contract from an artifact file, using the CREATE2 salt. Takes in the relative path to the json file or the path to the\nartifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function deployCode(string calldata artifactPath, bytes32 salt) external returns (address deployedAddress);",
         "visibility": "external",
         "mutability": "",
@@ -4113,7 +4113,7 @@
     {
       "func": {
         "id": "deployCode_5",
-        "description": "Deploys a contract from an artifact file, using the CREATE2 salt. Takes in the relative path to the json file or the path to the\nartifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.\nAdditionally accepts abi-encoded constructor arguments.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function deployCode(string calldata artifactPath, bytes calldata constructorArgs, bytes32 salt) external returns (address deployedAddress);",
         "visibility": "external",
         "mutability": "",
@@ -4133,7 +4133,7 @@
     {
       "func": {
         "id": "deployCode_6",
-        "description": "Deploys a contract from an artifact file, using the CREATE2 salt. Takes in the relative path to the json file or the path to the\nartifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.\nAdditionally accepts `msg.value`.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function deployCode(string calldata artifactPath, uint256 value, bytes32 salt) external returns (address deployedAddress);",
         "visibility": "external",
         "mutability": "",
@@ -4153,7 +4153,7 @@
     {
       "func": {
         "id": "deployCode_7",
-        "description": "Deploys a contract from an artifact file, using the CREATE2 salt. Takes in the relative path to the json file or the path to the\nartifact in the form of <path>:<contract>:<version> where <contract> and <version> parts are optional.\nAdditionally accepts abi-encoded constructor arguments and `msg.value`.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function deployCode(string calldata artifactPath, bytes calldata constructorArgs, uint256 value, bytes32 salt) external returns (address deployedAddress);",
         "visibility": "external",
         "mutability": "",
@@ -4173,7 +4173,7 @@
     {
       "func": {
         "id": "deriveKey_0",
-        "description": "Derive a private key from a provided mnemonic string (or mnemonic file path)\nat the derivation path `m/44'/60'/0'/0/{index}`.",
+        "description": "Key management cheatcodes are not supported.",
         "declaration": "function deriveKey(string calldata mnemonic, uint32 index) external pure returns (uint256 privateKey);",
         "visibility": "external",
         "mutability": "pure",
@@ -4193,7 +4193,7 @@
     {
       "func": {
         "id": "deriveKey_1",
-        "description": "Derive a private key from a provided mnemonic string (or mnemonic file path)\nat `{derivationPath}{index}`.",
+        "description": "Key management cheatcodes are not supported.",
         "declaration": "function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index) external pure returns (uint256 privateKey);",
         "visibility": "external",
         "mutability": "pure",
@@ -4293,7 +4293,7 @@
     {
       "func": {
         "id": "eip712HashStruct_0",
-        "description": "Generates the struct hash of the canonical EIP-712 type representation and its abi-encoded data.\nSupports 2 different inputs:\n 1. Name of the type (i.e. \"PermitSingle\"):\n    * requires previous binding generation with `forge bind-json`.\n    * bindings will be retrieved from the path configured in `foundry.toml`.\n 2. String representation of the type (i.e. \"Foo(Bar bar) Bar(uint256 baz)\").\n    * Note: the cheatcode will use the canonical type even if the input is malformated\n            with the wrong order of elements or with extra whitespaces.",
+        "description": "EIP-712 cheatcodes are not supported.",
         "declaration": "function eip712HashStruct(string calldata typeNameOrDefinition, bytes calldata abiEncodedData) external pure returns (bytes32 typeHash);",
         "visibility": "external",
         "mutability": "pure",
@@ -4313,7 +4313,7 @@
     {
       "func": {
         "id": "eip712HashStruct_1",
-        "description": "Generates the struct hash of the canonical EIP-712 type representation and its abi-encoded data.\nRequires previous binding generation with `forge bind-json`.\nParams:\n * `bindingsPath`: path where the output of `forge bind-json` is stored.\n * `typeName`: Name of the type (i.e. \"PermitSingle\").\n * `abiEncodedData`: ABI-encoded data for the struct that is being hashed.",
+        "description": "EIP-712 cheatcodes are not supported.",
         "declaration": "function eip712HashStruct(string calldata bindingsPath, string calldata typeName, bytes calldata abiEncodedData) external pure returns (bytes32 typeHash);",
         "visibility": "external",
         "mutability": "pure",
@@ -4333,7 +4333,7 @@
     {
       "func": {
         "id": "eip712HashType_0",
-        "description": "Generates the hash of the canonical EIP-712 type representation.\nSupports 2 different inputs:\n 1. Name of the type (i.e. \"Transaction\"):\n    * requires previous binding generation with `forge bind-json`.\n    * bindings will be retrieved from the path configured in `foundry.toml`.\n 2. String representation of the type (i.e. \"Foo(Bar bar) Bar(uint256 baz)\").\n    * Note: the cheatcode will output the canonical type even if the input is malformated\n            with the wrong order of elements or with extra whitespaces.",
+        "description": "EIP-712 cheatcodes are not supported.",
         "declaration": "function eip712HashType(string calldata typeNameOrDefinition) external pure returns (bytes32 typeHash);",
         "visibility": "external",
         "mutability": "pure",
@@ -4353,7 +4353,7 @@
     {
       "func": {
         "id": "eip712HashType_1",
-        "description": "Generates the hash of the canonical EIP-712 type representation.\nRequires previous binding generation with `forge bind-json`.\nParams:\n * `bindingsPath`: path where the output of `forge bind-json` is stored.\n * `typeName`: Name of the type (i.e. \"Transaction\").",
+        "description": "EIP-712 cheatcodes are not supported.",
         "declaration": "function eip712HashType(string calldata bindingsPath, string calldata typeName) external pure returns (bytes32 typeHash);",
         "visibility": "external",
         "mutability": "pure",
@@ -4373,7 +4373,7 @@
     {
       "func": {
         "id": "eip712HashTypedData",
-        "description": "Generates a ready-to-sign digest of human-readable typed data following the EIP-712 standard.",
+        "description": "EIP-712 cheatcodes are not supported.",
         "declaration": "function eip712HashTypedData(string calldata jsonData) external pure returns (bytes32 digest);",
         "visibility": "external",
         "mutability": "pure",
@@ -5853,7 +5853,7 @@
     {
       "func": {
         "id": "foundryVersionAtLeast",
-        "description": "Returns true if the current Foundry version is greater than or equal to the given version.\nThe given version string must be in the format `major.minor.patch`.\nThis is equivalent to `foundryVersionCmp(version) >= 0`.",
+        "description": "Foundry-specific version cheatcodes are not supported.",
         "declaration": "function foundryVersionAtLeast(string calldata version) external view returns (bool);",
         "visibility": "external",
         "mutability": "view",
@@ -5873,7 +5873,7 @@
     {
       "func": {
         "id": "foundryVersionCmp",
-        "description": "Compares the current Foundry version with the given version string.\nThe given version string must be in the format `major.minor.patch`.\nReturns:\n-1 if current Foundry version is less than the given version\n0 if current Foundry version equals the given version\n1 if current Foundry version is greater than the given version\nThis result can then be used with a comparison operator against `0`.\nFor example, to check if the current Foundry version is greater than or equal to `1.0.0`:\n`if (foundryVersionCmp(\"1.0.0\") >= 0) { ... }`",
+        "description": "Foundry-specific version cheatcodes are not supported.",
         "declaration": "function foundryVersionCmp(string calldata version) external view returns (int256);",
         "visibility": "external",
         "mutability": "view",
@@ -5913,7 +5913,7 @@
     {
       "func": {
         "id": "getArtifactPathByCode",
-        "description": "Gets the artifact path from code (aka. creation code).",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function getArtifactPathByCode(bytes calldata code) external view returns (string memory path);",
         "visibility": "external",
         "mutability": "view",
@@ -5933,7 +5933,7 @@
     {
       "func": {
         "id": "getArtifactPathByDeployedCode",
-        "description": "Gets the artifact path from deployed code (aka. runtime code).",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function getArtifactPathByDeployedCode(bytes calldata deployedCode) external view returns (string memory path);",
         "visibility": "external",
         "mutability": "view",
@@ -6033,7 +6033,7 @@
     {
       "func": {
         "id": "getBroadcast",
-        "description": "Returns the most recent broadcast for the given contract on `chainId` matching `txType`.\nFor example:\nThe most recent deployment can be fetched by passing `txType` as `CREATE` or `CREATE2`.\nThe most recent call can be fetched by passing `txType` as `CALL`.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function getBroadcast(string calldata contractName, uint64 chainId, BroadcastTxType txType) external view returns (BroadcastTxSummary memory);",
         "visibility": "external",
         "mutability": "view",
@@ -6053,7 +6053,7 @@
     {
       "func": {
         "id": "getBroadcasts_0",
-        "description": "Returns all broadcasts for the given contract on `chainId` with the specified `txType`.\nSorted such that the most recent broadcast is the first element, and the oldest is the last. i.e descending order of BroadcastTxSummary.blockNumber.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function getBroadcasts(string calldata contractName, uint64 chainId, BroadcastTxType txType) external view returns (BroadcastTxSummary[] memory);",
         "visibility": "external",
         "mutability": "view",
@@ -6073,7 +6073,7 @@
     {
       "func": {
         "id": "getBroadcasts_1",
-        "description": "Returns all broadcasts for the given contract on `chainId`.\nSorted such that the most recent broadcast is the first element, and the oldest is the last. i.e descending order of BroadcastTxSummary.blockNumber.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function getBroadcasts(string calldata contractName, uint64 chainId) external view returns (BroadcastTxSummary[] memory);",
         "visibility": "external",
         "mutability": "view",
@@ -6173,7 +6173,7 @@
     {
       "func": {
         "id": "getDeployment_0",
-        "description": "Returns the most recent deployment for the current `chainId`.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function getDeployment(string calldata contractName) external view returns (address deployedAddress);",
         "visibility": "external",
         "mutability": "view",
@@ -6193,7 +6193,7 @@
     {
       "func": {
         "id": "getDeployment_1",
-        "description": "Returns the most recent deployment for the given contract on `chainId`",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function getDeployment(string calldata contractName, uint64 chainId) external view returns (address deployedAddress);",
         "visibility": "external",
         "mutability": "view",
@@ -6213,7 +6213,7 @@
     {
       "func": {
         "id": "getDeployments",
-        "description": "Returns all deployments for the given contract on `chainId`\nSorted in descending order of deployment time i.e descending order of BroadcastTxSummary.blockNumber.\nThe most recent deployment is the first element, and the oldest is the last.",
+        "description": "Contract deployment cheatcodes are not supported.",
         "declaration": "function getDeployments(string calldata contractName, uint64 chainId) external view returns (address[] memory deployedAddresses);",
         "visibility": "external",
         "mutability": "view",
@@ -6233,7 +6233,7 @@
     {
       "func": {
         "id": "getFoundryVersion",
-        "description": "Returns the Foundry version.\nFormat: <cargo_version>-<tag>+<git_sha_short>.<unix_build_timestamp>.<profile>\nSample output: 0.3.0-nightly+3cb96bde9b.1737036656.debug\nNote: Build timestamps may vary slightly across platforms due to separate CI jobs.\nFor reliable version comparisons, use UNIX format (e.g., >= 1700000000)\nto compare timestamps while ignoring minor time differences.",
+        "description": "Foundry-specific version cheatcodes are not supported.",
         "declaration": "function getFoundryVersion() external view returns (string memory version);",
         "visibility": "external",
         "mutability": "view",
@@ -6433,7 +6433,7 @@
     {
       "func": {
         "id": "getWallets",
-        "description": "Returns addresses of available unlocked wallets in the script environment.",
+        "description": "Scripting cheatcodes are not supported.",
         "declaration": "function getWallets() external returns (address[] memory wallets);",
         "visibility": "external",
         "mutability": "",
@@ -8675,7 +8675,7 @@
     {
       "func": {
         "id": "rememberKeys_0",
-        "description": "Derive a set number of wallets from a mnemonic at the derivation path `m/44'/60'/0'/0/{0..count}`.\nThe respective private keys are saved to the local forge wallet for later use and their addresses are returned.",
+        "description": "Key management cheatcodes are not supported.",
         "declaration": "function rememberKeys(string calldata mnemonic, string calldata derivationPath, uint32 count) external returns (address[] memory keyAddrs);",
         "visibility": "external",
         "mutability": "",
@@ -8695,7 +8695,7 @@
     {
       "func": {
         "id": "rememberKeys_1",
-        "description": "Derive a set number of wallets from a mnemonic in the specified language at the derivation path `m/44'/60'/0'/0/{0..count}`.\nThe respective private keys are saved to the local forge wallet for later use and their addresses are returned.",
+        "description": "Key management cheatcodes are not supported.",
         "declaration": "function rememberKeys(string calldata mnemonic, string calldata derivationPath, string calldata language, uint32 count) external returns (address[] memory keyAddrs);",
         "visibility": "external",
         "mutability": "",
@@ -9739,7 +9739,7 @@
     {
       "func": {
         "id": "signAndAttachDelegation_0",
-        "description": "Sign an EIP-7702 authorization and designate the next call as an EIP-7702 transaction",
+        "description": "EIP-7702 cheatcodes are not supported.",
         "declaration": "function signAndAttachDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9759,7 +9759,7 @@
     {
       "func": {
         "id": "signAndAttachDelegation_1",
-        "description": "Sign an EIP-7702 authorization and designate the next call as an EIP-7702 transaction for specific nonce",
+        "description": "EIP-7702 cheatcodes are not supported.",
         "declaration": "function signAndAttachDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9779,7 +9779,7 @@
     {
       "func": {
         "id": "signAndAttachDelegation_2",
-        "description": "Sign an EIP-7702 authorization and designate the next call as an EIP-7702 transaction, with optional cross-chain validity.",
+        "description": "EIP-7702 cheatcodes are not supported.",
         "declaration": "function signAndAttachDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9819,7 +9819,7 @@
     {
       "func": {
         "id": "signDelegation_0",
-        "description": "Sign an EIP-7702 authorization for delegation",
+        "description": "EIP-7702 cheatcodes are not supported.",
         "declaration": "function signDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9839,7 +9839,7 @@
     {
       "func": {
         "id": "signDelegation_1",
-        "description": "Sign an EIP-7702 authorization for delegation for specific nonce",
+        "description": "EIP-7702 cheatcodes are not supported.",
         "declaration": "function signDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -9859,7 +9859,7 @@
     {
       "func": {
         "id": "signDelegation_2",
-        "description": "Sign an EIP-7702 authorization for delegation, with optional cross-chain validity.",
+        "description": "EIP-7702 cheatcodes are not supported.",
         "declaration": "function signDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);",
         "visibility": "external",
         "mutability": "",
@@ -10121,7 +10121,7 @@
     {
       "func": {
         "id": "startBroadcast_0",
-        "description": "Has all subsequent calls (at this call depth only) create transactions that can later be signed and sent onchain.\nBroadcasting address is determined by checking the following in order:\n1. If `--sender` argument was provided, that address is used.\n2. If exactly one signer (e.g. private key, hw wallet, keystore) is set when `forge broadcast` is invoked, that signer is used.\n3. Otherwise, default foundry sender (1804c8AB1F12E6bbf3894d4083f33e07309d1f38) is used.",
+        "description": "Scripting cheatcodes are not supported.",
         "declaration": "function startBroadcast() external;",
         "visibility": "external",
         "mutability": "",
@@ -10141,7 +10141,7 @@
     {
       "func": {
         "id": "startBroadcast_1",
-        "description": "Has all subsequent calls (at this call depth only) create transactions with the address\nprovided that can later be signed and sent onchain.",
+        "description": "Scripting cheatcodes are not supported.",
         "declaration": "function startBroadcast(address signer) external;",
         "visibility": "external",
         "mutability": "",
@@ -10161,7 +10161,7 @@
     {
       "func": {
         "id": "startBroadcast_2",
-        "description": "Has all subsequent calls (at this call depth only) create transactions with the private key\nprovided that can later be signed and sent onchain.",
+        "description": "Scripting cheatcodes are not supported.",
         "declaration": "function startBroadcast(uint256 privateKey) external;",
         "visibility": "external",
         "mutability": "",
@@ -10401,7 +10401,7 @@
     {
       "func": {
         "id": "stopBroadcast",
-        "description": "Stops collecting onchain transactions.",
+        "description": "Scripting cheatcodes are not supported.",
         "declaration": "function stopBroadcast() external;",
         "visibility": "external",
         "mutability": "",
