@@ -175,6 +175,53 @@ mod base_fee_params {
         }
 
         #[tokio::test(flavor = "multi_thread")]
+        async fn multiple_custom_base_fee_params() -> anyhow::Result<()> {
+            let mut config = create_test_config();
+            config.hardfork = Hardfork::HOLOCENE;
+            config.base_fee_params = Some(BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
+                (
+                    BaseFeeActivation::BlockNumber(0),
+                    ConstantBaseFeeParams {
+                        max_change_denominator: 300,
+                        elasticity_multiplier: 6,
+                    },
+                ),
+                (
+                    BaseFeeActivation::BlockNumber(3),
+                    ConstantBaseFeeParams {
+                        max_change_denominator: 200,
+                        elasticity_multiplier: 2,
+                    },
+                ),
+            ])));
+
+            let provider = create_op_provider(config)?;
+
+            trigger_mining_block(&provider)?;
+            let block = latest_block(&provider)?;
+            assert_eq!(block.number, Some(1));
+            let block_base_fee_params = edr_op::block::decode_base_params(&block.extra_data);
+
+            // assert that the block was built using the given configuration values
+            assert_eq!(block_base_fee_params.max_change_denominator, 300);
+            assert_eq!(block_base_fee_params.elasticity_multiplier, 6);
+
+            trigger_mining_block(&provider)?;
+
+            let block = latest_block(&provider)?;
+            assert_eq!(block.number, Some(2));
+            let block_base_fee_params = edr_op::block::decode_base_params(&block.extra_data);
+
+            // Header extra_data encodes base_fee_params values needed for calculating next
+            // block. As this is the block number 2, and we configured new
+            // values from block 3, this block header should alredy encode the
+            // new values
+            assert_eq!(block_base_fee_params.max_change_denominator, 200);
+            assert_eq!(block_base_fee_params.elasticity_multiplier, 2);
+            Ok(())
+        }
+
+        #[tokio::test(flavor = "multi_thread")]
         async fn provider_uses_chain_default_base_fee_params() -> anyhow::Result<()> {
             let mut config = create_test_config();
             config.hardfork = Hardfork::ISTHMUS;
@@ -189,7 +236,7 @@ mod base_fee_params {
 
             // Defaults to CANYON values since when creating a new local blockchain block
             // number will be 0, so the dynamic configs won't apply yet, and EDR
-            // will fallback to the first Hardfork-defined params
+            // will fallback to the most recent Hardfork-defined params
             assert_eq!(block_base_fee_params.max_change_denominator, 250);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 6);
             Ok(())
@@ -238,6 +285,61 @@ mod base_fee_params {
         }
 
         #[tokio::test(flavor = "multi_thread")]
+        async fn multiple_custom_base_fee_params() -> anyhow::Result<()> {
+            let fork_block_number = 135_513_416;
+            let mut config =
+                create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
+                    block_number: Some(fork_block_number),
+                    cache_dir: edr_defaults::CACHE_DIR.into(),
+                    chain_overrides: HashMap::default(),
+                    http_headers: None,
+                    url: json_rpc_url_provider::op_mainnet(),
+                }));
+            config.hardfork = Hardfork::ISTHMUS;
+            config.base_fee_params = Some(BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
+                (
+                    BaseFeeActivation::BlockNumber(fork_block_number),
+                    ConstantBaseFeeParams {
+                        max_change_denominator: 300,
+                        elasticity_multiplier: 6,
+                    },
+                ),
+                (
+                    BaseFeeActivation::BlockNumber(fork_block_number + 3),
+                    ConstantBaseFeeParams {
+                        max_change_denominator: 200,
+                        elasticity_multiplier: 2,
+                    },
+                ),
+            ])));
+
+            let provider = create_op_provider(config)?;
+
+            trigger_mining_block(&provider)?;
+            let block = latest_block(&provider)?;
+            assert_eq!(block.number, Some(fork_block_number + 1));
+            let block_base_fee_params = edr_op::block::decode_base_params(&block.extra_data);
+
+            // assert that the block was built using the first configuration values
+            assert_eq!(block_base_fee_params.max_change_denominator, 300);
+            assert_eq!(block_base_fee_params.elasticity_multiplier, 6);
+
+            trigger_mining_block(&provider)?;
+
+            let block = latest_block(&provider)?;
+            assert_eq!(block.number, Some(fork_block_number + 2));
+            let block_base_fee_params = edr_op::block::decode_base_params(&block.extra_data);
+
+            // Header extra_data encodes base_fee_params values needed for calculating next
+            // block. As this is the block number `fork_block_number + 2`, and
+            // we configured new values from block `fork_block_number + 3`, this
+            // block header should alredy encode the new values
+            assert_eq!(block_base_fee_params.max_change_denominator, 200);
+            assert_eq!(block_base_fee_params.elasticity_multiplier, 2);
+            Ok(())
+        }
+
+        #[tokio::test(flavor = "multi_thread")]
         async fn provider_uses_chain_default_base_fee_params() -> anyhow::Result<()> {
             let first_dynamic_base_fee_activation = 135_513_416;
             let mut config =
@@ -266,7 +368,4 @@ mod base_fee_params {
             Ok(())
         }
     }
-
-    // TODO: add tests that validate that multiple base fee param activations
-    // can be set and will be respected
 }
