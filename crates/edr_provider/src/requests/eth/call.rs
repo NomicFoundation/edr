@@ -34,15 +34,11 @@ pub fn handle_call_request<
     let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
     let result = data.run_call(transaction.clone(), &block_spec, &state_overrides)?;
 
-    let hardfork = data.hardfork();
-    data.logger_mut()
-        .log_call(hardfork, &transaction, &result)
-        .map_err(ProviderError::Logger)?;
-
     if data.bail_on_call_failure()
         && let Some(failure) = TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
             &result.execution_result,
             None,
+            &result.address_to_executed_code,
             &result.call_trace_arena,
             data.contract_decoder(),
         )

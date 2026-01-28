@@ -19,7 +19,7 @@ use edr_chain_spec_evm::{result::ExecutionResult, DatabaseComponentError, Transa
 use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
 use edr_gas_report::GasReportCreationError;
 use edr_mem_pool::MemPoolAddTransactionError;
-use edr_primitives::{hex, Address, Bytes, B256, U256};
+use edr_primitives::{hex, Address, Bytes, HashSet, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
@@ -101,6 +101,11 @@ pub enum ProviderError<
     HardforkT: Debug,
     TransactionValidationErrorT,
 > {
+    // TODO: This error should be caught when we originally parse the contract ABIs. Once we do
+    // that, this variant should be removed from the enum.
+    /// An error occurred while ABI decoding the traces due to invalid input.
+    #[error(transparent)]
+    AbiDecoding(serde_json::Error),
     /// Account override conversion error.
     #[error(transparent)]
     AccountOverrideConversionError(#[from] AccountOverrideConversionError),
@@ -418,6 +423,7 @@ impl<
 {
     fn from(value: EvmObserverCollectionError) -> Self {
         match value {
+            EvmObserverCollectionError::AbiDecoding(error) => Self::AbiDecoding(error),
             EvmObserverCollectionError::OnCollectedCoverageCallback(error) => {
                 Self::OnCollectedCoverageCallback(error)
             }
@@ -475,6 +481,7 @@ impl<
     ) -> Self {
         #[allow(clippy::match_same_arms)]
         let code = match &value {
+            ProviderError::AbiDecoding(_) => INTERNAL_ERROR,
             ProviderError::AccountOverrideConversionError(_) => INVALID_INPUT,
             ProviderError::AutoMineGasPriceTooLow { .. } => INVALID_INPUT,
             ProviderError::AutoMineMaxFeePerBlobGasTooLow { .. } => INVALID_INPUT,
@@ -561,7 +568,11 @@ impl<
 /// Failure that occurred while estimating gas.
 #[derive(Debug, thiserror::Error)]
 pub struct EstimateGasFailure<HaltReasonT: HaltReasonTrait> {
+    /// Mapping of contract address to executed bytecode
+    pub address_to_executed_code: HashMap<Address, Bytes>,
     pub encoded_console_logs: Vec<Bytes>,
+    /// The set of precompile addresses that were available during execution.
+    pub precompile_addresses: HashSet<Address>,
     pub transaction_failure: TransactionFailureWithCallTrace<HaltReasonT>,
 }
 
@@ -628,6 +639,7 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     >(
         execution_result: &ExecutionResult<HaltReasonT>,
         transaction_hash: Option<&B256>,
+        address_to_executed_code: &HashMap<Address, Bytes>,
         call_trace_arena: &CallTraceArena,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Option<TransactionFailure<HaltReasonT>> {
@@ -636,12 +648,14 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
             ExecutionResult::Revert { output, .. } => Some(TransactionFailure::revert(
                 output.clone(),
                 transaction_hash.copied(),
+                address_to_executed_code,
                 call_trace_arena,
                 contract_decoder,
             )),
             ExecutionResult::Halt { reason, .. } => Some(TransactionFailure::halt(
                 NewChainSpecT::cast_halt_reason(reason.clone()),
                 transaction_hash.copied(),
+                address_to_executed_code,
                 call_trace_arena,
                 contract_decoder,
             )),
@@ -651,14 +665,18 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn halt(
         reason: TransactionFailureReason<HaltReasonT>,
         tx_hash: Option<B256>,
+        address_to_executed_code: &HashMap<Address, Bytes>,
         call_trace_arena: &CallTraceArena,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
-        let stack_trace_result =
-            get_stack_trace(contract_decoder, std::iter::once(call_trace_arena))
-                .transpose()
-                .expect("Contains a single call trace arena")
-                .into();
+        let stack_trace_result = get_stack_trace(
+            contract_decoder,
+            std::iter::once(call_trace_arena),
+            Some(address_to_executed_code),
+        )
+        .transpose()
+        .expect("Contains a single call trace arena")
+        .into();
 
         Self {
             reason,
@@ -671,15 +689,19 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn revert(
         output: Bytes,
         transaction_hash: Option<B256>,
+        address_to_executed_code: &HashMap<Address, Bytes>,
         call_trace_arena: &CallTraceArena,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
-        let stack_trace_result =
-            get_stack_trace(contract_decoder, std::iter::once(call_trace_arena))
-                .transpose()
-                .expect("Contains a single call trace arena")
-                .into();
+        let stack_trace_result = get_stack_trace(
+            contract_decoder,
+            std::iter::once(call_trace_arena),
+            Some(address_to_executed_code),
+        )
+        .transpose()
+        .expect("Contains a single call trace arena")
+        .into();
 
         Self {
             reason: TransactionFailureReason::Revert(output),

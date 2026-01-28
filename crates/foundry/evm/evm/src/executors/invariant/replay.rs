@@ -171,18 +171,19 @@ pub fn replay_run<
             .is_some_and(InstructionResult::is_ok)
             && (fail_on_revert || !call_result.reverted)
         {
-            let stack_trace_result =
-                if let Some(indeterminism_reasons) = call_result.indeterminism_reasons {
-                    Some(indeterminism_reasons.into())
-                } else {
-                    contract_decoder
-                        .and_then(|decoder| {
-                            get_stack_trace(decoder, traces.iter().map(|(_, arena)| &arena.arena))
-                                .map_err(SolidityTestStackTraceError::from)
-                                .transpose()
-                        })
-                        .map(SolidityTestStackTraceResult::from)
-                };
+            let stack_trace_result = if let Some(indeterminism_reasons) =
+                call_result.indeterminism_reasons
+            {
+                Some(indeterminism_reasons.into())
+            } else {
+                contract_decoder
+                    .and_then(|decoder| {
+                        get_stack_trace(decoder, traces.iter().map(|(_, arena)| &arena.arena), None)
+                            .map_err(SolidityTestStackTraceError::from)
+                            .transpose()
+                    })
+                    .map(SolidityTestStackTraceResult::from)
+            };
             let revert_reason =
                 revert_decoder.maybe_decode(call_result.result.as_ref(), call_result.exit_reason);
             return Ok(ReplayResult {
@@ -243,10 +244,14 @@ pub fn replay_run<
                     .map(SolidityTestStackTraceResult::from)
                     .or_else(|| {
                         contract_decoder.and_then(|decoder| {
-                            get_stack_trace(decoder, traces.iter().map(|(_, arena)| &arena.arena))
-                                .map_err(SolidityTestStackTraceError::from)
-                                .transpose()
-                                .map(SolidityTestStackTraceResult::from)
+                            get_stack_trace(
+                                decoder,
+                                traces.iter().map(|(_, arena)| &arena.arena),
+                                None,
+                            )
+                            .map_err(SolidityTestStackTraceError::from)
+                            .transpose()
+                            .map(SolidityTestStackTraceResult::from)
                         })
                     })
             })

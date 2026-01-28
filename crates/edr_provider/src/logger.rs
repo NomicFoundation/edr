@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
+use edr_primitives::HashSet;
 
 use crate::{
     data::CallResult,
@@ -20,61 +21,60 @@ pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoc
 
     fn log_call(
         &mut self,
-        hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::SignedTransaction,
         result: &CallResult<ChainSpecT::HaltReason>,
+        precompile_addresses: &HashSet<Address>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _hardfork = hardfork;
         let _transaction = transaction;
         let _result = result;
+        let _precompile_addresses = precompile_addresses;
 
         Ok(())
     }
 
     fn log_estimate_gas_failure(
         &mut self,
-        hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::SignedTransaction,
         result: &EstimateGasFailure<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _hardfork = hardfork;
         let _transaction = transaction;
         let _failure = result;
+        let _precompile_addresses = precompile_addresses;
 
         Ok(())
     }
 
     fn log_interval_mined(
         &mut self,
-        hardfork: ChainSpecT::Hardfork,
         result: &DebugMineBlockResultForChainSpec<ChainSpecT>,
+        precompile_addresses: &HashSet<Address>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _hardfork = hardfork;
         let _result = result;
+        let _precompile_addresses = precompile_addresses;
 
         Ok(())
     }
 
     fn log_mined_block(
         &mut self,
-        hardfork: ChainSpecT::Hardfork,
         results: &[DebugMineBlockResultForChainSpec<ChainSpecT>],
+        precompile_addresses: &HashSet<Address>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _hardfork = hardfork;
         let _results = results;
+        let _precompile_addresses = precompile_addresses;
 
         Ok(())
     }
 
     fn log_send_transaction(
         &mut self,
-        hardfork: ChainSpecT::Hardfork,
         transaction: &ChainSpecT::SignedTransaction,
         mining_results: &[DebugMineBlockResultForChainSpec<ChainSpecT>],
+        precompile_addresses: &HashSet<Address>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let _hardfork = hardfork;
         let _transaction = transaction;
         let _mining_results = mining_results;
+        let _precompile_addresses = precompile_addresses;
 
         Ok(())
     }

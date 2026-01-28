@@ -40,7 +40,7 @@ pub fn handle_estimate_gas<
     let result = data.estimate_gas(transaction.clone(), &block_spec);
     if let Err(ProviderError::EstimateGasTransactionFailure(failure)) = result {
         data.logger_mut()
-            .log_estimate_gas_failure(hardfork, &transaction, &failure)
+            .log_estimate_gas_failure(&transaction, &failure)
             .map_err(ProviderError::Logger)?;
 
         Err(ProviderError::TransactionFailed(Box::new(

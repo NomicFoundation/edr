@@ -23,6 +23,7 @@ use edr_chain_spec_evm::{
 };
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_evm::{dry_run, dry_run_with_inspector};
+use edr_precompile::OverriddenPrecompileProvider;
 use edr_primitives::{Address, Bloom, HashMap, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
@@ -43,7 +44,7 @@ pub struct EthBlockBuilder<
     'builder,
     BlockReceiptT,
     BlockT: ?Sized,
-    BlockchainErrorT: Debug,
+    BlockchainErrorT: Debug + std::error::Error,
     EvmChainSpecT: EvmChainSpec,
     ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
         EvmChainSpecT::HaltReason,
@@ -67,20 +68,54 @@ pub struct EthBlockBuilder<
     context: EvmChainSpecT::Context,
     header: PartialHeader,
     parent_gas_limit: Option<u64>,
+    precompile_provider: OverriddenPrecompileProvider<
+        EvmChainSpecT::PrecompileProvider<
+            HeaderAndEvmSpec<'builder, PartialHeader, EvmChainSpecT::Hardfork>,
+            WrapDatabaseRef<
+                DatabaseComponents<
+                    &'builder dyn Blockchain<
+                        BlockReceiptT,
+                        BlockT,
+                        BlockchainErrorT,
+                        EvmChainSpecT::Hardfork,
+                        LocalBlockT,
+                        EvmChainSpecT::SignedTransaction,
+                    >,
+                    &'builder dyn DynState,
+                >,
+            >,
+        >,
+        ContextForChainSpec<
+            EvmChainSpecT,
+            HeaderAndEvmSpec<'builder, PartialHeader, EvmChainSpecT::Hardfork>,
+            WrapDatabaseRef<
+                DatabaseComponents<
+                    &'builder dyn Blockchain<
+                        BlockReceiptT,
+                        BlockT,
+                        BlockchainErrorT,
+                        EvmChainSpecT::Hardfork,
+                        LocalBlockT,
+                        EvmChainSpecT::SignedTransaction,
+                    >,
+                    &'builder dyn DynState,
+                >,
+            >,
+        >,
+    >,
     receipts: Vec<TransactionReceipt<ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>>>,
     state: Box<dyn DynState>,
     state_diff: StateDiff,
     transactions: Vec<EvmChainSpecT::SignedTransaction>,
     transaction_results: Vec<ExecutionResult<EvmChainSpecT::HaltReason>>,
     withdrawals: Option<Vec<Withdrawal>>,
-    custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     _phantom: PhantomData<fn() -> (EvmChainSpecT, ExecutionReceiptBuilderT)>,
 }
 
 impl<
         BlockReceiptT,
         BlockT: ?Sized,
-        BlockchainErrorT: Debug,
+        BlockchainErrorT: Debug + std::error::Error,
         EvmChainSpecT: EvmChainSpec<SignedTransaction: ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             EvmChainSpecT::HaltReason,
@@ -145,7 +180,7 @@ impl<
 impl<
         BlockReceiptT,
         BlockT: ?Sized,
-        BlockchainErrorT: Debug,
+        BlockchainErrorT: Debug + std::error::Error,
         EvmChainSpecT: EvmChainSpec<SignedTransaction: ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             EvmChainSpecT::HaltReason,
@@ -311,6 +346,11 @@ impl<
             inputs.withdrawals.as_ref(),
         );
 
+        let precompile_provider = OverriddenPrecompileProvider::with_precompiles(
+            ChainSpecT::PrecompileProvider::default(),
+            custom_precompiles.clone(),
+        );
+
         Ok(Self {
             blockchain,
             block_config,
@@ -318,13 +358,13 @@ impl<
             context,
             header,
             parent_gas_limit,
+            precompile_provider,
             receipts: Vec::new(),
             state,
             state_diff: StateDiff::default(),
             transactions: Vec::new(),
             transaction_results: Vec::new(),
             withdrawals: inputs.withdrawals,
-            custom_precompiles,
             _phantom: PhantomData,
         })
     }
@@ -358,13 +398,16 @@ impl<
                 },
             )?;
 
-        let transaction_result = dry_run::<ChainSpecT, _, _, _>(
-            self.blockchain,
-            &self.state,
+        let database = WrapDatabaseRef(DatabaseComponents {
+            blockchain: self.blockchain,
+            state: &self.state,
+        });
+        let transaction_result = ChainSpecT::dry_run(
+            block_env,
             self.cfg.clone(),
             transaction.clone(),
-            block_env,
-            self.custom_precompiles,
+            database,
+            &mut self.precompile_provider,
         )?;
 
         self.add_transaction_result(receipt_builder, transaction, transaction_result);

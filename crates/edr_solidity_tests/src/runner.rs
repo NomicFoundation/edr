@@ -574,6 +574,7 @@ impl<
                 get_stack_trace(
                     &*self.contract_decoder,
                     setup.traces.iter().map(|(_, arena)| &arena.arena),
+                    None,
                 )
                 .map_err(SolidityTestStackTraceError::from)
                 .transpose()
@@ -594,6 +595,7 @@ impl<
                         .traces
                         .iter()
                         .map(|(_, arena)| &arena.arena),
+                    None,
                 )
                 .map_err(SolidityTestStackTraceError::from)
                 .transpose()
@@ -870,6 +872,7 @@ impl<
                     get_stack_trace(
                         &*self.cr.contract_decoder,
                         self.result.traces.iter().map(|(_, arena)| &arena.arena),
+                        None,
                     )
                     .map_err(SolidityTestStackTraceError::from)
                     .transpose()
@@ -1023,6 +1026,7 @@ impl<
                         get_stack_trace(
                             &*self.cr.contract_decoder,
                             self.result.traces.iter().map(|(_, arena)| &arena.arena),
+                            None,
                         )
                         .map_err(SolidityTestStackTraceError::from)
                         .transpose()
@@ -1215,6 +1219,7 @@ impl<
                         get_stack_trace(
                             &*self.cr.contract_decoder,
                             self.result.traces.iter().map(|(_, arena)| &arena.arena),
+                            None,
                         )
                         .map_err(SolidityTestStackTraceError::from)
                         .transpose()
@@ -1433,6 +1438,7 @@ impl<
                     get_stack_trace(
                         &*self.cr.contract_decoder,
                         self.result.traces.iter().map(|(_, arena)| &arena.arena),
+                        None,
                     )
                     .map_err(SolidityTestStackTraceError::from)
                     .transpose()
@@ -1565,6 +1571,7 @@ impl<
         get_stack_trace(
             &*self.cr.contract_decoder,
             traces.iter().map(|(_, arena)| &arena.arena),
+            None,
         )
         .transpose()
         .expect("traces are not empty")
@@ -1632,6 +1639,7 @@ fn re_run_fuzz_counterexample_for_stack_traces<
     get_stack_trace(
         &*contract_runner.contract_decoder,
         traces.iter().map(|(_, arena)| &arena.arena),
+        None,
     )
     .transpose()
     .expect("traces are not empty")

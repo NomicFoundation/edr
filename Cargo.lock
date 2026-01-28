@@ -2641,6 +2641,7 @@ dependencies = [
  "edr_eip7702",
  "edr_eip7892",
  "edr_evm",
+ "edr_precompile",
  "edr_primitives",
  "edr_receipt",
  "edr_receipt_builder_api",
@@ -2959,6 +2960,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_inspector_bytecode"
+version = "0.3.8"
+dependencies = [
+ "edr_chain_spec_evm",
+ "edr_primitives",
+ "revm-inspector",
+]
+
+[[package]]
 name = "edr_instrument"
 version = "0.3.8"
 dependencies = [
@@ -3085,6 +3095,7 @@ dependencies = [
  "foundry-cheatcodes",
  "itertools 0.12.1",
  "napi",
+ "parking_lot 0.12.3",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -3209,6 +3220,7 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_gas_report",
+ "edr_inspector_bytecode",
  "edr_mem_pool",
  "edr_precompile",
  "edr_primitives",
@@ -3442,6 +3454,7 @@ dependencies = [
  "log",
  "parking_lot 0.12.3",
  "revm-bytecode",
+ "revm-inspector",
  "revm-inspectors",
  "revm-interpreter",
  "revm-precompile",

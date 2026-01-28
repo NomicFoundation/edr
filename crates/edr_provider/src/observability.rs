@@ -12,9 +12,12 @@ use edr_chain_spec_evm::{
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_database_components::DatabaseComponents;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
-use edr_primitives::Bytes;
+use edr_inspector_bytecode::ExecutedBytecodeCollector;
+use edr_primitives::{Address, Bytes, HashMap, HashSet};
+use edr_solidity::{contract_decoder::ContractDecoder, tracing::SolidityTracingInspector};
 use edr_state_api::State;
 use foundry_evm_traces::CallTraceArena;
+use parking_lot::RwLock;
 use revm_inspector::JournalExt;
 use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 
@@ -59,16 +62,22 @@ impl Debug for ObservabilityConfig {
 #[derive(Clone)]
 pub struct EvmObserverConfig {
     pub call_override: Option<Arc<dyn SyncCallOverride>>,
+    pub contract_decoder: Arc<RwLock<ContractDecoder>>,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     pub verbose_raw_tracing: bool,
 }
 
-impl From<&ObservabilityConfig> for EvmObserverConfig {
-    fn from(value: &ObservabilityConfig) -> Self {
+impl EvmObserverConfig {
+    /// Creates a new instance from the provided [`ObservabilityConfig`].
+    pub fn new(
+        config: &ObservabilityConfig,
+        contract_decoder: Arc<RwLock<ContractDecoder>>,
+    ) -> Self {
         Self {
-            call_override: value.call_override.clone(),
-            on_collected_coverage_fn: value.on_collected_coverage_fn.clone(),
-            verbose_raw_tracing: value.verbose_raw_tracing,
+            call_override: config.call_override.clone(),
+            contract_decoder,
+            on_collected_coverage_fn: config.on_collected_coverage_fn.clone(),
+            verbose_raw_tracing: config.verbose_raw_tracing,
         }
     }
 }
@@ -79,21 +88,32 @@ impl From<&ObservabilityConfig> for EvmObserverConfig {
 /// The observer is stateless, without any awareness of when a transaction
 /// starts or ends.
 pub struct EvmObserver {
+    bytecode_collector: ExecutedBytecodeCollector,
     code_coverage: Option<CodeCoverageReporter>,
     console_logger: ConsoleLogCollector,
     mocker: Mocker,
-    tracing_inspector: TracingInspector,
+    tracing_inspector: SolidityTracingInspector,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum EvmObserverCollectionError {
+    // TODO: This error should be caught when we originally parse the contract ABIs.
+    /// An error occurred while ABI decoding the traces due to invalid input
+    /// data.
+    #[error(transparent)]
+    AbiDecoding(serde_json::Error),
     /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
     #[error(transparent)]
     OnCollectedCoverageCallback(Box<dyn std::error::Error + Send + Sync>),
 }
 
 pub struct EvmObservedData {
+    /// Mapping of contract address to executed bytecode
+    pub address_to_executed_code: HashMap<Address, Bytes>,
+    /// The call trace arena collected during execution, including ABI-decoded
+    /// information.
     pub call_trace_arena: CallTraceArena,
+    /// Encoded `console.log` call inputs
     pub encoded_console_logs: Vec<Bytes>,
 }
 
@@ -111,16 +131,24 @@ impl EvmObserver {
         };
 
         Self {
+            bytecode_collector: ExecutedBytecodeCollector::default(),
             code_coverage,
             console_logger: ConsoleLogCollector::default(),
             mocker: Mocker::new(config.call_override.clone()),
-            tracing_inspector: TracingInspector::new(tracing_config),
+            tracing_inspector: SolidityTracingInspector::new(
+                TracingInspector::new(tracing_config),
+                config.contract_decoder,
+            ),
         }
     }
 
     /// Reports and collects the observed data of a single transaction.
-    pub fn report_and_collect(self) -> Result<EvmObservedData, EvmObserverCollectionError> {
+    pub fn report_and_collect(
+        self,
+        precompile_addresses: &HashSet<Address>,
+    ) -> Result<EvmObservedData, EvmObserverCollectionError> {
         let Self {
+            bytecode_collector,
             code_coverage,
             console_logger,
             mocker: _mocker,
@@ -133,8 +161,14 @@ impl EvmObserver {
                 .map_err(EvmObserverCollectionError::OnCollectedCoverageCallback)?;
         }
 
+        let address_to_executed_code = bytecode_collector.collect();
+        let call_trace_arena = tracing_inspector
+            .collect(&address_to_executed_code, &precompile_addresses)
+            .map_err(EvmObserverCollectionError::AbiDecoding)?;
+
         Ok(EvmObservedData {
-            call_trace_arena: tracing_inspector.into_traces(),
+            address_to_executed_code,
+            call_trace_arena,
             encoded_console_logs: console_logger.into_encoded_messages(),
         })
     }

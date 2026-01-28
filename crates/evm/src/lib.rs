@@ -10,8 +10,58 @@ use edr_chain_spec_evm::{
 };
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_precompile::{OverriddenPrecompileProvider, PrecompileFn};
-use edr_primitives::{Address, HashMap};
-use edr_state_api::{State, StateCommit};
+use edr_primitives::{Address, HashMap, HashSet};
+use edr_state_api::{EvmState, State, StateCommit};
+
+/// The result of executing a transaction, along with the resulting state diff
+/// and metadata.
+pub struct ExecutionResultAndStateWithMetadata<HaltReasonT> {
+    /// The set of precompile addresses that were available during execution.
+    pub precompile_addresses: HashSet<Address>,
+    /// The result of the execution.
+    pub result: ExecutionResult<HaltReasonT>,
+    /// The state diff produced by the execution.
+    pub state: EvmState,
+}
+
+impl<HaltReasonT> ExecutionResultAndStateWithMetadata<HaltReasonT> {
+    /// Constructs a new instance.
+    pub fn new(
+        execution_result: ExecutionResultAndState<HaltReasonT>,
+        precompile_addresses: HashSet<Address>,
+    ) -> Self {
+        Self {
+            precompile_addresses,
+            result: execution_result.result,
+            state: execution_result.state,
+        }
+    }
+
+    /// Converts into the execution result and state diff, discarding the
+    /// metadata.
+    pub fn into_result_and_state(self) -> ExecutionResultAndState<HaltReasonT> {
+        ExecutionResultAndState {
+            result: self.result,
+            state: self.state,
+        }
+    }
+
+    /// Converts into the execution result, discarding the state diff.
+    pub fn into_result_with_metadata(self) -> ExecutionResultWithMetadata<HaltReasonT> {
+        ExecutionResultWithMetadata {
+            precompile_addresses: self.precompile_addresses,
+            result: self.result,
+        }
+    }
+}
+
+/// The result of executing a transaction, along with metadata.
+pub struct ExecutionResultWithMetadata<HaltReasonT> {
+    /// The set of precompile addresses that were available during execution.
+    pub precompile_addresses: HashSet<Address>,
+    /// The result of the execution.
+    pub result: ExecutionResult<HaltReasonT>,
+}
 
 /// Runs a transaction without committing the state.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -35,7 +85,7 @@ pub fn dry_run<
     block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    ExecutionResultAndState<EvmChainSpecT::HaltReason>,
+    ExecutionResultAndStateWithMetadata<EvmChainSpecT::HaltReason>,
     TransactionError<
         DatabaseComponentError<BlockchainT::Error, StateT::Error>,
         <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
@@ -43,12 +93,18 @@ pub fn dry_run<
 > {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
-    let precompile_provider = OverriddenPrecompileProvider::with_precompiles(
+    let mut precompile_provider = OverriddenPrecompileProvider::with_precompiles(
         EvmChainSpecT::PrecompileProvider::default(),
         custom_precompiles.clone(),
     );
 
-    EvmChainSpecT::dry_run(block, cfg, transaction, database, precompile_provider)
+    let result =
+        EvmChainSpecT::dry_run(block, cfg, transaction, database, &mut precompile_provider)?;
+
+    Ok(ExecutionResultAndStateWithMetadata::new(
+        result,
+        precompile_provider.into_addresses(),
+    ))
 }
 
 /// Runs a transaction while observing with an inspector, without committing the
@@ -82,7 +138,7 @@ pub fn dry_run_with_inspector<
     custom_precompiles: &HashMap<Address, PrecompileFn>,
     inspector: &mut InspectorT,
 ) -> Result<
-    ExecutionResultAndState<EvmChainSpecT::HaltReason>,
+    ExecutionResultAndStateWithMetadata<EvmChainSpecT::HaltReason>,
     TransactionError<
         DatabaseComponentError<BlockchainT::Error, StateT::Error>,
         <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
@@ -90,19 +146,24 @@ pub fn dry_run_with_inspector<
 > {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
-    let precompile_provider = OverriddenPrecompileProvider::with_precompiles(
+    let mut precompile_provider = OverriddenPrecompileProvider::with_precompiles(
         EvmChainSpecT::PrecompileProvider::default(),
         custom_precompiles.clone(),
     );
 
-    EvmChainSpecT::dry_run_with_inspector(
+    let result = EvmChainSpecT::dry_run_with_inspector(
         block,
         cfg,
         transaction,
         database,
-        precompile_provider,
+        &mut precompile_provider,
         inspector,
-    )
+    )?;
+
+    Ok(ExecutionResultAndStateWithMetadata::new(
+        result,
+        precompile_provider.into_addresses(),
+    ))
 }
 
 /// Runs a transaction without committing the state, while disabling balance
@@ -128,7 +189,7 @@ pub fn guaranteed_dry_run<
     block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    ExecutionResultAndState<EvmChainSpecT::HaltReason>,
+    ExecutionResultAndStateWithMetadata<EvmChainSpecT::HaltReason>,
     TransactionError<
         DatabaseComponentError<BlockchainT::Error, StateT::Error>,
         <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
@@ -178,7 +239,7 @@ pub fn guaranteed_dry_run_with_inspector<
     custom_precompiles: &HashMap<Address, PrecompileFn>,
     inspector: &mut InspectorT,
 ) -> Result<
-    ExecutionResultAndState<EvmChainSpecT::HaltReason>,
+    ExecutionResultAndStateWithMetadata<EvmChainSpecT::HaltReason>,
     TransactionError<
         DatabaseComponentError<BlockchainT::Error, StateT::Error>,
         <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
@@ -219,13 +280,14 @@ pub fn run<
     block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    ExecutionResult<EvmChainSpecT::HaltReason>,
+    ExecutionResultWithMetadata<EvmChainSpecT::HaltReason>,
     TransactionError<
         DatabaseComponentError<BlockchainT::Error, StateT::Error>,
         <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
     >,
 > {
-    let ExecutionResultAndState {
+    let ExecutionResultAndStateWithMetadata {
+        precompile_addresses,
         result,
         state: state_diff,
     } = dry_run::<EvmChainSpecT, _, _, _>(
@@ -239,7 +301,10 @@ pub fn run<
 
     state.commit(state_diff);
 
-    Ok(result)
+    Ok(ExecutionResultWithMetadata {
+        precompile_addresses,
+        result,
+    })
 }
 
 fn set_guarantees<HardforkT: Into<EvmSpecId>>(config: &mut CfgEnv<HardforkT>) {

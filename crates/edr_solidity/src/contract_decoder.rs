@@ -238,128 +238,126 @@ impl ContractDecoder {
 
     /// Populates the call trace arena with decoded call traces.
     ///
-    /// This is done for a whole `CallTraceArena` to avoid locking the
-    /// `ContractsIdentifier` multiple times.
+    /// This is done for a whole [`CallTraceArena`] to avoid locking the
+    /// [`ContractsIdentifier`] multiple times.
     pub fn populate_call_trace_arena(
         &mut self,
         call_trace_arena: &mut CallTraceArena,
-        address_to_runtime_code: &HashMap<Address, Bytes>,
-        precompiles: &HashSet<Address>,
+        address_to_executed_code: &HashMap<Address, Bytes>,
+        precompile_addresses: &HashSet<Address>,
     ) -> Result<(), serde_json::Error> {
         for node in call_trace_arena.nodes_mut() {
             let call_trace = &mut node.trace;
 
-            let decoded = if precompiles.contains(&call_trace.address)
+            let decoded = if precompile_addresses.contains(&call_trace.address)
                 && let Some(decoded) = foundry_evm_traces::decoder::precompiles::decode(call_trace)
             {
                 decoded
+            } else if call_trace.kind.is_any_create() {
+                let contract_metadata = self
+                    .contracts_identifier
+                    .get_bytecode_for_call(&call_trace.data, true);
+
+                let contract_identifier = contract_metadata
+                    .map_or(UNRECOGNIZED_CONTRACT_NAME.to_string(), |metadata| {
+                        metadata.contract.read().name.clone()
+                    });
+
+                DecodedCallTrace {
+                    label: Some(contract_identifier),
+                    ..DecodedCallTrace::default()
+                }
             } else {
-                let is_create = call_trace.kind.is_any_create();
-                let code = address_to_runtime_code
+                let calldata = &call_trace.data;
+                let code = address_to_executed_code
                     .get(&call_trace.address)
                     .unwrap_or_default();
 
-                let contract_metadata = self
-                    .contracts_identifier
-                    .get_bytecode_for_call(code, is_create);
+                let contract_metadata =
+                    self.contracts_identifier.get_bytecode_for_call(code, false);
 
-                if is_create {
-                    let contract_identifier = contract_metadata
-                        .map_or(UNRECOGNIZED_CONTRACT_NAME.to_string(), |metadata| {
-                            metadata.contract.read().name.clone()
+                if let Some(Ok(selector)) = calldata.get(..SELECTOR_LEN).map(Selector::try_from)
+                    && let Some(contract_metadata) = contract_metadata
+                {
+                    let contract = contract_metadata.contract.read();
+                    let label = Some(contract.name.clone());
+                    if let Some(function) = contract.get_function_from_selector(selector.as_slice())
+                    {
+                        let abi = alloy_json_abi::Function::try_from(function.as_ref())?;
+
+                        let args = if let Some(input_data) = calldata.get(SELECTOR_LEN..)
+                            && let Ok(args) = abi.abi_decode_input(input_data)
+                        {
+                            args.iter()
+                                .map(|value| format_value(value, &contract.name))
+                                .collect()
+                        } else {
+                            Vec::new()
+                        };
+
+                        let call_data = Some(DecodedCallData {
+                            signature: abi.signature(),
+                            args,
                         });
 
-                    DecodedCallTrace {
-                        label: Some(contract_identifier),
-                        ..DecodedCallTrace::default()
-                    }
-                } else {
-                    let calldata = &call_trace.data;
+                        let return_data = decode_function_output(
+                            call_trace,
+                            &abi,
+                            &contract.name,
+                            &self.revert_decoder,
+                        );
 
-                    if let Some(Ok(selector)) = calldata.get(..SELECTOR_LEN).map(Selector::try_from)
-                        && let Some(contract_metadata) = contract_metadata
-                    {
-                        let contract = contract_metadata.contract.read();
-                        let label = Some(contract.name.clone());
-                        if let Some(function) =
-                            contract.get_function_from_selector(selector.as_slice())
-                        {
-                            let abi = alloy_json_abi::Function::try_from(function.as_ref())?;
-
-                            let args = if let Some(input_data) = calldata.get(SELECTOR_LEN..)
-                                && let Ok(args) = abi.abi_decode_input(input_data)
-                            {
-                                args.iter()
-                                    .map(|value| format_value(value, &contract.name))
-                                    .collect()
-                            } else {
-                                Vec::new()
-                            };
-
-                            let call_data = Some(DecodedCallData {
-                                signature: abi.signature(),
-                                args,
-                            });
-
-                            let return_data = decode_function_output(
-                                call_trace,
-                                &abi,
-                                &contract.name,
-                                &self.revert_decoder,
-                            );
-
-                            DecodedCallTrace {
-                                label,
-                                return_data,
-                                call_data,
-                            }
-                        } else {
-                            let return_data = if !call_trace.success {
-                                let revert_msg = self
-                                    .revert_decoder
-                                    .decode(&call_trace.output, call_trace.status);
-
-                                if call_trace.output.is_empty()
-                                    || revert_msg.contains("EvmError: Revert")
-                                {
-                                    Some(format!(
-                                        "unrecognized function selector {selector} for contract {contract_name} ({contract_address}).",
-                                        contract_name = contract.name,
-                                        contract_address = call_trace.address,
-                                    ))
-                                } else {
-                                    Some(revert_msg)
-                                }
-                            } else {
-                                None
-                            };
-
-                            DecodedCallTrace {
-                                label,
-                                return_data,
-                                call_data: Some(DecodedCallData {
-                                    signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
-                                    args: if calldata.is_empty() {
-                                        Vec::new()
-                                    } else {
-                                        vec![calldata.to_string()]
-                                    },
-                                }),
-                            }
+                        DecodedCallTrace {
+                            label,
+                            return_data,
+                            call_data,
                         }
                     } else {
-                        DecodedCallTrace {
-                            label: Some(UNRECOGNIZED_CONTRACT_NAME.to_string()),
-                            return_data: default_return_data(call_trace, &self.revert_decoder),
-                            call_data: if call_trace.data.is_empty() {
-                                None
+                        let return_data = if !call_trace.success {
+                            let revert_msg = self
+                                .revert_decoder
+                                .decode(&call_trace.output, call_trace.status);
+
+                            if call_trace.output.is_empty()
+                                || revert_msg.contains("EvmError: Revert")
+                            {
+                                Some(format!(
+                                    "unrecognized function selector {selector} for contract {contract_name} ({contract_address}).",
+                                    contract_name = contract.name,
+                                    contract_address = call_trace.address,
+                                ))
                             } else {
-                                Some(DecodedCallData {
-                                    signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
-                                    args: vec![call_trace.data.to_string()],
-                                })
-                            },
+                                Some(revert_msg)
+                            }
+                        } else {
+                            None
+                        };
+
+                        DecodedCallTrace {
+                            label,
+                            return_data,
+                            call_data: Some(DecodedCallData {
+                                signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
+                                args: if calldata.is_empty() {
+                                    Vec::new()
+                                } else {
+                                    vec![calldata.to_string()]
+                                },
+                            }),
                         }
+                    }
+                } else {
+                    DecodedCallTrace {
+                        label: Some(UNRECOGNIZED_CONTRACT_NAME.to_string()),
+                        return_data: default_return_data(call_trace, &self.revert_decoder),
+                        call_data: if call_trace.data.is_empty() {
+                            None
+                        } else {
+                            Some(DecodedCallData {
+                                signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
+                                args: vec![call_trace.data.to_string()],
+                            })
+                        },
                     }
                 }
             };

@@ -6,7 +6,7 @@ use edr_chain_spec_evm::{
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
-use edr_evm::guaranteed_dry_run_with_inspector;
+use edr_evm::{guaranteed_dry_run_with_inspector, ExecutionResultWithMetadata};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, B256, U256};
 use edr_state_api::{State, StateError};
@@ -72,7 +72,10 @@ pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
     transaction: ChainSpecT::SignedTransaction,
     custom_precompiles: &'call HashMap<Address, PrecompileFn>,
     inspector: &'call mut InspectorT,
-) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
+) -> Result<
+    ExecutionResultWithMetadata<ChainSpecT::HaltReason>,
+    ProviderErrorForChainSpec<ChainSpecT>,
+>
 where
     BlockchainT: BlockHashByNumber<Error = DynBlockchainError>,
     ChainSpecT: ProviderChainSpec,
@@ -96,6 +99,6 @@ where
     )
     .map_or_else(
         |error| Err(ProviderError::RunTransaction(error)),
-        |result| Ok(result.result),
+        |result| Ok(result.into_result_with_metadata()),
     )
 }

@@ -260,9 +260,13 @@ impl<HaltReasonT> StackTraceCreationError<HaltReasonT> {
 }
 
 /// Compute stack trace based on execution traces.
+///
 /// Assumes last trace is the error one. This is important for invariant tests
 /// where there might be multiple errors traces. Returns `None` if `traces` is
 /// empty.
+///
+/// A mapping from contract address to executed code can be provided to help
+/// with decoding.
 pub fn get_stack_trace<
     'arena,
     HaltReasonT: HaltReasonTrait,
@@ -270,9 +274,18 @@ pub fn get_stack_trace<
 >(
     contract_decoder: &NestedTraceDecoderT,
     traces: impl IntoIterator<Item = &'arena CallTraceArena>,
+    address_to_executed_code: Option<&'arena HashMap<Address, Bytes>>,
 ) -> Result<Option<Vec<StackTraceEntry>>, StackTraceCreationError<HaltReasonT>> {
     let mut address_to_creation_code = HashMap::new();
-    let mut address_to_runtime_code = HashMap::new();
+    let mut address_to_runtime_code =
+        if let Some(address_to_executed_code) = address_to_executed_code {
+            address_to_executed_code
+                .iter()
+                .map(|(k, v)| (*k, v))
+                .collect()
+        } else {
+            HashMap::new()
+        };
 
     let last_trace = traces.into_iter().fold(None, |_, trace| {
         for node in trace.nodes() {

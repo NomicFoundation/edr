@@ -122,9 +122,23 @@ const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
 /// The result of executing an `eth_call`.
 #[derive(Clone, Debug)]
 pub struct CallResult<HaltReasonT: HaltReasonTrait> {
+    /// Mapping of contract address to executed bytecode
+    pub address_to_executed_code: HashMap<Address, Bytes>,
+    pub call_trace_arena: CallTraceArena,
     pub console_log_inputs: Vec<Bytes>,
     pub execution_result: ExecutionResult<HaltReasonT>,
-    pub call_trace_arena: CallTraceArena,
+}
+
+pub struct CallResultWithMetadata<HaltReasonT: HaltReasonTrait> {
+    pub precompile_addresses: HashSet<Address>,
+    pub result: CallResult<HaltReasonT>,
+}
+
+impl<HaltReasonT: HaltReasonTrait> CallResultWithMetadata<HaltReasonT> {
+    /// Converts into a [`CallResult`], discarding metadata.
+    pub fn into_call_result(self) -> CallResult<HaltReasonT> {
+        self.result
+    }
 }
 
 #[derive(Clone)]
@@ -1419,6 +1433,7 @@ where
             block_and_total_difficulty.block,
             result.transaction_results,
             result.transaction_call_trace_arenas,
+            result.transaction_address_to_executed_code,
             result.console_log_inputs,
         ))
     }
@@ -1498,6 +1513,7 @@ where
         Ok(DebugMineBlockResultAndState::new(
             result,
             vec![call_trace_arena],
+            vec![],
             encoded_console_logs,
         ))
     }
@@ -1797,9 +1813,10 @@ where
             )?;
 
             let EvmObservedData {
+                address_to_executed_code: _,
                 call_trace_arena,
                 encoded_console_logs: _,
-            } = evm_observer.report_and_collect()?;
+            } = evm_observer.report_and_collect(&result.precompile_addresses)?;
 
             let mut database = WrapDatabaseRef(DatabaseComponents {
                 blockchain,
@@ -1807,7 +1824,13 @@ where
             });
 
             let geth_trace = debug_inspector
-                .get_result(None, &transaction, &block_env, &result, &mut database)
+                .get_result(
+                    None,
+                    &transaction,
+                    &block_env,
+                    &result.into_result_and_state(),
+                    &mut database,
+                )
                 .map_err(DebugTraceError::from_debug_inspector_result_error)?;
 
             Ok(DebugTraceResultWithCallTraces {
@@ -2033,7 +2056,7 @@ where
         let result = self.mine_and_commit_block(self.header_overrides())?;
 
         self.logger
-            .log_interval_mined(self.hardfork(), &result)
+            .log_interval_mined(&result, todo!())
             .map_err(ProviderError::Logger)?;
 
         Ok(true)
@@ -2220,48 +2243,65 @@ where
         let contract_decoder = Arc::clone(&self.contract_decoder);
         let scheduled_blob_params = self.scheduled_blob_params().cloned();
 
-        self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
-            let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
+        let result =
+            self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
+                let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
 
-            let block_env = ChainSpecT::BlockEnv::new_block_env(
-                block.block_header(),
-                cfg_env.spec,
-                scheduled_blob_params.as_ref(),
-            );
-            let execution_result = call::run_call::<ChainSpecT, _, _, _>(
-                blockchain,
-                block_env,
-                state_overrider,
-                cfg_env,
-                transaction,
-                &custom_precompiles,
-                &mut evm_observer,
-            )?;
+                let block_env = ChainSpecT::BlockEnv::new_block_env(
+                    block.block_header(),
+                    cfg_env.spec,
+                    scheduled_blob_params.as_ref(),
+                );
+                let execution_result = call::run_call::<ChainSpecT, _, _, _>(
+                    blockchain,
+                    block_env,
+                    state_overrider,
+                    cfg_env,
+                    transaction.clone(),
+                    &custom_precompiles,
+                    &mut evm_observer,
+                )?;
 
-            let EvmObservedData {
-                call_trace_arena,
-                encoded_console_logs,
-            } = evm_observer.report_and_collect()?;
+                let EvmObservedData {
+                    address_to_executed_code,
+                    call_trace_arena,
+                    encoded_console_logs,
+                } = evm_observer.report_and_collect(&execution_result.precompile_addresses)?;
 
-            if let Some(GasReportArgs {
-                callback,
-                kind,
-                input,
-            }) = gas_report_args
-            {
-                let mut contract_decoder = contract_decoder.write();
-                let gas_report =
-                    GasReport::new(state, &mut contract_decoder, &execution_result, kind, input)?;
+                if let Some(GasReportArgs {
+                    callback,
+                    kind,
+                    input,
+                }) = gas_report_args
+                {
+                    let mut contract_decoder = contract_decoder.write();
+                    let gas_report = GasReport::new(
+                        state,
+                        &mut contract_decoder,
+                        &execution_result.result,
+                        kind,
+                        input,
+                    )?;
 
-                callback(gas_report).map_err(ProviderError::OnCollectedGasReportCallback)?;
-            }
+                    callback(gas_report).map_err(ProviderError::OnCollectedGasReportCallback)?;
+                }
 
-            Ok(CallResult {
-                console_log_inputs: encoded_console_logs,
-                execution_result,
-                call_trace_arena,
-            })
-        })?
+                Ok(CallResultWithMetadata {
+                    precompile_addresses: execution_result.precompile_addresses,
+                    result: CallResult {
+                        address_to_executed_code,
+                        call_trace_arena,
+                        console_log_inputs: encoded_console_logs,
+                        execution_result: execution_result.result,
+                    },
+                })
+            })?;
+
+        self.logger
+            .log_call(&transaction, &result.result, &result.precompile_addresses)
+            .map_err(ProviderError::Logger)?;
+
+        Ok(result.result)
     }
 
     fn execute_in_block_context<T>(
@@ -2512,7 +2552,7 @@ where
         let prev_block_spec = Some(BlockSpec::Number(prev_block_number));
         let observer_config = EvmObserverConfig {
             call_override: None,
-            ..EvmObserverConfig::from(&self.observability)
+            ..EvmObserverConfig::new(&self.observability, self.contract_decoder.clone())
         };
 
         let scheduled_blob_params = self.scheduled_blob_params().cloned();
@@ -2625,28 +2665,33 @@ where
             )?;
 
             let EvmObservedData {
+                address_to_executed_code,
                 call_trace_arena,
                 encoded_console_logs,
-            } = evm_observer.report_and_collect()?;
+            } = evm_observer.report_and_collect(&result.precompile_addresses)?;
 
-            let mut initial_estimation = match result {
+            let mut initial_estimation = match result.result {
                 ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
                 ExecutionResult::Revert { output, .. } => Err(TransactionFailure::revert(
                     output,
                     None,
+                    &address_to_executed_code,
                     &call_trace_arena,
                     contract_decoder.as_ref(),
                 )),
                 ExecutionResult::Halt { reason, .. } => Err(TransactionFailure::halt(
                     ChainSpecT::cast_halt_reason(reason),
                     None,
+                    &address_to_executed_code,
                     &call_trace_arena,
                     contract_decoder.as_ref(),
                 )),
             }
             .map_err(|failure| {
                 Box::new(EstimateGasFailure {
+                    address_to_executed_code,
                     encoded_console_logs,
+                    precompile_addresses: result.precompile_addresses,
                     transaction_failure: TransactionFailureWithCallTrace {
                         call_trace_arena: call_trace_arena.clone(),
                         failure,
@@ -2678,9 +2723,10 @@ where
             })?;
 
             let EvmObservedData {
+                address_to_executed_code,
                 call_trace_arena,
                 encoded_console_logs: _,
-            } = evm_observer.report_and_collect()?;
+            } = evm_observer.report_and_collect(&result.precompile_addresses)?;
 
             call_trace_arenas.push(call_trace_arena);
 
