@@ -26,6 +26,7 @@ log = { version = "0.4.17", default-features = false }
 parking_lot.workspace = true
 revm-bytecode.workspace = true
 revm-interpreter.workspace = true
+revm-inspector.workspace = true
 revm-inspectors.workspace = true
 revm-precompile.workspace = true
 serde.workspace = true

@@ -6,7 +6,7 @@ use edr_block_builder_api::BuiltBlockAndState;
 use edr_chain_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::result::ExecutionResult;
-use edr_primitives::{Bytes, B256};
+use edr_primitives::{Address, Bytes, HashMap, B256};
 use edr_state_api::{DynState, StateDiff};
 use foundry_evm_traces::CallTraceArena;
 
@@ -23,6 +23,8 @@ pub struct DebugMineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlock
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction call trace arenas
     pub transaction_call_trace_arenas: Vec<CallTraceArena>,
+    /// Mapping of contract address to executed bytecode per transaction
+    pub transaction_address_to_executed_code: Vec<HashMap<Address, Bytes>>,
     /// Encoded `console.log` call inputs
     pub console_log_inputs: Vec<Bytes>,
 }
@@ -35,6 +37,7 @@ impl<HaltReasonT: HaltReasonTrait, LocalBlockT>
     pub fn new(
         result: BuiltBlockAndState<HaltReasonT, LocalBlockT>,
         transaction_call_trace_arenas: Vec<CallTraceArena>,
+        transaction_address_to_executed_code: Vec<HashMap<Address, Bytes>>,
         console_log_decoded_messages: Vec<Bytes>,
     ) -> Self {
         Self {
@@ -43,6 +46,7 @@ impl<HaltReasonT: HaltReasonTrait, LocalBlockT>
             state_diff: result.state_diff,
             transaction_results: result.transaction_results,
             transaction_call_trace_arenas,
+            transaction_address_to_executed_code,
             console_log_inputs: console_log_decoded_messages,
         }
     }
@@ -58,36 +62,23 @@ pub type DebugMineBlockResultForChainSpec<ChainSpecT> = DebugMineBlockResult<
 /// The result of mining a block in debug mode, after having been committed to
 /// the blockchain.
 #[derive(Clone, Debug)]
-pub struct DebugMineBlockResult<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT> {
+pub struct DebugMineBlockResult<
+    BlockT: Block<SignedTransactionT>,
+    HaltReasonT: HaltReasonTrait,
+    SignedTransactionT,
+> {
     /// Mined block
     pub block: BlockT,
+    /// Encoded `console.log` call inputs
+    pub console_log_inputs: Vec<Bytes>,
+    /// The set of precompile addresses that were available during execution.
+    pub precompile_addresses: HashSet<Address>,
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
     /// Transaction call trace arenas
     pub transaction_call_trace_arenas: Vec<CallTraceArena>,
-    /// Encoded `console.log` call inputs
-    pub console_log_inputs: Vec<Bytes>,
-    phantom: PhantomData<SignedTransactionT>,
-}
-
-impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
-    DebugMineBlockResult<BlockT, HaltReasonT, SignedTransactionT>
-{
-    /// Constructs a new instance.
-    pub fn new(
-        block: BlockT,
-        transaction_results: Vec<ExecutionResult<HaltReasonT>>,
-        transaction_call_trace_arenas: Vec<CallTraceArena>,
-        console_log_inputs: Vec<Bytes>,
-    ) -> Self {
-        Self {
-            block,
-            transaction_results,
-            transaction_call_trace_arenas,
-            console_log_inputs,
-            phantom: PhantomData,
-        }
-    }
+    /// Mapping of contract address to executed bytecode per transaction
+    pub transaction_address_to_executed_code: Vec<HashMap<Address, Bytes>>,
 }
 
 impl<

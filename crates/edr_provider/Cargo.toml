@@ -41,6 +41,7 @@ edr_eip7892.workspace = true
 edr_eth.workspace = true
 edr_evm.workspace = true
 edr_gas_report.workspace = true
+edr_inspector_bytecode.workspace = true
 edr_mem_pool.workspace = true
 edr_precompile.workspace = true
 edr_primitives.workspace = true

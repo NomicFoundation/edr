@@ -56,6 +56,12 @@ impl<
         }
     }
 
+    /// Consumes the provider and returns the set of all unique precompile
+    /// addresses.
+    pub fn into_addresses(self) -> HashSet<Address> {
+        self.unique_addresses
+    }
+
     /// Adds a custom precompile.
     pub fn set_precompile(&mut self, address: Address, precompile: PrecompileFn) {
         self.custom_precompiles.insert(address, precompile);
