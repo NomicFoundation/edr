@@ -214,7 +214,7 @@ mod base_fee_params {
 
             // Header extra_data encodes base_fee_params values needed for calculating next
             // block. As this is the block number 2, and we configured new
-            // values from block 3, this block header should alredy encode the
+            // values from block 3, this block header should already encode the
             // new values
             assert_eq!(block_base_fee_params.max_change_denominator, 200);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 2);
@@ -333,7 +333,7 @@ mod base_fee_params {
             // Header extra_data encodes base_fee_params values needed for calculating next
             // block. As this is the block number `fork_block_number + 2`, and
             // we configured new values from block `fork_block_number + 3`, this
-            // block header should alredy encode the new values
+            // block header should already encode the new values
             assert_eq!(block_base_fee_params.max_change_denominator, 200);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 2);
             Ok(())
