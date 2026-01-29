@@ -26,6 +26,12 @@ impl ExecutedBytecodeCollector {
     pub fn collect(self) -> HashMap<Address, Bytes> {
         self.address_to_executed_code
     }
+
+    /// Replaces the current collected bytecode with an empty map, returning
+    /// the previous mapping.
+    pub fn take(&mut self) -> HashMap<Address, Bytes> {
+        std::mem::take(&mut self.address_to_executed_code)
+    }
 }
 
 impl<ContextT: ContextTrait<Journal: JournalExt>> Inspector<ContextT>

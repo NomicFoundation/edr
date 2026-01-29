@@ -66,7 +66,7 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         observer,
     )?;
 
-    Ok(matches!(result, ExecutionResult::Success { .. }))
+    Ok(matches!(result.result, ExecutionResult::Success { .. }))
 }
 
 pub(super) struct BinarySearchEstimationArgs<'a, HardforkT, SignedTransactionT> {
@@ -135,7 +135,7 @@ pub(super) fn binary_search_estimation<
         let EvmObservedData {
             call_trace_arena,
             encoded_console_logs: _,
-        } = observer.report_and_collect()?;
+        } = observer.collect_and_report()?;
 
         call_trace_arenas.push(call_trace_arena);
 

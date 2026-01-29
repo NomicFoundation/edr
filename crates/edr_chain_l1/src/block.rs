@@ -5,7 +5,8 @@ use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
     BlockTransactionError, BlockTransactionErrorForChainSpec, Blockchain, BuiltBlockAndState,
-    CfgEnv, DatabaseComponents, ExecutionResult, PrecompileFn, WrapDatabaseRef,
+    BuiltBlockAndStateWithMetadata, CfgEnv, DatabaseComponents, ExecutionResult, PrecompileFn,
+    WrapDatabaseRef,
 };
 use edr_block_header::{
     blob_params_for_hardfork, BlobGas, BlockConfig, HeaderAndEvmSpec, HeaderOverrides,
@@ -574,7 +575,7 @@ impl<
         mut self,
         rewards: Vec<(Address, u128)>,
     ) -> Result<
-        BuiltBlockAndState<ChainSpecT::HaltReason, LocalBlockT>,
+        BuiltBlockAndStateWithMetadata<LocalBlockT, ChainSpecT::HaltReason>,
         BlockFinalizeError<StateError>,
     > {
         for (address, reward) in rewards {
@@ -642,11 +643,14 @@ impl<
             });
         }
 
-        Ok(BuiltBlockAndState {
-            block: block.into(),
-            state: self.state,
-            state_diff: self.state_diff,
-            transaction_results: self.transaction_results,
+        Ok(BuiltBlockAndStateWithMetadata {
+            block_and_state: BuiltBlockAndState {
+                block: block.into(),
+                state: self.state,
+                state_diff: self.state_diff,
+                transaction_results: self.transaction_results,
+            },
+            precompile_addresses: self.precompile_addresses,
         })
     }
 }
@@ -744,6 +748,10 @@ impl<
         self.header()
     }
 
+    fn precompile_addresses(&self) -> &HashSet<Address> {
+        &self.precompile_addresses
+    }
+
     fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
@@ -796,7 +804,7 @@ impl<
         self,
         rewards: Vec<(Address, u128)>,
     ) -> Result<
-        BuiltBlockAndState<ChainSpecT::HaltReason, LocalBlockT>,
+        BuiltBlockAndStateWithMetadata<LocalBlockT, ChainSpecT::HaltReason>,
         BlockFinalizeError<StateError>,
     > {
         self.finalize(rewards)

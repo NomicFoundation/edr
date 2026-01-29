@@ -42,9 +42,8 @@ pub fn handle_mine_request<
 
     let traces = mine_block_result.transaction_call_trace_arenas.clone();
 
-    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_mined_block(hardfork, &[mine_block_result])
+        .log_mined_block(&[mine_block_result])
         .map_err(ProviderError::Logger)?;
 
     let result = String::from("0");

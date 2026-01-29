@@ -12,6 +12,12 @@ pub struct CoverageHitCollector {
 }
 
 impl CoverageHitCollector {
+    /// Replaces the current hits with an empty set, returning the previous
+    /// hits.
+    pub fn take(&mut self) -> HashSet<Bytes> {
+        std::mem::take(&mut self.hits)
+    }
+
     /// Returns the collected coverage hits.
     pub fn into_hits(self) -> HashSet<Bytes> {
         self.hits

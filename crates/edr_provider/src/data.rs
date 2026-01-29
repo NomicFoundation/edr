@@ -22,7 +22,9 @@ use edr_block_builder_api::{BuiltBlockAndState, DatabaseComponents, WrapDatabase
 use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, BlockHeader, HeaderOverrides,
 };
-use edr_block_miner::{mine_block, mine_block_with_single_transaction};
+use edr_block_miner::{
+    mine_block, mine_block_with_single_transaction, MineBlockResultAndStateWithMetadata,
+};
 use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
     BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock as _, StateAtBlock as _,
@@ -88,9 +90,7 @@ use crate::{
         call::BlockEnvWithZeroBaseFee,
         gas::{compute_rewards, BinarySearchEstimationArgs, CheckGasLimitArgs},
     },
-    debug_mine::{
-        DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
-    },
+    debug_mine::DebugMineBlockResult,
     debug_trace::{debug_trace_transaction, DebugTraceResultWithCallTraces},
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, ProviderErrorForChainSpec,
@@ -130,6 +130,7 @@ pub struct CallResult<HaltReasonT: HaltReasonTrait> {
 }
 
 pub struct CallResultWithMetadata<HaltReasonT: HaltReasonTrait> {
+    /// The set of precompile addresses that were available during execution.
     pub precompile_addresses: HashSet<Address>,
     pub result: CallResult<HaltReasonT>,
 }
@@ -157,7 +158,8 @@ pub type SendTransactionResultForChainSpec<ChainSpecT> = SendTransactionResult<
 #[derive(Debug)]
 pub struct SendTransactionResult<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT> {
     pub transaction_hash: B256,
-    pub mining_results: Vec<DebugMineBlockResult<BlockT, HaltReasonT, SignedTransactionT>>,
+    pub mining_results:
+        Vec<MineBlockResultAndStateWithMetadata<BlockT, HaltReasonT, EvmObservedData>>,
 }
 
 impl<
@@ -1386,15 +1388,22 @@ where
             HeaderOverrides<ChainSpecT::Hardfork>,
             &mut EvmObserver,
         ) -> Result<
-            BuiltBlockAndState<
-                ChainSpecT::HaltReason,
+            MineBlockResultAndStateWithMetadata<
                 <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+                ChainSpecT::HaltReason,
+                EvmObservedData,
             >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
         mut options: HeaderOverrides<ChainSpecT::Hardfork>,
-    ) -> Result<DebugMineBlockResultForChainSpec<ChainSpecT>, ProviderErrorForChainSpec<ChainSpecT>>
-    {
+    ) -> Result<
+        MineBlockResultAndStateWithMetadata<
+            Arc<ChainSpecT::Block>,
+            ChainSpecT::HaltReason,
+            EvmObservedData,
+        >,
+        ProviderErrorForChainSpec<ChainSpecT>,
+    > {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
         options.timestamp = Some(block_timestamp);
 
@@ -1429,13 +1438,16 @@ where
             block_and_total_difficulty.block.block_header().number,
         );
 
-        Ok(DebugMineBlockResult::new(
-            block_and_total_difficulty.block,
-            result.transaction_results,
-            result.transaction_call_trace_arenas,
-            result.transaction_address_to_executed_code,
-            result.console_log_inputs,
-        ))
+        Ok(MineBlockResultAndStateWithMetadata {
+            block_and_state: BuiltBlockAndState {
+                block: block_and_total_difficulty.block,
+                state: result.block_and_state.state,
+                state_diff: result.block_and_state.state_diff,
+                transaction_results: result.block_and_state.transaction_results,
+            },
+            precompile_addresses: result.precompile_addresses,
+            transaction_inspector_data: result.transaction_inspector_data,
+        })
     }
 
     /// Mines a block using the provided options. If an option has not been
@@ -1448,17 +1460,19 @@ where
             HeaderOverrides<ChainSpecT::Hardfork>,
             &mut EvmObserver,
         ) -> Result<
-            BuiltBlockAndState<
-                ChainSpecT::HaltReason,
+            MineBlockResultAndStateWithMetadata<
                 <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+                ChainSpecT::HaltReason,
+                EvmObservedData,
             >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
         mut options: HeaderOverrides<ChainSpecT::Hardfork>,
     ) -> Result<
-        DebugMineBlockResultAndState<
-            ChainSpecT::HaltReason,
+        MineBlockResultAndStateWithMetadata<
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+            ChainSpecT::HaltReason,
+            EvmObservedData,
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
@@ -1480,26 +1494,21 @@ where
         }
 
         let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
-
         let result = mine_fn(self, &evm_config, options, &mut evm_observer)?;
-
-        let EvmObservedData {
-            call_trace_arena,
-            encoded_console_logs,
-        } = evm_observer.report_and_collect()?;
 
         if let Some(callback) = self.observability.on_collected_gas_report_fn.as_ref() {
             let mut contract_decoder = self.contract_decoder.write();
 
             let mut report = GasReport::default();
             for (transaction, execution_result) in result
+                .block_and_state
                 .block
                 .transactions()
                 .iter()
                 .zip(result.transaction_results.iter())
             {
                 report.add(
-                    &result.state,
+                    &result.block_and_state.state,
                     &mut contract_decoder,
                     execution_result,
                     transaction.kind(),
@@ -1510,12 +1519,7 @@ where
             callback(report).map_err(ProviderError::OnCollectedGasReportCallback)?;
         }
 
-        Ok(DebugMineBlockResultAndState::new(
-            result,
-            vec![call_trace_arena],
-            vec![],
-            encoded_console_logs,
-        ))
+        Ok(result)
     }
 
     /// Get the timestamp for the next block.
@@ -1789,7 +1793,7 @@ where
         // Disable call overrides for `debug_traceCall`
         let mut evm_observer = EvmObserver::new(EvmObserverConfig {
             call_override: None,
-            ..EvmObserverConfig::from(&self.observability)
+            ..EvmObserverConfig::new(&self.observability, self.contract_decoder.clone())
         });
 
         let custom_precompiles = self.precompile_overrides.clone();
@@ -1816,7 +1820,7 @@ where
                 address_to_executed_code: _,
                 call_trace_arena,
                 encoded_console_logs: _,
-            } = evm_observer.report_and_collect(&result.precompile_addresses)?;
+            } = evm_observer.collect_and_report(&result.precompile_addresses)?;
 
             let mut database = WrapDatabaseRef(DatabaseComponents {
                 blockchain,
@@ -1868,7 +1872,7 @@ where
         let last_block_number = newest_block_number + 1;
 
         let pending_block = if last_block_number >= pending_block_number {
-            let DebugMineBlockResultAndState { block, .. } = self.mine_pending_block()?;
+            let MineBlockResultAndState { block, .. } = self.mine_pending_block()?;
             Some(block)
         } else {
             None
@@ -2067,8 +2071,14 @@ where
     pub fn mine_and_commit_block(
         &mut self,
         options: HeaderOverrides<ChainSpecT::Hardfork>,
-    ) -> Result<DebugMineBlockResultForChainSpec<ChainSpecT>, ProviderErrorForChainSpec<ChainSpecT>>
-    {
+    ) -> Result<
+        MineBlockResultAndStateWithMetadata<
+            Arc<ChainSpecT::Block>,
+            ChainSpecT::HaltReason,
+            EvmObservedData,
+        >,
+        ProviderErrorForChainSpec<ChainSpecT>,
+    > {
         self.mine_and_commit_block_impl(Self::mine_block_with_mem_pool, options)
     }
 
@@ -2079,7 +2089,13 @@ where
         number_of_blocks: u64,
         interval: u64,
     ) -> Result<
-        Vec<DebugMineBlockResultForChainSpec<ChainSpecT>>,
+        Vec<
+            MineBlockResultAndStateWithMetadata<
+                Arc<ChainSpecT::Block>,
+                ChainSpecT::HaltReason,
+                EvmObservedData,
+            >,
+        >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         // There should be at least 2 blocks left for the reservation to work,
@@ -2093,7 +2109,7 @@ where
 
         let mine_block_with_interval =
             |data: &mut ProviderData<ChainSpecT, TimerT>,
-             mined_blocks: &mut Vec<DebugMineBlockResultForChainSpec<ChainSpecT>>|
+             mined_blocks: &mut Vec<MineBlockResultForChainSpec<ChainSpecT>>|
              -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
                 let previous_timestamp = mined_blocks
                     .last()
@@ -2169,9 +2185,10 @@ where
     pub fn mine_pending_block(
         &mut self,
     ) -> Result<
-        DebugMineBlockResultAndState<
-            ChainSpecT::HaltReason,
+        MineBlockResultAndStateWithMetadata<
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+            ChainSpecT::HaltReason,
+            EvmObservedData,
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
@@ -2266,7 +2283,7 @@ where
                     address_to_executed_code,
                     call_trace_arena,
                     encoded_console_logs,
-                } = evm_observer.report_and_collect(&execution_result.precompile_addresses)?;
+                } = evm_observer.collect_and_report(&execution_result.precompile_addresses)?;
 
                 if let Some(GasReportArgs {
                     callback,
@@ -2342,9 +2359,13 @@ where
         &mut self,
         evm_config: &EvmConfig,
         options: HeaderOverrides<ChainSpecT::Hardfork>,
-        evm_observer: &mut EvmObserver,
+        evm_observer: EvmObserver,
     ) -> Result<
-        BuiltBlockAndState<ChainSpecT::HaltReason, <ChainSpecT as GenesisBlockFactory>::LocalBlock>,
+        MineBlockResultAndStateWithMetadata<
+            <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+            ChainSpecT::HaltReason,
+            EvmObservedData,
+        >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         let reward = miner_reward(self.blockchain.hardfork().into()).unwrap_or(0);
@@ -2375,7 +2396,11 @@ where
         transaction: ChainSpecT::SignedTransaction,
         evm_observer: &mut EvmObserver,
     ) -> Result<
-        BuiltBlockAndState<ChainSpecT::HaltReason, <ChainSpecT as GenesisBlockFactory>::LocalBlock>,
+        MineBlockResultAndStateWithMetadata<
+            <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+            ChainSpecT::HaltReason,
+            EvmObservedData,
+        >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         let reward = miner_reward(self.blockchain.hardfork().into()).unwrap_or(0);
@@ -2394,7 +2419,12 @@ where
             &self.precompile_overrides,
         )?;
 
-        Ok(result)
+        let inspector_data = evm_observer.flush_and_report(&result.precompile_addresses)?;
+
+        Ok(MineBlockResultAndStateWithMetadata::new(
+            result,
+            vec![inspector_data],
+        ))
     }
 }
 
@@ -2668,7 +2698,7 @@ where
                 address_to_executed_code,
                 call_trace_arena,
                 encoded_console_logs,
-            } = evm_observer.report_and_collect(&result.precompile_addresses)?;
+            } = evm_observer.collect_and_report(&result.precompile_addresses)?;
 
             let mut initial_estimation = match result.result {
                 ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
@@ -2726,7 +2756,7 @@ where
                 address_to_executed_code,
                 call_trace_arena,
                 encoded_console_logs: _,
-            } = evm_observer.report_and_collect(&result.precompile_addresses)?;
+            } = evm_observer.collect_and_report(&result.precompile_addresses)?;
 
             call_trace_arenas.push(call_trace_arena);
 

@@ -19,7 +19,7 @@ use edr_chain_spec_evm::{result::ExecutionResult, DatabaseComponentError, Transa
 use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
 use edr_gas_report::GasReportCreationError;
 use edr_mem_pool::MemPoolAddTransactionError;
-use edr_primitives::{hex, Address, Bytes, HashSet, B256, U256};
+use edr_primitives::{hex, Address, Bytes, HashMap, HashSet, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;

@@ -2,11 +2,11 @@
 
 mod conversion;
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
-use edr_primitives::{Address, Bytes, U256};
+use edr_primitives::{Address, Bytes, HashMap, U256};
 
 pub use self::conversion::CallTraceArenaConversionError;
 use crate::{build_model::ContractMetadata, exit_code::ExitCode};
@@ -81,8 +81,8 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
     pub fn from_call_trace_arena_with_extracted_code(
         arena: &revm_inspectors::tracing::CallTraceArena,
     ) -> Result<Self, CallTraceArenaConversionError> {
-        let mut address_to_creation_code = HashMap::new();
-        let mut address_to_runtime_code = HashMap::new();
+        let mut address_to_creation_code = HashMap::default();
+        let mut address_to_runtime_code = HashMap::default();
 
         // Extract code mappings from CREATE traces
         for node in arena.nodes() {
