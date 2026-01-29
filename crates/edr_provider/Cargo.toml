@@ -84,7 +84,7 @@ tracing = { version = "0.1.44", features = [
 
 [dev-dependencies]
 alloy-eips.workspace = true
-anyhow = "1.0.89"
+anyhow = "1.0.100"
 edr_test_block_replay.workspace = true
 edr_test_utils.workspace = true
 paste = { version = "1.0.14", default-features = false }

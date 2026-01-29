@@ -48,7 +48,7 @@ thiserror.workspace = true
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 
 [dev-dependencies]
-anyhow = "1.0.89"
+anyhow = "1.0.100"
 edr_block_api.workspace = true
 edr_defaults.workspace = true
 edr_eth.workspace = true
