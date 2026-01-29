@@ -110,22 +110,19 @@ mod base_fee_params {
         BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams,
     };
     use edr_eth::PreEip1898BlockSpec;
-    use edr_op::{Hardfork, OpChainSpec};
-    use edr_primitives::{HashMap, B256};
-    use edr_provider::{
-        test_utils::{create_test_config, create_test_config_with, MinimalProviderConfig},
-        ForkConfig, MethodInvocation, Provider, ProviderRequest,
-    };
+    use edr_op::Hardfork;
+    use edr_primitives::B256;
+    use edr_provider::test_utils::create_test_config;
     use edr_test_utils::secret_key::secret_key_to_address;
 
-    use super::create_op_provider;
+    use super::*;
 
     fn trigger_mining_block(provider: &Provider<OpChainSpec>) -> anyhow::Result<()> {
         let caller = secret_key_to_address(SECRET_KEYS[0])?;
-        let destinatary = secret_key_to_address(SECRET_KEYS[1])?;
+        let callee = secret_key_to_address(SECRET_KEYS[1])?;
         let transaction = TransactionRequest {
             from: caller,
-            to: Some(destinatary),
+            to: Some(callee),
             ..TransactionRequest::default()
         };
         let _result = provider.handle_request(ProviderRequest::with_single(
