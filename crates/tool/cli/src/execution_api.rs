@@ -38,19 +38,10 @@ fn get_openrpc_json(version: &str) -> anyhow::Result<String> {
 
     reqwest::blocking::get(url)
         .map_err(|e| {
-            anyhow!(
-                "Failed to retrieve `openrpc.json` for version: {} due to error: `{}`.",
-                version,
-                e.to_string()
-            )
+            anyhow!("Failed to retrieve `openrpc.json` for version: {version} due to error: `{e}`.")
         })?
         .text()
-        .map_err(|e| {
-            anyhow!(
-                "Failed to convert retrieved `openrpc.json` to UTF-8, due to: {}.",
-                e
-            )
-        })
+        .map_err(|e| anyhow!("Failed to convert retrieved `openrpc.json` to UTF-8, due to: {e}."))
 }
 
 pub fn generate(_mode: Mode) -> anyhow::Result<()> {
@@ -91,6 +82,6 @@ pub fn generate(_mode: Mode) -> anyhow::Result<()> {
     if status.success() {
         Ok(())
     } else {
-        bail!("Failed to generate execution api, due to: {}", status)
+        bail!("Failed to generate execution api, due to: {status}")
     }
 }
