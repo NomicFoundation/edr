@@ -62,6 +62,8 @@ mod test;
 
 mod toml;
 
+mod unsupported;
+
 mod utils;
 
 pub use cache::{CachedChains, CachedEndpoints, StorageCachingConfig};
