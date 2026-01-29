@@ -655,7 +655,7 @@ describe("Provider", () => {
     const elasticityLeastSignificantByte = 8;
 
     assert.equal(0, dataView.getUint8(extraDataVersionByte));
-    // we are expecting base_fee_params = (250,4) since provider was created
+    // we are expecting base_fee_params associated to Canyon activation point (250,6) since provider was created
     // with Holocene hardfork, which is after Canyon
     assert.equal(250, dataView.getUint8(denominatorLeastSignificantByte));
     assert.equal(6, dataView.getUint8(elasticityLeastSignificantByte));

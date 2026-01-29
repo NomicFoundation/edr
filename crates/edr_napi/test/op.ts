@@ -67,16 +67,20 @@ describe("Multi-chain", () => {
     blockGasLimit: 300_000_000n,
     chainId: 123n,
     chainOverrides: [],
-    coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
+    coinbase: new Uint8Array(
+      Buffer.from("0000000000000000000000000000000000000000", "hex")
+    ),
     genesisState,
     hardfork: opHardforkToString(opLatestHardfork()),
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
     },
-    initialParentBeaconBlockRoot: Buffer.from(
-      "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex"
+    initialParentBeaconBlockRoot: new Uint8Array(
+      Buffer.from(
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "hex"
+      )
     ),
     minGasPrice: 0n,
     mining: {

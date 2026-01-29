@@ -2836,8 +2836,16 @@ fn create_forked_blockchain_and_state<
     let scheduled_blob_params = chain_configs
         .get(&config.chain_id)
         .and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
+
+    let base_fee_params = config.base_fee_params.clone().unwrap_or_else(|| {
+        chain_configs.get(&config.chain_id).cloned().map_or_else(
+            || ChainSpecT::default_base_fee_params().clone(),
+            |chain_config| chain_config.base_fee_params,
+        )
+    });
+
     let block_config = BlockConfig {
-        base_fee_params: ChainSpecT::default_base_fee_params().clone(),
+        base_fee_params,
         hardfork: config.hardfork,
         min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params,
