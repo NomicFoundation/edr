@@ -1,9 +1,7 @@
 //! Conversion from `CallTraceArena` (from revm-inspectors) to `NestedTrace`.
 
-use std::collections::HashMap;
-
 use edr_chain_spec::HaltReasonTrait;
-use edr_primitives::{Address, Bytes, U160};
+use edr_primitives::{Address, Bytes, HashMap, U160};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 use revm_interpreter::{InternalResult, SuccessOrHalt};
 

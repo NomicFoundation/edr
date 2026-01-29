@@ -42,6 +42,28 @@ impl SolidityTracingInspector {
 
         Ok(arena)
     }
+
+    /// Takes the [`TracingInspector`]'s traces and ABI decodes them, replacing
+    /// the current traces with an empty arena.
+    pub fn take(
+        &mut self,
+        address_to_executed_code: &HashMap<Address, Bytes>,
+        precompile_addresses: &HashSet<Address>,
+    ) -> Result<CallTraceArena, serde_json::Error> {
+        let mut arena = std::mem::take(self.inspector.traces_mut());
+
+        // Reset the inspector
+        self.inspector.fuse();
+
+        let mut decoder = self.decoder.write();
+        decoder.populate_call_trace_arena(
+            &mut arena,
+            address_to_executed_code,
+            precompile_addresses,
+        )?;
+
+        Ok(arena)
+    }
 }
 
 impl<ContextT: ContextTrait<Journal: JournalExt>> Inspector<ContextT> for SolidityTracingInspector {

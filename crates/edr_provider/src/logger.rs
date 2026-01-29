@@ -6,7 +6,7 @@ use edr_primitives::HashSet;
 
 use crate::{
     data::CallResult,
-    debug_mine::DebugMineBlockResultForChainSpec,
+    debug_mine::MineBlockResultForChainSpec,
     error::EstimateGasFailure,
     time::{CurrentTime, TimeSinceEpoch},
     ProviderErrorForChainSpec, ProviderSpec,
@@ -46,7 +46,7 @@ pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoc
 
     fn log_interval_mined(
         &mut self,
-        result: &DebugMineBlockResultForChainSpec<ChainSpecT>,
+        result: &MineBlockResultForChainSpec<ChainSpecT>,
         precompile_addresses: &HashSet<Address>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _result = result;
@@ -57,8 +57,7 @@ pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoc
 
     fn log_mined_block(
         &mut self,
-        results: &[DebugMineBlockResultForChainSpec<ChainSpecT>],
-        precompile_addresses: &HashSet<Address>,
+        results: &[MineBlockResultForChainSpec<ChainSpecT>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _results = results;
         let _precompile_addresses = precompile_addresses;
@@ -69,7 +68,7 @@ pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoc
     fn log_send_transaction(
         &mut self,
         transaction: &ChainSpecT::SignedTransaction,
-        mining_results: &[DebugMineBlockResultForChainSpec<ChainSpecT>],
+        mining_results: &[MineBlockResultForChainSpec<ChainSpecT>],
         precompile_addresses: &HashSet<Address>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _transaction = transaction;

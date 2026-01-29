@@ -1,9 +1,7 @@
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::BlobExcessGasAndPrice;
-use edr_chain_spec_evm::{
-    result::ExecutionResult, BlockEnvTrait, CfgEnv, ContextForChainSpec, Inspector,
-};
+use edr_chain_spec_evm::{BlockEnvTrait, CfgEnv, ContextForChainSpec, Inspector};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_evm::{guaranteed_dry_run_with_inspector, ExecutionResultWithMetadata};

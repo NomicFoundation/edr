@@ -2,6 +2,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_block_builder_api::WrapDatabaseRef;
+use edr_block_miner::FlushInspectorData;
 use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec_evm::{
     interpreter::{
@@ -142,8 +143,8 @@ impl EvmObserver {
         }
     }
 
-    /// Reports and collects the observed data of a single transaction.
-    pub fn report_and_collect(
+    /// Collects and reports the observed data of a single transaction.
+    pub fn collect_and_report(
         self,
         precompile_addresses: &HashSet<Address>,
     ) -> Result<EvmObservedData, EvmObserverCollectionError> {
@@ -157,7 +158,7 @@ impl EvmObserver {
 
         if let Some(code_coverage) = code_coverage {
             code_coverage
-                .report()
+                .collect_and_report()
                 .map_err(EvmObserverCollectionError::OnCollectedCoverageCallback)?;
         }
 
@@ -171,6 +172,52 @@ impl EvmObserver {
             call_trace_arena,
             encoded_console_logs: console_logger.into_encoded_messages(),
         })
+    }
+
+    pub fn flush_and_report(
+        &mut self,
+        precompile_addresses: &HashSet<Address>,
+    ) -> Result<EvmObservedData, EvmObserverCollectionError> {
+        let Self {
+            bytecode_collector,
+            code_coverage,
+            console_logger,
+            mocker: _mocker,
+            tracing_inspector,
+        } = self;
+
+        let address_to_executed_code = bytecode_collector.take();
+
+        if let Some(code_coverage) = code_coverage {
+            code_coverage
+                .flush_and_report()
+                .map_err(EvmObserverCollectionError::OnCollectedCoverageCallback)?;
+        }
+
+        let call_trace_arena = tracing_inspector
+            .take(&address_to_executed_code, &precompile_addresses)
+            .map_err(EvmObserverCollectionError::AbiDecoding)?;
+
+        let encoded_console_logs = console_logger.flush_and_get_encoded_messages();
+
+        Ok(EvmObservedData {
+            address_to_executed_code,
+            call_trace_arena,
+            encoded_console_logs,
+        })
+    }
+}
+
+impl FlushInspectorData for EvmObserver {
+    type Output = EvmObservedData;
+
+    type Error = EvmObserverCollectionError;
+
+    fn flush_inspector_data(
+        &mut self,
+        precompile_addresses: &HashSet<Address>,
+    ) -> Result<Self::Output, Self::Error> {
+        self.flush_and_report(precompile_addresses)
     }
 }
 

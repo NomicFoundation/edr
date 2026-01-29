@@ -1,9 +1,7 @@
 //! Stack trace entries for Solidity errors.
 
-use std::collections::HashMap;
-
 use edr_chain_spec::HaltReasonTrait;
-use edr_primitives::{Address, Bytes, U256};
+use edr_primitives::{Address, Bytes, HashMap, U256};
 use revm_inspectors::tracing::CallTraceArena;
 
 use crate::{
@@ -278,7 +276,7 @@ pub fn get_stack_trace<
     traces: impl IntoIterator<Item = &'arena CallTraceArena>,
     address_to_executed_code: Option<&'arena HashMap<Address, Bytes>>,
 ) -> Result<Option<Vec<StackTraceEntry>>, StackTraceCreationError<HaltReasonT>> {
-    let mut address_to_creation_code = HashMap::new();
+    let mut address_to_creation_code = HashMap::default();
     let mut address_to_runtime_code =
         if let Some(address_to_executed_code) = address_to_executed_code {
             address_to_executed_code
@@ -286,7 +284,7 @@ pub fn get_stack_trace<
                 .map(|(k, v)| (*k, v))
                 .collect()
         } else {
-            HashMap::new()
+            HashMap::default()
         };
 
     let last_trace = traces.into_iter().fold(None, |_, trace| {
