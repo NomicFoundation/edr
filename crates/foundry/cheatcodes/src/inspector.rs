@@ -682,6 +682,7 @@ impl<
         >,
     ) -> Result {
         // decode the cheatcode call
+        // TODO: Replace with structured error.
         let decoded = Vm::VmCalls::abi_decode(&call.input.bytes(ecx)).map_err(|e| {
             if let alloy_sol_types::Error::UnknownSelector { name: _, selector } = e {
                 let message = if let Some(unsupported_cheatcode) =
@@ -2785,6 +2786,14 @@ fn apply_dispatch_traced<
 
     if let spec::Status::Deprecated(replacement) = *cheat.status() {
         ccx.state.deprecated.insert(cheat.signature(), replacement);
+    }
+
+    // Unsupported cheatcodes return an error immediately and preserve error message
+    // from `apply_cheatcode` for backward compatibility.
+    // TODO: Replace with structured error.
+    if matches!(cheat.status(), spec::Status::Unsupported) {
+        let signature = cheat.signature();
+        return Err(fmt_err!("cheatcode '{signature}' is not supported"));
     }
 
     ccx.journaled_state

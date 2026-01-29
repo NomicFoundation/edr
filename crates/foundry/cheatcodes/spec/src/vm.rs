@@ -282,22 +282,6 @@ interface Vm {
         address contractAddr;
     }
 
-    /// Holds a signed EIP-7702 authorization for an authority account to delegate to an implementation.
-    struct SignedDelegation {
-        /// The y-parity of the recovered secp256k1 signature (0 or 1).
-        uint8 v;
-        /// First 32 bytes of the signature.
-        bytes32 r;
-        /// Second 32 bytes of the signature.
-        bytes32 s;
-        /// The current nonce of the authority account at signing time.
-        /// Used to ensure signature can't be replayed after account nonce changes.
-        uint64 nonce;
-        /// Address of the contract implementation that will be delegated to.
-        /// Gets encoded into delegation code: 0xef0100 || implementation.
-        address implementation;
-    }
-
     /// Represents a "potential" revert reason from a single subsequent call when using `vm.assumeNoReverts`.
     /// Reverts that match will result in a FOUNDRY::ASSUME rejection, whereas unmatched reverts will be surfaced
     /// as normal.
@@ -2516,6 +2500,300 @@ interface Vm {
     /// catch (bytes memory interceptedInitcode) { initcode = interceptedInitcode; }
     #[cheatcode(group = Utilities, safety = Unsafe)]
     function interceptInitcode() external;
+
+    // ======== Unsupported Cheatcodes ========
+
+    // -------- Data Structures --------
+
+    /// Represents a transaction's broadcast details.
+    struct BroadcastTxSummary {
+        // The hash of the transaction that was broadcasted
+        bytes32 txHash;
+        // Represent the type of transaction among CALL, CREATE, CREATE2
+        BroadcastTxType txType;
+        // The address of the contract that was called or created.
+        // This is the address of the contract that is created if the txType is CREATE or CREATE2.
+        address contractAddress;
+        // The block number the transaction landed in.
+        uint64 blockNumber;
+        // Status of the transaction, retrieved from the transaction receipt.
+        bool success;
+    }
+
+    /// The transaction type (`txType`) of the broadcast.
+    enum BroadcastTxType {
+        // Represents a CALL broadcast tx.
+        Call,
+        // Represents a CREATE broadcast tx.
+        Create,
+        // Represents a CREATE2 broadcast tx.
+        Create2
+    }
+
+    /// Holds a signed EIP-7702 authorization for an authority account to delegate to an implementation.
+    struct SignedDelegation {
+        /// The y-parity of the recovered secp256k1 signature (0 or 1).
+        uint8 v;
+        /// First 32 bytes of the signature.
+        bytes32 r;
+        /// Second 32 bytes of the signature.
+        bytes32 s;
+        /// The current nonce of the authority account at signing time.
+        /// Used to ensure signature can't be replayed after account nonce changes.
+        uint64 nonce;
+        /// Address of the contract implementation that will be delegated to.
+        /// Gets encoded into delegation code: 0xef0100 || implementation.
+        address implementation;
+    }
+
+    /// A wallet with a public and private key.
+    struct Wallet {
+        // The wallet's address.
+        address addr;
+        // The wallet's public key `X`.
+        uint256 publicKeyX;
+        // The wallet's public key `Y`.
+        uint256 publicKeyY;
+        // The wallet's private key.
+        uint256 privateKey;
+    }
+
+    // -------- Scripting --------
+
+    /// Scripting cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function broadcast() external;
+
+    /// Scripting cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function broadcast(address signer) external;
+
+    /// Scripting cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function broadcast(uint256 privateKey) external;
+
+    /// Scripting cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function startBroadcast() external;
+
+    /// Scripting cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function startBroadcast(address signer) external;
+
+    /// Scripting cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function startBroadcast(uint256 privateKey) external;
+
+    /// Scripting cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function stopBroadcast() external;
+
+    /// Scripting cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function broadcastRawTransaction(bytes calldata data) external;
+
+    /// EIP-7702 cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);
+
+    /// EIP-7702 cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);
+
+    /// EIP-7702 cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);
+
+    /// EIP-7702 cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function attachDelegation(SignedDelegation calldata signedDelegation) external;
+
+    /// EIP-7702 cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function attachDelegation(SignedDelegation calldata signedDelegation, bool crossChain) external;
+
+    /// EIP-7702 cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signAndAttachDelegation(address implementation, uint256 privateKey) external returns (SignedDelegation memory signedDelegation);
+
+    /// EIP-7702 cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signAndAttachDelegation(address implementation, uint256 privateKey, uint64 nonce) external returns (SignedDelegation memory signedDelegation);
+
+    /// EIP-7702 cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function signAndAttachDelegation(address implementation, uint256 privateKey, bool crossChain) external returns (SignedDelegation memory signedDelegation);
+
+    /// Scripting cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function attachBlob(bytes calldata blob) external;
+
+    /// Scripting cheatcodes are not supported.
+    #[cheatcode(group = Scripting, status = Unsupported)]
+    function getWallets() external returns (address[] memory wallets);
+
+    // -------- Filesystem --------
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getArtifactPathByCode(bytes calldata code) external view returns (string memory path);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getArtifactPathByDeployedCode(bytes calldata deployedCode) external view returns (string memory path);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath) external returns (address deployedAddress);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, bytes calldata constructorArgs) external returns (address deployedAddress);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, uint256 value) external returns (address deployedAddress);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, bytes calldata constructorArgs, uint256 value) external returns (address deployedAddress);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, bytes32 salt) external returns (address deployedAddress);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, bytes calldata constructorArgs, bytes32 salt) external returns (address deployedAddress);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, uint256 value, bytes32 salt) external returns (address deployedAddress);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function deployCode(string calldata artifactPath, bytes calldata constructorArgs, uint256 value, bytes32 salt) external returns (address deployedAddress);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getBroadcast(string calldata contractName, uint64 chainId, BroadcastTxType txType) external view returns (BroadcastTxSummary memory);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getBroadcasts(string calldata contractName, uint64 chainId, BroadcastTxType txType) external view returns (BroadcastTxSummary[] memory);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getBroadcasts(string calldata contractName, uint64 chainId) external view returns (BroadcastTxSummary[] memory);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getDeployment(string calldata contractName) external view returns (address deployedAddress);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getDeployment(string calldata contractName, uint64 chainId) external view returns (address deployedAddress);
+
+    /// Contract deployment cheatcodes are not supported.
+    #[cheatcode(group = Filesystem, status = Unsupported)]
+    function getDeployments(string calldata contractName, uint64 chainId) external view returns (address[] memory deployedAddresses);
+
+    // -------- Key management --------
+
+    /// Key management cheatcodes are not supported.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function createWallet(string calldata walletLabel) external returns (Wallet memory wallet);
+
+    /// Key management cheatcodes are not supported.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function createWallet(uint256 privateKey) external returns (Wallet memory wallet);
+
+    /// Key management cheatcodes are not supported.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function createWallet(uint256 privateKey, string calldata walletLabel) external returns (Wallet memory wallet);
+
+    /// Key management cheatcodes are not supported.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function deriveKey(string calldata mnemonic, uint32 index) external pure returns (uint256 privateKey);
+
+    /// Key management cheatcodes are not supported.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index)
+        external
+        pure
+        returns (uint256 privateKey);
+    /// Derive a private key from a provided mnemonic string (or mnemonic file path) in the specified language
+    /// at the derivation path `m/44'/60'/0'/0/{index}`.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function deriveKey(string calldata mnemonic, uint32 index, string calldata language)
+        external
+        pure
+        returns (uint256 privateKey);
+    /// Derive a private key from a provided mnemonic string (or mnemonic file path) in the specified language
+    /// at `{derivationPath}{index}`.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index, string calldata language)
+        external
+        pure
+        returns (uint256 privateKey);
+
+    /// Adds a private key to the local forge wallet and returns the address.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function rememberKey(uint256 privateKey) external returns (address keyAddr);
+
+    /// Key management cheatcodes are not supported.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function rememberKeys(string calldata mnemonic, string calldata derivationPath, uint32 count) external returns (address[] memory keyAddrs);
+
+    /// Key management cheatcodes are not supported.
+    #[cheatcode(group = Crypto, status = Unsupported)]
+    function rememberKeys(string calldata mnemonic, string calldata derivationPath, string calldata language, uint32 count)
+        external
+        returns (address[] memory keyAddrs);
+
+    // -------- Utilities --------
+
+    /// EIP-712 cheatcodes are not supported.
+    #[cheatcode(group = Utilities, status = Unsupported)]
+    function eip712HashType(string calldata typeNameOrDefinition) external pure returns (bytes32 typeHash);
+
+    /// EIP-712 cheatcodes are not supported.
+    #[cheatcode(group = Utilities, status = Unsupported)]
+    function eip712HashType(string calldata bindingsPath, string calldata typeName) external pure returns (bytes32 typeHash);
+
+    /// EIP-712 cheatcodes are not supported.
+    #[cheatcode(group = Utilities, status = Unsupported)]
+    function eip712HashStruct(string calldata typeNameOrDefinition, bytes calldata abiEncodedData) external pure returns (bytes32 typeHash);
+
+    /// EIP-712 cheatcodes are not supported.
+    #[cheatcode(group = Utilities, status = Unsupported)]
+    function eip712HashStruct(string calldata bindingsPath, string calldata typeName, bytes calldata abiEncodedData) external pure returns (bytes32 typeHash);
+
+    /// EIP-712 cheatcodes are not supported.
+    #[cheatcode(group = Utilities, status = Unsupported)]
+    function eip712HashTypedData(string calldata jsonData) external pure returns (bytes32 digest);
+
+    // -------- Testing --------
+
+    /// Debugging cheatcodes are not supported.
+    #[cheatcode(group = Testing, safety = Safe, status = Unsupported)]
+    function breakpoint(string calldata char) external pure;
+
+    /// Debugging cheatcodes are not supported.
+    #[cheatcode(group = Testing, safety = Safe, status = Unsupported)]
+    function breakpoint(string calldata char, bool value) external pure;
+
+    /// Foundry-specific version cheatcodes are not supported.
+    #[cheatcode(group = Testing, safety = Safe, status = Unsupported)]
+    function foundryVersionAtLeast(string calldata version) external view returns (bool);
+
+    /// Foundry-specific version cheatcodes are not supported.
+    #[cheatcode(group = Testing, safety = Safe, status = Unsupported)]
+    function foundryVersionCmp(string calldata version) external view returns (int256);
+
+    /// Foundry-specific version cheatcodes are not supported.
+    #[cheatcode(group = Testing, safety = Safe, status = Unsupported)]
+    function getFoundryVersion() external view returns (string memory version);
 }
 }
 
