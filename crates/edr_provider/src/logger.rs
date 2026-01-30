@@ -2,12 +2,13 @@ use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
-use edr_primitives::HashSet;
+use edr_block_miner::MineBlockResultWithMetadataForChainSpec;
+use edr_primitives::{Address, HashSet};
 
 use crate::{
     data::CallResult,
-    debug_mine::MineBlockResultForChainSpec,
     error::EstimateGasFailure,
+    observability::EvmObservedData,
     time::{CurrentTime, TimeSinceEpoch},
     ProviderErrorForChainSpec, ProviderSpec,
 };
@@ -39,28 +40,24 @@ pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoc
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _transaction = transaction;
         let _failure = result;
-        let _precompile_addresses = precompile_addresses;
 
         Ok(())
     }
 
     fn log_interval_mined(
         &mut self,
-        result: &MineBlockResultForChainSpec<ChainSpecT>,
-        precompile_addresses: &HashSet<Address>,
+        result: &MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _result = result;
-        let _precompile_addresses = precompile_addresses;
 
         Ok(())
     }
 
     fn log_mined_block(
         &mut self,
-        results: &[MineBlockResultForChainSpec<ChainSpecT>],
+        results: &[MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _results = results;
-        let _precompile_addresses = precompile_addresses;
 
         Ok(())
     }
@@ -68,12 +65,10 @@ pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoc
     fn log_send_transaction(
         &mut self,
         transaction: &ChainSpecT::SignedTransaction,
-        mining_results: &[MineBlockResultForChainSpec<ChainSpecT>],
-        precompile_addresses: &HashSet<Address>,
+        mining_results: &[MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _transaction = transaction;
         let _mining_results = mining_results;
-        let _precompile_addresses = precompile_addresses;
 
         Ok(())
     }

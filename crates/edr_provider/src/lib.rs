@@ -2,7 +2,6 @@
 pub mod config;
 mod console_log;
 mod data;
-mod debug_mine;
 mod debug_trace;
 mod error;
 mod filter;
@@ -28,7 +27,7 @@ mod utils;
 
 use core::fmt::Debug;
 
-pub use edr_block_miner::{BuiltBlockAndState, MineBlockResultAndStateWithMetadata};
+pub use edr_block_miner::{MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec};
 use edr_primitives::HashSet;
 use foundry_evm_traces::CallTraceArena;
 use lazy_static::lazy_static;
@@ -39,7 +38,6 @@ pub use self::{
         Mining as MiningConfig, Provider as ProviderConfig,
     },
     data::{CallResult, ProviderData},
-    debug_mine::{DebugMineBlockResult, MineBlockResultForChainSpec},
     debug_trace::DebugTraceError,
     error::{
         EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, TransactionFailure,

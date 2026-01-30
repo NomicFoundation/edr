@@ -237,7 +237,13 @@ pub enum ProviderError<
     #[error(transparent)]
     MineBlock(
         #[from]
-        MineBlockError<DynBlockchainError, HardforkT, StateError, TransactionValidationErrorT>,
+        MineBlockError<
+            DynBlockchainError,
+            EvmObserverCollectionError,
+            HardforkT,
+            StateError,
+            TransactionValidationErrorT,
+        >,
     ),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]

@@ -21,14 +21,18 @@ pub fn handle_mine<
 
     let mined_block_results = data.mine_and_commit_blocks(number_of_blocks, interval)?;
 
-    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_mined_block(hardfork, &mined_block_results)
+        .log_mined_block(&mined_block_results)
         .map_err(ProviderError::Logger)?;
 
     let traces = mined_block_results
         .into_iter()
-        .flat_map(|result| result.transaction_call_trace_arenas)
+        .flat_map(|result| {
+            result
+                .transaction_inspector_data
+                .into_iter()
+                .map(|observed_data| observed_data.call_trace_arena)
+        })
         .collect();
 
     Ok((true, traces))

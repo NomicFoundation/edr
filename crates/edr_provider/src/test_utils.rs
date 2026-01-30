@@ -213,7 +213,7 @@ pub fn pending_base_fee<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
 ) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
-    let block = data.mine_pending_block()?.block;
+    let block = data.mine_pending_block()?.block_and_state.block;
 
     let base_fee = block.block_header().base_fee_per_gas.unwrap_or(1);
 

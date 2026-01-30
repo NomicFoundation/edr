@@ -1,4 +1,4 @@
-use std::num::NonZeroU64;
+use std::{num::NonZeroU64, slice};
 
 use edr_block_header::HeaderOverrides;
 use edr_chain_spec::TransactionValidation;
@@ -40,11 +40,15 @@ pub fn handle_mine_request<
         ..HeaderOverrides::default()
     })?;
 
-    let traces = mine_block_result.transaction_call_trace_arenas.clone();
-
     data.logger_mut()
-        .log_mined_block(&[mine_block_result])
+        .log_mined_block(slice::from_ref(&mine_block_result))
         .map_err(ProviderError::Logger)?;
+
+    let traces = mine_block_result
+        .transaction_inspector_data
+        .into_iter()
+        .map(|observed_data| observed_data.call_trace_arena)
+        .collect();
 
     let result = String::from("0");
     Ok((result, traces))

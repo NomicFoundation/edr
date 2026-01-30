@@ -6,11 +6,9 @@ use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction as _, TransactionValidation};
 use edr_chain_spec_block::BlockChainSpec;
-use edr_chain_spec_evm::{
-    BlockEnvTrait as _, CfgEnv, DatabaseComponentError, ExecutionResultAndState, TransactionError,
-};
-use edr_evm::{dry_run_with_inspector, run, ExecutionResultAndStateWithMetadata};
-use edr_primitives::{Address, Bytes, HashMap, B256, U256};
+use edr_chain_spec_evm::{BlockEnvTrait as _, CfgEnv, DatabaseComponentError, TransactionError};
+use edr_evm::{dry_run_with_inspector, run};
+use edr_primitives::{HashMap, B256, U256};
 use edr_runtime::inspector::DualInspector;
 use edr_state_api::{DynState, StateError};
 use foundry_evm_traces::CallTraceArena;
@@ -56,11 +54,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
             let mut evm_observer = EvmObserver::new(observer_config);
 
             let transaction_hash = *transaction.transaction_hash();
-            let ExecutionResultAndStateWithMetadata {
-                precompile_addresses,
-                result,
-                state,
-            } = dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
+            let result = dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
                 blockchain,
                 state.as_ref(),
                 evm_config,
@@ -74,7 +68,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                 address_to_executed_code: _,
                 call_trace_arena,
                 encoded_console_logs: _,
-            } = evm_observer.collect_and_report(&precompile_addresses)?;
+            } = evm_observer.collect_and_report(&result.precompile_addresses)?;
 
             let mut database = WrapDatabaseRef(DatabaseComponents {
                 blockchain,
@@ -90,7 +84,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                     }),
                     &transaction,
                     &block,
-                    &ExecutionResultAndState { result, state },
+                    &result.into_result_and_state(),
                     &mut database,
                 )
                 .map_err(DebugTraceError::from_debug_inspector_result_error)?;

@@ -8,6 +8,7 @@ use edr_napi_core::provider::SyncProvider;
 use edr_solidity::compiler::create_models_and_decode_bytecodes;
 use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
+use parking_lot::RwLock;
 
 pub use self::factory::ProviderFactory;
 use self::response::Response;
@@ -16,7 +17,7 @@ use crate::{call_override::CallOverrideCallback, contract_decoder::ContractDecod
 /// A JSON-RPC provider for Ethereum.
 #[napi]
 pub struct Provider {
-    contract_decoder: Arc<edr_solidity::contract_decoder::ContractDecoder>,
+    contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
     #[cfg(feature = "scenarios")]
@@ -28,7 +29,7 @@ impl Provider {
     pub fn new(
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
-        contract_decoder: Arc<edr_solidity::contract_decoder::ContractDecoder>,
+        contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
@@ -76,6 +77,7 @@ impl Provider {
                     }
                 };
 
+                let mut contract_decoder = contract_decoder.write();
                 for contract in contracts {
                     contract_decoder.add_contract_metadata(contract);
                 }

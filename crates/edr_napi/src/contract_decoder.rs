@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use napi_derive::napi;
+use parking_lot::RwLock;
 
 use crate::config::TracingConfigWithBuffers;
 
 #[napi]
 pub struct ContractDecoder {
-    inner: Arc<edr_solidity::contract_decoder::ContractDecoder>,
+    inner: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
 }
 
 #[napi]
@@ -17,7 +18,7 @@ impl ContractDecoder {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(edr_solidity::contract_decoder::ContractDecoder::default()),
+            inner: Arc::default(),
         }
     }
 
@@ -32,7 +33,7 @@ impl ContractDecoder {
         let contract_decoder =
             edr_solidity::contract_decoder::ContractDecoder::new(&build_info_config).map_or_else(
                 |error| Err(napi::Error::from_reason(error.to_string())),
-                |contract_decoder| Ok(Arc::new(contract_decoder)),
+                |contract_decoder| Ok(Arc::new(RwLock::new(contract_decoder))),
             )?;
 
         Ok(Self {
@@ -43,13 +44,15 @@ impl ContractDecoder {
 
 impl ContractDecoder {
     /// Returns a reference to the inner contract decoder.
-    pub fn as_inner(&self) -> &Arc<edr_solidity::contract_decoder::ContractDecoder> {
+    pub fn as_inner(&self) -> &Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>> {
         &self.inner
     }
 }
 
-impl From<Arc<edr_solidity::contract_decoder::ContractDecoder>> for ContractDecoder {
-    fn from(contract_decoder: Arc<edr_solidity::contract_decoder::ContractDecoder>) -> Self {
+impl From<Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>> for ContractDecoder {
+    fn from(
+        contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
+    ) -> Self {
         Self {
             inner: contract_decoder,
         }

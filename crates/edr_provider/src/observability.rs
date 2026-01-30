@@ -108,6 +108,7 @@ pub enum EvmObserverCollectionError {
     OnCollectedCoverageCallback(Box<dyn std::error::Error + Send + Sync>),
 }
 
+#[derive(Debug)]
 pub struct EvmObservedData {
     /// Mapping of contract address to executed bytecode
     pub address_to_executed_code: HashMap<Address, Bytes>,
@@ -164,7 +165,7 @@ impl EvmObserver {
 
         let address_to_executed_code = bytecode_collector.collect();
         let call_trace_arena = tracing_inspector
-            .collect(&address_to_executed_code, &precompile_addresses)
+            .collect(&address_to_executed_code, precompile_addresses)
             .map_err(EvmObserverCollectionError::AbiDecoding)?;
 
         Ok(EvmObservedData {
@@ -195,10 +196,10 @@ impl EvmObserver {
         }
 
         let call_trace_arena = tracing_inspector
-            .take(&address_to_executed_code, &precompile_addresses)
+            .take(&address_to_executed_code, precompile_addresses)
             .map_err(EvmObserverCollectionError::AbiDecoding)?;
 
-        let encoded_console_logs = console_logger.flush_and_get_encoded_messages();
+        let encoded_console_logs = console_logger.take_encoded_messages();
 
         Ok(EvmObservedData {
             address_to_executed_code,
