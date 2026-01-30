@@ -14,7 +14,7 @@ edr_state_api.workspace = true
 hasher = { version = "0.1.4", default-features = false, features = ["hash-keccak"] }
 parking_lot.workspace = true
 revm-state.workspace = true
-rpds = { version = "1.1.0", default-features = false, features = ["std"] }
+rpds = { version = "1.2.0", default-features = false, features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true
 tracing = { workspace = true, features = ["attributes", "std"], optional = true }
