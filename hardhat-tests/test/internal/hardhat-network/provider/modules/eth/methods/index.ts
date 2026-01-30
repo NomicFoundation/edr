@@ -75,12 +75,6 @@ describe("Eth module", function () {
         });
       });
 
-      describe("eth_getProof", function () {
-        it("is not supported", async function () {
-          await assertNotSupported(this.provider, "eth_getProof");
-        });
-      });
-
       describe("eth_getUncleByBlockHashAndIndex", function () {
         it("is not supported", async function () {
           await assertNotSupported(

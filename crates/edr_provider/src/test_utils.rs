@@ -34,9 +34,9 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
-/// Constructs a test config with a single account with 1 ether
+/// Constructs a test config in local mode with configured accounts
 pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
-    create_test_config_with_fork(None)
+    create_test_config_with(MinimalProviderConfig::local_with_accounts())
 }
 
 /// Default base header overrides for replaying L1 blocks.
@@ -102,25 +102,77 @@ pub fn set_genesis_state_with_owned_accounts<HardforkT>(
     config.owned_accounts = owned_accounts;
 }
 
-pub fn create_test_config_with_fork<HardforkT: Default>(
+pub struct MinimalProviderConfig<HardforkT> {
     fork: Option<ForkConfig<HardforkT>>,
+    genesis_state: HashMap<Address, AccountOverride>,
+    owned_accounts: Vec<SecretKey>,
+}
+
+impl<HardforkT> MinimalProviderConfig<HardforkT> {
+    /// Fork minimal configuration without custom `owned_accounts` or
+    /// `genesis_state`
+    pub fn fork_empty(fork_config: ForkConfig<HardforkT>) -> MinimalProviderConfig<HardforkT> {
+        MinimalProviderConfig {
+            fork: Some(fork_config),
+            genesis_state: HashMap::default(),
+            owned_accounts: vec![],
+        }
+    }
+
+    /// Local minimal configuration without custom `owned_accounts` or
+    /// `genesis_state`
+    pub fn local_empty() -> MinimalProviderConfig<HardforkT> {
+        MinimalProviderConfig {
+            fork: None,
+            genesis_state: HashMap::default(),
+            owned_accounts: vec![],
+        }
+    }
+
+    /// Fork minimal configuration with default custom `owned_accounts` or
+    /// `genesis_state`
+    pub fn fork_with_accounts(
+        fork_config: ForkConfig<HardforkT>,
+    ) -> MinimalProviderConfig<HardforkT> {
+        let owned_accounts = Self::default_accounts();
+        MinimalProviderConfig {
+            fork: Some(fork_config),
+            genesis_state: genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether()),
+            owned_accounts,
+        }
+    }
+    /// Local minimal configuration with default custom `owned_accounts` or
+    /// `genesis_state`
+    pub fn local_with_accounts() -> MinimalProviderConfig<HardforkT> {
+        let owned_accounts = Self::default_accounts();
+        MinimalProviderConfig {
+            fork: None,
+            genesis_state: genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether()),
+            owned_accounts,
+        }
+    }
+
+    fn default_accounts() -> Vec<SecretKey> {
+        // This is test code, it's ok to use `DangerousSecretKeyStr`
+        #[allow(deprecated)]
+        use edr_signer::DangerousSecretKeyStr;
+
+        // This is test code, it's ok to use `DangerousSecretKeyStr`
+        // Can't use `edr_test_utils` as a dependency here.
+        vec![
+            #[allow(deprecated)]
+            secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY))
+                .expect("should construct secret key from string"),
+            #[allow(deprecated)]
+            secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY_SIGN_TYPED_DATA_V4))
+                .expect("should construct secret key from string"),
+        ]
+    }
+}
+
+pub fn create_test_config_with<HardforkT: Default>(
+    config: MinimalProviderConfig<HardforkT>,
 ) -> ProviderConfig<HardforkT> {
-    // This is test code, it's ok to use `DangerousSecretKeyStr`
-    #[allow(deprecated)]
-    use edr_signer::DangerousSecretKeyStr;
-
-    // This is test code, it's ok to use `DangerousSecretKeyStr`
-    // Can't use `edr_test_utils` as a dependency here.
-    #[allow(deprecated)]
-    let owned_accounts = vec![
-        secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY))
-            .expect("should construct secret key from string"),
-        secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY_SIGN_TYPED_DATA_V4))
-            .expect("should construct secret key from string"),
-    ];
-
-    let genesis_state = genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether());
-
     ProviderConfig {
         allow_blocks_with_same_timestamp: false,
         allow_unlimited_contract_size: false,
@@ -131,8 +183,8 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
         chain_id: 123,
         coinbase: Address::from(U160::from(1)),
-        fork,
-        genesis_state,
+        fork: config.fork,
+        genesis_state: config.genesis_state,
         hardfork: HardforkT::default(),
         initial_base_fee_per_gas: Some(1000000000),
         initial_blob_gas: Some(BlobGas {
@@ -145,12 +197,11 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         mining: config::Mining::default(),
         network_id: 123,
         observability: observability::ObservabilityConfig::default(),
-        owned_accounts,
+        owned_accounts: config.owned_accounts,
         precompile_overrides: HashMap::default(),
         transaction_gas_cap: None,
     }
 }
-
 /// Retrieves the pending base fee per gas from the provider data.
 pub fn pending_base_fee<
     ChainSpecT: SyncProviderSpec<
@@ -214,27 +265,24 @@ where
 {
     /// Creates a new `ProviderTestFixture` with a local provider.
     pub fn new_local() -> anyhow::Result<Self> {
-        Self::with_fork(None)
+        Self::with_config(MinimalProviderConfig::local_with_accounts())
     }
 
     /// Creates a new `ProviderTestFixture` with a forked provider.
     pub fn new_forked(url: Option<String>) -> anyhow::Result<Self> {
         use edr_test_utils::env::json_rpc_url_provider;
 
-        let fork_url = url.unwrap_or(json_rpc_url_provider::ethereum_mainnet());
-        Self::with_fork(Some(fork_url))
-    }
-
-    fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
-        let fork = fork.map(|json_rpc_url| ForkConfig {
+        Self::with_config(MinimalProviderConfig::fork_with_accounts(ForkConfig {
             block_number: None,
             cache_dir: edr_defaults::CACHE_DIR.into(),
             chain_overrides: HashMap::default(),
             http_headers: None,
-            url: json_rpc_url,
-        });
+            url: url.unwrap_or(json_rpc_url_provider::ethereum_mainnet()),
+        }))
+    }
 
-        let config = create_test_config_with_fork(fork);
+    fn with_config(config: MinimalProviderConfig<ChainSpecT::Hardfork>) -> anyhow::Result<Self> {
+        let config = create_test_config_with(config);
 
         let runtime = runtime::Builder::new_multi_thread()
             .worker_threads(1)

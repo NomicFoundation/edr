@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
+use alloy_rpc_types::EIP1186AccountProofResponse;
 use derive_where::derive_where;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec, RpcEthBlock};
-use edr_primitives::{Address, Bytecode, HashMap, HashSet, B256, KECCAK_NULL_RLP, U256};
+use edr_primitives::{
+    Address, Bytecode, HashMap, HashSet, StorageKey, B256, KECCAK_NULL_RLP, U256,
+};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_state_api::{
     account::{Account, AccountInfo},
-    AccountModifierFn, State, StateCommit, StateDebug, StateError, StateMut as _,
+    AccountModifierFn, State, StateCommit, StateDebug, StateError, StateMut as _, StateProof,
 };
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_state_remote::{CachedRemoteState, RemoteState};
@@ -258,6 +261,32 @@ impl<
     }
 }
 
+impl<
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > StateProof for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
+    /// The state's error type.
+    type Error = StateError;
+
+    fn proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<StorageKey>,
+    ) -> Result<EIP1186AccountProofResponse, Self::Error> {
+        if !self.local_state.is_empty() {
+            return Err(StateError::Unsupported {
+                action: "Proof of locally modified state in fork mode".into(),
+                details: Some(
+                    "Obtaining a proof is not supported in fork mode when local changes have been made. E.g. manual changes to an account or a locally mined block.".into(),
+                ),
+            });
+        }
+
+        self.remote_state.lock().proof(address, storage_keys)
+    }
+}
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
     use std::{

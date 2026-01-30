@@ -1,10 +1,14 @@
 use std::sync::Arc;
 
 use alloy_rlp::Decodable;
-use edr_primitives::{Address, B256};
+use alloy_trie::Nibbles;
+use edr_primitives::{keccak256, Address, Bytes, B256};
 use edr_state_api::account::{AccountInfo, BasicAccount};
 
-use crate::{persistent_db::PersistentMemoryDB, query::TrieQuery};
+use crate::{
+    persistent_db::PersistentMemoryDB,
+    query::{build_proof_nodes, TrieQuery},
+};
 
 #[derive(Debug)]
 pub(super) struct PersistentAccountTrie {
@@ -18,6 +22,17 @@ impl PersistentAccountTrie {
         self.trie_query().get(address).map(|encoded_account| {
             BasicAccount::decode(&mut encoded_account.as_slice()).expect("Valid RLP")
         })
+    }
+
+    /// Generates a Merkle proof for an account's existence or nonexistence.
+    ///
+    /// The account is looked up using `keccak256(address)` as the trie key.
+    pub fn generate_proof(&self, address: &Address) -> Vec<Bytes> {
+        build_proof_nodes(self.trie_query(), vec![Nibbles::unpack(keccak256(address))])
+            .into_nodes_sorted()
+            .into_iter()
+            .map(|(_, v)| v)
+            .collect()
     }
 
     /// Create a helper struct that allows setting and removing multiple

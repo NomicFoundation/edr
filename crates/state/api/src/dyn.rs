@@ -2,7 +2,7 @@ use core::fmt::Debug;
 
 use dyn_clone::DynClone;
 
-use crate::{State, StateCommit, StateDebug, StateError};
+use crate::{State, StateCommit, StateDebug, StateError, StateProof};
 
 /// Super-trait for dynamic trait objects that implement all state
 /// functionalities.
@@ -10,6 +10,7 @@ pub trait DynState:
     State<Error = StateError>
     + StateCommit
     + StateDebug<Error = StateError>
+    + StateProof<Error = StateError>
     + Debug
     + DynClone
     + Send
@@ -27,6 +28,7 @@ impl<StateT> DynState for StateT where
     StateT: State<Error = StateError>
         + StateCommit
         + StateDebug<Error = StateError>
+        + StateProof<Error = StateError>
         + Debug
         + DynClone
         + Send

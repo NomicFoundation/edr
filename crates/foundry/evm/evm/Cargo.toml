@@ -30,7 +30,7 @@ proptest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
-thiserror = "1"
+thiserror = "2"
 tracing = "0.1"
 tokio = "1.43.0"
 

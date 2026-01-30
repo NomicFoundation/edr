@@ -42,9 +42,10 @@ describe("Provider", () => {
     await context.registerProviderFactory(OP_CHAIN_TYPE, opProviderFactory());
   });
 
+  const genesisAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
   const genesisState: AccountOverride[] = [
     {
-      address: toBytes("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
+      address: toBytes(genesisAddress),
       balance: 1000n * 10n ** 18n,
     },
   ];
@@ -654,10 +655,104 @@ describe("Provider", () => {
     const elasticityLeastSignificantByte = 8;
 
     assert.equal(0, dataView.getUint8(extraDataVersionByte));
-    // we are expecting base_fee_params = (250,4) since provider was created
+    // we are expecting base_fee_params associated to Canyon activation point (250,6) since provider was created
     // with Holocene hardfork, which is after Canyon
     assert.equal(250, dataView.getUint8(denominatorLeastSignificantByte));
     assert.equal(6, dataView.getUint8(elasticityLeastSignificantByte));
+  });
+
+  describe("eth_getProof", () => {
+    it("encodes an error within data when not supported for fork mode", async function () {
+      if (ALCHEMY_URL === undefined) {
+        this.skip();
+      }
+
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          fork: {
+            url: ALCHEMY_URL,
+          },
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event) => {},
+        },
+        new ContractDecoder()
+      );
+
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_getProof",
+          params: [genesisAddress, [], "latest"],
+        })
+      );
+      const responseData = JSON.parse(response.data);
+      assert.include(
+        responseData.error.message,
+        "The action `Proof of locally modified state in fork mode` is unsupported"
+      );
+    });
+
+    it("fails on invalid storage key", async function () {
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event) => {},
+        },
+        new ContractDecoder()
+      );
+
+      const storageKey = "b421";
+
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_getProof",
+          params: [genesisAddress, [storageKey], "latest"],
+        })
+      );
+      const INVALID_PARAM_CODE = -32602;
+      const responseData = JSON.parse(response.data);
+      assert.equal(responseData.error.code, INVALID_PARAM_CODE);
+    });
+
+    it("deserializes storage keys correctly", async function () {
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event) => {},
+        },
+        new ContractDecoder()
+      );
+
+      const storageKey =
+        "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_getProof",
+          params: [genesisAddress, [storageKey], "latest"],
+        })
+      );
+      const responseData = JSON.parse(response.data);
+      const storageProof = responseData.result.storageProof[0];
+      assert.equal(storageProof.key, storageKey);
+      assert.equal(storageProof.value, "0x0");
+    });
   });
 });
 

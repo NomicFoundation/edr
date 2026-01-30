@@ -21,4 +21,10 @@ pub enum StateError {
     /// Error from the underlying RPC client
     #[error(transparent)]
     Remote(#[from] RpcClientError),
+    /// Unsupported
+    #[error("The action `{action}` is unsupported. {}", details.as_ref().unwrap_or(&"".into()))]
+    Unsupported {
+        action: String,
+        details: Option<String>,
+    },
 }

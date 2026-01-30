@@ -5,6 +5,9 @@ edition.workspace = true
 
 [dependencies]
 alloy-rlp.workspace = true
+alloy-rpc-types.workspace = true
+alloy-trie.workspace = true
+alloy-serde.workspace = true
 cita_trie = { version = "4.0.0", default-features = false }
 edr_primitives.workspace = true
 edr_state_api.workspace = true

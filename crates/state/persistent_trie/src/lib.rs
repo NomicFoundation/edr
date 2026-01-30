@@ -1,11 +1,15 @@
-use edr_primitives::{Address, Bytecode, HashMap, B256, KECCAK_EMPTY, U256};
+use alloy_rpc_types::{EIP1186AccountProofResponse, EIP1186StorageProof};
+use alloy_serde::JsonStorageKey;
+use edr_primitives::{
+    Address, Bytecode, HashMap, StorageKey, B256, KECCAK_EMPTY, KECCAK_NULL_RLP, U256,
+};
 use edr_state_api::{
     account::{Account, AccountInfo},
-    AccountModifierFn, State, StateCommit, StateDebug, StateDiff, StateError,
+    AccountModifierFn, State, StateCommit, StateDebug, StateDiff, StateError, StateProof,
 };
 
 pub use self::state::PersistentAccountAndStorageTrie;
-use crate::{account::PersistentAccountTrie, shared_map::SharedMap};
+use crate::{account::PersistentAccountTrie, shared_map::SharedMap, storage::StorageTrie};
 
 mod account;
 mod persistent_db;
@@ -48,6 +52,12 @@ impl PersistentStateTrie {
         debug_assert_eq!(code_hash, code.hash_slow());
 
         self.contracts.insert(code_hash, code);
+    }
+
+    /// Checks whether the persistent state is empty by verifying that the
+    /// `state_root` equals `KECCAK_NULL_RLP`.
+    pub fn is_empty(&self) -> bool {
+        self.accounts_and_storage.state_root() == KECCAK_NULL_RLP
     }
 
     /// Modifies the account at the given address, if it exists. Otherwise, it
@@ -278,6 +288,53 @@ impl StateDebug for PersistentStateTrie {
 
     fn state_root(&self) -> Result<B256, Self::Error> {
         Ok(self.accounts_and_storage.state_root())
+    }
+}
+
+impl StateProof for PersistentStateTrie {
+    /// The state's error type
+    type Error = StateError;
+
+    fn proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<StorageKey>,
+    ) -> Result<EIP1186AccountProofResponse, Self::Error> {
+        let account = self.basic(address)?.unwrap_or_default();
+
+        let account_proof = self.accounts_and_storage.account_proof(&address);
+        let storage_proofs = self
+            .accounts_and_storage
+            .storage_proof(&address, &storage_keys);
+
+        let account_proof = EIP1186AccountProofResponse {
+            address,
+            balance: account.balance,
+            nonce: account.nonce,
+            code_hash: account.code_hash,
+            storage_hash: self
+                .account_storage_root(&address)?
+                .unwrap_or_else(|| StorageTrie::default().root()),
+            account_proof,
+            storage_proof: storage_keys
+                .into_iter()
+                .zip(storage_proofs)
+                .map(|(key, proof)| {
+                    let storage_key: U256 = key.into();
+                    let value = self
+                        .accounts_and_storage
+                        .account_storage_slot(&address, &storage_key)
+                        .unwrap_or_default();
+                    EIP1186StorageProof {
+                        key: JsonStorageKey::Hash(key),
+                        value,
+                        proof,
+                    }
+                })
+                .collect(),
+        };
+
+        Ok(account_proof)
     }
 }
 

@@ -62,6 +62,8 @@ pub enum Status<'a> {
     ///
     /// Use of internal cheatcodes is discouraged and will result in a warning.
     Internal,
+    /// The cheatcode is not supported.
+    Unsupported,
 }
 
 /// Cheatcode groups.

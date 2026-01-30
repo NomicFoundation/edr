@@ -1,11 +1,15 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use alloy_rlp::Decodable;
-use edr_primitives::{B256, U256};
+use alloy_trie::Nibbles;
+use edr_primitives::{keccak256, Bytes, StorageKey, B256, U256};
 use hasher::{Hasher, HasherKeccak};
 use revm_state::EvmStorage;
 
-use crate::{persistent_db::PersistentMemoryDB, query::TrieQuery};
+use crate::{
+    persistent_db::PersistentMemoryDB,
+    query::{build_proof_nodes, TrieQuery},
+};
 
 #[derive(Debug)]
 pub(super) struct StorageTrie {
@@ -41,6 +45,30 @@ impl<'a> StorageTrie {
 
     pub fn root(&self) -> B256 {
         self.root
+    }
+
+    /// Generates Merkle proofs for storage slots' existence or nonexistence.
+    ///
+    /// Each key is looked up using `keccak256(key)` as the trie key.
+    /// Returns proofs in the same order as the provided keys.
+    pub fn generate_proof(&self, keys: &[StorageKey]) -> Vec<Vec<Bytes>> {
+        let keys: Vec<_> = keys
+            .iter()
+            .map(|key| Nibbles::unpack(keccak256(key)))
+            .collect();
+
+        let all_proof_nodes = build_proof_nodes(self.trie_query(), keys.clone());
+
+        keys.iter()
+            .map(|proof_key| {
+                // Map over keys so that the result is guaranteed to be in order.
+                all_proof_nodes
+                    .matching_nodes_sorted(proof_key)
+                    .into_iter()
+                    .map(|(_, node)| node)
+                    .collect()
+            })
+            .collect()
     }
 
     fn trie_query(&'a self) -> TrieQuery {

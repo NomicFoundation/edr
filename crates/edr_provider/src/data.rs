@@ -12,6 +12,7 @@ use std::{
 
 use alloy_dyn_abi::eip712::TypedData;
 use alloy_eips::eip7825;
+use alloy_rpc_types::EIP1186AccountProofResponse;
 use alloy_rpc_types_trace::geth::GethDebugTracingOptions;
 use edr_block_api::{
     Block, BlockAndTotalDifficulty, FetchBlockReceipts as _, GenesisBlockFactory,
@@ -48,7 +49,9 @@ use edr_evm::guaranteed_dry_run_with_inspector;
 use edr_gas_report::{GasReport, SyncOnCollectedGasReportCallback};
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
-use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
+use edr_primitives::{
+    Address, Bytecode, Bytes, HashMap, HashSet, StorageKey, B256, KECCAK_EMPTY, U256,
+};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
 use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec, HeaderMap};
 use edr_runtime::{
@@ -104,7 +107,7 @@ use crate::{
         SyncBlockchainForChainSpec, SyncProviderSpec, TransactionAndBlockForChainSpec,
     },
     time::{CurrentTime, TimeSinceEpoch},
-    DebugTraceError, MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent,
+    DebugTraceError, ForkConfig, MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent,
     SubscriptionEventData, SyncSubscriberCallback,
 };
 
@@ -2002,6 +2005,17 @@ where
         })?
     }
 
+    pub fn get_proof(
+        &mut self,
+        address: Address,
+        storage_keys: Vec<StorageKey>,
+        block_spec: &BlockSpec,
+    ) -> Result<EIP1186AccountProofResponse, ProviderErrorForChainSpec<ChainSpecT>> {
+        self.execute_in_block_context::<Result<EIP1186AccountProofResponse, ProviderErrorForChainSpec<ChainSpecT>>>(
+            Some(block_spec),
+            move |_blockchain, _block, state| Ok(state.proof(address, storage_keys)?), )?
+    }
+
     pub fn get_storage_at(
         &mut self,
         address: Address,
@@ -2782,6 +2796,337 @@ struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
     next_block_base_fee_per_gas: Option<u128>,
 }
 
+fn create_forked_blockchain_and_state<
+    ChainSpecT: SyncProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    runtime: runtime::Handle,
+    config: &ProviderConfig<ChainSpecT::Hardfork>,
+    timer: &TimerT,
+    fork_config: &ForkConfig<ChainSpecT::Hardfork>,
+) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
+    let prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
+
+    let state_root_generator = Arc::new(parking_lot::Mutex::new(RandomHashGenerator::with_seed(
+        edr_defaults::STATE_ROOT_HASH_SEED,
+    )));
+
+    let http_headers = fork_config
+        .http_headers
+        .as_ref()
+        .map(|headers| HeaderMap::try_from(headers).map_err(CreationError::InvalidHttpHeaders))
+        .transpose()?;
+
+    let rpc_client = Arc::new(EthRpcClient::<
+        ChainSpecT,
+        ChainSpecT::RpcReceipt,
+        ChainSpecT::RpcTransaction,
+    >::new(
+        &fork_config.url,
+        fork_config.cache_dir.clone(),
+        http_headers.clone(),
+    )?);
+
+    let mut chain_configs = ChainSpecT::chain_configs().clone();
+    for (chain_id, chain_override) in fork_config.chain_overrides.iter() {
+        chain_configs
+            .entry(*chain_id)
+            .and_modify(|chain_config| chain_config.apply_override(chain_override))
+            .or_insert_with(|| ChainConfig {
+                name: chain_override.name.clone(),
+                hardfork_activations: chain_override
+                    .hardfork_activation_overrides
+                    .clone()
+                    .unwrap_or_default(),
+                base_fee_params: config
+                    .base_fee_params
+                    .clone()
+                    .unwrap_or_else(|| ChainSpecT::default_base_fee_params().clone()),
+                bpo_hardfork_schedule: None,
+            });
+    }
+
+    let scheduled_blob_params = chain_configs
+        .get(&config.chain_id)
+        .and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
+
+    let base_fee_params = config.base_fee_params.clone().unwrap_or_else(|| {
+        chain_configs.get(&config.chain_id).cloned().map_or_else(
+            || ChainSpecT::default_base_fee_params().clone(),
+            |chain_config| chain_config.base_fee_params,
+        )
+    });
+
+    let block_config = BlockConfig {
+        base_fee_params,
+        hardfork: config.hardfork,
+        min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params,
+    };
+
+    let (blockchain, mut irregular_state) =
+        tokio::task::block_in_place(|| -> Result<_, ForkedCreationError<ChainSpecT::Hardfork>> {
+            let mut irregular_state = IrregularState::default();
+            let blockchain = runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
+                block_config.hardfork,
+                runtime.clone(),
+                rpc_client.clone(),
+                &mut irregular_state,
+                state_root_generator.clone(),
+                &chain_configs,
+                fork_config.block_number,
+                Some(config.chain_id),
+            ))?;
+
+            Ok((blockchain, irregular_state))
+        })?;
+
+    let fork_block_number = blockchain.last_block_number();
+
+    if !config.genesis_state.is_empty() {
+        let genesis_addresses = config.genesis_state.keys().cloned().collect::<Vec<_>>();
+        let genesis_account_infos = tokio::task::block_in_place(|| {
+            runtime.block_on(rpc_client.get_account_infos(
+                &genesis_addresses,
+                Some(BlockSpec::Number(fork_block_number)),
+            ))
+        })?;
+
+        let genesis_state: HashMap<Address, Account> = config
+            .genesis_state
+            .iter()
+            .zip(genesis_account_infos)
+            .map(|((address, account_override), remote_account)| {
+                let (code, code_hash) = account_override.code.as_ref().map_or(
+                    (remote_account.code, remote_account.code_hash),
+                    |code| {
+                        let code_hash = code.hash_slow();
+                        (Some(code.clone()), code_hash)
+                    },
+                );
+
+                let info = AccountInfo {
+                    balance: account_override.balance.unwrap_or(remote_account.balance),
+                    nonce: account_override.nonce.unwrap_or(remote_account.nonce),
+                    code_hash,
+                    code,
+                };
+
+                // TODO: Add support for overriding the storage
+                // TODO: https://github.com/NomicFoundation/edr/issues/911
+                if account_override.storage.is_some() {
+                    return Err(ForkedCreationError::StorageOverridesUnsupported);
+                }
+
+                let account = Account {
+                    info,
+                    // TODO: Add support for overriding the storage
+                    // TODO: https://github.com/NomicFoundation/edr/issues/911
+                    storage: HashMap::default(),
+                    status: AccountStatus::Created | AccountStatus::Touched,
+                    transaction_id: 0,
+                };
+
+                Ok((*address, account))
+            })
+            .collect::<Result<_, _>>()?;
+
+        irregular_state
+            .state_override_at_block_number(fork_block_number)
+            .and_modify(|state_override| {
+                // No need to update the state_root, as it could only have been created by the
+                // `ForkedBlockchain` constructor.
+                state_override.diff.apply_diff(genesis_state.clone());
+            })
+            .or_insert_with(|| {
+                let state_root = state_root_generator.lock().next_value();
+
+                StateOverride {
+                    diff: StateDiff::from(genesis_state),
+                    state_root,
+                }
+            });
+    }
+
+    let state = blockchain
+        .state_at_block_number(fork_block_number, irregular_state.state_overrides())
+        .expect("Fork state must exist");
+
+    let block_time_offset_seconds = {
+        let fork_block_timestamp = UNIX_EPOCH
+            + Duration::from_secs(
+                blockchain
+                    .last_block()
+                    .map_err(DynBlockchainError::new)?
+                    .block_header()
+                    .timestamp,
+            );
+
+        let elapsed = match timer.since(fork_block_timestamp) {
+            Ok(elapsed) => -i128::from(elapsed),
+            Err(forward_drift) => i128::from(forward_drift.duration().as_secs()),
+        };
+
+        elapsed
+            .try_into()
+            .expect("Elapsed time since fork block must be representable as i64")
+    };
+
+    let next_block_base_fee_per_gas = if config.hardfork.into() >= EvmSpecId::LONDON {
+        if let Some(base_fee) = config.initial_base_fee_per_gas {
+            Some(base_fee)
+        } else {
+            let previous_base_fee = blockchain
+                .last_block()
+                .map_err(DynBlockchainError::new)?
+                .block_header()
+                .base_fee_per_gas;
+
+            if previous_base_fee.is_none() {
+                Some(DEFAULT_INITIAL_BASE_FEE_PER_GAS)
+            } else {
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    Ok(BlockchainAndState {
+        fork_metadata: Some(ForkMetadata {
+            chain_id: blockchain.remote_chain_id(),
+            fork_block_number,
+            fork_block_hash: *blockchain
+                .block_by_number(fork_block_number)
+                .map_err(DynBlockchainError::new)?
+                .expect("Fork block must exist")
+                .block_hash(),
+        }),
+        rpc_client: Some(rpc_client),
+        blockchain: Box::new(DynBlockchain::new(blockchain)),
+        block_config,
+        state: Box::new(state),
+        irregular_state,
+        prev_randao_generator,
+        block_time_offset_seconds,
+        next_block_base_fee_per_gas,
+    })
+}
+
+fn create_local_blockchain_and_state<
+    ChainSpecT: SyncProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    config: &ProviderConfig<ChainSpecT::Hardfork>,
+    timer: &TimerT,
+) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
+    let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
+    let mix_hash = if config.hardfork.into() >= EvmSpecId::MERGE {
+        Some(prev_randao_generator.generate_next())
+    } else {
+        None
+    };
+
+    let genesis_state: HashMap<Address, Account> = config
+        .genesis_state
+        .iter()
+        .map(|(address, account_override)| {
+            let code_hash = account_override
+                .code
+                .as_ref()
+                .map_or(KECCAK_EMPTY, Bytecode::hash_slow);
+
+            let info = AccountInfo {
+                balance: account_override.balance.unwrap_or(U256::ZERO),
+                nonce: account_override.nonce.unwrap_or(0),
+                code_hash,
+                code: account_override.code.clone(),
+            };
+
+            let account = Account {
+                info,
+                storage: account_override
+                    .storage
+                    .clone()
+                    .unwrap_or(HashMap::default()),
+                status: AccountStatus::Created | AccountStatus::Touched,
+                transaction_id: 0,
+            };
+
+            (*address, account)
+        })
+        .collect();
+
+    let base_fee_params = config.base_fee_params.as_ref().unwrap_or_else(|| {
+        ChainSpecT::chain_configs()
+            .get(&config.chain_id)
+            .map_or_else(ChainSpecT::default_base_fee_params, |chain_config| {
+                &chain_config.base_fee_params
+            })
+    });
+
+    let scheduled_blob_params = ChainSpecT::chain_configs()
+        .get(&config.chain_id)
+        .and_then(|config| config.bpo_hardfork_schedule.clone());
+
+    let block_config = BlockConfig {
+        base_fee_params: base_fee_params.clone(),
+        hardfork: config.hardfork,
+        min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+        scheduled_blob_params,
+    };
+
+    let genesis_diff = StateDiff::from(genesis_state);
+    let genesis_block = ChainSpecT::genesis_block(
+        genesis_diff.clone(),
+        &block_config,
+        GenesisBlockOptions {
+            extra_data: None,
+            withdrawals_root: None,
+            gas_limit: Some(config.block_gas_limit.get()),
+            timestamp: config.initial_date.map(|d| {
+                d.duration_since(UNIX_EPOCH)
+                    .expect("initial date must be after UNIX epoch")
+                    .as_secs()
+            }),
+            mix_hash,
+            base_fee: config.initial_base_fee_per_gas,
+            base_fee_params: config.base_fee_params.clone(),
+            blob_gas: config.initial_blob_gas.clone(),
+        },
+    )
+    .map_err(CreationError::LocalBlockchainCreation)?;
+
+    let blockchain = LocalBlockchainForChainSpec::<ChainSpecT>::new(
+        genesis_block,
+        genesis_diff,
+        config.chain_id,
+        block_config.hardfork,
+    )
+    .map_err(CreationError::InvalidGenesisBlock)?;
+
+    let irregular_state = IrregularState::default();
+    let state = blockchain
+        .state_at_block_number(0, irregular_state.state_overrides())
+        .expect("Genesis state must exist");
+
+    let block_time_offset_seconds = block_time_offset_seconds::<ChainSpecT, TimerT>(config, timer)?;
+
+    Ok(BlockchainAndState {
+        fork_metadata: None,
+        rpc_client: None,
+        blockchain: Box::new(DynBlockchain::new(blockchain)),
+        block_config,
+        state,
+        irregular_state,
+        block_time_offset_seconds,
+        prev_randao_generator,
+        // For local blockchain the initial base fee per gas config option is incorporated as
+        // part of the genesis block.
+        next_block_base_fee_per_gas: None,
+    })
+}
+
 fn create_blockchain_and_state<
     ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
@@ -2790,313 +3135,10 @@ fn create_blockchain_and_state<
     config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &TimerT,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
-    let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
-
     if let Some(fork_config) = &config.fork {
-        let state_root_generator = Arc::new(parking_lot::Mutex::new(
-            RandomHashGenerator::with_seed(edr_defaults::STATE_ROOT_HASH_SEED),
-        ));
-
-        let http_headers = fork_config
-            .http_headers
-            .as_ref()
-            .map(|headers| HeaderMap::try_from(headers).map_err(CreationError::InvalidHttpHeaders))
-            .transpose()?;
-
-        let rpc_client = Arc::new(EthRpcClient::<
-            ChainSpecT,
-            ChainSpecT::RpcReceipt,
-            ChainSpecT::RpcTransaction,
-        >::new(
-            &fork_config.url,
-            fork_config.cache_dir.clone(),
-            http_headers.clone(),
-        )?);
-
-        let mut chain_configs = ChainSpecT::chain_configs().clone();
-        for (chain_id, chain_override) in fork_config.chain_overrides.iter() {
-            chain_configs
-                .entry(*chain_id)
-                .and_modify(|chain_config| chain_config.apply_override(chain_override))
-                .or_insert_with(|| ChainConfig {
-                    name: chain_override.name.clone(),
-                    hardfork_activations: chain_override
-                        .hardfork_activation_overrides
-                        .clone()
-                        .unwrap_or_default(),
-                    base_fee_params: config
-                        .base_fee_params
-                        .clone()
-                        .unwrap_or_else(|| ChainSpecT::default_base_fee_params().clone()),
-                    bpo_hardfork_schedule: None,
-                });
-        }
-
-        let scheduled_blob_params = chain_configs
-            .get(&config.chain_id)
-            .and_then(|chain_config| chain_config.bpo_hardfork_schedule.clone());
-        let block_config = BlockConfig {
-            base_fee_params: ChainSpecT::default_base_fee_params().clone(),
-            hardfork: config.hardfork,
-            min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params,
-        };
-
-        let (blockchain, mut irregular_state) = tokio::task::block_in_place(
-            || -> Result<_, ForkedCreationError<ChainSpecT::Hardfork>> {
-                let mut irregular_state = IrregularState::default();
-                let blockchain =
-                    runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
-                        block_config.hardfork,
-                        runtime.clone(),
-                        rpc_client.clone(),
-                        &mut irregular_state,
-                        state_root_generator.clone(),
-                        &chain_configs,
-                        fork_config.block_number,
-                        Some(config.chain_id),
-                    ))?;
-
-                Ok((blockchain, irregular_state))
-            },
-        )?;
-
-        let fork_block_number = blockchain.last_block_number();
-
-        if !config.genesis_state.is_empty() {
-            let genesis_addresses = config.genesis_state.keys().cloned().collect::<Vec<_>>();
-            let genesis_account_infos = tokio::task::block_in_place(|| {
-                runtime.block_on(rpc_client.get_account_infos(
-                    &genesis_addresses,
-                    Some(BlockSpec::Number(fork_block_number)),
-                ))
-            })?;
-
-            let genesis_state: HashMap<Address, Account> = config
-                .genesis_state
-                .iter()
-                .zip(genesis_account_infos)
-                .map(|((address, account_override), remote_account)| {
-                    let (code, code_hash) = account_override.code.as_ref().map_or(
-                        (remote_account.code, remote_account.code_hash),
-                        |code| {
-                            let code_hash = code.hash_slow();
-                            (Some(code.clone()), code_hash)
-                        },
-                    );
-
-                    let info = AccountInfo {
-                        balance: account_override.balance.unwrap_or(remote_account.balance),
-                        nonce: account_override.nonce.unwrap_or(remote_account.nonce),
-                        code_hash,
-                        code,
-                    };
-
-                    // TODO: Add support for overriding the storage
-                    // TODO: https://github.com/NomicFoundation/edr/issues/911
-                    if account_override.storage.is_some() {
-                        return Err(ForkedCreationError::StorageOverridesUnsupported);
-                    }
-
-                    let account = Account {
-                        info,
-                        // TODO: Add support for overriding the storage
-                        // TODO: https://github.com/NomicFoundation/edr/issues/911
-                        storage: HashMap::default(),
-                        status: AccountStatus::Created | AccountStatus::Touched,
-                        transaction_id: 0,
-                    };
-
-                    Ok((*address, account))
-                })
-                .collect::<Result<_, _>>()?;
-
-            irregular_state
-                .state_override_at_block_number(fork_block_number)
-                .and_modify(|state_override| {
-                    // No need to update the state_root, as it could only have been created by the
-                    // `ForkedBlockchain` constructor.
-                    state_override.diff.apply_diff(genesis_state.clone());
-                })
-                .or_insert_with(|| {
-                    let state_root = state_root_generator.lock().next_value();
-
-                    StateOverride {
-                        diff: StateDiff::from(genesis_state),
-                        state_root,
-                    }
-                });
-        }
-
-        let state = blockchain
-            .state_at_block_number(fork_block_number, irregular_state.state_overrides())
-            .expect("Fork state must exist");
-
-        let block_time_offset_seconds = {
-            let fork_block_timestamp = UNIX_EPOCH
-                + Duration::from_secs(
-                    blockchain
-                        .last_block()
-                        .map_err(DynBlockchainError::new)?
-                        .block_header()
-                        .timestamp,
-                );
-
-            let elapsed = match timer.since(fork_block_timestamp) {
-                Ok(elapsed) => -i128::from(elapsed),
-                Err(forward_drift) => i128::from(forward_drift.duration().as_secs()),
-            };
-
-            elapsed
-                .try_into()
-                .expect("Elapsed time since fork block must be representable as i64")
-        };
-
-        let next_block_base_fee_per_gas = if config.hardfork.into() >= EvmSpecId::LONDON {
-            if let Some(base_fee) = config.initial_base_fee_per_gas {
-                Some(base_fee)
-            } else {
-                let previous_base_fee = blockchain
-                    .last_block()
-                    .map_err(DynBlockchainError::new)?
-                    .block_header()
-                    .base_fee_per_gas;
-
-                if previous_base_fee.is_none() {
-                    Some(DEFAULT_INITIAL_BASE_FEE_PER_GAS)
-                } else {
-                    None
-                }
-            }
-        } else {
-            None
-        };
-
-        Ok(BlockchainAndState {
-            fork_metadata: Some(ForkMetadata {
-                chain_id: blockchain.remote_chain_id(),
-                fork_block_number,
-                fork_block_hash: *blockchain
-                    .block_by_number(fork_block_number)
-                    .map_err(DynBlockchainError::new)?
-                    .expect("Fork block must exist")
-                    .block_hash(),
-            }),
-            rpc_client: Some(rpc_client),
-            blockchain: Box::new(DynBlockchain::new(blockchain)),
-            block_config,
-            state: Box::new(state),
-            irregular_state,
-            prev_randao_generator,
-            block_time_offset_seconds,
-            next_block_base_fee_per_gas,
-        })
+        create_forked_blockchain_and_state(runtime, config, timer, fork_config)
     } else {
-        let mix_hash = if config.hardfork.into() >= EvmSpecId::MERGE {
-            Some(prev_randao_generator.generate_next())
-        } else {
-            None
-        };
-
-        let genesis_state: HashMap<Address, Account> = config
-            .genesis_state
-            .iter()
-            .map(|(address, account_override)| {
-                let code_hash = account_override
-                    .code
-                    .as_ref()
-                    .map_or(KECCAK_EMPTY, Bytecode::hash_slow);
-
-                let info = AccountInfo {
-                    balance: account_override.balance.unwrap_or(U256::ZERO),
-                    nonce: account_override.nonce.unwrap_or(0),
-                    code_hash,
-                    code: account_override.code.clone(),
-                };
-
-                let account = Account {
-                    info,
-                    storage: account_override
-                        .storage
-                        .clone()
-                        .unwrap_or(HashMap::default()),
-                    status: AccountStatus::Created | AccountStatus::Touched,
-                    transaction_id: 0,
-                };
-
-                (*address, account)
-            })
-            .collect();
-
-        let base_fee_params = config.base_fee_params.as_ref().unwrap_or_else(|| {
-            ChainSpecT::chain_configs()
-                .get(&config.chain_id)
-                .map_or_else(ChainSpecT::default_base_fee_params, |chain_config| {
-                    &chain_config.base_fee_params
-                })
-        });
-
-        let scheduled_blob_params = ChainSpecT::chain_configs()
-            .get(&config.chain_id)
-            .and_then(|config| config.bpo_hardfork_schedule.clone());
-
-        let block_config = BlockConfig {
-            base_fee_params: base_fee_params.clone(),
-            hardfork: config.hardfork,
-            min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
-            scheduled_blob_params,
-        };
-
-        let genesis_diff = StateDiff::from(genesis_state);
-        let genesis_block = ChainSpecT::genesis_block(
-            genesis_diff.clone(),
-            &block_config,
-            GenesisBlockOptions {
-                extra_data: None,
-                withdrawals_root: None,
-                gas_limit: Some(config.block_gas_limit.get()),
-                timestamp: config.initial_date.map(|d| {
-                    d.duration_since(UNIX_EPOCH)
-                        .expect("initial date must be after UNIX epoch")
-                        .as_secs()
-                }),
-                mix_hash,
-                base_fee: config.initial_base_fee_per_gas,
-                base_fee_params: config.base_fee_params.clone(),
-                blob_gas: config.initial_blob_gas.clone(),
-            },
-        )
-        .map_err(CreationError::LocalBlockchainCreation)?;
-
-        let blockchain = LocalBlockchainForChainSpec::<ChainSpecT>::new(
-            genesis_block,
-            genesis_diff,
-            config.chain_id,
-            block_config.hardfork,
-        )
-        .map_err(CreationError::InvalidGenesisBlock)?;
-
-        let irregular_state = IrregularState::default();
-        let state = blockchain
-            .state_at_block_number(0, irregular_state.state_overrides())
-            .expect("Genesis state must exist");
-
-        let block_time_offset_seconds =
-            block_time_offset_seconds::<ChainSpecT, TimerT>(config, timer)?;
-
-        Ok(BlockchainAndState {
-            fork_metadata: None,
-            rpc_client: None,
-            blockchain: Box::new(DynBlockchain::new(blockchain)),
-            block_config,
-            state,
-            irregular_state,
-            block_time_offset_seconds,
-            prev_randao_generator,
-            // For local blockchain the initial base fee per gas config option is incorporated as
-            // part of the genesis block.
-            next_block_base_fee_per_gas: None,
-        })
+        create_local_blockchain_and_state(config, timer)
     }
 }
 
@@ -4115,7 +4157,8 @@ mod tests {
             use edr_chain_l1::rpc::call::L1CallRequest;
 
             use crate::{
-                requests::eth::resolve_call_request, test_utils::create_test_config_with_fork,
+                requests::eth::resolve_call_request,
+                test_utils::{create_test_config_with, MinimalProviderConfig},
             };
 
             sol! { function Hello() public pure returns (string); }
@@ -4160,13 +4203,14 @@ mod tests {
                 .thread_name("provider-data-test")
                 .build()?;
 
-            let default_config = create_test_config_with_fork(Some(ForkConfig {
-                block_number: Some(EIP_1559_ACTIVATION_BLOCK),
-                cache_dir: edr_defaults::CACHE_DIR.into(),
-                chain_overrides: HashMap::default(),
-                http_headers: None,
-                url: json_rpc_url_provider::ethereum_mainnet(),
-            }));
+            let default_config =
+                create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
+                    block_number: Some(EIP_1559_ACTIVATION_BLOCK),
+                    cache_dir: edr_defaults::CACHE_DIR.into(),
+                    chain_overrides: HashMap::default(),
+                    http_headers: None,
+                    url: json_rpc_url_provider::ethereum_mainnet(),
+                }));
 
             let config = ProviderConfig {
                 // SAFETY: literal is non-zero

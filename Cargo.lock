@@ -686,9 +686,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-trie"
-version = "0.9.0"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bada1fc392a33665de0dc50d401a3701b62583c655e3522a323490a5da016962"
+checksum = "428aa0f0e0658ff091f8f667c406e034b431cb10abd39de4f507520968acc499"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -805,9 +805,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.98"
+version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
+checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "arbitrary"
@@ -2370,7 +2370,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2385,7 +2385,7 @@ dependencies = [
  "edr_primitives",
  "edr_state_api",
  "revm-precompile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2424,7 +2424,7 @@ dependencies = [
  "edr_trie",
  "edr_utils",
  "itertools 0.12.1",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2446,7 +2446,7 @@ dependencies = [
  "edr_test_mem_pool",
  "edr_test_transaction",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
@@ -2464,7 +2464,7 @@ dependencies = [
  "edr_rpc_eth",
  "edr_utils",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -2480,7 +2480,7 @@ dependencies = [
  "edr_receipt",
  "edr_state_api",
  "parking_lot 0.12.3",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
@@ -2496,7 +2496,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2533,7 +2533,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "serde",
  "serial_test",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
 ]
@@ -2562,7 +2562,7 @@ dependencies = [
  "edr_test_transaction",
  "edr_utils",
  "serial_test",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
 ]
@@ -2589,7 +2589,7 @@ dependencies = [
  "edr_test_utils",
  "serde",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
 ]
@@ -2646,7 +2646,7 @@ dependencies = [
  "revm-primitives",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
@@ -2690,7 +2690,7 @@ dependencies = [
  "revm-handler",
  "revm-inspector",
  "revm-interpreter",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2750,7 +2750,7 @@ dependencies = [
  "serde",
  "serde_json",
  "similar-asserts",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "walkdir",
  "yansi",
@@ -2789,7 +2789,7 @@ dependencies = [
  "edr_primitives",
  "edr_state_api",
  "revm-database-interface",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2872,7 +2872,7 @@ dependencies = [
  "revm-state",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -2907,7 +2907,7 @@ dependencies = [
  "edr_state_api",
  "edr_transaction",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2957,7 +2957,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -2972,7 +2972,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "slang_solidity",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2998,7 +2998,7 @@ dependencies = [
  "edr_transaction",
  "indexmap 2.9.0",
  "paste",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
@@ -3055,7 +3055,7 @@ dependencies = [
  "static_assertions",
  "strum 0.26.3",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
  "tracing-flame",
  "tracing-subscriber 0.3.19",
@@ -3090,7 +3090,7 @@ dependencies = [
  "napi",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -3147,7 +3147,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -3177,6 +3177,7 @@ dependencies = [
  "alloy-dyn-abi",
  "alloy-eips",
  "alloy-rlp",
+ "alloy-rpc-types",
  "alloy-rpc-types-trace",
  "alloy-serde",
  "alloy-sol-types",
@@ -3242,7 +3243,7 @@ dependencies = [
  "serial_test",
  "sha3",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "toml 0.9.5",
  "tracing",
@@ -3307,11 +3308,11 @@ dependencies = [
  "serde_json",
  "sha3",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "url",
- "uuid 1.18.1",
+ "uuid 1.20.0",
  "walkdir",
 ]
 
@@ -3320,6 +3321,7 @@ name = "edr_rpc_eth"
 version = "0.3.8"
 dependencies = [
  "alloy-eips",
+ "alloy-rpc-types",
  "alloy-serde",
  "anyhow",
  "assert-json-diff",
@@ -3347,7 +3349,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "walkdir",
@@ -3410,7 +3412,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
@@ -3445,7 +3447,7 @@ dependencies = [
  "k256",
  "serde",
  "sha3",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -3473,7 +3475,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum 0.26.3",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -3517,7 +3519,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.19",
@@ -3529,6 +3531,7 @@ name = "edr_state_api"
 version = "0.3.8"
 dependencies = [
  "alloy-rlp",
+ "alloy-rpc-types",
  "auto_impl",
  "dyn-clone",
  "edr_primitives",
@@ -3536,13 +3539,14 @@ dependencies = [
  "edr_trie",
  "revm-database-interface",
  "revm-state",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
 name = "edr_state_fork"
 version = "0.3.8"
 dependencies = [
+ "alloy-rpc-types",
  "derive-where",
  "edr_chain_l1",
  "edr_chain_spec_rpc",
@@ -3566,6 +3570,9 @@ name = "edr_state_persistent_trie"
 version = "0.3.8"
 dependencies = [
  "alloy-rlp",
+ "alloy-rpc-types",
+ "alloy-serde",
+ "alloy-trie",
  "anyhow",
  "cita_trie",
  "edr_primitives",
@@ -3583,6 +3590,7 @@ dependencies = [
 name = "edr_state_remote"
 version = "0.3.8"
 dependencies = [
+ "alloy-rpc-types",
  "derive-where",
  "edr_chain_l1",
  "edr_chain_spec_rpc",
@@ -3794,7 +3802,7 @@ dependencies = [
  "revm-primitives",
  "serde",
  "sha2",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -4135,7 +4143,7 @@ dependencies = [
  "serde",
  "serde_json",
  "similar-asserts",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "toml 0.8.20",
  "tracing",
  "walkdir",
@@ -4291,10 +4299,10 @@ dependencies = [
  "revm-inspectors",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
- "uuid 1.18.1",
+ "uuid 1.20.0",
 ]
 
 [[package]]
@@ -4342,7 +4350,7 @@ dependencies = [
  "serde_json",
  "similar-asserts",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
  "tower 0.4.13",
  "tracing",
@@ -4383,7 +4391,7 @@ dependencies = [
  "rand 0.9.1",
  "revm",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
@@ -5640,9 +5648,9 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "memchr"
-version = "2.7.4"
+version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
+checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
 name = "metaslang_bindings"
@@ -6721,9 +6729,9 @@ dependencies = [
 
 [[package]]
 name = "rayon"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b418a60154510ca1a002a752ca9714984e21e4241e804d32555251faf8b78ffa"
+checksum = "368f01d005bf8fd9b1206fb6fa653e6c4a81ceb1466406b81792d87c5677a58f"
 dependencies = [
  "either",
  "rayon-core",
@@ -6731,9 +6739,9 @@ dependencies = [
 
 [[package]]
 name = "rayon-core"
-version = "1.12.1"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1465873a3dfdaa8ae7cb14b4383657caab0b3e8a0aa9ae8e04b044854c8dfce2"
+checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
@@ -8668,9 +8676,9 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 
 [[package]]
 name = "tracing"
-version = "0.1.41"
+version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
+checksum = "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100"
 dependencies = [
  "log",
  "pin-project-lite",
@@ -8680,9 +8688,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.28"
+version = "0.1.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "395ae124c09f9e6918a2310af6038fba074bcf474ac352496d5910dd59a2226d"
+checksum = "7490cfa5ec963746568740651ac6781f701c9c5ea257c58e057f3ba8cf69e8da"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8691,9 +8699,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.33"
+version = "0.1.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e672c95779cf947c5311f83787af4fa8fffd12fb27e4993211a84bdfd9610f9c"
+checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
  "valuable",
@@ -8909,13 +8917,13 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.18.1"
+version = "1.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f87b8aa10b915a06587d0dec516c282ff295b475d94abf425d62b57710070a2"
+checksum = "ee48d38b119b0cd71fe4141b30f5ba9c7c5d9f4e7a3a8b4a674e4b6ef789976f"
 dependencies = [
  "getrandom 0.3.2",
  "js-sys",
- "serde",
+ "serde_core",
  "wasm-bindgen",
 ]
 

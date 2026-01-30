@@ -1,5 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
+use alloy_rpc_types::EIP1186AccountProofResponse;
 use derive_where::derive_where;
 use edr_chain_spec_rpc::{GetBlockNumber, RpcBlockChainSpec, RpcChainSpec};
 use edr_eth::{
@@ -8,7 +9,7 @@ use edr_eth::{
     reward_percentile::RewardPercentile,
     BlockSpec, PreEip1898BlockSpec,
 };
-use edr_primitives::{Address, Bytecode, Bytes, B256, KECCAK_EMPTY, U256, U64};
+use edr_primitives::{Address, Bytecode, Bytes, StorageKey, B256, KECCAK_EMPTY, U256, U64};
 use edr_receipt::log::FilterLog;
 use edr_rpc_client::RpcClient;
 pub use edr_rpc_client::{header, HeaderMap, RpcClientError};
@@ -245,6 +246,18 @@ impl<
                 address,
                 topics,
             }))
+            .await
+    }
+
+    /// Calls `eth_getProof`
+    pub async fn get_proof(
+        &self,
+        address: Address,
+        storage_keys: Vec<StorageKey>,
+        block: BlockSpec,
+    ) -> Result<EIP1186AccountProofResponse, RpcClientError> {
+        self.inner
+            .call(RequestMethod::GetProof(address, storage_keys, block))
             .await
     }
 
