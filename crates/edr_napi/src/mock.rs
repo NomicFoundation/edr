@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
 use edr_rpc_client::jsonrpc;
-use edr_solidity::contract_decoder::ContractDecoder;
 use napi::tokio::runtime;
 use napi_derive::napi;
 
@@ -56,7 +55,7 @@ impl EdrContext {
         let provider = Provider::new(
             Arc::new(MockProvider::new(mocked_response)),
             runtime::Handle::current(),
-            Arc::new(ContractDecoder::default()),
+            Arc::default(),
             #[cfg(feature = "scenarios")]
             None,
         );

@@ -65,7 +65,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         // Pending block requested
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let pending_block = Arc::new(result.block);
+            let pending_block = Arc::new(result.block_and_state.block);
             Some((pending_block.cast_arc_into(), true))
         }
         // Matching Hardhat behavior in returning None for invalid block hash or number.
@@ -287,23 +287,22 @@ fn send_raw_transaction_and_log<
 ) -> ProviderResultWithCallTraces<B256, ChainSpecT> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
-    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_send_transaction(hardfork, &signed_transaction, &result.mining_results)
+        .log_send_transaction(&signed_transaction, &result.mining_results)
         .map_err(ProviderError::Logger)?;
 
     if data.bail_on_transaction_failure() {
-        let transaction_failure =
-            result
-                .transaction_result_and_trace()
-                .and_then(|(execution_result, trace)| {
-                    TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
-                        execution_result,
-                        Some(&result.transaction_hash),
-                        trace,
-                        data.contract_decoder(),
-                    )
-                });
+        let transaction_failure = result.transaction_result_and_observed_data().and_then(
+            |(execution_result, observed_data)| {
+                TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
+                    execution_result,
+                    Some(&result.transaction_hash),
+                    &observed_data.address_to_executed_code,
+                    &observed_data.call_trace_arena,
+                    data.contract_decoder(),
+                )
+            },
+        );
 
         if let Some(failure) = transaction_failure {
             let (_transaction_hash, traces) = result.into();
@@ -402,7 +401,7 @@ mod tests {
 
         fixture.provider_data.set_auto_mining(true);
         let result = fixture.provider_data.send_transaction(transaction)?;
-        assert!(result.transaction_result_and_trace().is_some());
+        assert!(result.transaction_result_and_observed_data().is_some());
 
         let rpc_transaction =
             handle_get_transaction_by_hash(&fixture.provider_data, result.transaction_hash)?

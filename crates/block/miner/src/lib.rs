@@ -1,9 +1,9 @@
-use std::{cmp::Ordering, fmt::Debug};
+use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, sync::Arc};
 
-use edr_block_api::Block as _;
+use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
-    BlockTransactionError, Blockchain, PrecompileFn, WrapDatabaseRef,
+    BlockTransactionError, Blockchain, ExecutionResult, PrecompileFn, WrapDatabaseRef,
 };
 pub use edr_block_builder_api::{BuiltBlockAndState, BuiltBlockAndStateWithMetadata};
 use edr_block_header::{
@@ -19,7 +19,7 @@ use edr_chain_spec_evm::{
 };
 use edr_database_components::DatabaseComponents;
 use edr_mem_pool::{MemPool, OrderedTransaction};
-use edr_primitives::{Address, HashMap, HashSet};
+use edr_primitives::{Address, HashMap, HashSet, B256};
 use edr_signer::SignatureError;
 use edr_state_api::{DynState, StateError};
 use serde::{Deserialize, Serialize};
@@ -89,6 +89,71 @@ pub enum MineBlockError<
     MissingPrevrandao,
 }
 
+/// Helper type for a chain-specific [`MineBlockResultWithMetadata`].
+pub type MineBlockResultWithMetadataForChainSpec<ChainSpecT, InspectorDataT = ()> =
+    MineBlockResultWithMetadata<
+        Arc<<ChainSpecT as BlockChainSpec>::Block>,
+        <ChainSpecT as ChainSpec>::HaltReason,
+        <ChainSpecT as ChainSpec>::SignedTransaction,
+        InspectorDataT,
+    >;
+
+#[derive(Debug)]
+pub struct MineBlockResultWithMetadata<
+    BlockT,
+    HaltReasonT: HaltReasonTrait,
+    SignedTransactionT,
+    InspectorDataT = (),
+> {
+    /// Mined block
+    pub block: BlockT,
+    /// The set of precompile addresses that were available during execution.
+    pub precompile_addresses: HashSet<Address>,
+    /// Data collected from inspectors during mining, indexed by transaction
+    /// number in the block.
+    pub transaction_inspector_data: Vec<InspectorDataT>,
+    /// Transaction results
+    pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
+    phantom: PhantomData<SignedTransactionT>,
+}
+
+impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT, InspectorDataT>
+    MineBlockResultWithMetadata<BlockT, HaltReasonT, SignedTransactionT, InspectorDataT>
+{
+    /// Constructs a new instance.
+    pub fn new(
+        block: BlockT,
+        precompile_addresses: HashSet<Address>,
+        transaction_inspector_data: Vec<InspectorDataT>,
+        transaction_results: Vec<ExecutionResult<HaltReasonT>>,
+    ) -> Self {
+        Self {
+            block,
+            precompile_addresses,
+            transaction_inspector_data,
+            transaction_results,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<
+        BlockT: Block<SignedTransactionT>,
+        HaltReasonT: HaltReasonTrait,
+        InspectorDataT,
+        SignedTransactionT: ExecutableTransaction,
+    > MineBlockResultWithMetadata<BlockT, HaltReasonT, SignedTransactionT, InspectorDataT>
+{
+    /// Whether the block contains a transaction with the given hash.
+    pub fn has_transaction(&self, transaction_hash: &B256) -> bool {
+        self.block
+            .transactions()
+            .iter()
+            .any(|tx| *tx.transaction_hash() == *transaction_hash)
+    }
+}
+
+#[derive(Debug)]
 pub struct MineBlockResultAndStateWithMetadata<
     BlockT,
     HaltReasonT: HaltReasonTrait,
@@ -141,7 +206,7 @@ pub fn mine_block<ChainSpecT, BlockchainErrorT, InspectorT>(
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
-    mut inspector: Option<InspectorT>,
+    mut inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     MineBlockResultAndStateWithMetadata<
@@ -406,7 +471,6 @@ pub fn mine_block_with_single_transaction<
     ChainSpecT: BlockChainSpec,
     BlockchainErrorT: std::error::Error,
     InspectorT,
-    InspectorResultT,
 >(
     blockchain: &dyn Blockchain<
         ChainSpecT::Receipt,

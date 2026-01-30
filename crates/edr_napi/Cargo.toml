@@ -12,6 +12,7 @@ alloy-json-abi.workspace = true
 alloy-sol-types.workspace = true
 derive_more.workspace = true
 derive-where.workspace = true
+edr_artifact.workspace = true
 edr_block_header.workspace = true
 edr_block_miner.workspace = true
 edr_blockchain_fork.workspace = true
@@ -23,6 +24,7 @@ edr_chain_spec_evm.workspace = true
 edr_chain_spec_rpc.workspace = true
 edr_common.workspace = true
 edr_coverage.workspace = true
+edr_decoder_revert.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
 edr_gas_report.workspace = true
@@ -57,6 +59,7 @@ napi = { version = "2.16.17", default-features = false, features = [
     "serde-json",
 ] }
 napi-derive = "2.16.13"
+parking_lot.workspace = true
 rand = { version = "0.8.4", optional = true }
 semver.workspace = true
 serde.workspace = true

@@ -1,10 +1,10 @@
 #![cfg(feature = "test-utils")]
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_precompile::secp256r1::{self, P256VERIFY_BASE_GAS_FEE, P256VERIFY_BASE_GAS_FEE_OSAKA};
-use edr_primitives::{bytes, Bytes};
+use edr_primitives::{bytes, Bytes, HashMap};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
@@ -91,8 +91,8 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
     );
 
     let nested_trace = NestedTrace::<edr_chain_l1::HaltReason>::from_call_trace_arena(
-        &HashMap::new(),
-        &HashMap::new(),
+        &HashMap::default(),
+        &HashMap::default(),
         response
             .call_trace_arenas
             .first()
@@ -140,8 +140,8 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
     );
 
     let nested_trace = NestedTrace::<edr_chain_l1::HaltReason>::from_call_trace_arena(
-        &HashMap::new(),
-        &HashMap::new(),
+        &HashMap::default(),
+        &HashMap::default(),
         response
             .call_trace_arenas
             .first()

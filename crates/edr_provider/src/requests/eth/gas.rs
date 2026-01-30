@@ -32,8 +32,6 @@ pub fn handle_estimate_gas<
     // estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);
 
-    let hardfork = data.hardfork();
-
     let transaction =
         resolve_estimate_gas_request(data, request, &block_spec, &StateOverrides::default())?;
 

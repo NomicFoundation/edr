@@ -68,7 +68,7 @@ pub struct SuiteResult {
 
 impl SuiteResult {
     pub fn new(
-        id: edr_solidity::artifacts::ArtifactId,
+        id: edr_artifact::ArtifactId,
         suite_result: edr_solidity_tests::result::SuiteResult<String>,
         include_traces: IncludeTraces,
     ) -> Self {

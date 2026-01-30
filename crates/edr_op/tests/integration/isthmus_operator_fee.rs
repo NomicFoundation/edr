@@ -10,6 +10,7 @@ use edr_provider::{
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 const OPERATOR_FEE_STORAGE_INDEX: u64 = 8;

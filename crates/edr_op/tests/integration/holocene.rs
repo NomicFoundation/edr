@@ -6,6 +6,7 @@ use edr_provider::{
     ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]

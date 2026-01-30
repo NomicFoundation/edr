@@ -6,19 +6,17 @@ use derive_where::derive_where;
 use edr_block_api::Block as _;
 use edr_chain_spec::ExecutableTransaction;
 use edr_chain_spec_evm::result::ExecutionResult;
-use edr_precompile::{PrecompileSpecId, Precompiles};
-use edr_primitives::{Address, Bytes, HashMap, B256, U256};
+use edr_primitives::{Address, Bytes, HashMap, HashSet, B256, U256};
 use edr_provider::{
-    observability::EvmObservedData, time::TimeSinceEpoch, BuiltBlockAndState, CallResult,
-    DebugMineBlockResult, EstimateGasFailure, MineBlockResultAndStateWithMetadata,
-    MineBlockResultForChainSpec, ProviderError, ProviderErrorForChainSpec, ProviderSpec,
-    TransactionFailure,
+    observability::EvmObservedData, time::TimeSinceEpoch, CallResult, EstimateGasFailure,
+    MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec, ProviderError,
+    ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
 };
 use edr_solidity::{
     contract_decoder::ContractDecoder,
     solidity_stack_trace::{UNRECOGNIZED_CONTRACT_NAME, UNRECOGNIZED_FUNCTION_NAME},
 };
-use edr_solidity_tests::{revm::precompile, traces::CallTraceArena};
+use edr_solidity_tests::traces::CallTraceArena;
 use itertools::izip;
 use parking_lot::RwLock;
 
@@ -145,11 +143,10 @@ where
 
     fn log_interval_mined(
         &mut self,
-        mining_result: &MineBlockResultForChainSpec<ChainSpecT>,
-        precompile_addresses: &HashSet<Address>,
+        mining_result: &MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
-            .log_interval_mined(mining_result, precompile_addresses)
+            .log_interval_mined(mining_result)
             .map_err(Box::new)?;
 
         Ok(())
@@ -157,7 +154,7 @@ where
 
     fn log_mined_block(
         &mut self,
-        mining_results: &[MineBlockResultForChainSpec<ChainSpecT>],
+        mining_results: &[MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector.log_mined_blocks(mining_results)?;
 
@@ -167,11 +164,10 @@ where
     fn log_send_transaction(
         &mut self,
         transaction: &ChainSpecT::SignedTransaction,
-        mining_results: &[MineBlockResultForChainSpec<ChainSpecT>],
-        precompile_addresses: &HashSet<Address>,
+        mining_results: &[MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>],
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.collector
-            .log_send_transaction(transaction, mining_results, precompile_addresses)?;
+            .log_send_transaction(transaction, mining_results)?;
 
         Ok(())
     }
@@ -362,7 +358,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
     pub fn log_mined_blocks(
         &mut self,
-        mining_results: &[MineBlockResultForChainSpec<ChainSpecT>],
+        mining_results: &[MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>],
     ) -> Result<(), LoggerError> {
         let num_results = mining_results.len();
         for (idx, mining_result) in mining_results.iter().enumerate() {
@@ -392,8 +388,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
     pub fn log_interval_mined(
         &mut self,
-        mining_result: &MineBlockResultForChainSpec<ChainSpecT>,
-        precompile_addresses: &HashSet<Address>,
+        mining_result: &MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
     ) -> Result<(), LoggerError> {
         let block_header = mining_result.block.block_header();
         let block_number = block_header.number;
@@ -422,7 +417,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                 ),
             };
         } else {
-            self.log_interval_mined_block(mining_result, precompile_addresses)?;
+            self.log_interval_mined_block(mining_result)?;
 
             self.print::<false>(format!("Mined block #{block_number}"))?;
 
@@ -438,51 +433,36 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     pub fn log_send_transaction(
         &mut self,
         transaction: &ChainSpecT::SignedTransaction,
-        mining_results: &[MineBlockResultForChainSpec<ChainSpecT>],
-        precompile_addresses: &HashSet<Address>,
+        mining_results: &[MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>],
     ) -> Result<(), LoggerError> {
         if !mining_results.is_empty() {
             self.state = LoggingState::Empty;
 
-            let (
-                sent_block_result,
-                sent_transaction_result,
-                sent_call_trace_arena,
-                sent_address_to_executed_code,
-            ) = mining_results
+            let (sent_block_result, sent_transaction_result, sent_observed_data) = mining_results
                 .iter()
                 .find_map(|result| {
                     izip!(
                         result.block.transactions(),
                         result.transaction_results.iter(),
-                        result.transaction_call_trace_arenas.iter(),
-                        result.transaction_address_to_executed_code.iter(),
+                        result.transaction_inspector_data.iter(),
                     )
-                    .find(|(block_transaction, _, _, _)| {
+                    .find(|(block_transaction, _, _)| {
                         *block_transaction.transaction_hash() == *transaction.transaction_hash()
                     })
-                    .map(
-                        |(_, transaction_result, trace, address_to_executed_code)| {
-                            (result, transaction_result, trace, address_to_executed_code)
-                        },
-                    )
+                    .map(|(_, transaction_result, observed_data)| {
+                        (result, transaction_result, observed_data)
+                    })
                 })
                 .expect("Transaction result not found");
 
             if mining_results.len() > 1 {
                 self.log_multiple_blocks_warning()?;
-                self.log_auto_mined_block_results(
-                    mining_results,
-                    transaction.transaction_hash(),
-                    precompile_addresses,
-                )?;
+                self.log_auto_mined_block_results(mining_results, transaction.transaction_hash())?;
                 self.log_currently_sent_transaction(
                     sent_block_result,
                     transaction,
                     sent_transaction_result,
-                    sent_call_trace_arena,
-                    sent_address_to_executed_code,
-                    precompile_addresses,
+                    sent_observed_data,
                 )?;
             } else if let Some(result) = mining_results.first() {
                 let transactions = result.block.transactions();
@@ -491,22 +471,15 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                     self.log_auto_mined_block_results(
                         mining_results,
                         transaction.transaction_hash(),
-                        precompile_addresses,
                     )?;
                     self.log_currently_sent_transaction(
                         sent_block_result,
                         transaction,
                         sent_transaction_result,
-                        sent_call_trace_arena,
-                        sent_address_to_executed_code,
-                        precompile_addresses,
+                        sent_observed_data,
                     )?;
                 } else if let Some(transaction) = transactions.first() {
-                    self.log_single_transaction_mining_result(
-                        result,
-                        transaction,
-                        precompile_addresses,
-                    )?;
+                    self.log_single_transaction_mining_result(result, transaction)?;
                 }
             }
         }
@@ -560,12 +533,11 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
     fn log_auto_mined_block_results(
         &mut self,
-        results: &[MineBlockResultForChainSpec<ChainSpecT>],
+        results: &[MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>],
         sent_transaction_hash: &B256,
-        precompile_addresses: &HashSet<Address>,
     ) -> Result<(), LoggerError> {
         for result in results {
-            self.log_block_from_auto_mine(result, sent_transaction_hash, precompile_addresses)?;
+            self.log_block_from_auto_mine(result, sent_transaction_hash)?;
         }
 
         Ok(())
@@ -579,30 +551,22 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
     fn log_block_from_auto_mine(
         &mut self,
-        result: &MineBlockResultAndStateWithMetadata<
-            <ChainSpecT as GenesisBlockFactory>::LocalBlock,
-            ChainSpecT::HaltReason,
-            EvmObservedData,
-        >,
+        result: &MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
         transaction_hash_to_highlight: &edr_primitives::B256,
-        precompile_addresses: &HashSet<Address>,
     ) -> Result<(), LoggerError> {
-        let MineBlockResultAndStateWithMetadata {
-            block_and_state:
-                BuiltBlockAndState {
-                    block,
-                    transaction_results,
-                    ..
-                },
+        let MineBlockResultWithMetadata {
+            block,
             precompile_addresses,
             transaction_inspector_data,
+            transaction_results,
+            ..
         } = result;
 
         let transactions = block.transactions();
         let num_transactions = transactions.len();
 
         debug_assert_eq!(num_transactions, transaction_results.len());
-        debug_assert_eq!(num_transactions, transaction_call_trace_arenas.len());
+        debug_assert_eq!(num_transactions, transaction_inspector_data.len());
 
         let block_header = block.block_header();
 
@@ -876,22 +840,14 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     /// Logs the result of interval mining a block.
     fn log_interval_mined_block(
         &mut self,
-        result: &MineBlockResultAndStateWithMetadata<
-            Arc<ChainSpecT::Block>,
-            ChainSpecT::HaltReason,
-            EvmObservedData,
-        >,
-        precompile_addresses: &HashSet<Address>,
+        result: &MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
     ) -> Result<(), LoggerError> {
-        let MineBlockResultAndStateWithMetadata {
-            block_and_state:
-                BuiltBlockAndState {
-                    block,
-                    transaction_results,
-                    ..
-                },
+        let MineBlockResultWithMetadata {
+            block,
             precompile_addresses,
             transaction_inspector_data,
+            transaction_results,
+            ..
         } = result;
 
         let transactions = block.transactions();
@@ -908,7 +864,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
             logger.indented(|logger| {
                 logger.log_base_fee(block_header.base_fee_per_gas.as_ref());
 
-                for (idx, transaction, result, call_trace_arena) in izip!(
+                for (idx, transaction, result, observed_data) in izip!(
                     0..num_transactions,
                     transactions,
                     transaction_results,
@@ -932,28 +888,21 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
     fn log_hardhat_mined_block(
         &mut self,
-        result: &MineBlockResultAndStateWithMetadata<
-            Arc<ChainSpecT::Block>,
-            ChainSpecT::HaltReason,
-            EvmObservedData,
-        >,
+        result: &MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
     ) -> Result<(), LoggerError> {
-        let MineBlockResultAndStateWithMetadata {
-            block_and_state:
-                BuiltBlockAndState {
-                    block,
-                    transaction_results,
-                    ..
-                },
+        let MineBlockResultWithMetadata {
+            block,
+            transaction_results,
             precompile_addresses,
             transaction_inspector_data,
+            ..
         } = result;
 
         let transactions = block.transactions();
         let num_transactions = transactions.len();
 
         debug_assert_eq!(num_transactions, transaction_results.len());
-        debug_assert_eq!(num_transactions, transaction_call_trace_arenas.len());
+        debug_assert_eq!(num_transactions, transaction_inspector_data.len());
 
         self.indented(|logger| {
             if transactions.is_empty() {
@@ -1031,12 +980,10 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
     fn log_currently_sent_transaction(
         &mut self,
-        block_result: &MineBlockResultForChainSpec<ChainSpecT>,
+        block_result: &MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
         transaction: &ChainSpecT::SignedTransaction,
         transaction_result: &ExecutionResult<ChainSpecT::HaltReason>,
-        call_trace_arena: &CallTraceArena,
-        address_to_executed_code: &HashMap<Address, Bytes>,
-        precompile_addresses: &HashSet<Address>,
+        transaction_observed_data: &EvmObservedData,
     ) -> Result<(), LoggerError> {
         self.indented(|logger| {
             logger.log("Currently sent transaction:");
@@ -1049,9 +996,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
             block_result,
             transaction,
             transaction_result,
-            call_trace_arena,
-            address_to_executed_code,
-            precompile_addresses,
+            transaction_observed_data,
         )?;
 
         Ok(())
@@ -1059,52 +1004,37 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
     fn log_single_transaction_mining_result(
         &mut self,
-        result: &MineBlockResultForChainSpec<ChainSpecT>,
+        result: &MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
         transaction: &ChainSpecT::SignedTransaction,
-        precompile_addresses: &HashSet<Address>,
     ) -> Result<(), LoggerError> {
-        let call_trace_arena = result
-            .transaction_call_trace_arenas
+        let observed_data = result
+            .transaction_inspector_data
             .first()
-            .expect("A transaction exists, so the trace must exist as well.");
-
-        let address_to_executed_code = result
-            .transaction_address_to_executed_code
-            .first()
-            .expect("A transaction exists, so the executed code map must exist as well.");
+            .expect("A transaction exists, so the observed data must exist as well.");
 
         let transaction_result = result
             .transaction_results
             .first()
             .expect("A transaction exists, so the result must exist as well.");
 
-        self.log_transaction(
-            result,
-            transaction,
-            transaction_result,
-            call_trace_arena,
-            address_to_executed_code,
-            precompile_addresses,
-        )?;
+        self.log_transaction(result, transaction, transaction_result, observed_data)?;
 
         Ok(())
     }
 
     fn log_transaction(
         &mut self,
-        block_result: &MineBlockResultForChainSpec<ChainSpecT>,
+        block_result: &MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
         transaction: &ChainSpecT::SignedTransaction,
         transaction_result: &ExecutionResult<ChainSpecT::HaltReason>,
-        call_trace_arena: &CallTraceArena,
-        address_to_executed_code: &HashMap<Address, Bytes>,
-        precompile_addresses: &HashSet<Address>,
+        transaction_observed_data: &EvmObservedData,
     ) -> Result<(), LoggerError> {
         let contract_decoder = self.contract_decoder.clone();
         self.indented(|logger| {
-            logger.log_contract_and_function_name(
-                call_trace_arena,
-                address_to_executed_code,
-                precompile_addresses,
+            logger.log_contract_and_function_name::<false>(
+                &transaction_observed_data.call_trace_arena,
+                &transaction_observed_data.address_to_executed_code,
+                &block_result.precompile_addresses,
             );
 
             let transaction_hash = transaction.transaction_hash();
@@ -1130,14 +1060,14 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                 block_result.block.block_hash(),
             );
 
-            logger.log_console_log_messages(&block_result.console_log_inputs)?;
+            logger.log_console_log_messages(&transaction_observed_data.encoded_console_logs)?;
 
             let transaction_failure =
                 edr_provider::TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
                     transaction_result,
                     Some(transaction_hash),
-                    address_to_executed_code,
-                    call_trace_arena,
+                    &transaction_observed_data.address_to_executed_code,
+                    &transaction_observed_data.call_trace_arena,
                     contract_decoder.as_ref(),
                 );
 

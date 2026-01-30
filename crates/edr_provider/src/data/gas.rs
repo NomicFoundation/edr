@@ -9,7 +9,7 @@ use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip7892::ScheduledBlobParams;
 use edr_eth::reward_percentile::RewardPercentile;
 use edr_precompile::PrecompileFn;
-use edr_primitives::{Address, HashMap, U256};
+use edr_primitives::{Address, HashMap, HashSet, U256};
 use edr_receipt::ReceiptTrait as _;
 use edr_state_api::DynState;
 use edr_transaction::TransactionMut;
@@ -34,12 +34,17 @@ pub(super) struct CheckGasLimitArgs<'a, HardforkT, SignedTransactionT> {
     pub scheduled_blob_params: Option<&'a ScheduledBlobParams>,
 }
 
+pub(super) struct CheckGasLimitResult {
+    pub success: bool,
+    pub precompile_addresses: HashSet<Address>,
+}
+
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
 pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
     args: CheckGasLimitArgs<'_, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>,
-) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<CheckGasLimitResult, ProviderErrorForChainSpec<ChainSpecT>> {
     let CheckGasLimitArgs {
         blockchain,
         header,
@@ -66,7 +71,10 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         observer,
     )?;
 
-    Ok(matches!(result.result, ExecutionResult::Success { .. }))
+    Ok(CheckGasLimitResult {
+        success: matches!(result.result, ExecutionResult::Success { .. }),
+        precompile_addresses: result.precompile_addresses,
+    })
 }
 
 pub(super) struct BinarySearchEstimationArgs<'a, HardforkT, SignedTransactionT> {
@@ -120,7 +128,10 @@ pub(super) fn binary_search_estimation<
         // Create a new observer for each check
         let mut observer = EvmObserver::new(observer_config.clone());
 
-        let success = check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
+        let CheckGasLimitResult {
+            success,
+            precompile_addresses,
+        } = check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
             blockchain,
             header,
             state,
@@ -133,9 +144,10 @@ pub(super) fn binary_search_estimation<
         })?;
 
         let EvmObservedData {
+            address_to_executed_code: _,
             call_trace_arena,
             encoded_console_logs: _,
-        } = observer.collect_and_report()?;
+        } = observer.collect_and_report(&precompile_addresses)?;
 
         call_trace_arenas.push(call_trace_arena);
 
