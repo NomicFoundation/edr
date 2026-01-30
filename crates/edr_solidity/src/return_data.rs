@@ -9,6 +9,21 @@ alloy_sol_types::sol! {
   error Error(string);
   error Panic(uint256);
   error CheatcodeError(string);
+
+  // Structured cheatcode error types
+  #[derive(Debug)]
+  enum CheatcodeErrorCode {
+    UnsupportedCheatcode,
+    MissingCheatcode,
+  }
+
+  #[derive(Debug)]
+  struct CheatcodeErrorDetails {
+    CheatcodeErrorCode code;
+    string cheatcode;
+  }
+
+  error StructuredCheatcodeError(CheatcodeErrorDetails err);
 }
 
 pub struct ReturnData<'a> {
@@ -42,6 +57,10 @@ impl<'a> ReturnData<'a> {
         self.selector == Some(CheatcodeError::SELECTOR)
     }
 
+    pub fn is_structured_cheatcode_error_return_data(&self) -> bool {
+        self.selector == Some(StructuredCheatcodeError::SELECTOR)
+    }
+
     pub fn is_panic_return_data(&self) -> bool {
         self.selector == Some(Panic::SELECTOR)
     }
@@ -54,5 +73,12 @@ impl<'a> ReturnData<'a> {
     /// Decodes the cheatcode error message from the return data.
     pub fn decode_cheatcode_error(&self) -> Result<String, alloy_sol_types::Error> {
         CheatcodeError::abi_decode(&self.value[..]).map(|p| p.0)
+    }
+
+    /// Decodes the structured cheatcode error details from the return data.
+    pub fn decode_structured_cheatcode_error(
+        &self,
+    ) -> Result<CheatcodeErrorDetails, alloy_sol_types::Error> {
+        StructuredCheatcodeError::abi_decode(&self.value[..]).map(|e| e.err)
     }
 }

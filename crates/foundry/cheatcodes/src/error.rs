@@ -83,6 +83,10 @@ pub(crate) fn precompile_error(address: &Address) -> Error {
 // This uses a custom repr to minimize the size of the error.
 // The repr is basically `enum { Cow<'static, str>, Cow<'static, [u8]> }`
 pub struct Error {
+    /// If true, encode `data` as
+    /// `StructuredCheatcodeError(CheatcodeErrorDetails)`, otherwise encode
+    /// it as either `Error(string)` or raw `bytes`.
+    is_structured: bool,
     /// If true, encode `data` as `Error(string)`, otherwise encode it directly
     /// as `bytes`.
     is_str: bool,
@@ -91,6 +95,18 @@ pub struct Error {
     drop: bool,
     /// The error data. Always a valid pointer, and never modified.
     data: *const [u8],
+}
+
+#[derive(Debug)]
+pub enum CheatcodeErrorCode {
+    UnsupportedCheatcode,
+    MissingCheatcode,
+}
+
+#[derive(Debug)]
+pub struct CheatcodeErrorDetails {
+    pub code: CheatcodeErrorCode,
+    pub cheatcode: String,
 }
 
 impl std::error::Error for Error {}
@@ -117,6 +133,9 @@ pub enum ErrorKind<'a> {
     String(&'a str),
     /// A raw bytes error. Does not get encoded.
     Bytes(&'a [u8]),
+    /// A structured cheatcode error, ABI-encoded as
+    /// `StructuredCheatcodeError(CheatcodeErrorDetails)`.
+    Structured(&'a CheatcodeErrorDetails),
 }
 
 impl fmt::Display for ErrorKind<'_> {
@@ -124,12 +143,20 @@ impl fmt::Display for ErrorKind<'_> {
         match *self {
             Self::String(ss) => f.write_str(ss),
             Self::Bytes(b) => f.write_str(&hex::encode_prefixed(b)),
+            Self::Structured(structured) => {
+                write!(
+                    f,
+                    "Cheatcode Error - Code: {:?}, Cheatcode: {}",
+                    structured.code, structured.cheatcode
+                )
+            }
         }
     }
 }
 
 impl Error {
-    /// Creates a new error and ABI encodes it as `CheatcodeError(string)`.
+    /// Creates a new error and ABI encodes it as `CheatcodeError(string)` or as
+    /// `StructuredCheatcodeError(CheatcodeErrorDetails)`.
     pub fn encode(error: impl Into<Self>) -> Bytes {
         error.into().abi_encode().into()
     }
@@ -156,6 +183,21 @@ impl Error {
             }
             .abi_encode(),
             ErrorKind::Bytes(bytes) => bytes.into(),
+            ErrorKind::Structured(structured) => Vm::StructuredCheatcodeError {
+                err: Vm::CheatcodeErrorDetails {
+                    code: match structured.code {
+                        // TODO: write a proper From impl
+                        CheatcodeErrorCode::UnsupportedCheatcode => {
+                            Vm::CheatcodeErrorCode::UnsupportedCheatcode
+                        }
+                        CheatcodeErrorCode::MissingCheatcode => {
+                            Vm::CheatcodeErrorCode::MissingCheatcode
+                        }
+                    },
+                    cheatcode: structured.cheatcode.clone(),
+                },
+            }
+            .abi_encode(),
         }
     }
 
@@ -163,7 +205,10 @@ impl Error {
     #[inline]
     pub fn kind(&self) -> ErrorKind<'_> {
         let data = self.data();
-        if self.is_str {
+        if self.is_structured {
+            let structured = unsafe { &*data.as_ptr().cast::<CheatcodeErrorDetails>() };
+            ErrorKind::Structured(structured)
+        } else if self.is_str {
             debug_assert!(std::str::from_utf8(data).is_ok());
             ErrorKind::String(unsafe { std::str::from_utf8_unchecked(data) })
         } else {
@@ -185,12 +230,13 @@ impl Error {
 
     #[inline]
     fn new_str(data: &'static str) -> Self {
-        Self::_new(true, false, data.as_bytes())
+        Self::_new(false, true, false, data.as_bytes())
     }
 
     #[inline]
     fn new_string(data: String) -> Self {
         Self::_new(
+            false,
             true,
             true,
             Box::into_raw(data.into_boxed_str().into_boxed_bytes()),
@@ -199,25 +245,46 @@ impl Error {
 
     #[inline]
     fn new_bytes(data: &'static [u8]) -> Self {
-        Self::_new(false, false, data)
+        Self::_new(false, false, false, data)
     }
 
     #[inline]
     fn new_vec(data: Vec<u8>) -> Self {
-        Self::_new(false, true, Box::into_raw(data.into_boxed_slice()))
+        Self::_new(false, false, true, Box::into_raw(data.into_boxed_slice()))
+    }
+
+    fn new_structured(details: CheatcodeErrorDetails) -> Self {
+        let boxed = Box::new(details);
+        let ptr = Box::into_raw(boxed);
+        let slice_ptr = std::ptr::slice_from_raw_parts(
+            ptr.cast::<u8>(),
+            std::mem::size_of::<CheatcodeErrorDetails>(),
+        );
+        Self::_new(true, false, true, slice_ptr)
     }
 
     #[inline]
-    fn _new(is_str: bool, drop: bool, data: *const [u8]) -> Self {
+    fn _new(is_structured: bool, is_str: bool, drop: bool, data: *const [u8]) -> Self {
         debug_assert!(!data.is_null());
-        Self { is_str, drop, data }
+        Self {
+            is_structured,
+            is_str,
+            drop,
+            data,
+        }
     }
 }
 
 impl Drop for Error {
     fn drop(&mut self) {
         if self.drop {
-            drop(unsafe { Box::<[u8]>::from_raw(self.data.cast_mut()) });
+            if self.is_structured {
+                drop(unsafe {
+                    Box::<CheatcodeErrorDetails>::from_raw(self.data as *mut CheatcodeErrorDetails)
+                });
+            } else {
+                drop(unsafe { Box::<[u8]>::from_raw(self.data.cast_mut()) });
+            }
         }
     }
 }
@@ -274,6 +341,12 @@ impl From<Bytes> for Error {
     #[inline]
     fn from(value: Bytes) -> Self {
         Self::new_vec(value.into())
+    }
+}
+
+impl From<CheatcodeErrorDetails> for Error {
+    fn from(value: CheatcodeErrorDetails) -> Self {
+        Self::new_structured(value)
     }
 }
 

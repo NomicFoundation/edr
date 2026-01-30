@@ -2,7 +2,7 @@
 
 use edr_primitives::{Address, Bytes, U256};
 
-use crate::build_model::ContractFunctionType;
+use crate::{build_model::ContractFunctionType, return_data::CheatcodeErrorDetails};
 
 pub(crate) const FALLBACK_FUNCTION_NAME: &str = "<fallback>";
 pub(crate) const RECEIVE_FUNCTION_NAME: &str = "<receive>";
@@ -60,6 +60,7 @@ pub enum StackTraceEntry {
     CheatCodeError {
         message: String,
         source_reference: SourceReference,
+        details: Option<CheatcodeErrorDetails>,
     },
     CustomError {
         message: String,

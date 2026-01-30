@@ -670,6 +670,15 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
         stacktrace.push(StackTraceEntry::CheatCodeError {
             message,
             source_reference: call_stack_frame_source_reference,
+            details: None,
+        });
+        return fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit);
+    } else if return_data.is_structured_cheatcode_error_return_data() {
+        let err = return_data.decode_structured_cheatcode_error()?;
+        stacktrace.push(StackTraceEntry::CheatCodeError {
+            message: "".to_string(),
+            source_reference: call_stack_frame_source_reference,
+            details: Some(err),
         });
         return fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit);
     }
