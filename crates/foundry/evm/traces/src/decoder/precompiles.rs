@@ -1,4 +1,4 @@
-use alloy_primitives::{hex, B256, U256};
+use alloy_primitives::{hex, Address, B256, U256};
 use alloy_sol_types::{abi, sol, SolCall};
 use foundry_evm_core::precompiles::{
     BLAKE_2F, BLS12_G1ADD, BLS12_G1MSM, BLS12_G2ADD, BLS12_G2MSM, BLS12_MAP_FP2_TO_G2,
@@ -55,15 +55,6 @@ use Precompiles::{
     ecmulCall, ecmulReturn, ecpairingCall, ecrecoverCall, identityCall, modexpCall, p256VerifyCall,
     pointEvaluationCall, ripemdCall, sha256Call,
 };
-
-macro_rules! tri {
-    ($e:expr) => {
-        match $e {
-            Ok(x) => x,
-            Err(_) => return None,
-        }
-    };
-}
 
 /// Tries to decode a precompile call. Returns `Some` if successful.
 pub fn decode(trace: &CallTrace) -> Option<DecodedCallTrace> {
