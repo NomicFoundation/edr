@@ -159,7 +159,7 @@ fn block_by_number<
         // Pending block
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let pending_block = Arc::new(result.block);
+            let pending_block = Arc::new(result.block_and_state.block);
 
             let last_block = data.last_block()?;
             let previous_total_difficulty = data

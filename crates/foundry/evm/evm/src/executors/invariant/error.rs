@@ -1,10 +1,10 @@
 use std::fmt::Formatter;
 
 use alloy_primitives::{Address, Bytes};
+use edr_decoder_revert::RevertDecoder;
 use eyre::Report;
 use foundry_evm_core::{
     backend::IndeterminismReasons,
-    decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,

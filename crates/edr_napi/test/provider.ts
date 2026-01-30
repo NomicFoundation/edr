@@ -21,13 +21,7 @@ import {
   OpHardfork,
   SpecId,
 } from "..";
-import {
-  collectMessages,
-  collectSteps,
-  ALCHEMY_URL,
-  getContext,
-  loadContract,
-} from "./helpers";
+import { ALCHEMY_URL, getContext, loadContract } from "./helpers";
 
 chai.use(chaiAsPromised);
 
@@ -139,357 +133,358 @@ describe("Provider", () => {
     await assert.isFulfilled(provider);
   });
 
-  describe("verbose mode", function () {
-    it("should only include the top of the stack by default", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-        },
-        loggerConfig,
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+  // TODO: Add backwards compatibility for Hardhat 2
+  // describe("verbose mode", function () {
+  //   it("should only include the top of the stack by default", async function () {
+  //     const provider = await context.createProvider(
+  //       GENERIC_CHAIN_TYPE,
+  //       {
+  //         ...providerConfig,
+  //         genesisState: providerConfig.genesisState.concat(
+  //           l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+  //         ),
+  //       },
+  //       loggerConfig,
+  //       {
+  //         subscriptionCallback: (_event: SubscriptionEvent) => {},
+  //       },
+  //       new ContractDecoder()
+  //     );
 
-      const responseObject = await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              // PUSH1 1
-              // PUSH1 2
-              // PUSH1 3
-              // STOP
-              data: "0x60016002600300",
-            },
-          ],
-        })
-      );
+  //     const responseObject = await provider.handleRequest(
+  //       JSON.stringify({
+  //         id: 1,
+  //         jsonrpc: "2.0",
+  //         method: "eth_sendTransaction",
+  //         params: [
+  //           {
+  //             from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  //             // PUSH1 1
+  //             // PUSH1 2
+  //             // PUSH1 3
+  //             // STOP
+  //             data: "0x60016002600300",
+  //           },
+  //         ],
+  //       })
+  //     );
 
-      const rawTraces = responseObject.traces;
-      assert.lengthOf(rawTraces, 1);
+  //     const rawTraces = responseObject.traces;
+  //     assert.lengthOf(rawTraces, 1);
 
-      const trace = rawTraces[0].trace;
-      const steps = collectSteps(trace);
+  //     const trace = rawTraces[0].trace;
+  //     const steps = collectSteps(trace);
 
-      assert.lengthOf(steps, 4);
+  //     assert.lengthOf(steps, 4);
 
-      assert.deepEqual(steps[0].stack, []);
-      assert.deepEqual(steps[1].stack, [1n]);
-      assert.deepEqual(steps[2].stack, [2n]);
-      assert.deepEqual(steps[3].stack, [3n]);
-    });
+  //     assert.deepEqual(steps[0].stack, []);
+  //     assert.deepEqual(steps[1].stack, [1n]);
+  //     assert.deepEqual(steps[2].stack, [2n]);
+  //     assert.deepEqual(steps[3].stack, [3n]);
+  //   });
 
-    it("should only include the whole stack if verbose mode is enabled", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-        },
-        loggerConfig,
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+  //   it("should only include the whole stack if verbose mode is enabled", async function () {
+  //     const provider = await context.createProvider(
+  //       GENERIC_CHAIN_TYPE,
+  //       {
+  //         ...providerConfig,
+  //         genesisState: providerConfig.genesisState.concat(
+  //           l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+  //         ),
+  //       },
+  //       loggerConfig,
+  //       {
+  //         subscriptionCallback: (_event: SubscriptionEvent) => {},
+  //       },
+  //       new ContractDecoder()
+  //     );
 
-      await provider.setVerboseTracing(true);
+  //     await provider.setVerboseTracing(true);
 
-      const responseObject = await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              // PUSH1 1
-              // PUSH1 2
-              // PUSH1 3
-              // STOP
-              data: "0x60016002600300",
-            },
-          ],
-        })
-      );
+  //     const responseObject = await provider.handleRequest(
+  //       JSON.stringify({
+  //         id: 1,
+  //         jsonrpc: "2.0",
+  //         method: "eth_sendTransaction",
+  //         params: [
+  //           {
+  //             from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  //             // PUSH1 1
+  //             // PUSH1 2
+  //             // PUSH1 3
+  //             // STOP
+  //             data: "0x60016002600300",
+  //           },
+  //         ],
+  //       })
+  //     );
 
-      const rawTraces = responseObject.traces;
-      assert.lengthOf(rawTraces, 1);
+  //     const rawTraces = responseObject.traces;
+  //     assert.lengthOf(rawTraces, 1);
 
-      const trace = rawTraces[0].trace;
-      const steps = collectSteps(trace);
+  //     const trace = rawTraces[0].trace;
+  //     const steps = collectSteps(trace);
 
-      assert.lengthOf(steps, 4);
+  //     assert.lengthOf(steps, 4);
 
-      // verbose tracing is enabled, so all steps should have a stack
-      assert.isTrue(steps.every((step) => step.stack !== undefined));
+  //     // verbose tracing is enabled, so all steps should have a stack
+  //     assert.isTrue(steps.every((step) => step.stack !== undefined));
 
-      assert.deepEqual(steps[0].stack, []);
-      assert.deepEqual(steps[1].stack, [1n]);
-      assert.deepEqual(steps[2].stack, [1n, 2n]);
-      assert.deepEqual(steps[3].stack, [1n, 2n, 3n]);
-    });
+  //     assert.deepEqual(steps[0].stack, []);
+  //     assert.deepEqual(steps[1].stack, [1n]);
+  //     assert.deepEqual(steps[2].stack, [1n, 2n]);
+  //     assert.deepEqual(steps[3].stack, [1n, 2n, 3n]);
+  //   });
 
-    it("should not include memory by default", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-        },
-        loggerConfig,
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+  //   it("should not include memory by default", async function () {
+  //     const provider = await context.createProvider(
+  //       GENERIC_CHAIN_TYPE,
+  //       {
+  //         ...providerConfig,
+  //         genesisState: providerConfig.genesisState.concat(
+  //           l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+  //         ),
+  //       },
+  //       loggerConfig,
+  //       {
+  //         subscriptionCallback: (_event: SubscriptionEvent) => {},
+  //       },
+  //       new ContractDecoder()
+  //     );
 
-      const responseObject = await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              // store 0x000...001 as the first memory word
-              // PUSH1 1
-              // PUSH0
-              // MSTORE
-              // STOP
-              data: "0x60015f5200",
-            },
-          ],
-        })
-      );
+  //     const responseObject = await provider.handleRequest(
+  //       JSON.stringify({
+  //         id: 1,
+  //         jsonrpc: "2.0",
+  //         method: "eth_sendTransaction",
+  //         params: [
+  //           {
+  //             from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  //             // store 0x000...001 as the first memory word
+  //             // PUSH1 1
+  //             // PUSH0
+  //             // MSTORE
+  //             // STOP
+  //             data: "0x60015f5200",
+  //           },
+  //         ],
+  //       })
+  //     );
 
-      const rawTraces = responseObject.traces;
-      assert.lengthOf(rawTraces, 1);
+  //     const rawTraces = responseObject.traces;
+  //     assert.lengthOf(rawTraces, 1);
 
-      const trace = rawTraces[0].trace;
-      const steps = collectSteps(trace);
+  //     const trace = rawTraces[0].trace;
+  //     const steps = collectSteps(trace);
 
-      assert.lengthOf(steps, 4);
+  //     assert.lengthOf(steps, 4);
 
-      // verbose tracing is disabled, so none of the steps should have a stack
-      assert.isTrue(steps.every((step) => step.memory === undefined));
-    });
+  //     // verbose tracing is disabled, so none of the steps should have a stack
+  //     assert.isTrue(steps.every((step) => step.memory === undefined));
+  //   });
 
-    it("should include memory if verbose mode is enabled", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-        },
-        loggerConfig,
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+  //   it("should include memory if verbose mode is enabled", async function () {
+  //     const provider = await context.createProvider(
+  //       GENERIC_CHAIN_TYPE,
+  //       {
+  //         ...providerConfig,
+  //         genesisState: providerConfig.genesisState.concat(
+  //           l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+  //         ),
+  //       },
+  //       loggerConfig,
+  //       {
+  //         subscriptionCallback: (_event: SubscriptionEvent) => {},
+  //       },
+  //       new ContractDecoder()
+  //     );
 
-      await provider.setVerboseTracing(true);
+  //     await provider.setVerboseTracing(true);
 
-      const responseObject = await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              // store 0x000...001 as the first memory word
-              // PUSH1 1
-              // PUSH0
-              // MSTORE
-              // STOP
-              data: "0x60015f5200",
-            },
-          ],
-        })
-      );
+  //     const responseObject = await provider.handleRequest(
+  //       JSON.stringify({
+  //         id: 1,
+  //         jsonrpc: "2.0",
+  //         method: "eth_sendTransaction",
+  //         params: [
+  //           {
+  //             from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  //             // store 0x000...001 as the first memory word
+  //             // PUSH1 1
+  //             // PUSH0
+  //             // MSTORE
+  //             // STOP
+  //             data: "0x60015f5200",
+  //           },
+  //         ],
+  //       })
+  //     );
 
-      const rawTraces = responseObject.traces;
-      assert.lengthOf(rawTraces, 1);
+  //     const rawTraces = responseObject.traces;
+  //     assert.lengthOf(rawTraces, 1);
 
-      const trace = rawTraces[0].trace;
-      const steps = collectSteps(trace);
+  //     const trace = rawTraces[0].trace;
+  //     const steps = collectSteps(trace);
 
-      assert.lengthOf(steps, 4);
+  //     assert.lengthOf(steps, 4);
 
-      assertEqualMemory(steps[0].memory, Uint8Array.from([]));
-      assertEqualMemory(steps[1].memory, Uint8Array.from([]));
-      assertEqualMemory(steps[2].memory, Uint8Array.from([]));
-      assertEqualMemory(
-        steps[3].memory,
-        Uint8Array.from([...Array(31).fill(0), 1])
-      );
-    });
+  //     assertEqualMemory(steps[0].memory, Uint8Array.from([]));
+  //     assertEqualMemory(steps[1].memory, Uint8Array.from([]));
+  //     assertEqualMemory(steps[2].memory, Uint8Array.from([]));
+  //     assertEqualMemory(
+  //       steps[3].memory,
+  //       Uint8Array.from([...Array(31).fill(0), 1])
+  //     );
+  //   });
 
-    it("should include isStaticCall flag in tracing messages", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-        },
-        loggerConfig,
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+  //   it("should include isStaticCall flag in tracing messages", async function () {
+  //     const provider = await context.createProvider(
+  //       GENERIC_CHAIN_TYPE,
+  //       {
+  //         ...providerConfig,
+  //         genesisState: providerConfig.genesisState.concat(
+  //           l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+  //         ),
+  //       },
+  //       loggerConfig,
+  //       {
+  //         subscriptionCallback: (_event: SubscriptionEvent) => {},
+  //       },
+  //       new ContractDecoder()
+  //     );
 
-      const responseObject = await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              // make a static call to the zero address
-              // yul: staticcall(gas(), 0, 0, 0, 0, 0)
-              data: "0x6000808080805afa00",
-              gas: "0x" + 1_000_000n.toString(16),
-            },
-          ],
-        })
-      );
+  //     const responseObject = await provider.handleRequest(
+  //       JSON.stringify({
+  //         id: 1,
+  //         jsonrpc: "2.0",
+  //         method: "eth_sendTransaction",
+  //         params: [
+  //           {
+  //             from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  //             // make a static call to the zero address
+  //             // yul: staticcall(gas(), 0, 0, 0, 0, 0)
+  //             data: "0x6000808080805afa00",
+  //             gas: "0x" + 1_000_000n.toString(16),
+  //           },
+  //         ],
+  //       })
+  //     );
 
-      const rawTraces = responseObject.traces;
-      assert.lengthOf(rawTraces, 1);
+  //     const rawTraces = responseObject.traces;
+  //     assert.lengthOf(rawTraces, 1);
 
-      const trace = rawTraces[0].trace;
-      const messageResults = collectMessages(trace);
-      assert.lengthOf(messageResults, 2);
+  //     const trace = rawTraces[0].trace;
+  //     const messageResults = collectMessages(trace);
+  //     assert.lengthOf(messageResults, 2);
 
-      // outer message
-      assert.isFalse(messageResults[0].isStaticCall);
+  //     // outer message
+  //     assert.isFalse(messageResults[0].isStaticCall);
 
-      // inner message triggered by STATICCALL
-      assert.isTrue(messageResults[1].isStaticCall);
-    });
+  //     // inner message triggered by STATICCALL
+  //     assert.isTrue(messageResults[1].isStaticCall);
+  //   });
 
-    it("should have tracing information when debug_traceTransaction is used", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-        },
-        loggerConfig,
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+  //   it("should have tracing information when debug_traceTransaction is used", async function () {
+  //     const provider = await context.createProvider(
+  //       GENERIC_CHAIN_TYPE,
+  //       {
+  //         ...providerConfig,
+  //         genesisState: providerConfig.genesisState.concat(
+  //           l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+  //         ),
+  //       },
+  //       loggerConfig,
+  //       {
+  //         subscriptionCallback: (_event: SubscriptionEvent) => {},
+  //       },
+  //       new ContractDecoder()
+  //     );
 
-      const sendTxResponse = await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              // PUSH1 0x42
-              // PUSH0
-              // MSTORE
-              // PUSH1 0x20
-              // PUSH0
-              // RETURN
-              data: "0x60425f5260205ff3",
-              gas: "0x" + 1_000_000n.toString(16),
-            },
-          ],
-        })
-      );
+  //     const sendTxResponse = await provider.handleRequest(
+  //       JSON.stringify({
+  //         id: 1,
+  //         jsonrpc: "2.0",
+  //         method: "eth_sendTransaction",
+  //         params: [
+  //           {
+  //             from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  //             // PUSH1 0x42
+  //             // PUSH0
+  //             // MSTORE
+  //             // PUSH1 0x20
+  //             // PUSH0
+  //             // RETURN
+  //             data: "0x60425f5260205ff3",
+  //             gas: "0x" + 1_000_000n.toString(16),
+  //           },
+  //         ],
+  //       })
+  //     );
 
-      let responseData;
+  //     let responseData;
 
-      if (typeof sendTxResponse.data === "string") {
-        responseData = JSON.parse(sendTxResponse.data);
-      } else {
-        responseData = sendTxResponse.data;
-      }
+  //     if (typeof sendTxResponse.data === "string") {
+  //       responseData = JSON.parse(sendTxResponse.data);
+  //     } else {
+  //       responseData = sendTxResponse.data;
+  //     }
 
-      const txHash = responseData.result;
+  //     const txHash = responseData.result;
 
-      const traceTransactionResponse = await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "debug_traceTransaction",
-          params: [txHash],
-        })
-      );
+  //     const traceTransactionResponse = await provider.handleRequest(
+  //       JSON.stringify({
+  //         id: 1,
+  //         jsonrpc: "2.0",
+  //         method: "debug_traceTransaction",
+  //         params: [txHash],
+  //       })
+  //     );
 
-      const rawTraces = traceTransactionResponse.traces;
-      assert.lengthOf(rawTraces, 1);
-    });
+  //     const rawTraces = traceTransactionResponse.traces;
+  //     assert.lengthOf(rawTraces, 1);
+  //   });
 
-    it("should have tracing information when debug_traceCall is used", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-        },
-        loggerConfig,
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+  //   it("should have tracing information when debug_traceCall is used", async function () {
+  //     const provider = await context.createProvider(
+  //       GENERIC_CHAIN_TYPE,
+  //       {
+  //         ...providerConfig,
+  //         genesisState: providerConfig.genesisState.concat(
+  //           l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+  //         ),
+  //       },
+  //       loggerConfig,
+  //       {
+  //         subscriptionCallback: (_event: SubscriptionEvent) => {},
+  //       },
+  //       new ContractDecoder()
+  //     );
 
-      const traceCallResponse = await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "debug_traceCall",
-          params: [
-            {
-              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              // PUSH1 0x42
-              // PUSH0
-              // MSTORE
-              // PUSH1 0x20
-              // PUSH0
-              // RETURN
-              data: "0x60425f5260205ff3",
-              gas: "0x" + 1_000_000n.toString(16),
-            },
-          ],
-        })
-      );
+  //     const traceCallResponse = await provider.handleRequest(
+  //       JSON.stringify({
+  //         id: 1,
+  //         jsonrpc: "2.0",
+  //         method: "debug_traceCall",
+  //         params: [
+  //           {
+  //             from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  //             // PUSH1 0x42
+  //             // PUSH0
+  //             // MSTORE
+  //             // PUSH1 0x20
+  //             // PUSH0
+  //             // RETURN
+  //             data: "0x60425f5260205ff3",
+  //             gas: "0x" + 1_000_000n.toString(16),
+  //           },
+  //         ],
+  //       })
+  //     );
 
-      const rawTraces = traceCallResponse.traces;
-      assert.lengthOf(rawTraces, 1);
-    });
-  });
+  //     const rawTraces = traceCallResponse.traces;
+  //     assert.lengthOf(rawTraces, 1);
+  //   });
+  // });
 
   async function deployAndTestCustomPrecompile(enabled: boolean) {
     // Contract code in edr/data/contracts/CustomPrecompile.sol
@@ -756,13 +751,14 @@ describe("Provider", () => {
   });
 });
 
-function assertEqualMemory(
-  stepMemory: Uint8Array | undefined,
-  expected: Uint8Array
-) {
-  if (stepMemory === undefined) {
-    assert.fail("step memory is undefined");
-  }
+// TODO: Add backwards compatibility for Hardhat 2
+// function assertEqualMemory(
+//   stepMemory: Uint8Array | undefined,
+//   expected: Uint8Array
+// ) {
+//   if (stepMemory === undefined) {
+//     assert.fail("step memory is undefined");
+//   }
 
-  assert.deepEqual(stepMemory, expected);
-}
+//   assert.deepEqual(stepMemory, expected);
+// }

@@ -3,7 +3,8 @@ pub use revm_primitives::{
     address,
     alloy_primitives::{
         map::{hash_map, hash_set, HashMap, HashSet},
-        Bloom, BloomInput, ChainId, StorageKey, StorageValue, B512, B64, U128, U160, U64, U8,
+        Bloom, BloomInput, ChainId, Selector, StorageKey, StorageValue, B512, B64, U128, U160, U64,
+        U8,
     },
     b256, bytes,
     eip3860::MAX_INITCODE_SIZE,

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
+use edr_decoder_revert::RevertDecoder;
 use edr_napi_core::{provider::SyncProviderFactory, solidity};
 use edr_primitives::HashMap;
 use edr_solidity_tests::{
-    decode::RevertDecoder,
     multi_runner::{SuiteResultAndArtifactId, TestContract, TestContracts},
     TestFilterConfig,
 };
@@ -251,7 +251,7 @@ impl EdrContext {
 
             let test_suites = try_or_reject_deferred!(test_suites
                 .into_iter()
-                .map(edr_solidity::artifacts::ArtifactId::try_from)
+                .map(edr_artifact::ArtifactId::try_from)
                 .collect::<Result<Vec<_>, _>>());
 
             let contracts = try_or_reject_deferred!(test_suites

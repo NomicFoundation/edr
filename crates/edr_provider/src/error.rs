@@ -19,18 +19,22 @@ use edr_chain_spec_evm::{result::ExecutionResult, DatabaseComponentError, Transa
 use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
 use edr_gas_report::GasReportCreationError;
 use edr_mem_pool::MemPoolAddTransactionError;
-use edr_primitives::{hex, Address, Bytes, B256, U256};
+use edr_primitives::{hex, Address, Bytes, HashMap, HashSet, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
-use edr_solidity::contract_decoder::ContractDecoderError;
+use edr_solidity::{
+    contract_decoder::{ContractDecoder, ContractDecoderError},
+    solidity_stack_trace::{get_stack_trace, StackTraceCreationResult},
+};
 use edr_state_api::StateError;
-use edr_tracing::Trace;
+use foundry_evm_traces::CallTraceArena;
+use parking_lot::RwLock;
 use serde::Serialize;
 
 use crate::{
-    config::IntervalConfigConversionError, debug_trace::DebugTraceError, time::TimeSinceEpoch,
-    ProviderSpec,
+    config::IntervalConfigConversionError, debug_trace::DebugTraceError,
+    observability::EvmObserverCollectionError, time::TimeSinceEpoch, ProviderSpec,
 };
 
 pub(crate) const INVALID_INPUT: i16 = -32000;
@@ -97,6 +101,11 @@ pub enum ProviderError<
     HardforkT: Debug,
     TransactionValidationErrorT,
 > {
+    // TODO: This error should be caught when we originally parse the contract ABIs. Once we do
+    // that, this variant should be removed from the enum.
+    /// An error occurred while ABI decoding the traces due to invalid input.
+    #[error(transparent)]
+    AbiDecoding(serde_json::Error),
     /// Account override conversion error.
     #[error(transparent)]
     AccountOverrideConversionError(#[from] AccountOverrideConversionError),
@@ -228,7 +237,13 @@ pub enum ProviderError<
     #[error(transparent)]
     MineBlock(
         #[from]
-        MineBlockError<DynBlockchainError, HardforkT, StateError, TransactionValidationErrorT>,
+        MineBlockError<
+            DynBlockchainError,
+            EvmObserverCollectionError,
+            HardforkT,
+            StateError,
+            TransactionValidationErrorT,
+        >,
     ),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
@@ -307,7 +322,7 @@ pub enum ProviderError<
     /// `eth_sendTransaction` failed and
     /// [`crate::config::Provider::bail_on_call_failure`] was enabled
     #[error(transparent)]
-    TransactionFailed(Box<TransactionFailureWithTraces<HaltReasonT>>),
+    TransactionFailed(Box<TransactionFailureWithCallTraces<HaltReasonT>>),
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
@@ -385,13 +400,39 @@ impl<
     >
 {
     /// Returns the transaction failure if the error contains one.
-    pub fn as_transaction_failure(&self) -> Option<&TransactionFailureWithTraces<HaltReasonT>> {
+    pub fn as_transaction_failure(&self) -> Option<&TransactionFailure<HaltReasonT>> {
         match self {
             ProviderError::EstimateGasTransactionFailure(transaction_failure) => {
-                Some(&transaction_failure.transaction_failure)
+                Some(&transaction_failure.transaction_failure.failure)
             }
-            ProviderError::TransactionFailed(transaction_failure) => Some(transaction_failure),
+            ProviderError::TransactionFailed(transaction_failure) => {
+                Some(&transaction_failure.failure)
+            }
             _ => None,
+        }
+    }
+}
+impl<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: Debug,
+        TransactionValidationErrorT,
+    > From<EvmObserverCollectionError>
+    for ProviderError<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT,
+        HardforkT,
+        TransactionValidationErrorT,
+    >
+{
+    fn from(value: EvmObserverCollectionError) -> Self {
+        match value {
+            EvmObserverCollectionError::AbiDecoding(error) => Self::AbiDecoding(error),
+            EvmObserverCollectionError::OnCollectedCoverageCallback(error) => {
+                Self::OnCollectedCoverageCallback(error)
+            }
         }
     }
 }
@@ -446,6 +487,7 @@ impl<
     ) -> Self {
         #[allow(clippy::match_same_arms)]
         let code = match &value {
+            ProviderError::AbiDecoding(_) => INTERNAL_ERROR,
             ProviderError::AccountOverrideConversionError(_) => INVALID_INPUT,
             ProviderError::AutoMineGasPriceTooLow { .. } => INVALID_INPUT,
             ProviderError::AutoMineMaxFeePerBlobGasTooLow { .. } => INVALID_INPUT,
@@ -516,7 +558,7 @@ impl<
         };
 
         let data = value.as_transaction_failure().map(|transaction_failure| {
-            serde_json::to_value(&transaction_failure.failure).expect("transaction_failure to json")
+            serde_json::to_value(transaction_failure).expect("transaction_failure to json")
         });
 
         let message = value.to_string();
@@ -532,8 +574,12 @@ impl<
 /// Failure that occurred while estimating gas.
 #[derive(Debug, thiserror::Error)]
 pub struct EstimateGasFailure<HaltReasonT: HaltReasonTrait> {
-    pub console_log_inputs: Vec<Bytes>,
-    pub transaction_failure: TransactionFailureWithTraces<HaltReasonT>,
+    /// Mapping of contract address to executed bytecode
+    pub address_to_executed_code: HashMap<Address, Bytes>,
+    pub encoded_console_logs: Vec<Bytes>,
+    /// The set of precompile addresses that were available during execution.
+    pub precompile_addresses: HashSet<Address>,
+    pub transaction_failure: TransactionFailureWithCallTrace<HaltReasonT>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<HaltReasonT> {
@@ -543,14 +589,41 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<Halt
 }
 
 #[derive(Clone, Debug, thiserror::Error)]
-pub struct TransactionFailureWithTraces<HaltReasonT: HaltReasonTrait> {
+pub struct TransactionFailureWithCallTrace<HaltReasonT: HaltReasonTrait> {
     pub failure: TransactionFailure<HaltReasonT>,
-    pub traces: Vec<Trace<HaltReasonT>>,
+    pub call_trace_arena: CallTraceArena,
 }
 
-impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailureWithTraces<HaltReasonT> {
+impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
+    for TransactionFailureWithCallTrace<HaltReasonT>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.failure)
+    }
+}
+
+#[derive(Clone, Debug, thiserror::Error)]
+pub struct TransactionFailureWithCallTraces<HaltReasonT: HaltReasonTrait> {
+    pub failure: TransactionFailure<HaltReasonT>,
+    pub call_trace_arenas: Vec<CallTraceArena>,
+}
+
+impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
+    for TransactionFailureWithCallTraces<HaltReasonT>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.failure)
+    }
+}
+
+impl<HaltReasonT: HaltReasonTrait> From<TransactionFailureWithCallTrace<HaltReasonT>>
+    for TransactionFailureWithCallTraces<HaltReasonT>
+{
+    fn from(value: TransactionFailureWithCallTrace<HaltReasonT>) -> Self {
+        Self {
+            failure: value.failure,
+            call_trace_arenas: vec![value.call_trace_arena],
+        }
     }
 }
 
@@ -561,7 +634,7 @@ pub struct TransactionFailure<HaltReasonT: HaltReasonTrait> {
     pub reason: TransactionFailureReason<HaltReasonT>,
     pub data: String,
     #[serde(skip)]
-    pub solidity_trace: Trace<HaltReasonT>,
+    pub stack_trace_result: StackTraceCreationResult<HaltReasonT>,
     pub transaction_hash: Option<B256>,
 }
 
@@ -572,19 +645,25 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     >(
         execution_result: &ExecutionResult<HaltReasonT>,
         transaction_hash: Option<&B256>,
-        solidity_trace: &Trace<HaltReasonT>,
+        address_to_executed_code: &HashMap<Address, Bytes>,
+        call_trace_arena: &CallTraceArena,
+        contract_decoder: &RwLock<ContractDecoder>,
     ) -> Option<TransactionFailure<HaltReasonT>> {
         match execution_result {
             ExecutionResult::Success { .. } => None,
             ExecutionResult::Revert { output, .. } => Some(TransactionFailure::revert(
                 output.clone(),
                 transaction_hash.copied(),
-                solidity_trace.clone(),
+                address_to_executed_code,
+                call_trace_arena,
+                contract_decoder,
             )),
             ExecutionResult::Halt { reason, .. } => Some(TransactionFailure::halt(
                 NewChainSpecT::cast_halt_reason(reason.clone()),
                 transaction_hash.copied(),
-                solidity_trace.clone(),
+                address_to_executed_code,
+                call_trace_arena,
+                contract_decoder,
             )),
         }
     }
@@ -592,12 +671,23 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn halt(
         reason: TransactionFailureReason<HaltReasonT>,
         tx_hash: Option<B256>,
-        solidity_trace: Trace<HaltReasonT>,
+        address_to_executed_code: &HashMap<Address, Bytes>,
+        call_trace_arena: &CallTraceArena,
+        contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
+        let stack_trace_result = get_stack_trace(
+            contract_decoder,
+            std::iter::once(call_trace_arena),
+            Some(address_to_executed_code),
+        )
+        .transpose()
+        .expect("Contains a single call trace arena")
+        .into();
+
         Self {
             reason,
             data: "0x".to_string(),
-            solidity_trace,
+            stack_trace_result,
             transaction_hash: tx_hash,
         }
     }
@@ -605,13 +695,24 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     pub fn revert(
         output: Bytes,
         transaction_hash: Option<B256>,
-        solidity_trace: Trace<HaltReasonT>,
+        address_to_executed_code: &HashMap<Address, Bytes>,
+        call_trace_arena: &CallTraceArena,
+        contract_decoder: &RwLock<ContractDecoder>,
     ) -> Self {
         let data = format!("0x{}", hex::encode(output.as_ref()));
+        let stack_trace_result = get_stack_trace(
+            contract_decoder,
+            std::iter::once(call_trace_arena),
+            Some(address_to_executed_code),
+        )
+        .transpose()
+        .expect("Contains a single call trace arena")
+        .into();
+
         Self {
             reason: TransactionFailureReason::Revert(output),
             data,
-            solidity_trace,
+            stack_trace_result,
             transaction_hash,
         }
     }

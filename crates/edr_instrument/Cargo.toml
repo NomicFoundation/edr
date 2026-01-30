@@ -4,11 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow.workspace = true
 edr_primitives.workspace = true
 semver.workspace = true
 serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
 sha3.workspace = true
 slang_solidity = { git = "https://github.com/NomicFoundation/slang", tag = "v1.3.2" }
 thiserror.workspace = true

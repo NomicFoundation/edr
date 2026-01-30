@@ -9,6 +9,7 @@ use edr_provider::{
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 // https://github.com/NomicFoundation/edr/issues/533
@@ -34,7 +35,7 @@ async fn issue_533() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 
@@ -45,7 +46,7 @@ async fn issue_533() -> anyhow::Result<()> {
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     ))?;
 
-    assert!(!result.traces.is_empty());
+    assert!(!result.call_trace_arenas.is_empty());
 
     Ok(())
 }

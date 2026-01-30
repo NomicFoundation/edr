@@ -4,7 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-derive-where.workspace = true
 edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_block_storage.workspace = true

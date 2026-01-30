@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
 
+use edr_artifact::ArtifactId;
+use edr_decoder_revert::RevertDecoder;
 use edr_primitives::Bytes;
-use edr_solidity::artifacts::ArtifactId;
-use edr_solidity_tests::{
-    contracts::ContractsByArtifact, decode::RevertDecoder, multi_runner::TestContract,
-};
+use edr_solidity_tests::{contracts::ContractsByArtifact, multi_runner::TestContract};
 use napi::tokio;
 
 use crate::solidity::{

@@ -10,6 +10,7 @@ use edr_provider::{
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
+use parking_lot::RwLock;
 use sha3::{Digest, Keccak256};
 use tokio::runtime;
 
@@ -42,7 +43,7 @@ async fn issue_356() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 

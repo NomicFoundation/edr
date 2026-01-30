@@ -14,6 +14,7 @@ use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParit
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{request::TransactionRequestAndSender, TxKind};
 use k256::SecretKey;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 use crate::{
@@ -212,7 +213,7 @@ pub fn pending_base_fee<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
 ) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
-    let block = data.mine_pending_block()?.block;
+    let block = data.mine_pending_block()?.block_and_state.block;
 
     let base_fee = block.block_header().base_fee_per_gas.unwrap_or(1);
 
@@ -314,7 +315,7 @@ where
             logger,
             subscription_callback_noop,
             config.clone(),
-            Arc::<ContractDecoder>::default(),
+            Arc::new(RwLock::<ContractDecoder>::default()),
             CurrentTime,
         )?;
 

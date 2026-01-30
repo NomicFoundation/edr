@@ -27,8 +27,8 @@ pub struct ArtifactId {
     pub solc_version: String,
 }
 
-impl From<edr_solidity::artifacts::ArtifactId> for ArtifactId {
-    fn from(value: edr_solidity::artifacts::ArtifactId) -> Self {
+impl From<edr_artifact::ArtifactId> for ArtifactId {
+    fn from(value: edr_artifact::ArtifactId) -> Self {
         Self {
             name: value.name,
             source: value.source.to_string_lossy().to_string(),
@@ -37,11 +37,11 @@ impl From<edr_solidity::artifacts::ArtifactId> for ArtifactId {
     }
 }
 
-impl TryFrom<ArtifactId> for edr_solidity::artifacts::ArtifactId {
+impl TryFrom<ArtifactId> for edr_artifact::ArtifactId {
     type Error = napi::Error;
 
     fn try_from(value: ArtifactId) -> napi::Result<Self> {
-        Ok(edr_solidity::artifacts::ArtifactId {
+        Ok(edr_artifact::ArtifactId {
             name: value.name,
             source: value.source.parse().map_err(|_err| {
                 napi::Error::new(napi::Status::GenericFailure, "Invalid source path")

@@ -10,6 +10,7 @@ use edr_provider::{
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -43,7 +44,7 @@ async fn estimate_gas() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 
@@ -94,7 +95,7 @@ async fn estimate_gas_with_value() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 

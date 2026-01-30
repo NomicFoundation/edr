@@ -297,6 +297,11 @@ impl CustomError {
         })
     }
 
+    /// Returns the ABI definition of the custom error.
+    pub fn abi(&self) -> &alloy_json_abi::Error {
+        &self.def
+    }
+
     /// Decodes the error data (*with* selector).
     pub fn decode_error_data(
         &self,
