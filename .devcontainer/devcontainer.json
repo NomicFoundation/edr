@@ -1,6 +1,10 @@
 {
   "name": "EDR",
   "image": "mcr.microsoft.com/devcontainers/base:trixie",
+  "capAdd": [
+    // Enable for profiling with `perf`
+    // "SYS_ADMIN"
+  ],
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22"

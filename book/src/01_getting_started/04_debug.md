@@ -57,6 +57,30 @@ Then build a debug build of EDR:
 pnpm build:debug
 ```
 
+### VSCode for EDR TS integration tests
+
+Create or edit the `.vscode/launch.json` file in the EDR VSCode workspace. Add the following configuration to the `configurations` array, adjusting paths as necessary:
+
+```json
+{
+  "name": "Debug EDR TS integration tests in 'coverage.ts'",
+  "type": "lldb",
+  "request": "launch",
+  // Path to the EDR TypeScript integration tests
+  "cwd": "${workspaceFolder}/crates/edr_napi/",
+  // Path to the Node.js executable
+  "program": "/usr/local/share/nvm/versions/node/v22.21.1/bin/node",
+  "args": [
+    // Path to Mocha test runner
+    "${workspaceFolder}/crates/edr_napi/node_modules/mocha/bin/mocha.js",
+    // Path to a specific test file to debug
+    "${workspaceFolder}/crates/edr_napi/test/coverage.ts"
+  ]
+}
+```
+
+You can now start debugging by selecting the "Debug EDR TS integration tests in 'coverage.ts'" configuration in the VSCode debug panel and clicking the green play button.
+
 ### VSCode for Hardhat 2 with EDR
 
 You will need to checkout the Hardhat v2 repository and the Hardhat project that you want to debug (e.g. OpenZeppelin Contracts) alongside the EDR repository. The directory structure should look something like this:
