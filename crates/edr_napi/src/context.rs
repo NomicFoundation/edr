@@ -355,33 +355,6 @@ pub struct Context {
 impl Context {
     /// Creates a new [`Context`] instance. Should only be called once!
     pub fn new() -> napi::Result<Self> {
-        // Set up a custom panic hook to ensure panics in background threads are logged
-        // This is especially important for tokio spawned tasks which can silently drop
-        // panics
-        std::panic::set_hook(Box::new(|panic_info| {
-            let location = panic_info
-                .location()
-                .map(|loc| format!(" at {}:{}:{}", loc.file(), loc.line(), loc.column()))
-                .unwrap_or_default();
-
-            let message = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
-                s.to_string()
-            } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
-                s.clone()
-            } else {
-                "Box<dyn Any>".to_string()
-            };
-
-            eprintln!("\n!!! PANIC in background thread !!!");
-            eprintln!(
-                "Thread: {:?}",
-                std::thread::current().name().unwrap_or("<unnamed>")
-            );
-            eprintln!("Message: {}{}", message, location);
-            eprintln!("Backtrace:\n{:?}", std::backtrace::Backtrace::capture());
-            eprintln!("!!! END PANIC !!!\n");
-        }));
-
         let fmt_layer = tracing_subscriber::fmt::layer()
             .with_file(true)
             .with_line_number(true)
