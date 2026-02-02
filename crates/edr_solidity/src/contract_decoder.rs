@@ -47,6 +47,15 @@ pub trait NestedTraceDecoder<HaltReasonT: HaltReasonTrait> {
     ) -> Result<NestedTrace<HaltReasonT>, ContractDecoderError>;
 }
 
+/// Provides trace decoding with mutable access.
+pub trait NestedTraceDecoderMut<HaltReasonT: HaltReasonTrait> {
+    /// Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
+    fn try_to_decode_nested_trace_mut(
+        &mut self,
+        nested_trace: NestedTrace<HaltReasonT>,
+    ) -> Result<NestedTrace<HaltReasonT>, ContractDecoderError>;
+}
+
 /// `NestedTraceDecoder` with additional `Debug + Send + Sync` bounds.
 pub trait SyncNestedTraceDecoder<HaltReasonT: HaltReasonTrait>:
     'static + NestedTraceDecoder<HaltReasonT> + Debug + Send + Sync
@@ -406,8 +415,15 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for RwLock<Co
         &self,
         nested_trace: NestedTrace<HaltReasonT>,
     ) -> Result<NestedTrace<HaltReasonT>, ContractDecoderError> {
-        let mut decoder = self.write();
+        self.write().try_to_decode_nested_trace_mut(nested_trace)
+    }
+}
 
+impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoderMut<HaltReasonT> for ContractDecoder {
+    fn try_to_decode_nested_trace_mut(
+        &mut self,
+        nested_trace: NestedTrace<HaltReasonT>,
+    ) -> Result<NestedTrace<HaltReasonT>, ContractDecoderError> {
         match nested_trace {
             precompile @ NestedTrace::Precompile(..) => Ok(precompile),
             // NOTE: The branches below are the same with the difference of `is_create`
@@ -415,8 +431,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for RwLock<Co
                 let is_create = false;
 
                 let contract_meta = {
-                    decoder
-                        .contracts_identifier
+                    self.contracts_identifier
                         .get_bytecode_for_call(call.code.as_ref(), is_create)
                 };
 
@@ -433,7 +448,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for RwLock<Co
                             NestedTraceStep::Call(call) => NestedTrace::Call(call),
                         };
 
-                        let result = match self.try_to_decode_nested_trace(trace)? {
+                        let result = match self.try_to_decode_nested_trace_mut(trace)? {
                             NestedTrace::Precompile(precompile) => {
                                 NestedTraceStep::Precompile(precompile)
                             }
@@ -454,8 +469,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for RwLock<Co
                 let is_create = true;
 
                 let contract_meta = {
-                    decoder
-                        .contracts_identifier
+                    self.contracts_identifier
                         .get_bytecode_for_call(create.code.as_ref(), is_create)
                 };
 
@@ -472,7 +486,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for RwLock<Co
                             NestedTraceStep::Call(call) => NestedTrace::Call(call),
                         };
 
-                        let result = match self.try_to_decode_nested_trace(trace)? {
+                        let result = match self.try_to_decode_nested_trace_mut(trace)? {
                             NestedTrace::Precompile(precompile) => {
                                 NestedTraceStep::Precompile(precompile)
                             }
