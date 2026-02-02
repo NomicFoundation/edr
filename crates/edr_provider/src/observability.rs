@@ -22,7 +22,12 @@ use parking_lot::RwLock;
 use revm_inspector::JournalExt;
 use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 
-use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
+use crate::{
+    console_log::ConsoleLogCollector,
+    error::{JsonRpcError, INTERNAL_ERROR},
+    mock::Mocker,
+    SyncCallOverride,
+};
 
 /// Convenience type alias for [`ObservabilityConfig`].
 ///
@@ -106,6 +111,15 @@ pub enum EvmObserverCollectionError {
     /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
     #[error(transparent)]
     OnCollectedCoverageCallback(Box<dyn std::error::Error + Send + Sync>),
+}
+
+impl JsonRpcError for EvmObserverCollectionError {
+    fn error_code(&self) -> i16 {
+        match self {
+            EvmObserverCollectionError::AbiDecoding(_)
+            | EvmObserverCollectionError::OnCollectedCoverageCallback(_) => INTERNAL_ERROR,
+        }
+    }
 }
 
 #[derive(Debug)]
