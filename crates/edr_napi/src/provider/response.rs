@@ -1,11 +1,9 @@
 use edr_solidity::solidity_stack_trace::StackTraceCreationResult;
-use napi::{bindgen_prelude::Either4, Either};
+use napi::{bindgen_prelude::Either3, Either};
 use napi_derive::napi;
 
 use crate::{
-    solidity_tests::test_results::{
-        CallTrace, HeuristicFailed, StackTrace, UnexpectedError, UnsafeToReplay,
-    },
+    solidity_tests::test_results::{CallTrace, HeuristicFailed, StackTrace, UnexpectedError},
     trace::solidity_stack_trace::{
         solidity_stack_trace_error_to_napi, solidity_stack_trace_heuristic_failed_to_napi,
         solidity_stack_trace_success_to_napi,
@@ -33,21 +31,19 @@ impl Response {
 
     #[doc = "Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace."]
     #[napi(catch_unwind)]
-    pub fn stack_trace(
-        &self,
-    ) -> Option<Either4<StackTrace, UnexpectedError, HeuristicFailed, UnsafeToReplay>> {
+    pub fn stack_trace(&self) -> Option<Either3<StackTrace, UnexpectedError, HeuristicFailed>> {
         self.inner
             .stack_trace_result
             .as_ref()
             .map(|stack_trace_result| match stack_trace_result {
                 StackTraceCreationResult::Success(stack_trace) => {
-                    Either4::A(solidity_stack_trace_success_to_napi(stack_trace))
+                    Either3::A(solidity_stack_trace_success_to_napi(stack_trace))
                 }
                 StackTraceCreationResult::Error(error) => {
-                    Either4::B(solidity_stack_trace_error_to_napi(error))
+                    Either3::B(solidity_stack_trace_error_to_napi(error))
                 }
                 StackTraceCreationResult::HeuristicFailed => {
-                    Either4::C(solidity_stack_trace_heuristic_failed_to_napi())
+                    Either3::C(solidity_stack_trace_heuristic_failed_to_napi())
                 }
             })
     }

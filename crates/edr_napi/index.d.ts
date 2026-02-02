@@ -1581,7 +1581,7 @@ export declare class Response {
   /**Returns the response data as a JSON string or a JSON object. */
   get data(): string | any
   /**Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace. */
-  stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null
+  stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | null
   /**
    * Constructs the execution traces for the request. Returns an empty array
    * if traces are not enabled for this provider according to
