@@ -3,6 +3,7 @@ use std::{borrow::Cow, collections::HashSet, mem, sync::Arc};
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{bytecode::opcode::OpCode, hex, U256};
+use foundry_compilers::artifacts::error;
 use semver::{Version, VersionReq};
 
 use crate::{
@@ -13,7 +14,7 @@ use crate::{
     nested_trace::{
         CallMessage, CreateMessage, CreateOrCallMessageRef, NestedTrace, NestedTraceStep,
     },
-    return_data::ReturnData,
+    return_data::{CheatcodeErrorCode, ReturnData},
     solidity_stack_trace::{
         SourceReference, StackTraceEntry, CONSTRUCTOR_FUNCTION_NAME, FALLBACK_FUNCTION_NAME,
         RECEIVE_FUNCTION_NAME,
@@ -675,8 +676,14 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
         return fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit);
     } else if return_data.is_structured_cheatcode_error_return_data() {
         let err = return_data.decode_structured_cheatcode_error()?;
+        let error_type = match err.code {
+            CheatcodeErrorCode::UnsupportedCheatcode => "not supported",
+            CheatcodeErrorCode::MissingCheatcode => "missing",
+            _ => "",
+        };
         stacktrace.push(StackTraceEntry::CheatCodeError {
-            message: "".to_string(),
+            // Note: Message format is backwards compatible with unsupported cheatcode errors.
+            message: format!("cheatcode '{0}' is {1}", err.cheatcode, error_type),
             source_reference: call_stack_frame_source_reference,
             details: Some(err),
         });

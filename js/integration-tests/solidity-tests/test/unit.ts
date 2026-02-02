@@ -6,6 +6,7 @@ import {
   TestContext,
 } from "./testContext.js";
 import {
+  CheatcodeErrorCode,
   CollectStackTraces,
   L1_CHAIN_TYPE,
   OP_CHAIN_TYPE,
@@ -270,13 +271,41 @@ describe("Unit tests", () => {
 
     assertStackTraces(
       stackTraces.get("testUnsupportedCheatcode()"),
-      "cheatcode 'broadcast()' is not supported",
+      "UnsupportedCheatcode: broadcast()",
       [
         {
           contract: "UnsupportedCheatcodeTest",
           function: "testUnsupportedCheatcode",
           message: "cheatcode 'broadcast()' is not supported",
+          errorDetails: {
+            code: CheatcodeErrorCode.UnsupportedCheatcode,
+            cheatcode: "broadcast()",
+          },
           line: 9,
+        },
+      ]
+    );
+    assert.equal(failedTests, 1);
+    assert.equal(totalTests, 1);
+  });
+
+  it("MissingCheatcode", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("MissingCheatcodeTest");
+
+    assertStackTraces(
+      stackTraces.get("testMissingCheatcode()"),
+      "MissingCheatcode: getEvmVersion()",
+      [
+        {
+          contract: "MissingCheatcodeTest",
+          function: "testMissingCheatcode",
+          message: "cheatcode 'getEvmVersion()' is missing",
+          errorDetails: {
+            code: CheatcodeErrorCode.MissingCheatcode,
+            cheatcode: "getEvmVersion()",
+          },
+          line: 15,
         },
       ]
     );

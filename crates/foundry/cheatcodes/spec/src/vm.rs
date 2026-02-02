@@ -2813,7 +2813,6 @@ impl fmt::Display for Vm::CheatcodeError {
     }
 }
 
-// TODO: improve Display impl
 impl fmt::Display for Vm::StructuredCheatcodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}: {}", self.err.code, self.err.cheatcode)

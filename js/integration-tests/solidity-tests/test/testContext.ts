@@ -19,6 +19,7 @@ import {
   opSolidityTestRunnerFactory,
   SuiteResult,
   SolidityTestResult,
+  CheatcodeErrorDetails,
 } from "@nomicfoundation/edr";
 import {
   buildSolidityTestsInput,
@@ -186,6 +187,7 @@ export function assertStackTraces(
     function: string;
     contract: string;
     message?: string;
+    errorDetails?: CheatcodeErrorDetails;
     line?: number;
   }[]
 ) {
@@ -245,6 +247,25 @@ export function assertStackTraces(
           null,
           2
         )}`
+      );
+    }
+    if (expected.errorDetails !== undefined) {
+      const actualDetails = stackTrace.entries[i].structuredError;
+      assert(
+        actualDetails !== undefined,
+        `Expected structured error details but none found in entry: ${JSON.stringify(
+          stackTrace.entries[i],
+          null,
+          2
+        )}`
+      );
+      assert(
+        expected.errorDetails.code === actualDetails.code,
+        `Expected error code '${expected.errorDetails.code}' but got '${actualDetails.code}'`
+      );
+      assert(
+        expected.errorDetails.cheatcode === actualDetails.cheatcode,
+        `Expected cheatcode '${expected.errorDetails.cheatcode}' but got '${actualDetails.cheatcode}'`
       );
     }
   }

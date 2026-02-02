@@ -143,6 +143,7 @@ impl fmt::Display for ErrorKind<'_> {
         match *self {
             Self::String(ss) => f.write_str(ss),
             Self::Bytes(b) => f.write_str(&hex::encode_prefixed(b)),
+            // TODO: improve display
             Self::Structured(structured) => {
                 write!(
                     f,
