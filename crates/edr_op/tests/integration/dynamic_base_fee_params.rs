@@ -37,11 +37,12 @@ async fn assert_base_fee_activation(
     url: String,
     block_number: u64,
 ) -> anyhow::Result<()> {
-    let block_validation = |remote_header: &BlockHeader, local_header: &PartialHeader, _parent: &BlockHeader| {
-        assert_eq!(remote_header.extra_data, local_header.extra_data);
-        assert_eq!(remote_header.base_fee_per_gas, local_header.base_fee);
-        Ok(())
-    };
+    let block_validation =
+        |remote_header: &BlockHeader, local_header: &PartialHeader, _parent: &BlockHeader| {
+            assert_eq!(remote_header.extra_data, local_header.extra_data);
+            assert_eq!(remote_header.base_fee_per_gas, local_header.base_fee);
+            Ok(())
+        };
     assert_replay_header::<OpChainSpec>(
         runtime.clone(),
         url.clone(),
