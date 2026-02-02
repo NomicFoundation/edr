@@ -4,7 +4,9 @@ use edr_chain_spec::HaltReasonTrait;
 use edr_napi_core::solidity::config::TracingConfigWithBuffers;
 use edr_solidity::{
     artifacts::BuildInfoConfigWithBuffers,
-    contract_decoder::{ContractDecoder, ContractDecoderError, NestedTraceDecoder},
+    contract_decoder::{
+        ContractDecoder, ContractDecoderError, NestedTraceDecoder, NestedTraceDecoderMut as _,
+    },
     nested_trace::NestedTrace,
 };
 use parking_lot::RwLock;
@@ -47,6 +49,6 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for LazyContr
             })
             .as_ref()
             .map_err(Clone::clone)
-            .and_then(|decoder| decoder.try_to_decode_nested_trace(nested_trace))
+            .and_then(|decoder| decoder.write().try_to_decode_nested_trace_mut(nested_trace))
     }
 }

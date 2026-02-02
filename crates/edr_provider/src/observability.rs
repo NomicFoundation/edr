@@ -248,6 +248,10 @@ impl<
     > Inspector<ContextT, EthInterpreter> for EvmObserver
 {
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
+        if let Some(outcome) = self.bytecode_collector.call(context, inputs) {
+            return Some(outcome);
+        }
+
         self.console_logger.call(context, inputs);
         if let Some(code_coverage) = &mut self.code_coverage {
             Inspector::<_, EthInterpreter>::call(&mut code_coverage.collector, context, inputs);
