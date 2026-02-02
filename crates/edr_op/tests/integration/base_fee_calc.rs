@@ -1,11 +1,10 @@
 #![cfg(feature = "test-remote")]
 
-use edr_op::{OpChainSpec, block::decode_base_params};
+use alloy_eips::calc_next_block_base_fee;
+use edr_op::{block::decode_base_params, OpChainSpec};
 use edr_provider::test_utils::header_overrides;
 use edr_test_block_replay::assert_replay_header;
-use alloy_eips::calc_next_block_base_fee;
-
-use crate::integration::base;
+use edr_test_utils::env::json_rpc_url_provider;
 
 macro_rules! impl_test_base_fee_calc{
     ($($net:ident: $url:expr => [
@@ -47,7 +46,12 @@ async fn assert_base_fee_per_gas(
         |remote_header, local_header, parent_header| {
             let base_fee_params = decode_base_params(&parent_header.extra_data);
             let parent_base_fee_per_gas = parent_header.base_fee_per_gas.unwrap() as u64;
-            let alloy_calculation = calc_next_block_base_fee(parent_header.gas_used, parent_header.gas_limit, parent_base_fee_per_gas, base_fee_params);
+            let alloy_calculation = calc_next_block_base_fee(
+                parent_header.gas_used,
+                parent_header.gas_limit,
+                parent_base_fee_per_gas,
+                base_fee_params,
+            );
             assert_eq!(local_header.base_fee, Some(u128::from(alloy_calculation)));
             assert_eq!(remote_header.base_fee_per_gas, local_header.base_fee);
             Ok(())
@@ -57,7 +61,7 @@ async fn assert_base_fee_per_gas(
 }
 
 impl_test_base_fee_calc! {
-    base_mainnet: base::mainnet_url() => [
+    base_mainnet: json_rpc_url_provider::base_mainnet() => [
         // blocks from 2025-12-18 - BaseFeeParams(50, 5)
         39628091, // parent gas_used below target
         39628092, // parent gas_used over target - FAILS
