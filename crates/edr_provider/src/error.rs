@@ -47,6 +47,34 @@ pub trait JsonRpcError {
     fn error_code(&self) -> i16;
 }
 
+impl<
+        BlockchainErrorT,
+        CollectInspectorDataErrorT: JsonRpcError,
+        HardforkT,
+        StateErrorT,
+        TransactionValidationErrorT,
+    > JsonRpcError
+    for MineBlockError<
+        BlockchainErrorT,
+        CollectInspectorDataErrorT,
+        HardforkT,
+        StateErrorT,
+        TransactionValidationErrorT,
+    >
+{
+    fn error_code(&self) -> i16 {
+        match self {
+            // TODO: differentiate error codes based on the inner errors
+            MineBlockError::BlockBuilderCreation(_)
+            | MineBlockError::BlockTransaction(_)
+            | MineBlockError::BlockFinalize(_)
+            | MineBlockError::Blockchain(_)
+            | MineBlockError::MissingPrevrandao => INVALID_INPUT,
+            MineBlockError::CollectInspectorDataError(error) => error.error_code(),
+        }
+    }
+}
+
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
     <ChainSpecT as GenesisBlockFactory>::GenesisBlockCreationError,
@@ -522,7 +550,7 @@ impl<
             ProviderError::Logger(_) => INTERNAL_ERROR,
             ProviderError::MemPoolAddTransaction(_) => INVALID_INPUT,
             ProviderError::MemPoolUpdate(_) => INVALID_INPUT,
-            ProviderError::MineBlock(_) => INVALID_INPUT,
+            ProviderError::MineBlock(error) => error.error_code(),
             ProviderError::MineTransaction(_) => INVALID_INPUT,
             ProviderError::OnCollectedCoverageCallback(_) => INTERNAL_ERROR,
             ProviderError::OnCollectedGasReportCallback(_) => INTERNAL_ERROR,
