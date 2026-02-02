@@ -158,6 +158,7 @@ export async function runAllSolidityTests(
     let isTestComplete = false;
 
     const tryResolve = () => {
+      console.log("test");
       if (isTestComplete && resultsFromCallback.length === testSuites.length) {
         resolve([testResult!, resultsFromCallback]);
       }
