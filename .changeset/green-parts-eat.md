@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": minor
 ---
 
-Added structured errors for Solidity tests cheatcodes
+Added structured errors for unsupported Solidity test cheatcodes
