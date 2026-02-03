@@ -1,9 +1,13 @@
-use std::{fs, process::Command, sync::OnceLock};
+mod metadata;
+use std::{fs, path::PathBuf, process::Command, sync::OnceLock};
 
 use anyhow::{anyhow, bail};
 use clap::Parser;
+use clap_cargo::{Features, Manifest};
 // use itertools::Itertools;
-use log::{LevelFilter, Log, Metadata, Record};
+use log::{LevelFilter, Log, Record};
+
+use crate::metadata::read_metadata;
 
 static WORKSPACE_ROOT_PATH: OnceLock<anyhow::Result<String>> = OnceLock::new();
 
@@ -26,7 +30,7 @@ fn main() -> anyhow::Result<()> {
 struct SimpleLogger;
 
 impl Log for SimpleLogger {
-    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+    fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
         metadata.level() <= log::max_level()
     }
 
@@ -78,11 +82,11 @@ fn workspace_root() -> anyhow::Result<String> {
 
 fn check_dependencies(verbose: bool) -> anyhow::Result<()> {
     init_logger(verbose)?;
-    let cooldown_config_path = WORKSPACE_ROOT_PATH
+    let root_path = WORKSPACE_ROOT_PATH
         .get_or_init(workspace_root)
         .as_ref()
-        .map_err(|error| anyhow!("Could not determine EDR root path: {error}"))
-        .map(|workspace_root_path| format!("{workspace_root_path}/.cargo/cooldown.toml"))?;
+        .map_err(|error| anyhow!("Could not determine EDR root path: {error}"))?;
+    let cooldown_config_path = format!("{root_path}/.cargo/cooldown.toml");
     log::debug!("Cargo-cooldown check...");
     log::debug!("project cooldown config path: {cooldown_config_path}");
 
@@ -92,6 +96,20 @@ fn check_dependencies(verbose: bool) -> anyhow::Result<()> {
         log::debug!("cooldown config: {cooldown_config:?}");
         cooldown_config
     };
+
+    let features = {
+        let mut features = Features::default();
+        features.all_features = true;
+        features
+    };
+    let manifest = {
+        let mut manifest = Manifest::default();
+        manifest.manifest_path = Some(PathBuf::from(root_path).join("Cargo.toml"));
+        manifest
+    };
+
+    let metadata = read_metadata(&manifest, &features)?;
+    log::debug!("Read metadata: {metadata:?}");
     Ok(())
 }
 
