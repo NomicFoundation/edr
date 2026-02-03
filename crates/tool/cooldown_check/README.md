@@ -15,3 +15,5 @@ If running `cargo add <version-number>` locks a newer version that violates the 
 ```sh
 cargo update -p <dependency> --precise <cool_version>
 ```
+
+For other alternatives, take a look at <https://doc.rust-lang.org/cargo/reference/resolver.html#semver-breaking-patch-release-breaks-the-build>

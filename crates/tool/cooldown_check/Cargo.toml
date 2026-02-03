@@ -5,7 +5,9 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+cargo_metadata = "0.22"
 clap.workspace = true
+clap-cargo = { version = "0.17", features = ["cargo_metadata"] }
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
