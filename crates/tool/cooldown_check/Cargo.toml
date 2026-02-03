@@ -1,0 +1,15 @@
+[package]
+name = "edr_cooldown_check"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml = { workspace = true, features = ["preserve_order"] }
+
+[lints]
+workspace = true
