@@ -25,20 +25,27 @@ sol! {
 interface Vm {
     //  ======== Types ========
 
-    struct CheatcodeErrorDetails {
-        CheatcodeErrorCode code;
-        string cheatcode;
-    }
+    /// String error thrown by cheatcodes.
+    error CheatcodeError(string message);
 
+    /// Error codes for cheatcode errors.
     enum CheatcodeErrorCode {
+        /// The cheatcode is not supported.
         UnsupportedCheatcode,
+        /// The cheatcode is missing.
         MissingCheatcode,
     }
 
-    /// String error thrown by cheatcodes.
-    error CheatcodeError(string message);
+    /// Structured error details for cheatcode errors.
+    struct CheatcodeErrorDetails {
+        /// The error code representing the type of cheatcode error.
+        CheatcodeErrorCode code;
+        /// The name of the cheatcode that caused the error.
+        string cheatcode;
+    }
+
     /// Structured error thrown by cheatcodes.
-    error StructuredCheatcodeError(CheatcodeErrorDetails err);
+    error StructuredCheatcodeError(CheatcodeErrorDetails details);
 
     /// A modification applied to either `msg.sender` or `tx.origin`. Returned by `readCallers`.
     enum CallerMode {
@@ -2815,7 +2822,7 @@ impl fmt::Display for Vm::CheatcodeError {
 
 impl fmt::Display for Vm::StructuredCheatcodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}: {}", self.err.code, self.err.cheatcode)
+        write!(f, "{:?}: {}", self.details.code, self.details.cheatcode)
     }
 }
 

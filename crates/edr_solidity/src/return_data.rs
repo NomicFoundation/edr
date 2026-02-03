@@ -10,7 +10,6 @@ alloy_sol_types::sol! {
   error Panic(uint256);
   error CheatcodeError(string);
 
-  /// Structured cheatcode error types.
   #[derive(Debug)]
   enum CheatcodeErrorCode {
     /// The cheatcode is not supported.
@@ -62,13 +61,13 @@ impl<'a> ReturnData<'a> {
         self.selector == Some(Error::SELECTOR)
     }
 
-    /// Returns true if the return data represents a Solidity
+    /// Returns true if the return data represents a Solidity test cheatcode
     /// `CheatcodeError(string)` revert.
     pub fn is_cheatcode_error_return_data(&self) -> bool {
         self.selector == Some(CheatcodeError::SELECTOR)
     }
 
-    /// Returns true if the return data represents a Solidity
+    /// Returns true if the return data represents a Solidity test cheatcode
     /// `StructuredCheatcodeError(CheatcodeErrorDetails)` revert.
     pub fn is_structured_cheatcode_error_return_data(&self) -> bool {
         self.selector == Some(StructuredCheatcodeError::SELECTOR)

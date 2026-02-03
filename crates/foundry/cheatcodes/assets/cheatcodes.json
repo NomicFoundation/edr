@@ -8,11 +8,25 @@
     {
       "name": "StructuredCheatcodeError",
       "description": "Structured error thrown by cheatcodes.",
-      "declaration": "error StructuredCheatcodeError(CheatcodeErrorDetails err);"
+      "declaration": "error StructuredCheatcodeError(CheatcodeErrorDetails details);"
     }
   ],
   "events": [],
   "enums": [
+    {
+      "name": "CheatcodeErrorCode",
+      "description": "Error codes for cheatcode errors.",
+      "variants": [
+        {
+          "name": "UnsupportedCheatcode",
+          "description": "The cheatcode is not supported."
+        },
+        {
+          "name": "MissingCheatcode",
+          "description": "The cheatcode is missing."
+        }
+      ]
+    },
     {
       "name": "CallerMode",
       "description": "A modification applied to either `msg.sender` or `tx.origin`. Returned by `readCallers`.",
@@ -127,6 +141,22 @@
     }
   ],
   "structs": [
+    {
+      "name": "CheatcodeErrorDetails",
+      "description": "Structured error details for cheatcode errors.",
+      "fields": [
+        {
+          "name": "code",
+          "ty": "CheatcodeErrorCode",
+          "description": "The error code representing the type of cheatcode error."
+        },
+        {
+          "name": "cheatcode",
+          "ty": "string",
+          "description": "The name of the cheatcode that caused the error."
+        }
+      ]
+    },
     {
       "name": "Log",
       "description": "An Ethereum log. Returned by `getRecordedLogs`.",

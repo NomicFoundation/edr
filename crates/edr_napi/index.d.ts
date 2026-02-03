@@ -591,10 +591,10 @@ export interface LinkReference {
 export enum CheatcodeErrorCode {
   /**The specified cheatcode is not supported. */
   UnsupportedCheatcode = 'UnsupportedCheatcode',
-  /**The specified cheatcode is missing */
+  /**The specified cheatcode is missing. */
   MissingCheatcode = 'MissingCheatcode'
 }
-/**Represents an error returned by a cheatcode in Solidity tests. */
+/**Error returned by a cheatcode in Solidity tests. */
 export interface CheatcodeErrorDetails {
   /**The error code representing the type of cheatcode error. */
   code: CheatcodeErrorCode
@@ -1471,7 +1471,7 @@ export interface CheatcodeErrorStackTraceEntry {
   type: StackTraceEntryType.CHEATCODE_ERROR
   message: string
   sourceReference: SourceReference
-  structuredError?: CheatcodeErrorDetails
+  details?: CheatcodeErrorDetails
 }
 export interface TracingMessage {
   /** Sender address */

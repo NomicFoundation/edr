@@ -250,7 +250,7 @@ export function assertStackTraces(
       );
     }
     if (expected.errorDetails !== undefined) {
-      const actualDetails = stackTrace.entries[i].structuredError;
+      const actualDetails = stackTrace.entries[i].details;
       assert(
         actualDetails !== undefined,
         `Expected structured error details but none found in entry: ${JSON.stringify(

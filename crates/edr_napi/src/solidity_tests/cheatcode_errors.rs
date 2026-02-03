@@ -7,13 +7,13 @@ use serde::Serialize;
 pub enum CheatcodeErrorCode {
     #[doc = "The specified cheatcode is not supported."]
     UnsupportedCheatcode,
-    #[doc = "The specified cheatcode is missing"]
+    #[doc = "The specified cheatcode is missing."]
     MissingCheatcode,
 }
 
 #[napi(object)]
 #[derive(Clone, Serialize)]
-#[doc = "Represents an error returned by a cheatcode in Solidity tests."]
+#[doc = "Error returned by a cheatcode in Solidity tests."]
 pub struct CheatcodeErrorDetails {
     #[doc = "The error code representing the type of cheatcode error."]
     pub code: CheatcodeErrorCode,
