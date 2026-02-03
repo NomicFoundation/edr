@@ -2758,6 +2758,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_cooldown_check"
+version = "0.3.8"
+dependencies = [
+ "anyhow",
+ "clap 3.2.25",
+ "log",
+ "serde",
+ "serde_json",
+ "toml 0.8.20",
+]
+
+[[package]]
 name = "edr_coverage"
 version = "0.3.8"
 dependencies = [
