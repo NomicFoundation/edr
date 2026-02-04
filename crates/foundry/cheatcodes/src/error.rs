@@ -82,11 +82,11 @@ pub(crate) fn precompile_error(address: &Address) -> Error {
 #[repr(u8)]
 #[derive(PartialEq, Eq)]
 enum ErrorTag {
-    StaticStr = 0,   // &'static str, no drop needed
-    OwnedStr = 1,    // String, needs drop
-    StaticBytes = 2, // &'static [u8], no drop needed
-    OwnedBytes = 3,  // Vec<u8>, needs drop
-    Structured = 4,  // CheatcodeErrorDetails, always needs drop
+    StaticStr = 0,       // &'static str, no drop needed
+    OwnedString = 1,     // String, needs drop
+    StaticByteSlice = 2, // &'static [u8], no drop needed
+    OwnedBytes = 3,      // Vec<u8>, needs drop
+    Structured = 4,      // CheatcodeErrorDetails, always needs drop
 }
 
 /// Error thrown by cheatcodes.
@@ -97,19 +97,10 @@ pub struct Error {
     data: *const [u8],
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, strum::Display)]
 pub enum CheatcodeErrorCode {
     UnsupportedCheatcode,
     MissingCheatcode,
-}
-
-impl fmt::Display for CheatcodeErrorCode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::UnsupportedCheatcode => f.write_str("UnsupportedCheatcode"),
-            Self::MissingCheatcode => f.write_str("MissingCheatcode"),
-        }
-    }
 }
 
 impl From<CheatcodeErrorCode> for Vm::CheatcodeErrorCode {
@@ -214,11 +205,11 @@ impl Error {
     pub fn kind(&self) -> ErrorKind<'_> {
         let data = self.data();
         match self.tag {
-            ErrorTag::StaticStr | ErrorTag::OwnedStr => {
+            ErrorTag::StaticStr | ErrorTag::OwnedString => {
                 debug_assert!(std::str::from_utf8(data).is_ok());
                 ErrorKind::String(unsafe { std::str::from_utf8_unchecked(data) })
             }
-            ErrorTag::StaticBytes | ErrorTag::OwnedBytes => ErrorKind::Bytes(data),
+            ErrorTag::StaticByteSlice | ErrorTag::OwnedBytes => ErrorKind::Bytes(data),
             ErrorTag::Structured => {
                 let structured = unsafe { &*data.as_ptr().cast::<CheatcodeErrorDetails>() };
                 ErrorKind::Structured(structured)
@@ -231,7 +222,7 @@ impl Error {
     fn needs_drop(&self) -> bool {
         matches!(
             self.tag,
-            ErrorTag::OwnedStr | ErrorTag::OwnedBytes | ErrorTag::Structured
+            ErrorTag::OwnedString | ErrorTag::OwnedBytes | ErrorTag::Structured
         )
     }
 
@@ -244,7 +235,7 @@ impl Error {
     /// Returns `true` if this error is a human-readable string.
     #[inline]
     pub fn is_str(&self) -> bool {
-        self.tag == ErrorTag::StaticStr || self.tag == ErrorTag::OwnedStr
+        self.tag == ErrorTag::StaticStr || self.tag == ErrorTag::OwnedString
     }
 
     #[inline]
@@ -255,14 +246,14 @@ impl Error {
     #[inline]
     fn new_string(data: String) -> Self {
         Self::_new(
-            ErrorTag::OwnedStr,
+            ErrorTag::OwnedString,
             Box::into_raw(data.into_boxed_str().into_boxed_bytes()),
         )
     }
 
     #[inline]
     fn new_bytes(data: &'static [u8]) -> Self {
-        Self::_new(ErrorTag::StaticBytes, data)
+        Self::_new(ErrorTag::StaticByteSlice, data)
     }
 
     #[inline]
