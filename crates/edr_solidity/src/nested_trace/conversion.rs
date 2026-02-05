@@ -1,6 +1,6 @@
 //! Conversion from `CallTraceArena` (from revm-inspectors) to `NestedTrace`.
 
-use edr_chain_spec::HaltReasonTrait;
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_primitives::{Address, Bytes, HashMap, U160};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 use revm_interpreter::{InternalResult, SuccessOrHalt};
@@ -58,6 +58,8 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
     let mut steps = Vec::new();
     let mut child_index = 0;
     for step in &trace.steps {
+        steps.push(NestedTraceStep::Evm(EvmStep { pc: step.pc as u32 }));
+
         if is_calllike_op(step) {
             // The opcode of this step is a call, but it's possible that this step resulted
             // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
@@ -69,14 +71,17 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
                     arena,
                     call_id,
                 )?;
-                steps.push(match child_trace {
-                    NestedTrace::Create(msg) => NestedTraceStep::Create(msg),
-                    NestedTrace::Call(msg) => NestedTraceStep::Call(msg),
-                    NestedTrace::Precompile(msg) => NestedTraceStep::Precompile(msg),
-                });
+
+                // To ensure the Solidity stack trace heuristics work correctly, we don't add
+                // failed calls to the nested trace steps.
+                if !call_opcode_failed(&child_trace) {
+                    steps.push(match child_trace {
+                        NestedTrace::Create(msg) => NestedTraceStep::Create(msg),
+                        NestedTrace::Call(msg) => NestedTraceStep::Call(msg),
+                        NestedTrace::Precompile(msg) => NestedTraceStep::Precompile(msg),
+                    });
+                }
             }
-        } else {
-            steps.push(NestedTraceStep::Evm(EvmStep { pc: step.pc as u32 }));
         }
     }
 
@@ -139,6 +144,38 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
         gas_used: trace.gas_used,
         depth: trace.depth,
     }))
+}
+
+/// Checks whether a call opcode failed.
+///
+/// This would be the case if:
+/// 1. the procedural macro [`edr_chain_spec_evm::interpreter::return_revert`]
+///    is true
+/// 2. no steps occurred after the call instruction (i.e., the call failed
+///    immediately)
+fn call_opcode_failed<HaltReasonT: HaltReasonTrait>(step: &NestedTrace<HaltReasonT>) -> bool {
+    match step {
+        NestedTrace::Create(create_message) => {
+            create_message.steps.is_empty() && is_return_revert_exit_code(&create_message.exit)
+        }
+        NestedTrace::Call(call_message) => {
+            call_message.steps.is_empty() && is_return_revert_exit_code(&call_message.exit)
+        }
+        NestedTrace::Precompile(precompile_message) => {
+            is_return_revert_exit_code(&precompile_message.exit)
+        }
+    }
+}
+
+/// Checks whether the given exit code corresponds to a revert instruction
+/// results, matching [`edr_chain_spec_evm::interpreter::return_revert`].
+fn is_return_revert_exit_code<HaltReasonT: HaltReasonTrait>(
+    exit_code: &ExitCode<HaltReasonT>,
+) -> bool {
+    matches!(
+        exit_code,
+        ExitCode::Revert | ExitCode::InvalidExtDelegateCallTarget
+    ) || matches!(exit_code, ExitCode::Halt(halt_reason) if *halt_reason == EvmHaltReason::CallTooDeep.into() || *halt_reason == EvmHaltReason::OutOfFunds.into())
 }
 
 fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTrait>(
