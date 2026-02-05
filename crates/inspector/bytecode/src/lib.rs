@@ -13,7 +13,7 @@ use revm_inspector::JournalExt;
 
 /// An inspector that collects bytecode executed during EVM calls.
 ///
-/// The [`revm_inspectors::tracing::TracingInspector`] does not store the
+/// The `revm_inspectors::tracing::TracingInspector` does not store the
 /// bytecode of executed code for call transactions, so we need to store them
 /// separately to be able to decode the traces properly.
 #[derive(Clone, Debug, Default)]
