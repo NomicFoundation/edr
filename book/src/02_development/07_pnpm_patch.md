@@ -24,7 +24,6 @@ After you've edited the package at the listed directory and committed it using t
 
 ```bash
     "patchedDependencies": {
-      "@defi-wonderland/smock@2.4.0": "patches/@defi-wonderland__smock@2.4.0.patch",
       "hardhat@2.22.15": "patches/hardhat@2.22.15.patch"
     }
 ```

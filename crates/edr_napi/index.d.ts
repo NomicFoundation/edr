@@ -587,6 +587,20 @@ export interface LinkReference {
   start: number
   length: number
 }
+/**Error codes that can be returned by cheatcodes in Solidity tests. */
+export enum CheatcodeErrorCode {
+  /**The specified cheatcode is not supported. */
+  UnsupportedCheatcode = 'UnsupportedCheatcode',
+  /**The specified cheatcode is missing. */
+  MissingCheatcode = 'MissingCheatcode'
+}
+/**Error returned by a cheatcode in Solidity tests. */
+export interface CheatcodeErrorDetails {
+  /**The error code representing the type of cheatcode error. */
+  code: CheatcodeErrorCode
+  /**The name of the cheatcode that caused the error. */
+  cheatcode: string
+}
 /**
  * Solidity test runner configuration arguments exposed through the ffi.
  * Docs based on <https://book.getfoundry.sh/reference/config/testing>.
@@ -1457,6 +1471,7 @@ export interface CheatcodeErrorStackTraceEntry {
   type: StackTraceEntryType.CHEATCODE_ERROR
   message: string
   sourceReference: SourceReference
+  details?: CheatcodeErrorDetails
 }
 export interface TracingMessage {
   /** Sender address */

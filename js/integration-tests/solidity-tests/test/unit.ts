@@ -6,6 +6,7 @@ import {
   TestContext,
 } from "./testContext.js";
 import {
+  CheatcodeErrorCode,
   CollectStackTraces,
   L1_CHAIN_TYPE,
   OP_CHAIN_TYPE,
@@ -270,13 +271,41 @@ describe("Unit tests", () => {
 
     assertStackTraces(
       stackTraces.get("testUnsupportedCheatcode()"),
-      "cheatcode 'broadcast()' is not supported",
+      "UnsupportedCheatcode: broadcast()",
       [
         {
           contract: "UnsupportedCheatcodeTest",
           function: "testUnsupportedCheatcode",
           message: "cheatcode 'broadcast()' is not supported",
+          errorDetails: {
+            code: CheatcodeErrorCode.UnsupportedCheatcode,
+            cheatcode: "broadcast()",
+          },
           line: 9,
+        },
+      ]
+    );
+    assert.equal(failedTests, 1);
+    assert.equal(totalTests, 1);
+  });
+
+  it("MissingCheatcode", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("MissingCheatcodeTest");
+
+    assertStackTraces(
+      stackTraces.get("testMissingCheatcode()"),
+      "MissingCheatcode: getEvmVersion()",
+      [
+        {
+          contract: "MissingCheatcodeTest",
+          function: "testMissingCheatcode",
+          message: "cheatcode 'getEvmVersion()' is missing",
+          errorDetails: {
+            code: CheatcodeErrorCode.MissingCheatcode,
+            cheatcode: "getEvmVersion()",
+          },
+          line: 15,
         },
       ]
     );
@@ -353,8 +382,8 @@ describe("Unit tests", () => {
             ["o", "123"],
             ["q", "789"],
             ["testSnapshotGasLastCallGroupName", "45084"],
-            ["testSnapshotGasSection", "5857390"],
-            ["testSnapshotGasSectionGroupName", "5857820"],
+            ["testSnapshotGasSection", "5857385"],
+            ["testSnapshotGasSectionGroupName", "5857815"],
             ["x", "123"],
             ["z", "789"],
           ]),
@@ -368,15 +397,15 @@ describe("Unit tests", () => {
             ["d", "123"],
             ["e", "456"],
             ["f", "789"],
-            ["testAssertGasExternal", "50265"],
-            ["testAssertGasInternalA", "22052"],
-            ["testAssertGasInternalB", "1021"],
-            ["testAssertGasInternalC", "1020"],
-            ["testAssertGasInternalD", "20921"],
-            ["testAssertGasInternalE", "1021"],
+            ["testAssertGasExternal", "50260"],
+            ["testAssertGasInternalA", "22047"],
+            ["testAssertGasInternalB", "1011"],
+            ["testAssertGasInternalC", "1010"],
+            ["testAssertGasInternalD", "20911"],
+            ["testAssertGasInternalE", "1011"],
             ["testSnapshotGasLastCallName", "45084"],
-            ["testSnapshotGasSection", "5857390"],
-            ["testSnapshotGasSectionName", "5857630"],
+            ["testSnapshotGasSection", "5857385"],
+            ["testSnapshotGasSectionName", "5857625"],
           ]),
         ],
       ])

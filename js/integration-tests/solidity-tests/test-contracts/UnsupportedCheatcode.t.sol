@@ -10,3 +10,8 @@ contract UnsupportedCheatcodeTest is Test {
     }
 }
 
+contract MissingCheatcodeTest is Test {
+    function testMissingCheatcode() public pure {
+        vm.getEvmVersion();
+    }
+}

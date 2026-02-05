@@ -9,7 +9,9 @@ use napi_derive::napi;
 use serde::{Serialize, Serializer};
 
 use super::model::ContractFunctionType;
-use crate::{cast::TryCast, trace::u256_to_bigint};
+use crate::{
+    cast::TryCast, solidity_tests::cheatcode_errors::CheatcodeErrorDetails, trace::u256_to_bigint,
+};
 
 #[napi]
 #[repr(u8)]
@@ -90,6 +92,15 @@ impl From<edr_solidity::solidity_stack_trace::SourceReference> for SourceReferen
             function: value.function,
             line: value.line,
             range: vec![range_start, range_end],
+        }
+    }
+}
+
+impl From<edr_solidity::return_data::CheatcodeErrorDetails> for CheatcodeErrorDetails {
+    fn from(value: edr_solidity::return_data::CheatcodeErrorDetails) -> Self {
+        Self {
+            code: value.code.into(),
+            cheatcode: value.cheatcode,
         }
     }
 }
@@ -579,6 +590,7 @@ pub struct CheatcodeErrorStackTraceEntry {
     // The parsed cheatcode error message that can be displayed to the user
     pub message: String,
     pub source_reference: SourceReference,
+    pub details: Option<CheatcodeErrorDetails>,
 }
 
 impl From<CheatcodeErrorStackTraceEntry> for SolidityStackTraceEntry {
@@ -684,10 +696,12 @@ impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::St
             StackTraceEntry::CheatCodeError {
                 message,
                 source_reference,
+                details,
             } => CheatcodeErrorStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
                 message,
                 source_reference: source_reference.into(),
+                details: details.map(std::convert::Into::into),
             }
             .into(),
             StackTraceEntry::CustomError {

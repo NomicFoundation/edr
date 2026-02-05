@@ -14,6 +14,7 @@ use foundry_evm_core::{
 use revm::context::result::HaltReasonTr;
 
 use crate::{
+    error::{CheatcodeErrorCode, CheatcodeErrorDetails},
     impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, Result,
     Vm::{
         attachBlobCall, attachDelegation_0Call, attachDelegation_1Call, breakpoint_0Call,
@@ -39,6 +40,10 @@ use crate::{
 /// Use `pure` for cheatcodes marked as `pure` in the cheatcode spec,
 /// and `non_pure` for all others. This is done for correctness, it has no
 /// effect since the cheatcodes are unsupported.
+///
+/// Technically, unsupported cheatcodes should never arrive to the `apply`
+/// method, as they are caught earlier in the cheatcode inspector, during
+/// dispatch logic.
 macro_rules! impl_unsupported_cheatcode {
     (pure: $($call_type:ident => $cheatcode_name:literal),* $(,)?) => {
         $(
@@ -74,7 +79,10 @@ macro_rules! impl_unsupported_cheatcode {
                         TransactionErrorT,
                     >,
                 ) -> Result {
-                    bail!(concat!("cheatcode '", $cheatcode_name, "' is not supported"));
+                    Err(CheatcodeErrorDetails {
+                        code: CheatcodeErrorCode::UnsupportedCheatcode,
+                        cheatcode: $cheatcode_name.to_string(),
+                    }.into())
                 }
             }
         )*
@@ -113,7 +121,10 @@ macro_rules! impl_unsupported_cheatcode {
                         TransactionErrorT,
                     >,
                 ) -> Result {
-                    bail!(concat!("cheatcode '", $cheatcode_name, "' is not supported"));
+                    Err(CheatcodeErrorDetails {
+                        code: CheatcodeErrorCode::UnsupportedCheatcode,
+                        cheatcode: $cheatcode_name.to_string(),
+                    }.into())
                 }
             }
         )*

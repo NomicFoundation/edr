@@ -79,6 +79,7 @@ impl Cheatcodes<'static> {
             // unfortunately technology has not yet advanced to the point where we can get all
             // items of a certain type in a module, so we have to hardcode them here
             structs: Cow::Owned(vec![
+                Vm::CheatcodeErrorDetails::STRUCT.clone(),
                 Vm::Log::STRUCT.clone(),
                 Vm::Rpc::STRUCT.clone(),
                 Vm::EthGetLogs::STRUCT.clone(),
@@ -98,6 +99,7 @@ impl Cheatcodes<'static> {
                 Vm::Wallet::STRUCT.clone(),
             ]),
             enums: Cow::Owned(vec![
+                Vm::CheatcodeErrorCode::ENUM.clone(),
                 Vm::CallerMode::ENUM.clone(),
                 Vm::AccountAccessKind::ENUM.clone(),
                 Vm::ExecutionContext::ENUM.clone(),
