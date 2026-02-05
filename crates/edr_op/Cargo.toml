@@ -39,7 +39,7 @@ edr_test_block_replay.workspace = true
 edr_transaction.workspace = true
 edr_utils.workspace = true
 log = { version = "0.4.17", default-features = false }
-op-alloy-rpc-types = { version = "0.17.2", default-features = false }
+op-alloy-rpc-types = { version = "0.22.4", default-features = false }
 op-revm.workspace = true
 revm-context.workspace = true
 revm-context-interface.workspace = true
