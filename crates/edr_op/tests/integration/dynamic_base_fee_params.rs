@@ -42,6 +42,18 @@ async fn assert_base_fee_activation(
         assert_eq!(remote_header.base_fee_per_gas, local_header.base_fee);
         Ok(())
     };
+    // Two blocks before the activation point shouldn't see any modification
+    assert_replay_header::<OpChainSpec>(
+        runtime.clone(),
+        url.clone(),
+        block_number - 2,
+        header_overrides,
+        block_validation,
+    )
+    .await?;
+
+    // One block before the activation point should have a different `extra_data`
+    // field than its parent
     assert_replay_header::<OpChainSpec>(
         runtime.clone(),
         url.clone(),
@@ -51,6 +63,8 @@ async fn assert_base_fee_activation(
     )
     .await?;
 
+    // The activation point block should use the new values for calculating the base
+    // fee
     assert_replay_header::<OpChainSpec>(
         runtime,
         url,
@@ -75,6 +89,7 @@ impl_test_dynamic_base_fee_params! {
         38_088_319,
         38_951_425, // jovian activated block
         39_647_879, // SystemConfig EIP-1559 update 2025-12-18
+        41_711_238, // SystemConfig EIP-1559 update 2026-02-04
     ],
     op_sepolia: json_rpc_url_provider::op_sepolia() => [
         26_806_602,
