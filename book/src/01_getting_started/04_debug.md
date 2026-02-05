@@ -66,6 +66,10 @@ Create or edit the `.vscode/launch.json` file in the EDR VSCode workspace. Add t
   "name": "Debug EDR TS integration tests in 'coverage.ts'",
   "type": "lldb",
   "request": "launch",
+  // Specify that we are debugging Rust code
+  "sourceLanguages": [
+      "rust"
+  ],
   // Path to the EDR TypeScript integration tests
   "cwd": "${workspaceFolder}/crates/edr_napi/",
   // Path to the Node.js executable
@@ -114,6 +118,10 @@ Create or edit the `.vscode/launch.json` file in the EDR VSCode workspace. Add t
   "name": "Debug Hardhat v2 (OpenZeppelin Contracts)",
   "type": "lldb",
   "request": "launch",
+  // Specify that we are debugging Rust code
+  "sourceLanguages": [
+      "rust"
+  ],
   // Path to the Hardhat project to debug (in this case: OpenZeppelin Contracts)
   "cwd": "${workspaceFolder}/../openzeppelin-contracts",
   // Path to the Node.js executable
