@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.24
+
+### Minor Changes
+
+- b505164: Added structured errors for unsupported Solidity test cheatcodes
+
 ## 0.12.0-next.23
 
 ### Minor Changes
