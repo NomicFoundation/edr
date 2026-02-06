@@ -4,11 +4,11 @@ use edr_primitives::Bytes;
 use edr_rpc_eth::StateOverrideOptions;
 use edr_runtime::{overrides::StateOverrides, transaction};
 use edr_signer::FakeSign as _;
-use edr_tracing::Trace;
+use foundry_evm_traces::CallTraceArena;
 
 use crate::{
     data::ProviderData,
-    error::{ProviderErrorForChainSpec, TransactionFailureWithTraces},
+    error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
     spec::{CallContext, FromRpcType, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError, TransactionFailure,
@@ -25,7 +25,7 @@ pub fn handle_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Trace<ChainSpecT::HaltReason>), ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<(Bytes, CallTraceArena), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
 
     let state_overrides =
@@ -34,28 +34,30 @@ pub fn handle_call_request<
     let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
     let result = data.run_call(transaction.clone(), &block_spec, &state_overrides)?;
 
-    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_call(hardfork, &transaction, &result)
+        .log_call(&transaction, &result.result, &result.precompile_addresses)
         .map_err(ProviderError::Logger)?;
 
+    let result = result.result;
     if data.bail_on_call_failure()
         && let Some(failure) = TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
             &result.execution_result,
             None,
-            &result.trace,
+            &result.address_to_executed_code,
+            &result.call_trace_arena,
+            data.contract_decoder(),
         )
     {
         return Err(ProviderError::TransactionFailed(Box::new(
-            TransactionFailureWithTraces {
+            TransactionFailureWithCallTraces {
                 failure,
-                traces: vec![result.trace],
+                call_trace_arenas: vec![result.call_trace_arena],
             },
         )));
     }
 
     let output = result.execution_result.into_output().unwrap_or_default();
-    Ok((output, result.trace))
+    Ok((output, result.call_trace_arena))
 }
 
 pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>) -> BlockSpec {

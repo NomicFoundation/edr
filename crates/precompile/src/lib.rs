@@ -56,6 +56,12 @@ impl<
         }
     }
 
+    /// Consumes the provider and returns the set of all unique precompile
+    /// addresses.
+    pub fn into_addresses(self) -> HashSet<Address> {
+        self.unique_addresses
+    }
+
     /// Adds a custom precompile.
     pub fn set_precompile(&mut self, address: Address, precompile: PrecompileFn) {
         self.custom_precompiles.insert(address, precompile);
@@ -71,17 +77,18 @@ impl<
     type Output = InterpreterResult;
 
     fn set_spec(&mut self, spec: <ContextT::Cfg as Cfg>::Spec) -> bool {
-        self.base.set_spec(spec);
+        let changed = self.base.set_spec(spec);
+        if changed {
+            // Update unique addresses
+            self.unique_addresses = self
+                .custom_precompiles
+                .keys()
+                .cloned()
+                .chain(self.base.warm_addresses())
+                .collect();
+        }
 
-        // Update unique addresses
-        self.unique_addresses = self
-            .custom_precompiles
-            .keys()
-            .cloned()
-            .chain(self.base.warm_addresses())
-            .collect();
-
-        true
+        changed
     }
 
     fn run(

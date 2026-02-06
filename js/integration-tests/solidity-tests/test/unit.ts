@@ -63,7 +63,9 @@ describe("Unit tests", () => {
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
       "ContractEnvironmentTest",
       {
-        sender: Buffer.from("976EA74026E726554dB657fA54763abd0C3a0aa9", "hex"),
+        sender: new Uint8Array(
+          Buffer.from("976EA74026E726554dB657fA54763abd0C3a0aa9", "hex")
+        ),
         chainId: 12n,
         blockNumber: 23n,
         blockTimestamp: 45n,

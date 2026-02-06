@@ -75,16 +75,20 @@ describe("Code coverage", () => {
     blockGasLimit: 300_000_000n,
     chainId: 123n,
     chainOverrides: [],
-    coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
+    coinbase: new Uint8Array(
+      Buffer.from("0000000000000000000000000000000000000000", "hex")
+    ),
     genesisState,
     hardfork: l1HardforkToString(l1HardforkLatest()),
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
     },
-    initialParentBeaconBlockRoot: Buffer.from(
-      "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex"
+    initialParentBeaconBlockRoot: new Uint8Array(
+      Buffer.from(
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "hex"
+      )
     ),
     minGasPrice: 0n,
     mining: {
@@ -228,11 +232,11 @@ describe("Code coverage", () => {
 
       const error = JSON.parse(sendTransactionResponse.data).error;
 
-      assert.equal(error.code, -32603);
       assert(
         error.message.includes(ERROR_MESSAGE),
         "Error message should contain the expected error"
       );
+      assert.equal(error.code, -32603);
     });
   });
 

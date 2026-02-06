@@ -8,13 +8,12 @@ edition.workspace = true
 [dependencies]
 edr_common.workspace = true
 edr_defaults.workspace = true
+edr_artifact.workspace = true
 edr_macros.workspace = true
-edr_solidity.workspace = true
 foundry-cheatcodes-spec.workspace = true
 
 alloy-chains.workspace = true
 alloy-consensus.workspace = true
-alloy-dyn-abi = { workspace = true, features = ["arbitrary", "eip712"] }
 alloy-genesis.workspace = true
 alloy-json-abi.workspace = true
 alloy-json-rpc.workspace = true

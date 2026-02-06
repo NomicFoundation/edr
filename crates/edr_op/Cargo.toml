@@ -44,6 +44,7 @@ op-revm.workspace = true
 revm-context.workspace = true
 revm-context-interface.workspace = true
 serde = { workspace = true, features = ["derive", "std"] }
+serde_json.workspace = true
 thiserror.workspace = true
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 

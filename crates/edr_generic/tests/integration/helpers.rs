@@ -8,6 +8,7 @@ use edr_provider::{
     ForkConfig, NoopLogger, Provider, ProviderSpec, SyncProviderSpec,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 #[allow(dead_code)]
@@ -46,7 +47,7 @@ pub(crate) fn get_chain_fork_provider<
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?)
 }

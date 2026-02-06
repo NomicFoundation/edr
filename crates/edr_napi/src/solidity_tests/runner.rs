@@ -4,9 +4,12 @@ use edr_chain_spec::HaltReasonTrait;
 use edr_napi_core::solidity::config::TracingConfigWithBuffers;
 use edr_solidity::{
     artifacts::BuildInfoConfigWithBuffers,
-    contract_decoder::{ContractDecoder, ContractDecoderError, NestedTraceDecoder},
+    contract_decoder::{
+        ContractDecoder, ContractDecoderError, NestedTraceDecoder, NestedTraceDecoderMut as _,
+    },
     nested_trace::NestedTrace,
 };
+use parking_lot::RwLock;
 
 /// Only parses the tracing config which is very expensive if the contract
 /// decoder is used.
@@ -15,7 +18,7 @@ pub(crate) struct LazyContractDecoder {
     // We need the `Mutex`, because `Uint8Array` is not `Sync`
     tracing_config: Mutex<TracingConfigWithBuffers>,
     // Storing the result so that we can propagate the error
-    contract_decoder: OnceLock<Result<ContractDecoder, ContractDecoderError>>,
+    contract_decoder: OnceLock<Result<RwLock<ContractDecoder>, ContractDecoderError>>,
 }
 
 impl LazyContractDecoder {
@@ -42,10 +45,10 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for LazyContr
                     BuildInfoConfigWithBuffers::from(&*tracing_config),
                 )
                 .map_err(|err| ContractDecoderError::Initialization(err.to_string()))
-                .and_then(|config| ContractDecoder::new(&config))
+                .and_then(|config| ContractDecoder::new(&config).map(RwLock::new))
             })
             .as_ref()
             .map_err(Clone::clone)
-            .and_then(|decoder| decoder.try_to_decode_nested_trace(nested_trace))
+            .and_then(|decoder| decoder.write().try_to_decode_nested_trace_mut(nested_trace))
     }
 }

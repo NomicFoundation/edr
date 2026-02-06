@@ -139,13 +139,20 @@ export async function traceTransaction(
     params: [response.result ?? response.error.data.transactionHash],
   });
 
-  const stackTrace: SolidityStackTrace | null = responseObject.stackTrace();
-
   const contractAddress = receipt.contractAddress?.slice(2);
-
+  const stackTrace = responseObject.stackTrace();
   if (stackTrace === null) {
     return contractAddress;
   }
 
-  return stackTrace;
+  switch (stackTrace.kind) {
+    case "HeuristicFailed":
+      throw new Error("Failed to get stack trace due to failing heuristics");
+    case "UnexpectedError":
+      throw new Error(
+        `Failed to get stack trace due to unexpected error: ${stackTrace.errorMessage}`
+      );
+    case "StackTrace":
+      return stackTrace.entries;
+  }
 }

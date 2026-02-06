@@ -225,16 +225,20 @@ const providerConfig = {
   blockGasLimit: 6_000_000n,
   chainId: 123n,
   chainOverrides: [],
-  coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
+  coinbase: new Uint8Array(
+    Buffer.from("0000000000000000000000000000000000000000", "hex")
+  ),
   genesisState,
   hardfork: SHANGHAI,
   initialBlobGas: {
     gasUsed: 0n,
     excessGas: 0n,
   },
-  initialParentBeaconBlockRoot: Buffer.from(
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    "hex"
+  initialParentBeaconBlockRoot: new Uint8Array(
+    Buffer.from(
+      "0000000000000000000000000000000000000000000000000000000000000000",
+      "hex"
+    )
   ),
   minGasPrice: 0n,
   mining: {
@@ -413,7 +417,11 @@ describe("Provider logs", function () {
 
       await intervalMine(logger, mockTimer);
 
-      assert.lengthOf(logger.lines, 18);
+      assert.lengthOf(
+        logger.lines,
+        18,
+        `Unexpected number of log lines:\n${logger.lines.join("\n")}`
+      );
       // prettier-ignore
       {
             assert.match(logger.lines[0], /^Mined block #\d+$/);

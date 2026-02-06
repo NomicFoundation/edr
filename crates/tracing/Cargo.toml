@@ -13,6 +13,7 @@ edr_database_components.workspace = true
 edr_primitives.workspace = true
 edr_state_api.workspace = true
 revm-inspector.workspace = true
+revm-inspectors.workspace = true
 
 [lints]
 workspace = true

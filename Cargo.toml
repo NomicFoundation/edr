@@ -1,6 +1,7 @@
 [workspace]
 members = [
     # EDR
+    "crates/artifact",
     "crates/block/api",
     "crates/block/builder/api",
     "crates/block/header",
@@ -19,6 +20,7 @@ members = [
     "crates/chain/spec/receipt",
     "crates/chain/spec/rpc",
     "crates/database/components",
+    "crates/decoder/revert",
     "crates/edr_chain_l1",
     "crates/edr_chain_spec",
     "crates/edr_common",
@@ -27,6 +29,7 @@ members = [
     "crates/edr_eth",
     "crates/edr_gas_report",
     "crates/edr_instrument",
+    "crates/inspector/bytecode",
     "crates/edr_macros",
     "crates/edr_napi",
     "crates/edr_op",
@@ -127,6 +130,7 @@ foundry-evm-fuzz.opt-level = 3
 scrypt.opt-level = 3
 
 [workspace.dependencies]
+edr_artifact = { path = "crates/artifact" }
 edr_block_api = { path = "crates/block/api" }
 edr_block_builder_api = { path = "crates/block/builder/api" }
 edr_block_header = { path = "crates/block/header" }
@@ -149,6 +153,7 @@ edr_chain_spec_rpc = { path = "crates/chain/spec/rpc" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
 edr_database_components = { path = "crates/database/components" }
+edr_decoder_revert = { path = "crates/decoder/revert" }
 edr_defaults = { path = "crates/edr_defaults" }
 edr_eip1559 = { path = "crates/eips/1559" }
 edr_eip2930 = { path = "crates/eips/2930" }
@@ -159,6 +164,7 @@ edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/evm" }
 edr_gas_report = { path = "crates/edr_gas_report" }
 edr_generic = { path = "crates/edr_generic" }
+edr_inspector_bytecode = { path = "crates/inspector/bytecode" }
 edr_instrument = { path = "crates/edr_instrument" }
 edr_macros = { path = "crates/edr_macros" }
 edr_mem_pool = { path = "crates/mem_pool" }

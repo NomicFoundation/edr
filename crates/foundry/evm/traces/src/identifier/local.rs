@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::{map::HashMap, Address, Bytes};
-use edr_solidity::artifacts::ArtifactId;
+use edr_artifact::ArtifactId;
 use foundry_evm_core::contracts::{bytecode_diff_score, ContractsByArtifact};
 use revm_inspectors::tracing::types::CallTraceNode;
 

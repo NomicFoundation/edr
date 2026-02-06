@@ -17,6 +17,11 @@ impl ConsoleLogCollector {
         self.encoded_messages
     }
 
+    /// Takes the collected `console.log` messages, leaving an empty collection.
+    pub fn take_encoded_messages(&mut self) -> Vec<Bytes> {
+        std::mem::take(&mut self.encoded_messages)
+    }
+
     fn record_console_log(&mut self, encoded_message: Bytes) {
         self.encoded_messages.push(encoded_message);
     }

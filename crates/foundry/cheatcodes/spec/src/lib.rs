@@ -11,6 +11,7 @@ use std::{borrow::Cow, fmt};
 use serde::{Deserialize, Serialize};
 
 mod cheatcode;
+pub mod constants;
 pub use cheatcode::{Cheatcode, CheatcodeDef, Group, Safety, Status};
 
 mod function;

@@ -4,6 +4,7 @@ mod config;
 mod tracing;
 
 pub use config::{assert_multiple, make_test_identifier, TestConfig};
+use edr_decoder_revert::RevertDecoder;
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
@@ -13,11 +14,9 @@ use std::{
 };
 
 use alloy_primitives::{Bytes, U256};
+use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
-use edr_solidity::{
-    artifacts::ArtifactId,
-    linker::{LinkOutput, Linker},
-};
+use edr_solidity::linker::{LinkOutput, Linker};
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
     multi_runner::{TestContract, TestContracts},
@@ -34,7 +33,6 @@ use foundry_evm::{
     abi::TestFunctionExt,
     constants::{CALLER, LIBRARY_DEPLOYER},
     contracts::ContractsByArtifact,
-    decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, L1EvmBuilder, TransactionEnvTr,
         TransactionErrorTrait,

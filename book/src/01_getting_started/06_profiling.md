@@ -4,6 +4,17 @@
 
 The [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph) tool can be used to collect performance profiling data using [perf](<https://en.wikipedia.org/wiki/Perf_(Linux)>) on Linux and [DTrace](https://en.wikipedia.org/wiki/DTrace) on MacOS/Windows and then visualize it as a flamegraph. This only works when executing `edr` from Rust, so it's mostly used to profile the [scenarios](../02_development/01_tools.md#scenarios) in the repository.
 
+If you are using devcontainers, make sure to elevate the privileges of the container to allow perf to work correctly. Edit the `devcontainer.json` file to uncomment the following line:
+
+```json
+  "capAdd": [
+    // Enable for profiling with `perf`
+    "SYS_ADMIN"
+  ],
+```
+
+Then rebuild the container.
+
 ## Instructions
 
 Install the `cargo-flamegraph` tool by running:

@@ -1,0 +1,14 @@
+[package]
+name = "edr_artifact"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-json-abi.workspace = true
+alloy-primitives.workspace = true
+foundry-compilers.workspace = true
+semver.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

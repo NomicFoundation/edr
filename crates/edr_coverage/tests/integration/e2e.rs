@@ -72,11 +72,11 @@ fn deploy_contract(
     let address = if let ExecutionResult::Success {
         output: Output::Create(_, Some(address)),
         ..
-    } = result
+    } = result.result
     {
         address
     } else {
-        panic!("Expected a contract creation, but got: {result:?}");
+        panic!("Expected a contract creation, but got: {:?}", result.result);
     };
 
     Ok(address)
@@ -132,7 +132,8 @@ fn call_inc_by(
 
     assert!(
         !result.result.is_halt(),
-        "Expected success or revert, but got: {result:?}"
+        "Expected success or revert, but got: {:?}",
+        result.result
     );
 
     Ok(coverage_collector.into_hits())

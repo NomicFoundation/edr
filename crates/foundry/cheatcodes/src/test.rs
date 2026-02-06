@@ -7,13 +7,13 @@ use alloy_primitives::U256;
 use alloy_sol_types::SolValue;
 use foundry_evm_core::{
     backend::CheatcodeBackend,
-    constants::MAGIC_SKIP,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
     },
 };
 use revm::context::result::HaltReasonTr;
+use spec::constants::MAGIC_SKIP;
 
 use crate::{
     impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result,

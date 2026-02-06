@@ -12,7 +12,7 @@ use edr_provider::{
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
-use edr_solidity::contract_decoder::ContractDecoder;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 fn setup_provider(
@@ -26,7 +26,7 @@ fn setup_provider(
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::default()),
         CurrentTime,
     )
     .map_err(|error| anyhow!(error))

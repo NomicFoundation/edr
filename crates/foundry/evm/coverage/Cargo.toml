@@ -20,7 +20,7 @@ alloy-primitives = { workspace = true, features = [
 eyre = "0.6"
 rayon = "1"
 revm.workspace = true
-semver = "1"
+semver.workspace = true
 tracing.workspace = true
 
 [lints]

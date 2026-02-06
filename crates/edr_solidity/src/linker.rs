@@ -7,13 +7,12 @@ use std::{
 };
 
 use alloy_primitives::{Address, Bytes, B256};
+use edr_artifact::ArtifactId;
 use foundry_compilers::{
     artifacts::{CompactContractBytecodeCow, Libraries},
     Artifact,
 };
 use semver::Version;
-
-use crate::artifacts::ArtifactId;
 
 /// A map of artifact identifiers to their corresponding bytecode.
 ///

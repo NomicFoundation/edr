@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Address;
-use edr_solidity::artifacts::{ArtifactId, ContractData};
+use edr_artifact::{ArtifactId, ContractData};
 use eyre::Result;
 use foundry_compilers::{
     artifacts::{

@@ -1,15 +1,16 @@
 //! Naive rewrite of `hardhat-network/stack-traces/solidity-stack-traces.ts`
 //! from Hardhat.
 
-use std::convert::Infallible;
-
 use edr_primitives::{hex, U256};
 use napi::bindgen_prelude::{BigInt, Either25, FromNapiValue, ToNapiValue, Uint8Array, Undefined};
 use napi_derive::napi;
 use serde::{Serialize, Serializer};
 
 use super::model::ContractFunctionType;
-use crate::{cast::TryCast, trace::u256_to_bigint};
+use crate::{
+    solidity_tests::test_results::{HeuristicFailed, StackTrace, UnexpectedError},
+    trace::u256_to_bigint,
+};
 
 #[napi]
 #[repr(u8)]
@@ -625,217 +626,245 @@ pub type SolidityStackTraceEntry = Either25<
     CheatcodeErrorStackTraceEntry,
 >;
 
-impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::StackTraceEntry {
-    type Error = Infallible;
-
-    fn try_cast(self) -> Result<SolidityStackTraceEntry, Self::Error> {
-        use edr_solidity::solidity_stack_trace::StackTraceEntry;
-        let result = match self {
-            StackTraceEntry::CallstackEntry {
-                source_reference,
-                function_type,
-            } => CallstackEntryStackTraceEntry {
+/// Converts an `edr_solidity::solidity_stack_trace::StackTraceEntry` to an
+/// N-API compatible `SolidityStackTraceEntry`.
+fn solidity_stack_trace_entry_to_napi(
+    entry: edr_solidity::solidity_stack_trace::StackTraceEntry,
+) -> SolidityStackTraceEntry {
+    use edr_solidity::solidity_stack_trace::StackTraceEntry;
+    match entry {
+        StackTraceEntry::CallstackEntry {
+            source_reference,
+            function_type,
+        } => CallstackEntryStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            source_reference: source_reference.into(),
+            function_type: function_type.into(),
+        }
+        .into(),
+        StackTraceEntry::UnrecognizedCreateCallstackEntry => {
+            UnrecognizedCreateCallstackEntryStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
-                source_reference: source_reference.into(),
-                function_type: function_type.into(),
-            }
-            .into(),
-            StackTraceEntry::UnrecognizedCreateCallstackEntry => {
-                UnrecognizedCreateCallstackEntryStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: None,
-                }
-                .into()
-            }
-            StackTraceEntry::UnrecognizedContractCallstackEntry { address } => {
-                UnrecognizedContractCallstackEntryStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    address: Uint8Array::with_data_copied(address),
-                    source_reference: None,
-                }
-                .into()
-            }
-            StackTraceEntry::PrecompileError { precompile } => PrecompileErrorStackTraceEntry {
-                type_: StackTraceEntryTypeConst,
-                precompile,
                 source_reference: None,
             }
-            .into(),
-            StackTraceEntry::RevertError {
-                return_data,
-                source_reference,
-                is_invalid_opcode_error,
-            } => RevertErrorStackTraceEntry {
-                type_: StackTraceEntryTypeConst,
-                return_data: return_data.into(),
-                source_reference: source_reference.into(),
-                is_invalid_opcode_error,
-            }
-            .into(),
-            StackTraceEntry::PanicError {
-                error_code,
-                source_reference,
-            } => PanicErrorStackTraceEntry {
-                type_: StackTraceEntryTypeConst,
-                error_code: u256_to_bigint(&error_code),
-                source_reference: source_reference.map(std::convert::Into::into),
-            }
-            .into(),
-            StackTraceEntry::CheatCodeError {
-                message,
-                source_reference,
-            } => CheatcodeErrorStackTraceEntry {
-                type_: StackTraceEntryTypeConst,
-                message,
-                source_reference: source_reference.into(),
-            }
-            .into(),
-            StackTraceEntry::CustomError {
-                message,
-                source_reference,
-            } => CustomErrorStackTraceEntry {
-                type_: StackTraceEntryTypeConst,
-                message,
-                source_reference: source_reference.into(),
-            }
-            .into(),
-            StackTraceEntry::FunctionNotPayableError {
-                value,
-                source_reference,
-            } => FunctionNotPayableErrorStackTraceEntry {
-                type_: StackTraceEntryTypeConst,
-                value: u256_to_bigint(&value),
-                source_reference: source_reference.into(),
-            }
-            .into(),
-            StackTraceEntry::InvalidParamsError { source_reference } => {
-                InvalidParamsErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.into(),
-                }
-                .into()
-            }
-            StackTraceEntry::FallbackNotPayableError {
-                value,
-                source_reference,
-            } => FallbackNotPayableErrorStackTraceEntry {
-                type_: StackTraceEntryTypeConst,
-                value: u256_to_bigint(&value),
-                source_reference: source_reference.into(),
-            }
-            .into(),
-            StackTraceEntry::FallbackNotPayableAndNoReceiveError {
-                value,
-                source_reference,
-            } => FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
-                type_: StackTraceEntryTypeConst,
-                value: u256_to_bigint(&value),
-                source_reference: source_reference.into(),
-            }
-            .into(),
-            StackTraceEntry::UnrecognizedFunctionWithoutFallbackError { source_reference } => {
-                UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.into(),
-                }
-                .into()
-            }
-            StackTraceEntry::MissingFallbackOrReceiveError { source_reference } => {
-                MissingFallbackOrReceiveErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.into(),
-                }
-                .into()
-            }
-            StackTraceEntry::ReturndataSizeError { source_reference } => {
-                ReturndataSizeErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.into(),
-                }
-                .into()
-            }
-            StackTraceEntry::NoncontractAccountCalledError { source_reference } => {
-                NonContractAccountCalledErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.into(),
-                }
-                .into()
-            }
-            StackTraceEntry::CallFailedError { source_reference } => {
-                CallFailedErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.into(),
-                }
-                .into()
-            }
-            StackTraceEntry::DirectLibraryCallError { source_reference } => {
-                DirectLibraryCallErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.into(),
-                }
-                .into()
-            }
-            StackTraceEntry::UnrecognizedCreateError {
-                return_data,
-                is_invalid_opcode_error,
-            } => UnrecognizedCreateErrorStackTraceEntry {
-                type_: StackTraceEntryTypeConst,
-                return_data: return_data.into(),
-                is_invalid_opcode_error,
-                source_reference: None,
-            }
-            .into(),
-            StackTraceEntry::UnrecognizedContractError {
-                address,
-                return_data,
-                is_invalid_opcode_error,
-            } => UnrecognizedContractErrorStackTraceEntry {
+            .into()
+        }
+        StackTraceEntry::UnrecognizedContractCallstackEntry { address } => {
+            UnrecognizedContractCallstackEntryStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
                 address: Uint8Array::with_data_copied(address),
-                return_data: return_data.into(),
-                is_invalid_opcode_error,
                 source_reference: None,
             }
-            .into(),
-            StackTraceEntry::OtherExecutionError { source_reference } => {
-                OtherExecutionErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.map(std::convert::Into::into),
-                }
-                .into()
-            }
-            StackTraceEntry::UnmappedSolc0_6_3RevertError { source_reference } => {
-                UnmappedSolc063RevertErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.map(std::convert::Into::into),
-                }
-                .into()
-            }
-            StackTraceEntry::ContractTooLargeError { source_reference } => {
-                ContractTooLargeErrorStackTraceEntry {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.map(std::convert::Into::into),
-                }
-                .into()
-            }
-            StackTraceEntry::InternalFunctionCallstackEntry {
-                pc,
-                source_reference,
-            } => InternalFunctionCallStackEntry {
+            .into()
+        }
+        StackTraceEntry::PrecompileError { precompile } => PrecompileErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            precompile,
+            source_reference: None,
+        }
+        .into(),
+        StackTraceEntry::RevertError {
+            return_data,
+            source_reference,
+            is_invalid_opcode_error,
+        } => RevertErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            return_data: return_data.into(),
+            source_reference: source_reference.into(),
+            is_invalid_opcode_error,
+        }
+        .into(),
+        StackTraceEntry::PanicError {
+            error_code,
+            source_reference,
+        } => PanicErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            error_code: u256_to_bigint(&error_code),
+            source_reference: source_reference.map(std::convert::Into::into),
+        }
+        .into(),
+        StackTraceEntry::CheatCodeError {
+            message,
+            source_reference,
+        } => CheatcodeErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            message,
+            source_reference: source_reference.into(),
+        }
+        .into(),
+        StackTraceEntry::CustomError {
+            message,
+            source_reference,
+        } => CustomErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            message,
+            source_reference: source_reference.into(),
+        }
+        .into(),
+        StackTraceEntry::FunctionNotPayableError {
+            value,
+            source_reference,
+        } => FunctionNotPayableErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            value: u256_to_bigint(&value),
+            source_reference: source_reference.into(),
+        }
+        .into(),
+        StackTraceEntry::InvalidParamsError { source_reference } => {
+            InvalidParamsErrorStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
-                pc,
                 source_reference: source_reference.into(),
             }
-            .into(),
-            StackTraceEntry::ContractCallRunOutOfGasError { source_reference } => {
-                ContractCallRunOutOfGasError {
-                    type_: StackTraceEntryTypeConst,
-                    source_reference: source_reference.map(std::convert::Into::into),
-                }
-                .into()
+            .into()
+        }
+        StackTraceEntry::FallbackNotPayableError {
+            value,
+            source_reference,
+        } => FallbackNotPayableErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            value: u256_to_bigint(&value),
+            source_reference: source_reference.into(),
+        }
+        .into(),
+        StackTraceEntry::FallbackNotPayableAndNoReceiveError {
+            value,
+            source_reference,
+        } => FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            value: u256_to_bigint(&value),
+            source_reference: source_reference.into(),
+        }
+        .into(),
+        StackTraceEntry::UnrecognizedFunctionWithoutFallbackError { source_reference } => {
+            UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: source_reference.into(),
             }
-        };
-        Ok(result)
+            .into()
+        }
+        StackTraceEntry::MissingFallbackOrReceiveError { source_reference } => {
+            MissingFallbackOrReceiveErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: source_reference.into(),
+            }
+            .into()
+        }
+        StackTraceEntry::ReturndataSizeError { source_reference } => {
+            ReturndataSizeErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: source_reference.into(),
+            }
+            .into()
+        }
+        StackTraceEntry::NoncontractAccountCalledError { source_reference } => {
+            NonContractAccountCalledErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: source_reference.into(),
+            }
+            .into()
+        }
+        StackTraceEntry::CallFailedError { source_reference } => CallFailedErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            source_reference: source_reference.into(),
+        }
+        .into(),
+        StackTraceEntry::DirectLibraryCallError { source_reference } => {
+            DirectLibraryCallErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: source_reference.into(),
+            }
+            .into()
+        }
+        StackTraceEntry::UnrecognizedCreateError {
+            return_data,
+            is_invalid_opcode_error,
+        } => UnrecognizedCreateErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            return_data: return_data.into(),
+            is_invalid_opcode_error,
+            source_reference: None,
+        }
+        .into(),
+        StackTraceEntry::UnrecognizedContractError {
+            address,
+            return_data,
+            is_invalid_opcode_error,
+        } => UnrecognizedContractErrorStackTraceEntry {
+            type_: StackTraceEntryTypeConst,
+            address: Uint8Array::with_data_copied(address),
+            return_data: return_data.into(),
+            is_invalid_opcode_error,
+            source_reference: None,
+        }
+        .into(),
+        StackTraceEntry::OtherExecutionError { source_reference } => {
+            OtherExecutionErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: source_reference.map(std::convert::Into::into),
+            }
+            .into()
+        }
+        StackTraceEntry::UnmappedSolc0_6_3RevertError { source_reference } => {
+            UnmappedSolc063RevertErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: source_reference.map(std::convert::Into::into),
+            }
+            .into()
+        }
+        StackTraceEntry::ContractTooLargeError { source_reference } => {
+            ContractTooLargeErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                source_reference: source_reference.map(std::convert::Into::into),
+            }
+            .into()
+        }
+        StackTraceEntry::InternalFunctionCallstackEntry {
+            pc,
+            source_reference,
+        } => InternalFunctionCallStackEntry {
+            type_: StackTraceEntryTypeConst,
+            pc,
+            source_reference: source_reference.into(),
+        }
+        .into(),
+        StackTraceEntry::ContractCallRunOutOfGasError { source_reference } => {
+            ContractCallRunOutOfGasError {
+                type_: StackTraceEntryTypeConst,
+                source_reference: source_reference.map(std::convert::Into::into),
+            }
+            .into()
+        }
+    }
+}
+
+/// Converts the contents of a `SolidityTestStackTraceResult::Success` to an
+/// N-API compatible `StackTrace`.
+pub fn solidity_stack_trace_success_to_napi(
+    stack_trace: &[edr_solidity::solidity_stack_trace::StackTraceEntry],
+) -> StackTrace {
+    StackTrace {
+        kind: "StackTrace",
+        entries: stack_trace
+            .iter()
+            .cloned()
+            .map(solidity_stack_trace_entry_to_napi)
+            .collect(),
+    }
+}
+
+/// Converts an error from `SolidityTestStackTraceResult::UnexpectedError` to
+/// an N-API compatible `UnexpectedError`.
+pub fn solidity_stack_trace_error_to_napi<ErrorT: ToString>(error: ErrorT) -> UnexpectedError {
+    UnexpectedError {
+        kind: "UnexpectedError",
+        error_message: error.to_string(),
+    }
+}
+
+/// Constructs a `HeuristicFailed` N-API object.
+pub fn solidity_stack_trace_heuristic_failed_to_napi() -> HeuristicFailed {
+    HeuristicFailed {
+        kind: "HeuristicFailed",
     }
 }
 

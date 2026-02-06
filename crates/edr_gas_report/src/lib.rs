@@ -53,7 +53,7 @@ impl GasReport {
     /// will be returned.
     pub fn new<HaltReasonT: HaltReasonTrait>(
         state: &dyn State<Error = StateError>,
-        contract_decoder: &ContractDecoder,
+        contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
@@ -76,7 +76,7 @@ impl GasReport {
     pub fn add<HaltReasonT: HaltReasonTrait>(
         &mut self,
         state: &dyn State<Error = StateError>,
-        contract_decoder: &ContractDecoder,
+        contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
@@ -298,7 +298,7 @@ impl ContractGasReportAndIdentifier {
     /// Constructs a new instance.
     pub fn new<HaltReasonT: HaltReasonTrait>(
         state: &dyn State<Error = StateError>,
-        contract_decoder: &ContractDecoder,
+        contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
@@ -387,7 +387,7 @@ pub struct DeploymentGasReportAndIdentifiers {
 impl DeploymentGasReportAndIdentifiers {
     /// Constructs a new instance.
     pub fn new<HaltReasonT: HaltReasonTrait>(
-        contract_decoder: &ContractDecoder,
+        contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         code: Bytes,
     ) -> Result<Self, DeploymentGasReportCreationError> {
@@ -446,7 +446,7 @@ impl FunctionGasReportAndIdentifiers {
     /// Creates a new instance.
     pub fn new<HaltReasonT: HaltReasonTrait>(
         state: &dyn State<Error = StateError>,
-        contract_decoder: &ContractDecoder,
+        contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         to: Address,
         input: Bytes,

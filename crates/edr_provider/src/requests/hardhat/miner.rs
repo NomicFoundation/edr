@@ -2,7 +2,7 @@ use edr_chain_spec::TransactionValidation;
 
 use crate::{
     data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,
-    ProviderResultWithTraces,
+    ProviderResultWithCallTraces,
 };
 
 pub fn handle_mine<
@@ -15,20 +15,24 @@ pub fn handle_mine<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     number_of_blocks: Option<u64>,
     interval: Option<u64>,
-) -> ProviderResultWithTraces<bool, ChainSpecT> {
+) -> ProviderResultWithCallTraces<bool, ChainSpecT> {
     let number_of_blocks = number_of_blocks.unwrap_or(1);
     let interval = interval.unwrap_or(1);
 
     let mined_block_results = data.mine_and_commit_blocks(number_of_blocks, interval)?;
 
-    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_mined_block(hardfork, &mined_block_results)
+        .log_mined_block(&mined_block_results)
         .map_err(ProviderError::Logger)?;
 
     let traces = mined_block_results
         .into_iter()
-        .flat_map(|result| result.transaction_traces)
+        .flat_map(|result| {
+            result
+                .transaction_inspector_data
+                .into_iter()
+                .map(|observed_data| observed_data.call_trace_arena)
+        })
         .collect();
 
     Ok((true, traces))

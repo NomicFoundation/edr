@@ -5,7 +5,8 @@ use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
     BlockTransactionError, BlockTransactionErrorForChainSpec, Blockchain, BuiltBlockAndState,
-    CfgEnv, DatabaseComponents, ExecutionResult, PrecompileFn, WrapDatabaseRef,
+    BuiltBlockAndStateWithMetadata, CfgEnv, DatabaseComponents, ExecutionResult, PrecompileFn,
+    WrapDatabaseRef,
 };
 use edr_block_header::{
     blob_params_for_hardfork, BlobGas, BlockConfig, HeaderAndEvmSpec, HeaderOverrides,
@@ -23,7 +24,8 @@ use edr_chain_spec_evm::{
 };
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_evm::{dry_run, dry_run_with_inspector};
-use edr_primitives::{Address, Bloom, HashMap, KECCAK_NULL_RLP, U256};
+use edr_precompile::{OverriddenPrecompileProvider, PrecompileProvider};
+use edr_primitives::{Address, Bloom, HashMap, HashSet, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     ExecutionReceipt, ExecutionReceiptChainSpec, MapReceiptLogs, ReceiptTrait, TransactionReceipt,
@@ -74,6 +76,9 @@ pub struct EthBlockBuilder<
     transaction_results: Vec<ExecutionResult<EvmChainSpecT::HaltReason>>,
     withdrawals: Option<Vec<Withdrawal>>,
     custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+    // Set of all unique precompile addresses. We collect this once during construction as their
+    // creation should be deterministic.
+    precompile_addresses: HashSet<Address>,
     _phantom: PhantomData<fn() -> (EvmChainSpecT, ExecutionReceiptBuilderT)>,
 }
 
@@ -311,6 +316,35 @@ impl<
             inputs.withdrawals.as_ref(),
         );
 
+        let precompile_addresses = {
+            #[allow(clippy::type_complexity)]
+            let mut precompile_provider: OverriddenPrecompileProvider<
+                _,
+                ContextForChainSpec<
+                    ChainSpecT,
+                    HeaderAndEvmSpec<'builder, PartialHeader, ChainSpecT::Hardfork>,
+                    WrapDatabaseRef<
+                        DatabaseComponents<
+                            &'builder dyn Blockchain<
+                                BlockReceiptT,
+                                BlockT,
+                                BlockchainErrorT,
+                                ChainSpecT::Hardfork,
+                                LocalBlockT,
+                                ChainSpecT::SignedTransaction,
+                            >,
+                            &'builder dyn DynState,
+                        >,
+                    >,
+                >,
+            > = OverriddenPrecompileProvider::with_precompiles(
+                ChainSpecT::PrecompileProvider::default(),
+                custom_precompiles.clone(),
+            );
+            precompile_provider.set_spec(hardfork);
+            precompile_provider.into_addresses()
+        };
+
         Ok(Self {
             blockchain,
             block_config,
@@ -325,6 +359,7 @@ impl<
             transaction_results: Vec::new(),
             withdrawals: inputs.withdrawals,
             custom_precompiles,
+            precompile_addresses,
             _phantom: PhantomData,
         })
     }
@@ -367,7 +402,11 @@ impl<
             self.custom_precompiles,
         )?;
 
-        self.add_transaction_result(receipt_builder, transaction, transaction_result);
+        self.add_transaction_result(
+            receipt_builder,
+            transaction,
+            transaction_result.into_result_and_state(),
+        );
 
         Ok(())
     }
@@ -433,7 +472,11 @@ impl<
         )
         .map_err(BlockTransactionError::from)?;
 
-        self.add_transaction_result(receipt_builder, transaction, transaction_result);
+        self.add_transaction_result(
+            receipt_builder,
+            transaction,
+            transaction_result.into_result_and_state(),
+        );
 
         Ok(())
     }
@@ -532,7 +575,7 @@ impl<
         mut self,
         rewards: Vec<(Address, u128)>,
     ) -> Result<
-        BuiltBlockAndState<ChainSpecT::HaltReason, LocalBlockT>,
+        BuiltBlockAndStateWithMetadata<LocalBlockT, ChainSpecT::HaltReason>,
         BlockFinalizeError<StateError>,
     > {
         for (address, reward) in rewards {
@@ -600,11 +643,14 @@ impl<
             });
         }
 
-        Ok(BuiltBlockAndState {
-            block: block.into(),
-            state: self.state,
-            state_diff: self.state_diff,
-            transaction_results: self.transaction_results,
+        Ok(BuiltBlockAndStateWithMetadata {
+            block_and_state: BuiltBlockAndState {
+                block: block.into(),
+                state: self.state,
+                state_diff: self.state_diff,
+                transaction_results: self.transaction_results,
+            },
+            precompile_addresses: self.precompile_addresses,
         })
     }
 }
@@ -702,6 +748,10 @@ impl<
         self.header()
     }
 
+    fn precompile_addresses(&self) -> &HashSet<Address> {
+        &self.precompile_addresses
+    }
+
     fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
@@ -754,7 +804,7 @@ impl<
         self,
         rewards: Vec<(Address, u128)>,
     ) -> Result<
-        BuiltBlockAndState<ChainSpecT::HaltReason, LocalBlockT>,
+        BuiltBlockAndStateWithMetadata<LocalBlockT, ChainSpecT::HaltReason>,
         BlockFinalizeError<StateError>,
     > {
         self.finalize(rewards)
