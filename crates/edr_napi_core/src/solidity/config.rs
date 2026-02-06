@@ -1,6 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
-use edr_primitives::{Address, U256};
+use edr_chain_spec::EvmSpecId;
+use edr_primitives::{Address, UnknownHardfork, U256};
 use edr_solidity_tests::{
     backend::Predeploy,
     evm_context::HardforkTr,
@@ -117,6 +118,9 @@ pub struct TestRunnerConfig {
     /// The value of the `chainid` opcode in tests.
     /// Defaults to `31337`.
     pub chain_id: Option<u64>,
+    /// The hardfork to use for EVM execution.
+    /// Defaults to the chain's default hardfork if not provided.
+    pub hardfork: Option<String>,
     /// The gas limit for each test case.
     /// Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
     pub gas_limit: Option<u64>,
@@ -141,6 +145,9 @@ pub struct TestRunnerConfig {
     /// Whether to disable the block gas limit.
     /// Defaults to false.
     pub disable_block_gas_limit: Option<bool>,
+    /// Whether to enable the EIP-7825 (Osaka) transaction gas limit cap.
+    /// Defaults to false.
+    pub enable_tx_gas_limit_cap: Option<bool>,
     /// The memory limit of the EVM in bytes.
     /// Defaults to `33_554_432` (2^25 = 32MiB).
     pub memory_limit: Option<u64>,
@@ -180,7 +187,22 @@ pub struct TestRunnerConfig {
         Option<HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>>,
 }
 
-impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConfig<HardforkT> {
+fn parse_hardfork<HardforkT>(hardfork: String) -> napi::Result<HardforkT>
+where
+    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<EvmSpecId>,
+{
+    hardfork.parse().map_err(|UnknownHardfork| {
+        napi::Error::new(
+            napi::Status::InvalidArg,
+            format!("Unknown hardfork: {hardfork}"),
+        )
+    })
+}
+
+impl<HardforkT> TryFrom<TestRunnerConfig> for SolidityTestRunnerConfig<HardforkT>
+where
+    HardforkT: HardforkTr + FromStr<Err = UnknownHardfork> + Into<EvmSpecId>,
+{
     type Error = napi::Error;
 
     fn try_from(value: TestRunnerConfig) -> Result<Self, Self::Error> {
@@ -193,6 +215,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             initial_balance,
             block_number,
             chain_id,
+            hardfork,
             gas_limit,
             gas_price,
             block_base_fee_per_gas,
@@ -201,6 +224,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             block_difficulty,
             block_gas_limit,
             disable_block_gas_limit,
+            enable_tx_gas_limit_cap,
             memory_limit,
             local_predeploys,
             fork_url,
@@ -223,6 +247,9 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
         }
 
         evm_opts.env.chain_id = chain_id;
+        if let Some(hardfork) = hardfork {
+            evm_opts.spec = parse_hardfork(hardfork)?;
+        }
 
         evm_opts.env.gas_price = gas_price;
 
@@ -278,6 +305,10 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
 
         if let Some(disable_block_gas_limit) = disable_block_gas_limit {
             evm_opts.disable_block_gas_limit = disable_block_gas_limit;
+        }
+
+        if let Some(enable_tx_gas_limit_cap) = enable_tx_gas_limit_cap {
+            evm_opts.enable_tx_gas_limit_cap = enable_tx_gas_limit_cap;
         }
 
         let local_predeploys = local_predeploys.unwrap_or_default();
