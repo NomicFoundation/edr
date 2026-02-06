@@ -2,6 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_primitives::{Address, B256, U256};
+use edr_solidity::config::IncludeTraces;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     backend::Predeploy,
@@ -156,18 +157,6 @@ pub enum CollectStackTraces {
     /// Not all tests can be re-executed since certain cheatcodes contain
     /// non-deterministic side-effects.
     OnFailure,
-}
-
-/// Configuration for [`SolidityTestRunnerConfig::include_traces`] that
-/// controls execution trace decoding and inclusion in test results.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum IncludeTraces {
-    /// No traces will be included in any test result.
-    None,
-    /// Traces will be included only on the results of failed tests.
-    Failing,
-    /// Traces will be included in all test results.
-    All,
 }
 
 /// Test function level config override.

@@ -59,12 +59,12 @@ where
 
     let DebugTraceResultWithCallTraces {
         result,
-        call_trace_arenas: traces,
+        call_trace_arenas,
     } = data.debug_trace_call(
         transaction,
         &block_spec,
         tracing_options.unwrap_or_default(),
     )?;
 
-    Ok((result, traces))
+    Ok((result, call_trace_arenas))
 }

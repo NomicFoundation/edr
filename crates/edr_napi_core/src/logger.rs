@@ -8,9 +8,9 @@ use edr_chain_spec::ExecutableTransaction;
 use edr_chain_spec_evm::result::ExecutionResult;
 use edr_primitives::{Address, Bytes, HashMap, HashSet, B256, U256};
 use edr_provider::{
-    observability::EvmObservedData, time::TimeSinceEpoch, CallResult, EstimateGasFailure,
-    MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec, ProviderError,
-    ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
+    observability::EvmObservedData, time::TimeSinceEpoch, CallResultWithMetadata,
+    EstimateGasFailure, MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec,
+    ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
 };
 use edr_solidity::{
     contract_decoder::ContractDecoder,
@@ -122,11 +122,9 @@ where
     fn log_call(
         &mut self,
         transaction: &ChainSpecT::SignedTransaction,
-        result: &CallResult<ChainSpecT::HaltReason>,
-        precompile_addresses: &HashSet<Address>,
+        result: &CallResultWithMetadata<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.collector
-            .log_call(transaction, result, precompile_addresses)?;
+        self.collector.log_call(transaction, result)?;
 
         Ok(())
     }
@@ -256,14 +254,14 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     pub fn log_call(
         &mut self,
         transaction: &ChainSpecT::SignedTransaction,
-        result: &CallResult<ChainSpecT::HaltReason>,
-        precompile_addresses: &HashSet<Address>,
+        result: &CallResultWithMetadata<ChainSpecT::HaltReason>,
     ) -> Result<(), LoggerError> {
-        let CallResult {
+        let CallResultWithMetadata {
             address_to_executed_code,
             call_trace_arena,
             console_log_inputs,
             execution_result,
+            precompile_addresses,
         } = result;
 
         self.state = LoggingState::Empty;

@@ -22,7 +22,8 @@ use napi_derive::napi;
 
 use crate::{
     account::AccountOverride, block::BlobGas, cast::TryCast, gas_report::GasReport,
-    logger::LoggerConfig, precompile::Precompile, subscription::SubscriptionConfig,
+    logger::LoggerConfig, precompile::Precompile, solidity_tests::config::IncludeTraces,
+    subscription::SubscriptionConfig,
 };
 
 /// Configuration for EIP-1559 parameters
@@ -183,6 +184,9 @@ pub struct ObservabilityConfig {
     pub code_coverage: Option<CodeCoverageConfig>,
     /// If present, configures runtime observability to collect gas reports.
     pub gas_report: Option<GasReportConfig>,
+    /// Controls when to include call traces in the results of transaction
+    /// execution.
+    pub include_call_traces: IncludeTraces,
 }
 
 /// Configuration for a provider
@@ -524,10 +528,13 @@ impl ObservabilityConfig {
             },
         ).transpose()?;
 
+        let default_config = edr_provider::observability::Config::default();
         Ok(edr_provider::observability::Config {
+            call_override: default_config.call_override,
+            include_call_traces: self.include_call_traces.into(),
             on_collected_coverage_fn,
             on_collected_gas_report_fn,
-            ..edr_provider::observability::Config::default()
+            verbose_raw_tracing: default_config.verbose_raw_tracing,
         })
     }
 }

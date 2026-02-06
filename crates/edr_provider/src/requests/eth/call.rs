@@ -8,10 +8,10 @@ use foundry_evm_traces::CallTraceArena;
 
 use crate::{
     data::ProviderData,
-    error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
+    error::ProviderErrorForChainSpec,
     spec::{CallContext, FromRpcType, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, TransactionFailure,
+    ProviderError,
 };
 
 pub fn handle_call_request<
@@ -25,36 +25,14 @@ pub fn handle_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, CallTraceArena), ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<(Bytes, Option<CallTraceArena>), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
 
     let state_overrides =
         state_overrides.map_or(Ok(StateOverrides::default()), StateOverrides::try_from)?;
 
     let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
-    let result = data.run_call(transaction.clone(), &block_spec, &state_overrides)?;
-
-    data.logger_mut()
-        .log_call(&transaction, &result.result, &result.precompile_addresses)
-        .map_err(ProviderError::Logger)?;
-
-    let result = result.result;
-    if data.bail_on_call_failure()
-        && let Some(failure) = TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
-            &result.execution_result,
-            None,
-            &result.address_to_executed_code,
-            &result.call_trace_arena,
-            data.contract_decoder(),
-        )
-    {
-        return Err(ProviderError::TransactionFailed(Box::new(
-            TransactionFailureWithCallTraces {
-                failure,
-                call_trace_arenas: vec![result.call_trace_arena],
-            },
-        )));
-    }
+    let result = data.run_call(transaction, &block_spec, &state_overrides)?;
 
     let output = result.execution_result.into_output().unwrap_or_default();
     Ok((output, result.call_trace_arena))

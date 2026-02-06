@@ -149,7 +149,12 @@ pub(super) fn binary_search_estimation<
             encoded_console_logs: _,
         } = observer.collect_and_report(&precompile_addresses)?;
 
-        call_trace_arenas.push(call_trace_arena);
+        if observer_config
+            .include_call_traces
+            .should_include(|| !success)
+        {
+            call_trace_arenas.push(call_trace_arena);
+        }
 
         if success {
             upper_bound = mid;

@@ -44,10 +44,18 @@ pub fn handle_mine_request<
         .log_mined_block(slice::from_ref(&mine_block_result))
         .map_err(ProviderError::Logger)?;
 
+    let include_call_traces = data.include_call_traces();
     let traces = mine_block_result
         .transaction_inspector_data
         .into_iter()
-        .map(|observed_data| observed_data.call_trace_arena)
+        .zip(mine_block_result.transaction_results)
+        .filter_map(|(observed_data, transaction_result)| {
+            if include_call_traces.should_include(|| !transaction_result.is_success()) {
+                Some(observed_data.call_trace_arena)
+            } else {
+                None
+            }
+        })
         .collect();
 
     let result = String::from("0");

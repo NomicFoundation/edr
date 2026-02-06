@@ -37,7 +37,7 @@ pub use self::{
         AccountOverride, Fork as ForkConfig, Interval as IntervalConfig, MemPool as MemPoolConfig,
         Mining as MiningConfig, Provider as ProviderConfig,
     },
-    data::{CallResult, ProviderData},
+    data::{CallResult, CallResultWithMetadata, ProviderData},
     debug_trace::DebugTraceError,
     error::{
         EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, TransactionFailure,
@@ -90,13 +90,13 @@ fn to_json_with_trace<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    value: (T, CallTraceArena),
+    value: (T, Option<CallTraceArena>),
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithCallTraces {
         result: response,
-        call_trace_arenas: vec![value.1],
+        call_trace_arenas: value.1.into_iter().collect(),
     })
 }
 

@@ -25,13 +25,21 @@ pub fn handle_mine<
         .log_mined_block(&mined_block_results)
         .map_err(ProviderError::Logger)?;
 
+    let include_call_traces = data.include_call_traces();
     let traces = mined_block_results
         .into_iter()
         .flat_map(|result| {
             result
                 .transaction_inspector_data
                 .into_iter()
-                .map(|observed_data| observed_data.call_trace_arena)
+                .zip(result.transaction_results)
+                .filter_map(|(observed_data, transaction_result)| {
+                    if include_call_traces.should_include(|| !transaction_result.is_success()) {
+                        Some(observed_data.call_trace_arena)
+                    } else {
+                        None
+                    }
+                })
         })
         .collect();
 
