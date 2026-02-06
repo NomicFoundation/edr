@@ -67,6 +67,9 @@ pub struct EvmOpts<HardforkT> {
 
     /// Whether to disable block gas limit checks.
     pub disable_block_gas_limit: bool,
+
+    /// Whether to enable the EIP-7825 (Osaka) transaction gas limit cap.
+    pub enable_tx_gas_limit_cap: bool,
 }
 
 impl<HardforkT> Default for EvmOpts<HardforkT>
@@ -90,6 +93,7 @@ where
             memory_limit: 0,
             isolate: false,
             disable_block_gas_limit: false,
+            enable_tx_gas_limit_cap: false,
         }
     }
 }
@@ -137,6 +141,7 @@ where
             self.fork_block_number,
             self.sender,
             self.disable_block_gas_limit,
+            self.enable_tx_gas_limit_cap,
         )
         .await
         .wrap_err_with(|| {
@@ -160,6 +165,7 @@ where
             self.env.chain_id.unwrap_or(edr_defaults::DEV_CHAIN_ID),
             self.memory_limit,
             self.disable_block_gas_limit,
+            self.enable_tx_gas_limit_cap,
         );
 
         crate::Env {

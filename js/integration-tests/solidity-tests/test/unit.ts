@@ -667,4 +667,15 @@ describe("Unit tests", () => {
       assert.equal(result.failedTests, 0);
     });
   });
+
+  describe("Precompiles", function () {
+    it("EIP7212 Precompile", async function () {
+      const { totalTests, failedTests } =
+        await testContext.runTestsWithStats("EIP7212Test");
+
+      // Checks are done in the test. Just check that the test passed.
+      assert.equal(failedTests, 0);
+      assert.equal(totalTests, 1);
+    });
+  });
 });
