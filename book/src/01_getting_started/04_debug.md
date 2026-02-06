@@ -71,7 +71,7 @@ Create or edit the `.vscode/launch.json` file in the EDR VSCode workspace. Add t
   // Path to the EDR TypeScript integration tests
   "cwd": "${workspaceFolder}/crates/edr_napi/",
   // Path to the Node.js executable
-  "program": "/usr/local/share/nvm/versions/node/v22.21.1/bin/node",
+  "program": "${env:NVM_BIN}/node",
   "args": [
     // Path to Mocha test runner
     "${workspaceFolder}/crates/edr_napi/node_modules/mocha/bin/mocha.js",
@@ -121,7 +121,7 @@ Create or edit the `.vscode/launch.json` file in the EDR VSCode workspace. Add t
   // Path to the Hardhat project to debug (in this case: OpenZeppelin Contracts)
   "cwd": "${workspaceFolder}/../openzeppelin-contracts",
   // Path to the Node.js executable
-  "program": "/usr/local/share/nvm/versions/node/v22.21.1/bin/node",
+  "program": "${env:NVM_BIN}/node",
   "args": [
     // Path to Hardhat's CLI.js
     "${workspaceFolder}/../hardhat/packages/hardhat-core/internal/cli/cli.js",
