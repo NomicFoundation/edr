@@ -1,9 +1,6 @@
 //! Types used for tracing EVM calls
 #![warn(missing_docs)]
 
-// mod arena_conversion;
-// pub use arena_conversion::convert_arena_to_trace;
-
 use std::fmt::Debug;
 
 use derive_where::derive_where;
