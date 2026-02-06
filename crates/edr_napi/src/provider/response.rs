@@ -62,7 +62,7 @@ impl Response {
             .collect()
     }
 
-    // TODO: Add backwards compatibility layer for Hardhat 2
+    // TODO(#1288): Add backwards compatibility layer for Hardhat 2
     // #[doc = "Returns the raw traces of executed contracts. This maybe contain
     // zero or more traces."] #[napi(catch_unwind, getter)]
     // pub fn traces(&self) -> Vec<RawTrace> {

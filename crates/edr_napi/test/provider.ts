@@ -133,7 +133,7 @@ describe("Provider", () => {
     await assert.isFulfilled(provider);
   });
 
-  // TODO: Add backwards compatibility for Hardhat 2
+  // TODO(#1288): Add backwards compatibility for Hardhat 2
   // describe("verbose mode", function () {
   //   it("should only include the top of the stack by default", async function () {
   //     const provider = await context.createProvider(
@@ -751,7 +751,7 @@ describe("Provider", () => {
   });
 });
 
-// TODO: Add backwards compatibility for Hardhat 2
+// TODO(#1288): Add backwards compatibility for Hardhat 2
 // function assertEqualMemory(
 //   stepMemory: Uint8Array | undefined,
 //   expected: Uint8Array
