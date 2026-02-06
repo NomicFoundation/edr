@@ -467,7 +467,7 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
 /// Check if the last call/create that was done failed.
 fn check_failed_last_call<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
-    stacktrace: Vec<StackTraceEntry>,
+    mut stacktrace: Vec<StackTraceEntry>,
 ) -> Result<Heuristic, InferrerError<HaltReasonT>> {
     let contract_meta = trace
         .contract_meta()
@@ -494,16 +494,48 @@ fn check_failed_last_call<HaltReasonT: HaltReasonTrait>(
         if let (OpCode::CALL | OpCode::CREATE, NestedTraceStep::Evm(_)) = (inst.opcode, next_step)
             && is_call_failed_error(trace, step_index as u32, inst)?
         {
-            let mut inferred_stacktrace = stacktrace.clone();
-            inferred_stacktrace.push(
+            // Check whether the call failure was caused by a cheatcode error
+            stacktrace = match check_cheatcode_error(trace, inst, &contract_meta, stacktrace)? {
+                Heuristic::Hit(stacktrace) => return Ok(Heuristic::Hit(stacktrace)),
+                Heuristic::Miss(stacktrace) => stacktrace,
+            };
+
+            stacktrace.push(
                 call_instruction_to_call_failed_to_execute_stack_trace_entry(&contract_meta, inst)?,
             );
 
-            return Ok(Heuristic::Hit(fix_initial_modifier(
-                trace,
-                inferred_stacktrace,
-            )?));
+            return Ok(Heuristic::Hit(fix_initial_modifier(trace, stacktrace)?));
         }
+    }
+
+    Ok(Heuristic::Miss(stacktrace))
+}
+
+fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
+    trace: CreateOrCallMessageRef<'_, HaltReasonT>,
+    instruction: &Instruction,
+    contract_meta: &ContractMetadata,
+    mut stacktrace: Vec<StackTraceEntry>,
+) -> Result<Heuristic, InferrerError<HaltReasonT>> {
+    let return_data = ReturnData::new(trace.return_data());
+    if return_data.is_cheatcode_error_return_data() {
+        let call_stack_frame =
+            instruction_to_callstack_stack_trace_entry(contract_meta, instruction)?;
+        let call_stack_frame_source_reference = call_stack_frame
+            .source_reference()
+            .cloned()
+            .ok_or_else(|| {
+                InferrerError::InvariantViolation(
+                    "Callstack entry must have source reference".to_string(),
+                )
+            })?;
+
+        let message = return_data.decode_cheatcode_error()?;
+        stacktrace.push(StackTraceEntry::CheatCodeError {
+            message,
+            source_reference: call_stack_frame_source_reference,
+        });
+        return fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit);
     }
 
     Ok(Heuristic::Miss(stacktrace))
@@ -664,15 +696,10 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
 
     // Check trace for cheatcode error as last submessage data may not have
     // cheatcode error or have different error if the error is from expect revert.
-    let return_data = ReturnData::new(trace.return_data());
-    if return_data.is_cheatcode_error_return_data() {
-        let message = return_data.decode_cheatcode_error()?;
-        stacktrace.push(StackTraceEntry::CheatCodeError {
-            message,
-            source_reference: call_stack_frame_source_reference,
-        });
-        return fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit);
-    }
+    stacktrace = match check_cheatcode_error(trace, call_inst, &contract_meta, stacktrace)? {
+        Heuristic::Hit(stacktrace) => return Ok(Heuristic::Hit(stacktrace)),
+        Heuristic::Miss(stacktrace) => stacktrace,
+    };
 
     let mut inferred_stacktrace = Cow::from(&stacktrace);
 
