@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
-
 contract EIP7212Test {
     address constant P256_PRECOMPILE = address(0x100);
 
@@ -12,7 +10,6 @@ contract EIP7212Test {
         bytes32 s = 0xfd26094146960c9f1df540c823a3c44d969b48fd42da2142450772ce2d45c064;
         bytes32 x = 0x703bbc0830e0238b0030e03cff350561ae96ac5f00edc3be1c72bbc04e0f0180;
         bytes32 y = 0x958533939e7571d60f6e895709ab5d3f9f339e0a26cc8baaf61200340d8e6c90;
-        // ----------------------------------------
 
         // Pack the 160 bytes of input
         bytes memory input = abi.encodePacked(msgHash, r, s, x, y);

@@ -8,7 +8,6 @@ import {
 import {
   CheatcodeErrorCode,
   CollectStackTraces,
-  IncludeTraces,
   L1_CHAIN_TYPE,
   OP_CHAIN_TYPE,
   SuiteResult,

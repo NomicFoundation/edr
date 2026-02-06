@@ -189,7 +189,7 @@ pub struct TestRunnerConfig {
 
 fn parse_hardfork<HardforkT>(hardfork: String) -> napi::Result<HardforkT>
 where
-    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<EvmSpecId>,
+    HardforkT: FromStr<Err = UnknownHardfork> + Into<EvmSpecId>,
 {
     hardfork.parse().map_err(|UnknownHardfork| {
         napi::Error::new(
