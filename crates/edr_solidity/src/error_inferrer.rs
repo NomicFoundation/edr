@@ -641,13 +641,8 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
         return Ok(Heuristic::Miss(stacktrace));
     };
 
-    // get the instruction before the opcode that caused the submessage and add
-    // it to the stack trace
-    let Some(pre_call_step_index) = last_submessage_data.step_index.checked_sub(2) else {
-        return Ok(Heuristic::Miss(stacktrace));
-    };
-
-    let call_step = match steps.get(pre_call_step_index as usize) {
+    // get the instruction before the submessage and add it to the stack trace
+    let call_step = match steps.get(last_submessage_data.step_index as usize - 1) {
         Some(NestedTraceStep::Evm(call_step)) => call_step,
         _ => {
             return Err(InferrerError::InvariantViolation(
