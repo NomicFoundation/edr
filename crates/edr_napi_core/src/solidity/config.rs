@@ -1,12 +1,13 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use edr_primitives::{Address, U256};
+use edr_solidity::config::IncludeTraces;
 use edr_solidity_tests::{
     backend::Predeploy,
     evm_context::HardforkTr,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inspectors::cheatcodes::CheatsConfigOptions,
-    CollectStackTraces, IncludeTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
+    CollectStackTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
     TestFilterConfig, TestFunctionConfigOverride,
 };
 use foundry_cheatcodes::TestFunctionIdentifier;

@@ -5,6 +5,7 @@
 pub mod artifacts;
 pub mod build_model;
 pub mod compiler;
+pub mod config;
 pub mod contract_decoder;
 pub mod contracts_identifier;
 pub mod exit_code;

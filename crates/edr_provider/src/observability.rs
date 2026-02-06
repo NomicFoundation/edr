@@ -15,7 +15,9 @@ use edr_database_components::DatabaseComponents;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
 use edr_inspector_bytecode::ExecutedBytecodeCollector;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
-use edr_solidity::{contract_decoder::ContractDecoder, tracing::SolidityTracingInspector};
+use edr_solidity::{
+    config::IncludeTraces, contract_decoder::ContractDecoder, tracing::SolidityTracingInspector,
+};
 use edr_state_api::State;
 use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
@@ -42,6 +44,7 @@ pub type Config = ObservabilityConfig;
 #[derive(Clone, Default)]
 pub struct ObservabilityConfig {
     pub call_override: Option<Arc<dyn SyncCallOverride>>,
+    pub include_call_traces: IncludeTraces,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     pub on_collected_gas_report_fn: Option<Box<dyn SyncOnCollectedGasReportCallback>>,
     pub verbose_raw_tracing: bool,
@@ -51,6 +54,7 @@ impl Debug for ObservabilityConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Config")
             .field("call_override", &self.call_override.is_some())
+            .field("include_call_traces", &self.include_call_traces)
             .field(
                 "on_collected_coverage_fn",
                 &self.on_collected_coverage_fn.is_some(),
@@ -68,6 +72,7 @@ impl Debug for ObservabilityConfig {
 #[derive(Clone)]
 pub struct EvmObserverConfig {
     pub call_override: Option<Arc<dyn SyncCallOverride>>,
+    pub include_call_traces: IncludeTraces,
     pub contract_decoder: Arc<RwLock<ContractDecoder>>,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     pub verbose_raw_tracing: bool,
@@ -82,6 +87,7 @@ impl EvmObserverConfig {
         Self {
             call_override: config.call_override.clone(),
             contract_decoder,
+            include_call_traces: config.include_call_traces,
             on_collected_coverage_fn: config.on_collected_coverage_fn.clone(),
             verbose_raw_tracing: config.verbose_raw_tracing,
         }

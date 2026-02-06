@@ -16,12 +16,15 @@ use std::{
 use alloy_primitives::{Bytes, U256};
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
-use edr_solidity::linker::{LinkOutput, Linker};
+use edr_solidity::{
+    config::IncludeTraces,
+    linker::{LinkOutput, Linker},
+};
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
     multi_runner::{TestContract, TestContracts},
     revm::context::{BlockEnv, TxEnv},
-    CollectStackTraces, IncludeTraces, MultiContractRunner, SolidityTestRunnerConfig,
+    CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
 };
 use edr_test_utils::{env::json_rpc_url_provider, new_fd_lock};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpointUrl, RpcEndpoints};

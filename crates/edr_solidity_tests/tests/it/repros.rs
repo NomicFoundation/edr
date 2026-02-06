@@ -6,10 +6,11 @@ use alloy_json_abi::Event;
 use alloy_primitives::address;
 use alloy_primitives::{b256, Address, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_solidity::config::IncludeTraces;
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
     revm::context::{BlockEnv, TxEnv},
-    IncludeTraces, SolidityTestRunnerConfig,
+    SolidityTestRunnerConfig,
 };
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 use foundry_evm::{

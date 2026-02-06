@@ -3,10 +3,9 @@ use std::marker::PhantomData;
 use derive_where::derive_where;
 use dyn_clone::DynClone;
 use edr_block_miner::MineBlockResultWithMetadataForChainSpec;
-use edr_primitives::{Address, HashSet};
 
 use crate::{
-    data::CallResult,
+    data::CallResultWithMetadata,
     error::EstimateGasFailure,
     observability::EvmObservedData,
     time::{CurrentTime, TimeSinceEpoch},
@@ -23,12 +22,10 @@ pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoc
     fn log_call(
         &mut self,
         transaction: &ChainSpecT::SignedTransaction,
-        result: &CallResult<ChainSpecT::HaltReason>,
-        precompile_addresses: &HashSet<Address>,
+        result: &CallResultWithMetadata<ChainSpecT::HaltReason>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let _transaction = transaction;
         let _result = result;
-        let _precompile_addresses = precompile_addresses;
 
         Ok(())
     }
