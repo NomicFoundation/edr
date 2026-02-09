@@ -433,16 +433,6 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, TransactionValidation
     State(StateError),
 }
 
-/// A trait for collecting data that was observed during execution from
-/// inspectors.
-pub trait CollectInspectorData {
-    /// The type of data collected from the inspector.
-    type Output;
-
-    /// Consumes the instance and returns the collected data.
-    fn collect_inspector_data(self) -> Self::Output;
-}
-
 /// A trait for flushing and returning data that was observed during execution
 /// from inspectors, in preparation for the next transaction.
 pub trait FlushInspectorData {
