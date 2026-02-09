@@ -307,6 +307,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     ) -> Result<(), LoggerError> {
         let EstimateGasFailure {
             address_to_executed_code,
+            call_trace_arena,
             encoded_console_logs,
             precompile_addresses,
             transaction_failure,
@@ -316,7 +317,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
         self.indented(|logger| {
             logger.log_contract_and_function_name::<true>(
-                &transaction_failure.call_trace_arena,
+                call_trace_arena,
                 address_to_executed_code,
                 precompile_addresses,
             );
@@ -329,7 +330,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
             logger.log_console_log_messages(encoded_console_logs)?;
 
-            logger.log_transaction_failure(&transaction_failure.failure);
+            logger.log_transaction_failure(transaction_failure);
 
             Ok(())
         })

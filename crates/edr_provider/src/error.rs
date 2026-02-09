@@ -431,7 +431,7 @@ impl<
     pub fn as_transaction_failure(&self) -> Option<&TransactionFailure<HaltReasonT>> {
         match self {
             ProviderError::EstimateGasTransactionFailure(transaction_failure) => {
-                Some(&transaction_failure.transaction_failure.failure)
+                Some(&transaction_failure.transaction_failure)
             }
             ProviderError::TransactionFailed(transaction_failure) => {
                 Some(&transaction_failure.failure)
@@ -604,29 +604,16 @@ impl<
 pub struct EstimateGasFailure<HaltReasonT: HaltReasonTrait> {
     /// Mapping of contract address to executed bytecode
     pub address_to_executed_code: HashMap<Address, Bytes>,
+    pub call_trace_arena: CallTraceArena,
     pub encoded_console_logs: Vec<Bytes>,
     /// The set of precompile addresses that were available during execution.
     pub precompile_addresses: HashSet<Address>,
-    pub transaction_failure: TransactionFailureWithCallTrace<HaltReasonT>,
+    pub transaction_failure: TransactionFailure<HaltReasonT>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<HaltReasonT> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.transaction_failure)
-    }
-}
-
-#[derive(Clone, Debug, thiserror::Error)]
-pub struct TransactionFailureWithCallTrace<HaltReasonT: HaltReasonTrait> {
-    pub failure: TransactionFailure<HaltReasonT>,
-    pub call_trace_arena: CallTraceArena,
-}
-
-impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
-    for TransactionFailureWithCallTrace<HaltReasonT>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.failure)
     }
 }
 
@@ -641,17 +628,6 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.failure)
-    }
-}
-
-impl<HaltReasonT: HaltReasonTrait> From<TransactionFailureWithCallTrace<HaltReasonT>>
-    for TransactionFailureWithCallTraces<HaltReasonT>
-{
-    fn from(value: TransactionFailureWithCallTrace<HaltReasonT>) -> Self {
-        Self {
-            failure: value.failure,
-            call_trace_arenas: vec![value.call_trace_arena],
-        }
     }
 }
 

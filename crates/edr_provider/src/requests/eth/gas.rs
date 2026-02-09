@@ -8,7 +8,7 @@ use edr_transaction::TransactionMut;
 
 use crate::{
     data::ProviderData,
-    error::ProviderErrorForChainSpec,
+    error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
     requests::validation::validate_post_merge_block_tags,
     spec::{CallContext, FromRpcType as _, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
@@ -42,7 +42,10 @@ pub fn handle_estimate_gas<
             .map_err(ProviderError::Logger)?;
 
         Err(ProviderError::TransactionFailed(Box::new(
-            failure.transaction_failure.into(),
+            TransactionFailureWithCallTraces {
+                failure: failure.transaction_failure,
+                call_trace_arenas: vec![failure.call_trace_arena],
+            },
         )))
     } else {
         let result = result?;

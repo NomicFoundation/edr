@@ -96,7 +96,7 @@ use crate::{
     debug_trace::{debug_trace_transaction, DebugTraceResultWithCallTraces},
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, ProviderErrorForChainSpec,
-        TransactionFailure, TransactionFailureWithCallTrace, TransactionFailureWithCallTraces,
+        TransactionFailure, TransactionFailureWithCallTraces,
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
@@ -2791,15 +2791,13 @@ where
                     contract_decoder.as_ref(),
                 )),
             }
-            .map_err(|failure| {
+            .map_err(|transaction_failure| {
                 Box::new(EstimateGasFailure {
                     address_to_executed_code,
+                    call_trace_arena: call_trace_arena.clone(),
                     encoded_console_logs,
                     precompile_addresses: result.precompile_addresses,
-                    transaction_failure: TransactionFailureWithCallTrace {
-                        call_trace_arena: call_trace_arena.clone(),
-                        failure,
-                    },
+                    transaction_failure,
                 })
             })?;
 
