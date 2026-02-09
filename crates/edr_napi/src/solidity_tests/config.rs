@@ -76,8 +76,7 @@ pub struct SolidityTestRunnerConfigArgs {
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub chain_id: Option<BigInt>,
     /// The hardfork to use for EVM execution.
-    /// Defaults to the chain's default hardfork if not provided.
-    pub hardfork: Option<String>,
+    pub hardfork: String,
     /// The gas limit for each test case.
     /// Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]

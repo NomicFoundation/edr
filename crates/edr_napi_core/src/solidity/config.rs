@@ -119,8 +119,7 @@ pub struct TestRunnerConfig {
     /// Defaults to `31337`.
     pub chain_id: Option<u64>,
     /// The hardfork to use for EVM execution.
-    /// Defaults to the chain's default hardfork if not provided.
-    pub hardfork: Option<String>,
+    pub hardfork: String,
     /// The gas limit for each test case.
     /// Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
     pub gas_limit: Option<u64>,
@@ -247,9 +246,8 @@ where
         }
 
         evm_opts.env.chain_id = chain_id;
-        if let Some(hardfork) = hardfork {
-            evm_opts.spec = parse_hardfork(hardfork)?;
-        }
+
+        evm_opts.spec = parse_hardfork(hardfork)?;
 
         evm_opts.env.gas_price = gas_price;
 

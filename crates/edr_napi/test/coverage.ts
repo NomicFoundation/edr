@@ -248,6 +248,7 @@ describe("Code coverage", () => {
       const testSuites = artifacts.map((artifact) => artifact.id);
       const config = {
         projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
         observability: {
           codeCoverage: {
             onCollectedCoverageCallback: async (coverage: Uint8Array[]) => {
@@ -279,6 +280,7 @@ describe("Code coverage", () => {
       const testSuites = artifacts.map((artifact) => artifact.id);
       const config = {
         projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
         observability: {
           codeCoverage: {
             onCollectedCoverageCallback: async (_coverage: Uint8Array[]) => {

@@ -1,6 +1,12 @@
 import { assert } from "chai";
 
-import { EdrContext, L1_CHAIN_TYPE, l1SolidityTestRunnerFactory } from "..";
+import {
+  EdrContext,
+  L1_CHAIN_TYPE,
+  l1HardforkLatest,
+  l1HardforkToString,
+  l1SolidityTestRunnerFactory,
+} from "..";
 import { loadContract, runAllSolidityTests } from "./helpers";
 
 describe("Solidity Tests", () => {
@@ -22,6 +28,7 @@ describe("Solidity Tests", () => {
     const testSuites = artifacts.map((artifact) => artifact.id);
     const config = {
       projectRoot: __dirname,
+      hardfork: l1HardforkToString(l1HardforkLatest()),
     };
 
     const [, results] = await runAllSolidityTests(
@@ -57,6 +64,7 @@ describe("Solidity Tests", () => {
     const testSuites = artifacts.map((artifact) => artifact.id);
     const config = {
       projectRoot: __dirname,
+      hardfork: l1HardforkToString(l1HardforkLatest()),
       // Memory limit is too large
       memoryLimit: 2n ** 65n,
     };
@@ -82,6 +90,7 @@ describe("Solidity Tests", () => {
     const testSuites = artifacts.map((artifact) => artifact.id);
     const config = {
       projectRoot: __dirname,
+      hardfork: l1HardforkToString(l1HardforkLatest()),
     };
 
     artifacts[0].contract.bytecode = "invalid bytecode";
@@ -112,6 +121,7 @@ describe("Solidity Tests", () => {
       testSuites,
       {
         projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
         testPattern: "Multiply",
       }
     );

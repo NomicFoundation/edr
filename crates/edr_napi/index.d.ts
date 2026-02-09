@@ -660,11 +660,8 @@ export interface SolidityTestRunnerConfigArgs {
    * Defaults to `31337`.
    */
   chainId?: bigint
-  /**
-   * The hardfork to use for EVM execution.
-   * Defaults to the chain's default hardfork if not provided.
-   */
-  hardfork?: string
+  /** The hardfork to use for EVM execution. */
+  hardfork: string
   /**
    * The gas limit for each test case.
    * Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
