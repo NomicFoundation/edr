@@ -6,10 +6,12 @@ pragma solidity >=0.6.2 <0.9.0;
 pragma experimental ABIEncoderV2;
 
 interface Vm {
+    enum CheatcodeErrorCode { UnsupportedCheatcode, MissingCheatcode }
     enum CallerMode { None, Prank, RecurrentPrank }
     enum AccountAccessKind { Call, DelegateCall, CallCode, StaticCall, Create, SelfDestruct, Resume, Balance, Extcodesize, Extcodehash, Extcodecopy }
     enum ExecutionContext { TestGroup, Test, Coverage, Snapshot, Unknown }
     enum BroadcastTxType { Call, Create, Create2 }
+    struct CheatcodeErrorDetails { CheatcodeErrorCode code; string cheatcode; }
     struct Log { bytes32[] topics; bytes data; address emitter; }
     struct Rpc { string key; string url; }
     struct EthGetLogs { address emitter; bytes32[] topics; bytes data; bytes32 blockHash; uint64 blockNumber; bytes32 transactionHash; uint64 transactionIndex; uint256 logIndex; bool removed; }

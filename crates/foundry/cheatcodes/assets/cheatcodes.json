@@ -2,12 +2,31 @@
   "errors": [
     {
       "name": "CheatcodeError",
-      "description": "Error thrown by cheatcodes.",
+      "description": "String error thrown by cheatcodes.",
       "declaration": "error CheatcodeError(string message);"
+    },
+    {
+      "name": "StructuredCheatcodeError",
+      "description": "Structured error thrown by cheatcodes.",
+      "declaration": "error StructuredCheatcodeError(CheatcodeErrorDetails details);"
     }
   ],
   "events": [],
   "enums": [
+    {
+      "name": "CheatcodeErrorCode",
+      "description": "Error codes for cheatcode errors.",
+      "variants": [
+        {
+          "name": "UnsupportedCheatcode",
+          "description": "The cheatcode is not supported."
+        },
+        {
+          "name": "MissingCheatcode",
+          "description": "The cheatcode is missing."
+        }
+      ]
+    },
     {
       "name": "CallerMode",
       "description": "A modification applied to either `msg.sender` or `tx.origin`. Returned by `readCallers`.",
@@ -122,6 +141,22 @@
     }
   ],
   "structs": [
+    {
+      "name": "CheatcodeErrorDetails",
+      "description": "Structured error details for cheatcode errors.",
+      "fields": [
+        {
+          "name": "code",
+          "ty": "CheatcodeErrorCode",
+          "description": "The error code representing the type of cheatcode error."
+        },
+        {
+          "name": "cheatcode",
+          "ty": "string",
+          "description": "The name of the cheatcode that caused the error."
+        }
+      ]
+    },
     {
       "name": "Log",
       "description": "An Ethereum log. Returned by `getRecordedLogs`.",
@@ -4213,7 +4248,7 @@
     {
       "func": {
         "id": "deriveKey_2",
-        "description": "Derive a private key from a provided mnemonic string (or mnemonic file path) in the specified language\nat the derivation path `m/44'/60'/0'/0/{index}`.",
+        "description": "Key management cheatcodes are not supported.",
         "declaration": "function deriveKey(string calldata mnemonic, uint32 index, string calldata language) external pure returns (uint256 privateKey);",
         "visibility": "external",
         "mutability": "pure",
@@ -4233,7 +4268,7 @@
     {
       "func": {
         "id": "deriveKey_3",
-        "description": "Derive a private key from a provided mnemonic string (or mnemonic file path) in the specified language\nat `{derivationPath}{index}`.",
+        "description": "Key management cheatcodes are not supported.",
         "declaration": "function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index, string calldata language) external pure returns (uint256 privateKey);",
         "visibility": "external",
         "mutability": "pure",
@@ -8655,7 +8690,7 @@
     {
       "func": {
         "id": "rememberKey",
-        "description": "Adds a private key to the local forge wallet and returns the address.",
+        "description": "Key management cheatcodes are not supported.",
         "declaration": "function rememberKey(uint256 privateKey) external returns (address keyAddr);",
         "visibility": "external",
         "mutability": "",

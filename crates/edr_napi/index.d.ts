@@ -587,6 +587,20 @@ export interface LinkReference {
   start: number
   length: number
 }
+/**Error codes that can be returned by cheatcodes in Solidity tests. */
+export enum CheatcodeErrorCode {
+  /**The specified cheatcode is not supported. */
+  UnsupportedCheatcode = 'UnsupportedCheatcode',
+  /**The specified cheatcode is missing. */
+  MissingCheatcode = 'MissingCheatcode'
+}
+/**Error returned by a cheatcode in Solidity tests. */
+export interface CheatcodeErrorDetails {
+  /**The error code representing the type of cheatcode error. */
+  code: CheatcodeErrorCode
+  /**The name of the cheatcode that caused the error. */
+  cheatcode: string
+}
 /**
  * Solidity test runner configuration arguments exposed through the ffi.
  * Docs based on <https://book.getfoundry.sh/reference/config/testing>.
@@ -646,6 +660,8 @@ export interface SolidityTestRunnerConfigArgs {
    * Defaults to `31337`.
    */
   chainId?: bigint
+  /** The hardfork to use for EVM execution. */
+  hardfork: string
   /**
    * The gas limit for each test case.
    * Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
@@ -686,6 +702,11 @@ export interface SolidityTestRunnerConfigArgs {
    * Defaults to false.
    */
   disableBlockGasLimit?: boolean
+  /**
+   * Whether to enable the EIP-7825 (Osaka) transaction gas limit cap.
+   * Defaults to false.
+   */
+  enableTxGasLimitCap?: boolean
   /**
    * The memory limit of the EVM in bytes.
    * Defaults to `33_554_432` (2^25 = 32MiB).
@@ -1457,6 +1478,7 @@ export interface CheatcodeErrorStackTraceEntry {
   type: StackTraceEntryType.CHEATCODE_ERROR
   message: string
   sourceReference: SourceReference
+  details?: CheatcodeErrorDetails
 }
 export interface TracingMessage {
   /** Sender address */

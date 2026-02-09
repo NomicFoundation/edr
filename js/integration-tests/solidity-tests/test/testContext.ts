@@ -19,6 +19,9 @@ import {
   opSolidityTestRunnerFactory,
   SuiteResult,
   SolidityTestResult,
+  CheatcodeErrorDetails,
+  l1HardforkToString,
+  opHardforkToString,
 } from "@nomicfoundation/edr";
 import {
   buildSolidityTestsInput,
@@ -89,12 +92,16 @@ export class TestContext {
       projectRoot: hre.config.paths.root,
       rpcCachePath: this.rpcCachePath,
       localPredeploys: localPredeploys,
+      hardfork:
+        chainType === L1_CHAIN_TYPE
+          ? l1HardforkToString(l1HardforkLatest())
+          : opHardforkToString(opLatestHardfork()),
     };
   }
 
   async runTestsWithStats(
     contractName: string,
-    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot">,
+    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot" | "hardfork">,
     chainType: string = L1_CHAIN_TYPE
   ): Promise<SolidityTestsRunResult> {
     let totalTests = 0;
@@ -186,6 +193,7 @@ export function assertStackTraces(
     function: string;
     contract: string;
     message?: string;
+    errorDetails?: CheatcodeErrorDetails;
     line?: number;
   }[]
 ) {
@@ -245,6 +253,25 @@ export function assertStackTraces(
           null,
           2
         )}`
+      );
+    }
+    if (expected.errorDetails !== undefined) {
+      const actualDetails = stackTrace.entries[i].details;
+      assert(
+        actualDetails !== undefined,
+        `Expected structured error details but none found in entry: ${JSON.stringify(
+          stackTrace.entries[i],
+          null,
+          2
+        )}`
+      );
+      assert(
+        expected.errorDetails.code === actualDetails.code,
+        `Expected error code '${expected.errorDetails.code}' but got '${actualDetails.code}'`
+      );
+      assert(
+        expected.errorDetails.cheatcode === actualDetails.cheatcode,
+        `Expected cheatcode '${expected.errorDetails.cheatcode}' but got '${actualDetails.cheatcode}'`
       );
     }
   }
