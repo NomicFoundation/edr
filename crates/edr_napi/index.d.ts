@@ -276,8 +276,10 @@ export interface ObservabilityConfig {
   /**
    * Controls when to include call traces in the results of transaction
    * execution.
+   *
+   * Defaults to `IncludeTraces.None`.
    */
-  includeCallTraces: IncludeTraces
+  includeCallTraces?: IncludeTraces
 }
 /** Configuration for a provider */
 export interface ProviderConfig {

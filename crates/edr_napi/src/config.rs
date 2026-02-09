@@ -186,7 +186,9 @@ pub struct ObservabilityConfig {
     pub gas_report: Option<GasReportConfig>,
     /// Controls when to include call traces in the results of transaction
     /// execution.
-    pub include_call_traces: IncludeTraces,
+    ///
+    /// Defaults to `IncludeTraces.None`.
+    pub include_call_traces: Option<IncludeTraces>,
 }
 
 /// Configuration for a provider
@@ -531,7 +533,10 @@ impl ObservabilityConfig {
         let default_config = edr_provider::observability::Config::default();
         Ok(edr_provider::observability::Config {
             call_override: default_config.call_override,
-            include_call_traces: self.include_call_traces.into(),
+            include_call_traces: self.include_call_traces.map_or(
+                default_config.include_call_traces,
+                edr_solidity::config::IncludeTraces::from,
+            ),
             on_collected_coverage_fn,
             on_collected_gas_report_fn,
             verbose_raw_tracing: default_config.verbose_raw_tracing,
