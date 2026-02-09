@@ -139,6 +139,7 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
             memory_limit: 1 << 25, // 2**25 = 32MiB
             isolate: false,
             disable_block_gas_limit: false,
+            enable_tx_gas_limit_cap: false,
             fork_headers: None,
         }
     }

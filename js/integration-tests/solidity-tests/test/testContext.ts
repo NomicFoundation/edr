@@ -20,6 +20,8 @@ import {
   SuiteResult,
   SolidityTestResult,
   CheatcodeErrorDetails,
+  l1HardforkToString,
+  opHardforkToString,
 } from "@nomicfoundation/edr";
 import {
   buildSolidityTestsInput,
@@ -90,12 +92,16 @@ export class TestContext {
       projectRoot: hre.config.paths.root,
       rpcCachePath: this.rpcCachePath,
       localPredeploys: localPredeploys,
+      hardfork:
+        chainType === L1_CHAIN_TYPE
+          ? l1HardforkToString(l1HardforkLatest())
+          : opHardforkToString(opLatestHardfork()),
     };
   }
 
   async runTestsWithStats(
     contractName: string,
-    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot">,
+    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot" | "hardfork">,
     chainType: string = L1_CHAIN_TYPE
   ): Promise<SolidityTestsRunResult> {
     let totalTests = 0;

@@ -37,6 +37,8 @@ import {
   InvariantTestKind,
   L1_CHAIN_TYPE,
   l1SolidityTestRunnerFactory,
+  l1HardforkLatest,
+  l1HardforkToString,
 } from "@nomicfoundation/edr";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import { solidityTestConfigToSolidityTestRunnerConfigArgs } from "hardhat/internal/builtin-plugins/solidity-test/helpers";
@@ -673,6 +675,8 @@ async function createSolidityTestsInput(repoPath: string) {
       testPattern: undefined,
       generateGasReport: false,
     });
+  // TODO: move to solidityTestConfigToSolidityTestRunnerConfigArgs after it's updated in Hardhat
+  solidityTestsConfig.hardfork = l1HardforkToString(l1HardforkLatest());
   // Temporary workaround for `testFuzz_AssumeNotPrecompile` in forge-std which assumes no predeploys on mainnet.
   solidityTestsConfig.localPredeploys = undefined;
 

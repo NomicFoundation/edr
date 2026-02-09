@@ -75,6 +75,8 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Defaults to `31337`.
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub chain_id: Option<BigInt>,
+    /// The hardfork to use for EVM execution.
+    pub hardfork: String,
     /// The gas limit for each test case.
     /// Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
@@ -107,6 +109,9 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Whether to disable the block gas limit.
     /// Defaults to false.
     pub disable_block_gas_limit: Option<bool>,
+    /// Whether to enable the EIP-7825 (Osaka) transaction gas limit cap.
+    /// Defaults to false.
+    pub enable_tx_gas_limit_cap: Option<bool>,
     /// The memory limit of the EVM in bytes.
     /// Defaults to `33_554_432` (2^25 = 32MiB).
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
@@ -184,6 +189,7 @@ impl SolidityTestRunnerConfigArgs {
             initial_balance,
             block_number,
             chain_id,
+            hardfork,
             gas_limit,
             gas_price,
             block_base_fee_per_gas,
@@ -192,6 +198,7 @@ impl SolidityTestRunnerConfigArgs {
             block_difficulty,
             block_gas_limit,
             disable_block_gas_limit,
+            enable_tx_gas_limit_cap,
             memory_limit,
             local_predeploys,
             eth_rpc_url,
@@ -308,6 +315,7 @@ impl SolidityTestRunnerConfigArgs {
             initial_balance: initial_balance.map(TryCast::try_cast).transpose()?,
             block_number: block_number.map(TryCast::try_cast).transpose()?,
             chain_id: chain_id.map(TryCast::try_cast).transpose()?,
+            hardfork,
             gas_limit: gas_limit.map(TryCast::try_cast).transpose()?,
             gas_price: gas_price.map(TryCast::try_cast).transpose()?,
             block_base_fee_per_gas: block_base_fee_per_gas.map(TryCast::try_cast).transpose()?,
@@ -316,6 +324,7 @@ impl SolidityTestRunnerConfigArgs {
             block_difficulty: block_difficulty.map(TryCast::try_cast).transpose()?,
             block_gas_limit: block_gas_limit.map(TryCast::try_cast).transpose()?,
             disable_block_gas_limit,
+            enable_tx_gas_limit_cap,
             memory_limit: memory_limit.map(TryCast::try_cast).transpose()?,
             local_predeploys,
             fork_url: eth_rpc_url,
