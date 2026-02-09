@@ -101,7 +101,7 @@ export class TestContext {
 
   async runTestsWithStats(
     contractName: string,
-    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot">,
+    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot" | "hardfork">,
     chainType: string = L1_CHAIN_TYPE
   ): Promise<SolidityTestsRunResult> {
     let totalTests = 0;
