@@ -288,11 +288,13 @@ where
             let result = if let Some(inspector) = inspector.as_mut() {
                 let result = block_builder.add_transaction_with_inspector(transaction, inspector);
 
-                let inspector_data = inspector
-                    .flush_inspector_data(block_builder.precompile_addresses())
-                    .map_err(MineBlockError::CollectInspectorDataError)?;
+                if result.is_ok() {
+                    let inspector_data = inspector
+                        .flush_inspector_data(block_builder.precompile_addresses())
+                        .map_err(MineBlockError::CollectInspectorDataError)?;
 
-                transaction_inspector_data.push(inspector_data);
+                    transaction_inspector_data.push(inspector_data);
+                }
 
                 result
             } else {
