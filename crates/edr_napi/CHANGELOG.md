@@ -1,5 +1,12 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.24
+
+### Minor Changes
+
+- 7bf3576: Added the ability to specify the hardfork when running Solidity tests. Added support for the Osaka hardfork in Solidity tests.
+- b505164: Added structured errors for unsupported Solidity test cheatcodes
+
 ## 0.12.0-next.23
 
 ### Minor Changes
