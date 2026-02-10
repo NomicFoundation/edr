@@ -20,7 +20,7 @@ use tokio::runtime;
 use crate::{
     config,
     error::ProviderErrorForChainSpec,
-    observability,
+    observability::ObservabilityConfig,
     time::{CurrentTime, TimeSinceEpoch},
     AccountOverride, ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig,
     ProviderData, ProviderRequest, ProviderSpec, SyncProviderSpec,
@@ -106,6 +106,7 @@ pub fn set_genesis_state_with_owned_accounts<HardforkT>(
 pub struct MinimalProviderConfig<HardforkT> {
     fork: Option<ForkConfig<HardforkT>>,
     genesis_state: HashMap<Address, AccountOverride>,
+    observability: Option<ObservabilityConfig>,
     owned_accounts: Vec<SecretKey>,
 }
 
@@ -116,6 +117,7 @@ impl<HardforkT> MinimalProviderConfig<HardforkT> {
         MinimalProviderConfig {
             fork: Some(fork_config),
             genesis_state: HashMap::default(),
+            observability: None,
             owned_accounts: vec![],
         }
     }
@@ -126,6 +128,7 @@ impl<HardforkT> MinimalProviderConfig<HardforkT> {
         MinimalProviderConfig {
             fork: None,
             genesis_state: HashMap::default(),
+            observability: None,
             owned_accounts: vec![],
         }
     }
@@ -139,6 +142,7 @@ impl<HardforkT> MinimalProviderConfig<HardforkT> {
         MinimalProviderConfig {
             fork: Some(fork_config),
             genesis_state: genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether()),
+            observability: None,
             owned_accounts,
         }
     }
@@ -149,8 +153,14 @@ impl<HardforkT> MinimalProviderConfig<HardforkT> {
         MinimalProviderConfig {
             fork: None,
             genesis_state: genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether()),
+            observability: None,
             owned_accounts,
         }
+    }
+
+    /// Adds the provided `observability_config` to the instance.
+    pub fn with_observability(&mut self, observability_config: ObservabilityConfig) {
+        self.observability = Some(observability_config);
     }
 
     fn default_accounts() -> Vec<SecretKey> {
@@ -197,7 +207,7 @@ pub fn create_test_config_with<HardforkT: Default>(
         min_gas_price: 0,
         mining: config::Mining::default(),
         network_id: 123,
-        observability: observability::ObservabilityConfig::default(),
+        observability: config.observability.unwrap_or_default(),
         owned_accounts: config.owned_accounts,
         precompile_overrides: HashMap::default(),
         transaction_gas_cap: None,

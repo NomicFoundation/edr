@@ -4,7 +4,10 @@ use std::str::FromStr as _;
 use edr_chain_config::{ChainOverride, HardforkActivations};
 use edr_generic::GenericChainSpec;
 use edr_primitives::B256;
-use edr_provider::{MethodInvocation, Provider, ProviderError, ProviderRequest};
+use edr_provider::{
+    observability::ObservabilityConfig, MethodInvocation, Provider, ProviderError, ProviderRequest,
+};
+use edr_solidity::config::IncludeTraces;
 use edr_test_utils::env::json_rpc_url_provider;
 use serial_test::serial;
 
@@ -25,7 +28,16 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
     };
     let url = json_rpc_url_provider::base_sepolia();
 
-    get_chain_fork_provider::<GenericChainSpec>(CHAIN_ID, BLOCK_NUMBER, chain_override, url)
+    get_chain_fork_provider::<GenericChainSpec>(
+        CHAIN_ID,
+        BLOCK_NUMBER,
+        chain_override,
+        url,
+        Some(ObservabilityConfig {
+            include_call_traces: IncludeTraces::All,
+            ..ObservabilityConfig::default()
+        }),
+    )
 }
 
 // `eth_debugTraceTransaction` should return a helpful error message if there is
