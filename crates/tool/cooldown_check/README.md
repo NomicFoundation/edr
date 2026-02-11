@@ -18,6 +18,10 @@ Have an automated way to check and fail when any of the dependencies in the Carg
 
 - automatically update `Cargo.lock` with cooler dependencies
 
+## Limitations
+
+- File config files won't be configurable (both `cooldown.toml` and `allowlist.toml`)
+
 ## What to do if the check fails?
 
 If running `cargo add <version-number>` locks a newer version that violates the cooldown period, you can tell cargo to update (actually downgrade) and lock a specific version by running

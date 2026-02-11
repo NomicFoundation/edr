@@ -26,9 +26,9 @@ pub async fn run_pinning_flow(
 ) -> Result<()> {
     ensure_lockfile()?;
 
-    // let allowlist = Allowlist::load(config.allowlist_path.clone())?;
-    // let per_crate_minutes = allowlist.per_crate_minutes();
-    // let global_minutes = allowlist.global_minutes();
+    let allowlist = &config.allowlist;
+    let per_crate_minutes = allowlist.per_crate_minutes();
+    let global_minutes = allowlist.global_minutes();
     let cache = if let Some(ref root) = config.cache_dir {
         Cache::with_root(root.clone(), Duration::from_secs(config.ttl_seconds))?
     } else {
@@ -83,17 +83,15 @@ pub async fn run_pinning_flow(
             }
 
             let current_version = pkg.version.to_string();
-            let minimum_minutes = config.cooldown_minutes;
-            // if let Some(global) = global_minutes {
-            //     minimum_minutes = minimum_minutes.min(global);
-            // }
-            // if let Some(&minutes) = per_crate_minutes.get(pkg.name.as_str()) {
-            //     minimum_minutes = minimum_minutes.min(minutes);
-            // }
+            let mut minimum_minutes = config.cooldown_minutes;
+            if let Some(global) = global_minutes {
+                minimum_minutes = minimum_minutes.min(global);
+            }
+            if let Some(&minutes) = per_crate_minutes.get(pkg.name.as_str()) {
+                minimum_minutes = minimum_minutes.min(minutes);
+            }
 
-            // let exact_allowed = allowlist.is_exact_allowed(pkg.name.as_str(),
-            // &current_version);
-            let exact_allowed = false;
+            let exact_allowed = allowlist.is_exact_allowed(pkg.name.as_str(), &current_version);
             crate_states.insert(
                 node.id.clone(),
                 CrateState {
