@@ -294,8 +294,8 @@ importers:
         specifier: 3.0.15
         version: 3.0.15(patch_hash=88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5)
       hardhat2:
-        specifier: npm:hardhat@2.26.1
-        version: hardhat@2.26.1(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
+        specifier: npm:hardhat@2.28.0
+        version: hardhat@2.28.0(patch_hash=bb6ff7484894a37f153d62c87e2650fed465dcdd08a3b4b3cf000375c8be72d1)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
       lodash:
         specifier: ^4.17.11
         version: 4.17.21
@@ -1401,10 +1401,6 @@ packages:
     resolution: {integrity: sha512-Dr3sfKRP6oTcjf2JmUmFJfeVMvXBdegxB0iVQ5eb2V10uFJUCAS8OByZdVAyVb8xXNz3GjjTgj9kLWsZTqE6kw==}
     engines: {node: '>= 8.10.0'}
 
-  chokidar@4.0.1:
-    resolution: {integrity: sha512-n8enUVCED/KVRQlab1hr3MVpcVMvxtZjmEa956u+4YijlmQED223XMSYj2tLuKvr4jcCTzNNMpQDUer72MMmzA==}
-    engines: {node: '>= 14.16.0'}
-
   chokidar@4.0.3:
     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
     engines: {node: '>= 14.16.0'}
@@ -1982,18 +1978,6 @@ packages:
 
   graphemer@1.4.0:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
-
-  hardhat@2.26.1:
-    resolution: {integrity: sha512-CXWuUaTtehxiHPCdlitntctfeYRgujmXkNX5gnrD5jdA6HhRQt+WWBZE/gHXbE29y/wDmmUL2d652rI0ctjqjw==}
-    hasBin: true
-    peerDependencies:
-      ts-node: '*'
-      typescript: '*'
-    peerDependenciesMeta:
-      ts-node:
-        optional: true
-      typescript:
-        optional: true
 
   hardhat@2.28.0:
     resolution: {integrity: sha512-A3yBISI18EcnY2IR7Ny2xZF33Q3qH01yrWapeWbyGOiJm/386SasWjbHRHYgUlZ3YWJETIMh7wYfMUaXrofTDQ==}
@@ -4327,10 +4311,6 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
-  chokidar@4.0.1:
-    dependencies:
-      readdirp: 4.0.1
-
   chokidar@4.0.3:
     dependencies:
       readdirp: 4.0.1
@@ -5057,55 +5037,6 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  hardhat@2.26.1(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3):
-    dependencies:
-      '@ethereumjs/util': 9.1.0
-      '@ethersproject/abi': 5.7.0
-      '@nomicfoundation/edr': link:crates/edr_napi
-      '@nomicfoundation/solidity-analyzer': 0.1.1
-      '@sentry/node': 5.30.0
-      adm-zip: 0.4.16
-      aggregate-error: 3.1.0
-      ansi-escapes: 4.3.2
-      boxen: 5.1.2
-      chokidar: 4.0.1
-      ci-info: 2.0.0
-      debug: 4.4.1
-      enquirer: 2.4.1
-      env-paths: 2.2.1
-      ethereum-cryptography: 1.2.0
-      find-up: 5.0.0
-      fp-ts: 1.19.3
-      fs-extra: 7.0.1
-      immutable: 4.3.5
-      io-ts: 1.10.4
-      json-stream-stringify: 3.1.6
-      keccak: 3.0.4
-      lodash: 4.17.21
-      micro-eth-signer: 0.14.0
-      mnemonist: 0.38.5
-      mocha: 10.3.0
-      p-map: 4.0.0
-      picocolors: 1.1.1
-      raw-body: 2.5.2
-      resolve: 1.17.0
-      semver: 6.3.1
-      solc: 0.8.26(debug@4.4.1)
-      source-map-support: 0.5.21
-      stacktrace-parser: 0.1.10
-      tinyglobby: 0.2.10
-      tsort: 0.0.1
-      undici: 5.28.3
-      uuid: 8.3.2
-      ws: 7.5.9
-    optionalDependencies:
-      ts-node: 10.9.2(@types/node@20.16.1)(typescript@5.8.3)
-      typescript: 5.8.3
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-
   hardhat@2.28.0(patch_hash=bb6ff7484894a37f153d62c87e2650fed465dcdd08a3b4b3cf000375c8be72d1)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
       '@ethereumjs/util': 9.1.0
@@ -5117,7 +5048,7 @@ snapshots:
       aggregate-error: 3.1.0
       ansi-escapes: 4.3.2
       boxen: 5.1.2
-      chokidar: 4.0.1
+      chokidar: 4.0.3
       ci-info: 2.0.0
       debug: 4.4.1
       enquirer: 2.4.1
