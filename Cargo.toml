@@ -316,7 +316,7 @@ ciborium = "0.2"
 color-eyre = "0.6"
 derive_more = { version = "2", default-features = false }
 derive-where = { version = "1.6.0", default-features = false }
-evm-disassembler = "0.5"
+evm-disassembler = "0.6"
 eyre = "0.6"
 flate2 = "1.1"
 hex = { package = "const-hex", version = "1.6", features = ["hex"] }
