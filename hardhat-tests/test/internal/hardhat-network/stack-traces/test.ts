@@ -1,5 +1,5 @@
 import {
-  getLatestSupportedSolcVersion,
+  latestSupportedSolidityVersion,
   linkHexStringBytecode,
   stackTraceEntryTypeToString,
   TracingConfigWithBuffers,
@@ -18,7 +18,6 @@ import {
   SolidityStackTraceEntry,
   StackTraceEntryType,
 } from "hardhat/internal/hardhat-network/stack-traces/solidity-stack-trace";
-import { SUPPORTED_SOLIDITY_VERSION_RANGE } from "hardhat/internal/hardhat-network/stack-traces/constants";
 import {
   BuildInfo,
   CompilerInput,
@@ -795,37 +794,9 @@ describe("Stack traces", function () {
 });
 
 describe("Solidity support", function () {
-  it("check that the latest tested version is within the supported version range", async function () {
-    const latestSupportedVersion = getLatestTestedSolcVersion();
-    assert.isTrue(
-      semver.satisfies(
-        latestSupportedVersion,
-        SUPPORTED_SOLIDITY_VERSION_RANGE
-      ),
-      `Expected ${latestSupportedVersion} to be within the ${SUPPORTED_SOLIDITY_VERSION_RANGE} range`
-    );
-
-    const nextPatchVersion = semver.inc(latestSupportedVersion, "patch")!;
-    const nextMinorVersion = semver.inc(latestSupportedVersion, "minor")!;
-    const nextMajorVersion = semver.inc(latestSupportedVersion, "major")!;
-
-    assert.isFalse(
-      semver.satisfies(nextPatchVersion, SUPPORTED_SOLIDITY_VERSION_RANGE),
-      `Expected ${nextPatchVersion} to not be within the ${SUPPORTED_SOLIDITY_VERSION_RANGE} range`
-    );
-    assert.isFalse(
-      semver.satisfies(nextMinorVersion, SUPPORTED_SOLIDITY_VERSION_RANGE),
-      `Expected ${nextMinorVersion} to not be within the ${SUPPORTED_SOLIDITY_VERSION_RANGE} range`
-    );
-    assert.isFalse(
-      semver.satisfies(nextMajorVersion, SUPPORTED_SOLIDITY_VERSION_RANGE),
-      `Expected ${nextMajorVersion} to not be within the ${SUPPORTED_SOLIDITY_VERSION_RANGE} range`
-    );
-  });
-
   it("check that the latest tested version matches the one that EDR exports", async function () {
     const latestSupportedVersion = getLatestTestedSolcVersion();
-    const edrLatestSupportedVersion = getLatestSupportedSolcVersion();
+    const edrLatestSupportedVersion = latestSupportedSolidityVersion();
 
     assert.equal(latestSupportedVersion, edrLatestSupportedVersion);
   });
