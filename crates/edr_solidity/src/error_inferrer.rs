@@ -491,7 +491,8 @@ fn check_failed_last_call<HaltReasonT: HaltReasonTrait>(
 
         let inst = contract_meta.get_instruction(step.pc)?;
 
-        if let (OpCode::CALL | OpCode::CREATE, NestedTraceStep::Evm(_)) = (inst.opcode, next_step)
+        if let (OpCode::CALL | OpCode::STATICCALL | OpCode::CREATE, NestedTraceStep::Evm(_)) =
+            (inst.opcode, next_step)
             && is_call_failed_error(trace, step_index as u32, inst)?
         {
             // Check whether the call failure was caused by a cheatcode error
