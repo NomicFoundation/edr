@@ -660,6 +660,8 @@ export interface SolidityTestRunnerConfigArgs {
    * Defaults to `31337`.
    */
   chainId?: bigint
+  /** The hardfork to use for EVM execution. */
+  hardfork: string
   /**
    * The gas limit for each test case.
    * Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
@@ -700,6 +702,11 @@ export interface SolidityTestRunnerConfigArgs {
    * Defaults to false.
    */
   disableBlockGasLimit?: boolean
+  /**
+   * Whether to enable the EIP-7825 (Osaka) transaction gas limit cap.
+   * Defaults to false.
+   */
+  enableTxGasLimitCap?: boolean
   /**
    * The memory limit of the EVM in bytes.
    * Defaults to `33_554_432` (2^25 = 32MiB).
