@@ -190,10 +190,3 @@ impl RawTrace {
             .collect()
     }
 }
-
-#[napi]
-/// Returns the latest version of solc that EDR officially
-/// supports and is tested against.
-pub fn get_latest_supported_solc_version() -> String {
-    "0.8.28".to_string()
-}

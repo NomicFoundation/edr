@@ -13,8 +13,19 @@ use edr_state_api::{State, StateError};
 
 use crate::{error::ProviderErrorForChainSpec, ProviderError};
 
+/// A wrapper around a block environment that forces the base fee to be zero.
+///
+/// This is required to mimick Geth's behaviour, as its call requests use a base
+/// fee of zero.
 pub(super) struct BlockEnvWithZeroBaseFee<BlockEnvT: BlockEnvTrait> {
     inner: BlockEnvT,
+}
+
+impl<BlockEnvT: BlockEnvTrait> BlockEnvWithZeroBaseFee<BlockEnvT> {
+    /// Creates a new instance wrapping the provided block environment.
+    pub fn new(inner: BlockEnvT) -> Self {
+        Self { inner }
+    }
 }
 
 impl<BlockEnvT: BlockEnvTrait> BlockEnvTrait for BlockEnvWithZeroBaseFee<BlockEnvT> {
