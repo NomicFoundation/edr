@@ -325,6 +325,7 @@ describe("Multi-chain", () => {
         const testSuites = artifacts.map((artifact) => artifact.id);
         const config = {
           projectRoot: __dirname,
+          hardfork: opHardforkToString(opLatestHardfork()),
         };
 
         const [, results] = await runAllSolidityTests(

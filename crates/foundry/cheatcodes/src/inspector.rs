@@ -50,6 +50,7 @@ use serde_json::Value;
 use upstream_foundry_cheatcodes_spec::Vm as UpstreamVM;
 
 use crate::{
+    error::{CheatcodeErrorCode, CheatcodeErrorDetails},
     evm::{
         mapping::{self, MappingSlots},
         mock::{MockCallDataContext, MockCallReturnData},
@@ -682,20 +683,28 @@ impl<
         >,
     ) -> Result {
         // decode the cheatcode call
-        // TODO: Replace with structured error.
-        let decoded = Vm::VmCalls::abi_decode(&call.input.bytes(ecx)).map_err(|e| {
-            if let alloy_sol_types::Error::UnknownSelector { name: _, selector } = e {
-                let message = if let Some(unsupported_cheatcode) =
-                    find_upstream_cheatcode_signature(selector)
-                {
-                    format!("cheatcode '{unsupported_cheatcode}' is not supported",)
+        let decoded = match Vm::VmCalls::abi_decode(&call.input.bytes(ecx)) {
+            Ok(decoded) => decoded,
+            Err(alloy_sol_types::Error::UnknownSelector { name: _, selector }) => {
+                if let Some(unsupported_cheatcode) = find_upstream_cheatcode_signature(selector) {
+                    // Cheatcode implemented in Foundry but not known by EDR (either as
+                    // supported or unsupported)
+                    return Err(CheatcodeErrorDetails {
+                        code: CheatcodeErrorCode::MissingCheatcode,
+                        cheatcode: unsupported_cheatcode,
+                    }
+                    .into());
                 } else {
-                    format!("unknown cheatcode with selector '{selector}'")
-                };
-                return alloy_sol_types::Error::Other(std::borrow::Cow::Owned(message));
+                    // Completely unknown cheatcode selector
+                    return Err(CheatcodeErrorDetails {
+                        code: CheatcodeErrorCode::MissingCheatcode,
+                        cheatcode: format!("{selector}"),
+                    }
+                    .into());
+                }
             }
-            e
-        })?;
+            Err(e) => return Err(e.into()),
+        };
 
         let caller = call.caller;
 
@@ -2788,12 +2797,14 @@ fn apply_dispatch_traced<
         ccx.state.deprecated.insert(cheat.signature(), replacement);
     }
 
-    // Unsupported cheatcodes return an error immediately and preserve error message
-    // from `apply_cheatcode` for backward compatibility.
-    // TODO: Replace with structured error.
+    // Unsupported cheatcodes return an error immediately.
     if matches!(cheat.status(), spec::Status::Unsupported) {
         let signature = cheat.signature();
-        return Err(fmt_err!("cheatcode '{signature}' is not supported"));
+        return Err(CheatcodeErrorDetails {
+            code: CheatcodeErrorCode::UnsupportedCheatcode,
+            cheatcode: signature.to_string(),
+        }
+        .into());
     }
 
     ccx.journaled_state

@@ -25,8 +25,27 @@ sol! {
 interface Vm {
     //  ======== Types ========
 
-    /// Error thrown by cheatcodes.
+    /// String error thrown by cheatcodes.
     error CheatcodeError(string message);
+
+    /// Error codes for cheatcode errors.
+    enum CheatcodeErrorCode {
+        /// The cheatcode is not supported.
+        UnsupportedCheatcode,
+        /// The cheatcode is missing.
+        MissingCheatcode,
+    }
+
+    /// Structured error details for cheatcode errors.
+    struct CheatcodeErrorDetails {
+        /// The error code representing the type of cheatcode error.
+        CheatcodeErrorCode code;
+        /// The name of the cheatcode that caused the error.
+        string cheatcode;
+    }
+
+    /// Structured error thrown by cheatcodes.
+    error StructuredCheatcodeError(CheatcodeErrorDetails details);
 
     /// A modification applied to either `msg.sender` or `tx.origin`. Returned by `readCallers`.
     enum CallerMode {
@@ -2722,22 +2741,20 @@ interface Vm {
         external
         pure
         returns (uint256 privateKey);
-    /// Derive a private key from a provided mnemonic string (or mnemonic file path) in the specified language
-    /// at the derivation path `m/44'/60'/0'/0/{index}`.
+    /// Key management cheatcodes are not supported.
     #[cheatcode(group = Crypto, status = Unsupported)]
     function deriveKey(string calldata mnemonic, uint32 index, string calldata language)
         external
         pure
         returns (uint256 privateKey);
-    /// Derive a private key from a provided mnemonic string (or mnemonic file path) in the specified language
-    /// at `{derivationPath}{index}`.
+    /// Key management cheatcodes are not supported.
     #[cheatcode(group = Crypto, status = Unsupported)]
     function deriveKey(string calldata mnemonic, string calldata derivationPath, uint32 index, string calldata language)
         external
         pure
         returns (uint256 privateKey);
 
-    /// Adds a private key to the local forge wallet and returns the address.
+    /// Key management cheatcodes are not supported.
     #[cheatcode(group = Crypto, status = Unsupported)]
     function rememberKey(uint256 privateKey) external returns (address keyAddr);
 
@@ -2803,10 +2820,17 @@ impl fmt::Display for Vm::CheatcodeError {
     }
 }
 
+impl fmt::Display for Vm::StructuredCheatcodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}: {}", self.details.code, self.details.cheatcode)
+    }
+}
+
 impl fmt::Display for Vm::VmErrors {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::CheatcodeError(err) => err.fmt(f),
+            Self::StructuredCheatcodeError(err) => err.fmt(f),
         }
     }
 }

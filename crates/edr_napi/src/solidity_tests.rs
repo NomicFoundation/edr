@@ -1,4 +1,5 @@
 pub mod artifact;
+pub mod cheatcode_errors;
 pub mod config;
 pub mod factory;
 pub mod l1;
