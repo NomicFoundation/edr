@@ -2360,6 +2360,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_artifact"
+version = "0.3.8"
+dependencies = [
+ "alloy-json-abi",
+ "alloy-primitives",
+ "foundry-compilers",
+ "semver 1.0.26",
+ "serde",
+]
+
+[[package]]
 name = "edr_block_api"
 version = "0.3.8"
 dependencies = [
@@ -2543,7 +2554,6 @@ name = "edr_blockchain_local"
 version = "0.3.8"
 dependencies = [
  "anyhow",
- "derive-where",
  "edr_block_api",
  "edr_block_header",
  "edr_block_storage",
@@ -2631,6 +2641,7 @@ dependencies = [
  "edr_eip7702",
  "edr_eip7892",
  "edr_evm",
+ "edr_precompile",
  "edr_primitives",
  "edr_receipt",
  "edr_receipt_builder_api",
@@ -2654,7 +2665,6 @@ dependencies = [
 name = "edr_chain_spec"
 version = "0.3.8"
 dependencies = [
- "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
  "edr_eip7892",
@@ -2669,7 +2679,6 @@ version = "0.3.8"
 dependencies = [
  "edr_block_api",
  "edr_block_builder_api",
- "edr_block_header",
  "edr_block_remote",
  "edr_chain_spec",
  "edr_chain_spec_evm",
@@ -2685,7 +2694,6 @@ dependencies = [
  "edr_chain_spec",
  "edr_database_components",
  "edr_primitives",
- "edr_state_api",
  "revm-context",
  "revm-handler",
  "revm-inspector",
@@ -2708,7 +2716,6 @@ dependencies = [
  "edr_eip7892",
  "edr_primitives",
  "edr_transaction",
- "serde",
 ]
 
 [[package]]
@@ -2793,6 +2800,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_decoder_revert"
+version = "0.3.8"
+dependencies = [
+ "alloy-dyn-abi",
+ "alloy-json-abi",
+ "alloy-sol-types",
+ "edr_common",
+ "edr_defaults",
+ "edr_primitives",
+ "foundry-cheatcodes-spec 0.3.8",
+ "itertools 0.12.1",
+ "revm-interpreter",
+]
+
+[[package]]
 name = "edr_defaults"
 version = "0.3.8"
 dependencies = [
@@ -2844,36 +2866,15 @@ dependencies = [
 name = "edr_eth"
 version = "0.3.8"
 dependencies = [
- "alloy-eips",
  "alloy-serde",
- "anyhow",
- "auto_impl",
  "c-kzg",
- "derive-where",
- "edr_chain_l1",
  "edr_chain_spec",
- "edr_defaults",
- "edr_eip1559",
- "edr_eip2930",
- "edr_eip7702",
  "edr_primitives",
  "edr_receipt",
- "edr_rpc_eth",
- "edr_signer",
- "edr_test_utils",
- "hex",
- "itertools 0.10.5",
- "lazy_static",
  "log",
- "once_cell",
- "paste",
- "revm-context",
- "revm-context-interface",
- "revm-state",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
- "tokio",
 ]
 
 [[package]]
@@ -2898,9 +2899,6 @@ dependencies = [
  "derive_more 2.0.1",
  "dyn-clone",
  "edr_chain_spec",
- "edr_chain_spec_evm",
- "edr_common",
- "edr_evm",
  "edr_primitives",
  "edr_receipt",
  "edr_solidity",
@@ -2962,14 +2960,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_inspector_bytecode"
+version = "0.3.8"
+dependencies = [
+ "edr_chain_spec_evm",
+ "edr_primitives",
+ "revm-inspector",
+]
+
+[[package]]
 name = "edr_instrument"
 version = "0.3.8"
 dependencies = [
- "anyhow",
  "edr_primitives",
  "semver 1.0.26",
  "serde",
- "serde_json",
  "sha3",
  "slang_solidity",
  "thiserror 2.0.12",
@@ -3011,6 +3016,7 @@ dependencies = [
  "alloy-sol-types",
  "derive-where",
  "derive_more 2.0.1",
+ "edr_artifact",
  "edr_block_header",
  "edr_block_miner",
  "edr_blockchain_fork",
@@ -3022,6 +3028,7 @@ dependencies = [
  "edr_chain_spec_rpc",
  "edr_common",
  "edr_coverage",
+ "edr_decoder_revert",
  "edr_defaults",
  "edr_eip1559",
  "edr_gas_report",
@@ -3048,6 +3055,7 @@ dependencies = [
  "napi-build",
  "napi-derive",
  "openssl-sys",
+ "parking_lot 0.12.3",
  "rand 0.8.5",
  "semver 1.0.26",
  "serde",
@@ -3067,12 +3075,14 @@ version = "0.3.8"
 dependencies = [
  "ansi_term",
  "derive-where",
+ "edr_artifact",
  "edr_block_api",
  "edr_block_header",
  "edr_chain_config",
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_chain_spec_evm",
+ "edr_decoder_revert",
  "edr_eip1559",
  "edr_eth",
  "edr_generic",
@@ -3088,6 +3098,7 @@ dependencies = [
  "foundry-cheatcodes",
  "itertools 0.12.1",
  "napi",
+ "parking_lot 0.12.3",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -3212,6 +3223,7 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_gas_report",
+ "edr_inspector_bytecode",
  "edr_mem_pool",
  "edr_precompile",
  "edr_primitives",
@@ -3226,6 +3238,7 @@ dependencies = [
  "edr_tracing",
  "edr_transaction",
  "edr_utils",
+ "foundry-evm-traces",
  "indexmap 2.9.0",
  "itertools 0.12.1",
  "k256",
@@ -3320,29 +3333,21 @@ dependencies = [
 name = "edr_rpc_eth"
 version = "0.3.8"
 dependencies = [
- "alloy-eips",
  "alloy-rpc-types",
  "alloy-serde",
  "anyhow",
  "assert-json-diff",
  "derive-where",
  "edr_chain_l1",
- "edr_chain_spec",
  "edr_chain_spec_rpc",
- "edr_eip2930",
- "edr_eip7702",
  "edr_eth",
  "edr_primitives",
  "edr_receipt",
  "edr_rpc_client",
- "edr_signer",
  "edr_state_api",
  "edr_test_utils",
- "edr_transaction",
- "edr_utils",
  "futures",
  "hex",
- "log",
  "mockito",
  "paste",
  "reqwest 0.11.27",
@@ -3359,57 +3364,32 @@ dependencies = [
 name = "edr_runtime"
 version = "0.3.8"
 dependencies = [
- "alloy-eips",
- "alloy-rlp",
  "anyhow",
- "auto_impl",
  "criterion 0.4.0",
- "derive-where",
- "dyn-clone",
- "edr_block_api",
- "edr_block_builder_api",
- "edr_block_header",
- "edr_block_storage",
- "edr_blockchain_api",
  "edr_chain_l1",
  "edr_chain_spec",
- "edr_chain_spec_block",
  "edr_chain_spec_evm",
  "edr_chain_spec_provider",
- "edr_chain_spec_rpc",
- "edr_database_components",
  "edr_defaults",
- "edr_eip1559",
  "edr_eth",
  "edr_generic",
- "edr_mem_pool",
  "edr_primitives",
  "edr_provider",
  "edr_receipt",
  "edr_rpc_eth",
- "edr_signer",
  "edr_state_api",
  "edr_state_fork",
- "edr_state_persistent_trie",
  "edr_test_mem_pool",
  "edr_test_transaction",
  "edr_test_utils",
  "edr_transaction",
- "edr_trie",
  "edr_utils",
- "futures",
- "indexmap 2.9.0",
- "itertools 0.11.0",
  "lazy_static",
- "log",
- "once_cell",
  "parking_lot 0.12.3",
  "paste",
  "revm-handler",
  "revm-inspector",
  "revm-interpreter",
- "serde",
- "serde_json",
  "serial_test",
  "tempfile",
  "thiserror 2.0.12",
@@ -3461,16 +3441,26 @@ dependencies = [
  "anyhow",
  "criterion 0.5.1",
  "derive-where",
+ "edr_artifact",
  "edr_chain_spec",
  "edr_chain_spec_evm",
+ "edr_common",
+ "edr_decoder_revert",
+ "edr_defaults",
  "edr_eth",
  "edr_primitives",
  "edr_tracing",
  "foundry-compilers",
+ "foundry-evm-traces",
  "indexmap 2.9.0",
  "itertools 0.10.5",
  "log",
  "parking_lot 0.12.3",
+ "revm-bytecode",
+ "revm-inspector",
+ "revm-inspectors",
+ "revm-interpreter",
+ "revm-precompile",
  "semver 1.0.26",
  "serde",
  "serde_json",
@@ -3489,10 +3479,12 @@ dependencies = [
  "derive-where",
  "derive_more 2.0.1",
  "dunce",
+ "edr_artifact",
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_common",
  "edr_coverage",
+ "edr_decoder_revert",
  "edr_defaults",
  "edr_gas_report",
  "edr_primitives",
@@ -3778,6 +3770,7 @@ dependencies = [
  "edr_primitives",
  "edr_state_api",
  "revm-inspector",
+ "revm-inspectors",
 ]
 
 [[package]]
@@ -4121,8 +4114,9 @@ dependencies = [
  "dialoguer",
  "dunce",
  "ecdsa",
+ "edr_artifact",
  "edr_common",
- "edr_solidity",
+ "edr_decoder_revert",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
  "foundry-cheatcodes-spec 1.5.0",
@@ -4287,6 +4281,7 @@ dependencies = [
  "derive-where",
  "edr_common",
  "edr_coverage",
+ "edr_decoder_revert",
  "edr_solidity",
  "eyre",
  "foundry-cheatcodes",
@@ -4312,7 +4307,6 @@ version = "0.3.8"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
- "alloy-dyn-abi",
  "alloy-genesis",
  "alloy-json-abi",
  "alloy-json-rpc",
@@ -4331,10 +4325,10 @@ dependencies = [
  "axum",
  "derive-where",
  "derive_more 2.0.1",
+ "edr_artifact",
  "edr_common",
  "edr_defaults",
  "edr_macros",
- "edr_solidity",
  "edr_test_utils",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
@@ -4380,8 +4374,8 @@ dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
  "ciborium",
+ "edr_artifact",
  "edr_common",
- "edr_solidity",
  "eyre",
  "foundry-evm-core",
  "foundry-evm-coverage",
@@ -4404,9 +4398,10 @@ dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
  "alloy-sol-types",
+ "edr_artifact",
  "edr_common",
+ "edr_decoder_revert",
  "edr_defaults",
- "edr_solidity",
  "eyre",
  "foundry-evm-core",
  "itertools 0.12.1",
@@ -5324,15 +5319,6 @@ name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
 dependencies = [
  "either",
 ]

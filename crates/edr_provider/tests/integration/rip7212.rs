@@ -4,13 +4,15 @@ use std::sync::Arc;
 
 use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_precompile::secp256r1::{self, P256VERIFY_BASE_GAS_FEE, P256VERIFY_BASE_GAS_FEE_OSAKA};
-use edr_primitives::{bytes, Bytes};
+use edr_primitives::{bytes, Bytes, HashMap};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
-use edr_solidity::contract_decoder::ContractDecoder;
-use edr_tracing::TraceMessage;
+use edr_solidity::{
+    config::IncludeTraces, contract_decoder::ContractDecoder, nested_trace::NestedTrace,
+};
+use parking_lot::RwLock;
 use tokio::runtime;
 
 // Example adapted from
@@ -31,7 +33,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 
@@ -55,6 +57,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
 async fn rip7212_enabled() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
+    config.observability.include_call_traces = IncludeTraces::All;
     config.precompile_overrides = [(
         *secp256r1::P256VERIFY.address(),
         *secp256r1::P256VERIFY.precompile(),
@@ -69,7 +72,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 
@@ -90,20 +93,17 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
 
-    let gas_used = if let TraceMessage::After(message) = response
-        .traces
-        .first()
-        .expect("Trace should exist")
-        .messages
-        .last()
-        .expect("Trace should contain AfterMessage")
-    {
-        message.execution_result.gas_used()
-    } else {
-        unreachable!("Last trace message should be AfterMessage");
-    };
+    let nested_trace = NestedTrace::<edr_chain_l1::HaltReason>::from_call_trace_arena(
+        &HashMap::default(),
+        &HashMap::default(),
+        response
+            .call_trace_arenas
+            .first()
+            .expect("Trace should exist"),
+    )
+    .expect("Should convert to nested trace");
 
-    assert_eq!(gas_used, P256VERIFY_BASE_GAS_FEE);
+    assert_eq!(nested_trace.gas_used(), P256VERIFY_BASE_GAS_FEE);
 
     Ok(())
 }
@@ -112,6 +112,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
 async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.hardfork = edr_chain_l1::Hardfork::OSAKA;
+    config.observability.include_call_traces = IncludeTraces::All;
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
@@ -120,7 +121,7 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 
@@ -142,20 +143,17 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
 
-    let gas_used = if let TraceMessage::After(message) = response
-        .traces
-        .first()
-        .expect("Trace should exist")
-        .messages
-        .last()
-        .expect("Trace should contain AfterMessage")
-    {
-        message.execution_result.gas_used()
-    } else {
-        unreachable!("Last trace message should be AfterMessage");
-    };
+    let nested_trace = NestedTrace::<edr_chain_l1::HaltReason>::from_call_trace_arena(
+        &HashMap::default(),
+        &HashMap::default(),
+        response
+            .call_trace_arenas
+            .first()
+            .expect("Trace should exist"),
+    )
+    .expect("Should convert to nested trace");
 
-    assert_eq!(gas_used, P256VERIFY_BASE_GAS_FEE_OSAKA);
+    assert_eq!(nested_trace.gas_used(), P256VERIFY_BASE_GAS_FEE_OSAKA);
 
     Ok(())
 }

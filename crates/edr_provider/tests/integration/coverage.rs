@@ -14,7 +14,7 @@ use edr_provider::{
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use tokio::runtime;
 
 const INCREMENT_DEPLOYED_BYTECODE: &str =
@@ -85,7 +85,7 @@ fn provider_with_deployed_test_contract(
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )
     .expect("Failed to construct provider");

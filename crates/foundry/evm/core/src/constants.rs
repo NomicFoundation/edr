@@ -35,10 +35,6 @@ pub const TEST_CONTRACT_ADDRESS: Address = address!("0xb4c79daB8f259C7Aee6E5b2Aa
 /// Magic return value returned by the `assume` cheatcode.
 pub const MAGIC_ASSUME: &[u8] = b"FOUNDRY::ASSUME";
 
-/// Magic return value returned by the `skip` cheatcode. Optionally appended
-/// with a reason.
-pub const MAGIC_SKIP: &[u8] = b"FOUNDRY::SKIP";
-
 /// Test timeout return value.
 pub const TEST_TIMEOUT: &str = "FOUNDRY::TEST_TIMEOUT";
 

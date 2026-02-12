@@ -20,12 +20,12 @@ use alloy_primitives::{
     Address, Bytes, Log, TxKind, U256,
 };
 use alloy_sol_types::{sol, SolCall};
+use edr_decoder_revert::{cheatcodes::skip::SkipReason, RevertDecoder};
 use foundry_evm_core::{
     backend::{Backend, BackendError, BackendResult, CheatcodeBackend, CowBackend},
     constants::{
         CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, DEFAULT_CREATE2_DEPLOYER_CODE,
     },
-    decode::RevertDecoder,
     evm_context::{EvmBuilderTrait, TransactionErrorTrait},
     utils::StateChangeset,
 };
@@ -48,7 +48,6 @@ use foundry_evm_core::backend::GLOBAL_FAIL_SLOT;
 use foundry_evm_core::{
     backend::IndeterminismReasons,
     constants::{CHEATCODE_CONTRACT_HASH, DEFAULT_CREATE2_DEPLOYER_DEPLOYER},
-    decode::SkipReason,
     evm_context::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},
 };
 

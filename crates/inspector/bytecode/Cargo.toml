@@ -1,0 +1,12 @@
+[package]
+name = "edr_inspector_bytecode"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_chain_spec_evm.workspace = true
+edr_primitives.workspace = true
+revm-inspector.workspace = true
+
+[lints]
+workspace = true

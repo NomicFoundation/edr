@@ -43,7 +43,7 @@ fn get_provider<
     // ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true") };
     let provider =
-        get_chain_fork_provider::<ChainSpecT>(CHAIN_ID, block_number, chain_override, url);
+        get_chain_fork_provider::<ChainSpecT>(CHAIN_ID, block_number, chain_override, url, None);
     // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
     // ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::remove_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES") };

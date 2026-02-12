@@ -16,18 +16,9 @@ When using VSCode with the `rust-analyzer` extension, you can set breakpoints an
 
 Go to a Rust file with tests. Above a test function, you should see a "Run Test | ⚙️ Debug" option. Click on "⚙️ Debug" to start debugging.
 
-## VSCode for Hardhat 2 with EDR
+## VSCode for Rust + TypeScript
 
-When using VSCode with the CodeLLDB extension, you can debug Hardhat tests that use EDR as the provider.
-
-You will need to checkout the Hardhat v2 repository and the Hardhat project that you want to debug (e.g. OpenZeppelin Contracts) alongside the EDR repository. The directory structure should look something like this:
-
-```
-/workspaces
-  /edr
-  /hardhat
-  /openzeppelin-contracts
-```
+When using VSCode with the CodeLLDB extension, you can debug TypeScript projects that use the EDR N-API bindings.
 
 ### Build EDR in debug mode
 
@@ -66,7 +57,44 @@ Then build a debug build of EDR:
 pnpm build:debug
 ```
 
-### Link the repositories
+### VSCode for EDR TS integration tests
+
+Create or edit the `.vscode/launch.json` file in the EDR VSCode workspace. Add the following configuration to the `configurations` array, adjusting paths as necessary:
+
+```json
+{
+  "name": "Debug EDR TS integration tests in 'coverage.ts'",
+  "type": "lldb",
+  "request": "launch",
+  // Specify that we are debugging Rust code
+  "sourceLanguages": ["rust"],
+  // Path to the EDR TypeScript integration tests
+  "cwd": "${workspaceFolder}/crates/edr_napi/",
+  // Path to the Node.js executable
+  "program": "${env:NVM_BIN}/node",
+  "args": [
+    // Path to Mocha test runner
+    "${workspaceFolder}/crates/edr_napi/node_modules/mocha/bin/mocha.js",
+    // Path to a specific test file to debug
+    "${workspaceFolder}/crates/edr_napi/test/coverage.ts"
+  ]
+}
+```
+
+You can now start debugging by selecting the "Debug EDR TS integration tests in 'coverage.ts'" configuration in the VSCode debug panel and clicking the green play button.
+
+### VSCode for Hardhat 2 with EDR
+
+You will need to checkout the Hardhat v2 repository and the Hardhat project that you want to debug (e.g. OpenZeppelin Contracts) alongside the EDR repository. The directory structure should look something like this:
+
+```
+/workspaces
+  /edr
+  /hardhat
+  /openzeppelin-contracts
+```
+
+#### Link the repositories
 
 To complete the setup, you need to `pnpm link` the three repositories together:
 
@@ -79,7 +107,7 @@ pnpm build
 pnpm link ../hardhat/packages/hardhat-core
 ```
 
-### VSCode launch configuration
+#### VSCode launch configuration
 
 Create or edit the `.vscode/launch.json` file in the EDR VSCode workspace. Add the following configuration to the `configurations` array, adjusting paths as necessary:
 
@@ -88,10 +116,12 @@ Create or edit the `.vscode/launch.json` file in the EDR VSCode workspace. Add t
   "name": "Debug Hardhat v2 (OpenZeppelin Contracts)",
   "type": "lldb",
   "request": "launch",
+  // Specify that we are debugging Rust code
+  "sourceLanguages": ["rust"],
   // Path to the Hardhat project to debug (in this case: OpenZeppelin Contracts)
   "cwd": "${workspaceFolder}/../openzeppelin-contracts",
   // Path to the Node.js executable
-  "program": "/usr/local/share/nvm/versions/node/v22.21.1/bin/node",
+  "program": "${env:NVM_BIN}/node",
   "args": [
     // Path to Hardhat's CLI.js
     "${workspaceFolder}/../hardhat/packages/hardhat-core/internal/cli/cli.js",
@@ -102,6 +132,6 @@ Create or edit the `.vscode/launch.json` file in the EDR VSCode workspace. Add t
 }
 ```
 
-### Start debugging
+#### Start debugging
 
 You can now start debugging by selecting the "Debug Hardhat v2 (OpenZeppelin Contracts)" configuration in the VSCode debug panel and clicking the green play button.

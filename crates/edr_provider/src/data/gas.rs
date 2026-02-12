@@ -3,23 +3,26 @@ use core::cmp;
 use edr_block_api::{Block as _, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
-use edr_chain_spec::{BlockEnvConstructor, ExecutableTransaction as _, HaltReasonTrait};
+use edr_chain_spec::{BlockEnvConstructor as _, ExecutableTransaction as _};
 use edr_chain_spec_evm::{result::ExecutionResult, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip7892::ScheduledBlobParams;
 use edr_eth::reward_percentile::RewardPercentile;
 use edr_precompile::PrecompileFn;
-use edr_primitives::{Address, HashMap, U256};
+use edr_primitives::{Address, HashMap, HashSet, U256};
 use edr_receipt::ReceiptTrait as _;
 use edr_state_api::DynState;
-use edr_tracing::TraceCollector;
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
 
-use crate::{data::call, error::ProviderErrorForChainSpec, ProviderError};
+use crate::{
+    data::{call, EstimateGasResult},
+    error::ProviderErrorForChainSpec,
+    observability::{EvmObservedData, EvmObserver, EvmObserverConfig},
+    ProviderError,
+};
 
-pub(super) struct CheckGasLimitArgs<'a, HaltReasonT: HaltReasonTrait, HardforkT, SignedTransactionT>
-{
+pub(super) struct CheckGasLimitArgs<'a, HardforkT, SignedTransactionT> {
     pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
     pub header: &'a BlockHeader,
     pub state: &'a dyn DynState,
@@ -27,21 +30,21 @@ pub(super) struct CheckGasLimitArgs<'a, HaltReasonT: HaltReasonTrait, HardforkT,
     pub transaction: SignedTransactionT,
     pub gas_limit: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
+    pub observer: &'a mut EvmObserver,
     pub scheduled_blob_params: Option<&'a ScheduledBlobParams>,
+}
+
+pub(super) struct CheckGasLimitResult {
+    pub success: bool,
+    pub precompile_addresses: HashSet<Address>,
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
 pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
-    args: CheckGasLimitArgs<
-        '_,
-        ChainSpecT::HaltReason,
-        ChainSpecT::Hardfork,
-        ChainSpecT::SignedTransaction,
-    >,
-) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
+    args: CheckGasLimitArgs<'_, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>,
+) -> Result<CheckGasLimitResult, ProviderErrorForChainSpec<ChainSpecT>> {
     let CheckGasLimitArgs {
         blockchain,
         header,
@@ -50,7 +53,7 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         mut transaction,
         gas_limit,
         custom_precompiles,
-        trace_collector,
+        observer,
         scheduled_blob_params,
     } = args;
 
@@ -65,18 +68,16 @@ pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: T
         cfg_env,
         transaction,
         custom_precompiles,
-        trace_collector,
+        observer,
     )?;
 
-    Ok(matches!(result, ExecutionResult::Success { .. }))
+    Ok(CheckGasLimitResult {
+        success: matches!(result.result, ExecutionResult::Success { .. }),
+        precompile_addresses: result.precompile_addresses,
+    })
 }
 
-pub(super) struct BinarySearchEstimationArgs<
-    'a,
-    HaltReasonT: HaltReasonTrait,
-    HardforkT,
-    SignedTransactionT,
-> {
+pub(super) struct BinarySearchEstimationArgs<'a, HardforkT, SignedTransactionT> {
     pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
     pub header: &'a BlockHeader,
     pub state: &'a dyn DynState,
@@ -85,7 +86,7 @@ pub(super) struct BinarySearchEstimationArgs<
     pub lower_bound: u64,
     pub upper_bound: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
+    pub observer_config: EvmObserverConfig,
     pub scheduled_blob_params: Option<&'a ScheduledBlobParams>,
 }
 
@@ -95,13 +96,8 @@ pub(super) struct BinarySearchEstimationArgs<
 pub(super) fn binary_search_estimation<
     ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>,
 >(
-    args: BinarySearchEstimationArgs<
-        '_,
-        ChainSpecT::HaltReason,
-        ChainSpecT::Hardfork,
-        ChainSpecT::SignedTransaction,
-    >,
-) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
+    args: BinarySearchEstimationArgs<'_, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>,
+) -> Result<EstimateGasResult, ProviderErrorForChainSpec<ChainSpecT>> {
     const MAX_ITERATIONS: usize = 20;
 
     let BinarySearchEstimationArgs {
@@ -113,12 +109,13 @@ pub(super) fn binary_search_estimation<
         mut lower_bound,
         mut upper_bound,
         custom_precompiles,
-        trace_collector,
+        observer_config,
         scheduled_blob_params,
     } = args;
 
     let mut i = 0;
 
+    let mut call_trace_arenas = Vec::new();
     while upper_bound - lower_bound > min_difference(lower_bound) && i < MAX_ITERATIONS {
         let mut mid = lower_bound + (upper_bound - lower_bound) / 2;
         if i == 0 {
@@ -128,7 +125,13 @@ pub(super) fn binary_search_estimation<
             mid = cmp::min(mid, initial_mid);
         }
 
-        let success = check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
+        // Create a new observer for each check
+        let mut observer = EvmObserver::new(observer_config.clone());
+
+        let CheckGasLimitResult {
+            success,
+            precompile_addresses,
+        } = check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
             blockchain,
             header,
             state,
@@ -136,9 +139,22 @@ pub(super) fn binary_search_estimation<
             transaction: transaction.clone(),
             gas_limit: mid,
             custom_precompiles,
-            trace_collector,
+            observer: &mut observer,
             scheduled_blob_params,
         })?;
+
+        let EvmObservedData {
+            address_to_executed_code: _,
+            call_trace_arena,
+            encoded_console_logs: _,
+        } = observer.collect_and_report(&precompile_addresses)?;
+
+        if observer_config
+            .include_call_traces
+            .should_include(|| !success)
+        {
+            call_trace_arenas.push(call_trace_arena);
+        }
 
         if success {
             upper_bound = mid;
@@ -149,7 +165,10 @@ pub(super) fn binary_search_estimation<
         i += 1;
     }
 
-    Ok(upper_bound)
+    Ok(EstimateGasResult {
+        call_trace_arenas,
+        estimation: upper_bound,
+    })
 }
 
 // Matches Hardhat

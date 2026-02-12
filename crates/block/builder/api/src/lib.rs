@@ -13,7 +13,7 @@ pub use edr_chain_spec_evm::{
     result::ExecutionResult, CfgEnv, Context, Inspector, Journal, TransactionError,
 };
 pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
-use edr_primitives::{Address, HashMap};
+use edr_primitives::{Address, HashMap, HashSet};
 use edr_state_api::{DynState, StateDiff, StateError};
 pub use revm_precompile::PrecompileFn;
 
@@ -101,15 +101,22 @@ pub enum BlockTransactionError<DatabaseErrorT, TransactionValidationErrorT> {
 /// The result of building a block, including the state. This result needs to be
 /// inserted into the blockchain to be persistent.
 #[derive(Debug)]
-pub struct BuiltBlockAndState<HaltReasonT: HaltReasonTrait, LocalBlockT> {
+pub struct BuiltBlockAndState<BlockT, HaltReasonT: HaltReasonTrait> {
     /// Mined block
-    pub block: LocalBlockT,
+    pub block: BlockT,
     /// State after mining the block
     pub state: Box<dyn DynState>,
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
     pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
+}
+
+pub struct BuiltBlockAndStateWithMetadata<BlockT, HaltReasonT: HaltReasonTrait> {
+    /// Mined block and state
+    pub block_and_state: BuiltBlockAndState<BlockT, HaltReasonT>,
+    /// The set of precompile addresses that were available during execution.
+    pub precompile_addresses: HashSet<Address>,
 }
 
 /// A trait for building blocks.
@@ -159,6 +166,9 @@ pub trait BlockBuilder<
 
     /// Returns the block's [`PartialHeader`].
     fn header(&self) -> &PartialHeader;
+
+    /// Returns the set of precompile addresses available during execution.
+    fn precompile_addresses(&self) -> &HashSet<Address>;
 
     /// Adds a transaction to the block.
     fn add_transaction(
@@ -210,7 +220,7 @@ pub trait BlockBuilder<
         self,
         rewards: Vec<(Address, u128)>,
     ) -> Result<
-        BuiltBlockAndState<ChainSpecT::HaltReason, Self::LocalBlock>,
+        BuiltBlockAndStateWithMetadata<Self::LocalBlock, ChainSpecT::HaltReason>,
         BlockFinalizeError<StateError>,
     >;
 }

@@ -15,14 +15,14 @@ use edr_utils::CastArcInto as _;
 
 use crate::{
     data::ProviderData,
-    error::{ProviderErrorForChainSpec, TransactionFailureWithTraces},
+    error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
     requests::validation::{
         validate_eip3860_max_initcode_size, validate_post_merge_block_tags,
         validate_transaction_and_call_request,
     },
     spec::{FromRpcType, Sender as _, SyncProviderSpec, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError, ProviderResultWithTraces, ProviderSpec, TransactionFailure,
+    ProviderError, ProviderResultWithCallTraces, ProviderSpec, TransactionFailure,
 };
 
 pub fn handle_get_transaction_by_block_hash_and_index<
@@ -65,7 +65,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         // Pending block requested
         Ok(None) => {
             let result = data.mine_pending_block()?;
-            let pending_block = Arc::new(result.block);
+            let pending_block = Arc::new(result.block_and_state.block);
             Some((pending_block.cast_arc_into(), true))
         }
         // Matching Hardhat behavior in returning None for invalid block hash or number.
@@ -169,7 +169,7 @@ pub fn handle_send_transaction_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: ChainSpecT::RpcTransactionRequest,
-) -> ProviderResultWithTraces<B256, ChainSpecT> {
+) -> ProviderResultWithCallTraces<B256, ChainSpecT> {
     let sender = *request.sender();
 
     let context = TransactionContext { data };
@@ -193,7 +193,7 @@ pub fn handle_send_raw_transaction_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     raw_transaction: Bytes,
-) -> ProviderResultWithTraces<B256, ChainSpecT> {
+) -> ProviderResultWithCallTraces<B256, ChainSpecT> {
     use alloy_rlp::Decodable as _;
 
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
@@ -284,35 +284,40 @@ fn send_raw_transaction_and_log<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     signed_transaction: ChainSpecT::SignedTransaction,
-) -> ProviderResultWithTraces<B256, ChainSpecT> {
+) -> ProviderResultWithCallTraces<B256, ChainSpecT> {
     let result = data.send_transaction(signed_transaction.clone())?;
 
-    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_send_transaction(hardfork, &signed_transaction, &result.mining_results)
+        .log_send_transaction(&signed_transaction, &result.mining_results)
         .map_err(ProviderError::Logger)?;
 
     if data.bail_on_transaction_failure() {
-        let transaction_failure =
-            result
-                .transaction_result_and_trace()
-                .and_then(|(execution_result, trace)| {
-                    TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
-                        execution_result,
-                        Some(&result.transaction_hash),
-                        trace,
-                    )
-                });
+        let transaction_failure = result.transaction_result_and_observed_data().and_then(
+            |(execution_result, observed_data)| {
+                TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
+                    execution_result,
+                    Some(&result.transaction_hash),
+                    &observed_data.address_to_executed_code,
+                    &observed_data.call_trace_arena,
+                    data.contract_decoder(),
+                )
+            },
+        );
 
         if let Some(failure) = transaction_failure {
-            let (_transaction_hash, traces) = result.into();
+            let (_transaction_hash, traces) =
+                result.into_hash_and_call_traces(data.include_call_traces());
+
             return Err(ProviderError::TransactionFailed(Box::new(
-                TransactionFailureWithTraces { failure, traces },
+                TransactionFailureWithCallTraces {
+                    failure,
+                    call_trace_arenas: traces,
+                },
             )));
         }
     }
 
-    Ok(result.into())
+    Ok(result.into_hash_and_call_traces(data.include_call_traces()))
 }
 
 fn validate_send_raw_transaction_request<
@@ -398,7 +403,7 @@ mod tests {
 
         fixture.provider_data.set_auto_mining(true);
         let result = fixture.provider_data.send_transaction(transaction)?;
-        assert!(result.transaction_result_and_trace().is_some());
+        assert!(result.transaction_result_and_observed_data().is_some());
 
         let rpc_transaction =
             handle_get_transaction_by_hash(&fixture.provider_data, result.transaction_hash)?

@@ -15,7 +15,6 @@ edr_eip1559.workspace = true
 edr_eip7892.workspace = true
 edr_primitives.workspace = true
 edr_transaction.workspace = true
-serde.workspace = true
 
 [features]
 tracing = ["edr_chain_spec_block/tracing", "edr_chain_spec_receipt/tracing"]

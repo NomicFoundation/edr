@@ -34,7 +34,7 @@ pub mod identifier;
 use identifier::LocalTraceIdentifier;
 
 pub mod abi;
-mod decoder;
+pub mod decoder;
 pub use decoder::{CallTraceDecoder, CallTraceDecoderBuilder};
 use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 
@@ -214,7 +214,6 @@ impl TracingMode {
 ///
 /// The traces will be decoded using the given decoder, if possible.
 pub async fn decode_trace_arena(arena: &mut CallTraceArena, decoder: &CallTraceDecoder) {
-    decoder.prefetch_signatures(arena.nodes()).await;
     decoder.populate_traces(arena.nodes_mut()).await;
 }
 

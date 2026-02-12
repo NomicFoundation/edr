@@ -273,6 +273,13 @@ export interface ObservabilityConfig {
   codeCoverage?: CodeCoverageConfig
   /** If present, configures runtime observability to collect gas reports. */
   gasReport?: GasReportConfig
+  /**
+   * Controls when to include call traces in the results of transaction
+   * execution.
+   *
+   * Defaults to `IncludeTraces.None`.
+   */
+  includeCallTraces?: IncludeTraces
 }
 /** Configuration for a provider */
 export interface ProviderConfig {
@@ -974,15 +981,21 @@ export enum CollectStackTraces {
   OnFailure = 1
 }
 /**
- * Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
- * controls execution trace decoding and inclusion in test results.
+ * Configuration that controls whether execution traces are decoded and
+ * included in results.
+ *
+ * This can either be for Solidity test results or provider transaction
+ * execution results.
  */
 export enum IncludeTraces {
-  /** No traces will be included in any test result. */
+  /** No traces will be included at all. */
   None = 0,
-  /** Traces will be included only on the results of failed tests. */
+  /**
+   * Traces will be included only on the results of failed tests or
+   * execution.
+   */
   Failing = 1,
-  /** Traces will be included in all test results. */
+  /** Traces will be included for all test results or executed transactions. */
   All = 2
 }
 /** Test function level config override. */
@@ -1581,9 +1594,15 @@ export declare class Response {
   /**Returns the response data as a JSON string or a JSON object. */
   get data(): string | any
   /**Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace. */
-  stackTrace(): SolidityStackTrace | null
-  /**Returns the raw traces of executed contracts. This maybe contain zero or more traces. */
-  get traces(): Array<RawTrace>
+  stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | null
+  /**
+   * Constructs the execution traces for the request. Returns an empty array
+   * if traces are not enabled for this provider according to
+   * [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+   * an array of the root calls of the trace, which always includes the
+   * request's call itself.
+   */
+  callTraces(): Array<CallTrace>
 }
 /** A JSON-RPC provider for Ethereum. */
 export declare class Provider {

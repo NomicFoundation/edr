@@ -1,21 +1,22 @@
-use edr_chain_spec::EvmHaltReason;
-use edr_napi_core::spec::SolidityTraceData;
-use edr_solidity::contract_decoder::NestedTraceDecoder as _;
-use napi::Either;
+use edr_solidity::solidity_stack_trace::StackTraceCreationResult;
+use napi::{bindgen_prelude::Either3, Either};
 use napi_derive::napi;
 
 use crate::{
-    cast::TryCast,
-    trace::{solidity_stack_trace::SolidityStackTrace, RawTrace},
+    solidity_tests::test_results::{CallTrace, HeuristicFailed, StackTrace, UnexpectedError},
+    trace::solidity_stack_trace::{
+        solidity_stack_trace_error_to_napi, solidity_stack_trace_heuristic_failed_to_napi,
+        solidity_stack_trace_success_to_napi,
+    },
 };
 
 #[napi]
 pub struct Response {
-    inner: edr_napi_core::spec::Response<EvmHaltReason>,
+    inner: edr_napi_core::spec::Response,
 }
 
-impl From<edr_napi_core::spec::Response<EvmHaltReason>> for Response {
-    fn from(value: edr_napi_core::spec::Response<EvmHaltReason>) -> Self {
+impl From<edr_napi_core::spec::Response> for Response {
+    fn from(value: edr_napi_core::spec::Response) -> Self {
         Self { inner: value }
     }
 }
@@ -28,46 +29,47 @@ impl Response {
         self.inner.data.clone()
     }
 
-    // Rust port of https://github.com/NomicFoundation/hardhat/blob/c20bf195a6efdc2d74e778b7a4a7799aac224841/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L590
     #[doc = "Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace."]
     #[napi(catch_unwind)]
-    pub fn stack_trace(&self) -> napi::Result<Option<SolidityStackTrace>> {
-        let Some(SolidityTraceData {
-            trace,
-            contract_decoder,
-        }) = &self.inner.solidity_trace
-        else {
-            return Ok(None);
-        };
-        let nested_trace = edr_solidity::nested_tracer::convert_trace_messages_to_nested_trace(
-            trace.as_ref().clone(),
-        )
-        .map_err(|err| napi::Error::from_reason(err.to_string()))?;
-
-        if let Some(vm_trace) = nested_trace {
-            let decoded_trace = contract_decoder
-                .try_to_decode_nested_trace(vm_trace)
-                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
-            let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
-                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
-            let stack_trace = stack_trace
-                .into_iter()
-                .map(TryCast::try_cast)
-                .collect::<Result<Vec<_>, _>>()?;
-
-            Ok(Some(stack_trace))
-        } else {
-            Ok(None)
-        }
+    pub fn stack_trace(&self) -> Option<Either3<StackTrace, UnexpectedError, HeuristicFailed>> {
+        self.inner
+            .stack_trace_result
+            .as_ref()
+            .map(|stack_trace_result| match stack_trace_result {
+                StackTraceCreationResult::Success(stack_trace) => {
+                    Either3::A(solidity_stack_trace_success_to_napi(stack_trace))
+                }
+                StackTraceCreationResult::Error(error) => {
+                    Either3::B(solidity_stack_trace_error_to_napi(error))
+                }
+                StackTraceCreationResult::HeuristicFailed => {
+                    Either3::C(solidity_stack_trace_heuristic_failed_to_napi())
+                }
+            })
     }
 
-    #[doc = "Returns the raw traces of executed contracts. This maybe contain zero or more traces."]
-    #[napi(catch_unwind, getter)]
-    pub fn traces(&self) -> Vec<RawTrace> {
+    /// Constructs the execution traces for the request. Returns an empty array
+    /// if traces are not enabled for this provider according to
+    /// [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+    /// an array of the root calls of the trace, which always includes the
+    /// request's call itself.
+    #[napi(catch_unwind)]
+    pub fn call_traces(&self) -> Vec<CallTrace> {
         self.inner
-            .traces
+            .call_trace_arenas
             .iter()
-            .map(|trace| RawTrace::from(trace.clone()))
+            .map(|call_trace_arena| CallTrace::from_arena_node(call_trace_arena, 0))
             .collect()
     }
+
+    // TODO(#1288): Add backwards compatibility layer for Hardhat 2
+    // #[doc = "Returns the raw traces of executed contracts. This maybe contain
+    // zero or more traces."] #[napi(catch_unwind, getter)]
+    // pub fn traces(&self) -> Vec<RawTrace> {
+    //     self.inner
+    //         .call_trace_arenas
+    //         .iter()
+    //         .map(|trace| RawTrace::from(trace.clone()))
+    //         .collect()
+    // }
 }

@@ -13,7 +13,6 @@ use edr_provider::{
 };
 use edr_rpc_eth::jsonrpc;
 use edr_scenarios::ScenarioConfig;
-use edr_solidity::contract_decoder::ContractDecoder;
 use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
 use indicatif::ProgressBar;
 use tokio::{
@@ -134,7 +133,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
             logger,
             subscription_callback,
             provider_config,
-            Arc::new(ContractDecoder::default()),
+            Arc::default(),
             CurrentTime,
         )
     })

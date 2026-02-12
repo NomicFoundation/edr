@@ -217,18 +217,24 @@ pub async fn run_full_block<
     )];
     let mined_block = builder.finalize_block(rewards)?;
 
-    let mined_header = mined_block.block.block_header();
+    let mined_header = mined_block.block_and_state.block.block_header();
 
     debug_assert_eq!(
         expected_block.block_hash(),
-        mined_block.block.block_hash(),
+        mined_block.block_and_state.block.block_hash(),
         "{:?}",
         "Block hashes differ"
     );
     for (expected, actual) in expected_block
         .fetch_transaction_receipts()?
         .into_iter()
-        .zip(mined_block.block.transaction_receipts().iter())
+        .zip(
+            mined_block
+                .block_and_state
+                .block
+                .transaction_receipts()
+                .iter(),
+        )
     {
         debug_assert_eq!(
             expected.block_number(),
