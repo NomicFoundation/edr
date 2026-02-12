@@ -7,6 +7,7 @@ use alloy_primitives::{
     Address, LogData, Selector, B256,
 };
 use edr_common::fmt::format_token;
+use edr_decoder_revert::RevertDecoder;
 use edr_defaults::SELECTOR_LEN;
 use foundry_evm_core::{
     abi::{console, Vm},
@@ -15,7 +16,6 @@ use foundry_evm_core::{
         TEST_CONTRACT_ADDRESS,
     },
     contracts::ContractsByArtifact,
-    decode::RevertDecoder,
     precompiles::{
         BLAKE_2F, BLS12_G1ADD, BLS12_G1MSM, BLS12_G2ADD, BLS12_G2MSM, BLS12_MAP_FP2_TO_G2,
         BLS12_MAP_FP_TO_G1, BLS12_PAIRING_CHECK, EC_ADD, EC_MUL, EC_PAIRING, EC_RECOVER, IDENTITY,
@@ -26,15 +26,11 @@ use itertools::Itertools;
 use revm_inspectors::tracing::types::{DecodedCallLog, DecodedCallTrace};
 
 use crate::{
-    abi::get_indexed_event,
-    identifier::{
-        IdentifiedAddress, LocalTraceIdentifier, SelectorKind, SignaturesIdentifier,
-        TraceIdentifier,
-    },
+    identifier::{IdentifiedAddress, LocalTraceIdentifier, TraceIdentifier},
     CallTrace, CallTraceArena, CallTraceNode, DecodedCallData,
 };
 
-mod precompiles;
+pub mod precompiles;
 
 /// Build a new [`CallTraceDecoder`].
 #[derive(Default)]
@@ -84,15 +80,16 @@ impl CallTraceDecoderBuilder {
 
     /// Sets the signature identifier for events and functions.
     #[inline]
-    pub fn with_signature_identifier(mut self, identifier: SignaturesIdentifier) -> Self {
-        self.decoder.signature_identifier = Some(identifier);
+    pub fn with_label_disabled(mut self, disable_alias: bool) -> Self {
+        self.decoder.disable_labels = disable_alias;
         self
     }
 
-    /// Sets the signature identifier for events and functions.
+    /// Adds the provided precompile addresses to the known precompile
+    /// addresses.
     #[inline]
-    pub fn with_label_disabled(mut self, disable_alias: bool) -> Self {
-        self.decoder.disable_labels = disable_alias;
+    pub fn with_precompiles(mut self, precompiles: impl IntoIterator<Item = Address>) -> Self {
+        self.decoder.precompiles.extend(precompiles);
         self
     }
 
@@ -126,6 +123,8 @@ pub struct CallTraceDecoder {
     /// Contract addresses that have do NOT have fallback functions, mapped to
     /// function selectors of that contract.
     pub non_fallback_contracts: HashMap<Address, HashSet<Selector>>,
+    /// Known precompile addresses.
+    pub precompiles: HashSet<Address>,
 
     /// All known functions.
     pub functions: HashMap<Selector, Vec<Function>>,
@@ -136,8 +135,6 @@ pub struct CallTraceDecoder {
     /// Revert decoder. Contains all known custom errors.
     pub revert_decoder: RevertDecoder,
 
-    /// A signature identifier for events and functions.
-    pub signature_identifier: Option<SignaturesIdentifier>,
     /// Verbosity level
     pub verbosity: u8,
 
@@ -188,6 +185,26 @@ impl CallTraceDecoder {
             receive_contracts: HashSet::default(),
             fallback_contracts: HashMap::default(),
             non_fallback_contracts: HashMap::default(),
+            precompiles: HashSet::from_iter([
+                EC_RECOVER,
+                SHA_256,
+                RIPEMD_160,
+                IDENTITY,
+                MOD_EXP,
+                EC_ADD,
+                EC_MUL,
+                EC_PAIRING,
+                BLAKE_2F,
+                POINT_EVALUATION,
+                BLS12_G1ADD,
+                BLS12_G1MSM,
+                BLS12_G2ADD,
+                BLS12_G2MSM,
+                BLS12_PAIRING_CHECK,
+                BLS12_MAP_FP_TO_G1,
+                BLS12_MAP_FP2_TO_G2,
+                P256_VERIFY,
+            ]),
 
             functions: console::hh::abi::functions()
                 .into_values()
@@ -201,8 +218,6 @@ impl CallTraceDecoder {
                 .map(|event| ((event.selector(), indexed_inputs(&event)), vec![event]))
                 .collect(),
             revert_decoder: RevertDecoder::default(),
-
-            signature_identifier: None,
             verbosity: 0,
 
             disable_labels: false,
@@ -377,8 +392,10 @@ impl CallTraceDecoder {
             };
         }
 
-        if let Some(trace) = precompiles::decode(trace, 1) {
-            return trace;
+        if self.precompiles.contains(&trace.address)
+            && let Some(decoded) = precompiles::decode(trace)
+        {
+            return decoded;
         }
 
         let cdata = &trace.data;
@@ -399,16 +416,10 @@ impl CallTraceDecoder {
                 .expect("calldata should have at least SELECTOR_LEN bytes");
             let selector = Selector::try_from(selector_bytes)
                 .expect("selector_bytes should convert to Selector");
-            let mut functions = Vec::new();
             let functions = if let Some(fs) = self.functions.get(&selector) {
                 fs
             } else {
-                if let Some(identifier) = &self.signature_identifier
-                    && let Some(function) = identifier.identify_function(selector).await
-                {
-                    functions.push(function);
-                }
-                &functions
+                &Vec::new()
             };
 
             // Check if unsupported fn selector: calldata dooes NOT point to one of its
@@ -718,20 +729,8 @@ impl CallTraceDecoder {
     }
 
     /// The default decoded return data for a trace.
-    fn default_return_data(&self, trace: &CallTrace) -> Option<String> {
-        // For calls with status None or successful status, don't decode revert data
-        // This is due to trace.status is derived from the
-        // revm_interpreter::InstructionResult in revm-inspectors status will
-        // `None` post revm 27, as `InstructionResult::Continue` does not exists
-        // anymore.
-        if trace.status.is_none()
-            || trace
-                .status
-                .is_some_and(revm::interpreter::InstructionResult::is_ok)
-        {
-            return None;
-        }
-        (!trace.success).then(|| self.revert_decoder.decode(&trace.output, trace.status))
+    fn default_return_data(&self, call_trace: &CallTrace) -> Option<String> {
+        default_return_data(call_trace, &self.revert_decoder)
     }
 
     /// Decodes an event.
@@ -743,16 +742,10 @@ impl CallTraceDecoder {
             };
         };
 
-        let mut events = Vec::new();
         let events = if let Some(es) = self.events.get(&(t0, log.topics().len() - 1)) {
             es
         } else {
-            if let Some(identifier) = &self.signature_identifier
-                && let Some(event) = identifier.identify_event(t0).await
-            {
-                events.push(get_indexed_event(event, log));
-            }
-            &events
+            &Vec::new()
         };
         for event in events {
             if let Ok(decoded) = event.decode_log(log) {
@@ -780,54 +773,6 @@ impl CallTraceDecoder {
         }
     }
 
-    /// Prefetches function and event signatures into the identifier cache
-    pub async fn prefetch_signatures(&self, nodes: &[CallTraceNode]) {
-        let Some(identifier) = &self.signature_identifier else {
-            return;
-        };
-        let events = nodes
-            .iter()
-            .flat_map(|node| {
-                node.logs
-                    .iter()
-                    .map(|log| log.raw_log.topics())
-                    .filter(|&topics| {
-                        if let Some(&first) = topics.first()
-                            && self.events.contains_key(&(first, topics.len() - 1))
-                        {
-                            return false;
-                        }
-                        true
-                    })
-                    .filter_map(|topics| topics.first())
-            })
-            .copied();
-        let functions = nodes
-            .iter()
-            .filter(|&n| {
-                // Ignore known addresses.
-                if n.trace.address == DEFAULT_CREATE2_DEPLOYER
-                    || n.is_precompile()
-                    || precompiles::is_known_precompile(n.trace.address, 1)
-                {
-                    return false;
-                }
-                // Ignore non-ABI calldata.
-                if n.trace.kind.is_any_create() || !is_abi_call_data(&n.trace.data) {
-                    return false;
-                }
-                true
-            })
-            .filter_map(|n| n.trace.data.first_chunk().map(Selector::from))
-            .filter(|selector| !self.functions.contains_key(selector));
-        let selectors = events
-            .map(SelectorKind::Event)
-            .chain(functions.map(SelectorKind::Function))
-            .unique()
-            .collect::<Vec<_>>();
-        let _ = identifier.identify(&selectors).await;
-    }
-
     /// Pretty-prints a value.
     fn format_value(&self, value: &DynSolValue) -> String {
         if let DynSolValue::Address(addr) = value
@@ -839,11 +784,31 @@ impl CallTraceDecoder {
     }
 }
 
+/// The default decoded return data for a trace.
+pub fn default_return_data(
+    call_trace: &CallTrace,
+    revert_decoder: &RevertDecoder,
+) -> Option<String> {
+    // For calls with status None or successful status, don't decode revert data
+    // This is due to trace.status is derived from the
+    // revm_interpreter::InstructionResult in revm-inspectors status will
+    // `None` post revm 27, as `InstructionResult::Continue` does not exists
+    // anymore.
+    if call_trace.status.is_none()
+        || call_trace
+            .status
+            .is_some_and(revm::interpreter::InstructionResult::is_ok)
+    {
+        return None;
+    }
+    (!call_trace.success).then(|| revert_decoder.decode(&call_trace.output, call_trace.status))
+}
+
 /// Returns `true` if the given function calldata (including function selector)
 /// is ABI-encoded.
 ///
 /// This is a simple heuristic to avoid fetching non ABI-encoded selectors.
-fn is_abi_call_data(data: &[u8]) -> bool {
+pub fn is_abi_call_data(data: &[u8]) -> bool {
     match data.len().cmp(&SELECTOR_LEN) {
         std::cmp::Ordering::Less => false,
         std::cmp::Ordering::Equal => true,

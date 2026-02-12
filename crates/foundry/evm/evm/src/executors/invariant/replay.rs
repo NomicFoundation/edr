@@ -3,11 +3,11 @@ use std::{collections::HashMap, sync::Arc};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::Log;
 use derive_where::derive_where;
-use edr_solidity::contract_decoder::NestedTraceDecoder;
+use edr_decoder_revert::RevertDecoder;
+use edr_solidity::{contract_decoder::NestedTraceDecoder, solidity_stack_trace::get_stack_trace};
 use eyre::Result;
 use foundry_evm_core::{
     contracts::{ContractsByAddress, ContractsByArtifact},
-    decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
@@ -32,7 +32,7 @@ use super::{
     shrink_sequence, CallAfterInvariantResult, CallInvariantResult,
 };
 use crate::executors::{
-    stack_trace::{get_stack_trace, StackTraceResult},
+    stack_trace::{SolidityTestStackTraceError, SolidityTestStackTraceResult},
     Executor,
 };
 
@@ -77,7 +77,7 @@ pub struct ReplayRunArgs<
 #[derive_where(Default)]
 pub struct ReplayResult<HaltReasonT: HaltReasonTr> {
     pub counterexample_sequence: Vec<BaseCounterExample>,
-    pub stack_trace_result: Option<StackTraceResult<HaltReasonT>>,
+    pub stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>>,
     pub revert_reason: Option<String>,
 }
 
@@ -171,14 +171,19 @@ pub fn replay_run<
             .is_some_and(InstructionResult::is_ok)
             && (fail_on_revert || !call_result.reverted)
         {
-            let stack_trace_result =
-                if let Some(indeterminism_reasons) = call_result.indeterminism_reasons {
-                    Some(indeterminism_reasons.into())
-                } else {
-                    contract_decoder
-                        .and_then(|decoder| get_stack_trace(decoder, traces).transpose())
-                        .map(StackTraceResult::from)
-                };
+            let stack_trace_result = if let Some(indeterminism_reasons) =
+                call_result.indeterminism_reasons
+            {
+                Some(indeterminism_reasons.into())
+            } else {
+                contract_decoder
+                    .and_then(|decoder| {
+                        get_stack_trace(decoder, traces.iter().map(|(_, arena)| &arena.arena), None)
+                            .map_err(SolidityTestStackTraceError::from)
+                            .transpose()
+                    })
+                    .map(SolidityTestStackTraceResult::from)
+            };
             let revert_reason =
                 revert_decoder.maybe_decode(call_result.result.as_ref(), call_result.exit_reason);
             return Ok(ReplayResult {
@@ -231,20 +236,26 @@ pub fn replay_run<
         logs.extend(after_invariant_result.logs);
     }
 
-    let stack_trace_result: Option<StackTraceResult<HaltReasonT>> = generate_stack_trace
-        .then(|| {
-            invariant_result
-                .indeterminism_reasons
-                .map(StackTraceResult::from)
-                .or_else(|| {
-                    contract_decoder.and_then(|decoder| {
-                        get_stack_trace(decoder, traces)
+    let stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>> =
+        generate_stack_trace
+            .then(|| {
+                invariant_result
+                    .indeterminism_reasons
+                    .map(SolidityTestStackTraceResult::from)
+                    .or_else(|| {
+                        contract_decoder.and_then(|decoder| {
+                            get_stack_trace(
+                                decoder,
+                                traces.iter().map(|(_, arena)| &arena.arena),
+                                None,
+                            )
+                            .map_err(SolidityTestStackTraceError::from)
                             .transpose()
-                            .map(StackTraceResult::from)
+                            .map(SolidityTestStackTraceResult::from)
+                        })
                     })
-                })
-        })
-        .flatten();
+            })
+            .flatten();
 
     let revert_reason = revert_decoder.maybe_decode(
         invariant_result.result.as_ref(),

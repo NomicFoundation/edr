@@ -1,0 +1,18 @@
+[package]
+name = "edr_decoder_revert"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-dyn-abi = { workspace = true, features = ["arbitrary", "eip712"] }
+alloy-json-abi.workspace = true
+alloy-sol-types.workspace = true
+edr_common.workspace = true
+edr_defaults.workspace = true
+edr_primitives.workspace = true
+foundry-cheatcodes-spec.workspace = true
+itertools.workspace = true
+revm-interpreter.workspace = true
+
+[lints]
+workspace = true

@@ -1,6 +1,7 @@
 use alloy_primitives::{address, hex, Address, Bytes};
 use alloy_sol_types::{SolError, SolValue};
-use foundry_evm_core::{contracts::ContractsByArtifact, decode::RevertDecoder};
+use edr_decoder_revert::RevertDecoder;
+use foundry_evm_core::contracts::ContractsByArtifact;
 use revm::interpreter::{return_ok, InstructionResult};
 use spec::Vm;
 

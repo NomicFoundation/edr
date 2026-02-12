@@ -6,17 +6,18 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     InvalidTransaction, L1ChainSpec,
 };
-use edr_chain_spec::{EvmHaltReason, EvmSpecId};
+use edr_chain_spec::EvmSpecId;
 use edr_chain_spec_evm::TransactionError;
 use edr_defaults::SECRET_KEYS;
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::address;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderError, ProviderErrorForChainSpec, ProviderRequest, ResponseWithTraces,
+    ProviderError, ProviderErrorForChainSpec, ProviderRequest, ResponseWithCallTraces,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 const TRANSACTION_GAS_CAP: u64 = 50_000;
@@ -38,7 +39,7 @@ fn new_provider(
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 
@@ -48,7 +49,7 @@ fn new_provider(
 fn send_transaction(
     provider: &Provider<L1ChainSpec>,
     gas_limit: u64,
-) -> Result<ResponseWithTraces<EvmHaltReason>, ProviderErrorForChainSpec<L1ChainSpec>> {
+) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<L1ChainSpec>> {
     let caller = secret_key_to_address(SECRET_KEYS[0])?;
     let transaction = TransactionRequest {
         from: caller,

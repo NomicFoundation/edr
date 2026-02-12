@@ -17,6 +17,7 @@ use napi::{
     tokio::runtime,
 };
 use napi_derive::napi;
+use parking_lot::RwLock;
 
 use crate::{account::AccountOverride, provider::ProviderFactory};
 
@@ -29,7 +30,7 @@ impl SyncProviderFactory for L1ProviderFactory {
         provider_config: edr_napi_core::provider::Config,
         logger_config: edr_napi_core::logger::Config,
         subscription_callback: edr_napi_core::subscription::Callback,
-        contract_decoder: Arc<ContractDecoder>,
+        contract_decoder: Arc<RwLock<ContractDecoder>>,
     ) -> napi::Result<Arc<dyn SyncProvider>> {
         let logger =
             Logger::<L1ChainSpec, CurrentTime>::new(logger_config, Arc::clone(&contract_decoder))?;

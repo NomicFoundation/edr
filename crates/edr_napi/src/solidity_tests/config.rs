@@ -822,36 +822,40 @@ impl From<CollectStackTraces> for edr_solidity_tests::CollectStackTraces {
     }
 }
 
-/// Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
-/// controls execution trace decoding and inclusion in test results.
+/// Configuration that controls whether execution traces are decoded and
+/// included in results.
+///
+/// This can either be for Solidity test results or provider transaction
+/// execution results.
 #[napi]
 #[derive(Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub enum IncludeTraces {
-    /// No traces will be included in any test result.
+    /// No traces will be included at all.
     #[default]
     None,
-    /// Traces will be included only on the results of failed tests.
+    /// Traces will be included only on the results of failed tests or
+    /// execution.
     Failing,
-    /// Traces will be included in all test results.
+    /// Traces will be included for all test results or executed transactions.
     All,
 }
 
-impl From<IncludeTraces> for edr_solidity_tests::IncludeTraces {
+impl From<IncludeTraces> for edr_solidity::config::IncludeTraces {
     fn from(value: IncludeTraces) -> Self {
         match value {
-            IncludeTraces::None => edr_solidity_tests::IncludeTraces::None,
-            IncludeTraces::Failing => edr_solidity_tests::IncludeTraces::Failing,
-            IncludeTraces::All => edr_solidity_tests::IncludeTraces::All,
+            IncludeTraces::None => edr_solidity::config::IncludeTraces::None,
+            IncludeTraces::Failing => edr_solidity::config::IncludeTraces::Failing,
+            IncludeTraces::All => edr_solidity::config::IncludeTraces::All,
         }
     }
 }
 
-impl From<edr_solidity_tests::IncludeTraces> for IncludeTraces {
-    fn from(value: edr_solidity_tests::IncludeTraces) -> Self {
+impl From<edr_solidity::config::IncludeTraces> for IncludeTraces {
+    fn from(value: edr_solidity::config::IncludeTraces) -> Self {
         match value {
-            edr_solidity_tests::IncludeTraces::None => IncludeTraces::None,
-            edr_solidity_tests::IncludeTraces::Failing => IncludeTraces::Failing,
-            edr_solidity_tests::IncludeTraces::All => IncludeTraces::All,
+            edr_solidity::config::IncludeTraces::None => IncludeTraces::None,
+            edr_solidity::config::IncludeTraces::Failing => IncludeTraces::Failing,
+            edr_solidity::config::IncludeTraces::All => IncludeTraces::All,
         }
     }
 }

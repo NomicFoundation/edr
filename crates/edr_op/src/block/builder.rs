@@ -2,7 +2,8 @@ use core::fmt::Debug;
 
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
-    BlockTransactionError, BuiltBlockAndState, DatabaseComponents, PrecompileFn, WrapDatabaseRef,
+    BlockTransactionError, BuiltBlockAndStateWithMetadata, DatabaseComponents, PrecompileFn,
+    WrapDatabaseRef,
 };
 use edr_block_header::{overridden_block_number, BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_l1::block::EthBlockBuilder;
@@ -177,6 +178,10 @@ impl<'builder, BlockchainErrorT: std::error::Error>
         self.eth.header()
     }
 
+    fn precompile_addresses(&self) -> &edr_primitives::HashSet<Address> {
+        self.eth.precompile_addresses()
+    }
+
     fn add_transaction(
         &mut self,
         transaction: OpSignedTransaction,
@@ -232,8 +237,10 @@ impl<'builder, BlockchainErrorT: std::error::Error>
     fn finalize_block(
         self,
         rewards: Vec<(Address, u128)>,
-    ) -> Result<BuiltBlockAndState<HaltReason, Self::LocalBlock>, BlockFinalizeError<StateError>>
-    {
+    ) -> Result<
+        BuiltBlockAndStateWithMetadata<Self::LocalBlock, HaltReason>,
+        BlockFinalizeError<StateError>,
+    > {
         self.eth.finalize(rewards)
     }
 }

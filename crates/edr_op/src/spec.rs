@@ -27,13 +27,14 @@ use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
 use edr_napi_core::{
     napi,
-    spec::{marshal_response_data, Response, SyncNapiSpec},
+    spec::{cast_provider_result_to_response, SyncNapiSpec},
 };
 use edr_primitives::HashMap;
-use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
+use edr_provider::{
+    time::TimeSinceEpoch, ProviderErrorForChainSpec, ProviderSpec, ResponseWithCallTraces,
+    TransactionFailureReason,
+};
 use edr_receipt::ExecutionReceiptChainSpec;
-use edr_rpc_eth::jsonrpc;
-use edr_solidity::contract_decoder::ContractDecoder;
 use edr_state_api::{StateDebug as _, StateDiff};
 use edr_state_persistent_trie::PersistentStateTrie;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
@@ -373,20 +374,9 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
     const CHAIN_TYPE: &'static str = crate::CHAIN_TYPE;
 
     fn cast_response(
-        response: Result<
-            edr_provider::ResponseWithTraces<HaltReason>,
-            edr_provider::ProviderErrorForChainSpec<Self>,
-        >,
-        _contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<edr_napi_core::spec::Response<EvmHaltReason>> {
-        let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
-
-        marshal_response_data(response).map(|data| Response {
-            data,
-            // TODO: Add support for Solidity stack traces in OP
-            solidity_trace: None,
-            traces: Vec::new(),
-        })
+        response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
+    ) -> napi::Result<edr_napi_core::spec::Response> {
+        cast_provider_result_to_response(response)
     }
 }
 

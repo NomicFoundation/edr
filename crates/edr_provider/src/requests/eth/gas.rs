@@ -8,11 +8,11 @@ use edr_transaction::TransactionMut;
 
 use crate::{
     data::ProviderData,
-    error::ProviderErrorForChainSpec,
+    error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
     requests::validation::validate_post_merge_block_tags,
     spec::{CallContext, FromRpcType as _, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, ProviderResultWithTraces,
+    ProviderError, ProviderResultWithCallTraces,
 };
 
 pub fn handle_estimate_gas<
@@ -27,12 +27,10 @@ pub fn handle_estimate_gas<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
-) -> ProviderResultWithTraces<U64, ChainSpecT> {
+) -> ProviderResultWithCallTraces<U64, ChainSpecT> {
     // Matching Hardhat behavior in defaulting to "pending" instead of "latest" for
     // estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);
-
-    let hardfork = data.hardfork();
 
     let transaction =
         resolve_estimate_gas_request(data, request, &block_spec, &StateOverrides::default())?;
@@ -40,15 +38,18 @@ pub fn handle_estimate_gas<
     let result = data.estimate_gas(transaction.clone(), &block_spec);
     if let Err(ProviderError::EstimateGasTransactionFailure(failure)) = result {
         data.logger_mut()
-            .log_estimate_gas_failure(hardfork, &transaction, &failure)
+            .log_estimate_gas_failure(&transaction, &failure)
             .map_err(ProviderError::Logger)?;
 
         Err(ProviderError::TransactionFailed(Box::new(
-            failure.transaction_failure,
+            TransactionFailureWithCallTraces {
+                failure: failure.transaction_failure,
+                call_trace_arenas: vec![failure.call_trace_arena],
+            },
         )))
     } else {
         let result = result?;
-        Ok((U64::from(result.estimation), result.traces))
+        Ok((U64::from(result.estimation), result.call_trace_arenas))
     }
 }
 

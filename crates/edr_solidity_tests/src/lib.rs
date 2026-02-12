@@ -11,14 +11,14 @@ pub use runner::ContractRunner;
 
 mod config;
 pub use config::{
-    CollectStackTraces, FuzzConfigOverride, IncludeTraces, InvariantConfigOverride,
-    SolidityTestRunnerConfig, SolidityTestRunnerConfigError, SyncOnCollectedCoverageCallback,
-    TestFunctionConfigOverride, TimeoutConfig,
+    CollectStackTraces, FuzzConfigOverride, InvariantConfigOverride, SolidityTestRunnerConfig,
+    SolidityTestRunnerConfigError, SyncOnCollectedCoverageCallback, TestFunctionConfigOverride,
+    TimeoutConfig,
 };
 
 pub mod result;
 
-pub use foundry_evm::executors::stack_trace::StackTraceError;
+pub use foundry_evm::executors::stack_trace::SolidityTestStackTraceError;
 
 mod error;
 mod test_filter;

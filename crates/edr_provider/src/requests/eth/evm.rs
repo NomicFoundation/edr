@@ -1,4 +1,4 @@
-use std::num::NonZeroU64;
+use std::{num::NonZeroU64, slice};
 
 use edr_block_header::HeaderOverrides;
 use edr_chain_spec::TransactionValidation;
@@ -9,7 +9,7 @@ use crate::{
     error::ProviderErrorForChainSpec,
     spec::{ProviderSpec, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, ProviderResultWithTraces, Timestamp,
+    ProviderError, ProviderResultWithCallTraces, Timestamp,
 };
 
 pub fn handle_increase_time_request<
@@ -34,18 +34,29 @@ pub fn handle_mine_request<
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     timestamp: Option<Timestamp>,
-) -> ProviderResultWithTraces<String, ChainSpecT> {
+) -> ProviderResultWithCallTraces<String, ChainSpecT> {
     let mine_block_result = data.mine_and_commit_block(HeaderOverrides {
         timestamp: timestamp.map(Into::into),
         ..HeaderOverrides::default()
     })?;
 
-    let traces = mine_block_result.transaction_traces.clone();
-
-    let hardfork = data.hardfork();
     data.logger_mut()
-        .log_mined_block(hardfork, &[mine_block_result])
+        .log_mined_block(slice::from_ref(&mine_block_result))
         .map_err(ProviderError::Logger)?;
+
+    let include_call_traces = data.include_call_traces();
+    let traces = mine_block_result
+        .transaction_inspector_data
+        .into_iter()
+        .zip(mine_block_result.transaction_results)
+        .filter_map(|(observed_data, transaction_result)| {
+            if include_call_traces.should_include(|| !transaction_result.is_success()) {
+                Some(observed_data.call_trace_arena)
+            } else {
+                None
+            }
+        })
+        .collect();
 
     let result = String::from("0");
     Ok((result, traces))

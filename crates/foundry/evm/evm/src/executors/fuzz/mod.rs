@@ -7,9 +7,9 @@ use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Log, U256};
 use derive_where::derive_where;
+use edr_decoder_revert::{cheatcodes::skip::SkipReason, RevertDecoder};
 use foundry_evm_core::{
     constants::{CHEATCODE_ADDRESS, MAGIC_ASSUME, TEST_TIMEOUT},
-    decode::{RevertDecoder, SkipReason},
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,

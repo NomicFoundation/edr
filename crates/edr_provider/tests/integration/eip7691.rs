@@ -12,6 +12,7 @@ use edr_provider::{
     ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
+use parking_lot::RwLock;
 use tokio::runtime;
 
 use crate::common::blob::{fake_raw_transaction, fake_transaction, BlobTransactionBuilder};
@@ -33,7 +34,7 @@ async fn block_header() -> anyhow::Result<()> {
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
 

@@ -585,7 +585,9 @@ impl<
             });
 
         if let Some(code_coverage) = code_coverage {
-            code_coverage.report().map_err(|error| eyre!(error))?;
+            code_coverage
+                .collect_and_report()
+                .map_err(|error| eyre!(error))?;
         }
 
         Ok(InspectorData {

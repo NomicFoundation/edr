@@ -49,6 +49,22 @@ import {
   traceTransaction,
 } from "./execution";
 
+/**
+ * Get the source directory path for this file.
+ * When running from compiled code in build-test, __dirname points to the build directory.
+ * This function returns the corresponding source directory path.
+ */
+function getSourceDir(): string {
+  let dir = __dirname;
+
+  if (dir.includes("build-test")) {
+    // Replace build-test with test to get the source directory
+    dir = dir.replace(/build-test[\/\\]test/, "test");
+  }
+
+  return dir;
+}
+
 interface StackFrameDescription {
   type: string;
   sourceReference?: {
@@ -122,7 +138,7 @@ function defineTest(
   const desc: string =
     testDefinition.description !== undefined
       ? testDefinition.description
-      : path.relative(__dirname, dirPath);
+      : path.relative(getSourceDir(), dirPath);
 
   // test definitions can optionally further restrict the solc version range,
   // if that's the case we skip the test if the current solc version doesn't
@@ -208,7 +224,7 @@ async function compileIfNecessary(
     .reduce((t1, t2) => Math.max(t1, t2), 0);
 
   // save the artifacts in test-files/artifacts/<path-to-test-dir>
-  const testFilesDir = path.join(__dirname, "test-files");
+  const testFilesDir = path.join(getSourceDir(), "test-files");
   const relativeTestDir = path.relative(testFilesDir, testDir);
   const artifacts = path.join(testFilesDir, "artifacts", relativeTestDir);
 
@@ -757,12 +773,12 @@ describe("Stack traces", function () {
       }
 
       defineDirTests(
-        path.join(__dirname, "test-files", testsDir),
+        path.join(getSourceDir(), "test-files", testsDir),
         compilerOptions
       );
 
       defineDirTests(
-        path.join(__dirname, "test-files", "version-independent"),
+        path.join(getSourceDir(), "test-files", "version-independent"),
         compilerOptions
       );
     });
@@ -812,12 +828,12 @@ function defineTestForSolidityMajorVersion(
 
     describeFn(`Use compiler ${compilerOptions.compilerPath}`, function () {
       defineDirTests(
-        path.join(__dirname, "test-files", testsPath),
+        path.join(getSourceDir(), "test-files", testsPath),
         compilerOptions
       );
 
       defineDirTests(
-        path.join(__dirname, "test-files", "version-independent"),
+        path.join(getSourceDir(), "test-files", "version-independent"),
         compilerOptions
       );
     });

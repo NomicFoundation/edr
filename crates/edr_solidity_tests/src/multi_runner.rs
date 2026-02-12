@@ -12,15 +12,16 @@ use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
 use derive_more::Debug;
 use derive_where::derive_where;
+use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
-use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
+use edr_decoder_revert::RevertDecoder;
+use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     backend::Predeploy,
     contracts::ContractsByArtifact,
-    decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
@@ -43,8 +44,8 @@ use crate::{
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
-    ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
-    TestFilter, TestFunctionConfigOverride,
+    ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
+    TestFunctionConfigOverride,
 };
 
 pub struct SuiteResultAndArtifactId<HaltReasonT> {
