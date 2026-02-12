@@ -15,7 +15,7 @@ use clap_cargo::{Features, Manifest};
 // use itertools::Itertools;
 use log::{LevelFilter, Log, Record};
 
-use crate::{config::Config, executor::run_pinning_flow, workspace::root_path};
+use crate::{config::Config, executor::run_check_flow, workspace::root_path};
 
 const LOGGER: SimpleLogger = SimpleLogger;
 
@@ -31,8 +31,6 @@ async fn main() -> anyhow::Result<()> {
     check_dependencies(args.verbose).await
 }
 
-// TODO: this is repeated in op_chain_config_generator
-// ---------------- Repeated ------------------------------
 struct SimpleLogger;
 
 impl Log for SimpleLogger {
@@ -60,8 +58,6 @@ pub fn init_logger(verbose: bool) -> anyhow::Result<()> {
         .map_err(|error| anyhow!(error))
 }
 
-// ---------------- Repeated ------------------------------
-
 async fn check_dependencies(verbose: bool) -> anyhow::Result<()> {
     init_logger(verbose)?;
     log::debug!("Cargo-cooldown check...");
@@ -82,5 +78,5 @@ async fn resolve_dependencies(config: Config) -> anyhow::Result<()> {
         manifest.manifest_path = Some(PathBuf::from(root_path).join("Cargo.toml"));
         manifest
     };
-    run_pinning_flow(&config, &manifest, &features).await
+    run_check_flow(&config, &manifest, &features).await
 }
