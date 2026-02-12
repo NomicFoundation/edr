@@ -1,6 +1,5 @@
-use std::{process::Command, sync::LazyLock};
+use std::sync::LazyLock;
 
-use anyhow::Result;
 use chrono::{DateTime, Utc};
 
 use crate::registry::VersionMeta;
@@ -42,27 +41,6 @@ pub fn filter_candidates_by_time(
         .collect();
     filtered.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     filtered
-}
-
-#[derive(Debug)]
-pub enum PinOutcome {
-    Applied,
-    Rejected { stdout: String, stderr: String },
-}
-
-pub fn try_pin_precise(name: &str, current: &str, version: &str) -> Result<PinOutcome> {
-    let spec = format!("{name}@{current}");
-    let output = Command::new("cargo")
-        .args(["update", "-p", &spec, "--precise", version])
-        .output()?;
-    if output.status.success() {
-        Ok(PinOutcome::Applied)
-    } else {
-        Ok(PinOutcome::Rejected {
-            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-        })
-    }
 }
 
 #[cfg(test)]

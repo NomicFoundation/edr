@@ -60,7 +60,7 @@ impl Default for Config {
         Self {
             cooldown_minutes: 10080, // 7 days
             ttl_seconds: 86_400,     // ttl of cache entries
-            allowed_registries: default_allowed_registries(),
+            allowed_registries: default_allowed_registries(), // TODO: configurable by file?
             cache_dir: None,
             http_retries: 2,
             offline_ok: false,
