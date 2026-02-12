@@ -16,7 +16,7 @@ use crate::{
     config::Config,
     metadata::read_metadata,
     registry::{RegistryClient, VersionMeta},
-    resolver::{age_minutes, filter_candidates, try_pin_precise, PinOutcome},
+    resolver::{age_minutes, filter_candidates},
 };
 
 pub async fn run_check_flow(
@@ -36,6 +36,7 @@ pub async fn run_check_flow(
     let client = RegistryClient::new(config)?;
 
     let metadata = read_metadata(manifest, features)?;
+
     let resolve = metadata
         .resolve
         .clone()
@@ -46,16 +47,8 @@ pub async fn run_check_flow(
         .map(|pkg| (pkg.id.clone(), pkg))
         .collect();
 
-    // let mut name_version_to_id: HashMap<(String, String), PackageId> =
-    // HashMap::new(); for (id, pkg) in &packages {
-    //     name_version_to_id.insert((pkg.name.to_string(),
-    // pkg.version.to_string()), id.clone()); }
-
-    // let now = Utc::now();
-    let mut crate_states: HashMap<PackageId, CrateState> = HashMap::new();
     let mut fresh_entries: Vec<FreshCrate> = Vec::new();
     let mut equality_dependents: HashMap<PackageId, Vec<PackageId>> = HashMap::new();
-    let mut requirement_origins: HashMap<PackageId, Vec<RequirementOrigin>> = HashMap::new();
     let mut version_requirements: HashMap<PackageId, Vec<VersionReq>> = HashMap::new();
     let mut seen: HashSet<PackageId> = HashSet::new();
 
@@ -65,17 +58,15 @@ pub async fn run_check_flow(
             config.cooldown_minutes.min(global)
         });
 
+
     for node in &resolve.nodes {
         if !seen.insert(node.id.clone()) {
             continue;
         }
-        let Some(pkg) = packages.get(&node.id) else {
-            continue; // TODO: This shouldn't happen. Should instead return an
-                      // error?
-        };
+        let pkg = packages.get(&node.id).expect(format!("Could not find associated package to {:?}", node.id).as_str());
         let Some(source) = pkg.source.as_ref() else {
-            continue; // TODO: This shouldn't happen. Should instead return an
-                      // error?
+            log::debug!("skipping local package. crate = {}", pkg.name);
+            continue;
         };
 
         if !config.is_registry_allowed(&source.repr) {
@@ -93,15 +84,6 @@ pub async fn run_check_flow(
             .map_or(cooldown_minutes, |minutes| cooldown_minutes.min(*minutes));
 
         let exact_allowed = allowlist.is_exact_allowed(pkg.name.as_str(), &current_version);
-        crate_states.insert(
-            node.id.clone(),
-            CrateState {
-                name: pkg.name.to_string(),
-                current_version: current_version.clone(),
-                minimum_minutes,
-                exact_allowed,
-            },
-        );
 
         for dep in &node.deps {
             let Some(dep_pkg) = packages.get(&dep.pkg) else {
@@ -121,17 +103,6 @@ pub async fn run_check_flow(
                 let requirements = version_requirements.entry(dep.pkg.clone()).or_default();
                 if !requirements.iter().any(|req| req == &manifest_dep.req) {
                     requirements.push(manifest_dep.req.clone());
-                }
-
-                let origins = requirement_origins.entry(dep.pkg.clone()).or_default();
-                if !origins.iter().any(|origin| {
-                    origin.parent_id == node.id && origin.requirement == manifest_dep.req
-                }) {
-                    origins.push(RequirementOrigin {
-                        parent_id: node.id.clone(),
-                        parent_name: pkg.name.to_string(),
-                        requirement: manifest_dep.req.clone(),
-                    });
                 }
 
                 if is_exact_requirement(&manifest_dep.req) {
@@ -176,44 +147,33 @@ pub async fn run_check_flow(
     }
 
     if fresh_entries.is_empty() {
-        log::info!("dependency graph cool ✔");
-        return Ok(());
+        log::info!("dependency graph cool ✅");
+        Ok(())
+    } else {
+        identify_violating_entries(
+            &client,
+            &cache,
+            fresh_entries,
+            equality_dependents,
+            version_requirements,
+            config.offline_ok,
+        )
+        .await?;
+        bail!("dependency graph violates cooldown period ❌")
     }
-
-    identify_violating_entries(
-        &client,
-        &cache,
-        packages,
-        crate_states,
-        fresh_entries,
-        equality_dependents,
-        version_requirements,
-        requirement_origins,
-        config.offline_ok,
-    )
-    .await?;
-
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
 async fn identify_violating_entries(
     client: &RegistryClient,
     cache: &Cache,
-    packages: HashMap<PackageId, cargo_metadata::Package>,
-    crate_states: HashMap<PackageId, CrateState>,
     mut fresh_entries: Vec<FreshCrate>,
     equality_dependents: HashMap<PackageId, Vec<PackageId>>,
     version_requirements: HashMap<PackageId, Vec<VersionReq>>,
-    requirement_origins: HashMap<PackageId, Vec<RequirementOrigin>>,
     offline_ok: bool,
 ) -> anyhow::Result<()> {
     let mut visited_failures: HashSet<String> = HashSet::new();
 
-    let name_version_to_id: HashMap<(String, String), PackageId> = packages
-        .iter()
-        .map(|(id, pkg)| ((pkg.name.to_string(), pkg.version.to_string()), id.clone()))
-        .collect();
     let fresh_ids: HashSet<PackageId> =
         fresh_entries.iter().map(|f| f.package_id.clone()).collect();
 
@@ -230,14 +190,18 @@ async fn identify_violating_entries(
 
     let mut queue: VecDeque<FreshCrate> = fresh_entries.into();
 
-    'queue_loop: while let Some(fresh) = queue.pop_front() {
+    while let Some(fresh) = queue.pop_front() {
         let key = format!("{}@{}", fresh.name, fresh.current_version);
         if visited_failures.contains(&key) {
-            bail!(
-                    "no acceptable version found for {} (cooldown {} minutes). Consider waiting for the cooldown window, temporarily downgrading, or applying a [patch.crates-io] override.",
-                    fresh.name,
-                    fresh.minimum_minutes
-                );
+            // a warning was already emmitted for this dependency
+            continue;
+            // bail!(
+            //         "no acceptable version found for {} (cooldown {}
+            // minutes). Consider waiting for the cooldown window, temporarily
+            // downgrading, or applying a [patch.crates-io] override.",
+            //         fresh.name,
+            //         fresh.minimum_minutes
+            //     );
         }
 
         let candidate_list = match fetch_version_list(client, cache, &fresh.name).await {
@@ -248,7 +212,7 @@ async fn identify_violating_entries(
                     queue.push_back(fresh);
                     continue;
                 } else {
-                    return Err(err);
+                    bail!(err);
                 }
             }
         };
@@ -272,125 +236,20 @@ async fn identify_violating_entries(
         }
 
         if candidates.is_empty() {
-            log::debug!("no candidates satisfied semver requirements after cooldown filter. crate = {}, requirements = {requirements:?}", fresh.name);
-            let mut queued_parent = false;
-            if let Some(origins) = requirement_origins.get(&fresh.package_id) {
-                log::debug!("enqueuing parents due to unsatisfied requirements, crate = {}, parents = {origins:?}", fresh.name);
-                for origin in origins {
-                    if let Some(state) = crate_states.get(&origin.parent_id) {
-                        if state.exact_allowed || state.minimum_minutes == 0 {
-                            continue;
-                        }
-                        queue.push_front(FreshCrate {
-                            package_id: origin.parent_id.clone(),
-                            name: origin.parent_name.clone(),
-                            current_version: state.current_version.clone(),
-                            minimum_minutes: state.minimum_minutes,
-                        });
-                        queued_parent = true;
-                    }
-                }
-            }
-            if queued_parent {
-                queue.push_back(fresh.clone());
-                continue 'queue_loop;
-            }
-
             visited_failures.insert(key.clone());
-            bail!(
-                    "crate {} lacks versions older than {} minutes that satisfy the semver constraint. Options: wait for the cooldown to elapse, relax the dependency requirement, or pin explicitly via [patch.crates-io].",
+            log::error!(
+                    "crate `{}` lacks versions older than {} minutes that satisfy the semver constrains {:?}.",
                     fresh.name,
-                    fresh.minimum_minutes
+                    fresh.minimum_minutes,
+                    requirements.iter().map(std::string::ToString::to_string).collect::<Vec<_>>(),
                 );
+            continue;
         }
 
-        for candidate in candidates {
-            if candidate.version == fresh.current_version {
-                continue;
-            }
-            log::info!(
-                "attempting pin. crate = {}, current = {} , candidate = {}",
-                fresh.name,
-                fresh.current_version,
-                candidate.version
-            );
-            match try_pin_precise(&fresh.name, &fresh.current_version, &candidate.version) {
-                Ok(PinOutcome::Applied) => {
-                    log::info!(
-                        "pin applied. crate = {}, pinned = {}",
-                        fresh.name,
-                        candidate.version
-                    );
-                    // continue 'outer; // This was to start the whole resolving again since a
-                    // dependency changed
-                    return Ok(());
-                }
-                Ok(PinOutcome::Rejected { stdout, stderr }) => {
-                    let blockers = parse_blockers(&stdout, &stderr);
-                    if blockers.is_empty() {
-                        log::debug!(
-                            "cargo update rejected candidate. crate = {}, candidate = {}",
-                            fresh.name,
-                            candidate.version
-                        );
-                        continue;
-                    }
-                    for blocker in blockers {
-                        let blocker_id = blocker
-                            .version
-                            .as_ref()
-                            .and_then(|ver| {
-                                name_version_to_id.get(&(blocker.name.clone(), ver.clone()))
-                            })
-                            .cloned()
-                            .or_else(|| {
-                                crate_states
-                                    .iter()
-                                    .find(|(_, state)| state.name == blocker.name)
-                                    .map(|(id, _)| id.clone())
-                            });
-
-                        if let Some(id) = blocker_id
-                            && let Some(state) = crate_states.get(&id)
-                        {
-                            if state.exact_allowed || state.minimum_minutes == 0 {
-                                log::debug!("blocking crate is exempt from cooldown; skipping downgrade. crate = {}", state.name);
-                                continue;
-                            }
-                            queue.push_front(FreshCrate {
-                                package_id: id,
-                                name: state.name.clone(),
-                                current_version: state.current_version.clone(),
-                                minimum_minutes: state.minimum_minutes,
-                            });
-                        }
-                    }
-                    queue.push_back(fresh.clone());
-                    continue 'queue_loop;
-                }
-                Err(err) => {
-                    if offline_ok {
-                        log::warn!("pin attempt failed in offline mode. crate = {}, candidate = {}, error = {err}", fresh.name, candidate.version);
-                        queue.push_back(fresh.clone());
-                        continue 'queue_loop;
-                    } else {
-                        return Err(err);
-                    }
-                }
-            }
-        }
-
-        visited_failures.insert(key.clone());
-        bail!(
-                "unable to pin crate {} to an older compatible release within the cooldown window ({} minutes). Try waiting or adding a manual override.",
-                fresh.name,
-                fresh.minimum_minutes
-            );
+        log::error!("crate `{}` violates the cooldown period. Crate versions that matches semver requirements and the cooldown window: {:?}", fresh.name, candidates.into_iter().map(|candidate| candidate.version).collect::<Vec<String>>());
     }
 
-    bail!(
-            "reached a fixed point without resolving all fresh dependencies; aborting to avoid endless loop"
-        );
+    Ok(())
 }
 
 fn ensure_lockfile() -> Result<()> {
@@ -410,20 +269,6 @@ struct FreshCrate {
     name: String,
     current_version: String,
     minimum_minutes: u64,
-}
-
-struct CrateState {
-    name: String,
-    current_version: String,
-    minimum_minutes: u64,
-    exact_allowed: bool,
-}
-
-#[derive(Clone, Debug)]
-struct RequirementOrigin {
-    parent_id: PackageId,
-    parent_name: String,
-    requirement: VersionReq,
 }
 
 async fn fetch_version_meta(
@@ -477,50 +322,15 @@ fn find_manifest_dependency<'a>(
     })
 }
 
-fn parse_blockers(stdout: &str, stderr: &str) -> Vec<Blocker> {
-    let mut blockers = Vec::new();
-    for line in stdout.lines().chain(stderr.lines()) {
-        let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix("required by package `")
-            && let Some(end) = rest.find('`')
-        {
-            let inner = &rest[..end];
-            if let Some((name, version)) = inner.rsplit_once(' ') {
-                let version = version.trim_start_matches('v').to_string();
-                if !blockers.iter().any(|existing: &Blocker| {
-                    existing.name == name && existing.version.as_deref() == Some(&version)
-                }) {
-                    blockers.push(Blocker {
-                        name: name.to_string(),
-                        version: Some(version),
-                    });
-                }
-            } else if !blockers
-                .iter()
-                .any(|existing: &Blocker| existing.name == inner)
-            {
-                blockers.push(Blocker {
-                    name: inner.to_string(),
-                    version: None,
-                });
-            }
-        }
-    }
-    blockers
-}
-
-#[derive(Debug)]
-struct Blocker {
-    name: String,
-    version: Option<String>,
-}
-
 fn satisfies_requirements(version: &str, requirements: &[VersionReq]) -> bool {
     if requirements.is_empty() {
         return true;
     }
     match Version::parse(version) {
-        Ok(parsed) => requirements.iter().all(|req| req.matches(&parsed)),
+        Ok(parsed) => {
+            log::debug!("Analyzing version {parsed} agains requirements {requirements:?}");
+            requirements.iter().all(|req| req.matches(&parsed))
+        }
         Err(_) => false,
     }
 }
