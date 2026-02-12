@@ -59,7 +59,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             cooldown_minutes: 10080, // 7 days
-            ttl_seconds: 86_400,
+            ttl_seconds: 86_400,     // ttl of cache entries
             allowed_registries: default_allowed_registries(),
             cache_dir: None,
             http_retries: 2,

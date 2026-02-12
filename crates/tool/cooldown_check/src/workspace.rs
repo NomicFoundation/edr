@@ -47,7 +47,7 @@ fn cargo_config_path() -> anyhow::Result<PathBuf> {
 }
 
 pub fn config_file_path(filename: &str) -> anyhow::Result<PathBuf> {
-    let path_buf = cargo_config_path()?;
-    cargo_config_path()?.push(filename);
+    let mut path_buf = cargo_config_path()?;
+    path_buf.push(filename);
     Ok(path_buf)
 }

@@ -1,7 +1,7 @@
-use std::process::Command;
+use std::{process::Command, sync::LazyLock};
 
 use anyhow::Result;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 
 use crate::registry::VersionMeta;
 
@@ -11,12 +11,26 @@ pub struct Candidate {
     pub created_at: DateTime<Utc>,
 }
 
-pub fn filter_candidates(
+// Create the static singleton instance
+static NOW: LazyLock<DateTime<Utc>> = LazyLock::new(|| {
+    // This closure runs only once, the first time NOW is accessed
+    Utc::now()
+});
+
+pub fn age_minutes(datetime: DateTime<Utc>) -> i64 {
+    (*NOW - datetime).num_minutes()
+}
+
+pub fn filter_candidates(versions: Vec<VersionMeta>, minimum_minutes: u64) -> Vec<Candidate> {
+    filter_candidates_by_time(versions, minimum_minutes, *NOW)
+}
+
+pub fn filter_candidates_by_time(
     versions: Vec<VersionMeta>,
     minimum_minutes: u64,
     now: DateTime<Utc>,
 ) -> Vec<Candidate> {
-    let cutoff = now - Duration::minutes(minimum_minutes as i64);
+    let cutoff = now - chrono::Duration::minutes(minimum_minutes as i64);
     let mut filtered: Vec<Candidate> = versions
         .into_iter()
         .filter(|meta| !meta.yanked)
@@ -77,7 +91,7 @@ mod tests {
                 num: "1.2.1".into(),
             },
         ];
-        let candidates = filter_candidates(versions, 30, now);
+        let candidates = filter_candidates_by_time(versions, 30, now);
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].version, "1.2.2");
     }
