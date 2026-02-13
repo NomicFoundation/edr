@@ -32,6 +32,6 @@ cargo update -p <dependency> --precise <cool_version>
 
 For other alternatives, take a look at <https://doc.rust-lang.org/cargo/reference/resolver.html#semver-breaking-patch-release-breaks-the-build>
 
-## Identified issues
+## Identified issues from `cargo-cooldown` dep
 
-- root dependencies requirements defined in `Cargo.toml`s are not being added to requirements list
+- it was skipping local crates, so these crates dependencies were not being added to the requirements list. As a consequence, the tool would suggest versions that do not satisfy requirements set in `Cargo.toml`. In `cargo-cooldown` this is even worse since it does not suggest these versions, but tries to update to these versions automatically
