@@ -58,22 +58,25 @@ pub async fn run_check_flow(
             config.cooldown_minutes.min(global)
         });
 
-
     for node in &resolve.nodes {
         if !seen.insert(node.id.clone()) {
             continue;
         }
-        let pkg = packages.get(&node.id).expect(format!("Could not find associated package to {:?}", node.id).as_str());
-        let Some(source) = pkg.source.as_ref() else {
-            log::debug!("skipping local package. crate = {}", pkg.name);
-            continue;
-        };
-
-        if !config.is_registry_allowed(&source.repr) {
+        let pkg = packages
+            .get(&node.id)
+            .unwrap_or_else(|| panic!("Could not find associated package to {:?}", node.id));
+        if pkg
+            .source
+            .as_ref()
+            .is_some_and(|source| !config.is_registry_allowed(&source.repr))
+        {
             log::warn!(
                 "skipping non-crates.io registry dependency. crate = {}, source = {}",
                 pkg.name,
-                source.repr
+                pkg.source
+                    .as_ref()
+                    .map(|source| &source.repr)
+                    .expect("Source should be present")
             );
             continue;
         }
@@ -85,15 +88,25 @@ pub async fn run_check_flow(
 
         let exact_allowed = allowlist.is_exact_allowed(pkg.name.as_str(), &current_version);
 
+        // +++++++++ CHECK ⬇️ ++++++++++++++++
         for dep in &node.deps {
-            let Some(dep_pkg) = packages.get(&dep.pkg) else {
-                continue;
-            };
-            if !dep_pkg
+            let dep_pkg = packages
+                .get(&dep.pkg)
+                .unwrap_or_else(|| panic!("Could not find associated package to {:?}", dep.pkg));
+            if dep_pkg
                 .source
                 .as_ref()
-                .is_some_and(|src| config.is_registry_allowed(&src.repr))
+                .is_some_and(|source| !config.is_registry_allowed(&source.repr))
             {
+                log::warn!(
+                    "skipping non-crates.io registry dependency. crate = {}, source = {}",
+                    pkg.name,
+                    dep_pkg
+                        .source
+                        .as_ref()
+                        .map(|source| &source.repr)
+                        .expect("Source should be present")
+                );
                 continue;
             }
 
@@ -118,36 +131,39 @@ pub async fn run_check_flow(
             continue;
         }
 
-        match fetch_version_meta(&client, &cache, pkg.name.as_str(), &current_version).await {
-            Ok(meta) => {
-                let age_minutes = age_minutes(meta.created_at);
-                log::trace!(
+        if pkg.source.is_some() {
+            // no need to check version meta for local dependencies (workspace crates)
+            match fetch_version_meta(&client, &cache, pkg.name.as_str(), &current_version).await {
+                Ok(meta) => {
+                    let age_minutes = age_minutes(meta.created_at);
+                    log::trace!(
                         "crate age inspected. crate = {}, age_minutes = {age_minutes}, minimum_minutes = {minimum_minutes}, creted_at = {}", pkg.name, meta.created_at
                     );
-                if age_minutes < minimum_minutes as i64 {
-                    fresh_entries.push(FreshCrate {
-                        package_id: node.id.clone(),
-                        name: pkg.name.to_string(),
-                        current_version: current_version.clone(),
-                        minimum_minutes,
-                    });
+                    if age_minutes < minimum_minutes as i64 {
+                        fresh_entries.push(FreshCrate {
+                            package_id: node.id.clone(),
+                            name: pkg.name.to_string(),
+                            current_version: current_version.clone(),
+                            minimum_minutes,
+                        });
+                    }
                 }
-            }
-            Err(err) => {
-                if config.offline_ok {
-                    log::warn!(
+                Err(err) => {
+                    if config.offline_ok {
+                        log::warn!(
                         "skipping metadata fetch due to offline mode. crate = {}, error = {err}",
                         pkg.name
                     );
-                } else {
-                    return Err(err);
+                    } else {
+                        return Err(err);
+                    }
                 }
             }
         }
     }
 
     if fresh_entries.is_empty() {
-        log::info!("dependency graph cool ✅");
+        log::info!("dependency graph is cool ✅");
         Ok(())
     } else {
         identify_violating_entries(
@@ -195,13 +211,6 @@ async fn identify_violating_entries(
         if visited_failures.contains(&key) {
             // a warning was already emmitted for this dependency
             continue;
-            // bail!(
-            //         "no acceptable version found for {} (cooldown {}
-            // minutes). Consider waiting for the cooldown window, temporarily
-            // downgrading, or applying a [patch.crates-io] override.",
-            //         fresh.name,
-            //         fresh.minimum_minutes
-            //     );
         }
 
         let candidate_list = match fetch_version_list(client, cache, &fresh.name).await {
@@ -238,7 +247,7 @@ async fn identify_violating_entries(
         if candidates.is_empty() {
             visited_failures.insert(key.clone());
             log::error!(
-                    "crate `{}` lacks versions older than {} minutes that satisfy the semver constrains {:?}.",
+                    "crate `{}` has no versions older than {} minutes that satisfy the current semver constraints {:?}.\n\tRelax these constraints, wait for the cooldown period, or add this crate to the allowlist configuration if this version is needed for security improvements.\n",
                     fresh.name,
                     fresh.minimum_minutes,
                     requirements.iter().map(std::string::ToString::to_string).collect::<Vec<_>>(),
@@ -246,7 +255,7 @@ async fn identify_violating_entries(
             continue;
         }
 
-        log::error!("crate `{}` violates the cooldown period. Crate versions that matches semver requirements and the cooldown window: {:?}", fresh.name, candidates.into_iter().map(|candidate| candidate.version).collect::<Vec<String>>());
+        log::error!("crate `{}@{}` violates the cooldown period. To resolve this, downgrade to one of these versions: {:?} by running\n\t`cargo update {} --precise <version>`\n", fresh.name, fresh.current_version, candidates.into_iter().map(|candidate| candidate.version).collect::<Vec<String>>(), fresh.name);
     }
 
     Ok(())
@@ -328,7 +337,13 @@ fn satisfies_requirements(version: &str, requirements: &[VersionReq]) -> bool {
     }
     match Version::parse(version) {
         Ok(parsed) => {
-            log::debug!("Analyzing version {parsed} agains requirements {requirements:?}");
+            log::debug!(
+                "Analyzing version `{parsed}` against requirements {:?}",
+                requirements
+                    .iter()
+                    .map(std::string::ToString::to_string)
+                    .collect::<Vec<_>>()
+            );
             requirements.iter().all(|req| req.matches(&parsed))
         }
         Err(_) => false,
