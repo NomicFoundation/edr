@@ -7,15 +7,12 @@ mod registry;
 mod resolver;
 mod workspace;
 
-use std::path::PathBuf;
-
 use anyhow::anyhow;
 use clap::Parser;
-use clap_cargo::{Features, Manifest};
 // use itertools::Itertools;
 use log::{LevelFilter, Log, Record};
 
-use crate::{config::Config, executor::run_check_flow, workspace::root_path};
+use crate::{executor::run_check_flow, workspace::Workspace};
 
 const LOGGER: SimpleLogger = SimpleLogger;
 
@@ -62,21 +59,6 @@ async fn check_dependencies(verbose: bool) -> anyhow::Result<()> {
     init_logger(verbose)?;
     log::debug!("Cargo-cooldown check...");
 
-    let config = Config::load()?;
-    resolve_dependencies(config).await
-}
-
-async fn resolve_dependencies(config: Config) -> anyhow::Result<()> {
-    let root_path = root_path()?;
-    let features = {
-        let mut features = Features::default();
-        features.all_features = true;
-        features
-    };
-    let manifest = {
-        let mut manifest = Manifest::default();
-        manifest.manifest_path = Some(PathBuf::from(root_path).join("Cargo.toml"));
-        manifest
-    };
-    run_check_flow(&config, &manifest, &features).await
+    let workspace = Workspace::load()?;
+    run_check_flow(workspace).await
 }

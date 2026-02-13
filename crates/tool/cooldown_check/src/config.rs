@@ -1,10 +1,5 @@
 use std::{fs, path::PathBuf};
 
-use crate::{
-    allowlist::Allowlist,
-    workspace::{config_file_path, COOLDOWN_FILE_CONFIG},
-};
-
 const DEFAULT_REGISTRY_INDEX: &str = "registry+https://github.com/rust-lang/crates.io-index";
 const DEFAULT_SPARSE_REGISTRY_INDEX: &str = "registry+sparse+https://index.crates.io/";
 
@@ -16,7 +11,6 @@ pub struct Config {
     pub http_retries: u32,
     pub registry_api: String,
     pub allowed_registries: Vec<String>,
-    pub allowlist: Allowlist,
 }
 
 impl Config {
@@ -26,14 +20,11 @@ impl Config {
             .any(|allowed| allowed == source)
     }
 
-    pub fn load() -> anyhow::Result<Self> {
-        let cooldown_config = CooldownFileConfig::load()?;
-        let allowlist = Allowlist::load()?;
+    pub fn load(file_path: PathBuf) -> anyhow::Result<Self> {
+        let cooldown_config = CooldownFileConfig::load(file_path)?;
         log::debug!("cooldown config: {cooldown_config:?}");
-        log::debug!("allowlist: {allowlist:?}");
         let config = Config {
             cooldown_minutes: cooldown_config.cooldown_minutes,
-            allowlist,
             ..Config::default()
         };
         Ok(config)
@@ -46,8 +37,8 @@ struct CooldownFileConfig {
 }
 
 impl CooldownFileConfig {
-    fn load() -> anyhow::Result<Self> {
-        let file_contents = fs::read_to_string(config_file_path(COOLDOWN_FILE_CONFIG)?)?;
+    fn load(file_path: PathBuf) -> anyhow::Result<Self> {
+        let file_contents = fs::read_to_string(file_path)?;
         let cooldown_config: CooldownFileConfig = toml::from_str(&file_contents)?;
         Ok(cooldown_config)
     }
@@ -62,7 +53,6 @@ impl Default for Config {
             cache_dir: None,
             http_retries: 2,
             registry_api: "https://crates.io/api/v1/".to_string(),
-            allowlist: Allowlist::default(),
         }
     }
 }
