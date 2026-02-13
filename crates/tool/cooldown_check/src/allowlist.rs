@@ -1,9 +1,7 @@
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
-
-use crate::workspace::{config_file_path, ALLOWLIST_FILE_CONFIG};
 
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct Allowlist {
@@ -35,17 +33,24 @@ pub struct AllowPackage {
 }
 
 impl Allowlist {
-    pub fn load() -> Result<Self> {
-        let path = config_file_path(ALLOWLIST_FILE_CONFIG)?;
-        if !path.exists() {
+    pub fn load(file_path: PathBuf) -> Result<Self> {
+        if !file_path.exists() {
             return Ok(Self::default());
         }
 
-        let contents = fs::read_to_string(&path)
-            .with_context(|| format!("failed to read allowlist at {}", path.as_path().display()))?;
-        let allowlist: Allowlist = toml::from_str(&contents).with_context(|| {
-            format!("failed to parse allowlist at {}", path.as_path().display())
+        let contents = fs::read_to_string(&file_path).with_context(|| {
+            format!(
+                "failed to read allowlist at {}",
+                file_path.as_path().display()
+            )
         })?;
+        let allowlist: Allowlist = toml::from_str(&contents).with_context(|| {
+            format!(
+                "failed to parse allowlist at {}",
+                file_path.as_path().display()
+            )
+        })?;
+        log::debug!("allowlist: {allowlist:?}");
         Ok(allowlist)
     }
 

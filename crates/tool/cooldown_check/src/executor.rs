@@ -6,27 +6,22 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use cargo_metadata::PackageId;
-use clap_cargo::{Features, Manifest};
 use semver::{Op, Version, VersionReq};
 
 use crate::{
     cache::Cache,
-    config::Config,
-    metadata::read_metadata,
     registry::{RegistryClient, VersionMeta},
     resolver::{age_minutes, filter_candidates},
+    workspace::Workspace,
 };
 
-pub async fn run_check_flow(
-    config: &Config,
-    manifest: &Manifest,
-    features: &Features,
-) -> Result<()> {
+pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
     ensure_lockfile()?;
 
-    let allowlist = &config.allowlist;
+    let allowlist = &workspace.allowlist;
+    let config = &workspace.config;
     let cache = if let Some(ref root) = config.cache_dir {
         Cache::with_root(root.clone(), Duration::from_secs(config.ttl_seconds))?
     } else {
@@ -34,17 +29,7 @@ pub async fn run_check_flow(
     };
     let client = RegistryClient::new(config)?;
 
-    let metadata = read_metadata(manifest, features)?;
-
-    let resolve = metadata
-        .resolve
-        .clone()
-        .context("cargo metadata output did not include a resolved dependency graph")?;
-    let packages: HashMap<PackageId, cargo_metadata::Package> = metadata
-        .packages
-        .into_iter()
-        .map(|pkg| (pkg.id.clone(), pkg))
-        .collect();
+    let packages = workspace.packages();
 
     let mut fresh_entries: Vec<FreshCrate> = Vec::new();
     let mut equality_dependents: HashMap<PackageId, Vec<PackageId>> = HashMap::new();
@@ -57,7 +42,7 @@ pub async fn run_check_flow(
         log::info!("skipping cooldown check: cooldown minutes is set to 0");
     }
 
-    for node in &resolve.nodes {
+    for node in &workspace.nodes {
         if !seen.insert(node.id.clone()) {
             continue;
         }
@@ -136,11 +121,15 @@ pub async fn run_check_flow(
             continue;
         }
         if minimum_minutes == 0 {
-            log::info!("skipping validation for crate {}@{}: `allow.package.minutes` is set to 0 in allowlist", pkg.name, pkg.version);
+            log::info!("skipping validation for crate {}@{}: `allow.package.minutes` is set to 0 in the allowlist", pkg.name, pkg.version);
             continue;
         }
         if exact_allowed {
-            log::info!("skipping validation for crate {}@{}: version is listed as `allow.exact` in the allowlist", pkg.name, pkg.version);
+            log::info!(
+                "skipping validation for crate {}@{}: version is listed as `allow.exact`",
+                pkg.name,
+                pkg.version
+            );
             continue;
         }
 
