@@ -12,9 +12,7 @@ const DEFAULT_SPARSE_REGISTRY_INDEX: &str = "registry+sparse+https://index.crate
 pub struct Config {
     pub cooldown_minutes: u64,
     pub ttl_seconds: u64,
-    // pub allowlist_path: Option<PathBuf>,
     pub cache_dir: Option<PathBuf>,
-    pub offline_ok: bool,
     pub http_retries: u32,
     pub registry_api: String,
     pub allowed_registries: Vec<String>,
@@ -63,7 +61,6 @@ impl Default for Config {
             allowed_registries: default_allowed_registries(), // TODO: configurable by file?
             cache_dir: None,
             http_retries: 2,
-            offline_ok: false,
             registry_api: "https://crates.io/api/v1/".to_string(),
             allowlist: Allowlist::default(),
         }
