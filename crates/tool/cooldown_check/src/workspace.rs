@@ -1,53 +1,64 @@
-use std::{path::PathBuf, process::Command, sync::OnceLock};
+use std::{collections::HashMap, path::PathBuf};
 
-use anyhow::{anyhow, bail};
+use anyhow::Context;
+use cargo_metadata::{camino::Utf8PathBuf, Metadata, Node, PackageId};
+use clap_cargo::{Features, Manifest};
 
-static WORKSPACE_ROOT_PATH: OnceLock<anyhow::Result<String>> = OnceLock::new();
+use crate::{allowlist::Allowlist, config::Config, metadata::read_metadata};
+
 pub const COOLDOWN_FILE_CONFIG: &str = "cooldown.toml";
 pub const ALLOWLIST_FILE_CONFIG: &str = "cooldown-allowlist.toml";
 
-fn workspace_root() -> anyhow::Result<String> {
-    let output = Command::new("cargo")
-        .arg("metadata")
-        .arg("--no-deps")
-        .arg("--format-version")
-        .arg("1")
-        .output()?;
+pub struct Workspace {
+    metadata: Metadata,
+    pub config: Config,
+    pub allowlist: Allowlist,
+    pub nodes: Vec<Node>,
+}
 
-    if !output.status.success() {
-        bail!(
-            "cargo metadata failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+impl Workspace {
+    pub fn load() -> anyhow::Result<Self> {
+        let features = {
+            let mut features = Features::default();
+            features.all_features = true;
+            features
+        };
+        let manifest = Manifest::default();
+        let metadata = read_metadata(&manifest, &features)?;
+        let config_file_path =
+            cargo_config_file_path(&metadata.workspace_root, COOLDOWN_FILE_CONFIG);
+        let config = Config::load(config_file_path)?;
+        let allowlist_file_path =
+            cargo_config_file_path(&metadata.workspace_root, ALLOWLIST_FILE_CONFIG);
+        let allowlist = Allowlist::load(allowlist_file_path)?;
+
+        let nodes = metadata
+            .resolve
+            .clone()
+            .context("cargo metadata output did not include a resolved dependency graph")?
+            .nodes;
+
+        Ok(Self {
+            metadata,
+            config,
+            allowlist,
+            nodes,
+        })
     }
 
-    let stdout = String::from_utf8(output.stdout)?;
-    let metadata: serde_json::Value = serde_json::from_str(&stdout)?;
-
-    metadata
-        .get("workspace_root")
-        .and_then(|value| value.as_str().map(String::from))
-        .ok_or(anyhow!("Could not find workspace_root in cargo metadata"))
+    pub fn packages(&self) -> HashMap<PackageId, cargo_metadata::Package> {
+        self.metadata
+            .packages
+            .iter()
+            .cloned()
+            .map(|pkg| (pkg.id.clone(), pkg))
+            .collect()
+    }
 }
 
-pub fn root_path() -> anyhow::Result<&'static String> {
-    WORKSPACE_ROOT_PATH
-        .get_or_init(workspace_root)
-        .as_ref()
-        .map_err(|error| anyhow!("Could not determine EDR root path: {error}"))
-}
-
-fn cargo_config_path() -> anyhow::Result<PathBuf> {
-    let mut path = PathBuf::from(root_path()?);
+fn cargo_config_file_path(workspace_root_path: &Utf8PathBuf, filename: &str) -> PathBuf {
+    let mut path = PathBuf::from(workspace_root_path);
     path.push(".cargo");
-
-    log::debug!("project config path: {}", path.to_string_lossy());
-
-    Ok(path)
-}
-
-pub fn config_file_path(filename: &str) -> anyhow::Result<PathBuf> {
-    let mut path_buf = cargo_config_path()?;
-    path_buf.push(filename);
-    Ok(path_buf)
+    path.push(filename);
+    path
 }
