@@ -27,7 +27,6 @@ pub async fn run_check_flow(
     ensure_lockfile()?;
 
     let allowlist = &config.allowlist;
-    let per_crate_minutes = allowlist.per_crate_minutes();
     let cache = if let Some(ref root) = config.cache_dir {
         Cache::with_root(root.clone(), Duration::from_secs(config.ttl_seconds))?
     } else {
@@ -52,11 +51,11 @@ pub async fn run_check_flow(
     let mut version_requirements: HashMap<PackageId, Vec<VersionReq>> = HashMap::new();
     let mut seen: HashSet<PackageId> = HashSet::new();
 
-    let cooldown_minutes = allowlist
-        .global_minutes()
-        .map_or(config.cooldown_minutes, |global| {
-            config.cooldown_minutes.min(global)
-        });
+    let cooldown_minutes = config.cooldown_minutes;
+
+    if cooldown_minutes == 0 {
+        log::info!("skipping cooldown check: cooldown minutes is set to 0");
+    }
 
     for node in &resolve.nodes {
         if !seen.insert(node.id.clone()) {
@@ -82,12 +81,13 @@ pub async fn run_check_flow(
         }
 
         let current_version = pkg.version.to_string();
-        let minimum_minutes = per_crate_minutes
+        let minimum_minutes = allowlist
+            .per_crate_minutes()
             .get(pkg.name.as_str())
             .map_or(cooldown_minutes, |minutes| cooldown_minutes.min(*minutes));
 
         let exact_allowed = allowlist.is_exact_allowed(pkg.name.as_str(), &current_version);
-
+        let is_local_dependency = pkg.source.is_none();
         // +++++++++ CHECK ⬇️ ++++++++++++++++
         for dep in &node.deps {
             let dep_pkg = packages
@@ -127,38 +127,33 @@ pub async fn run_check_flow(
             }
         }
 
-        if exact_allowed || minimum_minutes == 0 {
+        if is_local_dependency {
+            log::debug!(
+                "skipping validation for crate {}@{}: crate is a local dependency",
+                pkg.name,
+                pkg.version
+            );
+            continue;
+        }
+        if minimum_minutes == 0 {
+            log::info!("skipping validation for crate {}@{}: `allow.package.minutes` is set to 0 in allowlist", pkg.name, pkg.version);
+            continue;
+        }
+        if exact_allowed {
+            log::info!("skipping validation for crate {}@{}: version is listed as `allow.exact` in the allowlist", pkg.name, pkg.version);
             continue;
         }
 
-        if pkg.source.is_some() {
-            // no need to check version meta for local dependencies (workspace crates)
-            match fetch_version_meta(&client, &cache, pkg.name.as_str(), &current_version).await {
-                Ok(meta) => {
-                    let age_minutes = age_minutes(meta.created_at);
-                    log::trace!(
-                        "crate age inspected. crate = {}, age_minutes = {age_minutes}, minimum_minutes = {minimum_minutes}, creted_at = {}", pkg.name, meta.created_at
-                    );
-                    if age_minutes < minimum_minutes as i64 {
-                        fresh_entries.push(FreshCrate {
-                            package_id: node.id.clone(),
-                            name: pkg.name.to_string(),
-                            current_version: current_version.clone(),
-                            minimum_minutes,
-                        });
-                    }
-                }
-                Err(err) => {
-                    if config.offline_ok {
-                        log::warn!(
-                        "skipping metadata fetch due to offline mode. crate = {}, error = {err}",
-                        pkg.name
-                    );
-                    } else {
-                        return Err(err);
-                    }
-                }
-            }
+        let meta = fetch_version_meta(&client, &cache, pkg.name.as_str(), &current_version).await?;
+        let age_minutes = age_minutes(meta.created_at);
+        if age_minutes < minimum_minutes as i64 {
+            log::debug!("crate violates cooldown period: crate = {}@{}, age_minutes = {age_minutes}, minimum_minutes = {minimum_minutes}, created_at = {}", pkg.name, pkg.version, meta.created_at);
+            fresh_entries.push(FreshCrate {
+                package_id: node.id.clone(),
+                name: pkg.name.to_string(),
+                current_version: current_version.clone(),
+                minimum_minutes,
+            });
         }
     }
 
@@ -172,21 +167,18 @@ pub async fn run_check_flow(
             fresh_entries,
             equality_dependents,
             version_requirements,
-            config.offline_ok,
         )
         .await?;
         bail!("dependency graph violates cooldown period ❌")
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn identify_violating_entries(
     client: &RegistryClient,
     cache: &Cache,
     mut fresh_entries: Vec<FreshCrate>,
     equality_dependents: HashMap<PackageId, Vec<PackageId>>,
     version_requirements: HashMap<PackageId, Vec<VersionReq>>,
-    offline_ok: bool,
 ) -> anyhow::Result<()> {
     let mut visited_failures: HashSet<String> = HashSet::new();
 
@@ -213,18 +205,7 @@ async fn identify_violating_entries(
             continue;
         }
 
-        let candidate_list = match fetch_version_list(client, cache, &fresh.name).await {
-            Ok(list) => list,
-            Err(err) => {
-                if offline_ok {
-                    log::warn!("skipping candidate discovery due to offline mode. crate = {}, error = {err}", fresh.name);
-                    queue.push_back(fresh);
-                    continue;
-                } else {
-                    bail!(err);
-                }
-            }
-        };
+        let candidate_list = fetch_version_list(client, cache, &fresh.name).await?;
 
         let mut candidates = filter_candidates(candidate_list, fresh.minimum_minutes);
         let requirements = version_requirements
