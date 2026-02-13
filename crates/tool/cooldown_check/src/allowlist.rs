@@ -17,7 +17,6 @@ pub struct AllowSection {
     pub exact: Vec<AllowExact>,
     #[serde(default)]
     pub package: Vec<AllowPackage>,
-    pub global: Option<AllowGlobal>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -31,16 +30,6 @@ pub struct AllowExact {
 pub struct AllowPackage {
     #[serde(rename = "crate")]
     pub crate_name: String,
-    #[serde(default)]
-    pub minimum_release_age: Option<u64>,
-    #[serde(default)]
-    pub minutes: Option<u64>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct AllowGlobal {
-    #[serde(default)]
-    pub minimum_release_age: Option<u64>,
     #[serde(default)]
     pub minutes: Option<u64>,
 }
@@ -74,37 +63,11 @@ impl Allowlist {
             .filter_map(|pkg| pkg.effective_minutes().map(|m| (pkg.crate_name.clone(), m)))
             .collect()
     }
-
-    pub fn global_minutes(&self) -> Option<u64> {
-        self.allow
-            .global
-            .as_ref()
-            .and_then(AllowGlobal::effective_minutes)
-    }
-    // #[cfg(test)]
-    // pub fn effective_minutes_for(&self, name: &str, default_minutes: u64) -> u64
-    // {     let mut effective = default_minutes;
-    //     if let Some(global) = self.global_minutes() {
-    //         effective = effective.min(global);
-    //     }
-    //     if let Some(rule) = self.allow.package.iter().find(|pkg| pkg.crate_name
-    // == name)         && let Some(minutes) = rule.effective_minutes()
-    //     {
-    //         effective = effective.min(minutes);
-    //     }
-    //     effective
-    // }
 }
 
 impl AllowPackage {
     pub fn effective_minutes(&self) -> Option<u64> {
-        self.minimum_release_age.or(self.minutes)
-    }
-}
-
-impl AllowGlobal {
-    pub fn effective_minutes(&self) -> Option<u64> {
-        self.minimum_release_age.or(self.minutes)
+        self.minutes
     }
 }
 
