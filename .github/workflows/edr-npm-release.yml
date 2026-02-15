@@ -28,6 +28,8 @@ jobs:
   build:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
+    env:
+      NO_PROXY: static.rust-lang.org,static.crates.io,github.com,index.crates.io
     permissions:
       contents: read
     strategy:
@@ -97,7 +99,7 @@ jobs:
         uses: dtolnay/rust-toolchain@0f44b27771c32bda9f458f75a1e241b09791b331 # latest main commit (2025-11-17)
         if: ${{ !matrix.settings.docker }}
         with:
-          toolchain: stable
+          toolchain: "1.89.0"
           targets: ${{ matrix.settings.target }}
           components: rust-src
 
@@ -120,13 +122,18 @@ jobs:
 
       - name: Install dependencies (non-Windows)
         if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
-        run: sfw pnpm install --frozen-lockfile --prefer-offline
+        run: |
+          sfw pnpm install --frozen-lockfile --prefer-offline
+          sfw cargo fetch
 
       # SFW doesn't install dependencies correctly on Windows
       # https://github.com/NomicFoundation/edr/issues/1199
       - name: Install dependencies (Windows)
         if: ${{ !matrix.settings.docker && runner.os == 'Windows' }}
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: |
+          curl -sL -o sfw.exe https://github.com/SocketDev/sfw-free/releases/download/v1.3.3/sfw-free-windows-x86_64.exe
+          .\sfw.exe pnpm install --frozen-lockfile --prefer-offline
+          .\sfw cargo fetch
 
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
@@ -150,8 +157,20 @@ jobs:
 
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
-            npm i -g sfw
-            sfw pnpm install --frozen-lockfile --prefer-offline
+
+            set NO_PROXY=static.rust-lang.org
+
+            # Download SFW binary
+            if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-gnu" ]; then
+              curl -sL -o sfw https://github.com/SocketDev/sfw-free/releases/download/v1.3.3/sfw-free-linux-arm64
+            else
+              curl -sL -o sfw https://github.com/SocketDev/sfw-free/releases/download/v1.3.3/sfw-free-linux-x86_64
+            fi
+            chmod +x sfw
+
+            ./sfw pnpm install --frozen-lockfile --prefer-offline
+            rustup update 1.89.0
+            ./sfw cargo fetch
             pnpm run build --strip
 
       # SFW is not provided on musl versions of Linux
@@ -176,7 +195,20 @@ jobs:
 
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
-            pnpm install --frozen-lockfile --prefer-offline
+
+            set NO_PROXY=static.rust-lang.org
+
+            # Download SFW binary
+            if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
+              curl -sL -o sfw https://github.com/SocketDev/sfw-free/releases/download/v1.3.3/sfw-free-musl-linux-arm64
+            else
+              curl -sL -o sfw https://github.com/SocketDev/sfw-free/releases/download/v1.3.3/sfw-free-musl-linux-x86_64
+            fi
+            chmod +x sfw
+
+            ./sfw pnpm install --frozen-lockfile --prefer-offline
+            rustup update 1.89.0
+            ./sfw cargo fetch
             pnpm run build --strip
 
       - name: Upload artifact
