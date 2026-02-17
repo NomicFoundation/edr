@@ -594,7 +594,6 @@ module.exports.Exit = nativeBinding.Exit
 module.exports.Precompile = nativeBinding.Precompile
 module.exports.Provider = nativeBinding.Provider
 module.exports.ProviderFactory = nativeBinding.ProviderFactory
-module.exports.RawTrace = nativeBinding.RawTrace
 module.exports.Response = nativeBinding.Response
 module.exports.ReturnData = nativeBinding.ReturnData
 module.exports.SolidityTestRunnerFactory = nativeBinding.SolidityTestRunnerFactory

@@ -21,7 +21,7 @@ index 9d31ee4326d66725b85b5ce45de79ba29c252deb..ea82219d526e39c64215c5cf2aa4b6fb
 +{"version":3,"file":"provider.d.ts","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":";AAAA,OAAO,KAAK,EACV,SAAS,EAGT,eAAe,EAEf,0BAA0B,EAC1B,gBAAgB,EACjB,MAAM,gBAAgB,CAAC;AAExB,OAAO,KAAK,EACV,UAAU,EAKV,wBAAwB,EAKzB,MAAM,sBAAsB,CAAC;AAK9B,OAAO,EAAE,YAAY,EAAE,MAAM,QAAQ,CAAC;AAoCtC,OAAO,EACL,UAAU,EACV,cAAc,EACd,oBAAoB,EACpB,YAAY,EACb,MAAM,cAAc,CAAC;AAUtB,OAAO,EAAE,YAAY,EAA8B,MAAM,kBAAkB,CAAC;AAO5E,eAAO,MAAM,gBAAgB,+CAA+C,CAAC;AAI7E,wBAAsB,mBAAmB,IAAI,OAAO,CAAC,UAAU,CAAC,CAgB/D;AAED,UAAU,4BAA4B;IACpC,QAAQ,EAAE,MAAM,CAAC;IACjB,OAAO,EAAE,MAAM,CAAC;IAChB,SAAS,EAAE,MAAM,CAAC;IAClB,aAAa,EAAE,MAAM,CAAC;IACtB,WAAW,EAAE,MAAM,CAAC;IACpB,QAAQ,EAAE,OAAO,CAAC;IAClB,cAAc,EAAE,oBAAoB,CAAC;IACrC,YAAY,EAAE,YAAY,CAAC;IAC3B,MAAM,EAAE,0BAA0B,CAAC;IACnC,eAAe,EAAE,cAAc,EAAE,CAAC;IAClC,0BAA0B,EAAE,OAAO,CAAC;IACpC,0BAA0B,EAAE,OAAO,CAAC;IACpC,mBAAmB,EAAE,OAAO,CAAC;IAC7B,4BAA4B,EAAE,OAAO,CAAC;IAEtC,oBAAoB,CAAC,EAAE,MAAM,CAAC;IAC9B,WAAW,CAAC,EAAE,IAAI,CAAC;IACnB,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,UAAU,CAAC,EAAE,UAAU,CAAC;IACxB,aAAa,CAAC,EAAE,MAAM,CAAC;IACvB,sBAAsB,EAAE,OAAO,CAAC;IAChC,aAAa,EAAE,OAAO,CAAC;CACxB;AAWD,qBAAa,kBACX,SAAQ,YACR,YAAW,eAAe;IAQxB,OAAO,CAAC,SAAS;IACjB,OAAO,CAAC,QAAQ,CAAC,eAAe;IAChC,OAAO,CAAC,QAAQ,CAAC,aAAa;IAE9B,OAAO,CAAC,KAAK;IAGb,OAAO,CAAC,QAAQ,CAAC,mBAAmB;IAIpC,OAAO,CAAC,QAAQ,CAAC,wBAAwB;IACzC,OAAO,CAAC,QAAQ,CAAC,iBAAiB;IAClC,OAAO,CAAC,QAAQ,CAAC,uBAAuB;IACxC,OAAO,CAAC,QAAQ,CAAC,6BAA6B;IAC9C,OAAO,CAAC,QAAQ,CAAC,yBAAyB;IArB5C,OAAO,CAAC,kBAAkB,CAAK;IAG/B,OAAO,CAAC,qBAAqB,CAAC,CAAuB;IAErD,OAAO;WAqBa,MAAM,CACxB,MAAM,EAAE,4BAA4B,EACpC,YAAY,EAAE,YAAY,EAC1B,aAAa,CAAC,EAAE,wBAAwB,GACvC,OAAO,CAAC,kBAAkB,CAAC;IAsLjB,OAAO,CAAC,IAAI,EAAE,gBAAgB,GAAG,OAAO,CAAC,OAAO,CAAC;YAyJhD,qBAAqB;YAerB,MAAM;YA0EN,wBAAwB;YAexB,kBAAkB;IAIhC,OAAO,CAAC,iBAAiB;IASzB,OAAO,CAAC,4BAA4B;IAOpC,OAAO,CAAC,6BAA6B;CAWtC;AAQD,wBAAsB,4BAA4B,CAChD,4BAA4B,EAAE,4BAA4B,EAC1D,YAAY,EAAE,YAAY,EAC1B,SAAS,CAAC,EAAE,SAAS,GACpB,OAAO,CAAC,eAAe,CAAC,CAY1B"}
 \ No newline at end of file
 diff --git a/internal/hardhat-network/provider/provider.js b/internal/hardhat-network/provider/provider.js
-index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..39f5ddf52aa97aa565416fbf5ee902e104b0a600 100644
+index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..f351ab810996436d0b0d9f35fdab26a0f9d6d257 100644
 --- a/internal/hardhat-network/provider/provider.js
 +++ b/internal/hardhat-network/provider/provider.js
 @@ -70,9 +70,10 @@ class EdrProviderWrapper extends events_1.EventEmitter {
@@ -126,95 +126,30 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..39f5ddf52aa97aa565416fbf5ee902e1
          // Pass through all events from the provider
          eventAdapter.addListener("ethEvent", wrapper._ethEventListener.bind(wrapper));
          return wrapper;
-@@ -231,60 +241,75 @@ class EdrProviderWrapper extends events_1.EventEmitter {
-         else {
-             response = responseObject.data;
-         }
--        const needsTraces = this._node._vm.evm.events.eventNames().length > 0 ||
--            this._node._vm.events.eventNames().length > 0;
--        if (needsTraces) {
+@@ -234,10 +244,8 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+         const needsTraces = this._node._vm.evm.events.eventNames().length > 0 ||
+             this._node._vm.events.eventNames().length > 0;
+         if (needsTraces) {
 -            const rawTraces = responseObject.traces;
 -            for (const rawTrace of rawTraces) {
 -                // For other consumers in JS we need to marshall the entire trace over FFI
 -                const trace = rawTrace.trace;
--                // beforeTx event
--                if (this._node._vm.events.listenerCount("beforeTx") > 0) {
--                    this._node._vm.events.emit("beforeTx");
--                }
--                for (const traceItem of trace) {
--                    // step event
--                    if ("pc" in traceItem) {
--                        if (this._node._vm.evm.events.listenerCount("step") > 0) {
--                            this._node._vm.evm.events.emit("step", (0, convertToEdr_1.edrTracingStepToMinimalInterpreterStep)(traceItem));
--                        }
--                    }
--                    // afterMessage event
++            const rawTraces = responseObject.traces();
++            for (const trace of rawTraces) {
+                 // beforeTx event
+                 if (this._node._vm.events.listenerCount("beforeTx") > 0) {
+                     this._node._vm.events.emit("beforeTx");
+@@ -250,7 +258,7 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+                         }
+                     }
+                     // afterMessage event
 -                    else if ("executionResult" in traceItem) {
--                        if (this._node._vm.evm.events.listenerCount("afterMessage") > 0) {
--                            this._node._vm.evm.events.emit("afterMessage", (0, convertToEdr_1.edrTracingMessageResultToMinimalEVMResult)(traceItem));
--                        }
--                    }
--                    // beforeMessage event
--                    else {
--                        if (this._node._vm.evm.events.listenerCount("beforeMessage") > 0) {
--                            this._node._vm.evm.events.emit("beforeMessage", (0, convertToEdr_1.edrTracingMessageToMinimalMessage)(traceItem));
--                        }
--                    }
--                }
--                // afterTx event
--                if (this._node._vm.events.listenerCount("afterTx") > 0) {
--                    this._node._vm.events.emit("afterTx");
--                }
--            }
--        }
-+        // TODO: re-enable tracing events once EDR adds backwards compatibility support
-+        // const needsTraces =
-+        //   this._node._vm.evm.events.eventNames().length > 0 ||
-+        //   this._node._vm.events.eventNames().length > 0;
-+        // if (needsTraces) {
-+        //   const rawTraces = responseObject.traces;
-+        //   for (const rawTrace of rawTraces) {
-+        //     // For other consumers in JS we need to marshall the entire trace over FFI
-+        //     const trace = rawTrace.trace;
-+        //     // beforeTx event
-+        //     if (this._node._vm.events.listenerCount("beforeTx") > 0) {
-+        //       this._node._vm.events.emit("beforeTx");
-+        //     }
-+        //     for (const traceItem of trace) {
-+        //       // step event
-+        //       if ("pc" in traceItem) {
-+        //         if (this._node._vm.evm.events.listenerCount("step") > 0) {
-+        //           this._node._vm.evm.events.emit(
-+        //             "step",
-+        //             edrTracingStepToMinimalInterpreterStep(traceItem)
-+        //           );
-+        //         }
-+        //       }
-+        //       // afterMessage event
-+        //       else if ("executionResult" in traceItem) {
-+        //         if (this._node._vm.evm.events.listenerCount("afterMessage") > 0) {
-+        //           this._node._vm.evm.events.emit(
-+        //             "afterMessage",
-+        //             edrTracingMessageResultToMinimalEVMResult(traceItem)
-+        //           );
-+        //         }
-+        //       }
-+        //       // beforeMessage event
-+        //       else {
-+        //         if (this._node._vm.evm.events.listenerCount("beforeMessage") > 0) {
-+        //           this._node._vm.evm.events.emit(
-+        //             "beforeMessage",
-+        //             edrTracingMessageToMinimalMessage(traceItem)
-+        //           );
-+        //         }
-+        //       }
-+        //     }
-+        //     // afterTx event
-+        //     if (this._node._vm.events.listenerCount("afterTx") > 0) {
-+        //       this._node._vm.events.emit("afterTx");
-+        //     }
-+        //   }
-+        // }
++                    else if ("execResult" in traceItem) {
+                         if (this._node._vm.evm.events.listenerCount("afterMessage") > 0) {
+                             this._node._vm.evm.events.emit("afterMessage", (0, convertToEdr_1.edrTracingMessageResultToMinimalEVMResult)(traceItem));
+                         }
+@@ -270,21 +278,25 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+         }
          if ((0, http_1.isErrorResponse)(response)) {
              let error;
 -            let stackTrace = null;
@@ -248,7 +183,7 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..39f5ddf52aa97aa565416fbf5ee902e1
                  if (response.error.code === errors_1.InvalidArgumentsError.CODE) {
                      error = new errors_1.InvalidArgumentsError(response.error.message);
                  }
-@@ -304,10 +329,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -304,10 +316,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
          if (args.method === "web3_clientVersion") {
              return clientVersion(response.result);
          }
@@ -259,7 +194,7 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..39f5ddf52aa97aa565416fbf5ee902e1
          else {
              return response.result;
          }
-@@ -328,14 +349,16 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -328,14 +336,16 @@ class EdrProviderWrapper extends events_1.EventEmitter {
          const [genesisState, ownedAccounts] = _genesisStateAndOwnedAccounts(forkConfig !== undefined, this._providerConfig.hardfork, this._originalGenesisAccounts);
          this._providerConfig.genesisState = genesisState;
          this._providerConfig.ownedAccounts = ownedAccounts;
@@ -283,7 +218,7 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..39f5ddf52aa97aa565416fbf5ee902e1
                  blockNumber: forkConfig.blockNumber !== undefined
                      ? BigInt(forkConfig.blockNumber)
                      : undefined,
-@@ -346,7 +369,16 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -346,7 +356,16 @@ class EdrProviderWrapper extends events_1.EventEmitter {
              };
          }
          else {
@@ -339,7 +274,7 @@ index 23b0715c04680d560c779a40890217d96f60916f..11771582b3e38226fac624b9e10a7849
 +{"version":3,"file":"convertToEdr.d.ts","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/convertToEdr.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EACV,MAAM,EACN,YAAY,EACZ,aAAa,EAEb,cAAc,EACd,oBAAoB,EACpB,WAAW,EACX,UAAU,EACX,MAAM,sBAAsB,CAAC;AAyB9B,OAAO,EAAE,YAAY,EAAE,MAAM,yBAAyB,CAAC;AACvD,OAAO,EAAE,oBAAoB,EAAE,YAAY,EAAE,MAAM,eAAe,CAAC;AAEnE,OAAO,EACL,gBAAgB,EAChB,sBAAsB,EACtB,cAAc,EACf,MAAM,aAAa,CAAC;AAIrB,wBAAgB,8BAA8B,CAAC,QAAQ,EAAE,YAAY,GAAG,MAAM,CA8C7E;AAED,wBAAgB,2BAA2B,CAAC,MAAM,EAAE,MAAM,GAAG,YAAY,CAgDxE;AAED,wBAAgB,mCAAmC,CACjD,MAAM,EAAE,oBAAoB,GAC3B,MAAM,GAAG,aAAa,GAAG,SAAS,CAcpC;AAED,wBAAgB,uCAAuC,CACrD,YAAY,EAAE,YAAY,GACzB,YAAY,CAWd;AAED,wBAAgB,sCAAsC,CACpD,IAAI,EAAE,WAAW,GAChB,sBAAsB,CAexB;AAED,wBAAgB,yCAAyC,CACvD,oBAAoB,EAAE,oBAAoB,GACzC,gBAAgB,CA+BlB;AAED,wBAAgB,iCAAiC,CAC/C,OAAO,EAAE,cAAc,GACtB,cAAc,CAahB;AAED,wBAAgB,gBAAgB,CAAC,KAAK,CAAC,EAAE;IACvC,CAAC,IAAI,EAAE,MAAM,GAAG,MAAM,CAAC;CACxB,GAAG,UAAU,EAAE,GAAG,SAAS,CAc3B"}
 \ No newline at end of file
 diff --git a/internal/hardhat-network/provider/utils/convertToEdr.js b/internal/hardhat-network/provider/utils/convertToEdr.js
-index 9f306964d32309a3a72626fd5d522d2066758821..607ded63b8d569231d32202a368f1f6852708ba0 100644
+index 9f306964d32309a3a72626fd5d522d2066758821..dda6040237383f6ca78f6541d9556a805dc8b5bc 100644
 --- a/internal/hardhat-network/provider/utils/convertToEdr.js
 +++ b/internal/hardhat-network/provider/utils/convertToEdr.js
 @@ -1,6 +1,6 @@
@@ -350,7 +285,7 @@ index 9f306964d32309a3a72626fd5d522d2066758821..607ded63b8d569231d32202a368f1f68
  const edr_1 = require("@nomicfoundation/edr");
  const util_1 = require("@ethereumjs/util");
  const napi_rs_1 = require("../../../../common/napi-rs");
-@@ -126,50 +126,6 @@ function ethereumjsMempoolOrderToEdrMineOrdering(mempoolOrder) {
+@@ -126,91 +126,34 @@ function ethereumjsMempoolOrderToEdrMineOrdering(mempoolOrder) {
      }
  }
  exports.ethereumjsMempoolOrderToEdrMineOrdering = ethereumjsMempoolOrderToEdrMineOrdering;
@@ -400,7 +335,61 @@ index 9f306964d32309a3a72626fd5d522d2066758821..607ded63b8d569231d32202a368f1f68
 -exports.edrRpcDebugTraceToHardhat = edrRpcDebugTraceToHardhat;
  function edrTracingStepToMinimalInterpreterStep(step) {
      const minimalInterpreterStep = {
-         pc: Number(step.pc),
+-        pc: Number(step.pc),
++        pc: step.pc,
+         depth: step.depth,
+         opcode: {
+-            name: step.opcode,
++            name: step.opcode.name,
+         },
+         stack: step.stack,
++        memory: step.memory,
+     };
+-    if (step.memory !== undefined) {
+-        minimalInterpreterStep.memory = step.memory;
+-    }
+     return minimalInterpreterStep;
+ }
+ exports.edrTracingStepToMinimalInterpreterStep = edrTracingStepToMinimalInterpreterStep;
+ function edrTracingMessageResultToMinimalEVMResult(tracingMessageResult) {
+-    const { result, contractAddress } = tracingMessageResult.executionResult;
+-    // only SuccessResult has logs
+-    const success = "logs" in result;
++    const execResult = tracingMessageResult.execResult;
+     const minimalEVMResult = {
+         execResult: {
+-            executionGasUsed: result.gasUsed,
+-            success,
++            success: execResult.success,
++            executionGasUsed: execResult.executionGasUsed,
++            contractAddress: execResult.contractAddress !== undefined
++                ? new util_1.Address(execResult.contractAddress)
++                : undefined,
++            reason: execResult.reason,
++            output: execResult.output !== undefined
++                ? Buffer.from(execResult.output)
++                : undefined,
+         },
+     };
+-    // only success and exceptional halt have reason
+-    if ("reason" in result) {
+-        minimalEVMResult.execResult.reason = result.reason;
+-    }
+-    if ("output" in result) {
+-        const { output } = result;
+-        if (output instanceof Uint8Array) {
+-            minimalEVMResult.execResult.output = Buffer.from(output);
+-        }
+-        else {
+-            minimalEVMResult.execResult.output = Buffer.from(output.returnValue);
+-        }
+-    }
+-    if (contractAddress !== undefined) {
+-        minimalEVMResult.execResult.contractAddress = new util_1.Address(contractAddress);
+-    }
+     return minimalEVMResult;
+ }
+ exports.edrTracingMessageResultToMinimalEVMResult = edrTracingMessageResultToMinimalEVMResult;
 diff --git a/internal/hardhat-network/provider/utils/convertToEdr.js.map b/internal/hardhat-network/provider/utils/convertToEdr.js.map
 index f83df9fdce13dcce820f520b556ec9dce9537ff8..b97968227b38b48845d60e4a93e8dd21f21cc778 100644
 --- a/internal/hardhat-network/provider/utils/convertToEdr.js.map
@@ -411,7 +400,7 @@ index f83df9fdce13dcce820f520b556ec9dce9537ff8..b97968227b38b48845d60e4a93e8dd21
 +{"version":3,"file":"convertToEdr.js","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/convertToEdr.ts"],"names":[],"mappings":"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"}
 \ No newline at end of file
 diff --git a/src/internal/hardhat-network/provider/provider.ts b/src/internal/hardhat-network/provider/provider.ts
-index 7e4276a589668b96c16243f547c0a2caecdb0d46..4636477ae060c71beadf065749aaa9382ccda358 100644
+index 7e4276a589668b96c16243f547c0a2caecdb0d46..6b8ea0a512ae2739c9a0284f79fb5f427ac422bb 100644
 --- a/src/internal/hardhat-network/provider/provider.ts
 +++ b/src/internal/hardhat-network/provider/provider.ts
 @@ -67,7 +67,6 @@ import {
@@ -527,114 +516,30 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..4636477ae060c71beadf065749aaa938
      );
  
      // Pass through all events from the provider
-@@ -387,75 +397,88 @@ export class EdrProviderWrapper
-       response = responseObject.data;
-     }
+@@ -392,11 +402,8 @@ export class EdrProviderWrapper
+       this._node._vm.events.eventNames().length > 0;
  
--    const needsTraces =
--      this._node._vm.evm.events.eventNames().length > 0 ||
--      this._node._vm.events.eventNames().length > 0;
--
--    if (needsTraces) {
+     if (needsTraces) {
 -      const rawTraces = responseObject.traces;
 -      for (const rawTrace of rawTraces) {
 -        // For other consumers in JS we need to marshall the entire trace over FFI
 -        const trace = rawTrace.trace;
 -
--        // beforeTx event
--        if (this._node._vm.events.listenerCount("beforeTx") > 0) {
--          this._node._vm.events.emit("beforeTx");
--        }
--
--        for (const traceItem of trace) {
--          // step event
--          if ("pc" in traceItem) {
--            if (this._node._vm.evm.events.listenerCount("step") > 0) {
--              this._node._vm.evm.events.emit(
--                "step",
--                edrTracingStepToMinimalInterpreterStep(traceItem)
--              );
--            }
--          }
--          // afterMessage event
++      const rawTraces = responseObject.traces();
++      for (const trace of rawTraces) {
+         // beforeTx event
+         if (this._node._vm.events.listenerCount("beforeTx") > 0) {
+           this._node._vm.events.emit("beforeTx");
+@@ -413,7 +420,7 @@ export class EdrProviderWrapper
+             }
+           }
+           // afterMessage event
 -          else if ("executionResult" in traceItem) {
--            if (this._node._vm.evm.events.listenerCount("afterMessage") > 0) {
--              this._node._vm.evm.events.emit(
--                "afterMessage",
--                edrTracingMessageResultToMinimalEVMResult(traceItem)
--              );
--            }
--          }
--          // beforeMessage event
--          else {
--            if (this._node._vm.evm.events.listenerCount("beforeMessage") > 0) {
--              this._node._vm.evm.events.emit(
--                "beforeMessage",
--                edrTracingMessageToMinimalMessage(traceItem)
--              );
--            }
--          }
--        }
--
--        // afterTx event
--        if (this._node._vm.events.listenerCount("afterTx") > 0) {
--          this._node._vm.events.emit("afterTx");
--        }
--      }
--    }
-+    // TODO: re-enable tracing events once EDR adds backwards compatibility support
-+    // const needsTraces =
-+    //   this._node._vm.evm.events.eventNames().length > 0 ||
-+    //   this._node._vm.events.eventNames().length > 0;
-+
-+    // if (needsTraces) {
-+    //   const rawTraces = responseObject.traces;
-+    //   for (const rawTrace of rawTraces) {
-+    //     // For other consumers in JS we need to marshall the entire trace over FFI
-+    //     const trace = rawTrace.trace;
-+
-+    //     // beforeTx event
-+    //     if (this._node._vm.events.listenerCount("beforeTx") > 0) {
-+    //       this._node._vm.events.emit("beforeTx");
-+    //     }
-+
-+    //     for (const traceItem of trace) {
-+    //       // step event
-+    //       if ("pc" in traceItem) {
-+    //         if (this._node._vm.evm.events.listenerCount("step") > 0) {
-+    //           this._node._vm.evm.events.emit(
-+    //             "step",
-+    //             edrTracingStepToMinimalInterpreterStep(traceItem)
-+    //           );
-+    //         }
-+    //       }
-+    //       // afterMessage event
-+    //       else if ("executionResult" in traceItem) {
-+    //         if (this._node._vm.evm.events.listenerCount("afterMessage") > 0) {
-+    //           this._node._vm.evm.events.emit(
-+    //             "afterMessage",
-+    //             edrTracingMessageResultToMinimalEVMResult(traceItem)
-+    //           );
-+    //         }
-+    //       }
-+    //       // beforeMessage event
-+    //       else {
-+    //         if (this._node._vm.evm.events.listenerCount("beforeMessage") > 0) {
-+    //           this._node._vm.evm.events.emit(
-+    //             "beforeMessage",
-+    //             edrTracingMessageToMinimalMessage(traceItem)
-+    //           );
-+    //         }
-+    //       }
-+    //     }
-+
-+    //     // afterTx event
-+    //     if (this._node._vm.events.listenerCount("afterTx") > 0) {
-+    //       this._node._vm.events.emit("afterTx");
-+    //     }
-+    //   }
-+    // }
- 
++          else if ("execResult" in traceItem) {
+             if (this._node._vm.evm.events.listenerCount("afterMessage") > 0) {
+               this._node._vm.evm.events.emit(
+                 "afterMessage",
+@@ -442,20 +449,32 @@ export class EdrProviderWrapper
      if (isErrorResponse(response)) {
        let error;
  
@@ -675,7 +580,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..4636477ae060c71beadf065749aaa938
          if (response.error.code === InvalidArgumentsError.CODE) {
            error = new InvalidArgumentsError(response.error.message);
          } else {
-@@ -479,11 +502,6 @@ export class EdrProviderWrapper
+@@ -479,11 +498,6 @@ export class EdrProviderWrapper
      // e.g. `HardhatNetwork/2.19.0/@nomicfoundation/edr/0.2.0-dev`
      if (args.method === "web3_clientVersion") {
        return clientVersion(response.result);
@@ -687,7 +592,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..4636477ae060c71beadf065749aaa938
      } else {
        return response.result;
      }
-@@ -519,18 +537,19 @@ export class EdrProviderWrapper
+@@ -519,18 +533,19 @@ export class EdrProviderWrapper
      this._providerConfig.genesisState = genesisState;
      this._providerConfig.ownedAccounts = ownedAccounts;
  
@@ -716,7 +621,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..4636477ae060c71beadf065749aaa938
          blockNumber:
            forkConfig.blockNumber !== undefined
              ? BigInt(forkConfig.blockNumber)
-@@ -541,7 +560,18 @@ export class EdrProviderWrapper
+@@ -541,7 +556,18 @@ export class EdrProviderWrapper
          url: forkConfig.jsonRpcUrl,
        };
      } else {
@@ -737,10 +642,10 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..4636477ae060c71beadf065749aaa938
  
      const context = await getGlobalEdrContext();
 diff --git a/src/internal/hardhat-network/provider/utils/convertToEdr.ts b/src/internal/hardhat-network/provider/utils/convertToEdr.ts
-index 7fc17b29c0483c4f72ec471f8be60ce7d563add8..4dc5ebf3db263a281623ac2b161b7b5bb24a96a6 100644
+index 7fc17b29c0483c4f72ec471f8be60ce7d563add8..c6be433f86f38b5f5b9339a3274fba60ac22fa13 100644
 --- a/src/internal/hardhat-network/provider/utils/convertToEdr.ts
 +++ b/src/internal/hardhat-network/provider/utils/convertToEdr.ts
-@@ -174,62 +174,6 @@ export function ethereumjsMempoolOrderToEdrMineOrdering(
+@@ -174,113 +174,43 @@ export function ethereumjsMempoolOrderToEdrMineOrdering(
    }
  }
  
@@ -803,3 +708,69 @@ index 7fc17b29c0483c4f72ec471f8be60ce7d563add8..4dc5ebf3db263a281623ac2b161b7b5b
  export function edrTracingStepToMinimalInterpreterStep(
    step: TracingStep
  ): MinimalInterpreterStep {
+   const minimalInterpreterStep: MinimalInterpreterStep = {
+-    pc: Number(step.pc),
++    pc: step.pc,
+     depth: step.depth,
+     opcode: {
+-      name: step.opcode,
++      name: step.opcode.name,
+     },
+     stack: step.stack,
++    memory: step.memory,
+   };
+ 
+-  if (step.memory !== undefined) {
+-    minimalInterpreterStep.memory = step.memory;
+-  }
+-
+   return minimalInterpreterStep;
+ }
+ 
+ export function edrTracingMessageResultToMinimalEVMResult(
+   tracingMessageResult: TracingMessageResult
+ ): MinimalEVMResult {
+-  const { result, contractAddress } = tracingMessageResult.executionResult;
+-
+-  // only SuccessResult has logs
+-  const success = "logs" in result;
++  const execResult = tracingMessageResult.execResult;
+ 
+   const minimalEVMResult: MinimalEVMResult = {
+     execResult: {
+-      executionGasUsed: result.gasUsed,
+-      success,
++      success: execResult.success,
++      executionGasUsed: execResult.executionGasUsed,
++      contractAddress:
++        execResult.contractAddress !== undefined
++          ? new Address(execResult.contractAddress)
++          : undefined,
++      reason: execResult.reason,
++      output:
++        execResult.output !== undefined
++          ? Buffer.from(execResult.output)
++          : undefined,
+     },
+   };
+ 
+-  // only success and exceptional halt have reason
+-  if ("reason" in result) {
+-    minimalEVMResult.execResult.reason = result.reason;
+-  }
+-  if ("output" in result) {
+-    const { output } = result;
+-    if (output instanceof Uint8Array) {
+-      minimalEVMResult.execResult.output = Buffer.from(output);
+-    } else {
+-      minimalEVMResult.execResult.output = Buffer.from(output.returnValue);
+-    }
+-  }
+-
+-  if (contractAddress !== undefined) {
+-    minimalEVMResult.execResult.contractAddress = new Address(contractAddress);
+-  }
+-
+   return minimalEVMResult;
+ }
+ 
