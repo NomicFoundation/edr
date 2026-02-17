@@ -375,8 +375,9 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
 
     fn cast_response(
         response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
+        verbose: bool,
     ) -> napi::Result<edr_napi_core::spec::Response> {
-        cast_provider_result_to_response(response)
+        cast_provider_result_to_response(response, verbose)
     }
 }
 

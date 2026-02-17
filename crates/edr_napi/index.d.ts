@@ -485,36 +485,6 @@ export enum SuccessReason {
   /** The opcode `SELFDESTRUCT` was called */
   SelfDestruct = 2
 }
-export interface CallOutput {
-  /** Return value */
-  returnValue: Uint8Array
-}
-export interface CreateOutput {
-  /** Return value */
-  returnValue: Uint8Array
-  /** Optionally, a 160-bit address */
-  address?: Uint8Array
-}
-/** The result when the EVM terminates successfully. */
-export interface SuccessResult {
-  /** The reason for termination */
-  reason: SuccessReason
-  /** The amount of gas used */
-  gasUsed: bigint
-  /** The amount of gas refunded */
-  gasRefunded: bigint
-  /** The logs */
-  logs: Array<ExecutionLog>
-  /** The transaction output */
-  output: CallOutput | CreateOutput
-}
-/** The result when the EVM terminates due to a revert. */
-export interface RevertResult {
-  /** The amount of gas used */
-  gasUsed: bigint
-  /** The transaction output */
-  output: Uint8Array
-}
 /**
  * Indicates that the EVM has experienced an exceptional halt. This causes
  * execution to immediately end with all gas being consumed.
@@ -537,23 +507,6 @@ export enum ExceptionalHalt {
   CreateContractStartingWithEF = 12,
   /** EIP-3860: Limit and meter initcode. Initcode size limit exceeded. */
   CreateInitCodeSizeLimit = 13
-}
-/** The result when the EVM terminates due to an exceptional halt. */
-export interface HaltResult {
-  /** The exceptional halt that occurred */
-  reason: ExceptionalHalt
-  /**
-   * Halting will spend all the gas and will thus be equal to the specified
-   * gas limit
-   */
-  gasUsed: bigint
-}
-/** The result of executing a transaction. */
-export interface ExecutionResult {
-  /** The transaction result */
-  result: SuccessResult | RevertResult | HaltResult
-  /** Optional contract address if the transaction created a new contract. */
-  contractAddress?: Uint8Array
 }
 /** A compilation artifact. */
 export interface Artifact {
@@ -1493,48 +1446,61 @@ export interface CheatcodeErrorStackTraceEntry {
   sourceReference: SourceReference
   details?: CheatcodeErrorDetails
 }
+/** Matches Hardhat's `MinimalMessage` interface. */
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Uint8Array
   /** Recipient address. None if it is a Create message. */
   readonly to?: Uint8Array
-  /** Whether it's a static call */
-  readonly isStaticCall: boolean
-  /** Transaction gas limit */
-  readonly gasLimit: bigint
-  /** Depth of the message */
-  readonly depth: number
-  /** Input data of the message */
-  readonly data: Uint8Array
-  /** Value sent in the message */
-  readonly value: bigint
   /**
    * Address of the code that is being executed. Can be different from `to`
    * if a delegate call is being done.
    */
   readonly codeAddress?: Uint8Array
-  /** Code of the contract that is being executed. */
-  readonly code?: Uint8Array
+  /** Value sent in the message */
+  readonly value: bigint
+  /** Input data of the message */
+  readonly data: Uint8Array
+  /** Transaction gas limit */
+  readonly gasLimit: bigint
+  /** Whether it's a static call */
+  readonly isStaticCall: boolean
 }
+/** Matches Hardhat's `MinimalInterpreterStep` interface. */
 export interface TracingStep {
+  /** The program counter */
+  readonly pc: number
   /** Call depth */
   readonly depth: number
-  /** The program counter */
-  readonly pc: bigint
-  /** The executed op code */
-  readonly opcode: string
-  /**
-   * The entries on the stack. It only contains the top element unless
-   * verbose tracing is enabled. The vector is empty if there are no elements
-   * on the stack.
-   */
+  /** The executed opcode */
+  readonly opcode: TracingOpcode
+  /** The entries on the stack. */
   readonly stack: Array<bigint>
   /** The memory at the step. None if verbose tracing is disabled. */
   readonly memory?: Uint8Array
 }
+/** Opcode information for a tracing step. */
+export interface TracingOpcode {
+  /** The name of the opcode */
+  readonly name: string
+}
+/** Matches Hardhat's `MinimalEVMResult` interface. */
 export interface TracingMessageResult {
-  /** Execution result */
-  readonly executionResult: ExecutionResult
+  /** The execution result */
+  readonly execResult: TracingExecResult
+}
+/** Matches Hardhat's `MinimalExecResult` interface. */
+export interface TracingExecResult {
+  /** Whether execution succeeded */
+  readonly success: boolean
+  /** Gas used during execution */
+  readonly executionGasUsed: bigint
+  /** Address of the created contract, if any */
+  readonly contractAddress?: Uint8Array
+  /** The reason for the exit (success or halt) */
+  readonly reason?: SuccessReason | ExceptionalHalt
+  /** The output data */
+  readonly output?: Uint8Array
 }
 export interface Withdrawal {
   /** The index of withdrawal */
@@ -1603,6 +1569,12 @@ export declare class Response {
    * request's call itself.
    */
   callTraces(): Array<CallTrace>
+  /**
+   * Returns the raw traces of executed contracts. This may contain zero or
+   * more traces. Uses a function instead of a getter to avoid repeated
+   * expensive conversions.
+   */
+  traces(): Array<Array<TracingMessage | TracingStep | TracingMessageResult>>
 }
 /** A JSON-RPC provider for Ethereum. */
 export declare class Provider {
@@ -1699,7 +1671,4 @@ export declare class ReturnData {
   isPanicReturnData(): boolean
   decodeError(): string
   decodePanic(): bigint
-}
-export declare class RawTrace {
-  get trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
 }

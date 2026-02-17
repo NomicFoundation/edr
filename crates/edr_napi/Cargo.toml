@@ -42,7 +42,6 @@ edr_solidity_tests.workspace = true
 edr_state_api.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
-edr_tracing.workspace = true
 k256 = { version = "0.13.1", default-features = false, features = [
     "arithmetic",
     "ecdsa",
