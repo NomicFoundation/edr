@@ -9,7 +9,7 @@ overrides:
 
 patchedDependencies:
   hardhat@2.28.4:
-    hash: e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600
+    hash: 1f69ab732342c3ea28b797f9e62fe5b482254e6fbdbe1e79c3dd1860ea185321
     path: patches/hardhat@2.28.4.patch
   hardhat@3.4.5:
     hash: 0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805
@@ -213,7 +213,7 @@ importers:
         version: 7.0.1
       hardhat:
         specifier: 2.28.4
-        version: 2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.8.3))(typescript@5.8.3)
+        version: 2.28.4(patch_hash=1f69ab732342c3ea28b797f9e62fe5b482254e6fbdbe1e79c3dd1860ea185321)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.8.3))(typescript@5.8.3)
       mocha:
         specifier: ^11.1.0
         version: 11.7.6
@@ -295,7 +295,7 @@ importers:
         version: 3.4.5(patch_hash=0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805)
       hardhat2:
         specifier: npm:hardhat@2.28.4
-        version: hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.8.3))(typescript@5.8.3)
+        version: hardhat@2.28.4(patch_hash=1f69ab732342c3ea28b797f9e62fe5b482254e6fbdbe1e79c3dd1860ea185321)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.8.3))(typescript@5.8.3)
       lodash:
         specifier: ^4.17.11
         version: 4.17.21
@@ -6201,7 +6201,7 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.8.3))(typescript@5.8.3):
+  hardhat@2.28.4(patch_hash=1f69ab732342c3ea28b797f9e62fe5b482254e6fbdbe1e79c3dd1860ea185321)(ts-node@10.9.2(@types/node@22.7.5)(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
       '@ethereumjs/util': 9.1.0
       '@ethersproject/abi': 5.7.0
