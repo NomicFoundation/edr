@@ -4,14 +4,15 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use cargo_metadata::{Dependency, PackageId};
-use semver::{Version, VersionReq};
+use semver::VersionReq;
 
 use crate::{
     cache::Cache,
-    registry::{RegistryClient, VersionMeta},
-    resolver::{age_minutes, filter_candidates},
+    offender::OffenderCrate,
+    registry::RegistryClient,
+    resolver::{age_minutes, crate_version_candidates, fetch_version_meta},
     workspace::Workspace,
 };
 
@@ -171,29 +172,6 @@ To resolve this, downgrade to one of these versions: {versions:?} by running\n\t
     Ok(())
 }
 
-async fn crate_version_candidates(
-    client: &RegistryClient,
-    cache: &Cache,
-    offender_crate: &OffenderCrate,
-    requirements: &[VersionReq],
-) -> anyhow::Result<Vec<Version>> {
-    let current_version = Version::parse(&offender_crate.current_version).context(format!(
-        "Could not parse {}@{} version",
-        offender_crate.name, offender_crate.current_version
-    ))?;
-    let candidate_list = fetch_version_list(client, cache, &offender_crate.name).await?;
-    let versions = filter_candidates(candidate_list, offender_crate.minimum_minutes);
-    let versions = versions
-        .into_iter()
-        .filter_map(|meta| Version::parse(&meta.num).ok())
-        .filter(|version| {
-            *version < current_version && satisfies_requirements(version, requirements)
-        })
-        .collect::<Vec<_>>();
-
-    Ok(versions)
-}
-
 fn gather_dependencies_requirements(
     crate_names: Vec<String>,
     workspace: &Workspace,
@@ -236,56 +214,4 @@ fn ensure_lockfile(workspace: &Workspace) -> Result<()> {
         return Ok(());
     }
     bail!("`Cargo.lock` file does not exist");
-}
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-struct OffenderCrate {
-    package_id: PackageId,
-    name: String,
-    current_version: String,
-    minimum_minutes: u64,
-}
-
-async fn fetch_version_meta(
-    client: &RegistryClient,
-    cache: &Cache,
-    name: &str,
-    version: &str,
-) -> Result<VersionMeta> {
-    let key = format!("{name}/{version}");
-    if let Some(meta) = cache.get::<VersionMeta>(&key)? {
-        return Ok(meta);
-    }
-    let meta = client.fetch_version(name, version).await?;
-    cache.put(&key, &meta)?;
-    Ok(meta)
-}
-
-async fn fetch_version_list(
-    client: &RegistryClient,
-    cache: &Cache,
-    name: &str,
-) -> Result<Vec<VersionMeta>> {
-    let key = format!("{name}/_list");
-    if let Some(list) = cache.get::<Vec<VersionMeta>>(&key)? {
-        return Ok(list);
-    }
-    let mut versions = client.list_versions(name).await?;
-    versions.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-    cache.put(&key, &versions)?;
-    Ok(versions)
-}
-
-fn satisfies_requirements(version: &Version, requirements: &[VersionReq]) -> bool {
-    if requirements.is_empty() {
-        return true;
-    }
-    log::debug!(
-        "Analyzing version `{version}` against requirements {:?}",
-        requirements
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect::<Vec<_>>()
-    );
-    requirements.iter().all(|req| req.matches(version))
 }
