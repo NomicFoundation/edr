@@ -18,6 +18,12 @@ Have an automated way to check and fail when any of the dependencies in the Carg
 
 - automatically update `Cargo.lock` with cooler dependencies
 
+## Usage
+
+## TODO
+
+- load cache dir from config
+
 ## Limitations
 
 - File config files won't be configurable (both `cooldown.toml` and `allowlist.toml`)

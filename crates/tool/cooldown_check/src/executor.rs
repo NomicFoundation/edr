@@ -1,7 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    path::Path,
-    process::Command,
+    collections::{HashMap, HashSet},
     result::Result::Ok,
     time::Duration,
 };
@@ -18,7 +16,7 @@ use crate::{
 };
 
 pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
-    ensure_lockfile()?;
+    ensure_lockfile(&workspace)?;
 
     let allowlist = &workspace.allowlist;
     let config = &workspace.config;
@@ -119,15 +117,17 @@ async fn identify_offending_crates(
     workspace: &Workspace,
     client: &RegistryClient,
     cache: &Cache,
-    fresh_entries: Vec<OffenderCrate>,
+    offending_crates: Vec<OffenderCrate>,
 ) -> anyhow::Result<()> {
+    let offending_crate_names = offending_crates
+        .iter()
+        .map(|offending_crate| offending_crate.name.clone())
+        .collect::<Vec<_>>();
     let mut visited_failures: HashSet<String> = HashSet::new();
 
-    let version_requirements = gather_dependencies_requirements(workspace);
+    let version_requirements = gather_dependencies_requirements(offending_crate_names, workspace);
 
-    let mut queue: VecDeque<OffenderCrate> = fresh_entries.into();
-
-    while let Some(offender_crate) = queue.pop_front() {
+    for offender_crate in offending_crates {
         let key = format!("{}@{}", offender_crate.name, offender_crate.current_version);
         if visited_failures.contains(&key) {
             // a warning was already emmitted for this dependency
@@ -179,9 +179,10 @@ async fn crate_version_candidates(
     Ok(candidates)
 }
 
-// TODO: only track requirements of offending crates
-// filter node.deps by checking existance in offending_crates
-fn gather_dependencies_requirements(workspace: &Workspace) -> HashMap<PackageId, Vec<VersionReq>> {
+fn gather_dependencies_requirements(
+    crate_names: Vec<String>,
+    workspace: &Workspace,
+) -> HashMap<PackageId, Vec<VersionReq>> {
     let mut version_requirements: HashMap<PackageId, Vec<VersionReq>> = HashMap::new();
     let packages = workspace.packages();
 
@@ -189,7 +190,11 @@ fn gather_dependencies_requirements(workspace: &Workspace) -> HashMap<PackageId,
         let pkg = packages
             .get(&node.id)
             .unwrap_or_else(|| panic!("Could not find associated package to {:?}", node.id));
-        for dep in node.deps.iter() {
+        for dep in node
+            .deps
+            .iter()
+            .filter(|dep| crate_names.contains(&dep.name))
+        {
             let dep_pkg = packages
                 .get(&dep.pkg)
                 .unwrap_or_else(|| panic!("Could not find associated package to {:?}", dep.pkg));
@@ -206,15 +211,13 @@ fn gather_dependencies_requirements(workspace: &Workspace) -> HashMap<PackageId,
     version_requirements
 }
 
-fn ensure_lockfile() -> Result<()> {
-    if Path::new("Cargo.lock").exists() {
+fn ensure_lockfile(workspace: &Workspace) -> Result<()> {
+    let mut workspace_root = workspace.root_path();
+    workspace_root.push("Cargo.lock");
+    if workspace_root.exists() {
         return Ok(());
     }
-    let status = Command::new("cargo").args(["generate-lockfile"]).status()?;
-    if !status.success() {
-        bail!("failed to generate Cargo.lock via `cargo generate-lockfile`");
-    }
-    Ok(())
+    bail!("`Cargo.lock` file does not exist");
 }
 
 #[derive(Clone, Debug)]

@@ -54,6 +54,10 @@ impl Workspace {
             .map(|pkg| (pkg.id.clone(), pkg))
             .collect()
     }
+
+    pub fn root_path(&self) -> PathBuf {
+        self.metadata.workspace_root.clone().into()
+    }
 }
 
 fn cargo_config_file_path(workspace_root_path: &Utf8PathBuf, filename: &str) -> PathBuf {
