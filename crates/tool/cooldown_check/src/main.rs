@@ -3,6 +3,7 @@ mod cache;
 mod config;
 mod executor;
 mod metadata;
+mod offender;
 mod registry;
 mod resolver;
 mod workspace;
