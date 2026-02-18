@@ -4,12 +4,6 @@ use chrono::{DateTime, Utc};
 
 use crate::registry::VersionMeta;
 
-#[derive(Debug, Clone)]
-pub struct Candidate {
-    pub version: String,
-    pub created_at: DateTime<Utc>,
-}
-
 // Create the static singleton instance
 static NOW: LazyLock<DateTime<Utc>> = LazyLock::new(|| {
     // This closure runs only once, the first time NOW is accessed
@@ -20,7 +14,7 @@ pub fn age_minutes(datetime: DateTime<Utc>) -> i64 {
     (*NOW - datetime).num_minutes()
 }
 
-pub fn filter_candidates(versions: Vec<VersionMeta>, minimum_minutes: u64) -> Vec<Candidate> {
+pub fn filter_candidates(versions: Vec<VersionMeta>, minimum_minutes: u64) -> Vec<VersionMeta> {
     filter_candidates_by_time(versions, minimum_minutes, *NOW)
 }
 
@@ -28,19 +22,13 @@ pub fn filter_candidates_by_time(
     versions: Vec<VersionMeta>,
     minimum_minutes: u64,
     now: DateTime<Utc>,
-) -> Vec<Candidate> {
+) -> Vec<VersionMeta> {
     let cutoff = now - chrono::Duration::minutes(minimum_minutes as i64);
-    let mut filtered: Vec<Candidate> = versions
+    versions
         .into_iter()
         .filter(|meta| !meta.yanked)
         .filter(|meta| meta.created_at <= cutoff)
-        .map(|meta| Candidate {
-            version: meta.num,
-            created_at: meta.created_at,
-        })
-        .collect();
-    filtered.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-    filtered
+        .collect()
 }
 
 #[cfg(test)]
@@ -71,6 +59,6 @@ mod tests {
         ];
         let candidates = filter_candidates_by_time(versions, 30, now);
         assert_eq!(candidates.len(), 1);
-        assert_eq!(candidates[0].version, "1.2.2");
+        assert_eq!(candidates[0].num, "1.2.2");
     }
 }

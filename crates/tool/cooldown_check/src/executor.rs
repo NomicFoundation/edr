@@ -4,14 +4,14 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, Result};
-use cargo_metadata::PackageId;
+use anyhow::{bail, Context, Result};
+use cargo_metadata::{Dependency, PackageId};
 use semver::{Version, VersionReq};
 
 use crate::{
     cache::Cache,
     registry::{RegistryClient, VersionMeta},
-    resolver::{age_minutes, filter_candidates, Candidate},
+    resolver::{age_minutes, filter_candidates},
     workspace::Workspace,
 };
 
@@ -105,53 +105,67 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
     }
 
     if offending_crates.is_empty() {
-        log::info!("dependency graph is cool ✅");
+        log::info!("dependency graph passed cooldown check ✅");
         Ok(())
     } else {
-        identify_offending_crates(&workspace, &client, &cache, offending_crates).await?;
-        bail!("dependency graph offends cooldown period ❌")
+        let offending_crates = offending_crates.into_iter().collect::<HashSet<_>>();
+        log_offending_crates(&workspace, &client, &cache, offending_crates).await?;
+        bail!("dependency graph contains crates within the cooldown period ❌")
     }
 }
 
-async fn identify_offending_crates(
+async fn log_offending_crates(
     workspace: &Workspace,
     client: &RegistryClient,
     cache: &Cache,
-    offending_crates: Vec<OffenderCrate>,
+    offending_crates: HashSet<OffenderCrate>,
 ) -> anyhow::Result<()> {
     let offending_crate_names = offending_crates
         .iter()
         .map(|offending_crate| offending_crate.name.clone())
         .collect::<Vec<_>>();
-    let mut visited_failures: HashSet<String> = HashSet::new();
 
     let version_requirements = gather_dependencies_requirements(offending_crate_names, workspace);
 
     for offender_crate in offending_crates {
-        let key = format!("{}@{}", offender_crate.name, offender_crate.current_version);
-        if visited_failures.contains(&key) {
-            // a warning was already emmitted for this dependency
-            continue;
-        }
-
         let crate_requirements = version_requirements
             .get(&offender_crate.package_id)
             .cloned()
             .unwrap_or_default();
-        let candidates =
-            crate_version_candidates(client, cache, &offender_crate, &crate_requirements).await?;
-        if candidates.is_empty() {
-            visited_failures.insert(key.clone());
-            log::error!(
-                    "crate `{}` has no versions older than {} minutes that satisfy the current semver constraints {:?}.\n\tRelax these constraints, wait for the cooldown period, or add this crate to the allowlist configuration if this version is needed for security improvements.\n",
-                    offender_crate.name,
-                    offender_crate.minimum_minutes,
-                    crate_requirements.iter().map(std::string::ToString::to_string).collect::<Vec<_>>(),
-                );
-            continue;
-        }
+        let version_candidates =
+            crate_version_candidates(client, cache, &offender_crate, &crate_requirements)
+                .await?
+                .into_iter()
+                .collect::<Vec<_>>();
+        if version_candidates.is_empty() {
+            let crate_requirements = crate_requirements
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect::<Vec<_>>();
 
-        log::error!("crate `{}@{}` offends the cooldown period. To resolve this, downgrade to one of these versions: {:?} by running\n\t`cargo update {} --precise <version>`\n", offender_crate.name, offender_crate.current_version, candidates.into_iter().map(|candidate| candidate.version).collect::<Vec<String>>(), offender_crate.name);
+            log::error!(
+                "crate `{}@{}` is within the cooldown period.\n\t\
+No versions older than {} minutes satisfy semver constraints {crate_requirements:?}.\n\t\
+Relax the constraints, wait for the cooldown to elapse, or allowlist this crate.\n",
+                offender_crate.name,
+                offender_crate.current_version,
+                offender_crate.minimum_minutes,
+            );
+        } else {
+            let versions = version_candidates
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect::<Vec<_>>();
+
+            log::error!(
+                "crate `{}@{}` offends the cooldown period. \
+To resolve this, downgrade to one of these versions: {versions:?} by running\n\t\
+`cargo update {} --precise <version>`\n",
+                offender_crate.name,
+                offender_crate.current_version,
+                offender_crate.name
+            );
+        }
     }
 
     Ok(())
@@ -162,21 +176,22 @@ async fn crate_version_candidates(
     cache: &Cache,
     offender_crate: &OffenderCrate,
     requirements: &[VersionReq],
-) -> anyhow::Result<Vec<Candidate>> {
+) -> anyhow::Result<Vec<Version>> {
+    let current_version = Version::parse(&offender_crate.current_version).context(format!(
+        "Could not parse {}@{} version",
+        offender_crate.name, offender_crate.current_version
+    ))?;
     let candidate_list = fetch_version_list(client, cache, &offender_crate.name).await?;
+    let versions = filter_candidates(candidate_list, offender_crate.minimum_minutes);
+    let versions = versions
+        .into_iter()
+        .filter_map(|meta| Version::parse(&meta.num).ok())
+        .filter(|version| {
+            *version < current_version && satisfies_requirements(version, requirements)
+        })
+        .collect::<Vec<_>>();
 
-    let mut candidates = filter_candidates(candidate_list, offender_crate.minimum_minutes);
-
-    candidates.retain(|candidate| satisfies_requirements(&candidate.version, requirements));
-
-    if let Ok(current_semver) = Version::parse(&offender_crate.current_version) {
-        candidates.retain(|candidate| {
-            Version::parse(&candidate.version)
-                .map(|version| version < current_semver)
-                .unwrap_or(true)
-        });
-    }
-    Ok(candidates)
+    Ok(versions)
 }
 
 fn gather_dependencies_requirements(
@@ -186,26 +201,29 @@ fn gather_dependencies_requirements(
     let mut version_requirements: HashMap<PackageId, Vec<VersionReq>> = HashMap::new();
     let packages = workspace.packages();
 
-    for node in &workspace.nodes {
+    let dependencies_by_package_id = workspace.nodes.iter().flat_map(|node| {
         let pkg = packages
             .get(&node.id)
             .unwrap_or_else(|| panic!("Could not find associated package to {:?}", node.id));
-        for dep in node
-            .deps
-            .iter()
-            .filter(|dep| crate_names.contains(&dep.name))
-        {
-            let dep_pkg = packages
-                .get(&dep.pkg)
-                .unwrap_or_else(|| panic!("Could not find associated package to {:?}", dep.pkg));
-            if let Some(manifest_dep) =
-                find_manifest_dependency(&pkg.dependencies, &dep.name, &dep_pkg.name)
-            {
-                let requirements = version_requirements.entry(dep.pkg.clone()).or_default();
-                if !requirements.iter().any(|req| req == &manifest_dep.req) {
-                    requirements.push(manifest_dep.req.clone());
-                }
-            }
+
+        let pkg_dependencies: &Vec<Dependency> = pkg.dependencies.as_ref();
+
+        node.dependencies.iter().filter_map(|dep| {
+            // Find the dependency matching the current node, if it's in the `crate_names`
+            // list.
+            let dependency = pkg_dependencies.iter().find(|dependency| {
+                packages.get(dep).is_some_and(|package| {
+                    package.name.as_str() == dependency.name
+                        && crate_names.contains(&dependency.name)
+                })
+            });
+            dependency.map(|dependency| (dep.clone(), dependency))
+        })
+    });
+    for (pkg, dep) in dependencies_by_package_id {
+        let requirements = version_requirements.entry(pkg.clone()).or_default();
+        if !requirements.iter().any(|req| req == &dep.req) {
+            requirements.push(dep.req.clone());
         }
     }
     version_requirements
@@ -220,7 +238,7 @@ fn ensure_lockfile(workspace: &Workspace) -> Result<()> {
     bail!("`Cargo.lock` file does not exist");
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct OffenderCrate {
     package_id: PackageId,
     name: String,
@@ -252,41 +270,22 @@ async fn fetch_version_list(
     if let Some(list) = cache.get::<Vec<VersionMeta>>(&key)? {
         return Ok(list);
     }
-    let list = client.list_versions(name).await?;
-    cache.put(&key, &list)?;
-    Ok(list)
+    let mut versions = client.list_versions(name).await?;
+    versions.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    cache.put(&key, &versions)?;
+    Ok(versions)
 }
 
-fn find_manifest_dependency<'a>(
-    deps: &'a [cargo_metadata::Dependency],
-    dep_name: &str,
-    package_name: &str,
-) -> Option<&'a cargo_metadata::Dependency> {
-    deps.iter().find(|candidate| {
-        candidate
-            .rename
-            .as_deref()
-            .is_some_and(|rename| rename == dep_name)
-            || candidate.name == dep_name
-            || candidate.name == package_name
-    })
-}
-
-fn satisfies_requirements(version: &str, requirements: &[VersionReq]) -> bool {
+fn satisfies_requirements(version: &Version, requirements: &[VersionReq]) -> bool {
     if requirements.is_empty() {
         return true;
     }
-    match Version::parse(version) {
-        Ok(parsed) => {
-            log::debug!(
-                "Analyzing version `{parsed}` against requirements {:?}",
-                requirements
-                    .iter()
-                    .map(std::string::ToString::to_string)
-                    .collect::<Vec<_>>()
-            );
-            requirements.iter().all(|req| req.matches(&parsed))
-        }
-        Err(_) => false,
-    }
+    log::debug!(
+        "Analyzing version `{version}` against requirements {:?}",
+        requirements
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+    );
+    requirements.iter().all(|req| req.matches(version))
 }
