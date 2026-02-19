@@ -27,9 +27,9 @@ pub struct Resolver {
 impl Resolver {
     pub fn new(config: &Config) -> anyhow::Result<Self> {
         let cache = if let Some(ref root) = config.cache_dir {
-            Cache::with_root(root.clone(), Duration::from_secs(config.ttl_seconds))?
+            Cache::with_root(root.clone(), Duration::from_secs(config.cache_ttl_seconds))?
         } else {
-            Cache::new(config.ttl_seconds)?
+            Cache::new(Duration::from_secs(config.cache_ttl_seconds))?
         };
         let client = RegistryClient::new(config)?;
 
