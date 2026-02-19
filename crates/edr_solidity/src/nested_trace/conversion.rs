@@ -197,7 +197,8 @@ fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTrait>(
     }
 }
 
-fn is_calllike_op(step: &CallTraceStep) -> bool {
+/// Checks whether the given step corresponds to a call-like opcode.
+pub fn is_calllike_op(step: &CallTraceStep) -> bool {
     use revm_bytecode::opcode;
 
     matches!(

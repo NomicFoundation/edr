@@ -4,9 +4,13 @@ use napi_derive::napi;
 
 use crate::{
     solidity_tests::test_results::{CallTrace, HeuristicFailed, StackTrace, UnexpectedError},
-    trace::solidity_stack_trace::{
-        solidity_stack_trace_error_to_napi, solidity_stack_trace_heuristic_failed_to_napi,
-        solidity_stack_trace_success_to_napi,
+    trace::{
+        raw_trace_from_call_trace_arena,
+        solidity_stack_trace::{
+            solidity_stack_trace_error_to_napi, solidity_stack_trace_heuristic_failed_to_napi,
+            solidity_stack_trace_success_to_napi,
+        },
+        TracingMessage, TracingMessageResult, TracingStep,
     },
 };
 
@@ -62,14 +66,15 @@ impl Response {
             .collect()
     }
 
-    // TODO(#1288): Add backwards compatibility layer for Hardhat 2
-    // #[doc = "Returns the raw traces of executed contracts. This maybe contain
-    // zero or more traces."] #[napi(catch_unwind, getter)]
-    // pub fn traces(&self) -> Vec<RawTrace> {
-    //     self.inner
-    //         .call_trace_arenas
-    //         .iter()
-    //         .map(|trace| RawTrace::from(trace.clone()))
-    //         .collect()
-    // }
+    /// Returns the raw traces of executed contracts. This may contain zero or
+    /// more traces. Uses a function instead of a getter to avoid repeated
+    /// expensive conversions.
+    #[napi(catch_unwind)]
+    pub fn traces(&self) -> Vec<Vec<Either3<TracingMessage, TracingStep, TracingMessageResult>>> {
+        self.inner
+            .call_trace_arenas
+            .iter()
+            .map(|arena| raw_trace_from_call_trace_arena(arena, self.inner.verbose))
+            .collect()
+    }
 }
