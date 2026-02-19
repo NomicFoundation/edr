@@ -151,6 +151,13 @@ contract GasSnapshotTest is Test {
         );
         assertGt(gasUsed, 0);
     }
+
+    // Calls stopSnapshotGas with a name that doesn't match the startSnapshotGas call.
+    function testMismatchedStartStopSnapshot() public {
+        vm.startSnapshotGas("testMismatchedStartSnapshot");
+        slot0 = 1;
+        vm.stopSnapshotGas("testMismatchedStopSnapshot");
+    }
 }
 
 contract Flare {
