@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     result::Result::Ok,
-    time::Duration,
 };
 
 use anyhow::{bail, Result};
@@ -9,10 +8,8 @@ use cargo_metadata::{Dependency, PackageId};
 use semver::VersionReq;
 
 use crate::{
-    cache::Cache,
     cooldown_failure::CooldownFailure,
-    registry::RegistryClient,
-    resolver::{age_minutes, crate_version_candidates, fetch_version_meta},
+    resolver::{age_minutes, Resolver},
     workspace::Workspace,
 };
 
@@ -21,14 +18,8 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
 
     let allowlist = &workspace.allowlist;
     let config = &workspace.config;
-    let cache = if let Some(ref root) = config.cache_dir {
-        Cache::with_root(root.clone(), Duration::from_secs(config.ttl_seconds))?
-    } else {
-        Cache::new(config.ttl_seconds)?
-    };
-    let client = RegistryClient::new(config)?;
-
     let packages = workspace.packages();
+    let resolver = Resolver::new(config)?;
 
     let mut cooldown_failures: Vec<CooldownFailure> = Vec::new();
 
@@ -92,8 +83,10 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
             continue;
         }
 
-        let meta = fetch_version_meta(&client, &cache, pkg.name.as_str(), &current_version).await?;
-        let age_minutes = age_minutes(meta.created_at);
+        let meta = resolver
+            .fetch_version_meta(pkg.name.as_str(), &current_version)
+            .await?;
+        let age_minutes = age_minutes(&meta);
         if age_minutes < minimum_minutes as i64 {
             log::debug!("crate fails cooldown period: crate = {}@{}, age_minutes = {age_minutes}, minimum_minutes = {minimum_minutes}, created_at = {}", pkg.name, pkg.version, meta.created_at);
             cooldown_failures.push(CooldownFailure {
@@ -110,15 +103,14 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
         Ok(())
     } else {
         let failures = cooldown_failures.into_iter().collect::<HashSet<_>>();
-        log_cooldown_failures(&workspace, &client, &cache, failures).await?;
+        log_cooldown_failures(&workspace, &resolver, failures).await?;
         bail!("dependency graph failed cooldown check ❌")
     }
 }
 
 async fn log_cooldown_failures(
     workspace: &Workspace,
-    client: &RegistryClient,
-    cache: &Cache,
+    resolver: &Resolver,
     cooldown_failures: HashSet<CooldownFailure>,
 ) -> anyhow::Result<()> {
     let failing_crate_names = cooldown_failures
@@ -133,11 +125,11 @@ async fn log_cooldown_failures(
             .get(&failure.package_id)
             .cloned()
             .unwrap_or_default();
-        let version_candidates =
-            crate_version_candidates(client, cache, &failure, &crate_requirements)
-                .await?
-                .into_iter()
-                .collect::<Vec<_>>();
+        let version_candidates = resolver
+            .crate_version_candidates(&failure, &crate_requirements)
+            .await?
+            .into_iter()
+            .collect::<Vec<_>>();
         if version_candidates.is_empty() {
             let crate_requirements = crate_requirements
                 .iter()

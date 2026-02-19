@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::{sync::LazyLock, time::Duration};
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};
@@ -6,6 +6,7 @@ use semver::{Version, VersionReq};
 
 use crate::{
     cache::Cache,
+    config::Config,
     cooldown_failure::CooldownFailure,
     registry::{RegistryClient, VersionMeta},
 };
@@ -14,62 +15,75 @@ use crate::{
 /// ensuring consistency across the entire check.
 static NOW: LazyLock<DateTime<Utc>> = LazyLock::new(Utc::now);
 
-pub fn age_minutes(datetime: DateTime<Utc>) -> i64 {
-    (*NOW - datetime).num_minutes()
+pub fn age_minutes(meta: &VersionMeta) -> i64 {
+    (*NOW - meta.created_at).num_minutes()
 }
 
-pub async fn crate_version_candidates(
-    client: &RegistryClient,
-    cache: &Cache,
-    cooldown_failure: &CooldownFailure,
-    requirements: &[VersionReq],
-) -> anyhow::Result<Vec<Version>> {
-    let current_version = Version::parse(&cooldown_failure.current_version).context(format!(
-        "Could not parse {}@{} version",
-        cooldown_failure.name, cooldown_failure.current_version
-    ))?;
-    let candidate_list = fetch_version_list(client, cache, &cooldown_failure.name).await?;
-    let versions =
-        filter_candidates_by_time(candidate_list, cooldown_failure.minimum_minutes, *NOW);
-    let versions = versions
-        .into_iter()
-        .filter_map(|meta| Version::parse(&meta.num).ok())
-        .filter(|version| {
-            *version < current_version && satisfies_requirements(version, requirements)
-        })
-        .collect::<Vec<_>>();
-
-    Ok(versions)
+pub struct Resolver {
+    client: RegistryClient,
+    cache: Cache,
 }
 
-pub async fn fetch_version_meta(
-    client: &RegistryClient,
-    cache: &Cache,
-    name: &str,
-    version: &str,
-) -> anyhow::Result<VersionMeta> {
-    let key = format!("{name}/{version}");
-    if let Some(meta) = cache.get::<VersionMeta>(&key)? {
-        return Ok(meta);
+impl Resolver {
+    pub fn new(config: &Config) -> anyhow::Result<Self> {
+        let cache = if let Some(ref root) = config.cache_dir {
+            Cache::with_root(root.clone(), Duration::from_secs(config.ttl_seconds))?
+        } else {
+            Cache::new(config.ttl_seconds)?
+        };
+        let client = RegistryClient::new(config)?;
+
+        Ok(Self { client, cache })
     }
-    let meta = client.fetch_version(name, version).await?;
-    cache.put(&key, &meta)?;
-    Ok(meta)
-}
 
-async fn fetch_version_list(
-    client: &RegistryClient,
-    cache: &Cache,
-    name: &str,
-) -> anyhow::Result<Vec<VersionMeta>> {
-    let key = format!("{name}/_list");
-    if let Some(list) = cache.get::<Vec<VersionMeta>>(&key)? {
-        return Ok(list);
+    pub async fn crate_version_candidates(
+        &self,
+        cooldown_failure: &CooldownFailure,
+        requirements: &[VersionReq],
+    ) -> anyhow::Result<Vec<Version>> {
+        let current_version =
+            Version::parse(&cooldown_failure.current_version).context(format!(
+                "Could not parse {}@{} version",
+                cooldown_failure.name, cooldown_failure.current_version
+            ))?;
+        let candidate_list = self.fetch_version_list(&cooldown_failure.name).await?;
+        let versions =
+            filter_candidates_by_time(candidate_list, cooldown_failure.minimum_minutes, *NOW);
+        let versions = versions
+            .into_iter()
+            .filter_map(|meta| Version::parse(&meta.num).ok())
+            .filter(|version| {
+                *version < current_version && satisfies_requirements(version, requirements)
+            })
+            .collect::<Vec<_>>();
+
+        Ok(versions)
     }
-    let mut versions = client.list_versions(name).await?;
-    versions.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-    cache.put(&key, &versions)?;
-    Ok(versions)
+
+    pub async fn fetch_version_meta(
+        &self,
+        name: &str,
+        version: &str,
+    ) -> anyhow::Result<VersionMeta> {
+        let key = format!("{name}/{version}");
+        if let Some(meta) = self.cache.get::<VersionMeta>(&key)? {
+            return Ok(meta);
+        }
+        let meta = self.client.fetch_version(name, version).await?;
+        self.cache.put(&key, &meta)?;
+        Ok(meta)
+    }
+
+    async fn fetch_version_list(&self, name: &str) -> anyhow::Result<Vec<VersionMeta>> {
+        let key = format!("{name}/_list");
+        if let Some(list) = self.cache.get::<Vec<VersionMeta>>(&key)? {
+            return Ok(list);
+        }
+        let mut versions = self.client.list_versions(name).await?;
+        versions.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        self.cache.put(&key, &versions)?;
+        Ok(versions)
+    }
 }
 
 fn satisfies_requirements(version: &Version, requirements: &[VersionReq]) -> bool {
