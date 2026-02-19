@@ -1,43 +1,59 @@
 # Cargo dependencies cooldown check
 
-Tool for validating that all project dependencies are at least `cooldown_minutes` minutes old.
+Tool for validating that all workspace dependencies are at least `cooldown_minutes` minutes old.
 
-This tool is inspired by [cargo-cooldown](https://github.com/dertin/cargo-cooldown).
+Inspired by [cargo-cooldown](https://github.com/dertin/cargo-cooldown).
 
 ## Motivation
 
-Have an automated way to check and fail when any of the dependencies in the Cargo.lock file are newer than the configured cooldown period.
+Supply-chain attacks often rely on developers adopting a malicious crate version shortly after publication. This tool provides an automated check that flags any dependency in `Cargo.lock` newer than a configurable cooldown period, giving the community time to identify and report compromised releases.
 
-## Goal
+## Goals
 
-- have the command fail if any of the dependecies violates the cooldown period
-- identify which are the dependencies that violates the contraint
-- suggest dependency version that could work
+- Fail if any dependency violates the cooldown period
+- Identify which dependencies fail the check
+- Suggest candidate versions that satisfy the cooldown
 
-## Non-Goals
+## Non-goals
 
-- automatically update `Cargo.lock` with cooler dependencies
+- Create `Cargo.lock` if it is not present
+- Automatically update `Cargo.lock` with older dependencies
 
 ## Usage
 
-## TODO
+This tool validates a workspace dependency graph against a configurable cooldown period — it does not perform any automatic actions on behalf of the workspace maintainer.
 
-- load cache dir from config
+### Configuration
+
+- Workspace configuration is defined in `<workspace_root>/.cargo/cooldown.toml`.
+- Allowlist rules can lower the effective cooldown per crate or permit an explicit version, via `allow.package` or `allow.exact` sections in `<workspace_root>/.cargo/cooldown-allowlist.toml`.
+
+### Suggested candidates
+
+For each dependency that fails the check, the tool suggests replacement versions. Candidates will:
+
+- Not be yanked
+- Satisfy all observed semver requirements (across every dependent in the graph)
+- Be older than the current lockfile entry
+- Have been published before the cooldown cutoff
+
+### Technical details
+
+- The tool invokes `cargo metadata` to read the full dependency graph and records every `VersionReq` that parents impose on their children.
+- For each crate sourced from a watched registry, it fetches publication metadata from the crates.io HTTP API through a small on-disk cache and computes the package age.
 
 ## Limitations
 
-- File config files won't be configurable (both `cooldown.toml` and `allowlist.toml`)
+- Configuration file paths are not configurable (`cooldown.toml` and `cooldown-allowlist.toml`).
+- Configuration is only possible through files; environment variables are not supported.
 
-## What to do if the check fails?
+## References
 
-If running `cargo add <version-number>` locks a newer version that violates the cooldown period, you can tell cargo to update (actually downgrade) and lock a specific version by running
+- [Cargo resolver — SemVer-breaking patch releases](https://doc.rust-lang.org/cargo/reference/resolver.html#semver-breaking-patch-release-breaks-the-build)
 
-```sh
-cargo update -p <dependency> --precise <cool_version>
-```
+## TODO
 
-For other alternatives, take a look at <https://doc.rust-lang.org/cargo/reference/resolver.html#semver-breaking-patch-release-breaks-the-build>
-
-## Identified issues from `cargo-cooldown` dep
-
-- it was skipping local crates, so these crates dependencies were not being added to the requirements list. As a consequence, the tool would suggest versions that do not satisfy requirements set in `Cargo.toml`. In `cargo-cooldown` this is even worse since it does not suggest these versions, but tries to update to these versions automatically
+- Load cache dir from config
+- Extract into it's own repo
+  - expose it as a `cargo-` bin crate so it can be executed as a cargo tool
+  - CliArgs parsing will have to change to adapt to this (when Cargo invokes `cargo cooldown-check`, it passes `"cooldown-check"` as the first CLI argument.)
