@@ -5,7 +5,6 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-// use dirs::cache_dir;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]

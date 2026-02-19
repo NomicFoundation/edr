@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::Path};
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -33,23 +33,15 @@ pub struct AllowPackage {
 }
 
 impl Allowlist {
-    pub fn load(file_path: PathBuf) -> Result<Self> {
+    pub fn load(file_path: &Path) -> Result<Self> {
         if !file_path.exists() {
             return Ok(Self::default());
         }
 
-        let contents = fs::read_to_string(&file_path).with_context(|| {
-            format!(
-                "failed to read allowlist at {}",
-                file_path.as_path().display()
-            )
-        })?;
-        let allowlist: Allowlist = toml::from_str(&contents).with_context(|| {
-            format!(
-                "failed to parse allowlist at {}",
-                file_path.as_path().display()
-            )
-        })?;
+        let contents = fs::read_to_string(file_path)
+            .with_context(|| format!("failed to read allowlist at {}", file_path.display()))?;
+        let allowlist: Allowlist = toml::from_str(&contents)
+            .with_context(|| format!("failed to parse allowlist at {}", file_path.display()))?;
         log::debug!("allowlist: {allowlist:?}");
         Ok(allowlist)
     }
@@ -78,30 +70,26 @@ impl AllowPackage {
 
 #[cfg(test)]
 mod tests {
-    // use std::io::Write;
+    use std::io::Write;
 
-    // use tempfile::NamedTempFile;
+    use tempfile::NamedTempFile;
 
-    // use super::*;
+    use super::*;
 
-    // #[test]
-    // fn loads_allowlist_and_respects_exact() {
-    //     let mut file = NamedTempFile::new().unwrap();
-    //     writeln!(
-    //         file,
-    //         "[[allow.exact]]\ncrate = \"foo\"\nversion =
-    // \"1.2.3\"\n[[allow.package]]\ncrate = \"bar\"\nminimum_release_age =
-    // 3\n[allow.global]\nminutes = 5\n"     )
-    //     .unwrap();
+    #[test]
+    fn loads_allowlist_and_respects_exact() {
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(
+            file,
+            "[[allow.exact]]\ncrate = \"foo\"\nversion = \"1.2.3\""
+        )
+        .unwrap();
 
-    //     let allowlist = Allowlist::load(file.path()).unwrap();
-    //     assert!(allowlist.is_exact_allowed("foo", "1.2.3"));
-    //     assert!(!allowlist.is_exact_allowed("foo", "1.2.4"));
+        let allowlist = Allowlist::load(file.path()).unwrap();
+        assert!(allowlist.is_exact_allowed("foo", "1.2.3"));
+        assert!(!allowlist.is_exact_allowed("foo", "1.2.4"));
 
-    //     let per_crate = allowlist.per_crate_minutes();
-    //     assert_eq!(per_crate.get("bar"), Some(&3));
-    //     assert_eq!(allowlist.global_minutes(), Some(5));
-    //     assert_eq!(allowlist.effective_minutes_for("bar", 7), 3);
-    //     assert_eq!(allowlist.effective_minutes_for("baz", 7), 5);
-    // }
+        let per_crate = allowlist.per_crate_minutes();
+        assert_eq!(per_crate.get("bar"), None);
+    }
 }
