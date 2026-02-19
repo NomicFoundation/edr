@@ -497,8 +497,7 @@ impl FunctionGasReportAndIdentifiers {
             }
 
             let proxy_chain =
-                resolve_proxy_chain(call_trace_arena, state, contract_decoder)
-                    .unwrap_or_default();
+                resolve_proxy_chain(call_trace_arena, state, contract_decoder).unwrap_or_default();
 
             let report = FunctionGasReport {
                 gas: execution_result.gas_used(),

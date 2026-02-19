@@ -40,7 +40,7 @@ describe("Gas tests", () => {
         calls: BigInt(100),
         reverts: BigInt(0),
         metrics: {},
-        failedCorpusReplays: BigInt(0)
+        failedCorpusReplays: BigInt(0),
       },
     },
   ];
@@ -166,22 +166,9 @@ describe("Gas report tests", () => {
     const gasReport = testResult.gasReport;
     assert(gasReport !== undefined);
 
-    // Debug: print all contracts and their functions in the gas report
-    for (const [name, report] of Object.entries(gasReport.contracts)) {
-      console.log(`Contract: ${name}`);
-      for (const [funcName, funcReports] of Object.entries(report.functions)) {
-        console.log(`  Function: ${funcName}, calls: ${funcReports.length}`);
-        for (const r of funcReports) {
-          console.log(`    gas: ${r.gas}, proxyChain: ${JSON.stringify(r.proxyChain)}`);
-        }
-      }
-    }
-
     // The Proxy contract should appear in the gas report
     const proxyReport =
-      gasReport.contracts[
-        "project/test-contracts/ProxyGasReport.t.sol:Proxy"
-      ];
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Proxy"];
     assert(proxyReport !== undefined, "Proxy contract should be in gas report");
 
     // The proxy's functions are decoded as fallback() since the Proxy ABI
@@ -247,19 +234,6 @@ describe("Gas report tests", () => {
 
     const gasReport = testResult.gasReport;
     assert(gasReport !== undefined);
-
-    // Debug: print all contracts and their functions in the gas report
-    for (const [name, report] of Object.entries(gasReport.contracts)) {
-      console.log(`Contract: ${name}`);
-      for (const [funcName, funcReports] of Object.entries(report.functions)) {
-        console.log(`  Function: ${funcName}, calls: ${funcReports.length}`);
-        for (const r of funcReports) {
-          console.log(
-            `    gas: ${r.gas}, proxyChain: ${JSON.stringify(r.proxyChain)}`
-          );
-        }
-      }
-    }
 
     // The OuterProxy should appear with fallback() calls
     const outerProxyReport =

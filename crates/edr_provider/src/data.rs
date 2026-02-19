@@ -65,10 +65,7 @@ use edr_runtime::{
 use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
-use edr_solidity::{
-    config::IncludeTraces,
-    contract_decoder::ContractDecoder,
-};
+use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
 use edr_state_api::{
     account::{Account, AccountInfo, AccountStatus},
     irregular::IrregularState,
@@ -2895,8 +2892,6 @@ impl StateId {
         *self
     }
 }
-
-
 
 fn block_time_offset_seconds<ChainSpecT: ProviderChainSpec, TimerT: TimeSinceEpoch>(
     config: &ProviderConfig<ChainSpecT::Hardfork>,
