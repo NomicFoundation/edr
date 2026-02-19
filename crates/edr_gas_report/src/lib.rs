@@ -11,10 +11,12 @@ use edr_primitives::{
 use edr_receipt::ExecutionResult;
 use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractIdentifierAndFunctionSignature},
+    proxy_detection::detect_proxy_chain,
     solidity_stack_trace::{UNRECOGNIZED_CONTRACT_NAME, UNRECOGNIZED_FUNCTION_NAME},
 };
 use edr_state_api::{State, StateError};
 use edr_transaction::TxKind;
+use revm_inspectors::tracing::CallTraceArena;
 
 pub trait SyncOnCollectedGasReportCallback:
     Fn(GasReport) -> Result<(), Box<dyn std::error::Error + Send + Sync>> + DynClone + Send + Sync
@@ -57,9 +59,17 @@ impl GasReport {
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
+        call_trace_arena: &CallTraceArena,
     ) -> Result<Self, GasReportCreationError> {
         let mut report = GasReport::default();
-        report.add(state, contract_decoder, execution_result, kind, input)?;
+        report.add(
+            state,
+            contract_decoder,
+            execution_result,
+            kind,
+            input,
+            call_trace_arena,
+        )?;
         Ok(report)
     }
 
@@ -80,6 +90,7 @@ impl GasReport {
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
+        call_trace_arena: &CallTraceArena,
     ) -> Result<(), GasReportCreationError> {
         match ContractGasReportAndIdentifier::new(
             state,
@@ -87,6 +98,7 @@ impl GasReport {
             execution_result,
             kind,
             input,
+            call_trace_arena,
         ) {
             Ok(ContractGasReportAndIdentifier {
                 contract_identifier,
@@ -302,6 +314,7 @@ impl ContractGasReportAndIdentifier {
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
+        call_trace_arena: &CallTraceArena,
     ) -> Result<Self, ContractGasReportCreationError> {
         if let TxKind::Call(to) = kind {
             let FunctionGasReportAndIdentifiers {
@@ -314,6 +327,7 @@ impl ContractGasReportAndIdentifier {
                 execution_result,
                 to,
                 input,
+                call_trace_arena,
             )?;
 
             let report = ContractGasReport {
@@ -434,6 +448,11 @@ pub enum FunctionGasReportCreationError {
 pub struct FunctionGasReport {
     pub gas: u64,
     pub status: GasReportExecutionStatus,
+    /// The proxy delegation chain for this call, if the called contract is a
+    /// proxy. Contains contract identifiers from outermost proxy to final
+    /// implementation, e.g. `["Proxy", "Implementation"]`.
+    /// Empty if the call is not through a proxy.
+    pub proxy_chain: Vec<String>,
 }
 
 pub struct FunctionGasReportAndIdentifiers {
@@ -450,6 +469,7 @@ impl FunctionGasReportAndIdentifiers {
         execution_result: &ExecutionResult<HaltReasonT>,
         to: Address,
         input: Bytes,
+        call_trace_arena: &CallTraceArena,
     ) -> Result<Self, FunctionGasReportCreationError> {
         let code = state
             .basic(to)?
@@ -476,9 +496,14 @@ impl FunctionGasReportAndIdentifiers {
                 return Err(FunctionGasReportCreationError::UnrecognizedFunction);
             }
 
+            let proxy_chain =
+                resolve_proxy_chain(call_trace_arena, state, contract_decoder)
+                    .unwrap_or_default();
+
             let report = FunctionGasReport {
                 gas: execution_result.gas_used(),
                 status: execution_result.into(),
+                proxy_chain,
             };
 
             Ok(FunctionGasReportAndIdentifiers {
@@ -490,4 +515,47 @@ impl FunctionGasReportAndIdentifiers {
             Err(FunctionGasReportCreationError::UnrecognizedFunction)
         }
     }
+}
+
+/// Detects a proxy delegation chain from the call trace arena and resolves
+/// each address to a contract name. Returns `None` if no proxy chain is
+/// detected or if any address fails to resolve.
+fn resolve_proxy_chain(
+    arena: &CallTraceArena,
+    state: &dyn State<Error = StateError>,
+    contract_decoder: &mut ContractDecoder,
+) -> Option<Vec<String>> {
+    if arena.nodes().is_empty() {
+        return None;
+    }
+
+    let chain_addrs = detect_proxy_chain(arena, 0);
+    if chain_addrs.is_empty() {
+        return None;
+    }
+
+    // All addresses must resolve
+    chain_addrs
+        .iter()
+        .map(|addr| {
+            let code = state
+                .basic(*addr)
+                .ok()?
+                .map_or(Ok(Bytecode::default()), |info| {
+                    info.code
+                        .map_or_else(|| state.code_by_hash(info.code_hash), Ok)
+                })
+                .ok()?;
+
+            let ContractIdentifierAndFunctionSignature {
+                contract_identifier,
+                ..
+            } = contract_decoder.get_contract_identifier_and_function_signature_for_call(
+                &code.original_bytes(),
+                None,
+            );
+
+            Some(contract_identifier)
+        })
+        .collect::<Option<Vec<_>>>()
 }

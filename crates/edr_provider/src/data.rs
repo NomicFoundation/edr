@@ -65,7 +65,10 @@ use edr_runtime::{
 use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
-use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
+use edr_solidity::{
+    config::IncludeTraces,
+    contract_decoder::ContractDecoder,
+};
 use edr_state_api::{
     account::{Account, AccountInfo, AccountStatus},
     irregular::IrregularState,
@@ -1531,12 +1534,13 @@ where
             let mut contract_decoder = self.contract_decoder.write();
 
             let mut report = GasReport::default();
-            for (transaction, execution_result) in result
+            for ((transaction, execution_result), inspector_data) in result
                 .block_and_state
                 .block
                 .transactions()
                 .iter()
                 .zip(result.block_and_state.transaction_results.iter())
+                .zip(result.transaction_inspector_data.iter())
             {
                 report.add(
                     &result.block_and_state.state,
@@ -1544,6 +1548,7 @@ where
                     execution_result,
                     transaction.kind(),
                     transaction.data().clone(),
+                    &inspector_data.call_trace_arena,
                 )?;
             }
 
@@ -2374,7 +2379,8 @@ where
                     &mut contract_decoder,
                     &execution_result.result,
                     kind,
-                    input,
+                    input.clone(),
+                    &call_trace_arena,
                 )?;
 
                 callback(gas_report).map_err(ProviderError::OnCollectedGasReportCallback)?;
@@ -2889,6 +2895,8 @@ impl StateId {
         *self
     }
 }
+
+
 
 fn block_time_offset_seconds<ChainSpecT: ProviderChainSpec, TimerT: TimeSinceEpoch>(
     config: &ProviderConfig<ChainSpecT::Hardfork>,

@@ -155,6 +155,151 @@ describe("Gas report tests", () => {
     assert.equal(incrementReports[0].status, GasReportExecutionStatus.Success);
   });
 
+  it("ProxyGasReportTest gas report", async function () {
+    const result = await testContext.runTestsWithStats("ProxyGasReportTest", {
+      generateGasReport: true,
+    });
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    // Debug: print all contracts and their functions in the gas report
+    for (const [name, report] of Object.entries(gasReport.contracts)) {
+      console.log(`Contract: ${name}`);
+      for (const [funcName, funcReports] of Object.entries(report.functions)) {
+        console.log(`  Function: ${funcName}, calls: ${funcReports.length}`);
+        for (const r of funcReports) {
+          console.log(`    gas: ${r.gas}, proxyChain: ${JSON.stringify(r.proxyChain)}`);
+        }
+      }
+    }
+
+    // The Proxy contract should appear in the gas report
+    const proxyReport =
+      gasReport.contracts[
+        "project/test-contracts/ProxyGasReport.t.sol:Proxy"
+      ];
+    assert(proxyReport !== undefined, "Proxy contract should be in gas report");
+
+    // The proxy's functions are decoded as fallback() since the Proxy ABI
+    // only has a fallback function (the actual function selectors belong to
+    // the Implementation contract).
+    const fallbackReports = proxyReport.functions["fallback()"];
+    assert(
+      fallbackReports !== undefined,
+      "fallback should appear in Proxy's gas report"
+    );
+    // 4 calls: setValue, value (in test_proxySetValue), increment, value (in test_proxyIncrement)
+    assert.equal(fallbackReports.length, 4);
+
+    // All fallback calls should have a proxy chain with 2 entries
+    // (Proxy -> Implementation) indicating the delegation pattern was detected.
+    for (const report of fallbackReports) {
+      assert.equal(
+        report.proxyChain.length,
+        2,
+        `Expected proxy chain with 2 entries, got ${report.proxyChain.length}: ${JSON.stringify(report.proxyChain)}`
+      );
+      assert(
+        report.proxyChain[0].includes("Proxy"),
+        `Expected first chain entry to contain 'Proxy', got '${report.proxyChain[0]}'`
+      );
+      assert(
+        report.proxyChain[1].includes("Implementation"),
+        `Expected second chain entry to contain 'Implementation', got '${report.proxyChain[1]}'`
+      );
+    }
+
+    // Verify that the Implementation contract's direct calls (via delegatecall)
+    // have empty proxy chains
+    const implReport =
+      gasReport.contracts[
+        "project/test-contracts/ProxyGasReport.t.sol:Implementation"
+      ];
+    assert(
+      implReport !== undefined,
+      "Implementation contract should be in gas report"
+    );
+    for (const [, funcReports] of Object.entries(implReport.functions)) {
+      for (const report of funcReports) {
+        assert.equal(
+          report.proxyChain.length,
+          0,
+          "Direct delegatecall targets should have empty proxy chain"
+        );
+      }
+    }
+  });
+
+  it("ChainedProxyGasReportTest gas report", async function () {
+    const result = await testContext.runTestsWithStats(
+      "ChainedProxyGasReportTest",
+      {
+        generateGasReport: true,
+      }
+    );
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    // Debug: print all contracts and their functions in the gas report
+    for (const [name, report] of Object.entries(gasReport.contracts)) {
+      console.log(`Contract: ${name}`);
+      for (const [funcName, funcReports] of Object.entries(report.functions)) {
+        console.log(`  Function: ${funcName}, calls: ${funcReports.length}`);
+        for (const r of funcReports) {
+          console.log(
+            `    gas: ${r.gas}, proxyChain: ${JSON.stringify(r.proxyChain)}`
+          );
+        }
+      }
+    }
+
+    // The OuterProxy should appear with fallback() calls
+    const outerProxyReport =
+      gasReport.contracts[
+        "project/test-contracts/ProxyGasReport.t.sol:OuterProxy"
+      ];
+    assert(
+      outerProxyReport !== undefined,
+      "OuterProxy contract should be in gas report"
+    );
+
+    const outerFallbackReports = outerProxyReport.functions["fallback()"];
+    assert(
+      outerFallbackReports !== undefined,
+      "fallback should appear in OuterProxy's gas report"
+    );
+
+    // All OuterProxy fallback calls should have a 3-entry proxy chain:
+    // OuterProxy -> Proxy -> Implementation
+    for (const report of outerFallbackReports) {
+      assert.equal(
+        report.proxyChain.length,
+        3,
+        `Expected proxy chain with 3 entries, got ${report.proxyChain.length}: ${JSON.stringify(report.proxyChain)}`
+      );
+      assert(
+        report.proxyChain[0].includes("OuterProxy"),
+        `Expected first entry to be OuterProxy, got '${report.proxyChain[0]}'`
+      );
+      assert(
+        report.proxyChain[1].includes("Proxy"),
+        `Expected second entry to be Proxy, got '${report.proxyChain[1]}'`
+      );
+      assert(
+        report.proxyChain[2].includes("Implementation"),
+        `Expected third entry to be Implementation, got '${report.proxyChain[2]}'`
+      );
+    }
+  });
+
   it("ImpureInvariantTest gas report", async function () {
     const invariantConfig = {
       runs: 256,

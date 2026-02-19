@@ -2905,6 +2905,7 @@ dependencies = [
  "edr_solidity",
  "edr_state_api",
  "edr_transaction",
+ "revm-inspectors",
  "serde",
  "thiserror 2.0.12",
 ]

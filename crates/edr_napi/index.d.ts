@@ -422,6 +422,13 @@ export interface DeploymentGasReport {
 export interface FunctionGasReport {
   gas: bigint
   status: GasReportExecutionStatus
+  /**
+   * The proxy delegation chain for this call, if the called contract is a
+   * proxy. Contains contract identifiers from outermost proxy to final
+   * implementation, e.g. `["Proxy", "Implementation"]`.
+   * Empty if the call is not through a proxy.
+   */
+  proxyChain: Array<string>
 }
 export interface InstrumentationResult {
   /** The generated source code with coverage instrumentation. */
