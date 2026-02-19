@@ -1,0 +1,11 @@
+# Example allowlist demonstrating how to relax the cooldown guard for selected crates.
+#
+# Any crate/version listed here will either bypass or reduce the default cooldown window.
+
+[[allow.package]]
+crate = "tokio"
+minutes = 1440
+
+[[allow.exact]]
+crate = "alloy-eips"
+version = "1.7.3"
