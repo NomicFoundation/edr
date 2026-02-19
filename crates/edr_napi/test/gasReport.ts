@@ -488,7 +488,7 @@ describe("Gas reports", function () {
       const implAddress = await deployContract(proxyProvider, implBytecode);
 
       // Deploy Proxy with Implementation address as constructor arg
-      const proxyBytecode = proxyContracts.Proxy.evm.bytecode.object;
+      const proxyBytecode: string = proxyContracts.Proxy.evm.bytecode.object;
       // ABI-encode constructor arg: address padded to 32 bytes
       const implAddrPadded = implAddress
         .slice(2)
@@ -559,7 +559,7 @@ describe("Gas reports", function () {
 
       const implAddress = await deployContract(proxyProvider, implBytecode);
 
-      const proxyBytecode = proxyContracts.Proxy.evm.bytecode.object;
+      const proxyBytecode: string = proxyContracts.Proxy.evm.bytecode.object;
       const implAddrPadded = implAddress
         .slice(2)
         .toLowerCase()
