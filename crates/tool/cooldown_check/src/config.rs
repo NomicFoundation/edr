@@ -1,4 +1,7 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 const DEFAULT_REGISTRY_INDEX: &str = "registry+https://github.com/rust-lang/crates.io-index";
 const DEFAULT_SPARSE_REGISTRY_INDEX: &str = "registry+sparse+https://index.crates.io/";
@@ -20,7 +23,7 @@ impl Config {
             .any(|allowed| allowed == source)
     }
 
-    pub fn load(file_path: PathBuf) -> anyhow::Result<Self> {
+    pub fn load(file_path: &Path) -> anyhow::Result<Self> {
         let cooldown_config = CooldownFileConfig::load(file_path)?;
         log::debug!("cooldown config: {cooldown_config:?}");
         let config = Config {
@@ -37,7 +40,7 @@ struct CooldownFileConfig {
 }
 
 impl CooldownFileConfig {
-    fn load(file_path: PathBuf) -> anyhow::Result<Self> {
+    fn load(file_path: &Path) -> anyhow::Result<Self> {
         let file_contents = fs::read_to_string(file_path)?;
         let cooldown_config: CooldownFileConfig = toml::from_str(&file_contents)?;
         Ok(cooldown_config)

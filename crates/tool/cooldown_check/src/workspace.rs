@@ -4,7 +4,7 @@ use anyhow::Context;
 use cargo_metadata::{camino::Utf8PathBuf, Metadata, Node, PackageId};
 use clap_cargo::{Features, Manifest};
 
-use crate::{allowlist::Allowlist, config::Config, metadata::read_metadata};
+use crate::{allowlist::Allowlist, config::Config};
 
 pub const COOLDOWN_FILE_CONFIG: &str = "cooldown.toml";
 pub const ALLOWLIST_FILE_CONFIG: &str = "cooldown-allowlist.toml";
@@ -27,10 +27,10 @@ impl Workspace {
         let metadata = read_metadata(&manifest, &features)?;
         let config_file_path =
             cargo_config_file_path(&metadata.workspace_root, COOLDOWN_FILE_CONFIG);
-        let config = Config::load(config_file_path)?;
+        let config = Config::load(&config_file_path)?;
         let allowlist_file_path =
             cargo_config_file_path(&metadata.workspace_root, ALLOWLIST_FILE_CONFIG);
-        let allowlist = Allowlist::load(allowlist_file_path)?;
+        let allowlist = Allowlist::load(&allowlist_file_path)?;
 
         let nodes = metadata
             .resolve
@@ -65,4 +65,11 @@ fn cargo_config_file_path(workspace_root_path: &Utf8PathBuf, filename: &str) -> 
     path.push(".cargo");
     path.push(filename);
     path
+}
+
+fn read_metadata(manifest: &Manifest, features: &Features) -> anyhow::Result<Metadata> {
+    let mut command = manifest.metadata();
+    features.forward_metadata(&mut command);
+    let metadata = command.exec()?;
+    Ok(metadata)
 }

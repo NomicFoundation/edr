@@ -1,16 +1,14 @@
 mod allowlist;
 mod cache;
 mod config;
+mod cooldown_failure;
 mod executor;
-mod metadata;
-mod offender;
 mod registry;
 mod resolver;
 mod workspace;
 
 use anyhow::anyhow;
 use clap::Parser;
-// use itertools::Itertools;
 use log::{LevelFilter, Log, Record};
 
 use crate::{executor::run_check_flow, workspace::Workspace};

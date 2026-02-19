@@ -6,15 +6,13 @@ use semver::{Version, VersionReq};
 
 use crate::{
     cache::Cache,
-    offender::OffenderCrate,
+    cooldown_failure::CooldownFailure,
     registry::{RegistryClient, VersionMeta},
 };
 
-// Create the static singleton instance
-static NOW: LazyLock<DateTime<Utc>> = LazyLock::new(|| {
-    // This closure runs only once, the first time NOW is accessed
-    Utc::now()
-});
+// A single reference point in time for all cooldown comparisons,
+/// ensuring consistency across the entire check.
+static NOW: LazyLock<DateTime<Utc>> = LazyLock::new(Utc::now);
 
 pub fn age_minutes(datetime: DateTime<Utc>) -> i64 {
     (*NOW - datetime).num_minutes()
@@ -23,15 +21,16 @@ pub fn age_minutes(datetime: DateTime<Utc>) -> i64 {
 pub async fn crate_version_candidates(
     client: &RegistryClient,
     cache: &Cache,
-    offender_crate: &OffenderCrate,
+    cooldown_failure: &CooldownFailure,
     requirements: &[VersionReq],
 ) -> anyhow::Result<Vec<Version>> {
-    let current_version = Version::parse(&offender_crate.current_version).context(format!(
+    let current_version = Version::parse(&cooldown_failure.current_version).context(format!(
         "Could not parse {}@{} version",
-        offender_crate.name, offender_crate.current_version
+        cooldown_failure.name, cooldown_failure.current_version
     ))?;
-    let candidate_list = fetch_version_list(client, cache, &offender_crate.name).await?;
-    let versions = filter_candidates_by_time(candidate_list, offender_crate.minimum_minutes, *NOW);
+    let candidate_list = fetch_version_list(client, cache, &cooldown_failure.name).await?;
+    let versions =
+        filter_candidates_by_time(candidate_list, cooldown_failure.minimum_minutes, *NOW);
     let versions = versions
         .into_iter()
         .filter_map(|meta| Version::parse(&meta.num).ok())

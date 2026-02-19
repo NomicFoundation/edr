@@ -10,7 +10,7 @@ use semver::VersionReq;
 
 use crate::{
     cache::Cache,
-    offender::OffenderCrate,
+    cooldown_failure::CooldownFailure,
     registry::RegistryClient,
     resolver::{age_minutes, crate_version_candidates, fetch_version_meta},
     workspace::Workspace,
@@ -30,7 +30,7 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
 
     let packages = workspace.packages();
 
-    let mut offending_crates: Vec<OffenderCrate> = Vec::new();
+    let mut cooldown_failures: Vec<CooldownFailure> = Vec::new();
 
     let mut seen: HashSet<PackageId> = HashSet::new();
 
@@ -95,8 +95,8 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
         let meta = fetch_version_meta(&client, &cache, pkg.name.as_str(), &current_version).await?;
         let age_minutes = age_minutes(meta.created_at);
         if age_minutes < minimum_minutes as i64 {
-            log::debug!("crate offends cooldown period: crate = {}@{}, age_minutes = {age_minutes}, minimum_minutes = {minimum_minutes}, created_at = {}", pkg.name, pkg.version, meta.created_at);
-            offending_crates.push(OffenderCrate {
+            log::debug!("crate fails cooldown period: crate = {}@{}, age_minutes = {age_minutes}, minimum_minutes = {minimum_minutes}, created_at = {}", pkg.name, pkg.version, meta.created_at);
+            cooldown_failures.push(CooldownFailure {
                 package_id: node.id.clone(),
                 name: pkg.name.to_string(),
                 current_version: current_version.clone(),
@@ -105,36 +105,36 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
         }
     }
 
-    if offending_crates.is_empty() {
+    if cooldown_failures.is_empty() {
         log::info!("dependency graph passed cooldown check ✅");
         Ok(())
     } else {
-        let offending_crates = offending_crates.into_iter().collect::<HashSet<_>>();
-        log_offending_crates(&workspace, &client, &cache, offending_crates).await?;
-        bail!("dependency graph contains crates within the cooldown period ❌")
+        let failures = cooldown_failures.into_iter().collect::<HashSet<_>>();
+        log_cooldown_failures(&workspace, &client, &cache, failures).await?;
+        bail!("dependency graph failed cooldown check ❌")
     }
 }
 
-async fn log_offending_crates(
+async fn log_cooldown_failures(
     workspace: &Workspace,
     client: &RegistryClient,
     cache: &Cache,
-    offending_crates: HashSet<OffenderCrate>,
+    cooldown_failures: HashSet<CooldownFailure>,
 ) -> anyhow::Result<()> {
-    let offending_crate_names = offending_crates
+    let failing_crate_names = cooldown_failures
         .iter()
-        .map(|offending_crate| offending_crate.name.clone())
+        .map(|failure| failure.name.clone())
         .collect::<Vec<_>>();
 
-    let version_requirements = gather_dependencies_requirements(offending_crate_names, workspace);
+    let version_requirements = gather_dependencies_requirements(failing_crate_names, workspace);
 
-    for offender_crate in offending_crates {
+    for failure in cooldown_failures {
         let crate_requirements = version_requirements
-            .get(&offender_crate.package_id)
+            .get(&failure.package_id)
             .cloned()
             .unwrap_or_default();
         let version_candidates =
-            crate_version_candidates(client, cache, &offender_crate, &crate_requirements)
+            crate_version_candidates(client, cache, &failure, &crate_requirements)
                 .await?
                 .into_iter()
                 .collect::<Vec<_>>();
@@ -148,9 +148,9 @@ async fn log_offending_crates(
                 "crate `{}@{}` is within the cooldown period.\n\t\
 No versions older than {} minutes satisfy semver constraints {crate_requirements:?}.\n\t\
 Relax the constraints, wait for the cooldown to elapse, or allowlist this crate.\n",
-                offender_crate.name,
-                offender_crate.current_version,
-                offender_crate.minimum_minutes,
+                failure.name,
+                failure.current_version,
+                failure.minimum_minutes,
             );
         } else {
             let versions = version_candidates
@@ -159,12 +159,12 @@ Relax the constraints, wait for the cooldown to elapse, or allowlist this crate.
                 .collect::<Vec<_>>();
 
             log::error!(
-                "crate `{}@{}` offends the cooldown period. \
+                "crate `{}@{}` fails the cooldown period. \
 To resolve this, downgrade to one of these versions: {versions:?} by running\n\t\
 `cargo update {} --precise <version>`\n",
-                offender_crate.name,
-                offender_crate.current_version,
-                offender_crate.name
+                failure.name,
+                failure.current_version,
+                failure.name
             );
         }
     }
