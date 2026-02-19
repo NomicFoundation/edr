@@ -13,10 +13,12 @@ use edr_provider::{
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
-use op_revm::OpSpecId;
+use parking_lot::RwLock;
 use tokio::runtime;
 
-fn create_op_provider(config: ProviderConfig<OpSpecId>) -> anyhow::Result<Provider<OpChainSpec>> {
+fn create_op_provider(
+    config: ProviderConfig<edr_op::Hardfork>,
+) -> anyhow::Result<Provider<OpChainSpec>> {
     let logger = Box::new(NoopLogger::<OpChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
@@ -25,7 +27,7 @@ fn create_op_provider(config: ProviderConfig<OpSpecId>) -> anyhow::Result<Provid
         logger,
         subscriber,
         config,
-        Arc::<ContractDecoder>::default(),
+        Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )
     .map_err(Into::into)

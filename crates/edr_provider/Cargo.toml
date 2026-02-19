@@ -41,6 +41,7 @@ edr_eip7892.workspace = true
 edr_eth.workspace = true
 edr_evm.workspace = true
 edr_gas_report.workspace = true
+edr_inspector_bytecode.workspace = true
 edr_mem_pool.workspace = true
 edr_precompile.workspace = true
 edr_primitives.workspace = true
@@ -54,6 +55,7 @@ edr_test_utils = { workspace = true, optional = true }
 edr_tracing.workspace = true
 edr_transaction.workspace = true
 edr_utils.workspace = true
+foundry-evm-traces.workspace = true
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
 itertools = { version = "0.12.0", default-features = false, features = [
     "use_alloc",

@@ -6,10 +6,7 @@ edition.workspace = true
 [dependencies]
 derive_more.workspace = true
 dyn-clone.workspace = true
-edr_common.workspace = true
 edr_chain_spec.workspace = true
-edr_chain_spec_evm.workspace = true
-edr_evm.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_solidity.workspace = true
@@ -21,7 +18,7 @@ serde.workspace = true
 comfy-table = "7"
 
 [features]
-tracing = ["edr_evm/tracing", "edr_chain_spec_evm/tracing", "edr_solidity/tracing"]
+tracing = ["edr_solidity/tracing"]
 
 [lints]
 workspace = true

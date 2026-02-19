@@ -1,16 +1,17 @@
-use std::{cmp::Ordering, fmt::Debug};
+use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, sync::Arc};
 
-use edr_block_api::Block as _;
+use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
-    BlockTransactionError, Blockchain, BuiltBlockAndState, PrecompileFn, WrapDatabaseRef,
+    BlockTransactionError, Blockchain, ExecutionResult, PrecompileFn, WrapDatabaseRef,
 };
+pub use edr_block_builder_api::{BuiltBlockAndState, BuiltBlockAndStateWithMetadata};
 use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, HeaderOverrides, PartialHeader,
 };
 use edr_chain_spec::{
-    ChainSpec, EvmTransactionValidationError, ExecutableTransaction, HardforkChainSpec,
-    TransactionValidation,
+    ChainSpec, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
+    HardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
@@ -18,7 +19,7 @@ use edr_chain_spec_evm::{
 };
 use edr_database_components::DatabaseComponents;
 use edr_mem_pool::{MemPool, OrderedTransaction};
-use edr_primitives::{Address, HashMap};
+use edr_primitives::{Address, HashMap, HashSet, B256};
 use edr_signer::SignatureError;
 use edr_state_api::{DynState, StateError};
 use serde::{Deserialize, Serialize};
@@ -33,8 +34,14 @@ pub enum MineOrdering {
 }
 
 /// Helper type for a chain-specific [`MineBlockError`].
-pub type MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = MineBlockError<
+pub type MineBlockErrorForChainSpec<
     BlockchainErrorT,
+    ChainSpecT,
+    CollectInspectorDataErrorT,
+    StateErrorT,
+> = MineBlockError<
+    BlockchainErrorT,
+    CollectInspectorDataErrorT,
     <ChainSpecT as HardforkChainSpec>::Hardfork,
     StateErrorT,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
@@ -42,7 +49,13 @@ pub type MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> =
 
 /// An error that occurred while mining a block.
 #[derive(Debug, thiserror::Error)]
-pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionValidationErrorT> {
+pub enum MineBlockError<
+    BlockchainErrorT,
+    CollectInspectorDataErrorT,
+    HardforkT,
+    StateErrorT,
+    TransactionValidationErrorT,
+> {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
     BlockBuilderCreation(
@@ -67,10 +80,108 @@ pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionVal
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
+    /// An error that occurred while collecting inspector data.
+    #[error(transparent)]
+    CollectInspectorDataError(CollectInspectorDataErrorT),
     /// The block is expected to have a prevrandao, as the executor's config is
     /// on a post-merge hardfork.
     #[error("Post-merge transaction is missing prevrandao")]
     MissingPrevrandao,
+}
+
+/// Helper type for a chain-specific [`MineBlockResultWithMetadata`].
+pub type MineBlockResultWithMetadataForChainSpec<ChainSpecT, InspectorDataT = ()> =
+    MineBlockResultWithMetadata<
+        Arc<<ChainSpecT as BlockChainSpec>::Block>,
+        <ChainSpecT as ChainSpec>::HaltReason,
+        <ChainSpecT as ChainSpec>::SignedTransaction,
+        InspectorDataT,
+    >;
+
+#[derive(Debug)]
+pub struct MineBlockResultWithMetadata<
+    BlockT,
+    HaltReasonT: HaltReasonTrait,
+    SignedTransactionT,
+    InspectorDataT = (),
+> {
+    /// Mined block
+    pub block: BlockT,
+    /// The set of precompile addresses that were available during execution.
+    pub precompile_addresses: HashSet<Address>,
+    /// Data collected from inspectors during mining, indexed by transaction
+    /// number in the block.
+    pub transaction_inspector_data: Vec<InspectorDataT>,
+    /// Transaction results
+    pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
+    phantom: PhantomData<SignedTransactionT>,
+}
+
+impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT, InspectorDataT>
+    MineBlockResultWithMetadata<BlockT, HaltReasonT, SignedTransactionT, InspectorDataT>
+{
+    /// Constructs a new instance.
+    pub fn new(
+        block: BlockT,
+        precompile_addresses: HashSet<Address>,
+        transaction_inspector_data: Vec<InspectorDataT>,
+        transaction_results: Vec<ExecutionResult<HaltReasonT>>,
+    ) -> Self {
+        Self {
+            block,
+            precompile_addresses,
+            transaction_inspector_data,
+            transaction_results,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<
+        BlockT: Block<SignedTransactionT>,
+        HaltReasonT: HaltReasonTrait,
+        InspectorDataT,
+        SignedTransactionT: ExecutableTransaction,
+    > MineBlockResultWithMetadata<BlockT, HaltReasonT, SignedTransactionT, InspectorDataT>
+{
+    /// Whether the block contains a transaction with the given hash.
+    pub fn has_transaction(&self, transaction_hash: &B256) -> bool {
+        self.block
+            .transactions()
+            .iter()
+            .any(|tx| *tx.transaction_hash() == *transaction_hash)
+    }
+}
+
+#[derive(Debug)]
+pub struct MineBlockResultAndStateWithMetadata<
+    BlockT,
+    HaltReasonT: HaltReasonTrait,
+    InspectorDataT = (),
+> {
+    /// Mined block and state
+    pub block_and_state: BuiltBlockAndState<BlockT, HaltReasonT>,
+    /// The set of precompile addresses that were available during execution.
+    pub precompile_addresses: HashSet<Address>,
+    /// Data collected from inspectors during mining, indexed by transaction
+    /// number in the block.
+    pub transaction_inspector_data: Vec<InspectorDataT>,
+}
+
+impl<BlockT, HaltReasonT: HaltReasonTrait, InspectorDataT>
+    MineBlockResultAndStateWithMetadata<BlockT, HaltReasonT, InspectorDataT>
+{
+    /// Constructs a new instance.
+    pub fn new(
+        block_and_state: BuiltBlockAndStateWithMetadata<BlockT, HaltReasonT>,
+        transaction_inspector_data: Vec<InspectorDataT>,
+    ) -> Self {
+        Self {
+            block_and_state: block_and_state.block_and_state,
+            precompile_addresses: block_and_state.precompile_addresses,
+            transaction_inspector_data,
+        }
+    }
 }
 
 /// Mines a block using as many transactions as can fit in it.
@@ -78,16 +189,7 @@ pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionVal
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn mine_block<
-    ChainSpecT: BlockChainSpec<
-        SignedTransaction: 'static
-                               + Clone
-                               + Debug
-                               + TransactionValidation<ValidationError: PartialEq>,
-    >,
-    BlockchainErrorT: std::error::Error,
-    InspectorT,
->(
+pub fn mine_block<ChainSpecT, BlockchainErrorT, InspectorT>(
     blockchain: &dyn Blockchain<
         ChainSpecT::Receipt,
         ChainSpecT::Block,
@@ -107,29 +209,41 @@ pub fn mine_block<
     mut inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    BuiltBlockAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock>,
-    MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateError>,
+    MineBlockResultAndStateWithMetadata<
+        ChainSpecT::LocalBlock,
+        ChainSpecT::HaltReason,
+        InspectorT::Output,
+    >,
+    MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, InspectorT::Error, StateError>,
 >
 where
-    InspectorT: for<'inspector> Inspector<
-        ContextForChainSpec<
-            ChainSpecT,
-            ChainSpecT::BlockEnv<'inspector, PartialHeader>,
-            WrapDatabaseRef<
-                DatabaseComponents<
-                    &'inspector dyn Blockchain<
-                        ChainSpecT::Receipt,
-                        ChainSpecT::Block,
-                        BlockchainErrorT,
-                        ChainSpecT::Hardfork,
-                        ChainSpecT::LocalBlock,
-                        ChainSpecT::SignedTransaction,
+    BlockchainErrorT: std::error::Error,
+    ChainSpecT: BlockChainSpec<
+        SignedTransaction: 'static
+                               + Clone
+                               + Debug
+                               + TransactionValidation<ValidationError: PartialEq>,
+    >,
+    InspectorT: FlushInspectorData
+        + for<'inspector> Inspector<
+            ContextForChainSpec<
+                ChainSpecT,
+                ChainSpecT::BlockEnv<'inspector, PartialHeader>,
+                WrapDatabaseRef<
+                    DatabaseComponents<
+                        &'inspector dyn Blockchain<
+                            ChainSpecT::Receipt,
+                            ChainSpecT::Block,
+                            BlockchainErrorT,
+                            ChainSpecT::Hardfork,
+                            ChainSpecT::LocalBlock,
+                            ChainSpecT::SignedTransaction,
+                        >,
+                        &'inspector dyn DynState,
                     >,
-                    &'inspector dyn DynState,
                 >,
             >,
         >,
-    >,
 {
     let block_inputs = BlockInputs::empty(blockchain.hardfork());
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
@@ -161,6 +275,7 @@ where
         mem_pool.iter(comparator)
     };
 
+    let mut transaction_inspector_data = Vec::new();
     while let Some(transaction) = pending_transactions.next() {
         if *transaction.gas_price() < min_gas_price {
             pending_transactions.remove_caller(transaction.caller());
@@ -171,7 +286,17 @@ where
 
         {
             let result = if let Some(inspector) = inspector.as_mut() {
-                block_builder.add_transaction_with_inspector(transaction, inspector)
+                let result = block_builder.add_transaction_with_inspector(transaction, inspector);
+
+                if result.is_ok() {
+                    let inspector_data = inspector
+                        .flush_inspector_data(block_builder.precompile_addresses())
+                        .map_err(MineBlockError::CollectInspectorDataError)?;
+
+                    transaction_inspector_data.push(inspector_data);
+                }
+
+                result
             } else {
                 block_builder.add_transaction(transaction)
             };
@@ -197,9 +322,14 @@ where
     let beneficiary = block_builder.header().beneficiary;
     let rewards = vec![(beneficiary, reward)];
 
-    block_builder
+    let block_and_state = block_builder
         .finalize_block(rewards)
-        .map_err(MineBlockError::BlockFinalize)
+        .map_err(MineBlockError::BlockFinalize)?;
+
+    Ok(MineBlockResultAndStateWithMetadata::new(
+        block_and_state,
+        transaction_inspector_data,
+    ))
 }
 
 /// Helper type for a chain-specific [`MineTransactionError`].
@@ -305,6 +435,22 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, TransactionValidation
     State(StateError),
 }
 
+/// A trait for flushing and returning data that was observed during execution
+/// from inspectors, in preparation for the next transaction.
+pub trait FlushInspectorData {
+    /// The type of error that can occur while flushing data.
+    type Error;
+
+    /// The type of data collected from the inspector.
+    type Output;
+
+    /// Flushes collected data from the instance and returns it.
+    fn flush_inspector_data(
+        &mut self,
+        precompile_addresses: &HashSet<Address>,
+    ) -> Result<Self::Output, Self::Error>;
+}
+
 /// Mines a block with a single transaction.
 ///
 /// If the transaction is invalid, returns an error.
@@ -336,7 +482,7 @@ pub fn mine_block_with_single_transaction<
     inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    BuiltBlockAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock>,
+    BuiltBlockAndStateWithMetadata<ChainSpecT::LocalBlock, ChainSpecT::HaltReason>,
     MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT>,
 >
 where

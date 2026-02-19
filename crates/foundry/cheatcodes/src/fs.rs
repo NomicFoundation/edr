@@ -13,8 +13,8 @@ use alloy_dyn_abi::DynSolType;
 use alloy_primitives::{hex, map::Entry, Bytes, U256};
 use alloy_sol_types::SolValue;
 use dialoguer::{Input, Password};
+use edr_artifact::ArtifactId;
 use edr_common::fs;
-use edr_solidity::artifacts::ArtifactId;
 use foundry_evm_core::{
     backend::CheatcodeBackend,
     evm_context::{

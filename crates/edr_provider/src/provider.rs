@@ -3,7 +3,7 @@ use std::sync::Arc;
 use edr_chain_spec::{HardforkChainSpec, TransactionValidation};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
 use crate::{
@@ -19,7 +19,7 @@ use crate::{
     },
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
-    to_json, to_json_with_trace, to_json_with_traces, ProviderConfig, ResponseWithTraces,
+    to_json, to_json_with_trace, to_json_with_traces, ProviderConfig, ResponseWithCallTraces,
     SyncSubscriberCallback, PRIVATE_RPC_METHODS,
 };
 
@@ -95,7 +95,7 @@ impl<
             dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
         >,
         config: ProviderConfig<<ChainSpecT as HardforkChainSpec>::Hardfork>,
-        contract_decoder: Arc<ContractDecoder>,
+        contract_decoder: Arc<RwLock<ContractDecoder>>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
         let data = ProviderData::new(
@@ -157,8 +157,7 @@ impl<
     pub fn handle_request(
         &self,
         request: ProviderRequest<ChainSpecT>,
-    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
-    {
+    ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
 
         let response = match request {
@@ -174,27 +173,28 @@ impl<
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
         request: Vec<MethodInvocation<ChainSpecT>>,
-    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
-    {
+    ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
         let mut results = Vec::new();
         let mut traces = Vec::new();
 
         for req in request {
             let response = self.handle_single_request(data, req)?;
             results.push(response.result);
-            traces.extend(response.traces);
+            traces.extend(response.call_trace_arenas);
         }
 
         let result = serde_json::to_value(results).map_err(ProviderError::Serialization)?;
-        Ok(ResponseWithTraces { result, traces })
+        Ok(ResponseWithCallTraces {
+            result,
+            call_trace_arenas: traces,
+        })
     }
 
     fn handle_single_request(
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
         request: MethodInvocation<ChainSpecT>,
-    ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
-    {
+    ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
         let method_name = if data.logger_mut().is_enabled() {
             let method_name = request.method_name();
             if PRIVATE_RPC_METHODS.contains(method_name) {

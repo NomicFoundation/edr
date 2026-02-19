@@ -10,6 +10,7 @@ use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::tokio::runtime;
 use napi_derive::napi;
+use parking_lot::RwLock;
 
 use crate::provider::ProviderFactory;
 
@@ -22,7 +23,7 @@ impl SyncProviderFactory for GenericChainProviderFactory {
         provider_config: edr_napi_core::provider::Config,
         logger_config: edr_napi_core::logger::Config,
         subscription_callback: edr_napi_core::subscription::Callback,
-        contract_decoder: Arc<ContractDecoder>,
+        contract_decoder: Arc<RwLock<ContractDecoder>>,
     ) -> napi::Result<Arc<dyn SyncProvider>> {
         let logger = Logger::<GenericChainSpec, CurrentTime>::new(
             logger_config,

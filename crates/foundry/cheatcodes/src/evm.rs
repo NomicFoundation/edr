@@ -3468,17 +3468,38 @@ fn inner_stop_gas_snapshot<
     group: Option<String>,
     name: Option<String>,
 ) -> Result {
-    // If group and name are not provided, use the last snapshot group and name.
-    let (group, name) = group.zip(name).unwrap_or_else(|| {
-        let (group, name) = ccx
+    // Resolve group and name, falling back to the active snapshot for any
+    // missing component.
+    let (group, name) = match (group, name) {
+        (Some(g), Some(n)) => (g, n),
+        (None, None) => ccx
             .state
             .gas_metering
             .active_gas_snapshot
             .as_ref()
             .unwrap()
-            .clone();
-        (group, name)
-    });
+            .clone(),
+        (None, Some(n)) => {
+            let (group, _) = ccx
+                .state
+                .gas_metering
+                .active_gas_snapshot
+                .as_ref()
+                .unwrap()
+                .clone();
+            (group, n)
+        }
+        (Some(g), None) => {
+            let (_, name) = ccx
+                .state
+                .gas_metering
+                .active_gas_snapshot
+                .as_ref()
+                .unwrap()
+                .clone();
+            (g, name)
+        }
+    };
 
     if let Some(record) = ccx
         .state

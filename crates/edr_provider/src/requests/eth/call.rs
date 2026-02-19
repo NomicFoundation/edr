@@ -4,14 +4,14 @@ use edr_primitives::Bytes;
 use edr_rpc_eth::StateOverrideOptions;
 use edr_runtime::{overrides::StateOverrides, transaction};
 use edr_signer::FakeSign as _;
-use edr_tracing::Trace;
+use foundry_evm_traces::CallTraceArena;
 
 use crate::{
     data::ProviderData,
-    error::{ProviderErrorForChainSpec, TransactionFailureWithTraces},
+    error::ProviderErrorForChainSpec,
     spec::{CallContext, FromRpcType, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
-    ProviderError, TransactionFailure,
+    ProviderError,
 };
 
 pub fn handle_call_request<
@@ -25,37 +25,17 @@ pub fn handle_call_request<
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
     state_overrides: Option<StateOverrideOptions>,
-) -> Result<(Bytes, Trace<ChainSpecT::HaltReason>), ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<(Bytes, Option<CallTraceArena>), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec = resolve_block_spec_for_call_request(block_spec);
 
     let state_overrides =
         state_overrides.map_or(Ok(StateOverrides::default()), StateOverrides::try_from)?;
 
     let transaction = resolve_call_request(data, request, &block_spec, &state_overrides)?;
-    let result = data.run_call(transaction.clone(), &block_spec, &state_overrides)?;
-
-    let hardfork = data.hardfork();
-    data.logger_mut()
-        .log_call(hardfork, &transaction, &result)
-        .map_err(ProviderError::Logger)?;
-
-    if data.bail_on_call_failure()
-        && let Some(failure) = TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
-            &result.execution_result,
-            None,
-            &result.trace,
-        )
-    {
-        return Err(ProviderError::TransactionFailed(Box::new(
-            TransactionFailureWithTraces {
-                failure,
-                traces: vec![result.trace],
-            },
-        )));
-    }
+    let result = data.run_call(transaction, &block_spec, &state_overrides)?;
 
     let output = result.execution_result.into_output().unwrap_or_default();
-    Ok((output, result.trace))
+    Ok((output, result.call_trace_arena))
 }
 
 pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>) -> BlockSpec {

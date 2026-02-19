@@ -64,7 +64,9 @@ describe("Unit tests", () => {
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
       "ContractEnvironmentTest",
       {
-        sender: Buffer.from("976EA74026E726554dB657fA54763abd0C3a0aa9", "hex"),
+        sender: new Uint8Array(
+          Buffer.from("976EA74026E726554dB657fA54763abd0C3a0aa9", "hex")
+        ),
         chainId: 12n,
         blockNumber: 23n,
         blockTimestamp: 45n,
@@ -340,13 +342,21 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, suiteResults } =
       await testContext.runTestsWithStats("GasSnapshotTest", {}, L1_CHAIN_TYPE);
 
-    assert.equal(totalTests, 12);
-    assert.equal(failedTests, 0);
+    assert.equal(totalTests, 13);
+    assert.equal(failedTests, 1);
 
     let snapshots = new Map<string, Map<string, string>>();
 
     for (const suiteResult of suiteResults) {
       for (const testResult of suiteResult.testResults) {
+        if (testResult.name === "testMismatchedStartStopSnapshot()") {
+          assert.equal(testResult.status, "Failure");
+          assert.equal(
+            testResult.reason,
+            "vm.stopSnapshotGas: no gas snapshot was started with the name: testMismatchedStopSnapshot in group: GasSnapshotTest"
+          );
+          continue;
+        }
         assert.notEqual(testResult.valueSnapshotGroups, undefined);
 
         const snapshotGroups = testResult.valueSnapshotGroups!;

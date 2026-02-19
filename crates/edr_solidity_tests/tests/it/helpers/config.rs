@@ -4,9 +4,9 @@ use std::{collections::BTreeMap, marker::PhantomData};
 
 use alloy_json_abi::Function;
 use derive_where::derive_where;
+use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
-    artifacts::ArtifactId,
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::NestedTrace,
 };

@@ -6,7 +6,7 @@ edition.workspace = true
 [dependencies]
 alloy-serde = { workspace = true, features = ["std"] }
 anyhow = { workspace = true, features = ["std"] }
-chrono = { version = "0.4.41", default-features = false, features = ["serde"] }
+chrono = { version = "0.4.43", default-features = false, features = ["serde"] }
 edr_block_header.workspace = true
 edr_chain_config.workspace = true
 edr_defaults.workspace = true

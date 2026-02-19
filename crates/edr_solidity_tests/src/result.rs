@@ -9,6 +9,7 @@ use std::{
 use alloy_primitives::{map::AddressHashMap, Address, Log};
 use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
+use edr_decoder_revert::cheatcodes::skip::SkipReason;
 pub use foundry_evm::executors::invariant::InvariantMetrics;
 use foundry_evm::{
     coverage::HitMaps,
@@ -16,7 +17,9 @@ use foundry_evm::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
     },
-    executors::{invariant::InvariantFuzzError, stack_trace::StackTraceResult, RawCallResult},
+    executors::{
+        invariant::InvariantFuzzError, stack_trace::SolidityTestStackTraceResult, RawCallResult,
+    },
     fuzz::{CounterExample, FuzzFixtures},
     traces::{CallTraceArena, CallTraceDecoder, TraceKind, Traces},
 };
@@ -25,7 +28,7 @@ use yansi::Paint;
 
 use crate::{
     backend::IndeterminismReasons,
-    decode::{decode_console_logs, SkipReason},
+    decode::decode_console_logs,
     fuzz::{BaseCounterExample, FuzzTestResult, FuzzedCases},
     gas_report::GasReport,
 };
@@ -411,7 +414,7 @@ pub struct TestResult<HaltReasonT> {
     /// If the heuristic failed the vec is set but emtpy.
     /// Error if there was an error computing the stack trace.
     #[serde(skip)]
-    pub stack_trace_result: Option<StackTraceResult<HaltReasonT>>,
+    pub stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>>,
 
     /// Deprecated cheatcodes (mapped to their replacements, if any) used in
     /// current test.
@@ -654,7 +657,7 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         replayed_entirely: bool,
         invariant_name: &String,
         call_sequence: Vec<BaseCounterExample>,
-        stack_trace_result: Option<StackTraceResult<HaltReasonT>>,
+        stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>>,
         duration: Duration,
     ) {
         self.kind = TestKind::Invariant {
@@ -924,7 +927,7 @@ pub struct TestSetup<HaltReasonT> {
     /// None if the test status is succeeded or skipped.
     /// If the heuristic failed the vec is set but emtpy.
     /// Error if there was an error computing the stack trace.
-    pub stack_trace_result: Option<StackTraceResult<HaltReasonT>>,
+    pub stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>>,
     /// Whether the test had a setup method.
     pub has_setup_method: bool,
     /// Indeterminism from cheatcodes during execution.

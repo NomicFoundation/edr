@@ -56,39 +56,8 @@ use Precompiles::{
     pointEvaluationCall, ripemdCall, sha256Call,
 };
 
-pub(super) fn is_known_precompile(address: Address, _chain_id: u64) -> bool {
-    address
-        .get(..19)
-        .is_some_and(|slice| slice.iter().all(|&x| x == 0))
-        && matches!(
-            address,
-            EC_RECOVER
-                | SHA_256
-                | RIPEMD_160
-                | IDENTITY
-                | MOD_EXP
-                | EC_ADD
-                | EC_MUL
-                | EC_PAIRING
-                | BLAKE_2F
-                | POINT_EVALUATION
-                | BLS12_G1ADD
-                | BLS12_G1MSM
-                | BLS12_G2ADD
-                | BLS12_G2MSM
-                | BLS12_PAIRING_CHECK
-                | BLS12_MAP_FP_TO_G1
-                | BLS12_MAP_FP2_TO_G2
-                | P256_VERIFY
-        )
-}
-
 /// Tries to decode a precompile call. Returns `Some` if successful.
-pub(super) fn decode(trace: &CallTrace, _chain_id: u64) -> Option<DecodedCallTrace> {
-    if !is_known_precompile(trace.address, _chain_id) {
-        return None;
-    }
-
+pub fn decode(trace: &CallTrace) -> Option<DecodedCallTrace> {
     for &precompile in PRECOMPILES {
         if trace.address == precompile.address() {
             let signature = precompile.signature(&trace.data);
@@ -120,14 +89,26 @@ pub(super) fn decode(trace: &CallTrace, _chain_id: u64) -> Option<DecodedCallTra
     None
 }
 
-pub(super) trait Precompile {
+/// Trait for defining the ABI of a precompile. This is used to decode the call
+/// data and return data of a precompile call.
+pub(super) trait PrecompileAbi {
+    /// Address of the precompile.
     fn address(&self) -> Address;
+
+    /// Signature of the precompile.
+    ///
+    /// The input data is provided as an argument, as precompile can
+    /// theoretically have different signatures based on the input data.
     fn signature(&self, data: &[u8]) -> &'static str;
 
+    /// Tries to decode the call data. Returns an error if the data is not valid
+    /// for this precompile.
     fn decode_call(&self, data: &[u8]) -> alloy_sol_types::Result<Vec<String>> {
         Ok(vec![hex::encode_prefixed(data)])
     }
 
+    /// Tries to decode the return data. Returns an error if the data is not
+    /// valid for this precompile.
     fn decode_return(&self, data: &[u8]) -> alloy_sol_types::Result<Vec<String>> {
         Ok(vec![hex::encode_prefixed(data)])
     }
@@ -136,7 +117,7 @@ pub(super) trait Precompile {
 // Note: we use the ABI decoder, but this is not necessarily ABI-encoded data.
 // It's just a convenient way to decode the data.
 
-const PRECOMPILES: &[&dyn Precompile] = &[
+const PRECOMPILES: &[&dyn PrecompileAbi] = &[
     &Ecrecover,
     &Sha256,
     &Ripemd160,
@@ -158,7 +139,7 @@ const PRECOMPILES: &[&dyn Precompile] = &[
 ];
 
 struct Ecrecover;
-impl Precompile for Ecrecover {
+impl PrecompileAbi for Ecrecover {
     fn address(&self) -> Address {
         EC_RECOVER
     }
@@ -184,7 +165,7 @@ impl Precompile for Ecrecover {
 }
 
 struct Sha256;
-impl Precompile for Sha256 {
+impl PrecompileAbi for Sha256 {
     fn address(&self) -> Address {
         SHA_256
     }
@@ -200,7 +181,7 @@ impl Precompile for Sha256 {
 }
 
 struct Ripemd160;
-impl Precompile for Ripemd160 {
+impl PrecompileAbi for Ripemd160 {
     fn address(&self) -> Address {
         RIPEMD_160
     }
@@ -216,7 +197,7 @@ impl Precompile for Ripemd160 {
 }
 
 struct Identity;
-impl Precompile for Identity {
+impl PrecompileAbi for Identity {
     fn address(&self) -> Address {
         IDENTITY
     }
@@ -227,7 +208,7 @@ impl Precompile for Identity {
 }
 
 struct ModExp;
-impl Precompile for ModExp {
+impl PrecompileAbi for ModExp {
     fn address(&self) -> Address {
         MOD_EXP
     }
@@ -256,7 +237,7 @@ impl Precompile for ModExp {
 }
 
 struct EcAdd;
-impl Precompile for EcAdd {
+impl PrecompileAbi for EcAdd {
     fn address(&self) -> Address {
         EC_ADD
     }
@@ -282,7 +263,7 @@ impl Precompile for EcAdd {
 }
 
 struct Ecmul;
-impl Precompile for Ecmul {
+impl PrecompileAbi for Ecmul {
     fn address(&self) -> Address {
         EC_MUL
     }
@@ -303,7 +284,7 @@ impl Precompile for Ecmul {
 }
 
 struct Ecpairing;
-impl Precompile for Ecpairing {
+impl PrecompileAbi for Ecpairing {
     fn address(&self) -> Address {
         EC_PAIRING
     }
@@ -333,7 +314,7 @@ impl Precompile for Ecpairing {
 }
 
 struct Blake2f;
-impl Precompile for Blake2f {
+impl PrecompileAbi for Blake2f {
     fn address(&self) -> Address {
         BLAKE_2F
     }
@@ -371,7 +352,7 @@ fn decode_blake2f<'a>(data: &'a [u8]) -> alloy_sol_types::Result<Vec<String>> {
 }
 
 struct PointEvaluation;
-impl Precompile for PointEvaluation {
+impl PrecompileAbi for PointEvaluation {
     fn address(&self) -> Address {
         POINT_EVALUATION
     }
@@ -407,7 +388,7 @@ const SCALAR_SIZE: usize = 32;
 const FP_SIZE: usize = 64;
 
 struct Bls12G1Add;
-impl Precompile for Bls12G1Add {
+impl PrecompileAbi for Bls12G1Add {
     fn address(&self) -> Address {
         BLS12_G1ADD
     }
@@ -424,7 +405,7 @@ impl Precompile for Bls12G1Add {
 }
 
 struct Bls12G1Msm;
-impl Precompile for Bls12G1Msm {
+impl PrecompileAbi for Bls12G1Msm {
     fn address(&self) -> Address {
         BLS12_G1MSM
     }
@@ -440,7 +421,7 @@ impl Precompile for Bls12G1Msm {
 }
 
 struct Bls12G2Add;
-impl Precompile for Bls12G2Add {
+impl PrecompileAbi for Bls12G2Add {
     fn address(&self) -> Address {
         BLS12_G2ADD
     }
@@ -457,7 +438,7 @@ impl Precompile for Bls12G2Add {
 }
 
 struct Bls12G2Msm;
-impl Precompile for Bls12G2Msm {
+impl PrecompileAbi for Bls12G2Msm {
     fn address(&self) -> Address {
         BLS12_G2MSM
     }
@@ -473,7 +454,7 @@ impl Precompile for Bls12G2Msm {
 }
 
 struct Bls12PairingCheck;
-impl Precompile for Bls12PairingCheck {
+impl PrecompileAbi for Bls12PairingCheck {
     fn address(&self) -> Address {
         BLS12_PAIRING_CHECK
     }
@@ -494,7 +475,7 @@ impl Precompile for Bls12PairingCheck {
 }
 
 struct Bls12MapFpToG1;
-impl Precompile for Bls12MapFpToG1 {
+impl PrecompileAbi for Bls12MapFpToG1 {
     fn address(&self) -> Address {
         BLS12_MAP_FP_TO_G1
     }
@@ -510,7 +491,7 @@ impl Precompile for Bls12MapFpToG1 {
 }
 
 struct Bls12MapFp2ToG2;
-impl Precompile for Bls12MapFp2ToG2 {
+impl PrecompileAbi for Bls12MapFp2ToG2 {
     fn address(&self) -> Address {
         BLS12_MAP_FP2_TO_G2
     }
@@ -526,7 +507,7 @@ impl Precompile for Bls12MapFp2ToG2 {
 }
 
 struct P256Verify;
-impl Precompile for P256Verify {
+impl PrecompileAbi for P256Verify {
     fn address(&self) -> Address {
         P256_VERIFY
     }

@@ -4,16 +4,10 @@
 //! See <https://docs.soliditylang.org/en/latest/using-the-compiler.html#compiler-input-and-output-json-description>.
 #![allow(missing_docs)]
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
 
-use alloy_json_abi::JsonAbi;
-use alloy_primitives::Bytes;
 use indexmap::IndexMap;
 use itertools::Itertools;
-use semver::Version;
 use serde::{Deserialize, Serialize};
 
 /// Error in the build info config
@@ -299,70 +293,6 @@ pub struct LinkReference {
 pub struct ImmutableReference {
     pub start: u32,
     pub length: u32,
-}
-
-// Adapted from <https://github.com/foundry-rs/compilers/blob/ea346377deaf18dc1f972a06fad76df3d9aed8d9/crates/compilers/src/artifact_output/mod.rs#L45>
-/// Compilation artifact identifier
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct ArtifactId {
-    /// The name of the contract
-    pub name: String,
-    /// Original source file path
-    pub source: PathBuf,
-    /// `solc` version that produced this artifact
-    pub version: Version,
-}
-
-// Copied from <https://github.com/foundry-rs/compilers/blob/ea346377deaf18dc1f972a06fad76df3d9aed8d9/crates/compilers/src/artifact_output/mod.rs#L45>
-impl ArtifactId {
-    /// Returns a `<source path>:<name>` slug that uniquely identifies an
-    /// artifact
-    pub fn identifier(&self) -> String {
-        format!("{}:{}", self.source.to_string_lossy(), self.name)
-    }
-
-    /// Removes `base` from the source's path.
-    pub fn strip_file_prefixes(&mut self, base: &Path) {
-        if let Ok(stripped) = self.source.strip_prefix(base) {
-            self.source = stripped.to_path_buf();
-        }
-    }
-
-    /// Convenience function for [`Self::strip_file_prefixes()`]
-    pub fn with_stripped_file_prefixes(mut self, base: &Path) -> Self {
-        self.strip_file_prefixes(base);
-        self
-    }
-}
-
-impl From<foundry_compilers::ArtifactId> for ArtifactId {
-    fn from(value: foundry_compilers::ArtifactId) -> Self {
-        let foundry_compilers::ArtifactId {
-            path: _,
-            name,
-            source,
-            version,
-            build_id: _,
-            profile: _,
-        } = value;
-
-        Self {
-            name,
-            source,
-            version,
-        }
-    }
-}
-
-/// Container for commonly used contract data.
-#[derive(Debug, Clone)]
-pub struct ContractData {
-    /// Contract ABI.
-    pub abi: JsonAbi,
-    /// Contract creation code.
-    pub bytecode: Option<Bytes>,
-    /// Contract runtime code.
-    pub deployed_bytecode: Option<Bytes>,
 }
 
 #[cfg(test)]

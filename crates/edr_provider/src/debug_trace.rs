@@ -4,21 +4,19 @@ use alloy_rpc_types_trace::geth::{GethDebugTracingOptions, GethTrace};
 use edr_block_builder_api::{DatabaseComponents, WrapDatabaseRef};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
-use edr_chain_spec::{
-    ChainSpec, EvmSpecId, ExecutableTransaction as _, HaltReasonTrait, TransactionValidation,
-};
+use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction as _, TransactionValidation};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{BlockEnvTrait as _, CfgEnv, DatabaseComponentError, TransactionError};
 use edr_evm::{dry_run_with_inspector, run};
-use edr_primitives::{B256, U256};
+use edr_primitives::{HashMap, B256, U256};
 use edr_runtime::inspector::DualInspector;
 use edr_state_api::{DynState, StateError};
-use edr_tracing::Trace;
+use foundry_evm_traces::CallTraceArena;
 use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, MuxError, TransactionContext};
 
 use crate::{
     error::{JsonRpcError, INTERNAL_ERROR, INVALID_PARAMS},
-    observability::{EvmObserver, EvmObserverConfig},
+    observability::{EvmObservedData, EvmObserver, EvmObserverCollectionError, EvmObserverConfig},
 };
 
 /// Get trace output for `debug_traceTransaction`
@@ -34,10 +32,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
     observer_config: EvmObserverConfig,
-) -> Result<
-    DebugTraceResultWithTraces<ChainSpecT::HaltReason>,
-    DebugTraceErrorForChainSpec<ChainSpecT>,
-> {
+) -> Result<DebugTraceResultWithCallTraces, DebugTraceErrorForChainSpec<ChainSpecT>> {
     let evm_spec_id = evm_config.spec.into();
     if evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
@@ -56,36 +51,37 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
             let mut debug_inspector = DebugInspector::new(tracing_options)
                 .map_err(DebugTraceError::from_debug_inspector_creation_error)?;
 
+            let include_call_traces = observer_config.include_call_traces;
             let mut evm_observer = EvmObserver::new(observer_config);
 
             let transaction_hash = *transaction.transaction_hash();
-            let result_and_state = dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
+            let result = dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
                 blockchain,
                 state.as_ref(),
                 evm_config,
                 transaction.clone(),
                 &block,
-                &edr_primitives::HashMap::default(),
+                &HashMap::default(),
                 &mut DualInspector::new(&mut debug_inspector, &mut evm_observer),
             )?;
 
-            let EvmObserver {
-                code_coverage,
-                console_logger: _console_logger,
-                mocker: _mocker,
-                trace_collector,
-            } = evm_observer;
-
-            if let Some(code_coverage) = code_coverage {
-                code_coverage
-                    .report()
-                    .map_err(DebugTraceError::OnCollectedCoverageCallback)?;
-            }
+            let EvmObservedData {
+                address_to_executed_code: _,
+                call_trace_arena,
+                encoded_console_logs: _,
+            } = evm_observer.collect_and_report(&result.precompile_addresses)?;
 
             let mut database = WrapDatabaseRef(DatabaseComponents {
                 blockchain,
                 state: state.as_ref(),
             });
+
+            let call_trace_arenas =
+                if include_call_traces.should_include(|| !result.result.is_success()) {
+                    vec![call_trace_arena]
+                } else {
+                    Vec::new()
+                };
 
             let geth_trace = debug_inspector
                 .get_result(
@@ -96,14 +92,14 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                     }),
                     &transaction,
                     &block,
-                    &result_and_state,
+                    &result.into_result_and_state(),
                     &mut database,
                 )
                 .map_err(DebugTraceError::from_debug_inspector_result_error)?;
 
-            return Ok(DebugTraceResultWithTraces {
+            return Ok(DebugTraceResultWithCallTraces {
+                call_trace_arenas,
                 result: geth_trace,
-                traces: trace_collector.into_traces(),
             });
         } else {
             run::<ChainSpecT, _, _, _>(
@@ -112,7 +108,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                 evm_config.clone(),
                 transaction,
                 &block,
-                &edr_primitives::HashMap::default(),
+                &HashMap::default(),
             )?;
         }
     }
@@ -131,6 +127,11 @@ pub type DebugTraceErrorForChainSpec<ChainSpecT> = DebugTraceError<
 /// Debug trace error.
 #[derive(Debug, thiserror::Error)]
 pub enum DebugTraceError<TransactionValidationErrorT> {
+    // TODO: This error should be caught when we originally parse the contract ABIs. Once we do
+    // that, this variant should be removed from the enum.
+    /// An error occurred while ABI decoding the traces due to invalid input.
+    #[error(transparent)]
+    AbiDecoding(serde_json::Error),
     /// Blockchain error.
     #[error(transparent)]
     Blockchain(DynBlockchainError),
@@ -218,6 +219,19 @@ impl<TransactionValidationErrorT> DebugTraceError<TransactionValidationErrorT> {
     }
 }
 
+impl<TransactionValidationErrorT> From<EvmObserverCollectionError>
+    for DebugTraceError<TransactionValidationErrorT>
+{
+    fn from(value: EvmObserverCollectionError) -> Self {
+        match value {
+            EvmObserverCollectionError::AbiDecoding(error) => DebugTraceError::AbiDecoding(error),
+            EvmObserverCollectionError::OnCollectedCoverageCallback(error) => {
+                DebugTraceError::OnCollectedCoverageCallback(error)
+            }
+        }
+    }
+}
+
 impl<TransactionValidationErrorT> JsonRpcError for DebugTraceError<TransactionValidationErrorT> {
     fn error_code(&self) -> i16 {
         match self {
@@ -226,7 +240,8 @@ impl<TransactionValidationErrorT> JsonRpcError for DebugTraceError<TransactionVa
             | DebugTraceError::JsTracerNotEnabled
             | DebugTraceError::MuxInspector(_)
             | DebugTraceError::UnsupportedTracer => INVALID_PARAMS,
-            DebugTraceError::InvalidSpecId { .. }
+            DebugTraceError::AbiDecoding(_)
+            | DebugTraceError::InvalidSpecId { .. }
             | DebugTraceError::OnCollectedCoverageCallback(_)
             | DebugTraceError::Blockchain(_)
             | DebugTraceError::State(_)
@@ -235,10 +250,10 @@ impl<TransactionValidationErrorT> JsonRpcError for DebugTraceError<TransactionVa
     }
 }
 
-/// Result of a `debug_traceTransaction` call with traces.
-pub struct DebugTraceResultWithTraces<HaltReasonT: HaltReasonTrait> {
+/// Result of a `debug_traceTransaction` call with call trace.
+pub struct DebugTraceResultWithCallTraces {
+    /// The raw traces of the debugged transaction.
+    pub call_trace_arenas: Vec<CallTraceArena>,
     /// The result of the transaction.
     pub result: GethTrace,
-    /// The raw traces of the debugged transaction.
-    pub traces: Vec<Trace<HaltReasonT>>,
 }
