@@ -1,3 +1,6 @@
 # Example cooldown configuration
 
 cooldown_minutes = 10080 # 7 days
+cache_ttl_seconds = 172800 # 2 days
+cache_dir = "./cooldown-check-cache"
+

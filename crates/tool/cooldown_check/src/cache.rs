@@ -20,15 +20,14 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn new(ttl_seconds: u64) -> Result<Self> {
+    pub fn new(ttl: Duration) -> Result<Self> {
         let mut root = PathBuf::from(edr_defaults::CACHE_DIR);
-        root.push("cargo-cooldown");
+        root.push("cargo-cooldown-check");
         fs::create_dir_all(&root)
             .with_context(|| format!("failed to create cache directory {}", root.display()))?;
-        Ok(Self {
-            root,
-            ttl: Duration::from_secs(ttl_seconds),
-        })
+        log::debug!("using default cache path: {}", root.as_path().display());
+        log::debug!("cache ttl: {ttl:?}");
+        Ok(Self { root, ttl })
     }
 
     pub fn with_root(root: PathBuf, ttl: Duration) -> Result<Self> {
@@ -36,6 +35,8 @@ impl Cache {
             fs::create_dir_all(&root)
                 .with_context(|| format!("failed to create cache directory {}", root.display()))?;
         }
+        log::debug!("using custom cache path: {}", root.as_path().display());
+        log::debug!("cache ttl: {ttl:?}");
         Ok(Self { root, ttl })
     }
 

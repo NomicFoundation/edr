@@ -9,8 +9,8 @@ const DEFAULT_SPARSE_REGISTRY_INDEX: &str = "registry+sparse+https://index.crate
 #[derive(Debug, Clone)]
 pub struct Config {
     pub cooldown_minutes: u64,
-    pub ttl_seconds: u64,
     pub cache_dir: Option<PathBuf>,
+    pub cache_ttl_seconds: u64,
     pub http_retries: u32,
     pub registry_api: String,
     pub allowed_registries: Vec<String>,
@@ -24,11 +24,16 @@ impl Config {
     }
 
     pub fn load(file_path: &Path) -> anyhow::Result<Self> {
-        let cooldown_config = CooldownFileConfig::load(file_path)?;
-        log::debug!("cooldown config: {cooldown_config:?}");
+        let file_config = CooldownFileConfig::load(file_path)?;
+        log::debug!("cooldown config: {file_config:?}");
+        let default = Config::default();
         let config = Config {
-            cooldown_minutes: cooldown_config.cooldown_minutes,
-            ..Config::default()
+            cooldown_minutes: file_config.cooldown_minutes,
+            cache_dir: file_config.cache_dir,
+            cache_ttl_seconds: file_config
+                .cache_ttl_seconds
+                .unwrap_or(default.cache_ttl_seconds),
+            ..default
         };
         Ok(config)
     }
@@ -37,6 +42,8 @@ impl Config {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct CooldownFileConfig {
     cooldown_minutes: u64,
+    cache_dir: Option<PathBuf>,
+    cache_ttl_seconds: Option<u64>,
 }
 
 impl CooldownFileConfig {
@@ -50,9 +57,9 @@ impl CooldownFileConfig {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            cooldown_minutes: 10080,                          // 7 days
-            ttl_seconds: 86_400,                              // ttl of cache entries
-            allowed_registries: default_allowed_registries(), // TODO: configurable by file?
+            cooldown_minutes: 10080,   // 7 days
+            cache_ttl_seconds: 86_400, // 1 day
+            allowed_registries: default_allowed_registries(),
             cache_dir: None,
             http_retries: 2,
             registry_api: "https://crates.io/api/v1/".to_string(),
