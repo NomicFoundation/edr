@@ -1,5 +1,16 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.26
+
+### Minor Changes
+
+- 28b7b04: Added proxy information to gas reports
+
+### Patch Changes
+
+- e116ca0: Added support for instrumentation of Solidity 0.8.34
+- 12f70f3: Fixed error handling for mismatched names in gas snapshot cheatcodes
+
 ## 0.12.0-next.25
 
 ### Minor Changes
