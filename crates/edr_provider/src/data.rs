@@ -1531,14 +1531,11 @@ where
             let mut contract_decoder = self.contract_decoder.write();
 
             let mut report = GasReport::default();
-            for ((transaction, execution_result), inspector_data) in result
-                .block_and_state
-                .block
-                .transactions()
-                .iter()
-                .zip(result.block_and_state.transaction_results.iter())
-                .zip(result.transaction_inspector_data.iter())
-            {
+            for (transaction, execution_result, inspector_data) in izip!(
+                result.block_and_state.block.transactions().iter(),
+                result.block_and_state.transaction_results.iter(),
+                result.transaction_inspector_data.iter()
+            ) {
                 report.add(
                     &result.block_and_state.state,
                     &mut contract_decoder,

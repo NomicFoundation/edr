@@ -537,6 +537,11 @@ fn resolve_proxy_chain(
     chain_addrs
         .iter()
         .map(|addr| {
+            // TODO: Instead of using the state, collect the bytecode for the addresses that
+            // were called during execution. The usage of state to validate
+            // whether code existed is fallible,because it's possible that
+            // during execution of a transaction, the code field of an
+            // address is overwritten.
             let code = state
                 .basic(*addr)
                 .ok()?
