@@ -65,6 +65,7 @@ members = [
     "crates/test/transaction",
     "crates/tool/cli",
     "crates/tool/op_chain_config_generator",
+    "crates/tool/cooldown_check",
     "crates/tracing",
     "crates/trie",
     # Foundry
