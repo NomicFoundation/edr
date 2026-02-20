@@ -103,12 +103,12 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
         Ok(())
     } else {
         let failures = cooldown_failures.into_iter().collect::<HashSet<_>>();
-        log_cooldown_failures(&workspace, &resolver, failures).await?;
+        report_cooldown_failures(&workspace, &resolver, failures).await?;
         bail!("dependency graph failed cooldown check ❌")
     }
 }
 
-async fn log_cooldown_failures(
+async fn report_cooldown_failures(
     workspace: &Workspace,
     resolver: &Resolver,
     cooldown_failures: HashSet<CooldownFailure>,
@@ -123,10 +123,11 @@ async fn log_cooldown_failures(
     for failure in cooldown_failures {
         let crate_requirements = version_requirements
             .get(&failure.package_id)
-            .cloned()
-            .unwrap_or_default();
+            .map_or_else(Vec::new, |requirements| {
+                requirements.iter().cloned().collect::<Vec<_>>()
+            });
         let version_candidates = resolver
-            .crate_version_candidates(&failure, &crate_requirements)
+            .find_version_candidates(&failure, &crate_requirements)
             .await?
             .into_iter()
             .collect::<Vec<_>>();
@@ -167,8 +168,8 @@ To resolve this, downgrade to one of these versions: {versions:?} by running\n\t
 fn gather_dependencies_requirements(
     crate_names: Vec<String>,
     workspace: &Workspace,
-) -> HashMap<PackageId, Vec<VersionReq>> {
-    let mut version_requirements: HashMap<PackageId, Vec<VersionReq>> = HashMap::new();
+) -> HashMap<PackageId, HashSet<VersionReq>> {
+    let mut version_requirements: HashMap<PackageId, HashSet<VersionReq>> = HashMap::new();
     let packages = workspace.packages();
 
     let dependencies_by_package_id = workspace.nodes.iter().flat_map(|node| {
@@ -190,11 +191,9 @@ fn gather_dependencies_requirements(
             dependency.map(|dependency| (dep.clone(), dependency))
         })
     });
-    for (pkg, dep) in dependencies_by_package_id {
-        let requirements = version_requirements.entry(pkg.clone()).or_default();
-        if !requirements.iter().any(|req| req == &dep.req) {
-            requirements.push(dep.req.clone());
-        }
+    for (package, dependency) in dependencies_by_package_id {
+        let requirements = version_requirements.entry(package.clone()).or_default();
+        requirements.insert(dependency.req.clone());
     }
     version_requirements
 }
@@ -206,4 +205,68 @@ fn ensure_lockfile(workspace: &Workspace) -> Result<()> {
         return Ok(());
     }
     bail!("`Cargo.lock` file does not exist");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_includes_requested_crate_names() {
+        let workspace = Workspace::load().unwrap();
+        let packages = workspace.packages();
+
+        let result = gather_dependencies_requirements(vec!["tokio".to_string()], &workspace);
+        assert!(!result.is_empty(), "expected at least one entry for tokio");
+
+        for pkg_id in result.keys() {
+            let package = packages
+                .get(pkg_id)
+                .unwrap_or_else(|| panic!("PackageId {pkg_id:?} not found in packages"));
+            assert_eq!(
+                package.name.as_str(),
+                "tokio",
+                "expected all keys to correspond to tokio, but found {:?}",
+                package.name
+            );
+        }
+
+        let result = gather_dependencies_requirements(
+            vec!["nonexistent_crate_xyz_123".to_string()],
+            &workspace,
+        );
+        assert!(
+            result.is_empty(),
+            "expected empty map for nonexistent crate, got {} entries",
+            result.len()
+        );
+    }
+
+    #[test]
+    fn consolidates_requirements_from_multiple_dependents() {
+        let workspace = Workspace::load().unwrap();
+
+        let dependencies_requirements =
+            gather_dependencies_requirements(vec!["tokio".to_string()], &workspace);
+        assert_eq!(
+            dependencies_requirements.len(),
+            1,
+            "expected exactly one PackageId for tokio, got {}",
+            dependencies_requirements.len()
+        );
+
+        let requirements = dependencies_requirements.values().next().unwrap();
+        assert!(
+            requirements.len() > 1,
+            "expected multiple distinct VersionReqs for tokio, got {}",
+            requirements.len()
+        );
+
+        let version_requirements: Vec<String> = requirements
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+        assert!(version_requirements.contains(&"^1".to_string()),);
+        assert!(version_requirements.contains(&"^1.21.2".to_string()),);
+    }
 }

@@ -83,4 +83,38 @@ mod tests {
         let config = Config::default();
         assert_eq!(config.allowed_registries, default_allowed_registries());
     }
+
+    mod cooldown_file_config {
+        use std::io::Write;
+
+        use tempfile::NamedTempFile;
+
+        use super::*;
+
+        #[test]
+        fn load_respects_all_fields() {
+            let mut file = NamedTempFile::new().unwrap();
+            writeln!(
+                file,
+                "cooldown_minutes = 60\ncache_dir = \"/tmp/my-cache\"\ncache_ttl_seconds = 3600"
+            )
+            .unwrap();
+
+            let config = Config::load(file.path()).unwrap();
+            assert_eq!(config.cooldown_minutes, 60);
+            assert_eq!(config.cache_dir, Some(PathBuf::from("/tmp/my-cache")));
+            assert_eq!(config.cache_ttl_seconds, 3600);
+        }
+
+        #[test]
+        fn load_uses_defaults_for_optional_fields() {
+            let mut file = NamedTempFile::new().unwrap();
+            writeln!(file, "cooldown_minutes = 120").unwrap();
+
+            let config = Config::load(file.path()).unwrap();
+            assert_eq!(config.cooldown_minutes, 120);
+            assert_eq!(config.cache_dir, None);
+            assert_eq!(config.cache_ttl_seconds, 86_400);
+        }
+    }
 }

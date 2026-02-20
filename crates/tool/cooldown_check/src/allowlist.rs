@@ -90,6 +90,17 @@ mod tests {
         assert!(!allowlist.is_exact_allowed("foo", "1.2.4"));
 
         let per_crate = allowlist.per_crate_minutes();
-        assert_eq!(per_crate.get("bar"), None);
+        assert!(per_crate.is_empty());
+    }
+
+    #[test]
+    fn loads_allowlist_and_respects_package() {
+        let mut file = NamedTempFile::new().unwrap();
+        writeln!(file, "[[allow.package]]\ncrate = \"tokio\"\nminutes = 1440").unwrap();
+
+        let allowlist = Allowlist::load(file.path()).unwrap();
+        let per_crate = allowlist.per_crate_minutes();
+        assert_eq!(per_crate.get("tokio"), Some(&1440));
+        assert_eq!(per_crate.get("serde"), None);
     }
 }
