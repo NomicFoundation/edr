@@ -11,6 +11,7 @@ use edr_gas_report::{
     ContractGasReport, DeploymentGasReport, FunctionGasReport, GasReportExecutionStatus,
 };
 use edr_primitives::HashMap;
+use edr_solidity::proxy_detection::detect_proxy_chain;
 use foundry_evm::{abi::TestFunctionExt, traces::CallKind};
 use serde::{Deserialize, Serialize};
 
@@ -55,12 +56,19 @@ impl GasReport {
         arenas: impl IntoIterator<Item = &CallTraceArena>,
         decoder: &CallTraceDecoder,
     ) {
-        for node in arenas.into_iter().flat_map(CallTraceArena::nodes) {
-            self.analyze_node(node, decoder).await;
+        for arena in arenas {
+            for node in arena.nodes() {
+                self.analyze_node(node, arena, decoder).await;
+            }
         }
     }
 
-    async fn analyze_node(&mut self, node: &CallTraceNode, decoder: &CallTraceDecoder) {
+    async fn analyze_node(
+        &mut self,
+        node: &CallTraceNode,
+        arena: &CallTraceArena,
+        decoder: &CallTraceDecoder,
+    ) {
         let trace = &node.trace;
 
         if trace.address == CHEATCODE_ADDRESS || trace.address == HARDHAT_CONSOLE_ADDRESS {
@@ -115,6 +123,15 @@ impl GasReport {
                     .entry(signature.clone())
                     .or_default();
                 gas_info.calls.push((trace.gas_used, status));
+
+                // Detect proxy chain for this call
+                let proxy_addrs = detect_proxy_chain(arena, node.idx);
+                let proxy_names: Vec<String> = proxy_addrs
+                    .iter()
+                    .map(|addr| decoder.contracts.get(addr).cloned())
+                    .collect::<Option<Vec<_>>>()
+                    .unwrap_or_default();
+                gas_info.proxy_chains.push(proxy_names);
             }
         }
     }
@@ -219,6 +236,10 @@ pub struct ContractInfo {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct GasInfo {
     pub calls: Vec<(u64, GasReportExecutionStatus)>,
+    /// Proxy chains per call, parallel to `calls`. Each entry is a list of
+    /// contract names from outermost proxy to implementation, or empty if
+    /// the call is not through a proxy.
+    pub proxy_chains: Vec<Vec<String>>,
     pub min: u64,
     pub mean: u64,
     pub median: u64,
@@ -243,9 +264,15 @@ impl From<GasReport> for edr_gas_report::GasReport {
                         let reports = gas_info
                             .calls
                             .iter()
-                            .map(|(gas, status)| FunctionGasReport {
+                            .enumerate()
+                            .map(|(i, (gas, status))| FunctionGasReport {
                                 gas: *gas,
                                 status: status.clone(),
+                                proxy_chain: gas_info
+                                    .proxy_chains
+                                    .get(i)
+                                    .cloned()
+                                    .unwrap_or_default(),
                             })
                             .collect::<Vec<_>>();
 

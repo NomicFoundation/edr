@@ -43,6 +43,12 @@ const contractBuildInfo: Buffer = fs.readFileSync(
   `${__dirname}/data/artifacts/default/GasReport.json`
 );
 
+// Contract code in edr/data/contracts/ProxyGasReport.sol
+// Contract build info in edr/crates/edr_napi/data/artifacts/default/ProxyGasReport.json
+const proxyBuildInfo: Buffer = fs.readFileSync(
+  `${__dirname}/data/artifacts/default/ProxyGasReport.json`
+);
+
 const providerConfig = {
   allowBlocksWithSameTimestamp: false,
   allowUnlimitedContractSize: true,
@@ -388,6 +394,227 @@ describe("Gas reports", function () {
       assert(
         call.status === GasReportExecutionStatus.Success,
         "Gas report call to plus100(uint256) has non-success status"
+      );
+    });
+  });
+
+  describe("proxyChain", function () {
+    const proxyTracingConfig: TracingConfigWithBuffers = {
+      buildInfos: [Uint8Array.from(proxyBuildInfo)],
+      ignoreContracts: false,
+    };
+
+    let proxyProvider: Provider;
+    let proxyGasPrice: bigint;
+    let proxyGasReporter: GasReporter;
+
+    const proxyBuildInfoParsed = JSON.parse(proxyBuildInfo.toString());
+    const proxyContracts =
+      proxyBuildInfoParsed.output.contracts[
+        "project/contracts/ProxyGasReport.sol"
+      ];
+
+    beforeEach(async function () {
+      proxyGasReporter = new GasReporter();
+      proxyProvider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          genesisState: providerConfig.genesisState.concat(
+            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+          ),
+          observability: {
+            gasReport: {
+              onCollectedGasReportCallback: async (report: GasReport) => {
+                proxyGasReporter.report = report;
+              },
+            },
+          },
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        ContractDecoder.withContracts(proxyTracingConfig)
+      );
+
+      proxyGasPrice = await getGasPrice(proxyProvider);
+    });
+
+    it("non-proxy call has empty proxyChain", async function () {
+      const implBytecode = proxyContracts.Implementation.evm.bytecode.object;
+
+      const implAddress = await deployContract(proxyProvider, implBytecode);
+
+      // Call setValue(42) directly on Implementation
+      // selector: 0x55241077
+      const calldata =
+        "0x55241077000000000000000000000000000000000000000000000000000000000000002a";
+
+      await sendTransaction(proxyProvider, {
+        to: implAddress,
+        gas: 1_000_000,
+        data: calldata,
+        gasPrice: proxyGasPrice,
+      });
+
+      assert.isDefined(proxyGasReporter.report);
+      const gasReport = proxyGasReporter.report!;
+
+      const contractReport =
+        gasReport.contracts[
+          "project/contracts/ProxyGasReport.sol:Implementation"
+        ];
+      assert.isDefined(
+        contractReport,
+        "Gas report should contain Implementation contract"
+      );
+
+      const func = contractReport.functions["setValue(uint256)"];
+      assert.isDefined(func, "Gas report should contain setValue function");
+      assert.equal(func.length, 1);
+
+      const call = func[0];
+      assert.deepEqual(
+        call.proxyChain,
+        [],
+        "Direct call should have empty proxyChain"
+      );
+    });
+
+    it("proxy call has correct proxyChain", async function () {
+      const implBytecode = proxyContracts.Implementation.evm.bytecode.object;
+
+      const implAddress = await deployContract(proxyProvider, implBytecode);
+
+      // Deploy Proxy with Implementation address as constructor arg
+      const proxyBytecode: string = proxyContracts.Proxy.evm.bytecode.object;
+      // ABI-encode constructor arg: address padded to 32 bytes
+      const implAddrPadded = implAddress
+        .slice(2)
+        .toLowerCase()
+        .padStart(64, "0");
+      const proxyDeployCode = proxyBytecode + implAddrPadded;
+
+      const proxyAddress = await deployContract(proxyProvider, proxyDeployCode);
+
+      // Call setValue(42) through the Proxy
+      // selector: 0x55241077
+      const calldata =
+        "0x55241077000000000000000000000000000000000000000000000000000000000000002a";
+
+      await sendTransaction(proxyProvider, {
+        to: proxyAddress,
+        gas: 1_000_000,
+        data: calldata,
+        gasPrice: proxyGasPrice,
+      });
+
+      assert.isDefined(proxyGasReporter.report);
+      const gasReport = proxyGasReporter.report!;
+
+      // The gas report should attribute the call to the Proxy contract
+      // (since that's the address we called)
+      const contractReport =
+        gasReport.contracts["project/contracts/ProxyGasReport.sol:Proxy"];
+      assert.isDefined(
+        contractReport,
+        "Gas report should contain Proxy contract"
+      );
+
+      const func = contractReport.functions["setValue(uint256)"];
+      assert.isDefined(
+        func,
+        "Gas report should contain setValue function on Proxy"
+      );
+      assert.equal(func.length, 1);
+
+      const call = func[0];
+      assert.equal(
+        call.status,
+        GasReportExecutionStatus.Success,
+        "Proxy call should succeed"
+      );
+      assert(call.gas > 0n, "Proxy call should use gas");
+
+      assert.equal(
+        call.proxyChain.length,
+        2,
+        "Proxy call should have 2-entry proxyChain"
+      );
+      assert.equal(
+        call.proxyChain[0],
+        "project/contracts/ProxyGasReport.sol:Proxy",
+        "First entry should be the Proxy"
+      );
+      assert.equal(
+        call.proxyChain[1],
+        "project/contracts/ProxyGasReport.sol:Implementation",
+        "Second entry should be the Implementation"
+      );
+    });
+
+    it("proxy call via eth_call has correct proxyChain", async function () {
+      const implBytecode = proxyContracts.Implementation.evm.bytecode.object;
+
+      const implAddress = await deployContract(proxyProvider, implBytecode);
+
+      const proxyBytecode: string = proxyContracts.Proxy.evm.bytecode.object;
+      const implAddrPadded = implAddress
+        .slice(2)
+        .toLowerCase()
+        .padStart(64, "0");
+      const proxyDeployCode = proxyBytecode + implAddrPadded;
+
+      const proxyAddress = await deployContract(proxyProvider, proxyDeployCode);
+
+      // Call setValue(42) through eth_call
+      const calldata =
+        "0x55241077000000000000000000000000000000000000000000000000000000000000002a";
+
+      await proxyProvider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_call",
+          params: [
+            {
+              to: proxyAddress,
+              data: calldata,
+            },
+          ],
+        })
+      );
+
+      assert.isDefined(proxyGasReporter.report);
+      const gasReport = proxyGasReporter.report!;
+
+      const contractReport =
+        gasReport.contracts["project/contracts/ProxyGasReport.sol:Proxy"];
+      assert.isDefined(
+        contractReport,
+        "Gas report should contain Proxy contract"
+      );
+
+      const func = contractReport.functions["setValue(uint256)"];
+      assert.isDefined(
+        func,
+        "Gas report should contain setValue function on Proxy"
+      );
+
+      const call = func[0];
+      assert.equal(
+        call.proxyChain.length,
+        2,
+        "eth_call proxy should have 2-entry proxyChain"
+      );
+      assert.equal(
+        call.proxyChain[0],
+        "project/contracts/ProxyGasReport.sol:Proxy"
+      );
+      assert.equal(
+        call.proxyChain[1],
+        "project/contracts/ProxyGasReport.sol:Implementation"
       );
     });
   });
