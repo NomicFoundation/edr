@@ -8,7 +8,7 @@ edr_primitives.workspace = true
 semver.workspace = true
 serde = { workspace = true, features = ["derive"] }
 sha3.workspace = true
-slang_solidity = { git = "https://github.com/NomicFoundation/slang", tag = "v1.3.2" }
+slang_solidity = { git = "https://github.com/NomicFoundation/slang", tag = "v1.3.3" }
 thiserror.workspace = true
 
 [lints]
