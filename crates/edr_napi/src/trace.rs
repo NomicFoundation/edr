@@ -222,19 +222,21 @@ fn convert_node(
             if let Some(call_id) = node.children.get(child_index).copied() {
                 child_index += 1;
 
-                let node = arena
+                let child_node = arena
                     .nodes()
                     .get(call_id)
                     .expect("child index should be valid");
 
-                if matches!(step.op, OpCode::CREATE | OpCode::CREATE2) || !should_skip_call(trace) {
+                if matches!(step.op, OpCode::CREATE | OpCode::CREATE2)
+                    || !should_skip_call(&child_node.trace)
+                {
                     convert_node(
                         arena,
-                        node,
+                        child_node,
                         is_static_call,
-                        match node.trace.kind {
+                        match child_node.trace.kind {
                             CallKind::DelegateCall => original_caller,
-                            _ => node.trace.caller,
+                            _ => child_node.trace.caller,
                         },
                         verbose,
                         output,
@@ -288,12 +290,8 @@ fn convert_status(
 // immediately with a revert or out of gas error, so we skip them to maintain
 // compatibility with existing traces.
 fn should_skip_call(trace: &CallTrace) -> bool {
-    if trace.steps.is_empty()
-        && let Some(status) = trace.status
-        && matches!(status, return_revert!())
-    {
-        true
-    } else {
-        false
-    }
+    trace.steps.is_empty()
+        && trace
+            .status
+            .is_some_and(|status| matches!(status, return_revert!()))
 }
