@@ -23,19 +23,13 @@ impl Cache {
     pub fn new(ttl: Duration) -> Result<Self> {
         let mut root = PathBuf::from(edr_defaults::CACHE_DIR);
         root.push("cargo-cooldown-check");
-        fs::create_dir_all(&root)
-            .with_context(|| format!("failed to create cache directory {}", root.display()))?;
-        log::debug!("using default cache path: {}", root.as_path().display());
-        log::debug!("cache ttl: {ttl:?}");
-        Ok(Self { root, ttl })
+        Self::with_root(root, ttl)
     }
 
     pub fn with_root(root: PathBuf, ttl: Duration) -> Result<Self> {
-        if !root.exists() {
-            fs::create_dir_all(&root)
-                .with_context(|| format!("failed to create cache directory {}", root.display()))?;
-        }
-        log::debug!("using custom cache path: {}", root.as_path().display());
+        fs::create_dir_all(&root)
+            .with_context(|| format!("failed to create cache directory {}", root.display()))?;
+        log::debug!("cache path: {}", root.display());
         log::debug!("cache ttl: {ttl:?}");
         Ok(Self { root, ttl })
     }
@@ -62,10 +56,17 @@ impl Cache {
         }
         let contents = fs::read_to_string(&path)
             .with_context(|| format!("failed to read cache entry {}", path.display()))?;
-        let entry: CacheEntry<T> = serde_json::from_str(&contents)
-            .with_context(|| format!("failed to parse cache entry {}", path.display()))?;
+        let entry: CacheEntry<T> = match serde_json::from_str(&contents) {
+            Ok(entry) => entry,
+            Err(e) => {
+                log::warn!("corrupted cache entry {}: {e}, removing", path.display());
+                let _ = fs::remove_file(&path);
+                return Ok(None);
+            }
+        };
         let now = current_epoch();
         if now.saturating_sub(entry.fetched_at) >= self.ttl.as_secs() {
+            let _ = fs::remove_file(&path);
             return Ok(None);
         }
         Ok(Some(entry.value))
@@ -91,7 +92,7 @@ impl Cache {
 fn current_epoch() -> u64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_else(|_| Duration::from_secs(0))
+        .expect("system clock is before the UNIX epoch")
         .as_secs()
 }
 
@@ -108,9 +109,41 @@ mod tests {
         cache.put("foo/bar", &"hello").unwrap();
         let value: Option<String> = cache.get("foo/bar").unwrap();
         assert_eq!(value.unwrap(), "hello");
+    }
+
+    #[test]
+    fn expired_entry_is_deleted_from_disk() {
+        let dir = tempdir().unwrap();
+        let cache = Cache::with_root(dir.path().to_path_buf(), Duration::from_secs(3_600)).unwrap();
+        cache.put("foo/bar", &"hello").unwrap();
+
+        let file_path = cache.path_for("foo/bar");
+        assert!(file_path.exists(), "cache file should exist after put");
 
         let expired = Cache::with_root(dir.path().to_path_buf(), Duration::from_secs(0)).unwrap();
         let value: Option<String> = expired.get("foo/bar").unwrap();
+        assert!(value.is_none());
+        assert!(!file_path.exists(), "expired cache file should be deleted from disk");
+    }
+
+    #[test]
+    fn corrupted_entry_is_discarded_and_deleted() {
+        let dir = tempdir().unwrap();
+        let cache = Cache::with_root(dir.path().to_path_buf(), Duration::from_secs(3_600)).unwrap();
+        let file_path = cache.path_for("foo/bar");
+        fs::create_dir_all(file_path.parent().unwrap()).unwrap();
+        fs::write(&file_path, "not valid json{{{").unwrap();
+
+        let value: Option<String> = cache.get("foo/bar").unwrap();
+        assert!(value.is_none());
+        assert!(!file_path.exists(), "corrupted cache file should be deleted from disk");
+    }
+
+    #[test]
+    fn get_missing_key_returns_none() {
+        let dir = tempdir().unwrap();
+        let cache = Cache::with_root(dir.path().to_path_buf(), Duration::from_secs(3_600)).unwrap();
+        let value: Option<String> = cache.get("nonexistent/key").unwrap();
         assert!(value.is_none());
     }
 }

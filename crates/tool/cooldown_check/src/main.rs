@@ -56,7 +56,7 @@ pub fn init_logger(verbose: bool) -> anyhow::Result<()> {
 
 async fn check_dependencies(verbose: bool) -> anyhow::Result<()> {
     init_logger(verbose)?;
-    log::debug!("Cargo-cooldown check...");
+    log::info!("running cargo cooldown check");
 
     let workspace = Workspace::load()?;
     run_check_flow(workspace).await

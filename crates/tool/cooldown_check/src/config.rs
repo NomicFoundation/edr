@@ -25,7 +25,7 @@ impl Config {
 
     pub fn load(file_path: &Path) -> anyhow::Result<Self> {
         let file_config = CooldownFileConfig::load(file_path)?;
-        log::debug!("cooldown config: {file_config:?}");
+        log::info!("cooldown config: {file_config:?}");
         let default = Config::default();
         let config = Config {
             cooldown_minutes: file_config.cooldown_minutes,

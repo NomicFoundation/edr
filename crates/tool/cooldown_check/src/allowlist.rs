@@ -42,7 +42,16 @@ impl Allowlist {
             .with_context(|| format!("failed to read allowlist at {}", file_path.display()))?;
         let allowlist: Allowlist = toml::from_str(&contents)
             .with_context(|| format!("failed to parse allowlist at {}", file_path.display()))?;
-        log::debug!("allowlist: {allowlist:?}");
+
+        if !allowlist.is_empty() {
+            log::info!(
+                "allowlist configuration:\n\t\
+allows.exact: {:?}\n\t\
+allows.package {:?}",
+                allowlist.allow.exact,
+                allowlist.allow.package
+            );
+        }
         Ok(allowlist)
     }
 
@@ -59,6 +68,10 @@ impl Allowlist {
             .iter()
             .filter_map(|pkg| pkg.effective_minutes().map(|m| (pkg.crate_name.clone(), m)))
             .collect()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.allow.exact.is_empty() && self.allow.package.is_empty()
     }
 }
 
