@@ -123,7 +123,10 @@ mod tests {
         let expired = Cache::with_root(dir.path().to_path_buf(), Duration::from_secs(0)).unwrap();
         let value: Option<String> = expired.get("foo/bar").unwrap();
         assert!(value.is_none());
-        assert!(!file_path.exists(), "expired cache file should be deleted from disk");
+        assert!(
+            !file_path.exists(),
+            "expired cache file should be deleted from disk"
+        );
     }
 
     #[test]
@@ -136,7 +139,10 @@ mod tests {
 
         let value: Option<String> = cache.get("foo/bar").unwrap();
         assert!(value.is_none());
-        assert!(!file_path.exists(), "corrupted cache file should be deleted from disk");
+        assert!(
+            !file_path.exists(),
+            "corrupted cache file should be deleted from disk"
+        );
     }
 
     #[test]

@@ -21,32 +21,24 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
     let packages = workspace.packages();
     let resolver = Resolver::new(config)?;
 
-    let mut cooldown_failures: Vec<CooldownFailure> = Vec::new();
-
-    let mut seen: HashSet<PackageId> = HashSet::new();
-
-    let cooldown_minutes = config.cooldown_minutes;
-
-    if cooldown_minutes == 0 {
+    if config.cooldown_minutes == 0 {
         log::info!("Skipping cooldown check: cooldown minutes is set to 0");
     }
 
+    let mut cooldown_failures: Vec<CooldownFailure> = Vec::new();
     for node in &workspace.nodes {
-        if !seen.insert(node.id.clone()) {
-            continue;
-        }
-        let pkg = packages
+        let package = packages
             .get(&node.id)
             .unwrap_or_else(|| panic!("Could not find associated package to {:?}", node.id));
-        if pkg
+        if package
             .source
             .as_ref()
             .is_some_and(|source| !config.is_registry_allowed(&source.repr))
         {
             log::warn!(
                 "Skipping non-crates.io registry dependency. crate = {}, source = {}",
-                pkg.name,
-                pkg.source
+                package.name,
+                package.source
                     .as_ref()
                     .map(|source| &source.repr)
                     .expect("Source should be present")
@@ -54,44 +46,44 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
             continue;
         }
 
-        let current_version = pkg.version.to_string();
+        let current_version = package.version.to_string();
         let minimum_minutes = allowlist
             .per_crate_minutes()
-            .get(pkg.name.as_str())
-            .map_or(cooldown_minutes, |minutes| cooldown_minutes.min(*minutes));
-        let exact_allowed = allowlist.is_exact_allowed(pkg.name.as_str(), &current_version);
-        let is_local_dependency = pkg.source.is_none();
+            .get(package.name.as_str())
+            .map_or(config.cooldown_minutes, |minutes| config.cooldown_minutes.min(*minutes));
+        let exact_allowed = allowlist.is_exact_allowed(package.name.as_str(), &current_version);
+        let is_local_dependency = package.source.is_none();
 
         if is_local_dependency {
             log::debug!(
                 "Skipping validation for crate {}@{}: crate is a local dependency",
-                pkg.name,
-                pkg.version
+                package.name,
+                package.version
             );
             continue;
         }
         if minimum_minutes == 0 {
-            log::info!("Skipping validation for crate {}@{}: `allow.package.minutes` is set to 0 in the allowlist", pkg.name, pkg.version);
+            log::info!("Skipping validation for crate {}@{}: `allow.package.minutes` is set to 0 in the allowlist", package.name, package.version);
             continue;
         }
         if exact_allowed {
             log::info!(
                 "Skipping validation for crate {}@{}: version is listed as `allow.exact`",
-                pkg.name,
-                pkg.version
+                package.name,
+                package.version
             );
             continue;
         }
 
         let meta = resolver
-            .fetch_version_meta(pkg.name.as_str(), &current_version)
+            .fetch_version_meta(package.name.as_str(), &current_version)
             .await?;
         let age_minutes = age_minutes(&meta);
         if age_minutes < minimum_minutes as i64 {
-            log::debug!("Crate fails cooldown period: crate = {}@{}, age_minutes = {age_minutes}, minimum_minutes = {minimum_minutes}, created_at = {}", pkg.name, pkg.version, meta.created_at);
+            log::debug!("Crate fails cooldown period: crate = {}@{}, age_minutes = {age_minutes}, minimum_minutes = {minimum_minutes}, created_at = {}", package.name, package.version, meta.created_at);
             cooldown_failures.push(CooldownFailure {
                 package_id: node.id.clone(),
-                name: pkg.name.to_string(),
+                name: package.name.to_string(),
                 current_version: current_version.clone(),
                 minimum_minutes,
             });
