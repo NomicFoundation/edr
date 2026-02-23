@@ -29,14 +29,12 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
 
     let resolver = &Resolver::new(config)?;
 
-    let per_crate_minutes = allowlist.per_crate_minutes();
-
     // Filter packages that need an age check.
     let dependencies_to_validate = workspace.nodes.iter().filter_map(|node| {
         let package = packages
             .get(&node.id)
             .unwrap_or_else(|| panic!("Could not find associated package to {:?}", node.id));
-        cooldown_requirement(package, config, allowlist, &per_crate_minutes)
+        cooldown_requirement(package, config, allowlist)
     });
 
     let cooldown_candidates =
@@ -63,7 +61,6 @@ fn cooldown_requirement<'a>(
     package: &'a Package,
     config: &Config,
     allowlist: &Allowlist,
-    per_crate_minutes: &HashMap<String, u64>,
 ) -> Option<(&'a Package, u64)> {
     if package.source.is_none() {
         log::debug!(
@@ -91,10 +88,10 @@ fn cooldown_requirement<'a>(
         return None;
     }
 
-    let minimum_minutes = per_crate_minutes
-        .get(package.name.as_str())
+    let minimum_minutes = allowlist
+        .crate_minutes(package.name.as_str())
         .map_or(config.cooldown_minutes, |minutes| {
-            config.cooldown_minutes.min(*minutes)
+            config.cooldown_minutes.min(minutes)
         });
     let exact_allowed =
         allowlist.is_exact_allowed(package.name.as_str(), &package.version.to_string());
@@ -258,8 +255,27 @@ fn ensure_lockfile(workspace: &Workspace) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::allowlist::{AllowExact, AllowPackage, AllowSection};
 
     const SEVEN_DAYS_MINUTES: u64 = 10_080;
+
+    fn local_package() -> Package {
+        let workspace = Workspace::load().unwrap();
+        workspace
+            .packages()
+            .into_values()
+            .find(|p| p.source.is_none())
+            .unwrap()
+    }
+
+    fn registry_package() -> Package {
+        let workspace = Workspace::load().unwrap();
+        workspace
+            .packages()
+            .into_values()
+            .find(|p| p.source.is_some())
+            .unwrap()
+    }
 
     #[test]
     fn gather_dependencies_requirements_only_includes_requested_crate_names() {
@@ -320,15 +336,9 @@ mod tests {
         assert!(version_requirements.contains(&"^1.21.2".to_string()),);
     }
 
-    fn test_package() -> Package {
-        let workspace = Workspace::load().unwrap();
-        let packages = workspace.packages();
-        packages.values().next().unwrap().clone()
-    }
-
     #[test]
     fn detect_cooldown_failure_returns_failure_when_too_young() {
-        let package = test_package();
+        let package = registry_package();
 
         let candidate = CooldownCandidate {
             package: &package,
@@ -344,7 +354,7 @@ mod tests {
 
     #[test]
     fn detect_cooldown_failure_returns_none_when_old_enough() {
-        let package = test_package();
+        let package = registry_package();
 
         let candidate = CooldownCandidate {
             package: &package,
@@ -355,6 +365,125 @@ mod tests {
         assert!(
             result.is_none(),
             "expected no failure for a 2-weeks-old version"
+        );
+    }
+
+    #[test]
+    fn cooldown_requirement_returns_none_for_local_dependency() {
+        let package = local_package();
+        let config = Config::default();
+        let allowlist = Allowlist::default();
+
+        let result = cooldown_requirement(&package, &config, &allowlist);
+        assert!(result.is_none(), "local dependencies should be skipped");
+    }
+
+    #[test]
+    fn cooldown_requirement_returns_none_for_non_allowed_registry() {
+        let package = registry_package();
+        let config = Config {
+            allowed_registries: vec![],
+            ..Config::default()
+        };
+        let allowlist = Allowlist::default();
+
+        let result = cooldown_requirement(&package, &config, &allowlist);
+        assert!(
+            result.is_none(),
+            "packages from non-allowed registries should be skipped"
+        );
+    }
+
+    #[test]
+    fn cooldown_requirement_returns_some_with_global_cooldown() {
+        let package = registry_package();
+        let config = Config::default();
+        let allowlist = Allowlist::default();
+
+        let result = cooldown_requirement(&package, &config, &allowlist);
+        let (returned_pkg, minutes) = result.expect("registry package should require cooldown");
+        assert_eq!(returned_pkg.id, package.id);
+        assert_eq!(minutes, config.cooldown_minutes);
+    }
+
+    #[test]
+    fn cooldown_requirement_uses_per_crate_override_when_lower() {
+        let package = registry_package();
+        let config = Config::default();
+        let allowlist = Allowlist {
+            allow: AllowSection {
+                package: vec![AllowPackage {
+                    crate_name: package.name.to_string(),
+                    minutes: Some(60),
+                }],
+                ..AllowSection::default()
+            },
+        };
+
+        let (_, minutes) = cooldown_requirement(&package, &config, &allowlist).unwrap();
+        assert_eq!(minutes, 60);
+    }
+
+    #[test]
+    fn cooldown_requirement_uses_global_when_lower_than_per_crate() {
+        let package = registry_package();
+        let config = Config {
+            cooldown_minutes: 100,
+            ..Config::default()
+        };
+        let allowlist = Allowlist {
+            allow: AllowSection {
+                package: vec![AllowPackage {
+                    crate_name: package.name.to_string(),
+                    minutes: Some(50_000),
+                }],
+                ..AllowSection::default()
+            },
+        };
+
+        let (_, minutes) = cooldown_requirement(&package, &config, &allowlist).unwrap();
+        assert_eq!(minutes, 100);
+    }
+
+    #[test]
+    fn cooldown_requirement_returns_none_when_per_crate_minutes_is_zero() {
+        let package = registry_package();
+        let config = Config::default();
+        let allowlist = Allowlist {
+            allow: AllowSection {
+                package: vec![AllowPackage {
+                    crate_name: package.name.to_string(),
+                    minutes: Some(0),
+                }],
+                ..AllowSection::default()
+            },
+        };
+
+        let result = cooldown_requirement(&package, &config, &allowlist);
+        assert!(
+            result.is_none(),
+            "zero per-crate cooldown should exempt the package"
+        );
+    }
+
+    #[test]
+    fn cooldown_requirement_returns_none_for_exact_allowlisted_version() {
+        let package = registry_package();
+        let config = Config::default();
+        let allowlist = Allowlist {
+            allow: AllowSection {
+                exact: vec![AllowExact {
+                    crate_name: package.name.to_string(),
+                    version: package.version.to_string(),
+                }],
+                ..AllowSection::default()
+            },
+        };
+
+        let result = cooldown_requirement(&package, &config, &allowlist);
+        assert!(
+            result.is_none(),
+            "exact-allowlisted version should be skipped"
         );
     }
 }

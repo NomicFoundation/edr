@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -62,12 +62,12 @@ allows.package {:?}",
             .any(|entry| entry.crate_name == name && entry.version == version)
     }
 
-    pub fn per_crate_minutes(&self) -> HashMap<String, u64> {
+    pub fn crate_minutes(&self, name: &str) -> Option<u64> {
         self.allow
             .package
             .iter()
-            .filter_map(|pkg| pkg.effective_minutes().map(|m| (pkg.crate_name.clone(), m)))
-            .collect()
+            .find(|pkg| pkg.crate_name == name)
+            .and_then(AllowPackage::effective_minutes)
     }
 
     fn is_empty(&self) -> bool {
@@ -102,8 +102,7 @@ mod tests {
         assert!(allowlist.is_exact_allowed("foo", "1.2.3"));
         assert!(!allowlist.is_exact_allowed("foo", "1.2.4"));
 
-        let per_crate = allowlist.per_crate_minutes();
-        assert!(per_crate.is_empty());
+        assert_eq!(allowlist.crate_minutes("foo"), None);
     }
 
     #[test]
@@ -112,8 +111,7 @@ mod tests {
         writeln!(file, "[[allow.package]]\ncrate = \"tokio\"\nminutes = 1440").unwrap();
 
         let allowlist = Allowlist::load(file.path()).unwrap();
-        let per_crate = allowlist.per_crate_minutes();
-        assert_eq!(per_crate.get("tokio"), Some(&1440));
-        assert_eq!(per_crate.get("serde"), None);
+        assert_eq!(allowlist.crate_minutes("tokio"), Some(1440));
+        assert_eq!(allowlist.crate_minutes("serde"), None);
     }
 }
