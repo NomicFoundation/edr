@@ -504,9 +504,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-signer"
-version = "1.1.0"
+version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf0b42ffbf558badfecf1dde0c3c5ed91f29bb7e97876d0bed008c3d5d67171"
+checksum = "97f40010b5e8f79b70bf163b38cd15f529b18ca88c4427c0e43441ee54e4ed82"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -712,12 +712,6 @@ dependencies = [
  "quote",
  "syn 2.0.100",
 ]
-
-[[package]]
-name = "android-tzdata"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e999941b234f3131b00bc13c22d06e8c5ff726d1b6318ac7eb276997bbb4fef0"
 
 [[package]]
 name = "android_system_properties"
@@ -1559,15 +1553,14 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "chrono"
-version = "0.4.41"
+version = "0.4.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
+checksum = "fac4744fb15ae8337dc853fee7fb3f4e48c0fbaa23d0afe49c447b4fab126118"
 dependencies = [
- "android-tzdata",
  "iana-time-zone",
  "num-traits",
  "serde",
- "windows-link 0.1.1",
+ "windows-link 0.2.1",
 ]
 
 [[package]]
@@ -2905,6 +2898,7 @@ dependencies = [
  "edr_solidity",
  "edr_state_api",
  "edr_transaction",
+ "revm-inspectors",
  "serde",
  "thiserror 2.0.12",
 ]
@@ -5638,8 +5632,8 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
 name = "metaslang_bindings"
-version = "1.3.2"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
+version = "1.3.3"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
 dependencies = [
  "metaslang_cst",
  "metaslang_graph_builder",
@@ -5650,8 +5644,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_cst"
-version = "1.3.2"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
+version = "1.3.3"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
 dependencies = [
  "nom",
  "serde",
@@ -5660,8 +5654,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_graph_builder"
-version = "1.3.2"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
+version = "1.3.3"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
 dependencies = [
  "log",
  "metaslang_cst",
@@ -5674,8 +5668,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_stack_graphs"
-version = "1.3.2"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
+version = "1.3.3"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
 dependencies = [
  "bitvec",
  "controlled-option",
@@ -7903,8 +7897,8 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity"
-version = "1.3.2"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
+version = "1.3.3"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
 dependencies = [
  "metaslang_bindings",
  "metaslang_cst",

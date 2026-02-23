@@ -32,6 +32,11 @@ pub struct DeploymentGasReport {
 pub struct FunctionGasReport {
     pub gas: BigInt,
     pub status: GasReportExecutionStatus,
+    /// The proxy delegation chain for this call, if the called contract is a
+    /// proxy. Contains contract identifiers from outermost proxy to final
+    /// implementation, e.g. `["Proxy", "Implementation"]`.
+    /// Empty if the call is not through a proxy.
+    pub proxy_chain: Vec<String>,
 }
 
 impl From<edr_gas_report::GasReport> for GasReport {
@@ -87,6 +92,7 @@ impl From<edr_gas_report::FunctionGasReport> for FunctionGasReport {
         Self {
             gas: BigInt::from(value.gas),
             status: value.status.into(),
+            proxy_chain: value.proxy_chain,
         }
     }
 }
