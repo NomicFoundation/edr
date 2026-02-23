@@ -28,7 +28,7 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
     let cooldown_minutes = config.cooldown_minutes;
 
     if cooldown_minutes == 0 {
-        log::info!("skipping cooldown check: cooldown minutes is set to 0");
+        log::info!("Skipping cooldown check: cooldown minutes is set to 0");
     }
 
     for node in &workspace.nodes {
@@ -44,7 +44,7 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
             .is_some_and(|source| !config.is_registry_allowed(&source.repr))
         {
             log::warn!(
-                "skipping non-crates.io registry dependency. crate = {}, source = {}",
+                "Skipping non-crates.io registry dependency. crate = {}, source = {}",
                 pkg.name,
                 pkg.source
                     .as_ref()
@@ -64,19 +64,19 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
 
         if is_local_dependency {
             log::debug!(
-                "skipping validation for crate {}@{}: crate is a local dependency",
+                "Skipping validation for crate {}@{}: crate is a local dependency",
                 pkg.name,
                 pkg.version
             );
             continue;
         }
         if minimum_minutes == 0 {
-            log::info!("skipping validation for crate {}@{}: `allow.package.minutes` is set to 0 in the allowlist", pkg.name, pkg.version);
+            log::info!("Skipping validation for crate {}@{}: `allow.package.minutes` is set to 0 in the allowlist", pkg.name, pkg.version);
             continue;
         }
         if exact_allowed {
             log::info!(
-                "skipping validation for crate {}@{}: version is listed as `allow.exact`",
+                "Skipping validation for crate {}@{}: version is listed as `allow.exact`",
                 pkg.name,
                 pkg.version
             );
@@ -88,7 +88,7 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
             .await?;
         let age_minutes = age_minutes(&meta);
         if age_minutes < minimum_minutes as i64 {
-            log::debug!("crate fails cooldown period: crate = {}@{}, age_minutes = {age_minutes}, minimum_minutes = {minimum_minutes}, created_at = {}", pkg.name, pkg.version, meta.created_at);
+            log::debug!("Crate fails cooldown period: crate = {}@{}, age_minutes = {age_minutes}, minimum_minutes = {minimum_minutes}, created_at = {}", pkg.name, pkg.version, meta.created_at);
             cooldown_failures.push(CooldownFailure {
                 package_id: node.id.clone(),
                 name: pkg.name.to_string(),
@@ -99,7 +99,7 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
     }
 
     if cooldown_failures.is_empty() {
-        log::info!("dependency graph passed cooldown check ✅");
+        log::info!("Dependency graph passed cooldown check ✅");
         Ok(())
     } else {
         let failures = cooldown_failures.into_iter().collect::<HashSet<_>>();
@@ -138,7 +138,7 @@ async fn report_cooldown_failures(
                 .collect::<Vec<_>>();
 
             log::error!(
-                "crate `{}@{}` is within the cooldown period.\n\t\
+                "Crate `{}@{}` is within the cooldown period.\n\t\
 No versions older than {} minutes satisfy semver constraints {crate_requirements:?}.\n\t\
 Relax the constraints, wait for the cooldown to elapse, or allowlist this crate.\n",
                 failure.name,
@@ -152,7 +152,7 @@ Relax the constraints, wait for the cooldown to elapse, or allowlist this crate.
                 .collect::<Vec<_>>();
 
             log::error!(
-                "crate `{}@{}` fails the cooldown period. \
+                "Crate `{}@{}` fails the cooldown period. \
 To resolve this, downgrade to one of these versions: {versions:?} by running\n\t\
 `cargo update {} --precise <version>`\n",
                 failure.name,

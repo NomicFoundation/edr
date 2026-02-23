@@ -92,13 +92,6 @@ fn satisfies_requirements(version: &Version, requirements: &[VersionReq]) -> boo
     if requirements.is_empty() {
         return true;
     }
-    log::debug!(
-        "Analyzing version `{version}` against requirements {:?}",
-        requirements
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect::<Vec<_>>()
-    );
     requirements.iter().all(|req| req.matches(version))
 }
 

@@ -29,8 +29,8 @@ impl Cache {
     pub fn with_root(root: PathBuf, ttl: Duration) -> Result<Self> {
         fs::create_dir_all(&root)
             .with_context(|| format!("failed to create cache directory {}", root.display()))?;
-        log::debug!("cache path: {}", root.display());
-        log::debug!("cache ttl: {ttl:?}");
+        log::debug!("Cache path: {}", root.display());
+        log::debug!("Cache ttl: {ttl:?}");
         Ok(Self { root, ttl })
     }
 
@@ -59,7 +59,7 @@ impl Cache {
         let entry: CacheEntry<T> = match serde_json::from_str(&contents) {
             Ok(entry) => entry,
             Err(e) => {
-                log::warn!("corrupted cache entry {}: {e}, removing", path.display());
+                log::warn!("Corrupted cache entry {}: {e}, removing", path.display());
                 let _ = fs::remove_file(&path);
                 return Ok(None);
             }
