@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use reqwest::{Client, Url};
+use reqwest::{Client, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
@@ -51,21 +51,25 @@ impl RegistryClient {
         let mut attempt = 0;
         loop {
             let response = self.http.get(url.clone()).send().await;
-            match response {
+
+            let retry_err = match response {
+                Ok(resp) if is_transient_status(resp.status()) => {
+                    log::warn!("Transient HTTP {} from {url}", resp.status());
+                    resp.error_for_status().unwrap_err().into()
+                }
                 Ok(resp) => {
                     let status_resp = resp.error_for_status()?;
-                    let value = status_resp.json::<T>().await?;
-                    return Ok(value);
+                    return Ok(status_resp.json::<T>().await?);
                 }
-                Err(err) => {
-                    attempt += 1;
-                    if attempt > self.retries {
-                        return Err(err.into());
-                    }
-                    let backoff = Duration::from_millis(200 * u64::from(attempt));
-                    sleep(backoff).await;
-                }
+                Err(err) => err.into(),
+            };
+
+            attempt += 1;
+            if attempt > self.retries {
+                return Err(retry_err);
             }
+            let backoff = Duration::from_millis(200 * u64::from(attempt));
+            sleep(backoff).await;
         }
     }
 
@@ -86,4 +90,8 @@ impl RegistryClient {
         let resp: CrateResponse = self.get_json(url).await?;
         Ok(resp.versions)
     }
+}
+
+fn is_transient_status(status: StatusCode) -> bool {
+    status == StatusCode::TOO_MANY_REQUESTS || status == StatusCode::SERVICE_UNAVAILABLE
 }

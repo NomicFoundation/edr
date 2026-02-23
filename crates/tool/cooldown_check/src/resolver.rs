@@ -7,16 +7,19 @@ use semver::{Version, VersionReq};
 use crate::{
     cache::Cache,
     config::Config,
-    cooldown_failure::CooldownFailure,
     registry::{RegistryClient, VersionMeta},
+    types::CooldownFailure,
 };
 
 // A single reference point in time for all cooldown comparisons,
 /// ensuring consistency across the entire check.
 static NOW: LazyLock<DateTime<Utc>> = LazyLock::new(Utc::now);
 
-pub fn age_minutes(meta: &VersionMeta) -> i64 {
-    (*NOW - meta.created_at).num_minutes()
+fn age_minutes(meta: &VersionMeta) -> u64 {
+    (*NOW - meta.created_at)
+        .num_minutes()
+        .try_into()
+        .unwrap_or(0)
 }
 
 pub struct Resolver {
@@ -62,18 +65,14 @@ impl Resolver {
         Ok(versions)
     }
 
-    pub async fn fetch_version_meta(
-        &self,
-        name: &str,
-        version: &str,
-    ) -> anyhow::Result<VersionMeta> {
+    pub async fn fetch_version_age(&self, name: &str, version: &str) -> anyhow::Result<u64> {
         let key = format!("{name}/{version}");
         if let Some(meta) = self.cache.get::<VersionMeta>(&key)? {
-            return Ok(meta);
+            return Ok(age_minutes(&meta));
         }
         let meta = self.client.fetch_version(name, version).await?;
         self.cache.put(&key, &meta)?;
-        Ok(meta)
+        Ok(age_minutes(&meta))
     }
 
     async fn fetch_version_list(&self, name: &str) -> anyhow::Result<Vec<VersionMeta>> {
@@ -162,6 +161,28 @@ mod tests {
             .put("tokio/_list", &tokio_versions())
             .unwrap();
         (resolver, dir)
+    }
+
+    #[tokio::test]
+    async fn fetch_version_age_returns_age_from_cached_meta() {
+        let dir = tempdir().unwrap();
+        let config = Config {
+            cache_dir: Some(dir.path().to_path_buf()),
+            ..Config::default()
+        };
+        let resolver = Resolver::new(&config).unwrap();
+        let expected_age = 10_080u64; // 7 days
+        let created_at = *NOW - chrono::Duration::minutes(expected_age.try_into().unwrap());
+        let meta = VersionMeta {
+            num: "1.43.0".into(),
+            created_at,
+            yanked: false,
+        };
+        resolver.cache.put("tokio/1.43.0", &meta).unwrap();
+
+        let age = resolver.fetch_version_age("tokio", "1.43.0").await.unwrap();
+
+        assert_eq!(age, expected_age);
     }
 
     #[tokio::test]

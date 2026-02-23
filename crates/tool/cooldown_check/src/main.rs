@@ -1,10 +1,10 @@
 mod allowlist;
 mod cache;
 mod config;
-mod cooldown_failure;
 mod executor;
 mod registry;
 mod resolver;
+mod types;
 mod workspace;
 
 use anyhow::anyhow;
