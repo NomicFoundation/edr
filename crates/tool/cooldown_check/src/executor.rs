@@ -136,12 +136,12 @@ async fn report_cooldown_failures(
     resolver: &Resolver,
     cooldown_failures: HashSet<CooldownFailure>,
 ) -> anyhow::Result<()> {
-    let failing_crate_names = cooldown_failures
+    let failing_crate_names: HashSet<String> = cooldown_failures
         .iter()
         .map(|failure| failure.name.clone())
-        .collect::<Vec<_>>();
+        .collect();
 
-    let version_requirements = gather_dependencies_requirements(failing_crate_names, workspace);
+    let version_requirements = gather_dependencies_requirements(&failing_crate_names, workspace);
 
     for failure in cooldown_failures {
         let crate_requirements = version_requirements
@@ -204,7 +204,7 @@ fn detect_cooldown_failure(candidate: CooldownCandidate<'_>) -> Option<CooldownF
 }
 
 fn gather_dependencies_requirements(
-    crate_names: Vec<String>,
+    crate_names: &HashSet<String>,
     workspace: &Workspace,
 ) -> HashMap<PackageId, HashSet<VersionReq>> {
     let mut version_requirements: HashMap<PackageId, HashSet<VersionReq>> = HashMap::new();
@@ -258,6 +258,7 @@ mod tests {
             .packages()
             .into_values()
             .find(|p| p.source.is_none())
+            .cloned()
             .unwrap()
     }
 
@@ -267,6 +268,7 @@ mod tests {
             .packages()
             .into_values()
             .find(|p| p.source.is_some())
+            .cloned()
             .unwrap()
     }
 
@@ -275,7 +277,8 @@ mod tests {
         let workspace = Workspace::load().unwrap();
         let packages = workspace.packages();
 
-        let result = gather_dependencies_requirements(vec!["tokio".to_string()], &workspace);
+        let result =
+            gather_dependencies_requirements(&HashSet::from(["tokio".to_string()]), &workspace);
         assert!(!result.is_empty(), "expected at least one entry for tokio");
 
         for pkg_id in result.keys() {
@@ -291,7 +294,7 @@ mod tests {
         }
 
         let result = gather_dependencies_requirements(
-            vec!["nonexistent_crate_xyz_123".to_string()],
+            &HashSet::from(["nonexistent_crate_xyz_123".to_string()]),
             &workspace,
         );
         assert!(
@@ -306,7 +309,7 @@ mod tests {
         let workspace = Workspace::load().unwrap();
 
         let dependencies_requirements =
-            gather_dependencies_requirements(vec!["tokio".to_string()], &workspace);
+            gather_dependencies_requirements(&HashSet::from(["tokio".to_string()]), &workspace);
         assert_eq!(
             dependencies_requirements.len(),
             1,

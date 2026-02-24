@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Context;
-use cargo_metadata::{camino::Utf8PathBuf, Metadata, Node, PackageId};
+use cargo_metadata::{camino::Utf8PathBuf, Metadata, Node, Package, PackageId};
 use clap_cargo::{Features, Manifest};
 
 use crate::{allowlist::Allowlist, config::Config};
@@ -46,12 +46,11 @@ impl Workspace {
         })
     }
 
-    pub fn packages(&self) -> HashMap<PackageId, cargo_metadata::Package> {
+    pub fn packages(&self) -> HashMap<&PackageId, &Package> {
         self.metadata
             .packages
             .iter()
-            .cloned()
-            .map(|pkg| (pkg.id.clone(), pkg))
+            .map(|pkg| (&pkg.id, pkg))
             .collect()
     }
 
