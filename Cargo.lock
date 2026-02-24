@@ -2898,6 +2898,7 @@ dependencies = [
  "edr_solidity",
  "edr_state_api",
  "edr_transaction",
+ "revm-inspectors",
  "serde",
  "thiserror 2.0.12",
 ]
@@ -5635,8 +5636,8 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
 name = "metaslang_bindings"
-version = "1.3.2"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
+version = "1.3.3"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
 dependencies = [
  "metaslang_cst",
  "metaslang_graph_builder",
@@ -5647,8 +5648,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_cst"
-version = "1.3.2"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
+version = "1.3.3"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
 dependencies = [
  "nom",
  "serde",
@@ -5657,8 +5658,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_graph_builder"
-version = "1.3.2"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
+version = "1.3.3"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
 dependencies = [
  "log",
  "metaslang_cst",
@@ -5671,8 +5672,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_stack_graphs"
-version = "1.3.2"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
+version = "1.3.3"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
 dependencies = [
  "bitvec",
  "controlled-option",
@@ -7900,8 +7901,8 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity"
-version = "1.3.2"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.2#71d628c76f9e7ba00e73ae95364f5e099ec9fb04"
+version = "1.3.3"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
 dependencies = [
  "metaslang_bindings",
  "metaslang_cst",
