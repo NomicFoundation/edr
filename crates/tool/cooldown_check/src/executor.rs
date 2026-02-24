@@ -241,6 +241,9 @@ fn ensure_lockfile(workspace: &Workspace) -> Result<()> {
     bail!("`Cargo.lock` file does not exist");
 }
 
+// TODO: Tests below use real EDR workspace data (via `Workspace::load()`),
+// which is not recommended. Consider replacing with synthetic/mock workspace
+// fixtures.
 #[cfg(test)]
 mod tests {
     use super::*;
