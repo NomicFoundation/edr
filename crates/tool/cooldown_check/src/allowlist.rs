@@ -46,8 +46,8 @@ impl Allowlist {
         if !allowlist.is_empty() {
             log::info!(
                 "Allowlist configuration:\n\t\
-allows.exact: {:?}\n\t\
-allows.package {:?}",
+allow.exact: {:?}\n\t\
+allow.package: {:?}",
                 allowlist.allow.exact,
                 allowlist.allow.package
             );
