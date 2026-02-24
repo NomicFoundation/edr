@@ -9,7 +9,7 @@ use crate::{
     allowlist::Allowlist,
     config::Config,
     resolver::Resolver,
-    types::{CooldownCandidate, CooldownFailure},
+    types::{CooldownFailure, ResolvedAge},
     workspace::Workspace,
 };
 
@@ -37,12 +37,11 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
         cooldown_requirement(package, config, allowlist)
     });
 
-    let cooldown_candidates =
-        resolve_cooldown_candidates(dependencies_to_validate, resolver).await?;
+    let resolved_ages = resolve_package_ages(dependencies_to_validate, resolver).await?;
 
-    let cooldown_failures = cooldown_candidates
+    let cooldown_failures = resolved_ages
         .into_iter()
-        .filter_map(|candidate| detect_cooldown_failure(candidate))
+        .filter_map(|resolved_age| detect_cooldown_failure(resolved_age))
         .collect::<HashSet<_>>();
 
     if cooldown_failures.is_empty() {
@@ -81,7 +80,7 @@ fn cooldown_requirement<'a>(
         return None;
     }
 
-    let minimum_minutes = allowlist
+    let age_threshold_minutes = allowlist
         .crate_minutes(package.name.as_str())
         .map_or(config.cooldown_minutes, |minutes| {
             config.cooldown_minutes.min(minutes)
@@ -89,7 +88,7 @@ fn cooldown_requirement<'a>(
     let exact_allowed =
         allowlist.is_exact_allowed(package.name.as_str(), &package.version.to_string());
 
-    if minimum_minutes == 0 {
+    if age_threshold_minutes == 0 {
         log::info!("Skipping validation for crate {}@{}: `allow.package.minutes` is set to 0 in the allowlist", package.name, package.version);
         return None;
     }
@@ -101,34 +100,34 @@ fn cooldown_requirement<'a>(
         );
         return None;
     }
-    Some((package, minimum_minutes))
+    Some((package, age_threshold_minutes))
 }
 
-/// Concurrently resolves each dependency into a [`CooldownCandidate`] by
+/// Concurrently resolves each dependency into a [`ResolvedAge`] by
 /// fetching its published age. Bails on the first fetch error.
-async fn resolve_cooldown_candidates<'a>(
+async fn resolve_package_ages<'a>(
     dependencies: impl Iterator<Item = (&'a Package, u64)>,
     resolver: &Resolver,
-) -> Result<Vec<CooldownCandidate<'a>>> {
+) -> Result<Vec<ResolvedAge<'a>>> {
     let mut stream = stream::iter(dependencies)
-        .map(|(package, minimum_minutes)| async move {
+        .map(|(package, age_threshold_minutes)| async move {
             let age = resolver
                 .fetch_version_age(package.name.as_str(), &package.version.to_string())
                 .await;
-            (package, age, minimum_minutes)
+            (package, age, age_threshold_minutes)
         })
         .buffer_unordered(MAX_CONCURRENT_FETCHES);
 
-    let mut candidates: Vec<CooldownCandidate<'_>> = Vec::new();
-    while let Some((package, age_result, minimum_minutes)) = stream.next().await {
+    let mut resolved_ages: Vec<ResolvedAge<'_>> = Vec::new();
+    while let Some((package, age_result, age_threshold_minutes)) = stream.next().await {
         let age_minutes = age_result?;
-        candidates.push(CooldownCandidate {
+        resolved_ages.push(ResolvedAge {
             package,
             age_minutes,
-            minimum_minutes,
+            age_threshold_minutes,
         });
     }
-    Ok(candidates)
+    Ok(resolved_ages)
 }
 
 async fn report_cooldown_failures(
@@ -166,7 +165,7 @@ No versions older than {} minutes satisfy semver constraints {crate_requirements
 Relax the constraints, wait for the cooldown to elapse, or allowlist this crate.\n",
                 failure.name,
                 failure.current_version,
-                failure.minimum_minutes,
+                failure.age_threshold_minutes,
             );
         } else {
             let versions = version_candidates
@@ -188,16 +187,16 @@ To resolve this, downgrade to one of these versions: {versions:?} by running\n\t
     Ok(())
 }
 
-fn detect_cooldown_failure(candidate: CooldownCandidate<'_>) -> Option<CooldownFailure> {
-    if candidate.age_minutes < candidate.minimum_minutes {
+fn detect_cooldown_failure(resolved_age: ResolvedAge<'_>) -> Option<CooldownFailure> {
+    if resolved_age.age_minutes < resolved_age.age_threshold_minutes {
         log::debug!(
-            "Crate fails cooldown period: crate = {}@{}, age_minutes = {}, minimum_minutes = {}",
-            candidate.package.name,
-            candidate.package.version,
-            candidate.age_minutes,
-            candidate.minimum_minutes
+            "Crate fails cooldown period: crate = {}@{}, age_minutes = {}, age_threshold_minutes = {}",
+            resolved_age.package.name,
+            resolved_age.package.version,
+            resolved_age.age_minutes,
+            resolved_age.age_threshold_minutes
         );
-        Some(candidate.into())
+        Some(resolved_age.into())
     } else {
         None
     }
@@ -336,28 +335,28 @@ mod tests {
     fn detect_cooldown_failure_returns_failure_when_too_young() {
         let package = registry_package();
 
-        let candidate = CooldownCandidate {
+        let resolved_age = ResolvedAge {
             package: &package,
             age_minutes: 5,
-            minimum_minutes: SEVEN_DAYS_MINUTES,
+            age_threshold_minutes: SEVEN_DAYS_MINUTES,
         };
-        let result = detect_cooldown_failure(candidate);
+        let result = detect_cooldown_failure(resolved_age);
         let failure = result.expect("expected a cooldown failure for a just-published version");
         assert_eq!(failure.name, package.name.as_str());
         assert_eq!(failure.current_version, package.version.to_string());
-        assert_eq!(failure.minimum_minutes, SEVEN_DAYS_MINUTES);
+        assert_eq!(failure.age_threshold_minutes, SEVEN_DAYS_MINUTES);
     }
 
     #[test]
     fn detect_cooldown_failure_returns_none_when_old_enough() {
         let package = registry_package();
 
-        let candidate = CooldownCandidate {
+        let resolved_age = ResolvedAge {
             package: &package,
             age_minutes: SEVEN_DAYS_MINUTES * 2,
-            minimum_minutes: SEVEN_DAYS_MINUTES,
+            age_threshold_minutes: SEVEN_DAYS_MINUTES,
         };
-        let result = detect_cooldown_failure(candidate);
+        let result = detect_cooldown_failure(resolved_age);
         assert!(
             result.is_none(),
             "expected no failure for a 2-weeks-old version"

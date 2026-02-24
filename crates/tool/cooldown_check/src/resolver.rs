@@ -50,7 +50,8 @@ impl Resolver {
                 cooldown_failure.name, cooldown_failure.current_version
             ))?;
         let candidate_list = self.fetch_version_list(&cooldown_failure.name).await?;
-        let cutoff = *NOW - chrono::Duration::minutes(cooldown_failure.minimum_minutes as i64);
+        let cutoff =
+            *NOW - chrono::Duration::minutes(cooldown_failure.age_threshold_minutes as i64);
 
         let versions = candidate_list
             .into_iter()
@@ -145,7 +146,7 @@ mod tests {
             },
             name: "tokio".to_string(),
             current_version: "1.43.4".to_string(),
-            minimum_minutes: 0,
+            age_threshold_minutes: 0,
         }
     }
 
@@ -276,7 +277,7 @@ mod tests {
             },
             name: "tokio".to_string(),
             current_version: "1.43.4".to_string(),
-            minimum_minutes: 10080,
+            age_threshold_minutes: 10080,
         };
         let requirements = vec![VersionReq::parse("^1.43").unwrap()];
         let candidates = resolver
