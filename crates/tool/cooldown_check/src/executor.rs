@@ -73,7 +73,7 @@ fn cooldown_requirement<'a>(
     let source = package.source.as_ref().expect("Source should be present");
     if !config.is_registry_allowed(&source.repr) {
         log::warn!(
-            "Skipping non-crates.io registry dependency. crate = {}, source = {}",
+            "Skipping non-allowed registry dependency. crate = {}, source = {}",
             package.name,
             source
         );
