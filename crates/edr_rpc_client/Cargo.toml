@@ -28,7 +28,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 edr_test_utils.workspace = true
-tempfile = { version = "3.7.1", default-features = false }
+tempfile = { version = "3.25.0", default-features = false }
 walkdir = { version = "2.3.3", default-features = false }
 
 [features]
