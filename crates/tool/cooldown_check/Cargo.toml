@@ -23,5 +23,4 @@ futures = { version = "0.3", default-features = false, features = ["std"] }
 workspace = true
 
 [dev-dependencies]
-assert_fs = "1"
 tempfile.workspace = true
