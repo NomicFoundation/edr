@@ -342,8 +342,8 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, suiteResults } =
       await testContext.runTestsWithStats("GasSnapshotTest", {}, L1_CHAIN_TYPE);
 
-    assert.equal(totalTests, 14);
-    assert.equal(failedTests, 2);
+    assert.equal(totalTests, 15);
+    assert.equal(failedTests, 3);
 
     let snapshots = new Map<string, Map<string, string>>();
 
@@ -363,6 +363,15 @@ describe("Unit tests", () => {
           assert.equal(
             testResult.reason,
             "vm.stopSnapshotGas: no gas snapshot was started; call startSnapshotGas() first"
+          );
+          continue;
+        }
+
+        if (testResult.name === "testMissingStartSnapshotWithGroup()") {
+          assert.equal(testResult.status, "Failure");
+          assert.equal(
+            testResult.reason,
+            "vm.stopSnapshotGas: no gas snapshot was started with the name: testMissingStartSnapshot in group: testGroup"
           );
           continue;
         }
