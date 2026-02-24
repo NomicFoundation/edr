@@ -2901,6 +2901,7 @@ dependencies = [
  "clap 3.2.25",
  "clap-cargo",
  "edr_defaults",
+ "futures",
  "log",
  "reqwest 0.12.15",
  "semver 1.0.26",

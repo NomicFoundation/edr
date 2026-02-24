@@ -12,15 +12,16 @@ edr_defaults.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tempfile.workspace = true
 toml = { workspace = true, features = ["preserve_order"] }
 chrono = {workspace = true, features = ["serde"]}
 reqwest = {workspace = true, features = ["json", "gzip", "rustls-tls"]}
 tokio = {workspace = true, features = ["macros", "rt-multi-thread", "time"]}
 semver.workspace = true
+futures = { version = "0.3", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true
 
 [dev-dependencies]
 assert_fs = "1"
+tempfile.workspace = true

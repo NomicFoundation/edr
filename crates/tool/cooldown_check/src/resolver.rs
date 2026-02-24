@@ -11,7 +11,7 @@ use crate::{
     types::CooldownFailure,
 };
 
-// A single reference point in time for all cooldown comparisons,
+/// A single reference point in time for all cooldown comparisons,
 /// ensuring consistency across the entire check.
 static NOW: LazyLock<DateTime<Utc>> = LazyLock::new(Utc::now);
 

@@ -53,6 +53,6 @@ For each dependency that fails the check, the tool suggests replacement versions
 
 ## TODO
 
-- Extract into it's own repo
+- Extract into its own repo
   - expose it as a `cargo-` bin crate so it can be executed as a cargo tool
   - CliArgs parsing will have to change to adapt to this (when Cargo invokes `cargo cooldown-check`, it passes `"cooldown-check"` as the first CLI argument.)

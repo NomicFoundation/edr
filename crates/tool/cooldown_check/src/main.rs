@@ -18,7 +18,7 @@ const LOGGER: SimpleLogger = SimpleLogger;
 #[derive(Parser)]
 struct CliArgs {
     /// Enables verbose mode
-    #[clap(short, long, takes_value = false)]
+    #[clap(short, long)]
     verbose: bool,
 }
 #[tokio::main]

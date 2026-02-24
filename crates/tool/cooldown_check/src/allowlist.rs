@@ -67,17 +67,11 @@ allows.package {:?}",
             .package
             .iter()
             .find(|pkg| pkg.crate_name == name)
-            .and_then(AllowPackage::effective_minutes)
+            .and_then(|allowlist| allowlist.minutes)
     }
 
     fn is_empty(&self) -> bool {
         self.allow.exact.is_empty() && self.allow.package.is_empty()
-    }
-}
-
-impl AllowPackage {
-    pub fn effective_minutes(&self) -> Option<u64> {
-        self.minutes
     }
 }
 

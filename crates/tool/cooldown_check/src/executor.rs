@@ -71,19 +71,12 @@ fn cooldown_requirement<'a>(
         return None;
     }
 
-    if package
-        .source
-        .as_ref()
-        .is_some_and(|source| !config.is_registry_allowed(&source.repr))
-    {
+    let source = package.source.as_ref().expect("Source should be present");
+    if !config.is_registry_allowed(&source.repr) {
         log::warn!(
             "Skipping non-crates.io registry dependency. crate = {}, source = {}",
             package.name,
-            package
-                .source
-                .as_ref()
-                .map(|source| &source.repr)
-                .expect("Source should be present")
+            source
         );
         return None;
     }
