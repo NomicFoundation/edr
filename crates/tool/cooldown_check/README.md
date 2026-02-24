@@ -6,7 +6,7 @@ Inspired by [cargo-cooldown](https://github.com/dertin/cargo-cooldown).
 
 ## Motivation
 
-Cargo dependencies in `Cargo.toml` declare version [requirements](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html) — ranges, not exact versions. The default caret syntax (`"1.4"`, equivalent to `"^1.4"`) allows any semver-compatible release (`>=1.4.0, <2.0.0`). Cargo automatically resolves to the newest compatible version and locks the result in `Cargo.lock`. There is no need to pin a specific patch to get the latest — Cargo does that on its own. `Cargo.toml` should express *restrictions*, and `Cargo.lock` records the *exact* resolved versions.
+Cargo dependencies in `Cargo.toml` declare version [requirements](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html) — ranges, not exact versions. The default caret syntax (`"1.4"`, equivalent to `"^1.4"`) allows any semver-compatible release (`>=1.4.0, <2.0.0`). Cargo automatically resolves to the newest compatible version and locks the result in `Cargo.lock`. There is no need to pin a specific patch to get the latest — Cargo does that on its own. `Cargo.toml` should express _restrictions_, and `Cargo.lock` records the _exact_ resolved versions.
 
 Supply-chain attacks exploit this by publishing a malicious patch or minor release that Cargo will adopt the next time dependencies are resolved. This creates a tension: version requirements should be as broad as possible to give the resolver flexibility, but that same breadth means freshly-published — and potentially compromised — versions are adopted automatically. This tool resolves that tension by validating that every dependency in `Cargo.lock`, including transitive ones, is older than a configurable cooldown period.
 
