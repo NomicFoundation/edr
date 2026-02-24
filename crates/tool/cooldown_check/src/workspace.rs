@@ -10,7 +10,8 @@ pub const COOLDOWN_FILE_CONFIG: &str = "cooldown.toml";
 pub const ALLOWLIST_FILE_CONFIG: &str = "cooldown-allowlist.toml";
 
 pub struct Workspace {
-    metadata: Metadata,
+    pub packages: HashMap<PackageId, Package>,
+    pub root_path: PathBuf,
     pub config: Config,
     pub allowlist: Allowlist,
     pub nodes: Vec<Node>,
@@ -34,28 +35,24 @@ impl Workspace {
 
         let nodes = metadata
             .resolve
-            .clone()
             .context("cargo metadata output did not include a resolved dependency graph")?
             .nodes;
 
+        let packages = metadata
+            .packages
+            .into_iter()
+            .map(|pkg| (pkg.id.clone(), pkg))
+            .collect();
+
+        let root_path = metadata.workspace_root.into();
+
         Ok(Self {
-            metadata,
+            packages,
+            root_path,
             config,
             allowlist,
             nodes,
         })
-    }
-
-    pub fn packages(&self) -> HashMap<&PackageId, &Package> {
-        self.metadata
-            .packages
-            .iter()
-            .map(|pkg| (&pkg.id, pkg))
-            .collect()
-    }
-
-    pub fn root_path(&self) -> PathBuf {
-        self.metadata.workspace_root.clone().into()
     }
 }
 

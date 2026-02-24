@@ -20,7 +20,7 @@ pub async fn run_check_flow(workspace: Workspace) -> Result<()> {
 
     let allowlist = &workspace.allowlist;
     let config = &workspace.config;
-    let packages = workspace.packages();
+    let packages = &workspace.packages;
 
     if config.cooldown_minutes == 0 {
         log::info!("Skipping cooldown check: cooldown minutes is set to 0");
@@ -145,14 +145,12 @@ async fn report_cooldown_failures(
     for failure in cooldown_failures {
         let crate_requirements = version_requirements
             .get(&failure.package_id)
-            .map_or_else(Vec::new, |requirements| {
-                requirements.iter().cloned().collect::<Vec<_>>()
-            });
+            .cloned()
+            .map(|requirements| requirements.into_iter().collect::<Vec<_>>())
+            .unwrap_or_default();
         let version_candidates = resolver
             .find_version_candidates(&failure, &crate_requirements)
-            .await?
-            .into_iter()
-            .collect::<Vec<_>>();
+            .await?;
         if version_candidates.is_empty() {
             let crate_requirements = crate_requirements
                 .iter()
@@ -207,7 +205,7 @@ fn gather_dependencies_requirements(
     workspace: &Workspace,
 ) -> HashMap<PackageId, HashSet<VersionReq>> {
     let mut version_requirements: HashMap<PackageId, HashSet<VersionReq>> = HashMap::new();
-    let packages = workspace.packages();
+    let packages = &workspace.packages;
 
     let dependencies_by_package_id = workspace.nodes.iter().flat_map(|node| {
         let pkg = packages
@@ -236,9 +234,8 @@ fn gather_dependencies_requirements(
 }
 
 fn ensure_lockfile(workspace: &Workspace) -> Result<()> {
-    let mut workspace_root = workspace.root_path();
-    workspace_root.push("Cargo.lock");
-    if workspace_root.exists() {
+    let lockfile = workspace.root_path.join("Cargo.lock");
+    if lockfile.exists() {
         return Ok(());
     }
     bail!("`Cargo.lock` file does not exist");
@@ -254,8 +251,8 @@ mod tests {
     fn local_package() -> Package {
         let workspace = Workspace::load().unwrap();
         workspace
-            .packages()
-            .into_values()
+            .packages
+            .values()
             .find(|p| p.source.is_none())
             .cloned()
             .unwrap()
@@ -264,8 +261,8 @@ mod tests {
     fn registry_package() -> Package {
         let workspace = Workspace::load().unwrap();
         workspace
-            .packages()
-            .into_values()
+            .packages
+            .values()
             .find(|p| p.source.is_some())
             .cloned()
             .unwrap()
@@ -274,7 +271,7 @@ mod tests {
     #[test]
     fn gather_dependencies_requirements_only_includes_requested_crate_names() {
         let workspace = Workspace::load().unwrap();
-        let packages = workspace.packages();
+        let packages = &workspace.packages;
 
         let result =
             gather_dependencies_requirements(&HashSet::from(["tokio".to_string()]), &workspace);
