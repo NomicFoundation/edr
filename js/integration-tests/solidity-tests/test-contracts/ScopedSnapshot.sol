@@ -158,6 +158,12 @@ contract GasSnapshotTest is Test {
         slot0 = 1;
         vm.stopSnapshotGas("testMismatchedStopSnapshot");
     }
+
+    // Calls stopSnapshotGas without a corresponding startSnapshotGas call.
+    function testMissingStartSnapshot() public {
+        slot0 = 1;
+        vm.stopSnapshotGas("testMissingStartSnapshot");
+    }
 }
 
 contract Flare {
