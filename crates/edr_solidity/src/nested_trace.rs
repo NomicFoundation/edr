@@ -8,7 +8,7 @@ use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{Address, Bytes, HashMap, U256};
 
-pub use self::conversion::CallTraceArenaConversionError;
+pub use self::conversion::{is_calllike_op, CallTraceArenaConversionError};
 use crate::{build_model::ContractMetadata, exit_code::ExitCode};
 
 /// An EVM trace where the steps are nested according to the call stack.

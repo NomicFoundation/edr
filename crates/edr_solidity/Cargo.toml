@@ -18,7 +18,6 @@ edr_decoder_revert.workspace = true
 edr_defaults.workspace = true
 edr_eth.workspace = true
 edr_primitives.workspace = true
-edr_tracing.workspace = true
 foundry-compilers.workspace = true
 foundry-evm-traces.workspace = true
 indexmap = { version = "2", features = ["serde"] }
