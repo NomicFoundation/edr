@@ -3470,34 +3470,21 @@ fn inner_stop_gas_snapshot<
 ) -> Result {
     // Resolve group and name, falling back to the active snapshot for any
     // missing component.
-    let (group, name) = match (group, name) {
-        (Some(g), Some(n)) => (g, n),
-        (None, None) => ccx
-            .state
-            .gas_metering
-            .active_gas_snapshot
-            .as_ref()
-            .unwrap()
-            .clone(),
-        (None, Some(n)) => {
-            let (group, _) = ccx
-                .state
-                .gas_metering
-                .active_gas_snapshot
-                .as_ref()
-                .unwrap()
-                .clone();
-            (group, n)
+    let (group, name) = match (
+        group,
+        name,
+        ccx.state.gas_metering.active_gas_snapshot.as_ref(),
+    ) {
+        (Some(group), Some(name), _) => (group, name),
+        (Some(group), None, Some((_, active_name))) => (group, active_name.clone()),
+        (None, Some(name), Some((active_group, _))) => (active_group.clone(), name),
+        (None, None, Some((active_group, active_name))) => {
+            (active_group.clone(), active_name.clone())
         }
-        (Some(g), None) => {
-            let (_, name) = ccx
-                .state
-                .gas_metering
-                .active_gas_snapshot
-                .as_ref()
-                .unwrap()
-                .clone();
-            (g, name)
+        _ => {
+            // If there is no active snapshot and either group or name is missing,
+            // we cannot resolve the snapshot to stop.
+            bail!("no gas snapshot was started; call startSnapshotGas() first");
         }
     };
 
