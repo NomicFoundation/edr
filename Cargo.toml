@@ -327,7 +327,7 @@ evm-disassembler = "0.6"
 eyre = "0.6"
 flate2 = "1.1"
 hex = { package = "const-hex", version = "1.6", features = ["hex"] }
-itertools = "0.12"
+itertools = "0.14"
 jsonpath_lib = "0.3"
 k256 = "0.13"
 log = { version = "0.4.17", default-features = false }
