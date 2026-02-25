@@ -462,7 +462,7 @@ jobs:
         run: |
           FILENAME="${{ env.APP_NAME }}_bundle.tar.gz"
           NAPI_EXTRA_FILES=("npm/" "LICENSE" "README.md" "package.json" "Cargo.toml")
-          readarray -t FILES < <(cat package.json | jq -r .files[] ) 
+          readarray -t FILES < <(cat package.json | jq -r .files[] )
           ALL_FILES=("${FILES[@]}" "${NAPI_EXTRA_FILES[@]}")
           NAPI_FILES=()
           for file in "${ALL_FILES[@]}"; do
@@ -629,7 +629,7 @@ jobs:
         id: setup-node
         with:
           node-version: 22
-          cache: pnpm
+          package-manager-cache: false
       - name: Update npm to make sure it supports Trusted Publishing
         run: npm install -g npm@v11.6.2
       - name: Publish
