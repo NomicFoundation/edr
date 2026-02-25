@@ -24,7 +24,7 @@ edr_rpc_eth.workspace = true
 edr_scenarios.workspace = true
 edr_solidity.workspace = true
 edr_test_block_replay.workspace = true
-flate2 = "1.0.28"
+flate2 = "1.1.9"
 indicatif = { version = "0.18.4", features = ["rayon"] }
 mimalloc = { version = "0.1.39", default-features = false }
 op-revm.workspace = true
