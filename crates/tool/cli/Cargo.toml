@@ -25,7 +25,7 @@ edr_scenarios.workspace = true
 edr_solidity.workspace = true
 edr_test_block_replay.workspace = true
 flate2 = "1.0.28"
-indicatif = { version = "0.17.7", features = ["rayon"] }
+indicatif = { version = "0.18.4", features = ["rayon"] }
 mimalloc = { version = "0.1.39", default-features = false }
 op-revm.workspace = true
 parking_lot.workspace = true
