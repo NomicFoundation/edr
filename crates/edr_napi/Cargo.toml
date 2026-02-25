@@ -65,7 +65,7 @@ semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 static_assertions = "1.1.0"
-strum = { version = "0.26.0", features = ["derive"] }
+strum = { version = "0.27.1", features = ["derive"] }
 thiserror = { version = "2.0.12", default-features = false }
 tracing = { version = "0.1.44", default-features = false, features = ["std"] }
 tracing-flame = { version = "0.2.0", default-features = false, features = [

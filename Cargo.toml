@@ -348,7 +348,7 @@ serde_json = { version = "1.0", features = [
     "preserve_order",
     "std",
 ] }
-strum = "0.26"
+strum = "0.27"
 thiserror = { version = "2.0.12", default-features = false }
 toml = "0.8"
 tracing = "0.1"
