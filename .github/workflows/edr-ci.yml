@@ -340,4 +340,4 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
-      - uses: /NomicFoundation/cargo-cooldown-check@6d95f35bb4fb9b7cdd0e4fe945f65f8f779c35bb
+      - uses: NomicFoundation/cargo-cooldown-check@6d95f35bb4fb9b7cdd0e4fe945f65f8f779c35bb
