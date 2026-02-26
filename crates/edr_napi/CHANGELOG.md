@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.27
+
+### Patch Changes
+
+- d9b5dd8: Fixed error reporting when calling `stopSnapshotGas` without an active snapshot
+
 ## 0.12.0-next.26
 
 ### Minor Changes
