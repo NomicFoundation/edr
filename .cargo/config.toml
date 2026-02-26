@@ -5,4 +5,3 @@ scenario-with-tracing   = "run --locked --release --features tracing --bin edr_t
 replay-block            = "run --locked --release --bin edr_tool_cli -- replay-block"
 generate-cheats-interface = "test -p foundry-cheatcodes-spec --features schema --locked tests::"
 op-chain-config         = "run --locked --release --bin edr_tool_op_chain_config_generator"
-cooldown-check          = "run --locked --release --bin edr_cooldown_check"
