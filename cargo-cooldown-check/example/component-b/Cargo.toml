@@ -1,0 +1,7 @@
+[package]
+name = "component-b"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = { version = "1.44", features = ["macros", "rt"] }

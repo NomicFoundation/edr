@@ -1,0 +1,101 @@
+[package]
+name = "cargo-cooldown-check"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { version = "1.0.100", default-features = false }
+cargo_metadata = "0.22"
+clap = { version = "4", features = ["derive"] }
+clap-cargo = { version = "0.17", features = ["cargo_metadata"] }
+log = { version = "0.4.17", default-features = false }
+serde = { version = "1.0", features = ["derive", "std"] }
+serde_json = { version = "1.0", features = ["arbitrary_precision", "preserve_order", "std"] }
+toml = { version = "0.8", features = ["preserve_order"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "gzip", "rustls-tls"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+semver = { version = "1.0.26", default-features = false }
+futures = { version = "0.3", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+tempfile = "3.10"
+
+[lints.rust]
+future_incompatible = "warn"
+nonstandard_style = "warn"
+rust_2018_idioms = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+# pedantic
+bool-to-int-with-if = "warn"
+cast_lossless = "warn"
+checked_conversions = "warn"
+default_trait_access = "warn"
+doc_markdown = "warn"
+empty_enum = "warn"
+enum_glob_use = "warn"
+expl_impl_clone_on_copy = "warn"
+explicit_deref_methods = "warn"
+explicit_into_iter_loop = "warn"
+filter_map_next = "warn"
+flat_map_option = "warn"
+float_cmp_const = "warn"
+fn_params_excessive_bools = "warn"
+from_iter_instead_of_collect = "warn"
+implicit_clone = "warn"
+imprecise_flops = "warn"
+inconsistent_struct_constructor = "warn"
+inefficient_to_string = "warn"
+invalid_upcast_comparisons = "warn"
+items-after-statements = "warn"
+large_digit_groups = "warn"
+large_stack_arrays = "warn"
+large_types_passed_by_value = "warn"
+linkedlist = "warn"
+lossy_float_literal = "warn"
+macro_use_imports = "warn"
+manual-assert = "warn"
+manual_ok_or = "warn"
+map_unwrap_or = "warn"
+match_same_arms = "warn"
+match_wild_err_arm = "warn"
+match_wildcard_for_single_variants = "warn"
+missing_enforced_import_renames = "warn"
+mut_mut = "warn"
+needless_continue = "warn"
+needless_for_each = "warn"
+option_option = "warn"
+ptr_as_ptr = "warn"
+redundant_closure_for_method_calls = "warn"
+ref_option_ref = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+same_functions_in_if_condition = "warn"
+semicolon_if_nothing_returned = "warn"
+single_match_else = "warn"
+string_add_assign = "warn"
+trait_duplication_in_bounds = "warn"
+uninlined_format_args = "warn"
+unnested_or_patterns = "warn"
+unused_self = "warn"
+wildcard-imports = "warn"
+zero_sized_map_values = "warn"
+# restriction
+dbg_macro = "warn"
+exit = "warn"
+indexing_slicing = "warn"
+map_err_ignore = "warn"
+mem_forget = "warn"
+rc_mutex = "warn"
+string_add = "warn"
+string_to_string = "warn"
+todo = "warn"
+unimplemented = "warn"
+verbose_file_reads = "warn"
+# nursery
+debug_assert_with_mut_call = "warn"
+fallible_impl_from = "warn"
+mutex_integer = "warn"
+path_buf_push_overwrite = "warn"
+useless_transmute = "warn"
