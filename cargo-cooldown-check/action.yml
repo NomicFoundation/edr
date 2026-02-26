@@ -1,0 +1,24 @@
+name: "Cargo Cooldown Check"
+description: "Checks that all crate dependencies have been published for a minimum cooldown period"
+
+inputs:
+  verbose:
+    description: "Enable verbose output"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install cargo-cooldown-check
+      shell: bash
+      run: cargo install --path ${{ github.action_path }} --locked
+
+    - name: Run cooldown check
+      shell: bash
+      run: |
+        args=""
+        if [ "${{ inputs.verbose }}" == "true" ]; then
+          args="-v"
+        fi
+        cargo cooldown-check $args
