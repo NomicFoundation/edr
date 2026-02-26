@@ -15,50 +15,51 @@ index ef26ef2..843f6e8 100644
  
  [profile.pr.fuzz]
  runs = 10000
-diff --git a/hardhat.config.js b/hardhat.config.js
+diff --git a/hardhat.config.ts b/hardhat.config.ts
 new file mode 100644
-index 0000000..12dcdc4
+index 0000000..4be323c
 --- /dev/null
-+++ b/hardhat.config.js
-@@ -0,0 +1,38 @@
-+module.exports = {
-+"paths": {
-+  "sources": "src",
-+  "tests": {
-+    "solidity": "test"
-+  }
-+},
-+"solidity": {
-+  "version": "0.8.26",
-+  "settings": {
-+    "optimizer": {
-+      "enabled": true,
-+      "runs": 44444444
-+    },
-+    "viaIR": true,
-+    "evmVersion": "cancun",
-+    "metadata": {
-+      "bytecodeHash": "none"
-+    }
-+  }
-+},
-+"solidityTest": {
-+  "ffi": true,
-+  "fsPermissions": {
-+    "readWrite": [
-+      ".forge-snapshots/"
-+    ],
-+    "read": ["./out", "./test/bin"],
-+  },
-+  "allowInternalExpectRevert": true,
-+  "gasLimit": 300000000n,
-+  "fuzz": {
-+    "runs": 10,
-+    "seed": "0x4444"
-+  }
-+}
-+};
++++ b/hardhat.config.ts
+@@ -0,0 +1,39 @@
++import { defineConfig } from "hardhat/config";
 +
++export default defineConfig({
++  solidity: {
++    version: "0.8.26",
++    settings: {
++      evmVersion: "cancun",
++      viaIR: true,
++      optimizer: {
++        enabled: true,
++        runs: 44444444,
++      },
++      metadata: {
++        bytecodeHash: "none",
++      },
++    },
++  },
++  paths: {
++    sources: "./src",
++    tests: {
++      solidity: "./test",
++    },
++  },
++
++  test: {
++    solidity: {
++      ffi: true,
++      gasLimit: 300_000_000n,
++      allowInternalExpectRevert: true,
++      fuzz: {
++        runs: 10,
++        seed: "0x4444",
++      },
++      fsPermissions: {
++        readDirectory: ["./out", "./test/bin"],
++      },
++    },
++  },
++});
 diff --git a/package-lock.json b/package-lock.json
 new file mode 100644
 index 0000000..2635f31

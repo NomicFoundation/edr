@@ -95,7 +95,7 @@ export const REPOS: Record<string, RepoData> = {
   },
   "uniswap-v4-core": {
     url: "https://github.com/Uniswap/v4-core.git",
-    commit: "59d3ecf53afa9264a16bba0e38f4c5d2231f80bc",
+    commit: "d153b048868a60c2403a3ef5b2301bb247884d46",
     // Global fuzz runs config was reduced to 10 to match the inline config for one test, as HH3 doesn't support inline configuration yet.
     patchFile: "uniswap-v4-core.patch",
   },
@@ -652,9 +652,9 @@ async function createSolidityTestsInput(repoPath: string) {
     repoPath = path.join(process.cwd(), repoPath);
   }
 
-  const configPath = path.join(repoPath, "hardhat.config.js");
+  const configPath = path.join(repoPath, "hardhat.config.ts");
   const userConfig = (await import(configPath)).default;
-  if (userConfig.solidityTest === undefined) {
+  if (userConfig.test === undefined || userConfig.test.solidity === undefined) {
     throw new Error(`Missing Solidity test config in ${configPath}`);
   }
   const hre = await createHardhatRuntimeEnvironment(
@@ -669,7 +669,7 @@ async function createSolidityTestsInput(repoPath: string) {
     await solidityTestConfigToSolidityTestRunnerConfigArgs({
       chainType: "l1",
       projectRoot: repoPath,
-      config: userConfig.solidityTest,
+      config: userConfig.test.solidity,
       verbosity: 0,
       observability: undefined,
       testPattern: undefined,
