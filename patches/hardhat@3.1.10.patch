@@ -1,0 +1,34 @@
+diff --git a/dist/src/internal/builtin-plugins/solidity-test/helpers.js b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
+index 1234567..abcdefg 100644
+--- a/dist/src/internal/builtin-plugins/solidity-test/helpers.js
++++ b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
+@@ -68,7 +68,12 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({ chainTy
+     if (config.forking?.rpcEndpoints !== undefined) {
+         rpcEndpoints = {};
+         for (const [name, configValue] of Object.entries(config.forking.rpcEndpoints)) {
+-            rpcEndpoints[name] = await configValue.get();
++            // We don't have the variable resolver in EDR
++            try {
++                rpcEndpoints[name] = await configValue.get();
++            } catch (e) {
++                rpcEndpoints[name] = configValue;
++            }
+         }
+     }
+     const shouldAlwaysCollectStackTraces = verbosity > DEFAULT_VERBOSITY;
+diff --git a/package.json b/package.json
+index 1234567..abcdefg 100644
+--- a/package.json
++++ b/package.json
+@@ -42,7 +42,10 @@
+     "./utils/contract-names": "./dist/src/utils/contract-names.js",
+     "./types/runtime": "./dist/src/internal/deprecated-module-imported-from-hardhat2-plugin.js",
+     "./builtin-tasks/task-names": "./dist/src/internal/deprecated-module-imported-from-hardhat2-plugin.js",
+-    "./internal/artifacts": "./dist/src/internal/deprecated-module-imported-from-hardhat2-plugin.js"
++    "./internal/artifacts": "./dist/src/internal/deprecated-module-imported-from-hardhat2-plugin.js",
++    "./internal/builtin-plugins/solidity-test/edr-artifacts": "./dist/src/internal/builtin-plugins/solidity-test/edr-artifacts.js",
++    "./internal/builtin-plugins/solidity-test/helpers": "./dist/src/internal/builtin-plugins/solidity-test/helpers.js",
++    "./internal/builtin-plugins/artifacts/artifact-manager": "./dist/src/internal/builtin-plugins/artifacts/artifact-manager.js"
+   },
+   "keywords": [
+     "ethereum",
