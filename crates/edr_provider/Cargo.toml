@@ -93,7 +93,7 @@ edr_test_block_replay.workspace = true
 edr_test_utils.workspace = true
 paste = { version = "1.0.14", default-features = false }
 serial_test = "2.0.0"
-tempfile = "3.7.1"
+tempfile = "3.25.0"
 
 [build-dependencies]
 cargo_toml = { version = "0.22.3", default-features = false }

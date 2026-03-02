@@ -359,7 +359,7 @@ indexmap = "2.2"
 tikv-jemallocator = "0.5.4"
 num-format = "0.4.4"
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
-tempfile = "3.10"
+tempfile = "3.25"
 tokio = "1"
 uuid = { version = "1.19", default-features = false, features = ["serde", "std", "v4"] }
 walkdir = "2"
