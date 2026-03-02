@@ -214,6 +214,7 @@ jobs:
     name: Test bindings on ${{ matrix.settings.target }} - node@${{ matrix.node }}
     needs:
       - build
+    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -257,6 +258,7 @@ jobs:
     name: Test bindings on Linux-x64-gnu - node@${{ matrix.node }}
     needs:
       - build
+    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -292,6 +294,7 @@ jobs:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -325,6 +328,7 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
       - build
+    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -367,6 +371,7 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -443,6 +448,7 @@ jobs:
   prepare:
     name: Prepare release bundle
     runs-on: ubuntu-24.04
+    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     needs:
@@ -511,6 +517,7 @@ jobs:
   review:
     name: Review release
     runs-on: ubuntu-24.04
+    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     needs:
