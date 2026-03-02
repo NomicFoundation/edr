@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - main
-      - chore/ci-cooldown-check # TODO: delete before merging
   pull_request:
     branches:
       - "**"
