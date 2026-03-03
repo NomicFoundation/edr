@@ -39,6 +39,7 @@ pub struct Config {
 }
 
 #[derive(Clone)]
+#[derive(Default)]
 pub enum LoggingState {
     CollapsingMethod(CollapsedMethod),
     HardhatMinining {
@@ -47,6 +48,7 @@ pub enum LoggingState {
     IntervalMining {
         empty_blocks_range_start: Option<u64>,
     },
+    #[default]
     Empty,
 }
 
@@ -72,11 +74,6 @@ impl LoggingState {
     }
 }
 
-impl Default for LoggingState {
-    fn default() -> Self {
-        Self::Empty
-    }
-}
 
 #[derive(Clone)]
 enum LogLine {
