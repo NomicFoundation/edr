@@ -38,8 +38,7 @@ pub struct Config {
     pub print_line_fn: Arc<dyn PrintLineFn>,
 }
 
-#[derive(Clone)]
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub enum LoggingState {
     CollapsingMethod(CollapsedMethod),
     HardhatMinining {
@@ -73,7 +72,6 @@ impl LoggingState {
         }
     }
 }
-
 
 #[derive(Clone)]
 enum LogLine {
