@@ -18,7 +18,7 @@ pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
     bytecode::Bytecode,
     context::{result::HaltReasonTr, CfgEnv, JournalInner},
-    context_interface::{journaled_state::account::JournaledAccountTr, result::ResultAndState},
+    context_interface::result::ResultAndState,
     database::{CacheDB, DatabaseRef},
     inspector::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
