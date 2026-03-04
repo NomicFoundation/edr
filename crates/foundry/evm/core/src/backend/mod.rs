@@ -18,7 +18,7 @@ pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
     bytecode::Bytecode,
     context::{result::HaltReasonTr, CfgEnv, JournalInner},
-    context_interface::{result::ResultAndState, Cfg},
+    context_interface::{journaled_state::account::JournaledAccountTr, result::ResultAndState},
     database::{CacheDB, DatabaseRef},
     inspector::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
@@ -1063,7 +1063,7 @@ impl<
     /// different evms
     pub(crate) fn initialize(&mut self, env: &EvmEnv<BlockT, TxT, HardforkT>) {
         self.set_caller(env.tx.caller());
-        self.set_spec_id(env.cfg.spec());
+        self.set_spec_id(*env.cfg.spec());
 
         let test_contract = match env.tx.kind() {
             TxKind::Call(to) => to,

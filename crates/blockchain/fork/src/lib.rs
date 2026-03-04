@@ -33,7 +33,7 @@ use edr_rpc_eth::{
     fork::ForkMetadata,
 };
 use edr_state_api::{
-    account::{Account, AccountStatus},
+    account::{Account, AccountInfo, AccountStatus},
     irregular::IrregularState,
     DynState, StateDiff, StateOverride,
 };
@@ -332,6 +332,7 @@ impl<
                                 BEACON_ROOTS_ADDRESS,
                                 Account {
                                     info: beacon_roots_contract(),
+                                    original_info: Box::new(AccountInfo::default()),
                                     status: AccountStatus::Created | AccountStatus::Touched,
                                     storage: HashMap::default(),
                                     transaction_id: 0,
@@ -341,6 +342,7 @@ impl<
                                 HISTORY_STORAGE_ADDRESS,
                                 Account {
                                     info: history_storage_contract(),
+                                    original_info: Box::new(AccountInfo::default()),
                                     status: AccountStatus::Created | AccountStatus::Touched,
                                     storage: HashMap::default(),
                                     transaction_id: 0,
@@ -370,6 +372,7 @@ impl<
                             BEACON_ROOTS_ADDRESS,
                             Account {
                                 info: beacon_roots_contract(),
+                                original_info: Box::new(AccountInfo::default()),
                                 status: AccountStatus::Created | AccountStatus::Touched,
                                 storage: HashMap::default(),
                                 transaction_id: 0,
@@ -435,13 +438,13 @@ impl<
 }
 
 impl<
-        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT, Error: Send + Sync + 'static>,
         BlockT: ?Sized + Block<SignedTransactionT>,
         FetchReceiptErrorT,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd + Send + Sync + 'static,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: RpcBlockChainSpec<
-            RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
+            RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>, Error: Send + Sync + 'static>,
         >,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,

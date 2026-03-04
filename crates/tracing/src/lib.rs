@@ -349,12 +349,12 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 
         self.pending_before = Some(BeforeMessage {
             depth: journal.depth(),
-            caller: inputs.caller,
+            caller: inputs.caller(),
             to: None,
-            gas_limit: inputs.gas_limit,
+            gas_limit: inputs.gas_limit(),
             is_static_call: false,
-            data: inputs.init_code.clone(),
-            value: inputs.value,
+            data: inputs.init_code().clone(),
+            value: inputs.value(),
             code_address: None,
             code: None,
         });

@@ -28,7 +28,7 @@ use crate::{
 };
 
 /// Block builder for OP.
-pub struct OpBlockBuilder<'builder, BlockchainErrorT: Debug> {
+pub struct OpBlockBuilder<'builder, BlockchainErrorT: Debug + Send + Sync + 'static> {
     eth: EthBlockBuilder<
         'builder,
         OpBlockReceipt,
@@ -41,7 +41,7 @@ pub struct OpBlockBuilder<'builder, BlockchainErrorT: Debug> {
     >,
 }
 
-impl<'builder, BlockchainErrorT: std::error::Error>
+impl<'builder, BlockchainErrorT: std::error::Error + Send + Sync + 'static>
     BlockBuilder<'builder, OpChainSpec, OpBlockReceipt, <OpChainSpec as BlockChainSpec>::Block>
     for OpBlockBuilder<'builder, BlockchainErrorT>
 {
