@@ -41,7 +41,7 @@ pub struct OpBlockBuilder<'builder, BlockchainErrorT: Debug + Send + Sync + 'sta
     >,
 }
 
-impl<'builder, BlockchainErrorT: std::error::Error + Send + Sync + 'static>
+impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
     BlockBuilder<'builder, OpChainSpec, OpBlockReceipt, <OpChainSpec as BlockChainSpec>::Block>
     for OpBlockBuilder<'builder, BlockchainErrorT>
 {

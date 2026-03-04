@@ -74,7 +74,7 @@ impl CommonCreateInput for &mut CreateInputs {
         CreateInputs::init_code(self).clone()
     }
     fn set_caller(&mut self, caller: Address) {
-        self.set_caller(caller);
+        self.set_call(caller);
     }
     fn allow_cheatcodes<
         BlockT: BlockEnvTr,

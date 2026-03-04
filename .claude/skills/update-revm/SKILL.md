@@ -72,6 +72,21 @@ First, fetch the REVM migration guide for guidance on breaking API changes:
 https://raw.githubusercontent.com/bluealloy/revm/main/MIGRATION_GUIDE.md
 ```
 
+### Foundry upstream reference
+
+This project vendors Foundry code under `crates/foundry/`. Use the upstream Foundry PR for the
+same REVM upgrade as a reference for fixing compilation errors in our Foundry-derived code.
+
+- Repo: https://github.com/foundry-rs/foundry
+- Example PR for REVM 34: https://github.com/foundry-rs/foundry/pull/13130
+
+To find the relevant PR for the target REVM version, search the Foundry repo for PRs mentioning
+the REVM version (e.g., `gh search prs --repo foundry-rs/foundry "revm 34" --state merged`).
+
+Use `gh pr diff <number> --repo foundry-rs/foundry` to fetch the diff for reference. Focus on
+changes to files that correspond to code under our `crates/foundry/` directory. Apply analogous
+fixes, adapting for any local differences in our vendored code.
+
 Common REVM upgrade issues:
 - Renamed types, traits, or methods
 - Changed function signatures or generic parameters
