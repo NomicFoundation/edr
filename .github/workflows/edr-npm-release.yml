@@ -25,31 +25,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  cooldown-check:
-    name: cooldown check
-    runs-on: ubuntu-24.04
-    needs: check_commit
-    if: ${{ !cancelled() && !failure() && needs.check_commit.outputs.tag != '' }}
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-rust
-
-      - name: Cache cooldown data
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            **/edr-cache/cargo-cooldown-check
-          key: cooldown-check-v1-${{ hashFiles('**/Cargo.lock') }}
-
-      - uses: NomicFoundation/cargo-cooldown-check@ac40e701f9f1155741a761ac9039987fb892af4b
-
   build:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
-    needs: [cooldown-check]
-    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -214,7 +192,6 @@ jobs:
     name: Test bindings on ${{ matrix.settings.target }} - node@${{ matrix.node }}
     needs:
       - build
-    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -258,7 +235,6 @@ jobs:
     name: Test bindings on Linux-x64-gnu - node@${{ matrix.node }}
     needs:
       - build
-    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -294,7 +270,6 @@ jobs:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
-    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -328,7 +303,6 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
       - build
-    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -371,7 +345,6 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
-    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     strategy:
@@ -448,7 +421,6 @@ jobs:
   prepare:
     name: Prepare release bundle
     runs-on: ubuntu-24.04
-    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     needs:
@@ -517,7 +489,6 @@ jobs:
   review:
     name: Review release
     runs-on: ubuntu-24.04
-    if: ${{ !cancelled() && !failure() }}
     permissions:
       contents: read
     needs:
@@ -576,11 +547,30 @@ jobs:
         run: |
           git diff --color=always --exit-code --no-index remote-repository/Cargo.lock ./Cargo.lock
 
+  cooldown-check:
+    name: Cargo cooldown check
+    runs-on: ubuntu-24.04
+    needs: check_commit
+    if: ${{ needs.check_commit.outputs.tag != '' }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+
+      - name: Cache cooldown data
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            **/edr-cache/cargo-cooldown-check
+          key: cooldown-check-v1-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: NomicFoundation/cargo-cooldown-check@ac40e701f9f1155741a761ac9039987fb892af4b
+
   notify-deploy:
     name: Notify pre-deploy to Slack
     runs-on: ubuntu-24.04
-    needs: [check_commit, prepare, review]
-    # Only run workflow if there is a tag defined
+    needs: [check_commit, cooldown-check, prepare, review]
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
       - name: Notify pre-deploy
