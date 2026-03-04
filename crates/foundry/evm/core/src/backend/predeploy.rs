@@ -25,6 +25,7 @@ pub(super) fn insert_predeploys(
         .map(|predeploy| {
             let account = Account {
                 info: predeploy.account_info,
+                original_info: Box::new(AccountInfo::default()),
                 storage: predeploy.storage,
                 // Need touched and created to be committed.
                 status: AccountStatus::Created | AccountStatus::Touched,

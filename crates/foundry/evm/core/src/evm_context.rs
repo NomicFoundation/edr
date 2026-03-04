@@ -718,12 +718,29 @@ where
 }
 
 /// EVM execution environment with chain context.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT> {
     pub block: BlockT,
     pub tx: TxT,
     pub cfg: CfgEnv<HardforkT>,
     pub chain_context: ChainContextT,
+}
+
+impl<
+        BlockT: Default,
+        TxT: Default,
+        HardforkT: Default + Into<revm::primitives::hardfork::SpecId> + Clone,
+        ChainContextT: Default,
+    > Default for EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>
+{
+    fn default() -> Self {
+        Self {
+            block: BlockT::default(),
+            tx: TxT::default(),
+            cfg: CfgEnv::default(),
+            chain_context: ChainContextT::default(),
+        }
+    }
 }
 
 impl<BlockT, TxT, HardforkT, ChainContextT>

@@ -87,7 +87,7 @@ impl BlockChainSpec for OpChainSpec {
     type Block =
         dyn SyncBlock<Arc<Self::Receipt>, Self::SignedTransaction, Error = Self::FetchReceiptError>;
 
-    type BlockBuilder<'builder, BlockchainErrorT: 'builder + std::error::Error> =
+    type BlockBuilder<'builder, BlockchainErrorT: 'builder + std::error::Error + Send + Sync + 'static> =
         OpBlockBuilder<'builder, BlockchainErrorT>;
 
     type FetchReceiptError =

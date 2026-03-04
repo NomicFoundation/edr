@@ -53,7 +53,7 @@ impl BlockChainSpec for L1ChainSpec {
     type Block =
         dyn SyncBlock<Arc<Self::Receipt>, Self::SignedTransaction, Error = Self::FetchReceiptError>;
 
-    type BlockBuilder<'builder, BlockchainErrorT: 'builder + std::error::Error> = EthBlockBuilder<
+    type BlockBuilder<'builder, BlockchainErrorT: 'builder + std::error::Error + Send + Sync + 'static> = EthBlockBuilder<
         'builder,
         Self::Receipt,
         Self::Block,

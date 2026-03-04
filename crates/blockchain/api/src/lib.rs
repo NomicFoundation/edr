@@ -18,7 +18,7 @@ use edr_state_api::{DynState, StateDiff, StateOverride};
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait BlockHashByNumber {
     /// The blockchain's error type.
-    type Error;
+    type Error: Send + Sync + 'static;
 
     /// Retrieves the block hash at the provided number.
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error>;

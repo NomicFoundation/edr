@@ -62,19 +62,19 @@ pub(crate) trait CommonCreateInput {
 
 impl CommonCreateInput for &mut CreateInputs {
     fn caller(&self) -> Address {
-        self.caller
+        CreateInputs::caller(self)
     }
     fn gas_limit(&self) -> u64 {
-        self.gas_limit
+        CreateInputs::gas_limit(self)
     }
     fn value(&self) -> U256 {
-        self.value
+        CreateInputs::value(self)
     }
     fn init_code(&self) -> Bytes {
-        self.init_code.clone()
+        CreateInputs::init_code(self).clone()
     }
     fn set_caller(&mut self, caller: Address) {
-        self.caller = caller;
+        self.set_caller(caller);
     }
     fn allow_cheatcodes<
         BlockT: BlockEnvTr,
@@ -116,11 +116,11 @@ impl CommonCreateInput for &mut CreateInputs {
         let old_nonce = ecx
             .journaled_state
             .state
-            .get(&self.caller)
+            .get(&self.caller())
             .map(|acc| acc.info.nonce)
             .unwrap_or_default();
         let created_address = self.created_address(old_nonce);
-        cheatcodes.allow_cheatcodes_on_create(ecx, self.caller, created_address);
+        cheatcodes.allow_cheatcodes_on_create(ecx, self.caller(), created_address);
         created_address
     }
 }

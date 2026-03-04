@@ -65,6 +65,7 @@ impl AccountOverride {
             mut nonce,
             mut code_hash,
             mut code,
+            account_id: _,
         } = original.unwrap_or_default();
 
         if let Some(new_balance) = &self.balance {
@@ -91,6 +92,7 @@ impl AccountOverride {
             nonce,
             code_hash,
             code,
+            account_id: None,
         })
     }
 }
@@ -168,7 +170,7 @@ impl StateOverrides {
 
     /// Retrieves the account information for the provided address, applying any
     /// overrides.
-    pub fn account_info<StateError>(
+    pub fn account_info<StateError: Send + Sync + 'static>(
         &self,
         state: &dyn State<Error = StateError>,
         address: &Address,
@@ -191,7 +193,7 @@ impl StateOverrides {
 
     /// Retrieves the storage information for the provided address and index,
     /// applying any overrides.
-    pub fn account_storage_at<StateError>(
+    pub fn account_storage_at<StateError: Send + Sync + 'static>(
         &self,
         state: &dyn State<Error = StateError>,
         address: &Address,
@@ -216,7 +218,7 @@ impl StateOverrides {
     }
 
     /// Retrieves the code for the provided hash, applying any overrides.
-    pub fn code_by_hash<StateError>(
+    pub fn code_by_hash<StateError: Send + Sync + 'static>(
         &self,
         state: &dyn State<Error = StateError>,
         hash: B256,
