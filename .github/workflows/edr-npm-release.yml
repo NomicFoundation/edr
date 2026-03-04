@@ -547,6 +547,8 @@ jobs:
         run: |
           git diff --color=always --exit-code --no-index remote-repository/Cargo.lock ./Cargo.lock
 
+  # Extra-defensive cooldown check: `main` branch and PRs already require passing this in CI,
+  # but we re-check here to guarantee we never release with too-fresh dependencies.
   cooldown-check:
     name: Cargo cooldown check
     runs-on: ubuntu-24.04
