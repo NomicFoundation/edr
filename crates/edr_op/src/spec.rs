@@ -133,6 +133,7 @@ impl EvmChainSpec for OpChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let hardfork = cfg.spec.into();
         let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)
             .map_err(TransactionError::Database)?;
 
@@ -148,7 +149,7 @@ impl EvmChainSpec for OpChainSpec {
 
         let mut evm = OpEvm(Evm::new(
             context,
-            EthInstructions::new_mainnet(),
+            EthInstructions::new_mainnet_with_spec(hardfork),
             precompile_provider,
         ));
 
@@ -177,6 +178,7 @@ impl EvmChainSpec for OpChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let hardfork = cfg.spec.into();
         let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)
             .map_err(TransactionError::Database)?;
 
@@ -197,7 +199,7 @@ impl EvmChainSpec for OpChainSpec {
         let mut evm = OpEvm(Evm::new_with_inspector(
             context,
             inspector,
-            EthInstructions::new_mainnet(),
+            EthInstructions::new_mainnet_with_spec(hardfork),
             precompile_provider,
         ));
 
