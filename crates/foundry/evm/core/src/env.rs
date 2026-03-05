@@ -11,8 +11,11 @@ pub struct Env<BlockT, TxT, HardforkT> {
     pub tx: TxT,
 }
 
-impl<BlockT: Default, TxT: Default, HardforkT: Default + Into<revm::primitives::hardfork::SpecId> + Clone>
-    Default for Env<BlockT, TxT, HardforkT>
+impl<
+        BlockT: Default,
+        TxT: Default,
+        HardforkT: Default + Into<revm::primitives::hardfork::SpecId> + Clone,
+    > Default for Env<BlockT, TxT, HardforkT>
 {
     fn default() -> Self {
         Self {

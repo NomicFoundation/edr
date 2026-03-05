@@ -206,6 +206,7 @@ impl
         env: EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()>,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT> {
+        let hardfork = env.cfg.spec;
         let context = revm::Context {
             tx: env.tx,
             block: env.block,
@@ -219,7 +220,7 @@ impl
         Evm::new_with_inspector(
             context,
             inspector,
-            EthInstructions::default(),
+            EthInstructions::new_mainnet_with_spec(hardfork),
             EthPrecompiles::default(),
         )
     }

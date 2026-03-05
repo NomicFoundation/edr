@@ -243,14 +243,14 @@ impl FlushInspectorData for EvmObserver {
 }
 
 impl<
-        BlockchainT: BlockHashByNumber<Error: std::error::Error>,
+        BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync>,
         ContextT: ContextTrait<
             Journal: JournalExt
                          + JournalTrait<
                 Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
             >,
         >,
-        StateT: State<Error: std::error::Error>,
+        StateT: State<Error: 'static + std::error::Error + Send + Sync>,
     > Inspector<ContextT, EthInterpreter> for EvmObserver
 {
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
