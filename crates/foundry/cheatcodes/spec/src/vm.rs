@@ -52,9 +52,9 @@ interface Vm {
     enum CallerMode {
         /// No caller modification is currently active.
         None,
-        /// Not supported in EDR. Present for forge-std ABI compatibility.
+        /// Unsupported. Present for forge-std ABI compatibility.
         Broadcast,
-        /// Not supported in EDR. Present for forge-std ABI compatibility.
+        /// Unsupported. Present for forge-std ABI compatibility.
         RecurrentBroadcast,
         /// A one time prank triggered by a `vm.prank()` call is currently active.
         Prank,

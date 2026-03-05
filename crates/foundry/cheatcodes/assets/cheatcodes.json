@@ -37,11 +37,11 @@
         },
         {
           "name": "Broadcast",
-          "description": "Not supported in EDR. Present for forge-std ABI compatibility."
+          "description": "Unsupported. Present for forge-std ABI compatibility."
         },
         {
           "name": "RecurrentBroadcast",
-          "description": "Not supported in EDR. Present for forge-std ABI compatibility."
+          "description": "Unsupported. Present for forge-std ABI compatibility."
         },
         {
           "name": "Prank",
