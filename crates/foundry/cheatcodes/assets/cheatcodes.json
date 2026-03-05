@@ -29,11 +29,19 @@
     },
     {
       "name": "CallerMode",
-      "description": "A modification applied to either `msg.sender` or `tx.origin`. Returned by `readCallers`.",
+      "description": "A modification applied to either `msg.sender` or `tx.origin`. Returned by `readCallers`.\n Variant order must match forge-std's `CallerMode` enum for ABI compatibility.",
       "variants": [
         {
           "name": "None",
           "description": "No caller modification is currently active."
+        },
+        {
+          "name": "Broadcast",
+          "description": "Not supported in EDR. Present for forge-std ABI compatibility."
+        },
+        {
+          "name": "RecurrentBroadcast",
+          "description": "Not supported in EDR. Present for forge-std ABI compatibility."
         },
         {
           "name": "Prank",
