@@ -9,7 +9,7 @@ use anyhow::Context;
 use derive_where::derive_where;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest, ProviderSpec,
+    handlers::error::DynProviderError, time::CurrentTime, Logger, ProviderRequest, ProviderSpec,
 };
 use edr_rpc_eth::jsonrpc;
 use edr_scenarios::ScenarioConfig;
@@ -277,7 +277,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> Logger<ChainSpecT, CurrentTime>
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
+        _error: Option<&DynProviderError>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }

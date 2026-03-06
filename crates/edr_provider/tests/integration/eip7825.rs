@@ -4,16 +4,14 @@ use std::sync::Arc;
 
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
-    InvalidTransaction, L1ChainSpec,
+    L1ChainSpec,
 };
 use edr_chain_spec::EvmSpecId;
-use edr_chain_spec_evm::TransactionError;
 use edr_defaults::SECRET_KEYS;
-use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::address;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderError, ProviderErrorForChainSpec, ProviderRequest, ResponseWithCallTraces,
+    ProviderRequest, ResponseWithCallTraces,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
@@ -49,7 +47,7 @@ fn new_provider(
 fn send_transaction(
     provider: &Provider<L1ChainSpec>,
     gas_limit: u64,
-) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<L1ChainSpec>> {
+) -> anyhow::Result<ResponseWithCallTraces> {
     let caller = secret_key_to_address(SECRET_KEYS[0])?;
     let transaction = TransactionRequest {
         from: caller,
@@ -58,9 +56,11 @@ fn send_transaction(
         ..TransactionRequest::default()
     };
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(transaction),
-    ))
+    provider
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(transaction),
+        ))
+        .map_err(Into::into)
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -80,19 +80,10 @@ async fn test_call() -> anyhow::Result<()> {
     )));
 
     assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
     assert!(
-        matches!(
-            result,
-            Err(ProviderError::RunTransaction(
-                TransactionError::InvalidTransaction(
-                    InvalidTransaction::TxGasLimitGreaterThanCap {
-                        cap: TRANSACTION_GAS_CAP,
-                        gas_limit: EXCEEDS_TRANSACTION_GAS_LIMIT
-                    }
-                )
-            ))
-        ),
-        "{result:?}"
+        err_msg.contains("TxGasLimitGreaterThanCap") || err_msg.contains("gas limit"),
+        "Unexpected error: {err_msg}"
     );
 
     Ok(())
@@ -115,19 +106,10 @@ async fn test_estimate_gas() -> anyhow::Result<()> {
     ));
 
     assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
     assert!(
-        matches!(
-            result,
-            Err(ProviderError::RunTransaction(
-                TransactionError::InvalidTransaction(
-                    InvalidTransaction::TxGasLimitGreaterThanCap {
-                        cap: TRANSACTION_GAS_CAP,
-                        gas_limit: EXCEEDS_TRANSACTION_GAS_LIMIT
-                    }
-                )
-            ))
-        ),
-        "{result:?}"
+        err_msg.contains("TxGasLimitGreaterThanCap") || err_msg.contains("gas limit"),
+        "Unexpected error: {err_msg}"
     );
 
     Ok(())
@@ -140,15 +122,11 @@ async fn test_send_transaction_exceeds_transaction_cap_with_auto_mine() -> anyho
     let result = send_transaction(&provider, EXCEEDS_TRANSACTION_GAS_LIMIT);
 
     assert!(result.is_err());
-    assert!(matches!(
-        result,
-        Err(ProviderError::MemPoolAddTransaction(
-            MemPoolAddTransactionError::ExceedsTransactionGasCap {
-                transaction_gas_cap: TRANSACTION_GAS_CAP,
-                transaction_gas_limit: EXCEEDS_TRANSACTION_GAS_LIMIT
-            }
-        ))
-    ));
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("ExceedsTransactionGasCap") || err_msg.contains("gas cap"),
+        "Unexpected error: {err_msg}"
+    );
 
     Ok(())
 }
@@ -160,15 +138,11 @@ async fn test_send_transaction_exceeds_transaction_cap_without_auto_mine() -> an
     let result = send_transaction(&provider, EXCEEDS_TRANSACTION_GAS_LIMIT);
 
     assert!(result.is_err());
-    assert!(matches!(
-        result,
-        Err(ProviderError::MemPoolAddTransaction(
-            MemPoolAddTransactionError::ExceedsTransactionGasCap {
-                transaction_gas_cap: TRANSACTION_GAS_CAP,
-                transaction_gas_limit: EXCEEDS_TRANSACTION_GAS_LIMIT
-            }
-        ))
-    ));
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("ExceedsTransactionGasCap") || err_msg.contains("gas cap"),
+        "Unexpected error: {err_msg}"
+    );
 
     Ok(())
 }

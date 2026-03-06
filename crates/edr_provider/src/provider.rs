@@ -8,7 +8,8 @@ use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
 use crate::{
     data::ProviderData,
-    error::{CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
+    error::CreationErrorForChainSpec,
+    handlers::error::DynProviderError,
     interval::IntervalMiner,
     logger::SyncLogger,
     mock::SyncCallOverride,
@@ -19,8 +20,9 @@ use crate::{
     },
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
-    to_json, to_json_with_trace, to_json_with_traces, ProviderConfig, ResponseWithCallTraces,
-    SyncSubscriberCallback, PRIVATE_RPC_METHODS,
+    to_json, to_json_with_trace, to_json_with_traces, ProviderConfig,
+    ProviderErrorForChainSpec, ResponseWithCallTraces, SyncSubscriberCallback,
+    PRIVATE_RPC_METHODS,
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -61,22 +63,6 @@ pub struct Provider<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceE
     /// while async-awaiting the lock to avoid a deadlock.
     interval_miner: Arc<Mutex<Option<IntervalMiner<ChainSpecT, TimerT>>>>,
     runtime: runtime::Handle,
-}
-
-impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
-    Provider<ChainSpecT, TimerT>
-{
-    /// Blocking method to log a failed deserialization.
-    pub fn log_failed_deserialization(
-        &self,
-        method_name: &str,
-        error: &ProviderErrorForChainSpec<ChainSpecT>,
-    ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
-        data.logger_mut()
-            .print_method_logs(method_name, Some(error))
-            .map_err(ProviderError::Logger)
-    }
 }
 
 impl<
@@ -157,7 +143,7 @@ impl<
     pub fn handle_request(
         &self,
         request: ProviderRequest<ChainSpecT>,
-    ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<ResponseWithCallTraces, DynProviderError> {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
 
         let response = match request {
@@ -173,7 +159,7 @@ impl<
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
         request: Vec<MethodInvocation<ChainSpecT>>,
-    ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<ResponseWithCallTraces, DynProviderError> {
         let mut results = Vec::new();
         let mut traces = Vec::new();
 
@@ -183,7 +169,7 @@ impl<
             traces.extend(response.call_trace_arenas);
         }
 
-        let result = serde_json::to_value(results).map_err(ProviderError::Serialization)?;
+        let result = serde_json::to_value(results).map_err(DynProviderError::new)?;
         Ok(ResponseWithCallTraces {
             result,
             call_trace_arenas: traces,
@@ -194,7 +180,7 @@ impl<
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
         request: MethodInvocation<ChainSpecT>,
-    ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<ResponseWithCallTraces, DynProviderError> {
         let method_name = if data.logger_mut().is_enabled() {
             let method_name = request.method_name();
             if PRIVATE_RPC_METHODS.contains(method_name) {
@@ -206,7 +192,7 @@ impl<
             None
         };
 
-        let result = match request {
+        let result = (match request {
             // eth_* method
             MethodInvocation::Accounts(()) => {
                 eth::handle_accounts_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
@@ -416,7 +402,7 @@ impl<
             MethodInvocation::GetAutomine(()) => hardhat::handle_get_automine_request(data)
                 .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::ImpersonateAccount(address) => {
-                hardhat::handle_impersonate_account_request(data, *address)
+                hardhat::handle_impersonate_account_request(data, address.into())
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::Metadata(()) => {
@@ -463,15 +449,18 @@ impl<
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::StopImpersonatingAccount(address) => {
-                hardhat::handle_stop_impersonating_account_request(data, *address)
+                hardhat::handle_stop_impersonating_account_request(data, address.into())
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
-        };
+        })
+        .map_err(DynProviderError::new);
 
         if let Some(method_name) = method_name {
             data.logger_mut()
                 .print_method_logs(method_name, result.as_ref().err())
-                .map_err(ProviderError::Logger)?;
+                .map_err(|error| {
+                    DynProviderError::new(ProviderErrorForChainSpec::<ChainSpecT>::Logger(error))
+                })?;
         }
 
         result

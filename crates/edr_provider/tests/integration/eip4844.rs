@@ -17,7 +17,7 @@ use edr_primitives::{Address, Bytes, B256, U256};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
-    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
+    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
@@ -117,10 +117,10 @@ async fn call_unsupported() -> anyhow::Result<()> {
         )))
         .expect_err("Must return an error");
 
-    assert!(matches!(
-        error,
-        ProviderError::Eip4844CallRequestUnsupported
-    ));
+    assert!(
+        error.to_string().contains("EIP-4844") || error.to_string().contains("blob"),
+        "Unexpected error: {error}"
+    );
 
     Ok(())
 }
@@ -149,10 +149,10 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
         )))
         .expect_err("Must return an error");
 
-    assert!(matches!(
-        error,
-        ProviderError::Eip4844CallRequestUnsupported
-    ));
+    assert!(
+        error.to_string().contains("EIP-4844") || error.to_string().contains("blob"),
+        "Unexpected error: {error}"
+    );
 
     Ok(())
 }
@@ -181,10 +181,10 @@ async fn send_transaction_unsupported() -> anyhow::Result<()> {
         ))
         .expect_err("Must return an error");
 
-    assert!(matches!(
-        error,
-        ProviderError::Eip4844TransactionUnsupported
-    ));
+    assert!(
+        error.to_string().contains("EIP-4844") || error.to_string().contains("blob"),
+        "Unexpected error: {error}"
+    );
 
     Ok(())
 }

@@ -40,22 +40,25 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
                     .and_then(|request| request.get("method"))
                     .and_then(serde_json::Value::as_str);
 
-                let reason = InvalidRequestReason::new(method_name, &message);
-
-                // HACK: We need to log failed deserialization attempts when they concern input
-                // validation.
-                if let Some((method_name, provider_error)) =
-                    reason.provider_error::<ChainSpecT, TimerT>()
-                {
-                    // Ignore potential failure of logging, as returning the original error is more
-                    // important
-                    let _result = self.log_failed_deserialization(method_name, &provider_error);
-                }
+                let (error_code, error_message) = if let Some(method_name) = method_name {
+                    if let Some(reason) = InvalidRequestReason::new(method_name, &message) {
+                        let dyn_error =
+                            reason.to_dyn_provider_error::<ChainSpecT, TimerT>();
+                        (
+                            edr_provider::handlers::error::RpcErrorCode::error_code(&dyn_error),
+                            dyn_error.to_string(),
+                        )
+                    } else {
+                        (-32602i16, message)
+                    }
+                } else {
+                    (-32602, message)
+                };
 
                 let response = jsonrpc::ResponseData::<()>::Error {
                     error: jsonrpc::Error {
-                        code: reason.error_code(),
-                        message: reason.error_message(),
+                        code: error_code,
+                        message: error_message,
                         data: request,
                     },
                 };

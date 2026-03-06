@@ -1,7 +1,6 @@
 use std::{num::NonZeroU64, slice};
 
 use edr_block_header::HeaderOverrides;
-use edr_chain_spec::TransactionValidation;
 use edr_primitives::U64;
 
 use crate::{
@@ -25,13 +24,7 @@ pub fn handle_increase_time_request<
     Ok(new_block_time.to_string())
 }
 
-pub fn handle_mine_request<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
-    TimerT: Clone + TimeSinceEpoch,
->(
+pub fn handle_mine_request<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     timestamp: Option<Timestamp>,
 ) -> ProviderResultWithCallTraces<String, ChainSpecT> {

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use edr_block_api::Block as _;
 use edr_block_header::Withdrawal;
 use edr_chain_l1::rpc::block::L1RpcBlock;
-use edr_chain_spec::{ExecutableTransaction as _, TransactionValidation};
+use edr_chain_spec::ExecutableTransaction as _;
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_rpc::RpcTypeFrom as _;
@@ -59,10 +59,7 @@ pub fn handle_get_block_by_hash_request<
 // readability.
 #[allow(clippy::type_complexity)]
 pub fn handle_get_block_by_number_request<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -104,10 +101,7 @@ pub fn handle_get_block_transaction_count_by_hash_request<
 }
 
 pub fn handle_get_block_transaction_count_by_block_number<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -132,13 +126,7 @@ struct BlockByNumberResult<BlockT> {
     pub total_difficulty: Option<U256>,
 }
 
-fn block_by_number<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
-    TimerT: Clone + TimeSinceEpoch,
->(
+fn block_by_number<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_spec: &BlockSpec,
 ) -> Result<

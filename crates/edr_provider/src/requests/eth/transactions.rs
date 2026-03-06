@@ -46,10 +46,7 @@ pub fn handle_get_transaction_by_block_hash_and_index<
 }
 
 pub fn handle_get_transaction_by_block_spec_and_index<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -159,12 +156,7 @@ fn transaction_from_block<BlockT: Block<SignedTransactionT> + Clone, SignedTrans
 }
 
 pub fn handle_send_transaction_request<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: TransactionType<Type: IsEip4844>>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -184,9 +176,7 @@ pub fn handle_send_transaction_request<
 pub fn handle_send_raw_transaction_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        SignedTransaction: Default
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<ValidationError: PartialEq>,
+        SignedTransaction: TransactionType<Type: IsEip4844>,
         PooledTransaction: IsEip155,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -216,12 +206,7 @@ pub fn handle_send_raw_transaction_request<
 }
 
 pub fn calculate_eip1559_fee_parameters<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: TransactionType<Type: IsEip4844>>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -274,12 +259,7 @@ pub fn calculate_eip1559_fee_parameters<
 }
 
 fn send_raw_transaction_and_log<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: TransactionType<Type: IsEip4844>>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
