@@ -48,9 +48,14 @@ interface Vm {
     error StructuredCheatcodeError(CheatcodeErrorDetails details);
 
     /// A modification applied to either `msg.sender` or `tx.origin`. Returned by `readCallers`.
+    /// Variant order must match forge-std's `CallerMode` enum for ABI compatibility.
     enum CallerMode {
         /// No caller modification is currently active.
         None,
+        /// Unsupported. Present for forge-std ABI compatibility.
+        Broadcast,
+        /// Unsupported. Present for forge-std ABI compatibility.
+        RecurrentBroadcast,
         /// A one time prank triggered by a `vm.prank()` call is currently active.
         Prank,
         /// A recurrent prank triggered by a `vm.startPrank()` call is currently active.
