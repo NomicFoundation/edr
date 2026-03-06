@@ -5,6 +5,7 @@ mod data;
 mod debug_trace;
 mod error;
 mod filter;
+mod handlers;
 mod interval;
 mod logger;
 mod mock;

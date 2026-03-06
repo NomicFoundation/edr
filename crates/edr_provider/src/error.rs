@@ -33,27 +33,21 @@ use parking_lot::RwLock;
 use serde::Serialize;
 
 use crate::{
-    config::IntervalConfigConversionError, debug_trace::DebugTraceError,
-    observability::EvmObserverCollectionError, time::TimeSinceEpoch, ProviderSpec,
+    config::IntervalConfigConversionError,
+    debug_trace::DebugTraceError,
+    handlers::error::{RpcErrorCode, INTERNAL_ERROR, INVALID_INPUT, INVALID_PARAMS},
+    observability::EvmObserverCollectionError,
+    time::TimeSinceEpoch,
+    ProviderSpec,
 };
-
-pub(crate) const INVALID_INPUT: i16 = -32000;
-pub(crate) const INTERNAL_ERROR: i16 = -32603;
-pub(crate) const INVALID_PARAMS: i16 = -32602;
-
-/// Trait for errors that can be converted to JSON-RPC errors.
-pub trait JsonRpcError {
-    /// Returns the JSON-RPC error code.
-    fn error_code(&self) -> i16;
-}
 
 impl<
         BlockchainErrorT,
-        CollectInspectorDataErrorT: JsonRpcError,
+        CollectInspectorDataErrorT: RpcErrorCode,
         HardforkT,
         StateErrorT,
         TransactionValidationErrorT,
-    > JsonRpcError
+    > RpcErrorCode
     for MineBlockError<
         BlockchainErrorT,
         CollectInspectorDataErrorT,

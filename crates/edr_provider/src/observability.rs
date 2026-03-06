@@ -26,7 +26,7 @@ use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 
 use crate::{
     console_log::ConsoleLogCollector,
-    error::{JsonRpcError, INTERNAL_ERROR},
+    handlers::error::{RpcErrorCode, INTERNAL_ERROR},
     mock::Mocker,
     SyncCallOverride,
 };
@@ -119,7 +119,7 @@ pub enum EvmObserverCollectionError {
     OnCollectedCoverageCallback(Box<dyn std::error::Error + Send + Sync>),
 }
 
-impl JsonRpcError for EvmObserverCollectionError {
+impl RpcErrorCode for EvmObserverCollectionError {
     fn error_code(&self) -> i16 {
         match self {
             EvmObserverCollectionError::AbiDecoding(_)
