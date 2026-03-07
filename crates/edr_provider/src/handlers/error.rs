@@ -10,6 +10,12 @@ pub trait RpcErrorCode {
     fn error_code(&self) -> i16;
 }
 
+impl RpcErrorCode for serde_json::Error {
+    fn error_code(&self) -> i16 {
+        INVALID_INPUT
+    }
+}
+
 pub trait RpcError: RpcErrorCode + std::error::Error {}
 
 impl<ErrorT: RpcErrorCode + std::error::Error> RpcError for ErrorT {}

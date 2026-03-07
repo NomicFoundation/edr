@@ -8,7 +8,12 @@ use alloy_dyn_abi::TypedData;
 use edr_primitives::{Address, Bytes, U256, U64};
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::{error::ProviderErrorForChainSpec, time::TimeSinceEpoch, ProviderError, ProviderSpec};
+use crate::{
+    error::ProviderErrorForChainSpec,
+    handlers::error::{INVALID_INPUT, INVALID_PARAMS},
+    time::TimeSinceEpoch,
+    ProviderError, ProviderSpec,
+};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[repr(transparent)]
@@ -84,8 +89,8 @@ impl<'a> InvalidRequestReason<'a> {
         match self {
             InvalidRequestReason::UnsupportedMethod { .. } => -32004,
             InvalidRequestReason::InvalidStorageKey { .. }
-            | InvalidRequestReason::InvalidStorageValue { .. } => -32000,
-            InvalidRequestReason::InvalidJson { .. } => -32602,
+            | InvalidRequestReason::InvalidStorageValue { .. } => INVALID_INPUT,
+            InvalidRequestReason::InvalidJson { .. } => INVALID_PARAMS,
         }
     }
 

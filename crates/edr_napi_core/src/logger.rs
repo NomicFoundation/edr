@@ -168,12 +168,12 @@ where
     fn print_method_logs(
         &mut self,
         method: &str,
-        error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
+        error: Option<&DynProviderError>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(error) = error {
             self.collector.state = LoggingState::Empty;
 
-            if matches!(error, ProviderError::UnsupportedMethod { .. }) {
+            if error. matches!(error, ProviderError::UnsupportedMethod { .. }) {
                 self.collector
                     .print::<false>(Color::Red.paint(error.to_string()))?;
             } else {

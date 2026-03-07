@@ -3237,6 +3237,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_rpc_eth",
+ "edr_rpc_types",
  "edr_runtime",
  "edr_signer",
  "edr_solidity",
@@ -3366,6 +3367,14 @@ dependencies = [
  "tokio",
  "tracing",
  "walkdir",
+]
+
+[[package]]
+name = "edr_rpc_types"
+version = "0.3.8"
+dependencies = [
+ "edr_primitives",
+ "serde",
 ]
 
 [[package]]
