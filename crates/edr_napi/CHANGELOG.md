@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.28
+
+### Minor Changes
+
+- 7c2886a: Added `Broadcast` and `RecurrentBroadcast` variants to the `CallerMode` enum. These variants are unsupported by EDR cheatcodes implementation but are needed to ensure ABI compatibility with forge-std.
+
 ## 0.12.0-next.27
 
 ### Patch Changes
