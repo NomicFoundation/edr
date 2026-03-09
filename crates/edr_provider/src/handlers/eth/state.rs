@@ -1,11 +1,10 @@
-use edr_chain_spec::TransactionValidation;
 use edr_eth::BlockSpec;
 use edr_primitives::{Address, U256};
 use edr_rpc_types::RpcAddress;
 
 use crate::{
     handlers::error::DynProviderError, requests::validation::validate_post_merge_block_tags,
-    time::TimeSinceEpoch, ProviderData, ProviderErrorForChainSpec, SyncProviderSpec,
+    time::TimeSinceEpoch, ProviderData, SyncProviderSpec,
 };
 
 #[derive(serde::Deserialize)]
@@ -28,10 +27,7 @@ impl From<(RpcAddress, Option<BlockSpec>)> for EthGetTransactionCountParams {
 pub const ETH_GET_TRANSACTION_COUNT_METHOD: &str = "eth_getTransactionCount";
 
 pub fn handle_get_transaction_count_request<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,

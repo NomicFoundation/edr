@@ -9,7 +9,7 @@ use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
 use crate::{
     data::ProviderData,
-    error::{CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
+    error::CreationErrorForChainSpec,
     handlers::{default_handlers, error::DynProviderError, RpcMethodCall, RpcRequest},
     interval::IntervalMiner,
     logger::SyncLogger,
@@ -17,12 +17,12 @@ use crate::{
     requests::{
         debug,
         eth::{self, handle_set_interval_mining},
-        hardhat, MethodInvocation, ProviderRequest,
+        hardhat, MethodInvocation,
     },
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
-    to_json, to_json_with_trace, to_json_with_traces, ProviderConfig, ResponseWithCallTraces,
-    SyncSubscriberCallback, PRIVATE_RPC_METHODS,
+    to_json, to_json_with_trace, to_json_with_traces, InvalidRequestReason, ProviderConfig,
+    ProviderErrorForChainSpec, ResponseWithCallTraces, SyncSubscriberCallback, PRIVATE_RPC_METHODS,
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -60,29 +60,18 @@ pub struct Provider<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceE
     data: Arc<AsyncMutex<ProviderData<ChainSpecT, TimerT>>>,
     handlers: HashMap<
         &'static str,
-        Box<dyn Fn(serde_json::Value) -> Result<ResponseWithCallTraces, DynProviderError>>,
+        Box<
+            dyn Fn(
+                &mut ProviderData<ChainSpecT, TimerT>,
+                serde_json::Value,
+            ) -> Result<ResponseWithCallTraces, DynProviderError>,
+        >,
     >,
     /// Interval miner runs in the background, if enabled. It holds the data
     /// mutex, so it needs to internally check for cancellation/self-destruction
     /// while async-awaiting the lock to avoid a deadlock.
     interval_miner: Arc<Mutex<Option<IntervalMiner<ChainSpecT, TimerT>>>>,
     runtime: runtime::Handle,
-}
-
-impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
-    Provider<ChainSpecT, TimerT>
-{
-    /// Blocking method to log a failed deserialization.
-    pub fn log_failed_deserialization(
-        &self,
-        method_name: &str,
-        error: &ProviderErrorForChainSpec<ChainSpecT>,
-    ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
-        data.logger_mut()
-            .print_method_logs(method_name, Some(error))
-            .map_err(ProviderError::Logger)
-    }
 }
 
 impl<
@@ -203,7 +192,7 @@ impl<
         request: RpcMethodCall,
     ) -> Result<ResponseWithCallTraces, DynProviderError> {
         let method_name = if data.logger_mut().is_enabled() {
-            if PRIVATE_RPC_METHODS.contains(&request.method) {
+            if PRIVATE_RPC_METHODS.contains(request.method.as_str()) {
                 None
             } else {
                 Some(request.method.as_str())
@@ -212,23 +201,50 @@ impl<
             None
         };
 
+        // If no parameters were provided, use an empty array as the default.
+        let params = request
+            .params
+            .unwrap_or_else(|| serde_json::Value::Array(Vec::new()));
+
         let result = if let Some(handler) = self.handlers.get(request.method.as_str()) {
-            handler(request.params)
+            handler(data, params)
         } else {
             // TODO: Port remaining methods to handlers and remove this
             // catch-all case, returning an error instead.
             // Err(DynProviderError::new(UnsupportedMethodError {
             //     name: request.method,
             // }))
-            let request = serde_json::json!({
+            let legacy_request = serde_json::json!({
                 "method": request.method,
-                "params": request.params,
+                "params": params,
             });
 
-            let request: MethodInvocation<ChainSpecT> =
-                serde_json::from_value(request).map_err(DynProviderError::new)?;
+            let legacy_request: MethodInvocation<ChainSpecT> =
+                match serde_json::from_value(legacy_request) {
+                    Ok(request) => request,
+                    Err(error) => {
+                        let message = error.to_string();
+                        let Some(reason) =
+                            InvalidRequestReason::new(request.method.as_str(), &message)
+                        else {
+                            return Err(DynProviderError::new(error));
+                        };
 
-            match request {
+                        // HACK: We need to log failed deserialization attempts when they concern
+                        // input validation.
+                        let error = reason.to_dyn_provider_error::<ChainSpecT, TimerT>();
+
+                        // Ignore potential failure of logging, as returning the original error is
+                        // more important
+                        let _result = data
+                            .logger_mut()
+                            .print_method_logs(request.method.as_str(), Some(&error));
+
+                        return Err(error);
+                    }
+                };
+
+            match legacy_request {
                 // eth_* method
                 MethodInvocation::Accounts(()) => {
                     eth::handle_accounts_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
@@ -440,7 +456,7 @@ impl<
                 MethodInvocation::GetAutomine(()) => hardhat::handle_get_automine_request(data)
                     .and_then(to_json::<_, ChainSpecT, TimerT>),
                 MethodInvocation::ImpersonateAccount(address) => {
-                    hardhat::handle_impersonate_account_request(data, *address)
+                    hardhat::handle_impersonate_account_request(data, address.into())
                         .and_then(to_json::<_, ChainSpecT, TimerT>)
                 }
                 MethodInvocation::Metadata(()) => hardhat::handle_metadata_request(data)
@@ -489,7 +505,7 @@ impl<
                         .and_then(to_json::<_, ChainSpecT, TimerT>)
                 }
                 MethodInvocation::StopImpersonatingAccount(address) => {
-                    hardhat::handle_stop_impersonating_account_request(data, *address)
+                    hardhat::handle_stop_impersonating_account_request(data, address.into())
                         .and_then(to_json::<_, ChainSpecT, TimerT>)
                 }
             }
@@ -499,7 +515,9 @@ impl<
         if let Some(method_name) = method_name {
             data.logger_mut()
                 .print_method_logs(method_name, result.as_ref().err())
-                .map_err(|error| DynProviderError::new(ProviderError::Logger(error)))?;
+                .map_err(|error| {
+                    DynProviderError::new(ProviderErrorForChainSpec::<ChainSpecT>::Logger(error))
+                })?;
         }
 
         result

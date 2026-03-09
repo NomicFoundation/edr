@@ -35,7 +35,7 @@ use serde::Serialize;
 use crate::{
     config::IntervalConfigConversionError,
     debug_trace::DebugTraceError,
-    handlers::error::{RpcErrorCode, INTERNAL_ERROR, INVALID_INPUT, INVALID_PARAMS},
+    handlers::error::{RpcErrorCode, RpcTypedError, INTERNAL_ERROR, INVALID_INPUT, INVALID_PARAMS},
     observability::EvmObserverCollectionError,
     time::TimeSinceEpoch,
     ProviderSpec,
@@ -402,8 +402,6 @@ pub enum ProviderError<
         transaction_hash: B256,
         unsupported_transaction_type: u8,
     },
-    #[error("{method_name} - Method not supported")]
-    UnsupportedMethod { method_name: String },
 }
 
 impl<
@@ -518,9 +516,44 @@ impl<
             ProviderError::UnsupportedEIP1559Parameters { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedEIP4844Parameters { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedEip7702Parameters { .. } => INVALID_PARAMS,
-            ProviderError::UnsupportedMethod { .. } => -32004,
             ProviderError::UnsupportedTransactionTypeInDebugTrace { .. } => INVALID_INPUT,
             ProviderError::UnsupportedTransactionTypeForDebugTrace { .. } => INVALID_INPUT,
+        }
+    }
+}
+
+/// Error tag for invalid EIP-155 transaction chain ID errors. This is used to
+/// identify this error in the logger.
+pub const INVALID_EIP155_TRANSACTION_CHAIN_ID_ERROR_TAG: &str =
+    "INVALID_EIP155_TRANSACTION_CHAIN_ID";
+
+impl<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: Debug,
+        TransactionValidationErrorT,
+    > RpcTypedError
+    for ProviderError<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT,
+        HardforkT,
+        TransactionValidationErrorT,
+    >
+{
+    fn error_tag(&self) -> &'static str {
+        match self {
+            Self::TransactionFailed(error) => error.error_tag(),
+            Self::InvalidEip155TransactionChainId => INVALID_EIP155_TRANSACTION_CHAIN_ID_ERROR_TAG,
+            _ => "PROVIDER_ERROR",
+        }
+    }
+
+    fn error_data(&self) -> Option<serde_json::Value> {
+        match self {
+            Self::TransactionFailed(error) => error.error_data(),
+            _ => None,
         }
     }
 }
@@ -636,11 +669,27 @@ pub struct TransactionFailureWithCallTraces<HaltReasonT: HaltReasonTrait> {
     pub call_trace_arenas: Vec<CallTraceArena>,
 }
 
+impl<HaltReasonT: HaltReasonTrait> TransactionFailureWithCallTraces<HaltReasonT> {
+    const ERROR_TAG: &'static str = "TRANSACTION_FAILURE";
+}
+
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
     for TransactionFailureWithCallTraces<HaltReasonT>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.failure)
+    }
+}
+
+impl<HaltReasonT: HaltReasonTrait> RpcTypedError for TransactionFailureWithCallTraces<HaltReasonT> {
+    fn error_tag(&self) -> &'static str {
+        Self::ERROR_TAG
+    }
+
+    fn error_data(&self) -> Option<serde_json::Value> {
+        // TODO: What data do we want to include in the error response for a transaction
+        // failure? For now, this suffices to keep the logger working
+        None
     }
 }
 

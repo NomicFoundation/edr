@@ -1,5 +1,4 @@
 use alloy_rpc_types_trace::geth::{GethDebugTracingOptions, GethTrace};
-use edr_chain_spec::TransactionValidation;
 use edr_eth::BlockSpec;
 use edr_primitives::B256;
 use edr_runtime::overrides::StateOverrides;
@@ -14,10 +13,7 @@ use crate::{
 };
 
 pub fn handle_debug_trace_transaction<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -46,10 +42,7 @@ pub fn handle_debug_trace_call<ChainSpecT, TimerT>(
     tracing_options: Option<GethDebugTracingOptions>,
 ) -> ProviderResultWithCallTraces<GethTrace, ChainSpecT>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 {
     let block_spec = resolve_block_spec_for_call_request(block_spec);

@@ -29,46 +29,23 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
     for edr_provider::Provider<ChainSpecT, TimerT>
 {
     fn handle_request(&self, request: String) -> napi::Result<Response> {
-        let request = match serde_json::from_str(&request) {
-            Ok(request) => request,
-            Err(error) => {
-                let message = error.to_string();
+        let Ok(request) = serde_json::from_str(&request) else {
+            let response = jsonrpc::ResponseData::<()>::Error {
+                error: jsonrpc::Error {
+                    code: -32600, // Invalid Request
+                    message: "Invalid Request".to_string(),
+                    data: None,
+                },
+            };
 
-                let request = serde_json::Value::from_str(&request).ok();
-                let method_name = request
-                    .as_ref()
-                    .and_then(|request| request.get("method"))
-                    .and_then(serde_json::Value::as_str);
-
-                let reason = InvalidRequestReason::new(method_name, &message);
-
-                // HACK: We need to log failed deserialization attempts when they concern input
-                // validation.
-                if let Some((method_name, provider_error)) =
-                    reason.provider_error::<ChainSpecT, TimerT>()
-                {
-                    // Ignore potential failure of logging, as returning the original error is more
-                    // important
-                    let _result = self.log_failed_deserialization(method_name, &provider_error);
-                }
-
-                let response = jsonrpc::ResponseData::<()>::Error {
-                    error: jsonrpc::Error {
-                        code: reason.error_code(),
-                        message: reason.error_message(),
-                        data: request,
-                    },
-                };
-
-                return serde_json::to_string(&response)
-                    .map_err(|error| {
-                        napi::Error::new(
-                            napi::Status::Unknown,
-                            format!("Failed to serialize response due to: {error}"),
-                        )
-                    })
-                    .map(Response::from);
-            }
+            return serde_json::to_string(&response)
+                .map_err(|error| {
+                    napi::Error::new(
+                        napi::Status::Unknown,
+                        format!("Failed to serialize response due to: {error}"),
+                    )
+                })
+                .map(Response::from);
         };
 
         let response = edr_provider::Provider::handle_request(self, request);

@@ -5,7 +5,7 @@ mod data;
 mod debug_trace;
 mod error;
 mod filter;
-mod handlers;
+pub mod handlers;
 mod interval;
 mod logger;
 mod mock;
@@ -42,7 +42,7 @@ pub use self::{
     debug_trace::DebugTraceError,
     error::{
         EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, TransactionFailure,
-        TransactionFailureReason,
+        TransactionFailureReason, INVALID_EIP155_TRANSACTION_CHAIN_ID_ERROR_TAG,
     },
     logger::{Logger, NoopLogger, SyncLogger},
     mock::{CallOverrideResult, SyncCallOverride},

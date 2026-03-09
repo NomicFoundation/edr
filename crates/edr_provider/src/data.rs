@@ -34,7 +34,6 @@ use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait,
-    TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
@@ -1785,10 +1784,7 @@ where
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 {
     /// Returns the balance of the account corresponding to the provided address
@@ -2500,12 +2496,7 @@ where
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: TransactionType<Type: IsEip4844>>,
     TimerT: Clone + TimeSinceEpoch,
 {
     pub fn send_transaction(
@@ -2624,10 +2615,7 @@ where
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 {
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
@@ -2716,12 +2704,7 @@ where
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: TransactionMut>,
     TimerT: Clone + TimeSinceEpoch,
 {
     /// Estimate the gas cost of a transaction. Matches Hardhat behavior.

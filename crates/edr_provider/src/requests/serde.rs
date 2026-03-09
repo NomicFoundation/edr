@@ -1,8 +1,5 @@
 use core::fmt::Debug;
-use std::{
-    ops::{Deref, DerefMut},
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use alloy_dyn_abi::TypedData;
 use edr_primitives::{Address, Bytes, U256, U64};
@@ -10,34 +7,24 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{
     error::ProviderErrorForChainSpec,
-    handlers::error::{INVALID_INPUT, INVALID_PARAMS},
+    handlers::{error::DynProviderError, UnsupportedMethodError},
     time::TimeSinceEpoch,
-    ProviderError, ProviderSpec,
+    SyncProviderSpec,
 };
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[repr(transparent)]
 pub struct RpcAddress(#[serde(deserialize_with = "deserialize_address")] pub Address);
 
-impl Deref for RpcAddress {
-    type Target = Address;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for RpcAddress {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl From<Address> for RpcAddress {
     fn from(address: Address) -> Self {
         Self(address)
+    }
+}
+
+impl From<RpcAddress> for Address {
+    fn from(rpc_address: RpcAddress) -> Self {
+        rpc_address.0
     }
 }
 
@@ -48,86 +35,41 @@ const STORAGE_VALUE_INVALID_LENGTH_ERROR_MESSAGE: &str =
 const UNSUPPORTED_METHOD: &str = "unknown variant";
 
 pub enum InvalidRequestReason<'a> {
-    UnsupportedMethod {
-        method_name: &'a str,
-    },
-    InvalidStorageKey {
-        method_name: &'a str,
-        error_message: &'a str,
-    },
-    InvalidStorageValue {
-        method_name: &'a str,
-        error_message: &'a str,
-    },
-    InvalidJson {
-        error_message: &'a str,
-    },
+    UnsupportedMethod { method_name: &'a str },
+    InvalidStorageKey { error_message: &'a str },
+    InvalidStorageValue { error_message: &'a str },
 }
 
 impl<'a> InvalidRequestReason<'a> {
-    pub fn new(method_name: Option<&'a str>, error_message: &'a str) -> Self {
-        if let Some(method_name) = method_name {
-            if error_message.starts_with(STORAGE_KEY_TOO_LARGE_ERROR_MESSAGE) {
-                return InvalidRequestReason::InvalidStorageKey {
-                    method_name,
-                    error_message,
-                };
-            } else if error_message.starts_with(STORAGE_VALUE_INVALID_LENGTH_ERROR_MESSAGE) {
-                return InvalidRequestReason::InvalidStorageValue {
-                    method_name,
-                    error_message,
-                };
-            } else if error_message.starts_with(UNSUPPORTED_METHOD) {
-                return InvalidRequestReason::UnsupportedMethod { method_name };
-            }
-        }
-
-        InvalidRequestReason::InvalidJson { error_message }
-    }
-
-    pub fn error_code(&self) -> i16 {
-        match self {
-            InvalidRequestReason::UnsupportedMethod { .. } => -32004,
-            InvalidRequestReason::InvalidStorageKey { .. }
-            | InvalidRequestReason::InvalidStorageValue { .. } => INVALID_INPUT,
-            InvalidRequestReason::InvalidJson { .. } => INVALID_PARAMS,
+    pub fn new(method_name: &'a str, error_message: &'a str) -> Option<Self> {
+        if error_message.starts_with(STORAGE_KEY_TOO_LARGE_ERROR_MESSAGE) {
+            Some(InvalidRequestReason::InvalidStorageKey { error_message })
+        } else if error_message.starts_with(STORAGE_VALUE_INVALID_LENGTH_ERROR_MESSAGE) {
+            Some(InvalidRequestReason::InvalidStorageValue { error_message })
+        } else if error_message.starts_with(UNSUPPORTED_METHOD) {
+            Some(InvalidRequestReason::UnsupportedMethod { method_name })
+        } else {
+            None
         }
     }
 
-    pub fn error_message(&self) -> String {
-        match self {
-            InvalidRequestReason::UnsupportedMethod { method_name } => {
-                format!("Method {method_name} is not supported")
-            }
-            InvalidRequestReason::InvalidStorageKey { error_message, .. }
-            | InvalidRequestReason::InvalidStorageValue { error_message, .. }
-            | InvalidRequestReason::InvalidJson { error_message } => (*error_message).into(),
-        }
-    }
-
-    /// Converts the invalid request reason into a provider error.
-    pub fn provider_error<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
+    /// Converts the invalid request reason into a [`DynProviderError`].
+    pub fn to_dyn_provider_error<
+        ChainSpecT: SyncProviderSpec<TimerT>,
+        TimerT: Clone + TimeSinceEpoch,
+    >(
         &self,
-    ) -> Option<(&str, ProviderErrorForChainSpec<ChainSpecT>)> {
+    ) -> DynProviderError {
         match self {
-            InvalidRequestReason::InvalidJson { .. } => None,
-            InvalidRequestReason::InvalidStorageKey {
-                error_message,
-                method_name,
+            InvalidRequestReason::InvalidStorageKey { error_message }
+            | InvalidRequestReason::InvalidStorageValue { error_message } => DynProviderError::new(
+                ProviderErrorForChainSpec::<ChainSpecT>::InvalidInput((*error_message).to_owned()),
+            ),
+            InvalidRequestReason::UnsupportedMethod { method_name } => {
+                DynProviderError::new(UnsupportedMethodError {
+                    method: (*method_name).to_owned(),
+                })
             }
-            | InvalidRequestReason::InvalidStorageValue {
-                error_message,
-                method_name,
-            } => Some((
-                method_name,
-                ProviderError::InvalidInput((*error_message).to_string()),
-            )),
-            InvalidRequestReason::UnsupportedMethod { method_name } => Some((
-                method_name,
-                ProviderError::UnsupportedMethod {
-                    method_name: (*method_name).to_string(),
-                },
-            )),
         }
     }
 }

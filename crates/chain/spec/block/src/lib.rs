@@ -79,7 +79,7 @@ impl<
             Block: Send,
             FetchReceiptError: Send + Sync,
             GenesisBlockCreationError: Send + Sync,
-            HaltReason: Send,
+            HaltReason: Send + Sync,
             Hardfork: Send + Sync,
             LocalBlock: Send + Sync,
             Receipt: Send + Sync,

@@ -16,9 +16,30 @@ impl RpcErrorCode for serde_json::Error {
     }
 }
 
-pub trait RpcError: RpcErrorCode + std::error::Error {}
+pub struct TypedError {
+    pub tag: String,
+    pub data: Option<serde_json::Value>,
+}
 
-impl<ErrorT: RpcErrorCode + std::error::Error> RpcError for ErrorT {}
+pub trait RpcTypedError {
+    fn error_tag(&self) -> &'static str;
+
+    fn error_data(&self) -> Option<serde_json::Value>;
+}
+
+impl RpcTypedError for serde_json::Error {
+    fn error_tag(&self) -> &'static str {
+        "SERDE_JSON"
+    }
+
+    fn error_data(&self) -> Option<serde_json::Value> {
+        None
+    }
+}
+
+pub trait RpcError: RpcErrorCode + RpcTypedError + std::error::Error {}
+
+impl<ErrorT: RpcErrorCode + RpcTypedError + std::error::Error> RpcError for ErrorT {}
 
 /// Wrapper around `Box<dyn std::error::Error` to allow implementation of
 /// `std::error::Error`.

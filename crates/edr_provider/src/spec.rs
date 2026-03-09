@@ -8,7 +8,7 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
 };
-use edr_chain_spec::{ChainSpec, ExecutableTransaction, HardforkChainSpec};
+use edr_chain_spec::{ChainSpec, ExecutableTransaction, HardforkChainSpec, TransactionValidation};
 use edr_chain_spec_block::{BlockChainSpec, SyncBlockChainSpec};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
@@ -120,7 +120,7 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
     RpcCallRequest: MaybeSender,
     RpcTransactionRequest: Sender,
-    SignedTransaction: IsSupported,
+    SignedTransaction: Default + IsSupported + TransactionValidation<ValidationError: PartialEq>,
 >
 {
     type PooledTransaction: HardforkValidationData

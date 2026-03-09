@@ -10,7 +10,7 @@ use crate::{
     handlers::error::DynProviderError,
     observability::EvmObservedData,
     time::{CurrentTime, TimeSinceEpoch},
-    ProviderErrorForChainSpec, ProviderSpec,
+    ProviderSpec,
 };
 
 pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
@@ -124,7 +124,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> Logger<Ch
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
+        _error: Option<&DynProviderError>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }

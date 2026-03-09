@@ -8,9 +8,12 @@ use edr_chain_spec::ExecutableTransaction;
 use edr_chain_spec_evm::result::ExecutionResult;
 use edr_primitives::{Address, Bytes, HashMap, HashSet, B256, U256};
 use edr_provider::{
-    observability::EvmObservedData, time::TimeSinceEpoch, CallResultWithMetadata,
-    EstimateGasFailure, MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec,
-    ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
+    handlers::{error::DynProviderError, UnsupportedMethodError},
+    observability::EvmObservedData,
+    time::TimeSinceEpoch,
+    CallResultWithMetadata, EstimateGasFailure, MineBlockResultWithMetadata,
+    MineBlockResultWithMetadataForChainSpec, ProviderError, ProviderErrorForChainSpec,
+    ProviderSpec, TransactionFailure,
 };
 use edr_solidity::{
     contract_decoder::ContractDecoder,
@@ -173,21 +176,24 @@ where
         if let Some(error) = error {
             self.collector.state = LoggingState::Empty;
 
-            if error. matches!(error, ProviderError::UnsupportedMethod { .. }) {
+            let error_tag = error.error_tag();
+            if error_tag == UnsupportedMethodError::ERROR_TAG {
                 self.collector
                     .print::<false>(Color::Red.paint(error.to_string()))?;
             } else {
                 self.collector.print::<false>(Color::Red.paint(method))?;
                 self.collector.print_logs()?;
 
-                if !matches!(error, ProviderError::TransactionFailed(_)) {
+                if error_tag
+                    != TransactionFailureWithCallTraces::<ChainSpecT::HaltReason>::ERROR_TAG
+                {
                     self.collector.print_empty_line()?;
 
                     let error_message = error.to_string();
                     self.collector
                         .try_indented(|logger| logger.print::<false>(&error_message))?;
 
-                    if matches!(error, ProviderError::InvalidEip155TransactionChainId) {
+                    if error_tag == INVALID_EIP155_TRANSACTION_CHAIN_ID_ERROR_TAG {
                         self.collector.try_indented(|logger| {
                             logger.print::<false>(Color::Yellow.paint(
                                 "If you are using MetaMask, you can learn how to fix this error here: https://hardhat.org/metamask-issue"
