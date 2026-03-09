@@ -65,7 +65,7 @@ impl AccountOverride {
             mut nonce,
             mut code_hash,
             mut code,
-            account_id: _,
+            account_id,
         } = original.unwrap_or_default();
 
         if let Some(new_balance) = &self.balance {
@@ -92,7 +92,7 @@ impl AccountOverride {
             nonce,
             code_hash,
             code,
-            account_id: None,
+            account_id,
         })
     }
 }
