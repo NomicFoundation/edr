@@ -57,7 +57,17 @@ If the project uses a `[patch]` section for any of these crates, note it may nee
 
 ## Step 3: Compile and fix errors
 
-Run `cargo clippy --all-targets --all-features --workspace 2>&1` and iteratively fix compilation errors.
+Determine the feature flags to use based on whether `ALCHEMY_URL` is set (mirroring the pre-commit hook):
+
+```sh
+if [ -z "${ALCHEMY_URL}" ]; then
+  ALL_FEATURES="--features tracing,serde,std"
+else
+  ALL_FEATURES="--all-features"
+fi
+```
+
+Run `cargo clippy --all-targets ${ALL_FEATURES} --workspace 2>&1` and iteratively fix compilation errors.
 
 First, fetch the REVM migration guide for guidance on breaking API changes:
 
@@ -92,11 +102,11 @@ For each error:
 4. Apply the minimal fix
 5. Re-check compilation
 
-Repeat until `cargo clippy --all-targets --all-features --workspace` succeeds.
+Repeat until `cargo clippy --all-targets ${ALL_FEATURES} --workspace` succeeds.
 
 ## Step 4: Quality checks
 
-Run each check and fix issues before moving to the next:
+Use the same `ALL_FEATURES` variable determined in Step 3. Run each check and fix issues before moving to the next:
 
 1. **Formatting**: `cargo +nightly fmt --check 2>&1`
 
@@ -106,7 +116,7 @@ Run each check and fix issues before moving to the next:
 
    - Fix any doc warnings
 
-3. **Tests**: `cargo test --all-targets --all-features --workspace 2>&1`
+3. **Tests**: `cargo test --all-targets ${ALL_FEATURES} --workspace 2>&1`
    - Fix any failing tests due to API changes
 
 ## Step 5: Summary
