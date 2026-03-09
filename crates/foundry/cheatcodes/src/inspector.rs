@@ -2066,12 +2066,12 @@ impl<
                 .clone()
                 .unwrap_or_default()
                 .original_bytes();
-            if let Ok(scheme) = CreateScheme::try_from(call.scheme)
+            if let Ok(scheme) = CreateScheme::try_from(call.scheme())
                 && let Some((index, _)) =
                     self.expected_creates
                         .iter()
                         .find_position(|expected_create| {
-                            expected_create.deployer == call.caller
+                            expected_create.deployer == call.caller()
                                 && expected_create.create_scheme.eq(scheme)
                                 && expected_create.bytecode == bytecode
                         })

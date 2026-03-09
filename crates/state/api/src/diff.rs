@@ -22,7 +22,8 @@ impl StateDiff {
                 account.info = account_info.clone();
             })
             .or_insert(Account {
-                info: account_info,
+                info: account_info.clone(),
+                original_info: Box::new(account_info),
                 storage: HashMap::default(),
                 status: AccountStatus::Touched,
                 transaction_id: 0,
@@ -50,8 +51,10 @@ impl StateDiff {
             .or_insert_with(|| {
                 let storage: HashMap<_, _> = std::iter::once((index, slot.clone())).collect();
 
+                let info = account_info.unwrap_or_default();
                 Account {
-                    info: account_info.unwrap_or_default(),
+                    info: info.clone(),
+                    original_info: Box::new(info),
                     storage,
                     status: AccountStatus::Created | AccountStatus::Touched,
                     transaction_id: 0,

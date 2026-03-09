@@ -34,6 +34,7 @@ impl From<BasicAccount> for AccountInfo {
             balance: account.balance,
             nonce: account.nonce,
             code_hash: account.code_hash,
+            account_id: None,
             code: None,
         }
     }

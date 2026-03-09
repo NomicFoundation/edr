@@ -65,6 +65,7 @@ impl AccountOverride {
             mut nonce,
             mut code_hash,
             mut code,
+            account_id,
         } = original.unwrap_or_default();
 
         if let Some(new_balance) = &self.balance {
@@ -91,6 +92,7 @@ impl AccountOverride {
             nonce,
             code_hash,
             code,
+            account_id,
         })
     }
 }
@@ -168,11 +170,11 @@ impl StateOverrides {
 
     /// Retrieves the account information for the provided address, applying any
     /// overrides.
-    pub fn account_info<StateError>(
+    pub fn account_info<StateErrorT: 'static + Send + Sync>(
         &self,
-        state: &dyn State<Error = StateError>,
+        state: &dyn State<Error = StateErrorT>,
         address: &Address,
-    ) -> Result<Option<AccountInfo>, StateError> {
+    ) -> Result<Option<AccountInfo>, StateErrorT> {
         let original = state.basic(*address)?;
 
         Ok(
@@ -191,12 +193,12 @@ impl StateOverrides {
 
     /// Retrieves the storage information for the provided address and index,
     /// applying any overrides.
-    pub fn account_storage_at<StateError>(
+    pub fn account_storage_at<StateErrorT: 'static + Send + Sync>(
         &self,
-        state: &dyn State<Error = StateError>,
+        state: &dyn State<Error = StateErrorT>,
         address: &Address,
         index: &U256,
-    ) -> Result<U256, StateError> {
+    ) -> Result<U256, StateErrorT> {
         match self.account_overrides.get(address) {
             Some(account_override) => match &account_override.storage {
                 Some(StorageOverride::Diff(diff)) => {
@@ -216,11 +218,11 @@ impl StateOverrides {
     }
 
     /// Retrieves the code for the provided hash, applying any overrides.
-    pub fn code_by_hash<StateError>(
+    pub fn code_by_hash<StateErrorT: 'static + Send + Sync>(
         &self,
-        state: &dyn State<Error = StateError>,
+        state: &dyn State<Error = StateErrorT>,
         hash: B256,
-    ) -> Result<Bytecode, StateError> {
+    ) -> Result<Bytecode, StateErrorT> {
         if let Some(code) = self.code_by_hash_overrides.get(&hash) {
             Ok(code.clone())
         } else {

@@ -327,11 +327,15 @@ impl<
                         add_history_storage_contract_to_state_diff(&mut state_override.diff);
                     })
                     .or_insert_with(|| {
+                        let beacon_root_account = beacon_roots_contract();
+                        let history_storage_account = history_storage_contract();
+
                         let accounts: HashMap<Address, Account> = [
                             (
                                 BEACON_ROOTS_ADDRESS,
                                 Account {
-                                    info: beacon_roots_contract(),
+                                    info: beacon_root_account.clone(),
+                                    original_info: Box::new(beacon_root_account),
                                     status: AccountStatus::Created | AccountStatus::Touched,
                                     storage: HashMap::default(),
                                     transaction_id: 0,
@@ -340,7 +344,8 @@ impl<
                             (
                                 HISTORY_STORAGE_ADDRESS,
                                 Account {
-                                    info: history_storage_contract(),
+                                    info: history_storage_account.clone(),
+                                    original_info: Box::new(history_storage_account),
                                     status: AccountStatus::Created | AccountStatus::Touched,
                                     storage: HashMap::default(),
                                     transaction_id: 0,
@@ -366,10 +371,12 @@ impl<
                         add_beacon_roots_contract_to_state_diff(&mut state_override.diff);
                     })
                     .or_insert_with(|| {
+                        let beacon_root_account = beacon_roots_contract();
                         let accounts: HashMap<Address, Account> = [(
                             BEACON_ROOTS_ADDRESS,
                             Account {
-                                info: beacon_roots_contract(),
+                                info: beacon_root_account.clone(),
+                                original_info: Box::new(beacon_root_account),
                                 status: AccountStatus::Created | AccountStatus::Touched,
                                 storage: HashMap::default(),
                                 transaction_id: 0,

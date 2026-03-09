@@ -100,7 +100,7 @@ where
 
 impl<HardforkT> EvmOpts<HardforkT>
 where
-    HardforkT: Default,
+    HardforkT: Default + Into<revm::primitives::hardfork::SpecId> + Clone,
 {
     /// Configures a new `revm::Env`
     ///

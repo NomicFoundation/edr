@@ -48,7 +48,10 @@ impl EvmConfig {
 
     /// Converts the EVM configuration into a `CfgEnv` for the specified
     /// hardfork.
-    pub fn to_cfg_env<HardforkT: Into<EvmSpecId>>(&self, hardfork: HardforkT) -> CfgEnv<HardforkT> {
+    pub fn to_cfg_env<HardforkT: Clone + Into<EvmSpecId>>(
+        &self,
+        hardfork: HardforkT,
+    ) -> CfgEnv<HardforkT> {
         let mut cfg_env = CfgEnv::new_with_spec(hardfork);
         cfg_env.chain_id = self.chain_id;
         cfg_env.disable_eip3607 = self.disable_eip3607;
