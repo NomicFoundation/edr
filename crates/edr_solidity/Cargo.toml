@@ -31,7 +31,7 @@ revm-inspectors.workspace = true
 revm-precompile.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-strum = { version = "0.26.0", features = ["derive"] }
+strum = { version = "0.27.1", features = ["derive"] }
 semver = { workspace = true, features = ["std"] }
 thiserror.workspace = true
 itertools = "0.14.0"

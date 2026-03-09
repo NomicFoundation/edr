@@ -3069,7 +3069,7 @@ dependencies = [
  "serde",
  "serde_json",
  "static_assertions",
- "strum 0.26.3",
+ "strum 0.27.1",
  "tempfile",
  "thiserror 2.0.12",
  "tracing",
@@ -3472,7 +3472,7 @@ dependencies = [
  "semver 1.0.26",
  "serde",
  "serde_json",
- "strum 0.26.3",
+ "strum 0.27.1",
  "thiserror 2.0.12",
 ]
 
@@ -4145,7 +4145,7 @@ dependencies = [
  "serde",
  "serde_json",
  "similar-asserts",
- "strum 0.26.3",
+ "strum 0.27.1",
  "thiserror 2.0.12",
  "toml 0.8.20",
  "tracing",
@@ -8118,9 +8118,6 @@ name = "strum"
 version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
-dependencies = [
- "strum_macros 0.26.4",
-]
 
 [[package]]
 name = "strum"
