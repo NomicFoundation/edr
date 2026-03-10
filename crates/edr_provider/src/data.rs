@@ -1851,7 +1851,7 @@ where
                 address_to_executed_code: _,
                 call_trace_arena,
                 encoded_console_logs: _,
-            } = evm_observer.collect_and_report(&result.precompile_addresses)?;
+            } = evm_observer.collect_and_report_with_state(&result.precompile_addresses, state.as_ref())?;
 
             let mut database = WrapDatabaseRef(DatabaseComponents {
                 blockchain,
@@ -2359,7 +2359,7 @@ where
                 address_to_executed_code,
                 call_trace_arena,
                 encoded_console_logs,
-            } = evm_observer.collect_and_report(&execution_result.precompile_addresses)?;
+            } = evm_observer.collect_and_report_with_state(&execution_result.precompile_addresses, state.as_ref())?;
 
             if let Some(GasReportArgs {
                 callback,
@@ -2772,7 +2772,7 @@ where
                 address_to_executed_code,
                 call_trace_arena,
                 encoded_console_logs,
-            } = evm_observer.collect_and_report(&result.precompile_addresses)?;
+            } = evm_observer.collect_and_report_with_state(&result.precompile_addresses, state)?;
 
             let mut initial_estimation = match result.result {
                 ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
@@ -2835,7 +2835,7 @@ where
                 address_to_executed_code: _,
                 call_trace_arena,
                 encoded_console_logs: _,
-            } = evm_observer.collect_and_report(&precompile_addresses)?;
+            } = evm_observer.collect_and_report_with_state(&precompile_addresses, state)?;
 
             if include_call_traces.should_include(|| !success) {
                 call_trace_arenas.push(call_trace_arena);

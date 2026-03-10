@@ -16,7 +16,8 @@ use edr_gas_report::SyncOnCollectedGasReportCallback;
 use edr_inspector_bytecode::ExecutedBytecodeCollector;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
 use edr_solidity::{
-    config::IncludeTraces, contract_decoder::ContractDecoder, tracing::SolidityTracingInspector,
+    config::IncludeTraces, contract_decoder::ContractDecoder,
+    proxy_function_resolver::StateReader, tracing::SolidityTracingInspector,
 };
 use edr_state_api::State;
 use foundry_evm_traces::CallTraceArena;
@@ -217,6 +218,75 @@ impl EvmObserver {
 
         let call_trace_arena = tracing_inspector
             .take(&address_to_executed_code, precompile_addresses)
+            .map_err(EvmObserverCollectionError::AbiDecoding)?;
+
+        let encoded_console_logs = console_logger.take_encoded_messages();
+
+        Ok(EvmObservedData {
+            address_to_executed_code,
+            call_trace_arena,
+            encoded_console_logs,
+        })
+    }
+
+    /// Collects and reports the observed data of a single transaction,
+    /// using state for ERC-1967 proxy resolution.
+    pub fn collect_and_report_with_state<S: StateReader + ?Sized>(
+        self,
+        precompile_addresses: &HashSet<Address>,
+        state: &S,
+    ) -> Result<EvmObservedData, EvmObserverCollectionError> {
+        let Self {
+            bytecode_collector,
+            code_coverage,
+            console_logger,
+            mocker: _mocker,
+            tracing_inspector,
+        } = self;
+
+        if let Some(code_coverage) = code_coverage {
+            code_coverage
+                .collect_and_report()
+                .map_err(EvmObserverCollectionError::OnCollectedCoverageCallback)?;
+        }
+
+        let address_to_executed_code = bytecode_collector.collect();
+        let call_trace_arena = tracing_inspector
+            .collect_with_state(&address_to_executed_code, precompile_addresses, state)
+            .map_err(EvmObserverCollectionError::AbiDecoding)?;
+
+        Ok(EvmObservedData {
+            address_to_executed_code,
+            call_trace_arena,
+            encoded_console_logs: console_logger.into_encoded_messages(),
+        })
+    }
+
+    /// Flushes and reports the observed data, using state for ERC-1967 proxy
+    /// resolution.
+    pub fn flush_and_report_with_state<S: StateReader + ?Sized>(
+        &mut self,
+        precompile_addresses: &HashSet<Address>,
+        state: &S,
+    ) -> Result<EvmObservedData, EvmObserverCollectionError> {
+        let Self {
+            bytecode_collector,
+            code_coverage,
+            console_logger,
+            mocker: _mocker,
+            tracing_inspector,
+        } = self;
+
+        let address_to_executed_code = bytecode_collector.take();
+
+        if let Some(code_coverage) = code_coverage {
+            code_coverage
+                .flush_and_report()
+                .map_err(EvmObserverCollectionError::OnCollectedCoverageCallback)?;
+        }
+
+        let call_trace_arena = tracing_inspector
+            .take_with_state(&address_to_executed_code, precompile_addresses, state)
             .map_err(EvmObserverCollectionError::AbiDecoding)?;
 
         let encoded_console_logs = console_logger.take_encoded_messages();

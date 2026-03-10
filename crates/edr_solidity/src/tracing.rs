@@ -11,6 +11,7 @@ use revm_inspectors::tracing::{CallTraceArena, TracingInspector};
 use revm_interpreter::CallOutcome;
 
 use crate::contract_decoder::ContractDecoder;
+use crate::proxy_function_resolver::StateReader;
 
 /// A tracing inspector that uses a [`ContractDecoder`] to decode
 /// Solidity-specific information.
@@ -60,6 +61,52 @@ impl SolidityTracingInspector {
             &mut arena,
             address_to_executed_code,
             precompile_addresses,
+        )?;
+
+        Ok(arena)
+    }
+
+    /// Collects the [`TracingInspector`]'s traces and ABI decodes them,
+    /// using state for ERC-1967 proxy resolution.
+    pub fn collect_with_state<S: StateReader + ?Sized>(
+        self,
+        address_to_executed_code: &HashMap<Address, Bytes>,
+        precompile_addresses: &HashSet<Address>,
+        state: &S,
+    ) -> Result<CallTraceArena, serde_json::Error> {
+        let mut arena = self.inspector.into_traces();
+
+        let mut decoder = self.decoder.write();
+        decoder.populate_call_trace_arena_with_state(
+            &mut arena,
+            address_to_executed_code,
+            precompile_addresses,
+            state,
+        )?;
+
+        Ok(arena)
+    }
+
+    /// Takes the [`TracingInspector`]'s traces and ABI decodes them, replacing
+    /// the current traces with an empty arena, using state for ERC-1967 proxy
+    /// resolution.
+    pub fn take_with_state<S: StateReader + ?Sized>(
+        &mut self,
+        address_to_executed_code: &HashMap<Address, Bytes>,
+        precompile_addresses: &HashSet<Address>,
+        state: &S,
+    ) -> Result<CallTraceArena, serde_json::Error> {
+        let mut arena = std::mem::take(self.inspector.traces_mut());
+
+        // Reset the inspector
+        self.inspector.fuse();
+
+        let mut decoder = self.decoder.write();
+        decoder.populate_call_trace_arena_with_state(
+            &mut arena,
+            address_to_executed_code,
+            precompile_addresses,
+            state,
         )?;
 
         Ok(arena)

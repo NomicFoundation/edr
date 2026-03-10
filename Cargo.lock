@@ -3457,6 +3457,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_primitives",
+ "edr_state_api",
  "edr_tracing",
  "foundry-compilers",
  "foundry-evm-traces",
@@ -3474,6 +3475,7 @@ dependencies = [
  "serde_json",
  "strum 0.26.3",
  "thiserror 2.0.12",
+ "tracing",
 ]
 
 [[package]]

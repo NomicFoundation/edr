@@ -11,6 +11,7 @@
 use std::collections::HashSet;
 
 use edr_primitives::{Address, U256};
+use edr_state_api::{State, StateError};
 
 /// ERC-1967 implementation storage slot.
 /// Derived from: `keccak256("eip1967.proxy.implementation") - 1`
@@ -119,13 +120,68 @@ pub trait StateReader {
     fn code(&self, address: Address) -> Option<Vec<u8>>;
 }
 
+/// An adapter that wraps a type implementing [`State`] and implements
+/// [`StateReader`].
+///
+/// This allows using the standard `State` trait from `edr_state_api` with the
+/// proxy function resolution logic.
+pub struct StateAdapter<'a, S: State<Error = StateError> + ?Sized> {
+    state: &'a S,
+}
+
+impl<'a, S: State<Error = StateError> + ?Sized> StateAdapter<'a, S> {
+    /// Creates a new [`StateAdapter`] wrapping the given state.
+    pub fn new(state: &'a S) -> Self {
+        Self { state }
+    }
+}
+
+impl<S: State<Error = StateError> + ?Sized> StateReader for StateAdapter<'_, S> {
+    fn storage(&self, address: Address, index: U256) -> Option<U256> {
+        self.state.storage(address, index).ok()
+    }
+
+    fn code(&self, address: Address) -> Option<Vec<u8>> {
+        // Get the account info and extract the code
+        let account_info = self.state.basic(address).ok()??;
+
+        // If code is already loaded, use it; otherwise fetch by hash
+        let bytecode = account_info.code.map_or_else(
+            || self.state.code_by_hash(account_info.code_hash).ok(),
+            Some,
+        )?;
+
+        Some(bytecode.original_bytes().to_vec())
+    }
+}
+
+// Implement StateReader for any State trait impl (including dyn DynState)
+impl<S: State<Error = StateError> + ?Sized> StateReader for S {
+    fn storage(&self, address: Address, index: U256) -> Option<U256> {
+        State::storage(self, address, index).ok()
+    }
+
+    fn code(&self, address: Address) -> Option<Vec<u8>> {
+        // Get the account info and extract the code
+        let account_info = State::basic(self, address).ok()??;
+
+        // If code is already loaded, use it; otherwise fetch by hash
+        let bytecode = account_info.code.map_or_else(
+            || State::code_by_hash(self, account_info.code_hash).ok(),
+            Some,
+        )?;
+
+        Some(bytecode.original_bytes().to_vec())
+    }
+}
+
 /// A proxy function resolver that can resolve function selectors for proxy
 /// contracts.
-pub struct ProxyFunctionResolver<'a, S: StateReader> {
+pub struct ProxyFunctionResolver<'a, S: StateReader + ?Sized> {
     state: Option<&'a S>,
 }
 
-impl<'a, S: StateReader> ProxyFunctionResolver<'a, S> {
+impl<'a, S: StateReader + ?Sized> ProxyFunctionResolver<'a, S> {
     /// Creates a new resolver with the given state reader.
     pub fn with_state(state: &'a S) -> Self {
         Self { state: Some(state) }

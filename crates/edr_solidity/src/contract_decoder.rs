@@ -1,13 +1,29 @@
 //! Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
 
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, fs::OpenOptions, io::Write, sync::Arc};
+
+/// Debug logging helper that writes to /tmp/edr-debug.log
+#[allow(dead_code)]
+fn debug_log(msg: &str) {
+    if let Ok(mut file) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/edr-debug.log")
+    {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let _ = writeln!(file, "[{timestamp}] {msg}");
+    }
+}
 
 use alloy_dyn_abi::{DynSolValue, FunctionExt as _, JsonAbiExt};
 use edr_chain_spec::HaltReasonTrait;
 use edr_common::fmt::format_token;
 use edr_decoder_revert::RevertDecoder;
 use edr_defaults::SELECTOR_LEN;
-use edr_primitives::{Address, Bytes, HashMap, HashSet, Selector};
+use edr_primitives::{hex, Address, Bytes, HashMap, HashSet, Selector};
 use foundry_evm_traces::{
     decoder::default_return_data, CallTraceArena, DecodedCallData, DecodedCallTrace,
 };
@@ -17,7 +33,7 @@ use revm_inspectors::tracing::types::CallTrace;
 
 use super::{
     nested_trace::CreateMessage,
-    proxy_function_resolver::DecodedFunction,
+    proxy_function_resolver::{DecodedFunction, ProxyFunctionResolver, StateReader},
     solidity_stack_trace::{
         FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME,
         UNRECOGNIZED_FUNCTION_NAME,
@@ -80,6 +96,10 @@ pub struct ContractDecoder {
 impl ContractDecoder {
     /// Creates a new [`ContractDecoder`].
     pub fn new(config: &BuildInfoConfig) -> Result<Self, ContractDecoderError> {
+        debug_log(&format!(
+            "[ContractDecoder] new() called with {} build infos",
+            config.build_infos.len()
+        ));
         let mut contracts_identifier = ContractsIdentifier::default();
         let mut revert_decoder = RevertDecoder::default();
 
@@ -131,6 +151,131 @@ impl ContractDecoder {
             });
 
         self.contracts_identifier.add_bytecode(Arc::new(bytecode));
+    }
+
+    /// Tries to resolve a function selector via ERC-1967 implementation slot.
+    ///
+    /// This method:
+    /// 1. Reads the ERC-1967 implementation slot from the proxy address
+    /// 2. Gets the bytecode at the implementation address
+    /// 3. Matches the bytecode to a known contract
+    /// 4. Looks up the selector in the matched contract's ABI
+    ///
+    /// Returns `Some(DecodedFunction)` with implementation info if found,
+    /// `None` if ERC-1967 resolution fails or selector not found.
+    pub fn try_resolve_selector_via_erc1967<S: StateReader + ?Sized>(
+        &mut self,
+        proxy_address: Address,
+        selector: &[u8],
+        state: &S,
+    ) -> Option<DecodedFunction> {
+        debug_log(&format!(
+            "[ERC1967] Attempting ERC1967 resolution for proxy {:?}, selector: {:?}",
+            proxy_address,
+            hex::encode(selector)
+        ));
+
+        // Get the ERC-1967 implementation address
+        let resolver = ProxyFunctionResolver::with_state(state);
+        let impl_address = resolver.get_erc1967_implementation(proxy_address);
+
+        debug_log(&format!(
+            "[ERC1967] Implementation slot read result: {:?}",
+            impl_address
+        ));
+
+        let impl_address = impl_address?;
+
+        // Get the bytecode at the implementation address
+        let impl_bytecode = state.code(impl_address);
+
+        debug_log(&format!(
+            "[ERC1967] Implementation bytecode at {:?}: {} bytes",
+            impl_address,
+            impl_bytecode.as_ref().map_or(0, |b| b.len())
+        ));
+
+        let impl_bytecode = impl_bytecode?;
+
+        // Match bytecode to known contract and lookup selector
+        let result = self
+            .contracts_identifier
+            .search_selector_in_bytecode(&impl_bytecode, selector);
+
+        debug_log(&format!(
+            "[ERC1967] Bytecode match result: {:?}",
+            result.as_ref().map(|(_, sig)| sig)
+        ));
+
+        let (contract_metadata, signature) = result?;
+
+        let contract_name = contract_metadata.contract.read().name.clone();
+
+        debug_log(&format!(
+            "[ERC1967] SUCCESS! Resolved via implementation contract: {} at {:?}, function: {}",
+            contract_name, impl_address, signature
+        ));
+
+        Some(DecodedFunction::from_implementation(
+            signature,
+            contract_name,
+            impl_address,
+        ))
+    }
+
+    /// Resolves a function selector for a potentially proxy contract.
+    ///
+    /// This method implements the resolution algorithm:
+    /// 1. First, try to find the selector in the called contract's ABI (handled
+    ///    by caller)
+    /// 2. If not found, try ERC-1967 implementation slot detection
+    /// 3. If still not found, fallback to searching all known contracts
+    ///
+    /// Returns a [`DecodedFunction`] with resolution info.
+    pub fn resolve_proxy_selector<S: StateReader + ?Sized>(
+        &mut self,
+        proxy_address: Address,
+        selector: &[u8],
+        state: Option<&S>,
+    ) -> DecodedFunction {
+        debug_log(&format!(
+            "[PROXY] resolve_proxy_selector called for {:?}, selector: {:?}, state available: {}",
+            proxy_address,
+            hex::encode(selector),
+            state.is_some()
+        ));
+
+        // Step 1: Try ERC-1967 resolution if state is available
+        if let Some(state) = state {
+            if let Some(decoded) =
+                self.try_resolve_selector_via_erc1967(proxy_address, selector, state)
+            {
+                debug_log(&format!(
+                    "[PROXY] ERC1967 resolution SUCCEEDED: {}",
+                    decoded.signature
+                ));
+                return decoded;
+            }
+            debug_log("[PROXY] ERC1967 resolution failed, falling back to global search");
+        } else {
+            debug_log("[PROXY] No state available, skipping ERC1967, using fallback");
+        }
+
+        // Step 2: Fallback - search all known contracts
+        let fallback_result = self
+            .contracts_identifier
+            .search_selector_in_all_contracts(selector);
+
+        if let Some(signature) = fallback_result.format_signature() {
+            debug_log(&format!(
+                "[PROXY] Fallback search FOUND: {}",
+                signature
+            ));
+            DecodedFunction::from_fallback(signature)
+        } else {
+            debug_log("[PROXY] Fallback search found nothing, returning unrecognized");
+            DecodedFunction::unrecognized()
+        }
     }
 
     /// Returns the contract and function names for the provided calldata.
@@ -259,6 +404,112 @@ impl ContractDecoder {
         }
     }
 
+    /// Returns the contract identifier and function signature for the provided
+    /// calldata, using ERC-1967 implementation slot detection for proxy
+    /// contracts.
+    ///
+    /// This method is similar to
+    /// [`Self::get_contract_identifier_and_function_signature_for_call`] but
+    /// also accepts an address and state reader for ERC-1967 proxy detection.
+    ///
+    /// When a selector is not found in the called contract's ABI:
+    /// 1. First tries to resolve via ERC-1967 implementation slot
+    /// 2. Falls back to searching all known contracts
+    pub fn get_contract_identifier_and_function_signature_for_call_with_state<S: StateReader + ?Sized>(
+        &mut self,
+        code: &Bytes,
+        calldata: Option<&Bytes>,
+        address: Address,
+        state: &S,
+    ) -> ContractIdentifierAndFunctionSignature {
+        let is_create = calldata.is_none();
+        let bytecode = {
+            self.contracts_identifier
+                .get_bytecode_for_call(code.as_ref(), is_create)
+        };
+
+        let contract = bytecode.map(|bytecode| bytecode.contract.clone());
+        let contract = contract.as_ref().map(|c| c.read());
+
+        let contract_identifier = contract.as_ref().map_or_else(
+            || UNRECOGNIZED_CONTRACT_NAME.to_string(),
+            |c| {
+                c.location.file().map_or_else(
+                    |_| UNRECOGNIZED_CONTRACT_NAME.to_string(),
+                    |file| {
+                        let source_name = &file.read().source_name;
+                        format!("{}:{}", source_name, c.name)
+                    },
+                )
+            },
+        );
+
+        if is_create {
+            ContractIdentifierAndFunctionSignature {
+                contract_identifier,
+                function_signature: None,
+            }
+        } else {
+            match contract {
+                None => ContractIdentifierAndFunctionSignature {
+                    contract_identifier,
+                    function_signature: Some("".to_string()),
+                },
+                Some(contract) => {
+                    let calldata = match calldata {
+                        Some(calldata) => calldata,
+                        None => {
+                            unreachable!("calldata should be Some if is_create is false")
+                        }
+                    };
+
+                    let selector = &calldata.get(..SELECTOR_LEN).unwrap_or(&calldata[..]);
+
+                    let func = contract.get_function_from_selector(selector);
+
+                    let function_signature = match func {
+                        Some(func) => {
+                            let function_name = match func.r#type {
+                                ContractFunctionType::Fallback => {
+                                    FALLBACK_FUNCTION_NAME.to_string()
+                                }
+                                ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
+                                _ => func.name.clone(),
+                            };
+                            let function = alloy_json_abi::Function::try_from(&**func);
+                            if let Ok(function) = function {
+                                let inputs = function
+                                    .inputs
+                                    .iter()
+                                    .map(|param| param.ty.clone())
+                                    .collect::<Vec<_>>()
+                                    .join(",");
+                                format!("{function_name}({inputs})")
+                            } else {
+                                function_name
+                            }
+                        }
+                        None => {
+                            // Selector not found in the called contract's ABI.
+                            // First, try ERC-1967 implementation slot detection.
+                            // Note: We need to drop the contract lock before calling methods
+                            // that may access the contracts_identifier
+                            drop(contract);
+
+                            let decoded = self.resolve_proxy_selector(address, selector, Some(state));
+                            decoded.signature
+                        }
+                    };
+
+                    ContractIdentifierAndFunctionSignature {
+                        contract_identifier,
+                        function_signature: Some(function_signature),
+                    }
+                }
+            }
+        }
+    }
+
     /// Populates the call trace arena with decoded call traces.
     ///
     /// This is done for a whole [`CallTraceArena`] to avoid locking the
@@ -269,14 +520,34 @@ impl ContractDecoder {
         address_to_executed_code: &HashMap<Address, Bytes>,
         precompile_addresses: &HashSet<Address>,
     ) -> Result<(), serde_json::Error> {
-        for node in call_trace_arena.nodes_mut() {
+        debug_log(&format!(
+            "[ARENA] populate_call_trace_arena called with {} nodes (NO STATE - no ERC1967 support)",
+            call_trace_arena.nodes().len()
+        ));
+        for (idx, node) in call_trace_arena.nodes_mut().iter_mut().enumerate() {
             let call_trace = &mut node.trace;
+            let selector_hex = if call_trace.data.len() >= SELECTOR_LEN {
+                hex::encode(&call_trace.data[..SELECTOR_LEN])
+            } else {
+                hex::encode(&call_trace.data[..])
+            };
+
+            debug_log(&format!(
+                "[ARENA] Node {}: addr={:?}, kind={:?}, selector={}, data_len={}",
+                idx,
+                call_trace.address,
+                call_trace.kind,
+                selector_hex,
+                call_trace.data.len()
+            ));
 
             let decoded = if precompile_addresses.contains(&call_trace.address)
                 && let Some(decoded) = foundry_evm_traces::decoder::precompiles::decode(call_trace)
             {
+                debug_log(&format!("[ARENA] Node {}: -> PRECOMPILE", idx));
                 decoded
             } else if call_trace.kind.is_any_create() {
+                debug_log(&format!("[ARENA] Node {}: -> CREATE", idx));
                 let contract_metadata = self
                     .contracts_identifier
                     .get_bytecode_for_call(&call_trace.data, true);
@@ -285,21 +556,33 @@ impl ContractDecoder {
                     .map_or(UNRECOGNIZED_CONTRACT_NAME.to_string(), |metadata| {
                         metadata.contract.read().name.clone()
                     });
+                debug_log(&format!("[ARENA] Node {}: CREATE contract={}", idx, contract_identifier));
 
                 DecodedCallTrace {
                     label: Some(contract_identifier),
                     ..DecodedCallTrace::default()
                 }
             } else {
+                debug_log(&format!("[ARENA] Node {}: -> CALL", idx));
                 let calldata = &call_trace.data;
                 let code = address_to_executed_code
                     .get(&call_trace.address)
                     .unwrap_or_default();
 
+                debug_log(&format!(
+                    "[ARENA] Node {}: code_len={}, has_code_in_map={}",
+                    idx,
+                    code.len(),
+                    address_to_executed_code.contains_key(&call_trace.address)
+                ));
+
                 let contract_metadata =
                     self.contracts_identifier.get_bytecode_for_call(code, false);
 
                 if let Some(contract_metadata) = contract_metadata {
+                    let contract_name = contract_metadata.contract.read().name.clone();
+                    debug_log(&format!("[ARENA] Node {}: matched contract={}", idx, contract_name));
+
                     if let Some(Ok(selector)) = calldata.get(..SELECTOR_LEN).map(Selector::try_from)
                     {
                         let contract = contract_metadata.contract.read();
@@ -307,6 +590,11 @@ impl ContractDecoder {
                         if let Some(function) =
                             contract.get_function_from_selector(selector.as_slice())
                         {
+                            debug_log(&format!(
+                                "[ARENA] Node {}: selector FOUND in contract ABI: {}",
+                                idx,
+                                function.name
+                            ));
                             let abi = alloy_json_abi::Function::try_from(function.as_ref())?;
 
                             let args = if let Some(input_data) = calldata.get(SELECTOR_LEN..)
@@ -339,6 +627,10 @@ impl ContractDecoder {
                         } else {
                             // Selector not found in the called contract's ABI.
                             // Try fallback search across all known contracts.
+                            debug_log(&format!(
+                                "[ARENA] Node {}: selector NOT in contract ABI, trying fallback search",
+                                idx
+                            ));
                             let fallback_result = self
                                 .contracts_identifier
                                 .search_selector_in_all_contracts(selector.as_slice());
@@ -346,8 +638,16 @@ impl ContractDecoder {
                             let decoded_function = if let Some(signature) =
                                 fallback_result.format_signature()
                             {
+                                debug_log(&format!(
+                                    "[ARENA] Node {}: fallback FOUND: {}",
+                                    idx, signature
+                                ));
                                 DecodedFunction::from_fallback(signature)
                             } else {
+                                debug_log(&format!(
+                                    "[ARENA] Node {}: fallback found NOTHING -> unrecognized",
+                                    idx
+                                ));
                                 DecodedFunction::unrecognized()
                             };
 
@@ -367,6 +667,219 @@ impl ContractDecoder {
                                         ))
                                     } else {
                                         // Function was resolved via fallback, show that instead
+                                        Some(format!(
+                                            "call to {} reverted.",
+                                            decoded_function.signature,
+                                        ))
+                                    }
+                                } else {
+                                    Some(revert_msg)
+                                }
+                            } else {
+                                None
+                            };
+
+                            DecodedCallTrace {
+                                label,
+                                return_data,
+                                call_data: Some(DecodedCallData {
+                                    signature: decoded_function.signature,
+                                    args: if calldata.is_empty() {
+                                        Vec::new()
+                                    } else {
+                                        vec![calldata.to_string()]
+                                    },
+                                }),
+                            }
+                        }
+                    } else {
+                        DecodedCallTrace {
+                            label: Some(UNRECOGNIZED_CONTRACT_NAME.to_string()),
+                            return_data: default_return_data(call_trace, &self.revert_decoder),
+                            call_data: if call_trace.data.is_empty() {
+                                None
+                            } else {
+                                Some(DecodedCallData {
+                                    signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
+                                    args: vec![call_trace.data.to_string()],
+                                })
+                            },
+                        }
+                    }
+                } else {
+                    debug_log(&format!(
+                        "[ARENA] Node {}: NO contract metadata matched for this code",
+                        idx
+                    ));
+                    DecodedCallTrace {
+                        label: Some(UNRECOGNIZED_CONTRACT_NAME.to_string()),
+                        return_data: default_return_data(call_trace, &self.revert_decoder),
+                        call_data: if call_trace.data.is_empty() {
+                            None
+                        } else {
+                            Some(DecodedCallData {
+                                signature: "".to_owned(),
+                                args: vec![call_trace.data.to_string()],
+                            })
+                        },
+                    }
+                }
+            };
+
+            call_trace.decoded = Some(Box::new(decoded));
+        }
+        Ok(())
+    }
+
+    /// Populates the call trace arena with decoded call traces, using ERC-1967
+    /// implementation slot detection for proxy contracts.
+    ///
+    /// This is similar to [`Self::populate_call_trace_arena`] but also accepts
+    /// a state reader for ERC-1967 proxy detection. When a selector is not
+    /// found in the called contract's ABI:
+    /// 1. First tries to resolve via ERC-1967 implementation slot
+    /// 2. Falls back to searching all known contracts
+    pub fn populate_call_trace_arena_with_state<S: StateReader + ?Sized>(
+        &mut self,
+        call_trace_arena: &mut CallTraceArena,
+        address_to_executed_code: &HashMap<Address, Bytes>,
+        precompile_addresses: &HashSet<Address>,
+        state: &S,
+    ) -> Result<(), serde_json::Error> {
+        debug_log(&format!(
+            "[ContractDecoder] populate_call_trace_arena_with_state called with {} nodes",
+            call_trace_arena.nodes().len()
+        ));
+        for (idx, node) in call_trace_arena.nodes_mut().iter_mut().enumerate() {
+            let call_trace = &mut node.trace;
+            let selector_hex = if call_trace.data.len() >= SELECTOR_LEN {
+                hex::encode(&call_trace.data[..SELECTOR_LEN])
+            } else {
+                hex::encode(&call_trace.data[..])
+            };
+
+            debug_log(&format!(
+                "[WITH_STATE] Node {}: addr={:?}, kind={:?}, selector={}, data_len={}",
+                idx,
+                call_trace.address,
+                call_trace.kind,
+                selector_hex,
+                call_trace.data.len()
+            ));
+
+            let decoded = if precompile_addresses.contains(&call_trace.address)
+                && let Some(decoded) = foundry_evm_traces::decoder::precompiles::decode(call_trace)
+            {
+                decoded
+            } else if call_trace.kind.is_any_create() {
+                let contract_metadata = self
+                    .contracts_identifier
+                    .get_bytecode_for_call(&call_trace.data, true);
+
+                let contract_identifier = contract_metadata
+                    .map_or(UNRECOGNIZED_CONTRACT_NAME.to_string(), |metadata| {
+                        metadata.contract.read().name.clone()
+                    });
+
+                DecodedCallTrace {
+                    label: Some(contract_identifier),
+                    ..DecodedCallTrace::default()
+                }
+            } else {
+                let calldata = &call_trace.data;
+                let code = address_to_executed_code
+                    .get(&call_trace.address)
+                    .unwrap_or_default();
+
+                debug_log(&format!(
+                    "[WITH_STATE] Node {}: code_len={}, has_code_in_map={}",
+                    idx,
+                    code.len(),
+                    address_to_executed_code.contains_key(&call_trace.address)
+                ));
+
+                let contract_metadata =
+                    self.contracts_identifier.get_bytecode_for_call(code, false);
+
+                if let Some(contract_metadata) = contract_metadata {
+                    let contract_name_preview = contract_metadata.contract.read().name.clone();
+                    debug_log(&format!("[WITH_STATE] Node {}: matched contract={}", idx, contract_name_preview));
+
+                    if let Some(Ok(selector)) = calldata.get(..SELECTOR_LEN).map(Selector::try_from)
+                    {
+                        let contract = contract_metadata.contract.read();
+                        let label = Some(contract.name.clone());
+                        if let Some(function) =
+                            contract.get_function_from_selector(selector.as_slice())
+                        {
+                            debug_log(&format!(
+                                "[WITH_STATE] Node {}: selector FOUND in contract ABI: {}",
+                                idx,
+                                function.name
+                            ));
+                            let abi = alloy_json_abi::Function::try_from(function.as_ref())?;
+
+                            let args = if let Some(input_data) = calldata.get(SELECTOR_LEN..)
+                                && let Ok(args) = abi.abi_decode_input(input_data)
+                            {
+                                args.iter()
+                                    .map(|value| format_value(value, &contract.name))
+                                    .collect()
+                            } else {
+                                Vec::new()
+                            };
+
+                            let call_data = Some(DecodedCallData {
+                                signature: abi.signature(),
+                                args,
+                            });
+
+                            let return_data = decode_function_output(
+                                call_trace,
+                                &abi,
+                                &contract.name,
+                                &self.revert_decoder,
+                            );
+
+                            DecodedCallTrace {
+                                label,
+                                return_data,
+                                call_data,
+                            }
+                        } else {
+                            // Selector not found in the called contract's ABI.
+                            // First, try ERC-1967 implementation slot detection, then fallback.
+                            // Note: We need to drop the contract lock before calling
+                            // resolve_proxy_selector
+                            let contract_name = contract.name.clone();
+                            debug_log(&format!(
+                                "[WITH_STATE] Node {}: selector NOT in contract ABI ({}), calling resolve_proxy_selector for ERC-1967",
+                                idx,
+                                contract_name
+                            ));
+                            drop(contract);
+
+                            let decoded_function = self.resolve_proxy_selector(
+                                call_trace.address,
+                                selector.as_slice(),
+                                Some(state),
+                            );
+
+                            let return_data = if !call_trace.success {
+                                let revert_msg = self
+                                    .revert_decoder
+                                    .decode(&call_trace.output, call_trace.status);
+
+                                if call_trace.output.is_empty()
+                                    || revert_msg.contains("EvmError: Revert")
+                                {
+                                    if decoded_function.signature == UNRECOGNIZED_FUNCTION_NAME {
+                                        Some(format!(
+                                            "unrecognized function selector {selector} for contract {contract_name} ({contract_address}).",
+                                            contract_address = call_trace.address,
+                                        ))
+                                    } else {
+                                        // Function was resolved via ERC-1967 or fallback
                                         Some(format!(
                                             "call to {} reverted.",
                                             decoded_function.signature,

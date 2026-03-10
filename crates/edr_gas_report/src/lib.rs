@@ -12,6 +12,7 @@ use edr_receipt::ExecutionResult;
 use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractIdentifierAndFunctionSignature},
     proxy_detection::detect_proxy_chain,
+    proxy_function_resolver::StateAdapter,
     solidity_stack_trace::{UNRECOGNIZED_CONTRACT_NAME, UNRECOGNIZED_FUNCTION_NAME},
 };
 use edr_state_api::{State, StateError};
@@ -481,11 +482,17 @@ impl FunctionGasReportAndIdentifiers {
 
         let code = code.original_bytes();
 
+        // Use the ERC1967-aware method for better proxy contract function resolution
+        let state_adapter = StateAdapter::new(state);
         let ContractIdentifierAndFunctionSignature {
             contract_identifier,
             function_signature,
-        } = contract_decoder
-            .get_contract_identifier_and_function_signature_for_call(&code, Some(&input));
+        } = contract_decoder.get_contract_identifier_and_function_signature_for_call_with_state(
+            &code,
+            Some(&input),
+            to,
+            &state_adapter,
+        );
 
         if contract_identifier == UNRECOGNIZED_CONTRACT_NAME {
             return Err(FunctionGasReportCreationError::UnrecognizedContract);
