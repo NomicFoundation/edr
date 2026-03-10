@@ -12,6 +12,7 @@ use edr_primitives::{bytecode::opcode::OpCode, Address};
 use crate::{
     build_model::ContractMetadata,
     bytecode_trie::{BytecodeTrie, TrieSearch},
+    proxy_function_resolver::SelectorSearchResult,
 };
 
 /// Returns true if the `last_byte` is placed right when the metadata starts or
@@ -222,6 +223,75 @@ impl ContractsIdentifier {
         }
 
         result
+    }
+
+    /// Searches all known contracts for a function matching the given selector.
+    ///
+    /// This is used as a fallback when the selector is not found in the called
+    /// contract's ABI, e.g., for proxy contracts.
+    ///
+    /// Returns a [`SelectorSearchResult`] containing all matching function
+    /// signatures. Usually there's only one match, but selector collisions
+    /// are theoretically possible.
+    pub fn search_selector_in_all_contracts(&self, selector: &[u8]) -> SelectorSearchResult {
+        let mut signatures = std::collections::HashSet::new();
+
+        // Search through all descendants (all known contracts) in the trie
+        for contract_metadata in &self.trie.descendants {
+            let contract = contract_metadata.contract.read();
+
+            // Check if this contract has a function with the given selector
+            if let Some(function) = contract.get_function_from_selector(selector) {
+                // Build the function signature
+                let function_name = &function.name;
+                if let Ok(abi_function) = alloy_json_abi::Function::try_from(&**function) {
+                    let inputs = abi_function
+                        .inputs
+                        .iter()
+                        .map(|param| param.ty.clone())
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    signatures.insert(format!("{function_name}({inputs})"));
+                } else {
+                    // Fallback to just the function name if we can't build the full signature
+                    signatures.insert(function_name.clone());
+                }
+            }
+        }
+
+        SelectorSearchResult { signatures }
+    }
+
+    /// Searches for a function in a specific contract by bytecode.
+    ///
+    /// This is used when we know the implementation address (e.g., from
+    /// ERC-1967 slots) and want to look up a function in that contract.
+    ///
+    /// Returns the contract metadata and function signature if found.
+    pub fn search_selector_in_bytecode(
+        &mut self,
+        code: &[u8],
+        selector: &[u8],
+    ) -> Option<(Arc<ContractMetadata>, String)> {
+        let contract_metadata = self.get_bytecode_for_call(code, false)?;
+        let contract = contract_metadata.contract.read();
+
+        let function = contract.get_function_from_selector(selector)?;
+        let function_name = &function.name;
+
+        let signature = if let Ok(abi_function) = alloy_json_abi::Function::try_from(&**function) {
+            let inputs = abi_function
+                .inputs
+                .iter()
+                .map(|param| param.ty.clone())
+                .collect::<Vec<_>>()
+                .join(",");
+            format!("{function_name}({inputs})")
+        } else {
+            function_name.clone()
+        };
+
+        Some((contract_metadata.clone(), signature))
     }
 }
 

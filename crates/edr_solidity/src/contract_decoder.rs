@@ -17,6 +17,7 @@ use revm_inspectors::tracing::types::CallTrace;
 
 use super::{
     nested_trace::CreateMessage,
+    proxy_function_resolver::DecodedFunction,
     solidity_stack_trace::{
         FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME,
         UNRECOGNIZED_FUNCTION_NAME,
@@ -233,7 +234,20 @@ impl ContractDecoder {
                                 function_name
                             }
                         }
-                        None => UNRECOGNIZED_FUNCTION_NAME.to_string(),
+                        None => {
+                            // Selector not found in the called contract's ABI.
+                            // Try fallback search across all known contracts.
+                            // Note: We need to drop the contract lock before calling
+                            // search_selector_in_all_contracts
+                            drop(contract);
+                            let fallback_result = self
+                                .contracts_identifier
+                                .search_selector_in_all_contracts(selector);
+
+                            fallback_result
+                                .format_signature()
+                                .unwrap_or_else(|| UNRECOGNIZED_FUNCTION_NAME.to_string())
+                        }
                     };
 
                     ContractIdentifierAndFunctionSignature {
@@ -323,6 +337,20 @@ impl ContractDecoder {
                                 call_data,
                             }
                         } else {
+                            // Selector not found in the called contract's ABI.
+                            // Try fallback search across all known contracts.
+                            let fallback_result = self
+                                .contracts_identifier
+                                .search_selector_in_all_contracts(selector.as_slice());
+
+                            let decoded_function = if let Some(signature) =
+                                fallback_result.format_signature()
+                            {
+                                DecodedFunction::from_fallback(signature)
+                            } else {
+                                DecodedFunction::unrecognized()
+                            };
+
                             let return_data = if !call_trace.success {
                                 let revert_msg = self
                                     .revert_decoder
@@ -331,11 +359,19 @@ impl ContractDecoder {
                                 if call_trace.output.is_empty()
                                     || revert_msg.contains("EvmError: Revert")
                                 {
-                                    Some(format!(
-                                    "unrecognized function selector {selector} for contract {contract_name} ({contract_address}).",
-                                    contract_name = contract.name,
-                                    contract_address = call_trace.address,
-                                ))
+                                    if decoded_function.signature == UNRECOGNIZED_FUNCTION_NAME {
+                                        Some(format!(
+                                            "unrecognized function selector {selector} for contract {contract_name} ({contract_address}).",
+                                            contract_name = contract.name,
+                                            contract_address = call_trace.address,
+                                        ))
+                                    } else {
+                                        // Function was resolved via fallback, show that instead
+                                        Some(format!(
+                                            "call to {} reverted.",
+                                            decoded_function.signature,
+                                        ))
+                                    }
                                 } else {
                                     Some(revert_msg)
                                 }
@@ -347,7 +383,7 @@ impl ContractDecoder {
                                 label,
                                 return_data,
                                 call_data: Some(DecodedCallData {
-                                    signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
+                                    signature: decoded_function.signature,
                                     args: if calldata.is_empty() {
                                         Vec::new()
                                     } else {
