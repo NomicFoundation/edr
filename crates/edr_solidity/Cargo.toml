@@ -35,7 +35,6 @@ serde_json.workspace = true
 strum = { version = "0.26.0", features = ["derive"] }
 semver = { workspace = true, features = ["std"] }
 thiserror.workspace = true
-tracing.workspace = true
 itertools = "0.14.0"
 
 [dev-dependencies]
