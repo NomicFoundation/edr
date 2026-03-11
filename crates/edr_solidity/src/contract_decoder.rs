@@ -386,8 +386,8 @@ impl ContractDecoder {
     /// bytecode and tries to find the function in the implementation's ABI.
     ///
     /// Returns a [`DecodedCallTrace`] with:
-    /// - The resolved function signature with implementation info if found via
-    ///   proxy
+    /// - The resolved function signature with proxy chain info if found via
+    ///   proxy (e.g., "EIP173Proxy>GreetingsRegistry")
     /// - The unrecognized-selector fallback if not resolvable
     fn resolve_via_proxy_chain_or_unrecognized(
         &mut self,
@@ -398,8 +398,6 @@ impl ContractDecoder {
         proxy_chain: &[Address],
         address_to_executed_code: &HashMap<Address, Bytes>,
     ) -> Result<DecodedCallTrace, serde_json::Error> {
-        let label = Some(contract_name.clone());
-
         // Try to resolve via proxy chain if we have one with at least 2 addresses
         // (proxy + implementation)
         if proxy_chain.len() >= 2 {
@@ -431,16 +429,18 @@ impl ContractDecoder {
                             Vec::new()
                         };
 
-                        // Format signature with implementation info:
-                        // "functionName(args) (impl: ImplContractName @ 0x...)"
-                        let signature = format!(
-                            "{} (impl: {} @ {:#x})",
-                            abi.signature(),
-                            impl_contract.name,
-                            impl_address
+                        // Build the proxy chain label: "Proxy1>Proxy2>...>Implementation"
+                        // Start with the first contract name (already known)
+                        let chain_label = self.build_proxy_chain_label(
+                            &contract_name,
+                            proxy_chain,
+                            address_to_executed_code,
                         );
 
-                        let call_data = Some(DecodedCallData { signature, args });
+                        let call_data = Some(DecodedCallData {
+                            signature: abi.signature(),
+                            args,
+                        });
 
                         let return_data = decode_function_output(
                             call_trace,
@@ -450,7 +450,7 @@ impl ContractDecoder {
                         );
 
                         return Ok(DecodedCallTrace {
-                            label,
+                            label: Some(chain_label),
                             return_data,
                             call_data,
                         });
@@ -478,7 +478,7 @@ impl ContractDecoder {
         };
 
         Ok(DecodedCallTrace {
-            label,
+            label: Some(contract_name),
             return_data,
             call_data: Some(DecodedCallData {
                 signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
@@ -489,6 +489,41 @@ impl ContractDecoder {
                 },
             }),
         })
+    }
+
+    /// Builds a proxy chain label from a list of addresses.
+    ///
+    /// Returns a string like "EIP173Proxy>Router>GreetingsRegistry" where each
+    /// contract in the proxy chain is represented by its name, joined by `>`.
+    ///
+    /// If a contract name cannot be resolved for an address, it falls back to
+    /// using the truncated address.
+    fn build_proxy_chain_label(
+        &mut self,
+        first_contract_name: &str,
+        proxy_chain: &[Address],
+        address_to_executed_code: &HashMap<Address, Bytes>,
+    ) -> String {
+        let mut chain_names = vec![first_contract_name.to_string()];
+
+        // Skip the first address (we already have its name) and resolve the rest
+        for &addr in proxy_chain.iter().skip(1) {
+            let name = if let Some(code) = address_to_executed_code.get(&addr) {
+                if let Some(metadata) = self.contracts_identifier.get_bytecode_for_call(code, false)
+                {
+                    metadata.contract.read().name.clone()
+                } else {
+                    // Fallback to truncated address if contract not found
+                    format!("{:#x}", addr)
+                }
+            } else {
+                // Fallback to truncated address if code not found
+                format!("{:#x}", addr)
+            };
+            chain_names.push(name);
+        }
+
+        chain_names.join(">")
     }
 }
 
