@@ -49,6 +49,10 @@ const proxyBuildInfo: Buffer = fs.readFileSync(
   `${__dirname}/data/artifacts/default/ProxyGasReport.json`
 );
 
+const multipleImplBuildInfo: Buffer = fs.readFileSync(
+  `${__dirname}/data/artifacts/default/ProxyMultipleImplementations.json`
+);
+
 const providerConfig = {
   allowBlocksWithSameTimestamp: false,
   allowUnlimitedContractSize: true,
@@ -400,7 +404,10 @@ describe("Gas reports", function () {
 
   describe("proxyChain", function () {
     const proxyTracingConfig: TracingConfigWithBuffers = {
-      buildInfos: [Uint8Array.from(proxyBuildInfo)],
+      buildInfos: [
+        Uint8Array.from(proxyBuildInfo),
+        Uint8Array.from(multipleImplBuildInfo),
+      ],
       ignoreContracts: false,
     };
 
@@ -412,6 +419,14 @@ describe("Gas reports", function () {
     const proxyContracts =
       proxyBuildInfoParsed.output.contracts[
         "project/contracts/ProxyGasReport.sol"
+      ];
+
+    const multipleImplBuildInfoParsed = JSON.parse(
+      multipleImplBuildInfo.toString()
+    );
+    const multipleImplContracts =
+      multipleImplBuildInfoParsed.output.contracts[
+        "project/contracts/ProxyMultipleImplementations.sol"
       ];
 
     beforeEach(async function () {
@@ -616,6 +631,55 @@ describe("Gas reports", function () {
         call.proxyChain[1],
         "project/contracts/ProxyGasReport.sol:Implementation"
       );
+    });
+
+    it.only("multiple implementations in proxyChain are all included", async function () {
+      const impl1Bytecode = multipleImplContracts.Impl1.evm.bytecode.object;
+      const impl2Bytecode = multipleImplContracts.Impl2.evm.bytecode.object;
+
+      const proxyBytecode: string =
+        multipleImplContracts.Proxy.evm.bytecode.object;
+
+      const impl1Address = await deployContract(proxyProvider, impl1Bytecode);
+      const impl2Address = await deployContract(proxyProvider, impl2Bytecode);
+
+      // Deploy Proxy with Impl1 and Impl2 addresses as constructor args
+      const impl1AddrPadded = impl1Address
+        .slice(2)
+        .toLowerCase()
+        .padStart(64, "0");
+
+      const proxy1DeployCode = proxyBytecode + impl1AddrPadded;
+      const proxy1Address = await deployContract(
+        proxyProvider,
+        proxy1DeployCode
+      );
+
+      const impl2AddrPadded = impl2Address
+        .slice(2)
+        .toLowerCase()
+        .padStart(64, "0");
+
+      const proxy2DeployCode = proxyBytecode + impl2AddrPadded;
+      const proxy2Address = await deployContract(
+        proxyProvider,
+        proxy2DeployCode
+      );
+
+      const txHash = await sendTransaction(proxyProvider, {
+        to: proxy1Address,
+        data: "0x901717d1", // one() selector
+        gas: 6_000_000,
+      });
+
+      assert.isDefined(txHash, "Transaction hash should be defined");
+      console.log("Transaction hash:", txHash);
+
+      assert.isDefined(proxyGasReporter.report);
+
+      const utils = await import("node:util");
+      utils.inspect.defaultOptions.depth = 100000;
+      console.log(proxyGasReporter.report);
     });
   });
 });

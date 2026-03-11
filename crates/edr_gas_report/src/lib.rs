@@ -60,6 +60,7 @@ impl GasReport {
         kind: TxKind,
         input: Bytes,
         call_trace_arena: &CallTraceArena,
+        address_to_executed_code: &HashMap<Address, Bytes>,
     ) -> Result<Self, GasReportCreationError> {
         let mut report = GasReport::default();
         report.add(
@@ -69,6 +70,7 @@ impl GasReport {
             kind,
             input,
             call_trace_arena,
+            address_to_executed_code,
         )?;
         Ok(report)
     }
@@ -85,20 +87,20 @@ impl GasReport {
     /// will be returned.
     pub fn add<HaltReasonT: HaltReasonTrait>(
         &mut self,
-        state: &dyn State<Error = StateError>,
         contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
         call_trace_arena: &CallTraceArena,
+        address_to_executed_code: &HashMap<Address, Bytes>,
     ) -> Result<(), GasReportCreationError> {
         match ContractGasReportAndIdentifier::new(
-            state,
             contract_decoder,
             execution_result,
             kind,
             input,
             call_trace_arena,
+            address_to_executed_code,
         ) {
             Ok(ContractGasReportAndIdentifier {
                 contract_identifier,
@@ -112,9 +114,10 @@ impl GasReport {
                 }
             },
             Err(
-                ContractGasReportCreationError::UnrecognizedContract
-                | ContractGasReportCreationError::UnrecognizedFunction,
+                error @ (ContractGasReportCreationError::UnrecognizedContract
+                | ContractGasReportCreationError::UnrecognizedFunction),
             ) => {
+                println!("Couldn't recognize contract or function for gas report, skipping. Error: {error:?}");
                 // Ignore contracts & functions we couldn't recognize for now
             }
             Err(ContractGasReportCreationError::State(state_error)) => {
@@ -309,12 +312,12 @@ pub struct ContractGasReportAndIdentifier {
 impl ContractGasReportAndIdentifier {
     /// Constructs a new instance.
     pub fn new<HaltReasonT: HaltReasonTrait>(
-        state: &dyn State<Error = StateError>,
         contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
         call_trace_arena: &CallTraceArena,
+        address_to_executed_code: &HashMap<Address, Bytes>,
     ) -> Result<Self, ContractGasReportCreationError> {
         if let TxKind::Call(to) = kind {
             let FunctionGasReportAndIdentifiers {
@@ -322,12 +325,12 @@ impl ContractGasReportAndIdentifier {
                 function_signature,
                 report,
             } = FunctionGasReportAndIdentifiers::new(
-                state,
                 contract_decoder,
                 execution_result,
                 to,
                 input,
                 call_trace_arena,
+                address_to_executed_code,
             )?;
 
             let report = ContractGasReport {
@@ -433,9 +436,6 @@ impl DeploymentGasReportAndIdentifiers {
 /// An error that can occur when creating a [`FunctionGasReport`].
 #[derive(Debug, thiserror::Error)]
 pub enum FunctionGasReportCreationError {
-    /// Error caused by the state.
-    #[error(transparent)]
-    State(#[from] StateError),
     /// The contract could not be recognized.
     #[error("Unrecognized contract")]
     UnrecognizedContract,
@@ -464,22 +464,14 @@ pub struct FunctionGasReportAndIdentifiers {
 impl FunctionGasReportAndIdentifiers {
     /// Creates a new instance.
     pub fn new<HaltReasonT: HaltReasonTrait>(
-        state: &dyn State<Error = StateError>,
         contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         to: Address,
         input: Bytes,
         call_trace_arena: &CallTraceArena,
+        address_to_executed_code: &HashMap<Address, Bytes>,
     ) -> Result<Self, FunctionGasReportCreationError> {
-        let code = state
-            .basic(to)?
-            .map_or(Ok(Bytecode::default()), |account_info| {
-                account_info
-                    .code
-                    .map_or_else(|| state.code_by_hash(account_info.code_hash), Ok)
-            })?;
-
-        let code = code.original_bytes();
+        let code = address_to_executed_code.get(&to).cloned().unwrap_or_default();
 
         let ContractIdentifierAndFunctionSignature {
             contract_identifier,
@@ -491,18 +483,26 @@ impl FunctionGasReportAndIdentifiers {
             return Err(FunctionGasReportCreationError::UnrecognizedContract);
         }
 
+        println!(
+            "Recognized contract: {contract_identifier}, function signature: {function_signature:?}"
+        );
+
         if let Some(function_signature) = function_signature {
-            if function_signature == UNRECOGNIZED_FUNCTION_NAME || function_signature.is_empty() {
+            let proxy_chain = resolve_proxy_chain(call_trace_arena, state, contract_decoder);
+
+            println!("Resolved proxy chain: {proxy_chain:?}");
+
+            if proxy_chain.is_none()
+                && (function_signature == UNRECOGNIZED_FUNCTION_NAME
+                    || function_signature.is_empty())
+            {
                 return Err(FunctionGasReportCreationError::UnrecognizedFunction);
             }
-
-            let proxy_chain =
-                resolve_proxy_chain(call_trace_arena, state, contract_decoder).unwrap_or_default();
 
             let report = FunctionGasReport {
                 gas: execution_result.gas_used(),
                 status: execution_result.into(),
-                proxy_chain,
+                proxy_chain: proxy_chain.unwrap_or_default(),
             };
 
             Ok(FunctionGasReportAndIdentifiers {
@@ -529,9 +529,8 @@ fn resolve_proxy_chain(
     }
 
     let chain_addrs = detect_proxy_chain(arena, 0);
-    if chain_addrs.is_empty() {
-        return None;
-    }
+
+    
 
     // All addresses must resolve
     chain_addrs
@@ -551,15 +550,16 @@ fn resolve_proxy_chain(
                 })
                 .ok()?;
 
-            let ContractIdentifierAndFunctionSignature {
-                contract_identifier,
-                ..
-            } = contract_decoder.get_contract_identifier_and_function_signature_for_call(
+            contract_decoder.get_contract_identifier_and_function_signature_for_call(
                 &code.original_bytes(),
                 None,
-            );
-
-            Some(contract_identifier)
+            )
         })
-        .collect::<Option<Vec<_>>>()
+        .collect::<Vec<_>>()
+
+    let Some(last) = chain_addrs.last() else {
+        return None;
+
+    };
+
 }

@@ -235,6 +235,8 @@ describe("Gas report tests", () => {
     const gasReport = testResult.gasReport;
     assert(gasReport !== undefined);
 
+    console.log("Gas report contracts:", gasReport.contracts);
+
     // The OuterProxy should appear with fallback() calls
     const outerProxyReport =
       gasReport.contracts[
@@ -250,6 +252,24 @@ describe("Gas report tests", () => {
       outerFallbackReports !== undefined,
       "fallback should appear in OuterProxy's gas report"
     );
+
+    const implReport =
+      gasReport.contracts[
+        "project/test-contracts/ProxyGasReport.t.sol:Implementation"
+      ];
+    const proxyReport =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Proxy"];
+
+    console.log("OuterProxy functions:", outerProxyReport.functions);
+    console.log("OuterProxy fallback reports:", outerFallbackReports);
+
+    console.log("Proxy functions:", proxyReport.functions);
+    const proxyFallbackReports = proxyReport.functions["fallback()"];
+    console.log("Proxy fallback reports:", proxyFallbackReports);
+
+    console.log("Implementation functions:", implReport.functions);
+    const implFallbackReports = implReport.functions["fallback()"];
+    console.log("Implementation fallback reports:", implFallbackReports);
 
     // All OuterProxy fallback calls should have a 3-entry proxy chain:
     // OuterProxy -> Proxy -> Implementation
@@ -316,5 +336,55 @@ describe("Gas report tests", () => {
     assert.equal(addToAReports.length, 1);
     assert.equal(addToAReports[0].gas, 22_978n);
     assert.equal(addToAReports[0].status, GasReportExecutionStatus.Success);
+  });
+
+  it("MultipleProxyImplementationsTest gas report", async function () {
+    const result = await testContext.runTestsWithStats(
+      "MultipleProxyImplementationsTest",
+      {
+        generateGasReport: true,
+      }
+    );
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    console.log("Gas report contracts:", Object.keys(gasReport.contracts));
+
+    // The test should run successfully, and both proxies should be detected in the gas report with correct proxy chains.
+    const proxy1Report =
+      gasReport.contracts[
+        "project/test-contracts/MultipleProxyImplementations.t.sol:Proxy1"
+      ];
+
+    assert(proxy1Report !== undefined, "Proxy1 should be in gas report");
+
+    const impl1Report =
+      gasReport.contracts[
+        "project/test-contracts/MultipleProxyImplementations.t.sol:Impl1"
+      ];
+    const impl2Report =
+      gasReport.contracts[
+        "project/test-contracts/MultipleProxyImplementations.t.sol:Impl2"
+      ];
+
+    assert(impl1Report !== undefined, "Impl1 should be in gas report");
+    assert(impl2Report !== undefined, "Impl2 should be in gas report");
+
+    console.log("Proxy1 functions:", proxy1Report.functions);
+
+    const proxy1FallbackReports = proxy1Report.functions["fallback()"];
+    assert(
+      proxy1FallbackReports !== undefined,
+      "fallback should appear in Proxy1's gas report"
+    );
+
+    console.log("Proxy1 fallback reports:", proxy1FallbackReports);
+
+    console.log("Impl1 functions:", impl1Report.functions);
+    console.log("Impl2 functions:", impl2Report.functions);
   });
 });
