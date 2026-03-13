@@ -64,7 +64,7 @@ contract Impl2 {
     }
 }
 
-contract MultipleProxyImplementationsTest is Test {
+contract SameProxyDifferentImplementationsTest is Test {
     function test_proxiedCallsToImpl1AndImpl2AreTrackedSeparately() public {
         Impl1 impl1 = new Impl1();
         Impl2 impl2 = new Impl2();
@@ -82,23 +82,25 @@ contract MultipleProxyImplementationsTest is Test {
         // Calling the impl directly works
         impl1.one();
     }
+}
 
-    // function test_proxiedCallsToImpl1AreTrackedSeparatelyWithDifferentProxyChains()
-    //     public
-    // {
-    //     // We use the same impl but different proxy chains
-    //     Impl1 impl1 = new Impl1();
+contract SameImplementationWithDifferentProxyChainsTest is Test {
+    function test_proxiedCallsToImpl1AreTrackedSeparatelyWithDifferentProxyChains()
+        public
+    {
+        // We use the same impl but different proxy chains
+        Impl1 impl1 = new Impl1();
 
-    //     Proxy1 proxy1 = new Proxy1(address(impl1));
-    //     Proxy1 proxy2 = new Proxy1(address(impl1));
+        Proxy1 proxy1 = new Proxy1(address(impl1));
+        Proxy1 proxy2 = new Proxy1(address(impl1));
 
-    //     // We use a proxy in front of Proxy1
-    //     Proxy2 proxy11 = new Proxy2(address(proxy1));
+        // We use a proxy in front of Proxy1
+        Proxy2 proxy11 = new Proxy2(address(proxy1));
 
-    //     Impl1 i1 = Impl1(address(proxy11));
-    //     Impl1 i2 = Impl1(address(proxy2));
+        Impl1 i1 = Impl1(address(proxy11));
+        Impl1 i2 = Impl1(address(proxy2));
 
-    //     i1.one();
-    //     i2.one();
-    // }
+        i1.one();
+        i2.one();
+    }
 }

@@ -49,7 +49,7 @@ use edr_eth::{
     BlockSpec, BlockTag, Eip1898BlockSpec,
 };
 use edr_evm::guaranteed_dry_run_with_inspector;
-use edr_gas_report::{GasReport, SyncOnCollectedGasReportCallback};
+use edr_gas_report::{GasReport, GasReportCreationError, SyncOnCollectedGasReportCallback};
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{
@@ -1536,14 +1536,21 @@ where
                 result.block_and_state.transaction_results.iter(),
                 result.transaction_inspector_data.iter()
             ) {
-                report.add(
-                    &result.block_and_state.state,
+                match report.add(
                     &mut contract_decoder,
                     execution_result,
                     transaction.kind(),
                     transaction.data().clone(),
                     &inspector_data.call_trace_arena,
-                )?;
+                    &inspector_data.address_to_executed_code,
+                ) {
+                    Ok(()) => (),
+                    Err(GasReportCreationError::MissingCode { address }) => 
+                        unreachable!(
+                        "The code for all executed addresses should be available, as we pass the executed code to the contract decoder. Missing code: {address}"
+                    ),
+                    
+                };
             }
 
             callback(report).map_err(ProviderError::OnCollectedGasReportCallback)?;
@@ -2368,14 +2375,19 @@ where
             }) = gas_report_args
             {
                 let mut contract_decoder = contract_decoder.write();
-                let gas_report = GasReport::new(
-                    state,
+                let gas_report = match GasReport::new(
                     &mut contract_decoder,
                     &execution_result.result,
                     kind,
                     input.clone(),
                     &call_trace_arena,
-                )?;
+                    &address_to_executed_code,
+                ) {
+                    Ok(report) => report,
+                    Err(GasReportCreationError::MissingCode { address }) => unreachable!(
+                        "The code for all executed addresses should be available, as we pass the executed code to the contract decoder. Missing code: {address}"
+                    ),
+                };
 
                 callback(gas_report).map_err(ProviderError::OnCollectedGasReportCallback)?;
             }

@@ -2371,7 +2371,7 @@ name = "edr_artifact"
 version = "0.3.8"
 dependencies = [
  "alloy-json-abi",
- "alloy-primitives",
+ "edr_primitives",
  "foundry-compilers",
  "semver 1.0.26",
  "serde",
@@ -3483,7 +3483,6 @@ dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
  "alloy-primitives",
- "comfy-table",
  "derive-where",
  "derive_more 2.0.1",
  "dunce",

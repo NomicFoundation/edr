@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
+import "hardhat/console.sol";
 
 contract Implementation {
     uint256 public value;
@@ -122,5 +123,62 @@ contract ChainedProxyGasReportTest is Test {
     function test_chainedProxyIncrement() public {
         Implementation(address(outerProxy)).increment();
         assertEq(Implementation(address(outerProxy)).value(), 1);
+    }
+}
+
+contract Impl1 {
+    function one() external returns (uint256) {
+        return 1;
+    }
+}
+
+contract Impl2 {
+    function two() external returns (uint256) {
+        return 2;
+    }
+}
+
+contract SameProxyWithDifferentImplementationsTest is Test {
+    function test_proxiedCallsToImpl1AndImpl2AreTrackedSeparately() public {
+        Impl1 impl1 = new Impl1();
+        Impl2 impl2 = new Impl2();
+
+        Proxy proxy1 = new Proxy(address(impl1));
+        Proxy proxy2 = new Proxy(address(impl2));
+
+        Impl1 i1 = Impl1(address(proxy1));
+        Impl2 i2 = Impl2(address(proxy2));
+
+        // Calling the proxied impls
+        i1.one();
+        i2.two();
+
+        // Calling the impl directly works
+        impl1.one();
+    }
+}
+
+contract SameImplementationWithDifferentProxyChainsTest is Test {
+    function test_proxiedCallsToImpl1AreTrackedSeparatelyWithDifferentProxyChains()
+        public
+    {
+        // We use the same impl but different proxy chains
+        Impl1 impl1 = new Impl1();
+
+        Proxy proxy1 = new Proxy(address(impl1));
+        Proxy proxy2 = new Proxy(address(impl1));
+
+        // We use a proxy in front of Proxy1
+        console.log("address impl1: $s", address(impl1));
+        console.log("address proxy1: $s", address(proxy1));
+        console.log("address proxy2: $s", address(proxy2));
+        OuterProxy outerProxy = new OuterProxy(address(proxy1));
+        console.log("address outerProxy: $s", address(outerProxy));
+
+        Impl1 i1 = Impl1(address(outerProxy));
+        Impl1 i2 = Impl1(address(proxy2));
+
+        i1.one();
+        i2.one();
     }
 }

@@ -3,28 +3,32 @@
 //! Detects proxy delegation patterns by identifying DELEGATECALL calls that
 //! forward the same calldata and return the same returndata as the caller.
 
-use edr_primitives::Address;
+use edr_defaults::SELECTOR_LEN;
+use edr_primitives::Selector;
+use foundry_evm_traces::CallTrace;
 use revm_inspectors::tracing::{types::CallKind, CallTraceArena};
 
 /// Detects a proxy delegation chain starting from a given node in the call
 /// trace arena.
 ///
-/// Returns a `Vec<Address>` representing the chain from the outermost proxy to
-/// the final implementation, e.g. `[proxy1, proxy2, ...,  implementation]`.
+/// Returns a `Vec<Address>` representing the chain from the final
+/// implementation to the outermost proxy, e.g. `[implementation, proxyN, ...,
+/// proxy1]`.
+///
+/// This order is chosen to minimise reallocation when building the chain
+/// recursively.
 ///
 /// Returns an empty Vec if the node does not exhibit a proxy pattern.
 ///
 /// A node is considered a proxy if it performs a DELEGATECALL to a child with
 /// the same calldata and the child returns the same returndata.
-pub fn detect_proxy_chain(arena: &CallTraceArena, node_idx: usize) -> Vec<Address> {
+pub fn detect_proxy_chain(arena: &CallTraceArena, node_idx: usize) -> Option<Vec<&CallTrace>> {
     let nodes = arena.nodes();
-    let Some(node) = nodes.get(node_idx) else {
-        return Vec::new();
-    };
+    let node = nodes.get(node_idx)?;
 
     // Only CALL nodes can be proxies (not creates)
     if node.trace.kind.is_any_create() {
-        return Vec::new();
+        return None;
     }
 
     for &child_idx in &node.children {
@@ -36,27 +40,47 @@ pub fn detect_proxy_chain(arena: &CallTraceArena, node_idx: usize) -> Vec<Addres
             continue;
         }
 
-        // Proxy pattern: same calldata forwarded and same returndata returned
-        if child.trace.data != node.trace.data {
-            continue;
-        }
-        if child.trace.output != node.trace.output {
+        if !is_proxy_selector_and_output(&node.trace, &child.trace) {
             continue;
         }
 
         // Found a proxy delegation. Recurse to detect chained proxies.
         let inner_chain = detect_proxy_chain(arena, child_idx);
-        let mut chain = vec![node.trace.address];
-        if inner_chain.is_empty() {
-            // End of chain: child is the implementation
-            chain.push(child.trace.address);
+        let chain = if let Some(mut inner_chain) = inner_chain {
+            inner_chain.push(&node.trace);
+            inner_chain
         } else {
-            chain.extend(inner_chain);
-        }
-        return chain;
+            // End of chain: child is the implementation
+            vec![&child.trace, &node.trace]
+        };
+
+        return Some(chain);
     }
 
-    Vec::new()
+    None
+}
+
+/// Checks whether the child trace's function selector and returndata matches
+/// the parent trace, indicating a potential proxy delegation.
+pub fn is_proxy_selector_and_output(parent_trace: &CallTrace, child_trace: &CallTrace) -> bool {
+    if child_trace.output != parent_trace.output {
+        return false;
+    }
+
+    let Some(Ok(parent_selector)) = parent_trace
+        .data
+        .get(..SELECTOR_LEN)
+        .map(Selector::try_from)
+    else {
+        return false;
+    };
+
+    let Some(Ok(child_selector)) = child_trace.data.get(..SELECTOR_LEN).map(Selector::try_from)
+    else {
+        return false;
+    };
+
+    parent_selector == child_selector
 }
 
 #[cfg(test)]
@@ -108,7 +132,7 @@ mod tests {
             vec![],
         )]);
         let chain = detect_proxy_chain(&arena, 0);
-        assert!(chain.is_empty());
+        assert!(chain.is_none());
     }
 
     #[test]
@@ -128,8 +152,11 @@ mod tests {
             ),
             (CallKind::DelegateCall, impl_addr, calldata, output, vec![]),
         ]);
+        let proxy_call = &arena.nodes()[0].trace;
+        let impl_call = &arena.nodes()[1].trace;
+
         let chain = detect_proxy_chain(&arena, 0);
-        assert_eq!(chain, vec![proxy_addr, impl_addr]);
+        assert_eq!(chain, Some(vec![impl_call, proxy_call]));
     }
 
     #[test]
@@ -157,8 +184,12 @@ mod tests {
             ),
             (CallKind::DelegateCall, impl_addr, calldata, output, vec![]),
         ]);
+        let proxy1_call = &arena.nodes()[0].trace;
+        let proxy2_call = &arena.nodes()[1].trace;
+        let impl_call = &arena.nodes()[2].trace;
+
         let chain = detect_proxy_chain(&arena, 0);
-        assert_eq!(chain, vec![proxy1, proxy2, impl_addr]);
+        assert_eq!(chain, Some(vec![impl_call, proxy2_call, proxy1_call]));
     }
 
     #[test]
@@ -180,7 +211,7 @@ mod tests {
             ),
         ]);
         let chain = detect_proxy_chain(&arena, 0);
-        assert!(chain.is_empty());
+        assert!(chain.is_none());
     }
 
     #[test]
@@ -206,6 +237,6 @@ mod tests {
             ),
         ]);
         let chain = detect_proxy_chain(&arena, 0);
-        assert!(chain.is_empty());
+        assert!(chain.is_none());
     }
 }

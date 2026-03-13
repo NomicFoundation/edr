@@ -156,6 +156,9 @@ describe("Gas report tests", () => {
   });
 
   it("ProxyGasReportTest gas report", async function () {
+    const utils = await import("node:util");
+    utils.inspect.defaultOptions.depth = 100000;
+
     const result = await testContext.runTestsWithStats("ProxyGasReportTest", {
       generateGasReport: true,
     });
@@ -165,6 +168,8 @@ describe("Gas report tests", () => {
 
     const gasReport = testResult.gasReport;
     assert(gasReport !== undefined);
+
+    console.log("Gas report contracts:", gasReport.contracts);
 
     // The Proxy contract should appear in the gas report
     const proxyReport =
@@ -338,9 +343,9 @@ describe("Gas report tests", () => {
     assert.equal(addToAReports[0].status, GasReportExecutionStatus.Success);
   });
 
-  it("MultipleProxyImplementationsTest gas report", async function () {
+  it("SameProxyWithDifferentImplementationsTest gas report", async function () {
     const result = await testContext.runTestsWithStats(
-      "MultipleProxyImplementationsTest",
+      "SameProxyWithDifferentImplementationsTest",
       {
         generateGasReport: true,
       }
@@ -352,39 +357,186 @@ describe("Gas report tests", () => {
     const gasReport = testResult.gasReport;
     assert(gasReport !== undefined);
 
-    console.log("Gas report contracts:", Object.keys(gasReport.contracts));
-
-    // The test should run successfully, and both proxies should be detected in the gas report with correct proxy chains.
     const proxy1Report =
-      gasReport.contracts[
-        "project/test-contracts/MultipleProxyImplementations.t.sol:Proxy1"
-      ];
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Proxy"];
 
     assert(proxy1Report !== undefined, "Proxy1 should be in gas report");
-
-    const impl1Report =
-      gasReport.contracts[
-        "project/test-contracts/MultipleProxyImplementations.t.sol:Impl1"
-      ];
-    const impl2Report =
-      gasReport.contracts[
-        "project/test-contracts/MultipleProxyImplementations.t.sol:Impl2"
-      ];
-
-    assert(impl1Report !== undefined, "Impl1 should be in gas report");
-    assert(impl2Report !== undefined, "Impl2 should be in gas report");
-
-    console.log("Proxy1 functions:", proxy1Report.functions);
-
-    const proxy1FallbackReports = proxy1Report.functions["fallback()"];
     assert(
-      proxy1FallbackReports !== undefined,
-      "fallback should appear in Proxy1's gas report"
+      proxy1Report.deployments.length === 2,
+      "Proxy1 should have two deployments"
+    );
+    assert(
+      Object.keys(proxy1Report.functions).length === 0,
+      "Proxy1 should have no function calls as they are propagated to the implementations"
     );
 
-    console.log("Proxy1 fallback reports:", proxy1FallbackReports);
+    const impl1Report =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Impl1"];
 
-    console.log("Impl1 functions:", impl1Report.functions);
-    console.log("Impl2 functions:", impl2Report.functions);
+    assert(impl1Report !== undefined, "Impl1 should be in gas report");
+    assert(
+      impl1Report.deployments.length === 1,
+      "Impl1 should have one deployment"
+    );
+
+    const impl1Functions = impl1Report.functions;
+    assert(
+      Object.keys(impl1Functions).length === 1,
+      `Impl1 should have one function, got ${Object.keys(impl1Functions)}`
+    );
+
+    const oneFuncReport = impl1Functions["one()"];
+    assert(
+      oneFuncReport !== undefined,
+      "one() function should be in Impl1's gas report"
+    );
+    assert(
+      oneFuncReport.length === 2,
+      "one() function should have two calls in Impl1's gas report"
+    );
+
+    const oneFuncReportForProxyCall = oneFuncReport.find((report) =>
+      report.proxyChain.some((proxy) => proxy.includes(":Proxy"))
+    );
+
+    assert(
+      oneFuncReportForProxyCall !== undefined,
+      "one() function should have a call with Proxy in the proxy chain"
+    );
+    assert(
+      oneFuncReportForProxyCall.proxyChain.length === 2,
+      "Proxy call should have a 2-entry proxy chain"
+    );
+
+    const oneFuncReportForDirectCall = oneFuncReport.find(
+      (report) => report.proxyChain.length === 0
+    );
+    assert(
+      oneFuncReportForDirectCall !== undefined,
+      "one() function should have a direct call without proxy chain"
+    );
+
+    assert(
+      oneFuncReportForProxyCall.gas > oneFuncReportForDirectCall.gas,
+      "Proxy call should have higher gas than direct call"
+    );
+
+    const impl2Report =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Impl2"];
+
+    assert(impl2Report !== undefined, "Impl2 should be in gas report");
+    assert(
+      impl2Report.deployments.length === 1,
+      "Impl2 should have one deployment"
+    );
+
+    const impl2Functions = impl2Report.functions;
+    assert(
+      Object.keys(impl2Functions).length === 1,
+      `Impl2 should have one function, got ${Object.keys(impl2Functions)}`
+    );
+
+    const twoFuncReport = impl2Functions["two()"];
+    assert(
+      twoFuncReport !== undefined,
+      "two() function should be in Impl2's gas report"
+    );
+    assert(
+      twoFuncReport.length === 1,
+      "two() function should have one call in Impl2's gas report"
+    );
+  });
+
+  it("SameImplementationWithDifferentProxyChainsTest gas report", async function () {
+    const utils = await import("node:util");
+    utils.inspect.defaultOptions.depth = 100000;
+
+    const result = await testContext.runTestsWithStats(
+      "SameImplementationWithDifferentProxyChainsTest",
+      {
+        generateGasReport: true,
+      }
+    );
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    console.log("Gas report contracts:", gasReport.contracts);
+
+    const proxy1Report =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Proxy"];
+
+    assert(proxy1Report !== undefined, "Proxy should be in gas report");
+    assert(
+      proxy1Report.deployments.length === 2,
+      "Proxy should have two deployments"
+    );
+    assert(
+      Object.keys(proxy1Report.functions).length === 0,
+      "Proxy should have no function calls as they are propagated to the implementations"
+    );
+
+    const impl1Report =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Impl1"];
+
+    assert(impl1Report !== undefined, "Impl1 should be in gas report");
+    assert(
+      impl1Report.deployments.length === 1,
+      "Impl1 should have one deployment"
+    );
+
+    const impl1Functions = impl1Report.functions;
+    assert(
+      Object.keys(impl1Functions).length === 1,
+      `Impl1 should have one function, got ${Object.keys(impl1Functions)}`
+    );
+
+    const oneFuncReport = impl1Functions["one()"];
+    assert(
+      oneFuncReport !== undefined,
+      "one() function should be in Impl1's gas report"
+    );
+    assert(
+      oneFuncReport.length === 2,
+      "one() function should have two calls in Impl1's gas report"
+    );
+
+    const oneFuncReportWithSingleProxy = oneFuncReport.find(
+      (report) => report.proxyChain.length === 2
+    );
+
+    assert(
+      oneFuncReportWithSingleProxy !== undefined,
+      "one() function should have a call with only Proxy1 in the proxy chain"
+    );
+    assert(
+      oneFuncReportWithSingleProxy.proxyChain.length === 2,
+      "Proxy call should have a 2-entry proxy chain"
+    );
+
+    const oneFuncReportWithTwoProxies = oneFuncReport.find(
+      (report) => report.proxyChain.length === 3
+    );
+
+    assert(
+      oneFuncReportWithTwoProxies !== undefined,
+      "one() function should have a call with both Proxy1 and Proxy2 in the proxy chain"
+    );
+    assert(
+      oneFuncReportWithTwoProxies.proxyChain.length === 3,
+      "Proxy call should have a 3-entry proxy chain"
+    );
+    assert(
+      oneFuncReportWithTwoProxies.proxyChain[0].includes("Proxy2") &&
+        oneFuncReportWithTwoProxies.proxyChain[1].includes("Proxy1"),
+      "Expected proxy chain to include both Proxy1 and Proxy2"
+    );
+    assert(
+      oneFuncReportWithTwoProxies.gas > oneFuncReportWithSingleProxy.gas,
+      "Call with two proxies should have higher gas than call with one proxy"
+    );
   });
 });
