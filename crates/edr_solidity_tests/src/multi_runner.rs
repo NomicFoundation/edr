@@ -443,7 +443,7 @@ impl<
                     }
                 }
                 // Clear memory.
-                result.gas_report_traces = Vec::default();
+                result.gas_report_traces.clear();
             }
         }
         debug!(duration=?r.duration, "executed all tests in contract");

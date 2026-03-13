@@ -1,9 +1,6 @@
 //! Gas reports.
 
-use std::{
-    collections::{BTreeMap, HashSet},
-    ops::Deref,
-};
+use std::{collections::BTreeMap, ops::Deref};
 
 use edr_common::calc;
 use edr_gas_report::{
@@ -24,33 +21,12 @@ use crate::{
 /// Represents the gas report for a set of contracts.
 #[derive(Clone, Debug, Default)]
 pub struct GasReport {
-    /// Whether to report any contracts.
-    report_any: bool,
-    /// Contracts to generate the report for.
-    report_for: HashSet<String>,
-    /// Contracts to ignore when generating the report.
-    ignore: HashSet<String>,
     /// All contracts that were analyzed grouped by their identifier
     /// ``test/Counter.t.sol:CounterTest``
     pub contracts: BTreeMap<String, ContractInfo>,
 }
 
 impl GasReport {
-    pub fn new(
-        report_for: impl IntoIterator<Item = String>,
-        ignore: impl IntoIterator<Item = String>,
-    ) -> Self {
-        let report_for = report_for.into_iter().collect::<HashSet<_>>();
-        let ignore = ignore.into_iter().collect::<HashSet<_>>();
-        let report_any = report_for.is_empty() || report_for.contains("*");
-        Self {
-            report_any,
-            report_for,
-            ignore,
-            ..Default::default()
-        }
-    }
-
     /// Analyzes the given traces and generates a gas report.
     pub async fn analyze(
         &mut self,
