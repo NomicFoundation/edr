@@ -10,7 +10,7 @@ use edr_solidity_tests::{
     multi_runner::SolidityTestsRunResult,
     result::{SuiteResult, TestStatus},
 };
-use foundry_evm::traces::TraceKind;
+use foundry_evm::traces::SetupTraceKind;
 
 use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT, TEST_DATA_PARIS};
 
@@ -755,31 +755,37 @@ async fn test_trace() {
 
     // TODO: This trace test is very basic - it is probably a good candidate for
     // snapshot testing.
-    for (_, SuiteResult { test_results, .. }) in suite_result {
+    for (
+        test_suite_name,
+        SuiteResult {
+            setup_traces,
+            test_results,
+            ..
+        },
+    ) in suite_result
+    {
+        let deployment_traces = setup_traces
+            .iter()
+            .filter(|(kind, _)| *kind == SetupTraceKind::Deployment);
+
+        assert_eq!(
+            deployment_traces.count(),
+            12, // includes libraries
+            "Test {test_suite_name} did not have exactly 12 deployment traces."
+        );
+
+        let setup_traces = setup_traces
+            .iter()
+            .filter(|(kind, _)| *kind == SetupTraceKind::Setup);
+
+        assert!(
+            setup_traces.count() <= 1,
+            "Test suite {test_suite_name} had more than 1 setup trace."
+        );
+
         for (test_name, result) in test_results {
-            let deployment_traces = result
-                .traces
-                .iter()
-                .filter(|(kind, _)| *kind == TraceKind::Deployment);
-            let setup_traces = result
-                .traces
-                .iter()
-                .filter(|(kind, _)| *kind == TraceKind::Setup);
-            let execution_traces = result
-                .traces
-                .iter()
-                .filter(|(kind, _)| *kind == TraceKind::Execution);
             assert_eq!(
-                deployment_traces.count(),
-                12, // includes libraries
-                "Test {test_name} did not have exactly 12 deployment trace."
-            );
-            assert!(
-                setup_traces.count() <= 1,
-                "Test {test_name} had more than 1 setup trace."
-            );
-            assert_eq!(
-                execution_traces.count(),
+                result.execution_traces.len(),
                 1,
                 "Test {test_name} did not not have exactly 1 execution trace."
             );

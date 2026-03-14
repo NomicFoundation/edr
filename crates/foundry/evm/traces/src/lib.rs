@@ -38,7 +38,9 @@ pub mod decoder;
 pub use decoder::{CallTraceDecoder, CallTraceDecoderBuilder};
 use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 
-pub type Traces = Vec<(TraceKind, SparsedTraceArena)>;
+pub type SetupTraces = Vec<SetupTrace>;
+
+pub type SetupTrace = (SetupTraceKind, SparsedTraceArena);
 
 /// Trace arena keeping track of ignored trace items.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -226,13 +228,12 @@ pub fn render_trace_arena(arena: &CallTraceArena) -> String {
 
 /// Specifies the kind of trace.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TraceKind {
+pub enum SetupTraceKind {
     Deployment,
     Setup,
-    Execution,
 }
 
-impl TraceKind {
+impl SetupTraceKind {
     /// Returns `true` if the trace kind is [`Deployment`].
     ///
     /// [`Deployment`]: TraceKind::Deployment
@@ -247,14 +248,6 @@ impl TraceKind {
     #[must_use]
     pub fn is_setup(self) -> bool {
         matches!(self, Self::Setup)
-    }
-
-    /// Returns `true` if the trace kind is [`Execution`].
-    ///
-    /// [`Execution`]: TraceKind::Execution
-    #[must_use]
-    pub fn is_execution(self) -> bool {
-        matches!(self, Self::Execution)
     }
 }
 
