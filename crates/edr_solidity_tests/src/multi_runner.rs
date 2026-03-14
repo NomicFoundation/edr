@@ -424,11 +424,9 @@ impl<
                         .map(|(k, v)| (*k, v.clone())),
                 );
 
+                // Re-execute setup traces to collect identities of deployed contracts.
                 for (_, arena) in &mut r.setup_traces {
                     decoder.identify(arena, &mut trace_identifier);
-                    tokio::task::block_in_place(|| {
-                        handle.block_on(decode_trace_arena(arena, &decoder));
-                    });
                 }
 
                 for arena in &mut result.execution_traces {
@@ -449,8 +447,7 @@ impl<
                     for trace in &result.gas_report_traces {
                         decoder.clear_addresses();
 
-                        // Re-execute setup and deployment traces to collect identities created in
-                        // setUp and constructor.
+                        // Re-execute setup traces to collect identities of deployed contracts.
                         for (_, arena) in &r.setup_traces {
                             decoder.identify(arena, &mut trace_identifier);
                         }
