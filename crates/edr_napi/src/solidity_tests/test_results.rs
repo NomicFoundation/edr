@@ -78,7 +78,14 @@ impl SuiteResult {
             test_results: suite_result
                 .test_results
                 .into_iter()
-                .map(|(name, test_result)| TestResult::new(name, test_result, include_traces))
+                .map(|(name, test_result)| {
+                    TestResult::new(
+                        name,
+                        test_result,
+                        &suite_result.setup_traces,
+                        include_traces,
+                    )
+                })
                 .collect(),
             warnings: suite_result.warnings,
         }
@@ -118,7 +125,7 @@ pub struct TestResult {
     pub value_snapshot_groups: Option<Vec<ValueSnapshotGroup>>,
 
     stack_trace_result: Option<Arc<SolidityTestStackTraceResult<String>>>,
-    call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
+    call_trace_arenas: Vec<SparsedTraceArena>,
 }
 
 /// The stack trace result
@@ -221,8 +228,7 @@ impl TestResult {
     pub fn call_traces(&self) -> Vec<CallTrace> {
         self.call_trace_arenas
             .iter()
-            .filter(|(k, _)| *k != traces::TraceKind::Deployment)
-            .map(|(_, a)| CallTrace::from_arena_node(&a.resolve_arena(), 0))
+            .map(|arena| CallTrace::from_arena_node(&arena.resolve_arena(), 0))
             .collect()
     }
 }
@@ -231,6 +237,7 @@ impl TestResult {
     fn new(
         name: String,
         test_result: edr_solidity_tests::result::TestResult<String>,
+        setup_traces: &edr_solidity_tests::traces::SetupTraces,
         include_traces: IncludeTraces,
     ) -> Self {
         let include_trace = include_traces == IncludeTraces::All
@@ -319,9 +326,14 @@ impl TestResult {
             ),
             stack_trace_result: test_result.stack_trace_result.map(Arc::new),
             call_trace_arenas: if include_trace {
-                test_result.traces
+                setup_traces
+                    .iter()
+                    .filter(|(k, _)| *k != traces::SetupTraceKind::Deployment)
+                    .map(|(_, arena)| arena.clone())
+                    .chain(test_result.execution_traces)
+                    .collect()
             } else {
-                vec![]
+                Vec::new()
             },
         }
     }
