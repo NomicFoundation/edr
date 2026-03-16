@@ -236,7 +236,7 @@ pub enum SetupTraceKind {
 impl SetupTraceKind {
     /// Returns `true` if the trace kind is [`Deployment`].
     ///
-    /// [`Deployment`]: TraceKind::Deployment
+    /// [`Deployment`]: SetupTraceKind::Deployment
     #[must_use]
     pub fn is_deployment(self) -> bool {
         matches!(self, Self::Deployment)
@@ -244,7 +244,7 @@ impl SetupTraceKind {
 
     /// Returns `true` if the trace kind is [`Setup`].
     ///
-    /// [`Setup`]: TraceKind::Setup
+    /// [`Setup`]: SetupTraceKind::Setup
     #[must_use]
     pub fn is_setup(self) -> bool {
         matches!(self, Self::Setup)
