@@ -394,16 +394,16 @@ impl<
             let mut decoder = CallTraceDecoderBuilder::new().build();
             let mut trace_identifier = TraceIdentifiers::new().with_local(&self.known_contracts);
 
-            // Setup traces are shared across all tests in the suite, so analyze them only
-            // once.
-            if let Some(gas_report) = gas_report.as_mut() {
-                for (_, arena) in &mut r.setup_traces {
-                    decoder.identify(arena, &mut trace_identifier);
-                    tokio::task::block_in_place(|| {
-                        handle.block_on(decode_trace_arena(arena, &decoder));
-                    });
-                }
+            // Setup traces are shared across all tests in the suite, so decode and analyze
+            // them only once.
+            for (_, arena) in &mut r.setup_traces {
+                decoder.identify(arena, &mut trace_identifier);
+                tokio::task::block_in_place(|| {
+                    handle.block_on(decode_trace_arena(arena, &decoder));
+                });
+            }
 
+            if let Some(gas_report) = gas_report.as_mut() {
                 tokio::task::block_in_place(|| {
                     handle.block_on(
                         gas_report.analyze(r.setup_traces.iter().map(|(_, a)| &a.arena), &decoder),
