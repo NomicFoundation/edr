@@ -19,7 +19,6 @@ foundry-cheatcodes.workspace = true
 foundry-compilers = { workspace = true }
 foundry-evm.workspace = true
 
-comfy-table = "7"
 derive_more.workspace = true
 derive-where.workspace = true
 dunce.workspace = true
