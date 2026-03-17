@@ -107,10 +107,9 @@ impl GasReport {
                 }
             },
             Err(
-                error @ (ContractGasReportCreationError::UnrecognizedContract
-                | ContractGasReportCreationError::UnrecognizedFunction),
+                ContractGasReportCreationError::UnrecognizedContract
+                | ContractGasReportCreationError::UnrecognizedFunction,
             ) => {
-                println!("Couldn't recognize contract or function for gas report, skipping. Error: {error:?}");
                 // Ignore contracts & functions we couldn't recognize for now
             }
             Err(ContractGasReportCreationError::MissingCode { address }) => {
