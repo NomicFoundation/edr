@@ -29,7 +29,7 @@ pub type EvmTrieState = HashMap<Address, BasicAccount>;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait State {
     /// Combinatorial state error.
-    type Error;
+    type Error: Send + Sync + 'static;
 
     /// Get basic account information.
     fn basic(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error>;

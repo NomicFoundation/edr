@@ -3036,6 +3036,7 @@ fn create_forked_blockchain_and_state<
                     nonce: account_override.nonce.unwrap_or(remote_account.nonce),
                     code_hash,
                     code,
+                    account_id: None,
                 };
 
                 // TODO: Add support for overriding the storage
@@ -3045,6 +3046,7 @@ fn create_forked_blockchain_and_state<
                 }
 
                 let account = Account {
+                    original_info: Box::new(info.clone()),
                     info,
                     // TODO: Add support for overriding the storage
                     // TODO: https://github.com/NomicFoundation/edr/issues/911
@@ -3167,9 +3169,11 @@ fn create_local_blockchain_and_state<
                 nonce: account_override.nonce.unwrap_or(0),
                 code_hash,
                 code: account_override.code.clone(),
+                account_id: None,
             };
 
             let account = Account {
+                original_info: Box::new(info.clone()),
                 info,
                 storage: account_override
                     .storage

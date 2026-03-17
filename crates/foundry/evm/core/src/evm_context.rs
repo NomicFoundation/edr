@@ -190,6 +190,7 @@ impl
         env: EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()>,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT> {
+        let hardfork = env.cfg.spec;
         let context = revm::Context {
             tx: env.tx,
             block: env.block,
@@ -203,7 +204,7 @@ impl
         Evm::new_with_inspector(
             context,
             inspector,
-            EthInstructions::default(),
+            EthInstructions::new_mainnet_with_spec(hardfork),
             EthPrecompiles::default(),
         )
     }
@@ -718,12 +719,29 @@ where
 }
 
 /// EVM execution environment with chain context.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT> {
     pub block: BlockT,
     pub tx: TxT,
     pub cfg: CfgEnv<HardforkT>,
     pub chain_context: ChainContextT,
+}
+
+impl<
+        BlockT: Default,
+        TxT: Default,
+        HardforkT: Default + Into<revm::primitives::hardfork::SpecId> + Clone,
+        ChainContextT: Default,
+    > Default for EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>
+{
+    fn default() -> Self {
+        Self {
+            block: BlockT::default(),
+            tx: TxT::default(),
+            cfg: CfgEnv::default(),
+            chain_context: ChainContextT::default(),
+        }
+    }
 }
 
 impl<BlockT, TxT, HardforkT, ChainContextT>

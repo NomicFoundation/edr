@@ -446,6 +446,7 @@ mod tests {
                     *address,
                     Account {
                         info: info.clone(),
+                        original_info: Box::new(info.clone()),
                         storage: HashMap::default(),
                         status: AccountStatus::Created | AccountStatus::Touched,
                         transaction_id: 0,

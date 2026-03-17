@@ -4,18 +4,33 @@ use revm::{
 };
 
 /// Helper container type for `block`, `cfg`, and `tx`.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Env<BlockT, TxT, HardforkT> {
     pub block: BlockT,
     pub cfg: CfgEnv<HardforkT>,
     pub tx: TxT,
 }
 
+impl<
+        BlockT: Default,
+        TxT: Default,
+        HardforkT: Default + Into<revm::primitives::hardfork::SpecId> + Clone,
+    > Default for Env<BlockT, TxT, HardforkT>
+{
+    fn default() -> Self {
+        Self {
+            block: BlockT::default(),
+            cfg: CfgEnv::default(),
+            tx: TxT::default(),
+        }
+    }
+}
+
 /// Helper container type for `block`, `cfg`, and `tx`.
 impl<BlockT, TxT, HardforkT> Env<BlockT, TxT, HardforkT>
 where
     BlockT: Default,
-    HardforkT: Default,
+    HardforkT: Default + Into<revm::primitives::hardfork::SpecId> + Clone,
     TxT: Default,
 {
     pub fn default_with_spec_id(spec_id: HardforkT) -> Self {

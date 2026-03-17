@@ -53,16 +53,17 @@ impl BlockChainSpec for L1ChainSpec {
     type Block =
         dyn SyncBlock<Arc<Self::Receipt>, Self::SignedTransaction, Error = Self::FetchReceiptError>;
 
-    type BlockBuilder<'builder, BlockchainErrorT: 'builder + std::error::Error> = EthBlockBuilder<
-        'builder,
-        Self::Receipt,
-        Self::Block,
-        BlockchainErrorT,
-        Self,
-        Self::ExecutionReceiptBuilder,
-        Self,
-        Self::LocalBlock,
-    >;
+    type BlockBuilder<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync> =
+        EthBlockBuilder<
+            'builder,
+            Self::Receipt,
+            Self::Block,
+            BlockchainErrorT,
+            Self,
+            Self::ExecutionReceiptBuilder,
+            Self,
+            Self::LocalBlock,
+        >;
 
     type FetchReceiptError =
         FetchRemoteReceiptError<<Self::Receipt as TryFrom<Self::RpcReceipt>>::Error>;
@@ -107,6 +108,7 @@ impl EvmChainSpec for L1ChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let hardfork = cfg.spec;
         let context = Context {
             block,
             tx: transaction,
@@ -117,7 +119,11 @@ impl EvmChainSpec for L1ChainSpec {
             error: Ok(()),
         };
 
-        let mut evm = Evm::new(context, EthInstructions::default(), precompile_provider);
+        let mut evm = Evm::new(
+            context,
+            EthInstructions::new_mainnet_with_spec(hardfork),
+            precompile_provider,
+        );
 
         evm.replay().map_err(TransactionError::from)
     }
@@ -144,6 +150,7 @@ impl EvmChainSpec for L1ChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let hardfork = cfg.spec;
         let context = Context {
             block,
             // We need to pass a transaction here to properly initialize the context.
@@ -161,7 +168,7 @@ impl EvmChainSpec for L1ChainSpec {
         let mut evm = Evm::new_with_inspector(
             context,
             inspector,
-            EthInstructions::default(),
+            EthInstructions::new_mainnet_with_spec(hardfork),
             precompile_provider,
         );
 
