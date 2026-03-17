@@ -87,7 +87,7 @@ rpath = true
 # Speed up compilation time for dev builds by reducing emitted debug info.
 # NOTE: Debuggers may provide less useful information with this setting.
 # Uncomment this section if you're using a debugger.
-#debug = 1
+debug = 1
 
 [profile.release]
 # Optimized profile for released packages.
