@@ -142,12 +142,11 @@ describe("Gas report tests", () => {
       "SomeCounter contract should be in gas report"
     );
 
-    assert.equal(contractReport.deployments.length, 2);
-    for (const deployment of contractReport.deployments) {
-      assert(deployment.gas > 0n, "Deployment gas should be greater than 0");
-      assert.equal(deployment.size, 510n);
-      assert.equal(deployment.status, GasReportExecutionStatus.Success);
-    }
+    assert.equal(contractReport.deployments.length, 1);
+    const deployment = contractReport.deployments[0];
+    assert(deployment.gas > 0n, "Deployment gas should be greater than 0");
+    assert.equal(deployment.size, 510n);
+    assert.equal(deployment.status, GasReportExecutionStatus.Success);
 
     const incrementReports = contractReport.functions["increment()"];
     assert(
@@ -184,7 +183,7 @@ describe("Gas report tests", () => {
       setNumberReports !== undefined,
       "setNumber(uint256) function should be in gas report"
     );
-    assert.equal(setNumberReports.length, 3);
+    assert.equal(setNumberReports.length, 2);
     for (const report of setNumberReports) {
       assert(
         report.gas > 0n,
@@ -216,8 +215,8 @@ describe("Gas report tests", () => {
 
     assert.equal(
       proxyReport.deployments.length,
-      2,
-      "Proxy should have two deployments (one for each test)"
+      1,
+      "Proxy should have one deployment"
     );
     assert.equal(
       Object.keys(proxyReport.functions).length,
@@ -237,8 +236,8 @@ describe("Gas report tests", () => {
 
     assert.equal(
       implReport.deployments.length,
-      2,
-      "Implementation should have two deployments (one for each test)"
+      1,
+      "Implementation should have one deployment"
     );
     assert.equal(
       Object.keys(implReport.functions).length,
@@ -303,8 +302,8 @@ describe("Gas report tests", () => {
     );
     assert.equal(
       outerProxyReport.deployments.length,
-      2,
-      "OuterProxy should have two deployments (one for each test)"
+      1,
+      "OuterProxy should have one deployment"
     );
 
     const proxyReport =
@@ -312,8 +311,8 @@ describe("Gas report tests", () => {
 
     assert.equal(
       proxyReport.deployments.length,
-      2,
-      "Proxy should have two deployments (one for each test)"
+      1,
+      "Proxy should have one deployment"
     );
 
     const implReport =
@@ -323,8 +322,8 @@ describe("Gas report tests", () => {
 
     assert.equal(
       implReport.deployments.length,
-      2,
-      "Implementation should have two deployments (one for each test)"
+      1,
+      "Implementation should have one deployment"
     );
     assert.equal(
       Object.keys(implReport.functions).length,
@@ -408,6 +407,104 @@ describe("Gas report tests", () => {
     assert.equal(addToAReports.length, 1);
     assert.equal(addToAReports[0].gas, 22_978n);
     assert.equal(addToAReports[0].status, GasReportExecutionStatus.Success);
+  });
+
+  it("setUp() success status in gas report", async function () {
+    const result = await testContext.runTestsWithStats("SetUpSuccessTest", {
+      generateGasReport: true,
+    });
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    const testContractReport =
+      gasReport.contracts[
+        "project/test-contracts/SetUpStatus.t.sol:SetUpSuccessTest"
+      ];
+
+    assert(
+      testContractReport !== undefined,
+      "SetUpSuccessTest contract should be in gas report"
+    );
+
+    assert.equal(
+      testContractReport.deployments.length,
+      1,
+      "SetUpSuccessTest should have one deployment"
+    );
+
+    const testDeployment = testContractReport.deployments[0];
+    assert(testDeployment.gas > 0n, "Deployment gas should be greater than 0");
+    assert.equal(
+      testDeployment.status,
+      GasReportExecutionStatus.Success,
+      "Deployment status should be Success when setUp succeeds"
+    );
+
+    const contractReport =
+      gasReport.contracts["project/test-contracts/SetUpStatus.t.sol:Deploy"];
+
+    assert.equal(
+      contractReport.deployments.length,
+      2,
+      "Deploy should have two deployments (one for each test)"
+    );
+
+    for (const deployment of contractReport.deployments) {
+      assert(deployment.gas > 0n, "Deployment gas should be greater than 0");
+      assert.equal(
+        deployment.status,
+        GasReportExecutionStatus.Success,
+        "Deployment status should be Success when setUp succeeds"
+      );
+    }
+  });
+
+  it("setUp() revert status in gas report", async function () {
+    const result = await testContext.runTestsWithStats("SetUpRevertTest", {
+      generateGasReport: true,
+    });
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    const testContractReport =
+      gasReport.contracts[
+        "project/test-contracts/SetUpStatus.t.sol:SetUpRevertTest"
+      ];
+
+    assert(
+      testContractReport !== undefined,
+      "SetUpRevertTest contract should be in gas report"
+    );
+
+    assert.equal(
+      testContractReport.deployments.length,
+      1,
+      "SetUpRevertTest should have one deployment"
+    );
+
+    const testDeployment = testContractReport.deployments[0];
+    assert(testDeployment.gas > 0n, "Deployment gas should be greater than 0");
+    assert.equal(
+      testDeployment.status,
+      GasReportExecutionStatus.Revert,
+      "Deployment status should be Revert when setUp reverts"
+    );
+
+    const contractReport =
+      gasReport.contracts["project/test-contracts/SetUpStatus.t.sol:Deploy"];
+
+    assert(
+      contractReport === undefined,
+      "Deploy should not be included in the gas report since a revert in setUp causes Solidity test execution to terminate"
+    );
   });
 
   it("SameProxyWithDifferentImplementationsTest gas report", async function () {

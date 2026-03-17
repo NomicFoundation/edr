@@ -124,7 +124,9 @@ impl GasReport {
             let should_include = !name.test_function_kind().is_known();
 
             if is_setup {
-                // Override the deployment status based on the setUp function call.
+                // The `setUp` can only happen for test contracts, which are only deployed once,
+                // so we can safely retrieve the last deployment to override its
+                // status based on the `setUp` function call.
                 if let Some(last_deployment) = contract_info.deployments.last_mut() {
                     last_deployment.status = status;
                 }
