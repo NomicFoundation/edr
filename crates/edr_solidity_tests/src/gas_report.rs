@@ -229,7 +229,7 @@ impl From<GasReport> for edr_gas_report::GasReport {
                                 })
                                 .collect::<Vec<_>>();
 
-                            (sig.clone(), reports)
+                            (sig, reports)
                         })
                     })
                     .collect();
