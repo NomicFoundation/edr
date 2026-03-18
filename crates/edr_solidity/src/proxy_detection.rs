@@ -8,20 +8,20 @@ use edr_primitives::Selector;
 use foundry_evm_traces::CallTrace;
 use revm_inspectors::tracing::{types::CallKind, CallTraceArena};
 
-/// Detects a proxy delegation chain starting from a given node in the call
-/// trace arena.
+/// Tries to detect a proxy delegation chain starting from a given node in the
+/// call trace arena.
 ///
-/// Returns a `Vec<Address>` representing the chain from the final
-/// implementation to the outermost proxy, e.g. `[implementation, proxyN, ...,
-/// proxy1]`.
+/// If a proxy delegation is detected, returns a list representing the chain
+/// from the final implementation to the outermost proxy, e.g. `[implementation,
+/// proxyN, ..., proxy1]`.
 ///
 /// This order is chosen to minimise reallocation when building the chain
 /// recursively.
 ///
-/// Returns an empty Vec if the node does not exhibit a proxy pattern.
+/// Returns `None` if the node does not exhibit a proxy pattern.
 ///
-/// A node is considered a proxy if it performs a DELEGATECALL to a child with
-/// the same calldata and the child returns the same returndata.
+/// A node is considered a proxy if it performs a `DELEGATECALL` to a child and
+/// [`is_proxy_selector_and_output`] returns true.
 pub fn detect_proxy_chain(arena: &CallTraceArena, node_idx: usize) -> Option<Vec<&CallTrace>> {
     let nodes = arena.nodes();
     let node = nodes.get(node_idx)?;

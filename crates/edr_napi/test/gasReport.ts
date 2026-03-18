@@ -666,20 +666,173 @@ describe("Gas reports", function () {
         proxy2DeployCode
       );
 
-      const txHash = await sendTransaction(proxyProvider, {
+      // Call one() via the first proxy, which should delegate to Impl1
+      const txHash1 = await sendTransaction(proxyProvider, {
         to: proxy1Address,
         data: "0x901717d1", // one() selector
         gas: 6_000_000,
       });
-
-      assert.isDefined(txHash, "Transaction hash should be defined");
-      console.log("Transaction hash:", txHash);
+      assert.isDefined(txHash1, "Transaction hash should be defined");
 
       assert.isDefined(proxyGasReporter.report);
+      let gasReport = proxyGasReporter.report!;
 
-      const utils = await import("node:util");
-      utils.inspect.defaultOptions.depth = 100000;
-      console.log(proxyGasReporter.report);
+      assert.equal(
+        Object.keys(gasReport.contracts).length,
+        1,
+        "Gas report should contain exactly one contract (the implementation)"
+      );
+
+      const impl1ViaProxyReport =
+        gasReport.contracts[
+          "project/contracts/ProxyMultipleImplementations.sol:Impl1"
+        ];
+
+      assert.isDefined(
+        impl1ViaProxyReport,
+        "Gas report should contain Impl1 contract"
+      );
+      assert.equal(
+        Object.keys(impl1ViaProxyReport.functions).length,
+        1,
+        "Gas report should attribute calls to Impl1 functions"
+      );
+
+      const impl1ViaProxyFuncReport = impl1ViaProxyReport.functions["one()"];
+      assert.isDefined(
+        impl1ViaProxyFuncReport,
+        "Gas report should contain one() function on Impl1"
+      );
+
+      assert.equal(
+        impl1ViaProxyFuncReport.length,
+        1,
+        "Gas report should contain one call to one() via Proxy1"
+      );
+
+      const impl1ViaProxyCall = impl1ViaProxyFuncReport[0];
+      assert(
+        impl1ViaProxyCall.gas > 0n,
+        "Gas report call should have gas used"
+      );
+      assert.equal(
+        impl1ViaProxyCall.status,
+        GasReportExecutionStatus.Success,
+        "Call to one() via Proxy should have success status"
+      );
+      assert.deepEqual(
+        impl1ViaProxyCall.proxyChain,
+        [
+          "project/contracts/ProxyMultipleImplementations.sol:Proxy",
+          "project/contracts/ProxyMultipleImplementations.sol:Impl1",
+        ],
+        "Call to one() via Proxy should have correct proxyChain"
+      );
+
+      // Call two() via the second proxy to ensure that multiple implementations in the same proxyChain are all included in the report
+      const txHash2 = await sendTransaction(proxyProvider, {
+        to: proxy2Address,
+        data: "0x5fdf05d7", // two() selector
+        gas: 6_000_000,
+      });
+      assert.isDefined(txHash2, "Transaction hash should be defined");
+
+      assert.isDefined(proxyGasReporter.report);
+      gasReport = proxyGasReporter.report!;
+
+      const impl2Report =
+        gasReport.contracts[
+          "project/contracts/ProxyMultipleImplementations.sol:Impl2"
+        ];
+
+      assert.isDefined(impl2Report, "Gas report should contain Impl2 contract");
+      assert.equal(
+        Object.keys(impl2Report.functions).length,
+        1,
+        "Gas report should attribute calls to Impl2 functions"
+      );
+
+      const impl2FuncReport = impl2Report.functions["two()"];
+      assert.isDefined(
+        impl2FuncReport,
+        "Gas report should contain two() function on Impl2"
+      );
+
+      assert.equal(
+        impl2FuncReport.length,
+        1,
+        "Gas report should contain one call to two() via Proxy"
+      );
+
+      const impl2CallViaProxy = impl2FuncReport[0];
+      assert(
+        impl2CallViaProxy.gas > 0n,
+        "Gas report call should have gas used"
+      );
+      assert.equal(
+        impl2CallViaProxy.status,
+        GasReportExecutionStatus.Success,
+        "Call to two() via Proxy should have success status"
+      );
+      assert.deepEqual(
+        impl2CallViaProxy.proxyChain,
+        [
+          "project/contracts/ProxyMultipleImplementations.sol:Proxy",
+          "project/contracts/ProxyMultipleImplementations.sol:Impl2",
+        ],
+        "Call to two() via Proxy should have correct proxyChain"
+      );
+
+      // Call one() directly on Impl1 to ensure that calls to the same function on the same implementation are correctly attributed in the report even if one is via a proxy and one is direct
+      const txHash3 = await sendTransaction(proxyProvider, {
+        to: impl1Address,
+        data: "0x901717d1", // one() selector
+        gas: 6_000_000,
+      });
+      assert.isDefined(txHash3, "Transaction hash should be defined");
+
+      assert.isDefined(proxyGasReporter.report);
+      gasReport = proxyGasReporter.report!;
+
+      const impl1DirectReport =
+        gasReport.contracts[
+          "project/contracts/ProxyMultipleImplementations.sol:Impl1"
+        ];
+
+      assert.isDefined(
+        impl1DirectReport,
+        "Gas report should contain Impl1 contract"
+      );
+      assert.equal(
+        Object.keys(impl1DirectReport.functions).length,
+        1,
+        "Gas report should attribute calls to Impl1 functions"
+      );
+
+      const impl1DirectFuncReport = impl1DirectReport.functions["one()"];
+      assert.isDefined(
+        impl1DirectFuncReport,
+        "Gas report should contain one() function on Impl1"
+      );
+
+      assert.equal(
+        impl1DirectFuncReport.length,
+        1,
+        "Gas report should contain two calls to one(): one via Proxy1 and one direct"
+      );
+
+      const impl1DirectCall = impl1DirectFuncReport[0];
+      assert(impl1DirectCall.gas > 0n, "Gas report call should have gas used");
+      assert.equal(
+        impl1DirectCall.status,
+        GasReportExecutionStatus.Success,
+        "Direct call to one() should have success status"
+      );
+      assert.deepEqual(
+        impl1DirectCall.proxyChain,
+        [],
+        "Direct call to one() should have empty proxyChain"
+      );
     });
   });
 });

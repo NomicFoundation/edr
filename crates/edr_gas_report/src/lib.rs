@@ -527,20 +527,25 @@ impl FunctionGasReportAndIdentifiers {
     }
 }
 
-pub enum ResolveProxyChainError {
+enum ResolveProxyChainError {
     EmptyProxyChain,
     MissingCode { address: Address },
     UnrecognizedContract,
     UnrecognizedFunction,
 }
 
-/// Resolves the proxy chain to a [`FunctionGasReportAndIdentifiers`].
+/// Tries to resolve the provided proxy chain to a
+/// [`FunctionGasReportAndIdentifiers`].
 ///
-/// Returns a `Vec<String>` representing the chain from the outermost proxy to
-/// the final implementation, e.g. `[proxy1, proxy2, ..., implementation]`.
+/// The provided `proxy_chain` should be ordered from the final implementation
+/// to the outermost proxy, e.g. `[implementation, proxyN, ..., proxy1]`.
 ///
-/// Returns `None` if an empty proxy chain was provided or if no code was
-/// provided for an address.
+/// The resolved proxy will contain the contract identifier and function
+/// signature of the final implementation, while the used gas and execution
+/// status will be taken from the original call (i.e. the outermost proxy). The
+/// proxy chain in the returned `FunctionGasReport` will be ordered from the
+/// outermost proxy to the final implementation, e.g. `[proxy1, proxyN, ...,
+/// implementation]`.
 fn resolve_proxy_chain<HaltReasonT: HaltReasonTrait>(
     contract_decoder: &mut ContractDecoder,
     input: &Bytes,

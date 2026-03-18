@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
-import "hardhat/console.sol";
 
 contract Implementation {
     uint256 public value;
