@@ -633,7 +633,7 @@ describe("Gas reports", function () {
       );
     });
 
-    it.only("multiple implementations in proxyChain are all included", async function () {
+    it("multiple implementations in proxyChain are all included", async function () {
       const impl1Bytecode = multipleImplContracts.Impl1.evm.bytecode.object;
       const impl2Bytecode = multipleImplContracts.Impl2.evm.bytecode.object;
 
