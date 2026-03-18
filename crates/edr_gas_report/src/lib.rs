@@ -466,11 +466,6 @@ impl FunctionGasReportAndIdentifiers {
         call_trace_arena: &CallTraceArena,
         address_to_executed_code: &HashMap<Address, Bytes>,
     ) -> Result<Self, FunctionGasReportCreationError> {
-        let code = address_to_executed_code
-            .get(&to)
-            .cloned()
-            .unwrap_or_default();
-
         if let Some(proxy_chain) = detect_proxy_chain(call_trace_arena, 0) {
             match resolve_proxy_chain(
                 contract_decoder,
@@ -494,6 +489,11 @@ impl FunctionGasReportAndIdentifiers {
                 }
             }
         }
+
+        let code = address_to_executed_code
+            .get(&to)
+            .cloned()
+            .unwrap_or_default();
 
         let ContractIdentifierAndFunctionSignature {
             contract_identifier,
