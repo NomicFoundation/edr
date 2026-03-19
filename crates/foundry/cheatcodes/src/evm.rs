@@ -3530,8 +3530,9 @@ fn inner_stop_gas_snapshot<
 }
 
 /// Validates that a snapshot group name or entry name is safe for use as a
-/// filename component. Rejects path separators, `..`, and other special
-/// characters to prevent directory traversal.
+/// filename component. Allows only ASCII alphanumeric characters, hyphens,
+/// underscores, and spaces, which prevents names containing path
+/// separators or traversal sequences (such as `..`) from being used.
 fn validate_snapshot_name(value: &str, is_group_name: bool) -> Result<()> {
     let is_valid = !value.is_empty()
         && value
