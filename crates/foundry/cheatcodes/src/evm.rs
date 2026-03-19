@@ -3532,7 +3532,7 @@ fn inner_stop_gas_snapshot<
 /// Validates that a snapshot group name or entry name is safe for use as a
 /// filename component. Rejects path separators, `..`, and other special
 /// characters to prevent directory traversal.
-fn validate_snapshot_name(value: &str, is_group_name: bool) -> Result {
+fn validate_snapshot_name(value: &str, is_group_name: bool) -> Result<()> {
     let is_valid = !value.is_empty()
         && value
             .chars()
@@ -3544,7 +3544,7 @@ fn validate_snapshot_name(value: &str, is_group_name: bool) -> Result {
         "invalid snapshot {kind}: \"{value}\". Only alphanumeric characters, hyphens, underscores, and spaces are allowed."
     );
 
-    Ok(Vec::default())
+    Ok(())
 }
 
 // Derives the snapshot group and name from the provided group and name or the
