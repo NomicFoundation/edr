@@ -528,19 +528,27 @@ describe("Gas reports", function () {
       assert.isDefined(proxyGasReporter.report);
       const gasReport = proxyGasReporter.report!;
 
+      assert.equal(
+        Object.keys(gasReport.contracts).length,
+        1,
+        "Gas report should contain only one contract"
+      );
+
       // The gas report should attribute the call to the Proxy contract
       // (since that's the address we called)
       const contractReport =
-        gasReport.contracts["project/contracts/ProxyGasReport.sol:Proxy"];
+        gasReport.contracts[
+          "project/contracts/ProxyGasReport.sol:Implementation"
+        ];
       assert.isDefined(
         contractReport,
-        "Gas report should contain Proxy contract"
+        "Gas report should contain Implementation contract"
       );
 
       const func = contractReport.functions["setValue(uint256)"];
       assert.isDefined(
         func,
-        "Gas report should contain setValue function on Proxy"
+        "Gas report should contain setValue function on Implementation"
       );
       assert.equal(func.length, 1);
 
@@ -552,20 +560,13 @@ describe("Gas reports", function () {
       );
       assert(call.gas > 0n, "Proxy call should use gas");
 
-      assert.equal(
-        call.proxyChain.length,
-        2,
+      assert.deepEqual(
+        call.proxyChain,
+        [
+          "project/contracts/ProxyGasReport.sol:Proxy",
+          "project/contracts/ProxyGasReport.sol:Implementation",
+        ],
         "Proxy call should have 2-entry proxyChain"
-      );
-      assert.equal(
-        call.proxyChain[0],
-        "project/contracts/ProxyGasReport.sol:Proxy",
-        "First entry should be the Proxy"
-      );
-      assert.equal(
-        call.proxyChain[1],
-        "project/contracts/ProxyGasReport.sol:Implementation",
-        "Second entry should be the Implementation"
       );
     });
 
@@ -604,32 +605,35 @@ describe("Gas reports", function () {
       assert.isDefined(proxyGasReporter.report);
       const gasReport = proxyGasReporter.report!;
 
+      assert.equal(
+        Object.keys(gasReport.contracts).length,
+        1,
+        "Gas report should contain only one contract"
+      );
+
       const contractReport =
-        gasReport.contracts["project/contracts/ProxyGasReport.sol:Proxy"];
+        gasReport.contracts[
+          "project/contracts/ProxyGasReport.sol:Implementation"
+        ];
       assert.isDefined(
         contractReport,
-        "Gas report should contain Proxy contract"
+        "Gas report should contain Implementation contract"
       );
 
       const func = contractReport.functions["setValue(uint256)"];
       assert.isDefined(
         func,
-        "Gas report should contain setValue function on Proxy"
+        "Gas report should contain setValue function on Implementation"
       );
 
       const call = func[0];
-      assert.equal(
-        call.proxyChain.length,
-        2,
+      assert.deepEqual(
+        call.proxyChain,
+        [
+          "project/contracts/ProxyGasReport.sol:Proxy",
+          "project/contracts/ProxyGasReport.sol:Implementation",
+        ],
         "eth_call proxy should have 2-entry proxyChain"
-      );
-      assert.equal(
-        call.proxyChain[0],
-        "project/contracts/ProxyGasReport.sol:Proxy"
-      );
-      assert.equal(
-        call.proxyChain[1],
-        "project/contracts/ProxyGasReport.sol:Implementation"
       );
     });
 

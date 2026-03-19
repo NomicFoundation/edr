@@ -1545,11 +1545,10 @@ where
                     &inspector_data.address_to_executed_code,
                 ) {
                     Ok(()) => (),
-                    Err(GasReportCreationError::MissingCode { address }) => 
+                    Err(GasReportCreationError::MissingCode { address }) =>
                         unreachable!(
                         "The code for all executed addresses should be available, as we pass the executed code to the contract decoder. Missing code: {address}"
                     ),
-                    
                 };
             }
 
