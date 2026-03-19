@@ -81,6 +81,7 @@ impl GasReport {
             contract_info.deployments.push(DeploymentGasReport {
                 gas: trace.gas_used,
                 size: trace.data.len() as u64,
+                runtime_size: trace.output.len() as u64,
                 status,
             });
         } else if let Some(DecodedCallData { signature, .. }) = decoded().await.call_data {

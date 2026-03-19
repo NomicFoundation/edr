@@ -25,6 +25,7 @@ pub enum GasReportExecutionStatus {
 pub struct DeploymentGasReport {
     pub gas: BigInt,
     pub size: BigInt,
+    pub runtime_size: BigInt,
     pub status: GasReportExecutionStatus,
 }
 
@@ -82,6 +83,7 @@ impl From<edr_gas_report::DeploymentGasReport> for DeploymentGasReport {
         Self {
             gas: BigInt::from(value.gas),
             size: BigInt::from(value.size),
+            runtime_size: BigInt::from(value.runtime_size),
             status: value.status.into(),
         }
     }
