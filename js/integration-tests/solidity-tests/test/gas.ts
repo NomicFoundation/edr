@@ -448,8 +448,9 @@ describe("Gas report tests", () => {
       `Expected size difference of 32 bytes for the additional constructor argument data, got ${longDeploy.size - shortDeploy.size} bytes`
     );
 
-    assert(
-      shortDeploy.runtimeSize == 531n,
+    assert.equal(
+      shortDeploy.runtimeSize,
+      531n,
       `Expected runtimeSize of 531 bytes, got ${shortDeploy.runtimeSize} bytes`
     );
 

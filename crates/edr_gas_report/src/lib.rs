@@ -317,7 +317,12 @@ impl DeploymentGasReportAndIdentifiers {
             ExecutionResult::Success {
                 output: Output::Create(bytes, _),
                 ..
-            } => bytes.len() as u64,
+            } => bytes.len().try_into().unwrap_or_else(|_| {
+                panic!(
+                    "Length should be smaller than `u64::MAX`. Actual: {}",
+                    bytes.len()
+                )
+            }),
             _ => 0,
         };
 
