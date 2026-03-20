@@ -742,6 +742,14 @@ impl<
                 different.then_some(outcome.clone())
             },
         );
+        if let Some(code_coverage) = &mut self.code_coverage {
+            Inspector::<_, EthInterpreter>::call_end(
+                &mut code_coverage.collector,
+                ecx,
+                inputs,
+                outcome,
+            );
+        }
 
         // Record first address that reverted the call.
         if result.is_revert() && self.reverter.is_none() {

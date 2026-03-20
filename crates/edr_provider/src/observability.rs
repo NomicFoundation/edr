@@ -267,6 +267,14 @@ impl<
     }
 
     fn call_end(&mut self, context: &mut ContextT, inputs: &CallInputs, outcome: &mut CallOutcome) {
+        if let Some(code_coverage) = &mut self.code_coverage {
+            Inspector::<_, EthInterpreter>::call_end(
+                &mut code_coverage.collector,
+                context,
+                inputs,
+                outcome,
+            );
+        }
         self.tracing_inspector.call_end(context, inputs, outcome);
     }
 

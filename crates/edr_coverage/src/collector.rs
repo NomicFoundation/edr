@@ -1,6 +1,6 @@
 use edr_chain_spec_evm::{
-    interpreter::{CallInputs, CallOutcome, InputsTr as _, InterpreterTypes, ReturnData as _},
-    ContextTrait, Inspector,
+    interpreter::{CallInputs, CallOutcome, Gas, InstructionResult, InterpreterTypes},
+    ContextTrait, Inspector, InterpreterResult,
 };
 use edr_primitives::{Bytes, HashSet};
 
@@ -9,9 +9,11 @@ use crate::COVERAGE_ADDRESS;
 #[derive(Clone, Debug, Default)]
 pub struct CoverageHitCollector {
     hits: HashSet<Bytes>,
-    /// Stores the return data of the previous call, which is used by
-    /// `returndatacopy` and `returndatasize`.
-    previous_call_return_data: Bytes,
+    /// Stores the output of the previous call so that when an instrumentation
+    /// call is identified, the collector can mimic the previous call's output,
+    /// preventing the instrumentation from interfering with the rest of the
+    /// execution.
+    previous_call_output: Bytes,
 }
 
 impl CoverageHitCollector {
@@ -34,26 +36,23 @@ impl CoverageHitCollector {
 impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT, InterpreterT>
     for CoverageHitCollector
 {
-    fn initialize_interp(
-        &mut self,
-        interp: &mut edr_chain_spec_evm::interpreter::Interpreter<InterpreterT>,
-        _context: &mut ContextT,
-    ) {
-        self.previous_call_return_data = interp.return_data.buffer().clone();
-        println!(
-            "initialize_interp ({:?}): {:?}",
-            interp.input.bytecode_address(),
-            self.previous_call_return_data
-        );
-    }
-
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
-        println!("call: {}", inputs.bytecode_address);
         if inputs.bytecode_address == COVERAGE_ADDRESS {
             self.record_hit(inputs.input.bytes(context));
-        }
 
-        None
+            Some(CallOutcome {
+                result: InterpreterResult {
+                    result: InstructionResult::Return,
+                    output: self.previous_call_output.clone(),
+                    gas: Gas::new(inputs.gas_limit),
+                },
+                memory_offset: inputs.return_memory_offset.clone(),
+                was_precompile_called: false,
+                precompile_call_logs: vec![],
+            })
+        } else {
+            None
+        }
     }
 
     fn call_end(
@@ -62,7 +61,11 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
         _inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
-        println!("call end: {}", _inputs.bytecode_address);
-        outcome.result.output = self.previous_call_return_data.clone();
+        // Note: This also fires for short-circuited coverage calls (via
+        // `inspector.call() -> Some`), writing back the same output we
+        // already stored — effectively a no-op. We intentionally don't
+        // filter those out to keep the code simple.
+        let InterpreterResult { output, .. } = &outcome.result;
+        self.previous_call_output = output.clone();
     }
 }
