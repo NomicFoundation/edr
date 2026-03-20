@@ -40,6 +40,8 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
         if inputs.bytecode_address == COVERAGE_ADDRESS {
             self.record_hit(inputs.input.bytes(context));
 
+            // Short-circuit the call to avoid on-chain execution, replaying
+            // the previous call's output to preserve the returndata buffer.
             Some(CallOutcome {
                 result: InterpreterResult {
                     result: InstructionResult::Return,
@@ -66,6 +68,9 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
         // already stored — effectively a no-op. We intentionally don't
         // filter those out to keep the code simple.
         let InterpreterResult { output, .. } = &outcome.result;
+        // Safe to store unconditionally — the interpreter always overwrites the
+        // returndata buffer from the call outcome's output.
+        // See `EthFrame::return_result` in revm/crates/handler/src/frame.rs.
         self.previous_call_output = output.clone();
     }
 }
