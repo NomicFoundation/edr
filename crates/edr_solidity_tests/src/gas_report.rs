@@ -80,7 +80,22 @@ impl GasReport {
             trace!(contract_name, "adding create gas info");
             contract_info.deployments.push(DeploymentGasReport {
                 gas: trace.gas_used,
-                size: trace.data.len() as u64,
+                size: trace.data.len().try_into().unwrap_or_else(|_| {
+                    panic!(
+                        "Length should be smaller than `u64::MAX`. Actual: {}",
+                        trace.data.len()
+                    )
+                }),
+                runtime_size: if matches!(status, GasReportExecutionStatus::Success) {
+                    trace.output.len().try_into().unwrap_or_else(|_| {
+                        panic!(
+                            "Length should be smaller than `u64::MAX`. Actual: {}",
+                            trace.output.len()
+                        )
+                    })
+                } else {
+                    0
+                },
                 status,
             });
         } else if let Some(DecodedCallData { signature, .. }) = decoded().await.call_data {

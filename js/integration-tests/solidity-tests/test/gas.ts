@@ -140,6 +140,7 @@ describe("Gas report tests", () => {
     assert.equal(contractReport.deployments.length, 1);
     assert(contractReport.deployments[0].gas > 0n);
     assert.equal(contractReport.deployments[0].size, 510n);
+    assert.equal(contractReport.deployments[0].runtimeSize, 481n);
     assert.equal(
       contractReport!.deployments[0].status,
       GasReportExecutionStatus.Success
@@ -302,6 +303,7 @@ describe("Gas report tests", () => {
     assert.equal(contractReport.deployments.length, 1);
     assert(contractReport.deployments[0].gas > 0n);
     assert.equal(contractReport.deployments[0].size, 783n);
+    assert.equal(contractReport.deployments[0].runtimeSize, 754n);
     assert.equal(
       contractReport!.deployments[0].status,
       GasReportExecutionStatus.Success
@@ -413,6 +415,50 @@ describe("Gas report tests", () => {
     assert(
       contractReport === undefined,
       "Deploy should not be included in the gas report since a revert in setUp causes Solidity test execution to terminate"
+    );
+  });
+
+  it("runtimeSize is constant across deployments with different constructor args", async function () {
+    const contractKey = "project/contracts/Greeter.sol:Greeter";
+
+    // Short greeting: ABI args = offset(32) + length(32) + data(32) = 96 bytes
+    const shortResult = await testContext.runTestsWithStats(
+      "RuntimeSizeShortTest",
+      { generateGasReport: true }
+    );
+    const shortReport =
+      shortResult.testResult!.gasReport!.contracts[contractKey];
+    assert(shortReport !== undefined, "Greeter should be in short test report");
+
+    // Long greeting (33 chars): ABI args = offset(32) + length(32) + data(64) = 128 bytes
+    const longResult = await testContext.runTestsWithStats(
+      "RuntimeSizeLongTest",
+      { generateGasReport: true }
+    );
+    const longReport = longResult.testResult!.gasReport!.contracts[contractKey];
+    assert(longReport !== undefined, "Greeter should be in long test report");
+
+    const shortDeploy = shortReport.deployments[0];
+    const longDeploy = longReport.deployments[0];
+
+    // Size includes constructor args, so it differs between deployments (one extra ABI slot for the longer string)
+    assert.equal(
+      longDeploy.size - shortDeploy.size,
+      32n,
+      `Expected size difference of 32 bytes for the additional constructor argument data, got ${longDeploy.size - shortDeploy.size} bytes`
+    );
+
+    assert.equal(
+      shortDeploy.runtimeSize,
+      531n,
+      `Expected runtimeSize of 531 bytes, got ${shortDeploy.runtimeSize} bytes`
+    );
+
+    // runtimeSize must be identical
+    assert.equal(
+      shortDeploy.runtimeSize,
+      longDeploy.runtimeSize,
+      "runtimeSize should be the same regardless of constructor args"
     );
   });
 });
