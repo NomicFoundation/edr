@@ -28,6 +28,7 @@ use crate::{
     compiler::create_models_and_decode_bytecodes,
     contracts_identifier::ContractsIdentifier,
     nested_trace::{NestedTrace, NestedTraceStep},
+    proxy_detection::detect_proxy_chain,
 };
 
 /// Errors that can occur during the decoding of the nested trace.
@@ -255,8 +256,16 @@ impl ContractDecoder {
         address_to_executed_code: &HashMap<Address, Bytes>,
         precompile_addresses: &HashSet<Address>,
     ) -> Result<(), serde_json::Error> {
-        for node in call_trace_arena.nodes_mut() {
+        // Pre-compute all proxy chains (immutable borrow) before mutating nodes.
+        // This is needed because detect_proxy_chain requires immutable access to the
+        // arena, but we need mutable access to update node.trace.decoded.
+        let proxy_chains: Vec<Vec<Address>> = (0..call_trace_arena.nodes().len())
+            .map(|idx| detect_proxy_chain(call_trace_arena, idx))
+            .collect();
+
+        for (idx, node) in call_trace_arena.nodes_mut().iter_mut().enumerate() {
             let call_trace = &mut node.trace;
+            let proxy_chain = &proxy_chains[idx];
 
             let decoded = if precompile_addresses.contains(&call_trace.address)
                 && let Some(decoded) = foundry_evm_traces::decoder::precompiles::decode(call_trace)
@@ -323,38 +332,16 @@ impl ContractDecoder {
                                 call_data,
                             }
                         } else {
-                            let return_data = if !call_trace.success {
-                                let revert_msg = self
-                                    .revert_decoder
-                                    .decode(&call_trace.output, call_trace.status);
-
-                                if call_trace.output.is_empty()
-                                    || revert_msg.contains("EvmError: Revert")
-                                {
-                                    Some(format!(
-                                    "unrecognized function selector {selector} for contract {contract_name} ({contract_address}).",
-                                    contract_name = contract.name,
-                                    contract_address = call_trace.address,
-                                ))
-                                } else {
-                                    Some(revert_msg)
-                                }
-                            } else {
-                                None
-                            };
-
-                            DecodedCallTrace {
-                                label,
-                                return_data,
-                                call_data: Some(DecodedCallData {
-                                    signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
-                                    args: if calldata.is_empty() {
-                                        Vec::new()
-                                    } else {
-                                        vec![calldata.to_string()]
-                                    },
-                                }),
-                            }
+                            // Selector not found in the called contract's ABI.
+                            // Try to resolve via proxy chain detection.
+                            self.resolve_via_proxy_chain_or_unrecognized(
+                                call_trace,
+                                calldata,
+                                &selector,
+                                contract.name.clone(),
+                                proxy_chain,
+                                address_to_executed_code,
+                            )?
                         }
                     } else {
                         DecodedCallTrace {
@@ -389,6 +376,154 @@ impl ContractDecoder {
             call_trace.decoded = Some(Box::new(decoded));
         }
         Ok(())
+    }
+
+    /// Attempts to resolve a function selector via proxy chain detection.
+    ///
+    /// When a selector is not found in the called contract's ABI, this method
+    /// checks if the call trace exhibits a proxy pattern (DELEGATECALL with
+    /// matching selector). If so, it looks up the implementation contract's
+    /// bytecode and tries to find the function in the implementation's ABI.
+    ///
+    /// Returns a [`DecodedCallTrace`] with:
+    /// - The resolved function signature with proxy chain info if found via
+    ///   proxy (e.g., "EIP173Proxy>GreetingsRegistry")
+    /// - The unrecognized-selector fallback if not resolvable
+    fn resolve_via_proxy_chain_or_unrecognized(
+        &mut self,
+        call_trace: &CallTrace,
+        calldata: &Bytes,
+        selector: &Selector,
+        contract_name: String,
+        proxy_chain: &[Address],
+        address_to_executed_code: &HashMap<Address, Bytes>,
+    ) -> Result<DecodedCallTrace, serde_json::Error> {
+        // Try to resolve via proxy chain if we have one with at least 2 addresses
+        // (proxy + implementation)
+        if proxy_chain.len() >= 2 {
+            // Get implementation address (last in chain)
+            let impl_address = *proxy_chain.last().unwrap();
+
+            // Get implementation bytecode
+            if let Some(impl_code) = address_to_executed_code.get(&impl_address) {
+                // Find contract metadata for implementation
+                if let Some(impl_metadata) = self
+                    .contracts_identifier
+                    .get_bytecode_for_call(impl_code, false)
+                {
+                    let impl_contract = impl_metadata.contract.read();
+
+                    // Look up selector in implementation ABI
+                    if let Some(function) =
+                        impl_contract.get_function_from_selector(selector.as_slice())
+                    {
+                        let abi = alloy_json_abi::Function::try_from(function.as_ref())?;
+
+                        let args = if let Some(input_data) = calldata.get(SELECTOR_LEN..)
+                            && let Ok(args) = abi.abi_decode_input(input_data)
+                        {
+                            args.iter()
+                                .map(|value| format_value(value, &impl_contract.name))
+                                .collect()
+                        } else {
+                            Vec::new()
+                        };
+
+                        // Build the proxy chain label: "Proxy1>Proxy2>...>Implementation"
+                        // Start with the first contract name (already known)
+                        let chain_label = self.build_proxy_chain_label(
+                            &contract_name,
+                            proxy_chain,
+                            address_to_executed_code,
+                        );
+
+                        let call_data = Some(DecodedCallData {
+                            signature: abi.signature(),
+                            args,
+                        });
+
+                        let return_data = decode_function_output(
+                            call_trace,
+                            &abi,
+                            &impl_contract.name,
+                            &self.revert_decoder,
+                        );
+
+                        return Ok(DecodedCallTrace {
+                            label: Some(chain_label),
+                            return_data,
+                            call_data,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Fallback: selector not resolved via proxy chain
+        let return_data = if !call_trace.success {
+            let revert_msg = self
+                .revert_decoder
+                .decode(&call_trace.output, call_trace.status);
+
+            if call_trace.output.is_empty() || revert_msg.contains("EvmError: Revert") {
+                Some(format!(
+                    "unrecognized function selector {selector} for contract {contract_name} ({contract_address}).",
+                    contract_address = call_trace.address,
+                ))
+            } else {
+                Some(revert_msg)
+            }
+        } else {
+            None
+        };
+
+        Ok(DecodedCallTrace {
+            label: Some(contract_name),
+            return_data,
+            call_data: Some(DecodedCallData {
+                signature: UNRECOGNIZED_FUNCTION_NAME.to_owned(),
+                args: if calldata.is_empty() {
+                    Vec::new()
+                } else {
+                    vec![calldata.to_string()]
+                },
+            }),
+        })
+    }
+
+    /// Builds a proxy chain label from a list of addresses.
+    ///
+    /// Returns a string like "EIP173Proxy>Router>GreetingsRegistry" where each
+    /// contract in the proxy chain is represented by its name, joined by `>`.
+    ///
+    /// If a contract name cannot be resolved for an address, it falls back to
+    /// using the truncated address.
+    fn build_proxy_chain_label(
+        &mut self,
+        first_contract_name: &str,
+        proxy_chain: &[Address],
+        address_to_executed_code: &HashMap<Address, Bytes>,
+    ) -> String {
+        let mut chain_names = vec![first_contract_name.to_string()];
+
+        // Skip the first address (we already have its name) and resolve the rest
+        for &addr in proxy_chain.iter().skip(1) {
+            let name = if let Some(code) = address_to_executed_code.get(&addr) {
+                if let Some(metadata) = self.contracts_identifier.get_bytecode_for_call(code, false)
+                {
+                    metadata.contract.read().name.clone()
+                } else {
+                    // Fallback to truncated address if contract not found
+                    format!("{:#x}", addr)
+                }
+            } else {
+                // Fallback to truncated address if code not found
+                format!("{:#x}", addr)
+            };
+            chain_names.push(name);
+        }
+
+        chain_names.join(">")
     }
 }
 
