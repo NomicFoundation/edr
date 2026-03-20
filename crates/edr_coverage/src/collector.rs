@@ -60,17 +60,15 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
     fn call_end(
         &mut self,
         _context: &mut ContextT,
-        _inputs: &CallInputs,
+        inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
-        // Note: This also fires for short-circuited coverage calls (via
-        // `inspector.call() -> Some`), writing back the same output we
-        // already stored — effectively a no-op. We intentionally don't
-        // filter those out to keep the code simple.
-        let InterpreterResult { output, .. } = &outcome.result;
-        // Safe to store unconditionally — the interpreter always overwrites the
-        // returndata buffer from the call outcome's output.
-        // See `EthFrame::return_result` in revm/crates/handler/src/frame.rs.
-        self.previous_call_output = output.clone();
+        // Skip coverage calls — their output is already identical to what we stored.
+        if inputs.bytecode_address != COVERAGE_ADDRESS {
+            // Safe to store unconditionally — the interpreter always overwrites the
+            // returndata buffer from the call outcome's output.
+            // See `EthFrame::return_result` in revm/crates/handler/src/frame.rs.
+            self.previous_call_output = outcome.result.output.clone();
+        }
     }
 }
