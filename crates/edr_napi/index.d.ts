@@ -417,6 +417,7 @@ export enum GasReportExecutionStatus {
 export interface DeploymentGasReport {
   gas: bigint
   size: bigint
+  runtimeSize: bigint
   status: GasReportExecutionStatus
 }
 export interface FunctionGasReport {

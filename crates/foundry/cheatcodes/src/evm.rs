@@ -3323,7 +3323,7 @@ fn inner_value_snapshot<
     name: Option<String>,
     value: String,
 ) -> Result {
-    let (group, name) = derive_snapshot_name(ccx, group, name);
+    let (group, name) = derive_snapshot_name(ccx, group, name)?;
 
     ccx.state
         .gas_snapshots
@@ -3366,7 +3366,7 @@ fn inner_last_gas_snapshot<
     name: Option<String>,
     value: u64,
 ) -> Result {
-    let (group, name) = derive_snapshot_name(ccx, group, name);
+    let (group, name) = derive_snapshot_name(ccx, group, name)?;
 
     ccx.state
         .gas_snapshots
@@ -3421,7 +3421,7 @@ fn inner_start_gas_snapshot<
         bail!("gas snapshot was already started with group: {group} and name: {name}");
     }
 
-    let (group, name) = derive_snapshot_name(ccx, group, name);
+    let (group, name) = derive_snapshot_name(ccx, group, name)?;
 
     ccx.state.gas_metering.gas_records.push(GasRecord {
         group: group.clone(),
@@ -3529,6 +3529,25 @@ fn inner_stop_gas_snapshot<
     }
 }
 
+/// Validates that a snapshot group name or entry name is safe for use as a
+/// filename component. Allows only ASCII alphanumeric characters, hyphens,
+/// underscores, and spaces, which prevents names containing path
+/// separators or traversal sequences (such as `..`) from being used.
+fn validate_snapshot_name(value: &str, is_group_name: bool) -> Result<()> {
+    let is_valid = !value.is_empty()
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ' '));
+    let kind = if is_group_name { "group name" } else { "name" };
+
+    ensure!(
+        is_valid,
+        "invalid snapshot {kind}: \"{value}\". Only alphanumeric characters, hyphens, underscores, and spaces are allowed."
+    );
+
+    Ok(())
+}
+
 // Derives the snapshot group and name from the provided group and name or the
 // running contract.
 fn derive_snapshot_name<
@@ -3561,7 +3580,7 @@ fn derive_snapshot_name<
     >,
     group: Option<String>,
     name: Option<String>,
-) -> (String, String) {
+) -> Result<(String, String)> {
     let group = group.unwrap_or_else(|| {
         ccx.state
             .config
@@ -3571,7 +3590,10 @@ fn derive_snapshot_name<
             .name
     });
     let name = name.unwrap_or_else(|| "default".to_string());
-    (group, name)
+    validate_snapshot_name(&group, true)?;
+    validate_snapshot_name(&name, false)?;
+
+    Ok((group, name))
 }
 
 /// Reads the current caller information and returns the current [`CallerMode`],

@@ -342,8 +342,8 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, suiteResults } =
       await testContext.runTestsWithStats("GasSnapshotTest", {}, L1_CHAIN_TYPE);
 
-    assert.equal(totalTests, 15);
-    assert.equal(failedTests, 3);
+    assert.equal(totalTests, 20);
+    assert.equal(failedTests, 8);
 
     let snapshots = new Map<string, Map<string, string>>();
 
@@ -375,6 +375,49 @@ describe("Unit tests", () => {
           );
           continue;
         }
+
+        if (testResult.name === "testInvalidGroupNameSlash()") {
+          assert.equal(testResult.status, "Failure");
+          assert.match(
+            testResult.reason!,
+            /invalid snapshot group name: "\.\.\/\.\.\/evil"/
+          );
+          continue;
+        }
+
+        if (testResult.name === "testInvalidGroupNameBackslash()") {
+          assert.equal(testResult.status, "Failure");
+          assert.match(
+            testResult.reason!,
+            /invalid snapshot group name: "foo\\bar"/
+          );
+          continue;
+        }
+
+        if (testResult.name === "testInvalidGroupNameEmpty()") {
+          assert.equal(testResult.status, "Failure");
+          assert.match(testResult.reason!, /invalid snapshot group name: ""/);
+          continue;
+        }
+
+        if (testResult.name === "testInvalidGroupNameDotDot()") {
+          assert.equal(testResult.status, "Failure");
+          assert.match(
+            testResult.reason!,
+            /invalid snapshot group name: "group\.\.name"/
+          );
+          continue;
+        }
+
+        if (testResult.name === "testInvalidSnapshotName()") {
+          assert.equal(testResult.status, "Failure");
+          assert.match(
+            testResult.reason!,
+            /invalid snapshot name: "name\/with\/slashes"/
+          );
+          continue;
+        }
+
         assert.notEqual(testResult.valueSnapshotGroups, undefined);
 
         const snapshotGroups = testResult.valueSnapshotGroups!;
