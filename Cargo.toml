@@ -290,12 +290,12 @@ alloy-transport-ws = { version = "1.0.22", default-features = false }
 
 alloy-dyn-abi = { version = "1.2.1", features = ["eip712"] }
 alloy-json-abi = "1.2.1"
-alloy-primitives = { version = "1.4.1", features = [
+alloy-primitives = { version = "1.4.1", default-features = false, features = [
     "getrandom",
-    "rand",
     "map-fxhash",
     "map-foldhash",
     "map-indexmap",
+    "rand",
 ] }
 alloy-sol-macro-expander = "1.2.1"
 alloy-sol-macro-input = "1.2.1"

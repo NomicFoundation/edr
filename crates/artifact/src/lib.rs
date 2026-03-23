@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 
 use alloy_json_abi::JsonAbi;
-use alloy_primitives::Bytes;
+use edr_primitives::Bytes;
 use semver::Version;
 
 // Adapted from <https://github.com/foundry-rs/compilers/blob/ea346377deaf18dc1f972a06fad76df3d9aed8d9/crates/compilers/src/artifact_output/mod.rs#L45>

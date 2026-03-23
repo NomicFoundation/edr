@@ -37,7 +37,7 @@ humantime-serde = "1.1.1"
 
 alloy-dyn-abi.workspace = true
 alloy-json-abi.workspace = true
-alloy-primitives = { workspace = true, features = ["serde"] }
+alloy-primitives = { workspace = true, features = ["map-hashbrown", "serde"] }
 
 tokio = { workspace = true, features = ["time"] }
 evm-disassembler.workspace = true
