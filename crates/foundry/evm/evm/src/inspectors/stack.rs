@@ -722,7 +722,6 @@ impl<
         outcome: &mut CallOutcome,
     ) -> CallOutcome {
         let result = outcome.result.result;
-
         call_inspectors!(
             #[ret]
             [
