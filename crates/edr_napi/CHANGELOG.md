@@ -1,5 +1,19 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.29
+
+### Minor Changes
+
+- 9b8a931: Added runtime bytecode size information to contract deployment gas reports
+
+### Patch Changes
+
+- 7f15dce: Added support for tracking multiple contract deployments in a gas report
+- 538e9b0: Added validation checks for names provided in gas snapshot cheatcodes
+- d483274: Fixed detection of function signature for calls to proxies.
+
+  Previously, a call to a proxy contract was attributed to the proxy instead of the implementation. Now, it is correctly attributed to the implementation, allowing detection of the correct function signature.
+
 ## 0.12.0-next.28
 
 ### Minor Changes
