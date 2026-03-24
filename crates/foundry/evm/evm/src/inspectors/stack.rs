@@ -722,17 +722,22 @@ impl<
         outcome: &mut CallOutcome,
     ) -> CallOutcome {
         let result = outcome.result.result;
+
         call_inspectors!(
             #[ret]
             [
                 &mut self.fuzzer,
                 &mut self.tracer,
+                self.inner
+                    .code_coverage
+                    .as_mut()
+                    .map(|reporter| &mut reporter.collector),
                 &mut self.cheatcodes,
                 &mut self.revert_diag
             ],
             |inspector| {
                 let previous_outcome = outcome.clone();
-                inspector.call_end(ecx, inputs, outcome);
+                Inspector::<_, EthInterpreter>::call_end(inspector, ecx, inputs, outcome);
 
                 // If the inspector returns a different status or a revert with a non-empty
                 // message, we assume it wants to tell us something
@@ -742,14 +747,6 @@ impl<
                 different.then_some(outcome.clone())
             },
         );
-        if let Some(code_coverage) = &mut self.code_coverage {
-            Inspector::<_, EthInterpreter>::call_end(
-                &mut code_coverage.collector,
-                ecx,
-                inputs,
-                outcome,
-            );
-        }
 
         // Record first address that reverted the call.
         if result.is_revert() && self.reverter.is_none() {
@@ -785,10 +782,17 @@ impl<
         let result = outcome.result.result;
         call_inspectors!(
             #[ret]
-            [&mut self.tracer, &mut self.cheatcodes],
+            [
+                &mut self.tracer,
+                self.inner
+                    .code_coverage
+                    .as_mut()
+                    .map(|reporter| &mut reporter.collector),
+                &mut self.cheatcodes
+            ],
             |inspector| {
                 let previous_outcome = outcome.clone();
-                inspector.create_end(ecx, call, outcome);
+                Inspector::<_, EthInterpreter>::create_end(inspector, ecx, call, outcome);
 
                 // If the inspector returns a different status or a revert with a non-empty
                 // message, we assume it wants to tell us something

@@ -1,5 +1,8 @@
 use edr_chain_spec_evm::{
-    interpreter::{CallInputs, CallOutcome, Gas, InstructionResult, InterpreterTypes},
+    interpreter::{
+        CallInputs, CallOutcome, CreateInputs, CreateOutcome, Gas, InstructionResult,
+        InterpreterTypes,
+    },
     ContextTrait, Inspector, InterpreterResult,
 };
 use edr_primitives::{Bytes, HashSet};
@@ -17,10 +20,16 @@ pub struct CoverageHitCollector {
 }
 
 impl CoverageHitCollector {
-    /// Replaces the current hits with an empty set, returning the previous
-    /// hits.
-    pub fn take(&mut self) -> HashSet<Bytes> {
-        std::mem::take(&mut self.hits)
+    /// Flushes the collected coverage hits, replacing the current hits with an
+    /// empty set, and returning the previous hits.
+    ///
+    /// Also resets the previous call output to an empty byte array, which is
+    /// important to ensure that subsequent transactions do not retain return
+    /// data from a prior transaction.
+    pub fn flush(&mut self) -> HashSet<Bytes> {
+        let hits = std::mem::take(&mut self.hits);
+        self.previous_call_output = Bytes::new();
+        hits
     }
 
     /// Returns the collected coverage hits.
@@ -40,8 +49,9 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
         if inputs.bytecode_address == COVERAGE_ADDRESS {
             self.record_hit(inputs.input.bytes(context));
 
-            // Short-circuit the call to avoid on-chain execution, replaying
-            // the previous call's output to preserve the returndata buffer.
+            // Short-circuit the call to avoid execution of empty bytecode—which results in
+            // a `InstructionResult::Stop`—instead replaying the previous call or create's
+            // output to preserve the returndata buffer.
             Some(CallOutcome {
                 result: InterpreterResult {
                     result: InstructionResult::Return,
@@ -65,10 +75,16 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
     ) {
         // Skip coverage calls — their output is already identical to what we stored.
         if inputs.bytecode_address != COVERAGE_ADDRESS {
-            // Safe to store unconditionally — the interpreter always overwrites the
-            // returndata buffer from the call outcome's output.
-            // See `EthFrame::return_result` in revm/crates/handler/src/frame.rs.
             self.previous_call_output = outcome.result.output.clone();
         }
+    }
+
+    fn create_end(
+        &mut self,
+        _context: &mut ContextT,
+        _inputs: &CreateInputs,
+        outcome: &mut CreateOutcome,
+    ) {
+        self.previous_call_output = outcome.result.output.clone();
     }
 }
