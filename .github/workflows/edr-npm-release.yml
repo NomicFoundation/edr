@@ -94,7 +94,7 @@ jobs:
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@0f44b27771c32bda9f458f75a1e241b09791b331 # latest main commit (2025-11-17)
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # latest main commit (2025-11-17)
         if: ${{ !matrix.settings.docker }}
         with:
           toolchain: stable
