@@ -180,7 +180,7 @@ jobs:
             pnpm run build --strip
 
       - name: Upload artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: bindings-${{ matrix.settings.target }}
           # The upload artifact action doesn't respect the working directory setting. Unclear if this is a bug or not
@@ -478,7 +478,7 @@ jobs:
           echo "FILENAME=$FILENAME"
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
       - name: Upload packed tarball
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: ${{ steps.pack.outputs.filename }}
           path: ./${{ steps.pack.outputs.filename }}
