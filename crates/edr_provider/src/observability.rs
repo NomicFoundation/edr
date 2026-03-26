@@ -259,8 +259,11 @@ impl<
         }
 
         self.console_logger.call(context, inputs);
-        if let Some(code_coverage) = &mut self.code_coverage {
-            Inspector::<_, EthInterpreter>::call(&mut code_coverage.collector, context, inputs);
+        if let Some(outcome) = self.code_coverage.as_mut().and_then(|code_coverage| {
+            Inspector::<_, EthInterpreter>::call(&mut code_coverage.collector, context, inputs)
+        }) {
+            // Inner inspector is short-circuiting the call. We should preserve its outcome.
+            return Some(outcome);
         }
         self.tracing_inspector.call(context, inputs);
         self.mocker.call(context, inputs)
