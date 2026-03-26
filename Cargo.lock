@@ -2502,6 +2502,7 @@ dependencies = [
  "edr_chain_spec_provider",
  "edr_chain_spec_rpc",
  "edr_defaults",
+ "edr_eip4788",
  "edr_eth",
  "edr_primitives",
  "edr_provider",
@@ -2612,6 +2613,7 @@ dependencies = [
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
+ "edr_eip4788",
  "edr_eip7702",
  "edr_eip7892",
  "edr_evm",
@@ -2812,6 +2814,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip4788"
+version = "0.3.8"
+dependencies = [
+ "edr_primitives",
+ "edr_state_api",
+]
+
+[[package]]
 name = "edr_eip4844"
 version = "0.3.8"
 dependencies = [
@@ -3005,6 +3015,7 @@ dependencies = [
  "edr_decoder_revert",
  "edr_defaults",
  "edr_eip1559",
+ "edr_eip4788",
  "edr_gas_report",
  "edr_generic",
  "edr_instrument",
@@ -3192,6 +3203,7 @@ dependencies = [
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
+ "edr_eip4788",
  "edr_eip7702",
  "edr_eip7892",
  "edr_eth",

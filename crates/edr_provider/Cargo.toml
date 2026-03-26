@@ -85,6 +85,7 @@ tracing = { version = "0.1.44", features = [
     "attributes",
     "std",
 ], optional = true }
+edr_eip4788.workspace = true
 
 [dev-dependencies]
 alloy-eips.workspace = true

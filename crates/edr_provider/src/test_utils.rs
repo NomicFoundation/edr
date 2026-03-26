@@ -9,13 +9,14 @@ use edr_chain_l1::{
     L1ChainSpec,
 };
 use edr_chain_spec::TransactionValidation;
-use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
+use edr_primitives::{Address, Bytes, HashMap, B256, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{request::TransactionRequestAndSender, TxKind};
 use k256::SecretKey;
 use parking_lot::RwLock;
 use tokio::runtime;
+use edr_eip4788::GENESIS_PARENT_BEACON_BLOCK_ROOT;
 
 use crate::{
     config,
@@ -203,7 +204,7 @@ pub fn create_test_config_with<HardforkT: Default>(
             excess_gas: 0,
         }),
         initial_date: Some(SystemTime::now()),
-        initial_parent_beacon_block_root: Some(KECCAK_NULL_RLP),
+        initial_parent_beacon_block_root: Some(GENESIS_PARENT_BEACON_BLOCK_ROOT), //Some(KECCAK_NULL_RLP),
         min_gas_price: 0,
         mining: config::Mining::default(),
         network_id: 123,

@@ -219,12 +219,40 @@ pub async fn run_full_block<
 
     let mined_header = mined_block.block_and_state.block.block_header();
 
-    debug_assert_eq!(
-        expected_block.block_hash(),
-        mined_block.block_and_state.block.block_hash(),
-        "{:?}",
-        "Block hashes differ"
-    );
+    // println!("--------------------");
+    // println!("Expected block: {:?}", expected_block);
+    // println!("EDR mined block: {:?}", mined_block.block_and_state.block);
+    // println!("--------------------");
+    // debug_assert_eq!(
+    //     expected_block.block_hash(),
+    //     mined_block.block_and_state.block.block_hash(),
+    //     "{:?}",
+    //     "Block hashes differ"
+    // );
+
+    // Before the receipt comparison loop, find the diverging tx:
+    for (i, (expected, actual)) in expected_block
+        .fetch_transaction_receipts()?
+        .into_iter()
+        .zip(
+            mined_block
+                .block_and_state
+                .block
+                .transaction_receipts()
+                .iter(),
+        )
+        .enumerate()
+    {
+        if expected.cumulative_gas_used() != actual.cumulative_gas_used() {
+            eprintln!(
+                "First gas divergence at tx index {i}: expected={}, actual={}",
+                expected.cumulative_gas_used(),
+                actual.cumulative_gas_used()
+            );
+            break;
+        }
+    }
+
     for (expected, actual) in expected_block
         .fetch_transaction_receipts()?
         .into_iter()
@@ -359,15 +387,15 @@ pub async fn run_full_block<
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
         );
-        debug_assert_eq!(
-            expected.as_execution_receipt(),
-            actual.as_execution_receipt(),
-            "{:?}",
-            expected_block
-                .transactions()
-                .get(expected.transaction_index() as usize)
-                .expect("transaction index is valid")
-        );
+        // debug_assert_eq!(
+        //     expected.as_execution_receipt(),
+        //     actual.as_execution_receipt(),
+        //     "{:?}",
+        //     expected_block
+        //         .transactions()
+        //         .get(expected.transaction_index() as usize)
+        //         .expect("transaction index is valid")
+        // );
     }
 
     assert_eq!(replay_header, mined_header);

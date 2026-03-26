@@ -4539,7 +4539,11 @@ mod tests {
                 url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: prague_header_overrides,
             },
-
+            mainnet_ci_failure => L1ChainSpec {
+                block_number: 24_735_736,
+                url: json_rpc_url_provider::ethereum_mainnet(),
+                header_overrides_constructor: prague_header_overrides,
+            },
         }
     }
 }

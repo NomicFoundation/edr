@@ -273,7 +273,7 @@ impl<
             ChainSpecT::SignedTransaction,
         >,
         block_config: &'builder BlockConfig<ChainSpecT::Hardfork>,
-        state: Box<dyn DynState>,
+        mut state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,
         mut overrides: HeaderOverrides<ChainSpecT::Hardfork>,
@@ -345,6 +345,26 @@ impl<
             precompile_provider.into_addresses()
         };
 
+        // EIP-4788: populate beacon root contract storage before any
+        // transactions execute.
+        let state_diff = 
+            
+        if evm_spec_id >= EvmSpecId::CANCUN
+            && let Some(parent_beacon_block_root) = header.parent_beacon_block_root
+        {
+            let mut state_diff = StateDiff::default();
+            edr_eip4788::apply_beacon_root_contract_call(
+                &mut state,
+                &mut state_diff,
+                header.timestamp,
+                parent_beacon_block_root,
+            )
+            .map_err(|e| BlockBuilderCreationError::Database(DatabaseComponentError::State(e)))?;
+            state_diff
+        } else {
+            StateDiff::default()
+        };
+
         Ok(Self {
             blockchain,
             block_config,
@@ -354,7 +374,7 @@ impl<
             parent_gas_limit,
             receipts: Vec::new(),
             state,
-            state_diff: StateDiff::default(),
+            state_diff,
             transactions: Vec::new(),
             transaction_results: Vec::new(),
             withdrawals: inputs.withdrawals,
