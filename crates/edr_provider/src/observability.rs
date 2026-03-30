@@ -305,7 +305,6 @@ impl<
                 outcome,
             );
         }
-
     }
 
     fn step(&mut self, interp: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
