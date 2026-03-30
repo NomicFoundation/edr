@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Added `show_logs` field to global fuzz test configuration
+Added `showLogs` field to global fuzz test configuration
