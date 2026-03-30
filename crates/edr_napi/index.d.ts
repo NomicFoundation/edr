@@ -841,6 +841,11 @@ export interface FuzzConfigArgs {
    */
   includePushBytes?: boolean
   /**
+   * Show `console.log` in fuzz test.
+   * Defaults to false.
+   */
+  showLogs?: boolean
+  /**
    * Optional timeout (in seconds) for each property test.
    * Defaults to none (no timeout).
    */
