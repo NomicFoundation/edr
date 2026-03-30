@@ -2338,7 +2338,7 @@ name = "edr_artifact"
 version = "0.3.8"
 dependencies = [
  "alloy-json-abi",
- "alloy-primitives",
+ "edr_primitives",
  "foundry-compilers",
  "semver 1.0.26",
  "serde",

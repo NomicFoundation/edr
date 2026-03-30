@@ -12,7 +12,7 @@ foundry-evm-core.workspace = true
 alloy-primitives = { workspace = true, features = [
     "getrandom",
     "map-foldhash",
-    "map-fxhash",
+    "map-hashbrown",
     "map-indexmap",
     "rand",
     "rayon"

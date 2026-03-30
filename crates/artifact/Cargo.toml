@@ -5,8 +5,8 @@ edition.workspace = true
 
 [dependencies]
 alloy-json-abi.workspace = true
-alloy-primitives.workspace = true
 foundry-compilers.workspace = true
+edr_primitives.workspace = true
 semver.workspace = true
 serde.workspace = true
 
