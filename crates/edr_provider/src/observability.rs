@@ -271,6 +271,7 @@ impl<
     }
 
     fn call_end(&mut self, context: &mut ContextT, inputs: &CallInputs, outcome: &mut CallOutcome) {
+        self.tracing_inspector.call_end(context, inputs, outcome);
         if let Some(code_coverage) = self.code_coverage.as_mut() {
             Inspector::<_, EthInterpreter>::call_end(
                 &mut code_coverage.collector,
@@ -279,7 +280,6 @@ impl<
                 outcome,
             );
         }
-        self.tracing_inspector.call_end(context, inputs, outcome);
     }
 
     fn create(
@@ -296,6 +296,7 @@ impl<
         inputs: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
+        self.tracing_inspector.create_end(context, inputs, outcome);
         if let Some(code_coverage) = self.code_coverage.as_mut() {
             Inspector::<_, EthInterpreter>::create_end(
                 &mut code_coverage.collector,
@@ -305,7 +306,6 @@ impl<
             );
         }
 
-        self.tracing_inspector.create_end(context, inputs, outcome);
     }
 
     fn step(&mut self, interp: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
