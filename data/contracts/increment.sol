@@ -1,5 +1,5 @@
 pragma solidity ^0.8.26;
-import "./coverage.sol";
+import "./hardhat_coverage.sol";
 
 contract Increment {
   uint public x;

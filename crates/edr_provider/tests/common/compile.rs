@@ -11,7 +11,7 @@ use foundry_compilers::{
 };
 use semver::Version;
 
-const COVERAGE_LIBRARY_SOL: &str = include_str!("../../../../data/contracts/coverage.sol");
+const COVERAGE_LIBRARY_SOL: &str = include_str!("../../../../data/contracts/hardhat_coverage.sol");
 
 /// Path to the coverage library as it will appear in the solcjs sources map.
 /// Must match the path passed to `instrument_code` as `coverage_library_path`.
