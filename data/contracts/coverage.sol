@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26; // This is different from Hardhat definition
+pragma solidity >=0.4.22 <0.9.0;
 
 library __HardhatCoverage {
   address constant COVERAGE_ADDRESS =
