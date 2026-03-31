@@ -2,6 +2,10 @@
 #[allow(dead_code)]
 pub mod blob;
 
+/// Test utilities for compiling instrumented Solidity contracts.
+#[allow(dead_code)]
+pub mod compile;
+
 pub fn help_test_method_invocation_serde<MethodInvocation>(call: MethodInvocation)
 where
     MethodInvocation:
