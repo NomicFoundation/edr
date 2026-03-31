@@ -9,8 +9,7 @@ mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
 use std::{
-    borrow::Cow, collections::HashMap, env, fmt, marker::PhantomData, path::PathBuf,
-    sync::Mutex,
+    borrow::Cow, collections::HashMap, env, fmt, marker::PhantomData, path::PathBuf, sync::Mutex,
 };
 
 use alloy_primitives::{Bytes, U256};
