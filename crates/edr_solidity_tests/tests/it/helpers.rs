@@ -9,7 +9,8 @@ mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
 use std::{
-    borrow::Cow, collections::HashMap, env, fmt, marker::PhantomData, path::PathBuf, sync::Mutex,
+    borrow::Cow, collections::HashMap, env, fmt, io::Write, marker::PhantomData, path::PathBuf,
+    sync::Mutex,
 };
 
 use alloy_primitives::{Bytes, U256};
@@ -25,9 +26,7 @@ use edr_solidity_tests::{
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
 };
-use edr_test_utils::{
-    env::json_rpc_url_provider, is_svm_initialized, mark_svm_initialized, svm_global_lock,
-};
+use edr_test_utils::{env::json_rpc_url_provider, new_fd_lock};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpointUrl, RpcEndpoints};
 use foundry_compilers::{
     artifacts::{CompactContractBytecode, CompactContractBytecodeCow, EvmVersion, Libraries},
@@ -809,18 +808,21 @@ impl<
 }
 
 fn get_compiled(project: &Project) -> ProjectCompileOutput {
-    // Use a global SVM lock to prevent concurrent solc installations from
-    // different test crates (e.g. edr_provider) during `cargo test --workspace`.
-    let mut lock = svm_global_lock();
+    let lock_file_path = project.sources_path().join(".lock");
+    // Compile only once per test run.
+    // We need to use a file lock because `cargo-nextest` runs tests in different
+    // processes. This is similar to [`edr_test_utils::util::initialize`],
+    // see its comments for more details.
+    let mut lock = new_fd_lock(&lock_file_path);
     let read = lock.read().unwrap();
     let out;
-    if project.cache_path().exists() && is_svm_initialized() {
+    if project.cache_path().exists() && std::fs::read(&lock_file_path).unwrap() == b"1" {
         out = project.compile();
         drop(read);
     } else {
         drop(read);
-        let write = lock.write().unwrap();
-        mark_svm_initialized();
+        let mut write = lock.write().unwrap();
+        write.write_all(b"1").unwrap();
         out = project.compile();
         drop(write);
     }
