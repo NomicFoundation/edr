@@ -5,9 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use foundry_compilers::solc::Solc;
-
 pub use fd_lock::RwLock;
+use foundry_compilers::solc::Solc;
 
 /// Creates a new lock file at the given path.
 pub fn new_fd_lock(lock_path: impl AsRef<Path>) -> RwLock<File> {
@@ -26,11 +25,12 @@ pub fn new_fd_lock(lock_path: impl AsRef<Path>) -> RwLock<File> {
     new_lock(lock_path.as_ref())
 }
 
-/// Returns the path to the SVM lock file.
+/// Returns the path to the SVM lock file, creating the SVM directory if it
+/// doesn't exist yet.
 fn svm_lock_path() -> PathBuf {
-    Solc::svm_home()
-        .expect("SVM home directory not found")
-        .join(".lock")
+    let svm_dir = Solc::svm_home().expect("SVM home directory not found");
+    fs::create_dir_all(&svm_dir).expect("failed to create SVM directory");
+    svm_dir.join(".lock")
 }
 
 /// Creates a file lock at the SVM data directory. This should be used to
