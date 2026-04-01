@@ -1,0 +1,16 @@
+[package]
+name = "edr_tool_compile_solidity"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+edr_instrument.workspace = true
+foundry-compilers.workspace = true
+hex = "0.4"
+semver.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

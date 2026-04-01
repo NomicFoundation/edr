@@ -64,6 +64,7 @@ members = [
     "crates/test/receipt",
     "crates/test/transaction",
     "crates/tool/cli",
+    "crates/tool/compile_solidity",
     "crates/tool/op_chain_config_generator",
     "crates/tracing",
     "crates/trie",

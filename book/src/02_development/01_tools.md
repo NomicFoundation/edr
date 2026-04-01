@@ -59,6 +59,60 @@ The scenario runner supports both compressed and uncompressed scenario files.
 
 The reported running time excludes reading the requests from disk and parsing them.
 
+## Compile Solidity
+
+Some EDR integration tests require pre-compiled Solidity bytecode. To avoid
+adding `foundry-compilers` as a test dependency (which can interfere with other
+test crates that use solc during `cargo test --workspace`), we compile
+contracts ahead of time using this tool.
+
+It compiles Solidity source files and outputs their creation bytecodes along
+with function selectors. The solc version is auto-detected from the source
+pragma.
+
+By convention, compiled bytecodes in EDR are kept in `data/deployed_bytecode/`
+as hex-encoded `.in` files. Integration tests load them via `include_str!` so
+they don't need solc at test time.
+
+### Compile a contract
+
+```bash
+cargo run -p edr_tool_compile_solidity -- data/contracts/increment.sol \
+  -i data/contracts/coverage.sol
+```
+
+Use `-i` to include additional source files needed by imports.
+
+### Compile with coverage instrumentation
+
+The `--instrument` flag instruments the source code using EDR's standard
+coverage instrumentation and automatically includes the coverage library
+(`data/contracts/coverage.sol`):
+
+```bash
+cargo run -p edr_tool_compile_solidity -- --instrument \
+  data/contracts/test/CoverageTest.sol
+```
+
+### Write bytecodes to disk
+
+Use `-o` to write `<ContractName>.in` files to a directory:
+
+```bash
+cargo run -p edr_tool_compile_solidity -- --instrument \
+  -o data/deployed_bytecode \
+  data/contracts/test/CoverageTest.sol
+```
+
+### Solidity source files
+
+Solidity contracts used by EDR tests live in `data/contracts/`. The coverage
+instrumentation library is at `data/contracts/coverage.sol`.
+
+When adding or modifying contracts, re-run the compile tool to regenerate the
+`.in` files and update the corresponding test code with any new function
+selectors shown in the tool output.
+
 ## JS runner
 
 Please see the [readme](../../../js/benchmark/README.md) for instructions.
