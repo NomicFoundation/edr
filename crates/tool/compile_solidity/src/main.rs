@@ -56,6 +56,11 @@ struct Args {
     #[clap(long)]
     instrument: bool,
 
+    /// Only instrument the source (no compilation). Outputs the instrumented
+    /// Solidity source to stdout. `--output-dir` is not supported.
+    #[clap(long)]
+    instrument_only: bool,
+
     /// The Solidity version to target for instrumentation (e.g. `0.8.26`).
     /// Only used with `--instrument`. The actual compiler version is
     /// auto-detected from the source pragma.
@@ -75,7 +80,7 @@ fn main() -> Result<()> {
         .to_string_lossy()
         .to_string();
 
-    let final_source = if args.instrument {
+    let final_source = if args.instrument || args.instrument_only {
         let version = Version::parse(&args.version).context("invalid --version")?;
         let instrumented = instrument_code(
             &source_code,
@@ -88,6 +93,18 @@ fn main() -> Result<()> {
     } else {
         source_code
     };
+
+    if args.instrument_only {
+        let header = format!(
+            "// Auto-generated from {} — do not edit manually.\n\
+             // Regenerate with:\n\
+             //   cargo run -p edr_tool_compile_solidity -- --instrument-only {}\n",
+            args.source.display(),
+            args.source.display(),
+        );
+        print!("{header}{final_source}");
+        return Ok(());
+    }
 
     // Write sources to a temp directory for compilation.
     let project_dir = tempfile::TempDir::new()?;

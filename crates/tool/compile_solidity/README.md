@@ -2,7 +2,7 @@
 
 Compiles Solidity source files and outputs their creation bytecodes. Solc version is auto-detected from the source pragma.
 
-Supports optional coverage instrumentation via `--instrument`, which injects `__HardhatCoverage.sendHit()` probes and includes the coverage library automatically.
+Supports optional coverage instrumentation via `--instrument`, which instruments the source using EDR's standard coverage instrumentation and includes the coverage library automatically.
 
 ## Usage
 
@@ -22,6 +22,11 @@ cargo run -p edr_tool_compile_solidity -- \
 cargo run -p edr_tool_compile_solidity -- \
   --instrument \
   data/contracts/test/CoverageTest.sol
+
+# Output only the instrumented source (no compilation):
+cargo run -p edr_tool_compile_solidity -- \
+  --instrument-only \
+  data/contracts/test/CoverageTest.sol
 ```
 
 ## Options
@@ -31,4 +36,5 @@ cargo run -p edr_tool_compile_solidity -- \
 | `-o, --output-dir <DIR>` | Write `<ContractName>.in` files to DIR. If omitted, print to stdout. |
 | `-i, --include <FILE>` | Additional `.sol` files to include (repeatable) |
 | `--instrument` | Instrument source with coverage probes before compiling |
+| `--instrument-only` | Only instrument the source (no compilation). Prints to stdout. |
 | `--version <VER>` | Solidity version for instrumentation (default: `0.8.26`) |
