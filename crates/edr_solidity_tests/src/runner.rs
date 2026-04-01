@@ -844,6 +844,20 @@ impl<
             return self.result;
         }
 
+        // Apply function-level config overrides.
+        let test_identifier = TestFunctionIdentifier {
+            contract_artifact: self.cr.artifact_id.clone(),
+            function_selector: func.selector().to_string(),
+        };
+        let overrides = self.cr.test_function_overrides.get(&test_identifier);
+
+        if let Some(isolate) = overrides.and_then(|o| o.isolate) {
+            self.executor
+                .to_mut()
+                .inspector_mut()
+                .enable_isolation(isolate);
+        }
+
         // Run current unit test.
         let (mut raw_call_result, reason) = match self.executor.call(
             self.cr.sender,
@@ -936,6 +950,20 @@ impl<
         // Prepare unit test execution.
         if self.prepare_test(func, start).is_err() {
             return self.result;
+        }
+
+        // Apply function-level config overrides.
+        let test_identifier = TestFunctionIdentifier {
+            contract_artifact: self.cr.artifact_id.clone(),
+            function_selector: func.selector().to_string(),
+        };
+        let overrides = self.cr.test_function_overrides.get(&test_identifier);
+
+        if let Some(isolate) = overrides.and_then(|o| o.isolate) {
+            self.executor
+                .to_mut()
+                .inspector_mut()
+                .enable_isolation(isolate);
         }
 
         // Extract and validate fixtures for the first table test parameter.
@@ -1147,6 +1175,11 @@ impl<
         );
 
         let mut executor = self.clone_executor();
+
+        if let Some(isolate) = overrides.as_ref().and_then(|o| o.isolate) {
+            executor.inspector_mut().enable_isolation(isolate);
+        }
+
         // Enable edge coverage if running with coverage guided fuzzing or with edge
         // coverage metrics (useful for benchmarking the fuzzer).
         executor.inspector_mut().collect_edge_coverage(
@@ -1443,6 +1476,13 @@ impl<
             if let Some(timeout) = fuzz_overrides.timeout {
                 fuzz_config.timeout = timeout.time;
             }
+        }
+
+        if let Some(isolate) = overrides.as_ref().and_then(|o| o.isolate) {
+            self.executor
+                .to_mut()
+                .inspector_mut()
+                .enable_isolation(isolate);
         }
 
         let runner = fuzzer_with_cases(
