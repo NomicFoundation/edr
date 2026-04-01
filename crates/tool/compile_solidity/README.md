@@ -27,7 +27,7 @@ cargo run -p edr_tool_compile_solidity -- \
 ## Options
 
 | Flag | Description |
-|---|---|
+| --- | --- |
 | `-o, --output-dir <DIR>` | Write `<ContractName>.in` files to DIR. If omitted, print to stdout. |
 | `-i, --include <FILE>` | Additional `.sol` files to include (repeatable) |
 | `--instrument` | Instrument source with coverage probes before compiling |

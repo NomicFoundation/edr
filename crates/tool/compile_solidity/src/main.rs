@@ -3,18 +3,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use edr_instrument::coverage::instrument_code;
 use foundry_compilers::{
-    artifacts::{
-        output_selection::EvmOutputSelection,
-        solc::CompactContractRef,
-    },
+    artifacts::{output_selection::EvmOutputSelection, solc::CompactContractRef},
     compilers::{multi::MultiCompiler, solc::SolcCompiler},
     multi::MultiCompilerSettings,
     solc::SolcSettings,
-    Project, ProjectPathsConfig,
+    Project, ProjectPathsConfig, VyperSettings,
 };
 use semver::Version;
 
@@ -29,13 +26,16 @@ const COVERAGE_LIBRARY_SOURCE_ID: &str = "coverage_lib.sol";
 /// Examples:
 ///
 ///   # Compile with an explicit import:
-///   cargo run -p edr_tool_compile_solidity -- data/contracts/increment.sol -i data/contracts/coverage.sol
+///   `cargo run -p edr_tool_compile_solidity -- data/contracts/increment.sol
+/// -i` data/contracts/coverage.sol
 ///
 ///   # Compile with coverage instrumentation:
-///   cargo run -p edr_tool_compile_solidity -- --instrument data/contracts/test/CoverageTest.sol
+///   `cargo run -p edr_tool_compile_solidity -- --instrument
+/// data/contracts/test/CoverageTest.sol`
 ///
 ///   # Write bytecodes to files:
-///   cargo run -p edr_tool_compile_solidity -- -o data/deployed_bytecode data/contracts/increment.sol -i data/contracts/coverage.sol
+///   `cargo run -p edr_tool_compile_solidity -- -o data/deployed_bytecode
+/// data/contracts/increment.sol -i data/contracts/coverage.sol`
 #[derive(Parser)]
 #[clap(name = "compile-solidity")]
 struct Args {
@@ -77,9 +77,13 @@ fn main() -> Result<()> {
 
     let final_source = if args.instrument {
         let version = Version::parse(&args.version).context("invalid --version")?;
-        let instrumented =
-            instrument_code(&source_code, &source_id, version, COVERAGE_LIBRARY_SOURCE_ID)
-                .context("instrumentation failed")?;
+        let instrumented = instrument_code(
+            &source_code,
+            &source_id,
+            version,
+            COVERAGE_LIBRARY_SOURCE_ID,
+        )
+        .context("instrumentation failed")?;
         instrumented.source
     } else {
         source_code
@@ -120,27 +124,27 @@ fn main() -> Result<()> {
 
         println!("\n--- {name} ---");
 
-        if let Some(evm) = &contract.evm {
-            if !evm.method_identifiers.is_empty() {
-                println!("method identifiers:");
-                for (signature, selector) in &evm.method_identifiers {
-                    println!("  {signature} => 0x{selector}");
-                }
+        if let Some(evm) = &contract.evm
+            && !evm.method_identifiers.is_empty()
+        {
+            println!("method identifiers:");
+            for (signature, selector) in &evm.method_identifiers {
+                println!("  {signature} => 0x{selector}");
             }
         }
 
         let compact = CompactContractRef::from(contract);
-        if let Some(bytecode) = compact.bytecode() {
-            if !bytecode.is_empty() {
-                let hex = format!("0x{}", hex::encode(bytecode));
-                println!();
-                println!("bytecode: {hex}");
+        if let Some(bytecode) = compact.bytecode()
+            && !bytecode.is_empty()
+        {
+            let hex = format!("0x{}", hex::encode(bytecode));
+            println!();
+            println!("bytecode: {hex}");
 
-                if let Some(ref output_dir) = args.output_dir {
-                    let out_path = output_dir.join(format!("{name}.in"));
-                    fs::write(&out_path, &hex)?;
-                    println!("  written to: {}", out_path.display());
-                }
+            if let Some(ref output_dir) = args.output_dir {
+                let out_path = output_dir.join(format!("{name}.in"));
+                fs::write(&out_path, &hex)?;
+                println!("  written to: {}", out_path.display());
             }
         }
     }
@@ -162,9 +166,9 @@ fn compile_project(root: &Path) -> Result<foundry_compilers::ProjectCompileOutpu
     let compiler_settings = MultiCompilerSettings {
         solc: SolcSettings {
             settings,
-            ..Default::default()
+            ..SolcSettings::default()
         },
-        vyper: Default::default(),
+        vyper: VyperSettings::default(),
     };
 
     let project = Project::builder()
