@@ -85,6 +85,15 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
         _inputs: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
-        self.previous_call_output = outcome.result.output.clone();
+        // Only preserve output on Revert — a successful CREATE clears the
+        // returndata buffer (its output contains the deployed bytecode, not
+        // returndata visible to the caller). This matches the behavior in
+        // revm's `EthFrame::return_result` (crates/handler/src/frame.rs)
+        // which only sets returndata for exactly `InstructionResult::Revert`.
+        if outcome.result.result == InstructionResult::Revert {
+            self.previous_call_output = outcome.result.output.clone();
+        } else {
+            self.previous_call_output = Bytes::new();
+        }
     }
 }
