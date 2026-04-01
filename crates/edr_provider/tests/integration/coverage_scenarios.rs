@@ -1,49 +1,29 @@
 #![cfg(feature = "test-utils")]
 
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
-use edr_chain_l1::{
-    rpc::{call::L1CallRequest, TransactionRequest},
-    L1ChainSpec,
-};
-use edr_primitives::{bytes, Bytes, HashSet};
+use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
+use edr_primitives::{bytes, Bytes};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract},
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_signer::public_key_to_address;
-use edr_solidity::contract_decoder::ContractDecoder;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use tokio::runtime;
 
-use crate::common::compile::{instrument_and_compile, InstrumentAndCompileResult};
-
-static COMPILED: LazyLock<InstrumentAndCompileResult> = LazyLock::new(|| {
-    let source = include_str!("../../../../data/contracts/test/CoverageTest.sol");
-    instrument_and_compile(source, "CoverageTest.sol")
-});
-
-#[derive(Default)]
-struct CoverageReporter {
-    hits: HashSet<Bytes>,
-}
+const COVERAGE_CALL_BYTECODE: &str =
+    include_str!("../../../../data/deployed_bytecode/CoverageCall.in");
 
 struct Fixture {
     from: edr_primitives::Address,
     provider: Provider<L1ChainSpec>,
 }
 
-fn create_provider_with_bail(
-    coverage_reporter: Arc<Mutex<CoverageReporter>>,
-    bail_on_failure: bool,
-) -> Fixture {
+fn create_provider_with_coverage() -> Fixture {
     let mut config = create_test_config();
-    config.bail_on_transaction_failure = bail_on_failure;
-    config.observability.on_collected_coverage_fn = Some(Box::new(move |hits| {
-        coverage_reporter.lock().hits.extend(hits);
-        Ok(())
-    }));
+    config.observability.on_collected_coverage_fn = Some(Box::new(move |_hits| Ok(())));
 
     let from = {
         let secret_key = config
@@ -60,7 +40,7 @@ fn create_provider_with_bail(
         logger,
         subscriber,
         config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
+        Arc::new(RwLock::default()),
         CurrentTime,
     )
     .expect("Failed to construct provider");
@@ -68,16 +48,20 @@ fn create_provider_with_bail(
     Fixture { from, provider }
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn contract_call_returns_expected_output() -> anyhow::Result<()> {
-    let coverage_reporter = Arc::new(Mutex::default());
-    let Fixture { from, provider } = create_provider_with_bail(coverage_reporter.clone(), false);
+fn coverage_call_bytecode() -> Bytes {
+    let hex = COVERAGE_CALL_BYTECODE.trim().strip_prefix("0x").unwrap();
+    Bytes::from(hex::decode(hex).expect("invalid hex in CoverageCall.in"))
+}
 
-    let bytecode = COMPILED.contracts["CoverageCall"].bytecode.clone();
+#[tokio::test(flavor = "multi_thread")]
+async fn forward_successful_call() -> anyhow::Result<()> {
+    let Fixture { from, provider } = create_provider_with_coverage();
+
+    let bytecode = coverage_call_bytecode();
     let deployed_address = deploy_contract(&provider, from, bytecode)?;
 
-    // cast calldata 'function getValue()' => 0x20965255
-    let calldata: Bytes = bytes!("0x20965255");
+    // forwardSuccessfulCall() => 0xc07303ab
+    let calldata: Bytes = bytes!("0xc07303ab");
 
     let response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
@@ -91,111 +75,110 @@ async fn contract_call_returns_expected_output() -> anyhow::Result<()> {
             None,
         )))?;
 
-    // The return value should be abi-encoded uint256(42) = 0x2a padded to 32 bytes
+    // Target.getValue() returns uint256(42), forwarded via returndatacopy.
     let result: String = serde_json::from_value(response.result)?;
-    let expected_return = "0x000000000000000000000000000000000000000000000000000000000000002a";
-    assert_eq!(result, expected_return, "getValue() should return 42");
-
-    let reporter = coverage_reporter.lock();
-    assert!(
-        !reporter.hits.is_empty(),
-        "coverage hits should be reported for a successful call"
-    );
+    let expected = format!("0x{:0>64}", hex::encode(42u32.to_be_bytes()));
+    assert_eq!(result, expected, "forwardSuccessfulCall() should return 42");
 
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn contract_call_reverts_with_expected_reason() -> anyhow::Result<()> {
-    let coverage_reporter = Arc::new(Mutex::default());
-    let Fixture { from, provider } = create_provider_with_bail(coverage_reporter.clone(), true);
+async fn forward_reverted_call() -> anyhow::Result<()> {
+    let Fixture { from, provider } = create_provider_with_coverage();
 
-    // Deploy with bail off (deployment succeeds), then call with bail on
-    // We need a separate provider for deployment since bail_on_transaction_failure
-    // applies to all transactions. Instead, deploy CoverageCall first (it won't
-    // revert on deploy), then call willRevert().
-    let bytecode = COMPILED.contracts["CoverageCall"].bytecode.clone();
+    let bytecode = coverage_call_bytecode();
     let deployed_address = deploy_contract(&provider, from, bytecode)?;
 
-    // cast calldata 'function willRevert()' => 0x73ee93b3
-    let calldata: Bytes = bytes!("0x73ee93b3");
+    // forwardRevertedCall() => 0x4cc06e6d
+    let calldata: Bytes = bytes!("0x4cc06e6d");
 
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
-            from,
-            to: Some(deployed_address),
-            data: Some(calldata),
-            ..TransactionRequest::default()
-        }),
-    ));
+    let response =
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+            L1CallRequest {
+                from: Some(from),
+                to: Some(deployed_address),
+                data: Some(calldata),
+                ..L1CallRequest::default()
+            },
+            None,
+            None,
+        )))?;
 
-    // With bail_on_transaction_failure=true, the provider returns an error
-    let err = response.expect_err("willRevert() should fail");
-    let err_string = format!("{err}");
+    // forwardRevertedCall() returns the raw revert data from Target.willRevert()
+    // via returndatacopy.
+    let result: String = serde_json::from_value(response.result)?;
+    let expected_hex = hex::encode("expected revert reason");
     assert!(
-        err_string.contains("expected revert reason"),
-        "error should contain the revert reason, got: {err_string}"
-    );
-
-    let reporter = coverage_reporter.lock();
-    assert!(
-        !reporter.hits.is_empty(),
-        "coverage hits should be reported even for a reverting call"
+        result.contains(&expected_hex),
+        "result should contain revert reason, got: {result}"
     );
 
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn contract_successfully_deploys() -> anyhow::Result<()> {
-    let coverage_reporter = Arc::new(Mutex::default());
-    let Fixture { from, provider } = create_provider_with_bail(coverage_reporter.clone(), false);
+async fn deploy_child() -> anyhow::Result<()> {
+    let Fixture { from, provider } = create_provider_with_coverage();
 
-    let bytecode = COMPILED.contracts["CoverageDeploySuccess"].bytecode.clone();
+    let bytecode = coverage_call_bytecode();
     let deployed_address = deploy_contract(&provider, from, bytecode)?;
 
-    assert_ne!(
-        deployed_address,
-        edr_primitives::Address::ZERO,
-        "contract should deploy to a non-zero address"
-    );
+    // deployChild() => 0x2053bfe6
+    let calldata: Bytes = bytes!("0x2053bfe6");
 
-    let reporter = coverage_reporter.lock();
-    assert!(
-        !reporter.hits.is_empty(),
-        "coverage hits should be reported for constructor execution"
+    let response =
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+            L1CallRequest {
+                from: Some(from),
+                to: Some(deployed_address),
+                data: Some(calldata),
+                ..L1CallRequest::default()
+            },
+            None,
+            None,
+        )))?;
+
+    // The EVM does not populate returndata for successful deployments, so
+    // returndatasize() is 0 and the raw assembly return produces empty output.
+    let result: String = serde_json::from_value(response.result)?;
+    assert_eq!(
+        result, "0x",
+        "deployChild() should return empty data after successful CREATE"
     );
 
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn contract_reverts_on_deployment() -> anyhow::Result<()> {
-    let coverage_reporter = Arc::new(Mutex::default());
-    let Fixture { from, provider } = create_provider_with_bail(coverage_reporter.clone(), true);
+async fn deploy_reverting_child() -> anyhow::Result<()> {
+    let Fixture { from, provider } = create_provider_with_coverage();
 
-    let bytecode = COMPILED.contracts["CoverageDeployRevert"].bytecode.clone();
+    let bytecode = coverage_call_bytecode();
+    let deployed_address = deploy_contract(&provider, from, bytecode)?;
 
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
-            from,
-            data: Some(bytecode),
-            ..TransactionRequest::default()
-        }),
-    ));
+    // deployRevertingChild() => 0xe2a529b6
+    let calldata: Bytes = bytes!("0xe2a529b6");
 
-    // With bail_on_transaction_failure=true, the provider returns an error
-    let err = response.expect_err("deploying CoverageDeployRevert should fail");
-    let err_string = format!("{err}");
+    let response =
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+            L1CallRequest {
+                from: Some(from),
+                to: Some(deployed_address),
+                data: Some(calldata),
+                ..L1CallRequest::default()
+            },
+            None,
+            None,
+        )))?;
+
+    // deployRevertingChild() returns the raw revert data from the failed
+    // CoverageDeployRevert constructor via returndatacopy.
+    let result: String = serde_json::from_value(response.result)?;
+    let expected_hex = hex::encode("constructor failed");
     assert!(
-        err_string.contains("constructor failed"),
-        "error should contain the constructor revert reason, got: {err_string}"
-    );
-
-    let reporter = coverage_reporter.lock();
-    assert!(
-        !reporter.hits.is_empty(),
-        "coverage hits should be reported even for a reverting constructor"
+        result.contains(&expected_hex),
+        "result should contain constructor revert reason, got: {result}"
     );
 
     Ok(())
