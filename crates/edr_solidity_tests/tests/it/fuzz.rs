@@ -411,6 +411,7 @@ async fn test_fuzz_function_overrides() {
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             isolate: None,
+            evm_version: None,
             fuzz: Some(edr_solidity_tests::FuzzConfigOverride {
                 runs: Some(10),
                 ..Default::default()
@@ -427,6 +428,7 @@ async fn test_fuzz_function_overrides() {
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             isolate: None,
+            evm_version: None,
             fuzz: Some(edr_solidity_tests::FuzzConfigOverride {
                 runs: Some(256),
                 max_test_rejects: Some(50000),
@@ -445,6 +447,7 @@ async fn test_fuzz_function_overrides() {
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             isolate: None,
+            evm_version: None,
             fuzz: Some(edr_solidity_tests::FuzzConfigOverride {
                 max_test_rejects: Some(5000),
                 ..Default::default()

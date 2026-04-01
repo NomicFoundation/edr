@@ -978,6 +978,7 @@ async fn test_function_override_isolate() {
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
             isolate: Some(true),
+            evm_version: None,
             fuzz: None,
             invariant: None,
         },

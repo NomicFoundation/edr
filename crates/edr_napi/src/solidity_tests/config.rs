@@ -881,6 +881,9 @@ pub struct TestFunctionConfigOverride {
     /// EVM context, enabling more precise gas accounting and transaction
     /// state changes.
     pub isolate: Option<bool>,
+    /// The EVM version to use for this test, e.g. "cancun". This will override
+    /// the global EVM version.
+    pub evm_version: Option<String>,
     /// Configuration override for fuzz testing.
     pub fuzz: Option<FuzzConfigOverride>,
     /// Configuration override for invariant testing.
@@ -892,6 +895,7 @@ impl From<TestFunctionConfigOverride> for edr_solidity_tests::TestFunctionConfig
         Self {
             allow_internal_expect_revert: value.allow_internal_expect_revert,
             isolate: value.isolate,
+            evm_version: value.evm_version,
             fuzz: value.fuzz.map(Into::into),
             invariant: value.invariant.map(Into::into),
         }

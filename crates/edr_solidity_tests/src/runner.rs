@@ -858,6 +858,12 @@ impl<
                 .enable_isolation(isolate);
         }
 
+        if let Some(evm_version) = overrides.and_then(|o| o.evm_version.as_deref())
+            && let Ok(spec) = evm_version.parse()
+        {
+            self.executor.to_mut().set_spec_id(spec);
+        }
+
         // Run current unit test.
         let (mut raw_call_result, reason) = match self.executor.call(
             self.cr.sender,
@@ -964,6 +970,12 @@ impl<
                 .to_mut()
                 .inspector_mut()
                 .enable_isolation(isolate);
+        }
+
+        if let Some(evm_version) = overrides.and_then(|o| o.evm_version.as_deref())
+            && let Ok(spec) = evm_version.parse()
+        {
+            self.executor.to_mut().set_spec_id(spec);
         }
 
         // Extract and validate fixtures for the first table test parameter.
@@ -1178,6 +1190,12 @@ impl<
 
         if let Some(isolate) = overrides.as_ref().and_then(|o| o.isolate) {
             executor.inspector_mut().enable_isolation(isolate);
+        }
+
+        if let Some(evm_version) = overrides.as_ref().and_then(|o| o.evm_version.as_deref())
+            && let Ok(spec) = evm_version.parse()
+        {
+            executor.set_spec_id(spec);
         }
 
         // Enable edge coverage if running with coverage guided fuzzing or with edge
@@ -1483,6 +1501,12 @@ impl<
                 .to_mut()
                 .inspector_mut()
                 .enable_isolation(isolate);
+        }
+
+        if let Some(evm_version) = overrides.as_ref().and_then(|o| o.evm_version.as_deref())
+            && let Ok(spec) = evm_version.parse()
+        {
+            self.executor.to_mut().set_spec_id(spec);
         }
 
         let runner = fuzzer_with_cases(

@@ -1,4 +1,4 @@
-use std::ops::DerefMut;
+use std::{ops::DerefMut, str::FromStr};
 
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use foundry_fork_db::DatabaseError;
@@ -13,7 +13,7 @@ use revm::{
     context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
     handler::{instructions::EthInstructions, EthFrame, EthPrecompiles, PrecompileProvider},
     interpreter::{interpreter::EthInterpreter, InterpreterResult},
-    primitives::hardfork::SpecId,
+    primitives::hardfork::{SpecId, UnknownHardfork},
     state::EvmState,
     Database, InspectEvm, Inspector, Journal, JournalEntry,
 };
@@ -24,12 +24,28 @@ use crate::{
 };
 
 pub trait HardforkTr:
-    'static + Copy + std::fmt::Debug + Default + Into<SpecId> + Send + Sync + Unpin
+    'static
+    + Copy
+    + std::fmt::Debug
+    + Default
+    + FromStr<Err = UnknownHardfork>
+    + Into<SpecId>
+    + Send
+    + Sync
+    + Unpin
 {
 }
 
 impl<T> HardforkTr for T where
-    T: 'static + Copy + std::fmt::Debug + Default + Into<SpecId> + Send + Sync + Unpin
+    T: 'static
+        + Copy
+        + std::fmt::Debug
+        + Default
+        + FromStr<Err = UnknownHardfork>
+        + Into<SpecId>
+        + Send
+        + Sync
+        + Unpin
 {
 }
 
