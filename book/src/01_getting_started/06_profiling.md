@@ -45,7 +45,8 @@ Install the required tools:
 
 ```bash
 # Linux perf
-sudo apt-get install linux-perf
+sudo apt-get install linux-tools-generic # Ubuntu
+# sudo apt-get install linux-perf # WSL/Debian
 
 # 0x flamegraph tool
 npm install -g 0x
