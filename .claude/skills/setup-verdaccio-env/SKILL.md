@@ -64,8 +64,12 @@ The Hardhat repo has a built-in Verdaccio management script.
 
 Before starting verdaccio, verify the `max_body_size` setting in `/workspaces/hardhat/.verdaccio/config.yaml`. EDR native binaries can be 60+ MB. If `max_body_size` is missing or less than 100mb:
 
-1. Edit `/workspaces/hardhat/scripts/verdaccio/start.ts` to include `max_body_size: 100mb` in the config template (before the `log:` line).
-2. Restart: `pnpm verdaccio stop && pnpm verdaccio start --background`
+1. If necessary, edit `/workspaces/hardhat/scripts/verdaccio/start.ts` to include `max_body_size: 100mb` in the config template (before the `log:` line).
+2. Start verdaccio:
+   ```
+   cd /workspaces/hardhat
+   pnpm verdaccio start --background
+   ```
 
 ### 5. Bump and publish EDR packages to Verdaccio
 
