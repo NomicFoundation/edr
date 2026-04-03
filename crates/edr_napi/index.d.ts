@@ -1018,6 +1018,18 @@ export interface TestFunctionConfigOverride {
    * as the test.
    */
   allowInternalExpectRevert?: boolean
+  /**
+   * Whether to enable isolation of calls for the test. In isolation mode all
+   * top-level calls are executed as a separate transaction in a separate
+   * EVM context, enabling more precise gas accounting and transaction
+   * state changes.
+   */
+  isolate?: boolean
+  /**
+   * The EVM version to use for this test, e.g. "Cancun". This will override
+   * the global EVM version.
+   */
+  evmVersion?: string
   /** Configuration override for fuzz testing. */
   fuzz?: FuzzConfigOverride
   /** Configuration override for invariant testing. */
