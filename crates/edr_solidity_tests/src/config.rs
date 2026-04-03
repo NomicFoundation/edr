@@ -170,7 +170,7 @@ pub struct TestFunctionConfigOverride {
     /// EVM context, enabling more precise gas accounting and transaction
     /// state changes.
     pub isolate: Option<bool>,
-    /// The EVM version to use for this test, e.g. "cancun". This will override
+    /// The EVM version to use for this test, e.g. "Cancun". This will override
     /// the global EVM version.
     pub evm_version: Option<String>,
     /// Configuration override for fuzz testing
