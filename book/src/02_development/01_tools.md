@@ -78,9 +78,7 @@ Use `-i` to include additional source files needed by imports.
 
 ### Compile with coverage instrumentation
 
-The `--instrument` flag instruments the source code using EDR's standard
-coverage instrumentation and automatically includes the coverage library
-(`data/contracts/coverage.sol`):
+The `--instrument` flag instruments the source code using EDR's standard coverage instrumentation and automatically includes the coverage library (`data/contracts/coverage.sol`):
 
 ```bash
 cargo run -p edr_tool_compile_solidity -- --instrument \
@@ -89,8 +87,7 @@ cargo run -p edr_tool_compile_solidity -- --instrument \
 
 ### Output only the instrumented source
 
-The `--instrument-only` flag instruments the source without compiling it,
-printing the instrumented Solidity to stdout:
+The `--instrument-only` flag instruments the source without compiling it, printing the instrumented Solidity to stdout:
 
 ```bash
 cargo run -p edr_tool_compile_solidity -- --instrument-only \
@@ -110,12 +107,9 @@ cargo run -p edr_tool_compile_solidity -- --instrument \
 
 ### Solidity source files
 
-Solidity contracts used by EDR tests live in `data/contracts/`. The coverage
-instrumentation library is at `data/contracts/coverage.sol`.
+Solidity contracts used by EDR tests live in `data/contracts/`. The coverage instrumentation library is at `data/contracts/coverage.sol`.
 
-When adding or modifying contracts, re-run the compile tool to regenerate the
-`.in` files and update the corresponding test code with any new function
-selectors shown in the tool output.
+When adding or modifying contracts, re-run the compile tool to regenerate the `.in` files and update the corresponding test code with any new function selectors shown in the tool output.
 
 ## JS runner
 
