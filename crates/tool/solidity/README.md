@@ -1,30 +1,30 @@
-# compile-solidity
+# solidity
 
-Compiles Solidity source files and outputs their creation bytecodes. Solc version is auto-detected from the source pragma.
+Solidity tooling for EDR development. Compiles Solidity source files, instruments them with coverage probes, or both.
 
-Supports optional coverage instrumentation via `--instrument`, which instruments the source using EDR's standard coverage instrumentation and includes the coverage library automatically.
+Solc version is auto-detected from the source pragma.
 
 ## Usage
 
 ```bash
 # Compile and print bytecodes to stdout:
-cargo run -p edr_tool_compile_solidity -- \
+cargo run -p edr_tool_solidity -- \
   data/contracts/increment.sol \
   -i data/contracts/coverage.sol
 
 # Write bytecodes to files (<ContractName>.in):
-cargo run -p edr_tool_compile_solidity -- \
+cargo run -p edr_tool_solidity -- \
   -o data/deployed_bytecode \
   data/contracts/increment.sol \
   -i data/contracts/coverage.sol
 
 # Compile with coverage instrumentation:
-cargo run -p edr_tool_compile_solidity -- \
+cargo run -p edr_tool_solidity -- \
   --instrument \
   data/contracts/test/CoverageTest.sol
 
 # Output only the instrumented source (no compilation):
-cargo run -p edr_tool_compile_solidity -- \
+cargo run -p edr_tool_solidity -- \
   --instrument-only \
   data/contracts/test/CoverageTest.sol
 ```

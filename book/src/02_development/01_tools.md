@@ -70,7 +70,7 @@ By convention, compiled bytecodes in EDR are kept in `data/deployed_bytecode/` a
 ### Compile a contract
 
 ```bash
-cargo run -p edr_tool_compile_solidity -- data/contracts/increment.sol \
+cargo run -p edr_tool_solidity -- data/contracts/increment.sol \
   -i data/contracts/coverage.sol
 ```
 
@@ -81,7 +81,7 @@ Use `-i` to include additional source files needed by imports.
 The `--instrument` flag instruments the source code using EDR's standard coverage instrumentation and automatically includes the coverage library (`data/contracts/coverage.sol`):
 
 ```bash
-cargo run -p edr_tool_compile_solidity -- --instrument \
+cargo run -p edr_tool_solidity -- --instrument \
   data/contracts/test/CoverageTest.sol
 ```
 
@@ -90,7 +90,7 @@ cargo run -p edr_tool_compile_solidity -- --instrument \
 The `--instrument-only` flag instruments the source without compiling it, printing the instrumented Solidity to stdout:
 
 ```bash
-cargo run -p edr_tool_compile_solidity -- --instrument-only \
+cargo run -p edr_tool_solidity -- --instrument-only \
   data/contracts/test/CoverageTest.sol \
   > crates/edr_solidity_tests/tests/testdata/default/coverage/InstrumentedCoverageTest.sol
 ```
@@ -100,7 +100,7 @@ cargo run -p edr_tool_compile_solidity -- --instrument-only \
 Use `-o` to write `<ContractName>.in` files to a directory:
 
 ```bash
-cargo run -p edr_tool_compile_solidity -- --instrument \
+cargo run -p edr_tool_solidity -- --instrument \
   -o data/deployed_bytecode \
   data/contracts/test/CoverageTest.sol
 ```

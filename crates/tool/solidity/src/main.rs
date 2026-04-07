@@ -98,7 +98,7 @@ fn main() -> Result<()> {
         let header = format!(
             "// Auto-generated from {} — do not edit manually.\n\
              // Regenerate with:\n\
-             //   cargo run -p edr_tool_compile_solidity -- --instrument-only {}\n",
+             //   cargo run -p edr_tool_solidity -- --instrument-only {}\n",
             args.source.display(),
             args.source.display(),
         );

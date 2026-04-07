@@ -1,6 +1,6 @@
 // Auto-generated from data/contracts/test/CoverageTest.sol — do not edit manually.
 // Regenerate with:
-//   cargo run -p edr_tool_compile_solidity -- --instrument-only data/contracts/test/CoverageTest.sol
+//   cargo run -p edr_tool_solidity -- --instrument-only data/contracts/test/CoverageTest.sol
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 

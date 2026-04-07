@@ -1,5 +1,5 @@
 [package]
-name = "edr_tool_compile_solidity"
+name = "edr_tool_solidity"
 version.workspace = true
 edition.workspace = true
 
