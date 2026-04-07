@@ -37,7 +37,7 @@ The flamegraph will be saved to `flamegraph_seaport.svg`.
 
 When EDR is used from JavaScript via Hardhat, it's possible to generate a combined flamegraph that shows both JavaScript call frames (Hardhat, ethers.js, test code) and native Rust frames (EDR internals) in a single interactive view.
 
-This uses [`0x`](https://github.com/davidmarkclements/0x) with its `--kernel-tracing` mode, which runs the V8 tick profiler and Linux `perf` simultaneously. To ensure that EDR functions are visible to `0x`, which uses frame pointers to identify function boundaries, make sure to built EDR using `pnpm build:perf-js` to enable frame pointers in the Rust code.
+This uses [`0x`](https://github.com/davidmarkclements/0x) with its `--kernel-tracing` mode, which runs the V8 tick profiler and Linux `perf` simultaneously. To ensure that EDR functions are visible to `0x`, which uses frame pointers to identify function boundaries, make sure to build EDR using `pnpm build:perf-js` to enable frame pointers in the Rust code.
 
 ### Prerequisites
 
@@ -92,7 +92,7 @@ Once complete, open `flamegraph-out/flamegraph.html` in a browser. The flamegrap
 
 ## Event Tracing
 
-It's possible to profile the execution of `edr` by collecting [execution traces](https://docs.rs/tracing/latest/tracing/) and then turning them into flamegraphs. This has the advantage that the contents of the flamegraph can be filtered on the tracing level, and it works when EDR is ran from JS.
+It's possible to profile the execution of `edr` by collecting [execution traces](https://docs.rs/tracing/latest/tracing/) and then turning them into flamegraphs. This has the advantage that the contents of the flamegraph can be filtered on the tracing level, and it works when EDR is run from JS.
 
 ### Instructions
 
