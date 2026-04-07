@@ -20,26 +20,30 @@ const COVERAGE_LIBRARY_SOL: &str = include_str!("../../../../data/contracts/cove
 /// Source identifier used for the coverage library in instrumented imports.
 const COVERAGE_LIBRARY_SOURCE_ID: &str = "coverage_lib.sol";
 
-/// Compile Solidity contracts with optional coverage instrumentation. Deployed
-/// bytecodes are printed to stdout, or written to files with `--output-dir`.
+/// Solidity tooling for EDR development. Compiles and/or instruments Solidity
+/// source files.
 ///
 /// Examples:
 ///
-///   # Compile with an explicit import:
-///   `cargo run -p edr_tool_compile_solidity -- data/contracts/increment.sol
-/// -i` data/contracts/coverage.sol
-///
 ///   # Compile with coverage instrumentation:
-///   `cargo run -p edr_tool_compile_solidity -- --instrument
+///   `cargo run -p edr_tool_solidity -- --instrument
+/// data/contracts/test/CoverageTest.sol`
+///
+///   # Output only the instrumented source (no compilation):
+///   `cargo run -p edr_tool_solidity -- --instrument-only
 /// data/contracts/test/CoverageTest.sol`
 ///
 ///   # Write bytecodes to files:
-///   `cargo run -p edr_tool_compile_solidity -- -o data/deployed_bytecode
-/// data/contracts/increment.sol -i data/contracts/coverage.sol`
+///   `cargo run -p edr_tool_solidity -- --instrument -o data/deployed_bytecode
+/// data/contracts/test/CoverageTest.sol`
+///
+///   # Compile with explicit imports:
+///   `cargo run -p edr_tool_solidity -- data/contracts/increment.sol -i
+/// data/contracts/coverage.sol`
 #[derive(Parser)]
-#[clap(name = "compile-solidity")]
+#[clap(name = "edr-tool-solidity")]
 struct Args {
-    /// Path to the Solidity source file to compile.
+    /// Path to the Solidity source file.
     source: PathBuf,
 
     /// Output directory for bytecode files. If omitted, bytecodes are printed

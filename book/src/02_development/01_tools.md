@@ -59,22 +59,13 @@ The scenario runner supports both compressed and uncompressed scenario files.
 
 The reported running time excludes reading the requests from disk and parsing them.
 
-## Compile Solidity
+## Solidity tooling
 
-Some EDR integration tests require pre-compiled Solidity bytecode. To avoid adding `foundry-compilers` as a test dependency (which can interfere with other test crates that use solc during `cargo test --workspace`), we compile contracts ahead of time using this tool.
+This tool compiles and instruments Solidity source files for use in EDR tests.
 
-It compiles Solidity source files and outputs their creation bytecodes along with function selectors. The solc version is auto-detected from the source pragma.
+Some integration tests require pre-compiled bytecode. To avoid adding `foundry-compilers` as a test dependency (which can interfere with other test crates that use solc during `cargo test --workspace`), we compile contracts ahead of time. It can also instrument source files with coverage probes, producing instrumented `.sol` files used by the `edr_solidity_tests` crate.
 
 By convention, compiled bytecodes in EDR are kept in `data/deployed_bytecode/` as hex-encoded `.in` files. Integration tests load them via `include_str!` so they don't need solc at test time.
-
-### Compile a contract
-
-```bash
-cargo run -p edr_tool_solidity -- data/contracts/increment.sol \
-  -i data/contracts/coverage.sol
-```
-
-Use `-i` to include additional source files needed by imports.
 
 ### Compile with coverage instrumentation
 
@@ -103,6 +94,15 @@ Use `-o` to write `<ContractName>.in` files to a directory:
 cargo run -p edr_tool_solidity -- --instrument \
   -o data/deployed_bytecode \
   data/contracts/test/CoverageTest.sol
+```
+
+### Compile with explicit imports
+
+Use `-i` to include additional source files needed by imports. For example, `increment.sol` is a pre-instrumented contract that already contains coverage probe calls and imports `coverage.sol` directly:
+
+```bash
+cargo run -p edr_tool_solidity -- data/contracts/increment.sol \
+  -i data/contracts/coverage.sol
 ```
 
 ### Solidity source files
