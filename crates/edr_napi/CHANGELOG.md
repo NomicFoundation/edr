@@ -1,5 +1,15 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.30
+
+### Minor Changes
+
+- bde1b86: Fixed coverage instrumentation calls clearing the EVM's returndata buffer, breaking RETURNDATASIZE and RETURNDATACOPY opcodes in instrumented contracts.
+
+### Patch Changes
+
+- 462ade3: Added `showLogs` field to global fuzz test configuration
+
 ## 0.12.0-next.29
 
 ### Minor Changes
