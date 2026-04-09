@@ -23,7 +23,8 @@ struct Fixture {
 
 fn create_provider_with_coverage() -> Fixture {
     let mut config = create_test_config();
-    // We need to activate coverage measurement for these tests, but don't use the result.
+    // We need to activate coverage measurement for these tests, but don't use the
+    // result.
     config.observability.on_collected_coverage_fn = Some(Box::new(move |_hits| Ok(())));
 
     let from = {
@@ -52,6 +53,17 @@ fn create_provider_with_coverage() -> Fixture {
 fn coverage_call_bytecode() -> Bytes {
     let hex = COVERAGE_CALL_BYTECODE.trim().strip_prefix("0x").unwrap();
     Bytes::from(hex::decode(hex).expect("invalid hex in CoverageCall.in"))
+}
+
+/// Decodes the revert reason from a hex-encoded `Error(string)` return value.
+fn decode_revert_reason(hex_result: &str) -> String {
+    let bytes: Bytes = hex_result.parse().expect("invalid hex");
+    let return_data = edr_solidity::return_data::ReturnData::new(&bytes);
+    assert!(
+        return_data.is_error_return_data(),
+        "expected error revert data, got: {hex_result}"
+    );
+    return_data.decode_error().expect("failed to decode error")
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -106,14 +118,11 @@ async fn forward_reverted_call() -> anyhow::Result<()> {
             None,
         )))?;
 
-    // forwardRevertedCall() returns the raw revert data from Target.willRevert()
-    // via returndatacopy.
+    // forwardRevertedCall() returns the raw ABI-encoded revert data from
+    // Target.willRevert() via returndatacopy.
     let result: String = serde_json::from_value(response.result)?;
-    let expected_hex = hex::encode("expected revert reason");
-    assert!(
-        result.contains(&expected_hex),
-        "result should contain revert reason, got: {result}"
-    );
+    let reason = decode_revert_reason(&result);
+    assert_eq!(reason, "expected revert reason");
 
     Ok(())
 }
@@ -173,14 +182,11 @@ async fn deploy_reverting_child() -> anyhow::Result<()> {
             None,
         )))?;
 
-    // deployRevertingChild() returns the raw revert data from the failed
-    // CoverageDeployRevert constructor via returndatacopy.
+    // deployRevertingChild() returns the raw ABI-encoded revert data from the
+    // failed CoverageDeployRevert constructor via returndatacopy.
     let result: String = serde_json::from_value(response.result)?;
-    let expected_hex = hex::encode("constructor failed");
-    assert!(
-        result.contains(&expected_hex),
-        "result should contain constructor revert reason, got: {result}"
-    );
+    let reason = decode_revert_reason(&result);
+    assert_eq!(reason, "constructor failed");
 
     Ok(())
 }

@@ -25,11 +25,8 @@ contract CoverageReturndataTest is DSTest {
             abi.encodeWithSignature("forwardRevertedCall()")
         );
         assertTrue(success, "forwardRevertedCall() should succeed");
-        assertTrue(result.length > 0, "should return revert data");
-        assertTrue(
-            containsString(result, "expected revert reason"),
-            "should contain revert reason"
-        );
+        // Result is ABI-encoded Error(string). Decode the revert reason.
+        assertEq(decodeRevertReason(result), "expected revert reason");
     }
 
     function testDeployChild() public {
@@ -45,26 +42,27 @@ contract CoverageReturndataTest is DSTest {
             abi.encodeWithSignature("deployRevertingChild()")
         );
         assertTrue(success, "deployRevertingChild() should succeed");
-        assertTrue(result.length > 0, "should return revert data");
-        assertTrue(
-            containsString(result, "constructor failed"),
-            "should contain constructor revert reason"
-        );
+        // Result is ABI-encoded Error(string). Decode the revert reason.
+        assertEq(decodeRevertReason(result), "constructor failed");
     }
 
-    function containsString(bytes memory data, string memory search) internal pure returns (bool) {
-        bytes memory searchBytes = bytes(search);
-        if (searchBytes.length > data.length) return false;
-        for (uint256 i = 0; i <= data.length - searchBytes.length; i++) {
-            bool found = true;
-            for (uint256 j = 0; j < searchBytes.length; j++) {
-                if (data[i + j] != searchBytes[j]) {
-                    found = false;
-                    break;
-                }
-            }
-            if (found) return true;
+    /// @dev Decodes the reason from ABI-encoded Error(string) revert data.
+    function decodeRevertReason(bytes memory data) internal pure returns (string memory) {
+        require(data.length >= 4, "data too short for Error(string)");
+        // Validate the Error(string) selector (first 4 bytes after the length prefix).
+        bytes4 selector;
+        assembly {
+            selector := mload(add(data, 0x20))
         }
-        return false;
+        require(
+            selector == bytes4(keccak256("Error(string)")),
+            "selector is not Error(string)"
+        );
+        // Skip the 4-byte selector to get the ABI-encoded string payload.
+        bytes memory payload;
+        assembly {
+            payload := add(data, 4)
+        }
+        return abi.decode(payload, (string));
     }
 }
