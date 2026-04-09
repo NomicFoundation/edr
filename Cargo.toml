@@ -90,8 +90,6 @@ rpath = true
 # Uncomment this section if you're using a debugger.
 debug = 1
 
-[profile.release]
-# Optimized profile for released packages.
 [profile.napi-publish]
 inherits = "release"
 rpath = true
