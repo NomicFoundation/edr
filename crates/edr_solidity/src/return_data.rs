@@ -79,6 +79,11 @@ impl<'a> ReturnData<'a> {
         self.selector == Some(Panic::SELECTOR)
     }
 
+    /// Decodes the error reason from an `Error(string)` revert.
+    pub fn decode_error(&self) -> Result<String, alloy_sol_types::Error> {
+        Error::abi_decode(&self.value[..]).map(|e| e.0)
+    }
+
     /// Decodes the panic error code from the return data.
     pub fn decode_panic(&self) -> Result<U256, alloy_sol_types::Error> {
         Panic::abi_decode(&self.value[..]).map(|p| p.0)
