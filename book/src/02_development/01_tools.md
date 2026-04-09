@@ -65,7 +65,7 @@ This tool compiles and instruments Solidity source files for use in EDR tests.
 
 Some integration tests require pre-compiled bytecode. To avoid adding `foundry-compilers` as a test dependency (which can interfere with other test crates that use solc during `cargo test --workspace`), we compile contracts ahead of time. It can also instrument source files with coverage probes, producing instrumented `.sol` files used by the `edr_solidity_tests` crate.
 
-By convention, compiled bytecodes in EDR are kept in `data/deployed_bytecode/` as hex-encoded `.in` files. Integration tests load them via `include_str!` so they don't need solc at test time.
+By convention, compiled bytecode in EDR is kept in `data/deployed_bytecode/` as hex-encoded `.in` files. Integration tests load them via `include_str!` so they don't need solc at test time.
 
 ### Compile with coverage instrumentation
 

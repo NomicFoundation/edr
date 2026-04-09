@@ -23,6 +23,7 @@ struct Fixture {
 
 fn create_provider_with_coverage() -> Fixture {
     let mut config = create_test_config();
+    // We need to activate coverage measurement for these tests, but don't use the result.
     config.observability.on_collected_coverage_fn = Some(Box::new(move |_hits| Ok(())));
 
     let from = {
