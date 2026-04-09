@@ -42,7 +42,7 @@ Store the detected suffix for use in subsequent steps (e.g. `linux-x64-gnu`). Th
 
 ```bash
 cd /workspaces/edr/crates/edr_napi
-pnpm run <build-script>
+pnpm run <edr-build-script>
 ```
 
 Verify the binary was produced:
@@ -55,7 +55,7 @@ ls -la /workspaces/edr/crates/edr_napi/edr.<suffix>.node
 
 ```bash
 cp /workspaces/edr/crates/edr_napi/edr.<suffix>.node \
-   /workspaces/edr/crates/edr_napi/npm/<npmDir>/edr.<suffix>.node
+   /workspaces/edr/crates/edr_napi/npm/<suffix>/edr.<suffix>.node
 ```
 
 ### 4. Start Verdaccio
@@ -78,22 +78,18 @@ Read the current version from `crates/edr_napi/package.json`, bump the prereleas
 Apply the same version bump to:
 
 - `crates/edr_napi/package.json` (main `@nomicfoundation/edr` package)
-- `crates/edr_napi/npm/<npmDir>/package.json` (platform package `@nomicfoundation/edr-<suffix>`)
+- `crates/edr_napi/npm/<suffix>/package.json` (platform package `@nomicfoundation/edr-<suffix>`)
 
-Copy the Verdaccio auth token:
-
-```bash
-cp /workspaces/hardhat/.verdaccio/.npmrc /workspaces/edr/.npmrc
-```
-
-Publish both packages (platform package first):
+Publish both packages (platform package first), using the Verdaccio auth token via `NPM_CONFIG_USERCONFIG`:
 
 ```bash
-cd /workspaces/edr/crates/edr_napi/npm/<npmDir>
-pnpm publish --registry=http://127.0.0.1:4873/ --no-git-checks
+cd /workspaces/edr/crates/edr_napi/npm/<suffix>
+NPM_CONFIG_USERCONFIG=/workspaces/hardhat/.verdaccio/.npmrc \
+  pnpm publish --registry=http://127.0.0.1:4873/ --no-git-checks
 
 cd /workspaces/edr/crates/edr_napi
-pnpm publish --registry=http://127.0.0.1:4873/ --no-git-checks
+NPM_CONFIG_USERCONFIG=/workspaces/hardhat/.verdaccio/.npmrc \
+  pnpm publish --registry=http://127.0.0.1:4873/ --no-git-checks
 ```
 
 ### 6. Bump and publish Hardhat packages to Verdaccio
