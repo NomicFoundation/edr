@@ -48,7 +48,7 @@ k256 = { version = "0.13.1", default-features = false, features = [
     "ecdsa",
     "pkcs8",
 ] }
-mimalloc = { version = "0.1.39", default-features = false, features = [
+mimalloc = { version = "0.1.48", default-features = false, features = [
     "local_dynamic_tls",
 ] }
 # The `async` feature ensures that a tokio runtime is available
