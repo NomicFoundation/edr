@@ -165,6 +165,14 @@ pub struct TestFunctionConfigOverride {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test.
     pub allow_internal_expect_revert: Option<bool>,
+    /// Whether to enable isolation of calls for the test. In isolation mode all
+    /// top-level calls are executed as a separate transaction in a separate
+    /// EVM context, enabling more precise gas accounting and transaction
+    /// state changes.
+    pub isolate: Option<bool>,
+    /// The EVM version to use for this test, e.g. "Cancun". This will override
+    /// the global EVM version.
+    pub evm_version: Option<String>,
     /// Configuration override for fuzz testing
     pub fuzz: Option<FuzzConfigOverride>,
     /// Configuration override for invariant testing

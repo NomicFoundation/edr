@@ -12,7 +12,9 @@ use edr_solidity_tests::{
 };
 use foundry_evm::traces::SetupTraceKind;
 
-use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT, TEST_DATA_PARIS};
+use crate::helpers::{
+    assert_multiple, make_test_identifier, SolidityTestFilter, TEST_DATA_DEFAULT, TEST_DATA_PARIS,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_core() {
@@ -123,6 +125,16 @@ async fn test_core() {
             (
                 "default/core/DeprecatedCheatcode.t.sol:DeprecatedCheatcodeInvariantTest",
                 vec![("invariant_deprecated_cheatcode()", true, None, None, None)],
+            ),
+            (
+                "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
+                vec![(
+                    "testNonceIncrementsWithIsolation()",
+                    false,
+                    None,
+                    None,
+                    None,
+                )],
             ),
         ]),
     );
@@ -948,6 +960,38 @@ async fn test_function_override_allow_internal_expect_revert() {
         BTreeMap::from([(
             "default/core/InternalRevert.t.sol:InternalRevertingTest",
             vec![("testInternalRevert()", true, None, None, None)],
+        )]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_function_override_isolate() {
+    let filter = SolidityTestFilter::new(".*", ".*", "default/core/IsolateOverride.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+
+    // Enable isolation for the specific test function via override.
+    config.test_function_overrides.insert(
+        make_test_identifier(
+            "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
+            "testNonceIncrementsWithIsolation()",
+        ),
+        edr_solidity_tests::TestFunctionConfigOverride {
+            allow_internal_expect_revert: None,
+            isolate: Some(true),
+            evm_version: None,
+            fuzz: None,
+            invariant: None,
+        },
+    );
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
+            vec![("testNonceIncrementsWithIsolation()", true, None, None, None)],
         )]),
     );
 }
