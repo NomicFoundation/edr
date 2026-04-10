@@ -22,7 +22,7 @@ use edr_state_api::State;
 use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
 use revm_inspector::JournalExt;
-use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
+use revm_inspectors::tracing::{StackSnapshotType, TracingInspector, TracingInspectorConfig};
 
 use crate::{
     console_log::ConsoleLogCollector,
@@ -149,7 +149,9 @@ impl EvmObserver {
         let tracing_config = if config.verbose_raw_tracing {
             TracingInspectorConfig::all()
         } else {
-            TracingInspectorConfig::default_parity().set_steps(true)
+            TracingInspectorConfig::default_parity()
+                .set_steps(true)
+                .set_stack_snapshots(StackSnapshotType::Full)
         };
 
         Self {

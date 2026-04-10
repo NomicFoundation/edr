@@ -439,6 +439,10 @@ where
         self.observability.verbose_raw_tracing = verbose_tracing;
     }
 
+    pub fn verbose_tracing(&self) -> bool {
+        self.observability.verbose_raw_tracing
+    }
+
     pub fn stop_impersonating_account(&mut self, address: Address) -> bool {
         self.impersonated_accounts.remove(&address)
     }
