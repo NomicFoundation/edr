@@ -347,9 +347,7 @@ impl<
 
         // EIP-4788: populate beacon root contract storage before any
         // transactions execute.
-        let state_diff = 
-            
-        if evm_spec_id >= EvmSpecId::CANCUN
+        let state_diff = if evm_spec_id >= EvmSpecId::CANCUN
             && let Some(parent_beacon_block_root) = header.parent_beacon_block_root
         {
             let mut state_diff = StateDiff::default();

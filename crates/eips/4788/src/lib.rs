@@ -5,9 +5,7 @@
 //! contract's ring buffer storage.
 
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes, B256, U256};
-use edr_state_api::{
-    account::AccountInfo, DynState, EvmStorageSlot, State, StateDiff, StateError,
-};
+use edr_state_api::{account::AccountInfo, DynState, EvmStorageSlot, State, StateDiff, StateError};
 
 /// The address of the beacon roots contract.
 pub const BEACON_ROOTS_ADDRESS: Address = address!("0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02");
@@ -19,7 +17,6 @@ pub const BEACON_ROOTS_BYTECODE: Bytes = bytes!(
 
 /// The history buffer length used by the beacon roots contract (0x1fff).
 const HISTORY_BUFFER_LENGTH: u64 = 8191;
-
 
 /// Genesis parent beacon block root if EIP-4788 is active at genesis
 pub const GENESIS_PARENT_BEACON_BLOCK_ROOT: B256 = B256::ZERO;
