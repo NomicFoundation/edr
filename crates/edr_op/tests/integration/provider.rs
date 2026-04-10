@@ -52,7 +52,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let provider = create_op_provider(config)?;
 
     let last_block_number = {
-        let response = provider.handle_request(ProviderRequest::with_single(
+        let response = provider.handle_request(RpcRequest::with_single(
             MethodInvocation::BlockNumber(()),
         ))?;
 
@@ -63,7 +63,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
         "de26c4a10000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002c02ea827a6981c4843b9aca00843b9c24e382520994f39fd6e51aad88f6f4ce6ab8827279cfffb922660180c00000000000000000000000000000000000000000"
     );
     let _response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
             L1CallRequest {
                 from: Some(address!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266")),
                 to: Some(GAS_PRICE_ORACLE_L1_BLOCK_ADDRESS),
@@ -127,7 +127,7 @@ mod base_fee_params {
             to: Some(callee),
             ..TransactionRequest::default()
         };
-        let _result = provider.handle_request(ProviderRequest::with_single(
+        let _result = provider.handle_request(RpcRequest::with_single(
             MethodInvocation::SendTransaction(transaction),
         ))?;
 
@@ -135,7 +135,7 @@ mod base_fee_params {
     }
 
     fn latest_block(provider: &Provider<OpChainSpec>) -> anyhow::Result<L1RpcBlock<B256>> {
-        let response = provider.handle_request(ProviderRequest::with_single(
+        let response = provider.handle_request(RpcRequest::with_single(
             MethodInvocation::GetBlockByNumber(
                 PreEip1898BlockSpec::Tag(edr_eth::BlockTag::Latest),
                 false,

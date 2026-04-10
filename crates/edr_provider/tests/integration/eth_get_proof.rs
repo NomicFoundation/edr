@@ -44,7 +44,7 @@ fn verify_account_proof<'proof>(
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
     let proof_response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+        .handle_request(RpcRequest::with_single(MethodInvocation::GetProof(
             address,
             Vec::new(),
             block_spec,
@@ -70,7 +70,7 @@ fn verify_storage_proof<'proof>(
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
     let proof_response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+        .handle_request(RpcRequest::with_single(MethodInvocation::GetProof(
             address,
             vec![slot],
             edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),
@@ -102,19 +102,19 @@ mod local {
     async fn test_account_proof() -> anyhow::Result<()> {
         let provider = setup_provider(MinimalProviderConfig::local_empty())?;
 
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::SetBalance(
             address!("0x2031f89b3ea8014eb51a78c316e42af3e0d7695f"),
             U256::from(45000000000000000000_u128),
         )))?;
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::SetBalance(
             address!("0x33f0fc440b8477fcfbe9d0bf8649e7dea9baedb2"),
             U256::from(1),
         )))?;
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::SetBalance(
             address!("0x62b0dd4aab2b1a0a04e279e2b828791a10755528"),
             U256::from(1100000000000000000_u128),
         )))?;
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::SetBalance(
             address!("0x1ed9b1dd266b607ee278726d324b855a093394a6"),
             U256::from(120000000000000000_u128),
         )))?;
@@ -164,7 +164,7 @@ mod local {
             serde_json::from_str(include_str!("../fixtures/storage_sample.json")).unwrap();
 
         for (key, value) in storage {
-            provider.handle_request(ProviderRequest::with_single(
+            provider.handle_request(RpcRequest::with_single(
                 MethodInvocation::SetStorageAt(target, key, value),
             ))?;
         }
@@ -201,7 +201,7 @@ mod local {
 
         let address = Address::random();
         provider
-            .handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+            .handle_request(RpcRequest::with_single(MethodInvocation::GetProof(
                 address,
                 Vec::new(),
                 edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),
@@ -233,13 +233,13 @@ mod fork {
             url: json_rpc_url_provider::ethereum_mainnet(),
         }))?;
 
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::SetBalance(
             ADDRESS,
             U256::from(100_000),
         )))?;
 
         let proof_result =
-            provider.handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+            provider.handle_request(RpcRequest::with_single(MethodInvocation::GetProof(
                 ADDRESS,
                 Vec::new(),
                 edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),
@@ -289,7 +289,7 @@ mod fork {
         }))?;
 
         let proof_result =
-            provider.handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+            provider.handle_request(RpcRequest::with_single(MethodInvocation::GetProof(
                 ADDRESS,
                 Vec::new(),
                 edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),

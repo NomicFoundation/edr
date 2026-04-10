@@ -54,7 +54,7 @@ async fn issue_356() -> anyhow::Result<()> {
     );
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
             L1CallRequest {
                 to: Some(contract_address),
                 data: Some(selector),

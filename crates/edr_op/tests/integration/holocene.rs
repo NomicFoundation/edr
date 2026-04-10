@@ -28,7 +28,7 @@ async fn holocene_genesis_block() -> anyhow::Result<()> {
 
     // Mine a block to make sure that the genesis block uses the correct extra
     // data, containing dynamic base fee params.
-    let _response = provider.handle_request(ProviderRequest::with_single(
+    let _response = provider.handle_request(RpcRequest::with_single(
         MethodInvocation::Mine(None, None),
     ))?;
 

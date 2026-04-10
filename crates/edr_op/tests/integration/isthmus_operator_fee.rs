@@ -38,7 +38,7 @@ fn create_isthmus_provider() -> anyhow::Result<Provider<OpChainSpec>> {
 async fn operator_fee_parameters_storage_defaults_to_0() -> anyhow::Result<()> {
     let provider = create_isthmus_provider()?;
 
-    let operator_fee = provider.handle_request(ProviderRequest::with_single(
+    let operator_fee = provider.handle_request(RpcRequest::with_single(
         MethodInvocation::GetStorageAt(
             L1_BLOCK_PREDEPLOY_ADDRESS,
             U256::from(OPERATOR_FEE_STORAGE_INDEX),
@@ -138,7 +138,7 @@ fn get_transaction_receipt(
     provider: &Provider<OpChainSpec>,
     transaction_hash: B256,
 ) -> anyhow::Result<edr_op::rpc::OpRpcBlockReceipt> {
-    let result = provider.handle_request(ProviderRequest::with_single(
+    let result = provider.handle_request(RpcRequest::with_single(
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 
@@ -154,7 +154,7 @@ fn send_transaction(provider: &Provider<OpChainSpec>) -> anyhow::Result<B256> {
         ..TransactionRequest::default()
     };
 
-    let result = provider.handle_request(ProviderRequest::with_single(
+    let result = provider.handle_request(RpcRequest::with_single(
         MethodInvocation::SendTransaction(transaction),
     ))?;
 
@@ -166,7 +166,7 @@ fn set_operator_fee_params_in_storage(
     operator_fee_scalar: u32,
     operator_fee_constant: u64,
 ) -> anyhow::Result<()> {
-    provider.handle_request(ProviderRequest::with_single(
+    provider.handle_request(RpcRequest::with_single(
         MethodInvocation::SetStorageAt(
             L1_BLOCK_PREDEPLOY_ADDRESS,
             U256::from(OPERATOR_FEE_STORAGE_INDEX),

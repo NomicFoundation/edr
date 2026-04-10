@@ -38,7 +38,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
     )?;
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
             L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),
@@ -77,7 +77,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
     )?;
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
             L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),
@@ -126,7 +126,7 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
     )?;
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
             L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),

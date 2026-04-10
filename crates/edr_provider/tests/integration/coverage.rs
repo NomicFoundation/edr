@@ -93,7 +93,7 @@ fn provider_with_deployed_test_contract(
     // Deploy test contract
     let transaction_hash = {
         let response = provider
-            .handle_request(ProviderRequest::with_single(
+            .handle_request(RpcRequest::with_single(
                 MethodInvocation::SendTransaction(TransactionRequest {
                     from,
                     data: Some(
@@ -111,7 +111,7 @@ fn provider_with_deployed_test_contract(
     // Retrieve the deployed address
     let deployed_address = {
         let response = provider
-            .handle_request(ProviderRequest::with_single(
+            .handle_request(RpcRequest::with_single(
                 MethodInvocation::GetTransactionReceipt(transaction_hash),
             ))
             .expect("Failed to get transaction receipt");
@@ -143,7 +143,7 @@ async fn call() -> anyhow::Result<()> {
     } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let _response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
             L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
@@ -170,7 +170,7 @@ async fn debug_trace_call() -> anyhow::Result<()> {
         provider,
     } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
-    let _response = provider.handle_request(ProviderRequest::with_single(
+    let _response = provider.handle_request(RpcRequest::with_single(
         MethodInvocation::DebugTraceCall(
             L1CallRequest {
                 from: Some(from),
@@ -200,7 +200,7 @@ async fn debug_trace_transaction() -> anyhow::Result<()> {
     } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let transaction_hash: B256 = {
-        let response = provider.handle_request(ProviderRequest::with_single(
+        let response = provider.handle_request(RpcRequest::with_single(
             MethodInvocation::SendTransaction(TransactionRequest {
                 from,
                 to: Some(deployed_address),
@@ -215,7 +215,7 @@ async fn debug_trace_transaction() -> anyhow::Result<()> {
     // Reset the hits after the transaction
     coverage_reporter.lock().hits.clear();
 
-    let _response = provider.handle_request(ProviderRequest::with_single(
+    let _response = provider.handle_request(RpcRequest::with_single(
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     ))?;
 
@@ -236,7 +236,7 @@ async fn estimate_gas() -> anyhow::Result<()> {
     } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let _response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::EstimateGas(
             L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
@@ -262,7 +262,7 @@ async fn send_transaction() -> anyhow::Result<()> {
         provider,
     } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
-    let _response = provider.handle_request(ProviderRequest::with_single(
+    let _response = provider.handle_request(RpcRequest::with_single(
         MethodInvocation::SendTransaction(TransactionRequest {
             from,
             to: Some(deployed_address),

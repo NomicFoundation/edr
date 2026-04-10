@@ -38,11 +38,11 @@ async fn issue_361() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::with_single(
+    provider.handle_request(RpcRequest::with_single(
         MethodInvocation::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(
+    provider.handle_request(RpcRequest::with_single(
         MethodInvocation::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
@@ -50,7 +50,7 @@ async fn issue_361() -> anyhow::Result<()> {
         }),
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::GetLogs(
+    provider.handle_request(RpcRequest::with_single(MethodInvocation::GetLogs(
         LogFilterOptions {
             from_block: Some(BlockSpec::Number(0)),
             to_block: Some(BlockSpec::latest()),

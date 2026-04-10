@@ -49,7 +49,7 @@ async fn estimate_gas() -> anyhow::Result<()> {
     )?;
 
     let _response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::EstimateGas(
             L1CallRequest {
                 from: Some(from),
                 to: Some(address!("0xdf951d2061b12922bfbf22cb17b17f3b39183570")),
@@ -100,7 +100,7 @@ async fn estimate_gas_with_value() -> anyhow::Result<()> {
     )?;
 
     let _response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+        provider.handle_request(RpcRequest::with_single(MethodInvocation::EstimateGas(
             L1CallRequest {
                 from: Some(from),
                 to: Some(address!("0xdf951d2061b12922bfbf22cb17b17f3b39183570")),

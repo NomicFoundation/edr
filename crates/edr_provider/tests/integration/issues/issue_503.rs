@@ -41,11 +41,11 @@ async fn issue_503() -> anyhow::Result<()> {
     let index =
         U256::from_str("0x4f039c94bc7b6c8e7867b9fbd2890a637837fea1c829f434a649c572b15b2969")?;
 
-    provider.handle_request(ProviderRequest::with_single(
+    provider.handle_request(RpcRequest::with_single(
         MethodInvocation::GetStorageAt(address, index, None),
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(
+    provider.handle_request(RpcRequest::with_single(
         MethodInvocation::SetStorageAt(address, index, U256::from(1u64)),
     ))?;
 

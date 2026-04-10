@@ -12,8 +12,11 @@ use edr_defaults::SECRET_KEYS;
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::address;
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderError, ProviderErrorForChainSpec, ProviderRequest, ResponseWithCallTraces,
+    handlers::{RpcMethodCall, RpcRequest},
+    test_utils::create_test_config,
+    time::CurrentTime,
+    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderErrorForChainSpec,
+    ProviderRequest, ResponseWithCallTraces,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
@@ -49,7 +52,7 @@ fn new_provider(
 fn send_transaction(
     provider: &Provider<L1ChainSpec>,
     gas_limit: u64,
-) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<L1ChainSpec>> {
+) -> anyhow::Result<ResponseWithCallTraces> {
     let caller = secret_key_to_address(SECRET_KEYS[0])?;
     let transaction = TransactionRequest {
         from: caller,
@@ -58,9 +61,10 @@ fn send_transaction(
         ..TransactionRequest::default()
     };
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(transaction),
-    ))
+    let request = RpcMethodCall::with_params("eth_sendTransaction", transaction)?;
+    let response = provider.handle_request(RpcRequest::with_single(request))?;
+
+    Ok(response)
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -75,7 +79,7 @@ async fn test_call() -> anyhow::Result<()> {
         ..L1CallRequest::default()
     };
 
-    let result = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+    let result = provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
         call, None, None,
     )));
 
@@ -110,9 +114,9 @@ async fn test_estimate_gas() -> anyhow::Result<()> {
         ..L1CallRequest::default()
     };
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::EstimateGas(call, None),
-    ));
+    let result = provider.handle_request(RpcRequest::with_single(MethodInvocation::EstimateGas(
+        call, None,
+    )));
 
     assert!(result.is_err());
     assert!(

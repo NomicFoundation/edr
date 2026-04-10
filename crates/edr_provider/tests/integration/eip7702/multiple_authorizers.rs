@@ -61,7 +61,7 @@ async fn call() -> anyhow::Result<()> {
     let provider = new_provider(secret_key3)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        .handle_request(RpcRequest::with_single(MethodInvocation::Call(
             call_request,
             None,
             None,
@@ -87,7 +87,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
 
     let provider = new_provider(secret_key3)?;
     let _response = provider
-        .handle_request(ProviderRequest::with_single(
+        .handle_request(RpcRequest::with_single(
             MethodInvocation::SendRawTransaction(RAW_TRANSACTION.clone()),
         ))
         .expect("eth_sendRawTransaction should succeed");
@@ -130,7 +130,7 @@ async fn send_transaction() -> anyhow::Result<()> {
     let provider = new_provider(secret_key3)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::with_single(
+        .handle_request(RpcRequest::with_single(
             MethodInvocation::SendTransaction(transaction_request),
         ))
         .expect("eth_sendTransaction should succeed");
@@ -168,7 +168,7 @@ async fn trace_call() -> anyhow::Result<()> {
     let provider = new_provider(secret_key3)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::with_single(
+        .handle_request(RpcRequest::with_single(
             MethodInvocation::DebugTraceCall(call_request, None, None),
         ))
         .expect("debug_traceCall should succeed");

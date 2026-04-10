@@ -49,8 +49,7 @@ pub use self::{
     provider::Provider,
     requests::{
         eth::calculate_eip1559_fee_parameters, hardhat::rpc_types as hardhat_rpc_types,
-        IntervalConfig as IntervalConfigRequest, InvalidRequestReason, MethodInvocation,
-        ProviderRequest, Timestamp,
+        IntervalConfig as IntervalConfigRequest, InvalidRequestReason, MethodInvocation, Timestamp,
     },
     spec::{ProviderSpec, SyncProviderSpec},
     subscribe::*,

@@ -38,7 +38,7 @@ fn send_call(
     call_request: L1CallRequest,
 ) -> anyhow::Result<Bytes> {
     let response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        .handle_request(RpcRequest::with_single(MethodInvocation::Call(
             call_request,
             None,
             None,

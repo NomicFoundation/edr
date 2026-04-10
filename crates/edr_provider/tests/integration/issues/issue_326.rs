@@ -45,15 +45,15 @@ async fn issue_326() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::with_single(
+    provider.handle_request(RpcRequest::with_single(
         MethodInvocation::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
+    provider.handle_request(RpcRequest::with_single(MethodInvocation::Mine(
         None, None,
     )))?;
 
-    provider.handle_request(ProviderRequest::with_single(
+    provider.handle_request(RpcRequest::with_single(
         MethodInvocation::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(impersonated_account),
@@ -63,7 +63,7 @@ async fn issue_326() -> anyhow::Result<()> {
         }),
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+    provider.handle_request(RpcRequest::with_single(MethodInvocation::EstimateGas(
         L1CallRequest {
             from: Some(impersonated_account),
             to: Some(impersonated_account),
