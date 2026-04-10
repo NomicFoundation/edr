@@ -1,9 +1,9 @@
 mod config;
 mod factory;
 
-use std::{str::FromStr as _, sync::Arc};
+use std::sync::Arc;
 
-use edr_provider::{time::TimeSinceEpoch, InvalidRequestReason, SyncCallOverride};
+use edr_provider::{time::TimeSinceEpoch, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
 
 pub use self::{config::Config, factory::SyncProviderFactory};

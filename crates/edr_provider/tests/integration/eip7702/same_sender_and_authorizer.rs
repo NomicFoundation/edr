@@ -3,7 +3,7 @@ use edr_chain_l1::{
     L1ChainSpec,
 };
 use edr_primitives::{address, bytes, Bytes, U256};
-use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
+use edr_provider::{handlers::{RpcMethodCall, RpcRequest}, test_utils::create_test_config, Provider};
 use edr_signer::public_key_to_address;
 use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 
@@ -47,11 +47,9 @@ async fn call() -> anyhow::Result<()> {
     let provider = new_provider(secret_key)?;
 
     let _response = provider
-        .handle_request(RpcRequest::with_single(MethodInvocation::Call(
-            call_request,
-            None,
-            None,
-        )))
+        .handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_call", (call_request, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None)).expect("params should serialize"),
+        ))
         .expect("eth_call should succeed");
 
     Ok(())
@@ -69,7 +67,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
     let provider = new_provider(secret_key)?;
     let _response = provider
         .handle_request(RpcRequest::with_single(
-            MethodInvocation::SendRawTransaction(RAW_TRANSACTION.clone()),
+            RpcMethodCall::with_params("eth_sendRawTransaction", (RAW_TRANSACTION.clone(),)).expect("params should serialize"),
         ))
         .expect("eth_sendRawTransaction should succeed");
 
@@ -97,7 +95,7 @@ async fn send_transaction() -> anyhow::Result<()> {
 
     let _response = provider
         .handle_request(RpcRequest::with_single(
-            MethodInvocation::SendTransaction(transaction_request),
+            RpcMethodCall::with_params("eth_sendTransaction", (transaction_request,)).expect("params should serialize"),
         ))
         .expect("eth_sendTransaction should succeed");
 
@@ -122,7 +120,7 @@ async fn trace_call() -> anyhow::Result<()> {
 
     let _response = provider
         .handle_request(RpcRequest::with_single(
-            MethodInvocation::DebugTraceCall(call_request, None, None),
+            RpcMethodCall::with_params("debug_traceCall", (call_request, Option::<edr_eth::BlockSpec>::None, Option::<serde_json::Value>::None)).expect("params should serialize"),
         ))
         .expect("debug_traceCall should succeed");
 

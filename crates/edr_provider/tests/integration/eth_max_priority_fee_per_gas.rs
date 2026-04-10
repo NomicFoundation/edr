@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use edr_chain_l1::L1ChainSpec;
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    test_utils::create_test_config, time::CurrentTime, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -26,7 +26,7 @@ async fn eth_max_priority_fee_per_gas() -> anyhow::Result<()> {
     )?;
 
     let response = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::MaxPriorityFeePerGas(()),
+        RpcMethodCall::without_params("eth_maxPriorityFeePerGas"),
     ))?;
 
     // 1 gwei in hex

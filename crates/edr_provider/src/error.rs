@@ -35,7 +35,10 @@ use serde::Serialize;
 use crate::{
     config::IntervalConfigConversionError,
     debug_trace::DebugTraceError,
-    handlers::error::{RpcErrorCode, RpcTypedError, INTERNAL_ERROR, INVALID_INPUT, INVALID_PARAMS},
+    handlers::error::{
+        DynProviderError, RpcErrorCode, RpcTypedError, INTERNAL_ERROR, INVALID_INPUT,
+        INVALID_PARAMS,
+    },
     observability::EvmObserverCollectionError,
     time::TimeSinceEpoch,
     ProviderSpec,
@@ -635,6 +638,19 @@ impl<
             serde_json::to_value(transaction_failure).expect("transaction_failure to json")
         });
 
+        let message = value.to_string();
+
+        Self {
+            code: value.error_code(),
+            message,
+            data,
+        }
+    }
+}
+
+impl From<DynProviderError> for jsonrpc::Error {
+    fn from(value: DynProviderError) -> Self {
+        let data = value.error_data();
         let message = value.to_string();
 
         Self {

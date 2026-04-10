@@ -8,8 +8,8 @@ use edr_chain_spec::ExecutableTransaction as _;
 use edr_eth::PreEip1898BlockSpec;
 use edr_primitives::B256;
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    test_utils::create_test_config, time::CurrentTime, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -42,11 +42,11 @@ async fn block_header() -> anyhow::Result<()> {
     let mut excess_blobs = 0u64;
 
     provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
+        RpcMethodCall::with_params("eth_sendRawTransaction", (raw_eip4844_transaction,))?,
     ))?;
 
     let result = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+        RpcMethodCall::with_params("eth_getBlockByNumber", (PreEip1898BlockSpec::latest(), false))?,
     ))?;
 
     let first_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -65,11 +65,11 @@ async fn block_header() -> anyhow::Result<()> {
         .build_raw();
 
     provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::SendRawTransaction(excess_blob_transaction),
+        RpcMethodCall::with_params("eth_sendRawTransaction", (excess_blob_transaction,))?,
     ))?;
 
     let result = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+        RpcMethodCall::with_params("eth_getBlockByNumber", (PreEip1898BlockSpec::latest(), false))?,
     ))?;
 
     let second_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -89,11 +89,11 @@ async fn block_header() -> anyhow::Result<()> {
         .build_raw();
 
     provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::SendRawTransaction(excess_blob_transaction),
+        RpcMethodCall::with_params("eth_sendRawTransaction", (excess_blob_transaction,))?,
     ))?;
 
     let result = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+        RpcMethodCall::with_params("eth_getBlockByNumber", (PreEip1898BlockSpec::latest(), false))?,
     ))?;
 
     let third_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -108,12 +108,12 @@ async fn block_header() -> anyhow::Result<()> {
     excess_blobs += 2;
 
     // Mine an empty block to validate the previous block's excess
-    provider.handle_request(RpcRequest::with_single(MethodInvocation::Mine(
-        None, None,
-    )))?;
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("hardhat_mine", (Option::<u64>::None, Option::<u64>::None))?,
+    ))?;
 
     let result = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+        RpcMethodCall::with_params("eth_getBlockByNumber", (PreEip1898BlockSpec::latest(), false))?,
     ))?;
 
     let fourth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -129,12 +129,12 @@ async fn block_header() -> anyhow::Result<()> {
     excess_blobs = excess_blobs.saturating_sub(6);
 
     // Mine an empty block to validate the previous block's excess
-    provider.handle_request(RpcRequest::with_single(MethodInvocation::Mine(
-        None, None,
-    )))?;
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("hardhat_mine", (Option::<u64>::None, Option::<u64>::None))?,
+    ))?;
 
     let result = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+        RpcMethodCall::with_params("eth_getBlockByNumber", (PreEip1898BlockSpec::latest(), false))?,
     ))?;
 
     let fifth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;

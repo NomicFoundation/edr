@@ -6,9 +6,10 @@ use edr_chain_l1::{rpc::block::L1RpcBlock, L1ChainSpec};
 use edr_eth::PreEip1898BlockSpec;
 use edr_primitives::B256;
 use edr_provider::{
+    handlers::{RpcMethodCall, RpcRequest},
     test_utils::create_test_config,
     time::{MockTime, TimeSinceEpoch},
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, Timestamp,
+    NoopLogger, Provider, Timestamp,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -46,7 +47,7 @@ impl TimestampFixture {
 
     fn increase_time(&self, seconds: u64) -> anyhow::Result<()> {
         self.provider.handle_request(RpcRequest::with_single(
-            MethodInvocation::EvmIncreaseTime(Timestamp::from(seconds)),
+            RpcMethodCall::with_params("evm_increaseTime", (Timestamp::from(seconds),))?,
         ))?;
 
         Ok(())
@@ -54,25 +55,25 @@ impl TimestampFixture {
 
     fn mine_block(&self) -> anyhow::Result<()> {
         self.provider
-            .handle_request(RpcRequest::with_single(MethodInvocation::EvmMine(
-                None,
-            )))?;
+            .handle_request(RpcRequest::with_single(
+                RpcMethodCall::without_params("evm_mine"),
+            ))?;
 
         Ok(())
     }
 
     fn mine_block_with_timestamp(&self, timestamp: u64) -> anyhow::Result<()> {
         self.provider
-            .handle_request(RpcRequest::with_single(MethodInvocation::EvmMine(
-                Some(Timestamp::from(timestamp)),
-            )))?;
+            .handle_request(RpcRequest::with_single(
+                RpcMethodCall::with_params("evm_mine", (Timestamp::from(timestamp),))?,
+            ))?;
 
         Ok(())
     }
 
     fn latest_block_timestamp(&self) -> anyhow::Result<u64> {
         let result = self.provider.handle_request(RpcRequest::with_single(
-            MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+            RpcMethodCall::with_params("eth_getBlockByNumber", (PreEip1898BlockSpec::latest(), false))?,
         ))?;
 
         let block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -81,7 +82,7 @@ impl TimestampFixture {
 
     fn set_next_block_timestamp(&self, timestamp: u64) -> anyhow::Result<()> {
         self.provider.handle_request(RpcRequest::with_single(
-            MethodInvocation::EvmSetNextBlockTimestamp(Timestamp::from(timestamp)),
+            RpcMethodCall::with_params("evm_setNextBlockTimestamp", (Timestamp::from(timestamp),))?,
         ))?;
 
         Ok(())

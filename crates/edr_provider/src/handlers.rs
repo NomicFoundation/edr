@@ -158,7 +158,9 @@ pub fn default_handlers<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + Ti
         dyn Fn(
             &mut ProviderData<ChainSpecT, TimerT>,
             serde_json::Value,
-        ) -> Result<ResponseWithCallTraces, DynProviderError>,
+        ) -> Result<ResponseWithCallTraces, DynProviderError>
+            + Send
+            + Sync,
     >,
 > {
     eth_handlers().into_iter().collect()
@@ -170,7 +172,9 @@ fn eth_handlers<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceE
         dyn Fn(
             &mut ProviderData<ChainSpecT, TimerT>,
             serde_json::Value,
-        ) -> Result<ResponseWithCallTraces, DynProviderError>,
+        ) -> Result<ResponseWithCallTraces, DynProviderError>
+            + Send
+            + Sync,
     >,
 ); 1] {
     [(
@@ -184,6 +188,8 @@ fn eth_handlers<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceE
 pub fn homogenize_fallible_handler<
     ChainSpecT: SyncProviderSpec<TimerT>,
     HandlerT: 'static
+        + Send
+        + Sync
         + Fn(&mut ProviderData<ChainSpecT, TimerT>, ParamsT) -> Result<SuccessT, DynProviderError>,
     ParamsT: serde::de::DeserializeOwned,
     SuccessT: serde::Serialize,
@@ -194,7 +200,9 @@ pub fn homogenize_fallible_handler<
     dyn Fn(
         &mut ProviderData<ChainSpecT, TimerT>,
         serde_json::Value,
-    ) -> Result<ResponseWithCallTraces, DynProviderError>,
+    ) -> Result<ResponseWithCallTraces, DynProviderError>
+        + Send
+        + Sync,
 > {
     Box::new(
         move |data: &mut ProviderData<ChainSpecT, TimerT>, params: serde_json::Value| {
@@ -217,6 +225,8 @@ pub fn homogenize_fallible_handler<
 pub fn homogenize_fallible_handler_with_trace<
     ChainSpecT: SyncProviderSpec<TimerT>,
     HandlerT: 'static
+        + Send
+        + Sync
         + Fn(
             &mut ProviderData<ChainSpecT, TimerT>,
             ParamsT,
@@ -230,7 +240,9 @@ pub fn homogenize_fallible_handler_with_trace<
     dyn Fn(
         &mut ProviderData<ChainSpecT, TimerT>,
         serde_json::Value,
-    ) -> Result<ResponseWithCallTraces, DynProviderError>,
+    ) -> Result<ResponseWithCallTraces, DynProviderError>
+        + Send
+        + Sync,
 > {
     Box::new(
         move |data: &mut ProviderData<ChainSpecT, TimerT>, params: serde_json::Value| {

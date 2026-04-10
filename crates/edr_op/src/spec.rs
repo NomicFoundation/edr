@@ -31,8 +31,7 @@ use edr_napi_core::{
 };
 use edr_primitives::HashMap;
 use edr_provider::{
-    time::TimeSinceEpoch, ProviderErrorForChainSpec, ProviderSpec, ResponseWithCallTraces,
-    TransactionFailureReason,
+    time::TimeSinceEpoch, ProviderSpec, ResponseWithCallTraces, TransactionFailureReason,
 };
 use edr_receipt::ExecutionReceiptChainSpec;
 use edr_state_api::{StateDebug as _, StateDiff};
@@ -374,7 +373,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
     const CHAIN_TYPE: &'static str = crate::CHAIN_TYPE;
 
     fn cast_response(
-        response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
+        response: Result<ResponseWithCallTraces, edr_provider::handlers::error::DynProviderError>,
     ) -> napi::Result<edr_napi_core::spec::Response> {
         cast_provider_result_to_response(response)
     }

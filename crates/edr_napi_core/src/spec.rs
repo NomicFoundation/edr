@@ -1,10 +1,8 @@
-use core::fmt::Debug;
-
 use edr_chain_l1::L1ChainSpec;
-use edr_chain_spec::{HaltReasonTrait, TransactionValidation};
+use edr_chain_spec::TransactionValidation;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    time::TimeSinceEpoch, ProviderError, ProviderErrorForChainSpec, ResponseWithCallTraces,
+    handlers::error::DynProviderError, time::TimeSinceEpoch, ResponseWithCallTraces,
     SyncProviderSpec,
 };
 use edr_rpc_client::jsonrpc;
@@ -59,62 +57,22 @@ pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
     /// This is implemented as an associated function to avoid problems when
     /// implementing type conversions for third-party types.
     fn cast_response(
-        response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
+        response: Result<ResponseWithCallTraces, DynProviderError>,
     ) -> napi::Result<Response>;
 }
 
 /// Casts a [`Result`] received from a provider into a [`Response`] that can be
 /// returned to N-API, taking into account the possibility of large responses
 /// and the presence of stack traces in case of transaction failures.
-pub fn cast_provider_result_to_response<
-    FetchReceiptErrorT: std::error::Error,
-    GenesisBlockCreationErrorT: std::error::Error,
-    HaltReasonT: HaltReasonTrait + serde::Serialize,
-    HardforkT: Debug,
-    TransactionValidationErrorT: std::error::Error,
->(
-    mut response: Result<
-        ResponseWithCallTraces,
-        ProviderError<
-            FetchReceiptErrorT,
-            GenesisBlockCreationErrorT,
-            HaltReasonT,
-            HardforkT,
-            TransactionValidationErrorT,
-        >,
-    >,
+pub fn cast_provider_result_to_response(
+    mut response: Result<ResponseWithCallTraces, DynProviderError>,
 ) -> napi::Result<Response> {
-    let stack_trace_result = response.as_ref().err().and_then(|error| {
-        if let edr_provider::ProviderError::TransactionFailed(failure) = error {
-            if matches!(
-                failure.failure.reason,
-                edr_provider::TransactionFailureReason::OutOfGas(_)
-            ) {
-                None
-            } else {
-                let result =
-                    failure
-                        .failure
-                        .stack_trace_result
-                        .clone()
-                        .map_halt_reason(|halt_reason| {
-                            serde_json::to_string(&halt_reason)
-                                .expect("Failed to serialize halt reason")
-                        });
-
-                Some(result)
-            }
-        } else {
-            None
-        }
-    });
+    // TODO: Re-implement stack trace extraction for DynProviderError
+    let stack_trace_result = None;
 
     // We can take the traces as they won't be used for anything else
     let call_trace_arenas = match &mut response {
         Ok(response) => std::mem::take(&mut response.call_trace_arenas),
-        Err(edr_provider::ProviderError::TransactionFailed(failure)) => {
-            std::mem::take(&mut failure.call_trace_arenas)
-        }
         Err(_) => Vec::new(),
     };
 
@@ -131,7 +89,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
     const CHAIN_TYPE: &'static str = edr_chain_l1::CHAIN_TYPE;
 
     fn cast_response(
-        response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
+        response: Result<ResponseWithCallTraces, DynProviderError>,
     ) -> napi::Result<Response> {
         cast_provider_result_to_response(response)
     }
@@ -141,7 +99,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
     const CHAIN_TYPE: &'static str = edr_generic::CHAIN_TYPE;
 
     fn cast_response(
-        response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
+        response: Result<ResponseWithCallTraces, DynProviderError>,
     ) -> napi::Result<Response> {
         cast_provider_result_to_response(response)
     }

@@ -3,9 +3,10 @@ use std::{str::FromStr, sync::Arc};
 use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_primitives::{Address, Bytes, HashMap, U256};
 use edr_provider::{
+    handlers::{RpcMethodCall, RpcRequest},
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    ForkConfig, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
@@ -45,30 +46,26 @@ async fn issue_324() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let x = provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
+    let x = provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("eth_call", (
         L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0x0c55699c").unwrap()), // x()
             ..L1CallRequest::default()
-        },
-        None,
-        None,
-    )))?;
+        }, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None))?
+    ))?;
 
     assert_eq!(
         x.result,
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
 
-    let y = provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
+    let y = provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("eth_call", (
         L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0xa56dfe4a").unwrap()), // y()
             ..L1CallRequest::default()
-        },
-        None,
-        None,
-    )))?;
+        }, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None))?
+    ))?;
 
     assert_eq!(
         y.result,
@@ -78,56 +75,52 @@ async fn issue_324() -> anyhow::Result<()> {
     let x_storage_index = U256::ZERO;
     let expected_x = "0x0000000000000000000000000000000000000000000000000000000000000002";
     provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::SetStorageAt(
+        RpcMethodCall::with_params("hardhat_setStorageAt", (
             contract_address,
             x_storage_index,
             U256::from_str(expected_x).unwrap(),
-        ),
+        ))?,
     ))?;
 
     let new_x = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::GetStorageAt(contract_address, x_storage_index, None),
+        RpcMethodCall::with_params("eth_getStorageAt", (contract_address, x_storage_index, Option::<edr_eth::BlockSpec>::None))?,
     ))?;
 
     assert_eq!(new_x.result, expected_x);
 
-    let new_x = provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
+    let new_x = provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("eth_call", (
         L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0x0c55699c").unwrap()), // x()
             ..L1CallRequest::default()
-        },
-        None,
-        None,
-    )))?;
+        }, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None))?
+    ))?;
 
     assert_eq!(new_x.result, expected_x);
 
     let y_storage_index = U256::from(1u64);
     let expected_y = "0x0000000000000000000000000000000000000000000000000000000000000003";
     provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::SetStorageAt(
+        RpcMethodCall::with_params("hardhat_setStorageAt", (
             contract_address,
             y_storage_index,
             U256::from_str(expected_y).unwrap(),
-        ),
+        ))?,
     ))?;
 
     let new_y = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::GetStorageAt(contract_address, y_storage_index, None),
+        RpcMethodCall::with_params("eth_getStorageAt", (contract_address, y_storage_index, Option::<edr_eth::BlockSpec>::None))?,
     ))?;
 
     assert_eq!(new_y.result, expected_y);
 
-    let new_y = provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
+    let new_y = provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("eth_call", (
         L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0xa56dfe4a").unwrap()), // y()
             ..L1CallRequest::default()
-        },
-        None,
-        None,
-    )))?;
+        }, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None))?
+    ))?;
 
     assert_eq!(new_y.result, expected_y);
 

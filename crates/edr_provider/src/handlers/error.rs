@@ -66,3 +66,19 @@ impl core::error::Error for DynProviderError {
         self.0.source()
     }
 }
+
+impl RpcErrorCode for DynProviderError {
+    fn error_code(&self) -> i16 {
+        self.0.error_code()
+    }
+}
+
+impl RpcTypedError for DynProviderError {
+    fn error_tag(&self) -> &'static str {
+        self.0.error_tag()
+    }
+
+    fn error_data(&self) -> Option<serde_json::Value> {
+        self.0.error_data()
+    }
+}

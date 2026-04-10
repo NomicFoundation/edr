@@ -6,8 +6,8 @@ use std::sync::Arc;
 use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_primitives::{address, Bytes};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    test_utils::create_test_config, time::CurrentTime, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -37,12 +37,9 @@ fn send_call(
     provider: &Provider<L1ChainSpec>,
     call_request: L1CallRequest,
 ) -> anyhow::Result<Bytes> {
+    let request = RpcMethodCall::with_params("eth_call", (call_request, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None))?;
     let response = provider
-        .handle_request(RpcRequest::with_single(MethodInvocation::Call(
-            call_request,
-            None,
-            None,
-        )))
+        .handle_request(RpcRequest::with_single(request))
         .expect("request should succeed");
 
     let output: Bytes = serde_json::from_value(response.result)?;

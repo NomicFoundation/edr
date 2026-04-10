@@ -9,7 +9,9 @@ use anyhow::Context;
 use derive_where::derive_where;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest, ProviderSpec,
+    handlers::{error::DynProviderError, RpcRequest},
+    time::CurrentTime,
+    Logger, ProviderSpec,
 };
 use edr_rpc_eth::jsonrpc;
 use edr_scenarios::ScenarioConfig;
@@ -181,7 +183,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
 
 async fn load_requests(
     scenario_path: &Path,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<RpcRequest>)> {
     println!("Loading requests from {scenario_path:?}");
 
     match load_gzipped_json(scenario_path.to_path_buf()).await {
@@ -193,7 +195,7 @@ async fn load_requests(
 
 async fn load_gzipped_json(
     scenario_path: PathBuf,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<RpcRequest>)> {
     use std::{
         fs::File,
         io::{BufRead, BufReader},
@@ -219,11 +221,11 @@ async fn load_gzipped_json(
                 );
             }
 
-            let mut requests: Vec<ProviderRequest<GenericChainSpec>> = Vec::new();
+            let mut requests: Vec<RpcRequest> = Vec::new();
 
             for gzipped_line in lines {
                 let line = gzipped_line.context("Invalid gzip")?;
-                let request: ProviderRequest<GenericChainSpec> = serde_json::from_str(&line)?;
+                let request: RpcRequest = serde_json::from_str(&line)?;
                 requests.push(request);
             }
 
@@ -234,7 +236,7 @@ async fn load_gzipped_json(
 
 async fn load_json(
     scenario_path: &Path,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<RpcRequest>)> {
     use tokio::io::AsyncBufReadExt;
 
     let reader = tokio::io::BufReader::new(tokio::fs::File::open(scenario_path).await?);
@@ -250,10 +252,10 @@ async fn load_json(
         );
     }
 
-    let mut requests: Vec<ProviderRequest<GenericChainSpec>> = Vec::new();
+    let mut requests: Vec<RpcRequest> = Vec::new();
 
     while let Some(line) = lines.next_line().await? {
-        let request: ProviderRequest<GenericChainSpec> = serde_json::from_str(&line)?;
+        let request: RpcRequest = serde_json::from_str(&line)?;
         requests.push(request);
     }
 
@@ -277,7 +279,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> Logger<ChainSpecT, CurrentTime>
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
+        _error: Option<&DynProviderError>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }

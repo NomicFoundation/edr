@@ -6,7 +6,8 @@ use edr_primitives::{Address, B256};
 use edr_provider::{
     test_utils::{create_test_config_with, one_ether, MinimalProviderConfig},
     time::CurrentTime,
-    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    AccountOverride, MiningConfig, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -43,21 +44,21 @@ async fn issue_325() -> anyhow::Result<()> {
     )?;
 
     provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::ImpersonateAccount(impersonated_account.into()),
+        RpcMethodCall::with_params("hardhat_impersonateAccount", (impersonated_account,))?,
     ))?;
 
     let result = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+        RpcMethodCall::with_params("eth_sendTransaction", (TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
             ..TransactionRequest::default()
-        }),
+        },))?,
     ))?;
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
 
     let result = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::DropTransaction(transaction_hash),
+        RpcMethodCall::with_params("hardhat_dropTransaction", (transaction_hash,))?,
     ))?;
 
     let dropped: bool = serde_json::from_value(result.result)?;
@@ -65,7 +66,7 @@ async fn issue_325() -> anyhow::Result<()> {
     assert!(dropped);
 
     provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::pending(), false),
+        RpcMethodCall::with_params("eth_getBlockByNumber", (PreEip1898BlockSpec::pending(), false))?,
     ))?;
 
     Ok(())

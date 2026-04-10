@@ -160,20 +160,8 @@ fn test_serde_eth_get_block_by_hash() {
     ));
 }
 
-#[test]
-fn test_serde_eth_get_transaction_count() {
-    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::GetTransactionCount(
-        Address::from(U160::from(1)),
-        Some(BlockSpec::latest()),
-    ));
-    help_test_method_invocation_serde_with_expected(
-        MethodInvocation::<L1ChainSpec>::GetTransactionCount(Address::from(U160::from(1)), None),
-        MethodInvocation::<L1ChainSpec>::GetTransactionCount(
-            Address::from(U160::from(1)),
-            Some(BlockSpec::latest()),
-        ),
-    );
-}
+// GetTransactionCount was removed from MethodInvocation; it's now handled
+// by a dedicated handler and tested separately.
 
 #[test]
 fn test_serde_eth_get_transaction() {
@@ -301,21 +289,7 @@ fn test_serde_eth_get_tx_by_hash() {
     ));
 }
 
-#[test]
-fn test_serde_eth_get_tx_count_by_block_number() {
-    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::GetTransactionCount(
-        Address::from(U160::from(1)),
-        Some(BlockSpec::Number(100)),
-    ));
-}
-
-#[test]
-fn test_serde_eth_get_tx_count_by_block_tag() {
-    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::GetTransactionCount(
-        Address::from(U160::from(1)),
-        Some(BlockSpec::latest()),
-    ));
-}
+// GetTransactionCount tests removed - variant was moved to a dedicated handler.
 
 #[test]
 fn test_serde_eth_get_tx_receipt() {

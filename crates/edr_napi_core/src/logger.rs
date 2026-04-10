@@ -8,12 +8,15 @@ use edr_chain_spec::ExecutableTransaction;
 use edr_chain_spec_evm::result::ExecutionResult;
 use edr_primitives::{Address, Bytes, HashMap, HashSet, B256, U256};
 use edr_provider::{
-    handlers::{error::DynProviderError, UnsupportedMethodError},
+    handlers::{
+        error::{DynProviderError, RpcTypedError},
+        UnsupportedMethodError,
+    },
     observability::EvmObservedData,
     time::TimeSinceEpoch,
     CallResultWithMetadata, EstimateGasFailure, MineBlockResultWithMetadata,
-    MineBlockResultWithMetadataForChainSpec, ProviderError, ProviderErrorForChainSpec,
-    ProviderSpec, TransactionFailure,
+    MineBlockResultWithMetadataForChainSpec, ProviderSpec, TransactionFailure,
+    INVALID_EIP155_TRANSACTION_CHAIN_ID_ERROR_TAG,
 };
 use edr_solidity::{
     contract_decoder::ContractDecoder,
@@ -184,8 +187,7 @@ where
                 self.collector.print::<false>(Color::Red.paint(method))?;
                 self.collector.print_logs()?;
 
-                if error_tag
-                    != TransactionFailureWithCallTraces::<ChainSpecT::HaltReason>::ERROR_TAG
+                if error_tag != "TRANSACTION_FAILURE"
                 {
                     self.collector.print_empty_line()?;
 

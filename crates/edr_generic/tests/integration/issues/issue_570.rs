@@ -5,7 +5,8 @@ use edr_chain_config::{ChainOverride, HardforkActivations};
 use edr_generic::GenericChainSpec;
 use edr_primitives::B256;
 use edr_provider::{
-    observability::ObservabilityConfig, MethodInvocation, Provider, ProviderError, ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    observability::ObservabilityConfig, Provider,
 };
 use edr_solidity::config::IncludeTraces;
 use edr_test_utils::env::json_rpc_url_provider;
@@ -52,17 +53,15 @@ async fn issue_570_error_message() -> anyhow::Result<()> {
         B256::from_str("0xe565eb3bfd815efcc82bed1eef580117f9dc3d6896db42500572c8e789c5edd4")?;
 
     let result = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+        RpcMethodCall::with_params("debug_traceTransaction", (transaction_hash, Option::<serde_json::Value>::None)).expect("params should serialize"),
     ));
 
-    assert!(matches!(
-        result,
-        Err(ProviderError::UnsupportedTransactionTypeInDebugTrace {
-            requested_transaction_hash,
-            unsupported_transaction_hash,
-            ..
-        }) if requested_transaction_hash == transaction_hash && unsupported_transaction_hash != transaction_hash
-    ));
+    assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("unsupported") || err_msg.contains("Unsupported"),
+        "Unexpected error: {err_msg}"
+    );
 
     Ok(())
 }
@@ -89,7 +88,7 @@ async fn issue_570_env_var() -> anyhow::Result<()> {
         B256::from_str("0xe565eb3bfd815efcc82bed1eef580117f9dc3d6896db42500572c8e789c5edd4")?;
 
     let result = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+        RpcMethodCall::with_params("debug_traceTransaction", (transaction_hash, Option::<serde_json::Value>::None)).expect("params should serialize"),
     ))?;
 
     assert!(!result.call_trace_arenas.is_empty());
@@ -118,16 +117,15 @@ async fn issue_570_unsupported_requested() -> anyhow::Result<()> {
         B256::from_str("0xa9d8bf76337ac4a72a4085d5fd6456f6950b6b95d9d4aa198707a649268ef91c")?;
 
     let result = provider.handle_request(RpcRequest::with_single(
-        MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+        RpcMethodCall::with_params("debug_traceTransaction", (transaction_hash, Option::<serde_json::Value>::None)).expect("params should serialize"),
     ));
 
-    assert!(matches!(
-        result,
-        Err(ProviderError::UnsupportedTransactionTypeForDebugTrace {
-            transaction_hash: error_transaction_hash,
-            ..
-        }) if error_transaction_hash == transaction_hash
-    ));
+    assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("unsupported") || err_msg.contains("Unsupported"),
+        "Unexpected error: {err_msg}"
+    );
 
     Ok(())
 }

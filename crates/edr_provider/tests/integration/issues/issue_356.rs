@@ -6,7 +6,8 @@ use edr_primitives::{Address, Bytes, HashMap};
 use edr_provider::{
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    ForkConfig, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
@@ -54,15 +55,13 @@ async fn issue_356() -> anyhow::Result<()> {
     );
 
     let response =
-        provider.handle_request(RpcRequest::with_single(MethodInvocation::Call(
-            L1CallRequest {
+        provider.handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_call", (L1CallRequest {
                 to: Some(contract_address),
                 data: Some(selector),
                 ..L1CallRequest::default()
-            },
-            None,
-            None,
-        )))?;
+            }, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None))?,
+        ))?;
 
     assert_eq!(
         response.result,

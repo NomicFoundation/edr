@@ -62,9 +62,11 @@ pub struct Provider<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceE
         &'static str,
         Box<
             dyn Fn(
-                &mut ProviderData<ChainSpecT, TimerT>,
-                serde_json::Value,
-            ) -> Result<ResponseWithCallTraces, DynProviderError>,
+                    &mut ProviderData<ChainSpecT, TimerT>,
+                    serde_json::Value,
+                ) -> Result<ResponseWithCallTraces, DynProviderError>
+                + Send
+                + Sync,
         >,
     >,
     /// Interval miner runs in the background, if enabled. It holds the data
@@ -338,10 +340,6 @@ impl<
                 }
                 MethodInvocation::GetTransactionByHash(transaction_hash) => {
                     eth::handle_get_transaction_by_hash(data, transaction_hash)
-                        .and_then(to_json::<_, ChainSpecT, TimerT>)
-                }
-                MethodInvocation::GetTransactionCount(address, block_spec) => {
-                    eth::handle_get_transaction_count_request(data, address, block_spec)
                         .and_then(to_json::<_, ChainSpecT, TimerT>)
                 }
                 MethodInvocation::GetTransactionReceipt(transaction_hash) => {
