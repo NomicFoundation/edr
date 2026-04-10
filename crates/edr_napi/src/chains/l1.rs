@@ -1,10 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
-use edr_blockchain_fork::eips::{
-    eip2935::{HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE},
-    eip4788::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
+use edr_blockchain_fork::eips::eip2935::{
+    HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
 };
 use edr_chain_l1::L1ChainSpec;
+use edr_eip4788::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE};
 use edr_napi_core::{
     logger::Logger,
     provider::{SyncProvider, SyncProviderFactory},

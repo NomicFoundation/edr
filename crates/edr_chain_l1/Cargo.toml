@@ -21,6 +21,7 @@ edr_chain_spec_receipt.workspace = true
 edr_chain_spec_rpc.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
+edr_eip4788.workspace = true
 edr_eip7702.workspace = true
 edr_eip7892.workspace = true
 edr_evm.workspace = true

@@ -225,6 +225,7 @@ pub async fn run_full_block<
         "{:?}",
         "Block hashes differ"
     );
+
     for (expected, actual) in expected_block
         .fetch_transaction_receipts()?
         .into_iter()

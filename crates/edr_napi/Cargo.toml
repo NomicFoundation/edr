@@ -17,6 +17,7 @@ edr_block_header.workspace = true
 edr_block_miner.workspace = true
 edr_blockchain_fork.workspace = true
 edr_chain_config.workspace = true
+edr_eip4788.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_block.workspace = true

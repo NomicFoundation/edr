@@ -22,6 +22,9 @@ use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, Remo
 use edr_chain_config::{ChainConfig, HardforkActivations};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
+use edr_eip4788::{
+    add_beacon_roots_contract_to_state_diff, beacon_roots_contract, BEACON_ROOTS_ADDRESS,
+};
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     BlockSpec, PreEip1898BlockSpec,
@@ -42,14 +45,8 @@ use edr_utils::{random::RandomHashGenerator, CastArcFrom, CastArcInto};
 use parking_lot::Mutex;
 use tokio::runtime;
 
-use crate::eips::{
-    eip2935::{
-        add_history_storage_contract_to_state_diff, history_storage_contract,
-        HISTORY_STORAGE_ADDRESS,
-    },
-    eip4788::{
-        add_beacon_roots_contract_to_state_diff, beacon_roots_contract, BEACON_ROOTS_ADDRESS,
-    },
+use crate::eips::eip2935::{
+    add_history_storage_contract_to_state_diff, history_storage_contract, HISTORY_STORAGE_ADDRESS,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
