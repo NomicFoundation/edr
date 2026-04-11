@@ -137,22 +137,66 @@ describe("Gas report tests", () => {
     const contractReport =
       gasReport.contracts["project/test-contracts/Counter.t.sol:SomeCounter"];
 
-    assert.equal(contractReport.deployments.length, 1);
-    assert(contractReport.deployments[0].gas > 0n);
-    assert.equal(contractReport.deployments[0].size, 510n);
-    assert.equal(
-      contractReport!.deployments[0].status,
-      GasReportExecutionStatus.Success
+    assert(
+      contractReport !== undefined,
+      "SomeCounter contract should be in gas report"
     );
 
-    assert(contractReport.functions["increment()"] !== undefined);
-    assert(contractReport.functions["number()"] !== undefined);
-    assert(contractReport.functions["setNumber(uint256)"] !== undefined);
+    assert.equal(contractReport.deployments.length, 1);
+    const deployment = contractReport.deployments[0];
+    assert(deployment.gas > 0n, "Deployment gas should be greater than 0");
+    assert.equal(deployment.size, 510n);
+    assert.equal(deployment.runtimeSize, 481n);
+    assert.equal(deployment.status, GasReportExecutionStatus.Success);
 
     const incrementReports = contractReport.functions["increment()"];
+    assert(
+      incrementReports !== undefined,
+      "increment() function should be in gas report"
+    );
     assert.equal(incrementReports.length, 1);
     assert.equal(incrementReports[0].gas, 43_483n);
     assert.equal(incrementReports[0].status, GasReportExecutionStatus.Success);
+    assert.equal(
+      incrementReports[0].proxyChain.length,
+      0,
+      "increment() should have no proxy chain"
+    );
+
+    const numberReports = contractReport.functions["number()"];
+    assert(
+      numberReports !== undefined,
+      "number() function should be in gas report"
+    );
+    assert.equal(numberReports.length, 2);
+    for (const report of numberReports) {
+      assert.equal(report.gas, 2_424n);
+      assert.equal(report.status, GasReportExecutionStatus.Success);
+      assert.equal(
+        report.proxyChain.length,
+        0,
+        "number() should have no proxy chain"
+      );
+    }
+
+    const setNumberReports = contractReport.functions["setNumber(uint256)"];
+    assert(
+      setNumberReports !== undefined,
+      "setNumber(uint256) function should be in gas report"
+    );
+    assert.equal(setNumberReports.length, 2);
+    for (const report of setNumberReports) {
+      assert(
+        report.gas > 0n,
+        "setNumber(uint256) gas should be greater than 0"
+      );
+      assert.equal(report.status, GasReportExecutionStatus.Success);
+      assert.equal(
+        report.proxyChain.length,
+        0,
+        "setNumber(uint256) should have no proxy chain"
+      );
+    }
   });
 
   it("ProxyGasReportTest gas report", async function () {
@@ -166,59 +210,71 @@ describe("Gas report tests", () => {
     const gasReport = testResult.gasReport;
     assert(gasReport !== undefined);
 
-    // The Proxy contract should appear in the gas report
     const proxyReport =
       gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Proxy"];
     assert(proxyReport !== undefined, "Proxy contract should be in gas report");
 
-    // The proxy's functions are decoded as fallback() since the Proxy ABI
-    // only has a fallback function (the actual function selectors belong to
-    // the Implementation contract).
-    const fallbackReports = proxyReport.functions["fallback()"];
-    assert(
-      fallbackReports !== undefined,
-      "fallback should appear in Proxy's gas report"
+    assert.equal(
+      proxyReport.deployments.length,
+      1,
+      "Proxy should have one deployment"
     );
-    // 4 calls: setValue, value (in test_proxySetValue), increment, value (in test_proxyIncrement)
-    assert.equal(fallbackReports.length, 4);
+    assert.equal(
+      Object.keys(proxyReport.functions).length,
+      0,
+      "Proxy should have no function calls as they are propagated to the Implementation contract"
+    );
 
-    // All fallback calls should have a proxy chain with 2 entries
-    // (Proxy -> Implementation) indicating the delegation pattern was detected.
-    for (const report of fallbackReports) {
-      assert.equal(
-        report.proxyChain.length,
-        2,
-        `Expected proxy chain with 2 entries, got ${report.proxyChain.length}: ${JSON.stringify(report.proxyChain)}`
-      );
-      assert(
-        report.proxyChain[0].includes("Proxy"),
-        `Expected first chain entry to contain 'Proxy', got '${report.proxyChain[0]}'`
-      );
-      assert(
-        report.proxyChain[1].includes("Implementation"),
-        `Expected second chain entry to contain 'Implementation', got '${report.proxyChain[1]}'`
-      );
-    }
-
-    // Verify that the Implementation contract's direct calls (via delegatecall)
-    // have empty proxy chains
     const implReport =
       gasReport.contracts[
         "project/test-contracts/ProxyGasReport.t.sol:Implementation"
       ];
+
     assert(
       implReport !== undefined,
       "Implementation contract should be in gas report"
     );
-    for (const [, funcReports] of Object.entries(implReport.functions)) {
-      for (const report of funcReports) {
-        assert.equal(
-          report.proxyChain.length,
-          0,
-          "Direct delegatecall targets should have empty proxy chain"
-        );
-      }
+
+    assert.equal(
+      implReport.deployments.length,
+      1,
+      "Implementation should have one deployment"
+    );
+    assert.equal(
+      Object.keys(implReport.functions).length,
+      3,
+      `Implementation should have 3 functions, got ${Object.keys(implReport.functions)}`
+    );
+
+    const incrementReports = implReport.functions["increment()"];
+    assert.equal(incrementReports.length, 1);
+    assert.equal(incrementReports[0].gas, 48_269n);
+    assert.equal(incrementReports[0].status, GasReportExecutionStatus.Success);
+    assert.deepEqual(incrementReports[0].proxyChain, [
+      "project/test-contracts/ProxyGasReport.t.sol:Proxy",
+      "project/test-contracts/ProxyGasReport.t.sol:Implementation",
+    ]);
+
+    const valueReports = implReport.functions["value()"];
+    assert.equal(valueReports.length, 2);
+
+    for (const report of valueReports) {
+      assert.equal(report.gas, 7_191n);
+      assert.equal(report.status, GasReportExecutionStatus.Success);
+      assert.deepEqual(report.proxyChain, [
+        "project/test-contracts/ProxyGasReport.t.sol:Proxy",
+        "project/test-contracts/ProxyGasReport.t.sol:Implementation",
+      ]);
     }
+
+    const setValueReports = implReport.functions["setValue(uint256)"];
+    assert.equal(setValueReports.length, 1);
+    assert.equal(setValueReports[0].gas, 48_507n);
+    assert.equal(setValueReports[0].status, GasReportExecutionStatus.Success);
+    assert.deepEqual(setValueReports[0].proxyChain, [
+      "project/test-contracts/ProxyGasReport.t.sol:Proxy",
+      "project/test-contracts/ProxyGasReport.t.sol:Implementation",
+    ]);
   });
 
   it("ChainedProxyGasReportTest gas report", async function () {
@@ -240,38 +296,74 @@ describe("Gas report tests", () => {
       gasReport.contracts[
         "project/test-contracts/ProxyGasReport.t.sol:OuterProxy"
       ];
+
     assert(
       outerProxyReport !== undefined,
       "OuterProxy contract should be in gas report"
     );
-
-    const outerFallbackReports = outerProxyReport.functions["fallback()"];
-    assert(
-      outerFallbackReports !== undefined,
-      "fallback should appear in OuterProxy's gas report"
+    assert.equal(
+      outerProxyReport.deployments.length,
+      1,
+      "OuterProxy should have one deployment"
     );
 
-    // All OuterProxy fallback calls should have a 3-entry proxy chain:
-    // OuterProxy -> Proxy -> Implementation
-    for (const report of outerFallbackReports) {
-      assert.equal(
-        report.proxyChain.length,
-        3,
-        `Expected proxy chain with 3 entries, got ${report.proxyChain.length}: ${JSON.stringify(report.proxyChain)}`
-      );
-      assert(
-        report.proxyChain[0].includes("OuterProxy"),
-        `Expected first entry to be OuterProxy, got '${report.proxyChain[0]}'`
-      );
-      assert(
-        report.proxyChain[1].includes("Proxy"),
-        `Expected second entry to be Proxy, got '${report.proxyChain[1]}'`
-      );
-      assert(
-        report.proxyChain[2].includes("Implementation"),
-        `Expected third entry to be Implementation, got '${report.proxyChain[2]}'`
-      );
+    const proxyReport =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Proxy"];
+
+    assert.equal(
+      proxyReport.deployments.length,
+      1,
+      "Proxy should have one deployment"
+    );
+
+    const implReport =
+      gasReport.contracts[
+        "project/test-contracts/ProxyGasReport.t.sol:Implementation"
+      ];
+
+    assert.equal(
+      implReport.deployments.length,
+      1,
+      "Implementation should have one deployment"
+    );
+    assert.equal(
+      Object.keys(implReport.functions).length,
+      3,
+      `Implementation should have 3 functions, got ${Object.keys(implReport.functions)}`
+    );
+
+    const incrementReports = implReport.functions["increment()"];
+    assert.equal(incrementReports.length, 1);
+    assert.equal(incrementReports[0].gas, 53_055n);
+    assert.equal(incrementReports[0].status, GasReportExecutionStatus.Success);
+    assert.deepEqual(incrementReports[0].proxyChain, [
+      "project/test-contracts/ProxyGasReport.t.sol:OuterProxy",
+      "project/test-contracts/ProxyGasReport.t.sol:Proxy",
+      "project/test-contracts/ProxyGasReport.t.sol:Implementation",
+    ]);
+
+    const valueReports = implReport.functions["value()"];
+    assert.equal(valueReports.length, 2);
+
+    for (const report of valueReports) {
+      assert.equal(report.gas, 11_980n);
+      assert.equal(report.status, GasReportExecutionStatus.Success);
+      assert.deepEqual(report.proxyChain, [
+        "project/test-contracts/ProxyGasReport.t.sol:OuterProxy",
+        "project/test-contracts/ProxyGasReport.t.sol:Proxy",
+        "project/test-contracts/ProxyGasReport.t.sol:Implementation",
+      ]);
     }
+
+    const setValueReports = implReport.functions["setValue(uint256)"];
+    assert.equal(setValueReports.length, 1);
+    assert.equal(setValueReports[0].gas, 53_296n);
+    assert.equal(setValueReports[0].status, GasReportExecutionStatus.Success);
+    assert.deepEqual(setValueReports[0].proxyChain, [
+      "project/test-contracts/ProxyGasReport.t.sol:OuterProxy",
+      "project/test-contracts/ProxyGasReport.t.sol:Proxy",
+      "project/test-contracts/ProxyGasReport.t.sol:Implementation",
+    ]);
   });
 
   it("ImpureInvariantTest gas report", async function () {
@@ -302,6 +394,7 @@ describe("Gas report tests", () => {
     assert.equal(contractReport.deployments.length, 1);
     assert(contractReport.deployments[0].gas > 0n);
     assert.equal(contractReport.deployments[0].size, 783n);
+    assert.equal(contractReport.deployments[0].runtimeSize, 754n);
     assert.equal(
       contractReport!.deployments[0].status,
       GasReportExecutionStatus.Success
@@ -316,5 +409,339 @@ describe("Gas report tests", () => {
     assert.equal(addToAReports.length, 1);
     assert.equal(addToAReports[0].gas, 22_978n);
     assert.equal(addToAReports[0].status, GasReportExecutionStatus.Success);
+  });
+
+  it("setUp() success status in gas report", async function () {
+    const result = await testContext.runTestsWithStats("SetUpSuccessTest", {
+      generateGasReport: true,
+    });
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    const testContractReport =
+      gasReport.contracts[
+        "project/test-contracts/SetUpStatus.t.sol:SetUpSuccessTest"
+      ];
+
+    assert(
+      testContractReport !== undefined,
+      "SetUpSuccessTest contract should be in gas report"
+    );
+
+    assert.equal(
+      testContractReport.deployments.length,
+      1,
+      "SetUpSuccessTest should have one deployment"
+    );
+
+    const testDeployment = testContractReport.deployments[0];
+    assert(testDeployment.gas > 0n, "Deployment gas should be greater than 0");
+    assert.equal(
+      testDeployment.status,
+      GasReportExecutionStatus.Success,
+      "Deployment status should be Success when setUp succeeds"
+    );
+
+    const contractReport =
+      gasReport.contracts["project/test-contracts/SetUpStatus.t.sol:Deploy"];
+
+    assert.equal(
+      contractReport.deployments.length,
+      2,
+      "Deploy should have two deployments (one for each test)"
+    );
+
+    for (const deployment of contractReport.deployments) {
+      assert(deployment.gas > 0n, "Deployment gas should be greater than 0");
+      assert.equal(
+        deployment.status,
+        GasReportExecutionStatus.Success,
+        "Deployment status should be Success when setUp succeeds"
+      );
+    }
+  });
+
+  it("setUp() revert status in gas report", async function () {
+    const result = await testContext.runTestsWithStats("SetUpRevertTest", {
+      generateGasReport: true,
+    });
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    const testContractReport =
+      gasReport.contracts[
+        "project/test-contracts/SetUpStatus.t.sol:SetUpRevertTest"
+      ];
+
+    assert(
+      testContractReport !== undefined,
+      "SetUpRevertTest contract should be in gas report"
+    );
+
+    assert.equal(
+      testContractReport.deployments.length,
+      1,
+      "SetUpRevertTest should have one deployment"
+    );
+
+    const testDeployment = testContractReport.deployments[0];
+    assert(testDeployment.gas > 0n, "Deployment gas should be greater than 0");
+    assert.equal(
+      testDeployment.status,
+      GasReportExecutionStatus.Revert,
+      "Deployment status should be Revert when setUp reverts"
+    );
+
+    const contractReport =
+      gasReport.contracts["project/test-contracts/SetUpStatus.t.sol:Deploy"];
+
+    assert(
+      contractReport === undefined,
+      "Deploy should not be included in the gas report since a revert in setUp causes Solidity test execution to terminate"
+    );
+  });
+
+  it("SameProxyWithDifferentImplementationsTest gas report", async function () {
+    const result = await testContext.runTestsWithStats(
+      "SameProxyWithDifferentImplementationsTest",
+      {
+        generateGasReport: true,
+      }
+    );
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    const proxy1Report =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Proxy"];
+
+    assert(proxy1Report !== undefined, "Proxy1 should be in gas report");
+    assert(
+      proxy1Report.deployments.length === 2,
+      "Proxy1 should have two deployments"
+    );
+    assert(
+      Object.keys(proxy1Report.functions).length === 0,
+      "Proxy1 should have no function calls as they are propagated to the implementations"
+    );
+
+    const impl1Report =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Impl1"];
+
+    assert(impl1Report !== undefined, "Impl1 should be in gas report");
+    assert(
+      impl1Report.deployments.length === 1,
+      "Impl1 should have one deployment"
+    );
+
+    const impl1Functions = impl1Report.functions;
+    assert(
+      Object.keys(impl1Functions).length === 1,
+      `Impl1 should have one function, got ${Object.keys(impl1Functions)}`
+    );
+
+    const oneFuncReport = impl1Functions["one()"];
+    assert(
+      oneFuncReport !== undefined,
+      "one() function should be in Impl1's gas report"
+    );
+    assert(
+      oneFuncReport.length === 2,
+      "one() function should have two calls in Impl1's gas report"
+    );
+
+    const oneFuncReportForProxyCall = oneFuncReport.find((report) =>
+      report.proxyChain.some((proxy) => proxy.includes(":Proxy"))
+    );
+
+    assert(
+      oneFuncReportForProxyCall !== undefined,
+      "one() function should have a call with Proxy in the proxy chain"
+    );
+    assert(
+      oneFuncReportForProxyCall.proxyChain.length === 2,
+      "Proxy call should have a 2-entry proxy chain"
+    );
+
+    const oneFuncReportForDirectCall = oneFuncReport.find(
+      (report) => report.proxyChain.length === 0
+    );
+    assert(
+      oneFuncReportForDirectCall !== undefined,
+      "one() function should have a direct call without proxy chain"
+    );
+
+    assert(
+      oneFuncReportForProxyCall.gas > oneFuncReportForDirectCall.gas,
+      "Proxy call should have higher gas than direct call"
+    );
+
+    const impl2Report =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Impl2"];
+
+    assert(impl2Report !== undefined, "Impl2 should be in gas report");
+    assert(
+      impl2Report.deployments.length === 1,
+      "Impl2 should have one deployment"
+    );
+
+    const impl2Functions = impl2Report.functions;
+    assert(
+      Object.keys(impl2Functions).length === 1,
+      `Impl2 should have one function, got ${Object.keys(impl2Functions)}`
+    );
+
+    const twoFuncReport = impl2Functions["two()"];
+    assert(
+      twoFuncReport !== undefined,
+      "two() function should be in Impl2's gas report"
+    );
+    assert(
+      twoFuncReport.length === 1,
+      "two() function should have one call in Impl2's gas report"
+    );
+  });
+
+  it("SameImplementationWithDifferentProxyChainsTest gas report", async function () {
+    const result = await testContext.runTestsWithStats(
+      "SameImplementationWithDifferentProxyChainsTest",
+      {
+        generateGasReport: true,
+      }
+    );
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    const proxy1Report =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Proxy"];
+
+    assert(proxy1Report !== undefined, "Proxy should be in gas report");
+    assert(
+      proxy1Report.deployments.length === 2,
+      "Proxy should have two deployments"
+    );
+    assert(
+      Object.keys(proxy1Report.functions).length === 0,
+      "Proxy should have no function calls as they are propagated to the implementations"
+    );
+
+    const impl1Report =
+      gasReport.contracts["project/test-contracts/ProxyGasReport.t.sol:Impl1"];
+
+    assert(impl1Report !== undefined, "Impl1 should be in gas report");
+    assert(
+      impl1Report.deployments.length === 1,
+      "Impl1 should have one deployment"
+    );
+
+    const impl1Functions = impl1Report.functions;
+    assert(
+      Object.keys(impl1Functions).length === 1,
+      `Impl1 should have one function, got ${Object.keys(impl1Functions)}`
+    );
+
+    const oneFuncReport = impl1Functions["one()"];
+    assert(
+      oneFuncReport !== undefined,
+      "one() function should be in Impl1's gas report"
+    );
+    assert(
+      oneFuncReport.length === 2,
+      "one() function should have two calls in Impl1's gas report"
+    );
+
+    const oneFuncReportWithSingleProxy = oneFuncReport.find(
+      (report) => report.proxyChain.length === 2
+    );
+
+    assert(
+      oneFuncReportWithSingleProxy !== undefined,
+      "one() function should have a call with only Proxy1 in the proxy chain"
+    );
+    assert(
+      oneFuncReportWithSingleProxy.proxyChain.length === 2,
+      "Proxy call should have a 2-entry proxy chain"
+    );
+
+    const oneFuncReportWithTwoProxies = oneFuncReport.find(
+      (report) => report.proxyChain.length === 3
+    );
+
+    assert(
+      oneFuncReportWithTwoProxies !== undefined,
+      "one() function should have a call with both OuterProxy and Proxy in the proxy chain"
+    );
+    assert(
+      oneFuncReportWithTwoProxies.proxyChain.length === 3,
+      "Proxy call should have a 3-entry proxy chain"
+    );
+    assert(
+      oneFuncReportWithTwoProxies.proxyChain[0].includes("OuterProxy") &&
+        oneFuncReportWithTwoProxies.proxyChain[1].includes("Proxy"),
+      "Expected proxy chain to include both OuterProxy and Proxy"
+    );
+    assert(
+      oneFuncReportWithTwoProxies.gas > oneFuncReportWithSingleProxy.gas,
+      "Call with two proxies should have higher gas than call with one proxy"
+    );
+  });
+
+  it("runtimeSize is constant across deployments with different constructor args", async function () {
+    const contractKey = "project/contracts/Greeter.sol:Greeter";
+
+    // Short greeting: ABI args = offset(32) + length(32) + data(32) = 96 bytes
+    const shortResult = await testContext.runTestsWithStats(
+      "RuntimeSizeShortTest",
+      { generateGasReport: true }
+    );
+    const shortReport =
+      shortResult.testResult!.gasReport!.contracts[contractKey];
+    assert(shortReport !== undefined, "Greeter should be in short test report");
+
+    // Long greeting (33 chars): ABI args = offset(32) + length(32) + data(64) = 128 bytes
+    const longResult = await testContext.runTestsWithStats(
+      "RuntimeSizeLongTest",
+      { generateGasReport: true }
+    );
+    const longReport = longResult.testResult!.gasReport!.contracts[contractKey];
+    assert(longReport !== undefined, "Greeter should be in long test report");
+
+    const shortDeploy = shortReport.deployments[0];
+    const longDeploy = longReport.deployments[0];
+
+    // Size includes constructor args, so it differs between deployments (one extra ABI slot for the longer string)
+    assert.equal(
+      longDeploy.size - shortDeploy.size,
+      32n,
+      `Expected size difference of 32 bytes for the additional constructor argument data, got ${longDeploy.size - shortDeploy.size} bytes`
+    );
+
+    assert.equal(
+      shortDeploy.runtimeSize,
+      531n,
+      `Expected runtimeSize of 531 bytes, got ${shortDeploy.runtimeSize} bytes`
+    );
+
+    // runtimeSize must be identical
+    assert.equal(
+      shortDeploy.runtimeSize,
+      longDeploy.runtimeSize,
+      "runtimeSize should be the same regardless of constructor args"
+    );
   });
 });

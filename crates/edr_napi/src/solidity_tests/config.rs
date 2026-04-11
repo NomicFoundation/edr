@@ -392,6 +392,9 @@ pub struct FuzzConfigArgs {
     /// The flag indicating whether to include push bytes values.
     /// Defaults to true.
     pub include_push_bytes: Option<bool>,
+    /// Show `console.log` in fuzz test.
+    /// Defaults to false.
+    pub show_logs: Option<bool>,
     /// Optional timeout (in seconds) for each property test.
     /// Defaults to none (no timeout).
     pub timeout: Option<u32>,
@@ -410,6 +413,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             dictionary_weight,
             include_storage,
             include_push_bytes,
+            show_logs,
             timeout,
         } = value;
 
@@ -451,6 +455,10 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
 
         if let Some(include_push_bytes) = include_push_bytes {
             fuzz.dictionary.include_push_bytes = include_push_bytes;
+        }
+
+        if let Some(show_logs) = show_logs {
+            fuzz.show_logs = show_logs;
         }
 
         Ok(fuzz)
@@ -528,6 +536,7 @@ impl InvariantConfigArgs {
             failure_persist_file: _,
             max_test_rejects: _,
             seed: _,
+            show_logs: _,
             timeout,
         } = fuzz;
 

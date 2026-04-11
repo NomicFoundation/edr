@@ -170,6 +170,32 @@ contract GasSnapshotTest is Test {
         slot0 = 1;
         vm.stopSnapshotGas("testGroup", "testMissingStartSnapshot");
     }
+
+    // snapshotValue with a group name containing path separators should revert.
+    function testInvalidGroupNameSlash() public {
+        vm.snapshotValue("../../evil", "a", 1);
+    }
+
+    // snapshotValue with a group name containing backslash should revert.
+    function testInvalidGroupNameBackslash() public {
+        vm.snapshotValue("foo\\bar", "a", 1);
+    }
+
+    // snapshotValue with an empty group name should revert.
+    function testInvalidGroupNameEmpty() public {
+        vm.snapshotValue("", "a", 1);
+    }
+
+    // snapshotGasLastCall with a group name containing a dot-dot should revert.
+    function testInvalidGroupNameDotDot() public {
+        flare.run(1);
+        vm.snapshotGasLastCall("group..name", "a");
+    }
+
+    // startSnapshotGas with a name containing special characters should revert.
+    function testInvalidSnapshotName() public {
+        vm.startSnapshotGas("validGroup", "name/with/slashes");
+    }
 }
 
 contract Flare {

@@ -417,6 +417,7 @@ export enum GasReportExecutionStatus {
 export interface DeploymentGasReport {
   gas: bigint
   size: bigint
+  runtimeSize: bigint
   status: GasReportExecutionStatus
 }
 export interface FunctionGasReport {
@@ -839,6 +840,11 @@ export interface FuzzConfigArgs {
    * Defaults to true.
    */
   includePushBytes?: boolean
+  /**
+   * Show `console.log` in fuzz test.
+   * Defaults to false.
+   */
+  showLogs?: boolean
   /**
    * Optional timeout (in seconds) for each property test.
    * Defaults to none (no timeout).

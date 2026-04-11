@@ -1,22 +1,15 @@
-use std::fmt::Display;
-
-use comfy_table::{presets::ASCII_MARKDOWN, Attribute, Cell, Color, Table};
 use derive_more::Debug;
 use dyn_clone::DynClone;
 use edr_chain_spec::HaltReasonTrait;
-use edr_primitives::{
-    hash_map::{self, HashMap},
-    Address, Bytecode, Bytes,
-};
-use edr_receipt::ExecutionResult;
+use edr_primitives::{hash_map, Address, Bytes, HashMap};
+use edr_receipt::{ExecutionResult, Output};
 use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractIdentifierAndFunctionSignature},
     proxy_detection::detect_proxy_chain,
     solidity_stack_trace::{UNRECOGNIZED_CONTRACT_NAME, UNRECOGNIZED_FUNCTION_NAME},
 };
-use edr_state_api::{State, StateError};
 use edr_transaction::TxKind;
-use revm_inspectors::tracing::CallTraceArena;
+use revm_inspectors::tracing::{types::CallTrace, CallTraceArena};
 
 pub trait SyncOnCollectedGasReportCallback:
     Fn(GasReport) -> Result<(), Box<dyn std::error::Error + Send + Sync>> + DynClone + Send + Sync
@@ -42,9 +35,8 @@ pub struct GasReport {
 /// [`GasReport::add`].
 #[derive(Debug, thiserror::Error)]
 pub enum GasReportCreationError {
-    /// Error caused by the state.
-    #[error(transparent)]
-    State(#[from] StateError),
+    #[error("Missing code for contract at address {address}")]
+    MissingCode { address: Address },
 }
 
 impl GasReport {
@@ -54,21 +46,21 @@ impl GasReport {
     /// If the contract or function could not be recognized, an empty report
     /// will be returned.
     pub fn new<HaltReasonT: HaltReasonTrait>(
-        state: &dyn State<Error = StateError>,
         contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
         call_trace_arena: &CallTraceArena,
+        address_to_executed_code: &HashMap<Address, Bytes>,
     ) -> Result<Self, GasReportCreationError> {
         let mut report = GasReport::default();
         report.add(
-            state,
             contract_decoder,
             execution_result,
             kind,
             input,
             call_trace_arena,
+            address_to_executed_code,
         )?;
         Ok(report)
     }
@@ -85,20 +77,20 @@ impl GasReport {
     /// will be returned.
     pub fn add<HaltReasonT: HaltReasonTrait>(
         &mut self,
-        state: &dyn State<Error = StateError>,
         contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
         call_trace_arena: &CallTraceArena,
+        address_to_executed_code: &HashMap<Address, Bytes>,
     ) -> Result<(), GasReportCreationError> {
         match ContractGasReportAndIdentifier::new(
-            state,
             contract_decoder,
             execution_result,
             kind,
             input,
             call_trace_arena,
+            address_to_executed_code,
         ) {
             Ok(ContractGasReportAndIdentifier {
                 contract_identifier,
@@ -117,8 +109,8 @@ impl GasReport {
             ) => {
                 // Ignore contracts & functions we couldn't recognize for now
             }
-            Err(ContractGasReportCreationError::State(state_error)) => {
-                return Err(state_error.into());
+            Err(ContractGasReportCreationError::MissingCode { address }) => {
+                return Err(GasReportCreationError::MissingCode { address });
             }
         }
 
@@ -137,105 +129,6 @@ impl GasReport {
                 }
             }
         }
-    }
-}
-
-impl Display for GasReport {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        // Sort contract names for consistent output
-        let mut sorted_contracts: Vec<_> = self.contracts.iter().collect();
-        sorted_contracts.sort_by(|a, b| a.0.cmp(b.0));
-
-        for (name, contract) in sorted_contracts {
-            if contract.deployments.is_empty() && contract.functions.is_empty() {
-                continue;
-            }
-
-            let mut table = Table::new();
-            table.load_preset(ASCII_MARKDOWN);
-            table.set_header([Cell::new(format!("{name} contract"))
-                .add_attribute(Attribute::Bold)
-                .fg(Color::Green)]);
-
-            // Add deployment information if available
-            if !contract.deployments.is_empty() {
-                table.add_row([
-                    Cell::new("Deployment Cost")
-                        .add_attribute(Attribute::Bold)
-                        .fg(Color::Cyan),
-                    Cell::new("Deployment Size")
-                        .add_attribute(Attribute::Bold)
-                        .fg(Color::Cyan),
-                    Cell::new("Status")
-                        .add_attribute(Attribute::Bold)
-                        .fg(Color::Cyan),
-                ]);
-
-                for deployment in &contract.deployments {
-                    let status_str = match deployment.status {
-                        GasReportExecutionStatus::Success => "Success",
-                        GasReportExecutionStatus::Revert => "Revert",
-                        GasReportExecutionStatus::Halt => "Halt",
-                    };
-                    table.add_row([
-                        Cell::new(deployment.gas.to_string()),
-                        Cell::new(deployment.size.to_string()),
-                        Cell::new(status_str).fg(match deployment.status {
-                            GasReportExecutionStatus::Success => Color::Green,
-                            GasReportExecutionStatus::Revert => Color::Yellow,
-                            GasReportExecutionStatus::Halt => Color::Red,
-                        }),
-                    ]);
-                }
-            }
-
-            // Add function information if available
-            if !contract.functions.is_empty() {
-                table.add_row([Cell::new("")]);
-                table.add_row([
-                    Cell::new("Function Name")
-                        .add_attribute(Attribute::Bold)
-                        .fg(Color::Magenta),
-                    Cell::new("Gas")
-                        .add_attribute(Attribute::Bold)
-                        .fg(Color::Magenta),
-                    Cell::new("Status")
-                        .add_attribute(Attribute::Bold)
-                        .fg(Color::Magenta),
-                ]);
-
-                // Sort function names for consistent output
-                let mut sorted_functions: Vec<_> = contract.functions.iter().collect();
-                sorted_functions.sort_by(|a, b| a.0.cmp(b.0));
-
-                for (function_signature, reports) in sorted_functions {
-                    if reports.is_empty() {
-                        continue;
-                    }
-
-                    for report in reports {
-                        let status_str = match report.status {
-                            GasReportExecutionStatus::Success => "Success",
-                            GasReportExecutionStatus::Revert => "Revert",
-                            GasReportExecutionStatus::Halt => "Halt",
-                        };
-                        table.add_row([
-                            Cell::new(function_signature.clone()).add_attribute(Attribute::Bold),
-                            Cell::new(report.gas.to_string()).fg(Color::Yellow),
-                            Cell::new(status_str).fg(match report.status {
-                                GasReportExecutionStatus::Success => Color::Green,
-                                GasReportExecutionStatus::Revert => Color::Yellow,
-                                GasReportExecutionStatus::Halt => Color::Red,
-                            }),
-                        ]);
-                    }
-                }
-            }
-
-            writeln!(f, "{table}")?;
-            writeln!(f)?;
-        }
-        Ok(())
     }
 }
 
@@ -266,9 +159,8 @@ impl ContractGasReport {
 /// An error that can occur when creating a [`ContractGasReport`].
 #[derive(Debug, thiserror::Error)]
 pub enum ContractGasReportCreationError {
-    /// Error caused by the state.
-    #[error(transparent)]
-    State(StateError),
+    #[error("Missing code for contract at address {address}")]
+    MissingCode { address: Address },
     /// The contract could not be recognized.
     #[error("Unrecognized contract")]
     UnrecognizedContract,
@@ -290,7 +182,9 @@ impl From<DeploymentGasReportCreationError> for ContractGasReportCreationError {
 impl From<FunctionGasReportCreationError> for ContractGasReportCreationError {
     fn from(value: FunctionGasReportCreationError) -> Self {
         match value {
-            FunctionGasReportCreationError::State(e) => ContractGasReportCreationError::State(e),
+            FunctionGasReportCreationError::MissingCode { address } => {
+                ContractGasReportCreationError::MissingCode { address }
+            }
             FunctionGasReportCreationError::UnrecognizedContract => {
                 ContractGasReportCreationError::UnrecognizedContract
             }
@@ -309,12 +203,12 @@ pub struct ContractGasReportAndIdentifier {
 impl ContractGasReportAndIdentifier {
     /// Constructs a new instance.
     pub fn new<HaltReasonT: HaltReasonTrait>(
-        state: &dyn State<Error = StateError>,
         contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         kind: TxKind,
         input: Bytes,
         call_trace_arena: &CallTraceArena,
+        address_to_executed_code: &HashMap<Address, Bytes>,
     ) -> Result<Self, ContractGasReportCreationError> {
         if let TxKind::Call(to) = kind {
             let FunctionGasReportAndIdentifiers {
@@ -322,17 +216,17 @@ impl ContractGasReportAndIdentifier {
                 function_signature,
                 report,
             } = FunctionGasReportAndIdentifiers::new(
-                state,
                 contract_decoder,
                 execution_result,
                 to,
                 input,
                 call_trace_arena,
+                address_to_executed_code,
             )?;
 
             let report = ContractGasReport {
                 deployments: Vec::new(),
-                functions: HashMap::from([(function_signature, vec![report])]),
+                functions: [(function_signature, vec![report])].into_iter().collect(),
             };
 
             Ok(ContractGasReportAndIdentifier {
@@ -347,7 +241,7 @@ impl ContractGasReportAndIdentifier {
 
             let report = ContractGasReport {
                 deployments: vec![report],
-                functions: HashMap::new(),
+                functions: HashMap::default(),
             };
 
             Ok(ContractGasReportAndIdentifier {
@@ -382,6 +276,7 @@ impl<HaltReasonT: HaltReasonTrait> From<&ExecutionResult<HaltReasonT>>
 pub struct DeploymentGasReport {
     pub gas: u64,
     pub size: u64,
+    pub runtime_size: u64,
     pub status: GasReportExecutionStatus,
 }
 
@@ -414,12 +309,26 @@ impl DeploymentGasReportAndIdentifiers {
             return Err(DeploymentGasReportCreationError::UnrecognizedContract);
         }
 
+        let runtime_size = match execution_result {
+            ExecutionResult::Success {
+                output: Output::Create(bytes, _),
+                ..
+            } => bytes.len().try_into().unwrap_or_else(|_| {
+                panic!(
+                    "Length should be smaller than `u64::MAX`. Actual: {}",
+                    bytes.len()
+                )
+            }),
+            _ => 0,
+        };
+
         let report = DeploymentGasReport {
             gas: execution_result.gas_used(),
             size: code
                 .len()
                 .try_into()
                 .expect("Contract code size should fit into u64"),
+            runtime_size,
             status: execution_result.into(),
         };
 
@@ -433,9 +342,8 @@ impl DeploymentGasReportAndIdentifiers {
 /// An error that can occur when creating a [`FunctionGasReport`].
 #[derive(Debug, thiserror::Error)]
 pub enum FunctionGasReportCreationError {
-    /// Error caused by the state.
-    #[error(transparent)]
-    State(#[from] StateError),
+    #[error("Missing code for contract at address {address}")]
+    MissingCode { address: Address },
     /// The contract could not be recognized.
     #[error("Unrecognized contract")]
     UnrecognizedContract,
@@ -464,22 +372,41 @@ pub struct FunctionGasReportAndIdentifiers {
 impl FunctionGasReportAndIdentifiers {
     /// Creates a new instance.
     pub fn new<HaltReasonT: HaltReasonTrait>(
-        state: &dyn State<Error = StateError>,
         contract_decoder: &mut ContractDecoder,
         execution_result: &ExecutionResult<HaltReasonT>,
         to: Address,
         input: Bytes,
         call_trace_arena: &CallTraceArena,
+        address_to_executed_code: &HashMap<Address, Bytes>,
     ) -> Result<Self, FunctionGasReportCreationError> {
-        let code = state
-            .basic(to)?
-            .map_or(Ok(Bytecode::default()), |account_info| {
-                account_info
-                    .code
-                    .map_or_else(|| state.code_by_hash(account_info.code_hash), Ok)
-            })?;
+        if let Some(proxy_chain) = detect_proxy_chain(call_trace_arena, 0) {
+            match resolve_proxy_chain(
+                contract_decoder,
+                &input,
+                execution_result,
+                address_to_executed_code,
+                proxy_chain,
+            ) {
+                Ok(gas_report) => return Ok(gas_report),
+                Err(ResolveProxyChainError::EmptyProxyChain) => {
+                    unreachable!("detect_proxy_chain should never return an empty chain")
+                }
+                Err(ResolveProxyChainError::MissingCode { address }) => {
+                    return Err(FunctionGasReportCreationError::MissingCode { address });
+                }
+                Err(ResolveProxyChainError::UnrecognizedContract) => {
+                    return Err(FunctionGasReportCreationError::UnrecognizedContract);
+                }
+                Err(ResolveProxyChainError::UnrecognizedFunction) => {
+                    return Err(FunctionGasReportCreationError::UnrecognizedFunction);
+                }
+            }
+        }
 
-        let code = code.original_bytes();
+        let code = address_to_executed_code
+            .get(&to)
+            .cloned()
+            .unwrap_or_default();
 
         let ContractIdentifierAndFunctionSignature {
             contract_identifier,
@@ -496,13 +423,10 @@ impl FunctionGasReportAndIdentifiers {
                 return Err(FunctionGasReportCreationError::UnrecognizedFunction);
             }
 
-            let proxy_chain =
-                resolve_proxy_chain(call_trace_arena, state, contract_decoder).unwrap_or_default();
-
             let report = FunctionGasReport {
                 gas: execution_result.gas_used(),
                 status: execution_result.into(),
-                proxy_chain,
+                proxy_chain: Vec::new(),
             };
 
             Ok(FunctionGasReportAndIdentifiers {
@@ -516,50 +440,88 @@ impl FunctionGasReportAndIdentifiers {
     }
 }
 
-/// Detects a proxy delegation chain from the call trace arena and resolves
-/// each address to a contract name. Returns `None` if no proxy chain is
-/// detected or if any address fails to resolve.
-fn resolve_proxy_chain(
-    arena: &CallTraceArena,
-    state: &dyn State<Error = StateError>,
+enum ResolveProxyChainError {
+    EmptyProxyChain,
+    MissingCode { address: Address },
+    UnrecognizedContract,
+    UnrecognizedFunction,
+}
+
+/// Tries to resolve the provided proxy chain to a
+/// [`FunctionGasReportAndIdentifiers`].
+///
+/// The provided `proxy_chain` should be ordered from the final implementation
+/// to the outermost proxy, e.g. `[implementation, proxyN, ..., proxy1]`.
+///
+/// The resolved proxy will contain the contract identifier and function
+/// signature of the final implementation, while the used gas and execution
+/// status will be taken from the original call (i.e. the outermost proxy). The
+/// proxy chain in the returned `FunctionGasReport` will be ordered from the
+/// outermost proxy to the final implementation, e.g. `[proxy1, proxyN, ...,
+/// implementation]`.
+fn resolve_proxy_chain<HaltReasonT: HaltReasonTrait>(
     contract_decoder: &mut ContractDecoder,
-) -> Option<Vec<String>> {
-    if arena.nodes().is_empty() {
-        return None;
+    input: &Bytes,
+    execution_result: &ExecutionResult<HaltReasonT>,
+    address_to_executed_code: &HashMap<Address, Bytes>,
+    proxy_chain: Vec<&CallTrace>,
+) -> Result<FunctionGasReportAndIdentifiers, ResolveProxyChainError> {
+    let mut iter = proxy_chain.iter();
+    let Some(implementation_call) = iter.next() else {
+        return Err(ResolveProxyChainError::EmptyProxyChain);
+    };
+
+    let ContractIdentifierAndFunctionSignature {
+        contract_identifier,
+        function_signature,
+    } = {
+        let code = address_to_executed_code
+            .get(&implementation_call.address)
+            .ok_or(ResolveProxyChainError::MissingCode {
+                address: implementation_call.address,
+            })?;
+        contract_decoder.get_contract_identifier_and_function_signature_for_call(code, Some(input))
+    };
+
+    if contract_identifier == UNRECOGNIZED_CONTRACT_NAME {
+        return Err(ResolveProxyChainError::UnrecognizedContract);
     }
 
-    let chain_addrs = detect_proxy_chain(arena, 0);
-    if chain_addrs.is_empty() {
-        return None;
+    let Some(function_signature) = function_signature else {
+        return Err(ResolveProxyChainError::UnrecognizedFunction);
+    };
+
+    if function_signature == UNRECOGNIZED_FUNCTION_NAME || function_signature.is_empty() {
+        return Err(ResolveProxyChainError::UnrecognizedFunction);
     }
 
-    // All addresses must resolve
-    chain_addrs
-        .iter()
-        .map(|addr| {
-            // TODO: Instead of using the state, collect the bytecode for the addresses that
-            // were called during execution. The usage of state to validate
-            // whether code existed is fallible,because it's possible that
-            // during execution of a transaction, the code field of an
-            // address is overwritten.
-            let code = state
-                .basic(*addr)
-                .ok()?
-                .map_or(Ok(Bytecode::default()), |info| {
-                    info.code
-                        .map_or_else(|| state.code_by_hash(info.code_hash), Ok)
-                })
-                .ok()?;
+    let proxy_chain = iter
+        .rev()
+        .map(|call_trace| {
+            let code = address_to_executed_code.get(&call_trace.address).ok_or(
+                ResolveProxyChainError::MissingCode {
+                    address: call_trace.address,
+                },
+            )?;
 
-            let ContractIdentifierAndFunctionSignature {
-                contract_identifier,
-                ..
-            } = contract_decoder.get_contract_identifier_and_function_signature_for_call(
-                &code.original_bytes(),
-                None,
-            );
+            let contract_identifier = contract_decoder
+                .get_contract_identifier_and_function_signature_for_call(code, None)
+                .contract_identifier;
 
-            Some(contract_identifier)
+            Ok(contract_identifier)
         })
-        .collect::<Option<Vec<_>>>()
+        .chain(std::iter::once(Ok(contract_identifier.clone())))
+        .collect::<Result<Vec<String>, ResolveProxyChainError>>()?;
+
+    let report = FunctionGasReport {
+        gas: execution_result.gas_used(),
+        status: execution_result.into(),
+        proxy_chain,
+    };
+
+    Ok(FunctionGasReportAndIdentifiers {
+        contract_identifier,
+        function_signature,
+        report,
+    })
 }

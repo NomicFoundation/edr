@@ -6,7 +6,7 @@ edition.workspace = true
 
 [dependencies]
 alloy-dyn-abi = { workspace = true, features = ["eip712"] }
-alloy-primitives = { workspace = true, features = ["serde", "getrandom", "arbitrary", "rlp"] }
+alloy-primitives = { workspace = true, features = ["arbitrary", "getrandom", "map-hashbrown", "rlp", "serde"] }
 alloy-provider.workspace = true
 
 alloy-consensus.workspace = true

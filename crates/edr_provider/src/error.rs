@@ -17,7 +17,6 @@ use edr_chain_spec::{
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{result::ExecutionResult, DatabaseComponentError, TransactionError};
 use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
-use edr_gas_report::GasReportCreationError;
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::{hex, Address, Bytes, HashMap, HashSet, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
@@ -582,28 +581,6 @@ impl<
             EvmObserverCollectionError::OnCollectedCoverageCallback(error) => {
                 Self::OnCollectedCoverageCallback(error)
             }
-        }
-    }
-}
-
-impl<
-        FetchReceiptErrorT,
-        GenesisBlockCreationErrorT: std::error::Error,
-        HaltReasonT: HaltReasonTrait,
-        HardforkT: Debug,
-        TransactionValidationErrorT: std::error::Error,
-    > From<GasReportCreationError>
-    for ProviderError<
-        FetchReceiptErrorT,
-        GenesisBlockCreationErrorT,
-        HaltReasonT,
-        HardforkT,
-        TransactionValidationErrorT,
-    >
-{
-    fn from(value: GasReportCreationError) -> Self {
-        match value {
-            GasReportCreationError::State(error) => ProviderError::State(error),
         }
     }
 }

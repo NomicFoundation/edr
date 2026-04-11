@@ -3,6 +3,7 @@ pub mod helpers;
 
 mod cheats;
 mod core;
+mod coverage;
 mod fork;
 mod fs;
 mod fuzz;

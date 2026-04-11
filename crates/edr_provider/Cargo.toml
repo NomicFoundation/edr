@@ -91,6 +91,7 @@ tracing = { version = "0.1.44", features = [
 alloy-eips.workspace = true
 anyhow = "1.0.100"
 edr_test_block_replay.workspace = true
+hex = "0.4"
 edr_test_utils.workspace = true
 paste = { version = "1.0.14", default-features = false }
 serial_test = "2.0.0"

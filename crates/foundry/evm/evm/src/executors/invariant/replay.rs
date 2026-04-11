@@ -18,7 +18,7 @@ use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, InvariantContract},
     BaseCounterExample,
 };
-use foundry_evm_traces::{load_contracts, TraceKind, Traces, TracingMode};
+use foundry_evm_traces::{load_contracts, SetupTraces, SparsedTraceArena, TracingMode};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
 use revm::{
@@ -48,6 +48,7 @@ pub struct ReplayRunArgs<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
+    pub execution_traces: &'a mut Vec<SparsedTraceArena>,
     pub executor: Executor<
         BlockT,
         TxT,
@@ -61,7 +62,7 @@ pub struct ReplayRunArgs<
     pub known_contracts: &'a ContractsByArtifact,
     pub ided_contracts: ContractsByAddress,
     pub logs: &'a mut Vec<Log>,
-    pub traces: &'a mut Traces,
+    pub setup_traces: &'a SetupTraces,
     pub line_coverage: &'a mut Option<HitMaps>,
     pub deprecated_cheatcodes: &'a mut HashMap<&'static str, Option<&'static str>>,
     pub inputs: &'a [BasicTxDetails],
@@ -108,12 +109,13 @@ pub fn replay_run<
     >,
 ) -> Result<ReplayResult<HaltReasonT>> {
     let ReplayRunArgs {
+        execution_traces,
         mut executor,
         invariant_contract,
         known_contracts,
         mut ided_contracts,
         logs,
-        traces,
+        setup_traces,
         line_coverage: coverage,
         deprecated_cheatcodes,
         inputs,
@@ -142,10 +144,7 @@ pub fn replay_run<
             U256::ZERO,
         )?;
         logs.extend(call_result.logs);
-        traces.push((
-            TraceKind::Execution,
-            call_result.traces.clone().expect("enabled tracing"),
-        ));
+        execution_traces.push(call_result.traces.clone().expect("enabled tracing"));
         HitMaps::merge_opt(coverage, call_result.line_coverage);
 
         // Identify newly generated contracts, if they exist.
@@ -171,19 +170,25 @@ pub fn replay_run<
             .is_some_and(InstructionResult::is_ok)
             && (fail_on_revert || !call_result.reverted)
         {
-            let stack_trace_result = if let Some(indeterminism_reasons) =
-                call_result.indeterminism_reasons
-            {
-                Some(indeterminism_reasons.into())
-            } else {
-                contract_decoder
-                    .and_then(|decoder| {
-                        get_stack_trace(decoder, traces.iter().map(|(_, arena)| &arena.arena), None)
+            let stack_trace_result =
+                if let Some(indeterminism_reasons) = call_result.indeterminism_reasons {
+                    Some(indeterminism_reasons.into())
+                } else {
+                    contract_decoder
+                        .and_then(|decoder| {
+                            get_stack_trace(
+                                decoder,
+                                setup_traces
+                                    .iter()
+                                    .map(|(_, arena)| &arena.arena)
+                                    .chain(execution_traces.iter().map(|arena| &arena.arena)),
+                                None,
+                            )
                             .map_err(SolidityTestStackTraceError::from)
                             .transpose()
-                    })
-                    .map(SolidityTestStackTraceResult::from)
-            };
+                        })
+                        .map(SolidityTestStackTraceResult::from)
+                };
             let revert_reason =
                 revert_decoder.maybe_decode(call_result.result.as_ref(), call_result.exit_reason);
             return Ok(ReplayResult {
@@ -211,10 +216,7 @@ pub fn replay_run<
             .into(),
     )?;
 
-    traces.push((
-        TraceKind::Execution,
-        invariant_result.traces.expect("tracing is on"),
-    ));
+    execution_traces.push(invariant_result.traces.expect("tracing is on"));
     logs.extend(invariant_result.logs);
     deprecated_cheatcodes.extend(
         invariant_result
@@ -229,10 +231,7 @@ pub fn replay_run<
             call_result: after_invariant_result,
             success: _,
         } = call_after_invariant_function(&executor, invariant_contract.address)?;
-        traces.push((
-            TraceKind::Execution,
-            after_invariant_result.traces.clone().unwrap(),
-        ));
+        execution_traces.push(after_invariant_result.traces.clone().unwrap());
         logs.extend(after_invariant_result.logs);
     }
 
@@ -246,7 +245,10 @@ pub fn replay_run<
                         contract_decoder.and_then(|decoder| {
                             get_stack_trace(
                                 decoder,
-                                traces.iter().map(|(_, arena)| &arena.arena),
+                                setup_traces
+                                    .iter()
+                                    .map(|(_, arena)| &arena.arena)
+                                    .chain(execution_traces.iter().map(|arena| &arena.arena)),
                                 None,
                             )
                             .map_err(SolidityTestStackTraceError::from)
@@ -281,6 +283,7 @@ pub struct ReplayErrorArgs<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
+    pub execution_traces: &'a mut Vec<SparsedTraceArena>,
     pub executor: Executor<
         BlockT,
         TxT,
@@ -295,7 +298,7 @@ pub struct ReplayErrorArgs<
     pub known_contracts: &'a ContractsByArtifact,
     pub ided_contracts: ContractsByAddress,
     pub logs: &'a mut Vec<Log>,
-    pub traces: &'a mut Traces,
+    pub setup_traces: &'a SetupTraces,
     pub coverage: &'a mut Option<HitMaps>,
     pub deprecated_cheatcodes: &'a mut HashMap<&'static str, Option<&'static str>>,
     pub generate_stack_trace: bool,
@@ -330,13 +333,14 @@ pub fn replay_error<
     >,
 ) -> Result<ReplayResult<HaltReasonT>> {
     let ReplayErrorArgs {
+        execution_traces,
         mut executor,
         failed_case,
         invariant_contract,
         known_contracts,
         ided_contracts,
         logs,
-        traces,
+        setup_traces,
         coverage,
         deprecated_cheatcodes,
         generate_stack_trace,
@@ -361,12 +365,13 @@ pub fn replay_error<
             // Replay calls to get the counterexample and to collect logs, traces and
             // coverage.
             replay_run(ReplayRunArgs {
+                execution_traces,
                 invariant_contract,
                 executor,
                 known_contracts,
                 ided_contracts,
                 logs,
-                traces,
+                setup_traces,
                 line_coverage: coverage,
                 deprecated_cheatcodes,
                 inputs: &calls,
