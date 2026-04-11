@@ -6,7 +6,8 @@ use edr_primitives::Address;
 use edr_provider::{
     test_utils::{create_test_config_with, one_ether, MinimalProviderConfig},
     time::CurrentTime,
-    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    AccountOverride, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -38,25 +39,25 @@ async fn issue_361() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::ImpersonateAccount(impersonated_account.into()),
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("hardhat_impersonateAccount", (impersonated_account,))?,
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("eth_sendTransaction", (TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
             ..TransactionRequest::default()
-        }),
+        },))?,
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::GetLogs(
-        LogFilterOptions {
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("eth_getLogs", (LogFilterOptions {
             from_block: Some(BlockSpec::Number(0)),
             to_block: Some(BlockSpec::latest()),
             ..LogFilterOptions::default()
-        },
-    )))?;
+        },))?,
+    ))?;
 
     Ok(())
 }

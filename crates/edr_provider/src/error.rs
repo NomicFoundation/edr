@@ -32,27 +32,24 @@ use parking_lot::RwLock;
 use serde::Serialize;
 
 use crate::{
-    config::IntervalConfigConversionError, debug_trace::DebugTraceError,
-    observability::EvmObserverCollectionError, time::TimeSinceEpoch, ProviderSpec,
+    config::IntervalConfigConversionError,
+    debug_trace::DebugTraceError,
+    handlers::error::{
+        DynProviderError, RpcErrorCode, RpcTypedError, INTERNAL_ERROR, INVALID_INPUT,
+        INVALID_PARAMS,
+    },
+    observability::EvmObserverCollectionError,
+    time::TimeSinceEpoch,
+    ProviderSpec,
 };
-
-pub(crate) const INVALID_INPUT: i16 = -32000;
-pub(crate) const INTERNAL_ERROR: i16 = -32603;
-pub(crate) const INVALID_PARAMS: i16 = -32602;
-
-/// Trait for errors that can be converted to JSON-RPC errors.
-pub trait JsonRpcError {
-    /// Returns the JSON-RPC error code.
-    fn error_code(&self) -> i16;
-}
 
 impl<
         BlockchainErrorT,
-        CollectInspectorDataErrorT: JsonRpcError,
+        CollectInspectorDataErrorT: RpcErrorCode,
         HardforkT,
         StateErrorT,
         TransactionValidationErrorT,
-    > JsonRpcError
+    > RpcErrorCode
     for MineBlockError<
         BlockchainErrorT,
         CollectInspectorDataErrorT,
@@ -407,8 +404,6 @@ pub enum ProviderError<
         transaction_hash: B256,
         unsupported_transaction_type: u8,
     },
-    #[error("{method_name} - Method not supported")]
-    UnsupportedMethod { method_name: String },
 }
 
 impl<
@@ -439,13 +434,14 @@ impl<
         }
     }
 }
+
 impl<
         FetchReceiptErrorT,
         GenesisBlockCreationErrorT,
         HaltReasonT: HaltReasonTrait,
         HardforkT: Debug,
         TransactionValidationErrorT,
-    > From<EvmObserverCollectionError>
+    > RpcErrorCode
     for ProviderError<
         FetchReceiptErrorT,
         GenesisBlockCreationErrorT,
@@ -454,44 +450,9 @@ impl<
         TransactionValidationErrorT,
     >
 {
-    fn from(value: EvmObserverCollectionError) -> Self {
-        match value {
-            EvmObserverCollectionError::AbiDecoding(error) => Self::AbiDecoding(error),
-            EvmObserverCollectionError::OnCollectedCoverageCallback(error) => {
-                Self::OnCollectedCoverageCallback(error)
-            }
-        }
-    }
-}
-
-impl<
-        FetchReceiptErrorT: std::error::Error,
-        GenesisBlockCreationErrorT: std::error::Error,
-        HaltReasonT: HaltReasonTrait + Serialize,
-        HardforkT: Debug,
-        TransactionValidationErrorT: std::error::Error,
-    >
-    From<
-        ProviderError<
-            FetchReceiptErrorT,
-            GenesisBlockCreationErrorT,
-            HaltReasonT,
-            HardforkT,
-            TransactionValidationErrorT,
-        >,
-    > for jsonrpc::Error
-{
-    fn from(
-        value: ProviderError<
-            FetchReceiptErrorT,
-            GenesisBlockCreationErrorT,
-            HaltReasonT,
-            HardforkT,
-            TransactionValidationErrorT,
-        >,
-    ) -> Self {
+    fn error_code(&self) -> i16 {
         #[allow(clippy::match_same_arms)]
-        let code = match &value {
+        match self {
             ProviderError::AbiDecoding(_) => INTERNAL_ERROR,
             ProviderError::AccountOverrideConversionError(_) => INVALID_INPUT,
             ProviderError::AutoMineGasPriceTooLow { .. } => INVALID_INPUT,
@@ -557,11 +518,99 @@ impl<
             ProviderError::UnsupportedEIP1559Parameters { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedEIP4844Parameters { .. } => INVALID_PARAMS,
             ProviderError::UnsupportedEip7702Parameters { .. } => INVALID_PARAMS,
-            ProviderError::UnsupportedMethod { .. } => -32004,
             ProviderError::UnsupportedTransactionTypeInDebugTrace { .. } => INVALID_INPUT,
             ProviderError::UnsupportedTransactionTypeForDebugTrace { .. } => INVALID_INPUT,
-        };
+        }
+    }
+}
 
+/// Error tag for invalid EIP-155 transaction chain ID errors. This is used to
+/// identify this error in the logger.
+pub const INVALID_EIP155_TRANSACTION_CHAIN_ID_ERROR_TAG: &str =
+    "INVALID_EIP155_TRANSACTION_CHAIN_ID";
+
+impl<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: Debug,
+        TransactionValidationErrorT,
+    > RpcTypedError
+    for ProviderError<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT,
+        HardforkT,
+        TransactionValidationErrorT,
+    >
+{
+    fn error_tag(&self) -> &'static str {
+        match self {
+            Self::TransactionFailed(error) => error.error_tag(),
+            Self::InvalidEip155TransactionChainId => INVALID_EIP155_TRANSACTION_CHAIN_ID_ERROR_TAG,
+            _ => "PROVIDER_ERROR",
+        }
+    }
+
+    fn error_data(&self) -> Option<serde_json::Value> {
+        match self {
+            Self::TransactionFailed(error) => error.error_data(),
+            _ => None,
+        }
+    }
+}
+
+impl<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: Debug,
+        TransactionValidationErrorT,
+    > From<EvmObserverCollectionError>
+    for ProviderError<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT,
+        HardforkT,
+        TransactionValidationErrorT,
+    >
+{
+    fn from(value: EvmObserverCollectionError) -> Self {
+        match value {
+            EvmObserverCollectionError::AbiDecoding(error) => Self::AbiDecoding(error),
+            EvmObserverCollectionError::OnCollectedCoverageCallback(error) => {
+                Self::OnCollectedCoverageCallback(error)
+            }
+        }
+    }
+}
+
+impl<
+        FetchReceiptErrorT: std::error::Error,
+        GenesisBlockCreationErrorT: std::error::Error,
+        HaltReasonT: HaltReasonTrait + Serialize,
+        HardforkT: Debug,
+        TransactionValidationErrorT: std::error::Error,
+    >
+    From<
+        ProviderError<
+            FetchReceiptErrorT,
+            GenesisBlockCreationErrorT,
+            HaltReasonT,
+            HardforkT,
+            TransactionValidationErrorT,
+        >,
+    > for jsonrpc::Error
+{
+    fn from(
+        value: ProviderError<
+            FetchReceiptErrorT,
+            GenesisBlockCreationErrorT,
+            HaltReasonT,
+            HardforkT,
+            TransactionValidationErrorT,
+        >,
+    ) -> Self {
         let data = value.as_transaction_failure().map(|transaction_failure| {
             serde_json::to_value(transaction_failure).expect("transaction_failure to json")
         });
@@ -569,7 +618,20 @@ impl<
         let message = value.to_string();
 
         Self {
-            code,
+            code: value.error_code(),
+            message,
+            data,
+        }
+    }
+}
+
+impl From<DynProviderError> for jsonrpc::Error {
+    fn from(value: DynProviderError) -> Self {
+        let data = value.error_data();
+        let message = value.to_string();
+
+        Self {
+            code: value.error_code(),
             message,
             data,
         }
@@ -600,11 +662,27 @@ pub struct TransactionFailureWithCallTraces<HaltReasonT: HaltReasonTrait> {
     pub call_trace_arenas: Vec<CallTraceArena>,
 }
 
+impl<HaltReasonT: HaltReasonTrait> TransactionFailureWithCallTraces<HaltReasonT> {
+    const ERROR_TAG: &'static str = "TRANSACTION_FAILURE";
+}
+
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display
     for TransactionFailureWithCallTraces<HaltReasonT>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.failure)
+    }
+}
+
+impl<HaltReasonT: HaltReasonTrait> RpcTypedError for TransactionFailureWithCallTraces<HaltReasonT> {
+    fn error_tag(&self) -> &'static str {
+        Self::ERROR_TAG
+    }
+
+    fn error_data(&self) -> Option<serde_json::Value> {
+        // TODO: What data do we want to include in the error response for a transaction
+        // failure? For now, this suffices to keep the logger working
+        None
     }
 }
 

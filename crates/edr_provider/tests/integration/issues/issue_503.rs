@@ -5,7 +5,8 @@ use edr_primitives::{Address, HashMap, U256};
 use edr_provider::{
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    ForkConfig, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
@@ -41,12 +42,12 @@ async fn issue_503() -> anyhow::Result<()> {
     let index =
         U256::from_str("0x4f039c94bc7b6c8e7867b9fbd2890a637837fea1c829f434a649c572b15b2969")?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetStorageAt(address, index, None),
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("eth_getStorageAt", (address, index, Option::<edr_eth::BlockSpec>::None))?,
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SetStorageAt(address, index, U256::from(1u64)),
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("hardhat_setStorageAt", (address, index, U256::from(1u64)))?,
     ))?;
 
     Ok(())

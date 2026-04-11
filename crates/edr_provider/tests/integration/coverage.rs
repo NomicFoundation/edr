@@ -9,8 +9,8 @@ use edr_chain_l1::{
 use edr_gas_report::GasReport;
 use edr_primitives::{bytes, Address, Bytes, HashSet, B256};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    test_utils::create_test_config, time::CurrentTime, NoopLogger, Provider,
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -93,14 +93,14 @@ fn provider_with_deployed_test_contract(
     // Deploy test contract
     let transaction_hash = {
         let response = provider
-            .handle_request(ProviderRequest::with_single(
-                MethodInvocation::SendTransaction(TransactionRequest {
+            .handle_request(RpcRequest::with_single(
+                RpcMethodCall::with_params("eth_sendTransaction", (TransactionRequest {
                     from,
                     data: Some(
                         Bytes::from_str(INCREMENT_DEPLOYED_BYTECODE).expect("Invalid bytecode"),
                     ),
                     ..TransactionRequest::default()
-                }),
+                },)).expect("params should serialize"),
             ))
             .expect("Failed to deploy test contract");
 
@@ -111,8 +111,8 @@ fn provider_with_deployed_test_contract(
     // Retrieve the deployed address
     let deployed_address = {
         let response = provider
-            .handle_request(ProviderRequest::with_single(
-                MethodInvocation::GetTransactionReceipt(transaction_hash),
+            .handle_request(RpcRequest::with_single(
+                RpcMethodCall::with_params("eth_getTransactionReceipt", (transaction_hash,)).expect("params should serialize"),
             ))
             .expect("Failed to get transaction receipt");
 
@@ -143,16 +143,14 @@ async fn call() -> anyhow::Result<()> {
     } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let _response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            L1CallRequest {
+        provider.handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_call", (L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
                 data: Some(INCREMENT_CALLDATA),
                 ..L1CallRequest::default()
-            },
-            None,
-            None,
-        )))?;
+            }, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None))?,
+        ))?;
 
     assert_hits(&coverage_reporter.lock());
 
@@ -170,17 +168,17 @@ async fn debug_trace_call() -> anyhow::Result<()> {
         provider,
     } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
-    let _response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::DebugTraceCall(
+    let _response = provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("debug_traceCall", (
             L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
                 data: Some(INCREMENT_CALLDATA),
                 ..L1CallRequest::default()
             },
-            None,
-            None,
-        ),
+            Option::<edr_eth::BlockSpec>::None,
+            Option::<serde_json::Value>::None,
+        ))?,
     ))?;
 
     assert_hits(&coverage_reporter.lock());
@@ -200,13 +198,13 @@ async fn debug_trace_transaction() -> anyhow::Result<()> {
     } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let transaction_hash: B256 = {
-        let response = provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(TransactionRequest {
+        let response = provider.handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_sendTransaction", (TransactionRequest {
                 from,
                 to: Some(deployed_address),
                 data: Some(INCREMENT_CALLDATA),
                 ..TransactionRequest::default()
-            }),
+            },))?,
         ))?;
 
         serde_json::from_value(response.result).expect("Failed to deserialize transaction hash")
@@ -215,8 +213,8 @@ async fn debug_trace_transaction() -> anyhow::Result<()> {
     // Reset the hits after the transaction
     coverage_reporter.lock().hits.clear();
 
-    let _response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+    let _response = provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("debug_traceTransaction", (transaction_hash, Option::<serde_json::Value>::None))?,
     ))?;
 
     assert_hits(&coverage_reporter.lock());
@@ -236,15 +234,14 @@ async fn estimate_gas() -> anyhow::Result<()> {
     } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let _response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
-            L1CallRequest {
+        provider.handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_estimateGas", (L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
                 data: Some(INCREMENT_CALLDATA),
                 ..L1CallRequest::default()
-            },
-            None,
-        )))?;
+            }, Option::<edr_eth::BlockSpec>::None))?,
+        ))?;
 
     assert_hits(&coverage_reporter.lock());
 
@@ -262,13 +259,13 @@ async fn send_transaction() -> anyhow::Result<()> {
         provider,
     } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
-    let _response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+    let _response = provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("eth_sendTransaction", (TransactionRequest {
             from,
             to: Some(deployed_address),
             data: Some(INCREMENT_CALLDATA),
             ..TransactionRequest::default()
-        }),
+        },))?,
     ))?;
 
     assert_hits(&coverage_reporter.lock());

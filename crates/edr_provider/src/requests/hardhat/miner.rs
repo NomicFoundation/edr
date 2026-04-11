@@ -1,17 +1,9 @@
-use edr_chain_spec::TransactionValidation;
-
 use crate::{
     data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,
     ProviderResultWithCallTraces,
 };
 
-pub fn handle_mine<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
-    TimerT: Clone + TimeSinceEpoch,
->(
+pub fn handle_mine<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     number_of_blocks: Option<u64>,
     interval: Option<u64>,

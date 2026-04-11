@@ -8,7 +8,8 @@ use edr_primitives::Address;
 use edr_provider::{
     test_utils::{create_test_config_with, one_ether, MinimalProviderConfig},
     time::CurrentTime,
-    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    AccountOverride, MiningConfig, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -45,33 +46,32 @@ async fn issue_326() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::ImpersonateAccount(impersonated_account.into()),
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("hardhat_impersonateAccount", (impersonated_account,))?,
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
-        None, None,
-    )))?;
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("hardhat_mine", (Option::<u64>::None, Option::<u64>::None))?,
+    ))?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("eth_sendTransaction", (TransactionRequest {
             from: impersonated_account,
             to: Some(impersonated_account),
             nonce: Some(0),
             max_fee_per_gas: Some(0xA),
             ..TransactionRequest::default()
-        }),
+        },))?,
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
-        L1CallRequest {
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("eth_estimateGas", (L1CallRequest {
             from: Some(impersonated_account),
             to: Some(impersonated_account),
             max_fee_per_gas: Some(0x200),
             ..L1CallRequest::default()
-        },
-        None,
-    )))?;
+        }, Option::<edr_eth::BlockSpec>::None))?,
+    ))?;
 
     Ok(())
 }

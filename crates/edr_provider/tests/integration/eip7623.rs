@@ -11,9 +11,10 @@ use edr_chain_l1::{
 };
 use edr_primitives::{B256, U64};
 use edr_provider::{
+    handlers::{RpcMethodCall, RpcRequest},
     test_utils::{create_test_config, one_ether, set_genesis_state_with_owned_accounts},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
@@ -34,10 +35,10 @@ fn assert_transaction_gas_usage(
 }
 
 fn estimate_gas(provider: &Provider<L1ChainSpec>, request: L1CallRequest) -> u64 {
+    let rpc_request = RpcMethodCall::with_params("eth_estimateGas", (request, Option::<edr_eth::BlockSpec>::None))
+        .expect("params should serialize");
     let response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
-            request, None,
-        )))
+        .handle_request(RpcRequest::with_single(rpc_request))
         .expect("eth_estimateGas should succeed");
 
     let gas: U64 = serde_json::from_value(response.result).expect("response should be U64");
@@ -46,10 +47,10 @@ fn estimate_gas(provider: &Provider<L1ChainSpec>, request: L1CallRequest) -> u64
 }
 
 fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
+    let rpc_request = RpcMethodCall::with_params("eth_getTransactionReceipt", (transaction_hash,))
+        .expect("params should serialize");
     let response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::GetTransactionReceipt(transaction_hash),
-        ))
+        .handle_request(RpcRequest::with_single(rpc_request))
         .expect("eth_getTransactionReceipt should succeed");
 
     let receipt: Option<L1RpcTransactionReceipt> =
@@ -87,10 +88,10 @@ fn send_transaction(
     provider: &Provider<L1ChainSpec>,
     request: TransactionRequest,
 ) -> anyhow::Result<B256> {
+    let rpc_request = RpcMethodCall::with_params("eth_sendTransaction", (request,))
+        .expect("params should serialize");
     let response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(request),
-        ))
+        .handle_request(RpcRequest::with_single(rpc_request))
         .expect("eth_sendTransaction should succeed");
 
     let transaction_hash: B256 = serde_json::from_value(response.result)?;

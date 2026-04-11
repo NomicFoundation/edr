@@ -8,9 +8,10 @@ use edr_chain_l1::{Hardfork, L1ChainSpec};
 use edr_eth::BlockSpec;
 use edr_primitives::{address, Address, Bytes, StorageKey, U256};
 use edr_provider::{
+    handlers::{RpcMethodCall, RpcRequest},
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    NoopLogger, Provider,
 };
 use parking_lot::RwLock;
 use tokio::runtime;
@@ -44,11 +45,11 @@ fn verify_account_proof<'proof>(
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
     let proof_response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+        .handle_request(RpcRequest::with_single(RpcMethodCall::with_params("eth_getProof", (
             address,
-            Vec::new(),
+            Vec::<StorageKey>::new(),
             block_spec,
-        )))
+        )).unwrap()))
         .unwrap();
 
     let account_proof_response: EIP1186AccountProofResponse =
@@ -70,11 +71,11 @@ fn verify_storage_proof<'proof>(
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
     let proof_response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+        .handle_request(RpcRequest::with_single(RpcMethodCall::with_params("eth_getProof", (
             address,
             vec![slot],
             edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),
-        )))
+        )).unwrap()))
         .unwrap();
 
     let account_proof_response: EIP1186AccountProofResponse =
@@ -102,22 +103,22 @@ mod local {
     async fn test_account_proof() -> anyhow::Result<()> {
         let provider = setup_provider(MinimalProviderConfig::local_empty())?;
 
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
+        provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("hardhat_setBalance", (
             address!("0x2031f89b3ea8014eb51a78c316e42af3e0d7695f"),
             U256::from(45000000000000000000_u128),
-        )))?;
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
+        ))?))?;
+        provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("hardhat_setBalance", (
             address!("0x33f0fc440b8477fcfbe9d0bf8649e7dea9baedb2"),
             U256::from(1),
-        )))?;
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
+        ))?))?;
+        provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("hardhat_setBalance", (
             address!("0x62b0dd4aab2b1a0a04e279e2b828791a10755528"),
             U256::from(1100000000000000000_u128),
-        )))?;
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
+        ))?))?;
+        provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("hardhat_setBalance", (
             address!("0x1ed9b1dd266b607ee278726d324b855a093394a6"),
             U256::from(120000000000000000_u128),
-        )))?;
+        ))?))?;
 
         verify_account_proof(&provider, address!("0x2031f89b3ea8014eb51a78c316e42af3e0d7695f"), edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest), [
             "0xe48200a7a040f916999be583c572cc4dd369ec53b0a99f7de95f13880cf203d98f935ed1b3",
@@ -164,8 +165,8 @@ mod local {
             serde_json::from_str(include_str!("../fixtures/storage_sample.json")).unwrap();
 
         for (key, value) in storage {
-            provider.handle_request(ProviderRequest::with_single(
-                MethodInvocation::SetStorageAt(target, key, value),
+            provider.handle_request(RpcRequest::with_single(
+                RpcMethodCall::with_params("hardhat_setStorageAt", (target, key, value))?,
             ))?;
         }
 
@@ -201,11 +202,11 @@ mod local {
 
         let address = Address::random();
         provider
-            .handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+            .handle_request(RpcRequest::with_single(RpcMethodCall::with_params("eth_getProof", (
                 address,
-                Vec::new(),
+                Vec::<StorageKey>::new(),
                 edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),
-            )))
+            )).unwrap()))
             .unwrap_or_else(|_| panic!("Failed to get proof for {address:?}"));
 
         Ok(())
@@ -214,8 +215,7 @@ mod local {
 #[cfg(feature = "test-remote")]
 mod fork {
     use edr_primitives::HashMap;
-    use edr_provider::{ForkConfig, ProviderError};
-    use edr_state_api::StateError;
+    use edr_provider::ForkConfig;
     use edr_test_utils::env::json_rpc_url_provider;
 
     use super::*;
@@ -233,22 +233,24 @@ mod fork {
             url: json_rpc_url_provider::ethereum_mainnet(),
         }))?;
 
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::SetBalance(
+        provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("hardhat_setBalance", (
             ADDRESS,
             U256::from(100_000),
-        )))?;
+        ))?))?;
 
         let proof_result =
-            provider.handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+            provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("eth_getProof", (
                 ADDRESS,
-                Vec::new(),
+                Vec::<StorageKey>::new(),
                 edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),
-            )));
+            )).unwrap()));
 
-        assert!(matches!(
-            proof_result.unwrap_err(),
-            ProviderError::State(StateError::Unsupported { .. })
-        ));
+        assert!(proof_result.is_err());
+        let err_msg = proof_result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Unsupported") || err_msg.contains("unsupported"),
+            "Unexpected error: {err_msg}"
+        );
 
         Ok(())
     }
@@ -289,16 +291,18 @@ mod fork {
         }))?;
 
         let proof_result =
-            provider.handle_request(ProviderRequest::with_single(MethodInvocation::GetProof(
+            provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params("eth_getProof", (
                 ADDRESS,
-                Vec::new(),
+                Vec::<StorageKey>::new(),
                 edr_eth::BlockSpec::Tag(edr_eth::BlockTag::Latest),
-            )));
+            )).unwrap()));
 
-        assert!(matches!(
-            proof_result.unwrap_err(),
-            ProviderError::State(StateError::Unsupported { .. })
-        ));
+        assert!(proof_result.is_err());
+        let err_msg = proof_result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Unsupported") || err_msg.contains("unsupported"),
+            "Unexpected error: {err_msg}"
+        );
         Ok(())
     }
 

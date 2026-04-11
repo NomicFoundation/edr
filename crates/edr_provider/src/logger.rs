@@ -7,9 +7,10 @@ use edr_block_miner::MineBlockResultWithMetadataForChainSpec;
 use crate::{
     data::CallResultWithMetadata,
     error::EstimateGasFailure,
+    handlers::error::DynProviderError,
     observability::EvmObservedData,
     time::{CurrentTime, TimeSinceEpoch},
-    ProviderErrorForChainSpec, ProviderSpec,
+    ProviderSpec,
 };
 
 pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
@@ -77,7 +78,7 @@ pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoc
     fn print_method_logs(
         &mut self,
         method: &str,
-        error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
+        error: Option<&DynProviderError>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
@@ -123,7 +124,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> Logger<Ch
     fn print_method_logs(
         &mut self,
         _method: &str,
-        _error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
+        _error: Option<&DynProviderError>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }

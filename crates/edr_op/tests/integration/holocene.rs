@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use edr_op::OpChainSpec;
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    test_utils::create_test_config, time::CurrentTime, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -28,8 +28,8 @@ async fn holocene_genesis_block() -> anyhow::Result<()> {
 
     // Mine a block to make sure that the genesis block uses the correct extra
     // data, containing dynamic base fee params.
-    let _response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::Mine(None, None),
+    let _response = provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("hardhat_mine", (Option::<u64>::None, Option::<u64>::None))?,
     ))?;
 
     Ok(())

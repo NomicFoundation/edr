@@ -5,8 +5,10 @@ use edr_defaults::SECRET_KEYS;
 use edr_op::{predeploys::L1_BLOCK_PREDEPLOY_ADDRESS, OpChainSpec};
 use edr_primitives::{address, B256, U256};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    test_utils::create_test_config,
+    time::CurrentTime,
+    NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
@@ -38,13 +40,15 @@ fn create_isthmus_provider() -> anyhow::Result<Provider<OpChainSpec>> {
 async fn operator_fee_parameters_storage_defaults_to_0() -> anyhow::Result<()> {
     let provider = create_isthmus_provider()?;
 
-    let operator_fee = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetStorageAt(
-            L1_BLOCK_PREDEPLOY_ADDRESS,
-            U256::from(OPERATOR_FEE_STORAGE_INDEX),
-            None,
-        ),
-    ))?;
+    let operator_fee =
+        provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params(
+            "eth_getStorageAt",
+            (
+                L1_BLOCK_PREDEPLOY_ADDRESS,
+                U256::from(OPERATOR_FEE_STORAGE_INDEX),
+                Option::<edr_eth::BlockSpec>::None,
+            ),
+        )?))?;
 
     assert_eq!(operator_fee.result, format!("{:#066x}", U256::ZERO),);
     Ok(())
@@ -138,9 +142,12 @@ fn get_transaction_receipt(
     provider: &Provider<OpChainSpec>,
     transaction_hash: B256,
 ) -> anyhow::Result<edr_op::rpc::OpRpcBlockReceipt> {
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetTransactionReceipt(transaction_hash),
-    ))?;
+    let result = provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params(
+        "eth_getTransactionReceipt",
+        (transaction_hash,),
+    )?))?;
+
+    println!("Raw receipt result: {:?}", result.result);
 
     let receipt: edr_op::rpc::OpRpcBlockReceipt = serde_json::from_value(result.result)?;
     Ok(receipt)
@@ -154,9 +161,10 @@ fn send_transaction(provider: &Provider<OpChainSpec>) -> anyhow::Result<B256> {
         ..TransactionRequest::default()
     };
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(transaction),
-    ))?;
+    let result = provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params(
+        "eth_sendTransaction",
+        (transaction,),
+    )?))?;
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
     Ok(transaction_hash)
@@ -166,16 +174,17 @@ fn set_operator_fee_params_in_storage(
     operator_fee_scalar: u32,
     operator_fee_constant: u64,
 ) -> anyhow::Result<()> {
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SetStorageAt(
+    provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params(
+        "hardhat_setStorageAt",
+        (
             L1_BLOCK_PREDEPLOY_ADDRESS,
             U256::from(OPERATOR_FEE_STORAGE_INDEX),
             encode_operator_fee_params(operator_fee_scalar, operator_fee_constant),
         ),
-    ))?;
+    )?))?;
     Ok(())
 }
-fn encode_operator_fee_params(operator_fee_scalar: u32, operator_fee_constant: u64) -> U256 {
+fn encode_operator_fee_params(operator_fee_scalar: u32, operator_fee_constant: u64) -> B256 {
     let scalar: [u8; 4] = operator_fee_scalar.to_be_bytes();
     let constant: [u8; 8] = operator_fee_constant.to_be_bytes();
 
@@ -183,5 +192,5 @@ fn encode_operator_fee_params(operator_fee_scalar: u32, operator_fee_constant: u
     operator_fee[20..=23].copy_from_slice(&scalar);
     operator_fee[24..=31].copy_from_slice(&constant);
 
-    U256::from_be_bytes(operator_fee)
+    B256::from(operator_fee)
 }

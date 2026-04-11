@@ -1,6 +1,6 @@
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_primitives::{address, bytes, Address, Bytes, U256};
-use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
+use edr_provider::{handlers::{RpcMethodCall, RpcRequest}, test_utils::create_test_config, Provider};
 use edr_signer::public_key_to_address;
 use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 
@@ -45,16 +45,16 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
 
     let provider = new_provider(secret_key)?;
     let _response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendRawTransaction(RAW_TRANSACTION1.clone()),
+        .handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_sendRawTransaction", (RAW_TRANSACTION1.clone(),)).expect("params should serialize"),
         ))
         .expect("eth_sendRawTransaction should succeed");
 
     assert_code_at(&provider, authorized_address, &EXPECTED_CODE);
 
     let _response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendRawTransaction(RAW_TRANSACTION2.clone()),
+        .handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_sendRawTransaction", (RAW_TRANSACTION2.clone(),)).expect("params should serialize"),
         ))
         .expect("eth_sendRawTransaction should succeed");
 
@@ -94,16 +94,16 @@ async fn send_transaction() -> anyhow::Result<()> {
     let provider = new_provider(secret_key)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(transaction_request1),
+        .handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_sendTransaction", (transaction_request1,)).expect("params should serialize"),
         ))
         .expect("eth_sendTransaction should succeed");
 
     assert_code_at(&provider, authorized_address, &EXPECTED_CODE);
 
     let _response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(transaction_request2),
+        .handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_sendTransaction", (transaction_request2,)).expect("params should serialize"),
         ))
         .expect("eth_sendTransaction should succeed");
 

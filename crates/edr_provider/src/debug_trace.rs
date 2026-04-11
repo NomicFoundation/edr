@@ -15,7 +15,7 @@ use foundry_evm_traces::CallTraceArena;
 use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, MuxError, TransactionContext};
 
 use crate::{
-    error::{JsonRpcError, INTERNAL_ERROR, INVALID_PARAMS},
+    handlers::error::{RpcErrorCode, INTERNAL_ERROR, INVALID_PARAMS},
     observability::{EvmObservedData, EvmObserver, EvmObserverCollectionError, EvmObserverConfig},
 };
 
@@ -232,7 +232,7 @@ impl<TransactionValidationErrorT> From<EvmObserverCollectionError>
     }
 }
 
-impl<TransactionValidationErrorT> JsonRpcError for DebugTraceError<TransactionValidationErrorT> {
+impl<TransactionValidationErrorT> RpcErrorCode for DebugTraceError<TransactionValidationErrorT> {
     fn error_code(&self) -> i16 {
         match self {
             DebugTraceError::InvalidTracerConfig

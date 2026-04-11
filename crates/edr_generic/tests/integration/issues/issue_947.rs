@@ -3,12 +3,12 @@ use std::str::FromStr as _;
 
 use edr_chain_config::{ChainOverride, HardforkActivations};
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
-use edr_chain_spec::{EvmHeaderValidationError, TransactionValidation};
-use edr_chain_spec_evm::TransactionError;
+use edr_chain_spec::TransactionValidation;
 use edr_generic::GenericChainSpec;
 use edr_primitives::{address, B256};
 use edr_provider::{
-    time::CurrentTime, DebugTraceError, MethodInvocation, Provider, ProviderError, ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    time::CurrentTime, Provider,
     ProviderSpec, SyncProviderSpec,
 };
 use edr_test_utils::env::json_rpc_url_provider;
@@ -62,8 +62,8 @@ async fn issue_947_generic_evm_should_default_excess_gas() -> anyhow::Result<()>
     let transaction_hash =
         B256::from_str("0x9fccb755176d48b3e5e576aff003bb5dc4aeefa8b0b22e082555bdc705276278")?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+    let result = provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("debug_traceTransaction", (transaction_hash, Option::<serde_json::Value>::None)).expect("params should serialize"),
     ));
 
     // The block does not have the excess blob gas information
@@ -86,20 +86,18 @@ async fn issue_947_should_fail_with_missing_blob_gas_on_l1_after_cancun() -> any
     let transaction_hash =
         B256::from_str("0x9fccb755176d48b3e5e576aff003bb5dc4aeefa8b0b22e082555bdc705276278")?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+    let result = provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("debug_traceTransaction", (transaction_hash, Option::<serde_json::Value>::None)).expect("params should serialize"),
     ));
 
     // The block does not have the excess blob gas information
     // so the execution should fail since L1ChainSpec should not allow it
-    assert!(matches!(
-        result,
-        Err(ProviderError::DebugTrace(
-            DebugTraceError::TransactionError(TransactionError::InvalidHeader(
-                EvmHeaderValidationError::ExcessBlobGasNotSet
-            ))
-        ))
-    ));
+    assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("ExcessBlobGasNotSet") || err_msg.contains("excess blob gas"),
+        "Unexpected error: {err_msg}"
+    );
 
     Ok(())
 }
@@ -117,12 +115,12 @@ async fn issue_947_should_succeed_on_generic_before_cancun() -> anyhow::Result<(
         shanghai_arbitrum_block,
     )?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+    let result = provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("eth_sendTransaction", (TransactionRequest {
             from: address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
             to: Some(address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")),
             ..TransactionRequest::default()
-        }),
+        },)).expect("params should serialize"),
     ));
 
     assert!(result.is_ok());

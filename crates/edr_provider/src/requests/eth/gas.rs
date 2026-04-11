@@ -1,5 +1,5 @@
 use edr_block_api::Block as _;
-use edr_chain_spec::{EvmSpecId, TransactionValidation};
+use edr_chain_spec::EvmSpecId;
 use edr_eth::{fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, BlockSpec};
 use edr_primitives::{U256, U64};
 use edr_runtime::{overrides::StateOverrides, transaction};
@@ -16,12 +16,7 @@ use crate::{
 };
 
 pub fn handle_estimate_gas<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: TransactionMut>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -53,13 +48,7 @@ pub fn handle_estimate_gas<
     }
 }
 
-pub fn handle_fee_history<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
-    TimerT: Clone + TimeSinceEpoch,
->(
+pub fn handle_fee_history<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_count: U256,
     newest_block: BlockSpec,
@@ -115,10 +104,7 @@ The reward percentiles should be in non-decreasing order, but the percentile num
 }
 
 fn resolve_estimate_gas_request<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
