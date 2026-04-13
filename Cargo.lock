@@ -3203,7 +3203,6 @@ dependencies = [
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
- "edr_eip4788",
  "edr_eip7702",
  "edr_eip7892",
  "edr_eth",
