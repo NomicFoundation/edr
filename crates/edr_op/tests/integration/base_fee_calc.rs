@@ -83,5 +83,6 @@ impl_test_base_fee_calc! {
         39842878, // parent gas_used below target
         39842879, // parent gas_used above target
         39842880, // parent gas_used below target
+        44467358, // FAILS
     ],
 }
