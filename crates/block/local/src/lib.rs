@@ -195,6 +195,11 @@ impl<
             );
         }
 
+        if options.parent_beacon_block_root.is_none() {
+            options.parent_beacon_block_root =
+                edr_eip4788::genesis_parent_beacon_block_root(evm_spec_id);
+        }
+
         // No ommers in the genesis block
         let ommers = Vec::new();
 

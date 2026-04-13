@@ -4,6 +4,7 @@
 //! oracle contract, including the pre-block system call that populates the
 //! contract's ring buffer storage.
 
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes, B256, U256};
 use edr_state_api::{account::AccountInfo, DynState, EvmStorageSlot, State, StateDiff, StateError};
 
@@ -18,8 +19,17 @@ pub const BEACON_ROOTS_BYTECODE: Bytes = bytes!(
 /// The history buffer length used by the beacon roots contract (0x1fff).
 const HISTORY_BUFFER_LENGTH: u64 = 8191;
 
-/// Genesis parent beacon block root if EIP-4788 is active at genesis
-pub const GENESIS_PARENT_BEACON_BLOCK_ROOT: B256 = B256::ZERO;
+/// Returns the `parent_beacon_block_root` for a genesis block.
+/// Per EIP-4788, the value must be `0x0` for Cancun+ genesis blocks.
+/// Returns `None` for pre-Cancun hardforks.
+/// See: <https://eips.ethereum.org/EIPS/eip-4788>
+pub fn genesis_parent_beacon_block_root(evm_spec_id: EvmSpecId) -> Option<B256> {
+    if evm_spec_id >= EvmSpecId::CANCUN {
+        Some(B256::ZERO)
+    } else {
+        None
+    }
+}
 
 /// Creates the [`AccountInfo`] for the beacon roots contract.
 pub fn beacon_roots_contract() -> AccountInfo {
@@ -51,10 +61,8 @@ pub fn apply_beacon_root_contract_call(
     timestamp: u64,
     parent_beacon_block_root: B256,
 ) -> Result<(), StateError> {
-    // If this EIP is active in a genesis block, the genesis header’s
-    // parent_beacon_block_root must be 0x0 and no system transaction may occur.
-    // See: https://eips.ethereum.org/EIPS/eip-4788
-    if parent_beacon_block_root == GENESIS_PARENT_BEACON_BLOCK_ROOT {
+    // If parent_beacon_block_root is 0x0 no system transaction may occur.
+    if parent_beacon_block_root == B256::ZERO {
         return Ok(());
     }
 

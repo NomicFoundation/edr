@@ -2401,6 +2401,7 @@ dependencies = [
  "edr_block_header",
  "edr_chain_spec",
  "edr_chain_spec_receipt",
+ "edr_eip4788",
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
@@ -2817,6 +2818,7 @@ dependencies = [
 name = "edr_eip4788"
 version = "0.3.8"
 dependencies = [
+ "edr_chain_spec",
  "edr_primitives",
  "edr_state_api",
 ]
