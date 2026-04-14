@@ -167,15 +167,11 @@ pub async fn run_full_block<
         >,
 >(
     runtime: tokio::runtime::Handle,
-    url: String,
+    rpc_client: EthRpcClientForChainSpec<ChainSpecT>,
     block_number: u64,
     header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
 ) -> anyhow::Result<()> {
-    let rpc_client = Arc::new(EthRpcClientForChainSpec::<ChainSpecT>::new(
-        &url,
-        edr_defaults::CACHE_DIR.into(),
-        None,
-    )?);
+    let rpc_client = Arc::new(rpc_client);
     let ForkedStateAndBlockchain {
         block_config,
         expected_block,
@@ -540,9 +536,8 @@ macro_rules! impl_full_block_tests {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<full_block_ $name>]() -> anyhow::Result<()> {
                     let runtime = tokio::runtime::Handle::current();
-                    let url = $url;
-
-                    $crate::run_full_block::<$chain_spec>(runtime, url, $block_number, $header_overrides_constructor).await
+                    let rpc_client = edr_rpc_eth::client::EthRpcClientForChainSpec::<$chain_spec>::new(&$url, edr_defaults::CACHE_DIR.into(), None)?;
+                    $crate::run_full_block::<$chain_spec>(runtime, rpc_client, $block_number, $header_overrides_constructor).await
                 }
             }
         )+
