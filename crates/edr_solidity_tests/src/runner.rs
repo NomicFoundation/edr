@@ -106,6 +106,9 @@ pub struct ContractRunner<
     span: tracing::Span,
     /// Test function level config overrides.
     test_function_overrides: &'a HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+    /// Whether gas reports are being generated. When enabled, isolation cannot
+    /// be disabled by function-level overrides.
+    generate_gas_report: bool,
 
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (EvmBuilderT, HaltReasonT, TransactionErrorT)>,
@@ -128,6 +131,9 @@ pub struct ContractRunnerOptions<'a> {
     pub invariant_config: &'a InvariantConfig,
     /// Test function level config overrides.
     pub test_function_overrides: &'a HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+    /// Whether gas reports are being generated. When enabled, isolation cannot
+    /// be disabled by function-level overrides.
+    pub generate_gas_report: bool,
 }
 
 /// Contract artifact related arguments to the contract runner.
@@ -190,6 +196,7 @@ impl<
             fuzz_config,
             invariant_config,
             test_function_overrides,
+            generate_gas_report,
         } = options;
 
         Self {
@@ -209,6 +216,7 @@ impl<
             executor_builder,
             span,
             test_function_overrides,
+            generate_gas_report,
             _phantom: PhantomData,
         }
     }
@@ -259,7 +267,12 @@ impl<
         };
         if let Some(overrides) = self.test_function_overrides.get(&test_identifier) {
             if let Some(isolate) = overrides.isolate {
-                executor.inspector_mut().enable_isolation(isolate);
+                // Don't allow overriding isolation when gas reports are being
+                // generated, as isolation is required for accurate gas
+                // measurements.
+                if !self.generate_gas_report {
+                    executor.inspector_mut().enable_isolation(isolate);
+                }
             }
             if let Some(evm_version) = overrides.evm_version.as_deref() {
                 match evm_version.parse() {
