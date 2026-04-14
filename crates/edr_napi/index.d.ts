@@ -1023,6 +1023,8 @@ export interface TestFunctionConfigOverride {
    * top-level calls are executed as a separate transaction in a separate
    * EVM context, enabling more precise gas accounting and transaction
    * state changes.
+   * Ignored when gas reporting is enabled, as isolation is required for
+   * accurate gas measurements.
    */
   isolate?: boolean
   /**
