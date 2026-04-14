@@ -880,6 +880,8 @@ pub struct TestFunctionConfigOverride {
     /// top-level calls are executed as a separate transaction in a separate
     /// EVM context, enabling more precise gas accounting and transaction
     /// state changes.
+    /// Ignored when gas reporting is enabled, as isolation is required for
+    /// accurate gas measurements.
     pub isolate: Option<bool>,
     /// The EVM version to use for this test, e.g. "Cancun". This will override
     /// the global EVM version.
