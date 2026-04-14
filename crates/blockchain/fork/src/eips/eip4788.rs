@@ -29,11 +29,9 @@ pub struct BeaconRootStorageSlots {
 /// Computes the storage slot indices for the given block `timestamp` in the
 /// EIP-4788 beacon root contract's ring buffer.
 ///
-/// The contract uses two parallel ring buffers of length
-/// [`HISTORY_BUFFER_LENGTH`]:
-/// - Slots `0..HISTORY_BUFFER_LENGTH` store timestamps.
-/// - Slots `HISTORY_BUFFER_LENGTH..HISTORY_BUFFER_LENGTH*2` store the
-///   corresponding parent beacon block roots.
+/// The contract uses two parallel ring buffers
+/// - First buffer to store timestamps.
+/// - Second buffer to store the corresponding parent beacon block roots.
 pub fn beacon_root_storage_slots(timestamp: u64) -> BeaconRootStorageSlots {
     let timestamp_slot = U256::from(timestamp % HISTORY_BUFFER_LENGTH);
     let beacon_root_slot = timestamp_slot + U256::from(HISTORY_BUFFER_LENGTH);
