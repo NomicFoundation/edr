@@ -106,6 +106,9 @@ pub struct ContractRunner<
     span: tracing::Span,
     /// Test function level config overrides.
     test_function_overrides: &'a HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+    /// Whether gas reports are being generated. When enabled, isolation cannot
+    /// be disabled by function-level overrides.
+    generate_gas_report: bool,
 
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (EvmBuilderT, HaltReasonT, TransactionErrorT)>,
@@ -128,6 +131,9 @@ pub struct ContractRunnerOptions<'a> {
     pub invariant_config: &'a InvariantConfig,
     /// Test function level config overrides.
     pub test_function_overrides: &'a HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+    /// Whether gas reports are being generated. When enabled, isolation cannot
+    /// be disabled by function-level overrides.
+    pub generate_gas_report: bool,
 }
 
 /// Contract artifact related arguments to the contract runner.
@@ -190,6 +196,7 @@ impl<
             fuzz_config,
             invariant_config,
             test_function_overrides,
+            generate_gas_report,
         } = options;
 
         Self {
@@ -209,6 +216,7 @@ impl<
             executor_builder,
             span,
             test_function_overrides,
+            generate_gas_report,
             _phantom: PhantomData,
         }
     }
@@ -237,6 +245,47 @@ impl<
         NestedTraceDecoderT,
     >
 {
+    /// Applies function-level `isolate` and `evm_version` overrides to the
+    /// given executor. Returns `Err` with an error message if the
+    /// `evm_version` string is invalid.
+    fn apply_executor_overrides(
+        &self,
+        func: &Function,
+        executor: &mut Executor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    ) -> Result<(), String> {
+        let test_identifier = TestFunctionIdentifier {
+            contract_artifact: self.artifact_id.clone(),
+            function_selector: func.selector().to_string(),
+        };
+        if let Some(overrides) = self.test_function_overrides.get(&test_identifier) {
+            if let Some(isolate) = overrides.isolate {
+                // Don't allow overriding isolation when gas reports are being
+                // generated, as isolation is required for accurate gas
+                // measurements.
+                if !self.generate_gas_report {
+                    executor.inspector_mut().enable_isolation(isolate);
+                }
+            }
+            if let Some(evm_version) = overrides.evm_version.as_deref() {
+                match evm_version.parse() {
+                    Ok(spec) => executor.set_spec_id(spec),
+                    Err(_) => {
+                        return Err(format!("unknown EVM version: '{evm_version}'"));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Deploys the test contract inside the runner from the sending account,
     /// and optionally runs the `setUp` function on the test contract.
     fn setup(
@@ -803,12 +852,21 @@ impl<
     }
 
     fn run(
-        self,
+        mut self,
         func: &Function,
         kind: TestFunctionKind,
         call_after_invariant: bool,
         identified_contracts: Option<&ContractsByAddress>,
     ) -> TestResult<HaltReasonT> {
+        // Apply executor config overrides.
+        if let Err(err) = self
+            .cr
+            .apply_executor_overrides(func, self.executor.to_mut())
+        {
+            self.result.single_fail(Some(err), Instant::now().elapsed());
+            return self.result;
+        }
+
         match kind {
             TestFunctionKind::UnitTest { .. } => self.run_unit_test(func),
             TestFunctionKind::FuzzTest { .. } => self.run_fuzz_test(func),
@@ -1147,6 +1205,7 @@ impl<
         );
 
         let mut executor = self.clone_executor();
+
         // Enable edge coverage if running with coverage guided fuzzing or with edge
         // coverage metrics (useful for benchmarking the fuzzer).
         executor.inspector_mut().collect_edge_coverage(
@@ -1498,6 +1557,7 @@ impl<
                 } else {
                     re_run_fuzz_counterexample_for_stack_traces(
                         self.cr,
+                        func,
                         self.setup.address,
                         counter_example,
                         self.setup.has_setup_method,
@@ -1584,6 +1644,10 @@ impl<
     ) -> Result<Vec<StackTraceEntry>, SolidityTestStackTraceError<HaltReasonT>> {
         let mut executor = self.cr.executor_builder.clone().build()?;
 
+        // Apply executor config overrides.
+        // Error is ignored since overrides were already validated in run().
+        let _ = self.cr.apply_executor_overrides(func, &mut executor);
+
         // We only need light-weight tracing for setup to be able to match contract
         // codes to contact addresses.
         executor.inspector_mut().tracing(TracingMode::WithoutSteps);
@@ -1652,11 +1716,16 @@ fn re_run_fuzz_counterexample_for_stack_traces<
         TxT,
         NestedTraceDecoderT,
     >,
+    func: &Function,
     address: Address,
     counter_example: &BaseCounterExample,
     needs_setup: bool,
 ) -> Result<Vec<StackTraceEntry>, SolidityTestStackTraceError<HaltReasonT>> {
     let mut executor = contract_runner.executor_builder.clone().build()?;
+
+    // Apply executor config overrides.
+    // Error is ignored since overrides were already validated in run().
+    let _ = contract_runner.apply_executor_overrides(func, &mut executor);
 
     // We only need light-weight tracing for setup to be able to match contract
     // codes to contact addresses.

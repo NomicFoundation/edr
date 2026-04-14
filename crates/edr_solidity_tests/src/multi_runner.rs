@@ -381,6 +381,7 @@ impl<
                     fuzz_config: &self.fuzz_config,
                     invariant_config: &self.invariant_config,
                     test_function_overrides: &self.test_function_overrides,
+                    generate_gas_report: self.generate_gas_report,
                 },
                 span,
             );
