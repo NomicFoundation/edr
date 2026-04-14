@@ -3213,6 +3213,7 @@ dependencies = [
  "edr_transaction",
  "edr_utils",
  "foundry-evm-traces",
+ "hex",
  "indexmap 2.9.0",
  "itertools 0.14.0",
  "k256",
@@ -3728,6 +3729,19 @@ dependencies = [
  "serde_json",
  "tempfile",
  "toml 0.8.20",
+]
+
+[[package]]
+name = "edr_tool_solidity"
+version = "0.3.8"
+dependencies = [
+ "anyhow",
+ "clap 3.2.25",
+ "edr_instrument",
+ "foundry-compilers",
+ "hex",
+ "semver 1.0.26",
+ "tempfile",
 ]
 
 [[package]]

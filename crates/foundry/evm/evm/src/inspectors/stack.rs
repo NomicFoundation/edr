@@ -727,12 +727,16 @@ impl<
             [
                 &mut self.fuzzer,
                 &mut self.tracer,
+                self.inner
+                    .code_coverage
+                    .as_mut()
+                    .map(|reporter| &mut reporter.collector),
                 &mut self.cheatcodes,
                 &mut self.revert_diag
             ],
             |inspector| {
                 let previous_outcome = outcome.clone();
-                inspector.call_end(ecx, inputs, outcome);
+                Inspector::<_, EthInterpreter>::call_end(inspector, ecx, inputs, outcome);
 
                 // If the inspector returns a different status or a revert with a non-empty
                 // message, we assume it wants to tell us something
@@ -777,10 +781,17 @@ impl<
         let result = outcome.result.result;
         call_inspectors!(
             #[ret]
-            [&mut self.tracer, &mut self.cheatcodes],
+            [
+                &mut self.tracer,
+                self.inner
+                    .code_coverage
+                    .as_mut()
+                    .map(|reporter| &mut reporter.collector),
+                &mut self.cheatcodes
+            ],
             |inspector| {
                 let previous_outcome = outcome.clone();
-                inspector.create_end(ecx, call, outcome);
+                Inspector::<_, EthInterpreter>::create_end(inspector, ecx, call, outcome);
 
                 // If the inspector returns a different status or a revert with a non-empty
                 // message, we assume it wants to tell us something

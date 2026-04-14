@@ -259,15 +259,27 @@ impl<
         }
 
         self.console_logger.call(context, inputs);
-        if let Some(code_coverage) = &mut self.code_coverage {
-            Inspector::<_, EthInterpreter>::call(&mut code_coverage.collector, context, inputs);
-        }
         self.tracing_inspector.call(context, inputs);
+
+        if let Some(outcome) = self.code_coverage.as_mut().and_then(|code_coverage| {
+            Inspector::<_, EthInterpreter>::call(&mut code_coverage.collector, context, inputs)
+        }) {
+            // Inner inspector is short-circuiting the call. We should preserve its outcome.
+            return Some(outcome);
+        }
         self.mocker.call(context, inputs)
     }
 
     fn call_end(&mut self, context: &mut ContextT, inputs: &CallInputs, outcome: &mut CallOutcome) {
         self.tracing_inspector.call_end(context, inputs, outcome);
+        if let Some(code_coverage) = self.code_coverage.as_mut() {
+            Inspector::<_, EthInterpreter>::call_end(
+                &mut code_coverage.collector,
+                context,
+                inputs,
+                outcome,
+            );
+        }
     }
 
     fn create(
@@ -285,6 +297,14 @@ impl<
         outcome: &mut CreateOutcome,
     ) {
         self.tracing_inspector.create_end(context, inputs, outcome);
+        if let Some(code_coverage) = self.code_coverage.as_mut() {
+            Inspector::<_, EthInterpreter>::create_end(
+                &mut code_coverage.collector,
+                context,
+                inputs,
+                outcome,
+            );
+        }
     }
 
     fn step(&mut self, interp: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
