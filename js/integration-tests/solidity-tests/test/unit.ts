@@ -342,7 +342,7 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, suiteResults } =
       await testContext.runTestsWithStats("GasSnapshotTest", {}, L1_CHAIN_TYPE);
 
-    assert.equal(totalTests, 20);
+    assert.equal(totalTests, 22);
     assert.equal(failedTests, 8);
 
     let snapshots = new Map<string, Map<string, string>>();
@@ -468,6 +468,8 @@ describe("Unit tests", () => {
             ["d", "123"],
             ["e", "456"],
             ["f", "789"],
+            ["name,with,comma", "789"],
+            ["name.with.dot", "101"],
             ["testAssertGasExternal", "50260"],
             ["testAssertGasInternalA", "22047"],
             ["testAssertGasInternalB", "1011"],
