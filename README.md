@@ -8,7 +8,7 @@ EDR finds its origins in Hardhat Network but incorporates the lessons we have le
 
 - **High-performance EVM execution** thanks to [REVM](https://github.com/bluealloy/revm/)
 - **Multi-chain protocol support** with built-in providers for Ethereum L1 and OP Stack chains, and an extensible chain type system for custom chains.
-- **Full Ethereum JSON-RPC provider** implementation with support for forking remote JSON-RPC endpointslocally simulated chains, and configurable mining modes (auto-mine, interval, and mempool ordering).
+- **Full Ethereum JSON-RPC provider** implementation with support for forking remote JSON-RPC endpoints, locally simulated chains, and configurable mining modes (auto-mine, interval, and mempool ordering).
 - **`console.log` support** for Solidity with source-mapped logging and argument decoding.
 - **Solidity stack traces** with source-mapped error reporting for reverts, panics, custom errors, and out-of-gas conditions.
 - **Hierarchical call traces** with decoded function names, arguments, and event logs.
