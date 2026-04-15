@@ -29,6 +29,7 @@ use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, Rec
 use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec};
 use edr_state_api::{irregular::IrregularState, DynState};
 use edr_utils::random::RandomHashGenerator;
+use futures::try_join;
 
 type ForkedStateAndBlockchainForChainSpec<ChainSpecT> = ForkedStateAndBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
@@ -408,30 +409,27 @@ async fn replicate_beacon_block_root_oracle_state<
         timestamp_slot,
         beacon_root_slot,
     } = beacon_root_storage_slots(replay_header.timestamp);
-    let timestamp_value = rpc_client
-        .get_storage_at(
-            BEACON_ROOTS_ADDRESS,
-            timestamp_slot,
-            Some(BlockSpec::Number(block_number)),
-        )
-        .await?;
-    let root_value = rpc_client
-        .get_storage_at(
-            BEACON_ROOTS_ADDRESS,
-            beacon_root_slot,
-            Some(BlockSpec::Number(block_number)),
-        )
-        .await?;
-    state.set_account_storage_slot(
-        BEACON_ROOTS_ADDRESS,
-        beacon_root_slot,
-        root_value.expect("BEACON_ROOT root slot storage should be defined"),
-    )?;
-    state.set_account_storage_slot(
+
+    let timestamp_slot_fetch = rpc_client.get_storage_at(
         BEACON_ROOTS_ADDRESS,
         timestamp_slot,
-        timestamp_value.expect("BEACON_ROOT timestamp slot storage should be defined"),
-    )?;
+        Some(BlockSpec::Number(block_number)),
+    );
+    let beacon_root_slot_fetch = rpc_client.get_storage_at(
+        BEACON_ROOTS_ADDRESS,
+        beacon_root_slot,
+        Some(BlockSpec::Number(block_number)),
+    );
+    if let (Some(timestamp_value), Some(beacon_root_value)) =
+        try_join!(timestamp_slot_fetch, beacon_root_slot_fetch)?
+    {
+        state.set_account_storage_slot(
+            BEACON_ROOTS_ADDRESS,
+            beacon_root_slot,
+            beacon_root_value,
+        )?;
+        state.set_account_storage_slot(BEACON_ROOTS_ADDRESS, timestamp_slot, timestamp_value)?;
+    }
     Ok(())
 }
 

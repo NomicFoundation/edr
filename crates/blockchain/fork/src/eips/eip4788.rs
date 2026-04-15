@@ -16,7 +16,7 @@ const HISTORY_BUFFER_LENGTH: u64 = 8191;
 /// ring buffer.
 ///
 /// The contract uses two parallel ring buffers to store timestamps and the
-/// corresponfing parent beacon block roots
+/// corresponding parent beacon block roots
 ///
 /// See: <https://eips.ethereum.org/EIPS/eip-4788>
 pub struct BeaconRootStorageSlots {
@@ -54,4 +54,23 @@ pub(crate) fn beacon_roots_contract() -> AccountInfo {
 
 pub(crate) fn add_beacon_roots_contract_to_state_diff(state_diff: &mut StateDiff) {
     state_diff.apply_account_change(BEACON_ROOTS_ADDRESS, beacon_roots_contract());
+}
+
+#[cfg(test)]
+mod tests {
+    use edr_primitives::U256;
+
+    use super::*;
+
+    #[test]
+    fn beacon_root_storage_slots_follows_eip_spec() {
+        let timestamp = HISTORY_BUFFER_LENGTH - 1;
+        let slots = beacon_root_storage_slots(timestamp);
+
+        assert_eq!(slots.timestamp_slot, U256::from(timestamp));
+        assert_eq!(
+            slots.beacon_root_slot,
+            U256::from(timestamp + HISTORY_BUFFER_LENGTH)
+        );
+    }
 }
