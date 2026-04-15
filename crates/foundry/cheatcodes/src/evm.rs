@@ -3536,10 +3536,11 @@ fn inner_stop_gas_snapshot<
 /// from being used.
 fn validate_snapshot_name(value: &str, is_group_name: bool) -> Result<()> {
     let is_valid = !value.is_empty()
+        && value != "."
+        && !value.contains("..")
         && value
             .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ' ' | ',' | '.'))
-        && !value.contains("..");
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ' ' | ',' | '.'));
     let kind = if is_group_name { "group name" } else { "name" };
 
     ensure!(
