@@ -3595,6 +3595,7 @@ dependencies = [
  "edr_rpc_eth",
  "edr_state_api",
  "edr_utils",
+ "futures",
  "parking_lot 0.12.3",
  "serde",
  "tokio",
