@@ -196,6 +196,16 @@ contract GasSnapshotTest is Test {
     function testInvalidSnapshotName() public {
         vm.startSnapshotGas("validGroup", "name/with/slashes");
     }
+
+    // snapshotValue with a snapshot name containing a comma should succeed.
+    function testValidSnapshotNameWithComma() public {
+        vm.snapshotValue("GasSnapshotTest", "name,with,comma", 789);
+    }
+
+    // snapshotValue with a snapshot name containing non-consecutive dots should succeed.
+    function testValidSnapshotNameWithDot() public {
+        vm.snapshotValue("GasSnapshotTest", "name.with.dot", 101);
+    }
 }
 
 contract Flare {
