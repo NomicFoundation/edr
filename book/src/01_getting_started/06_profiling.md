@@ -15,7 +15,7 @@ If you are using devcontainers, make sure to elevate the privileges of the conta
 
 Then rebuild the container.
 
-## Instructions
+### Instructions
 
 Install the `cargo-flamegraph` tool by running:
 
@@ -33,9 +33,66 @@ CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph -o flamegraph_seaport.svg --ro
 
 The flamegraph will be saved to `flamegraph_seaport.svg`.
 
+## Combined JS + Native Flamegraph (Hardhat)
+
+When EDR is used from JavaScript via Hardhat, it's possible to generate a combined flamegraph that shows both JavaScript call frames (Hardhat, ethers.js, test code) and native Rust frames (EDR internals) in a single interactive view.
+
+This uses [`0x`](https://github.com/davidmarkclements/0x) with its `--kernel-tracing` mode, which runs the V8 tick profiler and Linux `perf` simultaneously. To ensure that EDR functions are visible to `0x`, which uses frame pointers to identify function boundaries, make sure to build EDR using `pnpm build:perf-js` to enable frame pointers in the Rust code.
+
+### Prerequisites
+
+Install the required tools:
+
+```bash
+# Linux perf
+sudo apt-get install linux-tools-generic # Ubuntu
+# sudo apt-get install linux-perf # WSL/Debian
+
+# 0x flamegraph tool
+npm install -g 0x
+```
+
+### Instructions
+
+Build EDR with frame pointers enabled for better profiling results:
+
+```bash
+cd crates/edr_napi
+pnpm build:perf-js
+```
+
+From the repository containing the Hardhat project (e.g. `openzeppelin-contracts`), install dependencies and compile contracts if you haven't already:
+
+```bash
+npm install
+npm run compile
+```
+
+Then run the profiler. The `--` separator passes the remaining arguments to Node directly:
+
+```bash
+sudo env PATH="$PATH" 0x \
+  --kernel-tracing \
+  --output-dir flamegraph-out \
+  -- node node_modules/hardhat/dist/src/cli.js test
+```
+
+To profile a specific test file instead of the full suite:
+
+```bash
+sudo env PATH="$PATH" 0x \
+  --kernel-tracing \
+  --output-dir flamegraph-out \
+  -- node --always-turbofan node_modules/hardhat/dist/src/cli.js test test/token/ERC20/ERC20.test.js
+```
+
+> **Note:** `sudo env PATH="$PATH"` is required because `sudo` resets `PATH` by default, which prevents it from finding `node` and `0x` when installed via nvm.
+
+Once complete, open `flamegraph-out/flamegraph.html` in a browser. The flamegraph is interactive — click any frame to zoom in.
+
 ## Event Tracing
 
-It's possible to profile the execution of `edr` by collecting [execution traces](https://docs.rs/tracing/latest/tracing/) and then turning them into flamegraphs. This has the advantage that the contents of the flamegraph can be filtered on the tracing level, and it works when EDR is ran from JS.
+It's possible to profile the execution of `edr` by collecting [execution traces](https://docs.rs/tracing/latest/tracing/) and then turning them into flamegraphs. This has the advantage that the contents of the flamegraph can be filtered on the tracing level, and it works when EDR is run from JS.
 
 ### Instructions
 

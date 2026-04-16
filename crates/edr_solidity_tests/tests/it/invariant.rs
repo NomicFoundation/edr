@@ -1179,6 +1179,8 @@ async fn test_invariant_function_override_runs() {
         ),
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
+            isolate: None,
+            evm_version: None,
             fuzz: None,
             invariant: Some(edr_solidity_tests::InvariantConfigOverride {
                 runs: Some(1),
@@ -1243,6 +1245,8 @@ async fn test_invariant_function_override_fail_on_revert() {
         ),
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
+            isolate: None,
+            evm_version: None,
             fuzz: None,
             invariant: Some(edr_solidity_tests::InvariantConfigOverride {
                 fail_on_revert: Some(true),
@@ -1303,6 +1307,8 @@ async fn test_invariant_function_override_call_override() {
         ),
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
+            isolate: None,
+            evm_version: None,
             fuzz: None,
             invariant: Some(edr_solidity_tests::InvariantConfigOverride {
                 call_override: Some(true),
@@ -1348,6 +1354,8 @@ async fn test_invariant_function_override_timeout() {
         ),
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
+            isolate: None,
+            evm_version: None,
             fuzz: None,
             invariant: Some(edr_solidity_tests::InvariantConfigOverride {
                 timeout: Some(edr_solidity_tests::TimeoutConfig { time: Some(1u32) }),

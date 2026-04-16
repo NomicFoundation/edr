@@ -13,19 +13,23 @@ use edr_block_builder_api::{BlockBuilder as _, BlockInputs};
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_block_remote::RemoteBlock;
 use edr_blockchain_api::{BlockchainMetadata as _, StateAtBlock as _};
-use edr_blockchain_fork::ForkedBlockchain;
+use edr_blockchain_fork::{
+    eips::eip4788::{beacon_root_storage_slots, BeaconRootStorageSlots, BEACON_ROOTS_ADDRESS},
+    ForkedBlockchain,
+};
 use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction, HardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::config::EvmConfig;
 use edr_chain_spec_provider::SyncProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec, RpcEthBlock};
-use edr_eth::{block::miner_reward, PreEip1898BlockSpec};
+use edr_eth::{block::miner_reward, BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{HashMap, B256};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait};
-use edr_rpc_eth::client::EthRpcClientForChainSpec;
-use edr_state_api::irregular::IrregularState;
+use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec};
+use edr_state_api::{irregular::IrregularState, DynState};
 use edr_utils::random::RandomHashGenerator;
+use futures::try_join;
 
 type ForkedStateAndBlockchainForChainSpec<ChainSpecT> = ForkedStateAndBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
@@ -84,14 +88,11 @@ async fn get_fork_state<
     >,
 >(
     runtime: tokio::runtime::Handle,
-    url: String,
+    rpc_client: Arc<EthRpcClient<ChainSpecT, ChainSpecT::RpcReceipt, ChainSpecT::RpcTransaction>>,
     block_number: u64,
 ) -> anyhow::Result<ForkedStateAndBlockchainForChainSpec<ChainSpecT>> {
-    let rpc_client =
-        EthRpcClientForChainSpec::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
     let chain_id = rpc_client.chain_id().await?;
 
-    let rpc_client = Arc::new(rpc_client);
     let replay_block = {
         let block = rpc_client
             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(block_number))
@@ -167,16 +168,17 @@ pub async fn run_full_block<
         >,
 >(
     runtime: tokio::runtime::Handle,
-    url: String,
+    rpc_client: EthRpcClientForChainSpec<ChainSpecT>,
     block_number: u64,
     header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
 ) -> anyhow::Result<()> {
+    let rpc_client = Arc::new(rpc_client);
     let ForkedStateAndBlockchain {
         block_config,
         expected_block,
         prior_blockchain,
         prior_irregular_state,
-    } = get_fork_state::<ChainSpecT>(runtime, url, block_number).await?;
+    } = get_fork_state::<ChainSpecT>(runtime, rpc_client.clone(), block_number).await?;
 
     let replay_header = expected_block.block_header();
     let hardfork = prior_blockchain.hardfork();
@@ -188,9 +190,21 @@ pub async fn run_full_block<
         transaction_gas_cap: None,
     };
 
-    let state = prior_blockchain
-        .state_at_block_number(block_number - 1, prior_irregular_state.state_overrides())?;
+    let state = {
+        let mut state = prior_blockchain
+            .state_at_block_number(block_number - 1, prior_irregular_state.state_overrides())?;
 
+        if hardfork.into() >= EvmSpecId::CANCUN {
+            replicate_beacon_block_root_oracle_state(
+                block_number,
+                rpc_client,
+                replay_header,
+                &mut state,
+            )
+            .await?;
+        }
+        state
+    };
     let custom_precompiles = HashMap::default();
 
     let mut builder = ChainSpecT::BlockBuilder::new_block_builder(
@@ -375,6 +389,50 @@ pub async fn run_full_block<
     Ok(())
 }
 
+async fn replicate_beacon_block_root_oracle_state<
+    ChainSpecT: 'static
+        + SyncProviderChainSpec<
+            ExecutionReceipt<FilterLog>: Debug + PartialEq,
+            Receipt: AsExecutionReceipt<ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>>,
+            RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<
+                EthBlockData<ChainSpecT::SignedTransaction>,
+                Error: 'static,
+            >,
+        >,
+>(
+    block_number: u64,
+    rpc_client: Arc<EthRpcClient<ChainSpecT, ChainSpecT::RpcReceipt, ChainSpecT::RpcTransaction>>,
+    replay_header: &BlockHeader,
+    state: &mut Box<dyn DynState>,
+) -> Result<(), anyhow::Error> {
+    let BeaconRootStorageSlots {
+        timestamp_slot,
+        beacon_root_slot,
+    } = beacon_root_storage_slots(replay_header.timestamp);
+
+    let timestamp_slot_fetch = rpc_client.get_storage_at(
+        BEACON_ROOTS_ADDRESS,
+        timestamp_slot,
+        Some(BlockSpec::Number(block_number)),
+    );
+    let beacon_root_slot_fetch = rpc_client.get_storage_at(
+        BEACON_ROOTS_ADDRESS,
+        beacon_root_slot,
+        Some(BlockSpec::Number(block_number)),
+    );
+    if let (Some(timestamp_value), Some(beacon_root_value)) =
+        try_join!(timestamp_slot_fetch, beacon_root_slot_fetch)?
+    {
+        state.set_account_storage_slot(
+            BEACON_ROOTS_ADDRESS,
+            beacon_root_slot,
+            beacon_root_value,
+        )?;
+        state.set_account_storage_slot(BEACON_ROOTS_ADDRESS, timestamp_slot, timestamp_value)?;
+    }
+    Ok(())
+}
+
 /// Forks the block at the provided block number and compares it with the
 /// locally mined block header for that block without transactions.
 ///
@@ -398,12 +456,17 @@ pub async fn assert_replay_header<
     header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
     header_validation: impl FnOnce(&BlockHeader, &PartialHeader) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
+    let rpc_client = Arc::new(EthRpcClientForChainSpec::<ChainSpecT>::new(
+        &url,
+        edr_defaults::CACHE_DIR.into(),
+        None,
+    )?);
     let ForkedStateAndBlockchain {
         block_config,
         expected_block,
         prior_blockchain,
         prior_irregular_state,
-    } = get_fork_state::<ChainSpecT>(runtime, url, block_number).await?;
+    } = get_fork_state::<ChainSpecT>(runtime, rpc_client.clone(), block_number).await?;
 
     let replay_header = expected_block.block_header();
 
@@ -471,9 +534,8 @@ macro_rules! impl_full_block_tests {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<full_block_ $name>]() -> anyhow::Result<()> {
                     let runtime = tokio::runtime::Handle::current();
-                    let url = $url;
-
-                    $crate::run_full_block::<$chain_spec>(runtime, url, $block_number, $header_overrides_constructor).await
+                    let rpc_client = edr_rpc_eth::client::EthRpcClientForChainSpec::<$chain_spec>::new(&$url, edr_defaults::CACHE_DIR.into(), None)?;
+                    $crate::run_full_block::<$chain_spec>(runtime, rpc_client, $block_number, $header_overrides_constructor).await
                 }
             }
         )+

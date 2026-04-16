@@ -59,6 +59,58 @@ The scenario runner supports both compressed and uncompressed scenario files.
 
 The reported running time excludes reading the requests from disk and parsing them.
 
+## Solidity tooling
+
+This tool compiles and instruments Solidity source files for use in EDR tests.
+
+Some integration tests require pre-compiled bytecode. To avoid adding `foundry-compilers` as a test dependency (which can interfere with other test crates that use solc during `cargo test --workspace`), we compile contracts ahead of time. It can also instrument source files with coverage probes, producing instrumented `.sol` files used by the `edr_solidity_tests` crate.
+
+By convention, compiled bytecode in EDR is kept in `data/deployed_bytecode/` as hex-encoded `.in` files. Integration tests load them via `include_str!` so they don't need solc at test time.
+
+### Compile with coverage instrumentation
+
+The `--instrument` flag instruments the source code using EDR's standard coverage instrumentation and automatically includes the coverage library (`data/contracts/coverage.sol`):
+
+```bash
+cargo run -p edr_tool_solidity -- --instrument \
+  data/contracts/test/CoverageTest.sol
+```
+
+### Output only the instrumented source
+
+The `--instrument-only` flag instruments the source without compiling it, printing the instrumented Solidity to stdout:
+
+```bash
+cargo run -p edr_tool_solidity -- --instrument-only \
+  data/contracts/test/CoverageTest.sol \
+  > crates/edr_solidity_tests/tests/testdata/default/coverage/InstrumentedCoverageTest.sol
+```
+
+### Write bytecodes to disk
+
+Use `-o` to write `<ContractName>.in` files to a directory:
+
+```bash
+cargo run -p edr_tool_solidity -- --instrument \
+  -o data/deployed_bytecode \
+  data/contracts/test/CoverageTest.sol
+```
+
+### Compile with explicit imports
+
+Use `-i` to include additional source files needed by imports. For example, `increment.sol` is a pre-instrumented contract that already contains coverage probe calls and imports `coverage.sol` directly:
+
+```bash
+cargo run -p edr_tool_solidity -- data/contracts/increment.sol \
+  -i data/contracts/coverage.sol
+```
+
+### Solidity source files
+
+Solidity contracts used by EDR tests live in `data/contracts/`. The coverage instrumentation library is at `data/contracts/coverage.sol`.
+
+When adding or modifying contracts, re-run the compile tool to regenerate the `.in` files and update the corresponding test code with any new function selectors shown in the tool output.
+
 ## JS runner
 
 Please see the [readme](../../../js/benchmark/README.md) for instructions.
