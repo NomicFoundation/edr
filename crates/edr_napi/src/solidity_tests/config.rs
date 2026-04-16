@@ -392,6 +392,9 @@ pub struct FuzzConfigArgs {
     /// The flag indicating whether to include push bytes values.
     /// Defaults to true.
     pub include_push_bytes: Option<bool>,
+    /// Show `console.log` in fuzz test.
+    /// Defaults to false.
+    pub show_logs: Option<bool>,
     /// Optional timeout (in seconds) for each property test.
     /// Defaults to none (no timeout).
     pub timeout: Option<u32>,
@@ -410,6 +413,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             dictionary_weight,
             include_storage,
             include_push_bytes,
+            show_logs,
             timeout,
         } = value;
 
@@ -451,6 +455,10 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
 
         if let Some(include_push_bytes) = include_push_bytes {
             fuzz.dictionary.include_push_bytes = include_push_bytes;
+        }
+
+        if let Some(show_logs) = show_logs {
+            fuzz.show_logs = show_logs;
         }
 
         Ok(fuzz)
@@ -528,6 +536,7 @@ impl InvariantConfigArgs {
             failure_persist_file: _,
             max_test_rejects: _,
             seed: _,
+            show_logs: _,
             timeout,
         } = fuzz;
 
@@ -867,6 +876,16 @@ pub struct TestFunctionConfigOverride {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test.
     pub allow_internal_expect_revert: Option<bool>,
+    /// Whether to enable isolation of calls for the test. In isolation mode all
+    /// top-level calls are executed as a separate transaction in a separate
+    /// EVM context, enabling more precise gas accounting and transaction
+    /// state changes.
+    /// Ignored when gas reporting is enabled, as isolation is required for
+    /// accurate gas measurements.
+    pub isolate: Option<bool>,
+    /// The EVM version to use for this test, e.g. "Cancun". This will override
+    /// the global EVM version.
+    pub evm_version: Option<String>,
     /// Configuration override for fuzz testing.
     pub fuzz: Option<FuzzConfigOverride>,
     /// Configuration override for invariant testing.
@@ -877,6 +896,8 @@ impl From<TestFunctionConfigOverride> for edr_solidity_tests::TestFunctionConfig
     fn from(value: TestFunctionConfigOverride) -> Self {
         Self {
             allow_internal_expect_revert: value.allow_internal_expect_revert,
+            isolate: value.isolate,
+            evm_version: value.evm_version,
             fuzz: value.fuzz.map(Into::into),
             invariant: value.invariant.map(Into::into),
         }

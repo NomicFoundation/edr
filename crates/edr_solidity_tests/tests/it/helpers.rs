@@ -215,6 +215,7 @@ pub struct TestFuzzConfig {
     pub gas_report_samples: u32,
     pub failure_persist_dir: Option<PathBuf>,
     pub failure_persist_file: String,
+    pub show_logs: bool,
 }
 
 impl TestFuzzConfig {
@@ -237,6 +238,7 @@ impl Default for TestFuzzConfig {
             gas_report_samples: 256,
             failure_persist_dir: None,
             failure_persist_file: "testfailure".into(),
+            show_logs: false,
         }
     }
 }
@@ -252,7 +254,7 @@ impl From<TestFuzzConfig> for FuzzConfig {
             gas_report_samples: value.gas_report_samples,
             failure_persist_dir: value.failure_persist_dir,
             failure_persist_file: value.failure_persist_file,
-            show_logs: false,
+            show_logs: value.show_logs,
             timeout: None,
         }
     }
