@@ -2,9 +2,19 @@
 
 **Spec**: <https://specs.optimism.io/protocol/jovian/exec-engine.html> **Hardfork**: Jovian **Status**: Partial
 
+## Terminology
+
+The spec, JSON-RPC, and EDR internals use different names for the field affected by this spec gap:
+
+| Spec / JSON-RPC | EDR internal (`BlobGas` struct) |
+| --------------- | ------------------------------- |
+| `blobGasUsed`   | `blob_gas.gas_used`             |
+
+This document uses `blobGasUsed` (the JSON-RPC / spec name) throughout.
+
 ## What the spec requires
 
-Starting with the Jovian hardfork, the OP Stack repurposes the `blobGasUsed` block header field to store the block's DA (Data Availability) footprint. The DA footprint is computed from the estimated compressed size of each non-deposit transaction:
+Starting with the Jovian hardfork, the OP Stack repurposes `blobGasUsed` to store the block's DA (Data Availability) footprint. The DA footprint is computed from the estimated compressed size of each non-deposit transaction:
 
 ```
 daUsageEstimate = max(
@@ -19,7 +29,7 @@ The block's `blobGasUsed` is then set to its total `daFootprint`. This value als
 
 ## What EDR does
 
-EDR does not currently compute `blob_gas_used` using the `daFootprint` calculation. The DA footprint estimation (FastLZ compression, scalar parameters) is not implemented.
+EDR does not currently compute `blobGasUsed` using the `daFootprint` calculation. The DA footprint estimation (FastLZ compression, scalar parameters) is not implemented.
 
 ## Impact
 
@@ -28,9 +38,9 @@ EDR does not currently compute `blob_gas_used` using the `daFootprint` calculati
 
 ## Workarounds
 
-The block replay tool works around this by overriding the `blob_gas` header field with the remote block's value via header overrides. This ensures replayed blocks have the correct `blobGasUsed` without EDR needing to compute the DA footprint locally.
+The block replay tool works around this by overriding the `blob_gas` header field with the remote block's value via header overrides (see `jovian_header_overrides` in `crates/edr_op/src/test_utils.rs`). This ensures replayed blocks have the correct `blobGasUsed` without EDR needing to compute the DA footprint locally.
 
-The same approach can be used at the provider level: override the `blob_gas` field with the expected value when mining blocks.
+The same approach can be used at the provider level: override the `blob_gas` header field with the expected value when mining blocks.
 
 ## Related issues
 
