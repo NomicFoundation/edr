@@ -27,7 +27,7 @@ pub const LIBRARY_NAME: &str = "__NomicFoundationCoverage";
 /// The coverage library file name.
 // Must follow Solidity naming conventions for [`LIBRARY_NAME`].
 pub const LIBRARY_FILE_NAME: &str =
-    "__nomic_foundation_coverage_library_1fe87c59-dedc-4831-8918-604bc223bbfa.sol";
+    "__NomicFoundationCoverage-1fe87c59-dedc-4831-8918-604bc223bbfa.sol";
 
 /// Computes a deterministic hash for a statement in a Solidity file.
 ///

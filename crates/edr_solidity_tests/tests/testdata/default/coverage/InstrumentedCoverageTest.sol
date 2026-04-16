@@ -97,4 +97,4 @@ __NomicFoundationCoverage.sendHit(0x4c1a1ed151ab63c7ab5271eae7586172495ebb22529f
     }
 }
 
-import "__nomic_foundation_coverage_library_1fe87c59-dedc-4831-8918-604bc223bbfa.sol";
+import "__NomicFoundationCoverage-1fe87c59-dedc-4831-8918-604bc223bbfa.sol";
