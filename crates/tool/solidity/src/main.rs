@@ -31,11 +31,11 @@ const COVERAGE_LIBRARY_SOL: &str = include_str!("../../../../data/contracts/cove
 /// data/contracts/test/CoverageTest.sol`
 ///
 ///   # Write bytecodes to files:
-///   `cargo run -p edr_tool_solidity -- --instrument -o data/deployed_bytecode
+///   `cargo run -p edr_tool_solidity -- --instrument -o data/creation_bytecode
 /// data/contracts/test/CoverageTest.sol`
 ///
-///   # Compile with explicit imports:
-///   `cargo run -p edr_tool_solidity -- data/contracts/increment.sol -i
+///   # Compile with explicit imports (e.g. a manually instrumented contract):
+///   `cargo run -p edr_tool_solidity -- data/contracts/test/Increment.sol -i
 /// data/contracts/coverage.sol`
 #[derive(Parser)]
 #[clap(name = "edr-tool-solidity")]
@@ -126,7 +126,7 @@ fn main() -> Result<()> {
 
     let output = compile_project(&root)?;
 
-    // Extract and output deployed bytecodes.
+    // Extract and output creation bytecodes.
     if let Some(ref output_dir) = args.output_dir {
         fs::create_dir_all(output_dir)?;
     }
@@ -162,7 +162,7 @@ fn main() -> Result<()> {
             println!("bytecode: {hex}");
 
             if let Some(ref output_dir) = args.output_dir {
-                let out_path = output_dir.join(format!("{name}.in"));
+                let out_path = output_dir.join(format!("{name}.bin"));
                 fs::write(&out_path, &hex)?;
                 println!("  written to: {}", out_path.display());
             }

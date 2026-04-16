@@ -22,8 +22,8 @@ use revm_context::BlockEnv;
 
 const CHAIN_ID: u64 = 31337;
 
-const INCREMENT_DEPLOYED_BYTECODE: &str =
-    include_str!("../../../../data/deployed_bytecode/increment.in");
+const INCREMENT_CREATION_BYTECODE: &str =
+    include_str!("../../../../data/creation_bytecode/Increment.bin");
 
 type LocalBlockchainForChainSpec<ChainSpecT> = LocalBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
@@ -179,7 +179,7 @@ fn record_hits() -> anyhow::Result<()> {
     let increment = deploy_contract(
         &blockchain,
         &mut state,
-        Bytes::from_str(INCREMENT_DEPLOYED_BYTECODE).expect("Invalid bytecode"),
+        Bytes::from_str(INCREMENT_CREATION_BYTECODE).expect("Invalid bytecode"),
     )
     .expect("Failed to deploy");
 
