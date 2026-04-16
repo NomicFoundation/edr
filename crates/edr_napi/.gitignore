@@ -10,6 +10,9 @@
 # TS compilation output
 /dist/
 
+# Coverage library copied from data/contracts/ at build time
+/coverage.sol
+
 # Code coverage artifacts
 /coverage
 /.nyc_output
