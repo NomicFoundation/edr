@@ -17,6 +17,10 @@ EDR finds its origins in Hardhat Network but incorporates the lessons we have le
 - **Source-level code coverage** via Solidity instrumentation.
 - **Per-function and per-deployment gas reports** with proxy delegation chain tracking.
 
+## Spec Compliance
+
+For a list of EIPs and chain specifications that EDR does not fully support, including workarounds, see [spec-compliance/](spec-compliance/README.md).
+
 ## Production Usage
 
 - [Hardhat 3](https://hardhat.org/)
