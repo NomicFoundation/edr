@@ -7,7 +7,7 @@ pragma experimental ABIEncoderV2;
 
 interface Vm {
     enum CheatcodeErrorCode { UnsupportedCheatcode, MissingCheatcode }
-    enum CallerMode { None, Prank, RecurrentPrank }
+    enum CallerMode { None, Broadcast, RecurrentBroadcast, Prank, RecurrentPrank }
     enum AccountAccessKind { Call, DelegateCall, CallCode, StaticCall, Create, SelfDestruct, Resume, Balance, Extcodesize, Extcodehash, Extcodecopy }
     enum ExecutionContext { TestGroup, Test, Coverage, Snapshot, Unknown }
     enum BroadcastTxType { Call, Create, Create2 }

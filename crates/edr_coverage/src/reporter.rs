@@ -46,7 +46,7 @@ impl CodeCoverageReporter {
     /// Flushes the collected coverage hits to the callback, replacing the
     /// current hits with an empty set.
     pub fn flush_and_report(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let hits = self.collector.take();
+        let hits = self.collector.flush();
         (self.callback)(hits)
     }
 }

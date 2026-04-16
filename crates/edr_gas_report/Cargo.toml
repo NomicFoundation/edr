@@ -16,8 +16,6 @@ revm-inspectors.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 
-comfy-table = "7"
-
 [features]
 tracing = ["edr_solidity/tracing"]
 

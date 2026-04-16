@@ -18,7 +18,7 @@ alloy-genesis.workspace = true
 alloy-json-abi.workspace = true
 alloy-json-rpc.workspace = true
 alloy-network.workspace = true
-alloy-primitives = { workspace = true, features = ["serde", "getrandom", "arbitrary", "rlp"] }
+alloy-primitives = { workspace = true, features = ["serde", "getrandom", "map-hashbrown", "arbitrary", "rlp"] }
 alloy-provider.workspace = true
 alloy-pubsub.workspace = true
 alloy-rpc-client.workspace = true

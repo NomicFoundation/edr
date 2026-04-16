@@ -684,7 +684,7 @@ fn min_new_fee(fee: u128) -> u128 {
     let min_new_priority_fee = fee * 110u128;
 
     let one_hundred = 100u128;
-    if min_new_priority_fee % one_hundred == 0u128 {
+    if min_new_priority_fee.is_multiple_of(one_hundred) {
         min_new_priority_fee / one_hundred
     } else {
         min_new_priority_fee / one_hundred + 1u128

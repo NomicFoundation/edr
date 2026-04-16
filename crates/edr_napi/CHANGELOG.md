@@ -1,5 +1,35 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.30
+
+### Minor Changes
+
+- bde1b86: Fixed coverage instrumentation calls clearing the EVM's returndata buffer, breaking RETURNDATASIZE and RETURNDATACOPY opcodes in instrumented contracts.
+
+### Patch Changes
+
+- 462ade3: Added `showLogs` field to global fuzz test configuration
+
+## 0.12.0-next.29
+
+### Minor Changes
+
+- 9b8a931: Added runtime bytecode size information to contract deployment gas reports
+
+### Patch Changes
+
+- 7f15dce: Added support for tracking multiple contract deployments in a gas report
+- 538e9b0: Added validation checks for names provided in gas snapshot cheatcodes
+- d483274: Fixed detection of function signature for calls to proxies.
+
+  Previously, a call to a proxy contract was attributed to the proxy instead of the implementation. Now, it is correctly attributed to the implementation, allowing detection of the correct function signature.
+
+## 0.12.0-next.28
+
+### Minor Changes
+
+- 7c2886a: Added `Broadcast` and `RecurrentBroadcast` variants to the `CallerMode` enum. These variants are unsupported by EDR cheatcodes implementation but are needed to ensure ABI compatibility with forge-std.
+
 ## 0.12.0-next.27
 
 ### Patch Changes

@@ -64,6 +64,7 @@ members = [
     "crates/test/receipt",
     "crates/test/transaction",
     "crates/tool/cli",
+    "crates/tool/solidity",
     "crates/tool/op_chain_config_generator",
     "crates/tracing",
     "crates/trie",
@@ -89,8 +90,6 @@ rpath = true
 # Uncomment this section if you're using a debugger.
 debug = 1
 
-[profile.release]
-# Optimized profile for released packages.
 [profile.napi-publish]
 inherits = "release"
 rpath = true
@@ -290,12 +289,12 @@ alloy-transport-ws = { version = "1.0.22", default-features = false }
 
 alloy-dyn-abi = { version = "1.2.1", features = ["eip712"] }
 alloy-json-abi = "1.2.1"
-alloy-primitives = { version = "1.4.1", features = [
+alloy-primitives = { version = "1.4.1", default-features = false, features = [
     "getrandom",
-    "rand",
     "map-fxhash",
     "map-foldhash",
     "map-indexmap",
+    "rand",
 ] }
 alloy-sol-macro-expander = "1.2.1"
 alloy-sol-macro-input = "1.2.1"
@@ -359,7 +358,7 @@ indexmap = "2.2"
 tikv-jemallocator = "0.5.4"
 num-format = "0.4.4"
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
-tempfile = "3.10"
+tempfile = "3.25"
 tokio = "1"
 uuid = { version = "1.19", default-features = false, features = ["serde", "std", "v4"] }
 walkdir = "2"
@@ -440,7 +439,6 @@ single_match_else = "warn"
 string_add_assign = "warn"
 string_add = "warn"
 string_lit_as_bytes = "warn"
-string_to_string = "warn"
 todo = "warn"
 trait_duplication_in_bounds = "warn"
 unimplemented = "warn"

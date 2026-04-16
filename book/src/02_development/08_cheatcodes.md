@@ -148,6 +148,7 @@ The initial execution of this command, following the addition of a new cheat cod
 3. If a struct, enum, error, or event was added to `Vm`, update [`spec::Cheatcodes::new`]
 4. Update the JSON interface by running `cargo generate-cheats-interface` twice. This is expected to fail the first time that this is run after adding a new cheatcode; see [JSON interface](#json-interface)
 5. Write an integration test for the cheatcode in [`testdata/cheats/`]
+6. Update the documentation in the [hardhat-website](https://github.com/NomicFoundation/hardhat-website) repository to reflect the cheatcode changes. Signatures, enum variants, and doc comments in the website docs should match [`cheatcodes/spec/src/vm.rs`] 1:1. Any additional context (e.g., why something is unsupported) should live only in the website docs (e.g., as note blocks), not in `vm.rs`
 
 [`sol!`]: https://docs.rs/alloy-sol-macro/latest/alloy_sol_macro/macro.sol.html
 [`cheatcodes/spec/src/vm.rs`]: ../../../crates/foundry/cheatcodes/spec/src/vm.rs

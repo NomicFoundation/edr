@@ -130,4 +130,26 @@ contract ReadCallersTest is DSTest {
         assertEq(newSender, expectedSender);
         assertEq(newOrigin, expectedTxOrigin);
     }
+
+    // Tests that CallerMode enum values match forge-std's 5-variant enum:
+    // None=0, Broadcast=1, RecurrentBroadcast=2, Prank=3, RecurrentPrank=4
+    // Broadcast (1) and RecurrentBroadcast (2) are not tested here because
+    // EDR does not support broadcast functionality. However, the enum values
+    // for Prank and RecurrentPrank must still match forge-std's definitions.
+    function testReadCallersEnumValueNone() public {
+        (Vm.CallerMode mode,,) = vm.readCallers();
+        assertEq(uint256(mode), 0, "CallerMode.None should be 0");
+    }
+
+    function testReadCallersEnumValuePrank(address sender) public {
+        vm.prank(sender);
+        (Vm.CallerMode mode,,) = vm.readCallers();
+        assertEq(uint256(mode), 3, "CallerMode.Prank should be 3");
+    }
+
+    function testReadCallersEnumValueRecurrentPrank(address sender) public {
+        vm.startPrank(sender);
+        (Vm.CallerMode mode,,) = vm.readCallers();
+        assertEq(uint256(mode), 4, "CallerMode.RecurrentPrank should be 4");
+    }
 }

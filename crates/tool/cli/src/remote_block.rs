@@ -79,5 +79,11 @@ where
     };
 
     println!("Testing block {block_number} for chain type {chain_type}");
-    run_full_block::<ChainSpecT>(runtime, url, block_number, header_overrides_constructor).await
+    run_full_block::<ChainSpecT>(
+        runtime,
+        rpc_client,
+        block_number,
+        header_overrides_constructor,
+    )
+    .await
 }

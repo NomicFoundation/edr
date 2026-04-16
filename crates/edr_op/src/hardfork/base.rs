@@ -45,6 +45,10 @@ pub(crate) static MAINNET_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpSpecId>> =
                 BaseFeeActivation::BlockNumber(41_711_238),
                 ConstantBaseFeeParams::new(125, 6),
             ),
+            (
+                BaseFeeActivation::BlockNumber(43_841_215),
+                ConstantBaseFeeParams::new(100, 5),
+            ),
         ]))
     });
 

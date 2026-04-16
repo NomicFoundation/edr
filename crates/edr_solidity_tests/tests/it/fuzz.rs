@@ -293,6 +293,57 @@ async fn test_fuzz_can_scrape_bytecode() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_show_logs() {
+    let filter = SolidityTestFilter::new("testSuccessfulFuzz", ".*", ".*fuzz/Fuzz.t.sol");
+
+    // With show_logs enabled, decoded_logs should contain the fuzz test's log
+    // messages.
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.show_logs = true;
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let suite_result = runner.test_collect(filter.clone()).await.suite_results;
+
+    for SuiteResult { test_results, .. } in suite_result.values() {
+        let result = test_results
+            .get("testSuccessfulFuzz(uint128,uint128)")
+            .expect("test result should exist");
+        assert_eq!(result.status, TestStatus::Success);
+        assert!(
+            result
+                .decoded_logs
+                .iter()
+                .any(|log| log.contains("testSuccessfulFuzz")),
+            "Expected logs to contain 'testSuccessfulFuzz' when show_logs is true, got: {:?}",
+            result.decoded_logs,
+        );
+    }
+
+    // With show_logs disabled (default), decoded_logs from successful fuzz runs
+    // should not be collected.
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.show_logs = false;
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let suite_result = runner.test_collect(filter).await.suite_results;
+
+    for SuiteResult { test_results, .. } in suite_result.values() {
+        let result = test_results
+            .get("testSuccessfulFuzz(uint128,uint128)")
+            .expect("test result should exist");
+        assert_eq!(result.status, TestStatus::Success);
+        assert!(
+            !result
+                .decoded_logs
+                .iter()
+                .any(|log| log.contains("testSuccessfulFuzz")),
+            "Expected no 'testSuccessfulFuzz' logs when show_logs is false, got: {:?}",
+            result.decoded_logs,
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_timeout() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzTimeout.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
@@ -359,6 +410,8 @@ async fn test_fuzz_function_overrides() {
         ),
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
+            isolate: None,
+            evm_version: None,
             fuzz: Some(edr_solidity_tests::FuzzConfigOverride {
                 runs: Some(10),
                 ..Default::default()
@@ -374,6 +427,8 @@ async fn test_fuzz_function_overrides() {
         ),
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
+            isolate: None,
+            evm_version: None,
             fuzz: Some(edr_solidity_tests::FuzzConfigOverride {
                 runs: Some(256),
                 max_test_rejects: Some(50000),
@@ -391,6 +446,8 @@ async fn test_fuzz_function_overrides() {
         ),
         edr_solidity_tests::TestFunctionConfigOverride {
             allow_internal_expect_revert: None,
+            isolate: None,
+            evm_version: None,
             fuzz: Some(edr_solidity_tests::FuzzConfigOverride {
                 max_test_rejects: Some(5000),
                 ..Default::default()

@@ -1,6 +1,6 @@
 {
   "name": "@nomicfoundation/edr",
-  "version": "0.12.0-next.27",
+  "version": "0.12.0-next.30",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@nomicfoundation/ethereumjs-util": "^9.0.4",
@@ -61,6 +61,7 @@
     "build": "pnpm run build:publish",
     "build:debug": "bash ../../scripts/build_edr_napi.sh --features op",
     "build:dev": "bash ../../scripts/build_edr_napi.sh --release --features op,test-mock",
+    "build:perf-js": "RUSTFLAGS='-Cforce-frame-pointers=yes' bash ../../scripts/build_edr_napi.sh --profile napi-publish --features op",
     "build:publish": "bash ../../scripts/build_edr_napi.sh --profile napi-publish --features op",
     "build:scenarios": "bash ../../scripts/build_edr_napi.sh --release --features op,scenarios",
     "build:tracing": "bash ../../scripts/build_edr_napi.sh --release --features op,tracing",

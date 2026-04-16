@@ -20,7 +20,7 @@ use foundry_evm::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, L1EvmBuilder, TransactionEnvTr,
         TransactionErrorTrait,
     },
-    traces::{CallKind, CallTraceDecoder, DecodedCallData, TraceKind},
+    traces::{CallKind, CallTraceDecoder, DecodedCallData},
 };
 
 use crate::helpers::{
@@ -411,9 +411,12 @@ test_repro!(6501, false, None, |res| {
         ["a".to_string(), "1".to_string(), "b 2".to_string()]
     );
 
-    let (kind, traces) = test.traces.last().expect("there are traces").clone();
-    let nodes = traces.arena.into_nodes();
-    assert_eq!(kind, TraceKind::Execution);
+    let execution_traces = test
+        .execution_traces
+        .last()
+        .expect("there are traces")
+        .clone();
+    let nodes = execution_traces.arena.into_nodes();
 
     let test_call = nodes.first().unwrap();
     assert_eq!(test_call.idx, 0);

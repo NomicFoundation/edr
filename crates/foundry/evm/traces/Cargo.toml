@@ -17,6 +17,7 @@ alloy-json-abi.workspace = true
 alloy-primitives = { workspace = true, features = [
     "serde",
     "getrandom",
+    "map-hashbrown",
     "arbitrary",
     "rlp",
 ] }
