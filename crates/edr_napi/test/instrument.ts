@@ -31,7 +31,7 @@ describe("Code coverage", () => {
       const result = addStatementCoverageInstrumentation(
         incrementSourceCode,
         "instrumentation.sol",
-        "0.8.0",
+        "0.8.0"
       );
 
       expect(result.source).to.contain("__NomicFoundationCoverage.sendHit(");
