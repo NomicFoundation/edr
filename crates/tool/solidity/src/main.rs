@@ -17,9 +17,6 @@ use semver::Version;
 
 const COVERAGE_LIBRARY_SOL: &str = include_str!("../../../../data/contracts/coverage.sol");
 
-/// Source identifier used for the coverage library in instrumented imports.
-const COVERAGE_LIBRARY_SOURCE_ID: &str = "coverage_lib.sol";
-
 /// Solidity tooling for EDR development. Compiles and/or instruments Solidity
 /// source files.
 ///
@@ -86,13 +83,8 @@ fn main() -> Result<()> {
 
     let final_source = if args.instrument || args.instrument_only {
         let version = Version::parse(&args.version).context("invalid --version")?;
-        let instrumented = instrument_code(
-            &source_code,
-            &source_id,
-            version,
-            COVERAGE_LIBRARY_SOURCE_ID,
-        )
-        .context("instrumentation failed")?;
+        let instrumented =
+            instrument_code(&source_code, &source_id, version).context("instrumentation failed")?;
         instrumented.source
     } else {
         source_code
@@ -117,7 +109,10 @@ fn main() -> Result<()> {
     fs::write(root.join(&source_id), &final_source)?;
 
     if args.instrument {
-        fs::write(root.join(COVERAGE_LIBRARY_SOURCE_ID), COVERAGE_LIBRARY_SOL)?;
+        fs::write(
+            root.join(edr_instrument::coverage::LIBRARY_FILE_NAME),
+            COVERAGE_LIBRARY_SOL,
+        )?;
     }
 
     // Copy any additional source files into the project root.
@@ -139,7 +134,11 @@ fn main() -> Result<()> {
     for (file, name, contract) in output.output().contracts_with_files_iter() {
         // When instrumenting, skip contracts from the auto-included coverage
         // library — it's never deployed.
-        if args.instrument && file.to_string_lossy().contains(COVERAGE_LIBRARY_SOURCE_ID) {
+        if args.instrument
+            && file
+                .to_string_lossy()
+                .contains(edr_instrument::coverage::LIBRARY_FILE_NAME)
+        {
             continue;
         }
 

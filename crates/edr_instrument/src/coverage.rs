@@ -21,6 +21,14 @@ pub struct InstrumentationResult {
     pub metadata: Vec<InstrumentationMetadata>,
 }
 
+/// The coverage library contract name.
+// Must match the library name defined in `data/contracts/coverage.sol`.
+pub const LIBRARY_NAME: &str = "__NomicFoundationCoverage";
+/// The coverage library file name.
+// Must follow Solidity naming conventions for [`LIBRARY_NAME`].
+pub const LIBRARY_FILE_NAME: &str =
+    "__nomic_foundation_coverage_library_1fe87c59-dedc-4831-8918-604bc223bbfa.sol";
+
 /// Computes a deterministic hash for a statement in a Solidity file.
 ///
 /// For the time being, we're assuming that compilation configuration has no
@@ -58,7 +66,6 @@ pub fn instrument_code(
     source_code: &str,
     source_id: &str,
     solidity_version: Version,
-    coverage_library_path: &str,
 ) -> Result<InstrumentationResult, InstrumentationError> {
     let parser = SolidityParser::create(solidity_version)?;
     let parsed_file = parser.parse_file_contents(source_code);
@@ -68,7 +75,7 @@ pub fn instrument_code(
         });
     }
 
-    let coverage_library_import = format!("\nimport \"{coverage_library_path}\";");
+    let coverage_library_import = format!("\nimport \"{LIBRARY_FILE_NAME}\";");
     let parsed_library_import =
         parser.parse_nonterminal(NonterminalKind::ImportDirective, &coverage_library_import);
 
@@ -178,7 +185,7 @@ pub fn instrument_code(
                                 .expect("Metadata should exist for statement");
 
                             let instrumentation_statement =
-                                format!("__HardhatCoverage.sendHit({hash}); ", hash = metadata.tag);
+                                format!("{LIBRARY_NAME}.sendHit({hash}); ", hash = metadata.tag);
 
                             instrumented_source.push_str(&instrumentation_statement);
                         }
@@ -208,7 +215,6 @@ mod tests {
     use super::*;
 
     const FIXTURE: &str = include_str!("../../../data/contracts/instrumentation.sol");
-    const LIBRARY_PATH: &str = "__hardhat_coverage.sol";
 
     fn assert_metadata(
         metadata: &InstrumentationMetadata,
@@ -238,8 +244,8 @@ mod tests {
     #[test]
     fn determinism() {
         let version = Version::parse("0.8.0").expect("Failed to parse version");
-        let result = instrument_code(FIXTURE, "instrumentation.sol", version, LIBRARY_PATH)
-            .expect("Failed to instrument");
+        let result =
+            instrument_code(FIXTURE, "instrumentation.sol", version).expect("Failed to instrument");
 
         let tags = result
             .metadata
@@ -261,46 +267,31 @@ mod tests {
     #[test]
     fn import() {
         let version = Version::parse("0.8.0").expect("Failed to parse version");
-        let result = instrument_code(FIXTURE, "instrumentation.sol", version, LIBRARY_PATH)
-            .expect("Failed to instrument");
+        let result =
+            instrument_code(FIXTURE, "instrumentation.sol", version).expect("Failed to instrument");
 
         assert!(result
             .source
-            .contains(&format!("import \"{LIBRARY_PATH}\";")));
-    }
-
-    #[test]
-    fn invalid_import() {
-        let version = Version::parse("0.8.0").expect("Failed to parse version");
-        let result = instrument_code(
-            FIXTURE,
-            "instrumentation.sol",
-            version,
-            "\"path/with/quotes.sol\"",
-        )
-        .expect_err("Expected an error for invalid import path");
-
-        assert!(matches!(
-            result,
-            InstrumentationError::InvalidLibraryPath { .. }
-        ));
+            .contains(&format!("import \"{LIBRARY_FILE_NAME}\";")));
     }
 
     #[test]
     fn instrumentation() {
         let version = Version::parse("0.8.0").expect("Failed to parse version");
-        let result = instrument_code(FIXTURE, "instrumentation.sol", version, LIBRARY_PATH)
-            .expect("Failed to instrument");
+        let result =
+            instrument_code(FIXTURE, "instrumentation.sol", version).expect("Failed to instrument");
 
-        assert!(result.source.contains("__HardhatCoverage.sendHit("));
+        assert!(result
+            .source
+            .contains(format!("{LIBRARY_NAME}.sendHit(").as_str()));
         assert!(result.source.contains(");"));
     }
 
     #[test]
     fn mapping() {
         let version = Version::parse("0.8.0").expect("Failed to parse version");
-        let result = instrument_code(FIXTURE, "instrumentation.sol", version, LIBRARY_PATH)
-            .expect("Failed to instrument");
+        let result =
+            instrument_code(FIXTURE, "instrumentation.sol", version).expect("Failed to instrument");
 
         assert_eq!(result.metadata.len(), 3);
 

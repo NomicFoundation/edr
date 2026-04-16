@@ -76,6 +76,10 @@ impl TryFrom<edr_instrument::coverage::InstrumentationMetadata> for Instrumentat
     }
 }
 
+/// The instrumentation coverage library file name.
+#[napi]
+pub const COVERAGE_LIBRARY_FILE_NAME: &str = coverage::LIBRARY_FILE_NAME;
+
 /// Adds per-statement coverage instrumentation to the given Solidity source
 /// code.
 #[napi(catch_unwind)]
@@ -83,7 +87,6 @@ pub fn add_statement_coverage_instrumentation(
     source_code: String,
     source_id: String,
     solidity_version: String,
-    coverage_library_path: String,
 ) -> napi::Result<InstrumentationResult> {
     let solidity_version = Version::parse(&solidity_version).map_err(|error| {
         napi::Error::new(
@@ -92,13 +95,8 @@ pub fn add_statement_coverage_instrumentation(
         )
     })?;
 
-    let instrumented = coverage::instrument_code(
-        &source_code,
-        &source_id,
-        solidity_version,
-        &coverage_library_path,
-    )
-    .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error))?;
+    let instrumented = coverage::instrument_code(&source_code, &source_id, solidity_version)
+        .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error))?;
 
     instrumented.try_into().map_err(|location| {
         napi::Error::new(

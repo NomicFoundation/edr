@@ -460,11 +460,13 @@ export interface InstrumentationMetadata {
    */
   readonly endUtf16: number
 }
+/** The instrumentation coverage library file name. */
+export const COVERAGE_LIBRARY_FILE_NAME: string
 /**
  * Adds per-statement coverage instrumentation to the given Solidity source
  * code.
  */
-export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string, coverageLibraryPath: string): InstrumentationResult
+export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
 /** Retrieves the latest version of `Solidity` supported for instrumentation. */
 export declare function latestSupportedSolidityVersion(): string
 /** Ethereum execution log. */
@@ -479,6 +481,11 @@ export interface LoggerConfig {
   decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]) => string[]
   printLineCallback: (message: string, replace: boolean) => void
 }
+/**
+ *Creates a provider with a mock timer.
+ *For testing purposes.
+ */
+export declare function createProviderWithMockTimer(providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder, time: MockTime): Promise<Provider>
 /**
  * [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md#specification)
  * secp256r1 precompile.
@@ -1605,12 +1612,23 @@ export declare class EdrContext {
    *   with the results of each test suite as soon as it finished executing.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
+  /**
+   *Creates a mock provider, which always returns the given response.
+   *For testing purposes.
+   */
+  createMockProvider(mockedResponse: any): Provider
 }
 export declare class ContractDecoder {
   /**Creates an empty instance. */
   constructor()
   /**Creates a new instance with the provided configuration. */
   static withContracts(config: TracingConfigWithBuffers): ContractDecoder
+}
+export declare class MockTime {
+  /**Creates a new instance of `MockTime` with the current time. */
+  static now(): MockTime
+  /**Adds the specified number of seconds to the current time. */
+  addSeconds(seconds: bigint): void
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */
