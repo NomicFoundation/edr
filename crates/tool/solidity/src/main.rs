@@ -20,6 +20,11 @@ const COVERAGE_LIBRARY_SOL: &str = include_str!("../../../../data/contracts/cove
 /// Solidity tooling for EDR development. Compiles and/or instruments Solidity
 /// source files.
 ///
+/// Compilation layout: the source and any `-i` includes are copied into a flat
+/// temporary directory (by filename only; directory structure is not
+/// preserved). Imports in the source must resolve against this flat layout —
+/// e.g. a sibling library should be imported as `"lib.sol"`.
+///
 /// Examples:
 ///
 ///   # Compile with coverage instrumentation:
@@ -102,7 +107,9 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Write sources to a temp directory for compilation.
+    // Write sources to a flat temp directory for compilation. All files land
+    // at the root by filename only — directory structure is not preserved, so
+    // imports in the source must resolve against this flat layout.
     let project_dir = tempfile::TempDir::new()?;
     let root = project_dir.path().to_path_buf();
 
