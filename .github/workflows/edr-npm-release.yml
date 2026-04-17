@@ -458,6 +458,8 @@ jobs:
         run: pnpm artifacts
       - name: Copy coverage library into edr_napi crate
         run: cp ../../data/contracts/coverage.sol ./coverage.sol
+      - name: Compile TypeScript helpers
+        run: pnpm exec tsc -p tsconfig.prod.json
       - name: Create bundle with pnpm root & napi files
         # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
         id: pack

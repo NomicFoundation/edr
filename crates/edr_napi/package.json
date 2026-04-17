@@ -31,13 +31,14 @@
   },
   "exports": {
     ".": "./index.js",
-    "./solidity-tests": "./dist/src/ts/solidity_tests.js",
-    "./coverage-library": "./dist/src/ts/coverage_library.js"
+    "./solidity-tests": "./dist/solidity_tests.js",
+    "./coverage-library": "./dist/coverage_library.js"
   },
   "files": [
     "index.js",
     "index.d.ts",
     "src/",
+    "dist/",
     "coverage.sol"
   ],
   "license": "MIT",
