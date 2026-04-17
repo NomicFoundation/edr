@@ -456,12 +456,14 @@ jobs:
         run: ../../scripts/prepublish.sh
       - name: Move artifacts
         run: pnpm artifacts
+      - name: Copy coverage library into edr_napi crate
+        run: cp ../../data/contracts/coverage.sol ./coverage.sol
       - name: Create bundle with pnpm root & napi files
         # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
         id: pack
         run: |
           FILENAME="${{ env.APP_NAME }}_bundle.tar.gz"
-          NAPI_EXTRA_FILES=("npm/" "LICENSE" "README.md" "package.json" "Cargo.toml")
+          NAPI_EXTRA_FILES=("npm/" "LICENSE" "README.md" "package.json" "Cargo.toml" "coverage.sol")
           readarray -t FILES < <(cat package.json | jq -r .files[] )
           ALL_FILES=("${FILES[@]}" "${NAPI_EXTRA_FILES[@]}")
           NAPI_FILES=()
