@@ -15,7 +15,7 @@ use edr_utils::CastArcInto as _;
 
 use crate::{
     data::ProviderData,
-    error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
+    error::{GetBlockError, ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
     requests::validation::{
         validate_eip3860_max_initcode_size, validate_post_merge_block_tags,
         validate_transaction_and_call_request,
@@ -56,7 +56,8 @@ pub fn handle_get_transaction_by_block_spec_and_index<
     block_spec: PreEip1898BlockSpec,
     index: U256,
 ) -> Result<Option<ChainSpecT::RpcTransaction>, ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), &block_spec)?;
+    validate_post_merge_block_tags(data.hardfork(), &block_spec)
+        .map_err(GetBlockError::InvalidBlockTag)?;
 
     let index = rpc_index_to_usize::<ChainSpecT, TimerT>(&index)?;
 
@@ -69,8 +70,8 @@ pub fn handle_get_transaction_by_block_spec_and_index<
             Some((pending_block.cast_arc_into(), true))
         }
         // Matching Hardhat behavior in returning None for invalid block hash or number.
-        Err(ProviderError::InvalidBlockNumberOrHash { .. }) => None,
-        Err(err) => return Err(err),
+        Err(GetBlockError::InvalidBlockNumber(_) | GetBlockError::UnknownBlockHash(_)) => None,
+        Err(error) => return Err(ProviderError::GetBlock(error)),
     }
     .and_then(|(block, is_pending)| transaction_from_block(block, index, is_pending))
     .map(|transaction_and_block| {

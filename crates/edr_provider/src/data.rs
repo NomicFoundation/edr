@@ -95,8 +95,9 @@ use crate::{
     },
     debug_trace::{debug_trace_transaction, DebugTraceResultWithCallTraces},
     error::{
-        CreationError, CreationErrorForChainSpec, EstimateGasFailure, ProviderErrorForChainSpec,
-        TransactionFailure, TransactionFailureWithCallTraces,
+        CreationError, CreationErrorForChainSpec, EstimateGasFailure, GetBlockError,
+        InvalidBlockNumber, InvalidBlockTag, ProviderErrorForChainSpec, TransactionFailure,
+        TransactionFailureWithCallTraces, UnknownBlockHash,
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
@@ -843,13 +844,13 @@ where
     pub fn block_by_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<Option<Arc<ChainSpecT::Block>>, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, GetBlockError<ChainSpecT::Hardfork>> {
         let result = match block_spec {
             BlockSpec::Number(block_number) => Some(
                 self.blockchain
                     .block_by_number(*block_number)?
-                    .ok_or_else(|| ProviderError::InvalidBlockNumberOrHash {
-                        block_spec: block_spec.clone(),
+                    .ok_or_else(|| InvalidBlockNumber {
+                        block_number: *block_number,
                         latest_block_number: self.blockchain.last_block_number(),
                     })?,
             ),
@@ -864,10 +865,11 @@ where
                 if self.evm_spec_id() >= EvmSpecId::MERGE {
                     Some(self.blockchain.last_block()?)
                 } else {
-                    return Err(ProviderError::InvalidBlockTag {
+                    return Err(InvalidBlockTag {
                         block_tag: *tag,
                         hardfork: self.hardfork(),
-                    });
+                    }
+                    .into());
                 }
             }
             BlockSpec::Tag(BlockTag::Latest) => Some(self.blockchain.last_block()?),
@@ -875,17 +877,16 @@ where
             BlockSpec::Eip1898(Eip1898BlockSpec::Hash {
                 block_hash,
                 require_canonical: _,
-            }) => Some(self.blockchain.block_by_hash(block_hash)?.ok_or_else(|| {
-                ProviderError::InvalidBlockNumberOrHash {
-                    block_spec: block_spec.clone(),
-                    latest_block_number: self.blockchain.last_block_number(),
+            }) => Some(self.blockchain.block_by_hash(block_hash)?.ok_or({
+                UnknownBlockHash {
+                    block_hash: *block_hash,
                 }
             })?),
             BlockSpec::Eip1898(Eip1898BlockSpec::Number { block_number }) => Some(
                 self.blockchain
                     .block_by_number(*block_number)?
-                    .ok_or_else(|| ProviderError::InvalidBlockNumberOrHash {
-                        block_spec: block_spec.clone(),
+                    .ok_or_else(|| InvalidBlockNumber {
+                        block_number: *block_number,
                         latest_block_number: self.blockchain.last_block_number(),
                     })?,
             ),
@@ -899,10 +900,8 @@ where
     pub fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<ChainSpecT::Block>>, ProviderErrorForChainSpec<ChainSpecT>> {
-        self.blockchain
-            .block_by_transaction_hash(transaction_hash)
-            .map_err(ProviderError::Blockchain)
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, DynBlockchainError> {
+        self.blockchain.block_by_transaction_hash(transaction_hash)
     }
 
     // `SyncBlock` cannot be simplified further
@@ -910,13 +909,11 @@ where
     pub fn block_by_hash(
         &self,
         block_hash: &B256,
-    ) -> Result<Option<Arc<ChainSpecT::Block>>, ProviderErrorForChainSpec<ChainSpecT>> {
-        self.blockchain
-            .block_by_hash(block_hash)
-            .map_err(ProviderError::Blockchain)
+    ) -> Result<Option<Arc<ChainSpecT::Block>>, DynBlockchainError> {
+        self.blockchain.block_by_hash(block_hash)
     }
 
-    pub fn gas_price(&self) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
+    pub fn gas_price(&self) -> Result<u128, DynBlockchainError> {
         const PRE_EIP_1559_GAS_PRICE: u128 = 8_000_000_000;
         const SUGGESTED_PRIORITY_FEE_PER_GAS: u128 = 1_000_000_000;
 
@@ -928,20 +925,15 @@ where
         }
     }
 
-    pub fn logs(
-        &self,
-        filter: LogFilter,
-    ) -> Result<Vec<FilterLog>, ProviderErrorForChainSpec<ChainSpecT>> {
-        self.blockchain
-            .logs(
-                filter.from_block,
-                filter
-                    .to_block
-                    .unwrap_or(self.blockchain.last_block_number()),
-                &filter.addresses,
-                &filter.normalized_topics,
-            )
-            .map_err(ProviderError::Blockchain)
+    pub fn logs(&self, filter: LogFilter) -> Result<Vec<FilterLog>, DynBlockchainError> {
+        self.blockchain.logs(
+            filter.from_block,
+            filter
+                .to_block
+                .unwrap_or(self.blockchain.last_block_number()),
+            &filter.addresses,
+            &filter.normalized_topics,
+        )
     }
 
     pub fn set_account_storage_slot(
@@ -1273,22 +1265,38 @@ where
         Ok(transaction_hash)
     }
 
-    /// Retrieves the block number for the provided block spec, if it exists.
+    /// Resolves the `BlockSpec` into a valid block number, if it exists.
+    /// Returns `None` if the block spec is `pending`, and returns an error if
+    /// the block spec is invalid (e.g. block number too high, or unsupported
+    /// block tag).
     fn block_number_by_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<Option<u64>, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<Option<u64>, GetBlockError<ChainSpecT::Hardfork>> {
         let block_number = match block_spec {
-            BlockSpec::Number(number) => Some(*number),
+            BlockSpec::Number(block_number)
+            | BlockSpec::Eip1898(Eip1898BlockSpec::Number { block_number }) => {
+                let latest_block_number = self.blockchain.last_block_number();
+                if *block_number > latest_block_number {
+                    return Err(InvalidBlockNumber {
+                        block_number: *block_number,
+                        latest_block_number,
+                    }
+                    .into());
+                } else {
+                    Some(*block_number)
+                }
+            }
             BlockSpec::Tag(BlockTag::Earliest) => Some(0),
             BlockSpec::Tag(tag @ (BlockTag::Finalized | BlockTag::Safe)) => {
                 if self.evm_spec_id() >= EvmSpecId::MERGE {
                     Some(self.blockchain.last_block_number())
                 } else {
-                    return Err(ProviderError::InvalidBlockTag {
+                    return Err(InvalidBlockTag {
                         block_tag: *tag,
                         hardfork: self.hardfork(),
-                    });
+                    }
+                    .into());
                 }
             }
             BlockSpec::Tag(BlockTag::Latest) => Some(self.blockchain.last_block_number()),
@@ -1296,15 +1304,13 @@ where
             BlockSpec::Eip1898(Eip1898BlockSpec::Hash { block_hash, .. }) => {
                 self.blockchain.block_by_hash(block_hash)?.map_or_else(
                     || {
-                        Err(ProviderError::InvalidBlockNumberOrHash {
-                            block_spec: block_spec.clone(),
-                            latest_block_number: self.blockchain.last_block_number(),
+                        Err(UnknownBlockHash {
+                            block_hash: *block_hash,
                         })
                     },
                     |block| Ok(Some(block.block_header().number)),
                 )?
             }
-            BlockSpec::Eip1898(Eip1898BlockSpec::Number { block_number }) => Some(*block_number),
         };
 
         Ok(block_number)
@@ -1329,18 +1335,8 @@ where
     pub fn create_evm_config_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<CfgEnv<ChainSpecT::Hardfork>, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<CfgEnv<ChainSpecT::Hardfork>, GetBlockError<ChainSpecT::Hardfork>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
-
-        if let Some(block_number) = block_number {
-            // Return a meaningful error if the block number is out of range.
-            if block_number > self.blockchain.last_block_number() {
-                return Err(ProviderError::InvalidBlockNumberOrHash {
-                    block_spec: block_spec.clone(),
-                    latest_block_number: self.blockchain.last_block_number(),
-                });
-            }
-        }
 
         let hardfork = if let Some(block_number) = block_number {
             self.blockchain.spec_at_block_number(block_number)?
@@ -1361,36 +1357,26 @@ where
     pub fn hardfork_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<ChainSpecT::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<ChainSpecT::Hardfork, GetBlockError<ChainSpecT::Hardfork>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         if let Some(block_number) = block_number {
-            // Return a meaningful error if the block number is out of range.
-            if block_number > self.blockchain.last_block_number() {
-                return Err(ProviderError::InvalidBlockNumberOrHash {
-                    block_spec: block_spec.clone(),
-                    latest_block_number: self.blockchain.last_block_number(),
-                });
-            }
-
             self.blockchain
                 .spec_at_block_number(block_number)
-                .map_err(ProviderError::Blockchain)
+                .map_err(GetBlockError::Blockchain)
         } else {
             Ok(self.blockchain.hardfork())
         }
     }
 
-    fn current_state(
-        &mut self,
-    ) -> Result<Arc<Box<dyn DynState>>, ProviderErrorForChainSpec<ChainSpecT>> {
+    fn current_state(&mut self) -> Result<Arc<Box<dyn DynState>>, DynBlockchainError> {
         self.get_or_compute_state(self.last_block_number())
     }
 
     fn get_or_compute_state(
         &mut self,
         block_number: u64,
-    ) -> Result<Arc<Box<dyn DynState>>, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<Arc<Box<dyn DynState>>, DynBlockchainError> {
         if let Some(state_id) = self.block_number_to_state_id.get(&block_number) {
             // We cannot use `LruCache::try_get_or_insert`, because it needs &mut self, but
             // we would need &self in the callback to reference the blockchain.
@@ -1673,18 +1659,10 @@ where
     pub fn chain_id_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<u64, GetBlockError<ChainSpecT::Hardfork>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         let chain_id = if let Some(block_number) = block_number {
-            // Return a meaningful error if the block number is out of range.
-            if block_number > self.blockchain.last_block_number() {
-                return Err(ProviderError::InvalidBlockNumberOrHash {
-                    block_spec: block_spec.clone(),
-                    latest_block_number: self.blockchain.last_block_number(),
-                });
-            }
-
             self.blockchain.chain_id_at_block_number(block_number)?
         } else {
             self.blockchain.chain_id()

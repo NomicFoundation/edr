@@ -9,7 +9,7 @@ use edr_primitives::{HashSet, U256};
 
 use crate::{
     data::ProviderData,
-    error::ProviderErrorForChainSpec,
+    error::{GetBlockError, ProviderErrorForChainSpec},
     filter::LogFilter,
     requests::validation::validate_post_merge_block_tags,
     spec::{ProviderSpec, SyncProviderSpec},
@@ -47,15 +47,18 @@ pub fn handle_get_logs_request<
     let hardfork = data.hardfork();
     // Hardhat integration tests expect validation in this order.
     if let Some(from_block) = &filter_options.from_block {
-        validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, from_block)?;
+        validate_post_merge_block_tags(hardfork, from_block)
+            .map_err(GetBlockError::InvalidBlockTag)?;
     }
     if let Some(to_block) = &filter_options.to_block {
-        validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, to_block)?;
+        validate_post_merge_block_tags(hardfork, to_block)
+            .map_err(GetBlockError::InvalidBlockTag)?;
     }
 
     let filter = validate_filter_criteria::<true, ChainSpecT, TimerT>(data, filter_options)?;
     data.logs(filter)
         .map(|logs| logs.iter().map(LogOutput::from).collect())
+        .map_err(ProviderError::Blockchain)
 }
 
 pub fn handle_new_block_filter_request<
@@ -148,7 +151,8 @@ fn validate_filter_criteria<
         block_spec: Option<BlockSpec>,
     ) -> Result<Option<u64>, ProviderErrorForChainSpec<ChainSpecT>> {
         if let Some(block_spec) = &block_spec {
-            validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), block_spec)?;
+            validate_post_merge_block_tags(data.hardfork(), block_spec)
+                .map_err(GetBlockError::InvalidBlockTag)?;
         }
 
         let block_number = match block_spec {

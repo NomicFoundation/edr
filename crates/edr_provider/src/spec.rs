@@ -20,7 +20,9 @@ use edr_signer::{FakeSign, Sign};
 use edr_transaction::{IsSupported, TransactionAndBlock};
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec, time::TimeSinceEpoch,
+    data::ProviderData,
+    error::{GetBlockError, ProviderErrorForChainSpec},
+    time::TimeSinceEpoch,
     TransactionFailureReason,
 };
 
@@ -246,7 +248,7 @@ impl<
 }
 
 pub type DefaultGasPriceFn<ChainSpecT, TimerT> =
-    fn(&ProviderData<ChainSpecT, TimerT>) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>>;
+    fn(&ProviderData<ChainSpecT, TimerT>) -> Result<u128, DynBlockchainError>;
 
 pub type MaxFeesFn<ChainSpecT, TimerT> =
     fn(
@@ -257,7 +259,7 @@ pub type MaxFeesFn<ChainSpecT, TimerT> =
         Option<u128>,
         // max_priority_fee_per_gas
         Option<u128>,
-    ) -> Result<(u128, u128), ProviderErrorForChainSpec<ChainSpecT>>;
+    ) -> Result<(u128, u128), GetBlockError<<ChainSpecT as HardforkChainSpec>::Hardfork>>;
 
 pub struct CallContext<'context, ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
     pub data: &'context mut ProviderData<ChainSpecT, TimerT>,

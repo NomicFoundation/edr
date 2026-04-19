@@ -8,7 +8,7 @@ use edr_transaction::TransactionMut;
 
 use crate::{
     data::ProviderData,
-    error::{ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
+    error::{GetBlockError, ProviderErrorForChainSpec, TransactionFailureWithCallTraces},
     requests::validation::validate_post_merge_block_tags,
     spec::{CallContext, FromRpcType as _, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
@@ -86,7 +86,8 @@ pub fn handle_fee_history<
         ));
     }
 
-    validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), &newest_block)?;
+    validate_post_merge_block_tags(data.hardfork(), &newest_block)
+        .map_err(GetBlockError::InvalidBlockTag)?;
 
     let reward_percentiles = {
         let mut validated_percentiles = Vec::with_capacity(reward_percentiles.len());
@@ -148,7 +149,7 @@ fn resolve_estimate_gas_request<
             });
 
             let max_fee_per_gas = max_fee_per_gas.map_or_else(
-                || -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
+                || -> Result<u128, GetBlockError<ChainSpecT::Hardfork>> {
                     let base_fee = if let Some(block) = data.block_by_block_spec(block_spec)? {
                         max_priority_fee_per_gas
                             + block.block_header().base_fee_per_gas.unwrap_or(0)

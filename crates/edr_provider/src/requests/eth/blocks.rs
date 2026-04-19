@@ -14,9 +14,12 @@ use edr_transaction::{BlockDataForTransaction, TransactionAndBlock};
 use edr_utils::CastArcFrom;
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec,
-    requests::validation::validate_post_merge_block_tags, spec::SyncProviderSpec,
-    time::TimeSinceEpoch, ProviderError,
+    data::ProviderData,
+    error::{GetBlockError, ProviderErrorForChainSpec},
+    requests::validation::validate_post_merge_block_tags,
+    spec::SyncProviderSpec,
+    time::TimeSinceEpoch,
+    ProviderError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -145,7 +148,8 @@ fn block_by_number<
     Option<BlockByNumberResultForChainSpec<ChainSpecT>>,
     ProviderErrorForChainSpec<ChainSpecT>,
 > {
-    validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), block_spec)?;
+    validate_post_merge_block_tags(data.hardfork(), block_spec)
+        .map_err(GetBlockError::InvalidBlockTag)?;
 
     match data.block_by_block_spec(block_spec) {
         Ok(Some(block)) => {
@@ -174,8 +178,9 @@ fn block_by_number<
                 total_difficulty: Some(total_difficulty),
             }))
         }
-        Err(ProviderError::InvalidBlockNumberOrHash { .. }) => Ok(None),
-        Err(err) => Err(err),
+        // Matching Hardhat behavior in returning None for invalid block hash or number.
+        Err(GetBlockError::InvalidBlockNumber(_) | GetBlockError::UnknownBlockHash(_)) => Ok(None),
+        Err(error) => Err(ProviderError::GetBlock(error)),
     }
 }
 

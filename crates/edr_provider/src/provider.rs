@@ -209,23 +209,23 @@ impl<
         let result = match request {
             // eth_* method
             MethodInvocation::Accounts(()) => {
-                eth::handle_accounts_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
+                to_json::<_, ChainSpecT, TimerT>(eth::handle_accounts_request(data))
             }
-            MethodInvocation::BlobBaseFee(()) => {
-                eth::handle_blob_base_fee(data).and_then(to_json::<_, ChainSpecT, TimerT>)
-            }
+            MethodInvocation::BlobBaseFee(()) => eth::handle_blob_base_fee(data)
+                .map_err(ProviderErrorForChainSpec::<ChainSpecT>::from)
+                .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::BlockNumber(()) => {
-                eth::handle_block_number_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
+                to_json::<_, ChainSpecT, TimerT>(eth::handle_block_number_request(data))
             }
             MethodInvocation::Call(request, block_spec, state_overrides) => {
                 eth::handle_call_request(data, request, block_spec, state_overrides)
                     .and_then(to_json_with_trace::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::ChainId(()) => {
-                eth::handle_chain_id_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
+                to_json::<_, ChainSpecT, TimerT>(eth::handle_chain_id_request(data))
             }
             MethodInvocation::Coinbase(()) => {
-                eth::handle_coinbase_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
+                to_json::<_, ChainSpecT, TimerT>(eth::handle_coinbase_request(data))
             }
             MethodInvocation::EstimateGas(call_request, block_spec) => {
                 eth::handle_estimate_gas(data, call_request, block_spec)
@@ -240,9 +240,9 @@ impl<
                 eth::handle_fee_history(data, block_count, newest_block, reward_percentiles)
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
-            MethodInvocation::GasPrice(()) => {
-                eth::handle_gas_price(data).and_then(to_json::<_, ChainSpecT, TimerT>)
-            }
+            MethodInvocation::GasPrice(()) => eth::handle_gas_price(data)
+                .map_err(ProviderErrorForChainSpec::<ChainSpecT>::from)
+                .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::GetBalance(address, block_spec) => {
                 eth::handle_get_balance_request(data, address, block_spec)
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
@@ -308,11 +308,10 @@ impl<
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::MaxPriorityFeePerGas(()) => {
-                eth::handle_max_priority_fee_per_gas::<ChainSpecT, TimerT>()
-                    .and_then(to_json::<_, ChainSpecT, TimerT>)
+                to_json::<_, ChainSpecT, TimerT>(eth::handle_max_priority_fee_per_gas())
             }
             MethodInvocation::NetVersion(()) => {
-                eth::handle_net_version_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
+                to_json::<_, ChainSpecT, TimerT>(eth::handle_net_version_request(data))
             }
             MethodInvocation::NewBlockFilter(()) => eth::handle_new_block_filter_request(data)
                 .and_then(to_json::<_, ChainSpecT, TimerT>),
@@ -343,8 +342,9 @@ impl<
                 eth::handle_subscribe_request(data, subscription_type, filter_options)
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
-            MethodInvocation::Syncing(()) => eth::handle_syncing::<ChainSpecT, TimerT>()
-                .and_then(to_json::<_, ChainSpecT, TimerT>),
+            MethodInvocation::Syncing(()) => {
+                to_json::<_, ChainSpecT, TimerT>(eth::handle_syncing())
+            }
             MethodInvocation::UninstallFilter(filter_id) => {
                 eth::handle_uninstall_filter_request(data, filter_id)
                     .and_then(to_json::<_, ChainSpecT, TimerT>)

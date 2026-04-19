@@ -4,7 +4,7 @@ use edr_eth::BlockSpec;
 use edr_primitives::{Address, Bytes, StorageKey, U256};
 
 use crate::{
-    data::ProviderData, requests::validation::validate_post_merge_block_tags,
+    data::ProviderData, error::GetBlockError, requests::validation::validate_post_merge_block_tags,
     spec::SyncProviderSpec, time::TimeSinceEpoch, utils::u256_to_padded_hex,
     ProviderErrorForChainSpec,
 };
@@ -21,7 +21,8 @@ pub fn handle_get_balance_request<
     block_spec: Option<BlockSpec>,
 ) -> Result<U256, ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(block_spec) = block_spec.as_ref() {
-        validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), block_spec)?;
+        validate_post_merge_block_tags(data.hardfork(), block_spec)
+            .map_err(GetBlockError::InvalidBlockTag)?;
     }
 
     data.balance(address, block_spec.as_ref())
@@ -39,7 +40,8 @@ pub fn handle_get_code_request<
     block_spec: Option<BlockSpec>,
 ) -> Result<Bytes, ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(block_spec) = block_spec.as_ref() {
-        validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), block_spec)?;
+        validate_post_merge_block_tags(data.hardfork(), block_spec)
+            .map_err(GetBlockError::InvalidBlockTag)?;
     }
 
     data.get_code(address, block_spec.as_ref())
@@ -57,7 +59,8 @@ pub fn handle_get_proof_request<
     storage_keys: Vec<StorageKey>,
     block_spec: BlockSpec,
 ) -> Result<EIP1186AccountProofResponse, ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), &block_spec)?;
+    validate_post_merge_block_tags(data.hardfork(), &block_spec)
+        .map_err(GetBlockError::InvalidBlockTag)?;
     data.get_proof(address, storage_keys, &block_spec)
 }
 
@@ -74,7 +77,8 @@ pub fn handle_get_storage_at_request<
     block_spec: Option<BlockSpec>,
 ) -> Result<String, ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(block_spec) = block_spec.as_ref() {
-        validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), block_spec)?;
+        validate_post_merge_block_tags(data.hardfork(), block_spec)
+            .map_err(GetBlockError::InvalidBlockTag)?;
     }
 
     let storage = data.get_storage_at(address, index, block_spec.as_ref())?;

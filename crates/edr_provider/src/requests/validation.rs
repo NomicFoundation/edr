@@ -1,11 +1,16 @@
+use core::fmt::Debug;
+
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eth::{Blob, BlockSpec, BlockTag, PreEip1898BlockSpec};
 use edr_primitives::{Address, Bytes, B256, MAX_INITCODE_SIZE};
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
-    time::TimeSinceEpoch, ProviderError, ProviderSpec, SyncProviderSpec,
+    data::ProviderData,
+    error::{GetBlockError, InvalidBlockTag, ProviderErrorForChainSpec},
+    spec::HardforkValidationData,
+    time::TimeSinceEpoch,
+    ProviderError, ProviderSpec, SyncProviderSpec,
 };
 
 impl HardforkValidationData for TransactionRequest {
@@ -279,7 +284,7 @@ pub fn validate_call_request<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + T
     call_request: &L1CallRequest,
     block_spec: &BlockSpec,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, block_spec)?;
+    validate_post_merge_block_tags(hardfork, block_spec).map_err(GetBlockError::InvalidBlockTag)?;
 
     if call_request.blobs.is_some() | call_request.blob_hashes.is_some() {
         return Err(ProviderError::Eip4844CallRequestUnsupported);
@@ -377,14 +382,10 @@ impl<'a> From<ValidationBlockSpec<'a>> for BlockSpec {
     }
 }
 
-pub(crate) fn validate_post_merge_block_tags<
-    'a,
-    ChainSpecT: ProviderSpec<TimerT>,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    hardfork: ChainSpecT::Hardfork,
+pub(crate) fn validate_post_merge_block_tags<'a, HardforkT: Copy + Debug + Into<EvmSpecId>>(
+    hardfork: HardforkT,
     block_spec: impl Into<ValidationBlockSpec<'a>>,
-) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<(), InvalidBlockTag<HardforkT>> {
     let block_spec: ValidationBlockSpec<'a> = block_spec.into();
 
     if hardfork.into() < EvmSpecId::MERGE {
@@ -395,7 +396,7 @@ pub(crate) fn validate_post_merge_block_tags<
             | ValidationBlockSpec::PostEip1898(BlockSpec::Tag(
                 tag @ (BlockTag::Safe | BlockTag::Finalized),
             )) => {
-                return Err(ProviderError::InvalidBlockTag {
+                return Err(InvalidBlockTag {
                     block_tag: *tag,
                     hardfork,
                 });

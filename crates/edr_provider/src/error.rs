@@ -16,7 +16,7 @@ use edr_chain_spec::{
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{result::ExecutionResult, DatabaseComponentError, TransactionError};
-use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
+use edr_eth::{filter::SubscriptionType, BlockTag};
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::{hex, Address, Bytes, HashMap, HashSet, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
@@ -40,19 +40,25 @@ pub(crate) const INVALID_INPUT: i16 = -32000;
 pub(crate) const INTERNAL_ERROR: i16 = -32603;
 pub(crate) const INVALID_PARAMS: i16 = -32602;
 
-/// Trait for errors that can be converted to JSON-RPC errors.
-pub trait JsonRpcError {
+/// Trait for retrieving the JSON-RPC error code from an error type.
+pub trait RpcErrorCode {
     /// Returns the JSON-RPC error code.
     fn error_code(&self) -> i16;
 }
 
+impl RpcErrorCode for serde_json::Error {
+    fn error_code(&self) -> i16 {
+        INVALID_INPUT
+    }
+}
+
 impl<
         BlockchainErrorT,
-        CollectInspectorDataErrorT: JsonRpcError,
+        CollectInspectorDataErrorT: RpcErrorCode,
         HardforkT,
         StateErrorT,
         TransactionValidationErrorT,
-    > JsonRpcError
+    > RpcErrorCode
     for MineBlockError<
         BlockchainErrorT,
         CollectInspectorDataErrorT,
@@ -109,6 +115,86 @@ pub enum CreationError<GenesisBlockCreationErrorT, HardforkT> {
     /// An error that occured while querying the remote state.
     #[error(transparent)]
     RpcClient(#[from] RpcClientError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum GetBlockError<HardforkT: Debug> {
+    /// Blockchain error
+    #[error(transparent)]
+    Blockchain(#[from] DynBlockchainError),
+    /// Block number doesn't exist in blockchain
+    #[error(transparent)]
+    InvalidBlockNumber(#[from] InvalidBlockNumber),
+    /// The block tag is not allowed in pre-merge hardforks.
+    #[error(transparent)]
+    InvalidBlockTag(#[from] InvalidBlockTag<HardforkT>),
+    /// Block hash doesn't exist in blockchain
+    #[error(transparent)]
+    UnknownBlockHash(#[from] UnknownBlockHash),
+}
+
+impl<HardforkT: Debug> RpcErrorCode for GetBlockError<HardforkT> {
+    fn error_code(&self) -> i16 {
+        match self {
+            Self::Blockchain(_) => INTERNAL_ERROR,
+            Self::InvalidBlockNumber(error) => error.error_code(),
+            Self::InvalidBlockTag(error) => error.error_code(),
+            Self::UnknownBlockHash(error) => error.error_code(),
+        }
+    }
+}
+
+/// An error that occurs when a block number is provided in a request that is
+/// larger than the latest block number in the blockchain.
+#[derive(Debug, thiserror::Error)]
+#[error(
+    "Received invalid block number {block_number}. Latest block number is {latest_block_number}"
+)]
+pub struct InvalidBlockNumber {
+    /// The block number provided in the request.
+    pub block_number: u64,
+    /// The latest block number in the blockchain.
+    pub latest_block_number: u64,
+}
+
+impl RpcErrorCode for InvalidBlockNumber {
+    fn error_code(&self) -> i16 {
+        INVALID_INPUT
+    }
+}
+
+/// An error that occurs when a pre-merge block tag is provided in a hardfork
+/// that doesn't support it.
+#[derive(Debug, thiserror::Error)]
+#[error("The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{hardfork:?}' hardfork.")]
+// TODO: Make HardforkT: Display instead of Debug, and update the error messages
+// accordingly.
+pub struct InvalidBlockTag<HardforkT: Debug> {
+    /// The block tag provided in the request.
+    pub block_tag: BlockTag,
+    /// The current hardfork of the blockchain.
+    pub hardfork: HardforkT,
+}
+
+impl<HardforkT: Debug> RpcErrorCode for InvalidBlockTag<HardforkT> {
+    fn error_code(&self) -> i16 {
+        INVALID_PARAMS
+    }
+}
+
+/// An error that occurs when a requested block hash doesn't exist in the
+/// blockchain.
+#[derive(Debug, thiserror::Error)]
+#[error("Received unknown block hash {block_hash}.")]
+pub struct UnknownBlockHash {
+    /// The block hash provided in the request.
+    pub block_hash: B256,
+}
+
+impl RpcErrorCode for UnknownBlockHash {
+    fn error_code(&self) -> i16 {
+        INVALID_INPUT
+    }
 }
 
 /// Helper type for a chain-specific [`ProviderError`].
@@ -201,25 +287,11 @@ pub enum ProviderError<
     /// Failed to fetch transaction receipt
     #[error(transparent)]
     FetchReceipt(FetchReceiptErrorT),
+    /// Failed to get block.
+    #[error(transparent)]
+    GetBlock(#[from] GetBlockError<HardforkT>),
     #[error("{0}")]
     InvalidArgument(String),
-    /// Block number or hash doesn't exist in blockchain
-    #[error(
-        "Received invalid block tag {block_spec}. Latest block number is {latest_block_number}"
-    )]
-    InvalidBlockNumberOrHash {
-        block_spec: BlockSpec,
-        latest_block_number: u64,
-    },
-    /// The block tag is not allowed in pre-merge hardforks.
-    /// <https://github.com/NomicFoundation/hardhat/blob/b84baf2d9f5d3ea897c06e0ecd5e7084780d8b6c/packages/hardhat-core/src/internal/hardhat-network/provider/modules/eth.ts#L1820>
-    #[error(
-        "The '{block_tag}' block tag is not allowed in pre-merge hardforks. You are using the '{hardfork:?}' hardfork."
-    )]
-    InvalidBlockTag {
-        block_tag: BlockTag,
-        hardfork: HardforkT,
-    },
     /// Invalid chain ID
     #[error("Invalid chainId {actual} provided, expected {expected} instead.")]
     InvalidChainId { expected: u64, actual: u64 },
@@ -470,28 +542,18 @@ impl<
         HaltReasonT: HaltReasonTrait + Serialize,
         HardforkT: Debug,
         TransactionValidationErrorT: std::error::Error,
+    > RpcErrorCode
+    for ProviderError<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT,
+        HardforkT,
+        TransactionValidationErrorT,
     >
-    From<
-        ProviderError<
-            FetchReceiptErrorT,
-            GenesisBlockCreationErrorT,
-            HaltReasonT,
-            HardforkT,
-            TransactionValidationErrorT,
-        >,
-    > for jsonrpc::Error
 {
-    fn from(
-        value: ProviderError<
-            FetchReceiptErrorT,
-            GenesisBlockCreationErrorT,
-            HaltReasonT,
-            HardforkT,
-            TransactionValidationErrorT,
-        >,
-    ) -> Self {
+    fn error_code(&self) -> i16 {
         #[allow(clippy::match_same_arms)]
-        let code = match &value {
+        match &self {
             ProviderError::AbiDecoding(_) => INTERNAL_ERROR,
             ProviderError::AccountOverrideConversionError(_) => INVALID_INPUT,
             ProviderError::AutoMineGasPriceTooLow { .. } => INVALID_INPUT,
@@ -512,9 +574,8 @@ impl<
             ProviderError::Eip712Error(_) => INVALID_INPUT,
             ProviderError::EstimateGasTransactionFailure(_) => INVALID_INPUT,
             ProviderError::FetchReceipt(_) => INTERNAL_ERROR,
+            ProviderError::GetBlock(error) => error.error_code(),
             ProviderError::InvalidArgument(_) => INVALID_PARAMS,
-            ProviderError::InvalidBlockNumberOrHash { .. } => INVALID_INPUT,
-            ProviderError::InvalidBlockTag { .. } => INVALID_PARAMS,
             ProviderError::InvalidChainId { .. } => INVALID_PARAMS,
             ProviderError::InvalidDropTransactionHash(_) => INVALID_PARAMS,
             ProviderError::InvalidEip155TransactionChainId => INVALID_PARAMS,
@@ -560,7 +621,37 @@ impl<
             ProviderError::UnsupportedMethod { .. } => -32004,
             ProviderError::UnsupportedTransactionTypeInDebugTrace { .. } => INVALID_INPUT,
             ProviderError::UnsupportedTransactionTypeForDebugTrace { .. } => INVALID_INPUT,
-        };
+        }
+    }
+}
+
+impl<
+        FetchReceiptErrorT: std::error::Error,
+        GenesisBlockCreationErrorT: std::error::Error,
+        HaltReasonT: HaltReasonTrait + Serialize,
+        HardforkT: Debug,
+        TransactionValidationErrorT: std::error::Error,
+    >
+    From<
+        ProviderError<
+            FetchReceiptErrorT,
+            GenesisBlockCreationErrorT,
+            HaltReasonT,
+            HardforkT,
+            TransactionValidationErrorT,
+        >,
+    > for jsonrpc::Error
+{
+    fn from(
+        value: ProviderError<
+            FetchReceiptErrorT,
+            GenesisBlockCreationErrorT,
+            HaltReasonT,
+            HardforkT,
+            TransactionValidationErrorT,
+        >,
+    ) -> Self {
+        let code = value.error_code();
 
         let data = value.as_transaction_failure().map(|transaction_failure| {
             serde_json::to_value(transaction_failure).expect("transaction_failure to json")
