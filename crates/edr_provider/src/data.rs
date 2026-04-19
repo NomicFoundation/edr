@@ -96,8 +96,8 @@ use crate::{
     debug_trace::{debug_trace_transaction, DebugTraceResultWithCallTraces},
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, GetBlockError,
-        InvalidBlockNumber, InvalidBlockTag, ProviderErrorForChainSpec, TransactionFailure,
-        TransactionFailureWithCallTraces, UnknownBlockHash,
+        InvalidBlockNumber, InvalidBlockTag, ProviderErrorForChainSpec, RpcErrorCode,
+        TransactionFailure, TransactionFailureWithCallTraces, UnknownBlockHash, INVALID_INPUT,
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
@@ -665,6 +665,37 @@ where
     }
 }
 
+pub struct ResolvedBlockTimestamp {
+    /// The timestamp for the next block, in seconds since the epoch.
+    pub timestamp: u64,
+    /// The offset between the current time and the next block timestamp, in
+    /// seconds.
+    pub offset: i64,
+}
+
+pub struct NextBlockTimestampAndOffset {
+    /// The timestamp for the next block, in seconds since the epoch.
+    pub timestamp: u64,
+    /// The offset between the current time and the next block timestamp, in
+    /// seconds.
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Timestamp {timestamp} is lower than the previous block's timestamp {previous_timestamp}")]
+pub struct BlockTimestampLowerThanPrevious {
+    /// The timestamp of the previous block.
+    pub previous_timestamp: u64,
+    /// The timestamp of the next block.
+    pub timestamp: u64,
+}
+
+impl RpcErrorCode for BlockTimestampLowerThanPrevious {
+    fn error_code(&self) -> i16 {
+        INVALID_INPUT
+    }
+}
+
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
     ChainSpecT: SyncProviderSpec<TimerT>,
@@ -1084,10 +1115,11 @@ where
         let latest_block_header = latest_block.block_header();
 
         match timestamp.cmp(&latest_block_header.timestamp) {
-            Ordering::Less => Err(ProviderError::TimestampLowerThanPrevious {
-                proposed: timestamp,
-                previous: latest_block_header.timestamp,
-            }),
+            Ordering::Less => Err(BlockTimestampLowerThanPrevious {
+                timestamp,
+                previous_timestamp: latest_block_header.timestamp,
+            }
+            .into()),
             Ordering::Equal if !self.allow_blocks_with_same_timestamp => {
                 Err(ProviderError::TimestampEqualsPrevious {
                     proposed: timestamp,
@@ -1418,7 +1450,11 @@ where
         MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
-        let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
+        let NextBlockTimestampAndOffset {
+            timestamp: block_timestamp,
+            offset: new_offset,
+        } = self.override_or_next_block_timestamp(options.timestamp)?;
+
         options.timestamp = Some(block_timestamp);
 
         let result = self.mine_block(mine_fn, options)?;
@@ -1544,50 +1580,89 @@ where
         Ok(result)
     }
 
-    /// Get the timestamp for the next block.
+    /// Get the timestamp for the next block, taking into account the provider's
+    /// configuration and the current blockchain state.
+    fn next_block_timestamp(&self) -> Result<NextBlockTimestampAndOffset, DynBlockchainError> {
+        let current_timestamp =
+            i64::try_from(self.timer.since_epoch()).expect("timestamp too large");
+
+        if let Some(mut timestamp) = self.next_block_timestamp {
+            let offset = i64::try_from(timestamp).expect("timestamp too large") - current_timestamp;
+
+            if !self.allow_blocks_with_same_timestamp {
+                let previous_timestamp = self.blockchain.last_block()?.block_header().timestamp;
+                ensure_different_timestamp_as_previous_block(previous_timestamp, &mut timestamp);
+            }
+
+            Ok(NextBlockTimestampAndOffset {
+                timestamp,
+                offset: Some(offset),
+            })
+        } else {
+            let mut timestamp = u64::try_from(current_timestamp + self.block_time_offset_seconds)
+                .expect("timestamp must be positive");
+
+            let mut offset = None;
+
+            if !self.allow_blocks_with_same_timestamp {
+                let previous_timestamp = self.blockchain.last_block()?.block_header().timestamp;
+                if ensure_different_timestamp_as_previous_block(previous_timestamp, &mut timestamp)
+                {
+                    offset = Some(self.block_time_offset_seconds + 1);
+                }
+            }
+
+            Ok(NextBlockTimestampAndOffset { timestamp, offset })
+        }
+    }
+
+    /// Computes the timestamp and offset for the next block using the provided
+    /// timestamp. If the provided timestamp is `None`, it will revert to
+    /// `next_block_timestamp` to compute the timestamp and offset based on the
+    /// provider's configuration and the current blockchain state.
+    ///
     /// Ported from <https://github.com/NomicFoundation/hardhat/blob/b84baf2d9f5d3ea897c06e0ecd5e7084780d8b6c/packages/hardhat-core/src/internal/hardhat-network/provider/node.ts#L1942>
-    fn next_block_timestamp(
+    fn override_or_next_block_timestamp(
         &self,
         timestamp: Option<u64>,
-    ) -> Result<(u64, Option<i64>), ProviderErrorForChainSpec<ChainSpecT>> {
-        let latest_block = self.blockchain.last_block()?;
-        let latest_block_header = latest_block.block_header();
+    ) -> Result<NextBlockTimestampAndOffset, ProviderErrorForChainSpec<ChainSpecT>> {
+        if let Some(timestamp) = timestamp {
+            let latest_block = self.blockchain.last_block()?;
+            let ResolvedBlockTimestamp { timestamp, offset } =
+                self.resolve_block_timestamp_override(latest_block.as_ref(), timestamp)?;
+
+            Ok(NextBlockTimestampAndOffset {
+                timestamp,
+                offset: Some(offset),
+            })
+        } else {
+            self.next_block_timestamp()
+                .map_err(ProviderError::Blockchain)
+        }
+    }
+
+    fn resolve_block_timestamp_override(
+        &self,
+        latest_block: &ChainSpecT::Block,
+        mut timestamp: u64,
+    ) -> Result<ResolvedBlockTimestamp, BlockTimestampLowerThanPrevious> {
+        let previous_timestamp = latest_block.block_header().timestamp;
+        if timestamp < previous_timestamp {
+            return Err(BlockTimestampLowerThanPrevious {
+                previous_timestamp,
+                timestamp,
+            });
+        }
 
         let current_timestamp =
             i64::try_from(self.timer.since_epoch()).expect("timestamp too large");
 
-        let (mut block_timestamp, mut new_offset) = if let Some(timestamp) = timestamp {
-            timestamp.checked_sub(latest_block_header.timestamp).ok_or(
-                ProviderError::TimestampLowerThanPrevious {
-                    proposed: timestamp,
-                    previous: latest_block_header.timestamp,
-                },
-            )?;
-
-            let offset = i64::try_from(timestamp).expect("timestamp too large") - current_timestamp;
-            (timestamp, Some(offset))
-        } else if let Some(next_block_timestamp) = self.next_block_timestamp {
-            let offset = i64::try_from(next_block_timestamp).expect("timestamp too large")
-                - current_timestamp;
-
-            (next_block_timestamp, Some(offset))
-        } else {
-            let next_timestamp = u64::try_from(current_timestamp + self.block_time_offset_seconds)
-                .expect("timestamp must be positive");
-
-            (next_timestamp, None)
-        };
-
-        let timestamp_needs_increase = block_timestamp == latest_block_header.timestamp
-            && !self.allow_blocks_with_same_timestamp;
-        if timestamp_needs_increase {
-            block_timestamp += 1;
-            if new_offset.is_none() {
-                new_offset = Some(self.block_time_offset_seconds + 1);
-            }
+        if !self.allow_blocks_with_same_timestamp {
+            ensure_different_timestamp_as_previous_block(previous_timestamp, &mut timestamp);
         }
 
-        Ok((block_timestamp, new_offset))
+        let offset = i64::try_from(timestamp).expect("timestamp too large") - current_timestamp;
+        Ok(ResolvedBlockTimestamp { timestamp, offset })
     }
 
     fn validate_auto_mine_transaction(
@@ -2209,12 +2284,16 @@ where
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
-        let (block_timestamp, _new_offset) = self.next_block_timestamp(None)?;
+        let NextBlockTimestampAndOffset {
+            timestamp,
+            // We can ignore the offset as the pending block won't be committed to the blockchain
+            offset: _offset,
+        } = self.next_block_timestamp()?;
 
         // Mining a pending block shouldn't affect the mix hash.
         self.mine_block(
             Self::mine_block_with_mem_pool,
-            self.header_overrides_with_timestamp(block_timestamp),
+            self.header_overrides_with_timestamp(timestamp),
         )
     }
 
@@ -3257,6 +3336,21 @@ fn create_blockchain_and_state<
     }
 }
 
+/// Ensures that the next block timestamp is different from the previous
+/// block timestamp.
+fn ensure_different_timestamp_as_previous_block(
+    previous_timestamp: u64,
+    next_timestamp: &mut u64,
+) -> bool {
+    if *next_timestamp == previous_timestamp {
+        *next_timestamp += 1;
+
+        true
+    } else {
+        false
+    }
+}
+
 fn get_skip_unsupported_transaction_types_from_env() -> bool {
     std::env::var(EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES)
         .map_or(DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES, |s| s == "true")
@@ -3543,7 +3637,12 @@ mod tests {
 
         fixture.provider_data.set_auto_mining(false);
         fixture.provider_data.send_transaction(signed_transaction)?;
-        let (block_timestamp, _) = fixture.provider_data.next_block_timestamp(None)?;
+
+        let NextBlockTimestampAndOffset {
+            timestamp,
+            offset: _offset,
+        } = fixture.provider_data.next_block_timestamp()?;
+
         let prevrandao = fixture.provider_data.prev_randao_generator.next_value();
         let result = fixture.provider_data.mine_block(
             ProviderData::mine_block_with_mem_pool,
@@ -3551,7 +3650,7 @@ mod tests {
                 mix_hash: Some(prevrandao),
                 ..fixture
                     .provider_data
-                    .header_overrides_with_timestamp(block_timestamp)
+                    .header_overrides_with_timestamp(timestamp)
             },
         )?;
 

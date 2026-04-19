@@ -32,8 +32,9 @@ use parking_lot::RwLock;
 use serde::Serialize;
 
 use crate::{
-    config::IntervalConfigConversionError, debug_trace::DebugTraceError,
-    observability::EvmObserverCollectionError, time::TimeSinceEpoch, ProviderSpec,
+    config::IntervalConfigConversionError, data::BlockTimestampLowerThanPrevious,
+    debug_trace::DebugTraceError, observability::EvmObserverCollectionError, time::TimeSinceEpoch,
+    ProviderSpec,
 };
 
 pub(crate) const INVALID_INPUT: i16 = -32000;
@@ -47,6 +48,12 @@ pub trait RpcErrorCode {
 }
 
 impl RpcErrorCode for serde_json::Error {
+    fn error_code(&self) -> i16 {
+        INVALID_INPUT
+    }
+}
+
+impl RpcErrorCode for AccountOverrideConversionError {
     fn error_code(&self) -> i16 {
         INVALID_INPUT
     }
@@ -408,8 +415,8 @@ pub enum ProviderError<
     #[error(transparent)]
     State(#[from] StateError),
     /// Timestamp lower than previous timestamp
-    #[error("Timestamp {proposed} is lower than the previous block's timestamp {previous}")]
-    TimestampLowerThanPrevious { proposed: u64, previous: u64 },
+    #[error(transparent)]
+    TimestampLowerThanPrevious(#[from] BlockTimestampLowerThanPrevious),
     /// Timestamp equals previous timestamp
     #[error(
         "Timestamp {proposed} is equal to the previous block's timestamp. Enable the 'allowBlocksWithSameTimestamp' option to allow this"
@@ -555,7 +562,7 @@ impl<
         #[allow(clippy::match_same_arms)]
         match &self {
             ProviderError::AbiDecoding(_) => INTERNAL_ERROR,
-            ProviderError::AccountOverrideConversionError(_) => INVALID_INPUT,
+            ProviderError::AccountOverrideConversionError(error) => error.error_code(),
             ProviderError::AutoMineGasPriceTooLow { .. } => INVALID_INPUT,
             ProviderError::AutoMineMaxFeePerBlobGasTooLow { .. } => INVALID_INPUT,
             ProviderError::AutoMineMaxFeePerGasTooLow { .. } => INVALID_INPUT,
