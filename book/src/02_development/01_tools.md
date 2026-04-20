@@ -65,7 +65,7 @@ This tool compiles and instruments Solidity source files for use in EDR tests.
 
 Some integration tests require pre-compiled bytecode. To avoid adding `foundry-compilers` as a test dependency (which can interfere with other test crates that use solc during `cargo test --workspace`), we compile contracts ahead of time. It can also instrument source files with coverage probes, producing instrumented `.sol` files used by the `edr_solidity_tests` crate.
 
-By convention, compiled creation bytecode in EDR is kept in `data/creation_bytecode/` as hex-encoded `.bin` files (matching `solc --bin` output). Integration tests load them via `include_str!` so they don't need solc at test time.
+By convention, compiled deployment bytecode in EDR is kept in `data/deployment_bytecode/` as hex-encoded `.bin` files (matching `solc --bin` output). Integration tests load them via `include_str!` so they don't need solc at test time.
 
 ### Compile with coverage instrumentation
 
@@ -92,7 +92,7 @@ Use `-o` to write `<ContractName>.bin` files to a directory:
 
 ```bash
 cargo run -p edr_tool_solidity -- --instrument \
-  -o data/creation_bytecode \
+  -o data/deployment_bytecode \
   data/contracts/test/CoverageTest.sol
 ```
 

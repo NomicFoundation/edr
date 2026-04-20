@@ -36,8 +36,8 @@ const COVERAGE_LIBRARY_SOL: &str = include_str!("../../../../data/contracts/cove
 /// data/contracts/test/CoverageTest.sol`
 ///
 ///   # Write bytecodes to files:
-///   `cargo run -p edr_tool_solidity -- --instrument -o data/creation_bytecode
-/// data/contracts/test/CoverageTest.sol`
+///   `cargo run -p edr_tool_solidity -- --instrument -o
+/// data/deployment_bytecode data/contracts/test/CoverageTest.sol`
 ///
 ///   # Compile with explicit imports (e.g. a manually instrumented contract):
 ///   `cargo run -p edr_tool_solidity -- data/contracts/test/Increment.sol -i
@@ -133,7 +133,7 @@ fn main() -> Result<()> {
 
     let output = compile_project(&root)?;
 
-    // Extract and output creation bytecodes.
+    // Extract and output deployment bytecodes.
     if let Some(ref output_dir) = args.output_dir {
         fs::create_dir_all(output_dir)?;
     }

@@ -15,7 +15,7 @@ cargo run -p edr_tool_solidity -- \
 # Write bytecodes to files (<ContractName>.bin):
 cargo run -p edr_tool_solidity -- \
   --instrument \
-  -o data/creation_bytecode \
+  -o data/deployment_bytecode \
   data/contracts/test/CoverageTest.sol
 
 # Output only the instrumented source (no compilation):

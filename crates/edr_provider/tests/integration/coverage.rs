@@ -17,8 +17,8 @@ use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::{Mutex, RwLock};
 use tokio::runtime;
 
-const INCREMENT_CREATION_BYTECODE: &str =
-    include_str!("../../../../data/creation_bytecode/Increment.bin");
+const INCREMENT_DEPLOYMENT_BYTECODE: &str =
+    include_str!("../../../../data/deployment_bytecode/Increment.bin");
 
 // > cast calldata 'function incBy(uint)' 1
 const INCREMENT_CALLDATA: Bytes =
@@ -97,7 +97,7 @@ fn provider_with_deployed_test_contract(
                 MethodInvocation::SendTransaction(TransactionRequest {
                     from,
                     data: Some(
-                        Bytes::from_str(INCREMENT_CREATION_BYTECODE).expect("Invalid bytecode"),
+                        Bytes::from_str(INCREMENT_DEPLOYMENT_BYTECODE).expect("Invalid bytecode"),
                     ),
                     ..TransactionRequest::default()
                 }),
@@ -293,7 +293,7 @@ mod returndata {
     use tokio::runtime;
 
     const COVERAGE_CALL_BYTECODE: &str =
-        include_str!("../../../../data/creation_bytecode/CoverageCall.bin");
+        include_str!("../../../../data/deployment_bytecode/CoverageCall.bin");
 
     struct Fixture {
         from: edr_primitives::Address,
