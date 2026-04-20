@@ -32,7 +32,7 @@
   "exports": {
     ".": "./index.js",
     "./solidity-tests": "./dist/solidity_tests.js",
-    "./coverage-library": "./dist/coverage_library.js"
+    "./coverage": "./dist/coverage.js"
   },
   "files": [
     "index.js",
