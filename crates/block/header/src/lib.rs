@@ -587,8 +587,15 @@ pub fn overridden_block_number<HardforkT>(
     })
 }
 
-/// Calculates the next base fee for a post-London block, given the parent's
-/// header.
+/// Calculates the next base fee for a post-London block.
+///
+/// Inputs to the EIP-1559 update formula:
+/// - `gas_used` — from the `gas_used` parameter
+/// - `gas_limit` and `base_fee_per_gas` — from `parent`
+/// - elasticity multiplier and max change denominator — from `base_fee_params`
+///
+/// `gas_used` is a parameter to support non-standard calculations; for
+/// standard EIP-1559, pass `u128::from(parent.gas_used)`.
 ///
 /// # Panics
 ///
