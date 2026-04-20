@@ -53,13 +53,13 @@ fn compute_deterministic_hash_for_statement(
 pub enum InstrumentationError {
     #[error(transparent)]
     Initialization(#[from] ParserInitializationError),
-    #[error("Invalid library path.")]
-    InvalidLibraryPath {
-        errors: Vec<ParseError>,
-        import: String,
-    },
     #[error("Failed to parse Solidity file.")]
     InvalidSourceCode { errors: Vec<ParseError> },
+}
+
+/// Builds the Solidity `import` statement that references the coverage library.
+fn coverage_library_import_statement() -> String {
+    format!("\nimport \"{LIBRARY_FILE_NAME}\";")
 }
 
 pub fn instrument_code(
@@ -72,17 +72,6 @@ pub fn instrument_code(
     if !parsed_file.is_valid() {
         return Err(InstrumentationError::InvalidSourceCode {
             errors: parsed_file.errors().clone(),
-        });
-    }
-
-    let coverage_library_import = format!("\nimport \"{LIBRARY_FILE_NAME}\";");
-    let parsed_library_import =
-        parser.parse_nonterminal(NonterminalKind::ImportDirective, &coverage_library_import);
-
-    if !parsed_library_import.is_valid() {
-        return Err(InstrumentationError::InvalidLibraryPath {
-            errors: parsed_library_import.errors().clone(),
-            import: coverage_library_import,
         });
     }
 
@@ -200,7 +189,7 @@ pub fn instrument_code(
         }
     }
 
-    instrumented_source.push_str(&coverage_library_import);
+    instrumented_source.push_str(&coverage_library_import_statement());
 
     Ok(InstrumentationResult {
         source: instrumented_source,
@@ -273,6 +262,19 @@ mod tests {
         assert!(result
             .source
             .contains(&format!("import \"{LIBRARY_FILE_NAME}\";")));
+    }
+
+    #[test]
+    fn coverage_library_import_statement_is_valid_solidity() {
+        let version = Version::parse("0.8.0").expect("Failed to parse version");
+        let parser = SolidityParser::create(version).expect("Failed to create parser");
+        let import = coverage_library_import_statement();
+        let parsed = parser.parse_nonterminal(NonterminalKind::ImportDirective, &import);
+        assert!(
+            parsed.is_valid(),
+            "Coverage library import statement is invalid: {:?}",
+            parsed.errors()
+        );
     }
 
     #[test]
