@@ -11,6 +11,11 @@ export interface CoverageLib {
 export function getCoverageLibrary(): CoverageLib {
   const packageRoot = path.dirname(require.resolve("@nomicfoundation/edr"));
   const sourcePath = path.join(packageRoot, "coverage.sol");
+  if (!fs.existsSync(sourcePath)) {
+    throw new Error(
+      `Coverage library file not found at ${sourcePath}. It should be bundled with @nomicfoundation/edr.`,
+    );
+  }
   return {
     content: fs.readFileSync(sourcePath, "utf-8"),
     filename: COVERAGE_LIBRARY_FILE_NAME,
