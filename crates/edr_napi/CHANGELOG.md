@@ -1,5 +1,15 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.31
+
+### Minor Changes
+
+- 07cad35: Added `isolate` and `evm_version` options to Solidity test function-level config overrides
+
+### Patch Changes
+
+- c033ed3: Added support for commas and non-consecutive dots in names provided in gas snapshot cheatcodes
+
 ## 0.12.0-next.30
 
 ### Minor Changes
