@@ -346,6 +346,7 @@ impl PartialHeader {
                 Some(if let Some(parent) = &parent {
                     calculate_next_base_fee_per_gas(
                         parent,
+                        u128::from(parent.gas_used),
                         overrides
                             .base_fee_params
                             .as_ref()
@@ -594,6 +595,7 @@ pub fn overridden_block_number<HardforkT>(
 /// Panics if the parent header does not contain a base fee.
 pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
     parent: &BlockHeader,
+    gas_used: u128,
     base_fee_params: &BaseFeeParams<HardforkT>,
     hardfork: HardforkT,
 ) -> u128 {
@@ -605,7 +607,6 @@ pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
     // Adapted from https://github.com/alloy-rs/alloy/blob/main/crates/eips/src/eip1559/helpers.rs#L41
     // modifying it to support `u128`.
     // TODO: Remove once https://github.com/alloy-rs/alloy/issues/2181 has been addressed.
-    let gas_used = u128::from(parent.gas_used);
     let gas_limit = u128::from(parent.gas_limit);
 
     // In reality, [EIP-1559] specifies an initial base fee block number at which to

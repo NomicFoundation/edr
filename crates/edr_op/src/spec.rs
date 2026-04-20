@@ -273,27 +273,41 @@ pub(crate) fn op_base_fee_params_for_block(
     }
 }
 
-/// Calculate next `base_fee` for OP stack block
+/// Calculates the next block's `base_fee` for an OP stack chain.
 ///
-/// If Jovian is activated, clamps the standard EVM calculation result to the
-/// minimum encoded in `extra_data` field See <https://specs.optimism.io/protocol/jovian/exec-engine.html#minimum-base-fee-in-block-header>
+/// Pre-Jovian: applies the standard EIP-1559 update over the parent's
+/// `gas_used`.
+///
+/// From Jovian onward, two changes apply:
+/// - `gasMetered := max(gasUsed, blobGasUsed)` is used in place of `gasUsed`,
+///   where `blobGasUsed` carries the parent block's DA footprint. See
+///   <https://specs.optimism.io/protocol/jovian/exec-engine.html#da-footprint-block-limit>.
+/// - The result is clamped to the minimum base fee encoded in the parent's
+///   `extra_data`. See
+///   <https://specs.optimism.io/protocol/jovian/exec-engine.html#minimum-base-fee-in-block-header>.
 pub(crate) fn op_next_base_fee(
     parent_header: &BlockHeader,
     hardfork: Hardfork,
     base_fee_params: &BaseFeeParams<Hardfork>,
 ) -> u128 {
-    let base_fee_per_gas =
-        calculate_next_base_fee_per_gas(parent_header, base_fee_params, hardfork);
     if hardfork >= Hardfork::JOVIAN {
+        let parent_blob_gas_used = parent_header
+            .blob_gas
+            .as_ref()
+            .map_or(0, |blob_gas| u128::from(blob_gas.gas_used));
+        let gas_metered = core::cmp::max(u128::from(parent_header.gas_used), parent_blob_gas_used);
+        let base_fee_per_gas =
+            calculate_next_base_fee_per_gas(parent_header, gas_metered, base_fee_params, hardfork);
         let min_base_fee = decode_min_base_fee(&parent_header.extra_data)
             .expect("Jovian should have min base fee defined in extra data");
-        if base_fee_per_gas < min_base_fee {
-            min_base_fee
-        } else {
-            base_fee_per_gas
-        }
+        core::cmp::max(base_fee_per_gas, min_base_fee)
     } else {
-        base_fee_per_gas
+        calculate_next_base_fee_per_gas(
+            parent_header,
+            u128::from(parent_header.gas_used),
+            base_fee_params,
+            hardfork,
+        )
     }
 }
 
