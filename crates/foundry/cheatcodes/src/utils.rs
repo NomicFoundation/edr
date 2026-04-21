@@ -1,8 +1,8 @@
 //! Implementations of [`Utilities`](spec::Group::Utilities) cheatcodes.
 
-use alloy_dyn_abi::{DynSolType, DynSolValue};
+use alloy_dyn_abi::{eip712_parser::EncodeType, DynSolType, DynSolValue, Resolver, TypedData};
 use alloy_ens::namehash;
-use alloy_primitives::{aliases::B32, map::HashMap, B64, U256};
+use alloy_primitives::{aliases::B32, keccak256, map::HashMap, Bytes, B64, U256};
 use alloy_sol_types::SolValue;
 use foundry_evm_core::{
     backend::CheatcodeBackend,
@@ -1093,7 +1093,11 @@ impl Cheatcode for eip712HashType_0Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        todo!()
+        let Self {
+            typeNameOrDefinition,
+        } = self;
+        let type_def = get_canonical_type_def(typeNameOrDefinition)?;
+        Ok(keccak256(type_def.as_bytes()).to_vec())
     }
 }
 
@@ -1128,7 +1132,15 @@ impl Cheatcode for eip712HashStruct_0Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        todo!()
+        let Self {
+            typeNameOrDefinition,
+            abiEncodedData,
+        } = self;
+
+        let type_def = get_canonical_type_def(typeNameOrDefinition)?;
+        let primary = &type_def[..type_def.find('(').unwrap_or(type_def.len())];
+
+        get_struct_hash(primary, &type_def, abiEncodedData)
     }
 }
 
@@ -1163,7 +1175,11 @@ impl Cheatcode for eip712HashTypedDataCall {
             TransactionErrorT,
         >,
     ) -> Result {
-        todo!()
+        let Self { jsonData } = self;
+        let typed_data: TypedData = serde_json::from_str(jsonData)?;
+        let digest = typed_data.eip712_signing_hash()?;
+
+        Ok(digest.to_vec())
     }
 }
 /// Helper to generate a random `uint` value (with given bits or bounded if
@@ -1256,4 +1272,60 @@ fn random_int<
             .current()
             .abi_encode(),
     )
+}
+
+/// Returns EIP-712 canonical type definition from the provided string type
+/// representation or type name. If type name provided, then it looks up
+/// bindings from `eip712CanonicalTypes` configuration.
+fn get_canonical_type_def(name_or_def: &str) -> Result<String> {
+    let type_def = if name_or_def.contains('(') {
+        // If the input contains '(', it must be the type definition.
+        EncodeType::parse(name_or_def).and_then(|parsed| parsed.canonicalize())?
+    } else {
+        // Otherwise, it must be the type name.
+        todo!("Get type def from configured canonical types")
+    };
+
+    Ok(type_def)
+}
+
+/// Returns the EIP-712 struct hash for provided name, definition and ABI
+/// encoded data.
+fn get_struct_hash(primary: &str, type_def: &String, abi_encoded_data: &Bytes) -> Result {
+    let mut resolver = Resolver::default();
+
+    // Populate the resolver by ingesting the canonical type definition, and then
+    // get the corresponding `DynSolType` of the primary type.
+    resolver
+        .ingest_string(type_def)
+        .map_err(|e| fmt_err!("Resolver failed to ingest type definition: {e}"))?;
+
+    let resolved_sol_type = resolver
+        .resolve(primary)
+        .map_err(|e| fmt_err!("Failed to resolve EIP-712 primary type '{primary}': {e}"))?;
+
+    // ABI-decode the bytes into `DynSolValue::CustomStruct`.
+    let sol_value = resolved_sol_type
+        .abi_decode(abi_encoded_data.as_ref())
+        .map_err(|e| {
+            fmt_err!("Failed to ABI decode using resolved_sol_type directly for '{primary}': {e}.")
+        })?;
+
+    // Use the resolver to properly encode the data.
+    let encoded_data: Vec<u8> = resolver
+        .encode_data(&sol_value)
+        .map_err(|e| fmt_err!("Failed to EIP-712 encode data for struct '{primary}': {e}"))?
+        .ok_or_else(|| fmt_err!("EIP-712 data encoding returned 'None' for struct '{primary}'"))?;
+
+    // Compute the type hash of the primary type.
+    let type_hash = resolver
+        .type_hash(primary)
+        .map_err(|e| fmt_err!("Failed to compute typeHash for EIP712 type '{primary}': {e}"))?;
+
+    // Compute the struct hash of the concatenated type hash and encoded data.
+    let mut bytes_to_hash = Vec::with_capacity(32 + encoded_data.len());
+    bytes_to_hash.extend_from_slice(type_hash.as_slice());
+    bytes_to_hash.extend_from_slice(&encoded_data);
+
+    Ok(keccak256(&bytes_to_hash).to_vec())
 }
