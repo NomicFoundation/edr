@@ -8,4 +8,4 @@ cp ../../data/contracts/coverage.sol ./coverage.sol
 
 # NAPI build must be done before the TypeScript compilation
 napi build --platform --no-const-enum --cargo-flags="--locked" "$@"
-tsc -p tsconfig.prod.json
+tsc
