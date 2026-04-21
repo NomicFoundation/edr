@@ -71,9 +71,10 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
             }
         };
 
+        let verbose = self.verbose_tracing();
         let response = edr_provider::Provider::handle_request(self, request);
 
-        ChainSpecT::cast_response(response)
+        ChainSpecT::cast_response(response, verbose)
     }
 
     fn set_call_override_callback(&self, call_override_callback: Arc<dyn SyncCallOverride>) {

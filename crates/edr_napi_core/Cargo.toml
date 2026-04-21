@@ -24,7 +24,6 @@ edr_rpc_client.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_solidity_tests.workspace = true
-edr_tracing.workspace = true
 edr_transaction.workspace = true
 foundry-cheatcodes.workspace = true
 itertools = { version = "0.12.0", default-features = false }

@@ -139,6 +139,11 @@ impl<
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
         data.set_verbose_tracing(enabled);
     }
+
+    pub fn verbose_tracing(&self) -> bool {
+        let data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
+        data.verbose_tracing()
+    }
 }
 
 impl<

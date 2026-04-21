@@ -52,7 +52,6 @@ edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_state_api.workspace = true
 edr_test_utils = { workspace = true, optional = true }
-edr_tracing.workspace = true
 edr_transaction.workspace = true
 edr_utils.workspace = true
 foundry-evm-traces.workspace = true

@@ -30,6 +30,7 @@ impl SyncProvider for MockProvider {
                 data,
                 stack_trace_result: None,
                 call_trace_arenas: Vec::new(),
+                verbose: false,
             })
             .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))
     }
