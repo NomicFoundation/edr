@@ -795,6 +795,29 @@ export interface SolidityTestRunnerConfigArgs {
    * Defaults to none.
    */
   testFunctionOverrides?: Array<TestFunctionOverride>
+  /**
+   * A list of EIP-712 canonical type definitions that can be referenced
+   * by type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
+   *
+   * The type of a struct is encoded as:
+   *
+   * `name ‖ "(" ‖ member₁ ‖ "," ‖ member₂ ‖ "," ‖ … ‖ memberₙ ")"`
+   *
+   * where each member is written as `type ‖ " " ‖ name`.
+   *
+   * For example, the following struct:
+   *
+   * ```
+   *  struct Mail {
+   *    address from;
+   *    address to;
+   *    string contents;
+   *  }
+   * ```
+   *
+   * is encoded as `Mail(address from,address to,string contents)`.
+   */
+  eip712CanonicalTypes?: Array<string>
 }
 /** Fuzz testing configuration */
 export interface FuzzConfigArgs {

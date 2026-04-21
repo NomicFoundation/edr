@@ -1083,7 +1083,7 @@ impl Cheatcode for eip712HashType_0Call {
         >,
     >(
         &self,
-        _state: &mut Cheatcodes<
+        state: &mut Cheatcodes<
             BlockT,
             TxT,
             ChainContextT,
@@ -1096,7 +1096,9 @@ impl Cheatcode for eip712HashType_0Call {
         let Self {
             typeNameOrDefinition,
         } = self;
-        let type_def = get_canonical_type_def(typeNameOrDefinition)?;
+
+        let type_def =
+            get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types_by_name)?;
         Ok(keccak256(type_def.as_bytes()).to_vec())
     }
 }
@@ -1122,7 +1124,7 @@ impl Cheatcode for eip712HashStruct_0Call {
         >,
     >(
         &self,
-        _state: &mut Cheatcodes<
+        state: &mut Cheatcodes<
             BlockT,
             TxT,
             ChainContextT,
@@ -1137,7 +1139,8 @@ impl Cheatcode for eip712HashStruct_0Call {
             abiEncodedData,
         } = self;
 
-        let type_def = get_canonical_type_def(typeNameOrDefinition)?;
+        let type_def =
+            get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types_by_name)?;
         let primary = &type_def[..type_def.find('(').unwrap_or(type_def.len())];
 
         get_struct_hash(primary, &type_def, abiEncodedData)
@@ -1277,21 +1280,25 @@ fn random_int<
 /// Returns EIP-712 canonical type definition from the provided string type
 /// representation or type name. If type name provided, then it looks up
 /// bindings from `eip712CanonicalTypes` configuration.
-fn get_canonical_type_def(name_or_def: &str) -> Result<String> {
-    let type_def = if name_or_def.contains('(') {
+fn get_canonical_type_def(
+    name_or_def: &str,
+    eip712_types_by_name: &std::collections::HashMap<String, String>,
+) -> Result<String> {
+    if name_or_def.contains('(') {
         // If the input contains '(', it must be the type definition.
-        EncodeType::parse(name_or_def).and_then(|parsed| parsed.canonicalize())?
+        Ok(EncodeType::parse(name_or_def).and_then(|parsed| parsed.canonicalize())?)
     } else {
         // Otherwise, it must be the type name.
-        todo!("Get type def from configured canonical types")
-    };
-
-    Ok(type_def)
+        match eip712_types_by_name.get(name_or_def) {
+            Some(value) => Ok(value.clone()),
+            None => bail!("'{name_or_def}' not defined in `eip712CanonicalTypes`",),
+        }
+    }
 }
 
 /// Returns the EIP-712 struct hash for provided name, definition and ABI
 /// encoded data.
-fn get_struct_hash(primary: &str, type_def: &String, abi_encoded_data: &Bytes) -> Result {
+fn get_struct_hash(primary: &str, type_def: &str, abi_encoded_data: &Bytes) -> Result {
     let mut resolver = Resolver::default();
 
     // Populate the resolver by ingesting the canonical type definition, and then

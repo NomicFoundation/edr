@@ -167,6 +167,38 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Test function level config overrides.
     /// Defaults to none.
     pub test_function_overrides: Option<Vec<TestFunctionOverride>>,
+    /// A list of EIP-712 canonical type definitions that can be referenced by
+    /// type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
+    ///
+    /// Each entry is an independent, self-contained type definition. A
+    /// definition that references nested struct types must inline those
+    /// struct definitions, per the EIP-712 `encodeType` spec.
+    ///
+    /// Only the primary (leftmost) type of each entry is registered by name.
+    /// Nested struct types referenced inside an entry are *not* registered
+    /// under their own names. To look up a nested struct by name from a
+    /// cheatcode, add it as a separate top-level entry whose primary type
+    /// is the nested struct.
+    ///
+    /// The type of a struct is encoded as:
+    ///
+    /// `name ‖ "(" ‖ member₁ ‖ "," ‖ member₂ ‖ "," ‖ … ‖ memberₙ ")"`
+    ///
+    /// where each member is written as `type ‖ " " ‖ name`.
+    ///
+    /// Entries that fail to parse cause a startup error listing every bad
+    /// entry.
+    ///
+    /// Example — to make both `Mail` and `Person` reachable by name:
+    ///
+    /// ```text
+    /// "Mail(Person from,Person to,string contents)Person(address wallet,string name)"
+    /// "Person(address wallet,string name)"
+    /// ```
+    ///
+    /// With *only* the first entry, `vm.eip712HashType("Mail")` works but
+    /// `vm.eip712HashType("Person")` fails with an unknown-type error.
+    pub eip712_canonical_types: Option<Vec<String>>,
 }
 
 impl SolidityTestRunnerConfigArgs {
@@ -215,6 +247,7 @@ impl SolidityTestRunnerConfigArgs {
             test_pattern,
             generate_gas_report,
             test_function_overrides,
+            eip712_canonical_types,
         } = self;
 
         let test_pattern = TestFilterConfig {
@@ -294,6 +327,17 @@ impl SolidityTestRunnerConfigArgs {
                 })
                 .transpose()?
                 .unwrap_or_default(),
+            eip712_types_by_name: foundry_cheatcodes::parse_eip712_canonical_types(
+                eip712_canonical_types.unwrap_or_default(),
+            )
+            .map_err(|errors| {
+                let msg = errors
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                napi::Error::new(Status::InvalidArg, msg)
+            })?,
         };
 
         let on_collected_coverage_fn = observability.map_or_else(

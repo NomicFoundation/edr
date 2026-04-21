@@ -5,11 +5,13 @@ use std::{
     time::Duration,
 };
 
+use alloy_dyn_abi::eip712_parser::EncodeType;
 use alloy_primitives::{map::AddressHashMap, U256};
 use edr_artifact::ArtifactId;
 use edr_common::fs::normalize_path;
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, evm_context::HardforkTr, opts::EvmOpts};
+use itertools::Itertools;
 
 use super::{FsAccessKind, FsPermissions, Result, RpcEndpoint, RpcEndpointUrl, RpcEndpoints};
 use crate::{cache::StorageCachingConfig, Vm::Rpc};
@@ -61,6 +63,8 @@ pub struct CheatsConfig<HardforkT> {
     pub chains: HashMap<String, ChainData>,
     /// Mapping of chain IDs to their aliases
     pub chain_id_to_alias: HashMap<u64, String>,
+    // Mapping of knwon EIP-712 canonical type definition by type name.
+    pub eip712_types_by_name: HashMap<String, String>,
 }
 
 /// Chain data for getChain cheatcodes
@@ -116,6 +120,8 @@ pub struct CheatsConfigOptions {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test. Overrides the global setting for specific test functions.
     pub functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
+    /// Mapping of knwon EIP-712 canonical type definition by type name.
+    pub eip712_types_by_name: HashMap<String, String>,
 }
 
 // TODO: https://github.com/NomicFoundation/edr/issues/1184
@@ -127,6 +133,18 @@ pub struct TestFunctionIdentifier {
     pub contract_artifact: ArtifactId,
     /// The function selector as hex string
     pub function_selector: String,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum Eip712ConfigError {
+    #[error("failed to parse EIP-712 canonical type {input}: {reason}")]
+    Parse { input: String, reason: String },
+
+    #[error("failed to canonicalize EIP-712 type {input}: {reason}")]
+    Canonicalize { input: String, reason: String },
+
+    #[error("duplicate EIP-712 type name {name}")] // TODO: not being used, should we?
+    DuplicateName { name: String },
 }
 
 impl PartialEq for TestFunctionIdentifier {
@@ -167,6 +185,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             seed,
             allow_internal_expect_revert,
             functions_internal_expect_revert,
+            eip712_types_by_name,
         } = config;
 
         // TODO
@@ -193,6 +212,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             functions_internal_expect_revert,
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
+            eip712_types_by_name,
         }
     }
 
@@ -366,6 +386,53 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
     }
 }
 
+/// Parses and canonicalizes a list of EIP-712 type definitions, keyed by their
+/// primary type name.
+///
+/// Only the **primary** (leftmost) type of each entry is registered by name.
+///
+/// Returns every error encountered
+pub fn parse_eip712_canonical_types(
+    eip712_type_definitions: Vec<String>,
+) -> Result<HashMap<String, String>, Vec<Eip712ConfigError>> {
+    let (entries, errors): (Vec<_>, Vec<_>) = eip712_type_definitions
+        .into_iter()
+        .map::<Result<(String, String), Eip712ConfigError>, _>(|eip712_definition| {
+            // Normalize type definitions defensively; downstream relies on canonical form.
+            let encode_type = EncodeType::parse(&eip712_definition).map_err(|error| {
+                Eip712ConfigError::Parse {
+                    input: eip712_definition.clone(),
+                    reason: error.to_string(),
+                }
+            })?;
+            let name = encode_type
+                .types
+                .first()
+                .ok_or(Eip712ConfigError::Parse {
+                    input: eip712_definition.clone(),
+                    reason: "no parseable type definition found".into(),
+                })?
+                .type_name
+                .into();
+            let canonical =
+                encode_type
+                    .canonicalize()
+                    .map_err(|error| Eip712ConfigError::Canonicalize {
+                        input: eip712_definition,
+                        reason: error.to_string(),
+                    })?;
+
+            Ok((name, canonical))
+        })
+        .partition_result();
+
+    if !errors.is_empty() {
+        Err(errors)
+    } else {
+        Ok(entries.into_iter().collect())
+    }
+}
+
 impl<HardforkT: HardforkTr> Default for CheatsConfig<HardforkT> {
     fn default() -> Self {
         Self {
@@ -386,6 +453,7 @@ impl<HardforkT: HardforkTr> Default for CheatsConfig<HardforkT> {
             functions_internal_expect_revert: HashSet::new(),
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
+            eip712_types_by_name: HashMap::new(),
         }
     }
 }
@@ -796,6 +864,7 @@ mod tests {
             seed: None,
             allow_internal_expect_revert: false,
             functions_internal_expect_revert: HashSet::new(),
+            eip712_types_by_name: HashMap::new(),
         };
 
         CheatsConfig::new(
