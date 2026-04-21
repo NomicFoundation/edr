@@ -2525,6 +2525,34 @@ interface Vm {
     #[cheatcode(group = Utilities, safety = Unsafe)]
     function interceptInitcode() external;
 
+    /// Generates the hash of the canonical EIP-712 type representation.
+    ///
+    /// Supports 2 different inputs:
+    ///  1. Name of the type (i.e. "Transaction").
+    ///     * Requires previous `eip712CanonicalTypes` configuration
+    ///
+    ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
+    ///     * Note: the cheatcode will output the canonical type even if the input is malformated
+    ///             with the wrong order of elements or with extra whitespaces.
+    #[cheatcode(group = Utilities)]
+    function eip712HashType(string calldata typeNameOrDefinition) external pure returns (bytes32 typeHash);
+
+    /// Generates the struct hash of the canonical EIP-712 type representation and its abi-encoded data.
+    ///
+    /// Supports 2 different inputs:
+    ///  1. Name of the type (i.e. "PermitSingle")
+    ///     * Requires previous `eip712CanonicalTypes` configuration
+    ///
+    ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
+    ///     * Note: the cheatcode will use the canonical type even if the input is malformated
+    ///             with the wrong order of elements or with extra whitespaces.
+    #[cheatcode(group = Utilities)]
+    function eip712HashStruct(string calldata typeNameOrDefinition, bytes calldata abiEncodedData) external pure returns (bytes32 typeHash);
+
+    /// Generates a ready-to-sign digest of human-readable typed data following the EIP-712 standard.
+    #[cheatcode(group = Utilities)]
+    function eip712HashTypedData(string calldata jsonData) external pure returns (bytes32 digest);
+
     // ======== Unsupported Cheatcodes ========
 
     // -------- Data Structures --------
@@ -2777,23 +2805,13 @@ interface Vm {
 
     /// EIP-712 cheatcodes are not supported.
     #[cheatcode(group = Utilities, status = Unsupported)]
-    function eip712HashType(string calldata typeNameOrDefinition) external pure returns (bytes32 typeHash);
-
-    /// EIP-712 cheatcodes are not supported.
-    #[cheatcode(group = Utilities, status = Unsupported)]
     function eip712HashType(string calldata bindingsPath, string calldata typeName) external pure returns (bytes32 typeHash);
 
-    /// EIP-712 cheatcodes are not supported.
-    #[cheatcode(group = Utilities, status = Unsupported)]
-    function eip712HashStruct(string calldata typeNameOrDefinition, bytes calldata abiEncodedData) external pure returns (bytes32 typeHash);
 
     /// EIP-712 cheatcodes are not supported.
     #[cheatcode(group = Utilities, status = Unsupported)]
     function eip712HashStruct(string calldata bindingsPath, string calldata typeName, bytes calldata abiEncodedData) external pure returns (bytes32 typeHash);
 
-    /// EIP-712 cheatcodes are not supported.
-    #[cheatcode(group = Utilities, status = Unsupported)]
-    function eip712HashTypedData(string calldata jsonData) external pure returns (bytes32 digest);
 
     // -------- Testing --------
 
