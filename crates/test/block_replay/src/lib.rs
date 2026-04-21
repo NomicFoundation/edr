@@ -12,11 +12,11 @@ use edr_block_api::{
 use edr_block_builder_api::{BlockBuilder as _, BlockInputs};
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_block_remote::RemoteBlock;
+use edr_blockchain_api::{BlockchainMetadata as _, GetBlockchainBlock as _, StateAtBlock as _};
 use edr_blockchain_fork::{
     eips::eip4788::{beacon_root_storage_slots, BeaconRootStorageSlots, BEACON_ROOTS_ADDRESS},
     ForkedBlockchain,
 };
-use edr_blockchain_api::{BlockchainMetadata as _, GetBlockchainBlock as _, StateAtBlock as _};
 use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction, HardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::config::EvmConfig;

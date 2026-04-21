@@ -46,8 +46,15 @@ async fn assert_base_fee_per_gas(
         |remote_header, local_header, parent_header| {
             let base_fee_params = decode_base_params(&parent_header.extra_data);
             let parent_base_fee_per_gas = parent_header.base_fee_per_gas.unwrap() as u64;
+            let gas_metered = core::cmp::max(
+                    parent_header.gas_used,
+                    parent_header
+                        .blob_gas
+                        .as_ref()
+                        .map_or(0, |blob_gas| blob_gas.gas_used),
+                );
             let alloy_calculation = calc_next_block_base_fee(
-                parent_header.gas_used,
+                gas_metered,
                 parent_header.gas_limit,
                 parent_base_fee_per_gas,
                 base_fee_params,
@@ -64,12 +71,12 @@ impl_test_base_fee_calc! {
     base_mainnet: json_rpc_url_provider::base_mainnet() => [
         // blocks from 2025-12-18 - BaseFeeParams(50, 5)
         39628091, // parent gas_used below target
-        39628092, // parent gas_used over target - FAILS
-        39628093, // parent gas_used over target - FAILS
-        39628094, // parent gas_used over target - FAILS
-        39628095, // parent gas_used over target - FAILS
-        39628096, // parent gas_used over target - FAILS
-        39628097, // parent gas_used over target - FAILS
+        39628092, // parent gas_used over target
+        39628093, // parent gas_used over target
+        39628094, // parent gas_used over target
+        39628095, // parent gas_used over target
+        39628096, // parent gas_used over target
+        39628097, // parent gas_used over target
         39628098, // parent gas_used over target
         39628099, // parent gas_used below target
         39628100, // parent gas_used over target
@@ -83,6 +90,6 @@ impl_test_base_fee_calc! {
         39842878, // parent gas_used below target
         39842879, // parent gas_used above target
         39842880, // parent gas_used below target
-        44467358, // FAILS
+        44467358, 
     ],
 }
