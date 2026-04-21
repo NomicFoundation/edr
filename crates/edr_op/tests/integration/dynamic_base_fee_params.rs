@@ -91,6 +91,7 @@ impl_test_dynamic_base_fee_params! {
         39_647_879, // SystemConfig EIP-1559 update 2025-12-18
         41_711_238, // SystemConfig EIP-1559 update 2026-02-04
         43_841_215, // SystemConfig EIP-1559 update 2026-03-25
+        44_467_358, // Jovian+ Block with exceeding `blobGasUsed`
     ],
     op_sepolia: json_rpc_url_provider::op_sepolia() => [
         26_806_602,

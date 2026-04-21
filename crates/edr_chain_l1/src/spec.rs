@@ -219,7 +219,12 @@ impl ProviderChainSpec for L1ChainSpec {
         hardfork: Self::Hardfork,
         default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> u128 {
-        calculate_next_base_fee_per_gas(header, default_base_fee_params, hardfork)
+        calculate_next_base_fee_per_gas(
+            header,
+            u128::from(header.gas_used),
+            default_base_fee_params,
+            hardfork,
+        )
     }
 
     fn default_schedulded_blob_params() -> Option<ScheduledBlobParams> {

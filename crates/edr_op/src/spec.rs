@@ -273,27 +273,44 @@ pub(crate) fn op_base_fee_params_for_block(
     }
 }
 
-/// Calculate next `base_fee` for OP stack block
+/// Calculates the next block's `base_fee` for an OP stack chain.
 ///
-/// If Jovian is activated, clamps the standard EVM calculation result to the
-/// minimum encoded in `extra_data` field See <https://specs.optimism.io/protocol/jovian/exec-engine.html#minimum-base-fee-in-block-header>
+/// Pre-Jovian: applies the standard EIP-1559 update over the parent's
+/// `gas_used`.
+///
+/// From Jovian onward, two changes apply:
+/// - `gasMetered := max(gasUsed, blobGasUsed)` is used in place of `gasUsed`,
+///   where `blobGasUsed` carries the parent block's DA footprint. See
+///   <https://specs.optimism.io/protocol/jovian/exec-engine.html#da-footprint-block-limit>.
+/// - The result is clamped to the minimum base fee encoded in the parent's
+///   `extra_data`. See
+///   <https://specs.optimism.io/protocol/jovian/exec-engine.html#minimum-base-fee-in-block-header>.
 pub(crate) fn op_next_base_fee(
     parent_header: &BlockHeader,
     hardfork: Hardfork,
     base_fee_params: &BaseFeeParams<Hardfork>,
 ) -> u128 {
-    let base_fee_per_gas =
-        calculate_next_base_fee_per_gas(parent_header, base_fee_params, hardfork);
     if hardfork >= Hardfork::JOVIAN {
+        let parent_blob_gas_used = parent_header
+            .blob_gas
+            .as_ref()
+            .map_or(0, |blob_gas| u128::from(blob_gas.gas_used));
+
+        let gas_metered = core::cmp::max(u128::from(parent_header.gas_used), parent_blob_gas_used);
+        let base_fee_per_gas =
+            calculate_next_base_fee_per_gas(parent_header, gas_metered, base_fee_params, hardfork);
+
         let min_base_fee = decode_min_base_fee(&parent_header.extra_data)
             .expect("Jovian should have min base fee defined in extra data");
-        if base_fee_per_gas < min_base_fee {
-            min_base_fee
-        } else {
-            base_fee_per_gas
-        }
+
+        core::cmp::max(base_fee_per_gas, min_base_fee)
     } else {
-        base_fee_per_gas
+        calculate_next_base_fee_per_gas(
+            parent_header,
+            u128::from(parent_header.gas_used),
+            base_fee_params,
+            hardfork,
+        )
     }
 }
 
@@ -470,5 +487,199 @@ mod tests {
             .blob_excess_gas_and_price()
             .expect("Blob excess gas should be set");
         assert_eq!(blob_excess_gas.excess_blob_gas, excess_gas);
+    }
+
+    mod op_next_base_fee {
+        use edr_eip1559::ConstantBaseFeeParams;
+
+        use super::*;
+
+        // With these parameters, `gas_target = gas_limit / elasticity = 5M`.
+        const GAS_LIMIT: u64 = 30_000_000;
+        const GAS_TARGET: u64 = 5_000_000;
+        const PARENT_BASE_FEE: u128 = 1_000_000_000;
+        const BASE_FEE_PARAMS: ConstantBaseFeeParams = ConstantBaseFeeParams {
+            max_change_denominator: 300,
+            elasticity_multiplier: 6,
+        };
+
+        fn parent_with(
+            gas_used: u64,
+            blob_gas_used: Option<u64>,
+            extra_data: Bytes,
+        ) -> BlockHeader {
+            BlockHeader {
+                gas_limit: GAS_LIMIT,
+                gas_used,
+                base_fee_per_gas: Some(PARENT_BASE_FEE),
+                blob_gas: blob_gas_used.map(|gas_used| BlobGas {
+                    gas_used,
+                    excess_gas: 0,
+                }),
+                extra_data,
+                ..BlockHeader::default()
+            }
+        }
+
+        #[test]
+        fn pre_jovian_ignores_blob_gas_used() {
+            // gas_used == target → no-change under standard EIP-1559 if blob is ignored.
+            let parent = parent_with(GAS_TARGET, Some(10_000_000), Bytes::default());
+
+            let result = op_next_base_fee(
+                &parent,
+                Hardfork::HOLOCENE,
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+            );
+
+            assert_eq!(result, PARENT_BASE_FEE);
+        }
+
+        #[test]
+        fn jovian_uses_blob_gas_when_larger_than_gas_used() {
+            // gas_used == target (would be no-change alone); blob_gas_used = 2 * target
+            // should drive the base fee up via gas_metered = max(gas_used, blob_gas_used).
+            let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, 1);
+            let parent = parent_with(GAS_TARGET, Some(2 * GAS_TARGET), extra_data);
+
+            let result = op_next_base_fee(
+                &parent,
+                Hardfork::JOVIAN,
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+            );
+
+            assert!(
+                result > PARENT_BASE_FEE,
+                "base fee should increase when blob_gas_used exceeds the target"
+            );
+
+            // Equivalent parent with the blob usage moved into gas_used should yield
+            // the same next base fee.
+            let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, 1);
+            let equivalent_parent = parent_with(2 * GAS_TARGET, None, extra_data);
+            let equivalent_result = op_next_base_fee(
+                &equivalent_parent,
+                Hardfork::JOVIAN,
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+            );
+            assert_eq!(result, equivalent_result);
+        }
+
+        #[test]
+        fn jovian_uses_gas_used_when_larger_than_blob_gas() {
+            let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, 1);
+            // gas_used > target, blob_gas_used tiny → gas_metered = gas_used.
+            let parent = parent_with(2 * GAS_TARGET, Some(1_000), extra_data);
+
+            let jovian_result = op_next_base_fee(
+                &parent,
+                Hardfork::JOVIAN,
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+            );
+
+            // Pre-Jovian result for the same header should match, since gas_used dominates.
+            let pre_jovian_parent = parent_with(2 * GAS_TARGET, Some(1_000), Bytes::default());
+            let pre_jovian_result = op_next_base_fee(
+                &pre_jovian_parent,
+                Hardfork::HOLOCENE,
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+            );
+            assert_eq!(jovian_result, pre_jovian_result);
+        }
+
+        #[test]
+        fn jovian_treats_missing_blob_gas_as_zero() {
+            let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, 1);
+            let with_blob_zero = parent_with(2 * GAS_TARGET, Some(0), extra_data.clone());
+            let without_blob = parent_with(2 * GAS_TARGET, None, extra_data);
+
+            let result_with_blob_zero = op_next_base_fee(
+                &with_blob_zero,
+                Hardfork::JOVIAN,
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+            );
+            let result_without_blob = op_next_base_fee(
+                &without_blob,
+                Hardfork::JOVIAN,
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+            );
+
+            assert_eq!(result_with_blob_zero, result_without_blob);
+        }
+
+        #[test]
+        fn pre_jovian_does_not_clamp_to_min_base_fee() {
+            // Even with a Jovian-encoded extra_data carrying a high min_base_fee, the
+            // pre-Jovian path must not apply the clamp — it should ignore extra_data
+            // entirely.
+            let min_base_fee = 999_000_000u128;
+            let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, min_base_fee);
+            // gas_used well under target → base fee decreases below min_base_fee.
+            let parent = parent_with(1_000_000, None, extra_data);
+
+            let result = op_next_base_fee(
+                &parent,
+                Hardfork::HOLOCENE,
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+            );
+
+            let expected = calculate_next_base_fee_per_gas(
+                &parent,
+                u128::from(parent.gas_used),
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+                Hardfork::HOLOCENE,
+            );
+            assert_eq!(result, expected);
+            assert!(
+                result < min_base_fee,
+                "pre-Jovian result should be below min_base_fee (i.e. un-clamped)"
+            );
+        }
+
+        #[test]
+        fn jovian_clamps_to_min_base_fee() {
+            let min_base_fee = 999_000_000u128;
+            let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, min_base_fee);
+            // gas_used well under target → unclamped base fee decreases below min_base_fee.
+            let parent = parent_with(GAS_TARGET / 5, None, extra_data);
+
+            let result = op_next_base_fee(
+                &parent,
+                Hardfork::JOVIAN,
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+            );
+
+            // Sanity: the un-clamped result would be below min_base_fee.
+            let unclamped = calculate_next_base_fee_per_gas(
+                &parent,
+                u128::from(parent.gas_used),
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+                Hardfork::JOVIAN,
+            );
+            assert!(unclamped < min_base_fee);
+            assert_eq!(result, min_base_fee);
+        }
+
+        #[test]
+        fn jovian_does_not_clamp_when_above_min_base_fee() {
+            let min_base_fee = 1u128;
+            let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, min_base_fee);
+            let parent = parent_with(1_000_000, None, extra_data);
+
+            let result = op_next_base_fee(
+                &parent,
+                Hardfork::JOVIAN,
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+            );
+
+            let expected = calculate_next_base_fee_per_gas(
+                &parent,
+                u128::from(parent.gas_used),
+                &BaseFeeParams::Constant(BASE_FEE_PARAMS),
+                Hardfork::JOVIAN,
+            );
+            assert_eq!(result, expected);
+            assert!(result > min_base_fee);
+        }
     }
 }
