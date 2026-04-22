@@ -595,6 +595,33 @@ impl<
             match_sig
         });
 
+        // Filter out functions sequentially since it's very fast and there is no need
+        // to do it in parallel.
+        let find_timer = Instant::now();
+        let functions = self
+            .contract
+            .abi
+            .functions()
+            .filter(|func| is_matching_test(func, filter))
+            .collect::<Vec<_>>();
+        let find_time = find_timer.elapsed();
+        debug!(
+            "Found {} test functions out of {} in {:?}",
+            functions.len(),
+            self.contract.abi.functions().count(),
+            find_time,
+        );
+
+        // Avoid set-up if there are no test functions to run
+        if functions.is_empty() {
+            return Ok(SuiteResult::new(
+                start.elapsed(),
+                Vec::new(),
+                BTreeMap::new(),
+                warnings,
+            ));
+        }
+
         // Invariant testing requires tracing to figure out what contracts were created.
         // We also want to disable `debug` for setup since we won't be using those
         // traces.
@@ -666,23 +693,6 @@ impl<
                 warnings,
             ));
         }
-
-        // Filter out functions sequentially since it's very fast and there is no need
-        // to do it in parallel.
-        let find_timer = Instant::now();
-        let functions = self
-            .contract
-            .abi
-            .functions()
-            .filter(|func| is_matching_test(func, filter))
-            .collect::<Vec<_>>();
-        let find_time = find_timer.elapsed();
-        debug!(
-            "Found {} test functions out of {} in {:?}",
-            functions.len(),
-            self.contract.abi.functions().count(),
-            find_time,
-        );
 
         let identified_contracts = has_invariants.then(|| {
             load_contracts(
