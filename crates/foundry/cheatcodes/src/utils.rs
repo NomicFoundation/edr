@@ -1142,11 +1142,7 @@ impl Cheatcode for eip712HashStruct_0Call {
         let type_def =
             get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types_by_name)?;
 
-        get_struct_hash(
-            type_def.name(),
-            type_def.canonical_definition(),
-            abiEncodedData,
-        )
+        get_struct_hash(&type_def, abiEncodedData)
     }
 }
 
@@ -1302,36 +1298,55 @@ fn get_canonical_type_def(
 
 /// Returns the EIP-712 struct hash for provided name, definition and ABI
 /// encoded data.
-fn get_struct_hash(primary: &str, type_def: &str, abi_encoded_data: &Bytes) -> Result {
+fn get_struct_hash(type_def: &Eip712TypeDef, abi_encoded_data: &Bytes) -> Result {
     let mut resolver = Resolver::default();
 
     // Populate the resolver by ingesting the canonical type definition, and then
     // get the corresponding `DynSolType` of the primary type.
     resolver
-        .ingest_string(type_def)
+        .ingest_string(type_def.canonical_definition())
         .map_err(|e| fmt_err!("Resolver failed to ingest type definition: {e}"))?;
 
-    let resolved_sol_type = resolver
-        .resolve(primary)
-        .map_err(|e| fmt_err!("Failed to resolve EIP-712 primary type '{primary}': {e}"))?;
+    let resolved_sol_type = resolver.resolve(type_def.name()).map_err(|e| {
+        fmt_err!(
+            "Failed to resolve EIP-712 primary type '{}': {e}",
+            type_def.name()
+        )
+    })?;
 
     // ABI-decode the bytes into `DynSolValue::CustomStruct`.
     let sol_value = resolved_sol_type
         .abi_decode(abi_encoded_data.as_ref())
         .map_err(|e| {
-            fmt_err!("Failed to ABI decode using resolved_sol_type directly for '{primary}': {e}.")
+            fmt_err!(
+                "Failed to ABI decode using resolved_sol_type directly for '{}': {e}.",
+                type_def.name()
+            )
         })?;
 
     // Use the resolver to properly encode the data.
     let encoded_data: Vec<u8> = resolver
         .encode_data(&sol_value)
-        .map_err(|e| fmt_err!("Failed to EIP-712 encode data for struct '{primary}': {e}"))?
-        .ok_or_else(|| fmt_err!("EIP-712 data encoding returned 'None' for struct '{primary}'"))?;
+        .map_err(|e| {
+            fmt_err!(
+                "Failed to EIP-712 encode data for struct '{}': {e}",
+                type_def.name()
+            )
+        })?
+        .ok_or_else(|| {
+            fmt_err!(
+                "EIP-712 data encoding returned 'None' for struct '{}'",
+                type_def.name()
+            )
+        })?;
 
     // Compute the type hash of the primary type.
-    let type_hash = resolver
-        .type_hash(primary)
-        .map_err(|e| fmt_err!("Failed to compute typeHash for EIP712 type '{primary}': {e}"))?;
+    let type_hash = resolver.type_hash(type_def.name()).map_err(|e| {
+        fmt_err!(
+            "Failed to compute typeHash for EIP712 type '{}': {e}",
+            type_def.name()
+        )
+    })?;
 
     // Compute the struct hash of the concatenated type hash and encoded data.
     let mut bytes_to_hash = Vec::with_capacity(32 + encoded_data.len());

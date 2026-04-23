@@ -2529,11 +2529,11 @@ interface Vm {
     ///
     /// Supports 2 different inputs:
     ///  1. Name of a primary type previously declared via the
-    ///     `eip712CanonicalTypes` runner configuration
+    ///     `eip712CanonicalTypes` runner configuration.
     ///
     ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
-    ///     * Note: the cheatcode will output the canonical type even if the input is malformed
-    ///             with the wrong order of elements or with extra whitespaces.
+    ///     Note: the cheatcode will output the canonical type even if the input is malformed
+    ///           with the wrong order of elements or with extra whitespaces.
     #[cheatcode(group = Utilities)]
     function eip712HashType(string calldata typeNameOrDefinition) external pure returns (bytes32 typeHash);
 
@@ -2544,8 +2544,8 @@ interface Vm {
     ///     `eip712CanonicalTypes` runner configuration
     ///
     ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
-    ///     * Note: the cheatcode will use the canonical type even if the input is malformed
-    ///             with the wrong order of elements or with extra whitespaces.
+    ///     Note: the cheatcode will use the canonical type even if the input is malformed
+    ///           with the wrong order of elements or with extra whitespaces.
     #[cheatcode(group = Utilities)]
     function eip712HashStruct(string calldata typeNameOrDefinition, bytes calldata abiEncodedData) external pure returns (bytes32 typeHash);
 

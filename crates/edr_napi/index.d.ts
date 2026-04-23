@@ -1639,11 +1639,6 @@ export declare class EdrContext {
    *   with the results of each test suite as soon as it finished executing.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
-  /**
-   *Creates a mock provider, which always returns the given response.
-   *For testing purposes.
-   */
-  createMockProvider(mockedResponse: any): Provider
 }
 export declare class ContractDecoder {
   /**Creates an empty instance. */
