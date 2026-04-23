@@ -2528,7 +2528,7 @@ interface Vm {
     /// Generates the hash of the canonical EIP-712 type representation.
     ///
     /// Supports 2 different inputs:
-    ///   1. Name of a primary type previously declared via the
+    ///  1. Name of a primary type previously declared via the
     ///     `eip712CanonicalTypes` runner configuration
     ///
     ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").

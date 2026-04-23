@@ -796,8 +796,18 @@ export interface SolidityTestRunnerConfigArgs {
    */
   testFunctionOverrides?: Array<TestFunctionOverride>
   /**
-   * A list of EIP-712 canonical type definitions that can be referenced
-   * by type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
+   * A list of EIP-712 canonical type definitions that can be referenced by
+   * type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
+   *
+   * Each entry is an independent, self-contained type definition. A
+   * definition that references nested struct types must inline those
+   * struct definitions, per the EIP-712 `encodeType` spec.
+   *
+   * Only the primary (leftmost) type of each entry is registered by name.
+   * Nested struct types referenced inside an entry are *not* registered
+   * under their own names. To look up a nested struct by name from a
+   * cheatcode, add it as a separate top-level entry whose primary type
+   * is the nested struct.
    *
    * The type of a struct is encoded as:
    *
@@ -805,17 +815,18 @@ export interface SolidityTestRunnerConfigArgs {
    *
    * where each member is written as `type ‖ " " ‖ name`.
    *
-   * For example, the following struct:
+   * Entries that fail to parse cause a startup error listing every bad
+   * entry.
    *
-   * ```
-   *  struct Mail {
-   *    address from;
-   *    address to;
-   *    string contents;
-   *  }
+   * Example — to make both `Mail` and `Person` reachable by name:
+   *
+   * ```text
+   * "Mail(Person from,Person to,string contents)Person(address wallet,string name)"
+   * "Person(address wallet,string name)"
    * ```
    *
-   * is encoded as `Mail(address from,address to,string contents)`.
+   * With *only* the first entry, `vm.eip712HashType("Mail")` works but
+   * `vm.eip712HashType("Person")` fails with an unknown-type error.
    */
   eip712CanonicalTypes?: Array<string>
 }
@@ -1628,6 +1639,11 @@ export declare class EdrContext {
    *   with the results of each test suite as soon as it finished executing.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
+  /**
+   *Creates a mock provider, which always returns the given response.
+   *For testing purposes.
+   */
+  createMockProvider(mockedResponse: any): Provider
 }
 export declare class ContractDecoder {
   /**Creates an empty instance. */

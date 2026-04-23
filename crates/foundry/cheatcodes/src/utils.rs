@@ -1185,6 +1185,7 @@ impl Cheatcode for eip712HashTypedDataCall {
         Ok(digest.to_vec())
     }
 }
+
 /// Helper to generate a random `uint` value (with given bits or bounded if
 /// specified) from type strategy.
 fn random_uint<

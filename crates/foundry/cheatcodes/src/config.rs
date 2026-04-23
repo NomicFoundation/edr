@@ -62,7 +62,7 @@ pub struct CheatsConfig<HardforkT> {
     pub chains: HashMap<String, ChainData>,
     /// Mapping of chain IDs to their aliases
     pub chain_id_to_alias: HashMap<u64, String>,
-    // Mapping of knwon EIP-712 canonical type definition by type name.
+    /// Mapping of known EIP-712 canonical type definitions by type name.
     pub eip712_types_by_name: HashMap<String, String>,
 }
 
@@ -119,7 +119,7 @@ pub struct CheatsConfigOptions {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test. Overrides the global setting for specific test functions.
     pub functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
-    /// Mapping of knwon EIP-712 canonical type definition by type name.
+    /// Mapping of known EIP-712 canonical type definitions by type name.
     pub eip712_types_by_name: HashMap<String, String>,
 }
 
