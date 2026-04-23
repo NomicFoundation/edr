@@ -1,6 +1,6 @@
 //! Implementations of [`Utilities`](spec::Group::Utilities) cheatcodes.
 
-use alloy_dyn_abi::{eip712_parser::EncodeType, DynSolType, DynSolValue, Resolver, TypedData};
+use alloy_dyn_abi::{DynSolType, DynSolValue, Resolver, TypedData};
 use alloy_ens::namehash;
 use alloy_primitives::{aliases::B32, keccak256, map::HashMap, Bytes, B64, U256};
 use alloy_sol_types::SolValue;
@@ -18,8 +18,8 @@ use revm::{context::result::HaltReasonTr, context_interface::JournalTr as _};
 
 #[allow(clippy::wildcard_imports)]
 use crate::{
-    impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt,
-    Result, Vm::*,
+    config::Eip712TypeDef, impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes,
+    CheatcodesExecutor, CheatsCtxt, Result, Vm::*,
 };
 
 /// Contains locations of traces ignored via cheatcodes.
@@ -1099,7 +1099,7 @@ impl Cheatcode for eip712HashType_0Call {
 
         let type_def =
             get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types_by_name)?;
-        Ok(keccak256(type_def.as_bytes()).to_vec())
+        Ok(keccak256(type_def.canonical_definition().as_bytes()).to_vec())
     }
 }
 
@@ -1141,9 +1141,12 @@ impl Cheatcode for eip712HashStruct_0Call {
 
         let type_def =
             get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types_by_name)?;
-        let primary = &type_def[..type_def.find('(').unwrap_or(type_def.len())];
 
-        get_struct_hash(primary, &type_def, abiEncodedData)
+        get_struct_hash(
+            type_def.name(),
+            type_def.canonical_definition(),
+            abiEncodedData,
+        )
     }
 }
 
@@ -1278,22 +1281,22 @@ fn random_int<
     )
 }
 
-/// Returns EIP-712 canonical type definition from the provided string type
-/// representation or type name. If type name provided, then it looks up
-/// bindings from `eip712CanonicalTypes` configuration.
+/// Resolves an EIP-712 type definition from either:
+///
+/// - an inline type definition string (detected by the presence of `(`), which
+///   is parsed and canonicalized on demand, or
+/// - a type name, looked up in the `eip712CanonicalTypes` runner config.
 fn get_canonical_type_def(
     name_or_def: &str,
-    eip712_types_by_name: &std::collections::HashMap<String, String>,
-) -> Result<String> {
+    eip712_types_by_name: &std::collections::HashMap<String, Eip712TypeDef>,
+) -> Result<Eip712TypeDef> {
     if name_or_def.contains('(') {
-        // If the input contains '(', it must be the type definition.
-        Ok(EncodeType::parse(name_or_def).and_then(|parsed| parsed.canonicalize())?)
+        Eip712TypeDef::parse(name_or_def).map_err(|error| fmt_err!("{error}"))
     } else {
-        // Otherwise, it must be the type name.
-        match eip712_types_by_name.get(name_or_def) {
-            Some(value) => Ok(value.clone()),
-            None => bail!("'{name_or_def}' not defined in `eip712CanonicalTypes`",),
-        }
+        eip712_types_by_name
+            .get(name_or_def)
+            .cloned()
+            .ok_or_else(|| fmt_err!("'{name_or_def}' not defined in `eip712CanonicalTypes`"))
     }
 }
 
