@@ -40,6 +40,7 @@ use crate::{
 pub(crate) const INVALID_INPUT: i16 = -32000;
 pub(crate) const INTERNAL_ERROR: i16 = -32603;
 pub(crate) const INVALID_PARAMS: i16 = -32602;
+pub(crate) const REVERT_ERROR: i16 = 3;
 
 /// Trait for retrieving the JSON-RPC error code from an error type.
 pub trait RpcErrorCode {
@@ -579,7 +580,7 @@ impl<
             ProviderError::Eip7702TransactionMissingReceiver => INVALID_INPUT,
             ProviderError::Eip7702TransactionWithoutAuthorizations => INVALID_INPUT,
             ProviderError::Eip712Error(_) => INVALID_INPUT,
-            ProviderError::EstimateGasTransactionFailure(_) => INVALID_INPUT,
+            ProviderError::EstimateGasTransactionFailure(error) => error.failure.error_code(),
             ProviderError::FetchReceipt(_) => INTERNAL_ERROR,
             ProviderError::GetBlock(error) => error.error_code(),
             ProviderError::InvalidArgument(_) => INVALID_PARAMS,
@@ -615,7 +616,7 @@ impl<
             ProviderError::State(_) => INVALID_INPUT,
             ProviderError::TimestampLowerThanPrevious { .. } => INVALID_INPUT,
             ProviderError::TimestampEqualsPrevious { .. } => INVALID_INPUT,
-            ProviderError::TransactionFailed(_) => INVALID_INPUT,
+            ProviderError::TransactionFailed(error) => error.failure.error_code(),
             ProviderError::TransactionCreationError(_) => INVALID_INPUT,
             ProviderError::TryFromIntError(_) => INVALID_INPUT,
             ProviderError::Unimplemented(_) => INVALID_INPUT,
@@ -816,6 +817,12 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailure<Halt
             TransactionFailureReason::OutOfGas(_error) => write!(f, "Transaction ran out of gas"),
             TransactionFailureReason::Revert(output) => write!(f, "{}", revert_error(output)),
         }
+    }
+}
+
+impl<HaltReasonT: HaltReasonTrait> RpcErrorCode for TransactionFailure<HaltReasonT> {
+    fn error_code(&self) -> i16 {
+        REVERT_ERROR
     }
 }
 
