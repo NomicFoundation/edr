@@ -60,6 +60,102 @@ impl RpcErrorCode for AccountOverrideConversionError {
     }
 }
 
+pub trait RpcErrorData {
+    fn error_data(&self) -> Option<serde_json::Value> {
+        None
+    }
+}
+
+impl<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT: HaltReasonTrait + serde::Serialize,
+        HardforkT: Debug,
+        TransactionValidationErrorT,
+    > RpcErrorData
+    for ProviderError<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT,
+        HardforkT,
+        TransactionValidationErrorT,
+    >
+{
+    fn error_data(&self) -> Option<serde_json::Value> {
+        let failure = match self {
+            Self::EstimateGasTransactionFailure(failure) => &failure.transaction_failure,
+            Self::TransactionFailed(failure) => &failure.failure,
+            Self::AbiDecoding(_)
+            | Self::AccountOverrideConversionError(_)
+            | Self::AutoMineGasPriceTooLow { .. }
+            | Self::AutoMineMaxFeePerGasTooLow { .. }
+            | Self::AutoMineMaxFeePerBlobGasTooLow { .. }
+            | Self::AutoMinePriorityFeeTooLow { .. }
+            | Self::AutoMineNonceTooHigh { .. }
+            | Self::AutoMineNonceTooLow { .. }
+            | Self::BlobMemPoolUnsupported
+            | Self::Blockchain(_)
+            | Self::Creation(_)
+            | Self::DebugTrace(_)
+            | Self::Eip4844CallRequestUnsupported
+            | Self::Eip4844TransactionUnsupported
+            | Self::Eip4844TransactionMissingReceiver
+            | Self::Eip712Error(_)
+            | Self::Eip7702TransactionMissingReceiver
+            | Self::Eip7702TransactionWithoutAuthorizations
+            | Self::FetchReceipt(_)
+            | Self::GetBlock(_)
+            | Self::InvalidArgument(_)
+            | Self::InvalidChainId { .. }
+            | Self::InvalidDropTransactionHash(_)
+            | Self::InvalidEip155TransactionChainId
+            | Self::InvalidFilterSubscriptionType { .. }
+            | Self::InvalidInput(_)
+            | Self::InvalidTransactionHash(_)
+            | Self::InvalidTransactionIndex(_)
+            | Self::InvalidTransactionInput(_)
+            | Self::InvalidTransactionType(_)
+            | Self::Logger(_)
+            | Self::MemPoolAddTransaction(_)
+            | Self::MemPoolUpdate(_)
+            | Self::MineBlock(_)
+            | Self::MineTransaction(_)
+            | Self::OnCollectedCoverageCallback(_)
+            | Self::OnCollectedGasReportCallback(_)
+            | Self::RpcClientError(_)
+            | Self::RpcVersion(_)
+            | Self::RunTransaction(_)
+            | Self::SetMinGasPriceUnsupported
+            | Self::Serialization(_)
+            | Self::SetAccountNonceLowerThanCurrent { .. }
+            | Self::SetAccountNonceWithPendingTransactions
+            | Self::SetBlockGasLimitMustBeGreaterThanZero
+            | Self::SetIntervalMiningConfigInvalid(_)
+            | Self::SetNextBlockBaseFeePerGasUnsupported { .. }
+            | Self::SetNextPrevRandaoUnsupported { .. }
+            | Self::Signature(_)
+            | Self::SolcDecoding(_)
+            | Self::State(_)
+            | Self::TimestampLowerThanPrevious(_)
+            | Self::TimestampEqualsPrevious { .. }
+            | Self::TransactionCreationError(_)
+            | Self::TryFromIntError(_)
+            | Self::Unimplemented(_)
+            | Self::UnknownAddress { .. }
+            | Self::UnmetHardfork { .. }
+            | Self::UnsupportedAccessListParameter { .. }
+            | Self::UnsupportedEIP1559Parameters { .. }
+            | Self::UnsupportedEIP4844Parameters { .. }
+            | Self::UnsupportedEip7702Parameters { .. }
+            | Self::UnsupportedTransactionTypeInDebugTrace { .. }
+            | Self::UnsupportedTransactionTypeForDebugTrace { .. }
+            | Self::UnsupportedMethod { .. } => return None,
+        };
+
+        Some(serde_json::to_value(failure).expect("`TransactionFailure` should convert to JSON"))
+    }
+}
+
 impl<
         BlockchainErrorT,
         CollectInspectorDataErrorT: RpcErrorCode,
@@ -497,34 +593,6 @@ impl<
         HaltReasonT: HaltReasonTrait,
         HardforkT: Debug,
         TransactionValidationErrorT,
-    >
-    ProviderError<
-        FetchReceiptErrorT,
-        GenesisBlockCreationErrorT,
-        HaltReasonT,
-        HardforkT,
-        TransactionValidationErrorT,
-    >
-{
-    /// Returns the transaction failure if the error contains one.
-    pub fn as_transaction_failure(&self) -> Option<&TransactionFailure<HaltReasonT>> {
-        match self {
-            ProviderError::EstimateGasTransactionFailure(transaction_failure) => {
-                Some(&transaction_failure.transaction_failure)
-            }
-            ProviderError::TransactionFailed(transaction_failure) => {
-                Some(&transaction_failure.failure)
-            }
-            _ => None,
-        }
-    }
-}
-impl<
-        FetchReceiptErrorT,
-        GenesisBlockCreationErrorT,
-        HaltReasonT: HaltReasonTrait,
-        HardforkT: Debug,
-        TransactionValidationErrorT,
     > From<EvmObserverCollectionError>
     for ProviderError<
         FetchReceiptErrorT,
@@ -580,7 +648,9 @@ impl<
             ProviderError::Eip7702TransactionMissingReceiver => INVALID_INPUT,
             ProviderError::Eip7702TransactionWithoutAuthorizations => INVALID_INPUT,
             ProviderError::Eip712Error(_) => INVALID_INPUT,
-            ProviderError::EstimateGasTransactionFailure(error) => error.failure.error_code(),
+            ProviderError::EstimateGasTransactionFailure(error) => {
+                error.transaction_failure.error_code()
+            }
             ProviderError::FetchReceipt(_) => INTERNAL_ERROR,
             ProviderError::GetBlock(error) => error.error_code(),
             ProviderError::InvalidArgument(_) => INVALID_PARAMS,
@@ -659,18 +729,10 @@ impl<
             TransactionValidationErrorT,
         >,
     ) -> Self {
-        let code = value.error_code();
-
-        let data = value.as_transaction_failure().map(|transaction_failure| {
-            serde_json::to_value(transaction_failure).expect("transaction_failure to json")
-        });
-
-        let message = value.to_string();
-
         Self {
-            code,
-            message,
-            data,
+            code: value.error_code(),
+            message: value.to_string(),
+            data: value.error_data(),
         }
     }
 }
