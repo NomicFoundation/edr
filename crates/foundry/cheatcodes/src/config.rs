@@ -11,7 +11,6 @@ use edr_artifact::ArtifactId;
 use edr_common::fs::normalize_path;
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, evm_context::HardforkTr, opts::EvmOpts};
-use itertools::Itertools;
 
 use super::{FsAccessKind, FsPermissions, Result, RpcEndpoint, RpcEndpointUrl, RpcEndpoints};
 use crate::{cache::StorageCachingConfig, Vm::Rpc};
@@ -143,8 +142,8 @@ pub enum Eip712ConfigError {
     #[error("failed to canonicalize EIP-712 type {input}: {reason}")]
     Canonicalize { input: String, reason: String },
 
-    #[error("duplicate EIP-712 type name {name}")] // TODO: not being used, should we?
-    DuplicateName { name: String },
+    #[error("duplicate EIP-712 type definition {name}")]
+    DuplicateTypeDef { name: String },
 }
 
 impl PartialEq for TestFunctionIdentifier {
@@ -386,18 +385,21 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
     }
 }
 
-/// Parses and canonicalizes a list of EIP-712 type definitions, keyed by their
+/// Parses and canonicalizes a list of EIP-712 type definitions, keyed by
 /// primary type name.
 ///
-/// Only the **primary** (leftmost) type of each entry is registered by name.
+/// Each entry must be a self-contained canonical definition — nested struct
+/// types referenced by the primary type must be inlined in the same string.
 ///
-/// Returns every error encountered
+/// Only the primary (leftmost) type is registered by name; nested types
+/// are not.
+///
+/// Collects every error encountered rather than stopping at the first.
 pub fn parse_eip712_canonical_types(
     eip712_type_definitions: Vec<String>,
 ) -> Result<HashMap<String, String>, Vec<Eip712ConfigError>> {
-    let (entries, errors): (Vec<_>, Vec<_>) = eip712_type_definitions
-        .into_iter()
-        .map::<Result<(String, String), Eip712ConfigError>, _>(|eip712_definition| {
+    let parse_definition =
+        |eip712_definition: String| -> Result<(String, String), Eip712ConfigError> {
             // Normalize type definitions defensively; downstream relies on canonical form.
             let encode_type = EncodeType::parse(&eip712_definition).map_err(|error| {
                 Eip712ConfigError::Parse {
@@ -408,7 +410,7 @@ pub fn parse_eip712_canonical_types(
             let name = encode_type
                 .types
                 .first()
-                .ok_or(Eip712ConfigError::Parse {
+                .ok_or_else(|| Eip712ConfigError::Parse {
                     input: eip712_definition.clone(),
                     reason: "no parseable type definition found".into(),
                 })?
@@ -423,13 +425,36 @@ pub fn parse_eip712_canonical_types(
                     })?;
 
             Ok((name, canonical))
-        })
-        .partition_result();
+        };
 
-    if !errors.is_empty() {
-        Err(errors)
+    let (eip712_types_by_name, errors) = eip712_type_definitions
+        .into_iter()
+        .map(parse_definition)
+        .fold(
+            (
+                HashMap::<String, String>::new(),
+                Vec::<Eip712ConfigError>::new(),
+            ),
+            |(mut map, mut errors), parsed| {
+                match parsed {
+                    Ok((name, canonical)) => {
+                        // Reject duplicates rather than silently overwriting: conflicting EIP-712
+                        // definitions would yield a wrong hash that's visually indistinguishable
+                        // from a correct one.
+                        if map.insert(name.clone(), canonical).is_some() {
+                            errors.push(Eip712ConfigError::DuplicateTypeDef { name });
+                        }
+                    }
+                    Err(err) => errors.push(err),
+                }
+                (map, errors)
+            },
+        );
+
+    if errors.is_empty() {
+        Ok(eip712_types_by_name)
     } else {
-        Ok(entries.into_iter().collect())
+        Err(errors)
     }
 }
 
