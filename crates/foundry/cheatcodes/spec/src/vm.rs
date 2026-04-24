@@ -2532,7 +2532,7 @@ interface Vm {
     ///     `eip712CanonicalTypes` runner configuration.
     ///
     ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
-    ///     Note: the cheatcode will output the canonical type even if the input is malformed
+    ///     Note: the cheatcode will use the canonical type even if the input is malformed
     ///           with the wrong order of elements or with extra whitespaces.
     #[cheatcode(group = Utilities)]
     function eip712HashType(string calldata typeNameOrDefinition) external pure returns (bytes32 typeHash);
