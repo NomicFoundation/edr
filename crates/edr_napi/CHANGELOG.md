@@ -1,5 +1,19 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.32
+
+### Minor Changes
+
+- 829f920: - Added support for EIP-712 cheatcodes `eip712HashType`, `eip712HashStruct`, `eip712HashTypedData`.
+  - Added new `eip712CanonicalTypes` solidity runner config option for name-based type resolution.
+- 9b4685d: - Added a `getCoverageLibrary()` helper at the `@nomicfoundation/edr/coverage` subpath that returns the library's source and expected filename.
+  - Bundled the Solidity coverage library with EDR.
+  - Changed `addStatementCoverageInstrumentation` to no longer accept a library path argument.
+
+### Patch Changes
+
+- 5d2d2db: Fixed OP stack Jovian base fee calculation to use `max(gasUsed, blobGasUsed)`
+
 ## 0.12.0-next.31
 
 ### Minor Changes
