@@ -31,12 +31,15 @@
   },
   "exports": {
     ".": "./index.js",
-    "./solidity-tests": "./dist/src/ts/solidity_tests.js"
+    "./solidity-tests": "./dist/src/ts/solidity_tests.js",
+    "./coverage": "./dist/src/ts/coverage.js"
   },
   "files": [
     "index.js",
     "index.d.ts",
-    "src/"
+    "src/",
+    "dist/src/",
+    "coverage.sol"
   ],
   "license": "MIT",
   "main": "index.js",
