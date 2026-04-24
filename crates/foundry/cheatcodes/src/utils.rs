@@ -1,8 +1,8 @@
 //! Implementations of [`Utilities`](spec::Group::Utilities) cheatcodes.
 
-use alloy_dyn_abi::{DynSolType, DynSolValue};
+use alloy_dyn_abi::{DynSolType, DynSolValue, Resolver, TypedData};
 use alloy_ens::namehash;
-use alloy_primitives::{aliases::B32, map::HashMap, B64, U256};
+use alloy_primitives::{aliases::B32, keccak256, map::HashMap, Bytes, B64, U256};
 use alloy_sol_types::SolValue;
 use foundry_evm_core::{
     backend::CheatcodeBackend,
@@ -18,8 +18,8 @@ use revm::{context::result::HaltReasonTr, context_interface::JournalTr as _};
 
 #[allow(clippy::wildcard_imports)]
 use crate::{
-    impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt,
-    Result, Vm::*,
+    config::Eip712TypeDef, impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes,
+    CheatcodesExecutor, CheatsCtxt, Result, Vm::*,
 };
 
 /// Contains locations of traces ignored via cheatcodes.
@@ -1062,6 +1062,129 @@ impl Cheatcode for setSeedCall {
     }
 }
 
+impl_is_pure_true!(eip712HashType_0Call);
+impl Cheatcode for eip712HashType_0Call {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            typeNameOrDefinition,
+        } = self;
+
+        let type_def =
+            get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types_by_name)?;
+        Ok(keccak256(type_def.canonical_definition().as_bytes()).to_vec())
+    }
+}
+
+impl_is_pure_true!(eip712HashStruct_0Call);
+impl Cheatcode for eip712HashStruct_0Call {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            typeNameOrDefinition,
+            abiEncodedData,
+        } = self;
+
+        let type_def =
+            get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types_by_name)?;
+
+        get_struct_hash(&type_def, abiEncodedData)
+    }
+}
+
+impl_is_pure_true!(eip712HashTypedDataCall);
+impl Cheatcode for eip712HashTypedDataCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self { jsonData } = self;
+        let typed_data: TypedData = serde_json::from_str(jsonData)?;
+        let digest = typed_data.eip712_signing_hash()?;
+
+        Ok(digest.to_vec())
+    }
+}
+
 /// Helper to generate a random `uint` value (with given bits or bounded if
 /// specified) from type strategy.
 fn random_uint<
@@ -1152,4 +1275,83 @@ fn random_int<
             .current()
             .abi_encode(),
     )
+}
+
+/// Resolves an EIP-712 type definition from either:
+///
+/// - an inline type definition string (detected by the presence of `(`), which
+///   is parsed and canonicalized on demand, or
+/// - a type name, looked up in the `eip712CanonicalTypes` runner config.
+fn get_canonical_type_def(
+    name_or_def: &str,
+    eip712_types_by_name: &std::collections::HashMap<String, Eip712TypeDef>,
+) -> Result<Eip712TypeDef> {
+    if name_or_def.contains('(') {
+        Eip712TypeDef::parse(name_or_def).map_err(|error| fmt_err!("{error}"))
+    } else {
+        eip712_types_by_name
+            .get(name_or_def)
+            .cloned()
+            .ok_or_else(|| fmt_err!("'{name_or_def}' not defined in `eip712CanonicalTypes`"))
+    }
+}
+
+/// Returns the EIP-712 struct hash for provided name, definition and ABI
+/// encoded data.
+fn get_struct_hash(type_def: &Eip712TypeDef, abi_encoded_data: &Bytes) -> Result {
+    let mut resolver = Resolver::default();
+
+    // Populate the resolver by ingesting the canonical type definition, and then
+    // get the corresponding `DynSolType` of the primary type.
+    resolver
+        .ingest_string(type_def.canonical_definition())
+        .map_err(|e| fmt_err!("Resolver failed to ingest type definition: {e}"))?;
+
+    let resolved_sol_type = resolver.resolve(type_def.name()).map_err(|e| {
+        fmt_err!(
+            "Failed to resolve EIP-712 primary type '{}': {e}",
+            type_def.name()
+        )
+    })?;
+
+    // ABI-decode the bytes into `DynSolValue::CustomStruct`.
+    let sol_value = resolved_sol_type
+        .abi_decode(abi_encoded_data.as_ref())
+        .map_err(|e| {
+            fmt_err!(
+                "Failed to ABI decode using resolved_sol_type directly for '{}': {e}.",
+                type_def.name()
+            )
+        })?;
+
+    // Use the resolver to properly encode the data.
+    let encoded_data: Vec<u8> = resolver
+        .encode_data(&sol_value)
+        .map_err(|e| {
+            fmt_err!(
+                "Failed to EIP-712 encode data for struct '{}': {e}",
+                type_def.name()
+            )
+        })?
+        .ok_or_else(|| {
+            fmt_err!(
+                "EIP-712 data encoding returned 'None' for struct '{}'",
+                type_def.name()
+            )
+        })?;
+
+    // Compute the type hash of the primary type.
+    let type_hash = resolver.type_hash(type_def.name()).map_err(|e| {
+        fmt_err!(
+            "Failed to compute typeHash for EIP712 type '{}': {e}",
+            type_def.name()
+        )
+    })?;
+
+    // Compute the struct hash of the concatenated type hash and encoded data.
+    let mut bytes_to_hash = Vec::with_capacity(32 + encoded_data.len());
+    bytes_to_hash.extend_from_slice(type_hash.as_slice());
+    bytes_to_hash.extend_from_slice(&encoded_data);
+
+    Ok(keccak256(&bytes_to_hash).to_vec())
 }

@@ -22,8 +22,7 @@ use crate::{
         broadcast_2Call, createWallet_0Call, createWallet_1Call, createWallet_2Call,
         deployCode_0Call, deployCode_1Call, deployCode_2Call, deployCode_3Call, deployCode_4Call,
         deployCode_5Call, deployCode_6Call, deployCode_7Call, deriveKey_0Call, deriveKey_1Call,
-        deriveKey_2Call, deriveKey_3Call, eip712HashStruct_0Call, eip712HashStruct_1Call,
-        eip712HashType_0Call, eip712HashType_1Call, eip712HashTypedDataCall,
+        deriveKey_2Call, deriveKey_3Call, eip712HashStruct_1Call, eip712HashType_1Call,
         foundryVersionAtLeastCall, foundryVersionCmpCall, getArtifactPathByCodeCall,
         getArtifactPathByDeployedCodeCall, getBroadcastCall, getBroadcasts_0Call,
         getBroadcasts_1Call, getDeployment_0Call, getDeployment_1Call, getDeploymentsCall,
@@ -141,11 +140,8 @@ impl_unsupported_cheatcode! {
     deriveKey_3Call => "deriveKey(string,string,uint32,string)",
 
     // EIP-712 cheatcodes
-    eip712HashType_0Call => "eip712HashType(string)",
     eip712HashType_1Call => "eip712HashType(string,string)",
-    eip712HashStruct_0Call => "eip712HashStruct(string,bytes)",
     eip712HashStruct_1Call => "eip712HashStruct(string,string,bytes)",
-    eip712HashTypedDataCall => "eip712HashTypedData(string)",
 
     // Debugger cheatcodes
     breakpoint_0Call => "breakpoint(string)",
