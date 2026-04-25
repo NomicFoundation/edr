@@ -1,0 +1,5 @@
+error: `#[rpc_error]` cannot be used on unions.
+ --> tests/ui/union_rejected.rs:4:5
+  |
+4 | pub union BadUnion {
+  |     ^^^^^

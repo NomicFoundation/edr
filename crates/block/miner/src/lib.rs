@@ -18,6 +18,7 @@ use edr_chain_spec_evm::{
     config::EvmConfig, ContextForChainSpec, DatabaseComponentError, Inspector, TransactionError,
 };
 use edr_database_components::DatabaseComponents;
+use edr_jsonrpc_api::RpcErrorCode;
 use edr_mem_pool::{MemPool, OrderedTransaction};
 use edr_primitives::{Address, HashMap, HashSet, B256};
 use edr_signer::SignatureError;
@@ -46,6 +47,34 @@ pub type MineBlockErrorForChainSpec<
     StateErrorT,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;
+
+impl<
+        BlockchainErrorT,
+        CollectInspectorDataErrorT: RpcErrorCode,
+        HardforkT,
+        StateErrorT,
+        TransactionValidationErrorT,
+    > RpcErrorCode
+    for MineBlockError<
+        BlockchainErrorT,
+        CollectInspectorDataErrorT,
+        HardforkT,
+        StateErrorT,
+        TransactionValidationErrorT,
+    >
+{
+    fn error_code(&self) -> i16 {
+        match self {
+            // TODO: differentiate error codes based on the inner errors
+            MineBlockError::BlockBuilderCreation(_)
+            | MineBlockError::BlockTransaction(_)
+            | MineBlockError::BlockFinalize(_)
+            | MineBlockError::Blockchain(_)
+            | MineBlockError::MissingPrevrandao => edr_jsonrpc_error_structured::INVALID_INPUT_CODE,
+            MineBlockError::CollectInspectorDataError(error) => error.error_code(),
+        }
+    }
+}
 
 /// An error that occurred while mining a block.
 #[derive(Debug, thiserror::Error)]

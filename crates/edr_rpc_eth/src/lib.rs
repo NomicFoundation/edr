@@ -6,6 +6,6 @@ pub mod fork;
 mod r#override;
 mod request_methods;
 
-pub use edr_rpc_client::{error, header, jsonrpc, HeaderMap};
+pub use edr_rpc_client::{error, header, HeaderMap};
 
 pub use self::{r#override::*, request_methods::RequestMethod};

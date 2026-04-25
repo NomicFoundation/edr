@@ -8,6 +8,7 @@ use std::{
 };
 
 use edr_eth::block::{block_time, is_safe_block_number, IsSafeBlockNumberArgs};
+use edr_jsonrpc_protocol as jsonrpc;
 use edr_primitives::U64;
 use futures::{future, TryFutureExt};
 use hyper::header::HeaderValue;
@@ -32,7 +33,6 @@ use crate::{
         remove_from_cache, CacheableMethod, CachedBlockNumber,
     },
     error::{MiddlewareError, ReqwestError},
-    jsonrpc,
 };
 
 const RPC_CACHE_DIR: &str = "rpc_cache";

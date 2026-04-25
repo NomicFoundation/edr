@@ -1,0 +1,12 @@
+[package]
+name = "edr_jsonrpc_error_structured"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_jsonrpc_api.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

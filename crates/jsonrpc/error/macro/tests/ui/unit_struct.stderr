@@ -1,0 +1,5 @@
+error: `#[rpc_error]` requires a struct with named fields. Unit structs serialize to `null`, not a JSON object. Change `struct Foo;` to `struct Foo {}` for an empty payload.
+ --> tests/ui/unit_struct.rs:4:12
+  |
+4 | pub struct BadUnit;
+  |            ^^^^^^^

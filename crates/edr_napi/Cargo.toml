@@ -30,13 +30,13 @@ edr_eip1559.workspace = true
 edr_gas_report.workspace = true
 edr_generic.workspace = true
 edr_instrument.workspace = true
+edr_jsonrpc_protocol.workspace = true
 edr_napi_core.workspace = true
 edr_op = { workspace = true, optional = true }
 edr_precompile.workspace = true
 edr_primitives.workspace = true
 edr_provider.workspace = true
 edr_receipt.workspace = true
-edr_rpc_client.workspace = true
 edr_scenarios = { workspace = true, optional = true }
 edr_solidity_tests.workspace = true
 edr_state_api.workspace = true
@@ -115,7 +115,6 @@ tracing = [
     "edr_napi_core/tracing",
     "edr_op/tracing",
     "edr_provider/tracing",
-    "edr_rpc_client/tracing",
     "edr_solidity/tracing",
     "edr_solidity_tests/tracing",
 ]

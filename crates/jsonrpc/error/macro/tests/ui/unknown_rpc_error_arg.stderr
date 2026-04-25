@@ -1,0 +1,5 @@
+error: unknown argument `name`; expected `tag`
+ --> tests/ui/unknown_rpc_error_arg.rs:3:13
+  |
+3 | #[rpc_error(name = "not-a-tag")]
+  |             ^^^^

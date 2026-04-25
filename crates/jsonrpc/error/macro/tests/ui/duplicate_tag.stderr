@@ -1,0 +1,5 @@
+error: duplicate `tag` argument
+ --> tests/ui/duplicate_tag.rs:3:28
+  |
+3 | #[rpc_error(tag = "first", tag = "second")]
+  |                            ^^^

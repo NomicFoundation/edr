@@ -17,9 +17,12 @@ use edr_chain_spec::{
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{result::ExecutionResult, DatabaseComponentError, TransactionError};
 use edr_eth::{filter::SubscriptionType, BlockTag};
+pub use edr_jsonrpc_api::{RpcErrorCode, RpcErrorData};
+use edr_jsonrpc_error_structured::{INVALID_INPUT_CODE, REVERT_CODE};
+use edr_jsonrpc_protocol::{self as jsonrpc, INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE};
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::{hex, Address, Bytes, HashMap, HashSet, B256, U256};
-use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
+use edr_rpc_eth::{client::RpcClientError, error::HttpError};
 use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
 use edr_solidity::{
@@ -36,35 +39,6 @@ use crate::{
     debug_trace::DebugTraceError, observability::EvmObserverCollectionError, time::TimeSinceEpoch,
     ProviderSpec,
 };
-
-pub(crate) const INVALID_INPUT: i16 = -32000;
-pub(crate) const INTERNAL_ERROR: i16 = -32603;
-pub(crate) const INVALID_PARAMS: i16 = -32602;
-pub(crate) const REVERT_ERROR: i16 = 3;
-
-/// Trait for retrieving the JSON-RPC error code from an error type.
-pub trait RpcErrorCode {
-    /// Returns the JSON-RPC error code.
-    fn error_code(&self) -> i16;
-}
-
-impl RpcErrorCode for serde_json::Error {
-    fn error_code(&self) -> i16 {
-        INVALID_INPUT
-    }
-}
-
-impl RpcErrorCode for AccountOverrideConversionError {
-    fn error_code(&self) -> i16 {
-        INVALID_INPUT
-    }
-}
-
-pub trait RpcErrorData {
-    fn error_data(&self) -> Option<serde_json::Value> {
-        None
-    }
-}
 
 impl<
         FetchReceiptErrorT,
@@ -156,34 +130,6 @@ impl<
     }
 }
 
-impl<
-        BlockchainErrorT,
-        CollectInspectorDataErrorT: RpcErrorCode,
-        HardforkT,
-        StateErrorT,
-        TransactionValidationErrorT,
-    > RpcErrorCode
-    for MineBlockError<
-        BlockchainErrorT,
-        CollectInspectorDataErrorT,
-        HardforkT,
-        StateErrorT,
-        TransactionValidationErrorT,
-    >
-{
-    fn error_code(&self) -> i16 {
-        match self {
-            // TODO: differentiate error codes based on the inner errors
-            MineBlockError::BlockBuilderCreation(_)
-            | MineBlockError::BlockTransaction(_)
-            | MineBlockError::BlockFinalize(_)
-            | MineBlockError::Blockchain(_)
-            | MineBlockError::MissingPrevrandao => INVALID_INPUT,
-            MineBlockError::CollectInspectorDataError(error) => error.error_code(),
-        }
-    }
-}
-
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
     <ChainSpecT as GenesisBlockFactory>::GenesisBlockCreationError,
@@ -240,7 +186,7 @@ pub enum GetBlockError<HardforkT: Debug> {
 impl<HardforkT: Debug> RpcErrorCode for GetBlockError<HardforkT> {
     fn error_code(&self) -> i16 {
         match self {
-            Self::Blockchain(_) => INTERNAL_ERROR,
+            Self::Blockchain(_) => INTERNAL_ERROR_CODE,
             Self::InvalidBlockNumber(error) => error.error_code(),
             Self::InvalidBlockTag(error) => error.error_code(),
             Self::UnknownBlockHash(error) => error.error_code(),
@@ -263,7 +209,7 @@ pub struct InvalidBlockNumber {
 
 impl RpcErrorCode for InvalidBlockNumber {
     fn error_code(&self) -> i16 {
-        INVALID_INPUT
+        INVALID_INPUT_CODE
     }
 }
 
@@ -282,7 +228,7 @@ pub struct InvalidBlockTag<HardforkT: Debug> {
 
 impl<HardforkT: Debug> RpcErrorCode for InvalidBlockTag<HardforkT> {
     fn error_code(&self) -> i16 {
-        INVALID_PARAMS
+        INVALID_PARAMS_CODE
     }
 }
 
@@ -297,7 +243,7 @@ pub struct UnknownBlockHash {
 
 impl RpcErrorCode for UnknownBlockHash {
     fn error_code(&self) -> i16 {
-        INVALID_INPUT
+        INVALID_INPUT_CODE
     }
 }
 
@@ -630,75 +576,75 @@ impl<
     fn error_code(&self) -> i16 {
         #[allow(clippy::match_same_arms)]
         match &self {
-            ProviderError::AbiDecoding(_) => INTERNAL_ERROR,
+            ProviderError::AbiDecoding(_) => INTERNAL_ERROR_CODE,
             ProviderError::AccountOverrideConversionError(error) => error.error_code(),
-            ProviderError::AutoMineGasPriceTooLow { .. } => INVALID_INPUT,
-            ProviderError::AutoMineMaxFeePerBlobGasTooLow { .. } => INVALID_INPUT,
-            ProviderError::AutoMineMaxFeePerGasTooLow { .. } => INVALID_INPUT,
-            ProviderError::AutoMineNonceTooHigh { .. } => INVALID_INPUT,
-            ProviderError::AutoMineNonceTooLow { .. } => INVALID_INPUT,
-            ProviderError::AutoMinePriorityFeeTooLow { .. } => INVALID_INPUT,
-            ProviderError::BlobMemPoolUnsupported => INVALID_INPUT,
-            ProviderError::Blockchain(_) => INVALID_INPUT,
-            ProviderError::Creation(_) => INVALID_INPUT,
+            ProviderError::AutoMineGasPriceTooLow { .. } => INVALID_INPUT_CODE,
+            ProviderError::AutoMineMaxFeePerBlobGasTooLow { .. } => INVALID_INPUT_CODE,
+            ProviderError::AutoMineMaxFeePerGasTooLow { .. } => INVALID_INPUT_CODE,
+            ProviderError::AutoMineNonceTooHigh { .. } => INVALID_INPUT_CODE,
+            ProviderError::AutoMineNonceTooLow { .. } => INVALID_INPUT_CODE,
+            ProviderError::AutoMinePriorityFeeTooLow { .. } => INVALID_INPUT_CODE,
+            ProviderError::BlobMemPoolUnsupported => INVALID_INPUT_CODE,
+            ProviderError::Blockchain(_) => INVALID_INPUT_CODE,
+            ProviderError::Creation(_) => INVALID_INPUT_CODE,
             ProviderError::DebugTrace(error) => error.error_code(),
-            ProviderError::Eip4844CallRequestUnsupported => INVALID_INPUT,
-            ProviderError::Eip4844TransactionMissingReceiver => INVALID_INPUT,
-            ProviderError::Eip4844TransactionUnsupported => INVALID_INPUT,
-            ProviderError::Eip7702TransactionMissingReceiver => INVALID_INPUT,
-            ProviderError::Eip7702TransactionWithoutAuthorizations => INVALID_INPUT,
-            ProviderError::Eip712Error(_) => INVALID_INPUT,
+            ProviderError::Eip4844CallRequestUnsupported => INVALID_INPUT_CODE,
+            ProviderError::Eip4844TransactionMissingReceiver => INVALID_INPUT_CODE,
+            ProviderError::Eip4844TransactionUnsupported => INVALID_INPUT_CODE,
+            ProviderError::Eip7702TransactionMissingReceiver => INVALID_INPUT_CODE,
+            ProviderError::Eip7702TransactionWithoutAuthorizations => INVALID_INPUT_CODE,
+            ProviderError::Eip712Error(_) => INVALID_INPUT_CODE,
             ProviderError::EstimateGasTransactionFailure(error) => {
                 error.transaction_failure.error_code()
             }
-            ProviderError::FetchReceipt(_) => INTERNAL_ERROR,
+            ProviderError::FetchReceipt(_) => INTERNAL_ERROR_CODE,
             ProviderError::GetBlock(error) => error.error_code(),
-            ProviderError::InvalidArgument(_) => INVALID_PARAMS,
-            ProviderError::InvalidChainId { .. } => INVALID_PARAMS,
-            ProviderError::InvalidDropTransactionHash(_) => INVALID_PARAMS,
-            ProviderError::InvalidEip155TransactionChainId => INVALID_PARAMS,
-            ProviderError::InvalidFilterSubscriptionType { .. } => INVALID_PARAMS,
-            ProviderError::InvalidInput(_) => INVALID_INPUT,
-            ProviderError::InvalidTransactionHash { .. } => INVALID_PARAMS,
-            ProviderError::InvalidTransactionIndex(_) => INVALID_PARAMS,
-            ProviderError::InvalidTransactionInput(_) => INVALID_INPUT,
-            ProviderError::InvalidTransactionType(_) => INVALID_PARAMS,
-            ProviderError::Logger(_) => INTERNAL_ERROR,
-            ProviderError::MemPoolAddTransaction(_) => INVALID_INPUT,
-            ProviderError::MemPoolUpdate(_) => INVALID_INPUT,
+            ProviderError::InvalidArgument(_) => INVALID_PARAMS_CODE,
+            ProviderError::InvalidChainId { .. } => INVALID_PARAMS_CODE,
+            ProviderError::InvalidDropTransactionHash(_) => INVALID_PARAMS_CODE,
+            ProviderError::InvalidEip155TransactionChainId => INVALID_PARAMS_CODE,
+            ProviderError::InvalidFilterSubscriptionType { .. } => INVALID_PARAMS_CODE,
+            ProviderError::InvalidInput(_) => INVALID_INPUT_CODE,
+            ProviderError::InvalidTransactionHash { .. } => INVALID_PARAMS_CODE,
+            ProviderError::InvalidTransactionIndex(_) => INVALID_PARAMS_CODE,
+            ProviderError::InvalidTransactionInput(_) => INVALID_INPUT_CODE,
+            ProviderError::InvalidTransactionType(_) => INVALID_PARAMS_CODE,
+            ProviderError::Logger(_) => INTERNAL_ERROR_CODE,
+            ProviderError::MemPoolAddTransaction(_) => INVALID_INPUT_CODE,
+            ProviderError::MemPoolUpdate(_) => INVALID_INPUT_CODE,
             ProviderError::MineBlock(error) => error.error_code(),
-            ProviderError::MineTransaction(_) => INVALID_INPUT,
-            ProviderError::OnCollectedCoverageCallback(_) => INTERNAL_ERROR,
-            ProviderError::OnCollectedGasReportCallback(_) => INTERNAL_ERROR,
-            ProviderError::RpcClientError(_) => INTERNAL_ERROR,
-            ProviderError::RpcVersion(_) => INVALID_INPUT,
-            ProviderError::RunTransaction(_) => INVALID_INPUT,
-            ProviderError::Serialization(_) => INVALID_INPUT,
-            ProviderError::SetAccountNonceLowerThanCurrent { .. } => INVALID_INPUT,
-            ProviderError::SetAccountNonceWithPendingTransactions => INTERNAL_ERROR,
-            ProviderError::SetBlockGasLimitMustBeGreaterThanZero => INVALID_INPUT,
-            ProviderError::SetIntervalMiningConfigInvalid(_) => INVALID_PARAMS,
-            ProviderError::SetMinGasPriceUnsupported => INVALID_INPUT,
-            ProviderError::SetNextBlockBaseFeePerGasUnsupported { .. } => INVALID_INPUT,
-            ProviderError::SetNextPrevRandaoUnsupported { .. } => INVALID_INPUT,
-            ProviderError::Signature(_) => INVALID_PARAMS,
-            ProviderError::SolcDecoding(_) => INVALID_INPUT,
-            ProviderError::State(_) => INVALID_INPUT,
-            ProviderError::TimestampLowerThanPrevious { .. } => INVALID_INPUT,
-            ProviderError::TimestampEqualsPrevious { .. } => INVALID_INPUT,
+            ProviderError::MineTransaction(_) => INVALID_INPUT_CODE,
+            ProviderError::OnCollectedCoverageCallback(_) => INTERNAL_ERROR_CODE,
+            ProviderError::OnCollectedGasReportCallback(_) => INTERNAL_ERROR_CODE,
+            ProviderError::RpcClientError(_) => INTERNAL_ERROR_CODE,
+            ProviderError::RpcVersion(_) => INVALID_INPUT_CODE,
+            ProviderError::RunTransaction(_) => INVALID_INPUT_CODE,
+            ProviderError::Serialization(_) => INVALID_INPUT_CODE,
+            ProviderError::SetAccountNonceLowerThanCurrent { .. } => INVALID_INPUT_CODE,
+            ProviderError::SetAccountNonceWithPendingTransactions => INTERNAL_ERROR_CODE,
+            ProviderError::SetBlockGasLimitMustBeGreaterThanZero => INVALID_INPUT_CODE,
+            ProviderError::SetIntervalMiningConfigInvalid(_) => INVALID_PARAMS_CODE,
+            ProviderError::SetMinGasPriceUnsupported => INVALID_INPUT_CODE,
+            ProviderError::SetNextBlockBaseFeePerGasUnsupported { .. } => INVALID_INPUT_CODE,
+            ProviderError::SetNextPrevRandaoUnsupported { .. } => INVALID_INPUT_CODE,
+            ProviderError::Signature(_) => INVALID_PARAMS_CODE,
+            ProviderError::SolcDecoding(_) => INVALID_INPUT_CODE,
+            ProviderError::State(_) => INVALID_INPUT_CODE,
+            ProviderError::TimestampLowerThanPrevious { .. } => INVALID_INPUT_CODE,
+            ProviderError::TimestampEqualsPrevious { .. } => INVALID_INPUT_CODE,
             ProviderError::TransactionFailed(error) => error.failure.error_code(),
-            ProviderError::TransactionCreationError(_) => INVALID_INPUT,
-            ProviderError::TryFromIntError(_) => INVALID_INPUT,
-            ProviderError::Unimplemented(_) => INVALID_INPUT,
-            ProviderError::UnknownAddress { .. } => INVALID_INPUT,
-            ProviderError::UnmetHardfork { .. } => INVALID_PARAMS,
-            ProviderError::UnsupportedAccessListParameter { .. } => INVALID_PARAMS,
-            ProviderError::UnsupportedEIP1559Parameters { .. } => INVALID_PARAMS,
-            ProviderError::UnsupportedEIP4844Parameters { .. } => INVALID_PARAMS,
-            ProviderError::UnsupportedEip7702Parameters { .. } => INVALID_PARAMS,
+            ProviderError::TransactionCreationError(_) => INVALID_INPUT_CODE,
+            ProviderError::TryFromIntError(_) => INVALID_INPUT_CODE,
+            ProviderError::Unimplemented(_) => INVALID_INPUT_CODE,
+            ProviderError::UnknownAddress { .. } => INVALID_INPUT_CODE,
+            ProviderError::UnmetHardfork { .. } => INVALID_PARAMS_CODE,
+            ProviderError::UnsupportedAccessListParameter { .. } => INVALID_PARAMS_CODE,
+            ProviderError::UnsupportedEIP1559Parameters { .. } => INVALID_PARAMS_CODE,
+            ProviderError::UnsupportedEIP4844Parameters { .. } => INVALID_PARAMS_CODE,
+            ProviderError::UnsupportedEip7702Parameters { .. } => INVALID_PARAMS_CODE,
             ProviderError::UnsupportedMethod { .. } => -32004,
-            ProviderError::UnsupportedTransactionTypeInDebugTrace { .. } => INVALID_INPUT,
-            ProviderError::UnsupportedTransactionTypeForDebugTrace { .. } => INVALID_INPUT,
+            ProviderError::UnsupportedTransactionTypeInDebugTrace { .. } => INVALID_INPUT_CODE,
+            ProviderError::UnsupportedTransactionTypeForDebugTrace { .. } => INVALID_INPUT_CODE,
         }
     }
 }
@@ -884,7 +830,7 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailure<Halt
 
 impl<HaltReasonT: HaltReasonTrait> RpcErrorCode for TransactionFailure<HaltReasonT> {
     fn error_code(&self) -> i16 {
-        REVERT_ERROR
+        REVERT_CODE
     }
 }
 

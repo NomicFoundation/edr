@@ -1,0 +1,5 @@
+error: `#[serde(transparent)]` is not allowed at the struct level of an `#[rpc_error]` struct because it could change or replace the serialized shape. Allowed at this level: ["rename_all"]
+ --> tests/ui/serde_transparent.rs:4:9
+  |
+4 | #[serde(transparent)]
+  |         ^^^^^^^^^^^

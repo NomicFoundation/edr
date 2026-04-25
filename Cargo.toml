@@ -50,6 +50,10 @@ members = [
     "crates/eips/7702",
     "crates/eips/7892",
     "crates/evm",
+    "crates/jsonrpc/api",
+    "crates/jsonrpc/error/macro",
+    "crates/jsonrpc/error/structured",
+    "crates/jsonrpc/protocol",
     "crates/mem_pool",
     "crates/precompile",
     "crates/primitives",
@@ -165,6 +169,10 @@ edr_gas_report = { path = "crates/edr_gas_report" }
 edr_generic = { path = "crates/edr_generic" }
 edr_inspector_bytecode = { path = "crates/inspector/bytecode" }
 edr_instrument = { path = "crates/edr_instrument" }
+edr_jsonrpc_api = { path = "crates/jsonrpc/api" }
+edr_jsonrpc_error_macro = { path = "crates/jsonrpc/error/macro" }
+edr_jsonrpc_error_structured = { path = "crates/jsonrpc/error/structured" }
+edr_jsonrpc_protocol = { path = "crates/jsonrpc/protocol" }
 edr_macros = { path = "crates/edr_macros" }
 edr_mem_pool = { path = "crates/mem_pool" }
 edr_napi_core = { path = "crates/edr_napi_core" }

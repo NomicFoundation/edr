@@ -14,6 +14,7 @@ use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReport
 use edr_database_components::DatabaseComponents;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
 use edr_inspector_bytecode::ExecutedBytecodeCollector;
+use edr_jsonrpc_protocol::INTERNAL_ERROR_CODE;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
 use edr_solidity::{
     config::IncludeTraces, contract_decoder::ContractDecoder, tracing::SolidityTracingInspector,
@@ -25,10 +26,7 @@ use revm_inspector::JournalExt;
 use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 
 use crate::{
-    console_log::ConsoleLogCollector,
-    error::{RpcErrorCode, INTERNAL_ERROR},
-    mock::Mocker,
-    SyncCallOverride,
+    console_log::ConsoleLogCollector, error::RpcErrorCode, mock::Mocker, SyncCallOverride,
 };
 
 /// Convenience type alias for [`ObservabilityConfig`].
@@ -123,7 +121,7 @@ impl RpcErrorCode for EvmObserverCollectionError {
     fn error_code(&self) -> i16 {
         match self {
             EvmObserverCollectionError::AbiDecoding(_)
-            | EvmObserverCollectionError::OnCollectedCoverageCallback(_) => INTERNAL_ERROR,
+            | EvmObserverCollectionError::OnCollectedCoverageCallback(_) => INTERNAL_ERROR_CODE,
         }
     }
 }

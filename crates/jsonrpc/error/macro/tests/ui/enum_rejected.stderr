@@ -1,0 +1,5 @@
+error: `#[rpc_error]` requires a struct with named fields, not an enum.
+ --> tests/ui/enum_rejected.rs:4:5
+  |
+4 | pub enum BadEnum { A, B { x: u32 } }
+  |     ^^^^

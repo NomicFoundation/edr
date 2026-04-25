@@ -1,0 +1,5 @@
+error: `#[serde(flatten)]` is not allowed at the field level of an `#[rpc_error]` struct because it could change or replace the serialized shape. Allowed at this level: ["rename", "rename_all", "skip_serializing_if", "skip_serializing", "skip", "serialize_with", "default", "borrow", "with"]
+ --> tests/ui/serde_flatten_field.rs:8:13
+  |
+8 |     #[serde(flatten)]
+  |             ^^^^^^^

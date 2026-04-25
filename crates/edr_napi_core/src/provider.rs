@@ -3,8 +3,8 @@ mod factory;
 
 use std::{str::FromStr as _, sync::Arc};
 
+use edr_jsonrpc_protocol as jsonrpc;
 use edr_provider::{time::TimeSinceEpoch, InvalidRequestReason, SyncCallOverride};
-use edr_rpc_client::jsonrpc;
 
 pub use self::{config::Config, factory::SyncProviderFactory};
 use crate::spec::{Response, SyncNapiSpec};

@@ -3,11 +3,11 @@ use core::fmt::Debug;
 use edr_chain_l1::L1ChainSpec;
 use edr_chain_spec::{HaltReasonTrait, TransactionValidation};
 use edr_generic::GenericChainSpec;
+use edr_jsonrpc_protocol as jsonrpc;
 use edr_provider::{
     time::TimeSinceEpoch, ProviderError, ProviderErrorForChainSpec, ResponseWithCallTraces,
     SyncProviderSpec,
 };
-use edr_rpc_client::jsonrpc;
 use edr_solidity::solidity_stack_trace::StackTraceCreationResult;
 use edr_solidity_tests::traces::CallTraceArena;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};

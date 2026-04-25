@@ -2,6 +2,7 @@
 
 use std::fmt::Debug;
 
+use edr_jsonrpc_api::RpcErrorCode;
 use edr_primitives::{Address, Bytecode, HashMap, B256, KECCAK_EMPTY, U256};
 use edr_rpc_eth::{AccountOverrideOptions, StateOverrideOptions};
 use edr_state_api::{account::AccountInfo, State};
@@ -104,6 +105,12 @@ pub enum AccountOverrideConversionError {
         "The properties 'state' and 'stateDiff' cannot be used simultaneously when configuring the state override set passed to the eth_call method."
     )]
     StorageOverrideConflict,
+}
+
+impl RpcErrorCode for AccountOverrideConversionError {
+    fn error_code(&self) -> i16 {
+        edr_jsonrpc_error_structured::INVALID_INPUT_CODE
+    }
 }
 
 impl TryFrom<AccountOverrideOptions> for AccountOverride {

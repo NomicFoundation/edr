@@ -8,6 +8,7 @@ use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction as _, Transacti
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{BlockEnvTrait as _, CfgEnv, DatabaseComponentError, TransactionError};
 use edr_evm::{dry_run_with_inspector, run};
+use edr_jsonrpc_protocol::{INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE};
 use edr_primitives::{HashMap, B256, U256};
 use edr_runtime::inspector::DualInspector;
 use edr_state_api::{DynState, StateError};
@@ -15,7 +16,7 @@ use foundry_evm_traces::CallTraceArena;
 use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, MuxError, TransactionContext};
 
 use crate::{
-    error::{RpcErrorCode, INTERNAL_ERROR, INVALID_PARAMS},
+    error::RpcErrorCode,
     observability::{EvmObservedData, EvmObserver, EvmObserverCollectionError, EvmObserverConfig},
 };
 
@@ -239,13 +240,13 @@ impl<TransactionValidationErrorT> RpcErrorCode for DebugTraceError<TransactionVa
             | DebugTraceError::InvalidTransactionHash { .. }
             | DebugTraceError::JsTracerNotEnabled
             | DebugTraceError::MuxInspector(_)
-            | DebugTraceError::UnsupportedTracer => INVALID_PARAMS,
+            | DebugTraceError::UnsupportedTracer => INVALID_PARAMS_CODE,
             DebugTraceError::AbiDecoding(_)
             | DebugTraceError::InvalidSpecId { .. }
             | DebugTraceError::OnCollectedCoverageCallback(_)
             | DebugTraceError::Blockchain(_)
             | DebugTraceError::State(_)
-            | DebugTraceError::TransactionError(_) => INTERNAL_ERROR,
+            | DebugTraceError::TransactionError(_) => INTERNAL_ERROR_CODE,
         }
     }
 }

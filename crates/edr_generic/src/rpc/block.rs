@@ -252,7 +252,7 @@ mod tests {
 
     use edr_chain_spec_block::RemoteBlockForChainSpec;
     use edr_chain_spec_rpc::RpcBlockChainSpec;
-    use edr_rpc_client::jsonrpc;
+    use edr_jsonrpc_protocol as jsonrpc;
     use edr_rpc_eth::client::EthRpcClientForChainSpec;
 
     use crate::{rpc::transaction::GenericRpcTransactionWithSignature, GenericChainSpec};

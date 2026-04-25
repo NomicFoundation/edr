@@ -16,6 +16,7 @@ edr_chain_spec_provider.workspace = true
 edr_chain_spec_rpc.workspace = true
 edr_defaults.workspace = true
 edr_generic.workspace = true
+edr_jsonrpc_protocol.workspace = true
 edr_napi_core.workspace = true
 edr_op = { workspace = true, features = ["test-utils"] }
 edr_provider = { workspace = true, features = ["test-utils"] }

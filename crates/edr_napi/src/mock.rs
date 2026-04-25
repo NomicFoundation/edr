@@ -2,8 +2,8 @@ pub mod time;
 
 use std::sync::Arc;
 
+use edr_jsonrpc_protocol as jsonrpc;
 use edr_napi_core::provider::SyncProvider;
-use edr_rpc_client::jsonrpc;
 use napi::tokio::runtime;
 use napi_derive::napi;
 

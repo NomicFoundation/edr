@@ -17,10 +17,10 @@ edr_decoder_revert.workspace = true
 edr_eip1559.workspace = true
 edr_eth.workspace = true
 edr_generic.workspace = true
+edr_jsonrpc_protocol.workspace = true
 edr_precompile.workspace = true
 edr_primitives.workspace = true
 edr_provider.workspace = true
-edr_rpc_client.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_solidity_tests.workspace = true
@@ -46,7 +46,6 @@ tracing = [
     "edr_chain_spec_evm/tracing",
     "edr_generic/tracing",
     "edr_provider/tracing",
-    "edr_rpc_client/tracing",
     "edr_solidity/tracing",
     "edr_solidity_tests/tracing",
 ]

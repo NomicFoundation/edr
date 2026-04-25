@@ -1,0 +1,5 @@
+error: `#[serde(some_future_serde_attribute)]` is not allowed at the struct level of an `#[rpc_error]` struct because it could change or replace the serialized shape. Allowed at this level: ["rename_all"]
+ --> tests/ui/serde_unknown_key.rs:5:9
+  |
+5 | #[serde(some_future_serde_attribute)]
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^

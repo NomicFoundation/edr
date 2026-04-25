@@ -8,10 +8,10 @@ use std::{
 use anyhow::Context;
 use derive_where::derive_where;
 use edr_generic::GenericChainSpec;
+use edr_jsonrpc_protocol as jsonrpc;
 use edr_provider::{
     time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest, ProviderSpec,
 };
-use edr_rpc_eth::jsonrpc;
 use edr_scenarios::ScenarioConfig;
 use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
 use indicatif::ProgressBar;

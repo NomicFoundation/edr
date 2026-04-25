@@ -1,0 +1,17 @@
+error: `#[serde(transparent)]` is not allowed at the struct level of an `#[rpc_error]` struct because it could change or replace the serialized shape. Allowed at this level: ["rename_all"]
+ --> tests/ui/multiple_violations.rs:5:9
+  |
+5 | #[serde(transparent)]
+  |         ^^^^^^^^^^^
+
+error: `#[serde(flatten)]` is not allowed at the field level of an `#[rpc_error]` struct because it could change or replace the serialized shape. Allowed at this level: ["rename", "rename_all", "skip_serializing_if", "skip_serializing", "skip", "serialize_with", "default", "borrow", "with"]
+ --> tests/ui/multiple_violations.rs:7:13
+  |
+7 |     #[serde(flatten)]
+  |             ^^^^^^^
+
+error: `#[serde(some_garbage)]` is not allowed at the field level of an `#[rpc_error]` struct because it could change or replace the serialized shape. Allowed at this level: ["rename", "rename_all", "skip_serializing_if", "skip_serializing", "skip", "serialize_with", "default", "borrow", "with"]
+ --> tests/ui/multiple_violations.rs:9:13
+  |
+9 |     #[serde(some_garbage)]
+  |             ^^^^^^^^^^^^

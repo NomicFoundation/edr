@@ -50,6 +50,8 @@ use edr_eth::{
 };
 use edr_evm::guaranteed_dry_run_with_inspector;
 use edr_gas_report::{GasReport, GasReportCreationError, SyncOnCollectedGasReportCallback};
+use edr_jsonrpc_api::RpcErrorCode;
+use edr_jsonrpc_error_structured::INVALID_INPUT_CODE;
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{
@@ -96,8 +98,8 @@ use crate::{
     debug_trace::{debug_trace_transaction, DebugTraceResultWithCallTraces},
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, GetBlockError,
-        InvalidBlockNumber, InvalidBlockTag, ProviderErrorForChainSpec, RpcErrorCode,
-        TransactionFailure, TransactionFailureWithCallTraces, UnknownBlockHash, INVALID_INPUT,
+        InvalidBlockNumber, InvalidBlockTag, ProviderErrorForChainSpec, TransactionFailure,
+        TransactionFailureWithCallTraces, UnknownBlockHash,
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
@@ -681,7 +683,7 @@ pub struct NextBlockTimestampAndOffset {
     pub offset: Option<i64>,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, serde::Serialize, thiserror::Error)]
 #[error("Timestamp {timestamp} is lower than the previous block's timestamp {previous_timestamp}")]
 pub struct BlockTimestampLowerThanPrevious {
     /// The timestamp of the previous block.
@@ -692,7 +694,7 @@ pub struct BlockTimestampLowerThanPrevious {
 
 impl RpcErrorCode for BlockTimestampLowerThanPrevious {
     fn error_code(&self) -> i16 {
-        INVALID_INPUT
+        INVALID_INPUT_CODE
     }
 }
 

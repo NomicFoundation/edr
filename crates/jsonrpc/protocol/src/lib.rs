@@ -1,3 +1,6 @@
+#![warn(missing_docs)]
+//! JSON-RPC 2.0 protocol types.
+
 // Parts of this code were adapted from github.com/koushiro/async-jsonrpc and
 // are distributed under its licenses:
 // - https://github.com/koushiro/async-jsonrpc/blob/9b42602f4faa63dd4b6a1a9fe359bffa97e636d5/LICENSE-APACHE
@@ -5,6 +8,12 @@
 // For the original context, see https://github.com/koushiro/async-jsonrpc/tree/9b42602f4faa63dd4b6a1a9fe359bffa97e636d5
 
 use serde::{Deserialize, Serialize};
+
+/// Standard JSON-RPC 2.0 "Internal error" code.
+pub const INTERNAL_ERROR_CODE: i16 = -32603;
+
+/// Standard JSON-RPC 2.0 "Invalid params" code.
+pub const INVALID_PARAMS_CODE: i16 = -32602;
 
 /// Represents a JSON-RPC error.
 #[derive(thiserror::Error, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

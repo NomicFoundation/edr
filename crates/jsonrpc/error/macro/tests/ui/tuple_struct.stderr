@@ -1,0 +1,5 @@
+error: `#[rpc_error]` requires a struct with named fields. Tuple structs serialize to a JSON array.
+ --> tests/ui/tuple_struct.rs:4:12
+  |
+4 | pub struct BadTuple(String, u64);
+  |            ^^^^^^^^
