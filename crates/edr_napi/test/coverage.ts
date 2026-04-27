@@ -26,15 +26,15 @@ class CoverageReporter {
   public hits: Uint8Array[] = [];
 }
 
-function readDeployedBytecode(): string {
-  const filePath = `${__dirname}/../../../data/deployed_bytecode/increment.in`;
+function readDeploymentBytecode(): string {
+  const filePath = `${__dirname}/../../../data/deployment_bytecode/Increment.bin`;
   return fs.readFileSync(filePath, "utf8");
 }
 
 describe("Code coverage", () => {
   const context = getContext();
 
-  const incrementDeployedBytecode = readDeployedBytecode();
+  const incrementDeploymentBytecode = readDeploymentBytecode();
 
   // > cast calldata 'function incBy(uint)' 1
   const incrementCallData =
@@ -144,7 +144,7 @@ describe("Code coverage", () => {
           params: [
             {
               from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              data: incrementDeployedBytecode,
+              data: incrementDeploymentBytecode,
             },
           ],
         })
@@ -224,7 +224,7 @@ describe("Code coverage", () => {
           params: [
             {
               from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              data: incrementDeployedBytecode,
+              data: incrementDeploymentBytecode,
             },
           ],
         })

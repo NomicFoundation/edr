@@ -17,11 +17,13 @@ use semver::Version;
 
 const COVERAGE_LIBRARY_SOL: &str = include_str!("../../../../data/contracts/coverage.sol");
 
-/// Source identifier used for the coverage library in instrumented imports.
-const COVERAGE_LIBRARY_SOURCE_ID: &str = "coverage_lib.sol";
-
 /// Solidity tooling for EDR development. Compiles and/or instruments Solidity
 /// source files.
+///
+/// Compilation layout: the source and any `-i` includes are copied into a flat
+/// temporary directory (by filename only; directory structure is not
+/// preserved). Imports in the source must resolve against this flat layout —
+/// e.g. a sibling library should be imported as `"lib.sol"`.
 ///
 /// Examples:
 ///
@@ -34,11 +36,11 @@ const COVERAGE_LIBRARY_SOURCE_ID: &str = "coverage_lib.sol";
 /// data/contracts/test/CoverageTest.sol`
 ///
 ///   # Write bytecodes to files:
-///   `cargo run -p edr_tool_solidity -- --instrument -o data/deployed_bytecode
-/// data/contracts/test/CoverageTest.sol`
+///   `cargo run -p edr_tool_solidity -- --instrument -o
+/// data/deployment_bytecode data/contracts/test/CoverageTest.sol`
 ///
-///   # Compile with explicit imports:
-///   `cargo run -p edr_tool_solidity -- data/contracts/increment.sol -i
+///   # Compile with explicit imports (e.g. a manually instrumented contract):
+///   `cargo run -p edr_tool_solidity -- data/contracts/test/Increment.sol -i
 /// data/contracts/coverage.sol`
 #[derive(Parser)]
 #[clap(name = "edr-tool-solidity")]
@@ -86,13 +88,8 @@ fn main() -> Result<()> {
 
     let final_source = if args.instrument || args.instrument_only {
         let version = Version::parse(&args.version).context("invalid --version")?;
-        let instrumented = instrument_code(
-            &source_code,
-            &source_id,
-            version,
-            COVERAGE_LIBRARY_SOURCE_ID,
-        )
-        .context("instrumentation failed")?;
+        let instrumented =
+            instrument_code(&source_code, &source_id, version).context("instrumentation failed")?;
         instrumented.source
     } else {
         source_code
@@ -110,14 +107,19 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Write sources to a temp directory for compilation.
+    // Write sources to a flat temp directory for compilation. All files land
+    // at the root by filename only — directory structure is not preserved, so
+    // imports in the source must resolve against this flat layout.
     let project_dir = tempfile::TempDir::new()?;
     let root = project_dir.path().to_path_buf();
 
     fs::write(root.join(&source_id), &final_source)?;
 
     if args.instrument {
-        fs::write(root.join(COVERAGE_LIBRARY_SOURCE_ID), COVERAGE_LIBRARY_SOL)?;
+        fs::write(
+            root.join(edr_instrument::coverage::LIBRARY_FILE_NAME),
+            COVERAGE_LIBRARY_SOL,
+        )?;
     }
 
     // Copy any additional source files into the project root.
@@ -131,7 +133,7 @@ fn main() -> Result<()> {
 
     let output = compile_project(&root)?;
 
-    // Extract and output deployed bytecodes.
+    // Extract and output deployment bytecodes.
     if let Some(ref output_dir) = args.output_dir {
         fs::create_dir_all(output_dir)?;
     }
@@ -139,7 +141,11 @@ fn main() -> Result<()> {
     for (file, name, contract) in output.output().contracts_with_files_iter() {
         // When instrumenting, skip contracts from the auto-included coverage
         // library — it's never deployed.
-        if args.instrument && file.to_string_lossy().contains(COVERAGE_LIBRARY_SOURCE_ID) {
+        if args.instrument
+            && file
+                .to_string_lossy()
+                .contains(edr_instrument::coverage::LIBRARY_FILE_NAME)
+        {
             continue;
         }
 
@@ -163,7 +169,7 @@ fn main() -> Result<()> {
             println!("bytecode: {hex}");
 
             if let Some(ref output_dir) = args.output_dir {
-                let out_path = output_dir.join(format!("{name}.in"));
+                let out_path = output_dir.join(format!("{name}.bin"));
                 fs::write(&out_path, &hex)?;
                 println!("  written to: {}", out_path.display());
             }

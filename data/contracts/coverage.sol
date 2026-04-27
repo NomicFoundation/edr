@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.4.22 <0.9.0;
 
-library __HardhatCoverage {
+library __NomicFoundationCoverage {
   address constant COVERAGE_ADDRESS =
     0xc0bEc0BEc0BeC0bEC0beC0bEC0bEC0beC0beC0BE;
 

@@ -1,6 +1,6 @@
 {
   "name": "@nomicfoundation/edr",
-  "version": "0.12.0-next.31",
+  "version": "0.12.0-next.32",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@nomicfoundation/ethereumjs-util": "^9.0.4",
@@ -31,12 +31,14 @@
   },
   "exports": {
     ".": "./index.js",
-    "./solidity-tests": "./dist/src/ts/solidity_tests.js"
+    "./solidity-tests": "./dist/src/ts/solidity_tests.js",
+    "./coverage": "./dist/src/ts/coverage.js"
   },
   "files": [
     "index.js",
     "index.d.ts",
-    "src/"
+    "dist/src/",
+    "coverage.sol"
   ],
   "license": "MIT",
   "main": "index.js",

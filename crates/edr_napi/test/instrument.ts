@@ -4,6 +4,7 @@ import * as fs from "fs";
 
 import {
   addStatementCoverageInstrumentation,
+  COVERAGE_LIBRARY_FILE_NAME,
   InstrumentationMetadata,
 } from "..";
 
@@ -27,16 +28,14 @@ describe("Code coverage", () => {
 
   describe("instrumentation", function () {
     it("Statement coverage", async function () {
-      const coverageLibraryPath = "__hardhat_coverage.sol";
       const result = addStatementCoverageInstrumentation(
         incrementSourceCode,
         "instrumentation.sol",
-        "0.8.0",
-        coverageLibraryPath
+        "0.8.0"
       );
 
-      expect(result.source).to.contain("__HardhatCoverage.sendHit(");
-      expect(result.source).to.contain(coverageLibraryPath);
+      expect(result.source).to.contain("__NomicFoundationCoverage.sendHit(");
+      expect(result.source).to.contain(COVERAGE_LIBRARY_FILE_NAME);
 
       assert.lengthOf(result.metadata, 3);
       assertMetadata(result.metadata[0], {

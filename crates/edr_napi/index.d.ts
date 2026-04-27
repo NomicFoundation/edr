@@ -460,11 +460,13 @@ export interface InstrumentationMetadata {
    */
   readonly endUtf16: number
 }
+/** The instrumentation coverage library file name. */
+export const COVERAGE_LIBRARY_FILE_NAME: string
 /**
  * Adds per-statement coverage instrumentation to the given Solidity source
  * code.
  */
-export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string, coverageLibraryPath: string): InstrumentationResult
+export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
 /** Retrieves the latest version of `Solidity` supported for instrumentation. */
 export declare function latestSupportedSolidityVersion(): string
 /** Ethereum execution log. */
@@ -795,6 +797,40 @@ export interface SolidityTestRunnerConfigArgs {
    * Defaults to none.
    */
   testFunctionOverrides?: Array<TestFunctionOverride>
+  /**
+   * A list of EIP-712 canonical type definitions that can be referenced by
+   * type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
+   *
+   * Each entry is an independent, self-contained type definition. A
+   * definition that references nested struct types must inline those
+   * struct definitions, per the EIP-712 `encodeType` spec.
+   *
+   * Only the primary (leftmost) type of each entry is registered by name.
+   * Nested struct types referenced inside an entry are *not* registered
+   * under their own names. To look up a nested struct by name from a
+   * cheatcode, add it as a separate top-level entry whose primary type
+   * is the nested struct.
+   *
+   * The type of a struct is encoded as:
+   *
+   * `name ‖ "(" ‖ member₁ ‖ "," ‖ member₂ ‖ "," ‖ … ‖ memberₙ ")"`
+   *
+   * where each member is written as `type ‖ " " ‖ name`.
+   *
+   * Entries that fail to parse cause a startup error listing every bad
+   * entry.
+   *
+   * Example — to make both `Mail` and `Person` reachable by name:
+   *
+   * ```text
+   * "Mail(Person from,Person to,string contents)Person(address wallet,string name)"
+   * "Person(address wallet,string name)"
+   * ```
+   *
+   * With *only* the first entry, `vm.eip712HashType("Mail")` works but
+   * `vm.eip712HashType("Person")` fails with an unknown-type error.
+   */
+  eip712CanonicalTypes?: Array<string>
 }
 /** Fuzz testing configuration */
 export interface FuzzConfigArgs {
