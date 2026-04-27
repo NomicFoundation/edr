@@ -37,7 +37,6 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "src/",
     "dist/src/",
     "coverage.sol"
   ],
