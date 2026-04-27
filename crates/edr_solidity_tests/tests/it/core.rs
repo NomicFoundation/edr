@@ -141,6 +141,39 @@ async fn test_core() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn test_empty_test_suite_skips_setup() {
+    // `FailingSetupTest.setUp()` reverts with "setup failed predictably". If the
+    // runner doesn't short-circuit on an empty filter match, the suite reports a
+    // `setUp()` failure (see the positive control in `test_core` above). Here we
+    // pick a filter that matches the suite (path + contract) but no test
+    // functions, and assert the suite is reported as completed with zero work.
+    let filter = SolidityTestFilter::new(
+        "thisPatternMatchesNothing",
+        "FailingSetupTest",
+        ".*core/FailingSetup",
+    );
+    let runner = TEST_DATA_DEFAULT.runner().await;
+    let SolidityTestsRunResult {
+        test_result: _,
+        suite_results,
+    } = runner.test_collect(filter).await;
+
+    let suite = suite_results
+        .get("default/core/FailingSetup.t.sol:FailingSetupTest")
+        .expect("suite should still be reported even when empty");
+
+    assert!(suite.test_results.is_empty(), "no tests should have run");
+    assert!(
+        suite.setup_traces.is_empty(),
+        "setUp should not have produced traces"
+    );
+    assert!(
+        !suite.test_results.contains_key("setUp()"),
+        "setUp must not appear — its presence would mean setUp ran (and failed)",
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_linking() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*linking");
     let runner = TEST_DATA_DEFAULT.runner().await;
