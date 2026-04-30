@@ -1,0 +1,32 @@
+name: cache-rust-target/restore
+description: |
+  Restore the workspace `target/` directory for a named bucket.
+  Pair with `cache-rust-target/save` at the end of the job. Buckets
+  scope the cache so jobs with different build configurations
+  (profile, features, RUSTFLAGS) don't thrash each other.
+
+  Current buckets:
+    workspace-strict   — check-edr, cargo-hack-edr (RUSTFLAGS=-Dwarnings, dev profile)
+    workspace-dev      — edr-style (clippy), edr-docs (cargo doc)
+    workspace-coverage — test-edr-rs (cargo llvm-cov, dev profile, all-features)
+    napi-coverage      — test-edr-ts, edr-integration-tests, run-hardhat-tests
+                         (release profile via napi build, op,test-mock features)
+
+inputs:
+  bucket:
+    description: Cache bucket name. See description above.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Restore target cache
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          target/
+          crates/edr_napi/target/
+        key: rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}-${{ hashFiles('Cargo.lock') }}
+        restore-keys: |
+          rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}-
+          rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-

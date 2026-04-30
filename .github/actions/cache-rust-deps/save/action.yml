@@ -1,0 +1,16 @@
+name: cache-rust-deps/save
+description: |
+  Save the cargo dependencies cache (`~/.cargo/registry/`,
+  `~/.cargo/git/`). Pair with `cache-rust-deps/restore` at the start
+  of the job. Same key as the restore.
+
+runs:
+  using: composite
+  steps:
+    - name: Save Rust dependencies cache
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cargo/registry/
+          ~/.cargo/git/
+        key: rust-deps-${{ runner.os }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}-${{ hashFiles('Cargo.lock') }}

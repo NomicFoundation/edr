@@ -1,0 +1,21 @@
+name: cache-rust-target/save
+description: |
+  Save the workspace `target/` directory for a named bucket. Pair
+  with `cache-rust-target/restore` at the start of the job. Same key
+  as the restore.
+
+inputs:
+  bucket:
+    description: Cache bucket name. Must match the restore step's bucket.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Save target cache
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          target/
+          crates/edr_napi/target/
+        key: rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}-${{ hashFiles('Cargo.lock') }}
