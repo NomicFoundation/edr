@@ -134,6 +134,10 @@ jobs:
           path: |
             **/edr-cache
           key: edr-rs-rpc-cache-v1-${{ matrix.os }}
+          # Save key includes a hashFiles suffix; restore via the
+          # OS-scoped prefix to pick up the most recent matching entry.
+          restore-keys: |
+            edr-rs-rpc-cache-v1-${{ matrix.os }}-
 
       - name: Run cargo tests (with coverage)
         env:
@@ -219,6 +223,10 @@ jobs:
           path: |
             **/edr-cache
           key: edr-ts-rpc-cache-v1-${{ matrix.os }}
+          # Save key includes a hashFiles suffix; restore via the
+          # OS-scoped prefix to pick up the most recent matching entry.
+          restore-keys: |
+            edr-ts-rpc-cache-v1-${{ matrix.os }}-
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
