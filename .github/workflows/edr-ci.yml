@@ -161,7 +161,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Doctests
-        run: cargo test --doc --workspace --features tracing --locked --no-fail-fast
+        # Was previously `--features tracing` only; broaden to --all-features
+        # to match the main test compile and reuse fingerprints. Revert if
+        # this surfaces real doctest breakage.
+        run: cargo test --doc --workspace --all-features --locked --no-fail-fast
 
       - name: Save EDR RPC cache
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
