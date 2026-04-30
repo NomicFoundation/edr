@@ -4,10 +4,23 @@ description: |
   `~/.cargo/git/`). Pair with `cache-rust-deps/restore` at the start
   of the job. Same key as the restore.
 
+inputs:
+  save-if:
+    description: |
+      Whether to save the cache. Default "true" saves on every run,
+      including PRs. PR-scoped saves help iteration but accumulate
+      against the repo cache budget when many PRs are open
+      (e.g. Renovate). Pass `${{ github.ref == 'refs/heads/main' }}`
+      from the callsite to restrict to main pushes once iteration
+      stabilizes.
+    required: false
+    default: "true"
+
 runs:
   using: composite
   steps:
     - name: Save Rust dependencies cache
+      if: ${{ inputs.save-if == 'true' }}
       uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: |
