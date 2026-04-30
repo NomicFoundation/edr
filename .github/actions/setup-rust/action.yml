@@ -10,17 +10,34 @@ inputs:
   cache:
     description: Automatically configure Rust cache
     default: true
+  cache-shared-key:
+    description: |
+      Stable cache key shared across multiple jobs. Use to consolidate
+      similar jobs (same OS, same build profile, same RUSTFLAGS) into a
+      single Swatinem cache scope, avoiding per-job cache duplication.
+    required: false
+  cache-save-if:
+    description: |
+      When the cache should be saved. Default is to save on every run
+      (including PRs) so we can iterate on cache configuration. Once
+      stable, tighten to `${{ github.ref == 'refs/heads/main' }}` to
+      stop PR-scoped saves from polluting the cache budget and from
+      being used as a poisoning surface by external contributors.
+    required: false
+    default: "true"
 
 runs:
   using: composite
   steps:
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1.16.0
       with:
         # Empty string means rust-toolchain if it exists, otherwise stable
         toolchain: ${{ inputs.toolchain }}
         components: ${{ inputs.components }}
         cache: ${{ inputs.cache }}
+        cache-shared-key: ${{ inputs.cache-shared-key }}
+        cache-save-if: ${{ inputs.cache-save-if }}
         # Do not override the RUSTFLAGS by default and instead do that per job,
         # if needed. Setting RUSTFLAGS via env var, config, etc. is mutually
         # exclusive and often a source of bugs.
