@@ -10,9 +10,9 @@ inputs:
       Whether to save the cache. Default "true" saves on every run,
       including PRs. PR-scoped saves help iteration but accumulate
       against the repo cache budget when many PRs are open
-      (e.g. Renovate). Pass `${{ github.ref == 'refs/heads/main' }}`
-      from the callsite to restrict to main pushes once iteration
-      stabilizes.
+      (e.g. Renovate). Callsite can pass any GHA-style expression
+      string (typically a main-only check) to gate saves to specific
+      refs once iteration stabilizes.
     required: false
     default: "true"
 
