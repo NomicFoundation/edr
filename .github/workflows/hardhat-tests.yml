@@ -25,6 +25,13 @@ jobs:
       matrix:
         node: [20]
         os: ["macos-15", "ubuntu-24.04", "windows-2025"]
+        include:
+          - os: ubuntu-24.04
+            cache-family: linux
+          - os: macos-15
+            cache-family: macos
+          - os: windows-2025
+            cache-family: windows
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
@@ -37,6 +44,9 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           components: llvm-tools-preview
+          # Shared with test-edr-rs / test-edr-ts / edr-integration-tests
+          # in edr-ci.yml (all cargo llvm-cov, same OS).
+          cache-shared-key: ${{ matrix.cache-family }}-coverage
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
