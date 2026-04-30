@@ -18,11 +18,11 @@ inputs:
     required: false
   cache-save-if:
     description: |
-      When the cache should be saved. Default is to save on every run
-      (including PRs) so we can iterate on cache configuration. Once
-      stable, tighten to `${{ github.ref == 'refs/heads/main' }}` to
-      stop PR-scoped saves from polluting the cache budget and from
-      being used as a poisoning surface by external contributors.
+      Expression controlling when the cache is saved. Default "true"
+      saves on every run (including PRs) so we can iterate on cache
+      config. Tighten to a main-only expression once stable, to stop
+      PR-scoped saves from polluting the cache budget and from being
+      used as a poisoning surface by external contributors.
     required: false
     default: "true"
 
