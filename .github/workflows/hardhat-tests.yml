@@ -22,13 +22,6 @@ jobs:
       matrix:
         node: [20]
         os: ["macos-15", "ubuntu-24.04", "windows-2025"]
-        include:
-          - os: ubuntu-24.04
-            cache-family: linux
-          - os: macos-15
-            cache-family: macos
-          - os: windows-2025
-            cache-family: windows
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
@@ -41,9 +34,10 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           components: llvm-tools-preview
-          # Shared with test-edr-rs / test-edr-ts / edr-integration-tests
-          # in edr-ci.yml (all cargo llvm-cov, same OS).
-          cache-shared-key: ${{ matrix.cache-family }}-coverage
+      - uses: ./.github/actions/cache-rust-deps/restore
+      - uses: ./.github/actions/cache-rust-target/restore
+        with:
+          bucket: napi-coverage
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
@@ -81,6 +75,13 @@ jobs:
           pnpm -C hardhat-tests test
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
+
+      - uses: ./.github/actions/cache-rust-deps/save
+        if: always()
+      - uses: ./.github/actions/cache-rust-target/save
+        if: always()
+        with:
+          bucket: napi-coverage
 
   lint-hardhat-tests:
     name: Lint Hardhat tests

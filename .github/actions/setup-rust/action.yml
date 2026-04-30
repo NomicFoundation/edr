@@ -1,5 +1,10 @@
 name: Setup Rust
-description: Sets up Rust
+description: |
+  Install the Rust toolchain. Caching is handled separately via the
+  `cache-rust-deps` and `cache-rust-target` composite actions —
+  this composite always passes `cache: false` to the underlying
+  setup-rust-toolchain action so its bundled Swatinem doesn't run.
+
 inputs:
   toolchain:
     description: The Rust toolchain to use
@@ -7,28 +12,6 @@ inputs:
   components:
     description: Comma-separated list of components to install
     required: false
-  cache:
-    description: Automatically configure Rust cache
-    default: true
-  cache-shared-key:
-    description: |
-      Stable cache key shared across multiple jobs. Use to consolidate
-      similar jobs (same OS, same build profile, same RUSTFLAGS) into a
-      single Swatinem cache scope, avoiding per-job cache duplication.
-    required: false
-  cache-save-if:
-    description: |
-      Expression controlling when the cache is saved. Default "true"
-      saves on every run, including PRs. PR caches are scoped to
-      refs/pull/N/merge and cannot be restored by main runs, so this
-      is not a poisoning vector — the per-ref scoping is the security
-      barrier. The reason to ever flip this to a main-only expression
-      is budget: large PR-scoped Swatinem caches (~1 GB each) and
-      sccache entries from churny Renovate PRs can accumulate against
-      the repo cache limit. RPC caches (~30 MB) are too small to
-      worry about.
-    required: false
-    default: "true"
 
 runs:
   using: composite
@@ -39,9 +22,8 @@ runs:
         # Empty string means rust-toolchain if it exists, otherwise stable
         toolchain: ${{ inputs.toolchain }}
         components: ${{ inputs.components }}
-        cache: ${{ inputs.cache }}
-        cache-shared-key: ${{ inputs.cache-shared-key }}
-        cache-save-if: ${{ inputs.cache-save-if }}
+        # Caching handled by ./.github/actions/cache-rust-{deps,target}.
+        cache: false
         # Do not override the RUSTFLAGS by default and instead do that per job,
         # if needed. Setting RUSTFLAGS via env var, config, etc. is mutually
         # exclusive and often a source of bugs.
