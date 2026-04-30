@@ -19,10 +19,14 @@ inputs:
   cache-save-if:
     description: |
       Expression controlling when the cache is saved. Default "true"
-      saves on every run (including PRs) so we can iterate on cache
-      config. Tighten to a main-only expression once stable, to stop
-      PR-scoped saves from polluting the cache budget and from being
-      used as a poisoning surface by external contributors.
+      saves on every run, including PRs. PR caches are scoped to
+      refs/pull/N/merge and cannot be restored by main runs, so this
+      is not a poisoning vector — the per-ref scoping is the security
+      barrier. The reason to ever flip this to a main-only expression
+      is budget: large PR-scoped Swatinem caches (~1 GB each) and
+      sccache entries from churny Renovate PRs can accumulate against
+      the repo cache limit. RPC caches (~30 MB) are too small to
+      worry about.
     required: false
     default: "true"
 
