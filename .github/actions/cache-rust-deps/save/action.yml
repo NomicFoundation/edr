@@ -4,6 +4,15 @@ description: |
   `~/.cargo/git/`). Pair with `cache-rust-deps/restore` at the start
   of the job. Same key as the restore.
 
+  First does a `lookup-only` check: if the key already exists (from
+  a prior run, or another concurrent job that won the race in the
+  current run), the save step is skipped entirely. This avoids
+  wasted tar+compress work — actions/cache/save tars the cache
+  contents BEFORE attempting the cache reservation, so a failed
+  reservation still costs the full tar time (5+ min on Windows).
+  lookup-only is a cheap HEAD request that short-circuits the no-op
+  case.
+
 inputs:
   save-if:
     description: |
@@ -19,8 +28,19 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Save Rust dependencies cache
+    - name: Look up existing rust-deps cache (skip save if key exists)
+      id: lookup
       if: ${{ inputs.save-if == 'true' }}
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ~/.cargo/registry/
+          ~/.cargo/git/
+        key: rust-deps-${{ runner.os }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}-${{ hashFiles('Cargo.lock') }}
+        lookup-only: true
+
+    - name: Save Rust dependencies cache
+      if: ${{ inputs.save-if == 'true' && steps.lookup.outputs.cache-hit != 'true' }}
       uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: |
