@@ -6,7 +6,8 @@
   "minimumReleaseAge": "7 days",
   "internalChecksFilter": "strict",
   "ignorePaths": [
-    "**/fixture-projects/**"
+    "**/fixture-projects/**",
+    "hardhat-tests/**"
   ],
   "packageRules": [
     {
@@ -56,6 +57,30 @@
       "description": "github-actions: group everything, including majors",
       "matchManagers": ["github-actions"],
       "groupName": "github-actions"
+    },
+    {
+      "description": "Group all alloy crates together — alloy's API often shifts across versions, so the bundle should land as one PR for review.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["/^alloy(-|$)/"],
+      "groupName": "alloy"
+    },
+    {
+      "description": "Group revm and the Optimism revm variant together — tightly coupled API surface, perf-sensitive.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["/^(op-)?revm(-|$)/"],
+      "groupName": "revm"
+    },
+    {
+      "description": "rayon: parallelism crate, perf-sensitive. Land isolated.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["rayon"],
+      "groupName": "rayon"
+    },
+    {
+      "description": "reqwest and its middleware/retry siblings — HTTP client used in the RPC fork path; perf-sensitive on remote-block flows. Land grouped.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["/^reqwest(-|$)/"],
+      "groupName": "reqwest"
     },
     {
       "description": "Block Node major bumps across every surface (.nvmrc, engines.node, @types/node, actions/setup-node's node-version). Bumped manually, only to even LTS releases.",
