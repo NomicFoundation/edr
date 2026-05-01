@@ -50,6 +50,8 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
+          fetch-depth: 0 # full history needed by ./.github/actions/restore-mtime
+      - uses: ./.github/actions/restore-mtime
       - uses: ./.github/actions/setup-rust
       - uses: ./.github/actions/cache-rust-deps/restore
       - uses: ./.github/actions/cache-rust-target/restore
@@ -78,6 +80,8 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
+          fetch-depth: 0 # full history needed by ./.github/actions/restore-mtime
+      - uses: ./.github/actions/restore-mtime
 
       - uses: ./.github/actions/setup-rust
       - uses: ./.github/actions/cache-rust-deps/restore
@@ -122,6 +126,8 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
+          fetch-depth: 0 # full history needed by ./.github/actions/restore-mtime
+      - uses: ./.github/actions/restore-mtime
 
       - uses: ./.github/actions/setup-rust
         with:
@@ -212,6 +218,8 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
+          fetch-depth: 0 # full history needed by ./.github/actions/restore-mtime
+      - uses: ./.github/actions/restore-mtime
 
       - uses: ./.github/actions/setup-node
         with:
@@ -286,6 +294,8 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
+          fetch-depth: 0 # full history needed by ./.github/actions/restore-mtime
+      - uses: ./.github/actions/restore-mtime
 
       - uses: ./.github/actions/setup-rust
         with:
@@ -323,6 +333,8 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
+          fetch-depth: 0 # full history needed by ./.github/actions/restore-mtime
+      - uses: ./.github/actions/restore-mtime
 
       - uses: ./.github/actions/setup-rust
       - uses: ./.github/actions/cache-rust-deps/restore
@@ -391,6 +403,8 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
+          fetch-depth: 0 # full history needed by ./.github/actions/restore-mtime
+      - uses: ./.github/actions/restore-mtime
 
       - uses: ./.github/actions/setup-node
 
