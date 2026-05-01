@@ -1,6 +1,92 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ]
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "timezone": "UTC",
+  "schedule": ["before 9am on Monday"],
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "ignorePaths": [
+    "**/fixture-projects/**"
+  ],
+  "packageRules": [
+    {
+      "description": "Ignore pnpm workspace: protocol deps. Renovate skips them natively — rule kept for explicit intent.",
+      "matchManagers": ["npm"],
+      "matchCurrentValue": "/^workspace:/",
+      "enabled": false
+    },
+    {
+      "description": "peerDependencies are a compatibility contract with consumers, not an installed dep. Bumping them is a deliberate API decision tied to a plugin major.",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["peerDependencies"],
+      "enabled": false
+    },
+    {
+      "description": "Extra cooldown for majors",
+      "matchUpdateTypes": ["major"],
+      "minimumReleaseAge": "30 days"
+    },
+    {
+      "description": "cargo: group minor/patch; majors stay individual",
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "cargo minor/patch"
+    },
+    {
+      "description": "cargo: ungroup pre-1.0 minors — Cargo treats 0.x→0.y as breaking, so these need their own PR.",
+      "matchManagers": ["cargo"],
+      "matchCurrentVersion": "<1.0.0",
+      "matchUpdateTypes": ["minor"],
+      "groupName": null
+    },
+    {
+      "description": "npm: group minor/patch; majors stay individual",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm minor/patch"
+    },
+    {
+      "description": "npm: ungroup pre-1.0 minors — ^0.x.y resolves like ~0.x.y, so 0.x→0.y is breaking and needs its own PR.",
+      "matchManagers": ["npm"],
+      "matchCurrentVersion": "<1.0.0",
+      "matchUpdateTypes": ["minor"],
+      "groupName": null
+    },
+    {
+      "description": "github-actions: group everything, including majors",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "Block Node major bumps across every surface (.nvmrc, engines.node, @types/node, actions/setup-node's node-version). Bumped manually, only to even LTS releases.",
+      "matchDepNames": ["node", "@types/node"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "@tsconfig/nodeXX: the Node major lives in the package name (node20 → node22 = Node 20 → 22). Renovate models these as 'replacement' updates — block them alongside the Node-major lockdown above.",
+      "matchPackageNames": ["/^@tsconfig\\/node\\d+$/"],
+      "matchUpdateTypes": ["replacement"],
+      "enabled": false
+    },
+    {
+      "description": "Block typescript majors. TS majors cascade to typescript-eslint and to consumers of EDR's TS-aware bindings — bump manually when the ecosystem catches up.",
+      "matchPackageNames": ["typescript"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "Pinned cargo git-source deps: slang_solidity is tag-pinned, revm-inspectors is a Wodann fork at a specific rev. Disable Renovate's default git-digest updates — these are bumped manually for compat. Note: matches on depName (Cargo.toml key), not packageName (which is the git URL for git-source deps).",
+      "matchManagers": ["cargo"],
+      "matchDepNames": ["slang_solidity", "revm-inspectors"],
+      "enabled": false
+    }
+  ],
+  "labels": ["dependencies"],
+  "configMigration": true,
+  "dependencyDashboard": false,
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true
+  }
 }
