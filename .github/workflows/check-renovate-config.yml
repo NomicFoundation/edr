@@ -1,0 +1,38 @@
+# Validates renovate.json on every PR — schema check plus a full
+# extraction dry-run so malformed rules and silent matchPackageNames
+# vs matchDepNames mismatches are caught before merge.
+
+name: Check Renovate config
+
+on:
+  pull_request:
+    branches:
+      - main
+  merge_group:
+    types: [checks_requested]
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
+jobs:
+  check-renovate-config:
+    name: Check Renovate config
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+
+      - name: Renovate schema check
+        run: npx --yes --package renovate -- renovate-config-validator renovate.json
+
+      - name: Renovate extraction dry-run
+        env:
+          # Without a token, github-tags/github-releases lookups hit the
+          # anonymous 60 req/hr rate limit shared across the runner IP.
+          GITHUB_COM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LOG_LEVEL: debug
+        run: npx --yes renovate --platform=local --dry-run=full
