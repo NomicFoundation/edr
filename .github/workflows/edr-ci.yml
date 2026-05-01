@@ -262,6 +262,15 @@ jobs:
         shell: bash
         run: |
           source <(cargo llvm-cov show-env --sh)
+          # napi-rs's `napi build` only re-emits index.js / index.d.ts when
+          # cargo actually compiles (proc-macros write the intermediate
+          # type-def file as a side effect). On a warm cache, cargo can say
+          # "fresh" in <1s and skip emitting, leaving the committed
+          # production-feature bindings in place — which lack symbols gated
+          # behind `test-mock` (e.g. MockTime). Force a real rebuild so the
+          # bindings match the feature set we test against.
+          # Tracked upstream: napi-rs/napi-rs#1276, fix in #3124.
+          cargo clean -p edr_napi
           pnpm -C crates/edr_napi test
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
@@ -430,6 +439,9 @@ jobs:
         shell: bash
         run: |
           source <(cargo llvm-cov show-env --sh)
+          # See note in test-edr-ts above: force napi rebuild so index.js /
+          # index.d.ts regenerate with the build:dev feature set.
+          cargo clean -p edr_napi
           pnpm run --recursive --filter './js/integration-tests/*' test
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
