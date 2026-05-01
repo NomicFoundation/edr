@@ -5,6 +5,12 @@ edition.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
+# Cdylibs don't support doctests; opt out at the crate level so
+# `cargo test --doc --workspace` silently skips us instead of needing
+# `--exclude edr_napi` at every callsite (which changes feature
+# unification across the workspace and invalidates the test-step
+# build cache for sibling crates).
+doctest = false
 
 [dependencies]
 alloy-dyn-abi.workspace = true
