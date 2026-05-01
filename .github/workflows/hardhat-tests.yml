@@ -34,7 +34,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
         with:
-          tool: cargo-llvm-cov@0.6.21
+          tool: cargo-llvm-cov@0.8.5
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -63,7 +63,7 @@ jobs:
           DEBUG: "hardhat:core:hardhat-network:*"
         shell: bash
         run: |
-          source <(cargo llvm-cov show-env --export-prefix)
+          source <(cargo llvm-cov show-env --sh)
           pnpm -C hardhat-tests test
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json

@@ -101,7 +101,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
         with:
-          tool: cargo-llvm-cov@0.6.21
+          tool: cargo-llvm-cov@0.8.5
 
       - name: Restore EDR RPC cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -173,7 +173,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
         with:
-          tool: cargo-llvm-cov@0.6.21
+          tool: cargo-llvm-cov@0.8.5
 
       - name: Restore EDR RPC cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -192,7 +192,7 @@ jobs:
           FORCE_COLOR: 3
         shell: bash
         run: |
-          source <(cargo llvm-cov show-env --export-prefix)
+          source <(cargo llvm-cov show-env --sh)
           pnpm -C crates/edr_napi test
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
@@ -310,7 +310,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
         with:
-          tool: cargo-llvm-cov@0.6.21
+          tool: cargo-llvm-cov@0.8.5
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -318,7 +318,7 @@ jobs:
       - name: Run integration tests
         shell: bash
         run: |
-          source <(cargo llvm-cov show-env --export-prefix)
+          source <(cargo llvm-cov show-env --sh)
           pnpm run --recursive --filter './js/integration-tests/*' test
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
