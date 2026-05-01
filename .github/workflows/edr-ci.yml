@@ -173,6 +173,7 @@ jobs:
         # edr_napi sets `doctest = false` in its Cargo.toml so it's silently
         # skipped here without needing `--exclude`, which would shrink the
         # feature unification universe and invalidate sibling-crate caches.
+        # The "cdylib doc tests not supported" warning still fires anyway: rust-lang/cargo#15964.
         run: cargo test --doc --workspace --all-features --locked --no-fail-fast
 
       - name: Save EDR RPC cache
