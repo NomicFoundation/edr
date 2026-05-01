@@ -12,6 +12,18 @@ description: |
     napi-coverage      — test-edr-ts, edr-integration-tests, run-hardhat-tests
                          (release profile via napi build, op,test-mock features)
 
+  Cache key inputs (auto-invalidate when these change):
+    - rust-toolchain pin
+    - workspace `.cargo/config.toml` (build.rustflags, target.<triple>.rustflags)
+    - per-crate `.cargo/config.toml` (target-dir, target-feature)
+    - Cargo.lock
+
+  Things NOT in the key — bump the `v1` suffix manually if any of these
+  changes invalidates compile output:
+    - RUSTFLAGS / RUSTDOCFLAGS env set in workflow YAML
+    - cargo-llvm-cov / other tool versions pinned in workflow YAML
+    - the setup-rust composite's behavior (Augment-RUSTFLAGS step, etc.)
+
 inputs:
   bucket:
     description: Cache bucket name. See description above.
@@ -26,7 +38,7 @@ runs:
         path: |
           target/
           crates/edr_napi/target/
-        key: rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}-${{ hashFiles('Cargo.lock') }}
+        key: rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain', '.cargo/config.toml', 'crates/**/.cargo/config.toml') }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}-
+          rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain', '.cargo/config.toml', 'crates/**/.cargo/config.toml') }}-
           rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-

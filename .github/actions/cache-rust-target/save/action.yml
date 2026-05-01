@@ -39,7 +39,7 @@ runs:
         path: |
           target/
           crates/edr_napi/target/
-        key: rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}-${{ hashFiles('Cargo.lock') }}
+        key: rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain', '.cargo/config.toml', 'crates/**/.cargo/config.toml') }}-${{ hashFiles('Cargo.lock') }}
         lookup-only: true
 
     - name: Save target cache
@@ -49,4 +49,4 @@ runs:
         path: |
           target/
           crates/edr_napi/target/
-        key: rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}-${{ hashFiles('Cargo.lock') }}
+        key: rust-target-${{ runner.os }}-${{ inputs.bucket }}-v1-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain', '.cargo/config.toml', 'crates/**/.cargo/config.toml') }}-${{ hashFiles('Cargo.lock') }}
