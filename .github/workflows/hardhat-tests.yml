@@ -13,6 +13,12 @@ jobs:
   run-hardhat-tests:
     name: Run Hardhat tests (${{ matrix.os }}, Node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
+    # See comment on test-edr-rs in edr-ci.yml. Same crt-static caveat
+    # applies on Windows native — release artifact is built by
+    # edr-npm-release.yml separately and is unaffected.
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     strategy:
       fail-fast: false
       matrix:

@@ -85,6 +85,16 @@ jobs:
     name: Test EDR (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: check-edr
+    # Set strict warning gate on test compiles to surface any latent
+    # warnings in test/cfg(test) code paths. Caveat: env RUSTFLAGS
+    # clobbers `target.<triple>.rustflags` from
+    # crates/edr_napi/.cargo/config.toml, so the Windows native build
+    # loses `+crt-static`. Tests still run on the GHA Windows runner
+    # (VC++ Redistributable is installed); the released artifact is
+    # built separately by edr-npm-release.yml and is unaffected.
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     strategy:
       fail-fast: false
       matrix:
@@ -152,6 +162,10 @@ jobs:
     name: Test EDR TS bindings (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: check-edr
+    # See comment on test-edr-rs above. Same crt-static caveat applies.
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     strategy:
       fail-fast: false
       matrix:
@@ -296,6 +310,10 @@ jobs:
     name: Run integration tests
     runs-on: ubuntu-24.04
     needs: check-edr-safety
+    # See comment on test-edr-rs above.
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
