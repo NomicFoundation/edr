@@ -170,7 +170,9 @@ jobs:
         # Was previously `--features tracing` only; broaden to --all-features
         # to match the main test compile and reuse fingerprints. Revert if
         # this surfaces real doctest breakage.
-        run: cargo test --doc --workspace --all-features --locked --no-fail-fast
+        # Exclude edr_napi: it's the only cdylib in the workspace and Cargo
+        # warns "doc tests are not supported for crate type(s) `cdylib`".
+        run: cargo test --doc --workspace --exclude edr_napi --all-features --locked --no-fail-fast
 
       - name: Save EDR RPC cache
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
