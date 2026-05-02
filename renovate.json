@@ -7,7 +7,9 @@
   "internalChecksFilter": "strict",
   "ignorePaths": [
     "**/fixture-projects/**",
-    "hardhat-tests/**"
+    "hardhat-tests/**",
+    "crates/foundry/**",
+    "js/**"
   ],
   "packageRules": [
     {
@@ -83,6 +85,29 @@
       "groupName": "reqwest"
     },
     {
+      "description": "napi-rs: ABI-tied across edr_napi's Rust crates and JS toolchain. napi/napi-derive/napi-build (cargo) and @napi-rs/cli (npm) must move in lockstep.",
+      "matchPackageNames": ["napi", "napi-derive", "napi-build", "@napi-rs/cli"],
+      "groupName": "napi-rs"
+    },
+    {
+      "description": "tokio runtime family — tokio + tokio-stream/tokio-util/tokio-tungstenite. Land grouped to avoid version skew across async surfaces.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["/^tokio(-|$)/"],
+      "groupName": "tokio"
+    },
+    {
+      "description": "tracing ecosystem — tracing + tracing-subscriber/tracing-futures/tracing-error. Land grouped to keep span/event API consistent.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["/^tracing(-|$)/"],
+      "groupName": "tracing"
+    },
+    {
+      "description": "External foundry-rs library crates (not vendored — fetched from crates.io). foundry-compilers/foundry-block-explorers/foundry-fork-db often release together upstream and may need lockstep with the vendored Foundry fork in crates/foundry/.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["foundry-block-explorers", "foundry-compilers", "foundry-fork-db"],
+      "groupName": "foundry"
+    },
+    {
       "description": "Block Node major bumps across every surface (.nvmrc, engines.node, @types/node, actions/setup-node's node-version). Bumped manually, only to even LTS releases.",
       "matchDepNames": ["node", "@types/node"],
       "matchUpdateTypes": ["major"],
@@ -104,6 +129,12 @@
       "description": "Pinned cargo git-source deps: slang_solidity is tag-pinned, revm-inspectors is a Wodann fork at a specific rev. Disable Renovate's default git-digest updates — these are bumped manually for compat. Note: matches on depName (Cargo.toml key), not packageName (which is the git URL for git-source deps).",
       "matchManagers": ["cargo"],
       "matchDepNames": ["slang_solidity", "revm-inspectors"],
+      "enabled": false
+    },
+    {
+      "description": "Hardhat ecosystem npm deps (hardhat, hardhat2 alias, @nomicfoundation/hardhat-*) are exact-pinned, patched (pnpm patchedDependencies key includes the version), and partly on pre-release tracks. Bumps invalidate patches and break the v2/v3 side-by-side benchmark setup. Bumped manually as part of coordinated edr↔hardhat releases.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["hardhat", "hardhat2", "/^@nomicfoundation\\/hardhat-/"],
       "enabled": false
     }
   ],
