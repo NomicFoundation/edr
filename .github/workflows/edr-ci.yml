@@ -87,7 +87,7 @@ jobs:
       - uses: ./.github/actions/cache-rust-deps/restore
       - uses: ./.github/actions/cache-rust-target/restore
         with:
-          bucket: workspace-strict
+          bucket: workspace-hack
 
       # Install pre-built binaries for cargo hack
       - uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
@@ -105,7 +105,7 @@ jobs:
       - uses: ./.github/actions/cache-rust-target/save
         if: always()
         with:
-          bucket: workspace-strict
+          bucket: workspace-hack
 
   test-edr-rs:
     name: Test EDR (${{ matrix.os }})

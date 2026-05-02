@@ -6,7 +6,13 @@ description: |
   (profile, features, RUSTFLAGS) don't thrash each other.
 
   Current buckets:
-    workspace-strict   — check-edr, cargo-hack-edr (RUSTFLAGS=-Dwarnings, dev profile)
+    workspace-strict   — check-edr (RUSTFLAGS=-Dwarnings, dev profile)
+    workspace-hack     — cargo-hack-edr (feature-powerset; isolated from
+                         workspace-strict because the powerset writes ~2-3×
+                         more compile artifacts than check-edr produces, so
+                         sharing a bucket causes cargo-hack to lose its
+                         artifacts whenever check-edr saves last and forces
+                         a partial recompile).
     workspace-dev      — edr-style (clippy), edr-docs (cargo doc)
     workspace-coverage — test-edr-rs (cargo llvm-cov, dev profile, all-features)
     napi-coverage      — test-edr-ts, edr-integration-tests, run-hardhat-tests
