@@ -29,3 +29,20 @@ runs:
         # By default, we do not override the toolchain from rust-toolchain.
         # The user needs to explicitly use `<cmd> +<toolchain>` for clarity.
         override: false
+
+    # Append platform target features to RUSTFLAGS so they survive any env
+    # RUSTFLAGS the job (or cargo-llvm-cov, etc.) sets. Cargo's resolution
+    # rule is "first source wins, no merging" — env RUSTFLAGS clobbers the
+    # `target.<triple>.rustflags` from .cargo/config.toml wholesale, so the
+    # only reliable way to preserve `+crt-static` on Windows test builds
+    # (matching the released NAPI ABI) is to bake it into the env value
+    # itself before any later step appends instrumentation flags.
+    - name: Augment RUSTFLAGS with platform target features
+      shell: bash
+      run: |
+        case "$RUNNER_OS" in
+          Windows)
+            echo "RUSTFLAGS=${RUSTFLAGS:-} -C target-feature=+crt-static" >> "$GITHUB_ENV"
+            ;;
+          *) ;;
+        esac

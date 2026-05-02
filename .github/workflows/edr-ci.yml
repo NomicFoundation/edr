@@ -85,6 +85,13 @@ jobs:
     name: Test EDR (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: check-edr
+    # Strict warning gate on test/cfg(test) compiles. The setup-rust
+    # composite action appends `-C target-feature=+crt-static` on
+    # Windows so this env value doesn't clobber the CRT-static linkage
+    # that matches the released NAPI artifact.
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     strategy:
       fail-fast: false
       matrix:
@@ -152,6 +159,10 @@ jobs:
     name: Test EDR TS bindings (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: check-edr
+    # See comment on test-edr-rs above re crt-static handling.
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     strategy:
       fail-fast: false
       matrix:
@@ -296,6 +307,9 @@ jobs:
     name: Run integration tests
     runs-on: ubuntu-24.04
     needs: check-edr-safety
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:

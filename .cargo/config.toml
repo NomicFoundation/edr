@@ -5,3 +5,21 @@ scenario-with-tracing   = "run --locked --release --features tracing --bin edr_t
 replay-block            = "run --locked --release --bin edr_tool_cli -- replay-block"
 generate-cheats-interface = "test -p foundry-cheatcodes-spec --features schema --locked tests::"
 op-chain-config         = "run --locked --release --bin edr_tool_op_chain_config_generator"
+
+# Per-target rustflags must live in the workspace root so they apply to
+# cargo invocations from anywhere in the tree. A copy under
+# crates/edr_napi/.cargo/ would only be loaded when cargo is invoked from
+# inside that crate (Cargo searches cwd upward, never into subdirectories).
+#
+# These are clobbered wholesale by env RUSTFLAGS — Cargo's resolution is
+# "first source wins, no merging." Jobs that set RUSTFLAGS (warning gate,
+# cargo-llvm-cov instrumentation) must include `-C target-feature=...` in
+# the env value or accept a CRT-linkage divergence from the released NAPI.
+# `.github/actions/setup-rust` augments RUSTFLAGS on Windows runners to
+# preserve `+crt-static`.
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+rustflags = ["-C", "target-feature=-crt-static"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
