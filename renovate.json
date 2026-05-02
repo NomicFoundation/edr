@@ -61,9 +61,9 @@
       "groupName": "github-actions"
     },
     {
-      "description": "Group all alloy crates together — alloy's API often shifts across versions, so the bundle should land as one PR for review.",
+      "description": "Group all alloy crates together (including the op-alloy Optimism variants used by edr_op) — alloy's API often shifts across versions, op-alloy carries alloy-* deps transitively, so the bundle should land as one PR for review.",
       "matchManagers": ["cargo"],
-      "matchPackageNames": ["/^alloy(-|$)/"],
+      "matchPackageNames": ["/^(op-)?alloy(-|$)/"],
       "groupName": "alloy"
     },
     {
