@@ -159,6 +159,9 @@ jobs:
     name: Test EDR TS bindings (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: check-edr
+    # Cap below GHA's 6h ceiling so the recurring mocha-process-hang surfaces
+    # within ~2× normal runtime instead of burning a full job slot.
+    timeout-minutes: 30
     # See comment on test-edr-rs above re crt-static handling.
     env:
       RUSTFLAGS: -Dwarnings
