@@ -262,6 +262,73 @@ const providerConfig = {
 describe("Provider logs", function () {
   const mockTimer = MockTime.now();
 
+  // EXPERIMENT: copy of `should print a block with one transaction` —
+  // the test that the recurring CI hang dies before — placed in its own
+  // describe with its own MockTime, logger and Provider, and registered
+  // BEFORE `Interval mining` so it runs without any leaked sibling
+  // providers subscribed to the shared mockTimer. If this passes while
+  // the original (below) still hangs, the cause is shared state across
+  // siblings; if both hang, the bug is intrinsic to sendTransaction +
+  // intervalMine in this configuration.
+  describe("Interval mining (isolated repro of test 4)", function () {
+    it("should print a block with one transaction (isolated)", async function () {
+      const isolatedTimer = MockTime.now();
+      const isolatedLogger = new FakeModulesLogger();
+      const isolatedLoggerConfig = {
+        enable: true,
+        decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] => {
+          return ConsoleLogger.getDecodedLogs(
+            inputs.map((input) => Buffer.from(input))
+          );
+        },
+        printLineCallback: (message: string, replace: boolean): void => {
+          if (replace) {
+            isolatedLogger.replaceLastLineFn()(message);
+          } else {
+            isolatedLogger.printLineFn()(message);
+          }
+        },
+      };
+
+      const isolatedProvider = await createProviderWithMockTimer(
+        {
+          ...providerConfig,
+          genesisState: providerConfig.genesisState.concat(
+            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+          ),
+        },
+        isolatedLoggerConfig,
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        new ContractDecoder(),
+        isolatedTimer
+      );
+
+      const isolatedGasPrice = await getGasPrice(isolatedProvider);
+      isolatedLogger.reset();
+
+      await sendTransaction(isolatedProvider, { gasPrice: isolatedGasPrice });
+      isolatedLogger.reset();
+
+      await intervalMine(isolatedLogger, isolatedTimer);
+
+      assert.lengthOf(isolatedLogger.lines, 9);
+      // prettier-ignore
+      {
+        assert.match(isolatedLogger.lines[0], /^Mined block #\d+$/);
+        assert.match(isolatedLogger.lines[1], /^  Block: 0x[0-9a-f]{64}/);
+        assert.match(isolatedLogger.lines[2], /^    Base fee: \d+$/);
+        assert.match(isolatedLogger.lines[3], /^    Transaction: 0x[0-9a-f]{64}/);
+        assert.match(isolatedLogger.lines[4], /^      From:      0x[0-9a-f]{40}/);
+        assert.match(isolatedLogger.lines[5], /^      To:        0x[0-9a-f]{40}/);
+        assert.match(isolatedLogger.lines[6], /^      Value:     0 ETH$/);
+        assert.match(isolatedLogger.lines[7], /^      Gas used:  21000 of 21000$/);
+        assert.equal(isolatedLogger.lines[8], "");
+      }
+    });
+  });
+
   describe("Interval mining", function () {
     let gasPrice: bigint;
     let logger: FakeModulesLogger;
