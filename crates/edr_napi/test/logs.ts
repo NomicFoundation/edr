@@ -429,27 +429,30 @@ describe("Provider logs", function () {
       }
     });
 
-    it("should print a block with one transaction", async function () {
-      await sendTransaction(provider, { gasPrice });
-
-      logger.reset();
-
-      await intervalMine(logger, mockTimer);
-
-      assert.lengthOf(logger.lines, 9);
-      // prettier-ignore
-      {
-            assert.match(logger.lines[0], /^Mined block #\d+$/);
-            assert.match(logger.lines[1], /^  Block: 0x[0-9a-f]{64}/);
-            assert.match(logger.lines[2], /^    Base fee: \d+$/);
-            assert.match(logger.lines[3], /^    Transaction: 0x[0-9a-f]{64}/);
-            assert.match(logger.lines[4], /^      From:      0x[0-9a-f]{40}/);
-            assert.match(logger.lines[5], /^      To:        0x[0-9a-f]{40}/);
-            assert.match(logger.lines[6], /^      Value:     0 ETH$/);
-            assert.match(logger.lines[7], /^      Gas used:  21000 of 21000$/);
-            assert.equal(logger.lines[8], "");
-          }
-    });
+    // EXPERIMENT: amplify the failing trigger by registering it 20 times.
+    // Each rep is its own `it()`, so mocha's per-test 25s timeout fires
+    // cheaply on a hang rather than wedging the whole job. Revert before
+    // merge.
+    for (let rep = 0; rep < 20; rep++) {
+      it(`should print a block with one transaction (rep ${rep})`, async function () {
+        await sendTransaction(provider, { gasPrice });
+        logger.reset();
+        await intervalMine(logger, mockTimer);
+        assert.lengthOf(logger.lines, 9);
+        // prettier-ignore
+        {
+          assert.match(logger.lines[0], /^Mined block #\d+$/);
+          assert.match(logger.lines[1], /^  Block: 0x[0-9a-f]{64}/);
+          assert.match(logger.lines[2], /^    Base fee: \d+$/);
+          assert.match(logger.lines[3], /^    Transaction: 0x[0-9a-f]{64}/);
+          assert.match(logger.lines[4], /^      From:      0x[0-9a-f]{40}/);
+          assert.match(logger.lines[5], /^      To:        0x[0-9a-f]{40}/);
+          assert.match(logger.lines[6], /^      Value:     0 ETH$/);
+          assert.match(logger.lines[7], /^      Gas used:  21000 of 21000$/);
+          assert.equal(logger.lines[8], "");
+        }
+      });
+    }
 
     it("should print a block with two transactions", async function () {
       await sendTransaction(provider, { gasPrice });
