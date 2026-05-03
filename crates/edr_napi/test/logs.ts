@@ -378,23 +378,6 @@ describe("Provider logs", function () {
       logger.reset();
     });
 
-    // EXPERIMENT: drop the provider reference and force GC after each
-    // test so the previous Provider's tokio runtime tasks (still
-    // subscribed to the shared `mockTimer`) are torn down before the
-    // next beforeEach spawns a fresh one. If the recurring hang at
-    // `should print a block with one transaction` goes away with this
-    // hook, the cause is leaked siblings — and the proper fix is to
-    // expose a `Provider.close()` API from edr_napi so cleanup doesn't
-    // depend on JS GC.
-    afterEach(async function () {
-      provider = undefined as unknown as Provider;
-      const maybeGc = (globalThis as { gc?: () => void }).gc;
-      if (typeof maybeGc === "function") {
-        maybeGc();
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    });
-
     it("should only print the mined block when there are no pending txs", async function () {
       await intervalMine(logger, mockTimer);
 

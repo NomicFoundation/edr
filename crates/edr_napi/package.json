@@ -74,7 +74,7 @@
     "lint:fix": "pnpm run prettier --write",
     "pretest": "pnpm build:dev",
     "prettier": "prettier --check \"test/**.ts\"",
-    "test": "node --max-old-space-size=8192 --expose-gc node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
+    "test": "node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
     "testNoBuild": "node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(logs|mock)}.ts\"",
     "universal": "napi universal",
     "version": "napi version"
