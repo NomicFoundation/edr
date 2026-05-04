@@ -118,14 +118,12 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/registry/src/
-            ~/.cargo/git/db/
+            ~/.cargo/registry/
+            ~/.cargo/git/
             target/
-          key: ${{ matrix.settings.target }}-cargo-v3-${{ matrix.settings.host }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.settings.target }}-cargo-v4-${{ matrix.settings.host }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.settings.target }}-cargo-v3-${{ matrix.settings.host }}-
+            ${{ matrix.settings.target }}-cargo-v4-${{ matrix.settings.host }}-
 
       - name: Install dependencies (non-Windows)
         if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
