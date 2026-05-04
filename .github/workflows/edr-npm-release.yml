@@ -120,11 +120,12 @@ jobs:
           path: |
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
+            ~/.cargo/registry/src/
             ~/.cargo/git/db/
             target/
-          key: ${{ matrix.settings.target }}-cargo-v2-${{ matrix.settings.host }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.settings.target }}-cargo-v3-${{ matrix.settings.host }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.settings.target }}-cargo-v2-${{ matrix.settings.host }}-
+            ${{ matrix.settings.target }}-cargo-v3-${{ matrix.settings.host }}-
 
       - name: Install dependencies (non-Windows)
         if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
