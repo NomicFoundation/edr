@@ -136,6 +136,15 @@ jobs:
         if: ${{ !matrix.settings.docker && runner.os == 'Windows' }}
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      # Force napi-derive to re-emit index.js / index.d.ts on warm cache
+      # runs. restore-mtime sets workspace sources to old git times so cargo
+      # treats them as fresh; touching src/lib.rs after that inverts the
+      # comparison for edr_napi only, triggering a rebuild that runs
+      # napi-derive's codegen.
+      - name: Touch napi source to force fresh codegen
+        shell: bash
+        run: touch src/lib.rs
+
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
         run: ${{ matrix.settings.build }}
