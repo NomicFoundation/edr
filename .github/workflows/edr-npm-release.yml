@@ -46,6 +46,13 @@ jobs:
           - host: windows-2025
             target: x86_64-pc-windows-msvc
             build: pnpm run build --strip
+            # Windows-only: cache the extracted form too. NTFS handles
+            # many small file creates ~5-10x slower than ext4/APFS, so
+            # napi-rs's pre-cargo `cargo metadata` extraction of ~500
+            # .crate tarballs into registry/src/ takes ~50s on warm
+            # runs without this. Other targets re-extract fast enough
+            # that caching the bloat isn't worth the size.
+            cache_extra_paths: ~/.cargo/registry/src/
 
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
@@ -118,12 +125,14 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
-            ~/.cargo/registry/
-            ~/.cargo/git/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
             target/
-          key: ${{ matrix.settings.target }}-cargo-v4-${{ matrix.settings.host }}-${{ hashFiles('**/Cargo.lock') }}
+            ${{ matrix.settings.cache_extra_paths }}
+          key: ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.settings.target }}-cargo-v4-${{ matrix.settings.host }}-
+            ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-
 
       - name: Install dependencies (non-Windows)
         if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
