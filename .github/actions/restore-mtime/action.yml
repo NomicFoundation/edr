@@ -1,0 +1,21 @@
+name: restore-mtime
+description: |
+  Restore file mtimes to each file's last commit time. Without this,
+  fresh GHA checkouts set every file's mtime to "now", making Cargo
+  see them as newer than cached `target/` artifacts and force
+  unnecessary rebuilds of workspace crates on warm-cache runs.
+
+  Requires `fetch-depth: 0` on the preceding `actions/checkout` so
+  the action can find each file's last commit time.
+
+  Mirrors slang's `git/restore-mtime` composite. Uses
+  `--commit-time` (not author time) since caches are shared across
+  branches and committer time is more stable.
+
+runs:
+  using: composite
+  steps:
+    - name: Restore file mtimes from git
+      uses: chetan/git-restore-mtime-action@d186aca54f8760da4dec55313195e51ed3ebb0b3 # v2.3
+      with:
+        args: "--commit-time"
