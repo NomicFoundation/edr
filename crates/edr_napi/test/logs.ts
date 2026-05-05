@@ -260,13 +260,13 @@ const providerConfig = {
 };
 
 describe("Provider logs", function () {
-  const mockTimer = MockTime.now();
-
   describe("Interval mining", function () {
     let gasPrice: bigint;
     let logger: FakeModulesLogger;
+    let mockTimer: MockTime;
     let provider: Provider;
     beforeEach(async function () {
+      mockTimer = MockTime.now();
       logger = new FakeModulesLogger();
 
       const printLineFn = logger.printLineFn();
@@ -309,6 +309,21 @@ describe("Provider logs", function () {
 
       // Remove the `eth_gasPrice` call from the logger
       logger.reset();
+    });
+
+    afterEach(async function () {
+      // Stop interval mining explicitly so the background task is torn
+      // down here instead of whenever JS GC reclaims the provider.
+      if (provider !== undefined) {
+        await provider.handleRequest(
+          JSON.stringify({
+            id: 1,
+            jsonrpc: "2.0",
+            method: "evm_setIntervalMining",
+            params: [0],
+          })
+        );
+      }
     });
 
     it("should only print the mined block when there are no pending txs", async function () {

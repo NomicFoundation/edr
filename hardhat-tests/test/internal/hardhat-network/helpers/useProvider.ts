@@ -132,6 +132,13 @@ export function useProvider({
   });
 
   afterEach("Remove provider", async function () {
+    // Stop interval mining before dropping the provider so its tokio
+    // task is torn down here instead of whenever JS GC reclaims the
+    // wrapper.
+    if (this.provider !== undefined) {
+      await this.provider.send("evm_setIntervalMining", [0]);
+    }
+
     // These two deletes are unsafe, but we use this properties
     // in very locally and are ok with the risk.
     // To make this safe the properties should be optional, which

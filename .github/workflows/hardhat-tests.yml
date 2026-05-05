@@ -13,6 +13,9 @@ jobs:
   run-hardhat-tests:
     name: Run Hardhat tests (${{ matrix.os }}, Node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
+    # Cap well below GHA's 6h ceiling so a hung mocha test fails fast
+    # rather than burning a full job slot.
+    timeout-minutes: 30
     # See comment on test-edr-rs in edr-ci.yml re crt-static handling.
     env:
       RUSTFLAGS: -Dwarnings
