@@ -109,9 +109,18 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Whether to disable the block gas limit.
     /// Defaults to false.
     pub disable_block_gas_limit: Option<bool>,
-    /// Whether to enable the EIP-7825 (Osaka) transaction gas limit cap.
+    /// Transaction gas cap, introduced in [EIP-7825].
+    ///
+    /// When not set, defaults to the value defined by the used hardfork.
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
+    pub transaction_gas_cap: Option<BigInt>,
+    /// Whether to disable the [EIP-7825] transaction gas cap.
     /// Defaults to false.
-    pub enable_tx_gas_limit_cap: Option<bool>,
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    pub disable_transaction_gas_cap: Option<bool>,
     /// The memory limit of the EVM in bytes.
     /// Defaults to `33_554_432` (2^25 = 32MiB).
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
@@ -230,7 +239,8 @@ impl SolidityTestRunnerConfigArgs {
             block_difficulty,
             block_gas_limit,
             disable_block_gas_limit,
-            enable_tx_gas_limit_cap,
+            transaction_gas_cap,
+            disable_transaction_gas_cap,
             memory_limit,
             local_predeploys,
             eth_rpc_url,
@@ -368,7 +378,8 @@ impl SolidityTestRunnerConfigArgs {
             block_difficulty: block_difficulty.map(TryCast::try_cast).transpose()?,
             block_gas_limit: block_gas_limit.map(TryCast::try_cast).transpose()?,
             disable_block_gas_limit,
-            enable_tx_gas_limit_cap,
+            transaction_gas_cap: transaction_gas_cap.map(TryCast::try_cast).transpose()?,
+            disable_transaction_gas_cap,
             memory_limit: memory_limit.map(TryCast::try_cast).transpose()?,
             local_predeploys,
             fork_url: eth_rpc_url,

@@ -39,6 +39,10 @@ pub struct ScenarioProviderConfig {
     pub chain_id: ChainId,
     pub chain_overrides: HashMap<ChainId, ChainOverride<String>>,
     pub coinbase: Address,
+    #[serde(default)]
+    pub disable_block_gas_limit: bool,
+    #[serde(default)]
+    pub disable_transaction_gas_cap: bool,
     pub fork: Option<ForkConfig<String>>,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
@@ -82,6 +86,8 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,
+            disable_block_gas_limit: Some(value.disable_block_gas_limit),
+            disable_transaction_gas_cap: Some(value.disable_transaction_gas_cap),
             fork,
             genesis_state: value.genesis_state,
             hardfork: value.hardfork,
@@ -126,6 +132,8 @@ impl TryFrom<ProviderConfig> for ScenarioProviderConfig {
             // for backwards compatibility for Hardhat 2.
             chain_overrides: HashMap::default(),
             coinbase: value.coinbase,
+            disable_block_gas_limit: value.disable_block_gas_limit.unwrap_or(false),
+            disable_transaction_gas_cap: value.disable_transaction_gas_cap.unwrap_or(false),
             fork: value.fork,
             genesis_state: value.genesis_state,
             hardfork: value.hardfork,

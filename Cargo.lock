@@ -2828,6 +2828,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip7825"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+ "revm-primitives",
+]
+
+[[package]]
 name = "edr_eip7892"
 version = "0.3.8"
 dependencies = [

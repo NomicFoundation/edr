@@ -217,6 +217,16 @@ pub struct ProviderConfig {
     pub chain_id: BigInt,
     /// The address of the coinbase
     pub coinbase: Uint8Array,
+    /// Whether to disable enforcement of the block gas limit.
+    ///
+    /// Defaults to `false`.
+    pub disable_block_gas_limit: Option<bool>,
+    /// Whether to disable enforcement of the [EIP-7825] transaction gas cap.
+    ///
+    /// Defaults to `false`.
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    pub disable_transaction_gas_cap: Option<bool>,
     /// The configuration for forking a blockchain. If not provided, a local
     /// blockchain will be created
     pub fork: Option<ForkConfig>,
@@ -612,6 +622,8 @@ impl ProviderConfig {
             block_gas_limit,
             chain_id: self.chain_id.try_cast()?,
             coinbase: self.coinbase.try_cast()?,
+            disable_block_gas_limit: self.disable_block_gas_limit,
+            disable_transaction_gas_cap: self.disable_transaction_gas_cap,
             fork: self.fork.map(TryInto::try_into).transpose()?,
             genesis_state,
             hardfork: self.hardfork,

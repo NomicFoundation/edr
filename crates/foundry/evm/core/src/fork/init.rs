@@ -24,7 +24,8 @@ pub async fn environment<NetworkT, ProviderT, BlockT, TxT, HardforkT>(
     pin_block: Option<u64>,
     origin: Address,
     disable_block_gas_limit: bool,
-    enable_tx_gas_limit_cap: bool,
+    transaction_gas_cap: Option<u64>,
+    disable_transaction_gas_cap: bool,
 ) -> eyre::Result<(
     EvmEnv<BlockT, TxT, HardforkT>,
     <NetworkT as Network>::BlockResponse,
@@ -71,7 +72,8 @@ where
         override_chain_id.unwrap_or(rpc_chain_id),
         memory_limit,
         disable_block_gas_limit,
-        enable_tx_gas_limit_cap,
+        transaction_gas_cap,
+        disable_transaction_gas_cap,
     );
 
     let mut env = EvmEnv {
@@ -108,7 +110,8 @@ pub fn configure_env<HardforkT>(
     chain_id: u64,
     memory_limit: u64,
     disable_block_gas_limit: bool,
-    enable_tx_gas_limit_cap: bool,
+    transaction_gas_cap: Option<u64>,
+    disable_transaction_gas_cap: bool,
 ) -> CfgEnv<HardforkT>
 where
     HardforkT: Default,
@@ -123,11 +126,12 @@ where
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
     cfg.disable_nonce_check = true;
-    // By default do not enforce transaction gas limits imposed by Osaka (EIP-7825).
-    // Users can opt-in to enable these limits by setting `enable_tx_gas_limit` to
-    // true.
-    if !enable_tx_gas_limit_cap {
+    if disable_transaction_gas_cap {
+        // Setting to `u64::MAX` is REVM's idiom for opting out of the EIP-7825 cap.
         cfg.tx_gas_limit_cap = Some(u64::MAX);
+    } else if let Some(cap) = transaction_gas_cap {
+        cfg.tx_gas_limit_cap = Some(cap);
     }
+    // Otherwise leave unset — REVM applies the hardfork default.
     cfg
 }

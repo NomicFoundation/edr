@@ -1,4 +1,5 @@
 //! tests for `eth_getProof`
+#![cfg(feature = "test-utils")]
 
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 

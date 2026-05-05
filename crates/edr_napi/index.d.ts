@@ -309,6 +309,20 @@ export interface ProviderConfig {
   /** The address of the coinbase */
   coinbase: Uint8Array
   /**
+   * Whether to disable enforcement of the block gas limit.
+   *
+   * Defaults to `false`.
+   */
+  disableBlockGasLimit?: boolean
+  /**
+   * Whether to disable enforcement of the [EIP-7825] transaction gas cap.
+   *
+   * Defaults to `false`.
+   *
+   * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+   */
+  disableTransactionGasCap?: boolean
+  /**
    * The configuration for forking a blockchain. If not provided, a local
    * blockchain will be created
    */
@@ -481,6 +495,11 @@ export interface LoggerConfig {
   decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]) => string[]
   printLineCallback: (message: string, replace: boolean) => void
 }
+/**
+ *Creates a provider with a mock timer.
+ *For testing purposes.
+ */
+export declare function createProviderWithMockTimer(providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder, time: MockTime): Promise<Provider>
 /**
  * [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md#specification)
  * secp256r1 precompile.
@@ -720,10 +739,20 @@ export interface SolidityTestRunnerConfigArgs {
    */
   disableBlockGasLimit?: boolean
   /**
-   * Whether to enable the EIP-7825 (Osaka) transaction gas limit cap.
-   * Defaults to false.
+   * Transaction gas cap, introduced in [EIP-7825].
+   *
+   * When not set, defaults to the value defined by the used hardfork.
+   *
+   * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
    */
-  enableTxGasLimitCap?: boolean
+  transactionGasCap?: bigint
+  /**
+   * Whether to disable the [EIP-7825] transaction gas cap.
+   * Defaults to false.
+   *
+   * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+   */
+  disableTransactionGasCap?: boolean
   /**
    * The memory limit of the EVM in bytes.
    * Defaults to `33_554_432` (2^25 = 32MiB).
@@ -1641,12 +1670,23 @@ export declare class EdrContext {
    *   with the results of each test suite as soon as it finished executing.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
+  /**
+   *Creates a mock provider, which always returns the given response.
+   *For testing purposes.
+   */
+  createMockProvider(mockedResponse: any): Provider
 }
 export declare class ContractDecoder {
   /**Creates an empty instance. */
   constructor()
   /**Creates a new instance with the provided configuration. */
   static withContracts(config: TracingConfigWithBuffers): ContractDecoder
+}
+export declare class MockTime {
+  /**Creates a new instance of `MockTime` with the current time. */
+  static now(): MockTime
+  /**Adds the specified number of seconds to the current time. */
+  addSeconds(seconds: bigint): void
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */

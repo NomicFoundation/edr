@@ -145,9 +145,17 @@ pub struct TestRunnerConfig {
     /// Whether to disable the block gas limit.
     /// Defaults to false.
     pub disable_block_gas_limit: Option<bool>,
-    /// Whether to enable the EIP-7825 (Osaka) transaction gas limit cap.
+    /// Transaction gas cap, introduced in [EIP-7825].
+    ///
+    /// When not set, defaults to the value defined by the used hardfork.
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    pub transaction_gas_cap: Option<u64>,
+    /// Whether to disable the [EIP-7825] transaction gas cap.
     /// Defaults to false.
-    pub enable_tx_gas_limit_cap: Option<bool>,
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    pub disable_transaction_gas_cap: Option<bool>,
     /// The memory limit of the EVM in bytes.
     /// Defaults to `33_554_432` (2^25 = 32MiB).
     pub memory_limit: Option<u64>,
@@ -224,7 +232,8 @@ where
             block_difficulty,
             block_gas_limit,
             disable_block_gas_limit,
-            enable_tx_gas_limit_cap,
+            transaction_gas_cap,
+            disable_transaction_gas_cap,
             memory_limit,
             local_predeploys,
             fork_url,
@@ -306,8 +315,10 @@ where
             evm_opts.disable_block_gas_limit = disable_block_gas_limit;
         }
 
-        if let Some(enable_tx_gas_limit_cap) = enable_tx_gas_limit_cap {
-            evm_opts.enable_tx_gas_limit_cap = enable_tx_gas_limit_cap;
+        evm_opts.transaction_gas_cap = transaction_gas_cap;
+
+        if let Some(disable_transaction_gas_cap) = disable_transaction_gas_cap {
+            evm_opts.disable_transaction_gas_cap = disable_transaction_gas_cap;
         }
 
         let local_predeploys = local_predeploys.unwrap_or_default();

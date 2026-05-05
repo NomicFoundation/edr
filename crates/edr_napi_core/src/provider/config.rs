@@ -23,6 +23,12 @@ pub struct Config {
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,
+    /// Whether to disable enforcement of the block gas limit.
+    /// Defaults to `false`.
+    pub disable_block_gas_limit: Option<bool>,
+    /// Whether to disable enforcement of the EIP-7825 transaction gas cap.
+    /// Defaults to `false`.
+    pub disable_transaction_gas_cap: Option<bool>,
     pub fork: Option<ForkConfig<String>>,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
@@ -31,7 +37,7 @@ pub struct Config {
     pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
     pub min_gas_price: u128,
-    pub mining: config::Mining,
+    pub mining: config::MiningConfig,
     pub network_id: u64,
     pub observability: ObservabilityConfig,
     /// Secret keys of owned accounts.
@@ -150,6 +156,8 @@ where
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,
+            disable_block_gas_limit: value.disable_block_gas_limit.unwrap_or(false),
+            disable_transaction_gas_cap: value.disable_transaction_gas_cap.unwrap_or(false),
             fork,
             genesis_state: value.genesis_state,
             hardfork,
