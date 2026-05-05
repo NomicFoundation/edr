@@ -31,7 +31,6 @@
   },
   "exports": {
     ".": "./index.js",
-    "./solidity-tests": "./dist/src/ts/solidity_tests.js",
     "./coverage": "./dist/src/ts/coverage.js"
   },
   "files": [
