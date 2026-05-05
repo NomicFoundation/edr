@@ -7,7 +7,11 @@ use edr_chain_spec::EvmSpecId;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, ChainId, HashMap, UnknownHardfork, B256};
-use edr_provider::{config, observability::ObservabilityConfig, AccountOverride, ForkConfig};
+use edr_provider::{
+    config::{LocalConfig, MiningConfig, NetworkConfig},
+    observability::ObservabilityConfig,
+    AccountOverride, ForkConfig,
+};
 use edr_signer::SecretKey;
 
 /// Chain-agnostic configuration for a provider.
@@ -20,24 +24,18 @@ pub struct Config {
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     pub base_fee_params: Option<Vec<(BaseFeeActivation<String>, ConstantBaseFeeParams)>>,
-    pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,
-    /// Whether to disable enforcement of the block gas limit.
-    /// Defaults to `false`.
-    pub disable_block_gas_limit: Option<bool>,
-    /// Whether to disable enforcement of the EIP-7825 transaction gas cap.
-    /// Defaults to `false`.
-    pub disable_transaction_gas_cap: Option<bool>,
-    pub fork: Option<ForkConfig<String>>,
+    /// The default transaction gas limit to use for RPC call and transaction
+    /// requests that do not specify a `gas` value.
+    pub default_transaction_gas_limit: NonZeroU64,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
     pub initial_base_fee_per_gas: Option<u128>,
-    pub initial_blob_gas: Option<BlobGas>,
-    pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
     pub min_gas_price: u128,
-    pub mining: config::MiningConfig,
+    pub mining: MiningConfig,
+    pub network: NetworkConfig<String>,
     pub network_id: u64,
     pub observability: ObservabilityConfig,
     /// Secret keys of owned accounts.
@@ -45,7 +43,9 @@ pub struct Config {
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
     /// Transaction gas cap, introduced in [EIP-7825].
     ///
-    /// When not set, will default to value defined by the used hardfork
+    /// When not set, enforcement of the transaction gas cap is disabled and
+    /// transactions with any `gas` value are accepted by the mempool and
+    /// executed without REVM's transaction gas cap check.
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
     pub transaction_gas_cap: Option<u64>,
@@ -96,10 +96,9 @@ where
             .transpose()?
             .map(|activation| BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(activation)));
 
-        let fork = value
-            .fork
-            .map(|fork| -> napi::Result<ForkConfig<HardforkT>> {
-                let chain_overrides = fork
+        let network = match value.network {
+            NetworkConfig::Fork(fork_config) => {
+                let chain_overrides = fork_config
                     .chain_overrides
                     .into_iter()
                     .map(|(chain_id, chain_config)| {
@@ -135,15 +134,17 @@ where
                     })
                     .collect::<napi::Result<_>>()?;
 
-                Ok(edr_provider::ForkConfig {
-                    block_number: fork.block_number,
-                    cache_dir: fork.cache_dir,
+                ForkConfig {
+                    block_number: fork_config.block_number,
+                    cache_dir: fork_config.cache_dir,
                     chain_overrides,
-                    http_headers: fork.http_headers,
-                    url: fork.url,
-                })
-            })
-            .transpose()?;
+                    http_headers: fork_config.http_headers,
+                    url: fork_config.url,
+                }
+                .into()
+            }
+            NetworkConfig::Local(local_config) => local_config.into(),
+        };
 
         let hardfork = parse_hardfork(value.hardfork)?;
 
@@ -153,20 +154,16 @@ where
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             base_fee_params,
-            block_gas_limit: value.block_gas_limit,
+            default_transaction_gas_limit: value.default_transaction_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,
-            disable_block_gas_limit: value.disable_block_gas_limit.unwrap_or(false),
-            disable_transaction_gas_cap: value.disable_transaction_gas_cap.unwrap_or(false),
-            fork,
             genesis_state: value.genesis_state,
             hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
-            initial_blob_gas: value.initial_blob_gas,
-            initial_date: value.initial_date,
             initial_parent_beacon_block_root: value.initial_parent_beacon_block_root,
             min_gas_price: value.min_gas_price,
             mining: value.mining,
+            network,
             network_id: value.network_id,
             observability: value.observability,
             owned_accounts: value.owned_accounts,

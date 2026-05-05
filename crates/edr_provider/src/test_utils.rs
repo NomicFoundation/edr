@@ -18,12 +18,12 @@ use parking_lot::RwLock;
 use tokio::runtime;
 
 use crate::{
-    config::LocalConfig,
+    config::{LocalConfig, MiningConfig, ProviderConfig},
     error::ProviderErrorForChainSpec,
     observability::ObservabilityConfig,
     time::{CurrentTime, TimeSinceEpoch},
-    AccountOverride, ForkConfig, MethodInvocation, MiningConfig, NoopLogger, Provider,
-    ProviderConfig, ProviderData, ProviderRequest, ProviderSpec, SyncProviderSpec,
+    AccountOverride, ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderData,
+    ProviderRequest, ProviderSpec, SyncProviderSpec,
 };
 
 pub const TEST_SECRET_KEY: &str =

@@ -14,9 +14,34 @@ use crate::{
     observability::ObservabilityConfig, requests::IntervalConfig as IntervalConfigRequest,
 };
 
+/// Convenience type alias for [`ForkConfig`].
+///
+/// This allows usage like `edr_provider::config::Fork`.
 pub type Fork<HardforkT> = ForkConfig<HardforkT>;
+
+/// Convenience type alias for [`LocalConfig`].
+///
+/// This allows usage like `edr_provider::config::Local`.
 pub type Local = LocalConfig;
+
+/// Convenience type alias for [`MemPoolConfig`].
+///
+/// This allows usage like `edr_provider::config::MemPool`.
+pub type MemPool = MemPoolConfig;
+
+/// Convenience type alias for [`MiningConfig`].
+///
+/// This allows usage like `edr_provider::config::Mining`.
+pub type Mining = MiningConfig;
+
+/// Convenience type alias for [`NetworkConfig`].
+///
+/// This allows usage like `edr_provider::config::Network`.
 pub type Network<HardforkT> = NetworkConfig<HardforkT>;
+
+/// Convenience type alias for [`ProviderConfig`].
+///
+/// This allows usage like `edr_provider::config::Provider`.
 pub type Provider<HardforkT> = ProviderConfig<HardforkT>;
 
 /// Specification of overrides for an account and its storage.
@@ -76,6 +101,7 @@ pub struct ForkConfig<HardforkT> {
 pub struct LocalConfig {
     pub genesis_blob_gas: Option<BlobGas>,
     pub genesis_block_gas_limit: NonZeroU64,
+    /// The initial date of the blockchain, in ISO 8601 format.
     pub genesis_block_time: Option<SystemTime>,
 }
 
@@ -130,7 +156,7 @@ impl TryInto<Option<Interval>> for IntervalConfigRequest {
 /// Configuration for the provider's mempool.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MemPool {
+pub struct MemPoolConfig {
     pub order: MineOrdering,
 }
 
@@ -144,7 +170,7 @@ pub struct MiningConfig {
     /// are accepted by the mempool and executed without REVM's gas-limit check.
     pub block_gas_limit: Option<NonZeroU64>,
     pub interval: Option<Interval>,
-    pub mem_pool: MemPool,
+    pub mem_pool: MemPoolConfig,
 }
 
 /// Configuration for the provider
@@ -159,6 +185,8 @@ pub struct ProviderConfig<HardforkT> {
     pub base_fee_params: Option<BaseFeeParams<HardforkT>>,
     pub chain_id: ChainId,
     pub coinbase: Address,
+    /// The default transaction gas limit to use for RPC call and transaction
+    /// requests that do not specify a `gas` value.
     pub default_transaction_gas_limit: NonZeroU64,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: HardforkT,
@@ -173,7 +201,7 @@ pub struct ProviderConfig<HardforkT> {
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
     /// Transaction gas cap, introduced in [EIP-7825].
     ///
-    /// If `None`, enforcement of the transaction gas cap is disabled and
+    /// When not set, enforcement of the transaction gas cap is disabled and
     /// transactions with any `gas` value are accepted by the mempool and
     /// executed without REVM's transaction gas cap check.
     ///
@@ -181,7 +209,7 @@ pub struct ProviderConfig<HardforkT> {
     pub transaction_gas_cap: Option<u64>,
 }
 
-impl Default for MemPool {
+impl Default for MemPoolConfig {
     fn default() -> Self {
         Self {
             order: MineOrdering::Priority,
@@ -196,7 +224,7 @@ impl Default for MiningConfig {
             // SAFETY: literal is non-zero
             block_gas_limit: Some(unsafe { NonZeroU64::new_unchecked(60_000_000u64) }),
             interval: None,
-            mem_pool: MemPool::default(),
+            mem_pool: MemPoolConfig::default(),
         }
     }
 }

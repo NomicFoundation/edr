@@ -7,6 +7,7 @@ use parking_lot::{Mutex, RwLock};
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
 use crate::{
+    config::ProviderConfig,
     data::ProviderData,
     error::{CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
     interval::IntervalMiner,
@@ -19,7 +20,7 @@ use crate::{
     },
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
-    to_json, to_json_with_trace, to_json_with_traces, ProviderConfig, ResponseWithCallTraces,
+    to_json, to_json_with_trace, to_json_with_traces, ResponseWithCallTraces,
     SyncSubscriberCallback, PRIVATE_RPC_METHODS,
 };
 

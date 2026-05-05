@@ -85,7 +85,7 @@ use rpds::HashTrieMapSync;
 use tokio::runtime;
 
 use crate::{
-    config::{LocalConfig, NetworkConfig},
+    config::{LocalConfig, MemPoolConfig, MiningConfig, NetworkConfig, ProviderConfig},
     data::{
         call::BlockEnvWithZeroBaseFee,
         gas::{
@@ -109,8 +109,8 @@ use crate::{
         SyncBlockchainForChainSpec, SyncProviderSpec, TransactionAndBlockForChainSpec,
     },
     time::{CurrentTime, TimeSinceEpoch},
-    DebugTraceError, ForkConfig, MemPoolConfig, MiningConfig, ProviderConfig, ProviderError,
-    SubscriptionEvent, SubscriptionEventData, SyncSubscriberCallback,
+    DebugTraceError, ForkConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
+    SyncSubscriberCallback,
 };
 
 const DEFAULT_INITIAL_BASE_FEE_PER_GAS: u128 = 1_000_000_000;
@@ -3321,7 +3321,6 @@ mod tests {
     use crate::{
         console_log::tests::{deploy_console_log_contract, ConsoleLogTransaction},
         test_utils::{create_test_config, one_ether, ProviderTestFixture},
-        MemPoolConfig, MiningConfig, ProviderConfig,
     };
 
     #[test]
