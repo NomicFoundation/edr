@@ -61,72 +61,72 @@
       "groupName": "github-actions"
     },
     {
-      "description": "Group all alloy crates together (including the op-alloy Optimism variants used by edr_op) — alloy's API often shifts across versions, op-alloy carries alloy-* deps transitively, so the bundle should land as one PR for review.",
+      "description": "alloy + op-alloy: bundle into one PR. API shifts often across versions, and op-alloy carries alloy-* transitively.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["/^(op-)?alloy(-|$)/"],
       "groupName": "alloy"
     },
     {
-      "description": "Group revm and the Optimism revm variant together — tightly coupled API surface, perf-sensitive.",
+      "description": "revm + op-revm: tightly coupled API, perf-sensitive.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["/^(op-)?revm(-|$)/"],
       "groupName": "revm"
     },
     {
-      "description": "rayon: parallelism crate, perf-sensitive. Land isolated.",
+      "description": "rayon: pull out of the generic cargo minor/patch group — perf-sensitive, wants its own PR.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["rayon"],
       "groupName": "rayon"
     },
     {
-      "description": "reqwest and its middleware/retry siblings — HTTP client used in the RPC fork path; perf-sensitive on remote-block flows. Land grouped.",
+      "description": "reqwest + middleware/retry/tracing: HTTP client on the RPC fork path. Lockstep across siblings, perf-sensitive on remote-block flows.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["/^reqwest(-|$)/"],
       "groupName": "reqwest"
     },
     {
-      "description": "napi-rs: ABI-tied across edr_napi's Rust crates and JS toolchain. napi/napi-derive/napi-build (cargo) and @napi-rs/cli (npm) must move in lockstep.",
+      "description": "napi-rs: Rust crates and @napi-rs/cli are ABI-tied; must move in lockstep with edr_napi.",
       "matchPackageNames": ["napi", "napi-derive", "napi-build", "@napi-rs/cli"],
       "groupName": "napi-rs"
     },
     {
-      "description": "tokio runtime family — tokio + tokio-stream/tokio-util/tokio-tungstenite. Land grouped to avoid version skew across async surfaces.",
+      "description": "tokio family: keep async-surface versions in lockstep.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["/^tokio(-|$)/"],
       "groupName": "tokio"
     },
     {
-      "description": "tracing ecosystem — tracing + tracing-subscriber/tracing-futures/tracing-error. Land grouped to keep span/event API consistent.",
+      "description": "tracing family: keep span/event API consistent across crates.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["/^tracing(-|$)/"],
       "groupName": "tracing"
     },
     {
-      "description": "External foundry-rs library crates (not vendored — fetched from crates.io). foundry-compilers/foundry-block-explorers/foundry-fork-db often release together upstream and may need lockstep with the vendored Foundry fork in crates/foundry/.",
+      "description": "External foundry-rs crates from crates.io (not the vendored fork in crates/foundry/). Released together upstream; may need lockstep with the vendored fork.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["foundry-block-explorers", "foundry-compilers", "foundry-fork-db"],
       "groupName": "foundry"
     },
     {
-      "description": "Block Node major bumps across every surface (.nvmrc, engines.node, @types/node, actions/setup-node's node-version). Bumped manually, only to even LTS releases.",
+      "description": "Node major: bumped manually, only to even LTS. Surfaces touched: .nvmrc, engines.node, @types/node, setup-node.",
       "matchDepNames": ["node", "@types/node"],
       "matchUpdateTypes": ["major"],
       "enabled": false
     },
     {
-      "description": "@tsconfig/nodeXX: the Node major lives in the package name (node20 → node22 = Node 20 → 22). Renovate models these as 'replacement' updates — block them alongside the Node-major lockdown above.",
+      "description": "@tsconfig/nodeXX: Node major lives in the package name. Renovate emits these as 'replacement' updates; pair with the Node-major block above.",
       "matchPackageNames": ["/^@tsconfig\\/node\\d+$/"],
       "matchUpdateTypes": ["replacement"],
       "enabled": false
     },
     {
-      "description": "Block typescript majors. TS majors cascade to typescript-eslint and to consumers of EDR's TS-aware bindings — bump manually when the ecosystem catches up.",
+      "description": "TS major: cascades to typescript-eslint and to consumers of EDR's TS-aware bindings. Bump manually when the ecosystem catches up.",
       "matchPackageNames": ["typescript"],
       "matchUpdateTypes": ["major"],
       "enabled": false
     },
     {
-      "description": "edr_napi's package.json is devDependencies-only — nothing here ships to Hardhat consumers (no `dependencies`/`peerDependencies`, `files` excludes test code). Allow minor/patch so security fixes still flow; block majors since they cost reviewer time with no downstream benefit. Carve-out: @napi-rs/cli must still receive majors via the napi-rs ABI lockstep group above.",
+      "description": "crates/edr_napi/package.json is devDependencies-only — nothing ships to Hardhat consumers. Block test/lint majors (chai/mocha/eslint/prettier/...): review cost without downstream benefit. @napi-rs/cli is exempt — kept in the napi-rs ABI lockstep group above.",
       "matchManagers": ["npm"],
       "matchFileNames": ["crates/edr_napi/package.json"],
       "matchUpdateTypes": ["major"],
@@ -134,13 +134,13 @@
       "enabled": false
     },
     {
-      "description": "Pinned cargo git-source deps: slang_solidity is tag-pinned, revm-inspectors is a Wodann fork at a specific rev. Disable Renovate's default git-digest updates — these are bumped manually for compat. Note: matches on depName (Cargo.toml key), not packageName (which is the git URL for git-source deps).",
+      "description": "slang_solidity (tag-pinned) and revm-inspectors (Wodann fork at a fixed rev): bumped manually for compat. Matched on depName because for git deps the packageName is the URL.",
       "matchManagers": ["cargo"],
       "matchDepNames": ["slang_solidity", "revm-inspectors"],
       "enabled": false
     },
     {
-      "description": "Hardhat ecosystem npm deps (hardhat, hardhat2 alias, @nomicfoundation/hardhat-*) are exact-pinned, patched (pnpm patchedDependencies key includes the version), and partly on pre-release tracks. Bumps invalidate patches and break the v2/v3 side-by-side benchmark setup. Bumped manually as part of coordinated edr↔hardhat releases.",
+      "description": "Hardhat ecosystem (hardhat, hardhat2 alias, @nomicfoundation/hardhat-*): exact-pinned, pnpm-patched, partly on pre-release tracks. Bumps invalidate patches and break the v2/v3 benchmark setup; coordinated manually with edr↔hardhat releases.",
       "matchManagers": ["npm"],
       "matchPackageNames": ["hardhat", "hardhat2", "/^@nomicfoundation\\/hardhat-/"],
       "enabled": false
