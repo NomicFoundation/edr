@@ -126,6 +126,14 @@
       "enabled": false
     },
     {
+      "description": "edr_napi's package.json is devDependencies-only — nothing here ships to Hardhat consumers (no `dependencies`/`peerDependencies`, `files` excludes test code). Allow minor/patch so security fixes still flow; block majors since they cost reviewer time with no downstream benefit. Carve-out: @napi-rs/cli must still receive majors via the napi-rs ABI lockstep group above.",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["crates/edr_napi/package.json"],
+      "matchUpdateTypes": ["major"],
+      "matchDepNames": ["!@napi-rs/cli"],
+      "enabled": false
+    },
+    {
       "description": "Pinned cargo git-source deps: slang_solidity is tag-pinned, revm-inspectors is a Wodann fork at a specific rev. Disable Renovate's default git-digest updates — these are bumped manually for compat. Note: matches on depName (Cargo.toml key), not packageName (which is the git URL for git-source deps).",
       "matchManagers": ["cargo"],
       "matchDepNames": ["slang_solidity", "revm-inspectors"],
