@@ -175,11 +175,13 @@ async fn test_send_transaction_exceeds_transaction_cap_without_auto_mine() -> an
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_disable_transaction_gas_cap_accepts_excess_gas() -> anyhow::Result<()> {
-    // EIP-7825 caps transaction gas at 30M on Osaka. With the cap disabled, a
-    // transaction whose gas exceeds the cap should still be accepted.
+    // EIP-7825 caps transaction gas at `MAX_TX_GAS_LIMIT_OSAKA` (2^24 = ~16.7M)
+    // on Osaka. With the cap disabled, a transaction whose gas exceeds the cap
+    // should still be accepted. We use a value below the default block gas
+    // limit (30M) to keep this test focused on the transaction gas cap.
     let provider = new_provider(false, None)?;
 
-    let exceeds_osaka_cap = 50_000_000u64;
+    let exceeds_osaka_cap = 20_000_000u64;
     send_transaction(&provider, exceeds_osaka_cap)?;
 
     Ok(())
