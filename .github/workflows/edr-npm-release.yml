@@ -46,12 +46,11 @@ jobs:
           - host: windows-2025
             target: x86_64-pc-windows-msvc
             build: pnpm run build --strip
-            # Windows-only: cache the extracted form too. NTFS handles
-            # many small file creates ~5-10x slower than ext4/APFS, so
-            # napi-rs's pre-cargo `cargo metadata` extraction of ~500
-            # .crate tarballs into registry/src/ takes ~50s on warm
-            # runs without this. Other targets re-extract fast enough
-            # that caching the bloat isn't worth the size.
+            # NTFS small-file creates are ~5-10x slower than ext4/APFS,
+            # so napi-rs's pre-cargo `cargo metadata` step burns ~50s
+            # extracting ~500 .crate tarballs into registry/src/ on warm
+            # runs without this. Other platforms re-extract fast enough
+            # that caching it isn't worth the size hit.
             cache_extra_paths: ~/.cargo/registry/src/
 
           - host: ubuntu-24.04
@@ -82,7 +81,7 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
-          fetch-depth: 0 # Full history is needed by 'restore-mtime' to find each file's last commit time.
+          fetch-depth: 0 # required by ./.github/actions/restore-mtime
       - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 # v1
         with:
           mode: firewall
@@ -119,7 +118,9 @@ jobs:
         with:
           node-version: 20
 
-      # Cache is intentionally disabled for real release commits.
+      # Release commits build cold: napi codegen relies on proc-macro
+      # expansion (napi-rs#1297), so warm-cache builds risk shipping
+      # stale or empty index.js / index.d.ts. Don't enable for releases.
       - name: Cache cargo
         if: needs.check_commit.outputs.tag == ''
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -144,12 +145,12 @@ jobs:
         if: ${{ !matrix.settings.docker && runner.os == 'Windows' }}
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      # Force napi-derive to re-emit index.js / index.d.ts on warm cache
-      # runs. restore-mtime sets workspace sources to old git times so cargo
-      # treats them as fresh; touching src/lib.rs after that inverts the
-      # comparison for edr_napi only, triggering a rebuild that runs
-      # napi-derive's codegen.
-      - name: Touch napi source to force fresh codegen
+      # napi-derive emits index.js / index.d.ts as a side effect of
+      # proc-macro expansion, which cargo skips when the crate looks
+      # unchanged (napi-rs#1297). Combined with restore-mtime + a warm
+      # target/, that would silently produce stale bindings. Touching
+      # src/lib.rs invalidates edr_napi only and forces codegen to run.
+      - name: Force edr_napi rebuild so napi-derive regenerates bindings
         shell: bash
         run: touch src/lib.rs
 

@@ -1,16 +1,14 @@
 name: restore-mtime
 description: |
-  Restore file mtimes to each file's last commit time. Without this,
-  fresh GHA checkouts set every file's mtime to "now", making Cargo
-  see them as newer than cached `target/` artifacts and force
-  unnecessary rebuilds of workspace crates on warm-cache runs.
+  Restore each file's mtime to its last commit time.
 
-  Requires `fetch-depth: 0` on the preceding `actions/checkout` so
-  the action can find each file's last commit time.
+  GHA checkouts stamp every file's mtime to "now", which makes cargo
+  treat every workspace source as newer than the cached `target/`
+  artifacts and rebuild the world on warm-cache runs. Restoring
+  mtimes from git lets cargo's freshness checks behave as if the
+  workspace were unchanged since the cache was written.
 
-  Mirrors slang's `git/restore-mtime` composite. Uses
-  `--commit-time` (not author time) since caches are shared across
-  branches and committer time is more stable.
+  Requires `fetch-depth: 0` on the preceding `actions/checkout`.
 
 runs:
   using: composite
