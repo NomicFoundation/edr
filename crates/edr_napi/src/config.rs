@@ -12,7 +12,7 @@ use edr_napi_core::provider::ConfigOption;
 use edr_primitives::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, FromNapiValue, Function, Promise, Reference, Uint8Array},
+    bindgen_prelude::{BigInt, FromNapiValue, Function, Promise, Reference, Uint8Array},
     threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunctionCallMode},
     tokio::runtime,
     Either, Env,
@@ -89,8 +89,8 @@ pub struct CodeCoverageConfig<'env> {
     ///
     /// Exceptions thrown in the callback will be propagated to the original
     /// caller.
-    #[napi(ts_type = "(coverageHits: Buffer[]) => Promise<void>")]
-    pub on_collected_coverage_callback: Function<'env, Vec<Buffer>, Promise<()>>,
+    #[napi(ts_type = "(coverageHits: Uint8Array[]) => Promise<void>")]
+    pub on_collected_coverage_callback: Function<'env, Vec<Uint8Array>, Promise<()>>,
 }
 
 #[napi(object)]
@@ -489,10 +489,10 @@ impl ObservabilityConfig<'_> {
                             .weak::<true>()
                             .build_callback(
                                 |ctx: ThreadsafeCallContext<HashSet<Bytes>>| {
-                                    let hits: Vec<Buffer> = ctx
+                                    let hits: Vec<Uint8Array> = ctx
                                         .value
                                         .into_iter()
-                                        .map(|hit| Buffer::from(hit.to_vec()))
+                                        .map(|hit| Uint8Array::from(hit.to_vec()))
                                         .collect();
 
                                     Ok(hits)

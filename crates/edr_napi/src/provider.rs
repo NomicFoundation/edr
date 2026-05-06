@@ -7,7 +7,7 @@ use std::sync::Arc;
 use edr_napi_core::provider::SyncProvider;
 use edr_solidity::compiler::create_models_and_decode_bytecodes;
 use napi::{
-    bindgen_prelude::{Buffer, FnArgs, Function, Object, ObjectFinalize, Promise},
+    bindgen_prelude::{FnArgs, Function, Object, ObjectFinalize, Promise, Uint8Array},
     tokio::runtime,
     Env, Status,
 };
@@ -126,11 +126,11 @@ impl Provider {
         &self,
         env: &'env Env,
         #[napi(
-            ts_arg_type = "(contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>"
+            ts_arg_type = "(contract_address: Uint8Array, data: Uint8Array) => Promise<CallOverrideResult | undefined>"
         )]
         call_override_callback: Function<
             'env,
-            FnArgs<(Buffer, Buffer)>,
+            FnArgs<(Uint8Array, Uint8Array)>,
             Promise<Option<crate::call_override::CallOverrideResult>>,
         >,
     ) -> napi::Result<Object<'env>> {
