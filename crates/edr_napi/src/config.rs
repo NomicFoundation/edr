@@ -707,4 +707,3 @@ pub fn resolve_configs<'env>(
         subscription_callback,
     })
 }
-
