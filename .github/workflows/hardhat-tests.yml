@@ -70,10 +70,14 @@ jobs:
           DEBUG: "hardhat:core:hardhat-network:*"
         shell: bash
         run: |
-          source <(cargo llvm-cov show-env --sh)
+          # See `edr-ci.yml`'s test-edr-ts step for the rationale: napi-rs v3
+          # redirects cargo output to a target-suffixed dir, so `show-env` and
+          # `report` need `--target` to find the rebuilt .node and its profraws.
+          target=$(rustc -vV | sed -n 's|host: ||p')
+          source <(cargo llvm-cov show-env --sh --target="$target")
           pnpm -C hardhat-tests test
           # `--release` included to match `build:dev` compilation flags
-          cargo llvm-cov report --release --locked --codecov --output-path codecov.json
+          cargo llvm-cov report --release --target="$target" --locked --codecov --output-path codecov.json
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2

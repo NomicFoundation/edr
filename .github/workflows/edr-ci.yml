@@ -214,10 +214,19 @@ jobs:
           FORCE_COLOR: 3
         shell: bash
         run: |
-          source <(cargo llvm-cov show-env --sh)
+          # napi-rs v3's `napi build` always passes `--target=<host-triple>` to
+          # cargo, redirecting build output from `target/release/` to
+          # `target/<triple>/release/`. `cargo llvm-cov show-env` defaults to
+          # the unsuffixed dir, so without `--target` here the .node rebuilt by
+          # `pnpm test`'s pretest hook lands in a different subdir than the one
+          # `show-env` and `report` use, profraws are written outside the
+          # tracked path, and coverage for the napi crates reports as 0% even
+          # though the JS tests exercised them.
+          target=$(rustc -vV | sed -n 's|host: ||p')
+          source <(cargo llvm-cov show-env --sh --target="$target")
           pnpm -C crates/edr_napi test
           # `--release` included to match `build:dev` compilation flags
-          cargo llvm-cov report --release --locked --codecov --output-path codecov.json
+          cargo llvm-cov report --release --target="$target" --locked --codecov --output-path codecov.json
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
@@ -346,10 +355,13 @@ jobs:
       - name: Run integration tests
         shell: bash
         run: |
-          source <(cargo llvm-cov show-env --sh)
+          # See note in the test-edr-ts job about why `--target` is required
+          # here: napi-rs v3 redirects cargo output to a target-suffixed dir.
+          target=$(rustc -vV | sed -n 's|host: ||p')
+          source <(cargo llvm-cov show-env --sh --target="$target")
           pnpm run --recursive --filter './js/integration-tests/*' test
           # `--release` included to match `build:dev` compilation flags
-          cargo llvm-cov report --release --locked --codecov --output-path codecov.json
+          cargo llvm-cov report --release --target="$target" --locked --codecov --output-path codecov.json
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
         with:
