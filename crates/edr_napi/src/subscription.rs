@@ -1,10 +1,19 @@
-use napi::bindgen_prelude::{BigInt, Function};
-#[allow(deprecated)]
-use napi::JsObject;
+// `JsObject` (used as the TSFN args type for the subscription event callback)
+// is `#[deprecated]` in napi-rs v3, but the v3 typed `Object<'_>` does not
+// implement `ToNapiValue` by value, so it cannot be used as the
+// `JsValuesTupleIntoVec` arg of a `ThreadsafeFunction`. The deprecation
+// allow has to live at module scope because the `#[napi(object)]` macro
+// expands into impl blocks outside the struct where a struct-level
+// `#[allow]` would not reach.
+#![allow(deprecated)]
+
+use napi::{
+    bindgen_prelude::{BigInt, Function},
+    JsObject,
+};
 use napi_derive::napi;
 
 /// Configuration for subscriptions.
-#[allow(deprecated)]
 #[napi(object)]
 pub struct SubscriptionConfig<'env> {
     /// Callback to be called when a new event is received.
