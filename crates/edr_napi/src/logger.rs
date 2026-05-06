@@ -3,7 +3,7 @@ use std::sync::{mpsc::channel, Arc};
 use edr_napi_core::logger::LoggerError;
 use edr_primitives::Bytes;
 use napi::{
-    bindgen_prelude::{Buffer, FnArgs, Function},
+    bindgen_prelude::{FnArgs, Function, Uint8Array},
     threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunctionCallMode},
     Env, Status,
 };
@@ -13,8 +13,8 @@ use napi_derive::napi;
 pub struct LoggerConfig<'env> {
     /// Whether to enable the logger.
     pub enable: bool,
-    #[napi(ts_type = "(inputs: Buffer[]) => string[]")]
-    pub decode_console_log_inputs_callback: Function<'env, Vec<Buffer>, Vec<String>>,
+    #[napi(ts_type = "(inputs: Uint8Array[]) => string[]")]
+    pub decode_console_log_inputs_callback: Function<'env, Vec<Uint8Array>, Vec<String>>,
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
     pub print_line_callback: Function<'env, FnArgs<(String, bool)>, ()>,
 }
@@ -28,10 +28,10 @@ impl LoggerConfig<'_> {
             .build_threadsafe_function::<Vec<Bytes>>()
             .weak::<true>()
             .build_callback(|ctx: ThreadsafeCallContext<Vec<Bytes>>| {
-                let inputs: Vec<Buffer> = ctx
+                let inputs: Vec<Uint8Array> = ctx
                     .value
                     .into_iter()
-                    .map(|input| Buffer::from(input.to_vec()))
+                    .map(|input| Uint8Array::from(input.to_vec()))
                     .collect();
                 Ok(inputs)
             })?;

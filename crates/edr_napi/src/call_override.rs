@@ -2,7 +2,7 @@ use std::sync::{mpsc::channel, Arc};
 
 use edr_primitives::{Address, Bytes};
 use napi::{
-    bindgen_prelude::{Buffer, FnArgs, Function, Promise, Uint8Array},
+    bindgen_prelude::{FnArgs, Function, Promise, Uint8Array},
     threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode},
     tokio::runtime,
     Env, Status,
@@ -40,7 +40,7 @@ struct CallOverrideCall {
 type CallOverrideTsfn = ThreadsafeFunction<
     CallOverrideCall,
     Promise<Option<CallOverrideResult>>,
-    FnArgs<(Buffer, Buffer)>,
+    FnArgs<(Uint8Array, Uint8Array)>,
     Status,
     false,
     true,
@@ -58,17 +58,19 @@ impl CallOverrideCallback {
         _env: &Env,
         call_override_callback: Function<
             '_,
-            FnArgs<(Buffer, Buffer)>,
+            FnArgs<(Uint8Array, Uint8Array)>,
             Promise<Option<CallOverrideResult>>,
         >,
         runtime: runtime::Handle,
     ) -> napi::Result<Self> {
         let call_override_callback_fn = call_override_callback
             .build_threadsafe_function::<CallOverrideCall>()
+            // Don't keep the Node event loop alive on this callback
+            // (`weak::<true>` is the v3 equivalent of v2's `unref(env)`).
             .weak::<true>()
             .build_callback(|ctx: ThreadsafeCallContext<CallOverrideCall>| {
-                let address = Buffer::from(ctx.value.contract_address.to_vec());
-                let data = Buffer::from(ctx.value.data.to_vec());
+                let address = Uint8Array::from(ctx.value.contract_address.to_vec());
+                let data = Uint8Array::from(ctx.value.data.to_vec());
 
                 Ok(FnArgs {
                     data: (address, data),
