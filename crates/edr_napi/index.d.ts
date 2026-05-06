@@ -119,21 +119,6 @@ export declare class SolidityTestRunnerFactory {
 
 }
 
-/** See [`edr_solidity_tests::result::SuiteResult`] */
-export declare class SuiteResult {
-  /**
-   * The artifact id can be used to match input to result in the progress
-   * callback
-   */
-  get id(): ArtifactId
-  /** See [`edr_solidity_tests::result::SuiteResult::duration`] */
-  get durationNs(): bigint
-  /** See [`edr_solidity_tests::result::SuiteResult::test_results`] */
-  get testResults(): Array<TestResult>
-  /** See [`edr_solidity_tests::result::SuiteResult::warnings`] */
-  get warnings(): Array<string>
-}
-
 /** See [`edr_solidity_tests::result::TestResult`] */
 export declare class TestResult {
   /** The name of the test. */
@@ -1772,6 +1757,36 @@ export interface SuccessResult {
   logs: Array<ExecutionLog>
   /** The transaction output */
   output: CallOutput | CreateOutput
+}
+
+/**
+ * See [`edr_solidity_tests::result::SuiteResult`]
+ *
+ * `#[napi(object)]` (POJO) rather than `#[napi]` class because there are no
+ * methods, and consumers (e.g. Hardhat's solidity-test reporter) read
+ * `.testResults` multiple times per suite. As a class, each read would
+ * re-clone the entire `Vec<TestResult>`; as an object, the data is serialized
+ * to a plain JS object once when the suite-completion TSFN fires.
+ *
+ * `object_from_js = false`: napi-derive's default for `#[napi(object)]` emits
+ * both `ToNapiValue` and `FromNapiValue`. We never receive a `SuiteResult`
+ * from JS (it's only ever constructed Rust-side and pushed through the
+ * progress TSFN), and the `Vec<TestResult>` field can't satisfy
+ * `FromNapiValue` because `TestResult` is a `#[napi]` class and not a POJO.
+ * Disabling the from-JS direction lets the to-JS direction compile cleanly.
+ */
+export interface SuiteResult {
+  /**
+   * The artifact id can be used to match input to result in the progress
+   * callback.
+   */
+  id: ArtifactId
+  /** See [`edr_solidity_tests::result::SuiteResult::duration`]. */
+  durationNs: bigint
+  /** See [`edr_solidity_tests::result::SuiteResult::test_results`]. */
+  testResults: Array<TestResult>
+  /** See [`edr_solidity_tests::result::SuiteResult::warnings`]. */
+  warnings: Array<string>
 }
 
 export const TANGERINE: string
