@@ -72,7 +72,7 @@ export declare class Provider {
   contractDecoder(): ContractDecoder
   /** Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(request: string): Promise<Response>
-  setCallOverrideCallback(callOverrideCallback: (contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>): Promise<void>
+  setCallOverrideCallback(callOverrideCallback: (contract_address: Uint8Array, data: Uint8Array) => Promise<CallOverrideResult | undefined>): Promise<void>
   /**
    * Set to `true` to make the traces returned with `eth_call`,
    * `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
@@ -421,7 +421,7 @@ export interface CodeCoverageConfig {
    * Exceptions thrown in the callback will be propagated to the original
    * caller.
    */
-  onCollectedCoverageCallback: (coverageHits: Buffer[]) => Promise<void>
+  onCollectedCoverageCallback: (coverageHits: Uint8Array[]) => Promise<void>
 }
 
 /** A type that controls when stack traces are collected. */
@@ -1112,7 +1112,7 @@ export interface LocalConfig {
 export interface LoggerConfig {
   /** Whether to enable the logger. */
   enable: boolean
-  decodeConsoleLogInputsCallback: (inputs: Buffer[]) => string[]
+  decodeConsoleLogInputsCallback: (inputs: Uint8Array[]) => string[]
   printLineCallback: (message: string, replace: boolean) => void
 }
 
