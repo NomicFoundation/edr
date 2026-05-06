@@ -8,10 +8,17 @@ cp ../../data/contracts/coverage.sol ./coverage.sol
 
 # NAPI build must be done before the TypeScript compilation.
 #
-# napi-rs v3 default emits `const enum` declarations in the generated `.d.ts`
-# (v2 emitted regular runtime `enum`s). `--no-const-enum` in v3 downgrades to
-# a type-only union which breaks code that uses these enums as values, so we
-# stay on the v3 default. const enums work for the existing Hardhat consumers
-# because they don't rely on runtime reflection over the enum object.
-napi build --platform "$@" -- --locked
+# `--no-const-enum`: napi-rs v3 defaults to emitting `const enum` declarations
+# in the generated `.d.ts`. const enums can't be imported as values when the
+# consumer enables `isolatedModules: true` (Hardhat does), so we opt out.
+#
+# Subtlety: v3 changed the meaning of `--no-const-enum` from v2.
+#   - For numeric enums (most of EDR's): emits a regular runtime `enum`
+#     (same as v2, works under `isolatedModules`).
+#   - For string enums (`MineOrdering`, `TestStatus`, `CheatcodeErrorCode`):
+#     emits a type-only union (`'Fifo' | 'Priority'`) — values aren't
+#     accessible at all. Consumers reading `MineOrdering.Fifo` need to switch
+#     to the string literal `"Fifo"`. v2's `--no-const-enum` produced a
+#     regular runtime enum for string enums too; v3 dropped that option.
+napi build --platform --no-const-enum "$@" -- --locked
 tsc

@@ -86,7 +86,7 @@ describe("Multi-chain", () => {
     mining: {
       autoMine: true,
       memPool: {
-        order: MineOrdering.Priority,
+        order: "Priority" as MineOrdering,
       },
     },
     networkId: 123n,
