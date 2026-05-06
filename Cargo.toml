@@ -333,7 +333,7 @@ parking_lot = { version = "0.12.1", default-features = false }
 paste = { version = "1.0.14", default-features = false }
 proptest = "1.7.0"
 regex = { version = "1", default-features = false }
-semver = { version = "1.0.26", default-features = false }
+semver = { version = "1.0.28", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
 similar-asserts = "1.7"
