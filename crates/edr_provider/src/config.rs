@@ -19,6 +19,11 @@ use crate::{
 /// This allows usage like `edr_provider::config::Fork`.
 pub type Fork<HardforkT> = ForkConfig<HardforkT>;
 
+/// Convenience type alias for [`IntervalConfig`].
+///
+/// This allows usage like `edr_provider::config::Interval`.
+pub type Interval = IntervalConfig;
+
 /// Convenience type alias for [`LocalConfig`].
 ///
 /// This allows usage like `edr_provider::config::Local`.
@@ -99,26 +104,30 @@ pub struct ForkConfig<HardforkT> {
 /// Configuration for a locally mined blockchain.
 #[derive(Clone, Debug)]
 pub struct LocalConfig {
+    /// The blob gas used for the genesis block, introduced in [EIP-4844].
+    ///
+    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
     pub genesis_blob_gas: Option<BlobGas>,
+    /// The block gas limit of the genesis block.
     pub genesis_block_gas_limit: NonZeroU64,
-    /// The initial date of the blockchain, in ISO 8601 format.
+    /// The timestamp of the genesis block.
     pub genesis_block_time: Option<SystemTime>,
 }
 
 /// Configuration for interval mining.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all_fields = "camelCase")]
-pub enum Interval {
+pub enum IntervalConfig {
     Fixed(NonZeroU64),
     Range { min: u64, max: u64 },
 }
 
-impl Interval {
+impl IntervalConfig {
     /// Generates a (random) interval based on the configuration.
     pub fn generate_interval(&self) -> u64 {
         match self {
-            Interval::Fixed(interval) => interval.get(),
-            Interval::Range { min, max } => rand::rng().random_range(*min..=*max),
+            IntervalConfig::Fixed(interval) => interval.get(),
+            IntervalConfig::Range { min, max } => rand::rng().random_range(*min..=*max),
         }
     }
 }
@@ -132,19 +141,19 @@ pub enum IntervalConfigConversionError {
     MinGreaterThanMax,
 }
 
-impl TryInto<Option<Interval>> for IntervalConfigRequest {
+impl TryInto<Option<IntervalConfig>> for IntervalConfigRequest {
     type Error = IntervalConfigConversionError;
 
-    fn try_into(self) -> Result<Option<Interval>, Self::Error> {
+    fn try_into(self) -> Result<Option<IntervalConfig>, Self::Error> {
         match self {
             Self::FixedOrDisabled(0) => Ok(None),
             Self::FixedOrDisabled(value) => {
                 // Zero implies disabled
-                Ok(NonZeroU64::new(value).map(Interval::Fixed))
+                Ok(NonZeroU64::new(value).map(IntervalConfig::Fixed))
             }
             Self::Range([min, max]) => {
                 if max >= min {
-                    Ok(Some(Interval::Range { min, max }))
+                    Ok(Some(IntervalConfig::Range { min, max }))
                 } else {
                     Err(IntervalConfigConversionError::MinGreaterThanMax)
                 }
@@ -165,11 +174,13 @@ pub struct MemPoolConfig {
 #[serde(rename_all = "camelCase")]
 pub struct MiningConfig {
     pub auto_mine: bool,
-    /// The block gas limit to use for mining a block. If `None`, enforcement of
-    /// the block gas limit is disabled and transactions with any `gas` value
-    /// are accepted by the mempool and executed without REVM's gas-limit check.
+    /// The block gas limit to use for mining a block.
+    ///
+    /// When not set, enforcement of the block gas limit is disabled and
+    /// transactions with any `gas` value are accepted by the mempool and
+    /// executed without REVM's gas-limit check.
     pub block_gas_limit: Option<NonZeroU64>,
-    pub interval: Option<Interval>,
+    pub interval: Option<IntervalConfig>,
     pub mem_pool: MemPoolConfig,
 }
 

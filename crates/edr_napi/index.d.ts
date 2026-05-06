@@ -264,8 +264,29 @@ export interface IntervalRange {
 /** Configuration for the provider's miner. */
 export interface MiningConfig {
   autoMine: boolean
+  /**
+   * The block gas limit to use for mining a block.
+   *
+   * When not set, enforcement of the block gas limit is disabled and
+   * transactions with any `gas` value are accepted by the mempool and
+   * executed without REVM's gas-limit check.
+   */
+  blockGasLimit?: bigint
   interval?: bigint | IntervalRange
   memPool: MemPoolConfig
+}
+/** Configuration for a locally mined blockchain. */
+export interface LocalConfig {
+  /**
+   * The blob gas used for the genesis block, introduced in [EIP-4844].
+   *
+   * [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+   */
+  genesisBlobGas?: BlobGas
+  /** The block gas limit of the genesis block. */
+  genesisBlockGasLimit: bigint
+  /** The date, in seconds since the Unix epoch, of the genesis block. */
+  genesisBlockTime?: bigint
 }
 /** Configuration for runtime observability. */
 export interface ObservabilityConfig {
@@ -302,31 +323,15 @@ export interface ProviderConfig {
    * will be used.
    */
   baseFeeConfig?: Array<BaseFeeParamActivation>
-  /** The gas limit of each block */
-  blockGasLimit: bigint
   /** The chain ID of the blockchain */
   chainId: bigint
   /** The address of the coinbase */
   coinbase: Uint8Array
   /**
-   * Whether to disable enforcement of the block gas limit.
-   *
-   * Defaults to `false`.
+   * The default transaction gas limit to use for RPC call and transaction
+   * requests that do not specify a `gas` value.
    */
-  disableBlockGasLimit?: boolean
-  /**
-   * Whether to disable enforcement of the [EIP-7825] transaction gas cap.
-   *
-   * Defaults to `false`.
-   *
-   * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
-   */
-  disableTransactionGasCap?: boolean
-  /**
-   * The configuration for forking a blockchain. If not provided, a local
-   * blockchain will be created
-   */
-  fork?: ForkConfig
+  defaultTransactionGasLimit: bigint
   /** The genesis state of the blockchain */
   genesisState: Array<AccountOverride>
   /** The hardfork of the blockchain */
@@ -336,10 +341,6 @@ export interface ProviderConfig {
    * transactions and later
    */
   initialBaseFeePerGas?: bigint
-  /** The initial blob gas of the blockchain. Required for EIP-4844 */
-  initialBlobGas?: BlobGas
-  /** The initial date of the blockchain, in seconds since the Unix epoch */
-  initialDate?: bigint
   /**
    * The initial parent beacon block root of the blockchain. Required for
    * EIP-4788
@@ -349,6 +350,8 @@ export interface ProviderConfig {
   minGasPrice: bigint
   /** The configuration for the miner */
   mining: MiningConfig
+  /** The network configuration for the provider. */
+  network: ForkConfig | LocalConfig
   /** The network ID of the blockchain */
   networkId: bigint
   /** The configuration for the provider's observability */
@@ -360,7 +363,9 @@ export interface ProviderConfig {
   /**
    * Transaction gas cap, introduced in [EIP-7825].
    *
-   * When not set, will default to value defined by the used hardfork
+   * When not set, enforcement of the transaction gas cap is disabled and
+   * transactions with any `gas` value are accepted by the mempool and
+   * executed without REVM's transaction gas cap check.
    *
    * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
    */
@@ -495,11 +500,6 @@ export interface LoggerConfig {
   decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]) => string[]
   printLineCallback: (message: string, replace: boolean) => void
 }
-/**
- *Creates a provider with a mock timer.
- *For testing purposes.
- */
-export declare function createProviderWithMockTimer(providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder, time: MockTime): Promise<Provider>
 /**
  * [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md#specification)
  * secp256r1 precompile.
@@ -1670,23 +1670,12 @@ export declare class EdrContext {
    *   with the results of each test suite as soon as it finished executing.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
-  /**
-   *Creates a mock provider, which always returns the given response.
-   *For testing purposes.
-   */
-  createMockProvider(mockedResponse: any): Provider
 }
 export declare class ContractDecoder {
   /**Creates an empty instance. */
   constructor()
   /**Creates a new instance with the provided configuration. */
   static withContracts(config: TracingConfigWithBuffers): ContractDecoder
-}
-export declare class MockTime {
-  /**Creates a new instance of `MockTime` with the current time. */
-  static now(): MockTime
-  /**Adds the specified number of seconds to the current time. */
-  addSeconds(seconds: bigint): void
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */

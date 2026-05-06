@@ -85,7 +85,7 @@ use rpds::HashTrieMapSync;
 use tokio::runtime;
 
 use crate::{
-    config::{LocalConfig, MemPoolConfig, MiningConfig, NetworkConfig, ProviderConfig},
+    config::{ForkConfig, LocalConfig, MemPoolConfig, MiningConfig, NetworkConfig, ProviderConfig},
     data::{
         call::BlockEnvWithZeroBaseFee,
         gas::{
@@ -109,7 +109,7 @@ use crate::{
         SyncBlockchainForChainSpec, SyncProviderSpec, TransactionAndBlockForChainSpec,
     },
     time::{CurrentTime, TimeSinceEpoch},
-    DebugTraceError, ForkConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
+    DebugTraceError, ProviderError, SubscriptionEvent, SubscriptionEventData,
     SyncSubscriberCallback,
 };
 
@@ -4294,11 +4294,8 @@ mod tests {
         use edr_test_utils::env::json_rpc_url_provider;
 
         use super::*;
-        use crate::{
-            test_utils::{
-                l1_base_header_overrides, l1_header_overrides_before_merge, prague_header_overrides,
-            },
-            ForkConfig,
+        use crate::test_utils::{
+            l1_base_header_overrides, l1_header_overrides_before_merge, prague_header_overrides,
         };
 
         #[test]

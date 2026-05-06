@@ -1,16 +1,15 @@
 use core::num::NonZeroU64;
-use std::{str::FromStr, time::SystemTime};
+use std::str::FromStr;
 
-use edr_block_header::BlobGas;
 use edr_chain_config::{ChainOverride, HardforkActivation, HardforkActivations};
 use edr_chain_spec::EvmSpecId;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, ChainId, HashMap, UnknownHardfork, B256};
 use edr_provider::{
-    config::{LocalConfig, MiningConfig, NetworkConfig},
+    config::{ForkConfig, MiningConfig, NetworkConfig},
     observability::ObservabilityConfig,
-    AccountOverride, ForkConfig,
+    AccountOverride,
 };
 use edr_signer::SecretKey;
 
@@ -63,7 +62,7 @@ where
     })
 }
 
-impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
+impl<HardforkT> TryFrom<Config> for edr_provider::config::Provider<HardforkT>
 where
     HardforkT: FromStr<Err = UnknownHardfork>
         + Default
