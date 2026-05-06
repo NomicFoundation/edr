@@ -3,50 +3,38 @@ use std::sync::{mpsc::channel, Arc};
 use edr_napi_core::logger::LoggerError;
 use edr_primitives::Bytes;
 use napi::{
-    threadsafe_function::{
-        ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
-    },
-    JsFunction, Status,
+    bindgen_prelude::{Buffer, FnArgs, Function},
+    threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunctionCallMode},
+    Env, Status,
 };
 use napi_derive::napi;
 
 #[napi(object)]
-pub struct LoggerConfig {
+pub struct LoggerConfig<'env> {
     /// Whether to enable the logger.
     pub enable: bool,
-    #[napi(ts_type = "(inputs: ArrayBuffer[]) => string[]")]
-    pub decode_console_log_inputs_callback: JsFunction,
+    #[napi(ts_type = "(inputs: Buffer[]) => string[]")]
+    pub decode_console_log_inputs_callback: Function<'env, Vec<Buffer>, Vec<String>>,
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
-    pub print_line_callback: JsFunction,
+    pub print_line_callback: Function<'env, FnArgs<(String, bool)>, ()>,
 }
 
-impl LoggerConfig {
+impl LoggerConfig<'_> {
     /// Resolves the logger config, converting it to a
     /// `edr_napi_core::logger::Config`.
-    pub fn resolve(self, env: &napi::Env) -> napi::Result<edr_napi_core::logger::Config> {
-        let mut decode_console_log_inputs_callback: ThreadsafeFunction<_, ErrorStrategy::Fatal> =
-            self.decode_console_log_inputs_callback
-                .create_threadsafe_function(0, |ctx: ThreadSafeCallContext<Vec<Bytes>>| {
-                    let inputs = ctx.env.create_array_with_length(ctx.value.len()).and_then(
-                        |mut inputs| {
-                            for (idx, input) in ctx.value.into_iter().enumerate() {
-                                ctx.env
-                                    .create_arraybuffer_with_data(input.to_vec())
-                                    .and_then(|input| {
-                                        inputs.set_element(idx as u32, input.into_raw())
-                                    })?;
-                            }
-
-                            Ok(inputs)
-                        },
-                    )?;
-
-                    Ok(vec![inputs])
-                })?;
-
-        // Maintain a weak reference to the function to avoid blocking the event loop
-        // from exiting.
-        decode_console_log_inputs_callback.unref(env)?;
+    pub fn resolve(self, _env: &Env) -> napi::Result<edr_napi_core::logger::Config> {
+        let decode_console_log_inputs_callback = self
+            .decode_console_log_inputs_callback
+            .build_threadsafe_function::<Vec<Bytes>>()
+            .weak::<true>()
+            .build_callback(|ctx: ThreadsafeCallContext<Vec<Bytes>>| {
+                let inputs: Vec<Buffer> = ctx
+                    .value
+                    .into_iter()
+                    .map(|input| Buffer::from(input.to_vec()))
+                    .collect();
+                Ok(inputs)
+            })?;
 
         let decode_console_log_inputs_fn = Arc::new(move |console_log_inputs| {
             let (sender, receiver) = channel();
@@ -54,7 +42,8 @@ impl LoggerConfig {
             let status = decode_console_log_inputs_callback.call_with_return_value(
                 console_log_inputs,
                 ThreadsafeFunctionCallMode::Blocking,
-                move |decoded_inputs: Vec<String>| {
+                move |decoded_inputs: napi::Result<Vec<String>>, _env: Env| {
+                    let decoded_inputs = decoded_inputs?;
                     sender.send(decoded_inputs).map_err(|_error| {
                         napi::Error::new(
                             Status::GenericFailure,
@@ -70,21 +59,13 @@ impl LoggerConfig {
                 .expect("Receive can only fail if the channel is closed")
         });
 
-        let mut print_line_callback: ThreadsafeFunction<_, ErrorStrategy::Fatal> = self
+        let print_line_callback = self
             .print_line_callback
-            .create_threadsafe_function(0, |ctx: ThreadSafeCallContext<(String, bool)>| {
-                // String
-                let message = ctx.env.create_string_from_std(ctx.value.0)?;
-
-                // bool
-                let replace = ctx.env.get_boolean(ctx.value.1)?;
-
-                Ok(vec![message.into_unknown(), replace.into_unknown()])
+            .build_threadsafe_function::<(String, bool)>()
+            .weak::<true>()
+            .build_callback(|ctx: ThreadsafeCallContext<(String, bool)>| {
+                Ok(FnArgs { data: ctx.value })
             })?;
-
-        // Maintain a weak reference to the function to avoid blocking the event loop
-        // from exiting.
-        print_line_callback.unref(env)?;
 
         let print_line_fn = Arc::new(move |message, replace| {
             let (sender, receiver) = channel();
@@ -92,19 +73,19 @@ impl LoggerConfig {
             let status = print_line_callback.call_with_return_value(
                 (message, replace),
                 ThreadsafeFunctionCallMode::Blocking,
-                move |()| {
-                    sender.send(()).map_err(|_error| {
+                move |result: napi::Result<()>, _env: Env| {
+                    sender.send(result.is_ok()).map_err(|_error| {
                         napi::Error::new(
                             Status::GenericFailure,
-                            "Failed to send result from decode_console_log_inputs",
+                            "Failed to send result from print_line_callback",
                         )
                     })
                 },
             );
 
-            let () = receiver.recv().unwrap();
+            let succeeded = receiver.recv().unwrap_or(false);
 
-            if status == napi::Status::Ok {
+            if status == napi::Status::Ok && succeeded {
                 Ok(())
             } else {
                 Err(LoggerError::PrintLine)

@@ -1,13 +1,11 @@
-use std::sync::mpsc::channel;
+use std::sync::{mpsc::channel, Arc};
 
 use edr_primitives::{Address, Bytes};
 use napi::{
-    bindgen_prelude::{Promise, Uint8Array},
-    threadsafe_function::{
-        ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
-    },
+    bindgen_prelude::{Buffer, FnArgs, Function, Promise, Uint8Array},
+    threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode},
     tokio::runtime,
-    Env, JsFunction, Status,
+    Env, Status,
 };
 use napi_derive::napi;
 
@@ -39,41 +37,46 @@ struct CallOverrideCall {
     data: Bytes,
 }
 
+type CallOverrideTsfn = ThreadsafeFunction<
+    CallOverrideCall,
+    Promise<Option<CallOverrideResult>>,
+    FnArgs<(Buffer, Buffer)>,
+    Status,
+    false,
+    true,
+    0,
+>;
+
 #[derive(Clone)]
 pub struct CallOverrideCallback {
-    call_override_callback_fn: ThreadsafeFunction<CallOverrideCall, ErrorStrategy::Fatal>,
+    call_override_callback_fn: Arc<CallOverrideTsfn>,
     runtime: runtime::Handle,
 }
 
 impl CallOverrideCallback {
     pub fn new(
-        env: &Env,
-        call_override_callback: JsFunction,
+        _env: &Env,
+        call_override_callback: Function<
+            '_,
+            FnArgs<(Buffer, Buffer)>,
+            Promise<Option<CallOverrideResult>>,
+        >,
         runtime: runtime::Handle,
     ) -> napi::Result<Self> {
-        let mut call_override_callback_fn = call_override_callback.create_threadsafe_function(
-            0,
-            |ctx: ThreadSafeCallContext<CallOverrideCall>| {
-                let address = ctx
-                    .env
-                    .create_arraybuffer_with_data(ctx.value.contract_address.to_vec())?
-                    .into_raw();
+        let call_override_callback_fn = call_override_callback
+            .build_threadsafe_function::<CallOverrideCall>()
+            .weak::<true>()
+            .build_callback(|ctx: ThreadsafeCallContext<CallOverrideCall>| {
+                let address = Buffer::from(ctx.value.contract_address.to_vec());
+                let data = Buffer::from(ctx.value.data.to_vec());
 
-                let data = ctx
-                    .env
-                    .create_arraybuffer_with_data(ctx.value.data.to_vec())?
-                    .into_raw();
-
-                Ok(vec![address, data])
-            },
-        )?;
-
-        // Maintain a weak reference to the function to avoid blocking the event loop
-        // from exiting.
-        call_override_callback_fn.unref(env)?;
+                Ok(FnArgs {
+                    data: (address, data),
+                })
+            })?;
 
         Ok(Self {
-            call_override_callback_fn,
+            call_override_callback_fn: Arc::new(call_override_callback_fn),
             runtime,
         })
     }
@@ -92,7 +95,8 @@ impl CallOverrideCallback {
                 data,
             },
             ThreadsafeFunctionCallMode::Blocking,
-            move |result: Promise<Option<CallOverrideResult>>| {
+            move |result: napi::Result<Promise<Option<CallOverrideResult>>>, _env: Env| {
+                let result = result?;
                 runtime.spawn(async move {
                     let result = result.await?.try_cast();
                     sender.send(result).map_err(|_error| {

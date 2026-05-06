@@ -174,7 +174,7 @@ interface SolidityTestsRunResult {
     string,
     {
       stackTrace: StackTraceResult | undefined;
-      reason: string | undefined;
+      reason: string | null;
     }
   >;
   callTraces: Map<string, CallTrace[]>;
@@ -183,7 +183,7 @@ interface SolidityTestsRunResult {
 }
 
 type ActualStackTraceResult =
-  | { stackTrace: StackTraceResult | undefined; reason: string | undefined }
+  | { stackTrace: StackTraceResult | undefined; reason: string | null }
   | undefined
   | null;
 
@@ -207,7 +207,11 @@ export function assertStackTraces(
     throw new Error("Stack trace is undefined");
   }
 
-  if (actual.reason === undefined || !actual.reason.includes(expectedReason)) {
+  if (
+    actual.reason === undefined ||
+    actual.reason === null ||
+    !actual.reason.includes(expectedReason)
+  ) {
     throw new Error(
       `Expected stack trace reason to include '${expectedReason}', but got '${actual.reason}'`
     );

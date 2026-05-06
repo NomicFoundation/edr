@@ -4,11 +4,11 @@ use edr_block_api::BlockAndTotalDifficulty;
 use edr_eth::filter::LogOutput;
 use edr_primitives::{B256, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, SyncSubscriberCallback};
+#[allow(deprecated)]
+use napi::JsObject;
 use napi::{
-    threadsafe_function::{
-        ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
-    },
-    JsFunction, JsUnknown,
+    bindgen_prelude::{BigInt, Function, Unknown},
+    threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode},
 };
 
 pub fn subscriber_callback_for_chain_spec<
@@ -66,7 +66,8 @@ impl SubscriptionEvent {
 /// 2. Send the `serde_json::Value` to the `ThreadsafeFunction`.
 /// 3. Convert the `serde_json::Value` to a JavaScript value using
 ///    `napi::Env::to_js_value`.
-pub type DynJsValueConstructor = dyn FnOnce(&napi::Env) -> napi::Result<JsUnknown>;
+pub type DynJsValueConstructor =
+    dyn for<'env> FnOnce(&'env napi::Env) -> napi::Result<Unknown<'env>>;
 
 /// A chain-agnostic version of [`edr_provider::SubscriptionEventData`].
 pub enum SubscriptionEventData {
@@ -89,12 +90,13 @@ impl SubscriptionEventData {
         match data {
             edr_provider::SubscriptionEventData::Logs(log_outputs) => Self::Logs(log_outputs),
             edr_provider::SubscriptionEventData::NewHeads(block_and_total_difficulty) => {
-                let block_to_js_value_fn = Box::new(move |env: &napi::Env| {
-                    let block = RpcBlockT::from(block_and_total_difficulty);
+                let block_to_js_value_fn: Box<DynJsValueConstructor> =
+                    Box::new(move |env: &napi::Env| {
+                        let block = RpcBlockT::from(block_and_total_difficulty);
 
-                    env.to_js_value(&block)
-                        .map_err(|error| napi::Error::from_reason(error.to_string()))
-                });
+                        env.to_js_value(&block)
+                            .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    });
 
                 Self::NewHeads(block_to_js_value_fn)
             }
@@ -105,44 +107,56 @@ impl SubscriptionEventData {
     }
 }
 
+#[allow(deprecated)]
+type SubscriptionTsfn =
+    ThreadsafeFunction<SubscriptionEvent, (), JsObject, napi::Status, false, true, 0>;
+
 #[derive(Clone)]
 pub struct Callback {
-    inner: ThreadsafeFunction<SubscriptionEvent, ErrorStrategy::Fatal>,
+    inner: Arc<SubscriptionTsfn>,
 }
 
 impl Callback {
-    pub fn new(env: &napi::Env, subscription_event_callback: JsFunction) -> napi::Result<Self> {
-        let mut callback = subscription_event_callback.create_threadsafe_function(
-            0,
-            |ctx: ThreadSafeCallContext<SubscriptionEvent>| {
-                // SubscriptionEvent
-                let mut event = ctx.env.create_object()?;
+    #[allow(deprecated)]
+    pub fn new(
+        _env: &napi::Env,
+        subscription_event_callback: Function<'_, JsObject, ()>,
+    ) -> napi::Result<Self> {
+        let callback = subscription_event_callback
+            .build_threadsafe_function::<SubscriptionEvent>()
+            .weak::<true>()
+            .build_callback(|ctx: ThreadsafeCallContext<SubscriptionEvent>| {
+                let env = ctx.env;
 
-                ctx.env
-                    .create_bigint_from_words(false, ctx.value.filter_id.as_limbs().to_vec())
-                    .and_then(|filter_id| event.set_named_property("filterId", filter_id))?;
+                // Build the event object using JsObject; the TSFN will pass it to the JS
+                // callback as a single argument.
+                #[allow(deprecated)]
+                let mut event = env.create_object()?;
 
-                let result = match ctx.value.result {
-                    SubscriptionEventData::Logs(logs) => ctx.env.to_js_value(&logs),
+                let filter_id = BigInt {
+                    sign_bit: false,
+                    words: ctx.value.filter_id.as_limbs().to_vec(),
+                };
+                event.set_named_property("filterId", filter_id)?;
+
+                let result: Unknown<'_> = match ctx.value.result {
+                    SubscriptionEventData::Logs(logs) => env.to_js_value(&logs)?,
                     SubscriptionEventData::NewHeads(block_to_js_value_fn) => {
-                        block_to_js_value_fn(&ctx.env)
+                        block_to_js_value_fn(&env)?
                     }
                     SubscriptionEventData::NewPendingTransactions(tx_hash) => {
-                        ctx.env.to_js_value(&tx_hash)
+                        env.to_js_value(&tx_hash)?
                     }
-                }?;
+                };
 
                 event.set_named_property("result", result)?;
 
-                Ok(vec![event])
-            },
-        )?;
+                Ok(event)
+            })?;
 
-        // Maintain a weak reference to the function to avoid blocking the event loop
-        // from exiting.
-        callback.unref(env)?;
-
-        Ok(Self { inner: callback })
+        Ok(Self {
+            inner: Arc::new(callback),
+        })
     }
 
     pub fn call(&self, event: SubscriptionEvent) {
@@ -153,7 +167,8 @@ impl Callback {
 }
 
 /// Configuration for subscriptions.
-pub struct Config {
+#[allow(deprecated)]
+pub struct Config<'env> {
     /// Callback to be called when a new event is received.
-    pub subscription_callback: JsFunction,
+    pub subscription_callback: Function<'env, JsObject, ()>,
 }

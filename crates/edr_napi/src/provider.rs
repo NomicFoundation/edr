@@ -6,7 +6,11 @@ use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
 use edr_solidity::compiler::create_models_and_decode_bytecodes;
-use napi::{bindgen_prelude::ObjectFinalize, tokio::runtime, Env, JsFunction, JsObject, Status};
+use napi::{
+    bindgen_prelude::{Buffer, FnArgs, Function, Object, ObjectFinalize, Promise},
+    tokio::runtime,
+    Env, Status,
+};
 use napi_derive::napi;
 use parking_lot::RwLock;
 
@@ -118,18 +122,22 @@ impl Provider {
     }
 
     #[napi(catch_unwind, ts_return_type = "Promise<void>")]
-    pub fn set_call_override_callback(
+    pub fn set_call_override_callback<'env>(
         &self,
-        env: Env,
+        env: &'env Env,
         #[napi(
             ts_arg_type = "(contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>"
         )]
-        call_override_callback: JsFunction,
-    ) -> napi::Result<JsObject> {
+        call_override_callback: Function<
+            'env,
+            FnArgs<(Buffer, Buffer)>,
+            Promise<Option<crate::call_override::CallOverrideResult>>,
+        >,
+    ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
         let call_override_callback =
-            match CallOverrideCallback::new(&env, call_override_callback, self.runtime.clone()) {
+            match CallOverrideCallback::new(env, call_override_callback, self.runtime.clone()) {
                 Ok(callback) => callback,
                 Err(error) => {
                     deferred.reject(error);
