@@ -91,7 +91,7 @@ describe("Code coverage", () => {
       autoMine: true,
       blockGasLimit: 300_000_000n,
       memPool: {
-        order: MineOrdering.Priority,
+        order: "Priority" as MineOrdering,
       },
     },
     network: {
@@ -310,7 +310,7 @@ describe("Code coverage", () => {
 
       for (const suiteResult of suiteResults) {
         for (const testResult of suiteResult.testResults) {
-          assert.equal(testResult.status, TestStatus.Failure);
+          assert.equal(testResult.status, "Failure" as TestStatus);
           assert.isDefined(testResult.reason);
           assert(
             testResult.reason!.includes(ERROR_MESSAGE),

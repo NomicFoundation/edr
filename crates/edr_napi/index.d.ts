@@ -279,7 +279,7 @@ export interface BuildInfoAndOutput {
 export const BYZANTIUM: string
 
 /** What chains to cache */
-export declare const enum CachedChains {
+export declare enum CachedChains {
   /** Cache all chains */
   All = 0,
   /** Don't cache anything */
@@ -287,7 +287,7 @@ export declare const enum CachedChains {
 }
 
 /** What endpoints to enable caching for */
-export declare const enum CachedEndpoints {
+export declare enum CachedEndpoints {
   /** Cache all endpoints */
   All = 0,
   /** Only cache non-local host endpoints */
@@ -300,7 +300,7 @@ export interface CallFailedErrorStackTraceEntry {
 }
 
 /** The various kinds of call frames possible in the EVM. */
-export declare const enum CallKind {
+export declare enum CallKind {
   /** Regular call that may change state. */
   Call = 0,
   /**
@@ -388,12 +388,10 @@ export interface ChainOverride {
 }
 
 /** Error codes that can be returned by cheatcodes in Solidity tests. */
-export declare const enum CheatcodeErrorCode {
-  /** The specified cheatcode is not supported. */
-  UnsupportedCheatcode = 'UnsupportedCheatcode',
-  /** The specified cheatcode is missing. */
-  MissingCheatcode = 'MissingCheatcode'
-}
+export type CheatcodeErrorCode = /** The specified cheatcode is not supported. */
+'UnsupportedCheatcode'|
+/** The specified cheatcode is missing. */
+'MissingCheatcode';
 
 /** Error returned by a cheatcode in Solidity tests. */
 export interface CheatcodeErrorDetails {
@@ -425,7 +423,7 @@ export interface CodeCoverageConfig {
 }
 
 /** A type that controls when stack traces are collected. */
-export declare const enum CollectStackTraces {
+export declare enum CollectStackTraces {
   /** Always collects stack traces, adding performance overhead. */
   Always = 0,
   /**
@@ -467,7 +465,7 @@ export interface ContractData {
   deployedLinkReferences?: Record<string, Record<string, Array<LinkReference>>>
 }
 
-export declare const enum ContractFunctionType {
+export declare enum ContractFunctionType {
   CONSTRUCTOR = 0,
   FUNCTION = 1,
   FALLBACK = 2,
@@ -576,7 +574,7 @@ export const ECOTONE: string
  * Indicates that the EVM has experienced an exceptional halt. This causes
  * execution to immediately end with all gas being consumed.
  */
-export declare const enum ExceptionalHalt {
+export declare enum ExceptionalHalt {
   OutOfGas = 0,
   OpcodeNotFound = 1,
   InvalidFEOpcode = 2,
@@ -612,7 +610,7 @@ export interface ExecutionResult {
 }
 
 /** Represents the exit code of the EVM. */
-export declare const enum ExitCode {
+export declare enum ExitCode {
   /** Execution was successful. */
   SUCCESS = 0,
   /** Execution was reverted. */
@@ -683,7 +681,7 @@ export const FRONTIER_THAWING: string
  * configuration files, source files or executables neither in the top level
  * directory, nor in any subdirectories.
  */
-export declare const enum FsAccessPermission {
+export declare enum FsAccessPermission {
   /** Allows reading and writing the file */
   ReadWriteFile = 0,
   /** Only allows reading the file */
@@ -828,7 +826,7 @@ export interface GasReportConfig {
   onCollectedGasReportCallback: (gasReport: GasReport) => Promise<void>
 }
 
-export declare const enum GasReportExecutionStatus {
+export declare enum GasReportExecutionStatus {
   Success = 0,
   Revert = 1,
   Halt = 2
@@ -898,7 +896,7 @@ export interface HttpHeader {
  * This can either be for Solidity test results or provider transaction
  * execution results.
  */
-export declare const enum IncludeTraces {
+export declare enum IncludeTraces {
   /** No traces will be included at all. */
   None = 0,
   /**
@@ -1117,7 +1115,7 @@ export interface LoggerConfig {
 }
 
 /** Kind marker for log traces. */
-export declare const enum LogKind {
+export declare enum LogKind {
   /** Single kind of log. */
   Log = 5
 }
@@ -1146,12 +1144,10 @@ export interface MemPoolConfig {
 export const MERGE: string
 
 /** The type of ordering to use when selecting blocks to mine. */
-export declare const enum MineOrdering {
-  /** Insertion order */
-  Fifo = 'Fifo',
-  /** Effective miner fee */
-  Priority = 'Priority'
-}
+export type MineOrdering = /** Insertion order */
+'Fifo'|
+/** Effective miner fee */
+'Priority';
 
 /** Configuration for the provider's miner. */
 export interface MiningConfig {
@@ -1199,7 +1195,7 @@ export const OP_CHAIN_TYPE: string
 export declare function opGenesisState(hardfork: OpHardfork): Array<AccountOverride>
 
 /** Enumeration of supported OP hardforks. */
-export declare const enum OpHardfork {
+export declare enum OpHardfork {
   Bedrock = 100,
   Regolith = 101,
   Canyon = 102,
@@ -1622,7 +1618,7 @@ export interface SourceReference {
 }
 
 /** Identifier for the Ethereum spec. */
-export declare const enum SpecId {
+export declare enum SpecId {
   /** Frontier */
   Frontier = 0,
   /** Frontier Thawing */
@@ -1675,7 +1671,7 @@ export interface StackTrace {
   entries: Array<SolidityStackTraceEntry>
 }
 
-export declare const enum StackTraceEntryType {
+export declare enum StackTraceEntryType {
   CALLSTACK_ENTRY = 0,
   UNRECOGNIZED_CREATE_CALLSTACK_ENTRY = 1,
   UNRECOGNIZED_CONTRACT_CALLSTACK_ENTRY = 2,
@@ -1742,7 +1738,7 @@ export interface SubscriptionEvent {
 }
 
 /** The possible reasons for successful termination of the EVM. */
-export declare const enum SuccessReason {
+export declare enum SuccessReason {
   /** The opcode `STOP` was called */
   Stop = 0,
   /** The opcode `RETURN` was called */
@@ -1841,14 +1837,12 @@ export interface TestFunctionOverride {
 }
 
 /** The result of a test execution. */
-export declare const enum TestStatus {
-  /** Test success */
-  Success = 'Success',
-  /** Test failure */
-  Failure = 'Failure',
-  /** Test skipped */
-  Skipped = 'Skipped'
-}
+export type TestStatus = /** Test success */
+'Success'|
+/** Test failure */
+'Failure'|
+/** Test skipped */
+'Skipped';
 
 /**
  * Timeout configuration.
