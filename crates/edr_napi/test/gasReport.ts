@@ -77,7 +77,7 @@ const providerConfig = {
     autoMine: true,
     blockGasLimit: 6_000_000n,
     memPool: {
-      order: MineOrdering.Priority,
+      order: "Priority" as MineOrdering,
     },
   },
   network: {
