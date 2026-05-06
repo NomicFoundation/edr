@@ -48,13 +48,31 @@ pub struct ValueSnapshotEntry {
 }
 
 /// See [`edr_solidity_tests::result::SuiteResult`]
-#[napi]
+///
+/// `#[napi(object)]` (POJO) rather than `#[napi]` class because there are no
+/// methods, and consumers (e.g. Hardhat's solidity-test reporter) read
+/// `.testResults` multiple times per suite. As a class, each read would
+/// re-clone the entire `Vec<TestResult>`; as an object, the data is serialized
+/// to a plain JS object once when the suite-completion TSFN fires.
+///
+/// `object_from_js = false`: napi-derive's default for `#[napi(object)]` emits
+/// both `ToNapiValue` and `FromNapiValue`. We never receive a `SuiteResult`
+/// from JS (it's only ever constructed Rust-side and pushed through the
+/// progress TSFN), and the `Vec<TestResult>` field can't satisfy
+/// `FromNapiValue` because `TestResult` is a `#[napi]` class and not a POJO.
+/// Disabling the from-JS direction lets the to-JS direction compile cleanly.
+#[napi(object, object_from_js = false)]
 #[derive(Debug)]
 pub struct SuiteResult {
-    id: ArtifactId,
-    duration_ns: BigInt,
-    test_results: Vec<TestResult>,
-    warnings: Vec<String>,
+    /// The artifact id can be used to match input to result in the progress
+    /// callback.
+    pub id: ArtifactId,
+    /// See [`edr_solidity_tests::result::SuiteResult::duration`].
+    pub duration_ns: BigInt,
+    /// See [`edr_solidity_tests::result::SuiteResult::test_results`].
+    pub test_results: Vec<TestResult>,
+    /// See [`edr_solidity_tests::result::SuiteResult::warnings`].
+    pub warnings: Vec<String>,
 }
 
 impl SuiteResult {
@@ -83,37 +101,6 @@ impl SuiteResult {
     }
 }
 
-#[napi]
-impl SuiteResult {
-    /// The artifact id can be used to match input to result in the progress
-    /// callback
-    #[napi(getter)]
-    pub fn id(&self) -> ArtifactId {
-        self.id.clone()
-    }
-
-    /// See [`edr_solidity_tests::result::SuiteResult::duration`]
-    #[napi(getter)]
-    pub fn duration_ns(&self) -> BigInt {
-        self.duration_ns.clone()
-    }
-
-    /// See [`edr_solidity_tests::result::SuiteResult::test_results`]
-    #[napi(getter)]
-    pub fn test_results(&self) -> Vec<TestResult> {
-        self.test_results
-            .iter()
-            .map(TestResult::shallow_clone)
-            .collect()
-    }
-
-    /// See [`edr_solidity_tests::result::SuiteResult::warnings`]
-    #[napi(getter)]
-    pub fn warnings(&self) -> Vec<String> {
-        self.warnings.clone()
-    }
-}
-
 /// See [`edr_solidity_tests::result::TestResult`]
 #[napi]
 #[derive(Debug)]
@@ -129,32 +116,6 @@ pub struct TestResult {
 
     stack_trace_result: Option<Arc<SolidityTestStackTraceResult<String>>>,
     call_trace_arenas: Vec<SparsedTraceArena>,
-}
-
-impl TestResult {
-    /// Deep-copy this test result. Uses a manual clone because the inner
-    /// `Uint8Array`s in counterexamples don't implement `Clone` in napi-rs v3.
-    pub fn shallow_clone(&self) -> Self {
-        Self {
-            name: self.name.clone(),
-            status: self.status.clone(),
-            reason: self.reason.clone(),
-            counterexample: self.counterexample.as_ref().map(|c| match c {
-                Either::A(b) => Either::A(b.clone()),
-                Either::B(s) => Either::B(s.clone()),
-            }),
-            decoded_logs: self.decoded_logs.clone(),
-            kind: match &self.kind {
-                Either3::A(s) => Either3::A(s.clone()),
-                Either3::B(f) => Either3::B(f.clone()),
-                Either3::C(i) => Either3::C(i.clone()),
-            },
-            duration_ns: self.duration_ns.clone(),
-            value_snapshot_groups: self.value_snapshot_groups.clone(),
-            stack_trace_result: self.stack_trace_result.clone(),
-            call_trace_arenas: self.call_trace_arenas.clone(),
-        }
-    }
 }
 
 /// The stack trace result

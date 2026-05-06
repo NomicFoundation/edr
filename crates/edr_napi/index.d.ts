@@ -47,24 +47,12 @@ export declare class EdrContext {
    *   with the results of each test suite as soon as it finished executing.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
-  /**
-   * Creates a mock provider, which always returns the given response.
-   * For testing purposes.
-   */
-  createMockProvider(mockedResponse: any): Provider
 }
 
 export declare class Exit {
   get kind(): ExitCode
   isError(): boolean
   getReason(): string
-}
-
-export declare class MockTime {
-  /** Creates a new instance of `MockTime` with the current time. */
-  static now(): MockTime
-  /** Adds the specified number of seconds to the current time. */
-  addSeconds(seconds: bigint): void
 }
 
 export declare class Precompile {
@@ -129,21 +117,6 @@ export declare class ReturnData {
 
 export declare class SolidityTestRunnerFactory {
 
-}
-
-/** See [`edr_solidity_tests::result::SuiteResult`] */
-export declare class SuiteResult {
-  /**
-   * The artifact id can be used to match input to result in the progress
-   * callback
-   */
-  get id(): ArtifactId
-  /** See [`edr_solidity_tests::result::SuiteResult::duration`] */
-  get durationNs(): bigint
-  /** See [`edr_solidity_tests::result::SuiteResult::test_results`] */
-  get testResults(): Array<TestResult>
-  /** See [`edr_solidity_tests::result::SuiteResult::warnings`] */
-  get warnings(): Array<string>
 }
 
 /** See [`edr_solidity_tests::result::TestResult`] */
@@ -534,12 +507,6 @@ export interface CreateOutput {
   /** Optionally, a 160-bit address */
   address?: Uint8Array
 }
-
-/**
- * Creates a provider with a mock timer.
- * For testing purposes.
- */
-export declare function createProviderWithMockTimer(providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder, time: MockTime): Promise<Provider>
 
 export interface CustomErrorStackTraceEntry {
   type: StackTraceEntryType.CUSTOM_ERROR
@@ -1753,6 +1720,36 @@ export interface SuccessResult {
   logs: Array<ExecutionLog>
   /** The transaction output */
   output: CallOutput | CreateOutput
+}
+
+/**
+ * See [`edr_solidity_tests::result::SuiteResult`]
+ *
+ * `#[napi(object)]` (POJO) rather than `#[napi]` class because there are no
+ * methods, and consumers (e.g. Hardhat's solidity-test reporter) read
+ * `.testResults` multiple times per suite. As a class, each read would
+ * re-clone the entire `Vec<TestResult>`; as an object, the data is serialized
+ * to a plain JS object once when the suite-completion TSFN fires.
+ *
+ * `object_from_js = false`: napi-derive's default for `#[napi(object)]` emits
+ * both `ToNapiValue` and `FromNapiValue`. We never receive a `SuiteResult`
+ * from JS (it's only ever constructed Rust-side and pushed through the
+ * progress TSFN), and the `Vec<TestResult>` field can't satisfy
+ * `FromNapiValue` because `TestResult` is a `#[napi]` class and not a POJO.
+ * Disabling the from-JS direction lets the to-JS direction compile cleanly.
+ */
+export interface SuiteResult {
+  /**
+   * The artifact id can be used to match input to result in the progress
+   * callback.
+   */
+  id: ArtifactId
+  /** See [`edr_solidity_tests::result::SuiteResult::duration`]. */
+  durationNs: bigint
+  /** See [`edr_solidity_tests::result::SuiteResult::test_results`]. */
+  testResults: Array<TestResult>
+  /** See [`edr_solidity_tests::result::SuiteResult::warnings`]. */
+  warnings: Array<string>
 }
 
 export const TANGERINE: string
