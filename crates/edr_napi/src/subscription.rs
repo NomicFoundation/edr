@@ -1,24 +1,27 @@
-use napi::{bindgen_prelude::BigInt, JsFunction};
+use napi::bindgen_prelude::{BigInt, Function};
+#[allow(deprecated)]
+use napi::JsObject;
 use napi_derive::napi;
 
 /// Configuration for subscriptions.
+#[allow(deprecated)]
 #[napi(object)]
-pub struct SubscriptionConfig {
+pub struct SubscriptionConfig<'env> {
     /// Callback to be called when a new event is received.
     #[napi(ts_type = "(event: SubscriptionEvent) => void")]
-    pub subscription_callback: JsFunction,
+    pub subscription_callback: Function<'env, JsObject, ()>,
 }
 
-impl From<edr_napi_core::subscription::Config> for SubscriptionConfig {
-    fn from(config: edr_napi_core::subscription::Config) -> Self {
+impl<'env> From<edr_napi_core::subscription::Config<'env>> for SubscriptionConfig<'env> {
+    fn from(config: edr_napi_core::subscription::Config<'env>) -> Self {
         Self {
             subscription_callback: config.subscription_callback,
         }
     }
 }
 
-impl From<SubscriptionConfig> for edr_napi_core::subscription::Config {
-    fn from(config: SubscriptionConfig) -> Self {
+impl<'env> From<SubscriptionConfig<'env>> for edr_napi_core::subscription::Config<'env> {
+    fn from(config: SubscriptionConfig<'env>) -> Self {
         Self {
             subscription_callback: config.subscription_callback,
         }

@@ -12,12 +12,10 @@ use edr_napi_core::provider::ConfigOption;
 use edr_primitives::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
 use napi::{
-    bindgen_prelude::{BigInt, Promise, Reference, Uint8Array},
-    threadsafe_function::{
-        ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
-    },
+    bindgen_prelude::{BigInt, Buffer, FromNapiValue, Function, Promise, Reference, Uint8Array},
+    threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunctionCallMode},
     tokio::runtime,
-    Either, JsFunction, JsString, JsStringUtf8,
+    Either, Env,
 };
 use napi_derive::napi;
 
@@ -83,7 +81,7 @@ pub struct ChainOverride {
 
 /// Configuration for a code coverage reporter.
 #[napi(object)]
-pub struct CodeCoverageConfig {
+pub struct CodeCoverageConfig<'env> {
     /// The callback to be called when coverage has been collected.
     ///
     /// The callback receives an array of unique coverage hit markers (i.e. no
@@ -91,19 +89,19 @@ pub struct CodeCoverageConfig {
     ///
     /// Exceptions thrown in the callback will be propagated to the original
     /// caller.
-    #[napi(ts_type = "(coverageHits: Uint8Array[]) => Promise<void>")]
-    pub on_collected_coverage_callback: JsFunction,
+    #[napi(ts_type = "(coverageHits: Buffer[]) => Promise<void>")]
+    pub on_collected_coverage_callback: Function<'env, Vec<Buffer>, Promise<()>>,
 }
 
 #[napi(object)]
-pub struct GasReportConfig {
+pub struct GasReportConfig<'env> {
     /// Gas reports are collected after a block is mined or `eth_call` is
     /// executed.
     ///
     /// Exceptions thrown in the callback will be propagated to the original
     /// caller.
     #[napi(ts_type = "(gasReport: GasReport) => Promise<void>")]
-    pub on_collected_gas_report_callback: JsFunction,
+    pub on_collected_gas_report_callback: Function<'env, GasReport, Promise<()>>,
 }
 
 /// Configuration for forking a blockchain
@@ -248,11 +246,11 @@ impl TryFrom<LocalConfig> for edr_provider::config::Local {
 
 /// Configuration for runtime observability.
 #[napi(object)]
-pub struct ObservabilityConfig {
+pub struct ObservabilityConfig<'env> {
     /// If present, configures runtime observability to collect code coverage.
-    pub code_coverage: Option<CodeCoverageConfig>,
+    pub code_coverage: Option<CodeCoverageConfig<'env>>,
     /// If present, configures runtime observability to collect gas reports.
-    pub gas_report: Option<GasReportConfig>,
+    pub gas_report: Option<GasReportConfig<'env>>,
     /// Controls when to include call traces in the results of transaction
     /// execution.
     ///
@@ -262,7 +260,7 @@ pub struct ObservabilityConfig {
 
 /// Configuration for a provider
 #[napi(object)]
-pub struct ProviderConfig {
+pub struct ProviderConfig<'env> {
     /// Whether to allow blocks with the same timestamp
     pub allow_blocks_with_same_timestamp: bool,
     /// Whether to allow unlimited contract size
@@ -309,11 +307,12 @@ pub struct ProviderConfig {
     /// The network ID of the blockchain
     pub network_id: BigInt,
     /// The configuration for the provider's observability
-    pub observability: ObservabilityConfig,
-    // Using JsString here as it doesn't have `Debug`, `Display` and `Serialize` implementation
-    // which prevents accidentally leaking the secret keys to error messages and logs.
+    pub observability: ObservabilityConfig<'env>,
+    // Using `OpaqueString` here as it doesn't implement `Debug`, `Display` or
+    // `Serialize`, which prevents accidentally leaking the secret keys to error
+    // messages and logs.
     /// Secret keys of owned accounts
-    pub owned_accounts: Vec<JsString>,
+    pub owned_accounts: Vec<OpaqueString>,
     /// Overrides for precompiles
     pub precompile_overrides: Vec<Reference<Precompile>>,
     /// Transaction gas cap, introduced in [EIP-7825].
@@ -491,12 +490,12 @@ impl TryFrom<MiningConfig> for edr_provider::config::Mining {
     }
 }
 
-impl ObservabilityConfig {
+impl ObservabilityConfig<'_> {
     /// Resolves the instance, converting it to a
     /// [`edr_provider::observability::Config`].
     pub fn resolve(
         self,
-        env: &napi::Env,
+        _env: &napi::Env,
         runtime: runtime::Handle,
     ) -> napi::Result<edr_provider::observability::Config> {
         let on_collected_coverage_fn = self
@@ -505,38 +504,23 @@ impl ObservabilityConfig {
                 |code_coverage| -> napi::Result<Box<dyn SyncOnCollectedCoverageCallback>> {
                     let runtime = runtime.clone();
 
-                    let mut on_collected_coverage_callback: ThreadsafeFunction<
-                        _,
-                        ErrorStrategy::Fatal,
-                    > = code_coverage
-                        .on_collected_coverage_callback
-                        .create_threadsafe_function(
-                            0,
-                            |ctx: ThreadSafeCallContext<HashSet<Bytes>>| {
-                                let hits = ctx
-                                    .env
-                                    .create_array_with_length(ctx.value.len())
-                                    .and_then(|mut hits| {
-                                        for (idx, hit) in ctx.value.into_iter().enumerate() {
-                                            ctx.env
-                                                .create_buffer_with_data(hit.to_vec())
-                                                .and_then(|hit| {
-                                                    let idx = u32::try_from(idx).unwrap_or_else(|_| panic!("Number of hits should not exceed '{}'",
-                                                        u32::MAX));
+                    let on_collected_coverage_callback = std::sync::Arc::new(
+                        code_coverage
+                            .on_collected_coverage_callback
+                            .build_threadsafe_function::<HashSet<Bytes>>()
+                            .weak::<true>()
+                            .build_callback(
+                                |ctx: ThreadsafeCallContext<HashSet<Bytes>>| {
+                                    let hits: Vec<Buffer> = ctx
+                                        .value
+                                        .into_iter()
+                                        .map(|hit| Buffer::from(hit.to_vec()))
+                                        .collect();
 
-                                                    hits.set_element(idx, hit.into_raw())
-                                                })?;
-                                        }
-                                        Ok(hits)
-                                    })?;
-
-                                Ok(vec![hits])
-                            },
-                        )?;
-
-                    // Maintain a weak reference to the function to avoid blocking the event loop
-                    // from exiting.
-                    on_collected_coverage_callback.unref(env)?;
+                                    Ok(hits)
+                                },
+                            )?,
+                    );
 
                     let on_collected_coverage_fn: Box<dyn SyncOnCollectedCoverageCallback> =
                         Box::new(move |hits| {
@@ -544,8 +528,11 @@ impl ObservabilityConfig {
 
                             let (sender, receiver) = std::sync::mpsc::channel();
 
-                            let status = on_collected_coverage_callback
-                                .call_with_return_value(hits, ThreadsafeFunctionCallMode::Blocking, move |result: Promise<()>| {
+                            let status = on_collected_coverage_callback.call_with_return_value(
+                                hits,
+                                ThreadsafeFunctionCallMode::Blocking,
+                                move |result: napi::Result<Promise<()>>, _env: Env| {
+                                    let result = result?;
                                     // We spawn a background task to handle the async callback
                                     runtime.spawn(async move {
                                         let result = result.await;
@@ -557,11 +544,14 @@ impl ObservabilityConfig {
                                         })
                                     });
                                     Ok(())
-                                });
+                                },
+                            );
 
                             assert_eq!(status, napi::Status::Ok);
 
-                            let () = receiver.recv().expect("Receive can only fail if the channel is closed")?;
+                            let () = receiver
+                                .recv()
+                                .expect("Receive can only fail if the channel is closed")?;
 
                             Ok(())
                         });
@@ -572,22 +562,13 @@ impl ObservabilityConfig {
             .transpose()?;
         let on_collected_gas_report_fn = self.gas_report.map(
             |gas_report| -> napi::Result<Box<dyn SyncOnCollectedGasReportCallback>> {
-                let mut on_collected_gas_report_callback: ThreadsafeFunction<
-                    _,
-                    ErrorStrategy::Fatal,
-                > = gas_report
-                    .on_collected_gas_report_callback
-                    .create_threadsafe_function(
-                        0,
-                        |ctx: ThreadSafeCallContext<GasReport>| {
-                            let report = ctx.value;
-                            Ok(vec![report])
-                        }
-                        ,
-                    )?;
-                // Maintain a weak reference to the function to avoid blocking the event loop
-                // from exiting.
-                on_collected_gas_report_callback.unref(env)?;
+                let on_collected_gas_report_callback = std::sync::Arc::new(
+                    gas_report
+                        .on_collected_gas_report_callback
+                        .build_threadsafe_function::<GasReport>()
+                        .weak::<true>()
+                        .build_callback(|ctx: ThreadsafeCallContext<GasReport>| Ok(ctx.value))?,
+                );
 
                 let on_collected_gas_report_fn: Box<dyn SyncOnCollectedGasReportCallback> =
                     Box::new(move |report| {
@@ -596,8 +577,11 @@ impl ObservabilityConfig {
                         let (sender, receiver) = std::sync::mpsc::channel();
 
                         // Convert the report to the N-API representation
-                        let status = on_collected_gas_report_callback
-                            .call_with_return_value(GasReport::from(report), ThreadsafeFunctionCallMode::Blocking, move |result: Promise<()>| {
+                        let status = on_collected_gas_report_callback.call_with_return_value(
+                            GasReport::from(report),
+                            ThreadsafeFunctionCallMode::Blocking,
+                            move |result: napi::Result<Promise<()>>, _env: Env| {
+                                let result = result?;
                                 // We spawn a background task to handle the async callback
                                 runtime.spawn(async move {
                                     let result = result.await;
@@ -609,11 +593,14 @@ impl ObservabilityConfig {
                                     })
                                 });
                                 Ok(())
-                            });
+                            },
+                        );
 
                         assert_eq!(status, napi::Status::Ok);
 
-                        let () = receiver.recv().expect("Receive can only fail if the channel is closed")?;
+                        let () = receiver
+                            .recv()
+                            .expect("Receive can only fail if the channel is closed")?;
 
                         Ok(())
                     });
@@ -636,7 +623,7 @@ impl ObservabilityConfig {
     }
 }
 
-impl ProviderConfig {
+impl ProviderConfig<'_> {
     /// Resolves the instance to a [`edr_napi_core::provider::Config`].
     pub fn resolve(
         self,
@@ -652,17 +639,15 @@ impl ProviderConfig {
                 #[allow(deprecated)]
                 use edr_signer::DangerousSecretKeyStr;
 
-                static_assertions::assert_not_impl_all!(JsString: Debug, Display, serde::Serialize);
-                static_assertions::assert_not_impl_all!(JsStringUtf8: Debug, Display, serde::Serialize);
+                static_assertions::assert_not_impl_all!(OpaqueString: Debug, Display, serde::Serialize);
                 // `SecretKey` has `Debug` implementation, but it's opaque (only shows the
                 // type name)
                 static_assertions::assert_not_impl_any!(SecretKey: Display, serde::Serialize);
 
-                let secret_key = secret_key.into_utf8()?;
                 // This is the only place in production code where it's allowed to use
                 // `DangerousSecretKeyStr`.
                 #[allow(deprecated)]
-                let secret_key_str = DangerousSecretKeyStr(secret_key.as_str()?);
+                let secret_key_str = DangerousSecretKeyStr(secret_key.as_str());
                 let secret_key: SecretKey = secret_key_from_str(secret_key_str)
                     .map_err(|error| napi::Error::new(napi::Status::InvalidArg, error))?;
 
@@ -802,12 +787,12 @@ pub struct ConfigResolution {
 }
 
 /// Helper function for resolving the provided N-API configs.
-pub fn resolve_configs(
+pub fn resolve_configs<'env>(
     env: &napi::Env,
     runtime: runtime::Handle,
-    provider_config: ProviderConfig,
-    logger_config: LoggerConfig,
-    subscription_config: SubscriptionConfig,
+    provider_config: ProviderConfig<'env>,
+    logger_config: LoggerConfig<'env>,
+    subscription_config: SubscriptionConfig<'env>,
 ) -> napi::Result<ConfigResolution> {
     let provider_config = provider_config.resolve(env, runtime)?;
     let logger_config = logger_config.resolve(env)?;
@@ -822,3 +807,49 @@ pub fn resolve_configs(
         subscription_callback,
     })
 }
+
+/// Wrapper around a `String` that intentionally does NOT implement `Debug`,
+/// `Display`, or `Serialize`, so that secret material such as private keys
+/// cannot be accidentally written to logs, error messages, or telemetry.
+///
+/// In NAPI v2 the equivalent guarantee was provided by `napi::JsString`, which
+/// is no longer the recommended public API in v3. Use this newtype anywhere
+/// you would have used `Vec<JsString>` to carry sensitive strings.
+pub struct OpaqueString(String);
+
+impl OpaqueString {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromNapiValue for OpaqueString {
+    unsafe fn from_napi_value(
+        env: napi::sys::napi_env,
+        napi_val: napi::sys::napi_value,
+    ) -> napi::Result<Self> {
+        let s = unsafe { String::from_napi_value(env, napi_val) }?;
+        Ok(OpaqueString(s))
+    }
+}
+
+impl napi::bindgen_prelude::ToNapiValue for OpaqueString {
+    unsafe fn to_napi_value(
+        env: napi::sys::napi_env,
+        val: Self,
+    ) -> napi::Result<napi::sys::napi_value> {
+        unsafe { String::to_napi_value(env, val.0) }
+    }
+}
+
+impl napi::bindgen_prelude::TypeName for OpaqueString {
+    fn type_name() -> &'static str {
+        "string"
+    }
+
+    fn value_type() -> napi::ValueType {
+        napi::ValueType::String
+    }
+}
+
+impl napi::bindgen_prelude::ValidateNapiValue for OpaqueString {}

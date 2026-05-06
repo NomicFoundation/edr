@@ -4,6 +4,6 @@ set -e
 set -x
 set -o pipefail
 
-pnpm napi prepublish -t npm --skip-gh-release
+pnpm napi pre-publish -t npm -p npm
 
 jq 'with_entries(if .key == "optionalDependencies" then .key = "dependencies" else . end)' package.json | sponge package.json

@@ -27,8 +27,9 @@ edr_solidity_tests.workspace = true
 edr_transaction.workspace = true
 foundry-cheatcodes.workspace = true
 itertools = { version = "0.14.0", default-features = false }
-napi = { version = "2.16.10", default-features = false, features = [
+napi = { version = "3", default-features = false, features = [
     "async",
+    "compat-mode",
     "error_anyhow",
     "napi8",
     "serde-json",
