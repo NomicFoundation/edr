@@ -12,10 +12,10 @@ use edr_napi_core::provider::ConfigOption;
 use edr_primitives::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
 use napi::{
-    bindgen_prelude::{BigInt, FromNapiValue, Function, Promise, Reference, Uint8Array},
+    bindgen_prelude::{BigInt, Function, Promise, Reference, Uint8Array},
     threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunctionCallMode},
     tokio::runtime,
-    Either, Env,
+    Either, Env, JsString,
 };
 use napi_derive::napi;
 
@@ -308,11 +308,11 @@ pub struct ProviderConfig<'env> {
     pub network_id: BigInt,
     /// The configuration for the provider's observability
     pub observability: ObservabilityConfig<'env>,
-    // Using `OpaqueString` here as it doesn't implement `Debug`, `Display` or
+    // Using `JsString` here as it doesn't implement `Debug`, `Display` or
     // `Serialize`, which prevents accidentally leaking the secret keys to error
     // messages and logs.
     /// Secret keys of owned accounts
-    pub owned_accounts: Vec<OpaqueString>,
+    pub owned_accounts: Vec<JsString<'env>>,
     /// Overrides for precompiles
     pub precompile_overrides: Vec<Reference<Precompile>>,
     /// Transaction gas cap, introduced in [EIP-7825].
@@ -639,15 +639,17 @@ impl ProviderConfig<'_> {
                 #[allow(deprecated)]
                 use edr_signer::DangerousSecretKeyStr;
 
-                static_assertions::assert_not_impl_all!(OpaqueString: Debug, Display, serde::Serialize);
+                static_assertions::assert_not_impl_all!(JsString<'_>: Debug, Display, serde::Serialize);
+                static_assertions::assert_not_impl_all!(napi::JsStringUtf8<'_>: Debug, Display, serde::Serialize);
                 // `SecretKey` has `Debug` implementation, but it's opaque (only shows the
                 // type name)
                 static_assertions::assert_not_impl_any!(SecretKey: Display, serde::Serialize);
 
+                let secret_key = secret_key.into_utf8()?;
                 // This is the only place in production code where it's allowed to use
                 // `DangerousSecretKeyStr`.
                 #[allow(deprecated)]
-                let secret_key_str = DangerousSecretKeyStr(secret_key.as_str());
+                let secret_key_str = DangerousSecretKeyStr(secret_key.as_str()?);
                 let secret_key: SecretKey = secret_key_from_str(secret_key_str)
                     .map_err(|error| napi::Error::new(napi::Status::InvalidArg, error))?;
 
@@ -808,48 +810,3 @@ pub fn resolve_configs<'env>(
     })
 }
 
-/// Wrapper around a `String` that intentionally does NOT implement `Debug`,
-/// `Display`, or `Serialize`, so that secret material such as private keys
-/// cannot be accidentally written to logs, error messages, or telemetry.
-///
-/// In NAPI v2 the equivalent guarantee was provided by `napi::JsString`, which
-/// is no longer the recommended public API in v3. Use this newtype anywhere
-/// you would have used `Vec<JsString>` to carry sensitive strings.
-pub struct OpaqueString(String);
-
-impl OpaqueString {
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl FromNapiValue for OpaqueString {
-    unsafe fn from_napi_value(
-        env: napi::sys::napi_env,
-        napi_val: napi::sys::napi_value,
-    ) -> napi::Result<Self> {
-        let s = unsafe { String::from_napi_value(env, napi_val) }?;
-        Ok(OpaqueString(s))
-    }
-}
-
-impl napi::bindgen_prelude::ToNapiValue for OpaqueString {
-    unsafe fn to_napi_value(
-        env: napi::sys::napi_env,
-        val: Self,
-    ) -> napi::Result<napi::sys::napi_value> {
-        unsafe { String::to_napi_value(env, val.0) }
-    }
-}
-
-impl napi::bindgen_prelude::TypeName for OpaqueString {
-    fn type_name() -> &'static str {
-        "string"
-    }
-
-    fn value_type() -> napi::ValueType {
-        napi::ValueType::String
-    }
-}
-
-impl napi::bindgen_prelude::ValidateNapiValue for OpaqueString {}
