@@ -597,7 +597,6 @@ module.exports.RawTrace = nativeBinding.RawTrace
 module.exports.Response = nativeBinding.Response
 module.exports.ReturnData = nativeBinding.ReturnData
 module.exports.SolidityTestRunnerFactory = nativeBinding.SolidityTestRunnerFactory
-module.exports.SuiteResult = nativeBinding.SuiteResult
 module.exports.TestResult = nativeBinding.TestResult
 module.exports.addStatementCoverageInstrumentation = nativeBinding.addStatementCoverageInstrumentation
 module.exports.ARROW_GLACIER = nativeBinding.ARROW_GLACIER
