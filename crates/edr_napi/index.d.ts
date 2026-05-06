@@ -1305,7 +1305,7 @@ export interface ProviderConfig {
   /** The configuration for the provider's observability */
   observability: ObservabilityConfig
   /** Secret keys of owned accounts */
-  ownedAccounts: Array<OpaqueString>
+  ownedAccounts: Array<string>
   /** Overrides for precompiles */
   precompileOverrides: Array<Precompile>
   /**
