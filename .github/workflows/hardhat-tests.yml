@@ -13,6 +13,13 @@ jobs:
   run-hardhat-tests:
     name: Run Hardhat tests (${{ matrix.os }}, Node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
+    # Cap well below GHA's 6h ceiling so a hung mocha test fails fast
+    # rather than burning a full job slot.
+    timeout-minutes: 30
+    # See comment on test-edr-rs in edr-ci.yml re crt-static handling.
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +74,14 @@ jobs:
           pnpm -C hardhat-tests test
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+        with:
+          files: codecov.json
+          name: ${{ matrix.os }}
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   lint-hardhat-tests:
     name: Lint Hardhat tests

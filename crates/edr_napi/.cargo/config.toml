@@ -3,9 +3,8 @@
 # Let's use a separate target-dir "$THIS_CRATE/target" to avoid invalidating the workspace-level cache.
 target-dir = "./target"
 
-[target.aarch64-unknown-linux-musl]
-linker = "aarch64-linux-musl-gcc"
-rustflags = ["-C", "target-feature=-crt-static"]
-
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "target-feature=+crt-static"]
+# Per-target rustflags moved to the workspace-root .cargo/config.toml so
+# they apply to cargo invocations from anywhere in the tree (notably
+# test-edr-rs, which runs from the repo root and previously never picked
+# them up). Workspace-root config is loaded here too via Cargo's
+# cwd-upward search.

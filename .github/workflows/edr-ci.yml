@@ -85,6 +85,13 @@ jobs:
     name: Test EDR (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: check-edr
+    # Strict warning gate on test/cfg(test) compiles. The setup-rust
+    # composite action appends `-C target-feature=+crt-static` on
+    # Windows so this env value doesn't clobber the CRT-static linkage
+    # that matches the released NAPI artifact.
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     strategy:
       fail-fast: false
       matrix:
@@ -109,6 +116,10 @@ jobs:
           path: |
             **/edr-cache
           key: edr-rs-rpc-cache-v1-${{ matrix.os }}
+          # Save key includes a hashFiles suffix; restore via the
+          # OS-scoped prefix to pick up the most recent matching entry.
+          restore-keys: |
+            edr-rs-rpc-cache-v1-${{ matrix.os }}-
 
       - name: Run cargo tests (with coverage)
         env:
@@ -152,6 +163,13 @@ jobs:
     name: Test EDR TS bindings (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: check-edr
+    # Cap well below GHA's 6h ceiling so a hung mocha test fails fast
+    # rather than burning a full job slot.
+    timeout-minutes: 30
+    # See comment on test-edr-rs above re crt-static handling.
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     strategy:
       fail-fast: false
       matrix:
@@ -181,6 +199,10 @@ jobs:
           path: |
             **/edr-cache
           key: edr-ts-rpc-cache-v1-${{ matrix.os }}
+          # Save key includes a hashFiles suffix; restore via the
+          # OS-scoped prefix to pick up the most recent matching entry.
+          restore-keys: |
+            edr-ts-rpc-cache-v1-${{ matrix.os }}-
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -296,6 +318,9 @@ jobs:
     name: Run integration tests
     runs-on: ubuntu-24.04
     needs: check-edr-safety
+    env:
+      RUSTFLAGS: -Dwarnings
+      RUSTDOCFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:

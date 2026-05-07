@@ -362,7 +362,11 @@ num-format = "0.4.4"
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
 tempfile = "3.25"
 tokio = "1"
-uuid = { version = "1.19", default-features = false, features = ["serde", "std", "v4"] }
+uuid = { version = "1.19", default-features = false, features = [
+    "serde",
+    "std",
+    "v4",
+] }
 walkdir = "2"
 
 hyper = "1.0"
@@ -387,7 +391,7 @@ dbg_macro = "warn"
 debug_assert_with_mut_call = "warn"
 default_trait_access = "warn"
 doc_markdown = "warn"
-empty_enum = "warn"
+empty_enums = "warn"
 enum_glob_use = "warn"
 exit = "warn"
 expl_impl_clone_on_copy = "warn"
