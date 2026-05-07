@@ -89,7 +89,7 @@ impl<HardforkT> From<LocalConfig> for NetworkConfig<HardforkT> {
     }
 }
 
-/// Configuration for a forked blockchain, whichs forks from an existing
+/// Configuration for a forked blockchain, which forks from an existing
 /// blockchain at a specified block.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
