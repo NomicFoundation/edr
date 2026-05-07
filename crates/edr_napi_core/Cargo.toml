@@ -15,6 +15,7 @@ edr_chain_spec.workspace = true
 edr_chain_spec_evm.workspace = true
 edr_decoder_revert.workspace = true
 edr_eip1559.workspace = true
+edr_eip7825.workspace = true
 edr_eth.workspace = true
 edr_generic.workspace = true
 edr_precompile.workspace = true

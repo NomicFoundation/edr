@@ -4,6 +4,7 @@ use std::str::FromStr;
 use edr_chain_config::{ChainOverride, HardforkActivation, HardforkActivations};
 use edr_chain_spec::EvmSpecId;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
+use edr_eip7825::transaction_gas_cap_for_hardfork;
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, ChainId, HashMap, UnknownHardfork, B256};
 use edr_provider::{
@@ -12,6 +13,17 @@ use edr_provider::{
     AccountOverride,
 };
 use edr_signer::SecretKey;
+
+/// Configuration option.
+#[derive(Clone, Debug)]
+pub enum ConfigOption<T> {
+    /// A custom configuration value.
+    Custom(T),
+    /// Use the default value for this configuration option.
+    Default,
+    /// Disable the configured option.
+    Disable,
+}
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]
@@ -47,7 +59,7 @@ pub struct Config {
     /// executed without REVM's transaction gas cap check.
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
-    pub transaction_gas_cap: Option<u64>,
+    pub transaction_gas_cap: ConfigOption<u64>,
 }
 
 fn parse_hardfork<HardforkT>(hardfork: String) -> napi::Result<HardforkT>
@@ -65,9 +77,9 @@ where
 impl<HardforkT> TryFrom<Config> for edr_provider::config::Provider<HardforkT>
 where
     HardforkT: FromStr<Err = UnknownHardfork>
+        + Clone
         + Default
         + Into<edr_chain_spec::EvmSpecId>
-        + Clone
         + PartialOrd,
 {
     type Error = napi::Error;
@@ -145,7 +157,12 @@ where
             NetworkConfig::Local(local_config) => local_config.into(),
         };
 
-        let hardfork = parse_hardfork(value.hardfork)?;
+        let hardfork = parse_hardfork::<HardforkT>(value.hardfork)?;
+        let transaction_gas_cap = match value.transaction_gas_cap {
+            ConfigOption::Custom(transaction_gas_cap) => Some(transaction_gas_cap),
+            ConfigOption::Default => transaction_gas_cap_for_hardfork(hardfork.clone()),
+            ConfigOption::Disable => None,
+        };
 
         Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
@@ -167,7 +184,7 @@ where
             observability: value.observability,
             owned_accounts: value.owned_accounts,
             precompile_overrides: value.precompile_overrides,
-            transaction_gas_cap: value.transaction_gas_cap,
+            transaction_gas_cap,
         })
     }
 }

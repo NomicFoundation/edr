@@ -369,7 +369,7 @@ export interface ProviderConfig {
    *
    * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
    */
-  transactionGasCap?: bigint
+  transactionGasCap?: bigint | false
 }
 /** Tracing config for Solidity stack trace generation. */
 export interface TracingConfigWithBuffers {

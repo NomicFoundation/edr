@@ -8,6 +8,7 @@ use std::{
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
 use edr_gas_report::SyncOnCollectedGasReportCallback;
+use edr_napi_core::provider::ConfigOption;
 use edr_primitives::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
 use napi::{
@@ -301,7 +302,8 @@ pub struct ProviderConfig {
     /// executed without REVM's transaction gas cap check.
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
-    pub transaction_gas_cap: Option<BigInt>,
+    #[napi(ts_type = "bigint | false")]
+    pub transaction_gas_cap: Option<Either<BigInt, bool>>,
 }
 
 impl TryFrom<ForkConfig> for edr_provider::config::Fork<String> {
@@ -660,6 +662,16 @@ impl ProviderConfig {
             .map(|precompile| precompile.to_tuple())
             .collect();
 
+        let transaction_gas_cap = self
+                .transaction_gas_cap.map_or(Ok(ConfigOption::Default), |transaction_gas_cap| match transaction_gas_cap {
+                    Either::A(a) => a.try_cast().map(ConfigOption::Custom),
+                    Either::B(b) => if b == false {
+                        Ok(ConfigOption::Disable)
+                    } else {
+                        Err(napi::Error::new(napi::Status::InvalidArg, "Boolean value for `transactionGasCap` must be false to disable the transaction gas cap"))
+                    },
+                })?;
+
         Ok(edr_napi_core::provider::Config {
             allow_blocks_with_same_timestamp: self.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: self.allow_unlimited_contract_size,
@@ -704,10 +716,7 @@ impl ProviderConfig {
             observability: self.observability.resolve(env, runtime)?,
             owned_accounts,
             precompile_overrides,
-            transaction_gas_cap: self
-                .transaction_gas_cap
-                .map(TryCast::try_cast)
-                .transpose()?,
+            transaction_gas_cap,
         })
     }
 }
