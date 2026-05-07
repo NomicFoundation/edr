@@ -40,7 +40,7 @@ jobs:
         id: filter
         with:
           base: ${{ github.event.merge_group.base_sha }}
-          ref:  ${{ github.event.merge_group.head_sha }}
+          ref: ${{ github.event.merge_group.head_sha }}
           filters: |
             renovate:
               - renovate.json
