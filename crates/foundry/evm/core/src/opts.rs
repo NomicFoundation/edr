@@ -97,7 +97,7 @@ where
 
         Self {
             env: Env::default(),
-            spec: HardforkT::default(),
+            spec,
             fork_url: None,
             fork_block_number: None,
             fork_retries: None,
