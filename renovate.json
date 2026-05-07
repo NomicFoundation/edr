@@ -61,16 +61,10 @@
       "groupName": "github-actions"
     },
     {
-      "description": "alloy + op-alloy: bundle into one PR. API shifts often across versions, and op-alloy carries alloy-* transitively.",
+      "description": "alloy + revm (incl. op-* variants): tightly coupled across the EVM execution stack — revm builds on alloy types, op-* carries the upstream crates transitively, perf-sensitive. Bundle into one PR; in practice we want them moving in lockstep even when only one side has a release.",
       "matchManagers": ["cargo"],
-      "matchPackageNames": ["/^(op-)?alloy(-|$)/"],
-      "groupName": "alloy"
-    },
-    {
-      "description": "revm + op-revm: tightly coupled API, perf-sensitive.",
-      "matchManagers": ["cargo"],
-      "matchPackageNames": ["/^(op-)?revm(-|$)/"],
-      "groupName": "revm"
+      "matchPackageNames": ["/^(op-)?alloy(-|$)/", "/^(op-)?revm(-|$)/"],
+      "groupName": "alloy + revm"
     },
     {
       "description": "rayon: pull out of the generic cargo minor/patch group — perf-sensitive, wants its own PR.",
