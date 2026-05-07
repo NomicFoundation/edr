@@ -822,8 +822,8 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (event: SubscriptionEvent) => {
-            events.push(event);
+          subscriptionCallback: (evt: SubscriptionEvent) => {
+            events.push(evt);
             resolveFirst();
           },
         },
