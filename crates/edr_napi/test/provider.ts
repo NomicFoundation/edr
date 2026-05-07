@@ -5,6 +5,7 @@ import { Interface } from "ethers";
 
 import {
   AccountOverride,
+  CallOverrideResult,
   ContractDecoder,
   GENERIC_CHAIN_TYPE,
   genericChainProviderFactory,
@@ -663,6 +664,65 @@ describe("Provider", () => {
     // with Holocene hardfork, which is after Canyon
     assert.equal(250, dataView.getUint8(denominatorLeastSignificantByte));
     assert.equal(6, dataView.getUint8(elasticityLeastSignificantByte));
+  });
+
+  describe("setCallOverrideCallback", () => {
+    it("invokes the callback and uses its return value for eth_call", async function () {
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          genesisState: providerConfig.genesisState.concat(
+            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+          ),
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        new ContractDecoder()
+      );
+
+      const targetAddress = "0xabababababababababababababababababababab";
+      const callData = "0xdeadbeef";
+      let received: { addressLen: number; dataLen: number } | undefined;
+
+      await provider.setCallOverrideCallback(
+        async (
+          contractAddress: ArrayBuffer,
+          data: ArrayBuffer
+        ): Promise<CallOverrideResult | undefined> => {
+          // index.d.ts annotates these as `ArrayBuffer` for HH2 backwards-compat
+          // (HH2's provider.ts types its callback the same way and calls
+          // `Buffer.from(x)` on the args). The actual runtime value under
+          // napi-rs v3 is a `Uint8Array`; `Buffer.from(x)` accepts both shapes,
+          // which is what makes the type/runtime skew safe. See the longer
+          // note on `Provider::set_call_override_callback` in
+          // `src/provider.rs` for why we can't produce a real `ArrayBuffer`
+          // Rust-side under v3.
+          received = {
+            addressLen: Buffer.from(contractAddress).length,
+            dataLen: Buffer.from(data).length,
+          };
+          return {
+            result: new Uint8Array([0xca, 0xfe, 0xba, 0xbe]),
+            shouldRevert: false,
+          };
+        }
+      );
+
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_call",
+          params: [{ to: targetAddress, data: callData }, "latest"],
+        })
+      );
+
+      assert.deepEqual(received, { addressLen: 20, dataLen: 4 });
+      assert.equal(JSON.parse(response.data).result, "0xcafebabe");
+    });
   });
 
   describe("transactionGasCap", () => {
