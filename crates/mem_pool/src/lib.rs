@@ -204,7 +204,7 @@ impl<SignedTransactionT: ExecutableTransaction> OrderedTransaction<SignedTransac
 /// The mempool contains transactions pending inclusion in the blockchain.
 #[derive(Clone, Debug)]
 pub struct MemPool<SignedTransactionT: ExecutableTransaction> {
-    /// The block's gas limit. If `None`, enforcemet of the block gas limit is
+    /// The block's gas limit. If `None`, enforcement of the block gas limit is
     /// disabled.
     block_gas_limit: Option<NonZeroU64>,
     /// Transactions that can be executed now
