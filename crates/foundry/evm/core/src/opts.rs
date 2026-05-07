@@ -10,6 +10,7 @@ use revm::{
     context::{BlockEnv, TxEnv},
     context_interface::Block,
 };
+use revm_primitives::{eip7825, hardfork::SpecId};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use url::Url;
 
@@ -84,9 +85,16 @@ pub struct EvmOpts<HardforkT> {
 
 impl<HardforkT> Default for EvmOpts<HardforkT>
 where
-    HardforkT: Default,
+    HardforkT: Default + Into<SpecId>,
 {
     fn default() -> Self {
+        let spec = HardforkT::default();
+        let transaction_gas_cap = if spec.into() >= SpecId::OSAKA {
+            Some(eip7825::TX_GAS_LIMIT_CAP)
+        } else {
+            None
+        };
+
         Self {
             env: Env::default(),
             spec: HardforkT::default(),
@@ -103,7 +111,7 @@ where
             memory_limit: 0,
             isolate: false,
             disable_block_gas_limit: false,
-            transaction_gas_cap: None,
+            transaction_gas_cap,
             disable_transaction_gas_cap: false,
         }
     }
@@ -111,7 +119,7 @@ where
 
 impl<HardforkT> EvmOpts<HardforkT>
 where
-    HardforkT: Default,
+    HardforkT: Default + Into<SpecId>,
 {
     /// Configures a new `revm::Env`
     ///

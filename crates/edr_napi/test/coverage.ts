@@ -77,7 +77,7 @@ describe("Code coverage", () => {
     coinbase: new Uint8Array(
       Buffer.from("0000000000000000000000000000000000000000", "hex")
     ),
-    defaultTransactionGasLimit: 300_000_000n,
+    defaultTransactionGasLimit: 16_777_216n,
     genesisState,
     hardfork: l1HardforkToString(l1HardforkLatest()),
     initialParentBeaconBlockRoot: new Uint8Array(
@@ -255,6 +255,7 @@ describe("Code coverage", () => {
       // All artifacts are test suites.
       const testSuites = artifacts.map((artifact) => artifact.id);
       const config = {
+        disableTransactionGasCap: true,
         projectRoot: __dirname,
         hardfork: l1HardforkToString(l1HardforkLatest()),
         observability: {
@@ -287,6 +288,7 @@ describe("Code coverage", () => {
       // All artifacts are test suites.
       const testSuites = artifacts.map((artifact) => artifact.id);
       const config = {
+        disableTransactionGasCap: true,
         projectRoot: __dirname,
         hardfork: l1HardforkToString(l1HardforkLatest()),
         observability: {

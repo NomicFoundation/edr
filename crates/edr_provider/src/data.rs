@@ -1326,7 +1326,9 @@ where
             } else {
                 None
             },
-            transaction_gas_cap: self.mem_pool.transaction_gas_cap(),
+            // We set the transaction gas cap to `u64::MAX` as it's REVM's way of circumventing the
+            // gas limit check at the transaction level.
+            transaction_gas_cap: Some(self.mem_pool.transaction_gas_cap().unwrap_or(u64::MAX)),
         }
     }
 
