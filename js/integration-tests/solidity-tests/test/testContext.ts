@@ -173,7 +173,7 @@ interface SolidityTestsRunResult {
     string,
     {
       stackTrace: StackTraceResult | undefined;
-      reason: string | null;
+      reason: string | undefined;
     }
   >;
   callTraces: Map<string, CallTrace[]>;
@@ -182,7 +182,7 @@ interface SolidityTestsRunResult {
 }
 
 type ActualStackTraceResult =
-  | { stackTrace: StackTraceResult | undefined; reason: string | null }
+  | { stackTrace: StackTraceResult | undefined; reason: string | undefined }
   | undefined
   | null;
 

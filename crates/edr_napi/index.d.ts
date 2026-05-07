@@ -126,9 +126,9 @@ export declare class TestResult {
   /** See [`edr_solidity_tests::result::TestResult::status`] */
   get status(): TestStatus
   /** See [`edr_solidity_tests::result::TestResult::reason`] */
-  get reason(): string | null
+  get reason(): string | undefined
   /** See [`edr_solidity_tests::result::TestResult::counterexample`] */
-  get counterexample(): BaseCounterExample | CounterExampleSequence | null
+  get counterexample(): BaseCounterExample | CounterExampleSequence | undefined
   /** See [`edr_solidity_tests::result::TestResult::decoded_logs`] */
   get decodedLogs(): Array<string>
   /** See [`edr_solidity_tests::result::TestResult::kind`] */
@@ -141,7 +141,7 @@ export declare class TestResult {
    * Only present if the test runner collected scoped snapshots. Currently,
    * this is always the case.
    */
-  get valueSnapshotGroups(): Array<ValueSnapshotGroup> | null
+  get valueSnapshotGroups(): Array<ValueSnapshotGroup> | undefined
   /**
    * Compute the error stack trace.
    * The result is either the stack trace or the reason why we couldn't
