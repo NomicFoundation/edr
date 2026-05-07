@@ -85,11 +85,11 @@ pub struct EvmOpts<HardforkT> {
 
 impl<HardforkT> Default for EvmOpts<HardforkT>
 where
-    HardforkT: Default + Into<SpecId>,
+    HardforkT: Clone + Default + Into<SpecId>,
 {
     fn default() -> Self {
         let spec = HardforkT::default();
-        let transaction_gas_cap = if spec.into() >= SpecId::OSAKA {
+        let transaction_gas_cap = if spec.clone().into() >= SpecId::OSAKA {
             Some(eip7825::TX_GAS_LIMIT_CAP)
         } else {
             None
