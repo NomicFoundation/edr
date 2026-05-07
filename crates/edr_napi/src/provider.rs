@@ -12,17 +12,26 @@ use napi::{
     Env, Status,
 };
 use napi_derive::napi;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 
 pub use self::factory::ProviderFactory;
 use self::response::Response;
 use crate::{call_override::CallOverrideCallback, contract_decoder::ContractDecoder};
 
 /// A JSON-RPC provider for Ethereum.
+///
+/// The inner [`Arc<dyn SyncProvider>`] is held inside a `Mutex<Option<_>>` so
+/// that [`Provider::close`] can drop it explicitly. Dropping it triggers the
+/// cleanup cascade — `IntervalMiner::Drop` cancels its background task,
+/// `ProviderData` releases the held `Box<dyn SyncLogger>` /
+/// `Box<dyn SyncSubscriberCallback>` / `Option<Arc<dyn SyncCallOverride>>`,
+/// each of which releases its underlying `napi_threadsafe_function` handles
+/// while the napi env is still healthy. See
+/// `/workspace/napi-rs-v3-tsfn-shutdown-investigation.md` for the full story.
 #[napi]
 pub struct Provider {
     contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
-    provider: Arc<dyn SyncProvider>,
+    provider: Mutex<Option<Arc<dyn SyncProvider>>>,
     runtime: runtime::Handle,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
@@ -40,11 +49,21 @@ impl Provider {
     ) -> Self {
         Self {
             contract_decoder,
-            provider,
+            provider: Mutex::new(Some(provider)),
             runtime,
             #[cfg(feature = "scenarios")]
             scenario_file,
         }
+    }
+
+    /// Returns a clone of the inner [`SyncProvider`], or an error if
+    /// [`Provider::close`] has been called.
+    fn inner(&self) -> napi::Result<Arc<dyn SyncProvider>> {
+        self.provider
+            .lock()
+            .as_ref()
+            .map(Arc::clone)
+            .ok_or_else(|| napi::Error::from_reason("Provider has been closed"))
     }
 }
 
@@ -101,7 +120,7 @@ impl Provider {
     #[doc = "Handles a JSON-RPC request and returns a JSON-RPC response."]
     #[napi(catch_unwind)]
     pub async fn handle_request(&self, request: String) -> napi::Result<Response> {
-        let provider = self.provider.clone();
+        let provider = self.inner()?;
 
         #[cfg(feature = "scenarios")]
         if let Some(scenario_file) = &self.scenario_file {
@@ -159,7 +178,13 @@ impl Provider {
         let call_override_callback =
             Arc::new(move |address, data| call_override_callback.call_override(address, data));
 
-        let provider = self.provider.clone();
+        let provider = match self.inner() {
+            Ok(provider) => provider,
+            Err(error) => {
+                deferred.reject(error);
+                return Ok(promise);
+            }
+        };
         self.runtime.spawn_blocking(move || {
             provider.set_call_override_callback(call_override_callback);
 
@@ -175,7 +200,7 @@ impl Provider {
     /// `false` to disable this.
     #[napi(catch_unwind)]
     pub async fn set_verbose_tracing(&self, verbose_tracing: bool) -> napi::Result<()> {
-        let provider = self.provider.clone();
+        let provider = self.inner()?;
 
         self.runtime
             .spawn_blocking(move || {
