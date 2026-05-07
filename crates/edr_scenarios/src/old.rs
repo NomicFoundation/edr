@@ -2,19 +2,19 @@ use std::num::NonZeroU64;
 
 use chrono::{DateTime, Utc};
 use edr_block_header::BlobGas;
-use edr_chain_config::ChainOverride;
+use edr_chain_config::HardforkActivations;
 use edr_eip7825::transaction_gas_cap_for_hardfork;
 use edr_primitives::{Address, ChainId, HashMap, B256};
 use edr_provider::{
     config::{ForkConfig, IntervalConfig, MemPoolConfig},
     AccountOverride,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::SerializableSecretKey;
 
 /// Helper struct to convert an old scenario format to the new one.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScenarioConfig {
     chain_type: Option<String>,
     logger_enabled: bool,
@@ -36,7 +36,7 @@ impl From<ScenarioConfig> for super::ScenarioConfig {
 // pub type ScenarioProviderConfig = super::ScenarioProviderConfig;
 /// Custom configuration for the provider that supports serde as we don't want a
 /// serde implementation for secret keys.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScenarioProviderConfig {
     pub allow_blocks_with_same_timestamp: bool,
@@ -88,7 +88,11 @@ impl From<ScenarioProviderConfig> for super::ScenarioProviderConfig {
                 value.block_gas_limit
             },
             chain_id: value.chain_id,
-            chain_overrides: value.chain_overrides,
+            chain_overrides: value
+                .chain_overrides
+                .into_iter()
+                .map(|(k, v)| (k, v.into()))
+                .collect(),
             coinbase: value.coinbase,
             genesis_state: value.genesis_state,
             hardfork: value.hardfork.clone(),
@@ -106,18 +110,37 @@ impl From<ScenarioProviderConfig> for super::ScenarioProviderConfig {
                 })
             },
             network_id: value.network_id,
-            owned_accounts: value.owned_accounts.into_iter().map(Into::into).collect(),
+            owned_accounts: value.owned_accounts,
             transaction_gas_cap: value.transaction_gas_cap.or_else(|| {
                 let hardfork: Option<edr_chain_l1::Hardfork> = value.hardfork.parse().ok();
 
-                hardfork.and_then(|hardfork| transaction_gas_cap_for_hardfork(hardfork))
+                hardfork.and_then(transaction_gas_cap_for_hardfork)
             }),
         }
     }
 }
 
+/// Type that stores the configuration for a chain.
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChainOverride<HardforkT> {
+    /// Chain name
+    pub name: String,
+    /// Hardfork activations for the chain
+    pub hardfork_activations: Option<HardforkActivations<HardforkT>>,
+}
+
+impl<HardforkT> From<ChainOverride<HardforkT>> for edr_chain_config::ChainOverride<HardforkT> {
+    fn from(value: ChainOverride<HardforkT>) -> Self {
+        Self {
+            name: value.name,
+            hardfork_activation_overrides: value.hardfork_activations,
+        }
+    }
+}
+
 /// Configuration for the provider's miner.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MiningConfig {
     pub auto_mine: bool,

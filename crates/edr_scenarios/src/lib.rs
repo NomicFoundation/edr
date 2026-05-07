@@ -94,6 +94,7 @@ impl<HardforkT> From<edr_provider::config::Network<HardforkT>> for NetworkConfig
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LocalConfig {
     pub genesis_blob_gas: Option<BlobGas>,
     pub genesis_block_gas_limit: NonZeroU64,
