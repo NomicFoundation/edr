@@ -13,7 +13,13 @@ use napi_derive::napi;
 pub struct LoggerConfig<'env> {
     /// Whether to enable the logger.
     pub enable: bool,
-    #[napi(ts_type = "(inputs: Uint8Array[]) => string[]")]
+    // `ts_type` declares `ArrayBuffer[]` for HH2 backwards-compat. The
+    // runtime value is a `Uint8Array[]`; HH2's `provider.ts` calls
+    // `Buffer.from(input)` which accepts both. See the longer note on
+    // `Provider::set_call_override_callback` in `provider.rs` for the full
+    // rationale (TSFN `'static` bound rules out producing `ArrayBuffer`
+    // Rust-side in v3).
+    #[napi(ts_type = "(inputs: ArrayBuffer[]) => string[]")]
     pub decode_console_log_inputs_callback: Function<'env, Vec<Uint8Array>, Vec<String>>,
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
     pub print_line_callback: Function<'env, FnArgs<(String, bool)>, ()>,
