@@ -666,8 +666,8 @@ describe("Provider", () => {
   });
 
   describe("transactionGasCap", () => {
-    // EIP-7825 caps transaction gas at MAX_TX_GAS_LIMIT_OSAKA = 2^24 = 16,777,216 on Osaka.
-    const OSAKA_TRANSACTION_GAS_CAP = 1n << 24n;
+    // EIP-7825 caps transaction gas at MAX_TX_GAS_LIMIT_OSAKA = 16,777,216 on Osaka.
+    const OSAKA_TRANSACTION_GAS_CAP = 16_777_216n;
 
     async function createProviderWithGasCap(
       transactionGasCap: bigint | false | undefined
