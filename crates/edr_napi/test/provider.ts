@@ -666,7 +666,7 @@ describe("Provider", () => {
     assert.equal(6, dataView.getUint8(elasticityLeastSignificantByte));
   });
 
-  describe.skip("setCallOverrideCallback", () => {
+  describe("setCallOverrideCallback", () => {
     it("invokes the callback and uses its return value for eth_call", async function () {
       const provider = await context.createProvider(
         GENERIC_CHAIN_TYPE,
@@ -725,7 +725,7 @@ describe("Provider", () => {
     });
   });
 
-  describe.skip("decodeConsoleLogInputsCallback", () => {
+  describe("decodeConsoleLogInputsCallback", () => {
     it("invokes the callback with Buffer.from-compatible args for console.log calls", async function () {
       const receivedInputLengths: number[] = [];
       const printedMessages: string[] = [];
@@ -813,7 +813,7 @@ describe("Provider", () => {
     });
   });
 
-  describe.skip("subscriptionCallback", () => {
+  describe("subscriptionCallback", () => {
     it("delivers a SubscriptionEvent for each new block under a newHeads subscription", async function () {
       const events: SubscriptionEvent[] = [];
       let resolveFirst!: () => void;
