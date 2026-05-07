@@ -183,18 +183,30 @@ impl TestResult {
     }
 
     /// See [`edr_solidity_tests::result::TestResult::reason`]
+    // The three nullable getters here (reason, counterexample,
+    // value_snapshot_groups) return `Either<T, ()>` rather than `Option<T>` so
+    // absence serializes as JS `undefined`, not `null`. napi-rs v3 hardcodes
+    // `Option::None` → `napi_get_null` (napi-3.8.6/src/bindgen_runtime/js_values.rs:243),
+    // which would diverge from the napi-rs v2 contract and break HH3 consumers
+    // that test against `=== undefined` (e.g. `gas-analytics/snapshot-cheatcodes.ts`).
+    // `()` (= `Undefined`) dispatches through `napi_get_undefined`, restoring
+    // the v2 contract.
     #[napi(getter)]
-    pub fn reason(&self) -> Option<String> {
-        self.reason.clone()
+    pub fn reason(&self) -> Either<String, ()> {
+        match &self.reason {
+            Some(s) => Either::A(s.clone()),
+            None => Either::B(()),
+        }
     }
 
     /// See [`edr_solidity_tests::result::TestResult::counterexample`]
     #[napi(getter)]
-    pub fn counterexample(&self) -> Option<Either<BaseCounterExample, CounterExampleSequence>> {
-        self.counterexample.as_ref().map(|c| match c {
-            Either::A(b) => Either::A(b.clone()),
-            Either::B(s) => Either::B(s.clone()),
-        })
+    pub fn counterexample(&self) -> Either3<BaseCounterExample, CounterExampleSequence, ()> {
+        match self.counterexample.as_ref() {
+            Some(Either::A(b)) => Either3::A(b.clone()),
+            Some(Either::B(s)) => Either3::B(s.clone()),
+            None => Either3::C(()),
+        }
     }
 
     /// See [`edr_solidity_tests::result::TestResult::decoded_logs`]
@@ -224,8 +236,11 @@ impl TestResult {
     /// Only present if the test runner collected scoped snapshots. Currently,
     /// this is always the case.
     #[napi(getter)]
-    pub fn value_snapshot_groups(&self) -> Option<Vec<ValueSnapshotGroup>> {
-        self.value_snapshot_groups.clone()
+    pub fn value_snapshot_groups(&self) -> Either<Vec<ValueSnapshotGroup>, ()> {
+        match &self.value_snapshot_groups {
+            Some(v) => Either::A(v.clone()),
+            None => Either::B(()),
+        }
     }
 
     /// Compute the error stack trace.
