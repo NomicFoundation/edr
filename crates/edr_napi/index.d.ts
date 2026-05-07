@@ -60,7 +60,18 @@ export declare class Precompile {
   get address(): Uint8Array
 }
 
-/** A JSON-RPC provider for Ethereum. */
+/**
+ * A JSON-RPC provider for Ethereum.
+ *
+ * The inner [`Arc<dyn SyncProvider>`] is held inside a `Mutex<Option<_>>` so
+ * that [`Provider::close`] can drop it explicitly. Dropping it triggers the
+ * cleanup cascade — `IntervalMiner::Drop` cancels its background task,
+ * `ProviderData` releases the held `Box<dyn SyncLogger>` /
+ * `Box<dyn SyncSubscriberCallback>` / `Option<Arc<dyn SyncCallOverride>>`,
+ * each of which releases its underlying `napi_threadsafe_function` handles
+ * while the napi env is still healthy. See
+ * `/workspace/napi-rs-v3-tsfn-shutdown-investigation.md` for the full story.
+ */
 export declare class Provider {
   /**
    * Adds a compilation result to the instance.
@@ -80,6 +91,33 @@ export declare class Provider {
    * `false` to disable this.
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
+  /**
+   * Releases the underlying provider and all associated resources
+   * (subscription / call-override / logger threadsafe-functions, the
+   * interval-mining background task) synchronously, while the napi env
+   * is still healthy. Any subsequent method call on this `Provider`
+   * returns a `"Provider has been closed"` error.
+   *
+   * Calling `close()` is the supported way to release a `Provider`
+   * without relying on JS GC + Node env teardown to fire `napi_finalize`
+   * at the right time. The underlying `napi_threadsafe_function`
+   * shutdown path has a documented data-race / use-after-free during
+   * Node env cleanup ([`nodejs/node#55706`][1]; fix in
+   * [`nodejs/node#55877`][2] is in Node 25 only, not backported to
+   * Node 22 or 20). Without an explicit `close()` consumers rely on
+   * V8 GC heuristics — empirically reliable for typical Hardhat
+   * workloads but fragile for programmatic multi-provider patterns
+   * and prone to surfacing as macOS-15 atexit crashes (see
+   * `/workspace/napi-rs-v3-tsfn-shutdown-investigation.md`).
+   *
+   * `close()` is idempotent: calling it twice is a no-op the second
+   * time. Methods called after `close()` return an error rather than
+   * silently no-op, to surface the lifecycle violation.
+   *
+   * [1]: https://github.com/nodejs/node/issues/55706
+   * [2]: https://github.com/nodejs/node/commit/350b0ea895
+   */
+  close(): Promise<void>
 }
 
 export declare class ProviderFactory {

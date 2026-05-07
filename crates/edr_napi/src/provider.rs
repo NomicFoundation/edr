@@ -209,4 +209,58 @@ impl Provider {
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
     }
+
+    /// Releases the underlying provider and all associated resources
+    /// (subscription / call-override / logger threadsafe-functions, the
+    /// interval-mining background task) synchronously, while the napi env
+    /// is still healthy. Any subsequent method call on this `Provider`
+    /// returns a `"Provider has been closed"` error.
+    ///
+    /// Calling `close()` is the supported way to release a `Provider`
+    /// without relying on JS GC + Node env teardown to fire `napi_finalize`
+    /// at the right time. The underlying `napi_threadsafe_function`
+    /// shutdown path has a documented data-race / use-after-free during
+    /// Node env cleanup ([`nodejs/node#55706`][1]; fix in
+    /// [`nodejs/node#55877`][2] is in Node 25 only, not backported to
+    /// Node 22 or 20). Without an explicit `close()` consumers rely on
+    /// V8 GC heuristics — empirically reliable for typical Hardhat
+    /// workloads but fragile for programmatic multi-provider patterns
+    /// and prone to surfacing as macOS-15 atexit crashes (see
+    /// `/workspace/napi-rs-v3-tsfn-shutdown-investigation.md`).
+    ///
+    /// `close()` is idempotent: calling it twice is a no-op the second
+    /// time. Methods called after `close()` return an error rather than
+    /// silently no-op, to surface the lifecycle violation.
+    ///
+    /// [1]: https://github.com/nodejs/node/issues/55706
+    /// [2]: https://github.com/nodejs/node/commit/350b0ea895
+    #[napi(catch_unwind)]
+    pub async fn close(&self) -> napi::Result<()> {
+        // Take the Arc out of the Option, dropping our reference here.
+        let inner = self.provider.lock().take();
+
+        // Move the Arc into spawn_blocking so its drop fires on a tokio
+        // worker thread. `IntervalMiner::Drop` calls `block_in_place` +
+        // `Handle::block_on(background_task)` to cancel and join the
+        // interval-mining task, and `block_in_place` is only valid in a
+        // tokio runtime context — calling drop directly from the JS
+        // thread would panic.
+        //
+        // Note: in-flight `spawn_blocking` tasks from concurrent
+        // `handle_request` / `set_call_override_callback` invocations
+        // hold their own Arc clones. Our drop here reduces the Arc
+        // refcount from N to N-1; the cleanup cascade fires only when
+        // those tasks finish (microseconds in steady state). Not a
+        // correctness issue.
+        if let Some(provider) = inner {
+            self.runtime
+                .spawn_blocking(move || drop(provider))
+                .await
+                .map_err(|error| {
+                    napi::Error::new(Status::GenericFailure, error.to_string())
+                })?;
+        }
+
+        Ok(())
+    }
 }
