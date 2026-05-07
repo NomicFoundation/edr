@@ -132,6 +132,18 @@ export class TestContext {
     const callTraces = new Map();
     for (const suiteResult of suiteResults) {
       for (const testResult of suiteResult.testResults) {
+        // F.1 contract: napi-rs v3 maps Rust `Option::None` to JS `null` by
+        // default; the migration switched the three nullable TestResult
+        // getters to `Either<T, ()>` so absence emits `undefined` instead.
+        // HH3's `gas-analytics/snapshot-cheatcodes.ts:86` compares with
+        // `=== undefined` and would fall through to `for ... of null` if
+        // the contract regressed. Assert never-null across every iterated
+        // test result. See `crates/edr_napi/src/solidity_tests/test_results.rs`
+        // for the longer rationale.
+        assert.notStrictEqual(testResult.reason, null);
+        assert.notStrictEqual(testResult.counterexample, null);
+        assert.notStrictEqual(testResult.valueSnapshotGroups, null);
+
         callTraces.set(testResult.name, testResult.callTraces());
 
         let failed = testResult.status === "Failure";
