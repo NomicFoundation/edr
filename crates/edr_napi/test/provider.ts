@@ -725,6 +725,94 @@ describe("Provider", () => {
     });
   });
 
+  describe("decodeConsoleLogInputsCallback", () => {
+    it("invokes the callback with Buffer.from-compatible args for console.log calls", async function () {
+      const receivedInputLengths: number[] = [];
+      const printedMessages: string[] = [];
+
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          genesisState: providerConfig.genesisState.concat(
+            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+          ),
+        },
+        {
+          // With `enable: false` the decode callback still fires (see the
+          // else-branch in `edr_napi_core/src/logger.rs::log_console_log_messages`)
+          // and the decoded output is passed straight to `printLineCallback`
+          // without the formatted "console.log:" header that `enable: true`
+          // would add. Cleaner assertions than logs.ts's enable-true path.
+          enable: false,
+          decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] => {
+            // index.d.ts annotates `inputs` as `ArrayBuffer[]` for HH2
+            // backwards-compat (HH2's provider.ts:288 uses the same annotation
+            // and calls `Buffer.from(input)`). The actual runtime value under
+            // napi-rs v3 is `Uint8Array[]`; `Buffer.from(x)` accepts both. See
+            // the longer note on `LoggerConfig::decode_console_log_inputs_callback`
+            // in `src/logger.rs`.
+            for (const input of inputs) {
+              receivedInputLengths.push(Buffer.from(input).length);
+            }
+            // Hard-coded so the printedMessages assertion below is independent
+            // of the `ConsoleLogger.getDecodedLogs` helper used in logs.ts.
+            return inputs.map(() => "hello");
+          },
+          printLineCallback: (message: string, _replace: boolean) => {
+            printedMessages.push(message);
+          },
+        },
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        new ContractDecoder()
+      );
+
+      // ABI-encoded `console.log(string)` calldata for the message "hello":
+      //   selector       0x41304fac          (4 bytes)
+      //   string offset  0x20  (= 32)        (32 bytes)
+      //   string length  0x05                (32 bytes)
+      //   string data    0x68656c6c6f...     (32 bytes, right-padded)
+      // Total: 4 + 96 = 100 bytes.
+      const consoleLogHelloCalldata =
+        "0x41304fac" +
+        "0000000000000000000000000000000000000000000000000000000000000020" +
+        "0000000000000000000000000000000000000000000000000000000000000005" +
+        "68656c6c6f000000000000000000000000000000000000000000000000000000";
+
+      // EDR's `ConsoleLogCollector` (`crates/edr_provider/src/console_log.rs`)
+      // is an inspector that fires on any CALL frame whose bytecode_address is
+      // `0x000000000000000000636f6e736f6c652e6c6f67` ("console.log"
+      // right-padded). A top-level `eth_sendTransaction` to that address
+      // triggers the hook without any contract deployment.
+      const consoleLogAddress = "0x000000000000000000636f6e736f6c652e6c6f67";
+
+      await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              to: consoleLogAddress,
+              data: consoleLogHelloCalldata,
+            },
+          ],
+        })
+      );
+
+      // Asserts the decode callback fired and `Buffer.from()` accepted the
+      // runtime value (the implicit assertion is "no exception thrown" — if
+      // the runtime value were neither ArrayBuffer nor a TypedArray view,
+      // `Buffer.from()` would throw a TypeError).
+      assert.deepEqual(receivedInputLengths, [100]);
+      // Asserts the decoded string reached `printLineCallback` end-to-end.
+      assert.deepEqual(printedMessages, ["hello"]);
+    });
+  });
+
   describe("transactionGasCap", () => {
     // EIP-7825 caps transaction gas at MAX_TX_GAS_LIMIT_OSAKA = 16,777,216 on Osaka.
     const OSAKA_TRANSACTION_GAS_CAP = 16_777_216n;
