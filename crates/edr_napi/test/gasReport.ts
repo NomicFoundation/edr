@@ -21,6 +21,7 @@ import {
   getContext,
   getGasPrice,
   sendTransaction,
+  useProviderCleanup,
 } from "./helpers";
 
 const genesisState: AccountOverride[] = [
@@ -107,6 +108,7 @@ const tracingConfig: TracingConfigWithBuffers = {
 
 describe("Gas reports", function () {
   const context = getContext();
+  const { track } = useProviderCleanup();
   before(async () => {
     await context.registerProviderFactory(
       GENERIC_CHAIN_TYPE,
@@ -119,7 +121,7 @@ describe("Gas reports", function () {
   let gasReporter: GasReporter;
 
   beforeEach(async function () {
-    provider = await context.createProvider(
+    provider = track(await context.createProvider(
       GENERIC_CHAIN_TYPE,
       {
         ...providerConfig,
@@ -139,7 +141,7 @@ describe("Gas reports", function () {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
       ContractDecoder.withContracts(tracingConfig)
-    );
+    ));
 
     gasPrice = await getGasPrice(provider);
     gasReporter = new GasReporter();
@@ -431,7 +433,7 @@ describe("Gas reports", function () {
 
     beforeEach(async function () {
       proxyGasReporter = new GasReporter();
-      proxyProvider = await context.createProvider(
+      proxyProvider = track(await context.createProvider(
         GENERIC_CHAIN_TYPE,
         {
           ...providerConfig,
@@ -451,7 +453,7 @@ describe("Gas reports", function () {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         ContractDecoder.withContracts(proxyTracingConfig)
-      );
+      ));
 
       proxyGasPrice = await getGasPrice(proxyProvider);
     });

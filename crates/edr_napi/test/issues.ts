@@ -11,10 +11,11 @@ import {
   MineOrdering,
   SubscriptionEvent,
 } from "..";
-import { getContext } from "./helpers";
+import { getContext, useProviderCleanup } from "./helpers";
 
 describe("Provider", () => {
   const context = getContext();
+  const { track } = useProviderCleanup();
 
   before(async () => {
     await context.registerProviderFactory(
@@ -73,7 +74,7 @@ describe("Provider", () => {
   };
 
   it("issue 771", async function () {
-    const provider = await context.createProvider(
+    const provider = track(await context.createProvider(
       GENERIC_CHAIN_TYPE,
       {
         ...providerConfig,
@@ -89,7 +90,7 @@ describe("Provider", () => {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
       new ContractDecoder()
-    );
+    ));
 
     // Make a dummy request to ensure the provider constructor doesn't become a no-op
     await provider.handleRequest(

@@ -35,12 +35,14 @@ import {
   loadContract,
   runAllSolidityTests,
   toBuffer,
+  useProviderCleanup,
 } from "./helpers";
 
 chai.use(chaiAsPromised);
 
 describe("Multi-chain", () => {
   const context = new EdrContext();
+  const { track } = useProviderCleanup();
 
   before(async () => {
     await context.registerProviderFactory(L1_CHAIN_TYPE, l1ProviderFactory());
@@ -106,7 +108,7 @@ describe("Multi-chain", () => {
   };
 
   it("initialize local L1 provider", async function () {
-    const provider = context.createProvider(
+    const providerPromise = context.createProvider(
       L1_CHAIN_TYPE,
       {
         ...providerConfig,
@@ -122,11 +124,12 @@ describe("Multi-chain", () => {
       new ContractDecoder()
     );
 
-    await assert.isFulfilled(provider);
+    await assert.isFulfilled(providerPromise);
+    track(await providerPromise);
   });
 
   it("initialize local OP provider", async function () {
-    const provider = context.createProvider(
+    const providerPromise = context.createProvider(
       OP_CHAIN_TYPE,
       {
         ...providerConfig,
@@ -141,7 +144,8 @@ describe("Multi-chain", () => {
       new ContractDecoder()
     );
 
-    await assert.isFulfilled(provider);
+    await assert.isFulfilled(providerPromise);
+    track(await providerPromise);
   });
 
   it("initialize remote OP provider", async function () {
@@ -149,7 +153,7 @@ describe("Multi-chain", () => {
       this.skip();
     }
 
-    const provider = context.createProvider(
+    const providerPromise = context.createProvider(
       OP_CHAIN_TYPE,
       {
         ...providerConfig,
@@ -166,7 +170,8 @@ describe("Multi-chain", () => {
       new ContractDecoder()
     );
 
-    await assert.isFulfilled(provider);
+    await assert.isFulfilled(providerPromise);
+    track(await providerPromise);
   });
 
   describe("OP", () => {
@@ -174,7 +179,7 @@ describe("Multi-chain", () => {
       // Block with OP-specific transaction type
       const BLOCK_NUMBER = 117_156_000;
 
-      const provider = await context.createProvider(
+      const provider = track(await context.createProvider(
         OP_CHAIN_TYPE,
         {
           ...providerConfig,
@@ -187,7 +192,7 @@ describe("Multi-chain", () => {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         new ContractDecoder()
-      );
+      ));
 
       const block = provider.handleRequest(
         JSON.stringify({
@@ -203,7 +208,7 @@ describe("Multi-chain", () => {
 
     describe("Predeploys", () => {
       it("should have the GasPriceOracle predeploy", async function () {
-        const provider = await context.createProvider(
+        const provider = track(await context.createProvider(
           OP_CHAIN_TYPE,
           {
             ...providerConfig,
@@ -216,7 +221,7 @@ describe("Multi-chain", () => {
             subscriptionCallback: (_event: SubscriptionEvent) => {},
           },
           new ContractDecoder()
-        );
+        ));
 
         const response = await provider.handleRequest(
           JSON.stringify({
@@ -240,7 +245,7 @@ describe("Multi-chain", () => {
       });
 
       it("should have the L1Block predeploy", async function () {
-        const provider = await context.createProvider(
+        const provider = track(await context.createProvider(
           OP_CHAIN_TYPE,
           {
             ...providerConfig,
@@ -253,7 +258,7 @@ describe("Multi-chain", () => {
             subscriptionCallback: (_event: SubscriptionEvent) => {},
           },
           new ContractDecoder()
-        );
+        ));
 
         const response = await provider.handleRequest(
           JSON.stringify({
@@ -277,7 +282,7 @@ describe("Multi-chain", () => {
       });
 
       it("should stub unimplemented predeploys", async function () {
-        const provider = await context.createProvider(
+        const provider = track(await context.createProvider(
           OP_CHAIN_TYPE,
           {
             ...providerConfig,
@@ -290,7 +295,7 @@ describe("Multi-chain", () => {
             subscriptionCallback: (_event: SubscriptionEvent) => {},
           },
           new ContractDecoder()
-        );
+        ));
 
         const response = await provider.handleRequest(
           JSON.stringify({

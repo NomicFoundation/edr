@@ -312,17 +312,13 @@ describe("Provider logs", function () {
     });
 
     afterEach(async function () {
-      // Stop interval mining explicitly so the background task is torn
-      // down here instead of whenever JS GC reclaims the provider.
+      // Closing the provider cancels the interval-mining background task
+      // (via IntervalMiner::Drop) and releases all held threadsafe-function
+      // handles synchronously, while the napi env is still healthy.
+      // Subsumes the previous `evm_setIntervalMining(0)` workaround from
+      // PR #1378 — close() drops the IntervalMiner via the Arc cascade.
       if (provider !== undefined) {
-        await provider.handleRequest(
-          JSON.stringify({
-            id: 1,
-            jsonrpc: "2.0",
-            method: "evm_setIntervalMining",
-            params: [0],
-          })
-        );
+        await provider.close();
       }
     });
 

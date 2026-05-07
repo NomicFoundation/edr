@@ -223,3 +223,35 @@ export async function sendTransaction(
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+/**
+ * Registers an `afterEach` hook in the calling `describe` scope that
+ * `close()`s every tracked Provider in reverse order of registration.
+ * Tests should pass each created provider through `track` to register it.
+ *
+ * Why this exists: napi-rs v3's threadsafe-function cleanup races Node's
+ * env teardown when `napi_finalize` fires via natural GC at process exit
+ * (nodejs/node#55706, fixed in Node 25 only). Without an explicit close,
+ * the EDR test suite intermittently crashes with SIGBUS/SIGSEGV on
+ * macos-15 after mocha reports passing. `Provider.close()` releases the
+ * underlying TSFN handles inside the JS event-loop window — well before
+ * atexit — closing the race window.
+ *
+ * See `/workspace/napi-rs-v3-tsfn-shutdown-investigation.md`.
+ */
+export function useProviderCleanup(): {
+  track<P extends Provider>(provider: P): P;
+} {
+  const providers: Provider[] = [];
+  afterEach(async function () {
+    while (providers.length > 0) {
+      await providers.pop()!.close();
+    }
+  });
+  return {
+    track<P extends Provider>(provider: P): P {
+      providers.push(provider);
+      return provider;
+    },
+  };
+}
