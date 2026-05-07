@@ -256,9 +256,7 @@ impl Provider {
             self.runtime
                 .spawn_blocking(move || drop(provider))
                 .await
-                .map_err(|error| {
-                    napi::Error::new(Status::GenericFailure, error.to_string())
-                })?;
+                .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?;
         }
 
         Ok(())
