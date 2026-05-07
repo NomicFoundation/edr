@@ -813,6 +813,70 @@ describe("Provider", () => {
     });
   });
 
+  describe("subscriptionCallback", () => {
+    it("delivers a SubscriptionEvent for each new block under a newHeads subscription", async function () {
+      const events: SubscriptionEvent[] = [];
+      let resolveFirst!: () => void;
+      const firstEvent = new Promise<void>((resolve) => {
+        resolveFirst = resolve;
+      });
+
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          genesisState: providerConfig.genesisState.concat(
+            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+          ),
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (event: SubscriptionEvent) => {
+            events.push(event);
+            resolveFirst();
+          },
+        },
+        new ContractDecoder()
+      );
+
+      const subscribeResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_subscribe",
+          params: ["newHeads"],
+        })
+      );
+      const filterId = BigInt(JSON.parse(subscribeResponse.data).result);
+
+      await provider.handleRequest(
+        JSON.stringify({
+          id: 2,
+          jsonrpc: "2.0",
+          method: "evm_mine",
+          params: [],
+        })
+      );
+
+      await firstEvent;
+
+      // Pins the SubscriptionEvent shape produced by the `compat-mode`
+      // JsObject construction in `edr_napi_core/src/subscription.rs`. The
+      // `compat-mode` feature is documented as temporary (Design decision §4
+      // in the PR body); when it's removed in a follow-up, this test should
+      // keep passing as long as the event shape stays the same.
+      assert.equal(events.length, 1);
+      const event = events[0];
+      assert.equal(typeof event.filterId, "bigint");
+      assert.equal(event.filterId, filterId);
+      assert.notStrictEqual(event.result, null);
+      assert.notStrictEqual(event.result, undefined);
+      // newHeads result is a block header; pin one well-known field rather
+      // than the full structure to avoid coupling to RPC formatting details.
+      assert.equal(typeof event.result.number, "string");
+    });
+  });
+
   describe("transactionGasCap", () => {
     // EIP-7825 caps transaction gas at MAX_TX_GAS_LIMIT_OSAKA = 16,777,216 on Osaka.
     const OSAKA_TRANSACTION_GAS_CAP = 16_777_216n;
