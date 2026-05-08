@@ -12,13 +12,16 @@ import {
   SolidityTestResult,
   BuildInfoAndOutput,
 } from "@nomicfoundation/edr";
+
+import type {} from "hardhat/hre";
 import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 import { Abi } from "hardhat/types/artifacts";
 
 import { resolveFromRoot } from "@nomicfoundation/hardhat-utils/path";
 import {
-  getBuildInfos,
-  getEdrArtifacts,
+  buildEdrArtifactsWithMetadata,
+  getBuildInfosAndOutputs,
+  EdrArtifactWithMetadata,
 } from "hardhat/internal/builtin-plugins/solidity-test/edr-artifacts";
 import { warnDeprecatedTestFail } from "hardhat/internal/builtin-plugins/solidity-test/helpers";
 import { ArtifactManagerImplementation } from "hardhat/internal/builtin-plugins/artifacts/artifact-manager";
@@ -107,33 +110,32 @@ export async function buildSolidityTestsInput(
   });
 
   // EDR needs all artifacts (contracts + tests)
-  const edrArtifacts: Array<{
-    edrAtifact: Artifact;
-    userSourceName: string;
-  }> = [];
+  const edrArtifacts: Array<EdrArtifactWithMetadata> = [];
   const buildInfos: BuildInfoAndOutput[] = [];
   for (const scope of ["contracts", "tests"] as const) {
     const artifactsDir = await hre.solidity.getArtifactsDirectory(scope);
     const artifactManager = new ArtifactManagerImplementation(artifactsDir);
-    edrArtifacts.push(...(await getEdrArtifacts(artifactManager)));
-    buildInfos.push(...(await getBuildInfos(artifactManager)));
+    edrArtifacts.push(
+      ...(await buildEdrArtifactsWithMetadata(artifactManager))
+    );
+    buildInfos.push(...(await getBuildInfosAndOutputs(artifactManager)));
   }
 
   const sourceNameToUserSourceName = new Map(
-    edrArtifacts.map(({ userSourceName, edrAtifact }) => [
-      edrAtifact.id.source,
+    edrArtifacts.map(({ userSourceName, edrArtifact }) => [
+      edrArtifact.id.source,
       userSourceName,
     ])
   );
 
-  edrArtifacts.forEach(({ userSourceName, edrAtifact }) => {
+  edrArtifacts.forEach(({ userSourceName, edrArtifact }) => {
     if (
       testRootPaths.includes(
         resolveFromRoot(hre.config.paths.root, userSourceName)
       ) &&
-      isTestSuiteArtifact(edrAtifact)
+      isTestSuiteArtifact(edrArtifact)
     ) {
-      warnDeprecatedTestFail(edrAtifact, sourceNameToUserSourceName);
+      warnDeprecatedTestFail(edrArtifact, sourceNameToUserSourceName);
     }
   });
 
@@ -143,10 +145,10 @@ export async function buildSolidityTestsInput(
         resolveFromRoot(hre.config.paths.root, userSourceName)
       )
     )
-    .filter(({ edrAtifact }) => isTestSuiteArtifact(edrAtifact))
-    .map(({ edrAtifact }) => edrAtifact.id);
+    .filter(({ edrArtifact }) => isTestSuiteArtifact(edrArtifact))
+    .map(({ edrArtifact }) => edrArtifact.id);
 
-  const artifacts = edrArtifacts.map(({ edrAtifact }) => edrAtifact);
+  const artifacts = edrArtifacts.map(({ edrArtifact }) => edrArtifact);
 
   const tracingConfig: TracingConfigWithBuffers = {
     buildInfos,
