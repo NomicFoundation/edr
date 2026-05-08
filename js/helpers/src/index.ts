@@ -13,8 +13,9 @@ import {
   BuildInfoAndOutput,
 } from "@nomicfoundation/edr";
 
-import type {} from "hardhat/hre";
-import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
+export type * from "hardhat/hre";
+
 import { Abi } from "hardhat/types/artifacts";
 
 import { resolveFromRoot } from "@nomicfoundation/hardhat-utils/path";
