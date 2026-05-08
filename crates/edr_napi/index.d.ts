@@ -1371,6 +1371,12 @@ export interface RevertResult {
 
 export const SHANGHAI: string
 
+export type SolidityStackTrace =
+  Array<SolidityStackTraceEntry>
+
+export type SolidityStackTraceEntry =
+  CallstackEntryStackTraceEntry | UnrecognizedCreateCallstackEntryStackTraceEntry | UnrecognizedContractCallstackEntryStackTraceEntry | PrecompileErrorStackTraceEntry | RevertErrorStackTraceEntry | PanicErrorStackTraceEntry | CustomErrorStackTraceEntry | FunctionNotPayableErrorStackTraceEntry | InvalidParamsErrorStackTraceEntry | FallbackNotPayableErrorStackTraceEntry | FallbackNotPayableAndNoReceiveErrorStackTraceEntry | UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry | MissingFallbackOrReceiveErrorStackTraceEntry | ReturndataSizeErrorStackTraceEntry | NonContractAccountCalledErrorStackTraceEntry | CallFailedErrorStackTraceEntry | DirectLibraryCallErrorStackTraceEntry | UnrecognizedCreateErrorStackTraceEntry | UnrecognizedContractErrorStackTraceEntry | OtherExecutionErrorStackTraceEntry | UnmappedSolc063RevertErrorStackTraceEntry | ContractTooLargeErrorStackTraceEntry | InternalFunctionCallStackEntry | ContractCallRunOutOfGasError | CheatcodeErrorStackTraceEntry
+
 /** The result of a Solidity test run. */
 export interface SolidityTestResult {
   /** Gas report, if it was generated. */

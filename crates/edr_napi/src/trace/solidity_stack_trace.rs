@@ -601,16 +601,7 @@ impl From<CheatcodeErrorStackTraceEntry> for SolidityStackTraceEntry {
     }
 }
 
-#[allow(dead_code)]
-// NOTE: This ported directly from JS for completeness and is used in the Rust
-// side of the bindings. However, napi-rs does not support exporting Rust type
-// aliases to the index.d.ts file, and it does not store the type definitions
-// when expanding the macros, so to use it we would have to specify this type
-// literally (all 26 lines of it) at every #[napi]-exported function, which is
-// not ideal.
-// Rather, we just bite the bullet for now and use the type alias directly
-// (which falls back to `any` as it's not recognized in the context of the
-// index.d.ts file) until we finish the porting work.
+#[napi]
 pub type SolidityStackTraceEntry = Either25<
     CallstackEntryStackTraceEntry,
     UnrecognizedCreateCallstackEntryStackTraceEntry,
@@ -883,8 +874,7 @@ pub fn solidity_stack_trace_heuristic_failed_to_napi() -> HeuristicFailed {
     }
 }
 
-#[allow(dead_code)]
-// Same as above, but for the `SolidityStackTrace` type.
+#[napi]
 pub type SolidityStackTrace = Vec<SolidityStackTraceEntry>;
 
 const _: () = {
