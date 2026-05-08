@@ -255,4 +255,33 @@ describe("Solidity Tests", () => {
       }
     }
   });
+
+  // Pins `#[napi(async_runtime)]` on the sync entry points so a future
+  // entry point added without it panics on first CI run. Without the
+  // attribute, `tokio::Handle::current()` panics from microtask
+  // callbacks ("there is no reactor running, must be called from the
+  // context of a Tokio 1.x runtime"). Existing tests cover
+  // `createProvider`, `runSolidityTests`, `createMockProvider`, and
+  // `createProviderWithMockTimer` implicitly via async/await; this one
+  // makes the requirement explicit by entering through `queueMicrotask`.
+  it("entry points are callable from microtask context (async_runtime regression)", async function () {
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+    const artifacts = [
+      loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+      }
+    );
+
+    assert.equal(results.length, artifacts.length);
+  });
 });
