@@ -50,6 +50,23 @@ describe("Solidity Tests", () => {
       } else if (res.id.name.includes("PaymentFailureTest")) {
         assert.equal(res.testResults.length, 1);
         assert.equal(res.testResults[0].status, "Failure");
+
+        // Regression test for `kind: String` on the StackTrace tag
+        // structs (`StackTrace`, `UnexpectedError`, `HeuristicFailed`,
+        // `UnsafeToReplay` in `solidity_tests/test_results.rs`). The
+        // discriminant must round-trip through napi as one of those
+        // exact strings; if a construction site misses `.to_owned()`,
+        // the JS-side value is empty/garbage and HH3's reporter
+        // mis-routes the entry.
+        const trace = res.testResults[0].stackTrace();
+        if (trace !== null) {
+          assert.oneOf(trace.kind, [
+            "StackTrace",
+            "UnexpectedError",
+            "HeuristicFailed",
+            "UnsafeToReplay",
+          ]);
+        }
       } else {
         assert.fail("Unexpected test suite name: " + res.id.name);
       }
