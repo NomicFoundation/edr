@@ -131,7 +131,8 @@ where
         cfg.tx_gas_limit_cap = Some(u64::MAX);
     } else if let Some(cap) = transaction_gas_cap {
         cfg.tx_gas_limit_cap = Some(cap);
+    } else {
+        // Otherwise keep `CfgEnv`'s hardfork-specific default.
     }
-    // Otherwise leave unset — REVM applies the hardfork default.
     cfg
 }
