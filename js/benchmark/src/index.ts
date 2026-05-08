@@ -588,6 +588,8 @@ function preprocessConfig(config: any) {
   config.providerConfig.minGasPrice = BigInt(config.providerConfig.minGasPrice);
   config.providerConfig.enableRip7212 = false;
 
+  delete config.providerConfig.transactionGasCap;
+
   return config;
 }
 

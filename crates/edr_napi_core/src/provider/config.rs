@@ -15,7 +15,8 @@ use edr_provider::{
 use edr_signer::SecretKey;
 
 /// Configuration option.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum ConfigOption<T> {
     /// A custom configuration value.
     Custom(T),

@@ -10,7 +10,7 @@ use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 use chrono::{DateTime, Utc};
 use edr_block_header::BlobGas;
 use edr_chain_config::ChainOverride;
-use edr_napi_core::provider::Config as ProviderConfig;
+use edr_napi_core::provider::{Config as ProviderConfig, ConfigOption};
 use edr_primitives::{Address, ChainId, HashMap, B256};
 use edr_provider::{
     config::{ForkConfig, MiningConfig},
@@ -57,13 +57,14 @@ pub struct ScenarioProviderConfig {
     pub owned_accounts: Vec<SerializableSecretKey>,
     /// Transaction gas cap, introduced in [EIP-7825].
     ///
-    /// When not set, enforcement of the transaction gas cap is disabled and
+    /// When `false`, enforcement of the transaction gas cap is disabled and
     /// transactions with any `gas` value are accepted by the mempool and
     /// executed without REVM's transaction gas cap check.
     ///
+    /// When not set, a hardfork-specific default value will be used.
+    ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
-    #[serde(default)]
-    pub transaction_gas_cap: Option<u64>,
+    pub transaction_gas_cap: ConfigOption<u64>,
 }
 
 /// Configuration for the provider's network.
