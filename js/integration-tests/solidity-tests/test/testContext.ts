@@ -262,18 +262,19 @@ export function assertStackTraces(
     if (expected.line !== undefined) {
       assert.equal(sourceReference.line, expected.line);
     }
+    const entry = stackTrace.entries[i];
     if (expected.message !== undefined) {
       assert(
-        stackTrace.entries[i].message == expected.message,
+        "message" in entry && entry.message == expected.message,
         `Expected message '${expected.message}' not found in entry: ${JSON.stringify(
-          stackTrace.entries[i],
+          entry,
           null,
           2
         )}`
       );
     }
     if (expected.errorDetails !== undefined) {
-      const actualDetails = stackTrace.entries[i].details;
+      const actualDetails = "details" in entry ? entry.details : undefined;
       assert(
         actualDetails !== undefined,
         `Expected structured error details but none found in entry: ${JSON.stringify(
