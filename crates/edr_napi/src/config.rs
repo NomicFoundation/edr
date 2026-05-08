@@ -667,7 +667,7 @@ impl ProviderConfig {
         let transaction_gas_cap = self
                 .transaction_gas_cap.map_or(Ok(ConfigOption::Default), |transaction_gas_cap| match transaction_gas_cap {
                     Either::A(a) => a.try_cast().map(ConfigOption::Custom),
-                    Either::B(b) => if b == false {
+                    Either::B(b) => if !b {
                         Ok(ConfigOption::Disable)
                     } else {
                         Err(napi::Error::new(napi::Status::InvalidArg, "Boolean value for `transactionGasCap` must be false to disable the transaction gas cap"))
