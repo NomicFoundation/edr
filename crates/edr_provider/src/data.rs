@@ -700,8 +700,16 @@ where
             bail_on_call_failure,
             bail_on_transaction_failure,
             base_fee_params,
+            // Used by `create_blockchain_and_state`
+            chain_id: _chain_id,
             coinbase: beneficiary,
             default_transaction_gas_limit,
+            // Used by `create_blockchain_and_state`
+            genesis_state: _genesis_state,
+            // Used by `create_blockchain_and_state`
+            hardfork: _hardfork,
+            // Used by `create_blockchain_and_state`
+            initial_base_fee_per_gas: _initial_base_fee_per_gas,
             initial_parent_beacon_block_root,
             mining:
                 MiningConfig {
@@ -718,8 +726,8 @@ where
             network_id,
             observability,
             owned_accounts,
+            precompile_overrides,
             transaction_gas_cap,
-            ..
         } = config;
 
         let local_accounts = owned_accounts
@@ -755,7 +763,7 @@ where
             mining_order,
             network_id,
             observability,
-            precompile_overrides: config.precompile_overrides,
+            precompile_overrides,
             min_gas_price,
             parent_beacon_block_root_generator,
             prev_randao_generator,
