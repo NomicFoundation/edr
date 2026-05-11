@@ -1,4 +1,3 @@
-use edr_chain_spec::TransactionValidation;
 use edr_eth::BlockSpec;
 use edr_primitives::{Address, U256, U64};
 
@@ -26,10 +25,7 @@ pub fn handle_chain_id_request<
 }
 
 pub fn handle_get_transaction_count_request<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,

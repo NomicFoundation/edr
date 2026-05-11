@@ -6,8 +6,8 @@ use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_precompile::secp256r1::{self, P256VERIFY_BASE_GAS_FEE, P256VERIFY_BASE_GAS_FEE_OSAKA};
 use edr_primitives::{bytes, Bytes, HashMap};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    test_utils::create_test_config, time::CurrentTime, NoopLogger, Provider,
 };
 use edr_solidity::{
     config::IncludeTraces, contract_decoder::ContractDecoder, nested_trace::NestedTrace,
@@ -38,15 +38,13 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
     )?;
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            L1CallRequest {
+        provider.handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_call", (L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),
                 ..L1CallRequest::default()
-            },
-            None,
-            None,
-        )))?;
+            }, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None))?,
+        ))?;
 
     assert_eq!(response.result, "0x");
 
@@ -77,15 +75,13 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
     )?;
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            L1CallRequest {
+        provider.handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_call", (L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),
                 ..L1CallRequest::default()
-            },
-            None,
-            None,
-        )))?;
+            }, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None))?,
+        ))?;
 
     // 1 gwei in hex
     assert_eq!(
@@ -126,16 +122,14 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
     )?;
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            L1CallRequest {
+        provider.handle_request(RpcRequest::with_single(
+            RpcMethodCall::with_params("eth_call", (L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),
                 gas: Some(16_777_216),
                 ..L1CallRequest::default()
-            },
-            None,
-            None,
-        )))?;
+            }, Option::<edr_eth::BlockSpec>::None, Option::<edr_rpc_eth::StateOverrideOptions>::None))?,
+        ))?;
 
     // 1 gwei in hex
     assert_eq!(

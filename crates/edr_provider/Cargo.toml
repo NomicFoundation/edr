@@ -47,6 +47,7 @@ edr_precompile.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_rpc_eth.workspace = true
+edr_rpc_types.workspace = true
 edr_runtime.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true

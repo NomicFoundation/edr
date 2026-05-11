@@ -889,52 +889,6 @@ pub enum MethodInvocation<ChainSpecT: RpcChainSpec> {
         /// `DATA, 32 bytes` - The transaction hash.
         B256,
     ),
-    /// # `eth_getTransactionCount`
-    ///
-    /// Returns the nonce of the account corresponding to the provided address.
-    ///
-    /// NOTE: This method is named `eth_getTransactionCount` for historical
-    /// reasons, as up until the pectra hardfork, the nonce was equivalent to
-    /// the number of transactions sent from the address. This changed due to
-    /// the inclusion of EIP-7702.
-    ///
-    /// ## Result
-    ///
-    /// `QUANTITY` - The nonce of the account at the provided address.
-    ///
-    /// ## Example
-    ///
-    /// **Request:**
-    ///
-    /// ```json
-    /// {
-    ///   "params": ["0x0000000000000000000000000000000000000001", "latest"]
-    /// }
-    /// ```
-    ///
-    /// **Response:**
-    ///
-    /// ```json
-    /// "0x1"
-    /// ```
-    ///
-    /// ## Implementation details
-    ///
-    /// - Post-merge block tags (`"safe"`, `"finalized"`) are only available for
-    ///   the merge hardfork and later.
-    #[serde(rename = "eth_getTransactionCount")]
-    GetTransactionCount(
-        /// `DATA, 20 bytes` - Address to check the transaction count for.
-        #[serde(deserialize_with = "crate::requests::serde::deserialize_address")]
-        Address,
-        /// `BlockSpec` - Block number, tag, or EIP-1898 block identifier.
-        /// Defaults to `"latest"`.
-        #[serde(
-            skip_serializing_if = "Option::is_none",
-            default = "optional_block_spec::latest"
-        )]
-        Option<BlockSpec>,
-    ),
     /// # `eth_getTransactionReceipt`
     ///
     /// Returns the receipt of a transaction by transaction hash.
@@ -2355,7 +2309,6 @@ impl<ChainSpecT: RpcChainSpec> MethodInvocation<ChainSpecT> {
                 "eth_getTransactionByBlockNumberAndIndex"
             }
             MethodInvocation::GetTransactionByHash(_) => "eth_getTransactionByHash",
-            MethodInvocation::GetTransactionCount(_, _) => "eth_getTransactionCount",
             MethodInvocation::GetTransactionReceipt(_) => "eth_getTransactionReceipt",
             MethodInvocation::MaxPriorityFeePerGas(_) => "eth_maxPriorityFeePerGas",
             MethodInvocation::NetVersion(_) => "net_version",

@@ -5,7 +5,8 @@ use edr_primitives::HashMap;
 use edr_provider::{
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    ForkConfig, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
@@ -36,9 +37,9 @@ async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::EvmMine(
-        None,
-    )))?;
+    provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::without_params("evm_mine"),
+    ))?;
 
     Ok(())
 }

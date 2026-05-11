@@ -6,7 +6,8 @@ use edr_provider::{
     observability::ObservabilityConfig,
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    handlers::{RpcMethodCall, RpcRequest},
+    ForkConfig, NoopLogger, Provider,
 };
 use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
 use edr_test_utils::env::json_rpc_url_provider;
@@ -51,8 +52,8 @@ async fn issue_533() -> anyhow::Result<()> {
     let transaction_hash =
         B256::from_str("0x0537316f37627655b7fe5e50e23f71cd835b377d1cde4226443c94723d036e32")?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+    let result = provider.handle_request(RpcRequest::with_single(
+        RpcMethodCall::with_params("debug_traceTransaction", (transaction_hash, Option::<serde_json::Value>::None))?,
     ))?;
 
     assert!(!result.call_trace_arenas.is_empty());

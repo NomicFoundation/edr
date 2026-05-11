@@ -8,7 +8,6 @@ use edr_chain_l1::{
     rpc::{receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_chain_spec::TransactionValidation;
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -20,10 +19,11 @@ use tokio::runtime;
 use crate::{
     config,
     error::ProviderErrorForChainSpec,
+    handlers::{RpcMethodCall, RpcRequest},
     observability::ObservabilityConfig,
     time::{CurrentTime, TimeSinceEpoch},
-    AccountOverride, ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig,
-    ProviderData, ProviderRequest, ProviderSpec, SyncProviderSpec,
+    AccountOverride, ForkConfig, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderSpec,
+    SyncProviderSpec,
 };
 
 pub const TEST_SECRET_KEY: &str =
@@ -214,13 +214,7 @@ pub fn create_test_config_with<HardforkT: Default>(
     }
 }
 /// Retrieves the pending base fee per gas from the provider data.
-pub fn pending_base_fee<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
-    TimerT: Clone + TimeSinceEpoch,
->(
+pub fn pending_base_fee<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<ChainSpecT, TimerT>,
 ) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
     let block = data.mine_pending_block()?.block_and_state.block;
@@ -246,15 +240,17 @@ where
         ..TransactionRequest::default()
     };
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(deploy_transaction),
-    ))?;
+    let result = provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params(
+        "eth_sendTransaction",
+        deploy_transaction,
+    )?))?;
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetTransactionReceipt(transaction_hash),
-    ))?;
+    let result = provider.handle_request(RpcRequest::with_single(RpcMethodCall::with_params(
+        "eth_getTransactionReceipt",
+        transaction_hash,
+    )?))?;
 
     let receipt: L1RpcTransactionReceipt = serde_json::from_value(result.result)?;
     let contract_address = receipt.contract_address.expect("Call must create contract");

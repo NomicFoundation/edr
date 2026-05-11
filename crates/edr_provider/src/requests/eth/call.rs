@@ -43,10 +43,7 @@ pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>)
 }
 
 pub(crate) fn resolve_call_request<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
