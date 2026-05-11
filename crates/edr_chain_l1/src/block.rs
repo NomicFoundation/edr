@@ -183,8 +183,8 @@ impl<
         >,
     > {
         // The transaction's gas limit cannot be greater than the remaining gas in the
-        // block
-        if transaction.gas_limit() > self.gas_remaining() {
+        // block, unless the block gas limit check is disabled.
+        if !self.cfg.disable_block_gas_limit && transaction.gas_limit() > self.gas_remaining() {
             return Err(BlockTransactionError::ExceedsBlockGasLimit);
         }
 

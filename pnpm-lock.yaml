@@ -9,11 +9,11 @@ overrides:
 
 patchedDependencies:
   hardhat@2.28.4:
-    hash: 8e8a0e953b35c544ee73251efeeff54028265010aa0e1798f8b970bddb9f925f
+    hash: e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600
     path: patches/hardhat@2.28.4.patch
-  hardhat@3.0.15:
-    hash: 88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5
-    path: patches/hardhat@3.0.15.patch
+  hardhat@3.4.5:
+    hash: 0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805
+    path: patches/hardhat@3.4.5.patch
 
 importers:
 
@@ -213,7 +213,7 @@ importers:
         version: 7.0.1
       hardhat:
         specifier: 2.28.4
-        version: 2.28.4(patch_hash=8e8a0e953b35c544ee73251efeeff54028265010aa0e1798f8b970bddb9f925f)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
+        version: 2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
@@ -291,11 +291,11 @@ importers:
         specifier: 5.2.1
         version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
       hardhat:
-        specifier: 3.0.15
-        version: 3.0.15(patch_hash=88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5)
+        specifier: 3.4.5
+        version: 3.4.5(patch_hash=0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805)
       hardhat2:
         specifier: npm:hardhat@2.28.4
-        version: hardhat@2.28.4(patch_hash=8e8a0e953b35c544ee73251efeeff54028265010aa0e1798f8b970bddb9f925f)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
+        version: hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
       lodash:
         specifier: ^4.17.11
         version: 4.17.21
@@ -363,8 +363,8 @@ importers:
         specifier: ^7.0.1
         version: 7.0.1
       hardhat:
-        specifier: 3.0.15
-        version: 3.0.15(patch_hash=88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5)
+        specifier: 3.4.5
+        version: 3.4.5(patch_hash=0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805)
       prettier:
         specifier: ^3.2.5
         version: 3.2.5
@@ -393,8 +393,8 @@ importers:
         specifier: github:foundry-rs/forge-std#v1.14.0
         version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6
       hardhat:
-        specifier: 3.0.15
-        version: 3.0.15(patch_hash=88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5)
+        specifier: 3.4.5
+        version: 3.4.5(patch_hash=0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805)
       prettier:
         specifier: ^3.2.5
         version: 3.2.5
@@ -851,17 +851,20 @@ packages:
   '@nomicfoundation/hardhat-errors@3.0.0-next.0':
     resolution: {integrity: sha512-RAOAr1mNhxGFhuaAw7EGlUeUe1rL6gXR1uicPLTrlfBaYaWwwRdQ49sQ5D4ElmePEcYuMGPVfByBB6lxhjbI7A==}
 
-  '@nomicfoundation/hardhat-errors@3.0.5':
-    resolution: {integrity: sha512-8Ayqf6hFM1glmrSxrXgX6n2pn5uTlHNxEB8N5Me0DOeOGB67PRIrQdiO+RzUhrNW5YgWUNWBevOLQbW06uQ79g==}
+  '@nomicfoundation/hardhat-errors@3.0.12':
+    resolution: {integrity: sha512-2viEq1D19FHWKpfB2vVeL0R6d+iZR2E5h0EhKQQMc1ukDUV2fel/7fRjlWuCOx2CFC+5mHL2saRcN8KlYsX8hg==}
 
   '@nomicfoundation/hardhat-utils@3.0.0-next.0':
     resolution: {integrity: sha512-TTtozMpepsyQfSLjV+L+JgaM+wblQ1XQSJjjiBUBHaJYhB+q7ZVuC3ekNNCNY6jdj9Wx6soGCaGXdsPtnjcb9Q==}
 
-  '@nomicfoundation/hardhat-utils@3.0.5':
-    resolution: {integrity: sha512-5zkQSuSxkwK7fQxKswJ1GGc/3AuWBSmxA7GhczTPLx28dAXQnubRU8nA48SkCkKesJq5x4TROP+XheSE2VkLUA==}
+  '@nomicfoundation/hardhat-utils@4.1.1':
+    resolution: {integrity: sha512-yKUMIhwzNlrl9wfe0WlAjXjRPfHh8JdCu6Iv4o+oi6Q9ovyCGj+66JzFsALNIMBo6L19Nf40DFICqUZef02Yrg==}
 
-  '@nomicfoundation/hardhat-zod-utils@3.0.1':
-    resolution: {integrity: sha512-I6/pyYiS9p2lLkzQuedr1ScMocH+ew8l233xTi+LP92gjEiviJDxselpkzgU01MUM0t6BPpfP8yMO958LDEJVg==}
+  '@nomicfoundation/hardhat-vendored@3.0.3':
+    resolution: {integrity: sha512-VzxwR1Yz8zAztiSIkjFai/XyqfuMMvX95ppXxWlJ1ci0TiHu6sut1oOAD+VJVCq+LHNpr2fWMUcugZq9uKbicg==}
+
+  '@nomicfoundation/hardhat-zod-utils@3.0.4':
+    resolution: {integrity: sha512-yCiycXDEEjbNgNVQaUoGYOee6+ljYUnIOWMtYc/dYDuwlHutWr9xg/KgkgMkiZZ1R2WrZAEqsSaeZTnH7Oyz9Q==}
     peerDependencies:
       zod: ^3.23.8
 
@@ -1818,6 +1821,10 @@ packages:
     resolution: {integrity: sha512-V7/RktU11J3I36Nwq2JnZEM7tNm17eBJz+u25qdxBZeCKiX6BkVSZQjwWIr+IobgnZy+ag73tTZgZi7tr0LrBw==}
     engines: {node: '>=6.0.0'}
 
+  fast-equals@5.4.0:
+    resolution: {integrity: sha512-jt2DW/aNFNwke7AUd+Z+e6pz39KO5rzdbbFCg2sGafS4mk13MI7Z8O5z9cADNn5lhGODIgLwug6TZO2ctf7kcw==}
+    engines: {node: '>=6.0.0'}
+
   fast-glob@3.3.2:
     resolution: {integrity: sha512-oX2ruAFQwf/Orj8m737Y5adxDQO0LAB7/S5MnxCdTNDd4p6BsyIVsv9JQsATbTSq8KHRpLwIHbVlUNatxd+1Ow==}
     engines: {node: '>=8.6.0'}
@@ -1991,8 +1998,8 @@ packages:
       typescript:
         optional: true
 
-  hardhat@3.0.15:
-    resolution: {integrity: sha512-cXxaeSxFJ+u0MfbvWsS3Gdr7/uP7wjo4xviYcGdu9AKtwY6YsU+v0quK/j1NWmvO1Y4gk350SdZzQw++hJy4LA==}
+  hardhat@3.4.5:
+    resolution: {integrity: sha512-smx65ClZttrZRKqagNSDEAlQAyAxJhh+c+07NDdlGmNK6ccNeDE9DVLB6td+JiPB9VvWSEy0UDY4WiBA47WbpQ==}
     hasBin: true
 
   has-bigints@1.0.2:
@@ -3686,11 +3693,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@nomicfoundation/hardhat-errors@3.0.5':
+  '@nomicfoundation/hardhat-errors@3.0.12':
     dependencies:
-      '@nomicfoundation/hardhat-utils': 3.0.5
-    transitivePeerDependencies:
-      - supports-color
+      '@nomicfoundation/hardhat-utils': 4.1.1
 
   '@nomicfoundation/hardhat-utils@3.0.0-next.0':
     dependencies:
@@ -3703,26 +3708,23 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@nomicfoundation/hardhat-utils@3.0.5':
+  '@nomicfoundation/hardhat-utils@4.1.1':
     dependencies:
       '@streamparser/json-node': 0.0.22
-      debug: 4.4.1
       env-paths: 2.2.1
       ethereum-cryptography: 2.2.1
-      fast-equals: 5.2.2
+      fast-equals: 5.4.0
       json-stream-stringify: 3.1.6
       rfdc: 1.4.1
       undici: 6.21.3
-    transitivePeerDependencies:
-      - supports-color
 
-  '@nomicfoundation/hardhat-zod-utils@3.0.1(zod@3.24.4)':
+  '@nomicfoundation/hardhat-vendored@3.0.3': {}
+
+  '@nomicfoundation/hardhat-zod-utils@3.0.4(zod@3.24.4)':
     dependencies:
-      '@nomicfoundation/hardhat-errors': 3.0.5
-      '@nomicfoundation/hardhat-utils': 3.0.5
+      '@nomicfoundation/hardhat-errors': 3.0.12
+      '@nomicfoundation/hardhat-utils': 4.1.1
       zod: 3.24.4
-    transitivePeerDependencies:
-      - supports-color
 
   '@nomicfoundation/solidity-analyzer-darwin-arm64@0.1.1':
     optional: true
@@ -4862,6 +4864,8 @@ snapshots:
 
   fast-equals@5.2.2: {}
 
+  fast-equals@5.4.0: {}
+
   fast-glob@3.3.2:
     dependencies:
       '@nodelib/fs.stat': 2.0.5
@@ -5037,7 +5041,7 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  hardhat@2.28.4(patch_hash=8e8a0e953b35c544ee73251efeeff54028265010aa0e1798f8b970bddb9f925f)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3):
+  hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
       '@ethereumjs/util': 9.1.0
       '@ethersproject/abi': 5.7.0
@@ -5086,18 +5090,17 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  hardhat@3.0.15(patch_hash=88f24b805f3646200376fc903f4030a369d2569ed20d2aeb96ec00493b6487d5):
+  hardhat@3.4.5(patch_hash=0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805):
     dependencies:
       '@nomicfoundation/edr': link:crates/edr_napi
-      '@nomicfoundation/hardhat-errors': 3.0.5
-      '@nomicfoundation/hardhat-utils': 3.0.5
-      '@nomicfoundation/hardhat-zod-utils': 3.0.1(zod@3.24.4)
+      '@nomicfoundation/hardhat-errors': 3.0.12
+      '@nomicfoundation/hardhat-utils': 4.1.1
+      '@nomicfoundation/hardhat-vendored': 3.0.3
+      '@nomicfoundation/hardhat-zod-utils': 3.0.4(zod@3.24.4)
       '@nomicfoundation/solidity-analyzer': 0.1.1
       '@sentry/core': 9.19.0
       adm-zip: 0.4.16
-      chalk: 5.3.0
       chokidar: 4.0.3
-      debug: 4.4.1
       enquirer: 2.4.1
       ethereum-cryptography: 2.2.1
       micro-eth-signer: 0.14.0
@@ -5109,7 +5112,6 @@ snapshots:
       zod: 3.24.4
     transitivePeerDependencies:
       - bufferutil
-      - supports-color
       - utf-8-validate
 
   has-bigints@1.0.2: {}

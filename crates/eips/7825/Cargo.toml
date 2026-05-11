@@ -1,0 +1,11 @@
+[package]
+name = "edr_eip7825"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-eips = { workspace = true, default-features = false }
+revm-primitives = { workspace = true, default-features = false }
+
+[lints]
+workspace = true

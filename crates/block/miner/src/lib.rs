@@ -24,7 +24,7 @@ use edr_signer::SignatureError;
 use edr_state_api::{DynState, StateError};
 use serde::{Deserialize, Serialize};
 
-/// The type of ordering to use when selecting blocks to mine.
+/// The type of ordering to use when selecting transactions to mine.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum MineOrdering {
     /// Insertion order

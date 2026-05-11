@@ -89,6 +89,7 @@ export class TestContext {
     }
 
     return {
+      disableTransactionGasCap: true,
       projectRoot: hre.config.paths.root,
       rpcCachePath: this.rpcCachePath,
       localPredeploys: localPredeploys,

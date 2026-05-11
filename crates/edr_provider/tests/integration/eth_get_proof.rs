@@ -1,4 +1,5 @@
 //! tests for `eth_getProof`
+#![cfg(feature = "test-utils")]
 
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
@@ -214,7 +215,7 @@ mod local {
 #[cfg(feature = "test-remote")]
 mod fork {
     use edr_primitives::HashMap;
-    use edr_provider::{ForkConfig, ProviderError};
+    use edr_provider::{config::ForkConfig, ProviderError};
     use edr_state_api::StateError;
     use edr_test_utils::env::json_rpc_url_provider;
 
