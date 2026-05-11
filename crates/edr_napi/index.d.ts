@@ -362,6 +362,8 @@ export interface ProviderConfig {
   /**
    * Transaction gas cap, introduced in [EIP-7825].
    *
+   * Integer values should be larger than zero.
+   *
    * When `false`, enforcement of the transaction gas cap is disabled and
    * transactions with any `gas` value are accepted by the mempool and
    * executed without REVM's transaction gas cap check.
