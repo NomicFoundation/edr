@@ -452,7 +452,7 @@ impl TryFrom<MiningConfig> for edr_provider::config::Mining {
                     NonZeroU64::new(block_gas_limit).ok_or_else(|| {
                         napi::Error::new(
                             napi::Status::GenericFailure,
-                            "Block gas limit must be greater than 0",
+                            "Block gas limit must not be zero",
                         )
                     })
                 })
@@ -687,7 +687,7 @@ impl ProviderConfig {
                     NonZeroU64::new(default_transaction_gas_limit).ok_or_else(|| {
                         napi::Error::new(
                             napi::Status::GenericFailure,
-                            "Default transaction gas limit must be greater than 0",
+                            "Default transaction gas limit must not be zero",
                         )
                     })
                 },
