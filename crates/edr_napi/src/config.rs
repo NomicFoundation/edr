@@ -208,7 +208,7 @@ impl TryFrom<LocalConfig> for edr_provider::config::Local {
             NonZeroU64::new(genesis_block_gas_limit).ok_or_else(|| {
                 napi::Error::new(
                     napi::Status::GenericFailure,
-                    "Genesis block gas limit must be greater than 0",
+                    "Genesis block gas limit must not be zero",
                 )
             })?;
 
