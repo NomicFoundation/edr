@@ -427,7 +427,7 @@ impl TryFrom<MiningConfig> for edr_provider::config::Mining {
                         let interval = NonZeroU64::new(interval).ok_or_else(|| {
                             napi::Error::new(
                                 napi::Status::GenericFailure,
-                                "Interval must be greater than 0",
+                                "Interval must not be zero",
                             )
                         })?;
 
