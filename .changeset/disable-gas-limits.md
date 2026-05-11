@@ -13,6 +13,7 @@
 - Changed type of `ProviderConfig.transactionGasCap` to also accept `false`. This allows disabling of the transaction gas cap.
 
 - BREAKING CHANGE: Removed `ProviderConfig.blockGasLimit`. Instead:
+
   - Use `MiningConfig.blockGasLimit` to set the block gas limit used for mining blocks.
   - Use `ProviderConfig.defaultTransactionGasLimit` to set the default transaction gas limit used for RPC call and transaction requests when a `gas` value is not specified.
   - Use `LocalConfig.genesisBlockGasLimit` to set the block gas limit of the genesis block for locally mined blockchains.
