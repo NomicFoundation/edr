@@ -1,3 +1,4 @@
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
@@ -13,7 +14,6 @@ import {
   BuildInfoAndOutput,
 } from "@nomicfoundation/edr";
 
-import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 export type * from "hardhat/hre";
 
 import { resolveFromRoot } from "@nomicfoundation/hardhat-utils/path";
@@ -117,7 +117,7 @@ export async function buildSolidityTestsInput(
   const scopes = hre.config.solidity.splitTestsCompilation
     ? (["contracts", "tests"] as const)
     : (["contracts"] as const);
-  const edrArtifacts: Array<EdrArtifactWithMetadata> = [];
+  const edrArtifacts: EdrArtifactWithMetadata[] = [];
   const buildInfos: BuildInfoAndOutput[] = [];
   for (const scope of scopes) {
     const artifactsDir = await hre.solidity.getArtifactsDirectory(scope);
