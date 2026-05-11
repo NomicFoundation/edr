@@ -4104,6 +4104,7 @@ dependencies = [
  "ecdsa",
  "edr_artifact",
  "edr_common",
+ "edr_coverage",
  "edr_decoder_revert",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
