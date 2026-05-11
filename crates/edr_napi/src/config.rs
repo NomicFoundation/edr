@@ -665,14 +665,14 @@ impl ProviderConfig {
             .collect();
 
         let transaction_gas_cap = self
-                .transaction_gas_cap.map_or(Ok(ConfigOption::Default), |transaction_gas_cap| match transaction_gas_cap {
-                    Either::A(a) => a.try_cast().map(ConfigOption::Custom),
-                    Either::B(b) => if !b {
-                        Ok(ConfigOption::Disable)
-                    } else {
-                        Err(napi::Error::new(napi::Status::InvalidArg, "Boolean value for `transactionGasCap` must be false to disable the transaction gas cap"))
-                    },
-                })?;
+            .transaction_gas_cap.map_or(Ok(ConfigOption::Default), |transaction_gas_cap| match transaction_gas_cap {
+                Either::A(a) => a.try_cast().map(ConfigOption::Custom),
+                Either::B(b) => if !b {
+                    Ok(ConfigOption::Disable)
+                } else {
+                    Err(napi::Error::new(napi::Status::InvalidArg, "Boolean value for `transactionGasCap` must be false to disable the transaction gas cap"))
+                },
+            })?;
 
         Ok(edr_napi_core::provider::Config {
             allow_blocks_with_same_timestamp: self.allow_blocks_with_same_timestamp,
