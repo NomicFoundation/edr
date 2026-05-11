@@ -24,6 +24,6 @@
 
 - BREAKING CHANGE: Removed `ProviderConfig.initialDate`. Instead, use `LocalConfig.genesisDate` to set the initial date for locally mined blockchains.
 
-- Added `SolidityTestRunnerConfigArgstransactionGasCap` (defaults to the hardfork default).
+- Added `SolidityTestRunnerConfigArgs.transactionGasCap` (defaults to the hardfork default).
 
 - BREAKING CHANGE: Renamed `SolidityTestRunnerConfigArgs.enableTxGasLimitCap` to `SolidityTestRunnerConfigArgs.disableTransactionGasCap` (still defaults to `false`, but the meaning is inverted; i.e. the transaction gas cap is enabled by default).
