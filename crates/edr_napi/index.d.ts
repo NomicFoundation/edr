@@ -267,9 +267,8 @@ export interface MiningConfig {
   /**
    * The block gas limit to use for mining a block.
    *
-   * When not set, enforcement of the block gas limit is disabled and
-   * transactions with any `gas` value are accepted by the mempool and
-   * executed without REVM's gas-limit check.
+   * When not set, enforcement of the block gas limit is disabled in the mem
+   * pool, miner, and REVM.
    */
   blockGasLimit?: bigint
   interval?: bigint | IntervalRange

@@ -176,9 +176,8 @@ pub struct MiningConfig {
     pub auto_mine: bool,
     /// The block gas limit to use for mining a block.
     ///
-    /// When not set, enforcement of the block gas limit is disabled and
-    /// transactions with any `gas` value are accepted by the mempool and
-    /// executed without REVM's gas-limit check.
+    /// When not set, enforcement of the block gas limit is disabled in the mem
+    /// pool, miner, and REVM.
     pub block_gas_limit: Option<BigInt>,
     pub interval: Option<Either<BigInt, IntervalRange>>,
     pub mem_pool: MemPoolConfig,
