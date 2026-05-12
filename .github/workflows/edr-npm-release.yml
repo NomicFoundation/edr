@@ -81,13 +81,9 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
-          fetch-depth: 0 # required by ./.github/actions/restore-mtime
       - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 # v1
         with:
           mode: firewall
-
-      - name: Restore file mtimes from git
-        uses: ./.github/actions/restore-mtime
 
       - name: Save HEAD commit sha
         id: save-commit
@@ -144,15 +140,6 @@ jobs:
       - name: Install dependencies (Windows)
         if: ${{ !matrix.settings.docker && runner.os == 'Windows' }}
         run: pnpm install --frozen-lockfile --prefer-offline
-
-      # napi-derive emits index.js / index.d.ts as a side effect of
-      # proc-macro expansion, which cargo skips when the crate looks
-      # unchanged (napi-rs#1297). Combined with restore-mtime + a warm
-      # target/, that would silently produce stale bindings. Touching
-      # src/lib.rs invalidates edr_napi only and forces codegen to run.
-      - name: Force edr_napi rebuild so napi-derive regenerates bindings
-        shell: bash
-        run: touch src/lib.rs
 
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
