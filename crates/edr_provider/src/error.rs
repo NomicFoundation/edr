@@ -17,7 +17,7 @@ use edr_chain_spec::{
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{result::ExecutionResult, DatabaseComponentError, TransactionError};
 use edr_eth::{filter::SubscriptionType, BlockTag};
-pub use edr_jsonrpc_api::{RpcErrorCode, RpcErrorData};
+pub use edr_jsonrpc_api::RpcErrorCode;
 use edr_jsonrpc_error_structured::{INVALID_INPUT_CODE, REVERT_CODE};
 use edr_jsonrpc_protocol::{self as jsonrpc, INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE};
 use edr_mem_pool::MemPoolAddTransactionError;
@@ -39,96 +39,6 @@ use crate::{
     debug_trace::DebugTraceError, observability::EvmObserverCollectionError, time::TimeSinceEpoch,
     ProviderSpec,
 };
-
-impl<
-        FetchReceiptErrorT,
-        GenesisBlockCreationErrorT,
-        HaltReasonT: HaltReasonTrait + serde::Serialize,
-        HardforkT: Debug,
-        TransactionValidationErrorT,
-    > RpcErrorData
-    for ProviderError<
-        FetchReceiptErrorT,
-        GenesisBlockCreationErrorT,
-        HaltReasonT,
-        HardforkT,
-        TransactionValidationErrorT,
-    >
-{
-    fn error_data(&self) -> Option<serde_json::Value> {
-        let failure = match self {
-            Self::EstimateGasTransactionFailure(failure) => &failure.transaction_failure,
-            Self::TransactionFailed(failure) => &failure.failure,
-            Self::AbiDecoding(_)
-            | Self::AccountOverrideConversionError(_)
-            | Self::AutoMineGasPriceTooLow { .. }
-            | Self::AutoMineMaxFeePerGasTooLow { .. }
-            | Self::AutoMineMaxFeePerBlobGasTooLow { .. }
-            | Self::AutoMinePriorityFeeTooLow { .. }
-            | Self::AutoMineNonceTooHigh { .. }
-            | Self::AutoMineNonceTooLow { .. }
-            | Self::BlobMemPoolUnsupported
-            | Self::Blockchain(_)
-            | Self::Creation(_)
-            | Self::DebugTrace(_)
-            | Self::Eip4844CallRequestUnsupported
-            | Self::Eip4844TransactionUnsupported
-            | Self::Eip4844TransactionMissingReceiver
-            | Self::Eip712Error(_)
-            | Self::Eip7702TransactionMissingReceiver
-            | Self::Eip7702TransactionWithoutAuthorizations
-            | Self::FetchReceipt(_)
-            | Self::GetBlock(_)
-            | Self::InvalidArgument(_)
-            | Self::InvalidChainId { .. }
-            | Self::InvalidDropTransactionHash(_)
-            | Self::InvalidEip155TransactionChainId
-            | Self::InvalidFilterSubscriptionType { .. }
-            | Self::InvalidInput(_)
-            | Self::InvalidTransactionHash(_)
-            | Self::InvalidTransactionIndex(_)
-            | Self::InvalidTransactionInput(_)
-            | Self::InvalidTransactionType(_)
-            | Self::Logger(_)
-            | Self::MemPoolAddTransaction(_)
-            | Self::MemPoolUpdate(_)
-            | Self::MineBlock(_)
-            | Self::MineTransaction(_)
-            | Self::OnCollectedCoverageCallback(_)
-            | Self::OnCollectedGasReportCallback(_)
-            | Self::RpcClientError(_)
-            | Self::RpcVersion(_)
-            | Self::RunTransaction(_)
-            | Self::SetMinGasPriceUnsupported
-            | Self::Serialization(_)
-            | Self::SetAccountNonceLowerThanCurrent { .. }
-            | Self::SetAccountNonceWithPendingTransactions
-            | Self::SetBlockGasLimitMustBeGreaterThanZero
-            | Self::SetIntervalMiningConfigInvalid(_)
-            | Self::SetNextBlockBaseFeePerGasUnsupported { .. }
-            | Self::SetNextPrevRandaoUnsupported { .. }
-            | Self::Signature(_)
-            | Self::SolcDecoding(_)
-            | Self::State(_)
-            | Self::TimestampLowerThanPrevious(_)
-            | Self::TimestampEqualsPrevious { .. }
-            | Self::TransactionCreationError(_)
-            | Self::TryFromIntError(_)
-            | Self::Unimplemented(_)
-            | Self::UnknownAddress { .. }
-            | Self::UnmetHardfork { .. }
-            | Self::UnsupportedAccessListParameter { .. }
-            | Self::UnsupportedEIP1559Parameters { .. }
-            | Self::UnsupportedEIP4844Parameters { .. }
-            | Self::UnsupportedEip7702Parameters { .. }
-            | Self::UnsupportedTransactionTypeInDebugTrace { .. }
-            | Self::UnsupportedTransactionTypeForDebugTrace { .. }
-            | Self::UnsupportedMethod { .. } => return None,
-        };
-
-        Some(serde_json::to_value(failure).expect("`TransactionFailure` should convert to JSON"))
-    }
-}
 
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
@@ -675,10 +585,86 @@ impl<
             TransactionValidationErrorT,
         >,
     ) -> Self {
+        let failure = match &value {
+            ProviderError::EstimateGasTransactionFailure(failure) => {
+                Some(&failure.transaction_failure)
+            }
+            ProviderError::TransactionFailed(failure) => Some(&failure.failure),
+            ProviderError::AbiDecoding(_)
+            | ProviderError::AccountOverrideConversionError(_)
+            | ProviderError::AutoMineGasPriceTooLow { .. }
+            | ProviderError::AutoMineMaxFeePerGasTooLow { .. }
+            | ProviderError::AutoMineMaxFeePerBlobGasTooLow { .. }
+            | ProviderError::AutoMinePriorityFeeTooLow { .. }
+            | ProviderError::AutoMineNonceTooHigh { .. }
+            | ProviderError::AutoMineNonceTooLow { .. }
+            | ProviderError::BlobMemPoolUnsupported
+            | ProviderError::Blockchain(_)
+            | ProviderError::Creation(_)
+            | ProviderError::DebugTrace(_)
+            | ProviderError::Eip4844CallRequestUnsupported
+            | ProviderError::Eip4844TransactionUnsupported
+            | ProviderError::Eip4844TransactionMissingReceiver
+            | ProviderError::Eip712Error(_)
+            | ProviderError::Eip7702TransactionMissingReceiver
+            | ProviderError::Eip7702TransactionWithoutAuthorizations
+            | ProviderError::FetchReceipt(_)
+            | ProviderError::GetBlock(_)
+            | ProviderError::InvalidArgument(_)
+            | ProviderError::InvalidChainId { .. }
+            | ProviderError::InvalidDropTransactionHash(_)
+            | ProviderError::InvalidEip155TransactionChainId
+            | ProviderError::InvalidFilterSubscriptionType { .. }
+            | ProviderError::InvalidInput(_)
+            | ProviderError::InvalidTransactionHash(_)
+            | ProviderError::InvalidTransactionIndex(_)
+            | ProviderError::InvalidTransactionInput(_)
+            | ProviderError::InvalidTransactionType(_)
+            | ProviderError::Logger(_)
+            | ProviderError::MemPoolAddTransaction(_)
+            | ProviderError::MemPoolUpdate(_)
+            | ProviderError::MineBlock(_)
+            | ProviderError::MineTransaction(_)
+            | ProviderError::OnCollectedCoverageCallback(_)
+            | ProviderError::OnCollectedGasReportCallback(_)
+            | ProviderError::RpcClientError(_)
+            | ProviderError::RpcVersion(_)
+            | ProviderError::RunTransaction(_)
+            | ProviderError::SetMinGasPriceUnsupported
+            | ProviderError::Serialization(_)
+            | ProviderError::SetAccountNonceLowerThanCurrent { .. }
+            | ProviderError::SetAccountNonceWithPendingTransactions
+            | ProviderError::SetBlockGasLimitMustBeGreaterThanZero
+            | ProviderError::SetIntervalMiningConfigInvalid(_)
+            | ProviderError::SetNextBlockBaseFeePerGasUnsupported { .. }
+            | ProviderError::SetNextPrevRandaoUnsupported { .. }
+            | ProviderError::Signature(_)
+            | ProviderError::SolcDecoding(_)
+            | ProviderError::State(_)
+            | ProviderError::TimestampLowerThanPrevious(_)
+            | ProviderError::TimestampEqualsPrevious { .. }
+            | ProviderError::TransactionCreationError(_)
+            | ProviderError::TryFromIntError(_)
+            | ProviderError::Unimplemented(_)
+            | ProviderError::UnknownAddress { .. }
+            | ProviderError::UnmetHardfork { .. }
+            | ProviderError::UnsupportedAccessListParameter { .. }
+            | ProviderError::UnsupportedEIP1559Parameters { .. }
+            | ProviderError::UnsupportedEIP4844Parameters { .. }
+            | ProviderError::UnsupportedEip7702Parameters { .. }
+            | ProviderError::UnsupportedTransactionTypeInDebugTrace { .. }
+            | ProviderError::UnsupportedTransactionTypeForDebugTrace { .. }
+            | ProviderError::UnsupportedMethod { .. } => None,
+        };
+
+        let data = failure.map(|failure| {
+            serde_json::to_value(failure).expect("`TransactionFailure` should convert to JSON")
+        });
+
         Self {
             code: value.error_code(),
             message: value.to_string(),
-            data: value.error_data(),
+            data,
         }
     }
 }

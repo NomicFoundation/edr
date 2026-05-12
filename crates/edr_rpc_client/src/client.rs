@@ -3,7 +3,7 @@ use std::{
     io,
     marker::PhantomData,
     path::{Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::{AtomicI64, Ordering},
     time::Duration,
 };
 
@@ -146,7 +146,7 @@ pub struct RpcClient<MethodT: RpcMethod + Serialize> {
     chain_id: OnceCell<u64>,
     cached_block_number: RwLock<Option<CachedBlockNumber>>,
     client: ClientWithMiddleware,
-    next_id: AtomicU64,
+    next_id: AtomicI64,
     rpc_cache_dir: PathBuf,
     tmp_dir: PathBuf,
     _phantom: PhantomData<MethodT>,
@@ -203,7 +203,7 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
             chain_id: OnceCell::new(),
             cached_block_number: RwLock::new(None),
             client,
-            next_id: AtomicU64::new(0),
+            next_id: AtomicI64::new(0),
             rpc_cache_dir: cache_dir.join(RPC_CACHE_DIR),
             tmp_dir,
             _phantom: PhantomData,
@@ -502,7 +502,7 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
     }
 
     fn serialize_request(&self, input: &MethodT) -> Result<SerializedRequest, RpcClientError> {
-        let id = jsonrpc::Id::Num(self.next_id.fetch_add(1, Ordering::Relaxed));
+        let id = jsonrpc::Id::Number(self.next_id.fetch_add(1, Ordering::Relaxed));
         Self::serialize_request_with_id(input, id)
     }
 
@@ -512,7 +512,7 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
     ) -> Result<SerializedRequest, RpcClientError> {
         let request = serde_json::to_value(jsonrpc::Request {
             version: jsonrpc::Version::V2_0,
-            id,
+            id: Some(id),
             method,
         })
         .map_err(RpcClientError::InvalidJsonRequest)?;

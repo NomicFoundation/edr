@@ -5,6 +5,8 @@ edition.workspace = true
 
 [dependencies]
 edr_jsonrpc_api.workspace = true
+edr_jsonrpc_protocol.workspace = true
+erased-serde = "0.4.10"
 serde.workspace = true
 serde_json.workspace = true
 
