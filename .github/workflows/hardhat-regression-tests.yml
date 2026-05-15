@@ -36,7 +36,7 @@ on:
 jobs:
   test:
     name: Run the regression tests
-    uses: NomicFoundation/hardhat/.github/workflows/regression-tests.yml@v-next
+    uses: NomicFoundation/hardhat/.github/workflows/regression-tests.yml@428bfae66b4fdd9734869eb499f51ec4e3c5d7a0 # v-next
     with:
       ref: v-next
       preset: ${{ inputs.preset }}
