@@ -13,5 +13,3 @@ minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - "@nomicfoundation/*"
   - "hardhat"
-  # Renovate security update: pnpm@10.28.2
-  - pnpm@10.28.2
