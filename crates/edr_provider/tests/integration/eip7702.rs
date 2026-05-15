@@ -21,7 +21,7 @@ use edr_provider::{
         create_test_config, one_ether, set_genesis_state_with_owned_accounts, sign_authorization,
     },
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderConfig, test_utils::rpc_request,
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -35,7 +35,7 @@ const CHAIN_ID: u64 = 0x7a69;
 fn assert_code_at(provider: &Provider<L1ChainSpec>, address: Address, expected: &Bytes) {
     let code: Bytes = {
         let response = provider
-            .handle_request(ProviderRequest::with_single(MethodInvocation::GetCode(
+            .handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::GetCode(
                 address, None,
             )))
             .expect("eth_getCode should succeed");
@@ -95,16 +95,16 @@ async fn trace_transaction() -> anyhow::Result<()> {
     let provider = new_provider(config, vec![secret_key])?;
 
     let response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(transaction_request),
+        .handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::SendTransaction(transaction_request),
         ))
         .expect("eth_sendTransaction should succeed");
 
     let transaction_hash: B256 = serde_json::from_value(response.result)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+        .handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::DebugTraceTransaction(transaction_hash, None),
         ))
         .expect("debug_traceTransaction should succeed");
 
@@ -139,15 +139,15 @@ async fn get_transaction() -> anyhow::Result<()> {
     let provider = new_provider(config, vec![secret_key])?;
 
     let response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(transaction_request.clone()),
+        .handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::SendTransaction(transaction_request.clone()),
         ))
         .expect("eth_sendTransaction should succeed");
 
     let transaction_hash: B256 = serde_json::from_value(response.result)?;
 
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetTransactionByHash(transaction_hash),
+    let response = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetTransactionByHash(transaction_hash),
     ))?;
 
     let transaction: L1RpcTransactionWithSignature = serde_json::from_value(response.result)?;

@@ -364,3 +364,77 @@ impl<'a> Deserialize<'a> for Version {
         deserializer.deserialize_identifier(VersionVisitor)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use anyhow::{bail, Context};
+
+    use super::*;
+
+    #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+    struct TestMethod {
+        method: String,
+        params: Vec<serde_json::Value>,
+    }
+
+    #[test]
+    fn deserialize_single_request() -> anyhow::Result<()> {
+        let expected = TestMethod {
+            method: "eth_getBalance".to_string(),
+            params: vec![
+                serde_json::json!("0x407d73d8a49eeb85d32cf465507dd71d507100c1"),
+                serde_json::json!("latest"),
+            ],
+        };
+
+        let json = serde_json::to_string(&SingleOrBatch::Single(&expected))?;
+
+        let request: SingleOrBatch<TestMethod> = serde_json::from_str(&json)?;
+        let SingleOrBatch::Single(request) = request else {
+            bail!("Expected single request")
+        };
+
+        assert_eq!(request, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_batch_request() -> anyhow::Result<()> {
+        let expected = vec![
+            TestMethod {
+                method: "eth_blockNumber".to_string(),
+                params: vec![],
+            },
+            TestMethod {
+                method: "eth_getTransactionByHash".to_string(),
+                params: vec![serde_json::json!(
+                    "0x3f07a9c83155594c000642e7d60e8a8a00038d03e9849171a05ed0e2d47acbb3"
+                )],
+            },
+        ];
+
+        let json = serde_json::to_string(&SingleOrBatch::Batch(expected.clone()))?;
+
+        let request: SingleOrBatch<TestMethod> = serde_json::from_str(&json)?;
+        let SingleOrBatch::Batch(requests) = request else {
+            bail!("Expected batch request")
+        };
+
+        assert_eq!(requests, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn deserialize_string_instead_of_request() -> anyhow::Result<()> {
+        let s = "foo";
+        let json = format!(r#""{s}""#);
+
+        let result: Result<SingleOrBatch<TestMethod>, _> = serde_json::from_str(&json);
+
+        let error_message = result.err().context("result is error")?.to_string();
+        assert!(error_message.contains(s));
+
+        Ok(())
+    }
+}

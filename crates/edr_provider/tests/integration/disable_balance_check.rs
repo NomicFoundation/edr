@@ -6,7 +6,7 @@ use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_primitives::{address, bytes, U256};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    test_utils::rpc_request,
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -49,7 +49,7 @@ async fn estimate_gas() -> anyhow::Result<()> {
     )?;
 
     let _response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+        provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::EstimateGas(
             L1CallRequest {
                 from: Some(from),
                 to: Some(address!("0xdf951d2061b12922bfbf22cb17b17f3b39183570")),
@@ -100,7 +100,7 @@ async fn estimate_gas_with_value() -> anyhow::Result<()> {
     )?;
 
     let _response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+        provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::EstimateGas(
             L1CallRequest {
                 from: Some(from),
                 to: Some(address!("0xdf951d2061b12922bfbf22cb17b17f3b39183570")),

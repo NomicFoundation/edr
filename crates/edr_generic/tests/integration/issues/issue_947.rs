@@ -8,7 +8,7 @@ use edr_chain_spec_evm::TransactionError;
 use edr_generic::GenericChainSpec;
 use edr_primitives::{address, B256};
 use edr_provider::{
-    time::CurrentTime, DebugTraceError, MethodInvocation, Provider, ProviderError, ProviderRequest,
+    time::CurrentTime, DebugTraceError, MethodInvocation, Provider, ProviderError, test_utils::rpc_request,
     ProviderSpec, SyncProviderSpec,
 };
 use edr_test_utils::env::json_rpc_url_provider;
@@ -62,8 +62,8 @@ async fn issue_947_generic_evm_should_default_excess_gas() -> anyhow::Result<()>
     let transaction_hash =
         B256::from_str("0x9fccb755176d48b3e5e576aff003bb5dc4aeefa8b0b22e082555bdc705276278")?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<GenericChainSpec>::DebugTraceTransaction(transaction_hash, None),
     ));
 
     // The block does not have the excess blob gas information
@@ -86,8 +86,8 @@ async fn issue_947_should_fail_with_missing_blob_gas_on_l1_after_cancun() -> any
     let transaction_hash =
         B256::from_str("0x9fccb755176d48b3e5e576aff003bb5dc4aeefa8b0b22e082555bdc705276278")?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::DebugTraceTransaction(transaction_hash, None),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<GenericChainSpec>::DebugTraceTransaction(transaction_hash, None),
     ));
 
     // The block does not have the excess blob gas information
@@ -117,8 +117,8 @@ async fn issue_947_should_succeed_on_generic_before_cancun() -> anyhow::Result<(
         shanghai_arbitrum_block,
     )?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<GenericChainSpec>::SendTransaction(TransactionRequest {
             from: address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
             to: Some(address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")),
             ..TransactionRequest::default()

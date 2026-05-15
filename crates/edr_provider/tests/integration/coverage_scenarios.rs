@@ -7,7 +7,7 @@ use edr_primitives::{bytes, Bytes};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, test_utils::rpc_request,
 };
 use edr_signer::public_key_to_address;
 use parking_lot::RwLock;
@@ -77,7 +77,7 @@ async fn forward_successful_call() -> anyhow::Result<()> {
     let calldata: Bytes = bytes!("0xc07303ab");
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
             L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
@@ -107,7 +107,7 @@ async fn forward_reverted_call() -> anyhow::Result<()> {
     let calldata: Bytes = bytes!("0x4cc06e6d");
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
             L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
@@ -138,7 +138,7 @@ async fn deploy_child() -> anyhow::Result<()> {
     let calldata: Bytes = bytes!("0x2053bfe6");
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
             L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
@@ -171,7 +171,7 @@ async fn deploy_reverting_child() -> anyhow::Result<()> {
     let calldata: Bytes = bytes!("0xe2a529b6");
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
             L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),

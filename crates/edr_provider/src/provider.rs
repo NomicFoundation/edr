@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use edr_chain_spec::{HardforkChainSpec, TransactionValidation};
+use edr_jsonrpc_protocol::{Request, SingleOrBatch};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use parking_lot::{Mutex, RwLock};
@@ -11,16 +12,17 @@ use crate::{
     error::{CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
     interval::IntervalMiner,
     logger::SyncLogger,
+    method_call::RpcMethodCall,
     mock::SyncCallOverride,
     requests::{
         debug,
         eth::{self, handle_set_interval_mining},
-        hardhat, MethodInvocation, ProviderRequest,
+        hardhat, MethodInvocation,
     },
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
-    to_json, to_json_with_trace, to_json_with_traces, ProviderConfig, ResponseWithCallTraces,
-    SyncSubscriberCallback, PRIVATE_RPC_METHODS,
+    to_json, to_json_with_trace, to_json_with_traces, InvalidRequestReason, ProviderConfig,
+    ResponseWithCallTraces, SyncSubscriberCallback, PRIVATE_RPC_METHODS,
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -61,22 +63,6 @@ pub struct Provider<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceE
     /// while async-awaiting the lock to avoid a deadlock.
     interval_miner: Arc<Mutex<Option<IntervalMiner<ChainSpecT, TimerT>>>>,
     runtime: runtime::Handle,
-}
-
-impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
-    Provider<ChainSpecT, TimerT>
-{
-    /// Blocking method to log a failed deserialization.
-    pub fn log_failed_deserialization(
-        &self,
-        method_name: &str,
-        error: &ProviderErrorForChainSpec<ChainSpecT>,
-    ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
-        data.logger_mut()
-            .print_method_logs(method_name, Some(error))
-            .map_err(ProviderError::Logger)
-    }
 }
 
 impl<
@@ -156,13 +142,13 @@ impl<
     /// Blocking method to handle a request.
     pub fn handle_request(
         &self,
-        request: ProviderRequest<ChainSpecT>,
+        request: SingleOrBatch<Request<RpcMethodCall>>,
     ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
 
         let response = match request {
-            ProviderRequest::Single(request) => self.handle_single_request(&mut data, *request),
-            ProviderRequest::Batch(requests) => self.handle_batch_request(&mut data, requests),
+            SingleOrBatch::Single(request) => self.handle_single_request(&mut data, request),
+            SingleOrBatch::Batch(requests) => self.handle_batch_request(&mut data, requests),
         }?;
 
         Ok(response)
@@ -172,7 +158,7 @@ impl<
     fn handle_batch_request(
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
-        request: Vec<MethodInvocation<ChainSpecT>>,
+        request: Vec<Request<RpcMethodCall>>,
     ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
         let mut results = Vec::new();
         let mut traces = Vec::new();
@@ -193,20 +179,69 @@ impl<
     fn handle_single_request(
         &self,
         data: &mut ProviderData<ChainSpecT, TimerT>,
-        request: MethodInvocation<ChainSpecT>,
+        request: Request<RpcMethodCall>,
     ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
-        let method_name = if data.logger_mut().is_enabled() {
-            let method_name = request.method_name();
-            if PRIVATE_RPC_METHODS.contains(method_name) {
-                None
-            } else {
-                Some(method_name)
-            }
+        let call = request.method;
+
+        let log_method_name = if data.logger_mut().is_enabled()
+            && !PRIVATE_RPC_METHODS.contains(call.method.as_str())
+        {
+            Some(call.method.as_str())
         } else {
             None
         };
 
-        let result = match request {
+        let legacy_request_value = if let Some(params) = call.params {
+            serde_json::json!({
+                "method": call.method.as_str(),
+                "params": params,
+            })
+        } else {
+            serde_json::json!({
+                "method": call.method.as_str(),
+            })
+        };
+
+        let legacy_request: MethodInvocation<ChainSpecT> =
+            match serde_json::from_value(legacy_request_value) {
+                Ok(request) => request,
+                Err(error) => {
+                    let message = error.to_string();
+                    let error = match InvalidRequestReason::new(call.method.as_str(), &message) {
+                        Some(reason) => reason.to_provider_error::<ChainSpecT, TimerT>(),
+                        None => ProviderError::Serialization(error),
+                    };
+
+                    // HACK: We need to log failed deserialization attempts when they concern
+                    // input validation.
+                    //
+                    // Ignore potential failure of logging, as returning the original error is
+                    // more important
+                    let _result = data
+                        .logger_mut()
+                        .print_method_logs(call.method.as_str(), Some(&error));
+
+                    return Err(error);
+                }
+            };
+
+        let result = self.handle_legacy_request(data, legacy_request);
+
+        if let Some(method_name) = log_method_name {
+            data.logger_mut()
+                .print_method_logs(method_name, result.as_ref().err())
+                .map_err(ProviderError::Logger)?;
+        }
+
+        result
+    }
+
+    fn handle_legacy_request(
+        &self,
+        data: &mut ProviderData<ChainSpecT, TimerT>,
+        request: MethodInvocation<ChainSpecT>,
+    ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
+        match request {
             // eth_* method
             MethodInvocation::Accounts(()) => {
                 to_json::<_, ChainSpecT, TimerT>(eth::handle_accounts_request(data))
@@ -466,14 +501,6 @@ impl<
                 hardhat::handle_stop_impersonating_account_request(data, *address)
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
-        };
-
-        if let Some(method_name) = method_name {
-            data.logger_mut()
-                .print_method_logs(method_name, result.as_ref().err())
-                .map_err(ProviderError::Logger)?;
         }
-
-        result
     }
 }

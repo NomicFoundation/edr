@@ -8,7 +8,7 @@ use edr_primitives::B256;
 use edr_provider::{
     test_utils::create_test_config,
     time::{MockTime, TimeSinceEpoch},
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, Timestamp,
+    MethodInvocation, NoopLogger, Provider, test_utils::rpc_request, Timestamp,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -45,8 +45,8 @@ impl TimestampFixture {
     }
 
     fn increase_time(&self, seconds: u64) -> anyhow::Result<()> {
-        self.provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::EvmIncreaseTime(Timestamp::from(seconds)),
+        self.provider.handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::EvmIncreaseTime(Timestamp::from(seconds)),
         ))?;
 
         Ok(())
@@ -54,7 +54,7 @@ impl TimestampFixture {
 
     fn mine_block(&self) -> anyhow::Result<()> {
         self.provider
-            .handle_request(ProviderRequest::with_single(MethodInvocation::EvmMine(
+            .handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::EvmMine(
                 None,
             )))?;
 
@@ -63,7 +63,7 @@ impl TimestampFixture {
 
     fn mine_block_with_timestamp(&self, timestamp: u64) -> anyhow::Result<()> {
         self.provider
-            .handle_request(ProviderRequest::with_single(MethodInvocation::EvmMine(
+            .handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::EvmMine(
                 Some(Timestamp::from(timestamp)),
             )))?;
 
@@ -71,8 +71,8 @@ impl TimestampFixture {
     }
 
     fn latest_block_timestamp(&self) -> anyhow::Result<u64> {
-        let result = self.provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+        let result = self.provider.handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
         ))?;
 
         let block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -80,8 +80,8 @@ impl TimestampFixture {
     }
 
     fn set_next_block_timestamp(&self, timestamp: u64) -> anyhow::Result<()> {
-        self.provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::EvmSetNextBlockTimestamp(Timestamp::from(timestamp)),
+        self.provider.handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::EvmSetNextBlockTimestamp(Timestamp::from(timestamp)),
         ))?;
 
         Ok(())

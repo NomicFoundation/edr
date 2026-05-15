@@ -8,7 +8,7 @@ use edr_primitives::Address;
 use edr_provider::{
     test_utils::{create_test_config_with, one_ether, MinimalProviderConfig},
     time::CurrentTime,
-    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
+    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, test_utils::rpc_request,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -45,16 +45,16 @@ async fn issue_326() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::ImpersonateAccount(impersonated_account.into()),
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
+    provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Mine(
         None, None,
     )))?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(impersonated_account),
             nonce: Some(0),
@@ -63,7 +63,7 @@ async fn issue_326() -> anyhow::Result<()> {
         }),
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+    provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::EstimateGas(
         L1CallRequest {
             from: Some(impersonated_account),
             to: Some(impersonated_account),

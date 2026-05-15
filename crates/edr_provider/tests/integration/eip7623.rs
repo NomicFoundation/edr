@@ -13,7 +13,7 @@ use edr_primitives::{B256, U64};
 use edr_provider::{
     test_utils::{create_test_config, one_ether, set_genesis_state_with_owned_accounts},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, test_utils::rpc_request,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
@@ -35,7 +35,7 @@ fn assert_transaction_gas_usage(
 
 fn estimate_gas(provider: &Provider<L1ChainSpec>, request: L1CallRequest) -> u64 {
     let response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+        .handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::EstimateGas(
             request, None,
         )))
         .expect("eth_estimateGas should succeed");
@@ -47,8 +47,8 @@ fn estimate_gas(provider: &Provider<L1ChainSpec>, request: L1CallRequest) -> u64
 
 fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
     let response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::GetTransactionReceipt(transaction_hash),
+        .handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::GetTransactionReceipt(transaction_hash),
         ))
         .expect("eth_getTransactionReceipt should succeed");
 
@@ -88,8 +88,8 @@ fn send_transaction(
     request: TransactionRequest,
 ) -> anyhow::Result<B256> {
     let response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(request),
+        .handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::SendTransaction(request),
         ))
         .expect("eth_sendTransaction should succeed");
 

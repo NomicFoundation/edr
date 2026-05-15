@@ -43,86 +43,41 @@ const STORAGE_VALUE_INVALID_LENGTH_ERROR_MESSAGE: &str =
 const UNSUPPORTED_METHOD: &str = "unknown variant";
 
 pub enum InvalidRequestReason<'a> {
-    UnsupportedMethod {
-        method_name: &'a str,
-    },
-    InvalidStorageKey {
-        method_name: &'a str,
-        error_message: &'a str,
-    },
-    InvalidStorageValue {
-        method_name: &'a str,
-        error_message: &'a str,
-    },
-    InvalidJson {
-        error_message: &'a str,
-    },
+    UnsupportedMethod { method_name: &'a str },
+    InvalidStorageKey { error_message: &'a str },
+    InvalidStorageValue { error_message: &'a str },
 }
 
 impl<'a> InvalidRequestReason<'a> {
-    pub fn new(method_name: Option<&'a str>, error_message: &'a str) -> Self {
-        if let Some(method_name) = method_name {
-            if error_message.starts_with(STORAGE_KEY_TOO_LARGE_ERROR_MESSAGE) {
-                return InvalidRequestReason::InvalidStorageKey {
-                    method_name,
-                    error_message,
-                };
-            } else if error_message.starts_with(STORAGE_VALUE_INVALID_LENGTH_ERROR_MESSAGE) {
-                return InvalidRequestReason::InvalidStorageValue {
-                    method_name,
-                    error_message,
-                };
-            } else if error_message.starts_with(UNSUPPORTED_METHOD) {
-                return InvalidRequestReason::UnsupportedMethod { method_name };
-            }
-        }
-
-        InvalidRequestReason::InvalidJson { error_message }
-    }
-
-    pub fn error_code(&self) -> i16 {
-        match self {
-            InvalidRequestReason::UnsupportedMethod { .. } => -32004,
-            InvalidRequestReason::InvalidStorageKey { .. }
-            | InvalidRequestReason::InvalidStorageValue { .. } => -32000,
-            InvalidRequestReason::InvalidJson { .. } => -32602,
-        }
-    }
-
-    pub fn error_message(&self) -> String {
-        match self {
-            InvalidRequestReason::UnsupportedMethod { method_name } => {
-                format!("Method {method_name} is not supported")
-            }
-            InvalidRequestReason::InvalidStorageKey { error_message, .. }
-            | InvalidRequestReason::InvalidStorageValue { error_message, .. }
-            | InvalidRequestReason::InvalidJson { error_message } => (*error_message).into(),
+    pub fn new(method_name: &'a str, error_message: &'a str) -> Option<Self> {
+        if error_message.starts_with(STORAGE_KEY_TOO_LARGE_ERROR_MESSAGE) {
+            Some(InvalidRequestReason::InvalidStorageKey { error_message })
+        } else if error_message.starts_with(STORAGE_VALUE_INVALID_LENGTH_ERROR_MESSAGE) {
+            Some(InvalidRequestReason::InvalidStorageValue { error_message })
+        } else if error_message.starts_with(UNSUPPORTED_METHOD) {
+            Some(InvalidRequestReason::UnsupportedMethod { method_name })
+        } else {
+            None
         }
     }
 
     /// Converts the invalid request reason into a provider error.
-    pub fn provider_error<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
+    pub fn to_provider_error<
+        ChainSpecT: ProviderSpec<TimerT>,
+        TimerT: Clone + TimeSinceEpoch,
+    >(
         &self,
-    ) -> Option<(&str, ProviderErrorForChainSpec<ChainSpecT>)> {
+    ) -> ProviderErrorForChainSpec<ChainSpecT> {
         match self {
-            InvalidRequestReason::InvalidJson { .. } => None,
-            InvalidRequestReason::InvalidStorageKey {
-                error_message,
-                method_name,
+            InvalidRequestReason::InvalidStorageKey { error_message }
+            | InvalidRequestReason::InvalidStorageValue { error_message } => {
+                ProviderError::InvalidInput((*error_message).to_string())
             }
-            | InvalidRequestReason::InvalidStorageValue {
-                error_message,
-                method_name,
-            } => Some((
-                method_name,
-                ProviderError::InvalidInput((*error_message).to_string()),
-            )),
-            InvalidRequestReason::UnsupportedMethod { method_name } => Some((
-                method_name,
+            InvalidRequestReason::UnsupportedMethod { method_name } => {
                 ProviderError::UnsupportedMethod {
                     method_name: (*method_name).to_string(),
-                },
-            )),
+                }
+            }
         }
     }
 }

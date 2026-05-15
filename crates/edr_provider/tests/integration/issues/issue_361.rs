@@ -6,7 +6,7 @@ use edr_primitives::Address;
 use edr_provider::{
     test_utils::{create_test_config_with, one_ether, MinimalProviderConfig},
     time::CurrentTime,
-    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    AccountOverride, MethodInvocation, NoopLogger, Provider, test_utils::rpc_request,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -38,19 +38,19 @@ async fn issue_361() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::ImpersonateAccount(impersonated_account.into()),
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
             ..TransactionRequest::default()
         }),
     ))?;
 
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::GetLogs(
+    provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::GetLogs(
         LogFilterOptions {
             from_block: Some(BlockSpec::Number(0)),
             to_block: Some(BlockSpec::latest()),

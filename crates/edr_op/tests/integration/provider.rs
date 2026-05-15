@@ -9,7 +9,7 @@ use edr_primitives::{address, bytes, Address, HashMap, U64};
 use edr_provider::{
     test_utils::{create_test_config_with, MinimalProviderConfig, ProviderTestFixture},
     time::CurrentTime,
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig, test_utils::rpc_request,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
@@ -52,8 +52,8 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let provider = create_op_provider(config)?;
 
     let last_block_number = {
-        let response = provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::BlockNumber(()),
+        let response = provider.handle_request(rpc_request(
+            MethodInvocation::<OpChainSpec>::BlockNumber(()),
         ))?;
 
         serde_json::from_value::<U64>(response.result)?.to::<u64>()
@@ -63,7 +63,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
         "de26c4a10000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002c02ea827a6981c4843b9aca00843b9c24e382520994f39fd6e51aad88f6f4ce6ab8827279cfffb922660180c00000000000000000000000000000000000000000"
     );
     let _response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(rpc_request(MethodInvocation::<OpChainSpec>::Call(
             L1CallRequest {
                 from: Some(address!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266")),
                 to: Some(GAS_PRICE_ORACLE_L1_BLOCK_ADDRESS),
@@ -127,16 +127,16 @@ mod base_fee_params {
             to: Some(callee),
             ..TransactionRequest::default()
         };
-        let _result = provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(transaction),
+        let _result = provider.handle_request(rpc_request(
+            MethodInvocation::<OpChainSpec>::SendTransaction(transaction),
         ))?;
 
         Ok(())
     }
 
     fn latest_block(provider: &Provider<OpChainSpec>) -> anyhow::Result<L1RpcBlock<B256>> {
-        let response = provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::GetBlockByNumber(
+        let response = provider.handle_request(rpc_request(
+            MethodInvocation::<OpChainSpec>::GetBlockByNumber(
                 PreEip1898BlockSpec::Tag(edr_eth::BlockTag::Latest),
                 false,
             ),

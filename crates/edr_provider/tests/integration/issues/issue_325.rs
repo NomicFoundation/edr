@@ -6,7 +6,7 @@ use edr_primitives::{Address, B256};
 use edr_provider::{
     test_utils::{create_test_config_with, one_ether, MinimalProviderConfig},
     time::CurrentTime,
-    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
+    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, test_utils::rpc_request,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -42,12 +42,12 @@ async fn issue_325() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::ImpersonateAccount(impersonated_account.into()),
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
             ..TransactionRequest::default()
@@ -56,16 +56,16 @@ async fn issue_325() -> anyhow::Result<()> {
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::DropTransaction(transaction_hash),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::DropTransaction(transaction_hash),
     ))?;
 
     let dropped: bool = serde_json::from_value(result.result)?;
 
     assert!(dropped);
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::pending(), false),
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetBlockByNumber(PreEip1898BlockSpec::pending(), false),
     ))?;
 
     Ok(())

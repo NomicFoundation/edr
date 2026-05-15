@@ -5,7 +5,7 @@ use edr_primitives::{Address, Bytes, HashMap, U256};
 use edr_provider::{
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, test_utils::rpc_request,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;
@@ -45,7 +45,7 @@ async fn issue_324() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let x = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+    let x = provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
         L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0x0c55699c").unwrap()), // x()
@@ -60,7 +60,7 @@ async fn issue_324() -> anyhow::Result<()> {
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
 
-    let y = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+    let y = provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
         L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0xa56dfe4a").unwrap()), // y()
@@ -77,21 +77,21 @@ async fn issue_324() -> anyhow::Result<()> {
 
     let x_storage_index = U256::ZERO;
     let expected_x = "0x0000000000000000000000000000000000000000000000000000000000000002";
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SetStorageAt(
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SetStorageAt(
             contract_address,
             x_storage_index,
             U256::from_str(expected_x).unwrap(),
         ),
     ))?;
 
-    let new_x = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetStorageAt(contract_address, x_storage_index, None),
+    let new_x = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetStorageAt(contract_address, x_storage_index, None),
     ))?;
 
     assert_eq!(new_x.result, expected_x);
 
-    let new_x = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+    let new_x = provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
         L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0x0c55699c").unwrap()), // x()
@@ -105,21 +105,21 @@ async fn issue_324() -> anyhow::Result<()> {
 
     let y_storage_index = U256::from(1u64);
     let expected_y = "0x0000000000000000000000000000000000000000000000000000000000000003";
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SetStorageAt(
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SetStorageAt(
             contract_address,
             y_storage_index,
             U256::from_str(expected_y).unwrap(),
         ),
     ))?;
 
-    let new_y = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetStorageAt(contract_address, y_storage_index, None),
+    let new_y = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetStorageAt(contract_address, y_storage_index, None),
     ))?;
 
     assert_eq!(new_y.result, expected_y);
 
-    let new_y = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+    let new_y = provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
         L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0xa56dfe4a").unwrap()), // y()

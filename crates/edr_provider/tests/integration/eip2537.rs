@@ -7,7 +7,7 @@ use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_primitives::{address, Bytes};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    test_utils::rpc_request,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -38,7 +38,7 @@ fn send_call(
     call_request: L1CallRequest,
 ) -> anyhow::Result<Bytes> {
     let response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        .handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
             call_request,
             None,
             None,

@@ -10,7 +10,7 @@ use derive_where::derive_where;
 use edr_generic::GenericChainSpec;
 use edr_jsonrpc_protocol as jsonrpc;
 use edr_provider::{
-    time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest, ProviderSpec,
+    time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderSpec, RpcMethodCall,
 };
 use edr_scenarios::ScenarioConfig;
 use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
@@ -181,19 +181,58 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
 
 async fn load_requests(
     scenario_path: &Path,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
+) -> anyhow::Result<(
+    ScenarioConfig,
+    Vec<jsonrpc::SingleOrBatch<jsonrpc::Request<RpcMethodCall>>>,
+)> {
     println!("Loading requests from {scenario_path:?}");
 
-    match load_gzipped_json(scenario_path.to_path_buf()).await {
+    let (config, requests) = match load_gzipped_json(scenario_path.to_path_buf()).await {
         Ok(result) => Ok(result),
         Err(err) if err.to_string().contains("gzip") => load_json(scenario_path).await,
         err => err,
-    }
+    }?;
+
+    // Convert the stored requests into the format expected by the provider,
+    // assigning IDs to each request.
+    let mut id = 1;
+    let requests = requests
+        .into_iter()
+        .map(|request| match request {
+            jsonrpc::SingleOrBatch::Single(method) => {
+                let request = jsonrpc::SingleOrBatch::Single(jsonrpc::Request {
+                    version: edr_jsonrpc_protocol::Version::V2_0,
+                    method,
+                    id: Some(jsonrpc::Id::Number(id)),
+                });
+                id += 1;
+
+                request
+            }
+            jsonrpc::SingleOrBatch::Batch(methods) => jsonrpc::SingleOrBatch::Batch(
+                methods
+                    .into_iter()
+                    .map(|method| {
+                        let request = jsonrpc::Request {
+                            version: edr_jsonrpc_protocol::Version::V2_0,
+                            method,
+                            id: Some(jsonrpc::Id::Number(id)),
+                        };
+                        id += 1;
+
+                        request
+                    })
+                    .collect(),
+            ),
+        })
+        .collect();
+
+    Ok((config, requests))
 }
 
 async fn load_gzipped_json(
     scenario_path: PathBuf,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<jsonrpc::SingleOrBatch<RpcMethodCall>>)> {
     use std::{
         fs::File,
         io::{BufRead, BufReader},
@@ -219,11 +258,11 @@ async fn load_gzipped_json(
                 );
             }
 
-            let mut requests: Vec<ProviderRequest<GenericChainSpec>> = Vec::new();
+            let mut requests: Vec<jsonrpc::SingleOrBatch<RpcMethodCall>> = Vec::new();
 
             for gzipped_line in lines {
                 let line = gzipped_line.context("Invalid gzip")?;
-                let request: ProviderRequest<GenericChainSpec> = serde_json::from_str(&line)?;
+                let request: jsonrpc::SingleOrBatch<RpcMethodCall> = serde_json::from_str(&line)?;
                 requests.push(request);
             }
 
@@ -234,7 +273,7 @@ async fn load_gzipped_json(
 
 async fn load_json(
     scenario_path: &Path,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<jsonrpc::SingleOrBatch<RpcMethodCall>>)> {
     use tokio::io::AsyncBufReadExt;
 
     let reader = tokio::io::BufReader::new(tokio::fs::File::open(scenario_path).await?);
@@ -250,10 +289,10 @@ async fn load_json(
         );
     }
 
-    let mut requests: Vec<ProviderRequest<GenericChainSpec>> = Vec::new();
+    let mut requests: Vec<jsonrpc::SingleOrBatch<RpcMethodCall>> = Vec::new();
 
     while let Some(line) = lines.next_line().await? {
-        let request: ProviderRequest<GenericChainSpec> = serde_json::from_str(&line)?;
+        let request: jsonrpc::SingleOrBatch<RpcMethodCall> = serde_json::from_str(&line)?;
         requests.push(request);
     }
 

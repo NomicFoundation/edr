@@ -9,6 +9,7 @@ use edr_chain_l1::{
     L1ChainSpec,
 };
 use edr_chain_spec::TransactionValidation;
+use edr_jsonrpc_protocol::{Id, Request, SingleOrBatch, Version};
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -23,8 +24,29 @@ use crate::{
     observability::ObservabilityConfig,
     time::{CurrentTime, TimeSinceEpoch},
     AccountOverride, ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig,
-    ProviderData, ProviderRequest, ProviderSpec, SyncProviderSpec,
+    ProviderData, ProviderSpec, RpcMethodCall, SyncProviderSpec,
 };
+
+/// Serializes a typed JSON-RPC invocation into a [`SingleOrBatch`] of
+/// [`Request<RpcMethodCall>`] suitable for [`Provider::handle_request`]. Used
+/// by test call sites that historically constructed
+/// `ProviderRequest::with_single(...)` directly.
+///
+/// Accepts any [`serde::Serialize`] type that serializes into the
+/// `{ "method": "...", "params": ... }` shape — primarily
+/// [`MethodInvocation`], which derives `Serialize` with that tagging.
+///
+/// Always uses JSON-RPC version 2.0 and a fixed request ID of 1, as these
+/// details are not relevant to the tests that use this utility.
+pub fn rpc_request(invocation: impl serde::Serialize) -> SingleOrBatch<Request<RpcMethodCall>> {
+    let value = serde_json::to_value(invocation).expect("invocation serializes");
+    let call: RpcMethodCall = serde_json::from_value(value).expect("RpcMethodCall deserializes");
+    SingleOrBatch::Single(Request {
+        version: Version::V2_0,
+        method: call,
+        id: Some(Id::Number(1)),
+    })
+}
 
 pub const TEST_SECRET_KEY: &str =
     "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -246,14 +268,14 @@ where
         ..TransactionRequest::default()
     };
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(deploy_transaction),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SendTransaction(deploy_transaction),
     ))?;
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetTransactionReceipt(transaction_hash),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetTransactionReceipt(transaction_hash),
     ))?;
 
     let receipt: L1RpcTransactionReceipt = serde_json::from_value(result.result)?;

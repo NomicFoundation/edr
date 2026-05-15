@@ -13,7 +13,7 @@ use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::address;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderError, ProviderErrorForChainSpec, ProviderRequest, ResponseWithCallTraces,
+    ProviderError, ProviderErrorForChainSpec, test_utils::rpc_request, ResponseWithCallTraces,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
@@ -58,8 +58,8 @@ fn send_transaction(
         ..TransactionRequest::default()
     };
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(transaction),
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SendTransaction(transaction),
     ))
 }
 
@@ -75,7 +75,7 @@ async fn test_call() -> anyhow::Result<()> {
         ..L1CallRequest::default()
     };
 
-    let result = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+    let result = provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
         call, None, None,
     )));
 
@@ -110,8 +110,8 @@ async fn test_estimate_gas() -> anyhow::Result<()> {
         ..L1CallRequest::default()
     };
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::EstimateGas(call, None),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::EstimateGas(call, None),
     ));
 
     assert!(result.is_err());

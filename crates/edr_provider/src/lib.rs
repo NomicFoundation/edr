@@ -7,6 +7,7 @@ mod error;
 mod filter;
 mod interval;
 mod logger;
+mod method_call;
 mod mock;
 /// Types for runtime observability.
 pub mod observability;
@@ -44,12 +45,12 @@ pub use self::{
         TransactionFailureReason,
     },
     logger::{Logger, NoopLogger, SyncLogger},
+    method_call::RpcMethodCall,
     mock::{CallOverrideResult, SyncCallOverride},
     provider::Provider,
     requests::{
         eth::calculate_eip1559_fee_parameters, hardhat::rpc_types as hardhat_rpc_types,
-        IntervalConfig as IntervalConfigRequest, InvalidRequestReason, MethodInvocation,
-        ProviderRequest, Timestamp,
+        IntervalConfig as IntervalConfigRequest, InvalidRequestReason, MethodInvocation, Timestamp,
     },
     spec::{ProviderSpec, SyncProviderSpec},
     subscribe::*,

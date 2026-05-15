@@ -7,7 +7,7 @@ use edr_precompile::secp256r1::{self, P256VERIFY_BASE_GAS_FEE, P256VERIFY_BASE_G
 use edr_primitives::{bytes, Bytes, HashMap};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    test_utils::rpc_request,
 };
 use edr_solidity::{
     config::IncludeTraces, contract_decoder::ContractDecoder, nested_trace::NestedTrace,
@@ -38,7 +38,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
     )?;
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
             L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),
@@ -77,7 +77,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
     )?;
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
             L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),
@@ -126,7 +126,7 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
     )?;
 
     let response =
-        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
             L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),

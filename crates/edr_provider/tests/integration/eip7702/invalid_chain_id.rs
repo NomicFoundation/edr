@@ -1,6 +1,6 @@
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_primitives::{address, bytes, Bytes, U256};
-use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
+use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, test_utils::rpc_request};
 use edr_signer::public_key_to_address;
 use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 
@@ -38,8 +38,8 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
 
     let provider = new_provider(secret_key)?;
     let _response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendRawTransaction(RAW_TRANSACTION.clone()),
+        .handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::SendRawTransaction(RAW_TRANSACTION.clone()),
         ))
         .expect("eth_sendRawTransaction should succeed");
 
@@ -66,8 +66,8 @@ async fn send_transaction() -> anyhow::Result<()> {
     let provider = new_provider(secret_key)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(transaction_request),
+        .handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::SendTransaction(transaction_request),
         ))
         .expect("eth_sendTransaction should succeed");
 

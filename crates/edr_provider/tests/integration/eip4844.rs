@@ -17,7 +17,7 @@ use edr_primitives::{Address, Bytes, B256, U256};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
-    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
+    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderError, test_utils::rpc_request,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
@@ -112,7 +112,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
     )?;
 
     let error = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        .handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Call(
             request, None, None,
         )))
         .expect_err("Must return an error");
@@ -144,7 +144,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
     )?;
 
     let error = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+        .handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::EstimateGas(
             request, None,
         )))
         .expect_err("Must return an error");
@@ -176,8 +176,8 @@ async fn send_transaction_unsupported() -> anyhow::Result<()> {
     )?;
 
     let error = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(transaction),
+        .handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::SendTransaction(transaction),
         ))
         .expect_err("Must return an error");
 
@@ -217,8 +217,8 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SendRawTransaction(raw_eip4844_transaction),
     ))?;
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
@@ -255,14 +255,14 @@ async fn get_transaction() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SendRawTransaction(raw_eip4844_transaction),
     ))?;
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetTransactionByHash(transaction_hash),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetTransactionByHash(transaction_hash),
     ))?;
 
     let transaction: L1RpcTransactionWithSignature = serde_json::from_value(result.result)?;
@@ -305,12 +305,12 @@ async fn block_header() -> anyhow::Result<()> {
     // The genesis block has 0 excess blobs
     let mut excess_blobs = 0u64;
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SendRawTransaction(raw_eip4844_transaction),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
     let first_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -329,12 +329,12 @@ async fn block_header() -> anyhow::Result<()> {
         .nonce(1)
         .build_raw();
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendRawTransaction(excess_blob_transaction),
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SendRawTransaction(excess_blob_transaction),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
     let second_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -353,12 +353,12 @@ async fn block_header() -> anyhow::Result<()> {
         .nonce(2)
         .build_raw();
 
-    provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendRawTransaction(excess_blob_transaction),
+    provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::SendRawTransaction(excess_blob_transaction),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
     let third_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -373,12 +373,12 @@ async fn block_header() -> anyhow::Result<()> {
     excess_blobs += 2;
 
     // Mine an empty block to validate the previous block's excess
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
+    provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Mine(
         None, None,
     )))?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
     let fourth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -394,12 +394,12 @@ async fn block_header() -> anyhow::Result<()> {
     excess_blobs = excess_blobs.saturating_sub(3);
 
     // Mine an empty block to validate the previous block's excess
-    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
+    provider.handle_request(rpc_request(MethodInvocation::<L1ChainSpec>::Mine(
         None, None,
     )))?;
 
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+    let result = provider.handle_request(rpc_request(
+        MethodInvocation::<L1ChainSpec>::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
     let fifth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
@@ -430,15 +430,15 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         let blob_hashes = builder.blob_hashes();
         let call_transaction = builder.build_raw();
 
-        provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendRawTransaction(call_transaction),
+        provider.handle_request(rpc_request(
+            MethodInvocation::<L1ChainSpec>::SendRawTransaction(call_transaction),
         ))?;
 
         for (idx, blob_hash) in blob_hashes.into_iter().enumerate() {
             let index = U256::from(idx);
 
-            let result = provider.handle_request(ProviderRequest::with_single(
-                MethodInvocation::GetStorageAt(*contract_address, index, None),
+            let result = provider.handle_request(rpc_request(
+                MethodInvocation::<L1ChainSpec>::GetStorageAt(*contract_address, index, None),
             ))?;
 
             let storage_value: B256 = serde_json::from_value(result.result)?;
@@ -448,8 +448,8 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         for idx in num_blobs..6 {
             let index = U256::from(idx);
 
-            let result = provider.handle_request(ProviderRequest::with_single(
-                MethodInvocation::GetStorageAt(*contract_address, index, None),
+            let result = provider.handle_request(rpc_request(
+                MethodInvocation::<L1ChainSpec>::GetStorageAt(*contract_address, index, None),
             ))?;
 
             let storage_value: B256 = serde_json::from_value(result.result)?;
