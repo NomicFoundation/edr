@@ -2282,7 +2282,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3044,7 +3044,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tracing",
  "tracing-flame",
- "tracing-subscriber 0.3.22",
+ "tracing-subscriber 0.3.23",
 ]
 
 [[package]]
@@ -3224,7 +3224,7 @@ dependencies = [
  "k256",
  "lazy_static",
  "log",
- "lru 0.12.5",
+ "lru 0.16.4",
  "parking_lot 0.12.3",
  "paste",
  "rand 0.9.1",
@@ -3493,7 +3493,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tracing",
- "tracing-subscriber 0.3.22",
+ "tracing-subscriber 0.3.23",
  "yansi",
 ]
 
@@ -3717,7 +3717,7 @@ dependencies = [
  "toml 0.8.20",
  "tracing",
  "tracing-flame",
- "tracing-subscriber 0.3.22",
+ "tracing-subscriber 0.3.23",
  "walkdir",
 ]
 
@@ -3920,7 +3920,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "976dd42dc7e85965fe702eb8164f21f450704bdde31faefd6471dba214cb594e"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4007,7 +4007,7 @@ checksum = "0ce92ff622d6dadf7349484f42c93271a0d49b7cc4d466a936405bacbe10aa78"
 dependencies = [
  "cfg-if",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4733,6 +4733,8 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5419bdc4f6a9207fbeba6d11b604d481addf78ecd10c11ad51e76c2f6482748d"
 dependencies = [
+ "allocator-api2",
+ "equivalent",
  "foldhash 0.2.0",
  "rayon",
  "serde",
@@ -5299,7 +5301,7 @@ checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
 dependencies = [
  "hermit-abi 0.5.0",
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5557,20 +5559,20 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "lru"
-version = "0.12.5"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
+checksum = "227748d55f2f0ab4735d87fd623798cb6b664512fe979705f829c9f81c934465"
 dependencies = [
  "hashbrown 0.15.2",
 ]
 
 [[package]]
 name = "lru"
-version = "0.13.0"
+version = "0.16.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "227748d55f2f0ab4735d87fd623798cb6b664512fe979705f829c9f81c934465"
+checksum = "7f66e8d5d03f609abc3a39e6f08e4164ebf1447a732906d39eb9b99b7919ef39"
 dependencies = [
- "hashbrown 0.15.2",
+ "hashbrown 0.16.0",
 ]
 
 [[package]]
@@ -5853,7 +5855,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6593,7 +6595,7 @@ dependencies = [
  "once_cell",
  "socket2 0.5.9",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -7273,7 +7275,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -8265,7 +8267,7 @@ dependencies = [
  "getrandom 0.3.2",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -8670,7 +8672,7 @@ checksum = "0bae117ee14789185e129aaee5d93750abe67fdc5a9a62650452bfe4e122a3a9"
 dependencies = [
  "lazy_static",
  "tracing",
- "tracing-subscriber 0.3.22",
+ "tracing-subscriber 0.3.23",
 ]
 
 [[package]]
@@ -8695,9 +8697,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.3.22"
+version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f30143827ddab0d256fd843b7a66d164e9f271cfa0dde49142c5ca0ca291f1e"
+checksum = "cb7f578e5945fb242538965c2d0b04418d38ec25c79d160cd279bf0731c8d319"
 dependencies = [
  "matchers",
  "nu-ansi-term",
@@ -9106,7 +9108,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
