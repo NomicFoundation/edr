@@ -47,7 +47,7 @@ impl SyncProvider for MockProvider {
 impl EdrContext {
     #[doc = "Creates a mock provider, which always returns the given response."]
     #[doc = "For testing purposes."]
-    #[napi]
+    #[napi(async_runtime)]
     pub fn create_mock_provider(
         &self,
         mocked_response: serde_json::Value,

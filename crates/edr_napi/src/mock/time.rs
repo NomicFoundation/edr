@@ -6,7 +6,11 @@ use edr_chain_spec_rpc::RpcBlockChainSpec;
 use edr_generic::GenericChainSpec;
 use edr_napi_core::logger::Logger;
 use edr_primitives::B256;
-use napi::{bindgen_prelude::BigInt, tokio::runtime, Env, JsObject};
+use napi::{
+    bindgen_prelude::{BigInt, Object},
+    tokio::runtime,
+    Env,
+};
 use napi_derive::napi;
 
 use crate::{
@@ -45,15 +49,15 @@ impl MockTime {
 
 #[doc = "Creates a provider with a mock timer."]
 #[doc = "For testing purposes."]
-#[napi(catch_unwind, ts_return_type = "Promise<Provider>")]
-pub fn create_provider_with_mock_timer(
-    env: Env,
-    provider_config: ProviderConfig,
-    logger_config: LoggerConfig,
-    subscription_config: SubscriptionConfig,
+#[napi(catch_unwind, async_runtime, ts_return_type = "Promise<Provider>")]
+pub fn create_provider_with_mock_timer<'env>(
+    env: &'env Env,
+    provider_config: ProviderConfig<'env>,
+    logger_config: LoggerConfig<'env>,
+    subscription_config: SubscriptionConfig<'env>,
     contract_decoder: &ContractDecoder,
     time: &MockTime,
-) -> napi::Result<JsObject> {
+) -> napi::Result<Object<'env>> {
     let (deferred, promise) = env.create_deferred()?;
 
     macro_rules! try_or_reject_promise {
@@ -75,7 +79,7 @@ pub fn create_provider_with_mock_timer(
         provider_config,
         subscription_callback,
     } = try_or_reject_promise!(resolve_configs(
-        &env,
+        env,
         runtime.clone(),
         provider_config,
         logger_config,

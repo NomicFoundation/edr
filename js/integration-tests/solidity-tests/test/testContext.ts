@@ -132,6 +132,18 @@ export class TestContext {
     const callTraces = new Map();
     for (const suiteResult of suiteResults) {
       for (const testResult of suiteResult.testResults) {
+        // F.1 contract: napi-rs v3 maps Rust `Option::None` to JS `null` by
+        // default; the migration switched the three nullable TestResult
+        // getters to `Either<T, ()>` so absence emits `undefined` instead.
+        // HH3's `gas-analytics/snapshot-cheatcodes.ts:86` compares with
+        // `=== undefined` and would fall through to `for ... of null` if
+        // the contract regressed. Assert never-null across every iterated
+        // test result. See `crates/edr_napi/src/solidity_tests/test_results.rs`
+        // for the longer rationale.
+        assert.notStrictEqual(testResult.reason, null);
+        assert.notStrictEqual(testResult.counterexample, null);
+        assert.notStrictEqual(testResult.valueSnapshotGroups, null);
+
         callTraces.set(testResult.name, testResult.callTraces());
 
         let failed = testResult.status === "Failure";
@@ -207,7 +219,11 @@ export function assertStackTraces(
     throw new Error("Stack trace is undefined");
   }
 
-  if (actual.reason === undefined || !actual.reason.includes(expectedReason)) {
+  if (
+    actual.reason === undefined ||
+    actual.reason === null ||
+    !actual.reason.includes(expectedReason)
+  ) {
     throw new Error(
       `Expected stack trace reason to include '${expectedReason}', but got '${actual.reason}'`
     );
@@ -246,18 +262,19 @@ export function assertStackTraces(
     if (expected.line !== undefined) {
       assert.equal(sourceReference.line, expected.line);
     }
+    const entry = stackTrace.entries[i];
     if (expected.message !== undefined) {
       assert(
-        stackTrace.entries[i].message == expected.message,
+        "message" in entry && entry.message == expected.message,
         `Expected message '${expected.message}' not found in entry: ${JSON.stringify(
-          stackTrace.entries[i],
+          entry,
           null,
           2
         )}`
       );
     }
     if (expected.errorDetails !== undefined) {
-      const actualDetails = stackTrace.entries[i].details;
+      const actualDetails = "details" in entry ? entry.details : undefined;
       assert(
         actualDetails !== undefined,
         `Expected structured error details but none found in entry: ${JSON.stringify(

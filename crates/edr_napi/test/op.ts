@@ -83,7 +83,7 @@ describe("Multi-chain", () => {
       autoMine: true,
       blockGasLimit: 300_000_000n,
       memPool: {
-        order: MineOrdering.Priority,
+        order: "Priority" as MineOrdering,
       },
     },
     network: {
