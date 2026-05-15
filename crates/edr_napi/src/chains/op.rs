@@ -43,7 +43,7 @@ impl SyncProviderFactory for OpProviderFactory {
             Logger::<OpChainSpec, CurrentTime>::new(logger_config, Arc::clone(&contract_decoder))?;
 
         let provider_config =
-            edr_provider::ProviderConfig::<edr_op::Hardfork>::try_from(provider_config)?;
+            edr_provider::config::Provider::<edr_op::Hardfork>::try_from(provider_config)?;
 
         let provider = edr_provider::Provider::<OpChainSpec>::new(
             runtime.clone(),

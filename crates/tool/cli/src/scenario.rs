@@ -103,7 +103,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         anyhow::bail!("Unsupported chain type: {chain_type}")
     }
 
-    let provider_config = edr_provider::ProviderConfig::<edr_chain_l1::Hardfork>::try_from(
+    let provider_config = edr_provider::config::Provider::<edr_chain_l1::Hardfork>::try_from(
         edr_napi_core::provider::Config::from(config.provider_config),
     )?;
 

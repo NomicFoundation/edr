@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tokio::{runtime, sync::Mutex};
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec, interval::IntervalMiner, requests,
-    spec::SyncProviderSpec, time::TimeSinceEpoch, IntervalConfig,
+    config::IntervalConfig, data::ProviderData, error::ProviderErrorForChainSpec,
+    interval::IntervalMiner, requests, spec::SyncProviderSpec, time::TimeSinceEpoch,
 };
 
 pub fn handle_set_interval_mining<

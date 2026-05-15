@@ -1,3 +1,4 @@
+import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
@@ -12,15 +13,19 @@ import {
   SolidityTestResult,
   BuildInfoAndOutput,
 } from "@nomicfoundation/edr";
-import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
-import { Abi } from "hardhat/types/artifacts";
+
+export type * from "hardhat/hre";
 
 import { resolveFromRoot } from "@nomicfoundation/hardhat-utils/path";
 import {
-  getBuildInfos,
-  getEdrArtifacts,
+  buildEdrArtifactsWithMetadata,
+  getBuildInfosAndOutputs,
+  EdrArtifactWithMetadata,
 } from "hardhat/internal/builtin-plugins/solidity-test/edr-artifacts";
-import { warnDeprecatedTestFail } from "hardhat/internal/builtin-plugins/solidity-test/helpers";
+import {
+  isTestSuiteArtifact,
+  warnDeprecatedTestFail,
+} from "hardhat/internal/builtin-plugins/solidity-test/helpers";
 import { ArtifactManagerImplementation } from "hardhat/internal/builtin-plugins/artifacts/artifact-manager";
 
 let BUILD_MUTEX: MultiProcessMutex | undefined;
@@ -106,34 +111,60 @@ export async function buildSolidityTestsInput(
     testRootPaths = result.testRootPaths;
   });
 
-  // EDR needs all artifacts (contracts + tests)
-  const edrArtifacts: Array<{
-    edrAtifact: Artifact;
-    userSourceName: string;
-  }> = [];
+  // EDR needs all artifacts (contracts + tests). In unified mode (the default
+  // since Hardhat 3.4.x), both scopes point to the same directory, so iterating
+  // both would load every artifact twice.
+  const scopes = hre.config.solidity.splitTestsCompilation
+    ? (["contracts", "tests"] as const)
+    : (["contracts"] as const);
+  const edrArtifacts: EdrArtifactWithMetadata[] = [];
   const buildInfos: BuildInfoAndOutput[] = [];
-  for (const scope of ["contracts", "tests"] as const) {
+  for (const scope of scopes) {
     const artifactsDir = await hre.solidity.getArtifactsDirectory(scope);
     const artifactManager = new ArtifactManagerImplementation(artifactsDir);
-    edrArtifacts.push(...(await getEdrArtifacts(artifactManager)));
-    buildInfos.push(...(await getBuildInfos(artifactManager)));
+    edrArtifacts.push(
+      ...(await buildEdrArtifactsWithMetadata(artifactManager))
+    );
+    buildInfos.push(...(await getBuildInfosAndOutputs(artifactManager)));
+  }
+
+  // Duplicate artifacts break `runAllSolidityTests`: the native runner dedupes
+  // suites by ArtifactId, so it fires fewer callbacks than `testSuites.length`
+  // and the promise never resolves. Warn loudly if Hardhat ever feeds us
+  // duplicates so the failure is visible instead of a silent hang.
+  const seenIds = new Set<string>();
+  const duplicateIds: string[] = [];
+  for (const { edrArtifact } of edrArtifacts) {
+    const key = `${edrArtifact.id.source}:${edrArtifact.id.name}@${edrArtifact.id.solcVersion}`;
+    if (seenIds.has(key)) {
+      duplicateIds.push(key);
+    } else {
+      seenIds.add(key);
+    }
+  }
+  if (duplicateIds.length > 0) {
+    console.warn(
+      `Warning: buildSolidityTestsInput loaded ${duplicateIds.length} duplicate artifact(s); ` +
+        `runAllSolidityTests will hang because the native runner dedupes suites. ` +
+        `Duplicates: ${duplicateIds.join(", ")}`
+    );
   }
 
   const sourceNameToUserSourceName = new Map(
-    edrArtifacts.map(({ userSourceName, edrAtifact }) => [
-      edrAtifact.id.source,
+    edrArtifacts.map(({ userSourceName, edrArtifact }) => [
+      edrArtifact.id.source,
       userSourceName,
     ])
   );
 
-  edrArtifacts.forEach(({ userSourceName, edrAtifact }) => {
+  edrArtifacts.forEach(({ userSourceName, edrArtifact }) => {
     if (
       testRootPaths.includes(
         resolveFromRoot(hre.config.paths.root, userSourceName)
       ) &&
-      isTestSuiteArtifact(edrAtifact)
+      isTestSuiteArtifact(edrArtifact)
     ) {
-      warnDeprecatedTestFail(edrAtifact, sourceNameToUserSourceName);
+      warnDeprecatedTestFail(edrArtifact, sourceNameToUserSourceName);
     }
   });
 
@@ -143,10 +174,10 @@ export async function buildSolidityTestsInput(
         resolveFromRoot(hre.config.paths.root, userSourceName)
       )
     )
-    .filter(({ edrAtifact }) => isTestSuiteArtifact(edrAtifact))
-    .map(({ edrAtifact }) => edrAtifact.id);
+    .filter(({ edrArtifact }) => isTestSuiteArtifact(edrArtifact))
+    .map(({ edrArtifact }) => edrArtifact.id);
 
-  const artifacts = edrArtifacts.map(({ edrAtifact }) => edrAtifact);
+  const artifacts = edrArtifacts.map(({ edrArtifact }) => edrArtifact);
 
   const tracingConfig: TracingConfigWithBuffers = {
     buildInfos,
@@ -160,17 +191,6 @@ export async function buildSolidityTestsInput(
 export function dirName(importUrl: string) {
   const fileName = fileURLToPath(importUrl);
   return path.dirname(fileName);
-}
-
-// Copied from <https://github.com/NomicFoundation/hardhat/blob/58463c16270ae154b6671d2d2eea2ba95d024d2e/v-next/hardhat/src/internal/builtin-plugins/solidity-test/helpers.ts>
-function isTestSuiteArtifact(artifact: Artifact): boolean {
-  const abi: Abi = JSON.parse(artifact.contract.abi);
-  return abi.some(({ type, name }) => {
-    if (type === "function" && typeof name === "string") {
-      return name.startsWith("test") || name.startsWith("invariant");
-    }
-    return false;
-  });
 }
 
 function buildMutex() {

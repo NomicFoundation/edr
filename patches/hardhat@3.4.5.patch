@@ -1,0 +1,158 @@
+diff --git a/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js b/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js
+index 991bcb9217f76c32af422acd493fa9610b1e4b3c..24858adbac67dbc65d1d2c078d69f0e4878b98ed 100644
+--- a/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js
++++ b/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js
+@@ -258,27 +258,34 @@ export class EdrProvider extends BaseProvider {
+ export async function getProviderConfig(networkConfig, coverageConfig, gasReportConfig, chainDescriptors, includeCallTraces) {
+     const specId = hardhatHardforkToEdrSpecId(networkConfig.hardfork, networkConfig.chainType);
+     const { genesisState, ownedAccounts } = await getGenesisStateAndOwnedAccounts(networkConfig.accounts, networkConfig.forking, networkConfig.chainType, specId);
++    const forkConfig = await hardhatForkingConfigToEdrForkConfig(networkConfig.forking, chainDescriptors, networkConfig.chainType);
++    const network = forkConfig !== undefined
++        ? forkConfig
++        : {
++            genesisBlockGasLimit: networkConfig.blockGasLimit,
++            genesisBlockTime: BigInt(toSeconds(networkConfig.initialDate)),
++        };
+     return {
+         allowBlocksWithSameTimestamp: networkConfig.allowBlocksWithSameTimestamp,
+         allowUnlimitedContractSize: networkConfig.allowUnlimitedContractSize,
+         bailOnCallFailure: networkConfig.throwOnCallFailures,
+         bailOnTransactionFailure: networkConfig.throwOnTransactionFailures,
+-        blockGasLimit: networkConfig.blockGasLimit,
+         chainId: BigInt(networkConfig.chainId),
+         coinbase: networkConfig.coinbase,
+-        fork: await hardhatForkingConfigToEdrForkConfig(networkConfig.forking, chainDescriptors, networkConfig.chainType),
++        defaultTransactionGasLimit: networkConfig.blockGasLimit,
+         genesisState: Array.from(genesisState.values()),
+         hardfork: specId,
+         initialBaseFeePerGas: networkConfig.initialBaseFeePerGas,
+-        initialDate: BigInt(toSeconds(networkConfig.initialDate)),
+         minGasPrice: networkConfig.minGasPrice,
+         mining: {
+             autoMine: networkConfig.mining.auto,
++            blockGasLimit: networkConfig.blockGasLimit,
+             interval: hardhatMiningIntervalToEdrMiningInterval(networkConfig.mining.interval),
+             memPool: {
+                 order: hardhatMempoolOrderToEdrMineOrdering(networkConfig.mining.mempool.order),
+             },
+         },
++        network,
+         networkId: BigInt(networkConfig.networkId),
+         observability: {
+             codeCoverage: coverageConfig,
+diff --git a/dist/src/internal/builtin-plugins/solidity-test/helpers.js b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
+index 2370cd07ecb5f7913c8325b01f15302c90170ee9..17bde110d70ea1a4d5c4973af7b23e379c52b624 100644
+--- a/dist/src/internal/builtin-plugins/solidity-test/helpers.js
++++ b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
+@@ -54,7 +54,12 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({ chainTy
+     if (config.forking?.rpcEndpoints !== undefined) {
+         rpcEndpoints = {};
+         for (const [name, configValue] of Object.entries(config.forking.rpcEndpoints)) {
+-            rpcEndpoints[name] = await configValue.get();
++            // We don't have the variable resolver in EDR
++            try {
++                rpcEndpoints[name] = await configValue.get();
++            } catch (e) {
++                rpcEndpoints[name] = configValue;
++            }
+         }
+     }
+     const shouldAlwaysCollectStackTraces = verbosity > DEFAULT_VERBOSITY;
+@@ -72,6 +77,8 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({ chainTy
+         includeTraces,
+         blockGasLimit,
+         disableBlockGasLimit,
++        // TODO: Hardcoded for now. This should be made configurable by the user.
++        disableTransactionGasCap: true,
+         blockDifficulty,
+         ethRpcUrl,
+         forkBlockNumber,
+diff --git a/package.json b/package.json
+index 6a8b5dc220db7a3c595be286bea9ad5ef515deae..dfea18b5f4bde1ca4a0279cacec6578403eddb36 100644
+--- a/package.json
++++ b/package.json
+@@ -41,6 +41,9 @@
+     "./internal/gas-analytics": "./dist/src/internal/builtin-plugins/gas-analytics/exports.js",
+     "./internal/solidity": "./dist/src/internal/builtin-plugins/solidity/exports.js",
+     "./utils/contract-names": "./dist/src/utils/contract-names.js",
++    "./internal/builtin-plugins/solidity-test/edr-artifacts": "./dist/src/internal/builtin-plugins/solidity-test/edr-artifacts.js",
++    "./internal/builtin-plugins/solidity-test/helpers": "./dist/src/internal/builtin-plugins/solidity-test/helpers.js",
++    "./internal/builtin-plugins/artifacts/artifact-manager": "./dist/src/internal/builtin-plugins/artifacts/artifact-manager.js",
+     "./utils/result": "./dist/src/utils/result.js",
+     "./types/runtime": "./dist/src/internal/deprecated-module-imported-from-hardhat2-plugin.js",
+     "./builtin-tasks/task-names": "./dist/src/internal/deprecated-module-imported-from-hardhat2-plugin.js",
+@@ -51,6 +54,22 @@
+     "smart-contracts",
+     "hardhat"
+   ],
++  "scripts": {
++    "lint": "pnpm prettier --check && pnpm eslint",
++    "lint:fix": "pnpm prettier --write && pnpm eslint --fix",
++    "eslint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
++    "postlint": "eslint \"templates/**/*.ts\"",
++    "postlint:fix": "eslint --fix \"templates/**/*.ts\"",
++    "prettier": "prettier \"**/*.{ts,js,md,json}\"",
++    "test": "node --import tsx/esm --test --test-reporter=@nomicfoundation/hardhat-node-test-reporter \"test/*.ts\" \"test/!(fixture-projects|helpers)/**/*.ts\"",
++    "test:only": "node --import tsx/esm --test --test-only --test-reporter=@nomicfoundation/hardhat-node-test-reporter \"test/*.ts\" \"test/!(fixture-projects|helpers)/**/*.ts\"",
++    "test:coverage": "c8 --reporter html --reporter text --all --exclude test --exclude \"src/**/{types,type-extensions}.ts\" --src src node --import tsx/esm --test --test-reporter=@nomicfoundation/hardhat-node-test-reporter \"test/*.ts\" \"test/!(fixture-projects|helpers)/**/*.ts\"",
++    "pretest": "pnpm build",
++    "pretest:only": "pnpm build",
++    "build": "tsc --build .",
++    "prepublishOnly": "pnpm build",
++    "clean": "rimraf dist ./test/fixture-projects/*-tmp-*-*-*-*-*"
++  },
+   "files": [
+     "dist/src/",
+     "src/",
+@@ -61,7 +80,8 @@
+     "README.md"
+   ],
+   "devDependencies": {
+-    "@nomicfoundation/hardhat-node-test-reporter": "^3.0.6",
++    "@nomicfoundation/hardhat-node-test-reporter": "workspace:^3.0.6",
++    "@nomicfoundation/hardhat-test-utils": "workspace:^",
+     "@types/adm-zip": "^0.5.5",
+     "@types/node": "^22.0.0",
+     "@types/semver": "^7.5.8",
+@@ -71,15 +91,14 @@
+     "expect-type": "^1.2.1",
+     "prettier": "3.2.5",
+     "rimraf": "^5.0.5",
+-    "typescript": "~5.8.0",
+-    "@nomicfoundation/hardhat-test-utils": "^2.0.3"
++    "typescript": "~5.8.0"
+   },
+   "dependencies": {
+     "@nomicfoundation/edr": "0.12.0-next.32",
+-    "@nomicfoundation/hardhat-errors": "^3.0.12",
+-    "@nomicfoundation/hardhat-utils": "^4.1.1",
+-    "@nomicfoundation/hardhat-vendored": "^3.0.3",
+-    "@nomicfoundation/hardhat-zod-utils": "^3.0.4",
++    "@nomicfoundation/hardhat-errors": "workspace:^3.0.12",
++    "@nomicfoundation/hardhat-utils": "workspace:^4.1.1",
++    "@nomicfoundation/hardhat-vendored": "workspace:^3.0.3",
++    "@nomicfoundation/hardhat-zod-utils": "workspace:^3.0.4",
+     "@nomicfoundation/solidity-analyzer": "^0.1.1",
+     "@sentry/core": "^9.4.0",
+     "adm-zip": "^0.4.16",
+@@ -93,20 +112,5 @@
+     "tsx": "^4.19.3",
+     "ws": "^8.18.0",
+     "zod": "^3.23.8"
+-  },
+-  "scripts": {
+-    "lint": "pnpm prettier --check && pnpm eslint",
+-    "lint:fix": "pnpm prettier --write && pnpm eslint --fix",
+-    "eslint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+-    "postlint": "eslint \"templates/**/*.ts\"",
+-    "postlint:fix": "eslint --fix \"templates/**/*.ts\"",
+-    "prettier": "prettier \"**/*.{ts,js,md,json}\"",
+-    "test": "node --import tsx/esm --test --test-reporter=@nomicfoundation/hardhat-node-test-reporter \"test/*.ts\" \"test/!(fixture-projects|helpers)/**/*.ts\"",
+-    "test:only": "node --import tsx/esm --test --test-only --test-reporter=@nomicfoundation/hardhat-node-test-reporter \"test/*.ts\" \"test/!(fixture-projects|helpers)/**/*.ts\"",
+-    "test:coverage": "c8 --reporter html --reporter text --all --exclude test --exclude \"src/**/{types,type-extensions}.ts\" --src src node --import tsx/esm --test --test-reporter=@nomicfoundation/hardhat-node-test-reporter \"test/*.ts\" \"test/!(fixture-projects|helpers)/**/*.ts\"",
+-    "pretest": "pnpm build",
+-    "pretest:only": "pnpm build",
+-    "build": "tsc --build .",
+-    "clean": "rimraf dist ./test/fixture-projects/*-tmp-*-*-*-*-*"
+   }
+ }

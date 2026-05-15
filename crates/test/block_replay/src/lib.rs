@@ -185,6 +185,7 @@ pub async fn run_full_block<
 
     let evm_config = EvmConfig {
         chain_id: prior_blockchain.chain_id(),
+        disable_block_gas_limit: false,
         disable_eip3607: true,
         limit_contract_code_size: None,
         transaction_gas_cap: None,
@@ -472,6 +473,7 @@ pub async fn assert_replay_header<
 
     let evm_config = EvmConfig {
         chain_id: prior_blockchain.chain_id(),
+        disable_block_gas_limit: false,
         disable_eip3607: true,
         limit_contract_code_size: None,
         transaction_gas_cap: None,

@@ -17,11 +17,12 @@ use edr_chain_l1::{
 use edr_chain_spec::ExecutableTransaction as _;
 use edr_primitives::{address, Address, Bytes, B256, U256};
 use edr_provider::{
+    config::ProviderConfig,
     test_utils::{
         create_test_config, one_ether, set_genesis_state_with_owned_accounts, sign_authorization,
     },
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;

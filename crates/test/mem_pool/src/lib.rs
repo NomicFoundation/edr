@@ -24,9 +24,22 @@ impl MemPoolTestFixture {
         let trie = PersistentAccountAndStorageTrie::with_accounts(&accounts);
 
         MemPoolTestFixture {
-            // SAFETY: literal is non-zero
-            mem_pool: MemPool::new(unsafe { NonZeroU64::new_unchecked(10_000_000u64) }, None),
+            mem_pool: MemPool::new(
+                // SAFETY: literal is non-zero
+                Some(unsafe { NonZeroU64::new_unchecked(10_000_000u64) }),
+                None,
+            ),
             state: PersistentStateTrie::with_accounts_and_storage(trie),
+        }
+    }
+
+    /// Constructs an instance with the block gas limit enforcement disabled.
+    pub fn without_block_gas_limit() -> Self {
+        MemPoolTestFixture {
+            mem_pool: MemPool::new(None, None),
+            state: PersistentStateTrie::with_accounts_and_storage(
+                PersistentAccountAndStorageTrie::default(),
+            ),
         }
     }
 
@@ -35,7 +48,7 @@ impl MemPoolTestFixture {
         MemPoolTestFixture {
             mem_pool: MemPool::new(
                 // SAFETY: literal is non-zero
-                unsafe { NonZeroU64::new_unchecked(10_000_000u64) },
+                Some(unsafe { NonZeroU64::new_unchecked(10_000_000u64) }),
                 Some(transaction_gas_cap),
             ),
             state: PersistentStateTrie::with_accounts_and_storage(
@@ -53,7 +66,10 @@ impl MemPoolTestFixture {
     }
 
     /// Sets the block gas limit.
-    pub fn set_block_gas_limit(&mut self, block_gas_limit: NonZeroU64) -> Result<(), StateError> {
+    pub fn set_block_gas_limit(
+        &mut self,
+        block_gas_limit: Option<NonZeroU64>,
+    ) -> Result<(), StateError> {
         self.mem_pool
             .set_block_gas_limit(&self.state, block_gas_limit)
     }

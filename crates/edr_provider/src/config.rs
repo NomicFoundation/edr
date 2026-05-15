@@ -14,6 +14,41 @@ use crate::{
     observability::ObservabilityConfig, requests::IntervalConfig as IntervalConfigRequest,
 };
 
+/// Convenience type alias for [`ForkConfig`].
+///
+/// This allows usage like `edr_provider::config::Fork`.
+pub type Fork<HardforkT> = ForkConfig<HardforkT>;
+
+/// Convenience type alias for [`IntervalConfig`].
+///
+/// This allows usage like `edr_provider::config::Interval`.
+pub type Interval = IntervalConfig;
+
+/// Convenience type alias for [`LocalConfig`].
+///
+/// This allows usage like `edr_provider::config::Local`.
+pub type Local = LocalConfig;
+
+/// Convenience type alias for [`MemPoolConfig`].
+///
+/// This allows usage like `edr_provider::config::MemPool`.
+pub type MemPool = MemPoolConfig;
+
+/// Convenience type alias for [`MiningConfig`].
+///
+/// This allows usage like `edr_provider::config::Mining`.
+pub type Mining = MiningConfig;
+
+/// Convenience type alias for [`NetworkConfig`].
+///
+/// This allows usage like `edr_provider::config::Network`.
+pub type Network<HardforkT> = NetworkConfig<HardforkT>;
+
+/// Convenience type alias for [`ProviderConfig`].
+///
+/// This allows usage like `edr_provider::config::Provider`.
+pub type Provider<HardforkT> = ProviderConfig<HardforkT>;
+
 /// Specification of overrides for an account and its storage.
 ///
 /// Similar to `edr_state_api::Account` but without the `status` field and
@@ -33,10 +68,32 @@ pub struct AccountOverride {
     pub storage: Option<EvmStorage>,
 }
 
-/// Configuration for forking a blockchain
+/// Configuration for the provider's network.
+#[derive(Clone, Debug)]
+pub enum NetworkConfig<HardforkT> {
+    /// Forked blockchain.
+    Fork(ForkConfig<HardforkT>),
+    /// Locally mined blockchain.
+    Local(LocalConfig),
+}
+
+impl<HardforkT> From<ForkConfig<HardforkT>> for NetworkConfig<HardforkT> {
+    fn from(fork_config: ForkConfig<HardforkT>) -> Self {
+        NetworkConfig::Fork(fork_config)
+    }
+}
+
+impl<HardforkT> From<LocalConfig> for NetworkConfig<HardforkT> {
+    fn from(local_config: LocalConfig) -> Self {
+        NetworkConfig::Local(local_config)
+    }
+}
+
+/// Configuration for a forked blockchain, which forks from an existing
+/// blockchain at a specified block.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Fork<HardforkT> {
+pub struct ForkConfig<HardforkT> {
     pub block_number: Option<u64>,
     pub cache_dir: PathBuf,
     pub chain_overrides: HashMap<ChainId, ChainOverride<HardforkT>>,
@@ -44,20 +101,33 @@ pub struct Fork<HardforkT> {
     pub url: String,
 }
 
+/// Configuration for a locally mined blockchain.
+#[derive(Clone, Debug)]
+pub struct LocalConfig {
+    /// The blob gas used for the genesis block, introduced in [EIP-4844].
+    ///
+    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    pub genesis_blob_gas: Option<BlobGas>,
+    /// The block gas limit of the genesis block.
+    pub genesis_block_gas_limit: NonZeroU64,
+    /// The timestamp of the genesis block.
+    pub genesis_block_time: Option<SystemTime>,
+}
+
 /// Configuration for interval mining.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all_fields = "camelCase")]
-pub enum Interval {
+pub enum IntervalConfig {
     Fixed(NonZeroU64),
     Range { min: u64, max: u64 },
 }
 
-impl Interval {
+impl IntervalConfig {
     /// Generates a (random) interval based on the configuration.
     pub fn generate_interval(&self) -> u64 {
         match self {
-            Interval::Fixed(interval) => interval.get(),
-            Interval::Range { min, max } => rand::rng().random_range(*min..=*max),
+            IntervalConfig::Fixed(interval) => interval.get(),
+            IntervalConfig::Range { min, max } => rand::rng().random_range(*min..=*max),
         }
     }
 }
@@ -71,19 +141,19 @@ pub enum IntervalConfigConversionError {
     MinGreaterThanMax,
 }
 
-impl TryInto<Option<Interval>> for IntervalConfigRequest {
+impl TryInto<Option<IntervalConfig>> for IntervalConfigRequest {
     type Error = IntervalConfigConversionError;
 
-    fn try_into(self) -> Result<Option<Interval>, Self::Error> {
+    fn try_into(self) -> Result<Option<IntervalConfig>, Self::Error> {
         match self {
             Self::FixedOrDisabled(0) => Ok(None),
             Self::FixedOrDisabled(value) => {
                 // Zero implies disabled
-                Ok(NonZeroU64::new(value).map(Interval::Fixed))
+                Ok(NonZeroU64::new(value).map(IntervalConfig::Fixed))
             }
             Self::Range([min, max]) => {
                 if max >= min {
-                    Ok(Some(Interval::Range { min, max }))
+                    Ok(Some(IntervalConfig::Range { min, max }))
                 } else {
                     Err(IntervalConfigConversionError::MinGreaterThanMax)
                 }
@@ -95,22 +165,27 @@ impl TryInto<Option<Interval>> for IntervalConfigRequest {
 /// Configuration for the provider's mempool.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MemPool {
+pub struct MemPoolConfig {
     pub order: MineOrdering,
 }
 
 /// Configuration for the provider's miner.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Mining {
+pub struct MiningConfig {
     pub auto_mine: bool,
-    pub interval: Option<Interval>,
-    pub mem_pool: MemPool,
+    /// The block gas limit to use for mining a block.
+    ///
+    /// When not set, enforcement of the block gas limit is disabled in the mem
+    /// pool, miner, and REVM.
+    pub block_gas_limit: Option<NonZeroU64>,
+    pub interval: Option<IntervalConfig>,
+    pub mem_pool: MemPoolConfig,
 }
 
 /// Configuration for the provider
 #[derive(Clone, Debug)]
-pub struct Provider<HardforkT> {
+pub struct ProviderConfig<HardforkT> {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
     /// Whether to return an `Err` when `eth_call` fails
@@ -118,31 +193,33 @@ pub struct Provider<HardforkT> {
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     pub base_fee_params: Option<BaseFeeParams<HardforkT>>,
-    pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,
-    pub fork: Option<Fork<HardforkT>>,
+    /// The default transaction gas limit to use for RPC call and transaction
+    /// requests that do not specify a `gas` value.
+    pub default_transaction_gas_limit: NonZeroU64,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: HardforkT,
     pub initial_base_fee_per_gas: Option<u128>,
-    pub initial_blob_gas: Option<BlobGas>,
-    pub initial_date: Option<SystemTime>,
     pub initial_parent_beacon_block_root: Option<B256>,
     pub min_gas_price: u128,
-    pub mining: Mining,
+    pub mining: MiningConfig,
+    pub network: NetworkConfig<HardforkT>,
     pub network_id: u64,
     pub observability: ObservabilityConfig,
     pub owned_accounts: Vec<k256::SecretKey>,
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
     /// Transaction gas cap, introduced in [EIP-7825].
     ///
-    /// When not set, will default to value defined by the used hardfork
+    /// When not set, enforcement of the transaction gas cap is disabled and
+    /// transactions with any `gas` value are accepted by the mempool and
+    /// executed without REVM's transaction gas cap check.
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
     pub transaction_gas_cap: Option<u64>,
 }
 
-impl Default for MemPool {
+impl Default for MemPoolConfig {
     fn default() -> Self {
         Self {
             order: MineOrdering::Priority,
@@ -150,12 +227,14 @@ impl Default for MemPool {
     }
 }
 
-impl Default for Mining {
+impl Default for MiningConfig {
     fn default() -> Self {
         Self {
             auto_mine: true,
+            // SAFETY: literal is non-zero
+            block_gas_limit: Some(unsafe { NonZeroU64::new_unchecked(60_000_000u64) }),
             interval: None,
-            mem_pool: MemPool::default(),
+            mem_pool: MemPoolConfig::default(),
         }
     }
 }

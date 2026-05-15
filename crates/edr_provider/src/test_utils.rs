@@ -18,12 +18,12 @@ use parking_lot::RwLock;
 use tokio::runtime;
 
 use crate::{
-    config,
+    config::{ForkConfig, LocalConfig, MiningConfig, ProviderConfig},
     error::ProviderErrorForChainSpec,
     observability::ObservabilityConfig,
     time::{CurrentTime, TimeSinceEpoch},
-    AccountOverride, ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig,
-    ProviderData, ProviderRequest, ProviderSpec, SyncProviderSpec,
+    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderData, ProviderRequest,
+    ProviderSpec, SyncProviderSpec,
 };
 
 pub const TEST_SECRET_KEY: &str =
@@ -184,28 +184,41 @@ impl<HardforkT> MinimalProviderConfig<HardforkT> {
 pub fn create_test_config_with<HardforkT: Default>(
     config: MinimalProviderConfig<HardforkT>,
 ) -> ProviderConfig<HardforkT> {
+    let network = if let Some(fork_config) = config.fork {
+        fork_config.into()
+    } else {
+        LocalConfig {
+            genesis_blob_gas: Some(BlobGas {
+                gas_used: 0,
+                excess_gas: 0,
+            }),
+            // SAFETY: literal is non-zero
+            genesis_block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
+            genesis_block_time: Some(SystemTime::now()),
+        }
+        .into()
+    };
+
     ProviderConfig {
         allow_blocks_with_same_timestamp: false,
         allow_unlimited_contract_size: false,
         bail_on_call_failure: false,
         bail_on_transaction_failure: false,
         base_fee_params: None,
-        // SAFETY: literal is non-zero
-        block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
         chain_id: 123,
         coinbase: Address::from(U160::from(1)),
-        fork: config.fork,
+        // SAFETY: literal is non-zero
+        default_transaction_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
         genesis_state: config.genesis_state,
         hardfork: HardforkT::default(),
         initial_base_fee_per_gas: Some(1000000000),
-        initial_blob_gas: Some(BlobGas {
-            gas_used: 0,
-            excess_gas: 0,
-        }),
-        initial_date: Some(SystemTime::now()),
         initial_parent_beacon_block_root: Some(KECCAK_NULL_RLP),
         min_gas_price: 0,
-        mining: config::Mining::default(),
+        mining: MiningConfig {
+            block_gas_limit: Some(unsafe { NonZeroU64::new_unchecked(30_000_000) }),
+            ..MiningConfig::default()
+        },
+        network,
         network_id: 123,
         observability: config.observability.unwrap_or_default(),
         owned_accounts: config.owned_accounts,

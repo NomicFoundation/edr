@@ -1466,7 +1466,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "234113d19d0d7d613b40e86fb654acf958910802bcceab913a4f9e7cda03b1a4"
 dependencies = [
  "memchr",
- "regex-automata 0.4.9",
+ "regex-automata",
  "serde",
 ]
 
@@ -2336,7 +2336,7 @@ dependencies = [
  "alloy-json-abi",
  "edr_primitives",
  "foundry-compilers",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
 ]
 
@@ -2824,6 +2824,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip7825"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+ "revm-primitives",
+]
+
+[[package]]
 name = "edr_eip7892"
 version = "0.3.8"
 dependencies = [
@@ -2943,7 +2951,7 @@ name = "edr_instrument"
 version = "0.3.8"
 dependencies = [
  "edr_primitives",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
  "sha3",
  "slang_solidity",
@@ -3027,7 +3035,7 @@ dependencies = [
  "openssl-sys",
  "parking_lot 0.12.3",
  "rand 0.8.5",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
  "serde_json",
  "static_assertions",
@@ -3036,7 +3044,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tracing",
  "tracing-flame",
- "tracing-subscriber 0.3.19",
+ "tracing-subscriber 0.3.22",
 ]
 
 [[package]]
@@ -3054,6 +3062,7 @@ dependencies = [
  "edr_chain_spec_evm",
  "edr_decoder_revert",
  "edr_eip1559",
+ "edr_eip7825",
  "edr_eth",
  "edr_generic",
  "edr_precompile",
@@ -3432,7 +3441,7 @@ dependencies = [
  "revm-inspectors",
  "revm-interpreter",
  "revm-precompile",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
  "serde_json",
  "strum 0.26.3",
@@ -3476,7 +3485,7 @@ dependencies = [
  "proptest",
  "rayon",
  "regex",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
  "serde_json",
  "serial_test",
@@ -3484,7 +3493,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tokio",
  "tracing",
- "tracing-subscriber 0.3.19",
+ "tracing-subscriber 0.3.22",
  "yansi",
 ]
 
@@ -3708,7 +3717,7 @@ dependencies = [
  "toml 0.8.20",
  "tracing",
  "tracing-flame",
- "tracing-subscriber 0.3.19",
+ "tracing-subscriber 0.3.22",
  "walkdir",
 ]
 
@@ -3737,7 +3746,7 @@ dependencies = [
  "edr_instrument",
  "foundry-compilers",
  "hex",
- "semver 1.0.26",
+ "semver 1.0.28",
  "tempfile",
 ]
 
@@ -3911,7 +3920,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "976dd42dc7e85965fe702eb8164f21f450704bdde31faefd6471dba214cb594e"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3998,7 +4007,7 @@ checksum = "0ce92ff622d6dadf7349484f42c93271a0d49b7cc4d466a936405bacbe10aa78"
 dependencies = [
  "cfg-if",
  "rustix",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4100,6 +4109,7 @@ dependencies = [
  "ecdsa",
  "edr_artifact",
  "edr_common",
+ "edr_coverage",
  "edr_decoder_revert",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
@@ -4117,7 +4127,7 @@ dependencies = [
  "regex",
  "revm",
  "revm-inspectors",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
  "serde_json",
  "similar-asserts",
@@ -4169,7 +4179,7 @@ dependencies = [
  "path-slash",
  "rand 0.8.5",
  "rayon",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
  "serde_json",
  "sha2",
@@ -4206,7 +4216,7 @@ dependencies = [
  "path-slash",
  "rayon",
  "regex",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -4226,7 +4236,7 @@ dependencies = [
  "foundry-compilers-artifacts-solc",
  "foundry-compilers-core",
  "path-slash",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
 ]
 
@@ -4242,7 +4252,7 @@ dependencies = [
  "fs_extra",
  "path-slash",
  "regex",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
  "serde_json",
  "svm-rs",
@@ -4346,7 +4356,7 @@ dependencies = [
  "foundry-evm-core",
  "rayon",
  "revm",
- "semver 1.0.26",
+ "semver 1.0.28",
  "tracing",
 ]
 
@@ -4591,9 +4601,9 @@ dependencies = [
 
 [[package]]
 name = "git2"
-version = "0.20.2"
+version = "0.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2deb07a133b1520dc1a5690e9bd08950108873d7ed5de38dcc74d3b5ebffa110"
+checksum = "7b88256088d75a56f8ecfa070513a775dd9107f6530ef14919dac831af9cfe2b"
 dependencies = [
  "bitflags 2.10.0",
  "libc",
@@ -5289,7 +5299,7 @@ checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
 dependencies = [
  "hermit-abi 0.5.0",
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5434,9 +5444,9 @@ checksum = "6800badb6cb2082ffd7b6a67e6125bb39f18782f793520caee8cb8846be06112"
 
 [[package]]
 name = "libgit2-sys"
-version = "0.18.2+1.9.1"
+version = "0.18.4+1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c42fe03df2bd3c53a3a9c7317ad91d80c81cd1fb0caec8d7cc4cd2bfa10c222"
+checksum = "9b26f66f35e1871b22efcf7191564123d2a446ca0538cde63c23adfefa9b15b7"
 dependencies = [
  "cc",
  "libc",
@@ -5592,11 +5602,11 @@ checksum = "ffbee8634e0d45d258acb448e7eaab3fce7a0a467395d4d9f228e3c1f01fb2e4"
 
 [[package]]
 name = "matchers"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8263075bb86c5a1b1427b5ae862e8889656f126e9f77c484496e8b47cf5c5558"
+checksum = "d1525a2a28c7f4fa0fc98bb91ae755d1e2d1505079e05539e35bc876b5d65ae9"
 dependencies = [
- "regex-automata 0.1.10",
+ "regex-automata",
 ]
 
 [[package]]
@@ -5619,20 +5629,20 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
 name = "metaslang_bindings"
-version = "1.3.3"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
+version = "1.3.5"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.5#9c5a234eb2da64243f0c46202c1780236321a2bc"
 dependencies = [
  "metaslang_cst",
  "metaslang_graph_builder",
  "metaslang_stack_graphs",
- "semver 1.0.26",
+ "semver 1.0.28",
  "thiserror 2.0.12",
 ]
 
 [[package]]
 name = "metaslang_cst"
-version = "1.3.3"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
+version = "1.3.5"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.5#9c5a234eb2da64243f0c46202c1780236321a2bc"
 dependencies = [
  "nom",
  "serde",
@@ -5641,8 +5651,8 @@ dependencies = [
 
 [[package]]
 name = "metaslang_graph_builder"
-version = "1.3.3"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
+version = "1.3.5"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.5#9c5a234eb2da64243f0c46202c1780236321a2bc"
 dependencies = [
  "log",
  "metaslang_cst",
@@ -5655,15 +5665,15 @@ dependencies = [
 
 [[package]]
 name = "metaslang_stack_graphs"
-version = "1.3.3"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
+version = "1.3.5"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.5#9c5a234eb2da64243f0c46202c1780236321a2bc"
 dependencies = [
  "bitvec",
  "controlled-option",
  "either",
  "enumset",
  "fxhash",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "libc",
  "lsp-positions",
  "smallvec",
@@ -5694,12 +5704,6 @@ dependencies = [
  "mime",
  "unicase",
 ]
-
-[[package]]
-name = "minimal-lexical"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
@@ -5792,7 +5796,7 @@ dependencies = [
  "convert_case 0.11.0",
  "proc-macro2",
  "quote",
- "semver 1.0.26",
+ "semver 1.0.28",
  "syn 2.0.115",
 ]
 
@@ -5830,12 +5834,11 @@ checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "nom"
-version = "7.1.3"
+version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
+checksum = "df9761775871bdef83bee530e60050f7e54b1105350d6884eb0fb4f46c2f9405"
 dependencies = [
  "memchr",
- "minimal-lexical",
 ]
 
 [[package]]
@@ -5846,12 +5849,11 @@ checksum = "f5438dd2b2ff4c6df6e1ce22d825ed2fa93ee2922235cc45186991717f0a892d"
 
 [[package]]
 name = "nu-ansi-term"
-version = "0.46.0"
+version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77a8165726e8236064dbb45459242600304b42a5ea24ee2948e18e023bf7ba84"
+checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "overload",
- "winapi",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -6113,12 +6115,6 @@ name = "os_str_bytes"
 version = "6.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
-
-[[package]]
-name = "overload"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "p256"
@@ -6523,7 +6519,7 @@ dependencies = [
  "rand 0.9.1",
  "rand_chacha 0.9.0",
  "rand_xorshift",
- "regex-syntax 0.8.5",
+ "regex-syntax",
  "rusty-fork",
  "tempfile",
  "unarray",
@@ -6597,7 +6593,7 @@ dependencies = [
  "once_cell",
  "socket2 0.5.9",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -6755,17 +6751,8 @@ checksum = "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-automata 0.4.9",
- "regex-syntax 0.8.5",
-]
-
-[[package]]
-name = "regex-automata"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c230d73fb8d8c1b9c0b3135c5142a8acee3a0558fb8db5cf1cb65f8d7862132"
-dependencies = [
- "regex-syntax 0.6.29",
+ "regex-automata",
+ "regex-syntax",
 ]
 
 [[package]]
@@ -6776,14 +6763,8 @@ checksum = "809e8dc61f6de73b46c85f4c96486310fe304c434cfa43669d7b40f711150908"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-syntax 0.8.5",
+ "regex-syntax",
 ]
-
-[[package]]
-name = "regex-syntax"
-version = "0.6.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
 
 [[package]]
 name = "regex-syntax"
@@ -7279,7 +7260,7 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
 dependencies = [
- "semver 1.0.26",
+ "semver 1.0.28",
 ]
 
 [[package]]
@@ -7561,11 +7542,12 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.26"
+version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56e6fa9c48d24d85fb3de5ad847117517440f6beceb7798af16b4a87d616b8d0"
+checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 dependencies = [
  "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -7871,15 +7853,14 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity"
-version = "1.3.3"
-source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.3#3ad185704aa8d7f638f3d574317ece89ab66d818"
+version = "1.3.5"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.3.5#9c5a234eb2da64243f0c46202c1780236321a2bc"
 dependencies = [
  "metaslang_bindings",
  "metaslang_cst",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
- "strum 0.26.3",
- "strum_macros 0.26.4",
+ "strum 0.28.0",
  "thiserror 2.0.12",
 ]
 
@@ -7923,7 +7904,7 @@ dependencies = [
  "either",
  "num-bigint",
  "num-rational",
- "semver 1.0.26",
+ "semver 1.0.28",
  "solar-data-structures",
  "solar-interface",
  "solar-macros",
@@ -8095,6 +8076,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "strum"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
+dependencies = [
+ "strum_macros 0.28.0",
+]
+
+[[package]]
 name = "strum_macros"
 version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8121,6 +8111,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "strum_macros"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab85eea0270ee17587ed4156089e10b9e6880ee688791d45a905f5b1ca36f664"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.115",
+]
+
+[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8135,7 +8137,7 @@ dependencies = [
  "const-hex",
  "dirs",
  "reqwest 0.12.15",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde",
  "serde_json",
  "sha2",
@@ -8152,7 +8154,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1ebe77b200f965e8dbec3ef1d8337e974179ca1ecaa9fc28f67288d6b438159"
 dependencies = [
  "const-hex",
- "semver 1.0.26",
+ "semver 1.0.28",
  "serde_json",
  "svm-rs",
 ]
@@ -8668,7 +8670,7 @@ checksum = "0bae117ee14789185e129aaee5d93750abe67fdc5a9a62650452bfe4e122a3a9"
 dependencies = [
  "lazy_static",
  "tracing",
- "tracing-subscriber 0.3.19",
+ "tracing-subscriber 0.3.22",
 ]
 
 [[package]]
@@ -8693,15 +8695,15 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.3.19"
+version = "0.3.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8189decb5ac0fa7bc8b96b7cb9b2701d60d48805aca84a238004d665fcc4008"
+checksum = "2f30143827ddab0d256fd843b7a66d164e9f271cfa0dde49142c5ca0ca291f1e"
 dependencies = [
  "matchers",
  "nu-ansi-term",
  "once_cell",
  "parking_lot 0.12.3",
- "regex",
+ "regex-automata",
  "sharded-slab",
  "smallvec",
  "thread_local",
@@ -9104,7 +9106,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
