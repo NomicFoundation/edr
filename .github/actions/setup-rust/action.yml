@@ -22,6 +22,11 @@ runs:
         components: ${{ inputs.components }}
         cache: ${{ inputs.cache }}
         cache-save-if: ${{ github.ref == 'refs/heads/main' }}
+        # Disabled: caching ~/.cargo/bin/ wholesale clobbers rustup's proxy
+        # binaries on restore after a runner image bump, leaving `cargo` to
+        # behave as `rustup-init` and rejecting every subcommand.
+        # See https://github.com/Swatinem/rust-cache/issues/341
+        cache-bin: "false"
         # Do not override the RUSTFLAGS by default and instead do that per job,
         # if needed. Setting RUSTFLAGS via env var, config, etc. is mutually
         # exclusive and often a source of bugs.
