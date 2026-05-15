@@ -70,7 +70,7 @@ k256 = { version = "0.13.1", default-features = false, features = [
 ] }
 lazy_static = { version = "1.4.0", default-features = false }
 log = { version = "0.4.20", default-features = false }
-lru = "0.16.0"
+lru = "0.17.0"
 parking_lot.workspace = true
 rand.workspace = true
 revm-inspector.workspace = true
