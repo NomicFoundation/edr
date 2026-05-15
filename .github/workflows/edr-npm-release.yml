@@ -151,6 +151,9 @@ jobs:
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
         with:
           image: ${{ matrix.settings.docker }}
+          # /home/runner/.cargo matches where the host's `Cache cargo` step writes
+          # (`~/.cargo` on GH-hosted Linux runners); docker -v doesn't expand `~` and
+          # GHA has no `runner.home` context, so the path is hardcoded.
           options: "--user 0:0 -v /home/runner/.cargo/git:/usr/local/cargo/git -v /home/runner/.cargo/registry:/usr/local/cargo/registry -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
@@ -174,6 +177,7 @@ jobs:
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
         with:
           image: ${{ matrix.settings.docker }}
+          # See gnu step above for why /home/runner/.cargo is hardcoded.
           options: "--user 0:0 -v /home/runner/.cargo/git:/usr/local/cargo/git -v /home/runner/.cargo/registry:/usr/local/cargo/registry -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
