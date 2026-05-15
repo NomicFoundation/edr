@@ -102,16 +102,15 @@ dependencies = [
 
 [[package]]
 name = "alloy-dyn-abi"
-version = "1.2.1"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b95b3deca680efc7e9cba781f1a1db352fa1ea50e6384a514944dcf4419e652"
+checksum = "3fdff496dd4e98a81f4861e66f7eaf5f2488971848bb42d9c892f871730245c8"
 dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
  "alloy-sol-type-parser",
  "alloy-sol-types",
  "arbitrary",
- "derive_arbitrary",
  "derive_more 2.0.1",
  "itoa",
  "proptest",
@@ -2286,7 +2285,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -5853,7 +5852,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7273,7 +7272,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7958,7 +7957,7 @@ dependencies = [
  "solar-config",
  "solar-data-structures",
  "solar-macros",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "tracing",
  "unicode-width",
 ]
@@ -8142,7 +8141,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "url",
  "zip",
 ]
@@ -8265,7 +8264,7 @@ dependencies = [
  "getrandom 0.3.2",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -9106,7 +9105,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
