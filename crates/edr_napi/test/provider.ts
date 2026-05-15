@@ -23,12 +23,18 @@ import {
   OpHardfork,
   SpecId,
 } from "..";
-import { ALCHEMY_URL, getContext, loadContract } from "./helpers";
+import {
+  ALCHEMY_URL,
+  getContext,
+  loadContract,
+  useProviderCleanup,
+} from "./helpers";
 
 chai.use(chaiAsPromised);
 
 describe("Provider", () => {
   const context = getContext();
+  const { track } = useProviderCleanup();
 
   before(async () => {
     await context.registerProviderFactory(
@@ -101,7 +107,7 @@ describe("Provider", () => {
   };
 
   it("initialize local generic provider", async function () {
-    const provider = context.createProvider(
+    const providerPromise = context.createProvider(
       GENERIC_CHAIN_TYPE,
       {
         ...providerConfig,
@@ -116,7 +122,8 @@ describe("Provider", () => {
       new ContractDecoder()
     );
 
-    await assert.isFulfilled(provider);
+    await assert.isFulfilled(providerPromise);
+    track(await providerPromise);
   });
 
   it("initialize remote", async function () {
@@ -124,7 +131,7 @@ describe("Provider", () => {
       this.skip();
     }
 
-    const provider = context.createProvider(
+    const providerPromise = context.createProvider(
       GENERIC_CHAIN_TYPE,
       {
         ...providerConfig,
@@ -140,7 +147,8 @@ describe("Provider", () => {
       new ContractDecoder()
     );
 
-    await assert.isFulfilled(provider);
+    await assert.isFulfilled(providerPromise);
+    track(await providerPromise);
   });
 
   // TODO(#1288): Add backwards compatibility for Hardhat 2
@@ -503,7 +511,7 @@ describe("Provider", () => {
     );
     const contractInterface = new Interface(contractArtifact.contract.abi);
 
-    const provider = await context.createProvider(
+    const provider = track(await context.createProvider(
       GENERIC_CHAIN_TYPE,
       {
         ...providerConfig,
@@ -519,7 +527,7 @@ describe("Provider", () => {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
       new ContractDecoder()
-    );
+    ));
 
     const sender = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
 
@@ -596,7 +604,7 @@ describe("Provider", () => {
   });
 
   it("allows baseFeeConfig configuration", async function () {
-    const provider = await context.createProvider(
+    const provider = track(await context.createProvider(
       OP_CHAIN_TYPE,
       {
         ...providerConfig,
@@ -624,7 +632,7 @@ describe("Provider", () => {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
       new ContractDecoder()
-    );
+    ));
 
     await provider.handleRequest(
       JSON.stringify({
@@ -668,7 +676,7 @@ describe("Provider", () => {
 
   describe("setCallOverrideCallback", () => {
     it("invokes the callback and uses its return value for eth_call", async function () {
-      const provider = await context.createProvider(
+      const provider = track(await context.createProvider(
         GENERIC_CHAIN_TYPE,
         {
           ...providerConfig,
@@ -681,7 +689,7 @@ describe("Provider", () => {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         new ContractDecoder()
-      );
+      ));
 
       const targetAddress = "0xabababababababababababababababababababab";
       const callData = "0xdeadbeef";
@@ -730,7 +738,7 @@ describe("Provider", () => {
       const receivedInputLengths: number[] = [];
       const printedMessages: string[] = [];
 
-      const provider = await context.createProvider(
+      const provider = track(await context.createProvider(
         GENERIC_CHAIN_TYPE,
         {
           ...providerConfig,
@@ -767,7 +775,7 @@ describe("Provider", () => {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         new ContractDecoder()
-      );
+      ));
 
       // ABI-encoded `console.log(string)` calldata for the message "hello":
       //   selector       0x41304fac          (4 bytes)
@@ -821,7 +829,7 @@ describe("Provider", () => {
         resolveFirst = resolve;
       });
 
-      const provider = await context.createProvider(
+      const provider = track(await context.createProvider(
         GENERIC_CHAIN_TYPE,
         {
           ...providerConfig,
@@ -837,7 +845,7 @@ describe("Provider", () => {
           },
         },
         new ContractDecoder()
-      );
+      ));
 
       const subscribeResponse = await provider.handleRequest(
         JSON.stringify({
@@ -998,7 +1006,7 @@ describe("Provider", () => {
         this.skip();
       }
 
-      const provider = await context.createProvider(
+      const provider = track(await context.createProvider(
         GENERIC_CHAIN_TYPE,
         {
           ...providerConfig,
@@ -1011,7 +1019,7 @@ describe("Provider", () => {
           subscriptionCallback: (_event) => {},
         },
         new ContractDecoder()
-      );
+      ));
 
       const response = await provider.handleRequest(
         JSON.stringify({
@@ -1029,7 +1037,7 @@ describe("Provider", () => {
     });
 
     it("fails on invalid storage key", async function () {
-      const provider = await context.createProvider(
+      const provider = track(await context.createProvider(
         GENERIC_CHAIN_TYPE,
         {
           ...providerConfig,
@@ -1039,7 +1047,7 @@ describe("Provider", () => {
           subscriptionCallback: (_event) => {},
         },
         new ContractDecoder()
-      );
+      ));
 
       const storageKey = "b421";
 
@@ -1057,7 +1065,7 @@ describe("Provider", () => {
     });
 
     it("deserializes storage keys correctly", async function () {
-      const provider = await context.createProvider(
+      const provider = track(await context.createProvider(
         GENERIC_CHAIN_TYPE,
         {
           ...providerConfig,
@@ -1067,7 +1075,7 @@ describe("Provider", () => {
           subscriptionCallback: (_event) => {},
         },
         new ContractDecoder()
-      );
+      ));
 
       const storageKey =
         "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";

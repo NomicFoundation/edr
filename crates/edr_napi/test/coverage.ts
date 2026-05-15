@@ -18,7 +18,12 @@ import {
   SubscriptionEvent,
   TestStatus,
 } from "..";
-import { getContext, loadContract, runAllSolidityTests } from "./helpers";
+import {
+  getContext,
+  loadContract,
+  runAllSolidityTests,
+  useProviderCleanup,
+} from "./helpers";
 
 chai.use(chaiAsPromised);
 
@@ -33,6 +38,7 @@ function readDeploymentBytecode(): string {
 
 describe("Code coverage", () => {
   const context = getContext();
+  const { track } = useProviderCleanup();
 
   const incrementDeploymentBytecode = readDeploymentBytecode();
 
@@ -125,7 +131,7 @@ describe("Code coverage", () => {
 
   describe("eth_sendTransaction", function () {
     it("should report code coverage hits", async function () {
-      const provider = await context.createProvider(
+      const provider = track(await context.createProvider(
         GENERIC_CHAIN_TYPE,
         {
           ...providerConfig,
@@ -138,7 +144,7 @@ describe("Code coverage", () => {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         new ContractDecoder()
-      );
+      ));
 
       const sendTransactionResponse = await provider.handleRequest(
         JSON.stringify({
@@ -198,7 +204,7 @@ describe("Code coverage", () => {
     });
 
     it("should handle thrown exception", async function () {
-      const provider = await context.createProvider(
+      const provider = track(await context.createProvider(
         GENERIC_CHAIN_TYPE,
         {
           ...providerConfig,
@@ -218,7 +224,7 @@ describe("Code coverage", () => {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         new ContractDecoder()
-      );
+      ));
 
       const sendTransactionResponse = await provider.handleRequest(
         JSON.stringify({

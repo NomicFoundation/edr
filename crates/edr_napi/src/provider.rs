@@ -12,17 +12,26 @@ use napi::{
     Env, Status,
 };
 use napi_derive::napi;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 
 pub use self::factory::ProviderFactory;
 use self::response::Response;
 use crate::{call_override::CallOverrideCallback, contract_decoder::ContractDecoder};
 
 /// A JSON-RPC provider for Ethereum.
+///
+/// The inner [`Arc<dyn SyncProvider>`] is held inside a `Mutex<Option<_>>` so
+/// that [`Provider::close`] can drop it explicitly. Dropping it triggers the
+/// cleanup cascade — `IntervalMiner::Drop` cancels its background task,
+/// `ProviderData` releases the held `Box<dyn SyncLogger>` /
+/// `Box<dyn SyncSubscriberCallback>` / `Option<Arc<dyn SyncCallOverride>>`,
+/// each of which releases its underlying `napi_threadsafe_function` handles
+/// while the napi env is still healthy. See
+/// `/workspace/napi-rs-v3-tsfn-shutdown-investigation.md` for the full story.
 #[napi]
 pub struct Provider {
     contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
-    provider: Arc<dyn SyncProvider>,
+    provider: Mutex<Option<Arc<dyn SyncProvider>>>,
     runtime: runtime::Handle,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
@@ -40,11 +49,21 @@ impl Provider {
     ) -> Self {
         Self {
             contract_decoder,
-            provider,
+            provider: Mutex::new(Some(provider)),
             runtime,
             #[cfg(feature = "scenarios")]
             scenario_file,
         }
+    }
+
+    /// Returns a clone of the inner [`SyncProvider`], or an error if
+    /// [`Provider::close`] has been called.
+    fn inner(&self) -> napi::Result<Arc<dyn SyncProvider>> {
+        self.provider
+            .lock()
+            .as_ref()
+            .map(Arc::clone)
+            .ok_or_else(|| napi::Error::from_reason("Provider has been closed"))
     }
 }
 
@@ -101,7 +120,7 @@ impl Provider {
     #[doc = "Handles a JSON-RPC request and returns a JSON-RPC response."]
     #[napi(catch_unwind)]
     pub async fn handle_request(&self, request: String) -> napi::Result<Response> {
-        let provider = self.provider.clone();
+        let provider = self.inner()?;
 
         #[cfg(feature = "scenarios")]
         if let Some(scenario_file) = &self.scenario_file {
@@ -159,7 +178,13 @@ impl Provider {
         let call_override_callback =
             Arc::new(move |address, data| call_override_callback.call_override(address, data));
 
-        let provider = self.provider.clone();
+        let provider = match self.inner() {
+            Ok(provider) => provider,
+            Err(error) => {
+                deferred.reject(error);
+                return Ok(promise);
+            }
+        };
         self.runtime.spawn_blocking(move || {
             provider.set_call_override_callback(call_override_callback);
 
@@ -175,7 +200,7 @@ impl Provider {
     /// `false` to disable this.
     #[napi(catch_unwind)]
     pub async fn set_verbose_tracing(&self, verbose_tracing: bool) -> napi::Result<()> {
-        let provider = self.provider.clone();
+        let provider = self.inner()?;
 
         self.runtime
             .spawn_blocking(move || {
@@ -183,5 +208,57 @@ impl Provider {
             })
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+    }
+
+    /// Releases the underlying provider and all associated resources
+    /// (subscription / call-override / logger threadsafe-functions, the
+    /// interval-mining background task) synchronously, while the napi env
+    /// is still healthy. Any subsequent method call on this `Provider`
+    /// returns a `"Provider has been closed"` error.
+    ///
+    /// Calling `close()` is the supported way to release a `Provider`
+    /// without relying on JS GC + Node env teardown to fire `napi_finalize`
+    /// at the right time. The underlying `napi_threadsafe_function`
+    /// shutdown path has a documented data-race / use-after-free during
+    /// Node env cleanup ([`nodejs/node#55706`][1]; fix in
+    /// [`nodejs/node#55877`][2] is in Node 25 only, not backported to
+    /// Node 22 or 20). Without an explicit `close()` consumers rely on
+    /// V8 GC heuristics — empirically reliable for typical Hardhat
+    /// workloads but fragile for programmatic multi-provider patterns
+    /// and prone to surfacing as macOS-15 atexit crashes (see
+    /// `/workspace/napi-rs-v3-tsfn-shutdown-investigation.md`).
+    ///
+    /// `close()` is idempotent: calling it twice is a no-op the second
+    /// time. Methods called after `close()` return an error rather than
+    /// silently no-op, to surface the lifecycle violation.
+    ///
+    /// [1]: https://github.com/nodejs/node/issues/55706
+    /// [2]: https://github.com/nodejs/node/commit/350b0ea895
+    #[napi(catch_unwind)]
+    pub async fn close(&self) -> napi::Result<()> {
+        // Take the Arc out of the Option, dropping our reference here.
+        let inner = self.provider.lock().take();
+
+        // Move the Arc into spawn_blocking so its drop fires on a tokio
+        // worker thread. `IntervalMiner::Drop` calls `block_in_place` +
+        // `Handle::block_on(background_task)` to cancel and join the
+        // interval-mining task, and `block_in_place` is only valid in a
+        // tokio runtime context — calling drop directly from the JS
+        // thread would panic.
+        //
+        // Note: in-flight `spawn_blocking` tasks from concurrent
+        // `handle_request` / `set_call_override_callback` invocations
+        // hold their own Arc clones. Our drop here reduces the Arc
+        // refcount from N to N-1; the cleanup cascade fires only when
+        // those tasks finish (microseconds in steady state). Not a
+        // correctness issue.
+        if let Some(provider) = inner {
+            self.runtime
+                .spawn_blocking(move || drop(provider))
+                .await
+                .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?;
+        }
+
+        Ok(())
     }
 }
