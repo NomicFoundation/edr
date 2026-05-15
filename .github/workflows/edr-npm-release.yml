@@ -28,6 +28,7 @@ jobs:
   build:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
+    needs: check_commit
     permissions:
       contents: read
     strategy:
@@ -45,6 +46,12 @@ jobs:
           - host: windows-2025
             target: x86_64-pc-windows-msvc
             build: pnpm run build --strip
+            # NTFS small-file creates are ~5-10x slower than ext4/APFS,
+            # so napi-rs's pre-cargo `cargo metadata` step burns ~50s
+            # extracting ~500 .crate tarballs into registry/src/ on warm
+            # runs without this. Other platforms re-extract fast enough
+            # that caching it isn't worth the size hit.
+            cache_extra_paths: ~/.cargo/registry/src/
 
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
@@ -107,16 +114,22 @@ jobs:
         with:
           node-version: 20
 
+      # Release commits build cold: napi codegen relies on proc-macro
+      # expansion (napi-rs#1297), so warm-cache builds risk shipping
+      # stale or empty index.js / index.d.ts. Don't enable for releases.
       - name: Cache cargo
+        if: needs.check_commit.outputs.tag == ''
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            .cargo-cache
             target/
-          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
+            ${{ matrix.settings.cache_extra_paths }}
+          key: ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-
 
       - name: Install dependencies (non-Windows)
         if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
@@ -138,7 +151,10 @@ jobs:
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
         with:
           image: ${{ matrix.settings.docker }}
-          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          # /home/runner/.cargo matches where the host's `Cache cargo` step writes
+          # (`~/.cargo` on GH-hosted Linux runners); docker -v doesn't expand `~` and
+          # GHA has no `runner.home` context, so the path is hardcoded.
+          options: "--user 0:0 -v /home/runner/.cargo/git:/usr/local/cargo/git -v /home/runner/.cargo/registry:/usr/local/cargo/registry -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
 
@@ -161,7 +177,8 @@ jobs:
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
         with:
           image: ${{ matrix.settings.docker }}
-          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          # See gnu step above for why /home/runner/.cargo is hardcoded.
+          options: "--user 0:0 -v /home/runner/.cargo/git:/usr/local/cargo/git -v /home/runner/.cargo/registry:/usr/local/cargo/registry -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
 
@@ -387,7 +404,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-    if: github.event_name != 'pull_request' || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR'
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
