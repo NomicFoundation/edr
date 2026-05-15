@@ -46,6 +46,13 @@ jobs:
               - renovate.json
               - .github/workflows/check-renovate-config.yml
 
+      # ubuntu-24.04's default Node 20 is too old for renovate@latest, so
+      # npx would otherwise pull a stale renovate whose schema lags the bot's.
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        if: github.event_name != 'merge_group' || steps.filter.outputs.renovate == 'true'
+        with:
+          node-version: 24
+
       - name: Renovate schema check
         if: github.event_name != 'merge_group' || steps.filter.outputs.renovate == 'true'
         run: npx --yes --package renovate -- renovate-config-validator renovate.json

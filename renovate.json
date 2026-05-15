@@ -140,6 +140,17 @@
       "enabled": false
     }
   ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "pnpm version pinned in workflow shell commands (`npm i -g pnpm@X.Y.Z` inside containers that bypass corepack/packageManager). Keep in lockstep with package.json's packageManager field.",
+      "managerFilePatterns": [".github/workflows/*.yml", ".github/workflows/*.yaml"],
+      "matchStrings": ["pnpm@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
+    }
+  ],
   "labels": ["dependencies", "no changeset needed"],
   "configMigration": true,
   "dependencyDashboard": false,
