@@ -140,7 +140,7 @@
       "enabled": false
     }
   ],
-  "labels": ["dependencies"],
+  "labels": ["dependencies", "no changeset needed"],
   "configMigration": true,
   "dependencyDashboard": false,
   "osvVulnerabilityAlerts": true,
