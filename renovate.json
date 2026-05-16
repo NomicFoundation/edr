@@ -119,6 +119,12 @@
       "allowedVersions": "<6"
     },
     {
+      "description": "pnpm major: pnpm 11 requires Node >= 22.13, so it's tied to the Node-major bump above. Blocks `packageManager`, `engines.pnpm`, and the `pnpm@X.Y.Z` customManager hits in workflow YAML. Minor/patch (incl. security) still flow through.",
+      "matchDepNames": ["pnpm"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
       "description": "TS major: cascades to typescript-eslint and to consumers of EDR's TS-aware bindings. Bump manually when the ecosystem catches up.",
       "matchPackageNames": ["typescript"],
       "matchUpdateTypes": ["major"],
