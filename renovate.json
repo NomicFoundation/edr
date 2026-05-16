@@ -114,6 +114,11 @@
       "enabled": false
     },
     {
+      "description": "pnpm/action-setup v6+ ships a pnpm 11 bootstrap that requires Node >= 22.13. Cap at v5 (= v4.4.0 retagged) until the Node-major rule above moves us off Node 20.",
+      "matchPackageNames": ["pnpm/action-setup"],
+      "allowedVersions": "<6"
+    },
+    {
       "description": "TS major: cascades to typescript-eslint and to consumers of EDR's TS-aware bindings. Bump manually when the ecosystem catches up.",
       "matchPackageNames": ["typescript"],
       "matchUpdateTypes": ["major"],
