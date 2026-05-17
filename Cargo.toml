@@ -351,7 +351,7 @@ serde_json = { version = "1.0", features = [
 ] }
 strum = "0.26"
 thiserror = { version = "2.0.12", default-features = false }
-toml = "0.8"
+toml = "0.9"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2"
