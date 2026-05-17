@@ -154,8 +154,8 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "pnpm version pinned in workflow shell commands (`npm i -g pnpm@X.Y.Z` inside containers that bypass corepack/packageManager). Keep in lockstep with package.json's packageManager field.",
-      "managerFilePatterns": [".github/workflows/*.yml", ".github/workflows/*.yaml"],
+      "description": "pnpm version pinned in `pnpm@X.Y.Z` strings: workflow shell commands (`npm i -g pnpm@X.Y.Z` inside containers that bypass corepack/packageManager) and package.json's `packageManager` field. Renovate's npm manager doesn't reliably bump `packageManager` in non-security flows (see PR #1413), so we cover it here too to keep all the pins in lockstep.",
+      "managerFilePatterns": [".github/workflows/*.yml", ".github/workflows/*.yaml", "package.json"],
       "matchStrings": ["pnpm@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "pnpm",
       "datasourceTemplate": "npm",
