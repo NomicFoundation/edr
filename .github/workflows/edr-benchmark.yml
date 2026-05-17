@@ -31,7 +31,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: socketdev/action@937f824ec476dfd164d4a4d9995751427b0be143 # v1.3.0
+      - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
         with:
           mode: firewall
       - uses: ./.github/actions/setup-node
@@ -53,7 +53,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: socketdev/action@937f824ec476dfd164d4a4d9995751427b0be143 # v1.3.0
+      - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
         with:
           mode: firewall
       - uses: ./.github/actions/setup-node
@@ -98,7 +98,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: socketdev/action@937f824ec476dfd164d4a4d9995751427b0be143 # v1.3.0
+      - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
         with:
           mode: firewall
       - uses: ./.github/actions/setup-node
