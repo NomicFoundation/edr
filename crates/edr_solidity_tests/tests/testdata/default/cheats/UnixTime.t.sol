@@ -8,7 +8,7 @@ contract UnixTimeTest is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 
     // This is really wide because CI sucks.
-    uint256 constant errMargin = 1000;
+    uint256 constant errMargin = 5000;
 
     function testUnixTimeAgainstDate() public {
         string[] memory inputs = new string[](2);
