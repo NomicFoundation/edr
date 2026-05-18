@@ -145,6 +145,12 @@
       "enabled": false
     },
     {
+      "description": "sha2: hold at 0.10.x until the RustCrypto-adjacent stack (k256, secp256k1, alloy-chains, bip32/39, coins-*, scrypt, foundry-compilers, p256) moves to digest 0.11. A premature 0.11 bump duplicates sha2 + digest + block-buffer + crypto-common + cpufeatures in the lockfile because every transitive that pins ^0.10 stays on 0.10.x alongside our 0.11.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["sha2"],
+      "allowedVersions": "<0.11"
+    },
+    {
       "description": "Hardhat ecosystem (hardhat, hardhat2 alias, @nomicfoundation/hardhat-*): exact-pinned, pnpm-patched, partly on pre-release tracks. Bumps invalidate patches and break the v2/v3 benchmark setup; coordinated manually with edr↔hardhat releases.",
       "matchManagers": ["npm"],
       "matchPackageNames": ["hardhat", "hardhat2", "/^@nomicfoundation\\/hardhat-/"],
