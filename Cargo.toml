@@ -207,8 +207,8 @@ foundry-evm-fuzz = { path = "crates/foundry/evm/fuzz" }
 foundry-evm-traces = { path = "crates/foundry/evm/traces" }
 
 # solc & compilation utilities
-foundry-block-explorers = { version = "0.18.0", default-features = false }
-foundry-compilers = { version = "0.18.0", default-features = false, features = [
+foundry-block-explorers = { version = "0.23.0", default-features = false }
+foundry-compilers = { version = "0.20.0", default-features = false, features = [
     "svm-solc",
 ] }
 
@@ -258,7 +258,7 @@ c-kzg = { version = "2.1.4", default-features = false, features = [
 ] }
 
 revm-inspectors = { version = "0.33.1", features = ["serde"] }
-foundry-fork-db = "0.21"
+foundry-fork-db = "0.26"
 
 ## ethers
 ethers-contract-abigen = { version = "2.0.14", default-features = false }
