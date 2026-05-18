@@ -96,10 +96,11 @@
       "groupName": "tracing"
     },
     {
-      "description": "External foundry-rs crates from crates.io (not the vendored fork in crates/foundry/). Released together upstream; may need lockstep with the vendored fork.",
+      "description": "External foundry-rs crates from crates.io. Need alloy + revm bump coordination.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["foundry-block-explorers", "foundry-compilers", "foundry-fork-db"],
-      "groupName": "foundry"
+      "groupName": "foundry",
+      "enabled": false
     },
     {
       "description": "Node major: bumped manually, only to even LTS. Surfaces touched: .nvmrc, engines.node, @types/node, setup-node.",
