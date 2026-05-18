@@ -132,6 +132,11 @@
       "enabled": false
     },
     {
+      "description": "TS 5.9+: tightens Buffer/Uint8Array variance and breaks Hardhat-copied test helpers in edr_napi. Drop this cap when Hardhat moves off 5.8.",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<5.9"
+    },
+    {
       "description": "crates/edr_napi/package.json is devDependencies-only — nothing ships to Hardhat consumers. Block test/lint majors (chai/mocha/eslint/prettier/...): review cost without downstream benefit. @napi-rs/cli is exempt — kept in the napi-rs ABI lockstep group above.",
       "matchManagers": ["npm"],
       "matchFileNames": ["crates/edr_napi/package.json"],
