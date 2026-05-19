@@ -66,8 +66,11 @@ impl Provider {
                 let compiler_output = serde_json::from_value(compiler_output)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
+                // `addCompilationResult` is Hardhat 2 only — solc artifacts.
+                // Solx reaches EDR via Hardhat 3's `BuildInfoConfig` path.
                 let contracts = match create_models_and_decode_bytecodes(
                     solc_version,
+                    None,
                     &compiler_input,
                     &compiler_output,
                 ) {
