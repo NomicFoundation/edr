@@ -1,0 +1,34 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "project/contracts/Scenarios.t.sol": {
+      "content": ""
+    }
+  },
+  "settings": {
+    "evmVersion": "osaka",
+    "outputSelection": {
+      "*": {
+        "": [
+          "ast"
+        ],
+        "*": [
+          "abi",
+          "evm.bytecode.linkReferences",
+          "evm.bytecode.object",
+          "evm.bytecode.opcodes",
+          "evm.bytecode.sourceMap",
+          "evm.deployedBytecode.immutableReferences",
+          "evm.deployedBytecode.linkReferences",
+          "evm.deployedBytecode.object",
+          "evm.deployedBytecode.opcodes",
+          "evm.deployedBytecode.sourceMap",
+          "evm.methodIdentifiers"
+        ]
+      }
+    },
+    "remappings": [
+      "project/:forge-std/Test.sol=npm/forge-std@1.9.4/src/Test.sol"
+    ]
+  }
+}
