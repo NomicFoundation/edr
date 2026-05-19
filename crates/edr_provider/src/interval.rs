@@ -116,11 +116,11 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> Drop
                     Err(RecvTimeoutError::Timeout) => {
                         log::warn!(
                             target: "edr_provider::interval_miner",
-                            "IntervalMiner::Drop timed out (TSFN deadlock suspected, see EDR #1394)"
+                            "IntervalMiner::Drop timed out (TSFN deadlock suspected)"
                         );
                         eprintln!(
                             "[edr_provider] WARNING: IntervalMiner::Drop timed out after 5s \
-                             (TSFN deadlock suspected, see EDR #1394)"
+                             (TSFN deadlock suspected)"
                         );
                         // task is dropped here — detaches without aborting
                     }
