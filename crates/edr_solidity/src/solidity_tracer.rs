@@ -287,6 +287,8 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
         }
     }
 
+    let compiler_type = contract_meta.compiler_type;
+
     let stacktrace_with_inferred_error = error_inferrer::infer_after_tracing(
         trace,
         stacktrace,
@@ -295,6 +297,6 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
         last_submessage_data,
     )?;
 
-    error_inferrer::filter_redundant_frames(stacktrace_with_inferred_error)
+    error_inferrer::filter_redundant_frames(stacktrace_with_inferred_error, compiler_type)
         .map_err(SolidityTracerError::from)
 }
