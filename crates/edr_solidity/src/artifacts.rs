@@ -10,6 +10,41 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
+/// Compiler that produced a Hardhat build-info. Absent on older build-infos
+/// and the EDR in-process flow; absent is treated as `Solc`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, strum::Display, strum::EnumString)]
+#[serde(rename_all = "camelCase")]
+#[strum(serialize_all = "camelCase")]
+pub enum CompilerType {
+    /// Reference Solidity compiler; uses `evm.{deployed,}Bytecode.sourceMap`.
+    Solc,
+    /// solx compiler; uses `evm.{deployed,}Bytecode.debugInfo`.
+    Solx,
+}
+
+/// Unknown compilerType (e.g. from a newer Hardhat) → `None` + warn, so the
+/// build-info still deserializes through the solc decode path.
+fn deserialize_optional_compiler_type<'de, D>(
+    deserializer: D,
+) -> Result<Option<CompilerType>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use std::str::FromStr;
+
+    let raw = Option::<String>::deserialize(deserializer)?;
+    match raw {
+        None => Ok(None),
+        Some(s) => match CompilerType::from_str(&s) {
+            Ok(ct) => Ok(Some(ct)),
+            Err(_) => {
+                log::warn!("Unknown build-info compilerType {s:?}; treating as \"solc\".");
+                Ok(None)
+            }
+        },
+    }
+}
+
 /// Error in the build info config
 #[derive(Debug, thiserror::Error)]
 pub enum BuildInfoConfigError {
@@ -113,6 +148,7 @@ impl BuildInfoBuffers<'_> {
                         id: input.id,
                         solc_version: input.solc_version,
                         solc_long_version: input.solc_long_version,
+                        compiler_type: input.compiler_type,
                         input: input.input,
                         output: output.output,
                     })
@@ -132,7 +168,7 @@ pub struct BuildInfoBufferSeparateOutput<'a> {
     pub output: &'a [u8],
 }
 
-/// A `BuildInfoWithOutput` contains all the information of a solc run. It
+/// A `BuildInfoWithOutput` contains all the information of a compiler run. It
 /// includes all the necessary information to recreate that exact same run, and
 /// the output of the run.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -143,11 +179,15 @@ pub struct BuildInfoWithOutput {
     pub id: String,
     pub solc_version: String,
     pub solc_long_version: String,
+    /// Producing compiler. Absent on older builds and the Hardhat 2 flow;
+    /// `None` is treated as [`CompilerType::Solc`].
+    #[serde(default, deserialize_with = "deserialize_optional_compiler_type")]
+    pub compiler_type: Option<CompilerType>,
     pub input: CompilerInput,
     pub output: CompilerOutput,
 }
 
-/// A `BuildInfo` contains all the input information of a solc run. It
+/// A `BuildInfo` contains all the input information of a compiler run. It
 /// includes all the necessary information to recreate that exact same run.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -157,13 +197,20 @@ pub struct BuildInfo {
     pub id: String,
     pub solc_version: String,
     pub solc_long_version: String,
+    /// See [`BuildInfoWithOutput::compiler_type`].
+    #[serde(default, deserialize_with = "deserialize_optional_compiler_type")]
+    pub compiler_type: Option<CompilerType>,
     pub input: CompilerInput,
 }
 
-/// A `BuildInfoOutput` contains all the output of a solc run.
+/// A `BuildInfoOutput` contains all the output of a compiler run.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildInfoOutput {
+    /// Mirrored from the input file (canonical source). See
+    /// [`BuildInfoWithOutput::compiler_type`].
+    #[serde(default, deserialize_with = "deserialize_optional_compiler_type")]
+    pub compiler_type: Option<CompilerType>,
     #[serde(rename = "_format")]
     pub _format: String,
     pub id: String,
@@ -277,6 +324,9 @@ pub struct CompilerOutputBytecode {
     pub object: String,
     pub opcodes: String,
     pub source_map: String,
+    /// Hex-encoded ELF (DWARF v5) from solx. Absent for solc artifacts.
+    #[serde(default)]
+    pub debug_info: Option<String>,
     pub link_references: HashMap<String, HashMap<String, Vec<LinkReference>>>,
     pub immutable_references: Option<HashMap<String, Vec<ImmutableReference>>>,
 }
@@ -311,6 +361,99 @@ mod tests {
     fn serde_compiler_output() {
         // these were taken from a run of TypeScript function compileLiteral
         let compiler_output_json = include_str!("../fixtures/compiler_output.json");
-        let _compiler_output: CompilerOutput = serde_json::from_str(compiler_output_json).unwrap();
+        let output: CompilerOutput = serde_json::from_str(compiler_output_json).unwrap();
+        // solc artifacts have no debugInfo field; the new Option<String>
+        // defaults to None via `#[serde(default)]`.
+        if let Some((_, contract)) = output.contracts.values().flat_map(|m| m.iter()).next() {
+            assert_eq!(contract.evm.bytecode.debug_info, None);
+            assert_eq!(contract.evm.deployed_bytecode.debug_info, None);
+        }
+    }
+
+    #[test]
+    fn solx_compiler_output_carries_debug_info() {
+        let compiler_output_json = include_str!("../fixtures/solx_compiler_output.json");
+        let output: CompilerOutput = serde_json::from_str(compiler_output_json).unwrap();
+        let contract = output
+            .contracts
+            .get("Counter.sol")
+            .and_then(|m| m.get("Counter"))
+            .expect("Counter.sol::Counter should be in the solx fixture");
+        // solx leaves sourceMap empty.
+        assert_eq!(contract.evm.bytecode.source_map, "");
+        assert_eq!(contract.evm.deployed_bytecode.source_map, "");
+        let creation_dwarf = contract
+            .evm
+            .bytecode
+            .debug_info
+            .as_deref()
+            .expect("solx fixture should have evm.bytecode.debugInfo");
+        let runtime_dwarf = contract
+            .evm
+            .deployed_bytecode
+            .debug_info
+            .as_deref()
+            .expect("solx fixture should have evm.deployedBytecode.debugInfo");
+        // \x7fELF magic, hex-encoded.
+        assert!(creation_dwarf.starts_with("7f454c46"));
+        assert!(runtime_dwarf.starts_with("7f454c46"));
+        assert!(creation_dwarf.len() >= 200 && runtime_dwarf.len() >= 200);
+    }
+
+    #[test]
+    fn build_info_with_compiler_type_round_trips() {
+        let with_type = serde_json::json!({
+            "_format": "hh3-sol-build-info-1",
+            "id": "solc-0_8_34-solx-deadbeef",
+            "solcVersion": "0.8.34",
+            "solcLongVersion": "0.8.34+solx",
+            "compilerType": "solx",
+            "input": {
+                "language": "Solidity",
+                "sources": {},
+                "settings": null
+            }
+        });
+        let bi: BuildInfo = serde_json::from_value(with_type).unwrap();
+        assert_eq!(bi.compiler_type, Some(CompilerType::Solx));
+        let round_tripped = serde_json::to_value(&bi).unwrap();
+        assert_eq!(round_tripped["compilerType"], "solx");
+    }
+
+    #[test]
+    fn build_info_with_solc_compiler_type_round_trips() {
+        let solc = serde_json::json!({
+            "_format": "hh3-sol-build-info-1",
+            "id": "solc-0_8_34-deadbeef",
+            "solcVersion": "0.8.34",
+            "solcLongVersion": "0.8.34+commit.abc",
+            "compilerType": "solc",
+            "input": {
+                "language": "Solidity",
+                "sources": {},
+                "settings": null
+            }
+        });
+        let bi: BuildInfo = serde_json::from_value(solc).unwrap();
+        assert_eq!(bi.compiler_type, Some(CompilerType::Solc));
+        let round_tripped = serde_json::to_value(&bi).unwrap();
+        assert_eq!(round_tripped["compilerType"], "solc");
+    }
+
+    #[test]
+    fn build_info_without_compiler_type_defaults_to_none() {
+        let without_type = serde_json::json!({
+            "_format": "hh3-sol-build-info-1",
+            "id": "solc-0_8_31-deadbeef",
+            "solcVersion": "0.8.31",
+            "solcLongVersion": "0.8.31+commit.abc",
+            "input": {
+                "language": "Solidity",
+                "sources": {},
+                "settings": null
+            }
+        });
+        let bi: BuildInfo = serde_json::from_value(without_type).unwrap();
+        assert_eq!(bi.compiler_type, None);
     }
 }
