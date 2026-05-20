@@ -23,7 +23,7 @@ jobs:
   benchmarks-test:
     name: Benchmarks test
     environment: github-action-benchmark
-    runs-on: self-hosted
+    runs-on: edr-benchmark-runner
     # Only run for trusted collaborators since third-parties could run malicious code on the self-hosted benchmark runner.
     if: github.ref == 'refs/heads/main' || github.repository == github.event.pull_request.head.repo.full_name
     steps:
@@ -46,7 +46,7 @@ jobs:
   js-scenario-benchmark:
     name: Run JS scenario runner benchmark for Hardhat Node style workload
     environment: github-action-benchmark
-    runs-on: self-hosted
+    runs-on: edr-benchmark-runner
     needs: benchmarks-test
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -92,7 +92,7 @@ jobs:
   js-soltests-benchmark:
     name: Run JS Solidity test runner benchmark
     environment: github-action-benchmark
-    runs-on: self-hosted
+    runs-on: edr-benchmark-runner
     needs: benchmarks-test
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
