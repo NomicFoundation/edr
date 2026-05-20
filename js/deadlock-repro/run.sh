@@ -23,6 +23,8 @@ log() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }
 die() { log "ERROR: $*"; exit 1; }
 
 TIMEOUT="${REPRO_TIMEOUT:-30s}"
+RUST_LOG="${RUST_LOG:-error,edr=warn}"
+export RUST_LOG
 NO_INTERVAL=""
 POSITIONAL=()
 for arg in "$@"; do
