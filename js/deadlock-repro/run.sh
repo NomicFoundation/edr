@@ -98,7 +98,7 @@ case "$code" in
   2)
     log "EXIT 2 — DEADLOCK detected via IntervalMiner::Drop timeout warning."
     log "         The 5s Drop timeout prevented an indefinite hang."
-    log "         Search the output above for '[edr_provider] WARNING' for details."
+    log "         Search the output above for 'IntervalMiner::Drop timed out' for details."
     ;;
   124)
     log "EXIT 124 — TIMEOUT after $TIMEOUT. Deadlock reproduced (process hung)."
