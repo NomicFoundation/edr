@@ -513,4 +513,52 @@ mod tests {
             "EVM gas limit should not be set to the block gas limit when the block gas limit is disabled"
         );
     }
+
+    #[test]
+    fn test_higher_custom_gas_limit_overrides_block_and_transaction_gas_limits() {
+        const TRANSACTION_GAS_CAP: u64 = 1_000_000;
+        const BLOCK_GAS_LIMIT: u64 = 1_000_000;
+        const CUSTOM_GAS_LIMIT: u64 = 2_000_000;
+        let config = TestRunnerConfig {
+            transaction_gas_cap: Some(TRANSACTION_GAS_CAP),
+            block_gas_limit: Some(BLOCK_GAS_LIMIT),
+            gas_limit: Some(CUSTOM_GAS_LIMIT),
+            disable_transaction_gas_cap: Some(false),
+            disable_block_gas_limit: Some(false),
+            ..default_config()
+        };
+
+        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.gas_limit,
+            CUSTOM_GAS_LIMIT,
+            "EVM gas limit should be set to the custom gas limit when it is provided, even if transaction and block gas limits are also provided"
+        );
+    }
+
+    #[test]
+    fn test_lower_custom_gas_limit_overrides_block_and_transaction_gas_limits() {
+        const TRANSACTION_GAS_CAP: u64 = 1_000_000;
+        const BLOCK_GAS_LIMIT: u64 = 1_000_000;
+        const CUSTOM_GAS_LIMIT: u64 = 500_000;
+        let config = TestRunnerConfig {
+            transaction_gas_cap: Some(TRANSACTION_GAS_CAP),
+            block_gas_limit: Some(BLOCK_GAS_LIMIT),
+            gas_limit: Some(CUSTOM_GAS_LIMIT),
+            disable_transaction_gas_cap: Some(false),
+            disable_block_gas_limit: Some(false),
+            ..default_config()
+        };
+
+        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.gas_limit,
+            CUSTOM_GAS_LIMIT,
+            "EVM gas limit should be set to the custom gas limit when it is provided, even if transaction and block gas limits are also provided"
+        );
+    }
 }
