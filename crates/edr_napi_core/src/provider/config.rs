@@ -41,6 +41,11 @@ pub struct Config {
     /// The default transaction gas limit to use for RPC call and transaction
     /// requests that do not specify a `gas` value.
     pub default_transaction_gas_limit: NonZeroU64,
+    /// When `true`, `eth_estimateGas` will, after producing an initial
+    /// estimation, search for a larger estimation that avoids any internal
+    /// (sub-call) out-of-gas error. Falls back to the initial estimation if
+    /// no such value exists within the block gas limit.
+    pub estimate_gas_avoid_internal_oog: bool,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
     pub initial_base_fee_per_gas: Option<u128>,
@@ -174,6 +179,7 @@ where
             default_transaction_gas_limit: value.default_transaction_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,
+            estimate_gas_avoid_internal_oog: value.estimate_gas_avoid_internal_oog,
             genesis_state: value.genesis_state,
             hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,

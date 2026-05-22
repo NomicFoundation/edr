@@ -198,6 +198,11 @@ pub struct ProviderConfig<HardforkT> {
     /// The default transaction gas limit to use for RPC call and transaction
     /// requests that do not specify a `gas` value.
     pub default_transaction_gas_limit: NonZeroU64,
+    /// When `true`, `eth_estimateGas` will, after producing an initial
+    /// estimation, search for a larger estimation that avoids any internal
+    /// (sub-call) OOG. Falls back to the initial estimation if no such value
+    /// exists within the block gas limit.
+    pub estimate_gas_avoid_internal_oog: bool,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: HardforkT,
     pub initial_base_fee_per_gas: Option<u128>,

@@ -252,6 +252,9 @@ pub struct ProviderData<
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     block_config: BlockConfig<ChainSpecT::Hardfork>,
     default_transaction_gas_limit: NonZeroU64,
+    /// When `true`, `eth_estimateGas` searches for a larger estimation that
+    /// avoids any internal (sub-call) OOG.
+    estimate_gas_avoid_internal_oog: bool,
     is_auto_mining: bool,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
@@ -704,6 +707,7 @@ where
             chain_id: _chain_id,
             coinbase: beneficiary,
             default_transaction_gas_limit,
+            estimate_gas_avoid_internal_oog,
             // Used by `create_blockchain_and_state`
             genesis_state: _genesis_state,
             // Used by `create_blockchain_and_state`
@@ -757,6 +761,7 @@ where
             blockchain,
             block_config,
             default_transaction_gas_limit,
+            estimate_gas_avoid_internal_oog,
             is_auto_mining,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
@@ -2775,6 +2780,7 @@ where
         let scheduled_blob_params = self.scheduled_blob_params().cloned();
 
         let include_call_traces = self.observability.include_call_traces;
+        let avoid_internal_oog = self.estimate_gas_avoid_internal_oog;
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.block_header();
@@ -2867,41 +2873,140 @@ where
             } = evm_observer.collect_and_report(&precompile_addresses)?;
 
             if include_call_traces.should_include(|| !success) {
-                call_trace_arenas.push(call_trace_arena);
+                call_trace_arenas.push(call_trace_arena.clone());
             }
 
-            // Return the initial estimation if it was successful
-            if success {
+            // The first estimation: either the initial estimation (if it was
+            // successful) or the result of the legacy binary search. We also
+            // remember the call trace at that gas value so we can inspect it
+            // for internal OOG.
+            let (first_estimation, first_trace) = if success {
+                (initial_estimation, call_trace_arena)
+            } else {
+                let gas::BinarySearchOutcome {
+                    result,
+                    final_trace,
+                } = gas::binary_search_estimation::<ChainSpecT>(BinarySearchEstimationArgs {
+                    blockchain,
+                    header,
+                    state,
+                    cfg_env: cfg_env.clone(),
+                    transaction: transaction.clone(),
+                    lower_bound: initial_estimation,
+                    upper_bound: header.gas_limit,
+                    custom_precompiles: &custom_precompiles,
+                    observer_config: observer_config.clone(),
+                    scheduled_blob_params: scheduled_blob_params.as_ref(),
+                })?;
+
+                call_trace_arenas.extend(result.call_trace_arenas);
+
+                // `final_trace` is `None` only if no iteration succeeded;
+                // the legacy search still returns the upper bound un-verified
+                // in that case, so re-run once at that gas limit to obtain a
+                // trace we can inspect for internal OOG.
+                let trace = if let Some(trace) = final_trace {
+                    trace
+                } else {
+                    let mut verify_observer = EvmObserver::new(observer_config.clone());
+                    let CheckGasLimitResult {
+                        success: _,
+                        precompile_addresses: verify_precompiles,
+                    } = gas::check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
+                        blockchain,
+                        header,
+                        state,
+                        cfg_env: cfg_env.clone(),
+                        transaction: transaction.clone(),
+                        gas_limit: result.estimation,
+                        custom_precompiles: &custom_precompiles,
+                        observer: &mut verify_observer,
+                        scheduled_blob_params: scheduled_blob_params.as_ref(),
+                    })?;
+                    let EvmObservedData {
+                        call_trace_arena: verify_trace,
+                        ..
+                    } = verify_observer.collect_and_report(&verify_precompiles)?;
+                    verify_trace
+                };
+
+                (result.estimation, trace)
+            };
+
+            // If the OOG-aware retry is disabled, or the first estimation has
+            // no internal OOG, we're done.
+            if !avoid_internal_oog || !gas::has_internal_oog(&first_trace) {
                 return Ok(EstimateGasResult {
-                    estimation: initial_estimation,
+                    estimation: first_estimation,
                     call_trace_arenas,
                 });
             }
 
-            // Correct the initial estimation if the transaction failed with the actually
-            // used gas limit. This can happen if the execution logic is based
-            // on the available gas.
-            let EstimateGasResult {
-                call_trace_arenas: estimation_call_trace_arenas,
-                estimation,
-            } = gas::binary_search_estimation::<ChainSpecT>(BinarySearchEstimationArgs {
+            // Probe the block gas limit with the OOG-free predicate. If the
+            // inner call still OOGs at the top of the range, no value in the
+            // range satisfies the predicate — fall back silently to the first
+            // estimation.
+            let mut probe_observer = EvmObserver::new(observer_config.clone());
+            let CheckGasLimitResult {
+                success: probe_success,
+                precompile_addresses: probe_precompiles,
+            } = gas::check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
                 blockchain,
                 header,
                 state,
                 cfg_env: cfg_env.clone(),
-                transaction,
-                lower_bound: initial_estimation,
-                upper_bound: header.gas_limit,
+                transaction: transaction.clone(),
+                gas_limit: header.gas_limit,
                 custom_precompiles: &custom_precompiles,
-                observer_config,
+                observer: &mut probe_observer,
                 scheduled_blob_params: scheduled_blob_params.as_ref(),
             })?;
 
-            call_trace_arenas.extend(estimation_call_trace_arenas);
+            let EvmObservedData {
+                address_to_executed_code: _,
+                call_trace_arena: probe_trace,
+                encoded_console_logs: _,
+            } = probe_observer.collect_and_report(&probe_precompiles)?;
+
+            let probe_accepted = probe_success && !gas::has_internal_oog(&probe_trace);
+
+            if include_call_traces.should_include(|| !probe_accepted) {
+                call_trace_arenas.push(probe_trace);
+            }
+
+            if !probe_accepted {
+                return Ok(EstimateGasResult {
+                    estimation: first_estimation,
+                    call_trace_arenas,
+                });
+            }
+
+            // The block gas limit is verified OOG-free. Binary-search for the
+            // smallest OOG-free value in [first_estimation, header.gas_limit].
+            let gas::BinarySearchOutcome {
+                result: oog_free_result,
+                final_trace: _,
+            } = gas::binary_search_estimation_with::<ChainSpecT, _>(
+                BinarySearchEstimationArgs {
+                    blockchain,
+                    header,
+                    state,
+                    cfg_env: cfg_env.clone(),
+                    transaction,
+                    lower_bound: first_estimation,
+                    upper_bound: header.gas_limit,
+                    custom_precompiles: &custom_precompiles,
+                    observer_config,
+                    scheduled_blob_params: scheduled_blob_params.as_ref(),
+                },
+                |success, arena| success && !gas::has_internal_oog(arena),
+            )?;
+
+            call_trace_arenas.extend(oog_free_result.call_trace_arenas);
 
             Ok(EstimateGasResult {
                 call_trace_arenas,
-                estimation,
+                estimation: oog_free_result.estimation,
             })
         })?
     }

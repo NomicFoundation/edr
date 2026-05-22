@@ -4,7 +4,7 @@ use edr_block_api::{Block as _, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{BlockEnvConstructor as _, ExecutableTransaction as _};
-use edr_chain_spec_evm::{result::ExecutionResult, CfgEnv};
+use edr_chain_spec_evm::{interpreter::InstructionResult, result::ExecutionResult, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip7892::ScheduledBlobParams;
 use edr_eth::reward_percentile::RewardPercentile;
@@ -13,6 +13,7 @@ use edr_primitives::{Address, HashMap, HashSet, U256};
 use edr_receipt::ReceiptTrait as _;
 use edr_state_api::DynState;
 use edr_transaction::TransactionMut;
+use foundry_evm_traces::CallTraceArena;
 use itertools::Itertools;
 
 use crate::{
@@ -21,6 +22,27 @@ use crate::{
     observability::{EvmObservedData, EvmObserver, EvmObserverConfig},
     ProviderError,
 };
+
+/// Returns true if any sub-call (non-root) in the trace arena ended in an
+/// out-of-gas variant. The OOG variants mirror REVM's
+/// `InstructionResult::is_out_of_gas` macro.
+pub(super) fn has_internal_oog(arena: &CallTraceArena) -> bool {
+    arena.nodes().iter().any(|node| {
+        // Skip the root call — only sub-calls count as "internal".
+        node.parent.is_some()
+            && matches!(
+                node.trace.status,
+                Some(
+                    InstructionResult::OutOfGas
+                        | InstructionResult::MemoryOOG
+                        | InstructionResult::MemoryLimitOOG
+                        | InstructionResult::PrecompileOOG
+                        | InstructionResult::InvalidOperandOOG
+                        | InstructionResult::ReentrancySentryOOG
+                )
+            )
+    })
+}
 
 pub(super) struct CheckGasLimitArgs<'a, HardforkT, SignedTransactionT> {
     pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
@@ -90,6 +112,15 @@ pub(super) struct BinarySearchEstimationArgs<'a, HardforkT, SignedTransactionT> 
     pub scheduled_blob_params: Option<&'a ScheduledBlobParams>,
 }
 
+pub(super) struct BinarySearchOutcome {
+    pub result: EstimateGasResult,
+    /// Trace at the final returned estimation. `None` only if no iteration of
+    /// the search was accepted by the predicate (callers using the default
+    /// predicate can assume `Some`, since the upper bound is treated as known
+    /// good).
+    pub final_trace: Option<CallTraceArena>,
+}
+
 /// Search for a tight upper bound on the gas limit that will allow the
 /// transaction to execute. Matches Hardhat logic, except it's iterative, not
 /// recursive.
@@ -97,7 +128,20 @@ pub(super) fn binary_search_estimation<
     ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>,
 >(
     args: BinarySearchEstimationArgs<'_, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>,
-) -> Result<EstimateGasResult, ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<BinarySearchOutcome, ProviderErrorForChainSpec<ChainSpecT>> {
+    binary_search_estimation_with::<ChainSpecT, _>(args, |success, _arena| success)
+}
+
+/// Like [`binary_search_estimation`], but accepts a custom predicate that
+/// decides whether a given gas value is acceptable. The predicate receives the
+/// success flag and the call trace arena from that iteration.
+pub(super) fn binary_search_estimation_with<
+    ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>,
+    P: Fn(bool, &CallTraceArena) -> bool,
+>(
+    args: BinarySearchEstimationArgs<'_, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>,
+    accept: P,
+) -> Result<BinarySearchOutcome, ProviderErrorForChainSpec<ChainSpecT>> {
     const MAX_ITERATIONS: usize = 20;
 
     let BinarySearchEstimationArgs {
@@ -116,6 +160,7 @@ pub(super) fn binary_search_estimation<
     let mut i = 0;
 
     let mut call_trace_arenas = Vec::new();
+    let mut final_trace: Option<CallTraceArena> = None;
     while upper_bound - lower_bound > min_difference(lower_bound) && i < MAX_ITERATIONS {
         let mut mid = lower_bound + (upper_bound - lower_bound) / 2;
         if i == 0 {
@@ -149,15 +194,18 @@ pub(super) fn binary_search_estimation<
             encoded_console_logs: _,
         } = observer.collect_and_report(&precompile_addresses)?;
 
+        let accepted = accept(success, &call_trace_arena);
+
         if observer_config
             .include_call_traces
-            .should_include(|| !success)
+            .should_include(|| !accepted)
         {
-            call_trace_arenas.push(call_trace_arena);
+            call_trace_arenas.push(call_trace_arena.clone());
         }
 
-        if success {
+        if accepted {
             upper_bound = mid;
+            final_trace = Some(call_trace_arena);
         } else {
             lower_bound = mid + 1;
         }
@@ -165,9 +213,12 @@ pub(super) fn binary_search_estimation<
         i += 1;
     }
 
-    Ok(EstimateGasResult {
-        call_trace_arenas,
-        estimation: upper_bound,
+    Ok(BinarySearchOutcome {
+        result: EstimateGasResult {
+            call_trace_arenas,
+            estimation: upper_bound,
+        },
+        final_trace,
     })
 }
 

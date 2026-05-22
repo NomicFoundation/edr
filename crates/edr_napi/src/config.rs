@@ -268,6 +268,11 @@ pub struct ProviderConfig {
     /// The default transaction gas limit to use for RPC call and transaction
     /// requests that do not specify a `gas` value.
     pub default_transaction_gas_limit: BigInt,
+    /// When `true`, `eth_estimateGas` will, after producing an initial
+    /// estimation, search for a larger estimation that avoids any internal
+    /// (sub-call) out-of-gas error. Falls back to the initial estimation if
+    /// no such value exists within the block gas limit. Defaults to `false`.
+    pub estimate_gas_avoid_internal_oog: Option<bool>,
     /// The genesis state of the blockchain
     pub genesis_state: Vec<AccountOverride>,
     /// The hardfork of the blockchain
@@ -693,6 +698,7 @@ impl ProviderConfig {
                     })
                 },
             )?,
+            estimate_gas_avoid_internal_oog: self.estimate_gas_avoid_internal_oog.unwrap_or(false),
             genesis_state,
             hardfork: self.hardfork,
             initial_base_fee_per_gas: self

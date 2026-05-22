@@ -209,6 +209,7 @@ pub fn create_test_config_with<HardforkT: Default>(
         coinbase: Address::from(U160::from(1)),
         // SAFETY: literal is non-zero
         default_transaction_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
+        estimate_gas_avoid_internal_oog: false,
         genesis_state: config.genesis_state,
         hardfork: HardforkT::default(),
         initial_base_fee_per_gas: Some(1000000000),
