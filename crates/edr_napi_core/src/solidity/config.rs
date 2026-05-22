@@ -122,7 +122,11 @@ pub struct TestRunnerConfig {
     /// The hardfork to use for EVM execution.
     pub hardfork: String,
     /// The gas limit for each test case.
-    /// Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
+    /// In order, defaults to:
+    /// 1. If an EIP-7825 transaction gas cap is specified, use it as the
+    ///    default gas limit
+    /// 2. If a block gas limit is specified, use it as the default gas limit
+    /// 3. Otherwise, use `9_223_372_036_854_775_807` (`i64::MAX`)
     pub gas_limit: Option<u64>,
     /// The price of gas (in wei) in tests.
     /// Defaults to `0`.
