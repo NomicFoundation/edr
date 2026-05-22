@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
 use edr_solidity::compiler::create_models_and_decode_bytecodes;
-use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
+use napi::{bindgen_prelude::ObjectFinalize, tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 use parking_lot::RwLock;
 
@@ -15,7 +15,7 @@ use self::response::Response;
 use crate::{call_override::CallOverrideCallback, contract_decoder::ContractDecoder};
 
 /// A JSON-RPC provider for Ethereum.
-#[napi]
+#[napi(custom_finalize)]
 pub struct Provider {
     contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
     provider: Arc<dyn SyncProvider>,
@@ -158,5 +158,27 @@ impl Provider {
             })
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+    }
+}
+
+impl ObjectFinalize for Provider {
+    fn finalize(self, _env: Env) -> napi::Result<()> {
+        let Self {
+            provider, runtime, ..
+        } = self;
+
+        // Move deallocation of the provider to a separate thread to avoid blocking the
+        // JS thread. This is necessary because the provider may be running thread-safe
+        // functions on a background thread. If so, this would cause a deadlock.
+        //
+        // This creates a detached task, which will be automatically executed and
+        // cleaned up by Tokio when it finishes. `await`ing the `JoinHandle` would just
+        // inform us of the task's completion, but we explicitly do not want to do that
+        // to avoid blocking the JS thread.
+        runtime.spawn_blocking(move || {
+            drop(provider);
+        });
+
+        Ok(())
     }
 }
