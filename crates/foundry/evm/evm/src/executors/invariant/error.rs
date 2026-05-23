@@ -54,7 +54,8 @@ impl InvariantFuzzError {}
 
 impl From<eyre::Report> for InvariantFuzzError {
     fn from(value: Report) -> Self {
-        Self::Other(value.to_string())
+        // Print the entire error chain for better debugging
+        Self::Other(format!("{value:#}"))
     }
 }
 
