@@ -4,9 +4,6 @@ import chalk, { Chalk } from "chalk";
 import {
   AccountOverride,
   ContractDecoder,
-  // Ignore this on testNoBuild
-  // @ts-ignore
-  createProviderWithMockTimer,
   l1GenesisState,
   l1HardforkFromString,
   MineOrdering,
@@ -20,6 +17,7 @@ import {
 import {
   deployContract,
   getBlockNumber,
+  getContext,
   getGasPrice,
   sendTransaction,
   sleep,
@@ -264,6 +262,8 @@ const providerConfig = {
 };
 
 describe("Provider logs", function () {
+  const context = getContext();
+
   describe("Interval mining", function () {
     let gasPrice: bigint;
     let logger: FakeModulesLogger;
@@ -294,7 +294,9 @@ describe("Provider logs", function () {
         },
       };
 
-      provider = await createProviderWithMockTimer(
+      // Ignore this on testNoBuild
+      // @ts-ignore
+      provider = await context.createProviderWithMockTimer(
         {
           ...providerConfig,
           genesisState: providerConfig.genesisState.concat(
