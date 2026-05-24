@@ -6,17 +6,16 @@ use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
 use edr_solidity::compiler::create_models_and_decode_bytecodes;
-use napi::{
-    bindgen_prelude::ObjectFinalize,
-    tokio::{self, runtime},
-    Env, JsFunction, JsObject, Status,
-};
+use napi::{bindgen_prelude::ObjectFinalize, tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 use parking_lot::RwLock;
 
 pub use self::factory::ProviderFactory;
 use self::response::Response;
-use crate::{call_override::CallOverrideCallback, contract_decoder::ContractDecoder};
+use crate::{
+    async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
+    contract_decoder::ContractDecoder,
+};
 
 /// A JSON-RPC provider for Ethereum.
 #[napi(custom_finalize)]
@@ -24,7 +23,7 @@ pub struct Provider {
     contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
-    dropped_provider_sender: std::sync::mpsc::Sender<Arc<dyn SyncProvider>>,
+    dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
 }
@@ -35,7 +34,7 @@ impl Provider {
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
-        dropped_provider_sender: std::sync::mpsc::Sender<Arc<dyn SyncProvider>>,
+        dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
@@ -173,37 +172,14 @@ impl ObjectFinalize for Provider {
         let Self {
             provider,
             dropped_provider_sender,
-            runtime,
             ..
         } = self;
 
-        if let Err(std::sync::mpsc::SendError(provider)) = dropped_provider_sender.send(provider) {
-            // If this happens, the dedicated thread for deallocating providers has panicked
-            // or shut down.
-            drop_provider_on_tokio_slow(runtime, provider);
-        }
+        // Off-loads deallocation to a background thread to avoid blocking the
+        // JS thread (the provider may be running thread-safe functions on a
+        // background thread; dropping it here would deadlock).
+        dropped_provider_sender.deallocate(provider);
 
         Ok(())
     }
-}
-
-/// Move deallocation of the provider to a separate thread to avoid blocking the
-/// JS thread. This is necessary because the provider may be running thread-safe
-/// functions on a background thread. If so, this would cause a deadlock.
-///
-/// This creates a detached task, which will be automatically executed and
-/// cleaned up by Tokio when it finishes. `await`ing the `JoinHandle` would just
-/// inform us of the task's completion, but we explicitly do not want to do that
-/// to avoid blocking the JS thread.
-///
-/// This is marked as `#[cold]` and `#[inline(never)]` to hint to the compiler
-/// that this code is unlikely to be executed, which can help with performance
-/// optimizations on the common path where the provider is successfully sent to
-/// the dedicated thread for deallocation.
-#[cold]
-#[inline(never)]
-fn drop_provider_on_tokio_slow(runtime: tokio::runtime::Handle, provider: Arc<dyn SyncProvider>) {
-    runtime.spawn_blocking(move || {
-        drop(provider);
-    });
 }

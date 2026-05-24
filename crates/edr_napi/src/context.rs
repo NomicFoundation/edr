@@ -21,6 +21,7 @@ use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
+    async_deallocator::AsyncDeallocator,
     config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     contract_decoder::ContractDecoder,
     logger::LoggerConfig,
@@ -45,7 +46,7 @@ impl EdrContext {
     /// Creates a new [`EdrContext`] instance. Should only be called once!
     #[napi(catch_unwind, constructor)]
     pub fn new() -> napi::Result<Self> {
-        let context = Context::new()?;
+        let context = Context::new(runtime::Handle::current())?;
 
         Ok(Self {
             inner: Arc::new(AsyncMutex::new(context)),
@@ -105,7 +106,7 @@ impl EdrContext {
             let context = runtime.block_on(async { self.inner.lock().await });
 
             let factory = try_or_reject_promise!(context.get_provider_factory(&chain_type));
-            let dropped_provider_sender = context.dropped_provider_sender.clone();
+            let dropped_provider_sender = context.provider_deallocator.sender();
 
             (factory, dropped_provider_sender)
         };
@@ -368,7 +369,7 @@ impl EdrContext {
 
         let dropped_provider_sender = {
             let context = runtime.block_on(async { self.inner.lock().await });
-            context.dropped_provider_sender.clone()
+            context.provider_deallocator.sender()
         };
 
         let provider = Provider::new(
@@ -435,7 +436,7 @@ impl EdrContext {
 
         let dropped_provider_sender = {
             let context = runtime.block_on(async { self.inner.lock().await });
-            context.dropped_provider_sender.clone()
+            context.provider_deallocator.sender()
         };
 
         runtime.clone().spawn_blocking(move || {
@@ -495,15 +496,14 @@ impl EdrContext {
 pub struct Context {
     provider_factories: HashMap<String, Arc<dyn SyncProviderFactory>>,
     solidity_test_runner_factories: HashMap<String, Arc<dyn solidity::SyncTestRunnerFactory>>,
-    dropped_provider_sender: std::sync::mpsc::Sender<Arc<dyn SyncProvider>>,
-    provider_dropper_thread: std::thread::JoinHandle<()>,
+    provider_deallocator: AsyncDeallocator<Arc<dyn SyncProvider>>,
     #[cfg(feature = "tracing")]
     _tracing_write_guard: tracing_flame::FlushGuard<std::io::BufWriter<std::fs::File>>,
 }
 
 impl Context {
     /// Creates a new [`Context`] instance. Should only be called once!
-    pub fn new() -> napi::Result<Self> {
+    pub fn new(runtime: runtime::Handle) -> napi::Result<Self> {
         let fmt_layer = tracing_subscriber::fmt::layer()
             .with_file(true)
             .with_line_number(true)
@@ -538,19 +538,10 @@ impl Context {
             );
         }
 
-        let (dropped_provider_sender, dropped_provider_receiver) = std::sync::mpsc::channel();
-
-        let provider_deallocation_thread = std::thread::spawn(move || {
-            while let Ok(provider) = dropped_provider_receiver.recv() {
-                drop(provider);
-            }
-        });
-
         Ok(Self {
             provider_factories: HashMap::default(),
             solidity_test_runner_factories: HashMap::default(),
-            dropped_provider_sender,
-            provider_dropper_thread: provider_deallocation_thread,
+            provider_deallocator: AsyncDeallocator::new(runtime),
             #[cfg(feature = "tracing")]
             _tracing_write_guard: guard,
         })

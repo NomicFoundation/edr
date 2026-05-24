@@ -6,6 +6,7 @@
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 mod account;
+mod async_deallocator;
 mod block;
 /// Types for overriding a call.
 pub mod call_override;
