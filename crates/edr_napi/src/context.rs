@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use edr_decoder_revert::RevertDecoder;
-use edr_napi_core::{provider::SyncProviderFactory, solidity};
+use edr_napi_core::{
+    provider::{SyncProvider, SyncProviderFactory},
+    solidity,
+};
 use edr_primitives::HashMap;
 use edr_solidity_tests::{
     multi_runner::{SuiteResultAndArtifactId, TestContract, TestContracts},
@@ -18,6 +21,7 @@ use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
+    async_deallocator::AsyncDeallocator,
     config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     contract_decoder::ContractDecoder,
     logger::LoggerConfig,
@@ -42,7 +46,7 @@ impl EdrContext {
     /// Creates a new [`EdrContext`] instance. Should only be called once!
     #[napi(catch_unwind, constructor)]
     pub fn new() -> napi::Result<Self> {
-        let context = Context::new()?;
+        let context = Context::new(runtime::Handle::current())?;
 
         Ok(Self {
             inner: Arc::new(AsyncMutex::new(context)),
@@ -96,12 +100,15 @@ impl EdrContext {
                 logger_config.enable,
             )));
 
-        let factory = {
+        let (factory, dropped_provider_sender) = {
             // TODO: https://github.com/NomicFoundation/edr/issues/760
             // TODO: Don't block the JS event loop
             let context = runtime.block_on(async { self.inner.lock().await });
 
-            try_or_reject_promise!(context.get_provider_factory(&chain_type))
+            let factory = try_or_reject_promise!(context.get_provider_factory(&chain_type));
+            let dropped_provider_sender = context.provider_deallocator.sender();
+
+            (factory, dropped_provider_sender)
         };
 
         let contract_decoder = Arc::clone(contract_decoder.as_inner());
@@ -119,6 +126,7 @@ impl EdrContext {
                         provider,
                         runtime,
                         contract_decoder,
+                        dropped_provider_sender,
                         #[cfg(feature = "scenarios")]
                         scenario_file,
                     )
@@ -345,16 +353,157 @@ impl EdrContext {
     }
 }
 
+#[cfg(feature = "test-mock")]
+#[napi]
+impl EdrContext {
+    /// Creates a mock provider, which always returns the given response.
+    /// For testing purposes.
+    #[napi]
+    pub fn create_mock_provider(
+        &self,
+        mocked_response: serde_json::Value,
+    ) -> napi::Result<Provider> {
+        use crate::mock::MockProvider;
+
+        let runtime = runtime::Handle::current();
+
+        let dropped_provider_sender = {
+            let context = runtime.block_on(async { self.inner.lock().await });
+            context.provider_deallocator.sender()
+        };
+
+        let provider = Provider::new(
+            Arc::new(MockProvider::new(mocked_response)),
+            runtime,
+            Arc::default(),
+            dropped_provider_sender,
+            #[cfg(feature = "scenarios")]
+            None,
+        );
+
+        Ok(provider)
+    }
+
+    /// Creates a provider with a mock timer.
+    /// For testing purposes.
+    #[napi(catch_unwind, ts_return_type = "Promise<Provider>")]
+    pub fn create_provider_with_mock_timer(
+        &self,
+        env: Env,
+        provider_config: ProviderConfig,
+        logger_config: LoggerConfig,
+        subscription_config: SubscriptionConfig,
+        contract_decoder: &ContractDecoder,
+        time: &crate::mock::time::MockTime,
+    ) -> napi::Result<JsObject> {
+        use edr_chain_spec::ChainSpec;
+        use edr_chain_spec_block::BlockChainSpec;
+        use edr_chain_spec_rpc::RpcBlockChainSpec;
+        use edr_generic::GenericChainSpec;
+        use edr_napi_core::logger::Logger;
+        use edr_primitives::B256;
+
+        let (deferred, promise) = env.create_deferred()?;
+
+        macro_rules! try_or_reject_promise {
+            ($expr:expr) => {
+                match $expr {
+                    Ok(value) => value,
+                    Err(error) => {
+                        deferred.reject(error);
+                        return Ok(promise);
+                    }
+                }
+            };
+        }
+
+        let runtime = runtime::Handle::current();
+
+        let ConfigResolution {
+            logger_config,
+            provider_config,
+            subscription_callback,
+        } = try_or_reject_promise!(resolve_configs(
+            &env,
+            runtime.clone(),
+            provider_config,
+            logger_config,
+            subscription_config,
+        ));
+
+        let contract_decoder = Arc::clone(contract_decoder.as_inner());
+        let timer = Arc::clone(time.as_inner());
+
+        let dropped_provider_sender = {
+            let context = runtime.block_on(async { self.inner.lock().await });
+            context.provider_deallocator.sender()
+        };
+
+        runtime.clone().spawn_blocking(move || {
+            // Using a closure to limit the scope, allowing us to use `?` for error
+            // handling. This is necessary because the result of the closure is used
+            // to resolve the deferred promise.
+            let create_provider = move || -> napi::Result<Provider> {
+                let logger = Logger::<GenericChainSpec, Arc<edr_provider::time::MockTime>>::new(
+                    logger_config,
+                    Arc::clone(&contract_decoder),
+                )?;
+
+                let provider_config =
+                    edr_provider::config::Provider::<edr_chain_l1::Hardfork>::try_from(
+                        provider_config,
+                    )?;
+
+                let provider = edr_provider::Provider::<
+                    GenericChainSpec,
+                    Arc<edr_provider::time::MockTime>,
+                >::new(
+                    runtime.clone(),
+                    Box::new(logger),
+                    Box::new(move |event| {
+                        let event = edr_napi_core::subscription::SubscriptionEvent::new::<
+                            <GenericChainSpec as BlockChainSpec>::Block,
+                            <GenericChainSpec as RpcBlockChainSpec>::RpcBlock<B256>,
+                            <GenericChainSpec as ChainSpec>::SignedTransaction,
+                        >(event);
+
+                        subscription_callback.call(event);
+                    }),
+                    provider_config,
+                    Arc::clone(&contract_decoder),
+                    timer,
+                )
+                .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+
+                Ok(Provider::new(
+                    Arc::new(provider),
+                    runtime,
+                    contract_decoder,
+                    dropped_provider_sender,
+                    #[cfg(feature = "scenarios")]
+                    None,
+                ))
+            };
+
+            let result = create_provider();
+            deferred.resolve(|_env| result);
+        });
+
+        Ok(promise)
+    }
+}
+
 pub struct Context {
     provider_factories: HashMap<String, Arc<dyn SyncProviderFactory>>,
     solidity_test_runner_factories: HashMap<String, Arc<dyn solidity::SyncTestRunnerFactory>>,
+    provider_deallocator: AsyncDeallocator<Arc<dyn SyncProvider>>,
     #[cfg(feature = "tracing")]
     _tracing_write_guard: tracing_flame::FlushGuard<std::io::BufWriter<std::fs::File>>,
 }
 
 impl Context {
     /// Creates a new [`Context`] instance. Should only be called once!
-    pub fn new() -> napi::Result<Self> {
+    pub fn new(runtime: runtime::Handle) -> napi::Result<Self> {
         let fmt_layer = tracing_subscriber::fmt::layer()
             .with_file(true)
             .with_line_number(true)
@@ -392,6 +541,7 @@ impl Context {
         Ok(Self {
             provider_factories: HashMap::default(),
             solidity_test_runner_factories: HashMap::default(),
+            provider_deallocator: AsyncDeallocator::new(runtime),
             #[cfg(feature = "tracing")]
             _tracing_write_guard: guard,
         })
