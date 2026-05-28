@@ -495,7 +495,7 @@ impl<
 
         self.state.commit(state_diff);
 
-        self.header.gas_used += transaction_result.gas_used();
+        self.header.gas_used += transaction_result.tx_gas_used();
 
         if let Some(BlobGas { gas_used, .. }) = self.header.blob_gas.as_mut() {
             let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();

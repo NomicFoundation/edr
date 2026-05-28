@@ -957,7 +957,7 @@ impl<
                 output,
             } => {
                 gas.set_refund(result_gas.inner_refunded() as i64);
-                let _ = gas.record_cost(result_gas.tx_gas_used());
+                let _ = gas.record_regular_cost(result_gas.tx_gas_used());
                 let address = match output {
                     Output::Create(_, address) => address,
                     Output::Call(_) => None,
@@ -973,7 +973,7 @@ impl<
                     panic!("Halt reason cannot be converted to `HaltReason`: {reason:?}")
                 });
 
-                let _ = gas.record_cost(result_gas.tx_gas_used());
+                let _ = gas.record_regular_cost(result_gas.tx_gas_used());
                 (reason.into(), None, Bytes::new())
             }
             ExecutionResult::Revert {
@@ -981,7 +981,7 @@ impl<
                 output,
                 ..
             } => {
-                let _ = gas.record_cost(result_gas.tx_gas_used());
+                let _ = gas.record_regular_cost(result_gas.tx_gas_used());
                 (InstructionResult::Revert, None, output)
             }
         };

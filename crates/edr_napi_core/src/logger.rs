@@ -654,7 +654,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                 "Gas used",
                 format!(
                     "{gas_used} of {gas_limit}",
-                    gas_used = result.gas_used(),
+                    gas_used = result.tx_gas_used(),
                     gas_limit = transaction.gas_limit()
                 ),
             );
@@ -1043,7 +1043,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                 "Gas used",
                 format!(
                     "{gas_used} of {gas_limit}",
-                    gas_used = transaction_result.gas_used(),
+                    gas_used = transaction_result.tx_gas_used(),
                     gas_limit = transaction.gas_limit()
                 ),
             );
