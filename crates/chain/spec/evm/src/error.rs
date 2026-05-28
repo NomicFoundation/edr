@@ -55,6 +55,7 @@ impl<DatabaseErrorT: DBErrorMarker + std::error::Error>
     fn from(value: EVMError<DatabaseErrorT, EvmTransactionValidationError>) -> Self {
         match value {
             EVMError::Custom(error) => Self::Custom(error),
+            EVMError::CustomAny(error) => Self::Custom(error.to_string()),
             EVMError::Database(error) => Self::Database(error),
             EVMError::Header(error) => Self::InvalidHeader(error),
             EVMError::Transaction(error) => Self::from(error),

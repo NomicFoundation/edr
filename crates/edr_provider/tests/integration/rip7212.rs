@@ -58,9 +58,19 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
     config.observability.include_call_traces = IncludeTraces::All;
+    // `revm-precompile` 34 no longer exposes the inner `PrecompileFn` of a
+    // `Precompile`, so we wrap `Precompile::execute` in a plain function with
+    // the `PrecompileFn` signature.
+    fn p256verify_precompile(
+        input: &[u8],
+        gas_limit: u64,
+        reservoir: u64,
+    ) -> edr_precompile::PrecompileResult {
+        secp256r1::P256VERIFY.execute(input, gas_limit, reservoir)
+    }
     config.precompile_overrides = [(
         *secp256r1::P256VERIFY.address(),
-        *secp256r1::P256VERIFY.precompile(),
+        p256verify_precompile as edr_precompile::PrecompileFn,
     )]
     .into_iter()
     .collect();

@@ -3,13 +3,15 @@
 
 use std::marker::PhantomData;
 
-use edr_primitives::{Address, Bytes, HashMap, HashSet};
+use edr_primitives::{Address, HashMap, HashSet};
 use revm_context_interface::{Cfg, ContextTr as ContextTrait, JournalTr as _, LocalContextTr as _};
-pub use revm_handler::{EthPrecompiles, PrecompileProvider};
-use revm_interpreter::{CallInput, CallInputs, Gas, InstructionResult, InterpreterResult};
+pub use revm_handler::{
+    precompile_output_to_interpreter_result, EthPrecompiles, PrecompileProvider,
+};
+use revm_interpreter::{CallInput, CallInputs, InterpreterResult};
 pub use revm_precompile::{
-    secp256r1, u64_to_address, Precompile, PrecompileError, PrecompileFn, PrecompileSpecId,
-    Precompiles,
+    secp256r1, u64_to_address, Precompile, PrecompileError, PrecompileFn, PrecompileResult,
+    PrecompileSpecId, Precompiles,
 };
 
 /// A precompile provider that allows adding custom or overwriting existing
@@ -100,13 +102,7 @@ impl<
             return self.base.run(context, inputs);
         };
 
-        let mut result = InterpreterResult {
-            result: InstructionResult::Return,
-            gas: Gas::new(inputs.gas_limit),
-            output: Bytes::new(),
-        };
-
-        let exec_result = {
+        let output = {
             let r;
             let input_bytes = match &inputs.input {
                 CallInput::SharedBuffer(range) => {
@@ -119,38 +115,23 @@ impl<
                 }
                 CallInput::Bytes(bytes) => bytes.0.iter().as_slice(),
             };
-            (*precompile)(input_bytes, inputs.gas_limit)
+            (*precompile)(input_bytes, inputs.gas_limit, inputs.reservoir)
+                .map_err(|e| e.to_string())?
         };
 
-        match exec_result {
-            Ok(output) => {
-                let underflow = result.gas.record_cost(output.gas_used);
-                assert!(underflow, "Gas underflow is not possible");
-                result.result = if output.reverted {
-                    InstructionResult::Revert
-                } else {
-                    InstructionResult::Return
-                };
-                result.output = output.bytes;
-            }
-            Err(PrecompileError::Fatal(e)) => return Err(e),
-            Err(e) => {
-                result.result = if e.is_oog() {
-                    InstructionResult::PrecompileOOG
-                } else {
-                    InstructionResult::PrecompileError
-                };
-                // If this is a top-level precompile call (depth == 1), persist the error
-                // message into the local context so it can be returned as
-                // output in the final result. Only do this for non-OOG errors
-                // (OOG is a distinct halt reason without output).
-                if !e.is_oog() && context.journal().depth() == 1 {
-                    context
-                        .local_mut()
-                        .set_precompile_error_context(e.to_string());
-                }
+        // If this is a top-level precompile call (depth == 1), persist the error
+        // message into the local context so it can be returned as output in the
+        // final result. Only do this for non-OOG halt errors (OOG is a distinct
+        // halt reason without output).
+        if let Some(halt_reason) = output.halt_reason() {
+            if !halt_reason.is_oog() && context.journal().depth() == 1 {
+                context
+                    .local_mut()
+                    .set_precompile_error_context(halt_reason.to_string());
             }
         }
+
+        let result = precompile_output_to_interpreter_result(output, inputs.gas_limit);
         Ok(Some(result))
     }
 

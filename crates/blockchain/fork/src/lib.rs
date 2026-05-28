@@ -35,7 +35,7 @@ use edr_rpc_eth::{
 use edr_state_api::{
     account::{Account, AccountStatus},
     irregular::IrregularState,
-    DynState, StateDiff, StateOverride,
+    DynState, EvmState, StateDiff, StateOverride,
 };
 use edr_state_fork::ForkedState;
 use edr_utils::{random::RandomHashGenerator, CastArcFrom, CastArcInto};
@@ -330,7 +330,7 @@ impl<
                         let beacon_root_account = beacon_roots_contract();
                         let history_storage_account = history_storage_contract();
 
-                        let accounts: HashMap<Address, Account> = [
+                        let accounts: EvmState = [
                             (
                                 BEACON_ROOTS_ADDRESS,
                                 Account {
@@ -372,7 +372,7 @@ impl<
                     })
                     .or_insert_with(|| {
                         let beacon_root_account = beacon_roots_contract();
-                        let accounts: HashMap<Address, Account> = [(
+                        let accounts: EvmState = [(
                             BEACON_ROOTS_ADDRESS,
                             Account {
                                 info: beacon_root_account.clone(),

@@ -35,12 +35,19 @@ pub fn validate<TransactionT: Transaction>(
     spec_id: EvmSpecId,
 ) -> Result<TransactionT, CreationError> {
     const EIP7623_DISABLED: bool = false;
+    const EIP8037_AMSTERDAM_ENABLED: bool = false;
 
     if transaction.kind() == TxKind::Create && transaction.input().is_empty() {
         return Err(CreationError::ContractMissingData);
     }
 
-    match validate_initial_tx_gas(&transaction, spec_id, EIP7623_DISABLED) {
+    match validate_initial_tx_gas(
+        &transaction,
+        spec_id,
+        EIP7623_DISABLED,
+        EIP8037_AMSTERDAM_ENABLED,
+        u64::MAX,
+    ) {
         Ok(_) => Ok(transaction),
         Err(EvmTransactionValidationError::CallGasCostMoreThanGasLimit {
             initial_gas,

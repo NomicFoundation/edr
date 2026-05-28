@@ -16,7 +16,7 @@ use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_primitives::{
     keccak256,
-    map::{AddressHashMap, HashMap},
+    map::{AddressHashMap, HashMap, U256Map},
     Address, Bytes, Log, TxKind, U256,
 };
 use alloy_sol_types::{sol, SolCall};
@@ -343,11 +343,7 @@ impl<
     }
 
     /// Set the storage of an account.
-    pub fn set_storage(
-        &mut self,
-        address: Address,
-        storage: HashMap<U256, U256>,
-    ) -> BackendResult<()> {
+    pub fn set_storage(&mut self, address: Address, storage: U256Map<U256>) -> BackendResult<()> {
         self.backend_mut()
             .replace_account_storage(address, storage)?;
         Ok(())
@@ -1712,28 +1708,32 @@ fn convert_executed_result<
     let (exit_reason, gas_refunded, gas_used, out, exec_logs) = match result {
         ExecutionResult::Success {
             reason,
-            gas_used,
-            gas_refunded,
+            gas,
             output,
             logs,
-            ..
-        } => (reason.into(), gas_refunded, gas_used, Some(output), logs),
-        ExecutionResult::Revert { gas_used, output } => {
+        } => (
+            reason.into(),
+            gas.inner_refunded(),
+            gas.tx_gas_used(),
+            Some(output),
+            logs,
+        ),
+        ExecutionResult::Revert { gas, output, .. } => {
             // Need to fetch the unused gas
             (
                 InstructionResult::Revert,
                 0_u64,
-                gas_used,
+                gas.tx_gas_used(),
                 Some(Output::Call(output)),
                 vec![],
             )
         }
-        ExecutionResult::Halt { reason, gas_used } => {
+        ExecutionResult::Halt { reason, gas, .. } => {
             let reason: HaltReason = reason.clone().try_into().map_err(|_error| {
                 eyre::eyre!("Halt reason cannot be converted to `HaltReason`: {reason:?}")
             })?;
 
-            (reason.into(), 0_u64, gas_used, None, vec![])
+            (reason.into(), 0_u64, gas.tx_gas_used(), None, vec![])
         }
     };
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
@@ -1771,7 +1771,7 @@ fn convert_executed_result<
         result,
         gas_used,
         gas_refunded,
-        stipend: gas.initial_gas,
+        stipend: gas.initial_total_gas,
         logs,
         labels,
         traces,

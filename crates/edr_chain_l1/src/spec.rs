@@ -14,7 +14,7 @@ use edr_chain_spec::{
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
-    handler::{EthInstructions, EthPrecompiles},
+    handler::{DefaultEthPrecompiles, EthInstructions},
     interpreter::InterpreterResult,
     BlockEnvTrait, CfgEnv, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
     ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, Journal, LocalContext,
@@ -86,7 +86,7 @@ impl ContextChainSpec for L1ChainSpec {
 }
 
 impl EvmChainSpec for L1ChainSpec {
-    type PrecompileProvider<BlockEnvT: BlockEnvTrait, DatabaseT: Database> = EthPrecompiles;
+    type PrecompileProvider<BlockEnvT: BlockEnvTrait, DatabaseT: Database> = DefaultEthPrecompiles;
 
     fn dry_run<
         BlockEnvT: BlockEnvTrait,

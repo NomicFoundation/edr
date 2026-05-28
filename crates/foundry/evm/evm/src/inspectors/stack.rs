@@ -3,10 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use alloy_primitives::{
-    map::{AddressHashMap, HashMap},
-    Address, Bytes, Log, TxKind, U256,
-};
+use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, TxKind, U256};
 use derive_where::derive_where;
 use edr_coverage::CodeCoverageReporter;
 use eyre::eyre;
@@ -25,12 +22,12 @@ use revm::{
         result::{ExecutionResult, HaltReason, HaltReasonTr},
         BlockEnv, CfgEnv, Context as EvmContext, CreateScheme,
     },
-    context_interface::{result::Output, JournalTr},
+    context_interface::{result::Output, ContextTr, JournalTr},
     interpreter::{
         interpreter::EthInterpreter, CallInputs, CallOutcome, CallScheme, CreateInputs,
         CreateOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
-    state::{Account, AccountStatus},
+    state::{AccountStatus, EvmState},
     DatabaseCommit, InspectEvm as _, Inspector, Journal, JournalEntry,
 };
 use revm_inspectors::edge_cov::EdgeCovInspector;
@@ -334,7 +331,7 @@ pub struct InspectorStackInner<ChainContextT> {
     /// Flag marking if we are in the inner EVM context.
     pub in_inner_context: bool,
     pub inner_context_data: Option<InnerContextData>,
-    pub top_frame_journal: HashMap<Address, Account>,
+    pub top_frame_journal: EvmState,
     /// Address that reverted the call, if any.
     pub reverter: Option<Address>,
     pub chain_context: ChainContextT,
@@ -955,29 +952,36 @@ impl<
         let (result, address, output) = match res.result {
             ExecutionResult::Success {
                 reason,
-                gas_used,
-                gas_refunded,
+                gas: result_gas,
                 logs: _,
                 output,
             } => {
-                gas.set_refund(gas_refunded as i64);
-                let _ = gas.record_cost(gas_used);
+                gas.set_refund(result_gas.inner_refunded() as i64);
+                let _ = gas.record_cost(result_gas.tx_gas_used());
                 let address = match output {
                     Output::Create(_, address) => address,
                     Output::Call(_) => None,
                 };
                 (reason.into(), address, output.into_data())
             }
-            ExecutionResult::Halt { reason, gas_used } => {
+            ExecutionResult::Halt {
+                reason,
+                gas: result_gas,
+                ..
+            } => {
                 let reason: HaltReason = reason.clone().try_into().unwrap_or_else(|_error| {
                     panic!("Halt reason cannot be converted to `HaltReason`: {reason:?}")
                 });
 
-                let _ = gas.record_cost(gas_used);
+                let _ = gas.record_cost(result_gas.tx_gas_used());
                 (reason.into(), None, Bytes::new())
             }
-            ExecutionResult::Revert { gas_used, output } => {
-                let _ = gas.record_cost(gas_used);
+            ExecutionResult::Revert {
+                gas: result_gas,
+                output,
+                ..
+            } => {
+                let _ = gas.record_cost(result_gas.tx_gas_used());
                 (InstructionResult::Revert, None, output)
             }
         };
@@ -1346,7 +1350,15 @@ impl<
                         .and_then(|selector| mocks.get(selector))
                 }) {
                     call.bytecode_address = *target;
-                    call.known_bytecode = None;
+
+                    let target_account = ecx
+                        .journal_mut()
+                        .load_account_with_code(*target)
+                        .expect("failed to load account");
+                    call.known_bytecode = (
+                        target_account.info.code_hash,
+                        target_account.info.code.clone().unwrap_or_default(),
+                    );
                 }
             }
 

@@ -24,15 +24,6 @@ impl Precompile {
     }
 }
 
-impl From<edr_precompile::Precompile> for Precompile {
-    fn from(value: edr_precompile::Precompile) -> Self {
-        Self {
-            address: *value.address(),
-            precompile_fn: value.into_precompile(),
-        }
-    }
-}
-
 #[napi]
 impl Precompile {
     /// Returns the address of the precompile.
@@ -42,9 +33,24 @@ impl Precompile {
     }
 }
 
+/// `revm-precompile` 34 no longer exposes the inner `PrecompileFn` of a
+/// [`edr_precompile::Precompile`], so we wrap
+/// [`edr_precompile::Precompile::execute`] in a plain function with the
+/// [`PrecompileFn`] signature for the P256VERIFY precompile.
+fn p256_verify_precompile_fn(
+    input: &[u8],
+    gas_limit: u64,
+    reservoir: u64,
+) -> edr_precompile::PrecompileResult {
+    edr_precompile::secp256r1::P256VERIFY.execute(input, gas_limit, reservoir)
+}
+
 /// [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md#specification)
 /// secp256r1 precompile.
 #[napi(catch_unwind)]
 pub fn precompile_p256_verify() -> Precompile {
-    Precompile::from(edr_precompile::secp256r1::P256VERIFY)
+    Precompile::new(
+        *edr_precompile::secp256r1::P256VERIFY.address(),
+        p256_verify_precompile_fn,
+    )
 }

@@ -145,6 +145,11 @@ impl ForgeTestProfile {
             ffi: true,
             memory_limit: 1 << 26,
             spec: hardfork,
+            // Solidity tests intentionally use `gas_limit = u64::MAX`, so opt
+            // out of the EIP-7825 transaction gas cap (active by default for
+            // OSAKA and later).
+            transaction_gas_cap: None,
+            disable_transaction_gas_cap: true,
             ..EvmOpts::default()
         }
     }

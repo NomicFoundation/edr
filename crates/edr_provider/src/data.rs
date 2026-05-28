@@ -67,7 +67,7 @@ use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
 use edr_state_api::{
     account::{Account, AccountInfo, AccountStatus},
     irregular::IrregularState,
-    AccountModifierFn, DynState, EvmStorageSlot, StateDiff, StateOverride,
+    AccountModifierFn, DynState, EvmState, EvmStorageSlot, StateDiff, StateOverride,
 };
 use edr_transaction::{
     request::TransactionRequestAndSender, BlockDataForTransaction, IsEip4844, IsSupported as _,
@@ -2764,7 +2764,7 @@ where
         // a block
         let minimum_cost =
             transaction::calculate_initial_tx_gas_for_tx(&transaction, self.evm_spec_id())
-                .initial_gas;
+                .initial_total_gas;
 
         let custom_precompiles = self.precompile_overrides.clone();
         let observer_config =
@@ -2804,7 +2804,7 @@ where
             } = evm_observer.collect_and_report(&result.precompile_addresses)?;
 
             let mut initial_estimation = match result.result {
-                ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
+                ExecutionResult::Success { gas, .. } => Ok(gas.tx_gas_used()),
                 ExecutionResult::Revert { output, .. } => Err(TransactionFailure::revert(
                     output,
                     None,
@@ -3027,7 +3027,7 @@ fn create_forked_blockchain_and_state<
             ))
         })?;
 
-        let genesis_state: HashMap<Address, Account> = config
+        let genesis_state: EvmState = config
             .genesis_state
             .iter()
             .zip(genesis_account_infos)
@@ -3165,7 +3165,7 @@ fn create_local_blockchain_and_state<
         None
     };
 
-    let genesis_state: HashMap<Address, Account> = config
+    let genesis_state: EvmState = config
         .genesis_state
         .iter()
         .map(|(address, account_override)| {

@@ -163,7 +163,7 @@ impl UIfmt for Eip658Value {
 
 impl UIfmt for AnyTransactionReceipt {
     fn pretty(&self) -> String {
-        let Self {
+        let Self(WithOtherFields {
             inner:
                 TransactionReceipt {
                     transaction_hash,
@@ -193,7 +193,7 @@ impl UIfmt for AnyTransactionReceipt {
                     blob_gas_used,
                 },
             other,
-        } = self;
+        }) = self;
 
         let mut pretty = format!(
             "
@@ -898,6 +898,7 @@ fn pretty_block_basics<T>(block: &Block<T, alloy_rpc_types::Header<AnyHeader>>) 
                         excess_blob_gas,
                         parent_beacon_block_root,
                         requests_hash,
+                        ..
                     },
             },
         uncles: _,

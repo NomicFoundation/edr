@@ -11,6 +11,7 @@ revm-context = { workspace = true, features = ["optional_balance_check", "option
 revm-handler.workspace = true
 revm-inspector.workspace = true
 revm-interpreter.workspace = true
+revm-primitives.workspace = true
 thiserror.workspace = true
 
 [features]
