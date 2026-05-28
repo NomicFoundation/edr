@@ -290,7 +290,9 @@ alloy-signer-trezor = { version = "2.0.5", default-features = false }
 alloy-transport = { version = "2.0.5", default-features = false }
 alloy-transport-http = { version = "2.0.5", default-features = false }
 alloy-transport-ipc = { version = "2.0.5", default-features = false }
-alloy-transport-ws = { version = "2.0.5", default-features = false }
+alloy-transport-ws = { version = "2.0.5", default-features = false, features = [
+    "aws-lc-rs",
+] }
 
 alloy-dyn-abi = { version = "1.5.2", features = ["eip712"] }
 alloy-json-abi = "1.5.2"
