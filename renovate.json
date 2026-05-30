@@ -137,6 +137,12 @@
       "allowedVersions": "<5.9"
     },
     {
+      "description": "hash-db: edr_trie's direct hash-db only exists to define the KeccakHasher passed to triehash's trie-root fns, so its version is welded to whatever triehash links. triehash 0.8.4 (its last release, 2021; paritytech/trie archived) pins hash-db 0.15.2, so bumping to 0.16 splits the crate into two incompatible Hasher traits and edr_trie stops compiling. Effectively permanent — lift only if we drop triehash (e.g. migrate to alloy-trie).",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["hash-db"],
+      "allowedVersions": "<= 0.15.2"
+    },
+    {
       "description": "crates/edr_napi/package.json is devDependencies-only — nothing ships to Hardhat consumers. Block test/lint majors (chai/mocha/eslint/prettier/...): review cost without downstream benefit. @napi-rs/cli is exempt — kept in the napi-rs ABI lockstep group above.",
       "matchManagers": ["npm"],
       "matchFileNames": ["crates/edr_napi/package.json"],
