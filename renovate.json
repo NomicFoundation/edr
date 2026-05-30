@@ -151,9 +151,9 @@
       "enabled": false
     },
     {
-      "description": "sha2: hold at 0.10.x until the RustCrypto-adjacent stack (k256, secp256k1, alloy-chains, bip32/39, coins-*, scrypt, foundry-compilers, p256) moves to digest 0.11. A premature 0.11 bump duplicates sha2 + digest + block-buffer + crypto-common + cpufeatures in the lockfile because every transitive that pins ^0.10 stays on 0.10.x alongside our 0.11.",
+      "description": "sha2 + sha3: hold at 0.10.x until the RustCrypto-adjacent stack (k256, secp256k1, alloy-chains, bip32/39, coins-*, scrypt, foundry-compilers, p256) moves to digest 0.11. A premature 0.11 bump duplicates sha2/sha3 + digest + block-buffer + crypto-common + cpufeatures in the lockfile because every transitive that pins ^0.10 stays on 0.10.x alongside our 0.11. sha3 0.12 also needs k256 0.14 (still an RC) via alloy/revm — see PR #1441.",
       "matchManagers": ["cargo"],
-      "matchPackageNames": ["sha2"],
+      "matchPackageNames": ["sha2", "sha3"],
       "allowedVersions": "<0.11"
     },
     {
