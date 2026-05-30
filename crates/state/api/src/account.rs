@@ -49,3 +49,14 @@ impl From<(&AccountInfo, B256)> for BasicAccount {
         }
     }
 }
+
+impl From<BasicAccount> for alloy_trie::TrieAccount {
+    fn from(account: BasicAccount) -> Self {
+        Self {
+            nonce: account.nonce,
+            balance: account.balance,
+            storage_root: account.storage_root,
+            code_hash: account.code_hash,
+        }
+    }
+}

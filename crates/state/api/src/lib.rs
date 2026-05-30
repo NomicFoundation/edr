@@ -10,9 +10,9 @@ mod r#override;
 use core::{fmt::Debug, ops::Deref};
 
 use alloy_rpc_types::EIP1186AccountProofResponse;
+use alloy_trie::root::{state_root_ref_unhashed, storage_root_unhashed};
 use auto_impl::auto_impl;
 use edr_primitives::{Address, Bytecode, HashMap, StorageKey, B256, U256};
-use edr_trie::sec_trie_root;
 pub use revm_database_interface::DatabaseCommit as StateCommit;
 pub use revm_state::{EvmState, EvmStorage, EvmStorageSlot};
 
@@ -182,10 +182,7 @@ pub fn state_root<'a, I>(state: I) -> B256
 where
     I: IntoIterator<Item = (&'a Address, &'a BasicAccount)>,
 {
-    sec_trie_root(state.into_iter().map(|(address, account)| {
-        let account = alloy_rlp::encode(account);
-        (address, account)
-    }))
+    state_root_ref_unhashed(state)
 }
 
 /// Calculates the storage root hash of the provided storage.
@@ -193,10 +190,11 @@ pub fn storage_root<'a, I>(storage: I) -> B256
 where
     I: IntoIterator<Item = (&'a U256, &'a U256)>,
 {
-    sec_trie_root(storage.into_iter().map(|(index, value)| {
-        let value = alloy_rlp::encode(value);
-        (index.to_be_bytes::<32>(), value)
-    }))
+    storage_root_unhashed(
+        storage
+            .into_iter()
+            .map(|(index, value)| (B256::from(index.to_be_bytes::<32>()), *value)),
+    )
 }
 
 #[cfg(test)]

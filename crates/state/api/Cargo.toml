@@ -6,11 +6,11 @@ edition.workspace = true
 [dependencies]
 alloy-rlp.workspace = true
 alloy-rpc-types = { workspace = true, features = ["eth"] }
+alloy-trie = { workspace = true, features = ["ethereum"] }
 auto_impl.workspace = true
 dyn-clone.workspace = true
 edr_primitives.workspace = true
 edr_rpc_client.workspace = true
-edr_trie.workspace = true
 revm-database-interface.workspace = true
 revm-state.workspace = true
 thiserror.workspace = true

@@ -68,7 +68,6 @@ members = [
     "crates/tool/solidity",
     "crates/tool/op_chain_config_generator",
     "crates/tracing",
-    "crates/trie",
     # Foundry
     "crates/foundry/cheatcodes",
     "crates/foundry/cheatcodes/spec",
@@ -195,7 +194,6 @@ edr_test_transaction = { path = "crates/test/transaction" }
 edr_test_utils = { path = "crates/edr_test_utils" }
 edr_tracing = { path = "crates/tracing" }
 edr_transaction = { path = "crates/edr_transaction" }
-edr_trie = { path = "crates/trie" }
 edr_utils = { path = "crates/edr_utils" }
 
 foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
