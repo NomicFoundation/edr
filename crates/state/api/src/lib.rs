@@ -219,6 +219,20 @@ mod tests {
         assert_eq!(storage_root(&storage), KECCAK_NULL_RLP);
     }
 
+    // Golden hash for `storage_root` over non-empty storage; values span the RLP
+    // length range (single byte through a full 32-byte word) to exercise encoding.
+    #[test]
+    fn storage_root_with_slots() {
+        const EXPECTED: &str = "0x54b24bc07538750267f9767e591e8b182ff36c9d27e751cdd59ac79fc67df4bd";
+
+        let mut storage = AccountStorage::default();
+        storage.insert(U256::from(1), U256::from(0x42));
+        storage.insert(U256::from(2), U256::from(0xdead_beefu64));
+        storage.insert(U256::from(256), U256::MAX);
+
+        assert_eq!(storage_root(&storage), B256::from_str(EXPECTED).unwrap());
+    }
+
     #[test]
     fn precompiles_state_root() {
         const EXPECTED: &str = "0x5766c887a7240e4d1c035ccd3830a2f6a0c03d213a9f0b9b27c774916a4abcce";

@@ -74,6 +74,8 @@ impl<
         withdrawals: Option<Vec<Withdrawal>>,
     ) -> Self {
         let ommer_hashes = ommers.iter().map(BlockHeader::hash).collect::<Vec<_>>();
+        // `rlp_encoding()` already returns the transaction's EIP-2718 consensus
+        // encoding, so it's the trie value as-is — re-encoding it would double-wrap.
         let transactions_root = ordered_trie_root_with_encoder(&transactions, |tx, buf| {
             buf.extend_from_slice(tx.rlp_encoding());
         });
