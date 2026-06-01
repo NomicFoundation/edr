@@ -85,7 +85,6 @@ impl ContractDecoder {
         for build_info in &config.build_infos {
             let bytecodes = create_models_and_decode_bytecodes(
                 build_info.solc_version.clone(),
-                build_info.compiler_type,
                 &build_info.input,
                 &build_info.output,
             )

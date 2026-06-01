@@ -10,17 +10,13 @@ use indexmap::IndexMap;
 use parking_lot::RwLock;
 
 use crate::{
-    artifacts::{
-        CompilerInput, CompilerOutput, CompilerOutputBytecode, CompilerType, ContractAbiEntry,
-    },
+    artifacts::{CompilerInput, CompilerOutput, CompilerOutputBytecode, ContractAbiEntry},
     build_model::{
         BuildModel, BuildModelSources, Contract, ContractFunction, ContractFunctionType,
         ContractFunctionVisibility, ContractKind, ContractMetadata, CustomError, SourceFile,
         SourceLocation,
     },
-    debug_info::dwarf,
     library_utils::{get_library_address_positions, normalize_compiler_output_bytecode},
-    source_map::decode_instructions,
 };
 
 /// First Solc version supported for stack trace generation
@@ -28,18 +24,18 @@ pub const FIRST_SOLC_VERSION_SUPPORTED: semver::Version = semver::Version::new(0
 
 /// For the Solidity compiler version and its standard JSON input and output,
 /// creates the source model, decodes the bytecode, and links them to the
-/// source files. `compiler_type = None` is treated as
-/// [`CompilerType::Solc`] for build-infos that pre-date the field.
+/// source files. The producing compiler is derived from each contract's
+/// bytecode variant (see [`CompilerOutputBytecode`]) — no external tag
+/// needs to be threaded in.
 pub fn create_models_and_decode_bytecodes(
     solc_version: String,
-    compiler_type: CompilerType,
     compiler_input: &CompilerInput,
     compiler_output: &CompilerOutput,
 ) -> anyhow::Result<Vec<ContractMetadata>> {
     let build_model = create_sources_model_from_ast(compiler_output, compiler_input)?;
     let build_model = Arc::new(build_model);
 
-    let bytecodes = decode_bytecodes(solc_version, compiler_type, compiler_output, &build_model)?;
+    let bytecodes = decode_bytecodes(solc_version, compiler_output, &build_model)?;
 
     correct_selectors(&bytecodes, compiler_output)?;
 
@@ -105,7 +101,7 @@ pub(crate) fn create_sources_model_from_ast(
         collect_ast_spans(&source.ast, &mut ast_spans);
     }
     for spans in ast_spans.values_mut() {
-        spans.sort_unstable_by(|a, b| a.cmp(b));
+        spans.sort_unstable();
         spans.dedup();
     }
 
@@ -840,49 +836,31 @@ fn abi_method_id(name: &str, param_types: Vec<impl AsRef<str>>) -> Vec<u8> {
 fn decode_evm_bytecode(
     contract: Arc<RwLock<Contract>>,
     solc_version: String,
-    compiler_type: CompilerType,
     is_deployment: bool,
     compiler_bytecode: &CompilerOutputBytecode,
     build_model: &Arc<BuildModel>,
 ) -> anyhow::Result<ContractMetadata> {
-    let library_address_positions = get_library_address_positions(compiler_bytecode);
+    let artifact = compiler_bytecode.as_artifact();
+    let library_address_positions = get_library_address_positions(artifact);
 
-    let immutable_references = compiler_bytecode
-        .immutable_references
-        .as_ref()
+    let immutable_references = artifact
+        .immutable_references()
         .map(|refs| refs.values().flatten().copied().collect::<Vec<_>>())
         .unwrap_or_default();
 
-    let normalized_code = normalize_compiler_output_bytecode(
-        compiler_bytecode.object.clone(),
-        &library_address_positions,
-    )
-    .with_context(|| format!("Failed to decode hex: {compiler_bytecode:?}"))?;
+    let normalized_code =
+        normalize_compiler_output_bytecode(artifact.object().to_owned(), &library_address_positions)
+            .with_context(|| format!("Failed to decode hex: {compiler_bytecode:?}"))?;
 
     let section = if is_deployment {
         "evm.bytecode"
     } else {
         "evm.deployedBytecode"
     };
-    let instructions = match compiler_type {
-        CompilerType::Solc => decode_instructions(
-            &normalized_code,
-            &compiler_bytecode.source_map,
-            build_model,
-            is_deployment,
-        )?,
-        CompilerType::Solx => {
-            let debug_info = compiler_bytecode.debug_info.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "solx artifact is missing {section}.debugInfo. The hardhat-solx plugin \
-                     should auto-augment outputSelection to request it; verify the plugin \
-                     version is recent enough."
-                )
-            })?;
-            dwarf::decode_instructions(&normalized_code, debug_info, build_model, is_deployment)
-                .with_context(|| format!("failed to decode solx DWARF for {section}"))?
-        }
-    };
+    let compiler_type = artifact.compiler_type();
+    let instructions = artifact
+        .decode_instructions(&normalized_code, build_model, is_deployment)
+        .with_context(|| format!("failed to decode debug-info for {section}"))?;
 
     Ok(ContractMetadata::new(
         Arc::clone(&build_model.file_id_to_source_file),
@@ -899,7 +877,6 @@ fn decode_evm_bytecode(
 
 fn decode_bytecodes(
     solc_version: String,
-    compiler_type: CompilerType,
     compiler_output: &CompilerOutput,
     build_model: &Arc<BuildModel>,
 ) -> anyhow::Result<Vec<ContractMetadata>> {
@@ -939,14 +916,18 @@ fn decode_bytecodes(
         };
 
         // This is an abstract contract
-        if contract_evm_output.bytecode.object.is_empty() {
+        if contract_evm_output
+            .bytecode
+            .as_artifact()
+            .object()
+            .is_empty()
+        {
             continue;
         }
 
         let deployment_bytecode = decode_evm_bytecode(
             contract_rc.clone(),
             solc_version.clone(),
-            compiler_type,
             true,
             &contract_evm_output.bytecode,
             build_model,
@@ -955,7 +936,6 @@ fn decode_bytecodes(
         let runtime_bytecode = decode_evm_bytecode(
             contract_rc.clone(),
             solc_version.clone(),
-            compiler_type,
             false,
             &contract_evm_output.deployed_bytecode,
             build_model,
@@ -992,33 +972,13 @@ mod tests {
     }
 
     #[test]
-    fn solc_path_is_unchanged_for_default_compiler_type() {
+    fn solc_fixture_decodes() {
         let (input, output) = solc_fixture();
-        let result = create_models_and_decode_bytecodes(
-            "0.8.0".to_string(),
-            CompilerType::Solc,
-            &input,
-            &output,
-        );
+        let result =
+            create_models_and_decode_bytecodes("0.8.0".to_string(), &input, &output);
         assert!(
             result.is_ok(),
             "solc fixture should still decode: {:?}",
-            result.err()
-        );
-    }
-
-    #[test]
-    fn solc_path_is_unchanged_when_compiler_type_is_solc() {
-        let (input, output) = solc_fixture();
-        let result = create_models_and_decode_bytecodes(
-            "0.8.0".to_string(),
-            CompilerType::Solc,
-            &input,
-            &output,
-        );
-        assert!(
-            result.is_ok(),
-            "explicit solc compilerType should decode the same way: {:?}",
             result.err()
         );
     }
@@ -1049,15 +1009,27 @@ mod tests {
     }
 
     #[test]
-    fn solx_with_debug_info_decodes_via_dwarf() {
+    fn solx_fixture_decodes_via_dwarf() {
         let (input, output) = solx_fixture();
-        let result = create_models_and_decode_bytecodes(
+        // Sanity: dyn-trait dispatch resolved to the SolxBytecode concrete type.
+        let first_evm = output
+            .contracts
+            .values()
+            .flat_map(|m| m.values())
+            .next()
+            .expect("solx fixture has at least one contract");
+        assert_eq!(
+            first_evm.evm.bytecode.as_artifact().compiler_type(),
+            crate::artifacts::CompilerType::Solx,
+            "solx fixture bytecode must construct as the Solx concrete artifact"
+        );
+
+        let bytecodes = create_models_and_decode_bytecodes(
             "0.8.34".to_string(),
-            CompilerType::Solx,
             &input,
             &output,
-        );
-        let bytecodes = result.expect("solx fixture must decode through the DWARF parser");
+        )
+        .expect("solx fixture must decode through the DWARF parser");
         // Creation + runtime.
         assert!(
             bytecodes.len() >= 2,
@@ -1065,29 +1037,5 @@ mod tests {
             bytecodes.len()
         );
         // PC → line assertions live in `crate::debug_info::dwarf::tests`.
-    }
-
-    #[test]
-    fn solx_without_debug_info_errors_with_actionable_message() {
-        let (input, mut output) = solx_fixture();
-        // Simulate the plugin failing to add debugInfo to outputSelection.
-        for contract_map in output.contracts.values_mut() {
-            for contract in contract_map.values_mut() {
-                contract.evm.bytecode.debug_info = None;
-                contract.evm.deployed_bytecode.debug_info = None;
-            }
-        }
-        let err = create_models_and_decode_bytecodes(
-            "0.8.34".to_string(),
-            CompilerType::Solx,
-            &input,
-            &output,
-        )
-        .expect_err("missing debugInfo must fail with an actionable message");
-        let msg = format!("{err:#}");
-        assert!(
-            msg.contains("debugInfo") && msg.contains("hardhat-solx"),
-            "error should mention debugInfo and the plugin name, got: {msg}"
-        );
     }
 }

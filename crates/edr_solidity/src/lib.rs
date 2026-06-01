@@ -8,7 +8,7 @@ pub mod compiler;
 pub mod config;
 pub mod contract_decoder;
 pub mod contracts_identifier;
-mod debug_info;
+pub mod debug_info;
 pub mod exit_code;
 pub mod library_utils;
 pub mod linker;

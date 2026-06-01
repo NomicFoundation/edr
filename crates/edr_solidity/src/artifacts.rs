@@ -4,7 +4,7 @@
 //! See <https://docs.soliditylang.org/en/latest/using-the-compiler.html#compiler-input-and-output-json-description>.
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use indexmap::IndexMap;
 use itertools::Itertools;
@@ -53,7 +53,7 @@ pub enum BuildInfoConfigError {
 }
 
 /// Configuration for the [`crate::contract_decoder::ContractDecoder`].
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildInfoConfig {
     /// Build information to use for decoding contracts.
@@ -164,7 +164,7 @@ pub struct BuildInfoBufferSeparateOutput<'a> {
 /// A `BuildInfoWithOutput` contains all the information of a compiler run. It
 /// includes all the necessary information to recreate that exact same run, and
 /// the output of the run.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildInfoWithOutput {
     #[serde(rename = "_format")]
@@ -198,7 +198,7 @@ pub struct BuildInfo {
 }
 
 /// A `BuildInfoOutput` contains all the output of a compiler run.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildInfoOutput {
     /// Mirrored from the input file (canonical source). See
@@ -273,7 +273,7 @@ pub struct MetadataSettings {
 }
 
 /// The main output of the Solidity compiler.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct CompilerOutput {
     // Retain the order of the sources as emitted by the compiler.
     // Our post processing relies on this order to build the codebase model.
@@ -282,7 +282,7 @@ pub struct CompilerOutput {
 }
 
 /// The output of a contract compilation.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct CompilerOutputContract {
     pub abi: Vec<ContractAbiEntry>,
     pub evm: CompilerOutputEvm,
@@ -296,7 +296,7 @@ pub struct ContractAbiEntry {
 }
 
 /// The EVM-specific output of a contract compilation.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompilerOutputEvm {
     pub bytecode: CompilerOutputBytecode,
@@ -311,16 +311,55 @@ pub struct CompilerOutputSource {
     pub ast: serde_json::Value,
 }
 
-/// The bytecode output for a given compiled contract.
+/// Bytecode output for a compiled contract. Wraps an `Arc<dyn CompilerArtifact>`
+/// so the stack-trace pipeline dispatches dynamically over compiler-specific
+/// implementations ([`SolcBytecode`], [`SolxBytecode`]).
+#[derive(Clone, Debug)]
+pub struct CompilerOutputBytecode(pub Arc<dyn crate::debug_info::CompilerArtifact>);
+
+impl CompilerOutputBytecode {
+    pub fn as_artifact(&self) -> &dyn crate::debug_info::CompilerArtifact {
+        self.0.as_ref()
+    }
+}
+
+impl<'de> Deserialize<'de> for CompilerOutputBytecode {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        // Peek at the JSON value to discriminate. Solx artifacts carry
+        // a mandatory `debugInfo` field; solc artifacts don't.
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let artifact: Arc<dyn crate::debug_info::CompilerArtifact> =
+            if value.get("debugInfo").is_some() {
+                let b: SolxBytecode =
+                    serde_json::from_value(value).map_err(serde::de::Error::custom)?;
+                Arc::new(b)
+            } else {
+                let b: SolcBytecode =
+                    serde_json::from_value(value).map_err(serde::de::Error::custom)?;
+                Arc::new(b)
+            };
+        Ok(Self(artifact))
+    }
+}
+
+/// Solc-emitted bytecode.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CompilerOutputBytecode {
+pub struct SolcBytecode {
     pub object: String,
     pub opcodes: String,
     pub source_map: String,
-    /// Hex-encoded ELF (DWARF v5) from solx. Absent for solc artifacts.
-    #[serde(default)]
-    pub debug_info: Option<String>,
+    pub link_references: HashMap<String, HashMap<String, Vec<LinkReference>>>,
+    pub immutable_references: Option<HashMap<String, Vec<ImmutableReference>>>,
+}
+
+/// Solx-emitted bytecode. `debug_info` is hex-encoded ELF (DWARF v5).
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolxBytecode {
+    pub object: String,
+    pub opcodes: String,
+    pub debug_info: String,
     pub link_references: HashMap<String, HashMap<String, Vec<LinkReference>>>,
     pub immutable_references: Option<HashMap<String, Vec<ImmutableReference>>>,
 }
@@ -356,11 +395,22 @@ mod tests {
         // these were taken from a run of TypeScript function compileLiteral
         let compiler_output_json = include_str!("../fixtures/compiler_output.json");
         let output: CompilerOutput = serde_json::from_str(compiler_output_json).unwrap();
-        // solc artifacts have no debugInfo field; the new Option<String>
-        // defaults to None via `#[serde(default)]`.
+        // Solc artifacts must construct as the SolcBytecode concrete type.
         if let Some((_, contract)) = output.contracts.values().flat_map(|m| m.iter()).next() {
-            assert_eq!(contract.evm.bytecode.debug_info, None);
-            assert_eq!(contract.evm.deployed_bytecode.debug_info, None);
+            assert!(contract
+                .evm
+                .bytecode
+                .as_artifact()
+                .as_any()
+                .downcast_ref::<SolcBytecode>()
+                .is_some());
+            assert!(contract
+                .evm
+                .deployed_bytecode
+                .as_artifact()
+                .as_any()
+                .downcast_ref::<SolcBytecode>()
+                .is_some());
         }
     }
 
@@ -373,25 +423,24 @@ mod tests {
             .get("Counter.sol")
             .and_then(|m| m.get("Counter"))
             .expect("Counter.sol::Counter should be in the solx fixture");
-        // solx leaves sourceMap empty.
-        assert_eq!(contract.evm.bytecode.source_map, "");
-        assert_eq!(contract.evm.deployed_bytecode.source_map, "");
-        let creation_dwarf = contract
+        let creation = contract
             .evm
             .bytecode
-            .debug_info
-            .as_deref()
-            .expect("solx fixture should have evm.bytecode.debugInfo");
-        let runtime_dwarf = contract
+            .as_artifact()
+            .as_any()
+            .downcast_ref::<SolxBytecode>()
+            .expect("expected SolxBytecode for creation");
+        let runtime = contract
             .evm
             .deployed_bytecode
-            .debug_info
-            .as_deref()
-            .expect("solx fixture should have evm.deployedBytecode.debugInfo");
+            .as_artifact()
+            .as_any()
+            .downcast_ref::<SolxBytecode>()
+            .expect("expected SolxBytecode for runtime");
         // \x7fELF magic, hex-encoded.
-        assert!(creation_dwarf.starts_with("7f454c46"));
-        assert!(runtime_dwarf.starts_with("7f454c46"));
-        assert!(creation_dwarf.len() >= 200 && runtime_dwarf.len() >= 200);
+        assert!(creation.debug_info.starts_with("7f454c46"));
+        assert!(runtime.debug_info.starts_with("7f454c46"));
+        assert!(creation.debug_info.len() >= 200 && runtime.debug_info.len() >= 200);
     }
 
     #[test]

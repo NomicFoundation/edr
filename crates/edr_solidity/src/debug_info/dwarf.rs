@@ -5,14 +5,62 @@
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 use addr2line::Context as Addr2lineContext;
-use anyhow::Context;
 use edr_primitives::{bytecode::opcode::OpCode, hex};
 use gimli::{EndianRcSlice, Reader, RunTimeEndian};
 use object::{Endianness, Object, ObjectSection};
 
-use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
+use crate::{
+    build_model::{BuildModel, Instruction, JumpType, SourceLocation},
+    debug_info::SolxBuildModelExt as _,
+};
 
 type DwarfReader = EndianRcSlice<RunTimeEndian>;
+
+/// Failure modes when decoding a solx DWARF blob. Replaces previous
+/// `anyhow::Error` returns so callers (and tests) can match on the specific
+/// failure, as is the convention for reusable EDR crates.
+#[derive(Debug, thiserror::Error)]
+pub enum DwarfError {
+    /// `evm.*.debugInfo` wasn't valid ASCII-hex.
+    #[error("failed to hex-decode solx evm.*.debugInfo: {0}")]
+    HexDecode(#[from] hex::FromHexError),
+
+    /// The decoded bytes weren't a recognisable ELF container.
+    #[error("solx debugInfo blob is not a valid ELF (expected ELF32-MSB): {0}")]
+    ElfParse(#[from] object::Error),
+
+    /// A DWARF section is compressed — solx doesn't emit them today,
+    /// so we surface this as an explicit unsupported case rather than
+    /// silently producing empty traces.
+    #[error("compressed DWARF section {0:?} is not supported by EDR yet")]
+    CompressedSection(&'static str),
+
+    /// EDR currently assumes one compilation unit per contract's
+    /// debugInfo blob (matching solx's output). Multi-CU blobs would
+    /// share file-name / inlined-range tables across CUs, leading to
+    /// wrong cross-CU resolution if processed naively.
+    #[error(
+        "solx debugInfo blob contains {0}+ DWARF compilation units; \
+         EDR only supports single-CU blobs (one CU per contract)"
+    )]
+    MultiCu(u32),
+
+    /// A DIE PC range escapes the bytecode it claims to cover —
+    /// typically a sign of a mismatched / corrupt debugInfo blob.
+    #[error(
+        "DWARF inlined range {bound} {value:#x} exceeds bytecode length {bytecode_len:#x}"
+    )]
+    RangeEscapesBytecode {
+        bound: &'static str,
+        value: u64,
+        bytecode_len: u64,
+    },
+
+    /// Catch-all for the gimli/addr2line traversal layer. The inner
+    /// `gimli::Error` carries its own descriptive message.
+    #[error("error walking DWARF structures: {0}")]
+    DwarfParse(#[from] gimli::Error),
+}
 
 fn attr_file_index<R: Reader>(attr: &gimli::Attribute<R>) -> Option<u64> {
     match attr.value() {
@@ -85,27 +133,29 @@ pub fn decode_instructions(
     debug_info_hex: &str,
     build_model: &Arc<BuildModel>,
     _is_deployment: bool,
-) -> anyhow::Result<Vec<Instruction>> {
+) -> Result<Vec<Instruction>, DwarfError> {
     // 1. Hex → ELF → gimli::Dwarf.
-    let raw = hex::decode(debug_info_hex).context("failed to hex-decode solx evm.*.debugInfo")?;
+    let raw = hex::decode(debug_info_hex)?;
     let parsed = ParsedDwarf::from_elf_bytes(&raw)?;
 
     // 2. Reject debugInfo whose PC ranges escape the bytecode (mismatched
     //    or corrupt blob).
     let bytecode_len = bytecode.len() as u64;
     for range in &parsed.inlined_ranges {
-        anyhow::ensure!(
-            range.low_pc < bytecode_len,
-            "DWARF inlined range low_pc {:#x} exceeds bytecode length {:#x}",
-            range.low_pc,
-            bytecode_len,
-        );
-        anyhow::ensure!(
-            range.high_pc <= bytecode_len,
-            "DWARF inlined range high_pc {:#x} exceeds bytecode length {:#x}",
-            range.high_pc,
-            bytecode_len,
-        );
+        if range.low_pc >= bytecode_len {
+            return Err(DwarfError::RangeEscapesBytecode {
+                bound: "low_pc",
+                value: range.low_pc,
+                bytecode_len,
+            });
+        }
+        if range.high_pc > bytecode_len {
+            return Err(DwarfError::RangeEscapesBytecode {
+                bound: "high_pc",
+                value: range.high_pc,
+                bytecode_len,
+            });
+        }
     }
 
     // 3. Reuse BuildModel's lazy reverse index (built at most once per BuildModel).
@@ -115,61 +165,90 @@ pub fn decode_instructions(
     let mut line_starts_by_file_id: HashMap<u32, Vec<usize>> = HashMap::new();
 
     // 5. Walk PCs, mirroring `source_map::decode_instructions` so PUSH operands
-    //    are skipped consistently.
-    let mut instructions = Vec::new();
-    let mut pc: usize = 0;
-    while pc < bytecode.len() {
-        let Some(&raw_op) = bytecode.get(pc) else {
-            break;
-        };
-        let Some(opcode) = OpCode::new(raw_op) else {
-            // Invalid opcode = start of the trailing CBOR metadata region.
-            log::debug!("DWARF decoder: invalid opcode {raw_op} at pc={pc}, stopping");
-            break;
-        };
+    //    are skipped consistently. PcOpcodes ends iteration as soon as it
+    //    hits an invalid byte (CBOR metadata region), matching the previous
+    //    `break` semantics.
+    let mut instructions: Vec<Instruction> = PcOpcodes::new(bytecode)
+        .map(|step| {
+            let location = parsed.user_visible_location_for_pc(
+                step.pc as u64,
+                &parsed.file_names,
+                name_to_file_id,
+                build_model,
+                &mut line_starts_by_file_id,
+            );
+            let inline_call_sites = parsed.inline_call_sites_for_pc(
+                step.pc as u64,
+                &parsed.file_names,
+                name_to_file_id,
+                build_model,
+                &mut line_starts_by_file_id,
+            );
+            Instruction {
+                pc: step.pc as u32,
+                opcode: step.opcode,
+                // Filled in by assign_jump_types once we have the full stream.
+                jump_type: JumpType::NotJump,
+                push_data: step.push_data,
+                location,
+                inline_call_sites,
+            }
+        })
+        .collect();
 
+    parsed.assign_jump_types(&mut instructions);
+
+    Ok(instructions)
+}
+
+/// Iterator over `(pc, opcode, push_data)` decoded from raw bytecode,
+/// skipping each PUSH's immediate operands so the next yielded PC is the
+/// next instruction (not an operand byte). Terminates on the first byte
+/// that isn't a valid opcode — solx's trailing CBOR metadata is delimited
+/// by such a byte, so this also serves as a natural end-of-code sentinel.
+struct PcOpcodes<'a> {
+    bytecode: &'a [u8],
+    pc: usize,
+}
+
+impl<'a> PcOpcodes<'a> {
+    fn new(bytecode: &'a [u8]) -> Self {
+        Self { bytecode, pc: 0 }
+    }
+}
+
+struct PcStep {
+    pc: usize,
+    opcode: OpCode,
+    push_data: Option<Vec<u8>>,
+}
+
+impl Iterator for PcOpcodes<'_> {
+    type Item = PcStep;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let pc = self.pc;
+        let raw_op = *self.bytecode.get(pc)?;
+        let opcode = OpCode::new(raw_op).or_else(|| {
+            log::debug!("DWARF decoder: invalid opcode {raw_op} at pc={pc}, stopping");
+            None
+        })?;
         let push_size = opcode.info().immediate_size() as usize;
         let push_data = if opcode.is_push() {
-            bytecode
+            self.bytecode
                 .get(pc..)
                 .and_then(|s| s.get(..1 + push_size))
                 .map(<[u8]>::to_vec)
         } else {
             None
         };
-
-        let location = parsed.user_visible_location_for_pc(
-            pc as u64,
-            &parsed.file_names,
-            &name_to_file_id,
-            build_model,
-            &mut line_starts_by_file_id,
-        );
-
-        let inline_call_sites = parsed.inline_call_sites_for_pc(
-            pc as u64,
-            &parsed.file_names,
-            &name_to_file_id,
-            build_model,
-            &mut line_starts_by_file_id,
-        );
-
-        instructions.push(Instruction {
-            pc: pc as u32,
+        self.pc = pc + 1 + push_size;
+        Some(PcStep {
+            pc,
             opcode,
-            // Filled in by assign_jump_types once we have the full stream.
-            jump_type: JumpType::NotJump,
             push_data,
-            location,
-            inline_call_sites,
-        });
-
-        pc += 1 + push_size;
+        })
     }
-
-    parsed.assign_jump_types(&mut instructions);
-
-    Ok(instructions)
 }
 
 /// Resolved row from the DWARF `.debug_line` program.
@@ -226,15 +305,14 @@ struct ParsedDwarf {
 }
 
 impl ParsedDwarf {
-    fn from_elf_bytes(raw: &[u8]) -> anyhow::Result<Self> {
-        let file = object::File::parse(raw)
-            .context("solx debugInfo blob is not a valid ELF (expected ELF32-MSB)")?;
+    fn from_elf_bytes(raw: &[u8]) -> Result<Self, DwarfError> {
+        let file = object::File::parse(raw)?;
         let endian = match file.endianness() {
             Endianness::Big => RunTimeEndian::Big,
             Endianness::Little => RunTimeEndian::Little,
         };
 
-        let load_section = |id: gimli::SectionId| -> anyhow::Result<DwarfReader> {
+        let load_section = |id: gimli::SectionId| -> Result<DwarfReader, DwarfError> {
             let Some(section) = file.section_by_name(id.name()) else {
                 return Ok(EndianRcSlice::new(Rc::from(Vec::new()), endian));
             };
@@ -245,15 +323,12 @@ impl ParsedDwarf {
                 .map(|r| r.format != object::CompressionFormat::None)
                 .unwrap_or(false);
             if compressed {
-                anyhow::bail!(
-                    "compressed DWARF section {:?} is not supported by EDR yet",
-                    id.name()
-                );
+                return Err(DwarfError::CompressedSection(id.name()));
             }
             let data: Vec<u8> = section.data().ok().map(<[u8]>::to_vec).unwrap_or_default();
             Ok(EndianRcSlice::new(Rc::from(data), endian))
         };
-        let dwarf = gimli::Dwarf::load(load_section).context("failed to load DWARF sections")?;
+        let dwarf = gimli::Dwarf::load(load_section)?;
 
         let mut file_names: Vec<String> = Vec::new();
         let mut inlined_ranges: Vec<InlinedRange> = Vec::new();
@@ -262,18 +337,12 @@ impl ParsedDwarf {
         // across CUs, so CU B's file index 0 would resolve via CU A's table.
         let mut cu_count = 0u32;
         let mut units = dwarf.units();
-        while let Some(header) = units
-            .next()
-            .context("error iterating DWARF compilation units")?
-        {
+        while let Some(header) = units.next()? {
             cu_count += 1;
             if cu_count > 1 {
-                anyhow::bail!(
-                    "solx debugInfo blob contains {cu_count}+ DWARF compilation units; \
-                     EDR only supports single-CU blobs (one CU per contract)"
-                );
+                return Err(DwarfError::MultiCu(cu_count));
             }
-            let unit = dwarf.unit(header).context("failed to load DWARF unit")?;
+            let unit = dwarf.unit(header)?;
             let unit_ref = unit.unit_ref(&dwarf);
 
             if let Some(program) = unit.line_program.clone() {
@@ -337,8 +406,7 @@ impl ParsedDwarf {
             {
                 let mut entries = unit.entries();
                 while let Some((_, die)) = entries
-                    .next_dfs()
-                    .context("error walking DWARF DIE tree (pass 1)")?
+                    .next_dfs()?
                 {
                     if die.tag() != gimli::DW_TAG_subprogram {
                         continue;
@@ -346,7 +414,7 @@ impl ParsedDwarf {
                     let mut is_inline = false;
                     let mut meta = AbstractOriginMeta::default();
                     let mut attrs = die.attrs();
-                    while let Some(attr) = attrs.next().context("error reading DIE attributes")? {
+                    while let Some(attr) = attrs.next()? {
                         match attr.name() {
                             gimli::DW_AT_inline => {
                                 if let gimli::AttributeValue::Inline(v) = attr.value() {
@@ -372,8 +440,7 @@ impl ParsedDwarf {
             let mut entries = unit.entries();
             let mut depth: isize = 0;
             while let Some((delta, die)) = entries
-                .next_dfs()
-                .context("error walking DWARF DIE tree (pass 2)")?
+                .next_dfs()?
             {
                 depth += delta;
 
@@ -397,7 +464,7 @@ impl ParsedDwarf {
                 let mut self_decl_line: Option<u64> = None;
                 let mut self_artificial = false;
                 let mut attrs = die.attrs();
-                while let Some(attr) = attrs.next().context("error reading DIE attributes")? {
+                while let Some(attr) = attrs.next()? {
                     match attr.name() {
                         gimli::DW_AT_call_file => call_file = attr_file_index(&attr),
                         gimli::DW_AT_call_line => call_line = attr_udata(&attr),
@@ -432,9 +499,8 @@ impl ParsedDwarf {
                 };
                 let depth_u32 = u32::try_from(depth.max(0)).unwrap_or(u32::MAX);
                 let mut ranges = unit_ref
-                    .die_ranges(die)
-                    .context("error reading DIE ranges")?;
-                while let Some(range) = ranges.next().context("error iterating DIE ranges")? {
+                    .die_ranges(die)?;
+                while let Some(range) = ranges.next()? {
                     if range.end > range.begin {
                         inlined_ranges.push(InlinedRange {
                             low_pc: range.begin,
@@ -455,8 +521,7 @@ impl ParsedDwarf {
         inlined_ranges.sort_by_key(|r| r.low_pc);
 
         // addr2line indexes the line program for find_location(pc).
-        let context = Addr2lineContext::from_dwarf(dwarf)
-            .context("failed to build addr2line context from parsed DWARF")?;
+        let context = Addr2lineContext::from_dwarf(dwarf)?;
 
         Ok(Self {
             context,
@@ -470,8 +535,8 @@ impl ParsedDwarf {
         let loc = self.context.find_location(pc).ok().flatten()?;
         Some(LineRow {
             file: loc.file?.to_string(),
-            line: loc.line.map(u64::from).unwrap_or(0),
-            column: loc.column.map(u64::from).unwrap_or(0),
+            line: loc.line.map_or(0, u64::from),
+            column: loc.column.map_or(0, u64::from),
         })
     }
 
@@ -492,7 +557,6 @@ impl ParsedDwarf {
     /// Resolve an [`InlinedRange`]'s `call_*` attributes to a `SourceLocation`,
     /// or `None` if any required field is missing.
     fn range_call_site_to_location(
-        &self,
         r: &InlinedRange,
         dwarf_file_names: &[String],
         name_to_file_id: &HashMap<String, u32>,
@@ -512,8 +576,7 @@ impl ParsedDwarf {
         )?;
         let length = build_model
             .smallest_enclosing_span(file_id, offset as u32)
-            .map(|(_, len)| len)
-            .unwrap_or(0);
+            .map_or(0, |(_, len)| len);
         Some(source_location_at(build_model, file_id, offset as u32, length))
     }
 
@@ -586,9 +649,9 @@ impl ParsedDwarf {
             });
 
         let user_func: Option<(u32, u32, u32)> =
-            line_program_func.or(abstract_origin_func).and_then(|f| {
+            line_program_func.or(abstract_origin_func).map(|f| {
                 let file_id = f.location.file_id;
-                Some((file_id, f.location.offset, f.location.length))
+                (file_id, f.location.offset, f.location.length)
             });
         let user_func_range: Option<(u32, u32)> = user_func.map(|(_, off, len)| (off, off + len));
 
@@ -601,7 +664,7 @@ impl ParsedDwarf {
             if !r.is_artificial {
                 continue;
             }
-            let Some(loc) = self.range_call_site_to_location(
+            let Some(loc) = Self::range_call_site_to_location(
                 r,
                 dwarf_file_names,
                 name_to_file_id,
@@ -630,8 +693,7 @@ impl ParsedDwarf {
         {
             let length = build_model
                 .smallest_enclosing_span(file_id, offset as u32)
-                .map(|(_, len)| len)
-                .unwrap_or(0);
+                .map_or(0, |(_, len)| len);
             return Some(source_location_at(build_model, file_id, offset as u32, length));
         }
 
@@ -659,7 +721,7 @@ impl ParsedDwarf {
             if r.is_artificial {
                 continue;
             }
-            if let Some(loc) = self.range_call_site_to_location(
+            if let Some(loc) = Self::range_call_site_to_location(
                 &r,
                 dwarf_file_names,
                 name_to_file_id,
@@ -718,11 +780,15 @@ impl ParsedDwarf {
                     );
                     break;
                 }
-                if let Some(data) = prev.push_data.as_deref() {
-                    let operand = &data[1..];
+                if let Some(data) = prev.push_data.as_deref()
+                    && let Some(operand) = data.get(1..)
+                {
                     let take_n = operand.len().min(8);
+                    let tail = operand
+                        .get(operand.len() - take_n..)
+                        .unwrap_or(operand);
                     let mut val: u64 = 0;
-                    for &b in &operand[operand.len() - take_n..] {
+                    for &b in tail {
                         val = (val << 8) | u64::from(b);
                     }
                     dest = Some(val);
@@ -843,10 +909,10 @@ fn match_dwarf_to_build_model(
     pick_unambiguous(&basename_candidates, dwarf_name)
 }
 
-fn find_candidates<'a>(
-    name_to_file_id: &'a HashMap<String, u32>,
+fn find_candidates(
+    name_to_file_id: &HashMap<String, u32>,
     predicate: impl Fn(&str) -> bool,
-) -> Vec<(&'a String, u32)> {
+) -> Vec<(&String, u32)> {
     name_to_file_id
         .iter()
         .filter(|(name, _)| predicate(name))
@@ -897,7 +963,19 @@ mod tests {
     use parking_lot::RwLock;
 
     use super::*;
-    use crate::{artifacts::CompilerOutput, build_model::SourceFile};
+    use crate::{
+        artifacts::{CompilerOutput, CompilerOutputBytecode, SolxBytecode},
+        build_model::SourceFile,
+    };
+
+    /// Test helper: every fixture in this module is solx-emitted, so the
+    /// dyn-trait artifact must downcast to the [`SolxBytecode`] concrete type.
+    fn as_solx(bc: &CompilerOutputBytecode) -> &SolxBytecode {
+        bc.as_artifact()
+            .as_any()
+            .downcast_ref::<SolxBytecode>()
+            .expect("expected SolxBytecode — fixture should carry debugInfo")
+    }
 
     /// `ParsedDwarf` with only the given ranges and an empty Context — for
     /// range-logic tests that don't need a real line program.
@@ -961,17 +1039,18 @@ mod tests {
         contract: &str,
         model: &Arc<BuildModel>,
     ) -> Vec<Instruction> {
-        let bc = &output
-            .contracts
-            .get("project/contracts/Scenarios.t.sol")
-            .unwrap()
-            .get(contract)
-            .unwrap()
-            .evm
-            .deployed_bytecode;
+        let bc = as_solx(
+            &output
+                .contracts
+                .get("project/contracts/Scenarios.t.sol")
+                .unwrap()
+                .get(contract)
+                .unwrap()
+                .evm
+                .deployed_bytecode,
+        );
         let raw = hex::decode(&bc.object).unwrap();
-        let dbg = bc.debug_info.as_deref().unwrap();
-        decode_instructions(&raw, dbg, model, false).unwrap()
+        decode_instructions(&raw, &bc.debug_info, model, false).unwrap()
     }
 
     /// solx flattens a modifier into its enclosing function as a single
@@ -1226,22 +1305,20 @@ mod tests {
     #[test]
     fn deployed_dwarf_maps_some_pc_to_require_line() {
         let output = load_solx_output();
-        let bc = &output
-            .contracts
-            .get("Counter.sol")
-            .expect("Counter.sol")
-            .get("Counter")
-            .expect("Counter")
-            .evm
-            .deployed_bytecode;
+        let bc = as_solx(
+            &output
+                .contracts
+                .get("Counter.sol")
+                .expect("Counter.sol")
+                .get("Counter")
+                .expect("Counter")
+                .evm
+                .deployed_bytecode,
+        );
         let raw = hex::decode(&bc.object).expect("hex object");
-        let dbg = bc
-            .debug_info
-            .as_deref()
-            .expect("solx fixture has deployedBytecode.debugInfo");
 
         let model = make_build_model_for_counter();
-        let instructions = decode_instructions(&raw, dbg, &model, false)
+        let instructions = decode_instructions(&raw, &bc.debug_info, &model, false)
             .expect("DWARF decode should succeed for the Counter fixture");
         assert!(!instructions.is_empty());
 
@@ -1264,18 +1341,19 @@ mod tests {
         // stay inside a single range — we only require every JUMP/JUMPI to
         // get *some* non-default jump_type (not the NotJump placeholder).
         let output = load_solx_output();
-        let bc = &output
-            .contracts
-            .get("Counter.sol")
-            .unwrap()
-            .get("Counter")
-            .unwrap()
-            .evm
-            .deployed_bytecode;
+        let bc = as_solx(
+            &output
+                .contracts
+                .get("Counter.sol")
+                .unwrap()
+                .get("Counter")
+                .unwrap()
+                .evm
+                .deployed_bytecode,
+        );
         let raw = hex::decode(&bc.object).unwrap();
-        let dbg = bc.debug_info.as_deref().unwrap();
         let model = make_build_model_for_counter();
-        let instructions = decode_instructions(&raw, dbg, &model, false).unwrap();
+        let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
 
         for inst in &instructions {
             if matches!(inst.opcode, OpCode::JUMP | OpCode::JUMPI) {
@@ -1420,18 +1498,19 @@ mod tests {
         // PCs inside _checkPositive carry the caller line (Counter.sol:8)
         // via inline_call_sites — that's what gives EDR the middle frame.
         let output = load_solx_output();
-        let bc = &output
-            .contracts
-            .get("Counter.sol")
-            .unwrap()
-            .get("Counter")
-            .unwrap()
-            .evm
-            .deployed_bytecode;
+        let bc = as_solx(
+            &output
+                .contracts
+                .get("Counter.sol")
+                .unwrap()
+                .get("Counter")
+                .unwrap()
+                .evm
+                .deployed_bytecode,
+        );
         let raw = hex::decode(&bc.object).unwrap();
-        let dbg = bc.debug_info.as_deref().unwrap();
         let model = make_build_model_for_counter();
-        let instructions = decode_instructions(&raw, dbg, &model, false).unwrap();
+        let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
 
         // Pin: some PC at Counter.sol:13 (the require) has inline_call_sites
         // pointing at Counter.sol:8 (the _checkPositive call site).
@@ -1513,17 +1592,18 @@ mod tests {
     fn pin_constructor_revert() {
         let output = load_scenarios_output();
         let model = make_build_model_for_scenarios();
-        let bc = &output
-            .contracts
-            .get("project/contracts/Scenarios.t.sol")
-            .unwrap()
-            .get("ConstructorRevertContract")
-            .unwrap()
-            .evm
-            .bytecode;
+        let bc = as_solx(
+            &output
+                .contracts
+                .get("project/contracts/Scenarios.t.sol")
+                .unwrap()
+                .get("ConstructorRevertContract")
+                .unwrap()
+                .evm
+                .bytecode,
+        );
         let raw = hex::decode(&bc.object).unwrap();
-        let dbg = bc.debug_info.as_deref().unwrap();
-        let insts = decode_instructions(&raw, dbg, &model, true).unwrap();
+        let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
         assert!(first_inst_at_line(&insts, 57).is_some());
     }
 
@@ -1588,17 +1668,18 @@ mod tests {
     fn pin_helper_reverting_constructor_carries_caller_line() {
         let output = load_scenarios_output();
         let model = make_build_model_for_scenarios();
-        let bc = &output
-            .contracts
-            .get("project/contracts/Scenarios.t.sol")
-            .unwrap()
-            .get("HelperRevertingConstructorContract")
-            .unwrap()
-            .evm
-            .bytecode;
+        let bc = as_solx(
+            &output
+                .contracts
+                .get("project/contracts/Scenarios.t.sol")
+                .unwrap()
+                .get("HelperRevertingConstructorContract")
+                .unwrap()
+                .evm
+                .bytecode,
+        );
         let raw = hex::decode(&bc.object).unwrap();
-        let dbg = bc.debug_info.as_deref().unwrap();
-        let insts = decode_instructions(&raw, dbg, &model, true).unwrap();
+        let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
         let inst = first_inst_at_line(&insts, 295).expect("expected `_check`'s require at line 295");
         let lines: Vec<u32> = inst
             .inline_call_sites

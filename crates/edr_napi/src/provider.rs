@@ -5,7 +5,7 @@ mod response;
 use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
-use edr_solidity::{artifacts::CompilerType, compiler::create_models_and_decode_bytecodes};
+use edr_solidity::compiler::create_models_and_decode_bytecodes;
 use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 use parking_lot::RwLock;
@@ -70,11 +70,11 @@ impl Provider {
                 // `hardhat_addCompilationResult` JSON-RPC method) and HH3
                 // (internally, for its provider's in-process compile flow).
                 // Both feed solc artifacts; solx reaches EDR through HH3's
-                // `BuildInfoConfig` (`runSolidityTests` / `withContracts`),
-                // which carries `compilerType` per build-info.
+                // `BuildInfoConfig` (`runSolidityTests` / `withContracts`).
+                // The compiler is derived from the bytecode variant — no
+                // separate tag needs to be threaded in.
                 let contracts = match create_models_and_decode_bytecodes(
                     solc_version,
-                    CompilerType::Solc,
                     &compiler_input,
                     &compiler_output,
                 ) {
