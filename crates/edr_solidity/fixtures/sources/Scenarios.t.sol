@@ -184,7 +184,7 @@ contract InvalidOpcodeTest is Test {
   }
 }
 
-// ===== F.5 — vm.expectRevert cheatcode-violation traces =====
+// ===== vm.expectRevert cheatcode-violation traces =====
 
 contract ExpectRevertNoActualRevertTest is Test {
   function testNoActualRevert() public {
@@ -211,7 +211,7 @@ contract ExpectRevertCountMismatchTest is Test {
   }
 }
 
-// ===== F.6 — fuzz failures =====
+// ===== fuzz failures =====
 
 contract OverflowFuzzTest is Test {
   function testFuzz_overflow(uint256 x) public pure {
@@ -222,7 +222,7 @@ contract OverflowFuzzTest is Test {
   }
 }
 
-// ===== F.9 — trace-shape categories =====
+// ===== trace-shape categories =====
 
 library RevertingLib {
   function alwaysReverts() internal pure {
@@ -288,7 +288,7 @@ contract ReceiveRevertTest is Test {
   }
 }
 
-// ===== F.4 — additional constructor revert (with internal helper) =====
+// ===== additional constructor revert (with internal helper) =====
 
 contract HelperRevertingConstructorContract {
   function _check(uint256 v) internal pure {
@@ -305,7 +305,7 @@ contract HelperRevertingConstructorTest is Test {
   }
 }
 
-// ===== F.3 — additional custom error variants =====
+// ===== additional custom error variants =====
 
 contract CustomErrorWithArgsTest is Test {
   error InvalidArg(uint256 got, string what);
@@ -322,7 +322,7 @@ contract CustomErrorRecursiveTest is Test {
   }
 }
 
-// ===== F.1 — additional require / assertion failures =====
+// ===== additional require / assertion failures =====
 
 contract NestedRequireTest is Test {
   function check(uint256 v) internal pure {
@@ -341,7 +341,7 @@ contract MultipleRequiresTest is Test {
   }
 }
 
-// ===== G.3 — internal recursion preserved in inline_call_sites =====
+// ===== internal recursion preserved in inline_call_sites =====
 contract InternalRecurseTest is Test {
   function recurseInternal(uint256 depth) internal pure {
     if (depth == 0) {
@@ -355,14 +355,14 @@ contract InternalRecurseTest is Test {
   }
 }
 
-// ===== F.6 — invariant test failure =====
+// ===== invariant test failure =====
 contract InvariantFailureTest is Test {
   function invariant_alwaysFalse() public pure {
     require(false, "invariant boom");
   }
 }
 
-// ===== V.1 — cross-CALL mutual recursion across contracts =====
+// ===== cross-CALL mutual recursion across contracts =====
 //
 // Two contracts whose external functions call each other recursively
 // across CALL boundaries. solx may emit `JumpType::IntoFunction` JUMPs
@@ -401,7 +401,7 @@ contract MutualRecursionTest is Test {
   }
 }
 
-// ===== V.2 — modifier with statements that may keep it as its own subroutine =====
+// ===== modifier with statements that may keep it as its own subroutine =====
 //
 // A modifier with multiple `require`s before and after the underscore.
 // solx's optimizer may flatten this into the modified function (as it

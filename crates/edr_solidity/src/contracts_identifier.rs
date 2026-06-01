@@ -255,7 +255,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        artifacts::ImmutableReference,
+        artifacts::{CompilerType, ImmutableReference},
         build_model::{Contract, ContractKind, SourceFile, SourceLocation},
     };
 
@@ -301,7 +301,7 @@ mod tests {
             library_offsets,
             immutable_references,
             "<dummy-version>".to_string(),
-            None,
+            CompilerType::Solc,
         ))
     }
 
@@ -323,7 +323,7 @@ mod tests {
             library_offsets,
             immutable_references,
             "<dummy-version>".to_string(),
-            None,
+            CompilerType::Solc,
         ))
     }
 
@@ -347,7 +347,7 @@ mod tests {
             library_offsets,
             immutable_references,
             "<dummy-version>".to_string(),
-            None,
+            CompilerType::Solc,
         ))
     }
 
@@ -714,8 +714,6 @@ mod tests {
     /// normalized bytecodes; both must coexist and resolve to the right meta.
     #[test]
     fn test_contracts_identifier_solc_and_solx_variants_coexist() {
-        use crate::artifacts::CompilerType;
-
         let sources = create_sources();
         let contract = create_test_contract();
 
@@ -733,7 +731,7 @@ mod tests {
             vec![],
             vec![],
             "0.8.34".to_string(),
-            Some(CompilerType::Solc),
+            CompilerType::Solc,
         ));
         let solx_meta = Arc::new(ContractMetadata::new(
             sources,
@@ -744,7 +742,7 @@ mod tests {
             vec![],
             vec![],
             "0.8.34".to_string(),
-            Some(CompilerType::Solx),
+            CompilerType::Solx,
         ));
 
         let mut identifier = ContractsIdentifier::default();
@@ -764,8 +762,8 @@ mod tests {
             Some(Arc::as_ptr(&solx_meta)),
             "solx-built variant must resolve to its own ContractMetadata"
         );
-        assert_eq!(solc_lookup.unwrap().compiler_type, Some(CompilerType::Solc));
-        assert_eq!(solx_lookup.unwrap().compiler_type, Some(CompilerType::Solx));
+        assert_eq!(solc_lookup.unwrap().compiler_type, CompilerType::Solc);
+        assert_eq!(solx_lookup.unwrap().compiler_type, CompilerType::Solx);
     }
 
     #[test]

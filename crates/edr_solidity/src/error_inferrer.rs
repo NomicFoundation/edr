@@ -118,9 +118,9 @@ impl<HaltReasonT: HaltReasonTrait> From<alloy_dyn_abi::Error> for InferrerError<
 
 pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
     stacktrace: Vec<StackTraceEntry>,
-    compiler_type: Option<crate::artifacts::CompilerType>,
+    compiler_type: crate::artifacts::CompilerType,
 ) -> Result<Vec<StackTraceEntry>, InferrerError<HaltReasonT>> {
-    let is_solx = compiler_type == Some(crate::artifacts::CompilerType::Solx);
+    let is_solx = compiler_type == crate::artifacts::CompilerType::Solx;
     // To work around the borrow checker, we'll collect the indices of the frames we
     // want to keep. We can't clone the frames, because some of them contain
     // non-Clone `ClassInstance`s`
@@ -1606,7 +1606,7 @@ fn instruction_within_function_to_panic_stack_trace_entry<HaltReasonT: HaltReaso
     // solx-only fallback: panic-helper PCs sit outside any inlined-subroutine.
     // On a None location, walk back through trace steps for the most recent
     // located PC, then fall back to the calldata-selector function.
-    let is_solx = contract_meta.compiler_type == Some(crate::artifacts::CompilerType::Solx);
+    let is_solx = contract_meta.compiler_type == crate::artifacts::CompilerType::Solx;
     // No file_id filter: the DWARF parser already drops PCs in artificial
     // subprograms, so any `Some(location)` here is a user-visible line —
     // including legitimate inherited-base-contract frames.

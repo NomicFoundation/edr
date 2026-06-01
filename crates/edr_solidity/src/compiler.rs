@@ -32,7 +32,7 @@ pub const FIRST_SOLC_VERSION_SUPPORTED: semver::Version = semver::Version::new(0
 /// [`CompilerType::Solc`] for build-infos that pre-date the field.
 pub fn create_models_and_decode_bytecodes(
     solc_version: String,
-    compiler_type: Option<CompilerType>,
+    compiler_type: CompilerType,
     compiler_input: &CompilerInput,
     compiler_output: &CompilerOutput,
 ) -> anyhow::Result<Vec<ContractMetadata>> {
@@ -840,7 +840,7 @@ fn abi_method_id(name: &str, param_types: Vec<impl AsRef<str>>) -> Vec<u8> {
 fn decode_evm_bytecode(
     contract: Arc<RwLock<Contract>>,
     solc_version: String,
-    compiler_type: Option<CompilerType>,
+    compiler_type: CompilerType,
     is_deployment: bool,
     compiler_bytecode: &CompilerOutputBytecode,
     build_model: &Arc<BuildModel>,
@@ -865,13 +865,13 @@ fn decode_evm_bytecode(
         "evm.deployedBytecode"
     };
     let instructions = match compiler_type {
-        None | Some(CompilerType::Solc) => decode_instructions(
+        CompilerType::Solc => decode_instructions(
             &normalized_code,
             &compiler_bytecode.source_map,
             build_model,
             is_deployment,
         )?,
-        Some(CompilerType::Solx) => {
+        CompilerType::Solx => {
             let debug_info = compiler_bytecode.debug_info.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "solx artifact is missing {section}.debugInfo. The hardhat-solx plugin \
@@ -899,7 +899,7 @@ fn decode_evm_bytecode(
 
 fn decode_bytecodes(
     solc_version: String,
-    compiler_type: Option<CompilerType>,
+    compiler_type: CompilerType,
     compiler_output: &CompilerOutput,
     build_model: &Arc<BuildModel>,
 ) -> anyhow::Result<Vec<ContractMetadata>> {
@@ -992,9 +992,14 @@ mod tests {
     }
 
     #[test]
-    fn solc_path_is_unchanged_when_compiler_type_is_none() {
+    fn solc_path_is_unchanged_for_default_compiler_type() {
         let (input, output) = solc_fixture();
-        let result = create_models_and_decode_bytecodes("0.8.0".to_string(), None, &input, &output);
+        let result = create_models_and_decode_bytecodes(
+            "0.8.0".to_string(),
+            CompilerType::Solc,
+            &input,
+            &output,
+        );
         assert!(
             result.is_ok(),
             "solc fixture should still decode: {:?}",
@@ -1007,7 +1012,7 @@ mod tests {
         let (input, output) = solc_fixture();
         let result = create_models_and_decode_bytecodes(
             "0.8.0".to_string(),
-            Some(CompilerType::Solc),
+            CompilerType::Solc,
             &input,
             &output,
         );
@@ -1037,8 +1042,9 @@ mod tests {
         let bi: crate::artifacts::BuildInfo =
             serde_json::from_value(raw).expect("unknown compilerType must NOT fail to deserialize");
         assert_eq!(
-            bi.compiler_type, None,
-            "unknown compilerType should fall back to None (solc-equivalent)"
+            bi.compiler_type,
+            crate::artifacts::CompilerType::Solc,
+            "unknown compilerType should fall back to Solc",
         );
     }
 
@@ -1047,7 +1053,7 @@ mod tests {
         let (input, output) = solx_fixture();
         let result = create_models_and_decode_bytecodes(
             "0.8.34".to_string(),
-            Some(CompilerType::Solx),
+            CompilerType::Solx,
             &input,
             &output,
         );
@@ -1073,7 +1079,7 @@ mod tests {
         }
         let err = create_models_and_decode_bytecodes(
             "0.8.34".to_string(),
-            Some(CompilerType::Solx),
+            CompilerType::Solx,
             &input,
             &output,
         )

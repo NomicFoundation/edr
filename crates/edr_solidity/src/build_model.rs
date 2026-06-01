@@ -438,7 +438,7 @@ pub struct ContractMetadata {
     pub compiler_version: String,
     /// Producing compiler. `None` is treated as
     /// [`crate::artifacts::CompilerType::Solc`].
-    pub compiler_type: Option<crate::artifacts::CompilerType>,
+    pub compiler_type: crate::artifacts::CompilerType,
 }
 
 impl ContractMetadata {
@@ -453,7 +453,7 @@ impl ContractMetadata {
         library_address_positions: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
         compiler_version: String,
-        compiler_type: Option<crate::artifacts::CompilerType>,
+        compiler_type: crate::artifacts::CompilerType,
     ) -> ContractMetadata {
         let mut pc_to_instruction = HashMap::new();
         for inst in instructions {

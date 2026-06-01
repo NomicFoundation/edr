@@ -200,10 +200,10 @@ describe("solx-vs-solc trace parity", { skip: !hardhatSolxAvailable }, () => {
         reason: "mutual bottom",
         frames: [
           { location: "MutualA.pingA", file: "contracts/Scenarios.t.sol:377" },
-          { location: "MutualB.pingB", file: "contracts/Scenarios.t.sol:388" },
-          { location: "MutualA.pingA", file: "contracts/Scenarios.t.sol:379" },
-          { location: "MutualB.pingB", file: "contracts/Scenarios.t.sol:388" },
-          { location: "MutualA.pingA", file: "contracts/Scenarios.t.sol:379" },
+          { location: "MutualB.pingB", file: "contracts/Scenarios.t.sol:386" },
+          { location: "MutualA.pingA", file: "contracts/Scenarios.t.sol:378" },
+          { location: "MutualB.pingB", file: "contracts/Scenarios.t.sol:386" },
+          { location: "MutualA.pingA", file: "contracts/Scenarios.t.sol:378" },
           {
             location: "MutualRecursionTest.internal@270",
             file: "contracts/Scenarios.t.sol",
@@ -225,7 +225,7 @@ describe("solx-vs-solc trace parity", { skip: !hardhatSolxAvailable }, () => {
           },
           {
             location: "NestedModifierRevertTest.testRevertInModifierBody",
-            file: "contracts/Scenarios.t.sol:430",
+            file: "contracts/Scenarios.t.sol:428",
           },
         ],
       },

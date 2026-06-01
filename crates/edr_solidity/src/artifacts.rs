@@ -12,37 +12,30 @@ use serde::{Deserialize, Serialize};
 
 /// Compiler that produced a Hardhat build-info. Absent on older build-infos
 /// and the EDR in-process flow; absent is treated as `Solc`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, strum::Display, strum::EnumString)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, strum::Display, strum::EnumString)]
 #[serde(rename_all = "camelCase")]
 #[strum(serialize_all = "camelCase")]
 pub enum CompilerType {
     /// Reference Solidity compiler; uses `evm.{deployed,}Bytecode.sourceMap`.
+    #[default]
     Solc,
     /// solx compiler; uses `evm.{deployed,}Bytecode.debugInfo`.
     Solx,
 }
 
-/// Unknown compilerType (e.g. from a newer Hardhat) → `None` + warn, so the
-/// build-info still deserializes through the solc decode path.
-fn deserialize_optional_compiler_type<'de, D>(
-    deserializer: D,
-) -> Result<Option<CompilerType>, D::Error>
+/// Unknown compilerType (e.g. from a 3rd-party plugin EDR doesn't know yet)
+/// → log warn + fall back to `Solc` so deserialization doesn't hard-fail.
+fn deserialize_compiler_type_graceful<'de, D>(deserializer: D) -> Result<CompilerType, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     use std::str::FromStr;
 
-    let raw = Option::<String>::deserialize(deserializer)?;
-    match raw {
-        None => Ok(None),
-        Some(s) => match CompilerType::from_str(&s) {
-            Ok(ct) => Ok(Some(ct)),
-            Err(_) => {
-                log::warn!("Unknown build-info compilerType {s:?}; treating as \"solc\".");
-                Ok(None)
-            }
-        },
-    }
+    let raw = String::deserialize(deserializer)?;
+    CompilerType::from_str(&raw).or_else(|_| {
+        log::warn!("Unknown build-info compilerType {raw:?}; treating as \"solc\".");
+        Ok(CompilerType::default())
+    })
 }
 
 /// Error in the build info config
@@ -179,10 +172,11 @@ pub struct BuildInfoWithOutput {
     pub id: String,
     pub solc_version: String,
     pub solc_long_version: String,
-    /// Producing compiler. Absent on older builds and the Hardhat 2 flow;
-    /// `None` is treated as [`CompilerType::Solc`].
-    #[serde(default, deserialize_with = "deserialize_optional_compiler_type")]
-    pub compiler_type: Option<CompilerType>,
+    /// Producing compiler. Defaults to [`CompilerType::Solc`] when the
+    /// field is absent (older builds, Hardhat 2 flow) or holds an
+    /// unknown value (a 3rd-party plugin EDR doesn't recognise).
+    #[serde(default, deserialize_with = "deserialize_compiler_type_graceful")]
+    pub compiler_type: CompilerType,
     pub input: CompilerInput,
     pub output: CompilerOutput,
 }
@@ -198,8 +192,8 @@ pub struct BuildInfo {
     pub solc_version: String,
     pub solc_long_version: String,
     /// See [`BuildInfoWithOutput::compiler_type`].
-    #[serde(default, deserialize_with = "deserialize_optional_compiler_type")]
-    pub compiler_type: Option<CompilerType>,
+    #[serde(default, deserialize_with = "deserialize_compiler_type_graceful")]
+    pub compiler_type: CompilerType,
     pub input: CompilerInput,
 }
 
@@ -209,8 +203,8 @@ pub struct BuildInfo {
 pub struct BuildInfoOutput {
     /// Mirrored from the input file (canonical source). See
     /// [`BuildInfoWithOutput::compiler_type`].
-    #[serde(default, deserialize_with = "deserialize_optional_compiler_type")]
-    pub compiler_type: Option<CompilerType>,
+    #[serde(default, deserialize_with = "deserialize_compiler_type_graceful")]
+    pub compiler_type: CompilerType,
     #[serde(rename = "_format")]
     pub _format: String,
     pub id: String,
@@ -358,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn serde_compiler_output() {
+    fn serde_solc_output() {
         // these were taken from a run of TypeScript function compileLiteral
         let compiler_output_json = include_str!("../fixtures/compiler_output.json");
         let output: CompilerOutput = serde_json::from_str(compiler_output_json).unwrap();
@@ -415,7 +409,7 @@ mod tests {
             }
         });
         let bi: BuildInfo = serde_json::from_value(with_type).unwrap();
-        assert_eq!(bi.compiler_type, Some(CompilerType::Solx));
+        assert_eq!(bi.compiler_type, CompilerType::Solx);
         let round_tripped = serde_json::to_value(&bi).unwrap();
         assert_eq!(round_tripped["compilerType"], "solx");
     }
@@ -435,7 +429,7 @@ mod tests {
             }
         });
         let bi: BuildInfo = serde_json::from_value(solc).unwrap();
-        assert_eq!(bi.compiler_type, Some(CompilerType::Solc));
+        assert_eq!(bi.compiler_type, CompilerType::Solc);
         let round_tripped = serde_json::to_value(&bi).unwrap();
         assert_eq!(round_tripped["compilerType"], "solc");
     }
@@ -454,6 +448,6 @@ mod tests {
             }
         });
         let bi: BuildInfo = serde_json::from_value(without_type).unwrap();
-        assert_eq!(bi.compiler_type, None);
+        assert_eq!(bi.compiler_type, CompilerType::Solc);
     }
 }

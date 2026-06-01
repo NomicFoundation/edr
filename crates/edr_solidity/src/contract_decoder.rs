@@ -571,7 +571,7 @@ mod tests {
             id: "solc-mixed".to_string(),
             solc_version: "0.8.0".to_string(),
             solc_long_version: "0.8.0+commit.abc".to_string(),
-            compiler_type: Some(CompilerType::Solc),
+            compiler_type: CompilerType::Solc,
             input: solc_input,
             output: solc_output,
         };
@@ -580,7 +580,7 @@ mod tests {
             id: "solx-mixed".to_string(),
             solc_version: "0.8.34".to_string(),
             solc_long_version: "0.8.34+solx".to_string(),
-            compiler_type: Some(CompilerType::Solx),
+            compiler_type: CompilerType::Solx,
             input: solx_input,
             output: solx_output,
         };

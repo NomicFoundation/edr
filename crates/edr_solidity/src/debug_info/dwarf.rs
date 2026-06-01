@@ -36,6 +36,47 @@ fn attr_flag_true<R: Reader>(attr: &gimli::Attribute<R>) -> bool {
     )
 }
 
+/// True for `SWAP1..SWAP16` and `DUP1..DUP16`. These reorder the EVM stack,
+/// so the destination of a JUMP that follows one cannot be inferred from the
+/// most recent PUSH alone.
+fn is_stack_shuffle(opcode: OpCode) -> bool {
+    matches!(
+        opcode,
+        OpCode::SWAP1
+            | OpCode::SWAP2
+            | OpCode::SWAP3
+            | OpCode::SWAP4
+            | OpCode::SWAP5
+            | OpCode::SWAP6
+            | OpCode::SWAP7
+            | OpCode::SWAP8
+            | OpCode::SWAP9
+            | OpCode::SWAP10
+            | OpCode::SWAP11
+            | OpCode::SWAP12
+            | OpCode::SWAP13
+            | OpCode::SWAP14
+            | OpCode::SWAP15
+            | OpCode::SWAP16
+            | OpCode::DUP1
+            | OpCode::DUP2
+            | OpCode::DUP3
+            | OpCode::DUP4
+            | OpCode::DUP5
+            | OpCode::DUP6
+            | OpCode::DUP7
+            | OpCode::DUP8
+            | OpCode::DUP9
+            | OpCode::DUP10
+            | OpCode::DUP11
+            | OpCode::DUP12
+            | OpCode::DUP13
+            | OpCode::DUP14
+            | OpCode::DUP15
+            | OpCode::DUP16
+    )
+}
+
 /// Decode a solx-emitted DWARF blob into the same
 /// [`Instruction`] vector that [`crate::source_map::decode_instructions`]
 /// produces for solc artifacts.
@@ -241,6 +282,13 @@ impl ParsedDwarf {
                     // Combine `<dir>/<name>` so the key matches BuildModel's
                     // source-name keys; DWARF v5 splits them via
                     // `directory_index()` into `include_directories`.
+                    //
+                    // `.ok()` here intentionally swallows per-entry failures:
+                    // a single malformed dir / file table entry should
+                    // degrade locally (empty name → no source location for
+                    // affected PCs) rather than sink the whole contract's
+                    // tracing. Downstream `match_dwarf_to_build_model`
+                    // returns `None` for empty names.
                     let directories: Vec<String> = header
                         .include_directories()
                         .iter()
@@ -661,41 +709,13 @@ impl ParsedDwarf {
                 let Some(prev) = instructions.get(j) else {
                     break;
                 };
-                if matches!(
-                    prev.opcode,
-                    OpCode::SWAP1
-                        | OpCode::SWAP2
-                        | OpCode::SWAP3
-                        | OpCode::SWAP4
-                        | OpCode::SWAP5
-                        | OpCode::SWAP6
-                        | OpCode::SWAP7
-                        | OpCode::SWAP8
-                        | OpCode::SWAP9
-                        | OpCode::SWAP10
-                        | OpCode::SWAP11
-                        | OpCode::SWAP12
-                        | OpCode::SWAP13
-                        | OpCode::SWAP14
-                        | OpCode::SWAP15
-                        | OpCode::SWAP16
-                        | OpCode::DUP1
-                        | OpCode::DUP2
-                        | OpCode::DUP3
-                        | OpCode::DUP4
-                        | OpCode::DUP5
-                        | OpCode::DUP6
-                        | OpCode::DUP7
-                        | OpCode::DUP8
-                        | OpCode::DUP9
-                        | OpCode::DUP10
-                        | OpCode::DUP11
-                        | OpCode::DUP12
-                        | OpCode::DUP13
-                        | OpCode::DUP14
-                        | OpCode::DUP15
-                        | OpCode::DUP16
-                ) {
+                if is_stack_shuffle(prev.opcode) {
+                    log::debug!(
+                        "DWARF jump classifier: JUMP at pc={:#x} preceded by {:?}; \
+                         falling back to InternalJump",
+                        inst.pc,
+                        prev.opcode,
+                    );
                     break;
                 }
                 if let Some(data) = prev.push_data.as_deref() {
