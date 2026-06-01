@@ -357,7 +357,6 @@ tracing-subscriber = "0.3"
 url = "2"
 vergen = { version = "8", default-features = false }
 indexmap = "2.2"
-tikv-jemallocator = "0.5.4"
 num-format = "0.4.4"
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
 tempfile = "3.25"
