@@ -210,3 +210,165 @@ fn is_calllike_op(step: &CallTraceStep) -> bool {
             | opcode::CREATE2
     )
 }
+
+/// Control-flow axis tests for [`convert_node`]. Each test isolates one
+/// dispatch branch (CALL / CREATE / PRECOMPILE / cheatcode / console.log)
+/// against a hand-built `CallTraceArena`, so a regression in any branch
+/// surfaces without needing a full provider round-trip.
+#[cfg(test)]
+mod tests {
+    use edr_chain_spec::EvmHaltReason;
+    use edr_primitives::Bytes;
+    use revm_inspectors::tracing::types::{CallTrace, CallTraceNode, CallKind};
+
+    use super::*;
+
+    /// Cheatcode HEVM address used by foundry-style cheatcodes.
+    const CHEATCODE_ADDRESS: Address = Address::new([
+        0x71, 0x09, 0x70, 0x9E, 0xcf, 0xa9, 0x1a, 0x80, 0x62, 0x6f, 0xf3, 0x98, 0x9d, 0x68, 0xf6,
+        0x7f, 0x5b, 0x1d, 0xd1, 0x2d,
+    ]);
+    const HARDHAT_CONSOLE_ADDRESS: Address = Address::new([
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x01,
+    ]);
+
+    fn arena_with_root(trace: CallTrace) -> CallTraceArena {
+        let mut arena = CallTraceArena::default();
+        arena.nodes_mut()[0] = CallTraceNode {
+            trace,
+            ..Default::default()
+        };
+        arena
+    }
+
+    #[test]
+    fn empty_arena_returns_invalid_root_node_error() {
+        let mut arena = CallTraceArena::default();
+        arena.nodes_mut().clear();
+        let err = convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
+            .expect_err("empty arena must fail");
+        assert!(matches!(err, CallTraceArenaConversionError::InvalidRootNode));
+    }
+
+    #[test]
+    fn regular_call_produces_call_variant_with_runtime_code() {
+        let addr = Address::new([0xaa; 20]);
+        let runtime_bytes = Bytes::from_static(&[0x60, 0x80, 0x60, 0x40]);
+        let arena = arena_with_root(CallTrace {
+            kind: CallKind::Call,
+            address: addr,
+            ..Default::default()
+        });
+        let mut runtime: HashMap<Address, &Bytes> = HashMap::default();
+        runtime.insert(addr, &runtime_bytes);
+
+        let trace = convert_from_arena::<EvmHaltReason>(&HashMap::default(), &runtime, &arena)
+            .expect("conversion must succeed");
+
+        match trace {
+            NestedTrace::Call(msg) => {
+                assert_eq!(msg.address, addr);
+                assert_eq!(msg.code, runtime_bytes, "code must come from runtime map");
+            }
+            other => panic!("expected NestedTrace::Call, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn create_node_produces_create_variant() {
+        let addr = Address::new([0xbb; 20]);
+        let init_code = Bytes::from_static(&[0xfe, 0xed, 0xfa, 0xce]);
+        let arena = arena_with_root(CallTrace {
+            kind: CallKind::Create,
+            address: addr,
+            ..Default::default()
+        });
+        let mut creation: HashMap<Address, &Bytes> = HashMap::default();
+        creation.insert(addr, &init_code);
+
+        let trace = convert_from_arena::<EvmHaltReason>(&creation, &HashMap::default(), &arena)
+            .expect("conversion must succeed");
+
+        match trace {
+            NestedTrace::Create(msg) => {
+                assert_eq!(msg.code, init_code, "create code must come from creation map");
+            }
+            other => panic!("expected NestedTrace::Create, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn precompile_node_produces_precompile_variant() {
+        // Precompile #1 (ECRECOVER) — address 0x...01, maybe_precompile = Some(true).
+        let precompile_addr = Address::new([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ]);
+        let mut arena = CallTraceArena::default();
+        arena.nodes_mut()[0] = CallTraceNode {
+            trace: CallTrace {
+                kind: CallKind::Call,
+                address: precompile_addr,
+                maybe_precompile: Some(true),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let trace = convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
+            .expect("conversion must succeed");
+
+        match trace {
+            NestedTrace::Precompile(msg) => {
+                assert_eq!(msg.precompile, 1, "ECRECOVER precompile number is 1");
+            }
+            other => panic!("expected NestedTrace::Precompile, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cheatcode_address_uses_address_as_code() {
+        let arena = arena_with_root(CallTrace {
+            kind: CallKind::Call,
+            address: CHEATCODE_ADDRESS,
+            ..Default::default()
+        });
+
+        let trace = convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
+            .expect("conversion must succeed");
+
+        match trace {
+            NestedTrace::Call(msg) => {
+                assert_eq!(
+                    msg.code,
+                    Bytes::from(CHEATCODE_ADDRESS.to_vec()),
+                    "cheatcode call's `code` must be its address bytes"
+                );
+            }
+            other => panic!("expected NestedTrace::Call, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn console_log_address_uses_address_as_code() {
+        let arena = arena_with_root(CallTrace {
+            kind: CallKind::Call,
+            address: HARDHAT_CONSOLE_ADDRESS,
+            ..Default::default()
+        });
+
+        let trace = convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
+            .expect("conversion must succeed");
+
+        match trace {
+            NestedTrace::Call(msg) => {
+                assert_eq!(
+                    msg.code,
+                    Bytes::from(HARDHAT_CONSOLE_ADDRESS.to_vec()),
+                    "console.log call's `code` must be its address bytes"
+                );
+            }
+            other => panic!("expected NestedTrace::Call, got {other:?}"),
+        }
+    }
+}

@@ -1053,486 +1053,6 @@ mod tests {
         decode_instructions(&raw, &bc.debug_info, model, false).unwrap()
     }
 
-    /// solx flattens a modifier into its enclosing function as a single
-    /// inlined-subroutine — pin one frame (vs. solc's duplicate setIfPositive).
-    #[test]
-    fn modifier_revert_has_single_set_if_positive_inline_call_site() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let instructions = decode_deployed_for(&output, "ModifierTarget", &model);
-
-        // PC 0x73 is the modifier's `require(v > 0, ...)` revert.
-        let inst = instructions
-            .iter()
-            .find(|i| i.pc == 0x73)
-            .expect("PC 0x73 should be present");
-        let call_site_lines: Vec<u32> = inst
-            .inline_call_sites
-            .iter()
-            .filter_map(|cs| cs.get_starting_line_number().ok())
-            .collect();
-        assert_eq!(
-            call_site_lines,
-            vec![91],
-            "expected exactly one non-artificial inline call site at line 91 \
-             (setIfPositive), got {call_site_lines:?}. If this asserts \
-             [91, 91] a duplicate function-entry frame has reappeared."
-        );
-    }
-
-    /// Panic 0x12 (div by zero): pin the bottom location to the divide
-    /// expression (line 34), not the panic helper's contract-scope `call_line`.
-    #[test]
-    fn divide_by_zero_filters_out_panic_helper_decl_line() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let instructions = decode_deployed_for(&output, "DivisionByZeroTest", &model);
-
-        // PC 0xd2c is the panic-emitting REVERT for `0x12` (divide by zero).
-        let inst = instructions
-            .iter()
-            .find(|i| i.pc == 0xd2c)
-            .expect("PC 0xd2c should be present");
-        let line = inst
-            .location
-            .as_ref()
-            .and_then(|loc| loc.get_starting_line_number().ok())
-            .expect("PC 0xd2c must have a resolved location");
-        assert_eq!(
-            line, 34,
-            "expected line 34 (the divide expression `c = a / b`), got {line}. \
-             A regression to line 30 means the panic-helper bogus call_line \
-             is being picked again instead of the next-outer artificial entry."
-        );
-    }
-
-    /// Cross-contract leak guard: PC 0xcb7's line-program row points at a
-    /// different contract's setUp; the contract-match check must reject it
-    /// and fall back to the abstract origin's `decl_line`.
-    #[test]
-    fn invalid_opcode_does_not_leak_unrelated_contract_setup_line() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let instructions = decode_deployed_for(&output, "InvalidOpcodeTest", &model);
-
-        let inst = instructions
-            .iter()
-            .find(|i| i.pc == 0xcb7)
-            .expect("PC 0xcb7 (the INVALID opcode) should be present");
-        let line = inst
-            .location
-            .as_ref()
-            .and_then(|loc| loc.get_starting_line_number().ok())
-            .expect("PC 0xcb7 must have a resolved location");
-        assert_ne!(
-            line, 97,
-            "regression: line 97 is in ModifierRevertTest.setUp, a *different* \
-             contract — the contract-match check in user_visible_location_for_pc \
-             must reject it."
-        );
-        assert_eq!(
-            line, 182,
-            "expected fall-back to `testInvalidOpcode`'s decl_line (182), got {line}."
-        );
-    }
-
-    /// G1 — innermost-first by DIE depth, not range width.
-    /// A parent's `DW_AT_ranges` union can be wider than a child's contiguous
-    /// range; width-based sorting would invert or tie the chain.
-    #[test]
-    fn containing_ranges_orders_by_die_depth_not_width() {
-        fn r(depth: u32, low_pc: u64, high_pc: u64) -> InlinedRange {
-            InlinedRange {
-                low_pc,
-                high_pc,
-                call_file: None,
-                call_line: None,
-                call_column: None,
-                depth,
-                is_artificial: false,
-                decl_file: None,
-                decl_line: None,
-            }
-        }
-
-        // Two ranges with **identical** PC span [10, 50). Width-based
-        // sorting is unstable here. Depth-based must put depth=3 first.
-        let mut inlined = vec![r(2, 10, 50), r(3, 10, 50)];
-        inlined.sort_by_key(|r| r.low_pc);
-        let parsed = make_parsed_dwarf_with_ranges(inlined);
-        let chain = parsed.containing_ranges(20);
-        assert_eq!(chain.len(), 2);
-        assert_eq!(
-            chain[0].depth,
-            3,
-            "innermost (depth 3) must be first; got depth ordering {:?}",
-            chain.iter().map(|r| r.depth).collect::<Vec<_>>()
-        );
-        assert_eq!(chain[1].depth, 2);
-
-        // Now test the case the audit doc explicitly called out: a child
-        // contiguous range wider than the parent's own ranges (can happen
-        // if `DW_AT_ranges` for the parent has multiple narrow segments).
-        // We model it as two parent segments each narrower than the child.
-        let mut inlined = vec![
-            r(2, 10, 20), // parent segment 1 (width 10)
-            r(2, 30, 40), // parent segment 2 (width 10)
-            r(3, 0, 100), // child (width 100, broader than either parent segment)
-        ];
-        inlined.sort_by_key(|r| r.low_pc);
-        let parsed = make_parsed_dwarf_with_ranges(inlined);
-        // PC 15 sits in parent's first segment AND inside the child's
-        // contiguous range. Depth-3 (child) must still come first.
-        let chain = parsed.containing_ranges(15);
-        assert!(chain
-            .iter()
-            .any(|r| r.depth == 3 && r.low_pc == 0 && r.high_pc == 100));
-        assert_eq!(
-            chain[0].depth, 3,
-            "depth-based ordering must pick the inner DIE even when the parent's contiguous segment is narrower"
-        );
-    }
-
-    /// G5 — exact > suffix > basename; ambiguous matches return None
-    /// (a wrong-file frame is harder to spot than a missing reference).
-    #[test]
-    fn match_dwarf_to_build_model_disambiguates_basenames() {
-        let mut map = std::collections::HashMap::new();
-        map.insert("contracts/A/Counter.sol".to_string(), 1u32);
-        map.insert("contracts/B/Counter.sol".to_string(), 2u32);
-
-        // Exact match wins.
-        assert_eq!(
-            match_dwarf_to_build_model("contracts/A/Counter.sol", &map),
-            Some(1)
-        );
-        assert_eq!(
-            match_dwarf_to_build_model("contracts/B/Counter.sol", &map),
-            Some(2)
-        );
-
-        // Suffix match disambiguates by parent directory.
-        assert_eq!(match_dwarf_to_build_model("A/Counter.sol", &map), Some(1));
-        assert_eq!(match_dwarf_to_build_model("B/Counter.sol", &map), Some(2));
-
-        // Basename-only is ambiguous (two equal-specificity candidates):
-        // refuse to guess. The renderer falls back to "no source location"
-        // rather than emitting a wrong-file frame.
-        assert_eq!(
-            match_dwarf_to_build_model("Counter.sol", &map),
-            None,
-            "ambiguous basename collisions must not resolve to either candidate"
-        );
-
-        // When one candidate IS more specific than the other, pick it.
-        let mut deeper = std::collections::HashMap::new();
-        deeper.insert("contracts/A/Counter.sol".to_string(), 1u32);
-        deeper.insert("contracts/A/utils/Counter.sol".to_string(), 2u32);
-        assert_eq!(
-            match_dwarf_to_build_model("utils/Counter.sol", &deeper),
-            Some(2),
-            "longest matching suffix wins"
-        );
-    }
-
-    /// G7 — absolute DWARF paths resolve via suffix/basename match against
-    /// project-relative `BuildModel` keys without double-prefixing.
-    #[test]
-    fn match_dwarf_to_build_model_handles_absolute_paths() {
-        let mut map = std::collections::HashMap::new();
-        map.insert("project/contracts/Counter.sol".to_string(), 7u32);
-
-        // DWARF-side absolute path, BuildModel uses relative key:
-        // suffix match `/project/contracts/Counter.sol` doesn't fit, but
-        // basename match `Counter.sol` should still find file_id 7.
-        assert_eq!(
-            match_dwarf_to_build_model("/mnt/host/project/contracts/Counter.sol", &map),
-            Some(7),
-            "absolute DWARF path with matching basename must resolve to the BuildModel id"
-        );
-
-        // Same file via the suffix path — also expected to work.
-        assert_eq!(
-            match_dwarf_to_build_model("project/contracts/Counter.sol", &map),
-            Some(7)
-        );
-    }
-
-    /// G7' — absolute DWARF path with a basename collision must return None.
-    /// Known limitation: a long DWARF path can't disambiguate when no part of
-    /// it appears in any `BuildModel` key.
-    #[test]
-    fn match_dwarf_to_build_model_absolute_path_with_basename_collision() {
-        let mut map = std::collections::HashMap::new();
-        map.insert("contracts/A/Counter.sol".to_string(), 1u32);
-        map.insert("contracts/B/Counter.sol".to_string(), 2u32);
-
-        // Absolute DWARF path with a basename-collision in the BuildModel:
-        // basename match is ambiguous; the resolver must report None
-        // rather than guess based on iteration order.
-        assert_eq!(
-            match_dwarf_to_build_model("/mnt/host/build/Counter.sol", &map),
-            None,
-            "absolute path with ambiguous basename must NOT resolve to either candidate"
-        );
-    }
-
-    /// Assembly reverts: solx emits no `.debug_line` rows for assembly opcodes,
-    /// so we fall back to the function decl line. Update if solx changes.
-    #[test]
-    fn inline_assembly_revert_falls_back_to_function_decl_line() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let instructions = decode_deployed_for(&output, "InlineAssemblyRevertTest", &model);
-
-        let inst = instructions
-            .iter()
-            .find(|i| i.pc == 0x445)
-            .expect("PC 0x445 (the assembly REVERT) should be present");
-        let line = inst
-            .location
-            .as_ref()
-            .and_then(|loc| loc.get_starting_line_number().ok())
-            .expect("PC 0x445 must have a resolved location");
-        assert_eq!(
-            line, 129,
-            "expected fall-back to testInlineAssemblyRevert's decl line (129), got {line}. \
-             Solc would emit line 135 (the literal `revert(...)` statement); update this \
-             assertion when solx emits `.debug_line` rows for assembly opcodes."
-        );
-    }
-
-    #[test]
-    fn deployed_dwarf_maps_some_pc_to_require_line() {
-        let output = load_solx_output();
-        let bc = as_solx(
-            &output
-                .contracts
-                .get("Counter.sol")
-                .expect("Counter.sol")
-                .get("Counter")
-                .expect("Counter")
-                .evm
-                .deployed_bytecode,
-        );
-        let raw = hex::decode(&bc.object).expect("hex object");
-
-        let model = make_build_model_for_counter();
-        let instructions = decode_instructions(&raw, &bc.debug_info, &model, false)
-            .expect("DWARF decode should succeed for the Counter fixture");
-        assert!(!instructions.is_empty());
-
-        // pc=0x002e maps to Counter.sol line 13 (the `require(v > 0, ...)`).
-        let has_line_13 = instructions
-            .iter()
-            .any(|inst| match inst.location.as_ref() {
-                Some(loc) => loc.get_starting_line_number().unwrap_or(0) == 13,
-                None => false,
-            });
-        assert!(
-            has_line_13,
-            "expected at least one instruction at Counter.sol line 13 (the require)"
-        );
-    }
-
-    #[test]
-    fn every_jump_gets_a_non_default_jump_type() {
-        // solx inlines helpers, so most JUMPs are dispatcher/abi-related and
-        // stay inside a single range — we only require every JUMP/JUMPI to
-        // get *some* non-default jump_type (not the NotJump placeholder).
-        let output = load_solx_output();
-        let bc = as_solx(
-            &output
-                .contracts
-                .get("Counter.sol")
-                .unwrap()
-                .get("Counter")
-                .unwrap()
-                .evm
-                .deployed_bytecode,
-        );
-        let raw = hex::decode(&bc.object).unwrap();
-        let model = make_build_model_for_counter();
-        let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
-
-        for inst in &instructions {
-            if matches!(inst.opcode, OpCode::JUMP | OpCode::JUMPI) {
-                assert!(
-                    inst.jump_type != JumpType::NotJump,
-                    "JUMP/JUMPI at pc=0x{:04x} should have a jump_type \
-                     assigned by the post-decode pass, got NotJump",
-                    inst.pc
-                );
-            }
-        }
-    }
-
-    /// Non-zero `SourceLocation.length` via `BuildModel.ast_spans` — pin that
-    /// at least one resolved instruction gets a non-zero span.
-    #[test]
-    fn solx_instructions_carry_nonzero_source_length() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "DirectRequireTest", &model);
-
-        let any_with_length = insts
-            .iter()
-            .filter_map(|i| i.location.as_deref())
-            .any(|loc| loc.length > 0);
-        assert!(
-            any_with_length,
-            "expected at least one decoded instruction's SourceLocation to have \
-             length > 0 once BuildModel.ast_spans is populated"
-        );
-    }
-
-    #[test]
-    fn jump_after_swap_falls_back_to_internal_jump() {
-        // Synthetic instruction stream:
-        //   PC=0    PUSH2 0x0100   ; real destination
-        //   PC=3    SWAP1          ; obscures the destination on the stack
-        //   PC=4    JUMP
-        //   PC=0x100 JUMPDEST       ; inlined-subroutine entry (per ParsedDwarf)
-        let make_inst = |pc: u32, opcode: OpCode, push_data: Option<Vec<u8>>| Instruction {
-            pc,
-            opcode,
-            jump_type: JumpType::NotJump,
-            push_data,
-            location: None,
-            inline_call_sites: Box::default(),
-        };
-        let mut instructions = vec![
-            make_inst(0, OpCode::PUSH2, Some(vec![0x61, 0x01, 0x00])),
-            make_inst(3, OpCode::SWAP1, None),
-            make_inst(4, OpCode::JUMP, None),
-            make_inst(0x100, OpCode::JUMPDEST, None),
-        ];
-
-        // Range at [0x100, 0x200). Without the SWAP guard the classifier
-        // would read 0x100 from the prior PUSH and call this IntoFunction.
-        let parsed = make_parsed_dwarf_with_ranges(vec![InlinedRange {
-            low_pc: 0x100,
-            high_pc: 0x200,
-            call_file: None,
-            call_line: None,
-            call_column: None,
-            depth: 1,
-            is_artificial: false,
-            decl_file: None,
-            decl_line: None,
-        }]);
-
-        parsed.assign_jump_types(&mut instructions);
-
-        let jump = &instructions[2];
-        assert_eq!(jump.opcode, OpCode::JUMP);
-        assert_eq!(
-            jump.jump_type,
-            JumpType::InternalJump,
-            "JUMP separated from the prior PUSH by a SWAP must NOT derive its \
-             destination from that PUSH; got jump_type={:?}",
-            jump.jump_type,
-        );
-    }
-
-    /// Pin the bytecode-bounds rejection: a DWARF range past the bytecode
-    /// end must fail fast (test exercises the check directly).
-    #[test]
-    fn decode_instructions_rejects_oob_dwarf_ranges() {
-        let parsed = make_parsed_dwarf_with_ranges(vec![InlinedRange {
-            low_pc: 0x100,
-            high_pc: 0x200,
-            call_file: None,
-            call_line: None,
-            call_column: None,
-            depth: 1,
-            is_artificial: false,
-            decl_file: None,
-            decl_line: None,
-        }]);
-        let bytecode_len: u64 = 0x80;
-        let oob = parsed
-            .inlined_ranges
-            .iter()
-            .any(|r| r.high_pc > bytecode_len || r.low_pc >= bytecode_len);
-        assert!(
-            oob,
-            "synthetic OOB range should be detectable as out-of-bounds"
-        );
-    }
-
-    /// Happy path companion to the SWAP-guard test: clean `PUSH; JUMP`
-    /// must still classify as `IntoFunction`.
-    #[test]
-    fn jump_directly_after_push_classifies_into_function() {
-        let make_inst = |pc: u32, opcode: OpCode, push_data: Option<Vec<u8>>| Instruction {
-            pc,
-            opcode,
-            jump_type: JumpType::NotJump,
-            push_data,
-            location: None,
-            inline_call_sites: Box::default(),
-        };
-        let mut instructions = vec![
-            make_inst(0, OpCode::PUSH2, Some(vec![0x61, 0x01, 0x00])),
-            make_inst(3, OpCode::JUMP, None),
-            make_inst(0x100, OpCode::JUMPDEST, None),
-        ];
-        let parsed = make_parsed_dwarf_with_ranges(vec![InlinedRange {
-            low_pc: 0x100,
-            high_pc: 0x200,
-            call_file: None,
-            call_line: None,
-            call_column: None,
-            depth: 1,
-            is_artificial: false,
-            decl_file: None,
-            decl_line: None,
-        }]);
-        parsed.assign_jump_types(&mut instructions);
-        assert_eq!(instructions[1].jump_type, JumpType::IntoFunction);
-    }
-
-    #[test]
-    fn inline_call_sites_recover_caller_line_for_inlined_helpers() {
-        // PCs inside _checkPositive carry the caller line (Counter.sol:8)
-        // via inline_call_sites — that's what gives EDR the middle frame.
-        let output = load_solx_output();
-        let bc = as_solx(
-            &output
-                .contracts
-                .get("Counter.sol")
-                .unwrap()
-                .get("Counter")
-                .unwrap()
-                .evm
-                .deployed_bytecode,
-        );
-        let raw = hex::decode(&bc.object).unwrap();
-        let model = make_build_model_for_counter();
-        let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
-
-        // Pin: some PC at Counter.sol:13 (the require) has inline_call_sites
-        // pointing at Counter.sol:8 (the _checkPositive call site).
-        let any_call_site_at_line_8 = instructions.iter().any(|inst| {
-            inst.location
-                .as_ref()
-                .is_some_and(|l| l.get_starting_line_number().unwrap_or(0) == 13)
-                && inst
-                    .inline_call_sites
-                    .iter()
-                    .any(|cs| cs.get_starting_line_number().unwrap_or(0) == 8)
-        });
-        assert!(
-            any_call_site_at_line_8,
-            "expected at least one instruction at Counter.sol:13 (the require) \
-             to carry an inline_call_sites entry pointing at Counter.sol:8 \
-             (the call site of _checkPositive inside set)"
-        );
-    }
-
-    // Parser-invariant pins per Scenarios.t.sol case. End-to-end trace
-    // shape is checked by the JS sweep, not here.
 
     /// First instruction whose resolved location starts at `expected` line.
     fn first_inst_at_line(insts: &[Instruction], expected: u32) -> Option<Instruction> {
@@ -1542,186 +1062,725 @@ mod tests {
         })
     }
 
-    /// `require(false, "boom")` — bottom at the require statement.
-    #[test]
-    fn pin_direct_require() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "DirectRequireTest", &model);
-        assert!(first_inst_at_line(&insts, 12).is_some());
+    mod bottom_frame_resolution {
+        use super::*;
+
+        /// Panic 0x12 (div by zero): pin the bottom location to the divide
+        /// expression (line 34), not the panic helper's contract-scope `call_line`.
+        #[test]
+        fn divide_by_zero_filters_out_panic_helper_decl_line() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let instructions = decode_deployed_for(&output, "DivisionByZeroTest", &model);
+
+            // PC 0xd2c is the panic-emitting REVERT for `0x12` (divide by zero).
+            let inst = instructions
+                .iter()
+                .find(|i| i.pc == 0xd2c)
+                .expect("PC 0xd2c should be present");
+            let line = inst
+                .location
+                .as_ref()
+                .and_then(|loc| loc.get_starting_line_number().ok())
+                .expect("PC 0xd2c must have a resolved location");
+            assert_eq!(
+                line, 34,
+                "expected line 34 (the divide expression `c = a / b`), got {line}. \
+                 A regression to line 30 means the panic-helper bogus call_line \
+                 is being picked again instead of the next-outer artificial entry."
+            );
+        }
+
+        /// Cross-contract leak guard: PC 0xcb7's line-program row points at a
+        /// different contract's setUp; the contract-match check must reject it
+        /// and fall back to the abstract origin's `decl_line`.
+        #[test]
+        fn invalid_opcode_does_not_leak_unrelated_contract_setup_line() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let instructions = decode_deployed_for(&output, "InvalidOpcodeTest", &model);
+
+            let inst = instructions
+                .iter()
+                .find(|i| i.pc == 0xcb7)
+                .expect("PC 0xcb7 (the INVALID opcode) should be present");
+            let line = inst
+                .location
+                .as_ref()
+                .and_then(|loc| loc.get_starting_line_number().ok())
+                .expect("PC 0xcb7 must have a resolved location");
+            assert_ne!(
+                line, 97,
+                "regression: line 97 is in ModifierRevertTest.setUp, a *different* \
+                 contract — the contract-match check in user_visible_location_for_pc \
+                 must reject it."
+            );
+            assert_eq!(
+                line, 182,
+                "expected fall-back to `testInvalidOpcode`'s decl_line (182), got {line}."
+            );
+        }
+
+        /// Assembly reverts: solx emits no `.debug_line` rows for assembly opcodes,
+        /// so we fall back to the function decl line. Update if solx changes.
+        #[test]
+        fn inline_assembly_revert_falls_back_to_function_decl_line() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let instructions = decode_deployed_for(&output, "InlineAssemblyRevertTest", &model);
+
+            let inst = instructions
+                .iter()
+                .find(|i| i.pc == 0x445)
+                .expect("PC 0x445 (the assembly REVERT) should be present");
+            let line = inst
+                .location
+                .as_ref()
+                .and_then(|loc| loc.get_starting_line_number().ok())
+                .expect("PC 0x445 must have a resolved location");
+            assert_eq!(
+                line, 129,
+                "expected fall-back to testInlineAssemblyRevert's decl line (129), got {line}. \
+                 Solc would emit line 135 (the literal `revert(...)` statement); update this \
+                 assertion when solx emits `.debug_line` rows for assembly opcodes."
+            );
+        }
+
+        #[test]
+        fn deployed_dwarf_maps_some_pc_to_require_line() {
+            let output = load_solx_output();
+            let bc = as_solx(
+                &output
+                    .contracts
+                    .get("Counter.sol")
+                    .expect("Counter.sol")
+                    .get("Counter")
+                    .expect("Counter")
+                    .evm
+                    .deployed_bytecode,
+            );
+            let raw = hex::decode(&bc.object).expect("hex object");
+
+            let model = make_build_model_for_counter();
+            let instructions = decode_instructions(&raw, &bc.debug_info, &model, false)
+                .expect("DWARF decode should succeed for the Counter fixture");
+            assert!(!instructions.is_empty());
+
+            // pc=0x002e maps to Counter.sol line 13 (the `require(v > 0, ...)`).
+            let has_line_13 = instructions
+                .iter()
+                .any(|inst| match inst.location.as_ref() {
+                    Some(loc) => loc.get_starting_line_number().unwrap_or(0) == 13,
+                    None => false,
+                });
+            assert!(
+                has_line_13,
+                "expected at least one instruction at Counter.sol line 13 (the require)"
+            );
+        }
+
+        /// `require(false, "boom")` — bottom at the require statement.
+        #[test]
+        fn pin_direct_require() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "DirectRequireTest", &model);
+            assert!(first_inst_at_line(&insts, 12).is_some());
+        }
+
+        /// `assert(false)` panic 0x01 — bottom at the assert statement.
+        #[test]
+        fn pin_assertion_failure() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "AssertionFailureTest", &model);
+            assert!(first_inst_at_line(&insts, 18).is_some());
+        }
+
+        /// Arithmetic overflow panic 0x11 — bottom at the `+` expression.
+        #[test]
+        fn pin_overflow() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "OverflowTest", &model);
+            assert!(first_inst_at_line(&insts, 26).is_some());
+        }
+
+        /// Array OOB panic 0x32 — bottom at the indexing expression.
+        #[test]
+        fn pin_array_oob() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "ArrayOutOfBoundsTest", &model);
+            assert!(first_inst_at_line(&insts, 42).is_some());
+        }
+
+        /// `revert MyError(...)` — bottom at the revert statement.
+        #[test]
+        fn pin_custom_error() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "CustomErrorTest", &model);
+            assert!(first_inst_at_line(&insts, 51).is_some());
+        }
+
+        /// Constructor `require(false, ...)` — runs in CREATE bytecode.
+        #[test]
+        fn pin_constructor_revert() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let bc = as_solx(
+                &output
+                    .contracts
+                    .get("project/contracts/Scenarios.t.sol")
+                    .unwrap()
+                    .get("ConstructorRevertContract")
+                    .unwrap()
+                    .evm
+                    .bytecode,
+            );
+            let raw = hex::decode(&bc.object).unwrap();
+            let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
+            assert!(first_inst_at_line(&insts, 57).is_some());
+        }
+
+        /// Cross-contract recursion — pin the innermost `recurse(0)`. The
+        /// multi-level chain is reconstructed by the trace renderer.
+        #[test]
+        fn pin_deep_recursion_bottom() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "DeepRecursionTarget", &model);
+            assert!(first_inst_at_line(&insts, 109).is_some());
+        }
+
+        /// Library-internal function reverts. solx emits the helper as a
+        /// concrete subprogram; the require resolves directly.
+        #[test]
+        fn pin_library_revert() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "LibraryRevertTest", &model);
+            assert!(first_inst_at_line(&insts, 229).is_some());
+        }
+
+        /// `fallback() { revert(...) }` on the target contract.
+        #[test]
+        fn pin_fallback_revert() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "FallbackRevertTarget", &model);
+            assert!(first_inst_at_line(&insts, 259).is_some());
+        }
+
+        /// `receive() { revert(...) }` on the target contract.
+        #[test]
+        fn pin_receive_revert() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "ReceiveRevertTarget", &model);
+            assert!(first_inst_at_line(&insts, 276).is_some());
+        }
+
+        /// Two consecutive `require`s; the second fails.
+        #[test]
+        fn pin_multiple_requires() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "MultipleRequiresTest", &model);
+            assert!(first_inst_at_line(&insts, 340).is_some());
+        }
+
+        /// Invalid enum cast panic 0x21 — anywhere inside the test body.
+        #[test]
+        fn pin_invalid_enum_cast() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "InvalidEnumCastTest", &model);
+            assert!(first_inst_at_line(&insts, 169).is_some());
+        }
+
+        /// `arr.pop()` on empty array panics 0x31.
+        #[test]
+        fn pin_pop_empty_array() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "PopEmptyArrayTest", &model);
+            assert!(first_inst_at_line(&insts, 177).is_some());
+        }
+
+        /// Invariant test that always reverts — pin the require's line.
+        #[test]
+        fn pin_invariant_failure() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "InvariantFailureTest", &model);
+            assert!(first_inst_at_line(&insts, 361).is_some());
+        }
     }
 
-    /// `assert(false)` panic 0x01 — bottom at the assert statement.
-    #[test]
-    fn pin_assertion_failure() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "AssertionFailureTest", &model);
-        assert!(first_inst_at_line(&insts, 18).is_some());
+    mod inline_call_sites {
+        use super::*;
+
+        /// solx flattens a modifier into its enclosing function as a single
+        /// inlined-subroutine — pin one frame (vs. solc's duplicate setIfPositive).
+        #[test]
+        fn modifier_revert_has_single_set_if_positive_inline_call_site() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let instructions = decode_deployed_for(&output, "ModifierTarget", &model);
+
+            // PC 0x73 is the modifier's `require(v > 0, ...)` revert.
+            let inst = instructions
+                .iter()
+                .find(|i| i.pc == 0x73)
+                .expect("PC 0x73 should be present");
+            let call_site_lines: Vec<u32> = inst
+                .inline_call_sites
+                .iter()
+                .filter_map(|cs| cs.get_starting_line_number().ok())
+                .collect();
+            assert_eq!(
+                call_site_lines,
+                vec![91],
+                "expected exactly one non-artificial inline call site at line 91 \
+                 (setIfPositive), got {call_site_lines:?}. If this asserts \
+                 [91, 91] a duplicate function-entry frame has reappeared."
+            );
+        }
+
+        #[test]
+        fn inline_call_sites_recover_caller_line_for_inlined_helpers() {
+            // PCs inside _checkPositive carry the caller line (Counter.sol:8)
+            // via inline_call_sites — that's what gives EDR the middle frame.
+            let output = load_solx_output();
+            let bc = as_solx(
+                &output
+                    .contracts
+                    .get("Counter.sol")
+                    .unwrap()
+                    .get("Counter")
+                    .unwrap()
+                    .evm
+                    .deployed_bytecode,
+            );
+            let raw = hex::decode(&bc.object).unwrap();
+            let model = make_build_model_for_counter();
+            let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
+
+            // Pin: some PC at Counter.sol:13 (the require) has inline_call_sites
+            // pointing at Counter.sol:8 (the _checkPositive call site).
+            let any_call_site_at_line_8 = instructions.iter().any(|inst| {
+                inst.location
+                    .as_ref()
+                    .is_some_and(|l| l.get_starting_line_number().unwrap_or(0) == 13)
+                    && inst
+                        .inline_call_sites
+                        .iter()
+                        .any(|cs| cs.get_starting_line_number().unwrap_or(0) == 8)
+            });
+            assert!(
+                any_call_site_at_line_8,
+                "expected at least one instruction at Counter.sol:13 (the require) \
+                 to carry an inline_call_sites entry pointing at Counter.sol:8 \
+                 (the call site of _checkPositive inside set)"
+            );
+        }
+
+        /// Internal helper chain: `set` → `_checkPositive` reverts.
+        /// `inline_call_sites` at the require PC carries the caller line.
+        #[test]
+        fn pin_internal_helper_chain_carries_caller_line() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "InternalHelperChainContract", &model);
+            let inst =
+                first_inst_at_line(&insts, 149).expect("expected `_checkPositive`'s require at line 149");
+            let lines: Vec<u32> = inst
+                .inline_call_sites
+                .iter()
+                .filter_map(|cs| cs.get_starting_line_number().ok())
+                .collect();
+            assert!(lines.contains(&144), "got {lines:?}");
+        }
+
+        /// Constructor → internal `_check` revert (CREATE). `inline_call_sites`
+        /// at the require PC carries the constructor's call site.
+        #[test]
+        fn pin_helper_reverting_constructor_carries_caller_line() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let bc = as_solx(
+                &output
+                    .contracts
+                    .get("project/contracts/Scenarios.t.sol")
+                    .unwrap()
+                    .get("HelperRevertingConstructorContract")
+                    .unwrap()
+                    .evm
+                    .bytecode,
+            );
+            let raw = hex::decode(&bc.object).unwrap();
+            let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
+            let inst = first_inst_at_line(&insts, 295).expect("expected `_check`'s require at line 295");
+            let lines: Vec<u32> = inst
+                .inline_call_sites
+                .iter()
+                .filter_map(|cs| cs.get_starting_line_number().ok())
+                .collect();
+            assert!(lines.contains(&298), "got {lines:?}");
+        }
     }
 
-    /// Arithmetic overflow panic 0x11 — bottom at the `+` expression.
-    #[test]
-    fn pin_overflow() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "OverflowTest", &model);
-        assert!(first_inst_at_line(&insts, 26).is_some());
+    mod jump_type_assignment {
+        use super::*;
+
+        #[test]
+        fn every_jump_gets_a_non_default_jump_type() {
+            // solx inlines helpers, so most JUMPs are dispatcher/abi-related and
+            // stay inside a single range — we only require every JUMP/JUMPI to
+            // get *some* non-default jump_type (not the NotJump placeholder).
+            let output = load_solx_output();
+            let bc = as_solx(
+                &output
+                    .contracts
+                    .get("Counter.sol")
+                    .unwrap()
+                    .get("Counter")
+                    .unwrap()
+                    .evm
+                    .deployed_bytecode,
+            );
+            let raw = hex::decode(&bc.object).unwrap();
+            let model = make_build_model_for_counter();
+            let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
+
+            for inst in &instructions {
+                if matches!(inst.opcode, OpCode::JUMP | OpCode::JUMPI) {
+                    assert!(
+                        inst.jump_type != JumpType::NotJump,
+                        "JUMP/JUMPI at pc=0x{:04x} should have a jump_type \
+                         assigned by the post-decode pass, got NotJump",
+                        inst.pc
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn jump_after_swap_falls_back_to_internal_jump() {
+            // Synthetic instruction stream:
+            //   PC=0    PUSH2 0x0100   ; real destination
+            //   PC=3    SWAP1          ; obscures the destination on the stack
+            //   PC=4    JUMP
+            //   PC=0x100 JUMPDEST       ; inlined-subroutine entry (per ParsedDwarf)
+            let make_inst = |pc: u32, opcode: OpCode, push_data: Option<Vec<u8>>| Instruction {
+                pc,
+                opcode,
+                jump_type: JumpType::NotJump,
+                push_data,
+                location: None,
+                inline_call_sites: Box::default(),
+            };
+            let mut instructions = vec![
+                make_inst(0, OpCode::PUSH2, Some(vec![0x61, 0x01, 0x00])),
+                make_inst(3, OpCode::SWAP1, None),
+                make_inst(4, OpCode::JUMP, None),
+                make_inst(0x100, OpCode::JUMPDEST, None),
+            ];
+
+            // Range at [0x100, 0x200). Without the SWAP guard the classifier
+            // would read 0x100 from the prior PUSH and call this IntoFunction.
+            let parsed = make_parsed_dwarf_with_ranges(vec![InlinedRange {
+                low_pc: 0x100,
+                high_pc: 0x200,
+                call_file: None,
+                call_line: None,
+                call_column: None,
+                depth: 1,
+                is_artificial: false,
+                decl_file: None,
+                decl_line: None,
+            }]);
+
+            parsed.assign_jump_types(&mut instructions);
+
+            let jump = &instructions[2];
+            assert_eq!(jump.opcode, OpCode::JUMP);
+            assert_eq!(
+                jump.jump_type,
+                JumpType::InternalJump,
+                "JUMP separated from the prior PUSH by a SWAP must NOT derive its \
+                 destination from that PUSH; got jump_type={:?}",
+                jump.jump_type,
+            );
+        }
+
+        /// Happy path companion to the SWAP-guard test: clean `PUSH; JUMP`
+        /// must still classify as `IntoFunction`.
+        #[test]
+        fn jump_directly_after_push_classifies_into_function() {
+            let make_inst = |pc: u32, opcode: OpCode, push_data: Option<Vec<u8>>| Instruction {
+                pc,
+                opcode,
+                jump_type: JumpType::NotJump,
+                push_data,
+                location: None,
+                inline_call_sites: Box::default(),
+            };
+            let mut instructions = vec![
+                make_inst(0, OpCode::PUSH2, Some(vec![0x61, 0x01, 0x00])),
+                make_inst(3, OpCode::JUMP, None),
+                make_inst(0x100, OpCode::JUMPDEST, None),
+            ];
+            let parsed = make_parsed_dwarf_with_ranges(vec![InlinedRange {
+                low_pc: 0x100,
+                high_pc: 0x200,
+                call_file: None,
+                call_line: None,
+                call_column: None,
+                depth: 1,
+                is_artificial: false,
+                decl_file: None,
+                decl_line: None,
+            }]);
+            parsed.assign_jump_types(&mut instructions);
+            assert_eq!(instructions[1].jump_type, JumpType::IntoFunction);
+        }
     }
 
-    /// Array OOB panic 0x32 — bottom at the indexing expression.
-    #[test]
-    fn pin_array_oob() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "ArrayOutOfBoundsTest", &model);
-        assert!(first_inst_at_line(&insts, 42).is_some());
+    mod dwarf_file_matching {
+        use super::*;
+
+        /// G5 — exact > suffix > basename; ambiguous matches return None
+        /// (a wrong-file frame is harder to spot than a missing reference).
+        #[test]
+        fn match_dwarf_to_build_model_disambiguates_basenames() {
+            let mut map = std::collections::HashMap::new();
+            map.insert("contracts/A/Counter.sol".to_string(), 1u32);
+            map.insert("contracts/B/Counter.sol".to_string(), 2u32);
+
+            // Exact match wins.
+            assert_eq!(
+                match_dwarf_to_build_model("contracts/A/Counter.sol", &map),
+                Some(1)
+            );
+            assert_eq!(
+                match_dwarf_to_build_model("contracts/B/Counter.sol", &map),
+                Some(2)
+            );
+
+            // Suffix match disambiguates by parent directory.
+            assert_eq!(match_dwarf_to_build_model("A/Counter.sol", &map), Some(1));
+            assert_eq!(match_dwarf_to_build_model("B/Counter.sol", &map), Some(2));
+
+            // Basename-only is ambiguous (two equal-specificity candidates):
+            // refuse to guess. The renderer falls back to "no source location"
+            // rather than emitting a wrong-file frame.
+            assert_eq!(
+                match_dwarf_to_build_model("Counter.sol", &map),
+                None,
+                "ambiguous basename collisions must not resolve to either candidate"
+            );
+
+            // When one candidate IS more specific than the other, pick it.
+            let mut deeper = std::collections::HashMap::new();
+            deeper.insert("contracts/A/Counter.sol".to_string(), 1u32);
+            deeper.insert("contracts/A/utils/Counter.sol".to_string(), 2u32);
+            assert_eq!(
+                match_dwarf_to_build_model("utils/Counter.sol", &deeper),
+                Some(2),
+                "longest matching suffix wins"
+            );
+        }
+
+        /// G7 — absolute DWARF paths resolve via suffix/basename match against
+        /// project-relative `BuildModel` keys without double-prefixing.
+        #[test]
+        fn match_dwarf_to_build_model_handles_absolute_paths() {
+            let mut map = std::collections::HashMap::new();
+            map.insert("project/contracts/Counter.sol".to_string(), 7u32);
+
+            // DWARF-side absolute path, BuildModel uses relative key:
+            // suffix match `/project/contracts/Counter.sol` doesn't fit, but
+            // basename match `Counter.sol` should still find file_id 7.
+            assert_eq!(
+                match_dwarf_to_build_model("/mnt/host/project/contracts/Counter.sol", &map),
+                Some(7),
+                "absolute DWARF path with matching basename must resolve to the BuildModel id"
+            );
+
+            // Same file via the suffix path — also expected to work.
+            assert_eq!(
+                match_dwarf_to_build_model("project/contracts/Counter.sol", &map),
+                Some(7)
+            );
+        }
+
+        /// G7' — absolute DWARF path with a basename collision must return None.
+        /// Known limitation: a long DWARF path can't disambiguate when no part of
+        /// it appears in any `BuildModel` key.
+        #[test]
+        fn match_dwarf_to_build_model_absolute_path_with_basename_collision() {
+            let mut map = std::collections::HashMap::new();
+            map.insert("contracts/A/Counter.sol".to_string(), 1u32);
+            map.insert("contracts/B/Counter.sol".to_string(), 2u32);
+
+            // Absolute DWARF path with a basename-collision in the BuildModel:
+            // basename match is ambiguous; the resolver must report None
+            // rather than guess based on iteration order.
+            assert_eq!(
+                match_dwarf_to_build_model("/mnt/host/build/Counter.sol", &map),
+                None,
+                "absolute path with ambiguous basename must NOT resolve to either candidate"
+            );
+        }
     }
 
-    /// `revert MyError(...)` — bottom at the revert statement.
-    #[test]
-    fn pin_custom_error() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "CustomErrorTest", &model);
-        assert!(first_inst_at_line(&insts, 51).is_some());
+    mod source_length_resolution {
+        use super::*;
+
+        /// Non-zero `SourceLocation.length` via `BuildModel.ast_spans` — pin that
+        /// at least one resolved instruction gets a non-zero span.
+        #[test]
+        fn solx_instructions_carry_nonzero_source_length() {
+            let output = load_scenarios_output();
+            let model = make_build_model_for_scenarios();
+            let insts = decode_deployed_for(&output, "DirectRequireTest", &model);
+
+            let any_with_length = insts
+                .iter()
+                .filter_map(|i| i.location.as_deref())
+                .any(|loc| loc.length > 0);
+            assert!(
+                any_with_length,
+                "expected at least one decoded instruction's SourceLocation to have \
+                 length > 0 once BuildModel.ast_spans is populated"
+            );
+        }
     }
 
-    /// Constructor `require(false, ...)` — runs in CREATE bytecode.
-    #[test]
-    fn pin_constructor_revert() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let bc = as_solx(
-            &output
-                .contracts
-                .get("project/contracts/Scenarios.t.sol")
-                .unwrap()
-                .get("ConstructorRevertContract")
-                .unwrap()
-                .evm
-                .bytecode,
-        );
-        let raw = hex::decode(&bc.object).unwrap();
-        let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
-        assert!(first_inst_at_line(&insts, 57).is_some());
+    mod edge_cases {
+        use super::*;
+
+        /// G1 — innermost-first by DIE depth, not range width.
+        /// A parent's `DW_AT_ranges` union can be wider than a child's contiguous
+        /// range; width-based sorting would invert or tie the chain.
+        #[test]
+        fn containing_ranges_orders_by_die_depth_not_width() {
+            fn r(depth: u32, low_pc: u64, high_pc: u64) -> InlinedRange {
+                InlinedRange {
+                    low_pc,
+                    high_pc,
+                    call_file: None,
+                    call_line: None,
+                    call_column: None,
+                    depth,
+                    is_artificial: false,
+                    decl_file: None,
+                    decl_line: None,
+                }
+            }
+
+            // Two ranges with **identical** PC span [10, 50). Width-based
+            // sorting is unstable here. Depth-based must put depth=3 first.
+            let mut inlined = vec![r(2, 10, 50), r(3, 10, 50)];
+            inlined.sort_by_key(|r| r.low_pc);
+            let parsed = make_parsed_dwarf_with_ranges(inlined);
+            let chain = parsed.containing_ranges(20);
+            assert_eq!(chain.len(), 2);
+            assert_eq!(
+                chain[0].depth,
+                3,
+                "innermost (depth 3) must be first; got depth ordering {:?}",
+                chain.iter().map(|r| r.depth).collect::<Vec<_>>()
+            );
+            assert_eq!(chain[1].depth, 2);
+
+            // Now test the case the audit doc explicitly called out: a child
+            // contiguous range wider than the parent's own ranges (can happen
+            // if `DW_AT_ranges` for the parent has multiple narrow segments).
+            // We model it as two parent segments each narrower than the child.
+            let mut inlined = vec![
+                r(2, 10, 20), // parent segment 1 (width 10)
+                r(2, 30, 40), // parent segment 2 (width 10)
+                r(3, 0, 100), // child (width 100, broader than either parent segment)
+            ];
+            inlined.sort_by_key(|r| r.low_pc);
+            let parsed = make_parsed_dwarf_with_ranges(inlined);
+            // PC 15 sits in parent's first segment AND inside the child's
+            // contiguous range. Depth-3 (child) must still come first.
+            let chain = parsed.containing_ranges(15);
+            assert!(chain
+                .iter()
+                .any(|r| r.depth == 3 && r.low_pc == 0 && r.high_pc == 100));
+            assert_eq!(
+                chain[0].depth, 3,
+                "depth-based ordering must pick the inner DIE even when the parent's contiguous segment is narrower"
+            );
+        }
+
     }
 
-    /// Cross-contract recursion — pin the innermost `recurse(0)`. The
-    /// multi-level chain is reconstructed by the trace renderer.
-    #[test]
-    fn pin_deep_recursion_bottom() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "DeepRecursionTarget", &model);
-        assert!(first_inst_at_line(&insts, 109).is_some());
-    }
+    /// Each [`DwarfError`] variant gets a round-trip test that drives
+    /// `decode_instructions` to the failure mode. Variants that need a
+    /// crafted ELF blob to trigger (`CompressedSection`, `MultiCu`) are
+    /// not covered here — they're guarded for forward-compat with future
+    /// solx output, not regression-prone today.
+    mod parse_errors {
+        use super::*;
 
-    /// Internal helper chain: `set` → `_checkPositive` reverts.
-    /// `inline_call_sites` at the require PC carries the caller line.
-    #[test]
-    fn pin_internal_helper_chain_carries_caller_line() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "InternalHelperChainContract", &model);
-        let inst =
-            first_inst_at_line(&insts, 149).expect("expected `_checkPositive`'s require at line 149");
-        let lines: Vec<u32> = inst
-            .inline_call_sites
-            .iter()
-            .filter_map(|cs| cs.get_starting_line_number().ok())
-            .collect();
-        assert!(lines.contains(&144), "got {lines:?}");
-    }
+        #[test]
+        fn hex_decode_error_on_invalid_hex() {
+            let model = make_build_model_for_counter();
+            let err = decode_instructions(&[], "not-valid-hex", &model, false)
+                .expect_err("non-hex input must fail at hex::decode");
+            assert!(
+                matches!(err, DwarfError::HexDecode(_)),
+                "expected HexDecode, got {err:?}"
+            );
+        }
 
-    /// Library-internal function reverts. solx emits the helper as a
-    /// concrete subprogram; the require resolves directly.
-    #[test]
-    fn pin_library_revert() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "LibraryRevertTest", &model);
-        assert!(first_inst_at_line(&insts, 229).is_some());
-    }
+        #[test]
+        fn elf_parse_error_on_random_bytes() {
+            // Valid hex of obviously-not-ELF bytes (random payload that
+            // happens to be the right length for object::File::parse to
+            // try to interpret).
+            let bogus = hex::encode([0xDE, 0xAD, 0xBE, 0xEFu8].repeat(64));
+            let model = make_build_model_for_counter();
+            let err = decode_instructions(&[], &bogus, &model, false)
+                .expect_err("non-ELF bytes must fail at object::File::parse");
+            assert!(
+                matches!(err, DwarfError::ElfParse(_)),
+                "expected ElfParse, got {err:?}"
+            );
+        }
 
-    /// `fallback() { revert(...) }` on the target contract.
-    #[test]
-    fn pin_fallback_revert() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "FallbackRevertTarget", &model);
-        assert!(first_inst_at_line(&insts, 259).is_some());
-    }
-
-    /// `receive() { revert(...) }` on the target contract.
-    #[test]
-    fn pin_receive_revert() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "ReceiveRevertTarget", &model);
-        assert!(first_inst_at_line(&insts, 276).is_some());
-    }
-
-    /// Constructor → internal `_check` revert (CREATE). `inline_call_sites`
-    /// at the require PC carries the constructor's call site.
-    #[test]
-    fn pin_helper_reverting_constructor_carries_caller_line() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let bc = as_solx(
-            &output
-                .contracts
-                .get("project/contracts/Scenarios.t.sol")
-                .unwrap()
-                .get("HelperRevertingConstructorContract")
-                .unwrap()
-                .evm
-                .bytecode,
-        );
-        let raw = hex::decode(&bc.object).unwrap();
-        let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
-        let inst = first_inst_at_line(&insts, 295).expect("expected `_check`'s require at line 295");
-        let lines: Vec<u32> = inst
-            .inline_call_sites
-            .iter()
-            .filter_map(|cs| cs.get_starting_line_number().ok())
-            .collect();
-        assert!(lines.contains(&298), "got {lines:?}");
-    }
-
-    /// Two consecutive `require`s; the second fails.
-    #[test]
-    fn pin_multiple_requires() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "MultipleRequiresTest", &model);
-        assert!(first_inst_at_line(&insts, 340).is_some());
-    }
-
-    /// Invalid enum cast panic 0x21 — anywhere inside the test body.
-    #[test]
-    fn pin_invalid_enum_cast() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "InvalidEnumCastTest", &model);
-        assert!(first_inst_at_line(&insts, 169).is_some());
-    }
-
-    /// `arr.pop()` on empty array panics 0x31.
-    #[test]
-    fn pin_pop_empty_array() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "PopEmptyArrayTest", &model);
-        assert!(first_inst_at_line(&insts, 177).is_some());
-    }
-
-    /// Invariant test that always reverts — pin the require's line.
-    #[test]
-    fn pin_invariant_failure() {
-        let output = load_scenarios_output();
-        let model = make_build_model_for_scenarios();
-        let insts = decode_deployed_for(&output, "InvariantFailureTest", &model);
-        assert!(first_inst_at_line(&insts, 361).is_some());
+        /// Real DWARF blob + a bytecode shorter than any DIE PC range →
+        /// the bounds check should reject before walking PCs. Stronger
+        /// than the old test, which only checked the predicate by hand.
+        #[test]
+        fn range_escapes_bytecode_on_truncated_bytecode() {
+            let output = load_solx_output();
+            let bc = as_solx(
+                &output
+                    .contracts
+                    .get("Counter.sol")
+                    .unwrap()
+                    .get("Counter")
+                    .unwrap()
+                    .evm
+                    .deployed_bytecode,
+            );
+            // 4 bytes — well short of any subprogram's high_pc.
+            let truncated = [0u8; 4];
+            let model = make_build_model_for_counter();
+            let err = decode_instructions(&truncated, &bc.debug_info, &model, false)
+                .expect_err("truncated bytecode must trigger the bounds check");
+            assert!(
+                matches!(err, DwarfError::RangeEscapesBytecode { .. }),
+                "expected RangeEscapesBytecode, got {err:?}"
+            );
+        }
     }
 }
