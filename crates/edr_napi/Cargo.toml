@@ -7,12 +7,9 @@ edition.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-alloy-dyn-abi.workspace = true
-alloy-json-abi.workspace = true
 alloy-sol-types.workspace = true
 crossbeam-channel = "0.5"
 derive_more.workspace = true
-derive-where.workspace = true
 edr_artifact.workspace = true
 edr_block_header.workspace = true
 edr_block_miner.workspace = true
@@ -23,7 +20,6 @@ edr_chain_spec.workspace = true
 edr_chain_spec_block.workspace = true
 edr_chain_spec_evm.workspace = true
 edr_chain_spec_rpc.workspace = true
-edr_common.workspace = true
 edr_coverage.workspace = true
 edr_decoder_revert.workspace = true
 edr_defaults.workspace = true
@@ -44,11 +40,6 @@ edr_state_api.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_tracing.workspace = true
-k256 = { version = "0.13.1", default-features = false, features = [
-    "arithmetic",
-    "ecdsa",
-    "pkcs8",
-] }
 mimalloc = { version = "0.1.39", default-features = false, features = [
     "local_dynamic_tls",
 ] }
@@ -62,12 +53,10 @@ napi = { version = "2.16.17", default-features = false, features = [
 napi-derive = "2.16.13"
 parking_lot.workspace = true
 rand = { version = "0.9.0", optional = true }
-semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 static_assertions = "1.1.0"
 strum = { version = "0.26.0", features = ["derive"] }
-thiserror = { version = "2.0.12", default-features = false }
 tracing = { version = "0.1.44", default-features = false, features = ["std"] }
 tracing-flame = { version = "0.2.0", default-features = false, features = [
     "smallvec",
@@ -84,7 +73,6 @@ tracing-subscriber = { version = "0.3.18", default-features = false, features = 
 # Solidity tests
 foundry-cheatcodes.workspace = true
 foundry-compilers.workspace = true
-tempfile = "3.25.0"
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 openssl-sys = { version = "0.9.93", features = ["vendored"] }
