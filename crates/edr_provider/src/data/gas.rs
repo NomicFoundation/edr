@@ -23,6 +23,7 @@ use itertools::Itertools;
 use parking_lot::RwLock;
 
 use crate::{
+    config::GasEstimationMode,
     data::{call, EstimateGasResult},
     error::{EstimateGasFailure, ProviderErrorForChainSpec, TransactionFailure},
     observability::{observe_execution, EvmObserver, EvmObserverConfig, ObservedExecution},
@@ -132,6 +133,7 @@ pub(super) fn estimate_gas<
     contract_decoder: Arc<RwLock<ContractDecoder>>,
     minimum_cost: u64,
     observer_config: &EvmObserverConfig,
+    _estimation_mode: GasEstimationMode,
 ) -> Result<EstimateGasResult, ProviderErrorForChainSpec<ChainSpecT>> {
     // Measure the gas used by the transaction with optional limit from call request
     // defaulting to block limit. Report errors from initial call as if from

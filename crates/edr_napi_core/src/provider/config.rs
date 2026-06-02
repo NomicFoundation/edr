@@ -8,7 +8,7 @@ use edr_eip7825::transaction_gas_cap_for_hardfork;
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, ChainId, HashMap, UnknownHardfork, B256};
 use edr_provider::{
-    config::{ForkConfig, MiningConfig, NetworkConfig},
+    config::{ForkConfig, GasEstimationMode, MiningConfig, NetworkConfig},
     observability::ObservabilityConfig,
     AccountOverride,
 };
@@ -174,6 +174,7 @@ where
             default_transaction_gas_limit: value.default_transaction_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,
+            gas_estimation_mode: GasEstimationMode::Naive,
             genesis_state: value.genesis_state,
             hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,

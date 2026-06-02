@@ -85,7 +85,10 @@ use rpds::HashTrieMapSync;
 use tokio::runtime;
 
 use crate::{
-    config::{ForkConfig, LocalConfig, MemPoolConfig, MiningConfig, NetworkConfig, ProviderConfig},
+    config::{
+        ForkConfig, GasEstimationMode, LocalConfig, MemPoolConfig, MiningConfig, NetworkConfig,
+        ProviderConfig,
+    },
     data::{call::BlockEnvWithZeroBaseFee, gas::compute_rewards},
     debug_trace::{debug_trace_transaction, DebugTraceResultWithCallTraces},
     error::{
@@ -264,6 +267,7 @@ pub struct ProviderData<
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     block_config: BlockConfig<ChainSpecT::Hardfork>,
     default_transaction_gas_limit: NonZeroU64,
+    gas_estimation_mode: GasEstimationMode,
     is_auto_mining: bool,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
@@ -716,6 +720,7 @@ where
             chain_id: _chain_id,
             coinbase: beneficiary,
             default_transaction_gas_limit,
+            gas_estimation_mode,
             // Used by `create_blockchain_and_state`
             genesis_state: _genesis_state,
             // Used by `create_blockchain_and_state`
@@ -769,6 +774,7 @@ where
             blockchain,
             block_config,
             default_transaction_gas_limit,
+            gas_estimation_mode,
             is_auto_mining,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
@@ -2761,6 +2767,7 @@ where
 
         let contract_decoder = Arc::clone(&self.contract_decoder);
         let scheduled_blob_params = self.scheduled_blob_params().cloned();
+        let estimation_mode = self.gas_estimation_mode;
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let context = gas::GasCallContext {
@@ -2777,6 +2784,7 @@ where
                 contract_decoder,
                 minimum_cost,
                 &observer_config,
+                estimation_mode,
             )
         })?
     }
