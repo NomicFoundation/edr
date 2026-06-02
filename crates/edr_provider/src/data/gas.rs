@@ -1,121 +1,94 @@
 use core::cmp;
+use std::sync::Arc;
 
 use edr_block_api::{Block as _, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
-use edr_chain_spec::{BlockEnvConstructor as _, ExecutableTransaction as _};
+use edr_chain_spec::{
+    BlockEnvChainSpec, BlockEnvConstructor as _, ChainSpec, ExecutableTransaction as _,
+    HardforkChainSpec,
+};
 use edr_chain_spec_evm::{result::ExecutionResult, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip7892::ScheduledBlobParams;
 use edr_eth::reward_percentile::RewardPercentile;
+use edr_evm::ExecutionResultWithMetadata;
 use edr_precompile::PrecompileFn;
-use edr_primitives::{Address, HashMap, HashSet, U256};
+use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
+use edr_solidity::contract_decoder::ContractDecoder;
 use edr_state_api::DynState;
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
+use parking_lot::RwLock;
 
 use crate::{
     data::{call, EstimateGasResult},
-    error::ProviderErrorForChainSpec,
-    observability::{EvmObservedData, EvmObserver, EvmObserverConfig},
-    ProviderError,
+    error::{EstimateGasFailure, ProviderErrorForChainSpec, TransactionFailure},
+    observability::{observe_execution, EvmObserver, EvmObserverConfig, ObservedExecution},
+    time::TimeSinceEpoch,
+    ProviderError, ProviderSpec,
 };
 
-pub(super) struct CheckGasLimitArgs<'a, HardforkT, SignedTransactionT> {
+/// Shared EVM execution context passed to all gas estimation functions.
+pub(super) struct Context<'a, ChainSpecT: ChainSpec + HardforkChainSpec> {
     pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
-    pub header: &'a BlockHeader,
-    pub state: &'a dyn DynState,
-    pub cfg_env: CfgEnv<HardforkT>,
-    pub transaction: SignedTransactionT,
-    pub gas_limit: u64,
+    pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub observer: &'a mut EvmObserver,
+    pub header: &'a BlockHeader,
     pub scheduled_blob_params: Option<&'a ScheduledBlobParams>,
+    pub state: &'a dyn DynState,
+    pub transaction: ChainSpecT::SignedTransaction,
 }
 
-pub(super) struct CheckGasLimitResult {
-    pub success: bool,
-    pub precompile_addresses: HashSet<Address>,
+impl<'a, ChainSpecT: ChainSpec + HardforkChainSpec + BlockEnvChainSpec> Context<'a, ChainSpecT> {
+    fn new_block_env(&self) -> ChainSpecT::BlockEnv<'_, BlockHeader> {
+        ChainSpecT::BlockEnv::new_block_env(
+            self.header,
+            self.cfg_env.spec,
+            self.scheduled_blob_params,
+        )
+    }
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
-pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
-    args: CheckGasLimitArgs<'_, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>,
-) -> Result<CheckGasLimitResult, ProviderErrorForChainSpec<ChainSpecT>> {
-    let CheckGasLimitArgs {
-        blockchain,
-        header,
-        state,
-        cfg_env,
-        mut transaction,
-        gas_limit,
-        custom_precompiles,
-        observer,
-        scheduled_blob_params,
-    } = args;
-
+fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
+    context: &Context<'_, ChainSpecT>,
+    gas_limit: u64,
+    observer: &mut EvmObserver,
+) -> Result<
+    ExecutionResultWithMetadata<ChainSpecT::HaltReason>,
+    ProviderErrorForChainSpec<ChainSpecT>,
+> {
+    let mut transaction = context.transaction.clone();
     transaction.set_gas_limit(gas_limit);
-    let block_env =
-        ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec, scheduled_blob_params);
-
-    let result = call::run_call::<ChainSpecT, _, _, _>(
-        blockchain,
-        block_env,
-        state,
-        cfg_env,
+    call::run_call::<ChainSpecT, _, _, _>(
+        context.blockchain,
+        context.new_block_env(),
+        context.state,
+        context.cfg_env.clone(),
         transaction,
-        custom_precompiles,
+        context.custom_precompiles,
         observer,
-    )?;
-
-    Ok(CheckGasLimitResult {
-        success: matches!(result.result, ExecutionResult::Success { .. }),
-        precompile_addresses: result.precompile_addresses,
-    })
-}
-
-pub(super) struct BinarySearchEstimationArgs<'a, HardforkT, SignedTransactionT> {
-    pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
-    pub header: &'a BlockHeader,
-    pub state: &'a dyn DynState,
-    pub cfg_env: CfgEnv<HardforkT>,
-    pub transaction: SignedTransactionT,
-    pub lower_bound: u64,
-    pub upper_bound: u64,
-    pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub observer_config: EvmObserverConfig,
-    pub scheduled_blob_params: Option<&'a ScheduledBlobParams>,
+    )
 }
 
 /// Search for a tight upper bound on the gas limit that will allow the
 /// transaction to execute. Matches Hardhat logic, except it's iterative, not
 /// recursive.
-pub(super) fn binary_search_estimation<
-    ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>,
->(
-    args: BinarySearchEstimationArgs<'_, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>,
+fn binary_search_estimation<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
+    context: &Context<'_, ChainSpecT>,
+    mut lower_bound: u64,
+    mut upper_bound: u64,
+    observer_config: &EvmObserverConfig,
 ) -> Result<EstimateGasResult, ProviderErrorForChainSpec<ChainSpecT>> {
     const MAX_ITERATIONS: usize = 20;
 
-    let BinarySearchEstimationArgs {
-        blockchain,
-        header,
-        state,
-        cfg_env,
-        transaction,
-        mut lower_bound,
-        mut upper_bound,
-        custom_precompiles,
-        observer_config,
-        scheduled_blob_params,
-    } = args;
-
     let mut i = 0;
-
     let mut call_trace_arenas = Vec::new();
+
     while upper_bound - lower_bound > min_difference(lower_bound) && i < MAX_ITERATIONS {
         let mut mid = lower_bound + (upper_bound - lower_bound) / 2;
         if i == 0 {
@@ -125,38 +98,16 @@ pub(super) fn binary_search_estimation<
             mid = cmp::min(mid, initial_mid);
         }
 
-        // Create a new observer for each check
-        let mut observer = EvmObserver::new(observer_config.clone());
+        let (execution_result, traces) = observe_execution(observer_config, |observer| {
+            check_gas_limit(context, mid, observer)
+        })?
+        .into_result_and_traces();
 
-        let CheckGasLimitResult {
-            success,
-            precompile_addresses,
-        } = check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
-            blockchain,
-            header,
-            state,
-            cfg_env: cfg_env.clone(),
-            transaction: transaction.clone(),
-            gas_limit: mid,
-            custom_precompiles,
-            observer: &mut observer,
-            scheduled_blob_params,
-        })?;
-
-        let EvmObservedData {
-            address_to_executed_code: _,
-            call_trace_arena,
-            encoded_console_logs: _,
-        } = observer.collect_and_report(&precompile_addresses)?;
-
-        if observer_config
-            .include_call_traces
-            .should_include(|| !success)
-        {
+        if let Some(call_trace_arena) = traces {
             call_trace_arenas.push(call_trace_arena);
         }
 
-        if success {
+        if execution_result.result.is_success() {
             upper_bound = mid;
         } else {
             lower_bound = mid + 1;
@@ -168,6 +119,116 @@ pub(super) fn binary_search_estimation<
     Ok(EstimateGasResult {
         call_trace_arenas,
         estimation: upper_bound,
+    })
+}
+
+/// Estimate the gas cost of a transaction. Matches Hardhat behavior.
+pub(super) fn estimate_gas<
+    TimerT: Clone + TimeSinceEpoch,
+    ChainSpecT: ProviderSpec<TimerT, SignedTransaction: TransactionMut>,
+>(
+    context: &Context<'_, ChainSpecT>,
+    contract_decoder: Arc<RwLock<ContractDecoder>>,
+    minimum_cost: u64,
+    observer_config: &EvmObserverConfig,
+) -> Result<EstimateGasResult, ProviderErrorForChainSpec<ChainSpecT>> {
+    // Measure the gas used by the transaction with optional limit from call request
+    // defaulting to block limit. Report errors from initial call as if from
+    // `eth_call`.
+    let ObservedExecution {
+        evm_observed_data,
+        execution_result,
+        ..
+    } = observe_execution(observer_config, |observer| {
+        call::run_call::<'_, ChainSpecT, _, _, _>(
+            context.blockchain,
+            context.new_block_env(),
+            context.state,
+            context.cfg_env.clone(),
+            context.transaction.clone(),
+            context.custom_precompiles,
+            observer,
+        )
+    })?;
+
+    let initial_gas_or_failure = match execution_result.result {
+        ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
+        ExecutionResult::Revert { output, .. } => Err(TransactionFailure::revert(
+            output,
+            None,
+            &evm_observed_data.address_to_executed_code,
+            &evm_observed_data.call_trace_arena,
+            contract_decoder.as_ref(),
+        )),
+        ExecutionResult::Halt { reason, .. } => Err(TransactionFailure::halt(
+            ChainSpecT::cast_halt_reason(reason),
+            None,
+            &evm_observed_data.address_to_executed_code,
+            &evm_observed_data.call_trace_arena,
+            contract_decoder.as_ref(),
+        )),
+    };
+
+    let mut initial_estimation = match initial_gas_or_failure {
+        Ok(gas_used) => gas_used,
+        Err(transaction_failure) => {
+            return Err(Box::new(EstimateGasFailure {
+                address_to_executed_code: evm_observed_data.address_to_executed_code,
+                call_trace_arena: evm_observed_data.call_trace_arena,
+                encoded_console_logs: evm_observed_data.encoded_console_logs,
+                precompile_addresses: execution_result.precompile_addresses,
+                transaction_failure,
+            })
+            .into())
+        }
+    };
+
+    // Only reached on the success path
+    let mut call_trace_arenas: Vec<_> = evm_observed_data
+        .into_call_traces(observer_config.include_call_traces, true)
+        .into_iter()
+        .collect();
+
+    // Ensure that the initial estimation is at least the minimum cost + 1.
+    if initial_estimation <= minimum_cost {
+        initial_estimation = minimum_cost + 1;
+    }
+
+    let (execution_result, traces) = observe_execution(observer_config, |observer| {
+        check_gas_limit(context, initial_estimation, observer)
+    })?
+    .into_result_and_traces();
+
+    if let Some(call_trace_arena) = traces {
+        call_trace_arenas.push(call_trace_arena);
+    }
+
+    // Return the initial estimation if it was successful
+    if execution_result.result.is_success() {
+        return Ok(EstimateGasResult {
+            estimation: initial_estimation,
+            call_trace_arenas,
+        });
+    }
+
+    // Correct the initial estimation if the transaction failed with the actually
+    // used gas limit. This can happen if the execution logic is based on the
+    // available gas.
+    let EstimateGasResult {
+        call_trace_arenas: estimation_call_trace_arenas,
+        estimation,
+    } = binary_search_estimation::<ChainSpecT>(
+        context,
+        initial_estimation,
+        context.header.gas_limit,
+        observer_config,
+    )?;
+
+    call_trace_arenas.extend(estimation_call_trace_arenas);
+
+    Ok(EstimateGasResult {
+        call_trace_arenas,
+        estimation,
     })
 }
 

@@ -34,11 +34,8 @@ pub fn handle_mine<
                 .into_iter()
                 .zip(result.transaction_results)
                 .filter_map(|(observed_data, transaction_result)| {
-                    if include_call_traces.should_include(|| !transaction_result.is_success()) {
-                        Some(observed_data.call_trace_arena)
-                    } else {
-                        None
-                    }
+                    observed_data
+                        .into_call_traces(include_call_traces, transaction_result.is_success())
                 })
         })
         .collect();

@@ -12,9 +12,11 @@ use edr_chain_spec_evm::{
 };
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_database_components::DatabaseComponents;
+use edr_evm::{ExecutionResultAndStateWithMetadata, ExecutionResultWithMetadata};
 use edr_gas_report::SyncOnCollectedGasReportCallback;
 use edr_inspector_bytecode::ExecutedBytecodeCollector;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
+use edr_receipt::ExecutionResult;
 use edr_solidity::{
     config::IncludeTraces, contract_decoder::ContractDecoder, tracing::SolidityTracingInspector,
 };
@@ -137,6 +139,18 @@ pub struct EvmObservedData {
     pub call_trace_arena: CallTraceArena,
     /// Encoded `console.log` call inputs
     pub encoded_console_logs: Vec<Bytes>,
+}
+
+impl EvmObservedData {
+    pub fn into_call_traces(
+        self,
+        include: IncludeTraces,
+        is_success: bool,
+    ) -> Option<CallTraceArena> {
+        include
+            .should_include(|| !is_success)
+            .then_some(self.call_trace_arena)
+    }
 }
 
 impl EvmObserver {
@@ -310,4 +324,73 @@ impl<
     fn step(&mut self, interp: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
         self.tracing_inspector.step(interp, context);
     }
+}
+
+pub trait WithExecutionResult {
+    type HaltReason;
+    fn precompile_addresses(&self) -> &HashSet<Address>;
+    fn result(&self) -> &ExecutionResult<Self::HaltReason>;
+}
+
+impl<HaltReasonT> WithExecutionResult for ExecutionResultWithMetadata<HaltReasonT> {
+    type HaltReason = HaltReasonT;
+    fn precompile_addresses(&self) -> &HashSet<Address> {
+        &self.precompile_addresses
+    }
+    fn result(&self) -> &ExecutionResult<HaltReasonT> {
+        &self.result
+    }
+}
+
+impl<HaltReasonT> WithExecutionResult for ExecutionResultAndStateWithMetadata<HaltReasonT> {
+    type HaltReason = HaltReasonT;
+    fn precompile_addresses(&self) -> &HashSet<Address> {
+        &self.precompile_addresses
+    }
+    fn result(&self) -> &ExecutionResult<HaltReasonT> {
+        &self.result
+    }
+}
+pub struct ObservedExecution<ExecutionResultT> {
+    pub evm_observed_data: EvmObservedData,
+    pub execution_result: ExecutionResultT,
+    include_call_traces: IncludeTraces,
+}
+
+impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> {
+    pub fn result(&self) -> &ExecutionResult<ExecutionResultT::HaltReason> {
+        self.execution_result.result()
+    }
+
+    /// Consumes the observed execution, returning the execution result and the
+    /// filtered call traces.
+    pub fn into_result_and_traces(self) -> (ExecutionResultT, Option<CallTraceArena>) {
+        let is_success = self.execution_result.result().is_success();
+        let traces = self
+            .evm_observed_data
+            .into_call_traces(self.include_call_traces, is_success);
+        (self.execution_result, traces)
+    }
+}
+
+pub fn observe_execution<
+    ExecutionResultT: WithExecutionResult,
+    ErrorT: From<EvmObserverCollectionError>,
+    ExecutionFn: FnOnce(&mut EvmObserver) -> Result<ExecutionResultT, ErrorT>,
+>(
+    observer_config: &EvmObserverConfig,
+    observable_execution: ExecutionFn,
+) -> Result<ObservedExecution<ExecutionResultT>, ErrorT> {
+    let include_call_traces = observer_config.include_call_traces;
+    let mut observer = EvmObserver::new(observer_config.clone());
+
+    let execution_result = observable_execution(&mut observer)?;
+
+    let evm_observed_data = observer.collect_and_report(execution_result.precompile_addresses())?;
+
+    Ok(ObservedExecution {
+        evm_observed_data,
+        execution_result,
+        include_call_traces,
+    })
 }
