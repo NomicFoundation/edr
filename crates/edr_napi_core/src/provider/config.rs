@@ -41,6 +41,7 @@ pub struct Config {
     /// The default transaction gas limit to use for RPC call and transaction
     /// requests that do not specify a `gas` value.
     pub default_transaction_gas_limit: NonZeroU64,
+    pub gas_estimation_mode: Option<GasEstimationMode>,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
     pub initial_base_fee_per_gas: Option<u128>,
@@ -174,7 +175,7 @@ where
             default_transaction_gas_limit: value.default_transaction_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,
-            gas_estimation_mode: GasEstimationMode::Naive,
+            gas_estimation_mode: value.gas_estimation_mode.unwrap_or_default(),
             genesis_state: value.genesis_state,
             hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,

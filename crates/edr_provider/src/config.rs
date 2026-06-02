@@ -184,7 +184,7 @@ pub struct MiningConfig {
 }
 
 /// Controls the gas estimation strategy used by `eth_estimateGas`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum GasEstimationMode {
     /// Estimates the minimum gas required for the top-level call to succeed.
     #[default]

@@ -149,6 +149,27 @@ pub struct HardforkActivationByTimestamp {
     pub timestamp: BigInt,
 }
 
+/// Controls the gas estimation strategy used by `eth_estimateGas`.
+#[napi]
+#[derive(Default)]
+pub enum GasEstimationMode {
+    /// Estimates the minimum gas required for the top-level call to succeed.
+    #[default]
+    Naive,
+    /// Estimates the minimum gas required for the top-level call to succeed
+    /// without any internal sub-call running out of gas.
+    AvoidInternalOutOfGas,
+}
+
+impl From<GasEstimationMode> for edr_provider::config::GasEstimationMode {
+    fn from(value: GasEstimationMode) -> Self {
+        match value {
+            GasEstimationMode::Naive => Self::Naive,
+            GasEstimationMode::AvoidInternalOutOfGas => Self::AvoidInternalOutOfGas,
+        }
+    }
+}
+
 #[napi(string_enum)]
 #[doc = "The type of ordering to use when selecting blocks to mine."]
 pub enum MineOrdering {
@@ -268,6 +289,9 @@ pub struct ProviderConfig {
     /// The default transaction gas limit to use for RPC call and transaction
     /// requests that do not specify a `gas` value.
     pub default_transaction_gas_limit: BigInt,
+    /// The gas estimation mode to use for `eth_estimateGas`. Defaults to
+    /// `GasEstimationMode.Naive` if not set.
+    pub gas_estimation_mode: Option<GasEstimationMode>,
     /// The genesis state of the blockchain
     pub genesis_state: Vec<AccountOverride>,
     /// The hardfork of the blockchain
@@ -693,6 +717,7 @@ impl ProviderConfig {
                     })
                 },
             )?,
+            gas_estimation_mode: self.gas_estimation_mode.map(Into::into),
             genesis_state,
             hardfork: self.hardfork,
             initial_base_fee_per_gas: self
