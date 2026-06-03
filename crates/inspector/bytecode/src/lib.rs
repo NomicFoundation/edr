@@ -38,10 +38,6 @@ impl<ContextT: ContextTrait<Journal: JournalExt>> Inspector<ContextT>
     for ExecutedBytecodeCollector
 {
     fn call(&mut self, _context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
-        // Since `revm` 35, `CallInputs::known_bytecode` is always populated by the
-        // handler with the resolved code/hash for the call target (including
-        // EIP-7702 delegation lookups), so we no longer need to fall back to
-        // fetching from the journal/database here.
         let code = inputs.known_bytecode.1.original_bytes();
 
         self.address_to_executed_code
