@@ -22,6 +22,13 @@ use revm_inspector::JournalExt;
 
 /// Build a [`ResultGas`] from a [`Gas`] accumulator at end-of-execution. Used
 /// for Success/Revert outcomes that did not consume the entire gas limit.
+///
+/// The `floor_gas` argument is `0`: the EIP-7623 calldata floor is a
+/// transaction-level value computed during validation and is not available on
+/// the [`Gas`] accumulator the inspector observes. `total_gas_spent()` (the
+/// figure trace consumers read) is unaffected; only
+/// [`ResultGas::final_refunded`] would differ, and that is not surfaced through
+/// tracing.
 fn result_gas_from(gas: &Gas) -> ResultGas {
     ResultGas::new_with_state_gas(
         gas.total_gas_spent(),
@@ -33,6 +40,8 @@ fn result_gas_from(gas: &Gas) -> ResultGas {
 
 /// Build a [`ResultGas`] from a [`Gas`] accumulator where the full limit was
 /// consumed (e.g. for a Halt outcome).
+///
+/// `floor_gas` is `0` for the same reason as in [`result_gas_from`].
 fn result_gas_from_limit(gas: &Gas) -> ResultGas {
     ResultGas::new_with_state_gas(gas.limit(), 0, 0, gas.state_gas_spent())
 }
