@@ -41,8 +41,15 @@ pub trait EvmChainSpec:
     + HardforkChainSpec
 {
     /// Type representing a precompile provider.
-    type PrecompileProvider<BlockT: BlockEnvTrait, DatabaseT: Database>: Default
-        + PrecompileProvider<ContextForChainSpec<Self, BlockT, DatabaseT>, Output = InterpreterResult>;
+    type PrecompileProvider<BlockT: BlockEnvTrait, DatabaseT: Database>: PrecompileProvider<
+        ContextForChainSpec<Self, BlockT, DatabaseT>,
+        Output = InterpreterResult,
+    >;
+
+    /// Constructs the precompile provider for the given hardfork.
+    fn new_precompile_provider<BlockT: BlockEnvTrait, DatabaseT: Database>(
+        hardfork: Self::Hardfork,
+    ) -> Self::PrecompileProvider<BlockT, DatabaseT>;
 
     /// Runs a transaction inside the chain's EVM without committing the
     /// changes.
