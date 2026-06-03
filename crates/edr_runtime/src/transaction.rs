@@ -33,9 +33,9 @@ pub enum CreationError {
 pub fn validate<TransactionT: Transaction>(
     transaction: TransactionT,
     spec_id: EvmSpecId,
+    transaction_gas_cap: u64,
 ) -> Result<TransactionT, CreationError> {
     const EIP7623_DISABLED: bool = false;
-    const EIP8037_AMSTERDAM_ENABLED: bool = false;
 
     if transaction.kind() == TxKind::Create && transaction.input().is_empty() {
         return Err(CreationError::ContractMissingData);
@@ -45,8 +45,8 @@ pub fn validate<TransactionT: Transaction>(
         &transaction,
         spec_id,
         EIP7623_DISABLED,
-        EIP8037_AMSTERDAM_ENABLED,
-        u64::MAX,
+        spec_id >= EvmSpecId::AMSTERDAM,
+        transaction_gas_cap,
     ) {
         Ok(_) => Ok(transaction),
         Err(EvmTransactionValidationError::CallGasCostMoreThanGasLimit {
@@ -91,7 +91,9 @@ mod tests {
 
         let transaction = request.fake_sign(caller);
         let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
-        let result = validate(transaction, EvmSpecId::BERLIN);
+
+        let transaction_gas_cap = u64::MAX;
+        let result = validate(transaction, EvmSpecId::BERLIN, transaction_gas_cap);
 
         let expected_gas_cost = 21_000;
         assert!(matches!(
@@ -126,7 +128,9 @@ mod tests {
 
         let transaction = request.fake_sign(caller);
         let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
-        let result = validate(transaction, EvmSpecId::BERLIN);
+
+        let transaction_gas_cap = u64::MAX;
+        let result = validate(transaction, EvmSpecId::BERLIN, transaction_gas_cap);
 
         assert!(matches!(result, Err(CreationError::ContractMissingData)));
 

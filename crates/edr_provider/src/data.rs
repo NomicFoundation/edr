@@ -1186,9 +1186,11 @@ where
     ) -> Result<ChainSpecT::SignedTransaction, ProviderErrorForChainSpec<ChainSpecT>> {
         let TransactionRequestAndSender { request, sender } = transaction_request;
 
+        let transaction_gas_cap = self.mem_pool.transaction_gas_cap().unwrap_or(u64::MAX);
+
         if self.impersonated_accounts.contains(&sender) {
             let signed_transaction = request.fake_sign(sender);
-            transaction::validate(signed_transaction, self.evm_spec_id())
+            transaction::validate(signed_transaction, self.evm_spec_id(), transaction_gas_cap)
                 .map_err(ProviderError::TransactionCreationError)
         } else {
             let secret_key = self
@@ -1201,7 +1203,7 @@ where
             let signed_transaction =
                 unsafe { request.sign_for_sender_unchecked(secret_key, sender) }?;
 
-            transaction::validate(signed_transaction, self.evm_spec_id())
+            transaction::validate(signed_transaction, self.evm_spec_id(), transaction_gas_cap)
                 .map_err(ProviderError::TransactionCreationError)
         }
     }
