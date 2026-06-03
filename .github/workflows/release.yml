@@ -1,4 +1,4 @@
-name: Open pre-release PR
+name: Open release PR
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
       - main
 
 jobs:
-  pre-release:
-    name: Prepare pre-release PR
+  release:
+    name: Prepare release PR
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -42,7 +42,7 @@ jobs:
         with:
           title: "edr-${{ steps.get-version.outputs.version }}"
           commit: "edr-${{ steps.get-version.outputs.version }}"
-          version: "bash ./scripts/pre_release.sh"
+          version: "bash ./scripts/release.sh"
         env:
           # If the default GITHUB_TOKEN is used, checks will not run in release PRs.
           # To have checks run, set up CHANGESETS_TOKEN in repo secrets with read/write
