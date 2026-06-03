@@ -37,8 +37,8 @@ impl Precompile {
 /// secp256r1 precompile.
 #[napi(catch_unwind)]
 pub fn precompile_p256_verify() -> Precompile {
-    /// Wrapper function for the P256VERIFY precompile that calls
-    /// [`edr_precompile::Precompile::execute`] on the `p256_verify` precompile.
+    /// Wrapper function for the `P256VERIFY` precompile that conforms to the
+    /// [`edr_precompile::PrecompileFn`] signature.
     fn p256_verify_precompile_fn(
         input: &[u8],
         gas_limit: u64,
