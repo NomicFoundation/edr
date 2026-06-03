@@ -217,7 +217,7 @@ pub fn mine_block<ChainSpecT, BlockchainErrorT, InspectorT>(
     MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, InspectorT::Error, StateError>,
 >
 where
-    BlockchainErrorT: std::error::Error,
+    BlockchainErrorT: 'static + std::error::Error + Send + Sync,
     ChainSpecT: BlockChainSpec<
         SignedTransaction: 'static
                                + Clone
@@ -461,7 +461,7 @@ pub trait FlushInspectorData {
 pub fn mine_block_with_single_transaction<
     'builder,
     ChainSpecT: BlockChainSpec,
-    BlockchainErrorT: std::error::Error,
+    BlockchainErrorT: 'static + std::error::Error + Send + Sync,
     InspectorT,
 >(
     blockchain: &dyn Blockchain<

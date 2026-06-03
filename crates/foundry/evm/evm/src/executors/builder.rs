@@ -22,8 +22,8 @@ pub enum ExecutorBuilderError {
 /// By default, the [`Executor`] will be configured with an empty
 /// [`InspectorStack`].
 ///
-/// [`Cheatcodes`]: super::inspector::Cheatcodes
-/// [`InspectorStack`]: super::inspector::InspectorStack
+/// [`Cheatcodes`]: crate::inspectors::Cheatcodes
+/// [`InspectorStack`]: crate::inspectors::InspectorStack
 #[derive(Clone, Debug)]
 #[must_use = "builders do nothing unless you call `build` on them"]
 pub struct ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT>

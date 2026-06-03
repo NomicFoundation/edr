@@ -101,6 +101,7 @@ impl TryFrom<AccountOverride> for Predeploy {
             nonce,
             code_hash,
             code: Some(code),
+            account_id: None,
         };
 
         Ok(Self {

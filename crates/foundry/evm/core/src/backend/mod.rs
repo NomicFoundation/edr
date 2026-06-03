@@ -17,8 +17,10 @@ use eyre::Context;
 pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
     bytecode::Bytecode,
-    context::{result::HaltReasonTr, CfgEnv, JournalInner},
-    context_interface::{result::ResultAndState, Cfg},
+    context::{
+        journaled_state::account::JournaledAccountTr, result::HaltReasonTr, CfgEnv, JournalInner,
+    },
+    context_interface::result::ResultAndState,
     database::{CacheDB, DatabaseRef},
     inspector::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
@@ -157,7 +159,7 @@ pub trait CheatcodeBackend<
     ///
     /// A state snapshot is associated with a new unique id that's created for
     /// the snapshot. State snapshots can be reverted:
-    /// [`DatabaseExt::revert_state`], however, depending on the
+    /// `DatabaseExt::revert_state`, however, depending on the
     /// [`RevertStateSnapshotAction`], it will keep the snapshot alive or delete
     /// it.
     fn snapshot_state(
@@ -1063,7 +1065,7 @@ impl<
     /// different evms
     pub(crate) fn initialize(&mut self, env: &EvmEnv<BlockT, TxT, HardforkT>) {
         self.set_caller(env.tx.caller());
-        self.set_spec_id(env.cfg.spec());
+        self.set_spec_id(*env.cfg.spec());
 
         let test_contract = match env.tx.kind() {
             TxKind::Call(to) => to,

@@ -8,7 +8,6 @@ ansi_term = { version = "0.12.1", default-features = false }
 derive-where.workspace = true
 edr_artifact.workspace = true
 edr_block_api.workspace = true
-edr_block_header.workspace = true
 edr_chain_config.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
@@ -25,10 +24,9 @@ edr_rpc_client.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_solidity_tests.workspace = true
-edr_tracing.workspace = true
 edr_transaction.workspace = true
 foundry-cheatcodes.workspace = true
-itertools = { version = "0.12.0", default-features = false }
+itertools = { version = "0.14.0", default-features = false }
 napi = { version = "2.16.10", default-features = false, features = [
     "async",
     "error_anyhow",

@@ -46,7 +46,7 @@ pub struct EthBlockBuilder<
     'builder,
     BlockReceiptT,
     BlockT: ?Sized,
-    BlockchainErrorT: Debug,
+    BlockchainErrorT: Debug + Send + Sync + 'static,
     EvmChainSpecT: EvmChainSpec,
     ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
         EvmChainSpecT::HaltReason,
@@ -86,7 +86,7 @@ pub struct EthBlockBuilder<
 impl<
         BlockReceiptT,
         BlockT: ?Sized,
-        BlockchainErrorT: Debug,
+        BlockchainErrorT: Debug + Send + Sync + 'static,
         EvmChainSpecT: EvmChainSpec<SignedTransaction: ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             EvmChainSpecT::HaltReason,
@@ -151,7 +151,7 @@ impl<
 impl<
         BlockReceiptT,
         BlockT: ?Sized,
-        BlockchainErrorT: Debug,
+        BlockchainErrorT: Debug + Send + Sync + 'static,
         EvmChainSpecT: EvmChainSpec<SignedTransaction: ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             EvmChainSpecT::HaltReason,
@@ -225,7 +225,7 @@ impl<
                 Hardfork = ChainSpecT::Hardfork,
             > + ReceiptTrait,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
-        BlockchainErrorT: Debug + std::error::Error,
+        BlockchainErrorT: Debug + 'static + std::error::Error + Send + Sync,
         ChainSpecT: BlockChainSpec<Hardfork: PartialOrd, SignedTransaction: Clone + ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,
@@ -534,7 +534,7 @@ impl<
             > + ReceiptTrait
             + alloy_rlp::Encodable,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
-        BlockchainErrorT: Debug + std::error::Error,
+        BlockchainErrorT: Debug + 'static + std::error::Error + Send + Sync,
         ChainSpecT: BlockChainSpec<
             Hardfork: PartialOrd,
             SignedTransaction: Clone + ExecutableTransaction + alloy_rlp::Encodable,
@@ -667,7 +667,7 @@ impl<
             > + ReceiptTrait
             + alloy_rlp::Encodable,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
-        BlockchainErrorT: Debug + std::error::Error,
+        BlockchainErrorT: Debug + 'static + std::error::Error + Send + Sync,
         ChainSpecT: BlockChainSpec
             + BlockEnvChainSpec
             + EvmChainSpec<

@@ -5,6 +5,7 @@
   "schedule": ["before 9am on Monday"],
   "minimumReleaseAge": "7 days",
   "internalChecksFilter": "strict",
+  "stopUpdatingLabel": "renovate:no-rebase",
   "ignorePaths": [
     "**/fixture-projects/**",
     "hardhat-tests/**",

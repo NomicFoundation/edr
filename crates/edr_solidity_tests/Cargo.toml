@@ -25,12 +25,10 @@ dunce.workspace = true
 eyre.workspace = true
 futures = "0.3"
 itertools.workspace = true
-num_cpus = "1.16.0"
 proptest.workspace = true
 rayon = "1"
 regex.workspace = true
 serde.workspace = true
-serde_json.workspace = true
 tracing.workspace = true
 yansi.workspace = true
 humantime-serde = "1.1.1"
@@ -40,9 +38,7 @@ alloy-json-abi.workspace = true
 alloy-primitives = { workspace = true, features = ["map-hashbrown", "serde"] }
 
 tokio = { workspace = true, features = ["time"] }
-evm-disassembler.workspace = true
 thiserror = "2.0.12"
-log = "0.4.22"
 
 [dev-dependencies]
 edr_chain_l1.workspace = true

@@ -8,13 +8,12 @@ alloy-dyn-abi.workspace = true
 alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-rpc-types.workspace = true
-alloy-rpc-types-trace = "1.1.2"
+alloy-rpc-types-trace = "1.2.1"
 alloy-serde.workspace = true
 alloy-sol-types.workspace = true
 anyhow = { workspace = true, optional = true }
 auto_impl = { version = "1.2", default-features = false }
 derive-where.workspace = true
-derive_more = { workspace = true, features = ["debug"] }
 dyn-clone.workspace = true
 edr_block_api.workspace = true
 edr_block_builder_api.workspace = true

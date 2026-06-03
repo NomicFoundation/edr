@@ -3045,6 +3045,7 @@ fn create_forked_blockchain_and_state<
                     nonce: account_override.nonce.unwrap_or(remote_account.nonce),
                     code_hash,
                     code,
+                    account_id: None,
                 };
 
                 // TODO: Add support for overriding the storage
@@ -3054,6 +3055,7 @@ fn create_forked_blockchain_and_state<
                 }
 
                 let account = Account {
+                    original_info: Box::new(info.clone()),
                     info,
                     // TODO: Add support for overriding the storage
                     // TODO: https://github.com/NomicFoundation/edr/issues/911
@@ -3177,9 +3179,11 @@ fn create_local_blockchain_and_state<
                 nonce: account_override.nonce.unwrap_or(0),
                 code_hash,
                 code: account_override.code.clone(),
+                account_id: None,
             };
 
             let account = Account {
+                original_info: Box::new(info.clone()),
                 info,
                 storage: account_override
                     .storage
@@ -4523,6 +4527,12 @@ mod tests {
             // precompile, introduced in Cancun
             mainnet_cancun2 => L1ChainSpec {
                 block_number: 19_562_047,
+                url: json_rpc_url_provider::ethereum_mainnet(),
+                header_overrides_constructor: l1_base_header_overrides,
+            },
+            // Issue [#722](https://github.com/NomicFoundation/edr/issues/722)
+            mainnet_issue_722 => L1ChainSpec {
+                block_number: 21_041_283,
                 url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_base_header_overrides,
             },
