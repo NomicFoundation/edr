@@ -4530,6 +4530,12 @@ mod tests {
                 url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_base_header_overrides,
             },
+            // Issue [#722](https://github.com/NomicFoundation/edr/issues/722)
+            mainnet_issue_722 => L1ChainSpec {
+                block_number: 21_041_283,
+                url: json_rpc_url_provider::ethereum_mainnet(),
+                header_overrides_constructor: l1_base_header_overrides,
+            },
             // This block contains both valid and invalid EIP-7702 transactions, introduced in Prague
             mainnet_prague => L1ChainSpec {
                 block_number: 23_376_625,
