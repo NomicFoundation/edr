@@ -119,7 +119,7 @@ where
 
 impl<HardforkT> EvmOpts<HardforkT>
 where
-    HardforkT: Default + Into<SpecId>,
+    HardforkT: Default + Into<SpecId> + Clone,
 {
     /// Configures a new `revm::Env`
     ///

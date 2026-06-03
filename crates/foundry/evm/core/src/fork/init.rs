@@ -35,7 +35,7 @@ where
     ProviderT: Provider<NetworkT>,
     BlockT: From<BlockEnvOpts> + Block + BlockEnvMut,
     TxT: From<TxEnvOpts>,
-    HardforkT: Default,
+    HardforkT: Default + Into<revm::primitives::hardfork::SpecId> + Clone,
 {
     let block_number = if let Some(pin_block) = pin_block {
         pin_block
@@ -114,7 +114,7 @@ pub fn configure_env<HardforkT>(
     disable_transaction_gas_cap: bool,
 ) -> CfgEnv<HardforkT>
 where
-    HardforkT: Default,
+    HardforkT: Default + Into<revm::primitives::hardfork::SpecId> + Clone,
 {
     let mut cfg = CfgEnv::default();
     cfg.chain_id = chain_id;
