@@ -1,5 +1,155 @@
 # @nomicfoundation/edr
 
+## 0.12.0
+
+### Minor Changes
+
+- 3974769: Added `callTraces()` to `Response` object, inclusion of which is configurable through the `includeCallTraces` option on the `ObservabilityConfig`
+- 7bf3576: Added the ability to specify the hardfork when running Solidity tests. Added support for the Osaka hardfork in Solidity tests.
+- e4920d5: Added support for the `eth_getProof` JSON-RPC method. Support is currently limited to the local blockchain.
+- 321af18: Added support for the `eth_getProof` JSON-RPC method on forked blockchains. Currently, only remote blocks are supported; requests for locally mined blocks will return an error.
+- 8e32c14: - Added `LocalConfig` to specify configuration for locally mined blockchains.
+  - Added `MiningConfig.blockGasLimit` to optionally specify a block gas limit. When omitted, block gas limit enforcement is disabled.
+  - Added `ProviderConfig.defaultTransactionGasLimit` to specify a default transaction gas limit to use for RPC call and transaction requests when a `gas` value is not specified.
+  - Added `ProviderConfig.network` to specify whether a fork or locally mined blockchain is used.
+  - Changed type of `ProviderConfig.transactionGasCap` to also accept `false`. This allows disabling of the transaction gas cap.
+  - BREAKING CHANGE: Removed `ProviderConfig.blockGasLimit`. Instead:
+    - Use `MiningConfig.blockGasLimit` to set the block gas limit used for mining blocks.
+    - Use `ProviderConfig.defaultTransactionGasLimit` to set the default transaction gas limit used for RPC call and transaction requests when a `gas` value is not specified.
+    - Use `LocalConfig.genesisBlockGasLimit` to set the block gas limit of the genesis block for locally mined blockchains.
+  - BREAKING CHANGE: Removed `ProviderConfig.fork`. Instead, use `ProviderConfig.network` with a `ForkConfig` object.
+  - BREAKING CHANGE: Removed `ProviderConfig.initialBlobGas`. Instead, use `LocalConfig.genesisBlobGas` to set the initial blob gas for locally mined blockchains.
+  - BREAKING CHANGE: Removed `ProviderConfig.initialDate`. Instead, use `LocalConfig.genesisDate` to set the initial date for locally mined blockchains.
+  - Added `SolidityTestRunnerConfigArgs.transactionGasCap` (defaults to the hardfork default).
+  - BREAKING CHANGE: Renamed `SolidityTestRunnerConfigArgs.enableTxGasLimitCap` to `SolidityTestRunnerConfigArgs.disableTransactionGasCap` (still defaults to `false`, but the meaning is inverted; i.e. the transaction gas cap is enabled by default).
+
+- 6ea800c: Removed deprecated JSON-RPC methods: `eth_mining`, `net_listening`, `net_peerCount`, `hardhat_addCompilationResult`, `hardhat_intervalMine`, and `hardhat_reset`.
+- 829f920: - Added support for EIP-712 cheatcodes `eip712HashType`, `eip712HashStruct`, `eip712HashTypedData`.
+  - Added new `eip712CanonicalTypes` solidity runner config option for name-based type resolution.
+- d0a3a41: Added the ability to collect gas reports for mining blocks and `eth_call`
+- 44e779c: Added function-level configuration overrides for Solidity tests
+- 20b4311: - Added the `ContractDecoder` type
+  - Added a function `Provider.contractDecoder` to retrieve the provider's `ContractDecoder` instance
+  - Changed `EdrContext.createProvider` to receive a `ContractDecoder` instance instead of a `TracingConfigWithBuffers`
+    - The `ContractDecoder` can be constructed from a `TracingConfigWithBuffers` using the static method `ContractDecoder.withContracts`
+  - Changed `Provider.addCompilationResult` to no longer return a `boolean`. Failures are now signaled by throwing an exception.
+- a5cc346: Added cheatcode error stack trace entry. This fixes stack traces for errors from expect revert cheatcodes and improves stack traces for other cheatcode errors.
+- 8396d70: Changed the ChainConfig to include a chain name and allow timestamp-based hardfork activations
+- dcf09de: Added full support for OP stack Isthmus hardfork
+- b505164: Added structured errors for unsupported Solidity test cheatcodes
+- 097b8c3: Changed ProviderConfig members to decouple from Hardhat 2 concepts
+- edc20dc: Added code coverage to the provider. It can be configured through the ProviderConfig
+- 5e209a1: Added support for asynchronous callbacks for collected code coverage
+- ef49c8a: Removed runSolidityTests method and introduced EdrContext::registerSolidityTestRunnerFactory and EdrContext::runSolidityTests functions as multi-chain alternative
+- c54a499: make all parameters of `eth_feeHistory` rpc call & provider method call required
+- 9b4685d: - Added a `getCoverageLibrary()` helper at the `@nomicfoundation/edr/coverage` subpath that returns the library's source and expected filename.
+  - Bundled the Solidity coverage library with EDR.
+  - Changed `addStatementCoverageInstrumentation` to no longer accept a library path argument.
+- 88a23dc: Fix prepublish step so we again publish the arch/os specific packages.
+- 097b8c3: Removed unused type definitions from API
+- 6f0f557: Added instrumenting of source code for statement code coverage measurement
+- 28b7b04: Added proxy information to gas reports
+- f4bdc36: Removed `getLatestSupportedSolcVersion` API
+
+  BREAKING CHANGE: A new API `latestSupportedSolidityVersion` was previously introduced to replace the deprecated `getLatestSupportedSolcVersion`. The old API has now been removed. Users should update their code to use `latestSupportedSolidityVersion` instead.
+
+- 3974769: Removed `traces()` API from the `Response` object
+- 7c2886a: Added `Broadcast` and `RecurrentBroadcast` variants to the `CallerMode` enum. These variants are unsupported by EDR cheatcodes implementation but are needed to ensure ABI compatibility with forge-std.
+- ffd2deb: Added value snapshots to Solidity test runner using gas & value cheatcodes
+- ae38942: Added the ability to request execution traces for Solidity tests for either all tests or just failing tests
+- 6640dda: Changed the file system permission config interface for Solidity tests, to mitigate EVM sandbox escape through cheatcodes.
+- 289de8a: Changed the instrumentation API to require a coverage library path
+- c21ec83: Replaced `Buffer` with `Uint8Array` in Solidity tests interface
+- b5a7b75: Added an API that reports the latest supported Solidity version for source instrumentation
+- 306a95e: Added an `ObservabilityConfig` to `SolidityTestRunnerConfigArgs` to allow code coverage measurement
+- 1e755a3: Backported features and fixes from Foundry 1.3
+- bde1b86: Fixed coverage instrumentation calls clearing the EVM's returndata buffer, breaking RETURNDATASIZE and RETURNDATACOPY opcodes in instrumented contracts.
+- 07cad35: Added `isolate` and `evm_version` options to Solidity test function-level config overrides
+- 7b5995f: New `ProviderConfig.baseFeeConfig` field available for configuring different values of eip-1559 `maxChangeDenominator` and `elasticityMultiplier` field.
+- eb928c6: Fixed panic on stack trace generation for receive function with modifier that calls another method. https://github.com/NomicFoundation/edr/issues/894
+- 9b8a931: Added runtime bytecode size information to contract deployment gas reports
+- 097b8c3: Moved (and renamed) fork-specific configuration options from `ProviderConfig` to `ForkConfig`
+- 097b8c3: Replaced all occurences of Buffer with Uint8Array or ArrayBuffer
+- f4bdc36: Added support to the `debug_traceCall` & `debug_traceTransaction` JSON-RPC methods for different tracers (`4byteTracer`, `callTracer`, `flatCallTracer`, `prestateTracer`, `noopTracer`, and `muxTracer`).
+
+  Our API is now aligned with Geth's tracing capabilities.
+
+  BREAKING CHANGE: Memory capture used to be enabled by default on geth, but has since been flipped <https://github.com/ethereum/go-ethereum/pull/23558> and is now disabled by default. We have followed suit and disabled it by default as well. If you were relying on memory capture, you will need to explicitly enable it by setting the `enableMemory` option to `true` in your tracer configuration.
+
+- d0a3a41: Added the ability to collect gas reports for Solidity tests
+- 585fe0b: Changed test and test suite execution time from milliseconds to nanoseconds. Correspondingly, the `durationMs` property of `TestResult` and `SuiteResult` was renamed to `durationNs`.
+
+### Patch Changes
+
+- 6747f45: Fixed default gas limit of Solidity test runner when a custom transaction gas cap (EIP-7825) or block gas limit is specified
+- bf9b55b: Improved parallelism in test suite execution for better error reporting and improved performance
+- f606fc6: Fixed instrumentation for control flow statements
+- 34e1ab4: Updated base mainnet eip1559 parameters after SystemConfig update on 2025-12-18
+- 5d2d2db: Fixed OP stack Jovian base fee calculation to use `max(gasUsed, blobGasUsed)`
+- ba6bfa0: Added support for Solidity v0.8.30
+- a2d99ba: Fixed panic due to invalid GasPriceOracle bytecode for Isthmus OP hardfork
+- 2c418b7: Added Osaka blob parameters for usage in eth_call, eth_sendTransaction, etc.
+- c05b49b: Upgraded revm to v24 and alloy to more recent versions
+- 23e8ad8: Added docs for `runSolidityTests` arguments.
+- 0e0619e: Added support for function-level gas-tracking in Solidity tests.
+- f1cdbe2: Turned potential panics into JS errors to help with error reporting to Sentry.
+- bcb772e: Print more detailed error descriptions for EVM, invariant fuzz, and cheatcode errors
+- c498e40: Upgraded revm to v27
+- 0047135: Update list of unsupported cheatcodes with cheatcodes up to Foundry 1.3.6
+- 33337ea: Added latest EIP-1559 base fee params to Base Mainnet chain config
+- 8794449: Added validity check for the block RLP size cap
+- e116ca0: Added support for instrumentation of Solidity 0.8.34
+- 5e3968d: Changed latest OP stack hardfork to Isthmus
+- a6864ff: Added support for local pre-deploys for Solidity tests.
+- 1b6d123: Fixed a bug causing async functions to throw errors at the callsite
+- 7f15dce: Added support for tracking multiple contract deployments in a gas report
+- af5dc7f: Fixed a bug when using a test filter where the `setUp` function would be run for empty test suites
+- ab4e20d: Added hardfork activations for Prague
+- f42c07a: Removed validation checks for names provided in gas snapshot cheatcodes
+- d4806e6: Added a `collectStackTraces` option to `SolidityTestRunnerConfigArgs`, specifying what strategy to use for collecting stack traces
+- 3f822d8: Fixed panic when using the `pauseGasMetering` cheatcode
+- ccab079: Fixed wrong stack trace for expectEmit cheatcode
+- 74b1f05: Made the `contract` field in `CallTrace` optional, and added a separate `address` field that is always present. (Breaking change)
+- 3f85d7d: Fixed `gasPriceOracle` predeploy for local blockchains when using Isthmus hardfork
+- 25b2b2d: Added unsupported cheatcode errors for unsupported cheatcodes up to and including Foundry 1.5.0
+- 3910948: Deprecated `deleteSnapshot`, `deleteSnapshots`, `revertTo`, `revertToAndDelete`, and `snapshot` cheatcodes in favor of `deleteStateSnapshot`, `deleteStateSnapshots`, `revertToState`, `revertToStateAndDelete`, and `snapshotState`
+- abf7434: Fixed unexpected test failure when running in isolate/gas stats mode
+- c033ed3: Added support for commas and non-consecutive dots in names provided in gas snapshot cheatcodes
+- 12f70f3: Fixed error handling for mismatched names in gas snapshot cheatcodes
+- 7cc0868: Added support for instrumenting Solidity 0.8.31 source code
+- f67363e: Added latest dynamic base fee parameters to Base Mainnet chain config
+- 2272bc0: Fixed `excess_blob_gas` calculation after Osaka
+- 007800e: Fixed custom precompiles not being applied in `eth_sendTransaction`. This enables RIP-7212 support in transactions.
+- 93a1484: Added Osaka hardfork activations so EDR can accurately infer the hardfork from the block timestamp
+- 5e3968d: Changed latest L1 hardfork to Osaka
+- b5ad15c: Added support for instrumentation of Solidity `0.8.32` and `0.8.33`
+- 650fd0b: Fixed coverage instrumentation interfering with the single-call `vm.prank` cheatcode
+- c52f1f6: Added basic support for Jovian hardfork (OP stack)
+- 2ec6415: Added hardfork activations for Base Mainnet and Base Sepolia.
+- adbba3d: Fixed mining of local blocks for OP
+- 56f6c34: Fixed process deadlock/hang when dropping a provider with interval mining and logging enabled.
+- c63ea3e: Added new `expectRevert` and `expectPartialRevert` cheatcodes.
+- 5e209a1: Fixed bug preventing reporting of collected code coverage
+- 16ba197: Added an option to `ProviderConfig` to set the transaction gas cap of the mem pool (EIP-7825)
+- 5e3968d: Fixed default transaction gas limit for post-Osaka hardforks in OP stack and generic chains
+- 8c1f798: Fixed gas calculation for EIP-7702 refunds
+- 4bad80f: Fixed the `withdrawalsRoot` field in mined post-Isthmus block headers of local blockchains
+- d903f35: Turned panics during stack trace generation due to invalid assumptions into errors.
+- b355c15: Fixed panic when executing eth_call transaction with Isthmus OP hardfork
+- 5c93934: Added support for instrumentation of Solidity 0.8.35
+- 462ade3: Added `showLogs` field to global fuzz test configuration
+- 196af17: Add `allowInternalExpectRevert` config option to customize the behavior of the `expectRevert` cheatcode
+- d9b5dd8: Fixed error reporting when calling `stopSnapshotGas` without an active snapshot
+- 538e9b0: Added validation checks for names provided in gas snapshot cheatcodes
+- d483274: Fixed detection of function signature for calls to proxies.
+
+  Previously, a call to a proxy contract was attributed to the proxy instead of the implementation. Now, it is correctly attributed to the implementation, allowing detection of the correct function signature.
+
+- aff229f: Added support for Osaka hardfork
+- 381643b: Removed reference to cli flag from ffi cheatcode error message.
+- a88df6d: Removed unused `solidity-tests` export path and related files.
+- faef065: Added support for EIP-7892 (Blob Parameter Only hardforks)
+
 ## 0.12.0-next.34
 
 ### Patch Changes
