@@ -8,7 +8,7 @@ use revm_context_interface::{Cfg, ContextTr as ContextTrait, JournalTr as _, Loc
 pub use revm_handler::{
     precompile_output_to_interpreter_result, EthPrecompiles, PrecompileProvider,
 };
-use revm_interpreter::{CallInput, CallInputs, InterpreterResult};
+use revm_interpreter::{CallInputs, InterpreterResult};
 pub use revm_precompile::{
     secp256r1, u64_to_address, Precompile, PrecompileError, PrecompileFn, PrecompileResult,
     PrecompileSpecId, Precompiles,
@@ -102,27 +102,16 @@ impl<
             return self.base.run(context, inputs);
         };
 
-        let output = {
-            let r;
-            let input_bytes = match &inputs.input {
-                CallInput::SharedBuffer(range) => {
-                    if let Some(slice) = context.local().shared_memory_buffer_slice(range.clone()) {
-                        r = slice;
-                        r.as_ref()
-                    } else {
-                        &[]
-                    }
-                }
-                CallInput::Bytes(bytes) => bytes.0.iter().as_slice(),
-            };
-            (*precompile)(input_bytes, inputs.gas_limit, inputs.reservoir)
-                .map_err(|e| e.to_string())?
-        };
+        let output = precompile(
+            &inputs.input.as_bytes(context),
+            inputs.gas_limit,
+            inputs.reservoir,
+        )
+        .map_err(|e| e.to_string())?;
 
         // If this is a top-level precompile call (depth == 1), persist the error
         // message into the local context so it can be returned as output in the
-        // final result. Only do this for non-OOG halt errors (OOG is a distinct
-        // halt reason without output).
+        // final result. Only do this for non-OOG halt errors.
         if let Some(halt_reason) = output.halt_reason()
             && !halt_reason.is_oog()
             && context.journal().depth() == 1
