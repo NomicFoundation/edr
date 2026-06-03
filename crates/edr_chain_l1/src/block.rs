@@ -1,8 +1,7 @@
 use core::{fmt::Debug, marker::PhantomData};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use alloy_rlp::Encodable as _;
-use alloy_trie::root::ordered_trie_root_with_encoder;
+use alloy_trie::root::ordered_trie_root;
 use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
@@ -607,8 +606,7 @@ impl<
             logs_bloom
         };
 
-        self.header.receipts_root =
-            ordered_trie_root_with_encoder(&self.receipts, |receipt, buf| receipt.encode(buf));
+        self.header.receipts_root = ordered_trie_root(&self.receipts);
 
         // Only set the state root if it wasn't specified during construction
         if self.header.state_root == KECCAK_NULL_RLP {

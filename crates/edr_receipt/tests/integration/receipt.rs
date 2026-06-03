@@ -11,8 +11,7 @@ mod remote {
                     #[tokio::test]
                     #[serial]
                     async fn [<remote_block_receipt_root_ $name>]() -> anyhow::Result<()> {
-                        use alloy_rlp::Encodable as _;
-                        use alloy_trie::root::ordered_trie_root_with_encoder;
+                        use alloy_trie::root::ordered_trie_root;
                         use edr_chain_l1::{receipt::L1BlockReceipt, L1ChainSpec, TypedEnvelope};
                         use edr_eth::PreEip1898BlockSpec;
                         use edr_receipt::{log::FilterLog};
@@ -35,9 +34,7 @@ mod remote {
                             .map(L1BlockReceipt::<TypedEnvelope::<edr_receipt::Execution<FilterLog>>>::try_from)
                             .collect::<Result<Vec<_>, _>>()?;
 
-                        let receipts_root = ordered_trie_root_with_encoder(&receipts, |receipt, buf| {
-                            receipt.encode(buf);
-                        });
+                        let receipts_root = ordered_trie_root(&receipts);
 
                         assert_eq!(block.receipts_root, receipts_root);
 

@@ -3,8 +3,7 @@ mod overrides;
 
 pub use alloy_eips::eip4895::Withdrawal;
 use alloy_eips::eip7840::BlobParams;
-use alloy_rlp::Encodable as _;
-use alloy_trie::root::ordered_trie_root_with_encoder;
+use alloy_trie::root::ordered_trie_root;
 use edr_chain_spec::{
     BlobExcessGasAndPrice, BlockEnvConstructor, BlockEnvForHardfork, BlockEnvTrait, EvmSpecId,
 };
@@ -401,9 +400,7 @@ impl PartialHeader {
             withdrawals_root: overrides.withdrawals_root.or_else(|| {
                 if evm_spec_id >= EvmSpecId::SHANGHAI {
                     let withdrawals_root = withdrawals.map_or(KECCAK_NULL_RLP, |withdrawals| {
-                        ordered_trie_root_with_encoder(withdrawals, |withdrawal, buf| {
-                            withdrawal.encode(buf);
-                        })
+                        ordered_trie_root(withdrawals)
                     });
 
                     Some(withdrawals_root)
