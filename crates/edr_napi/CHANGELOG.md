@@ -113,7 +113,7 @@
 - 3f85d7d: Fixed `gasPriceOracle` predeploy for local blockchains when using Isthmus hardfork
 - 25b2b2d: Added unsupported cheatcode errors for unsupported cheatcodes up to and including Foundry 1.5.0
 - 3910948: Deprecated `deleteSnapshot`, `deleteSnapshots`, `revertTo`, `revertToAndDelete`, and `snapshot` cheatcodes in favor of `deleteStateSnapshot`, `deleteStateSnapshots`, `revertToState`, `revertToStateAndDelete`, and `snapshotState`
-- abf7434: Fixes unexpected test failure when running in isolate/gas stats mode
+- abf7434: Fixed unexpected test failure when running in isolate/gas stats mode
 - c033ed3: Added support for commas and non-consecutive dots in names provided in gas snapshot cheatcodes
 - 12f70f3: Fixed error handling for mismatched names in gas snapshot cheatcodes
 - 7cc0868: Added support for instrumenting Solidity 0.8.31 source code
@@ -127,7 +127,7 @@
 - c52f1f6: Added basic support for Jovian hardfork (OP stack)
 - 2ec6415: Added hardfork activations for Base Mainnet and Base Sepolia.
 - adbba3d: Fixed mining of local blocks for OP
-- 56f6c34: Fixed process deadlock/hang when dropping a provider with interval mining enabled.
+- 56f6c34: Fixed process deadlock/hang when dropping a provider with interval mining and logging enabled.
 - c63ea3e: Added new `expectRevert` and `expectPartialRevert` cheatcodes.
 - 5e209a1: Fixed bug preventing reporting of collected code coverage
 - 16ba197: Added an option to `ProviderConfig` to set the transaction gas cap of the mem pool (EIP-7825)
