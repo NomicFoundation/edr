@@ -2376,6 +2376,7 @@ dependencies = [
  "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
+ "alloy-trie",
  "derive-where",
  "edr_chain_l1",
  "edr_chain_spec",
@@ -2383,7 +2384,6 @@ dependencies = [
  "edr_eip4844",
  "edr_eip7892",
  "edr_primitives",
- "edr_trie",
  "serde",
 ]
 
@@ -2392,6 +2392,7 @@ name = "edr_block_local"
 version = "0.3.8"
 dependencies = [
  "alloy-rlp",
+ "alloy-trie",
  "derive-where",
  "edr_block_api",
  "edr_block_header",
@@ -2402,7 +2403,6 @@ dependencies = [
  "edr_state_api",
  "edr_state_persistent_trie",
  "edr_transaction",
- "edr_trie",
  "edr_utils",
  "itertools 0.14.0",
  "thiserror 2.0.18",
@@ -2590,6 +2590,7 @@ dependencies = [
  "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
+ "alloy-trie",
  "anyhow",
  "assert-json-diff",
  "const-hex",
@@ -2620,7 +2621,6 @@ dependencies = [
  "edr_test_receipt",
  "edr_test_utils",
  "edr_transaction",
- "edr_trie",
  "log",
  "paste",
  "revm-context-interface",
@@ -3234,6 +3234,7 @@ version = "0.3.8"
 dependencies = [
  "alloy-rlp",
  "alloy-serde",
+ "alloy-trie",
  "anyhow",
  "auto_impl",
  "const-hex",
@@ -3245,7 +3246,6 @@ dependencies = [
  "edr_rpc_eth",
  "edr_test_utils",
  "edr_transaction",
- "edr_trie",
  "paste",
  "revm-context-interface",
  "revm-primitives",
@@ -3482,11 +3482,11 @@ version = "0.3.8"
 dependencies = [
  "alloy-rlp",
  "alloy-rpc-types",
+ "alloy-trie",
  "auto_impl",
  "dyn-clone",
  "edr_primitives",
  "edr_rpc_client",
- "edr_trie",
  "revm-database-interface",
  "revm-state",
  "thiserror 2.0.18",
@@ -3755,17 +3755,6 @@ dependencies = [
  "serde",
  "sha2",
  "thiserror 2.0.18",
-]
-
-[[package]]
-name = "edr_trie"
-version = "0.3.8"
-dependencies = [
- "edr_primitives",
- "hash-db",
- "hash256-std-hasher",
- "sha3",
- "triehash",
 ]
 
 [[package]]
@@ -4633,21 +4622,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "459196ed295495a68f7d7fe1d84f6c4b7ff0e21fe3017b2f283c6fac3ad803c9"
 dependencies = [
  "cfg-if",
- "crunchy",
-]
-
-[[package]]
-name = "hash-db"
-version = "0.15.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d23bd4e7b5eda0d0f3a307e8b381fdc8ba9000f26fbe912250c0a4cc3956364a"
-
-[[package]]
-name = "hash256-std-hasher"
-version = "0.15.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92c171d55b98633f4ed3860808f004099b36c1cc29c42cfc53aa8591b21efcf2"
-dependencies = [
  "crunchy",
 ]
 
@@ -8630,16 +8604,6 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
-]
-
-[[package]]
-name = "triehash"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1631b201eb031b563d2e85ca18ec8092508e262a3196ce9bd10a67ec87b9f5c"
-dependencies = [
- "hash-db",
- "rlp",
 ]
 
 [[package]]

@@ -11,12 +11,12 @@ mod remote {
                     #[tokio::test]
                     #[serial]
                     async fn [<remote_block_receipt_root_ $name>]() -> anyhow::Result<()> {
+                        use alloy_trie::root::ordered_trie_root;
                         use edr_chain_l1::{receipt::L1BlockReceipt, L1ChainSpec, TypedEnvelope};
                         use edr_eth::PreEip1898BlockSpec;
                         use edr_receipt::{log::FilterLog};
                         use edr_rpc_eth::client::EthRpcClientForChainSpec;
                         use edr_test_utils::env::json_rpc_url_provider;
-                        use edr_trie::ordered_trie_root;
 
                         let client = EthRpcClientForChainSpec::<L1ChainSpec>::new(&json_rpc_url_provider::ethereum_mainnet(), edr_defaults::CACHE_DIR.into(), None)?;
 
@@ -34,11 +34,7 @@ mod remote {
                             .map(L1BlockReceipt::<TypedEnvelope::<edr_receipt::Execution<FilterLog>>>::try_from)
                             .collect::<Result<Vec<_>, _>>()?;
 
-                        let receipts_root = ordered_trie_root(
-                            receipts
-                                .into_iter()
-                                .map(|receipt| alloy_rlp::encode(&receipt)),
-                        );
+                        let receipts_root = ordered_trie_root(&receipts);
 
                         assert_eq!(block.receipts_root, receipts_root);
 
