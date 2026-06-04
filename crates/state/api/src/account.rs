@@ -50,3 +50,18 @@ impl From<(&AccountInfo, B256)> for BasicAccount {
         }
     }
 }
+
+// `storage_root` and `code_hash` are both `B256`, so transposing them here
+// compiles but silently changes every state root (`state_root` encodes accounts
+// through this conversion). The `precompiles_state_root` test is the only
+// guard.
+impl From<BasicAccount> for alloy_trie::TrieAccount {
+    fn from(account: BasicAccount) -> Self {
+        Self {
+            nonce: account.nonce,
+            balance: account.balance,
+            storage_root: account.storage_root,
+            code_hash: account.code_hash,
+        }
+    }
+}

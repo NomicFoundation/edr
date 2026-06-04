@@ -7,13 +7,13 @@ edition.workspace = true
 alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-serde.workspace = true
+alloy-trie.workspace = true
 derive-where.workspace = true
 edr_chain_spec.workspace = true
 edr_eip1559.workspace = true
 edr_eip4844.workspace = true
 edr_eip7892.workspace = true
 edr_primitives.workspace = true
-edr_trie.workspace = true
 serde.workspace = true
 
 [dev-dependencies]
