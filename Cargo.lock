@@ -2819,7 +2819,6 @@ dependencies = [
  "revm-handler",
  "revm-inspector",
  "revm-interpreter",
- "revm-primitives",
  "thiserror 2.0.18",
 ]
 
