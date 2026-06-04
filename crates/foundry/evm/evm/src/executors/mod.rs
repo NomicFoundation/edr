@@ -1718,22 +1718,22 @@ fn convert_executed_result<
             Some(output),
             logs,
         ),
-        ExecutionResult::Revert { gas, output, .. } => {
+        ExecutionResult::Revert { gas, output, logs } => {
             // Need to fetch the unused gas
             (
                 InstructionResult::Revert,
                 0_u64,
                 gas.tx_gas_used(),
                 Some(Output::Call(output)),
-                vec![],
+                logs,
             )
         }
-        ExecutionResult::Halt { reason, gas, .. } => {
+        ExecutionResult::Halt { reason, gas, logs } => {
             let reason: HaltReason = reason.clone().try_into().map_err(|_error| {
                 eyre::eyre!("Halt reason cannot be converted to `HaltReason`: {reason:?}")
             })?;
 
-            (reason.into(), 0_u64, gas.tx_gas_used(), None, vec![])
+            (reason.into(), 0_u64, gas.tx_gas_used(), None, logs)
         }
     };
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
