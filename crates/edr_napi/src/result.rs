@@ -73,6 +73,8 @@ pub struct SuccessResult {
 pub struct RevertResult {
     /// The amount of gas used
     pub gas_used: BigInt,
+    /// The logs
+    pub logs: Vec<ExecutionLog>,
     /// The transaction output
     pub output: Uint8Array,
 }
@@ -140,6 +142,8 @@ pub struct HaltResult {
     /// Halting will spend all the gas and will thus be equal to the specified
     /// gas limit
     pub gas_used: BigInt,
+    /// The logs
+    pub logs: Vec<ExecutionLog>,
 }
 
 /// The result of executing a transaction.
@@ -189,18 +193,23 @@ impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
                     },
                 })
             }
-            edr_chain_spec_evm::result::ExecutionResult::Revert { gas, output, .. } => {
+            edr_chain_spec_evm::result::ExecutionResult::Revert { gas, logs, output } => {
+                let logs = logs.iter().map(ExecutionLog::from).collect();
                 let output = Uint8Array::with_data_copied(output);
 
                 Either3::B(RevertResult {
                     gas_used: BigInt::from(gas.tx_gas_used()),
+                    logs,
                     output,
                 })
             }
-            edr_chain_spec_evm::result::ExecutionResult::Halt { reason, gas, .. } => {
+            edr_chain_spec_evm::result::ExecutionResult::Halt { reason, gas, logs } => {
+                let logs = logs.iter().map(ExecutionLog::from).collect();
+
                 Either3::C(HaltResult {
                     reason: ExceptionalHalt::from(reason.clone()),
                     gas_used: BigInt::from(gas.tx_gas_used()),
+                    logs,
                 })
             }
         };
