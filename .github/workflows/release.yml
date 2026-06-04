@@ -1,0 +1,50 @@
+name: Open release PR
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    name: Prepare release PR
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # This makes Actions fetch all Git history so that Changesets can generate changelogs with the correct commits
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
+        with:
+          mode: firewall
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Install Dependencies
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Get version from package.json
+        id: get-version
+        run: |
+          STATUS="$RUNNER_TEMP/status.json"
+          pnpm changeset status --output "$(realpath --relative-to=. "$STATUS")"
+          VERSION="$(jq -r '.releases[] | select(.name == "@nomicfoundation/edr").newVersion' "$STATUS")"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update version & Create Pull Request
+        uses: changesets/action@63a615b9cd06ba9a3e6d13796c7fbcb080a60a0b # v1.8.0
+        with:
+          title: "edr-${{ steps.get-version.outputs.version }}"
+          commit: "edr-${{ steps.get-version.outputs.version }}"
+          version: "bash ./scripts/release.sh"
+        env:
+          # If the default GITHUB_TOKEN is used, checks will not run in release PRs.
+          # To have checks run, set up CHANGESETS_TOKEN in repo secrets with read/write
+          # permission for Contents and Pull requests scopes.
+          GITHUB_TOKEN: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}

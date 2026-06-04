@@ -8,6 +8,7 @@ use std::{
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
 use edr_gas_report::SyncOnCollectedGasReportCallback;
+use edr_napi_core::provider::ConfigOption;
 use edr_primitives::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
 use napi::{
@@ -173,8 +174,57 @@ pub struct IntervalRange {
 #[napi(object)]
 pub struct MiningConfig {
     pub auto_mine: bool,
+    /// The block gas limit to use for mining a block.
+    ///
+    /// When not set, enforcement of the block gas limit is disabled in the mem
+    /// pool, miner, and REVM.
+    pub block_gas_limit: Option<BigInt>,
     pub interval: Option<Either<BigInt, IntervalRange>>,
     pub mem_pool: MemPoolConfig,
+}
+
+/// Configuration for a locally mined blockchain.
+#[napi(object)]
+pub struct LocalConfig {
+    /// The blob gas used for the genesis block, introduced in [EIP-4844].
+    ///
+    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    pub genesis_blob_gas: Option<BlobGas>,
+    /// The block gas limit of the genesis block.
+    pub genesis_block_gas_limit: BigInt,
+    /// The date, in seconds since the Unix epoch, of the genesis block.
+    pub genesis_block_time: Option<BigInt>,
+}
+
+impl TryFrom<LocalConfig> for edr_provider::config::Local {
+    type Error = napi::Error;
+
+    fn try_from(value: LocalConfig) -> Result<Self, Self::Error> {
+        let genesis_blob_gas = value.genesis_blob_gas.map(TryInto::try_into).transpose()?;
+
+        let genesis_block_gas_limit = value.genesis_block_gas_limit.try_cast()?;
+        let genesis_block_gas_limit =
+            NonZeroU64::new(genesis_block_gas_limit).ok_or_else(|| {
+                napi::Error::new(
+                    napi::Status::GenericFailure,
+                    "Genesis block gas limit must not be zero",
+                )
+            })?;
+
+        let genesis_block_time = value
+            .genesis_block_time
+            .map(|date| {
+                let elapsed_since_epoch = Duration::from_secs(date.try_cast()?);
+                napi::Result::Ok(SystemTime::UNIX_EPOCH + elapsed_since_epoch)
+            })
+            .transpose()?;
+
+        Ok(Self {
+            genesis_blob_gas,
+            genesis_block_gas_limit,
+            genesis_block_time,
+        })
+    }
 }
 
 /// Configuration for runtime observability.
@@ -211,15 +261,13 @@ pub struct ProviderConfig {
     /// If not provided, the default values from the chain spec
     /// will be used.
     pub base_fee_config: Option<Vec<BaseFeeParamActivation>>,
-    /// The gas limit of each block
-    pub block_gas_limit: BigInt,
     /// The chain ID of the blockchain
     pub chain_id: BigInt,
     /// The address of the coinbase
     pub coinbase: Uint8Array,
-    /// The configuration for forking a blockchain. If not provided, a local
-    /// blockchain will be created
-    pub fork: Option<ForkConfig>,
+    /// The default transaction gas limit to use for RPC call and transaction
+    /// requests that do not specify a `gas` value.
+    pub default_transaction_gas_limit: BigInt,
     /// The genesis state of the blockchain
     pub genesis_state: Vec<AccountOverride>,
     /// The hardfork of the blockchain
@@ -227,10 +275,6 @@ pub struct ProviderConfig {
     /// The initial base fee per gas of the blockchain. Required for EIP-1559
     /// transactions and later
     pub initial_base_fee_per_gas: Option<BigInt>,
-    /// The initial blob gas of the blockchain. Required for EIP-4844
-    pub initial_blob_gas: Option<BlobGas>,
-    /// The initial date of the blockchain, in seconds since the Unix epoch
-    pub initial_date: Option<BigInt>,
     /// The initial parent beacon block root of the blockchain. Required for
     /// EIP-4788
     pub initial_parent_beacon_block_root: Option<Uint8Array>,
@@ -238,6 +282,8 @@ pub struct ProviderConfig {
     pub min_gas_price: BigInt,
     /// The configuration for the miner
     pub mining: MiningConfig,
+    /// The network configuration for the provider.
+    pub network: Either<ForkConfig, LocalConfig>,
     /// The network ID of the blockchain
     pub network_id: BigInt,
     /// The configuration for the provider's observability
@@ -250,13 +296,20 @@ pub struct ProviderConfig {
     pub precompile_overrides: Vec<Reference<Precompile>>,
     /// Transaction gas cap, introduced in [EIP-7825].
     ///
-    /// When not set, will default to value defined by the used hardfork
+    /// Integer values should be larger than zero.
+    ///
+    /// When `false`, enforcement of the transaction gas cap is disabled and
+    /// transactions with any `gas` value are accepted by the mempool and
+    /// executed without REVM's transaction gas cap check.
+    ///
+    /// When not set, a hardfork-specific default value will be used.
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
-    pub transaction_gas_cap: Option<BigInt>,
+    #[napi(ts_type = "bigint | false")]
+    pub transaction_gas_cap: Option<Either<BigInt, bool>>,
 }
 
-impl TryFrom<ForkConfig> for edr_provider::ForkConfig<String> {
+impl TryFrom<ForkConfig> for edr_provider::config::Fork<String> {
     type Error = napi::Error;
 
     fn try_from(value: ForkConfig) -> Result<Self, Self::Error> {
@@ -343,7 +396,7 @@ impl TryFrom<ForkConfig> for edr_provider::ForkConfig<String> {
     }
 }
 
-impl From<MemPoolConfig> for edr_provider::MemPoolConfig {
+impl From<MemPoolConfig> for edr_provider::config::MemPool {
     fn from(value: MemPoolConfig) -> Self {
         Self {
             order: value.order.into(),
@@ -360,7 +413,7 @@ impl From<MineOrdering> for edr_block_miner::MineOrdering {
     }
 }
 
-impl TryFrom<MiningConfig> for edr_provider::MiningConfig {
+impl TryFrom<MiningConfig> for edr_provider::config::Mining {
     type Error = napi::Error;
 
     fn try_from(value: MiningConfig) -> Result<Self, Self::Error> {
@@ -375,24 +428,41 @@ impl TryFrom<MiningConfig> for edr_provider::MiningConfig {
                         let interval = NonZeroU64::new(interval).ok_or_else(|| {
                             napi::Error::new(
                                 napi::Status::GenericFailure,
-                                "Interval must be greater than 0",
+                                "Interval must not be zero",
                             )
                         })?;
 
-                        edr_provider::IntervalConfig::Fixed(interval)
+                        edr_provider::config::Interval::Fixed(interval)
                     }
-                    Either::B(IntervalRange { min, max }) => edr_provider::IntervalConfig::Range {
-                        min: min.try_cast()?,
-                        max: max.try_cast()?,
-                    },
+                    Either::B(IntervalRange { min, max }) => {
+                        edr_provider::config::Interval::Range {
+                            min: min.try_cast()?,
+                            max: max.try_cast()?,
+                        }
+                    }
                 };
 
                 napi::Result::Ok(interval)
             })
             .transpose()?;
 
+        let block_gas_limit = value
+            .block_gas_limit
+            .map(|block_gas_limit| {
+                block_gas_limit.try_cast().and_then(|block_gas_limit| {
+                    NonZeroU64::new(block_gas_limit).ok_or_else(|| {
+                        napi::Error::new(
+                            napi::Status::GenericFailure,
+                            "Block gas limit must not be zero",
+                        )
+                    })
+                })
+            })
+            .transpose()?;
+
         Ok(Self {
             auto_mine: value.auto_mine,
+            block_gas_limit,
             interval,
             mem_pool,
         })
@@ -583,14 +653,6 @@ impl ProviderConfig {
             .map(|vec| vec.into_iter().map(TryInto::try_into).collect())
             .transpose()?;
 
-        let block_gas_limit =
-            NonZeroU64::new(self.block_gas_limit.try_cast()?).ok_or_else(|| {
-                napi::Error::new(
-                    napi::Status::GenericFailure,
-                    "Block gas limit must be greater than 0",
-                )
-            })?;
-
         let genesis_state = self
             .genesis_state
             .into_iter()
@@ -603,29 +665,39 @@ impl ProviderConfig {
             .map(|precompile| precompile.to_tuple())
             .collect();
 
+        let transaction_gas_cap = self
+            .transaction_gas_cap.map_or(Ok(ConfigOption::Default), |transaction_gas_cap| match transaction_gas_cap {
+                Either::A(gas_cap) => gas_cap.try_cast().map(ConfigOption::Custom),
+                Either::B(disable) => if !disable {
+                    Ok(ConfigOption::Disable)
+                } else {
+                    Err(napi::Error::new(napi::Status::InvalidArg, "Boolean value for `transactionGasCap` must be false to disable the transaction gas cap"))
+                },
+            })?;
+
         Ok(edr_napi_core::provider::Config {
             allow_blocks_with_same_timestamp: self.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: self.allow_unlimited_contract_size,
             bail_on_call_failure: self.bail_on_call_failure,
             bail_on_transaction_failure: self.bail_on_transaction_failure,
             base_fee_params,
-            block_gas_limit,
             chain_id: self.chain_id.try_cast()?,
             coinbase: self.coinbase.try_cast()?,
-            fork: self.fork.map(TryInto::try_into).transpose()?,
+            default_transaction_gas_limit: self.default_transaction_gas_limit.try_cast().and_then(
+                |default_transaction_gas_limit| {
+                    NonZeroU64::new(default_transaction_gas_limit).ok_or_else(|| {
+                        napi::Error::new(
+                            napi::Status::GenericFailure,
+                            "Default transaction gas limit must not be zero",
+                        )
+                    })
+                },
+            )?,
             genesis_state,
             hardfork: self.hardfork,
             initial_base_fee_per_gas: self
                 .initial_base_fee_per_gas
                 .map(TryCast::try_cast)
-                .transpose()?,
-            initial_blob_gas: self.initial_blob_gas.map(TryInto::try_into).transpose()?,
-            initial_date: self
-                .initial_date
-                .map(|date| {
-                    let elapsed_since_epoch = Duration::from_secs(date.try_cast()?);
-                    napi::Result::Ok(SystemTime::UNIX_EPOCH + elapsed_since_epoch)
-                })
                 .transpose()?,
             initial_parent_beacon_block_root: self
                 .initial_parent_beacon_block_root
@@ -633,14 +705,21 @@ impl ProviderConfig {
                 .transpose()?,
             mining: self.mining.try_into()?,
             min_gas_price: self.min_gas_price.try_cast()?,
+            network: match self.network {
+                Either::A(fork_config) => {
+                    let fork_config = fork_config.try_into()?;
+                    edr_provider::config::Network::Fork(fork_config)
+                }
+                Either::B(local_config) => {
+                    let local_config = local_config.try_into()?;
+                    edr_provider::config::Network::Local(local_config)
+                }
+            },
             network_id: self.network_id.try_cast()?,
             observability: self.observability.resolve(env, runtime)?,
             owned_accounts,
             precompile_overrides,
-            transaction_gas_cap: self
-                .transaction_gas_cap
-                .map(TryCast::try_cast)
-                .transpose()?,
+            transaction_gas_cap,
         })
     }
 }

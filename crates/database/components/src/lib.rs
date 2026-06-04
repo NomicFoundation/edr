@@ -32,13 +32,16 @@ pub enum DatabaseComponentError<BlockchainErrorT, StateErrorT> {
 
 impl<BlockchainErrorT, StateErrorT> DBErrorMarker
     for DatabaseComponentError<BlockchainErrorT, StateErrorT>
+where
+    BlockchainErrorT: 'static + std::error::Error + Send + Sync,
+    StateErrorT: 'static + std::error::Error + Send + Sync,
 {
 }
 
 impl<BlockchainT, StateT> DatabaseRef for DatabaseComponents<BlockchainT, StateT>
 where
-    BlockchainT: BlockHashByNumber<Error: std::error::Error>,
-    StateT: State<Error: std::error::Error>,
+    BlockchainT: BlockHashByNumber<Error: 'static + std::error::Error + Send + Sync>,
+    StateT: State<Error: 'static + std::error::Error + Send + Sync>,
 {
     type Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>;
 

@@ -1086,7 +1086,7 @@ pub enum EvmError<
     #[error("{0}")]
     Skip(SkipReason),
     /// Any other error.
-    #[error("{0}")]
+    #[error("{0:#}")]
     Eyre(
         #[from]
         #[source]

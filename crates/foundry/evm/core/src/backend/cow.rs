@@ -9,7 +9,7 @@ use eyre::WrapErr;
 use foundry_fork_db::DatabaseError;
 use revm::{
     bytecode::Bytecode,
-    context::{result::HaltReasonTr, Cfg, JournalInner},
+    context::{result::HaltReasonTr, JournalInner},
     context_interface::result::ResultAndState,
     database::DatabaseRef,
     primitives::HashMap as Map,
@@ -130,7 +130,7 @@ impl<
         // this is a new call to inspect with a new env, so even if we've cloned the
         // backend already, we reset the initialized state
         self.is_initialized = false;
-        self.spec_id = env.cfg.spec();
+        self.spec_id = *env.cfg.spec();
         let mut env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
         let tx = std::mem::take(&mut env_with_chain.tx);
         let mut evm = EvmBuilderT::evm_with_inspector(self, env_with_chain, inspector);

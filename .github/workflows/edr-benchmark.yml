@@ -23,15 +23,15 @@ jobs:
   benchmarks-test:
     name: Benchmarks test
     environment: github-action-benchmark
-    runs-on: self-hosted
+    runs-on: edr-benchmark-runner
     # Only run for trusted collaborators since third-parties could run malicious code on the self-hosted benchmark runner.
     if: github.ref == 'refs/heads/main' || github.repository == github.event.pull_request.head.repo.full_name
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 # v1
+      - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
         with:
           mode: firewall
       - uses: ./.github/actions/setup-node
@@ -46,31 +46,18 @@ jobs:
   js-scenario-benchmark:
     name: Run JS scenario runner benchmark for Hardhat Node style workload
     environment: github-action-benchmark
-    runs-on: self-hosted
+    runs-on: edr-benchmark-runner
     needs: benchmarks-test
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 # v1
+      - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
         with:
           mode: firewall
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-rust
-
-      - name: Rust cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            .cargo-cache
-            target/
-          save-always: true
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Install packages
         run: sfw pnpm install --frozen-lockfile --prefer-offline
@@ -85,7 +72,7 @@ jobs:
         run: pnpm run --silent reportProviderBenchmark | tee scenario-report.json
 
       - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
           tool: customSmallerIsBetter
           output-file-path: js/benchmark/scenario-report.json
@@ -105,37 +92,24 @@ jobs:
   js-soltests-benchmark:
     name: Run JS Solidity test runner benchmark
     environment: github-action-benchmark
-    runs-on: self-hosted
+    runs-on: edr-benchmark-runner
     needs: benchmarks-test
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 # v1
+      - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
         with:
           mode: firewall
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-rust
 
       - name: Cache EDR RPC cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             **/edr-cache
           key: edr-rs-rpc-cache-v1
-
-      - name: Rust cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            .cargo-cache
-            target/
-          save-always: true
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Install packages
         run: sfw pnpm install --frozen-lockfile --prefer-offline
@@ -146,7 +120,7 @@ jobs:
         run: pnpm run --silent soltestsBenchmark --benchmark-output soltest-report.json
 
       - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@4bdcce38c94cec68da58d012ac24b7b1155efe8b # v1.20.7
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
           tool: customSmallerIsBetter
           output-file-path: js/benchmark/soltest-report.json

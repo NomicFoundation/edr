@@ -317,15 +317,36 @@ fn add_transaction_exceeds_block_limit() -> anyhow::Result<()> {
 
     let mut fixture = MemPoolTestFixture::with_accounts(&[(sender, AccountInfo::default())]);
 
-    let exceeds_block_limit = fixture.mem_pool.block_gas_limit().get() + 1;
+    let fixture_block_gas_limit = fixture
+        .mem_pool
+        .block_gas_limit()
+        .expect("Block gas limit should be set");
+
+    let exceeds_block_limit = fixture_block_gas_limit.get() + 1;
     let transaction = dummy_eip155_transaction_with_limit(sender, 5, exceeds_block_limit)?;
     let result = fixture.add_transaction(transaction);
 
     assert!(matches!(
         result,
         Err(MemPoolAddTransactionError::ExceedsBlockGasLimit { block_gas_limit, transaction_gas_limit })
-            if block_gas_limit == fixture.mem_pool.block_gas_limit() && transaction_gas_limit == exceeds_block_limit
+            if block_gas_limit == fixture_block_gas_limit && transaction_gas_limit == exceeds_block_limit
     ));
+
+    Ok(())
+}
+
+#[test]
+fn add_transaction_with_disable_block_gas_limit_accepts_excess_gas() -> anyhow::Result<()> {
+    let sender = Address::random();
+
+    let mut fixture = MemPoolTestFixture::without_block_gas_limit();
+
+    let exceeds_block_limit = u64::MAX;
+    let transaction = dummy_eip155_transaction_with_limit(sender, 0, exceeds_block_limit)?;
+    fixture.add_transaction(transaction)?;
+
+    let pending_transactions = fixture.mem_pool.pending_transactions().collect::<Vec<_>>();
+    assert_eq!(pending_transactions.len(), 1);
 
     Ok(())
 }
@@ -660,10 +681,17 @@ fn set_block_gas_limit() -> anyhow::Result<()> {
     let sender = Address::random();
 
     let mut fixture = MemPoolTestFixture::with_accounts(&[(sender, AccountInfo::default())]);
-    assert_eq!(fixture.mem_pool.block_gas_limit().get(), 10_000_000);
+    assert_eq!(
+        fixture
+            .mem_pool
+            .block_gas_limit()
+            .expect("Block gas limit should be set")
+            .get(),
+        10_000_000
+    );
 
-    fixture.set_block_gas_limit(NEW_GAS_LIMIT)?;
-    assert_eq!(fixture.mem_pool.block_gas_limit(), NEW_GAS_LIMIT);
+    fixture.set_block_gas_limit(Some(NEW_GAS_LIMIT))?;
+    assert_eq!(fixture.mem_pool.block_gas_limit(), Some(NEW_GAS_LIMIT));
 
     let transaction = dummy_eip155_transaction_with_limit(sender, 0, NEW_GAS_LIMIT.get() + 1)?;
     let result = fixture.add_transaction(transaction);
@@ -696,7 +724,7 @@ fn set_block_gas_limit_removes_invalid_transactions() -> anyhow::Result<()> {
     assert_eq!(future_transactions.len(), 1);
 
     // SAFETY: literal is non-zero
-    fixture.set_block_gas_limit(unsafe { NonZeroU64::new_unchecked(5_000_000) })?;
+    fixture.set_block_gas_limit(Some(unsafe { NonZeroU64::new_unchecked(5_000_000) }))?;
 
     let pending_transactions = fixture.mem_pool.pending_transactions().collect::<Vec<_>>();
     assert_eq!(pending_transactions.len(), 0);
@@ -740,7 +768,7 @@ fn set_block_gas_limit_moves_future_to_pending_queue() -> anyhow::Result<()> {
     assert_eq!(*future_transactions[1].pending(), transaction5);
 
     // SAFETY: literal is non-zero
-    fixture.set_block_gas_limit(unsafe { NonZeroU64::new_unchecked(150_000) })?;
+    fixture.set_block_gas_limit(Some(unsafe { NonZeroU64::new_unchecked(150_000) }))?;
 
     let pending_transactions = fixture.mem_pool.pending_transactions().collect::<Vec<_>>();
     assert_eq!(pending_transactions.len(), 1);

@@ -13,6 +13,7 @@ import {
   l1HardforkLatest,
   l1HardforkToString,
   MineOrdering,
+  Provider,
   SubscriptionEvent,
   precompileP256Verify,
   OP_CHAIN_TYPE,
@@ -49,12 +50,12 @@ describe("Provider", () => {
     allowUnlimitedContractSize: true,
     bailOnCallFailure: false,
     bailOnTransactionFailure: false,
-    blockGasLimit: 300_000_000n,
     chainId: 123n,
     chainOverrides: [],
     coinbase: new Uint8Array(
       Buffer.from("0000000000000000000000000000000000000000", "hex")
     ),
+    defaultTransactionGasLimit: 300_000_000n,
     genesisState,
     hardfork: l1HardforkToString(l1HardforkLatest()),
     initialBlobGas: {
@@ -70,9 +71,17 @@ describe("Provider", () => {
     minGasPrice: 0n,
     mining: {
       autoMine: true,
+      blockGasLimit: 300_000_000n,
       memPool: {
         order: MineOrdering.Priority,
       },
+    },
+    network: {
+      genesisBlobGas: {
+        gasUsed: 0n,
+        excessGas: 0n,
+      },
+      genesisBlockGasLimit: 300_000_000n,
     },
     networkId: 123n,
     observability: {},
@@ -119,7 +128,7 @@ describe("Provider", () => {
       {
         ...providerConfig,
         // TODO: Add support for overriding remote fork state when the local fork is different
-        fork: {
+        network: {
           url: ALCHEMY_URL,
         },
       },
@@ -656,6 +665,121 @@ describe("Provider", () => {
     assert.equal(6, dataView.getUint8(elasticityLeastSignificantByte));
   });
 
+  describe("transactionGasCap", () => {
+    // EIP-7825 caps transaction gas at MAX_TX_GAS_LIMIT_OSAKA = 16,777,216 on Osaka.
+    const OSAKA_TRANSACTION_GAS_CAP = 16_777_216n;
+
+    async function createProviderWithGasCap(
+      transactionGasCap: bigint | false | undefined
+    ): Promise<Provider> {
+      return context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          hardfork: l1HardforkToString(SpecId.Osaka),
+          genesisState: providerConfig.genesisState.concat(
+            l1GenesisState(SpecId.Osaka)
+          ),
+          transactionGasCap,
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        new ContractDecoder()
+      );
+    }
+
+    async function sendTransactionWithGas(
+      provider: Provider,
+      gas: bigint
+    ): Promise<any> {
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: genesisAddress,
+              to: genesisAddress,
+              gas: "0x" + gas.toString(16),
+            },
+          ],
+        })
+      );
+      return JSON.parse(response.data);
+    }
+
+    it("uses the EIP-7825 cap on Osaka by default", async function () {
+      const provider = await createProviderWithGasCap(undefined);
+
+      const exceedsOsakaCap = OSAKA_TRANSACTION_GAS_CAP + 1n;
+      const responseData = await sendTransactionWithGas(
+        provider,
+        exceedsOsakaCap
+      );
+
+      assert.isDefined(responseData.error);
+      assert.include(
+        responseData.error.message,
+        `exceeds transaction gas cap of ${OSAKA_TRANSACTION_GAS_CAP}`
+      );
+    });
+
+    it("accepts transactions at the default Osaka cap", async function () {
+      const provider = await createProviderWithGasCap(undefined);
+
+      const responseData = await sendTransactionWithGas(
+        provider,
+        OSAKA_TRANSACTION_GAS_CAP
+      );
+
+      assert.isUndefined(responseData.error);
+      assert.isString(responseData.result);
+    });
+
+    it("enforces a custom numeric cap", async function () {
+      const customCap = 50_000n;
+      const provider = await createProviderWithGasCap(customCap);
+
+      const exceedsCustomCap = customCap + 1n;
+      const responseData = await sendTransactionWithGas(
+        provider,
+        exceedsCustomCap
+      );
+
+      assert.isDefined(responseData.error);
+      assert.include(
+        responseData.error.message,
+        `exceeds transaction gas cap of ${customCap}`
+      );
+    });
+
+    it("accepts transactions that exceed the default Osaka cap when set to `false`", async function () {
+      const provider = await createProviderWithGasCap(false);
+
+      // 20M is above the default Osaka cap (~16.7M) but below the test block
+      // gas limit (300M).
+      const exceedsOsakaCap = 20_000_000n;
+      const responseData = await sendTransactionWithGas(
+        provider,
+        exceedsOsakaCap
+      );
+
+      assert.isUndefined(responseData.error);
+      assert.isString(responseData.result);
+    });
+
+    it("rejects `true` as an invalid value", async function () {
+      // The TS type forbids `true`; cast to bypass for the runtime check.
+      await assert.isRejected(
+        createProviderWithGasCap(true as unknown as false),
+        /Boolean value for `transactionGasCap` must be false to disable the transaction gas cap/
+      );
+    });
+  });
+
   describe("eth_getProof", () => {
     it("encodes an error within data when not supported for fork mode", async function () {
       if (ALCHEMY_URL === undefined) {
@@ -666,7 +790,7 @@ describe("Provider", () => {
         GENERIC_CHAIN_TYPE,
         {
           ...providerConfig,
-          fork: {
+          network: {
             url: ALCHEMY_URL,
           },
         },

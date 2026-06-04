@@ -1,7 +1,6 @@
-use serde::{Deserialize, Serialize};
-
 /// Helper struct to convert an old scenario format to the new one.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScenarioConfig {
     chain_type: Option<String>,
     logger_enabled: bool,

@@ -25,17 +25,22 @@ contract ForkStateSetupTest is Test {
     mapping(uint256 => SomeStruct) internal data;
 
     function setUp() public {
-        // Temporary workaround for `https://eth.llamarpc.com/` being down
-        setChain("mainnet", ChainData({
-            name: "mainnet",
-            rpcUrl: "https://reth-ethereum.ithaca.xyz/rpc",
-            chainId: 1
-        }));
+        string memory rpcUrl = vm.envString("ALCHEMY_URL");
+        setChain(
+            "mainnet",
+            ChainData({name: "mainnet", rpcUrl: rpcUrl, chainId: 1})
+        );
 
         StdChains.Chain memory chain1 = getChain("mainnet");
         StdChains.Chain memory chain2 = getChain("base");
-        Domain memory domain1 = Domain(chain1, vm.createFork(chain1.rpcUrl, 22253716));
-        Domain memory domain2 = Domain(chain2, vm.createFork(chain2.rpcUrl, 28839981));
+        Domain memory domain1 = Domain(
+            chain1,
+            vm.createFork(chain1.rpcUrl, 22253716)
+        );
+        Domain memory domain2 = Domain(
+            chain2,
+            vm.createFork(chain2.rpcUrl, 28839981)
+        );
         data[1].domain = domain1;
         data[2].domain = domain2;
 
@@ -55,7 +60,10 @@ contract ForkStateSetupTest is Test {
     }
 
     function test_modify_and_storage() public {
-        data[3].domain = Domain(getChain("base"), vm.createFork(getChain("base").rpcUrl, 28839981));
+        data[3].domain = Domain(
+            getChain("base"),
+            vm.createFork(getChain("base").rpcUrl, 28839981)
+        );
         data[3].bridges.push(Bridge(data[1].domain, data[2].domain, 123));
         data[3].bridges.push(Bridge(data[1].domain, data[2].domain, 456));
 

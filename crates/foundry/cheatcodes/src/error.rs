@@ -353,6 +353,13 @@ impl From<CheatcodeErrorDetails> for Error {
     }
 }
 
+impl From<eyre::Report> for Error {
+    fn from(value: eyre::Report) -> Self {
+        // Print the entire error chain for better debugging
+        Self::from(format!("{value:#}"))
+    }
+}
+
 // So we can use `?` on `Result<_, Error>`.
 macro_rules! impl_from {
     ($($t:ty),* $(,)?) => {$(
@@ -368,7 +375,6 @@ impl_from!(
     alloy_sol_types::Error,
     alloy_dyn_abi::Error,
     alloy_primitives::SignatureError,
-    eyre::Report,
     FsPathError,
     hex::FromHexError,
     BackendError,

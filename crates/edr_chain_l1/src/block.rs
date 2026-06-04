@@ -1,6 +1,7 @@
 use core::{fmt::Debug, marker::PhantomData};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use alloy_trie::root::ordered_trie_root;
 use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
@@ -32,7 +33,6 @@ use edr_receipt::{
 };
 use edr_receipt_builder_api::ExecutionReceiptBuilder;
 use edr_state_api::{AccountModifierFn, DynState, StateDiff, StateError};
-use edr_trie::ordered_trie_root;
 
 const MAX_BLOCK_SIZE: usize = 10_485_760; // 10 MiB
 const SAFETY_MARGIN: usize = 2_097_152; // 2 MiB
@@ -45,7 +45,7 @@ pub struct EthBlockBuilder<
     'builder,
     BlockReceiptT,
     BlockT: ?Sized,
-    BlockchainErrorT: Debug,
+    BlockchainErrorT: Debug + Send + Sync + 'static,
     EvmChainSpecT: EvmChainSpec,
     ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
         EvmChainSpecT::HaltReason,
@@ -85,7 +85,7 @@ pub struct EthBlockBuilder<
 impl<
         BlockReceiptT,
         BlockT: ?Sized,
-        BlockchainErrorT: Debug,
+        BlockchainErrorT: Debug + Send + Sync + 'static,
         EvmChainSpecT: EvmChainSpec<SignedTransaction: ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             EvmChainSpecT::HaltReason,
@@ -150,7 +150,7 @@ impl<
 impl<
         BlockReceiptT,
         BlockT: ?Sized,
-        BlockchainErrorT: Debug,
+        BlockchainErrorT: Debug + Send + Sync + 'static,
         EvmChainSpecT: EvmChainSpec<SignedTransaction: ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             EvmChainSpecT::HaltReason,
@@ -183,8 +183,8 @@ impl<
         >,
     > {
         // The transaction's gas limit cannot be greater than the remaining gas in the
-        // block
-        if transaction.gas_limit() > self.gas_remaining() {
+        // block, unless the block gas limit check is disabled.
+        if !self.cfg.disable_block_gas_limit && transaction.gas_limit() > self.gas_remaining() {
             return Err(BlockTransactionError::ExceedsBlockGasLimit);
         }
 
@@ -224,7 +224,7 @@ impl<
                 Hardfork = ChainSpecT::Hardfork,
             > + ReceiptTrait,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
-        BlockchainErrorT: Debug + std::error::Error,
+        BlockchainErrorT: Debug + 'static + std::error::Error + Send + Sync,
         ChainSpecT: BlockChainSpec<Hardfork: PartialOrd, SignedTransaction: Clone + ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,
@@ -533,7 +533,7 @@ impl<
             > + ReceiptTrait
             + alloy_rlp::Encodable,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
-        BlockchainErrorT: Debug + std::error::Error,
+        BlockchainErrorT: Debug + 'static + std::error::Error + Send + Sync,
         ChainSpecT: BlockChainSpec<
             Hardfork: PartialOrd,
             SignedTransaction: Clone + ExecutableTransaction + alloy_rlp::Encodable,
@@ -606,7 +606,7 @@ impl<
             logs_bloom
         };
 
-        self.header.receipts_root = ordered_trie_root(self.receipts.iter().map(alloy_rlp::encode));
+        self.header.receipts_root = ordered_trie_root(&self.receipts);
 
         // Only set the state root if it wasn't specified during construction
         if self.header.state_root == KECCAK_NULL_RLP {
@@ -665,7 +665,7 @@ impl<
             > + ReceiptTrait
             + alloy_rlp::Encodable,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
-        BlockchainErrorT: Debug + std::error::Error,
+        BlockchainErrorT: Debug + 'static + std::error::Error + Send + Sync,
         ChainSpecT: BlockChainSpec
             + BlockEnvChainSpec
             + EvmChainSpec<

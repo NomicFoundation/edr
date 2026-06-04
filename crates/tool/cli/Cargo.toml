@@ -22,13 +22,10 @@ edr_provider = { workspace = true, features = ["test-utils"] }
 edr_receipt.workspace = true
 edr_rpc_eth.workspace = true
 edr_scenarios.workspace = true
-edr_solidity.workspace = true
 edr_test_block_replay.workspace = true
 flate2 = "1.0.28"
 indicatif = { version = "0.18.4", features = ["rayon"] }
 mimalloc = { version = "0.1.39", default-features = false }
-op-revm.workspace = true
-parking_lot.workspace = true
 reqwest = { version = "0.11.12", features = ["blocking"] }
 serde.workspace = true
 serde_json.workspace = true
@@ -38,7 +35,6 @@ toml = { workspace = true, features = ["preserve_order"] }
 tracing = { version = "0.1.44", features = ["attributes", "std"], optional = true }
 tracing-flame = { version = "0.2.0", default-features = false, features = ["smallvec"], optional = true }
 tracing-subscriber = { version = "0.3.18", default-features = false, features = ["ansi", "env-filter", "fmt", "parking_lot", "smallvec", "std"], optional = true }
-walkdir = { version = "2.4.0", features = [] }
 
 [features]
 tracing = [

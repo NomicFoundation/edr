@@ -3,10 +3,11 @@ use std::sync::Arc;
 use edr_chain_config::ChainOverride;
 use edr_chain_spec::TransactionValidation;
 use edr_provider::{
+    config::{ForkConfig, ProviderConfig},
     observability::ObservabilityConfig,
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
-    ForkConfig, NoopLogger, Provider, ProviderConfig, ProviderSpec, SyncProviderSpec,
+    NoopLogger, Provider, ProviderSpec, SyncProviderSpec,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;

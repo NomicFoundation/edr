@@ -13,6 +13,9 @@ jobs:
   run-hardhat-tests:
     name: Run Hardhat tests (${{ matrix.os }}, Node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
+    # Cap well below GHA's 6h ceiling so a hung mocha test fails fast
+    # rather than burning a full job slot.
+    timeout-minutes: 30
     # See comment on test-edr-rs in edr-ci.yml re crt-static handling.
     env:
       RUSTFLAGS: -Dwarnings
@@ -23,7 +26,7 @@ jobs:
         node: [20]
         os: ["macos-15", "ubuntu-24.04", "windows-2025"]
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -36,7 +39,7 @@ jobs:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
+        uses: taiki-e/install-action@d9be7d8cda89035c9c843f78bd44d4f72d8403d4 # v2.79.7
         with:
           tool: cargo-llvm-cov@0.8.5
 
@@ -44,14 +47,14 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Cache network requests
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             hardhat-tests/test/internal/hardhat-network/provider/.hardhat_node_test_cache
           key: hardhat-network-forking-tests-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Cache stack trace artifacts
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/artifacts
@@ -72,11 +75,19 @@ jobs:
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
+        with:
+          files: codecov.json
+          name: ${{ matrix.os }}
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   lint-hardhat-tests:
     name: Lint Hardhat tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 

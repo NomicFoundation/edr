@@ -13,9 +13,9 @@
 //!
 //!    3.1. `export EDR_FORGE_STD_ARTIFACTS_DIR=/path/to/forge-std/artifacts`
 //!    3.2. `cargo bench contracts_identifier`
-use std::{fs, path::PathBuf, time::Duration};
+use std::{fs, hint::black_box, path::PathBuf, time::Duration};
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use edr_solidity::{
     artifacts::{BuildInfoConfig, BuildInfoWithOutput},
     contract_decoder::ContractDecoder,

@@ -4,9 +4,6 @@ import chalk, { Chalk } from "chalk";
 import {
   AccountOverride,
   ContractDecoder,
-  // Ignore this on testNoBuild
-  // @ts-ignore
-  createProviderWithMockTimer,
   l1GenesisState,
   l1HardforkFromString,
   MineOrdering,
@@ -20,6 +17,7 @@ import {
 import {
   deployContract,
   getBlockNumber,
+  getContext,
   getGasPrice,
   sendTransaction,
   sleep,
@@ -222,18 +220,14 @@ const providerConfig = {
   allowUnlimitedContractSize: true,
   bailOnCallFailure: false,
   bailOnTransactionFailure: false,
-  blockGasLimit: 6_000_000n,
   chainId: 123n,
   chainOverrides: [],
   coinbase: new Uint8Array(
     Buffer.from("0000000000000000000000000000000000000000", "hex")
   ),
+  defaultTransactionGasLimit: 6_000_000n,
   genesisState,
   hardfork: SHANGHAI,
-  initialBlobGas: {
-    gasUsed: 0n,
-    excessGas: 0n,
-  },
   initialParentBeaconBlockRoot: new Uint8Array(
     Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",
@@ -244,11 +238,19 @@ const providerConfig = {
   mining: {
     // Disable auto-mining for these tests
     autoMine: false,
+    blockGasLimit: 6_000_000n,
     // Enable auto-mining
     interval: BigInt(MINING_INTERVAL),
     memPool: {
       order: MineOrdering.Priority,
     },
+  },
+  network: {
+    genesisBlobGas: {
+      gasUsed: 0n,
+      excessGas: 0n,
+    },
+    genesisBlockGasLimit: 6_000_000n,
   },
   networkId: 123n,
   observability: {},
@@ -260,13 +262,15 @@ const providerConfig = {
 };
 
 describe("Provider logs", function () {
-  const mockTimer = MockTime.now();
+  const context = getContext();
 
   describe("Interval mining", function () {
     let gasPrice: bigint;
     let logger: FakeModulesLogger;
+    let mockTimer: MockTime;
     let provider: Provider;
     beforeEach(async function () {
+      mockTimer = MockTime.now();
       logger = new FakeModulesLogger();
 
       const printLineFn = logger.printLineFn();
@@ -290,7 +294,9 @@ describe("Provider logs", function () {
         },
       };
 
-      provider = await createProviderWithMockTimer(
+      // Ignore this on testNoBuild
+      // @ts-ignore
+      provider = await context.createProviderWithMockTimer(
         {
           ...providerConfig,
           genesisState: providerConfig.genesisState.concat(
@@ -309,6 +315,21 @@ describe("Provider logs", function () {
 
       // Remove the `eth_gasPrice` call from the logger
       logger.reset();
+    });
+
+    afterEach(async function () {
+      // Stop interval mining explicitly so the background task is torn
+      // down here instead of whenever JS GC reclaims the provider.
+      if (provider !== undefined) {
+        await provider.handleRequest(
+          JSON.stringify({
+            id: 1,
+            jsonrpc: "2.0",
+            method: "evm_setIntervalMining",
+            params: [0],
+          })
+        );
+      }
     });
 
     it("should only print the mined block when there are no pending txs", async function () {

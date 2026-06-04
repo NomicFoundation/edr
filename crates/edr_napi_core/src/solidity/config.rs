@@ -122,7 +122,11 @@ pub struct TestRunnerConfig {
     /// The hardfork to use for EVM execution.
     pub hardfork: String,
     /// The gas limit for each test case.
-    /// Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
+    /// In order, defaults to:
+    /// 1. If an EIP-7825 transaction gas cap is specified, use it as the
+    ///    default gas limit
+    /// 2. If a block gas limit is specified, use it as the default gas limit
+    /// 3. Otherwise, use `9_223_372_036_854_775_807` (`i64::MAX`)
     pub gas_limit: Option<u64>,
     /// The price of gas (in wei) in tests.
     /// Defaults to `0`.
@@ -145,9 +149,17 @@ pub struct TestRunnerConfig {
     /// Whether to disable the block gas limit.
     /// Defaults to false.
     pub disable_block_gas_limit: Option<bool>,
-    /// Whether to enable the EIP-7825 (Osaka) transaction gas limit cap.
+    /// Transaction gas cap, introduced in [EIP-7825].
+    ///
+    /// When not set, defaults to the value defined by the used hardfork.
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    pub transaction_gas_cap: Option<u64>,
+    /// Whether to disable the [EIP-7825] transaction gas cap.
     /// Defaults to false.
-    pub enable_tx_gas_limit_cap: Option<bool>,
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    pub disable_transaction_gas_cap: Option<bool>,
     /// The memory limit of the EVM in bytes.
     /// Defaults to `33_554_432` (2^25 = 32MiB).
     pub memory_limit: Option<u64>,
@@ -224,7 +236,8 @@ where
             block_difficulty,
             block_gas_limit,
             disable_block_gas_limit,
-            enable_tx_gas_limit_cap,
+            transaction_gas_cap,
+            disable_transaction_gas_cap,
             memory_limit,
             local_predeploys,
             fork_url,
@@ -241,6 +254,27 @@ where
         } = value;
 
         let mut evm_opts = SolidityTestRunnerConfig::default_evm_opts();
+
+        if let Some(disable_block_gas_limit) = disable_block_gas_limit {
+            evm_opts.disable_block_gas_limit = disable_block_gas_limit;
+        }
+
+        if let Some(disable_transaction_gas_cap) = disable_transaction_gas_cap {
+            evm_opts.disable_transaction_gas_cap = disable_transaction_gas_cap;
+        }
+
+        if let Some(transaction_gas_cap) = transaction_gas_cap
+            && !evm_opts.disable_transaction_gas_cap
+        {
+            // If a transaction gas cap is set, it should override the default gas
+            // limit.
+            evm_opts.env.gas_limit = transaction_gas_cap;
+        } else if let Some(block_gas_limit) = block_gas_limit
+            && !evm_opts.disable_block_gas_limit
+        {
+            // If a block gas limit is set, it should override the default gas limit.
+            evm_opts.env.gas_limit = block_gas_limit;
+        }
 
         if let Some(gas_limit) = gas_limit {
             evm_opts.env.gas_limit = gas_limit;
@@ -302,13 +336,7 @@ where
             evm_opts.memory_limit = memory_limit;
         }
 
-        if let Some(disable_block_gas_limit) = disable_block_gas_limit {
-            evm_opts.disable_block_gas_limit = disable_block_gas_limit;
-        }
-
-        if let Some(enable_tx_gas_limit_cap) = enable_tx_gas_limit_cap {
-            evm_opts.enable_tx_gas_limit_cap = enable_tx_gas_limit_cap;
-        }
+        evm_opts.transaction_gas_cap = transaction_gas_cap;
 
         let local_predeploys = local_predeploys.unwrap_or_default();
 
@@ -334,5 +362,207 @@ where
             generate_gas_report,
             test_function_overrides,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn default_config() -> TestRunnerConfig {
+        TestRunnerConfig {
+            project_root: PathBuf::from("/path/to/project"),
+            isolate: None,
+            ffi: None,
+            sender: None,
+            tx_origin: None,
+            initial_balance: None,
+            block_number: None,
+            chain_id: None,
+            hardfork: edr_chain_l1::Hardfork::LONDON.to_string(),
+            gas_limit: None,
+            gas_price: None,
+            block_base_fee_per_gas: None,
+            block_coinbase: None,
+            block_timestamp: None,
+            block_difficulty: None,
+            block_gas_limit: None,
+            disable_block_gas_limit: None,
+            transaction_gas_cap: None,
+            disable_transaction_gas_cap: None,
+            memory_limit: None,
+            local_predeploys: None,
+            fork_url: None,
+            fork_block_number: None,
+            cheatcode: CheatsConfigOptions::default(),
+            fuzz: FuzzConfig::default(),
+            invariant: InvariantConfig::default(),
+            collect_stack_traces: CollectStackTraces::OnFailure,
+            include_traces: IncludeTraces::default(),
+            on_collected_coverage_fn: None,
+            test_pattern: TestFilterConfig { test_pattern: None },
+            generate_gas_report: None,
+            test_function_overrides: None,
+        }
+    }
+
+    #[test]
+    fn test_disabled_transaction_gas_cap_doesnt_lower_default_gas_limit() {
+        const TRANSACTION_GAS_CAP: u64 = 1_000_000;
+        let config = TestRunnerConfig {
+            transaction_gas_cap: Some(TRANSACTION_GAS_CAP),
+            disable_transaction_gas_cap: Some(true),
+            ..default_config()
+        };
+
+        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.gas_limit,
+            SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::default_evm_opts().env.gas_limit,
+            "EVM gas limit should not be set to the transaction gas cap when the transaction gas cap is disabled"
+        );
+    }
+
+    #[test]
+    fn test_enabled_custom_transaction_gas_cap_lowers_default_gas_limit() {
+        const TRANSACTION_GAS_CAP: u64 = 1_000_000;
+        let config = TestRunnerConfig {
+            transaction_gas_cap: Some(TRANSACTION_GAS_CAP),
+            disable_transaction_gas_cap: Some(false),
+            ..default_config()
+        };
+
+        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.gas_limit,
+            TRANSACTION_GAS_CAP,
+            "EVM gas limit should be set to the transaction gas cap when it is provided and not disabled"
+        );
+    }
+
+    #[test]
+    fn test_enabled_default_transaction_gas_cap_doesnt_lower_default_gas_limit() {
+        let config = TestRunnerConfig {
+            transaction_gas_cap: None,
+            disable_transaction_gas_cap: Some(false),
+            ..default_config()
+        };
+
+        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.gas_limit,
+            SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::default_evm_opts().env.gas_limit,
+            "EVM gas limit should use the default gas limit when the default transaction gas cap is requested"
+        );
+    }
+
+    #[test]
+    fn test_enabled_custom_block_gas_limit_lowers_default_gas_limit() {
+        const BLOCK_GAS_LIMIT: u64 = 1_000_000;
+        let config = TestRunnerConfig {
+            block_gas_limit: Some(BLOCK_GAS_LIMIT),
+            disable_block_gas_limit: Some(false),
+            ..default_config()
+        };
+
+        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.gas_limit,
+            BLOCK_GAS_LIMIT,
+            "EVM gas limit should be set to the block gas limit when it is provided and not disabled"
+        );
+    }
+
+    #[test]
+    fn test_enabled_default_block_gas_limit_doesnt_lower_default_gas_limit() {
+        let config = TestRunnerConfig {
+            block_gas_limit: None,
+            disable_block_gas_limit: Some(false),
+            ..default_config()
+        };
+
+        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.gas_limit,
+            SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::default_evm_opts().env.gas_limit,
+            "EVM gas limit should use the default gas limit when the default block gas limit is requested"
+        );
+    }
+
+    #[test]
+    fn test_disabled_block_gas_limit_doesnt_lower_default_gas_limit() {
+        const BLOCK_GAS_LIMIT: u64 = 1_000_000;
+        let config = TestRunnerConfig {
+            block_gas_limit: Some(BLOCK_GAS_LIMIT),
+            disable_block_gas_limit: Some(true),
+            ..default_config()
+        };
+
+        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.gas_limit,
+            SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::default_evm_opts().env.gas_limit,
+            "EVM gas limit should not be set to the block gas limit when the block gas limit is disabled"
+        );
+    }
+
+    #[test]
+    fn test_higher_custom_gas_limit_overrides_block_and_transaction_gas_limits() {
+        const TRANSACTION_GAS_CAP: u64 = 1_000_000;
+        const BLOCK_GAS_LIMIT: u64 = 1_000_000;
+        const CUSTOM_GAS_LIMIT: u64 = 2_000_000;
+        let config = TestRunnerConfig {
+            transaction_gas_cap: Some(TRANSACTION_GAS_CAP),
+            block_gas_limit: Some(BLOCK_GAS_LIMIT),
+            gas_limit: Some(CUSTOM_GAS_LIMIT),
+            disable_transaction_gas_cap: Some(false),
+            disable_block_gas_limit: Some(false),
+            ..default_config()
+        };
+
+        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.gas_limit,
+            CUSTOM_GAS_LIMIT,
+            "EVM gas limit should be set to the custom gas limit when it is provided, even if transaction and block gas limits are also provided"
+        );
+    }
+
+    #[test]
+    fn test_lower_custom_gas_limit_overrides_block_and_transaction_gas_limits() {
+        const TRANSACTION_GAS_CAP: u64 = 1_000_000;
+        const BLOCK_GAS_LIMIT: u64 = 1_000_000;
+        const CUSTOM_GAS_LIMIT: u64 = 500_000;
+        let config = TestRunnerConfig {
+            transaction_gas_cap: Some(TRANSACTION_GAS_CAP),
+            block_gas_limit: Some(BLOCK_GAS_LIMIT),
+            gas_limit: Some(CUSTOM_GAS_LIMIT),
+            disable_transaction_gas_cap: Some(false),
+            disable_block_gas_limit: Some(false),
+            ..default_config()
+        };
+
+        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.gas_limit,
+            CUSTOM_GAS_LIMIT,
+            "EVM gas limit should be set to the custom gas limit when it is provided, even if transaction and block gas limits are also provided"
+        );
     }
 }

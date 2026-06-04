@@ -35,16 +35,12 @@ describe("Provider", () => {
     allowUnlimitedContractSize: true,
     bailOnCallFailure: false,
     bailOnTransactionFailure: false,
-    blockGasLimit: 300_000_000n,
     chainId: 1n,
     chainOverrides: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
+    defaultTransactionGasLimit: 300_000_000n,
     genesisState,
     hardfork: l1HardforkToString(l1HardforkLatest()),
-    initialBlobGas: {
-      gasUsed: 0n,
-      excessGas: 0n,
-    },
     initialParentBeaconBlockRoot: Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",
       "hex"
@@ -52,9 +48,17 @@ describe("Provider", () => {
     minGasPrice: 0n,
     mining: {
       autoMine: true,
+      blockGasLimit: 300_000_000n,
       memPool: {
         order: MineOrdering.Priority,
       },
+    },
+    network: {
+      genesisBlobGas: {
+        gasUsed: 0n,
+        excessGas: 0n,
+      },
+      genesisBlockGasLimit: 300_000_000n,
     },
     networkId: 123n,
     observability: {},

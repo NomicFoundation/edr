@@ -6,20 +6,24 @@ use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
 use edr_solidity::compiler::create_models_and_decode_bytecodes;
-use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
+use napi::{bindgen_prelude::ObjectFinalize, tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 use parking_lot::RwLock;
 
 pub use self::factory::ProviderFactory;
 use self::response::Response;
-use crate::{call_override::CallOverrideCallback, contract_decoder::ContractDecoder};
+use crate::{
+    async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
+    contract_decoder::ContractDecoder,
+};
 
 /// A JSON-RPC provider for Ethereum.
-#[napi]
+#[napi(custom_finalize)]
 pub struct Provider {
     contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
+    dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
 }
@@ -30,6 +34,7 @@ impl Provider {
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
+        dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
@@ -38,6 +43,7 @@ impl Provider {
             contract_decoder,
             provider,
             runtime,
+            dropped_provider_sender,
             #[cfg(feature = "scenarios")]
             scenario_file,
         }
@@ -165,5 +171,22 @@ impl Provider {
             })
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+    }
+}
+
+impl ObjectFinalize for Provider {
+    fn finalize(self, _env: Env) -> napi::Result<()> {
+        let Self {
+            provider,
+            dropped_provider_sender,
+            ..
+        } = self;
+
+        // Off-loads deallocation to a background thread to avoid blocking the
+        // JS thread (the provider may be running thread-safe functions on a
+        // background thread; dropping it here would deadlock).
+        dropped_provider_sender.deallocate(provider);
+
+        Ok(())
     }
 }

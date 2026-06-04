@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use edr_scenarios::ScenarioConfig;
 use napi::tokio::{fs::File, io::AsyncWriteExt, sync::Mutex};
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, Rng};
 
 const SCENARIO_FILE_PREFIX: &str = "EDR_SCENARIO_PREFIX";
 
@@ -17,7 +17,7 @@ pub async fn scenario_file(
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards")
             .as_secs();
-        let suffix = rand::thread_rng()
+        let suffix = rand::rng()
             .sample_iter(&Alphanumeric)
             .take(4)
             .map(char::from)

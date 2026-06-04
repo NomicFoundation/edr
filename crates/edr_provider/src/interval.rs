@@ -8,8 +8,8 @@ use tokio::{
 };
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
-    time::TimeSinceEpoch, IntervalConfig, ProviderSpec,
+    config::IntervalConfig, data::ProviderData, error::ProviderErrorForChainSpec,
+    spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderSpec,
 };
 
 /// Type for interval mining on a separate thread.

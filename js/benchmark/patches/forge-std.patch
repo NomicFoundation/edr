@@ -4178,7 +4178,7 @@ index 6bedfcc..cf2b18b 100644
          NestedJson memory decodedData = abi.decode(data, (NestedJson));
  
 diff --git a/test/StdToml.t.sol b/test/StdToml.t.sol
-index 5a45f4f..57bb5d9 100644
+index 5a45f4f..bd4e64b 100644
 --- a/test/StdToml.t.sol
 +++ b/test/StdToml.t.sol
 @@ -7,11 +7,13 @@ contract StdTomlTest is Test {
@@ -4211,10 +4211,10 @@ index 5a45f4f..57bb5d9 100644
          string memory semiFinal = json.serialize("b", string("test"));
          string memory finalJson = json.serialize("c", semiFinal);
 -        finalJson.write(path);
-+        finalJson.write(readPath);
++        finalJson.write(writePath);
  
 -        string memory toml = vm.readFile(path);
-+        string memory toml = vm.readFile(readPath);
++        string memory toml = vm.readFile(writePath);
          bytes memory data = toml.parseRaw("$");
          NestedToml memory decodedData = abi.decode(data, (NestedToml));
  

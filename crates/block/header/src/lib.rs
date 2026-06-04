@@ -3,6 +3,7 @@ mod overrides;
 
 pub use alloy_eips::eip4895::Withdrawal;
 use alloy_eips::eip7840::BlobParams;
+use alloy_trie::root::ordered_trie_root;
 use edr_chain_spec::{
     BlobExcessGasAndPrice, BlockEnvConstructor, BlockEnvForHardfork, BlockEnvTrait, EvmSpecId,
 };
@@ -10,7 +11,6 @@ use edr_eip1559::BaseFeeParams;
 pub use edr_eip4844::BlobGas;
 use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::{b256, keccak256, Address, Bloom, Bytes, B256, B64, KECCAK_NULL_RLP, U256};
-use edr_trie::ordered_trie_root;
 
 pub use self::overrides::HeaderOverrides;
 use crate::difficulty::calculate_ethash_canonical_difficulty;
@@ -400,7 +400,7 @@ impl PartialHeader {
             withdrawals_root: overrides.withdrawals_root.or_else(|| {
                 if evm_spec_id >= EvmSpecId::SHANGHAI {
                     let withdrawals_root = withdrawals.map_or(KECCAK_NULL_RLP, |withdrawals| {
-                        ordered_trie_root(withdrawals.iter().map(alloy_rlp::encode))
+                        ordered_trie_root(withdrawals)
                     });
 
                     Some(withdrawals_root)

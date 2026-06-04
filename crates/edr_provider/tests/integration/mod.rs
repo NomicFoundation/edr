@@ -1,5 +1,6 @@
 mod coverage;
 mod disable_balance_check;
+mod disable_block_gas_limit;
 mod eip2537;
 mod eip4844;
 mod eip7623;

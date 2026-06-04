@@ -510,9 +510,10 @@ function preprocessConfig(config: any) {
     });
   config = removeNull(config);
 
-  config.providerConfig.initialDate = new Date(
-    config.providerConfig.initialDate
+  config.providerConfig.blockGasLimit = BigInt(
+    config.providerConfig.defaultTransactionGasLimit
   );
+  delete config.providerConfig.defaultTransactionGasLimit;
 
   config.providerConfig.hardfork = normalizeHardfork(
     config.providerConfig.hardfork
@@ -551,7 +552,10 @@ function preprocessConfig(config: any) {
   for (const key of Object.keys(config.providerConfig.chainOverrides)) {
     const hardforkHistory = new Map();
     const chainConfig = config.providerConfig.chainOverrides[key];
-    for (const { condition, hardfork } of chainConfig.hardforkActivations) {
+    for (const {
+      condition,
+      hardfork,
+    } of chainConfig.hardforkActivationOverrides) {
       if (!_.isUndefined(condition.timestamp)) {
         throw new Error("Hardfork activations by timestamp are not supported");
       } else if (!_.isUndefined(condition.block)) {
@@ -565,13 +569,26 @@ function preprocessConfig(config: any) {
   }
   config.providerConfig.chains = chains;
 
-  if (!_.isUndefined(config.providerConfig.fork)) {
-    config.providerConfig.forkConfig = config.providerConfig.fork;
-    delete config.providerConfig.fork;
+  if (!_.isUndefined(config.providerConfig.network.Fork)) {
+    config.providerConfig.forkConfig = config.providerConfig.network.Fork;
+    delete config.providerConfig.network;
+  } else if (!_.isUndefined(config.providerConfig.network.Local)) {
+    config.providerConfig.initialBlobGas =
+      config.providerConfig.network.Local.genesisBlobGas;
+
+    if (!_.isUndefined(config.providerConfig.network.Local.genesisBlockTime)) {
+      config.providerConfig.initialDate = new Date(
+        config.providerConfig.network.Local.genesisBlockTime
+      );
+    }
   }
+
+  delete config.providerConfig.network;
 
   config.providerConfig.minGasPrice = BigInt(config.providerConfig.minGasPrice);
   config.providerConfig.enableRip7212 = false;
+
+  delete config.providerConfig.transactionGasCap;
 
   return config;
 }

@@ -33,10 +33,7 @@ use foundry_evm_traces::CallTraceArena;
 use lazy_static::lazy_static;
 
 pub use self::{
-    config::{
-        AccountOverride, Fork as ForkConfig, Interval as IntervalConfig, MemPool as MemPoolConfig,
-        Mining as MiningConfig, Provider as ProviderConfig,
-    },
+    config::AccountOverride,
     data::{CallResult, CallResultWithMetadata, ProviderData},
     debug_trace::DebugTraceError,
     error::{

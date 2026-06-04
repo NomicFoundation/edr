@@ -5,6 +5,7 @@ use std::{
 };
 
 use alloy_rlp::Encodable as _;
+use alloy_trie::root::ordered_trie_root_with_encoder;
 use derive_where::derive_where;
 use edr_block_api::{
     sync::SyncBlock, Block, BlockReceipts, EmptyBlock, FetchBlockReceipts, GenesisBlockOptions,
@@ -21,7 +22,6 @@ use edr_receipt::{
 use edr_state_api::{StateDebug as _, StateError};
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_transaction::TransactionAndReceipt;
-use edr_trie::ordered_trie_root;
 use edr_utils::CastArcFrom;
 use itertools::izip;
 
@@ -74,8 +74,11 @@ impl<
         withdrawals: Option<Vec<Withdrawal>>,
     ) -> Self {
         let ommer_hashes = ommers.iter().map(BlockHeader::hash).collect::<Vec<_>>();
-        let transactions_root =
-            ordered_trie_root(transactions.iter().map(ExecutableTransaction::rlp_encoding));
+        // `rlp_encoding()` already returns the transaction's EIP-2718 consensus
+        // encoding, so it's the trie value as-is — re-encoding it would double-wrap.
+        let transactions_root = ordered_trie_root_with_encoder(&transactions, |tx, buf| {
+            buf.extend_from_slice(tx.rlp_encoding());
+        });
 
         let header = BlockHeader::new(partial_header, transactions_root);
 

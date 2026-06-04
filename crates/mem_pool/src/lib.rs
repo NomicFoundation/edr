@@ -204,8 +204,9 @@ impl<SignedTransactionT: ExecutableTransaction> OrderedTransaction<SignedTransac
 /// The mempool contains transactions pending inclusion in the blockchain.
 #[derive(Clone, Debug)]
 pub struct MemPool<SignedTransactionT: ExecutableTransaction> {
-    /// The block's gas limit
-    block_gas_limit: NonZeroU64,
+    /// The block's gas limit. If `None`, enforcement of the block gas limit is
+    /// disabled.
+    block_gas_limit: Option<NonZeroU64>,
     /// Transactions that can be executed now
     pending_transactions: IndexMap<Address, Vec<OrderedTransaction<SignedTransactionT>>>,
     /// Mapping of transaction hashes to transaction
@@ -224,7 +225,7 @@ pub struct MemPool<SignedTransactionT: ExecutableTransaction> {
 
 impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
     /// Constructs a new [`MemPool`] with the specified block gas limit.
-    pub fn new(block_gas_limit: NonZeroU64, transaction_gas_cap: Option<u64>) -> Self {
+    pub fn new(block_gas_limit: Option<NonZeroU64>, transaction_gas_cap: Option<u64>) -> Self {
         Self {
             block_gas_limit,
             pending_transactions: IndexMap::new(),
@@ -236,7 +237,7 @@ impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
     }
 
     /// Retrieves the instance's block gas limit.
-    pub fn block_gas_limit(&self) -> NonZeroU64 {
+    pub fn block_gas_limit(&self) -> Option<NonZeroU64> {
         self.block_gas_limit
     }
 
@@ -246,7 +247,11 @@ impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
     }
 
     /// Sets the instance's block gas limit.
-    pub fn set_block_gas_limit<S>(&mut self, state: &S, limit: NonZeroU64) -> Result<(), S::Error>
+    pub fn set_block_gas_limit<S>(
+        &mut self,
+        state: &S,
+        limit: Option<NonZeroU64>,
+    ) -> Result<(), S::Error>
     where
         S: State + ?Sized,
         S::Error: Debug,
@@ -366,10 +371,10 @@ impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
     {
         fn is_valid_tx(
             transaction: &impl ExecutableTransaction,
-            block_gas_limit: NonZeroU64,
+            block_gas_limit: Option<NonZeroU64>,
             sender: &AccountInfo,
         ) -> bool {
-            transaction.gas_limit() <= block_gas_limit.get()
+            block_gas_limit.is_none_or(|block_gas_limit| transaction.gas_limit() <= block_gas_limit.get())
                 && upfront_cost(transaction) <= sender.balance
                 // Remove all mined transactions
                 && transaction.nonce() >= sender.nonce
@@ -465,9 +470,11 @@ impl<SignedTransactionT: Clone + ExecutableTransaction> MemPool<SignedTransactio
             });
         }
 
-        if transaction_gas_limit > self.block_gas_limit.get() {
+        if let Some(block_gas_limit) = self.block_gas_limit
+            && transaction_gas_limit > block_gas_limit.get()
+        {
             return Err(MemPoolAddTransactionError::ExceedsBlockGasLimit {
-                block_gas_limit: self.block_gas_limit,
+                block_gas_limit,
                 transaction_gas_limit,
             });
         }

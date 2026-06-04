@@ -64,18 +64,14 @@ describe("Multi-chain", () => {
     allowUnlimitedContractSize: true,
     bailOnCallFailure: false,
     bailOnTransactionFailure: false,
-    blockGasLimit: 300_000_000n,
     chainId: 123n,
     chainOverrides: [],
     coinbase: new Uint8Array(
       Buffer.from("0000000000000000000000000000000000000000", "hex")
     ),
+    defaultTransactionGasLimit: 300_000_000n,
     genesisState,
     hardfork: opHardforkToString(opLatestHardfork()),
-    initialBlobGas: {
-      gasUsed: 0n,
-      excessGas: 0n,
-    },
     initialParentBeaconBlockRoot: new Uint8Array(
       Buffer.from(
         "0000000000000000000000000000000000000000000000000000000000000000",
@@ -85,9 +81,17 @@ describe("Multi-chain", () => {
     minGasPrice: 0n,
     mining: {
       autoMine: true,
+      blockGasLimit: 300_000_000n,
       memPool: {
         order: MineOrdering.Priority,
       },
+    },
+    network: {
+      genesisBlobGas: {
+        gasUsed: 0n,
+        excessGas: 0n,
+      },
+      genesisBlockGasLimit: 300_000_000n,
     },
     networkId: 123n,
     observability: {},
@@ -153,7 +157,7 @@ describe("Multi-chain", () => {
       OP_CHAIN_TYPE,
       {
         ...providerConfig,
-        fork: {
+        network: {
           url: ALCHEMY_URL.replace("eth-", "opt-"),
         },
         // TODO: Add support for overriding remote fork state when the local fork is different

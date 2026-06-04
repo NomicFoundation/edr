@@ -12,6 +12,10 @@ pub struct EvmConfig {
     ///
     /// Chain ID was introduced in EIP-155.
     pub chain_id: u64,
+    /// Whether to disable REVM's enforcement of the block gas limit.
+    ///
+    /// By default, it is set to `false`.
+    pub disable_block_gas_limit: bool,
     /// EIP-3607 rejects transactions from senders with deployed code
     ///
     /// In development, it can be desirable to simulate calls from contracts,
@@ -40,6 +44,7 @@ impl EvmConfig {
     pub fn with_chain_id(chain_id: u64) -> Self {
         Self {
             chain_id,
+            disable_block_gas_limit: false,
             disable_eip3607: false,
             limit_contract_code_size: None,
             transaction_gas_cap: None,
@@ -48,9 +53,13 @@ impl EvmConfig {
 
     /// Converts the EVM configuration into a `CfgEnv` for the specified
     /// hardfork.
-    pub fn to_cfg_env<HardforkT: Into<EvmSpecId>>(&self, hardfork: HardforkT) -> CfgEnv<HardforkT> {
+    pub fn to_cfg_env<HardforkT: Clone + Into<EvmSpecId>>(
+        &self,
+        hardfork: HardforkT,
+    ) -> CfgEnv<HardforkT> {
         let mut cfg_env = CfgEnv::new_with_spec(hardfork);
         cfg_env.chain_id = self.chain_id;
+        cfg_env.disable_block_gas_limit = self.disable_block_gas_limit;
         cfg_env.disable_eip3607 = self.disable_eip3607;
         cfg_env.limit_contract_code_size = self.limit_contract_code_size;
         cfg_env.tx_gas_limit_cap = self.transaction_gas_cap;

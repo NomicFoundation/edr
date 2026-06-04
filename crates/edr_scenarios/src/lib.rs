@@ -10,9 +10,12 @@ use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 use chrono::{DateTime, Utc};
 use edr_block_header::BlobGas;
 use edr_chain_config::ChainOverride;
-use edr_napi_core::provider::Config as ProviderConfig;
+use edr_napi_core::provider::{Config as ProviderConfig, ConfigOption};
 use edr_primitives::{Address, ChainId, HashMap, B256};
-use edr_provider::{AccountOverride, ForkConfig, MiningConfig};
+use edr_provider::{
+    config::{ForkConfig, MiningConfig},
+    AccountOverride,
+};
 use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_str};
 use serde::{Deserialize, Serialize};
 
@@ -35,43 +38,93 @@ pub struct ScenarioProviderConfig {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
-    pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub chain_overrides: HashMap<ChainId, ChainOverride<String>>,
     pub coinbase: Address,
-    pub fork: Option<ForkConfig<String>>,
+    /// The default transaction gas limit to use for RPC call and transaction
+    /// requests that do not specify a `gas` value.
+    pub default_transaction_gas_limit: NonZeroU64,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
     #[serde(with = "alloy_serde::quantity::opt")]
     pub initial_base_fee_per_gas: Option<u128>,
-    pub initial_blob_gas: Option<BlobGas>,
-    /// The initial date of the blockchain, in ISO 8601 format.
-    pub initial_date: Option<DateTime<Utc>>,
     pub initial_parent_beacon_block_root: Option<B256>,
     #[serde(with = "alloy_serde::quantity")]
     pub min_gas_price: u128,
     pub mining: MiningConfig,
+    pub network: NetworkConfig<String>,
     pub network_id: u64,
     pub owned_accounts: Vec<SerializableSecretKey>,
     /// Transaction gas cap, introduced in [EIP-7825].
     ///
-    /// When not set, will default to value defined by the used hardfork
-    ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
-    #[serde(default)]
-    pub transaction_gas_cap: Option<u64>,
+    pub transaction_gas_cap: ConfigOption<u64>,
+}
+
+/// Configuration for the provider's network.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub enum NetworkConfig<HardforkT> {
+    /// Forked blockchain.
+    Fork(ForkConfig<HardforkT>),
+    /// Locally mined blockchain.
+    Local(LocalConfig),
+}
+
+impl<HardforkT> From<NetworkConfig<HardforkT>> for edr_provider::config::NetworkConfig<HardforkT> {
+    fn from(value: NetworkConfig<HardforkT>) -> Self {
+        match value {
+            NetworkConfig::Fork(fork_config) => Self::Fork(fork_config),
+            NetworkConfig::Local(local_config) => Self::Local(local_config.into()),
+        }
+    }
+}
+
+impl<HardforkT> From<edr_provider::config::Network<HardforkT>> for NetworkConfig<HardforkT> {
+    fn from(value: edr_provider::config::Network<HardforkT>) -> Self {
+        match value {
+            edr_provider::config::Network::Fork(fork_config) => Self::Fork(fork_config),
+            edr_provider::config::Network::Local(local_config) => Self::Local(local_config.into()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalConfig {
+    pub genesis_blob_gas: Option<BlobGas>,
+    pub genesis_block_gas_limit: NonZeroU64,
+    /// The initial date of the blockchain, in ISO 8601 format.
+    pub genesis_block_time: Option<DateTime<Utc>>,
+}
+
+impl From<edr_provider::config::Local> for LocalConfig {
+    fn from(value: edr_provider::config::Local) -> Self {
+        Self {
+            genesis_blob_gas: value.genesis_blob_gas,
+            genesis_block_gas_limit: value.genesis_block_gas_limit,
+            genesis_block_time: value.genesis_block_time.map(DateTime::<Utc>::from),
+        }
+    }
+}
+
+impl From<LocalConfig> for edr_provider::config::Local {
+    fn from(value: LocalConfig) -> Self {
+        Self {
+            genesis_blob_gas: value.genesis_blob_gas,
+            genesis_block_gas_limit: value.genesis_block_gas_limit,
+            genesis_block_time: value.genesis_block_time.map(SystemTime::from),
+        }
+    }
 }
 
 impl From<ScenarioProviderConfig> for ProviderConfig {
-    fn from(value: ScenarioProviderConfig) -> Self {
+    fn from(mut value: ScenarioProviderConfig) -> Self {
         // We don't support custom cache directories for replaying scenarios, so set it
         // to the default directory.
-        let fork = value.fork.map(|mut fork_config| {
+        if let NetworkConfig::Fork(fork_config) = &mut value.network {
             fork_config.cache_dir = PathBuf::from(edr_defaults::CACHE_DIR);
             fork_config.chain_overrides = value.chain_overrides;
-
-            fork_config
-        });
+        }
 
         Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
@@ -79,18 +132,16 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             base_fee_params: None,
-            block_gas_limit: value.block_gas_limit,
+            default_transaction_gas_limit: value.default_transaction_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,
-            fork,
             genesis_state: value.genesis_state,
             hardfork: value.hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
-            initial_blob_gas: value.initial_blob_gas,
-            initial_date: value.initial_date.map(SystemTime::from),
             initial_parent_beacon_block_root: value.initial_parent_beacon_block_root,
             min_gas_price: value.min_gas_price,
             mining: value.mining,
+            network: value.network.into(),
             network_id: value.network_id,
             observability: edr_provider::observability::ObservabilityConfig::default(),
             owned_accounts: value
@@ -120,21 +171,19 @@ impl TryFrom<ProviderConfig> for ScenarioProviderConfig {
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
-            block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
             // Chain overrides are not supported for newly recorded scenarios. We merely maintain it
             // for backwards compatibility for Hardhat 2.
             chain_overrides: HashMap::default(),
             coinbase: value.coinbase,
-            fork: value.fork,
+            default_transaction_gas_limit: value.default_transaction_gas_limit,
             genesis_state: value.genesis_state,
             hardfork: value.hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
-            initial_blob_gas: value.initial_blob_gas,
-            initial_date: value.initial_date.map(DateTime::from),
             initial_parent_beacon_block_root: value.initial_parent_beacon_block_root,
             min_gas_price: value.min_gas_price,
             mining: value.mining,
+            network: value.network.into(),
             network_id: value.network_id,
             owned_accounts: value
                 .owned_accounts

@@ -31,7 +31,7 @@ impl SyncProviderFactory for GenericChainProviderFactory {
         )?;
 
         let provider_config =
-            edr_provider::ProviderConfig::<edr_chain_l1::Hardfork>::try_from(provider_config)?;
+            edr_provider::config::Provider::<edr_chain_l1::Hardfork>::try_from(provider_config)?;
 
         let provider = edr_provider::Provider::<GenericChainSpec>::new(
             runtime.clone(),

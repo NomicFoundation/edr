@@ -3,9 +3,10 @@ use std::{str::FromStr, sync::Arc};
 use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_primitives::{Address, Bytes, HashMap, U256};
 use edr_provider::{
+    config::ForkConfig,
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::json_rpc_url_provider;

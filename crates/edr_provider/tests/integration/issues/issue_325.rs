@@ -4,9 +4,10 @@ use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_eth::PreEip1898BlockSpec;
 use edr_primitives::{Address, B256};
 use edr_provider::{
+    config::MiningConfig,
     test_utils::{create_test_config_with, one_ether, MinimalProviderConfig},
     time::CurrentTime,
-    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
+    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;

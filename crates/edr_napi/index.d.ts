@@ -264,8 +264,28 @@ export interface IntervalRange {
 /** Configuration for the provider's miner. */
 export interface MiningConfig {
   autoMine: boolean
+  /**
+   * The block gas limit to use for mining a block.
+   *
+   * When not set, enforcement of the block gas limit is disabled in the mem
+   * pool, miner, and REVM.
+   */
+  blockGasLimit?: bigint
   interval?: bigint | IntervalRange
   memPool: MemPoolConfig
+}
+/** Configuration for a locally mined blockchain. */
+export interface LocalConfig {
+  /**
+   * The blob gas used for the genesis block, introduced in [EIP-4844].
+   *
+   * [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+   */
+  genesisBlobGas?: BlobGas
+  /** The block gas limit of the genesis block. */
+  genesisBlockGasLimit: bigint
+  /** The date, in seconds since the Unix epoch, of the genesis block. */
+  genesisBlockTime?: bigint
 }
 /** Configuration for runtime observability. */
 export interface ObservabilityConfig {
@@ -302,17 +322,15 @@ export interface ProviderConfig {
    * will be used.
    */
   baseFeeConfig?: Array<BaseFeeParamActivation>
-  /** The gas limit of each block */
-  blockGasLimit: bigint
   /** The chain ID of the blockchain */
   chainId: bigint
   /** The address of the coinbase */
   coinbase: Uint8Array
   /**
-   * The configuration for forking a blockchain. If not provided, a local
-   * blockchain will be created
+   * The default transaction gas limit to use for RPC call and transaction
+   * requests that do not specify a `gas` value.
    */
-  fork?: ForkConfig
+  defaultTransactionGasLimit: bigint
   /** The genesis state of the blockchain */
   genesisState: Array<AccountOverride>
   /** The hardfork of the blockchain */
@@ -322,10 +340,6 @@ export interface ProviderConfig {
    * transactions and later
    */
   initialBaseFeePerGas?: bigint
-  /** The initial blob gas of the blockchain. Required for EIP-4844 */
-  initialBlobGas?: BlobGas
-  /** The initial date of the blockchain, in seconds since the Unix epoch */
-  initialDate?: bigint
   /**
    * The initial parent beacon block root of the blockchain. Required for
    * EIP-4788
@@ -335,6 +349,8 @@ export interface ProviderConfig {
   minGasPrice: bigint
   /** The configuration for the miner */
   mining: MiningConfig
+  /** The network configuration for the provider. */
+  network: ForkConfig | LocalConfig
   /** The network ID of the blockchain */
   networkId: bigint
   /** The configuration for the provider's observability */
@@ -346,11 +362,17 @@ export interface ProviderConfig {
   /**
    * Transaction gas cap, introduced in [EIP-7825].
    *
-   * When not set, will default to value defined by the used hardfork
+   * Integer values should be larger than zero.
+   *
+   * When `false`, enforcement of the transaction gas cap is disabled and
+   * transactions with any `gas` value are accepted by the mempool and
+   * executed without REVM's transaction gas cap check.
+   *
+   * When not set, a hardfork-specific default value will be used.
    *
    * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
    */
-  transactionGasCap?: bigint
+  transactionGasCap?: bigint | false
 }
 /** Tracing config for Solidity stack trace generation. */
 export interface TracingConfigWithBuffers {
@@ -720,10 +742,20 @@ export interface SolidityTestRunnerConfigArgs {
    */
   disableBlockGasLimit?: boolean
   /**
-   * Whether to enable the EIP-7825 (Osaka) transaction gas limit cap.
-   * Defaults to false.
+   * Transaction gas cap, introduced in [EIP-7825].
+   *
+   * When not set, defaults to the value defined by the used hardfork.
+   *
+   * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
    */
-  enableTxGasLimitCap?: boolean
+  transactionGasCap?: bigint
+  /**
+   * Whether to disable the [EIP-7825] transaction gas cap.
+   * Defaults to false.
+   *
+   * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+   */
+  disableTransactionGasCap?: boolean
   /**
    * The memory limit of the EVM in bytes.
    * Defaults to `33_554_432` (2^25 = 32MiB).

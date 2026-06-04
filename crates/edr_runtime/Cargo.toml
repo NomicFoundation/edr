@@ -18,7 +18,7 @@ thiserror.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
-criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support", "html_reports", "plotters"] }
+criterion = { version = "0.8.0", default-features = false, features = ["cargo_bench_support", "html_reports", "plotters"] }
 edr_chain_l1.workspace = true
 edr_chain_spec_provider.workspace = true
 edr_defaults.workspace = true

@@ -58,18 +58,14 @@ const providerConfig = {
   allowUnlimitedContractSize: true,
   bailOnCallFailure: false,
   bailOnTransactionFailure: false,
-  blockGasLimit: 6_000_000n,
   chainId: 123n,
   chainOverrides: [],
   coinbase: Uint8Array.from(
     Buffer.from("0000000000000000000000000000000000000000", "hex")
   ),
+  defaultTransactionGasLimit: 6_000_000n,
   genesisState,
   hardfork: SHANGHAI,
-  initialBlobGas: {
-    gasUsed: 0n,
-    excessGas: 0n,
-  },
   initialParentBeaconBlockRoot: Uint8Array.from(
     Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",
@@ -79,9 +75,17 @@ const providerConfig = {
   minGasPrice: 0n,
   mining: {
     autoMine: true,
+    blockGasLimit: 6_000_000n,
     memPool: {
       order: MineOrdering.Priority,
     },
+  },
+  network: {
+    genesisBlobGas: {
+      gasUsed: 0n,
+      excessGas: 0n,
+    },
+    genesisBlockGasLimit: 6_000_000n,
   },
   networkId: 123n,
   observability: {},

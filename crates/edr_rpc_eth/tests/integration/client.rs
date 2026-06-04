@@ -469,14 +469,16 @@ mod alchemy {
             .await
             .expect_err("should have failed");
 
-        let RpcClientError::HttpStatus(error) = error else {
-            panic!("Expected HttpStatus error, got: {error:?}");
-        };
-
-        assert_eq!(
-            reqwest::Error::from(error).status(),
-            Some(reqwest::StatusCode::BAD_REQUEST)
-        );
+        // Providers report "block does not exist yet" inconsistently: some
+        // return HTTP 400, others a JSON-RPC error. Accept either.
+        match error {
+            RpcClientError::HttpStatus(error) => assert_eq!(
+                reqwest::Error::from(error).status(),
+                Some(reqwest::StatusCode::BAD_REQUEST)
+            ),
+            RpcClientError::JsonRpcError { .. } => {}
+            other => panic!("Expected HttpStatus or JsonRpcError, got: {other:?}"),
+        }
     }
 
     #[tokio::test]
@@ -593,14 +595,16 @@ mod alchemy {
             .await
             .expect_err("should have failed");
 
-        let RpcClientError::HttpStatus(error) = error else {
-            panic!("Expected HttpStatus error, got: {error:?}");
-        };
-
-        assert_eq!(
-            reqwest::Error::from(error).status(),
-            Some(reqwest::StatusCode::BAD_REQUEST)
-        );
+        // Providers report "block does not exist yet" inconsistently: some
+        // return HTTP 400, others a JSON-RPC error. Accept either.
+        match error {
+            RpcClientError::HttpStatus(error) => assert_eq!(
+                reqwest::Error::from(error).status(),
+                Some(reqwest::StatusCode::BAD_REQUEST)
+            ),
+            RpcClientError::JsonRpcError { .. } => {}
+            other => panic!("Expected HttpStatus or JsonRpcError, got: {other:?}"),
+        }
     }
 
     #[tokio::test]

@@ -28,6 +28,7 @@ jobs:
   build:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
+    needs: check_commit
     permissions:
       contents: read
     strategy:
@@ -45,6 +46,12 @@ jobs:
           - host: windows-2025
             target: x86_64-pc-windows-msvc
             build: pnpm run build --strip
+            # NTFS small-file creates are ~5-10x slower than ext4/APFS,
+            # so napi-rs's pre-cargo `cargo metadata` step burns ~50s
+            # extracting ~500 .crate tarballs into registry/src/ on warm
+            # runs without this. Other platforms re-extract fast enough
+            # that caching it isn't worth the size hit.
+            cache_extra_paths: ~/.cargo/registry/src/
 
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
@@ -71,10 +78,10 @@ jobs:
       run:
         working-directory: ./crates/edr_napi
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 # v1
+      - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
         with:
           mode: firewall
 
@@ -107,16 +114,22 @@ jobs:
         with:
           node-version: 20
 
+      # Release commits build cold: napi codegen relies on proc-macro
+      # expansion (napi-rs#1297), so warm-cache builds risk shipping
+      # stale or empty index.js / index.d.ts. Don't enable for releases.
       - name: Cache cargo
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: needs.check_commit.outputs.tag == ''
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            .cargo-cache
             target/
-          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
+            ${{ matrix.settings.cache_extra_paths }}
+          key: ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-
 
       - name: Install dependencies (non-Windows)
         if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
@@ -138,7 +151,10 @@ jobs:
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
         with:
           image: ${{ matrix.settings.docker }}
-          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          # /home/runner/.cargo matches where the host's `Cache cargo` step writes
+          # (`~/.cargo` on GH-hosted Linux runners); docker -v doesn't expand `~` and
+          # GHA has no `runner.home` context, so the path is hardcoded.
+          options: "--user 0:0 -v /home/runner/.cargo/git:/usr/local/cargo/git -v /home/runner/.cargo/registry:/usr/local/cargo/registry -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
 
@@ -148,7 +164,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@10.17.1 --ignore-scripts
+            npm i -g pnpm@10.33.4 --ignore-scripts
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
@@ -161,7 +177,8 @@ jobs:
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
         with:
           image: ${{ matrix.settings.docker }}
-          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          # See gnu step above for why /home/runner/.cargo is hardcoded.
+          options: "--user 0:0 -v /home/runner/.cargo/git:/usr/local/cargo/git -v /home/runner/.cargo/registry:/usr/local/cargo/registry -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
 
@@ -174,13 +191,13 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@10.17.1 --ignore-scripts
+            npm i -g pnpm@10.33.4 --ignore-scripts
             pnpm -v
             pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
 
       - name: Upload artifact
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: bindings-${{ matrix.settings.target }}
           # The upload artifact action doesn't respect the working directory setting. Unclear if this is a bug or not
@@ -212,7 +229,7 @@ jobs:
       run:
         working-directory: ./crates/edr_napi
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Setup node and pnpm
@@ -222,7 +239,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: bindings-${{ matrix.settings.target }}
           path: ./crates/edr_napi/
@@ -245,7 +262,7 @@ jobs:
           - "22"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Setup node and pnpm
@@ -255,7 +272,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: bindings-x86_64-unknown-linux-gnu
           path: ./crates/edr_napi/
@@ -265,7 +282,7 @@ jobs:
       - name: Test bindings
         # Setting CI=1 is important to make PNPM install non-interactive
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
-        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@10.33.4; pnpm testNoBuild"
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
@@ -280,7 +297,7 @@ jobs:
           - "22"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Setup node and pnpm
@@ -290,7 +307,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline --libc=musl
       - name: Download artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: bindings-x86_64-unknown-linux-musl
           path: ./crates/edr_napi/
@@ -298,7 +315,7 @@ jobs:
         run: ls -R .
         shell: bash
       - name: Test bindings
-        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@10.33.4; pnpm testNoBuild"
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
@@ -313,7 +330,7 @@ jobs:
           - "22"
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Setup node and pnpm
@@ -321,7 +338,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Download artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: bindings-aarch64-unknown-linux-gnu
           path: ./crates/edr_napi/
@@ -337,7 +354,7 @@ jobs:
           image: node:${{ matrix.node }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node
+            npm install -g pnpm@10.33.4
             set -e
             pnpm testNoBuild
             ls -la
@@ -355,7 +372,7 @@ jobs:
           - "22"
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Setup node and pnpm
@@ -363,7 +380,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Download artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: bindings-aarch64-unknown-linux-musl
           path: ./crates/edr_napi/
@@ -378,7 +395,7 @@ jobs:
           image: node:${{ matrix.node }}-alpine
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node
+            npm install -g pnpm@10.33.4
             set -e
             pnpm testNoBuild
 
@@ -387,9 +404,8 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-    if: github.event_name != 'pull_request' || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR'
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.ref }}
@@ -436,7 +452,7 @@ jobs:
     outputs:
       filename: ${{ steps.pack.outputs.filename }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Setup node
@@ -448,7 +464,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y moreutils
       - name: Download all artifacts
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: ./crates/edr_napi/artifacts
       - name: Run prepublish to update all `package.json` files
@@ -482,7 +498,7 @@ jobs:
           echo "FILENAME=$FILENAME"
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
       - name: Upload packed tarball
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.pack.outputs.filename }}
           path: ./${{ steps.pack.outputs.filename }}
@@ -500,7 +516,7 @@ jobs:
       - prepare
     steps:
       - name: Download packed tarball
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.prepare.outputs.filename }}
           path: .
@@ -517,9 +533,9 @@ jobs:
           echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
           test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
       - name: Setup pnpm
-        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
       - name: Setup node
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         id: setup-node
         with:
           node-version: 22
@@ -536,7 +552,7 @@ jobs:
           # And in root edr package
           pnpm publish --dry-run
       - name: Checkout repository for comparison
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           path: remote-repository
           persist-credentials: false
@@ -559,13 +575,13 @@ jobs:
     needs: check_commit
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
 
       - name: Cache cooldown data
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             **/edr-cache/cargo-cooldown-check
@@ -580,7 +596,7 @@ jobs:
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
       - name: Notify pre-deploy
-        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -616,7 +632,7 @@ jobs:
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
       - name: Notify deployment to Slack
-        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
         with:
           webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -641,16 +657,16 @@ jobs:
               ]
             }
       - name: Download packed tarball
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.prepare.outputs.filename }}
           path: .
       - name: Decompress tarball
         run: tar -xvzf ${{ needs.prepare.outputs.filename }}
       - name: Setup pnpm
-        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
       - name: Setup node
-        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         id: setup-node
         with:
           node-version: 22

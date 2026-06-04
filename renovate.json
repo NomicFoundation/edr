@@ -1,0 +1,191 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "timezone": "UTC",
+  "schedule": ["before 9am on Monday"],
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "stopUpdatingLabel": "renovate:no-rebase",
+  "ignorePaths": [
+    "**/fixture-projects/**",
+    "hardhat-tests/**",
+    "crates/foundry/**",
+    "js/**"
+  ],
+  "packageRules": [
+    {
+      "description": "Ignore pnpm workspace: protocol deps. Renovate skips them natively — rule kept for explicit intent.",
+      "matchManagers": ["npm"],
+      "matchCurrentValue": "/^workspace:/",
+      "enabled": false
+    },
+    {
+      "description": "peerDependencies are a compatibility contract with consumers, not an installed dep. Bumping them is a deliberate API decision tied to a plugin major.",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["peerDependencies"],
+      "enabled": false
+    },
+    {
+      "description": "Extra cooldown for majors",
+      "matchUpdateTypes": ["major"],
+      "minimumReleaseAge": "30 days"
+    },
+    {
+      "description": "cargo: group minor/patch; majors stay individual",
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "cargo minor/patch"
+    },
+    {
+      "description": "cargo: ungroup pre-1.0 minors — Cargo treats 0.x→0.y as breaking, so these need their own PR.",
+      "matchManagers": ["cargo"],
+      "matchCurrentVersion": "<1.0.0",
+      "matchUpdateTypes": ["minor"],
+      "groupName": null
+    },
+    {
+      "description": "npm: group minor/patch; majors stay individual",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm minor/patch"
+    },
+    {
+      "description": "npm: ungroup pre-1.0 minors — ^0.x.y resolves like ~0.x.y, so 0.x→0.y is breaking and needs its own PR.",
+      "matchManagers": ["npm"],
+      "matchCurrentVersion": "<1.0.0",
+      "matchUpdateTypes": ["minor"],
+      "groupName": null
+    },
+    {
+      "description": "github-actions: group everything, including majors",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "alloy + revm (incl. op-* variants): tightly coupled across the EVM execution stack — revm builds on alloy types, op-* carries the upstream crates transitively, perf-sensitive. Bundle into one PR; in practice we want them moving in lockstep even when only one side has a release.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["/^(op-)?alloy(-|$)/", "/^(op-)?revm(-|$)/"],
+      "groupName": "alloy + revm"
+    },
+    {
+      "description": "rayon: pull out of the generic cargo minor/patch group — perf-sensitive, wants its own PR.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["rayon"],
+      "groupName": "rayon"
+    },
+    {
+      "description": "reqwest + middleware/retry/tracing: HTTP client on the RPC fork path. Lockstep across siblings, perf-sensitive on remote-block flows.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["/^reqwest(-|$)/"],
+      "groupName": "reqwest"
+    },
+    {
+      "description": "napi-rs: Rust crates and @napi-rs/cli are ABI-tied; must move in lockstep with edr_napi.",
+      "matchPackageNames": ["napi", "napi-derive", "napi-build", "@napi-rs/cli"],
+      "groupName": "napi-rs"
+    },
+    {
+      "description": "tokio family: keep async-surface versions in lockstep.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["/^tokio(-|$)/"],
+      "groupName": "tokio"
+    },
+    {
+      "description": "tracing family: keep span/event API consistent across crates.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["/^tracing(-|$)/"],
+      "groupName": "tracing"
+    },
+    {
+      "description": "External foundry-rs crates from crates.io. Need alloy + revm bump coordination.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["foundry-block-explorers", "foundry-compilers", "foundry-fork-db"],
+      "groupName": "foundry",
+      "enabled": false
+    },
+    {
+      "description": "Node major: bumped manually, only to even LTS. Surfaces touched: .nvmrc, engines.node, @types/node, setup-node.",
+      "matchDepNames": ["node", "@types/node"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "@tsconfig/nodeXX: Node major lives in the package name. Renovate emits these as 'replacement' updates; pair with the Node-major block above.",
+      "matchPackageNames": ["/^@tsconfig\\/node\\d+$/"],
+      "matchUpdateTypes": ["replacement"],
+      "enabled": false
+    },
+    {
+      "description": "pnpm/action-setup v6+ ships a pnpm 11 bootstrap that requires Node >= 22.13. Cap at v5 (= v4.4.0 retagged) until the Node-major rule above moves us off Node 20.",
+      "matchPackageNames": ["pnpm/action-setup"],
+      "allowedVersions": "<6"
+    },
+    {
+      "description": "pnpm major: pnpm 11 requires Node >= 22.13, so it's tied to the Node-major bump above. Blocks `packageManager`, `engines.pnpm`, and the `pnpm@X.Y.Z` customManager hits in workflow YAML. Minor/patch (incl. security) still flow through.",
+      "matchDepNames": ["pnpm"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "TS major: cascades to typescript-eslint and to consumers of EDR's TS-aware bindings. Bump manually when the ecosystem catches up.",
+      "matchPackageNames": ["typescript"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "TS 5.9+: tightens Buffer/Uint8Array variance and breaks Hardhat-copied test helpers in edr_napi. Drop this cap when Hardhat moves off 5.8.",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<5.9"
+    },
+    {
+      "description": "crates/edr_napi/package.json is devDependencies-only — nothing ships to Hardhat consumers. Block test/lint majors (chai/mocha/eslint/prettier/...): review cost without downstream benefit. @napi-rs/cli is exempt — kept in the napi-rs ABI lockstep group above.",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["crates/edr_napi/package.json"],
+      "matchUpdateTypes": ["major"],
+      "matchDepNames": ["!@napi-rs/cli"],
+      "enabled": false
+    },
+    {
+      "description": "slang_solidity (tag-pinned) and revm-inspectors (Wodann fork at a fixed rev): bumped manually for compat. Matched on depName because for git deps the packageName is the URL.",
+      "matchManagers": ["cargo"],
+      "matchDepNames": ["slang_solidity", "revm-inspectors"],
+      "enabled": false
+    },
+    {
+      "description": "sha2 + sha3: hold at 0.10.x until the RustCrypto-adjacent stack (k256, secp256k1, alloy-chains, bip32/39, coins-*, scrypt, foundry-compilers, p256) moves to digest 0.11. A premature 0.11 bump duplicates sha2/sha3 + digest + block-buffer + crypto-common + cpufeatures in the lockfile because every transitive that pins ^0.10 stays on 0.10.x alongside our 0.11. sha3 0.12 also needs k256 0.14 (still an RC) via alloy/revm — see PR #1441.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["sha2", "sha3"],
+      "allowedVersions": "<0.11"
+    },
+    {
+      "description": "rand: hold at 0.9.x. alloy-primitives and proptest still pin rand 0.9; a direct rand 0.10 dep puts two incompatible rand majors in the graph and breaks foundry-evm-fuzz's RngCore bound on alloy's randomize_with. Drop the cap once they support rand 0.10 — see PR #1435.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["rand"],
+      "allowedVersions": "<0.10"
+    },
+    {
+      "description": "Hardhat ecosystem (hardhat, hardhat2 alias, @nomicfoundation/hardhat-*): exact-pinned, pnpm-patched, partly on pre-release tracks. Bumps invalidate patches and break the v2/v3 benchmark setup; coordinated manually with edr↔hardhat releases.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["hardhat", "hardhat2", "/^@nomicfoundation\\/hardhat-/"],
+      "enabled": false
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "pnpm version pinned in `pnpm@X.Y.Z` strings: workflow shell commands (`npm i -g pnpm@X.Y.Z` inside containers that bypass corepack/packageManager) and package.json's `packageManager` field. Renovate's npm manager doesn't reliably bump `packageManager` in non-security flows (see PR #1413), so we cover it here too to keep all the pins in lockstep.",
+      "managerFilePatterns": [".github/workflows/*.yml", ".github/workflows/*.yaml", "package.json"],
+      "matchStrings": ["pnpm@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
+    }
+  ],
+  "labels": ["dependencies", "no changeset needed"],
+  "configMigration": true,
+  "dependencyDashboard": false,
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true
+  }
+}

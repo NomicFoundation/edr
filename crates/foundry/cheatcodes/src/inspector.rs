@@ -22,6 +22,7 @@ use alloy_primitives::{
 use alloy_rpc_types::AccessList;
 use alloy_sol_types::{SolCall, SolInterface};
 use derive_where::derive_where;
+use edr_coverage::COVERAGE_ADDRESS;
 use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
     backend::{CheatcodeBackend, RevertDiagnostic},
@@ -937,6 +938,18 @@ impl<
             return None;
         }
 
+        // Coverage instrumentation probes are inlined STATICCALLs to
+        // `COVERAGE_ADDRESS`. They are part of the test runner's bookkeeping —
+        // not the user's contract logic — and must be invisible to cheatcode
+        // state. In particular, applying or consuming a single-call `vm.prank`
+        // here would defeat the prank for the user's intended next call.
+        // `CoverageHitCollector` short-circuits these calls earlier in the
+        // inspector stack so this guard is normally unreachable; we keep it
+        // for correctness under any future inspector reordering.
+        if call.target_address == COVERAGE_ADDRESS {
+            return None;
+        }
+
         // Handle expected calls
 
         // Grab the different calldatas expected.
@@ -1432,8 +1445,14 @@ impl<
         call: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
+        // System addresses that are transparent to cheatcode state.
+        // Treating `COVERAGE_ADDRESS` as a system address prevents the prank cleanup
+        // below from running for coverage instrumentation probes — which would
+        // otherwise wipe a single-call `vm.prank` before the user's intended next call
+        // could consume it.
         let cheatcode_call = call.target_address == CHEATCODE_ADDRESS
-            || call.target_address == HARDHAT_CONSOLE_ADDRESS;
+            || call.target_address == HARDHAT_CONSOLE_ADDRESS
+            || call.target_address == COVERAGE_ADDRESS;
 
         // Clean up pranks/broadcasts if it's not a cheatcode call end. We shouldn't do
         // it for cheatcode calls because they are not applied for cheatcodes in the
@@ -2066,12 +2085,12 @@ impl<
                 .clone()
                 .unwrap_or_default()
                 .original_bytes();
-            if let Ok(scheme) = CreateScheme::try_from(call.scheme)
+            if let Ok(scheme) = CreateScheme::try_from(call.scheme())
                 && let Some((index, _)) =
                     self.expected_creates
                         .iter()
                         .find_position(|expected_create| {
-                            expected_create.deployer == call.caller
+                            expected_create.deployer == call.caller()
                                 && expected_create.create_scheme.eq(scheme)
                                 && expected_create.bytecode == bytecode
                         })

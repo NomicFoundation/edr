@@ -72,18 +72,14 @@ describe("Code coverage", () => {
     allowUnlimitedContractSize: true,
     bailOnCallFailure: false,
     bailOnTransactionFailure: false,
-    blockGasLimit: 300_000_000n,
     chainId: 123n,
     chainOverrides: [],
     coinbase: new Uint8Array(
       Buffer.from("0000000000000000000000000000000000000000", "hex")
     ),
+    defaultTransactionGasLimit: 16_777_216n,
     genesisState,
     hardfork: l1HardforkToString(l1HardforkLatest()),
-    initialBlobGas: {
-      gasUsed: 0n,
-      excessGas: 0n,
-    },
     initialParentBeaconBlockRoot: new Uint8Array(
       Buffer.from(
         "0000000000000000000000000000000000000000000000000000000000000000",
@@ -93,9 +89,17 @@ describe("Code coverage", () => {
     minGasPrice: 0n,
     mining: {
       autoMine: true,
+      blockGasLimit: 300_000_000n,
       memPool: {
         order: MineOrdering.Priority,
       },
+    },
+    network: {
+      genesisBlobGas: {
+        gasUsed: 0n,
+        excessGas: 0n,
+      },
+      genesisBlockGasLimit: 300_000_000n,
     },
     networkId: 123n,
     observability: {
@@ -251,6 +255,7 @@ describe("Code coverage", () => {
       // All artifacts are test suites.
       const testSuites = artifacts.map((artifact) => artifact.id);
       const config = {
+        disableTransactionGasCap: true,
         projectRoot: __dirname,
         hardfork: l1HardforkToString(l1HardforkLatest()),
         observability: {
@@ -283,6 +288,7 @@ describe("Code coverage", () => {
       // All artifacts are test suites.
       const testSuites = artifacts.map((artifact) => artifact.id);
       const config = {
+        disableTransactionGasCap: true,
         projectRoot: __dirname,
         hardfork: l1HardforkToString(l1HardforkLatest()),
         observability: {

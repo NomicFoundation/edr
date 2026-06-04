@@ -11,7 +11,6 @@ use std::{
 };
 
 use alloy_dyn_abi::eip712::TypedData;
-use alloy_eips::eip7825;
 use alloy_rpc_types::EIP1186AccountProofResponse;
 use alloy_rpc_types_trace::geth::GethDebugTracingOptions;
 use edr_block_api::{
@@ -24,7 +23,7 @@ use edr_block_header::{
 };
 use edr_block_miner::{
     mine_block, mine_block_with_single_transaction, MineBlockResultAndStateWithMetadata,
-    MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec,
+    MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec, MineOrdering,
 };
 use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
@@ -38,7 +37,6 @@ use edr_chain_spec::{
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
-use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
 use edr_eth::{
@@ -87,6 +85,7 @@ use rpds::HashTrieMapSync;
 use tokio::runtime;
 
 use crate::{
+    config::{ForkConfig, LocalConfig, MemPoolConfig, MiningConfig, NetworkConfig, ProviderConfig},
     data::{
         call::BlockEnvWithZeroBaseFee,
         gas::{
@@ -110,8 +109,8 @@ use crate::{
         SyncBlockchainForChainSpec, SyncProviderSpec, TransactionAndBlockForChainSpec,
     },
     time::{CurrentTime, TimeSinceEpoch},
-    DebugTraceError, ForkConfig, MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent,
-    SubscriptionEventData, SyncSubscriberCallback,
+    DebugTraceError, ProviderError, SubscriptionEvent, SubscriptionEventData,
+    SyncSubscriberCallback,
 };
 
 const DEFAULT_INITIAL_BASE_FEE_PER_GAS: u128 = 1_000_000_000;
@@ -249,15 +248,17 @@ pub struct ProviderData<
     bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     bail_on_transaction_failure: bool,
+    beneficiary: Address,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     block_config: BlockConfig<ChainSpecT::Hardfork>,
+    default_transaction_gas_limit: NonZeroU64,
+    is_auto_mining: bool,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
-    mining_config: MiningConfig,
+    mining_order: MineOrdering,
     network_id: u64,
     observability: ObservabilityConfig,
     precompile_overrides: HashMap<Address, PrecompileFn>,
-    beneficiary: Address,
     min_gas_price: u128,
     parent_beacon_block_root_generator: RandomHashGenerator,
     prev_randao_generator: RandomHashGenerator,
@@ -267,7 +268,6 @@ pub struct ProviderData<
     // Hack to get around the type erasure with the dyn blockchain trait.
     rpc_client: Option<Arc<EthRpcClientForChainSpec<ChainSpecT>>>,
     instance_id: B256,
-    is_auto_mining: bool,
     next_block_base_fee_per_gas: Option<u128>,
     base_fee_params: Option<BaseFeeParams<ChainSpecT::Hardfork>>,
     next_block_timestamp: Option<u64>,
@@ -327,11 +327,6 @@ where
         self.bail_on_transaction_failure
     }
 
-    /// Retrieves the gas limit of the next block.
-    pub fn block_gas_limit(&self) -> u64 {
-        self.mem_pool.block_gas_limit().get()
-    }
-
     pub fn coinbase(&self) -> Address {
         self.beneficiary
     }
@@ -348,6 +343,11 @@ where
             .next()
             .copied()
             .unwrap_or(Address::ZERO)
+    }
+
+    /// Returns the default transaction gas limit.
+    pub fn default_transaction_gas_limit(&self) -> u64 {
+        self.default_transaction_gas_limit.get()
     }
 
     /// Returns the metadata of the forked blockchain, if it exists.
@@ -383,11 +383,6 @@ where
 
     pub fn logger_mut(&mut self) -> &mut dyn SyncLogger<ChainSpecT, TimerT> {
         &mut *self.logger
-    }
-
-    /// Returns the instance's [`MiningConfig`].
-    pub fn mining_config(&self) -> &MiningConfig {
-        &self.mining_config
     }
 
     /// Returns the instance's network ID.
@@ -699,15 +694,43 @@ where
         block_state_cache.push(current_state_id, Arc::new(state));
         block_number_to_state_id.insert_mut(blockchain.last_block_number(), current_state_id);
 
-        let allow_blocks_with_same_timestamp = config.allow_blocks_with_same_timestamp;
-        let allow_unlimited_contract_size = config.allow_unlimited_contract_size;
-        let beneficiary = config.coinbase;
-        let block_gas_limit = config.block_gas_limit;
-        let is_auto_mining = config.mining.auto_mine;
-        let min_gas_price = config.min_gas_price;
+        let ProviderConfig {
+            allow_blocks_with_same_timestamp,
+            allow_unlimited_contract_size,
+            bail_on_call_failure,
+            bail_on_transaction_failure,
+            base_fee_params,
+            // Used by `create_blockchain_and_state`
+            chain_id: _chain_id,
+            coinbase: beneficiary,
+            default_transaction_gas_limit,
+            // Used by `create_blockchain_and_state`
+            genesis_state: _genesis_state,
+            // Used by `create_blockchain_and_state`
+            hardfork: _hardfork,
+            // Used by `create_blockchain_and_state`
+            initial_base_fee_per_gas: _initial_base_fee_per_gas,
+            initial_parent_beacon_block_root,
+            mining:
+                MiningConfig {
+                    auto_mine: is_auto_mining,
+                    block_gas_limit,
+                    interval: _interval,
+                    mem_pool:
+                        MemPoolConfig {
+                            order: mining_order,
+                        },
+                },
+            min_gas_price,
+            network: _network,
+            network_id,
+            observability,
+            owned_accounts,
+            precompile_overrides,
+            transaction_gas_cap,
+        } = config;
 
-        let local_accounts = config
-            .owned_accounts
+        let local_accounts = owned_accounts
             .iter()
             .map(|secret_key| {
                 let address = public_key_to_address(secret_key.public_key());
@@ -716,40 +739,31 @@ where
             })
             .collect();
 
-        let observability = config.observability.clone();
-
         let skip_unsupported_transaction_types = get_skip_unsupported_transaction_types_from_env();
 
-        let parent_beacon_block_root_generator = if let Some(initial_parent_beacon_block_root) =
-            &config.initial_parent_beacon_block_root
-        {
-            RandomHashGenerator::with_value(*initial_parent_beacon_block_root)
-        } else {
-            RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
-        };
-
-        let transaction_gas_cap = if let Some(cap) = config.transaction_gas_cap {
-            Some(cap)
-        } else if config.hardfork.into() >= EvmSpecId::OSAKA {
-            Some(eip7825::MAX_TX_GAS_LIMIT_OSAKA)
-        } else {
-            None
-        };
+        let parent_beacon_block_root_generator =
+            if let Some(initial_parent_beacon_block_root) = initial_parent_beacon_block_root {
+                RandomHashGenerator::with_value(initial_parent_beacon_block_root)
+            } else {
+                RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
+            };
 
         Ok(Self {
             runtime_handle,
-            bail_on_call_failure: config.bail_on_call_failure,
-            bail_on_transaction_failure: config.bail_on_transaction_failure,
-            base_fee_params: config.base_fee_params,
+            bail_on_call_failure,
+            bail_on_transaction_failure,
+            base_fee_params,
+            beneficiary,
             blockchain,
             block_config,
+            default_transaction_gas_limit,
+            is_auto_mining,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
-            mining_config: config.mining,
-            network_id: config.network_id,
+            mining_order,
+            network_id,
             observability,
-            precompile_overrides: config.precompile_overrides,
-            beneficiary,
+            precompile_overrides,
             min_gas_price,
             parent_beacon_block_root_generator,
             prev_randao_generator,
@@ -757,7 +771,6 @@ where
             fork_metadata,
             rpc_client,
             instance_id: B256::random(),
-            is_auto_mining,
             next_block_base_fee_per_gas,
             next_block_timestamp: None,
             // Start with 1 to mimic Ganache
@@ -1016,7 +1029,7 @@ where
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         let state = self.current_state()?;
         self.mem_pool
-            .set_block_gas_limit(&*state, gas_limit)
+            .set_block_gas_limit(&*state, Some(gas_limit))
             .map_err(ProviderError::State)
     }
 
@@ -1314,13 +1327,16 @@ where
     fn create_evm_config(&self, chain_id: u64) -> EvmConfig {
         EvmConfig {
             chain_id,
+            disable_block_gas_limit: self.mem_pool.block_gas_limit().is_none(),
             disable_eip3607: true,
             limit_contract_code_size: if self.allow_unlimited_contract_size {
                 Some(usize::MAX)
             } else {
                 None
             },
-            transaction_gas_cap: self.mem_pool.transaction_gas_cap(),
+            // We set the transaction gas cap to `u64::MAX` as it's REVM's way of circumventing the
+            // gas limit check at the transaction level.
+            transaction_gas_cap: Some(self.mem_pool.transaction_gas_cap().unwrap_or(u64::MAX)),
         }
     }
 
@@ -1505,7 +1521,9 @@ where
     > {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
-        options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
+        options.gas_limit = options
+            .gas_limit
+            .or_else(|| self.mem_pool.block_gas_limit().map(NonZeroU64::get));
 
         let evm_config = self.create_evm_config(self.blockchain.chain_id());
 
@@ -2460,7 +2478,7 @@ where
             evm_config,
             options,
             self.min_gas_price,
-            self.mining_config.mem_pool.order,
+            self.mining_order,
             reward,
             Some(evm_observer),
             &self.precompile_overrides,
@@ -2525,7 +2543,7 @@ where
     ) -> Result<SendTransactionResultForChainSpec<ChainSpecT>, ProviderErrorForChainSpec<ChainSpecT>>
     {
         if transaction.transaction_type().is_eip4844() {
-            if !self.is_auto_mining || edr_mem_pool::has_transactions(&self.mem_pool) {
+            if !self.is_auto_mining() || edr_mem_pool::has_transactions(&self.mem_pool) {
                 return Err(ProviderError::BlobMemPoolUnsupported);
             }
 
@@ -2553,7 +2571,7 @@ where
             });
         }
 
-        let snapshot_id = if self.is_auto_mining {
+        let snapshot_id = if self.is_auto_mining() {
             // This check guarantees that the sent transaction is a pending transaction,
             // meaning it can either be mined immediately or as part of a sequence of
             // transactions.
@@ -2901,26 +2919,6 @@ impl StateId {
     }
 }
 
-fn block_time_offset_seconds<ChainSpecT: ProviderChainSpec, TimerT: TimeSinceEpoch>(
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
-    timer: &TimerT,
-) -> Result<i64, CreationErrorForChainSpec<ChainSpecT>> {
-    config.initial_date.map_or(Ok(0), |initial_date| {
-        let initial_timestamp = i64::try_from(
-            initial_date
-                .duration_since(UNIX_EPOCH)
-                .map_err(|_e| CreationError::InvalidInitialDate(initial_date))?
-                .as_secs(),
-        )
-        .expect("initial date must be representable as i64");
-
-        let current_timestamp = i64::try_from(timer.since_epoch())
-            .expect("Current timestamp must be representable as i64");
-
-        Ok(initial_timestamp - current_timestamp)
-    })
-}
-
 struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     block_config: BlockConfig<ChainSpecT::Hardfork>,
@@ -3047,6 +3045,7 @@ fn create_forked_blockchain_and_state<
                     nonce: account_override.nonce.unwrap_or(remote_account.nonce),
                     code_hash,
                     code,
+                    account_id: None,
                 };
 
                 // TODO: Add support for overriding the storage
@@ -3056,6 +3055,7 @@ fn create_forked_blockchain_and_state<
                 }
 
                 let account = Account {
+                    original_info: Box::new(info.clone()),
                     info,
                     // TODO: Add support for overriding the storage
                     // TODO: https://github.com/NomicFoundation/edr/issues/911
@@ -3156,6 +3156,7 @@ fn create_local_blockchain_and_state<
 >(
     config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &TimerT,
+    local_config: &LocalConfig,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
     let mix_hash = if config.hardfork.into() >= EvmSpecId::MERGE {
@@ -3178,9 +3179,11 @@ fn create_local_blockchain_and_state<
                 nonce: account_override.nonce.unwrap_or(0),
                 code_hash,
                 code: account_override.code.clone(),
+                account_id: None,
             };
 
             let account = Account {
+                original_info: Box::new(info.clone()),
                 info,
                 storage: account_override
                     .storage
@@ -3214,22 +3217,29 @@ fn create_local_blockchain_and_state<
     };
 
     let genesis_diff = StateDiff::from(genesis_state);
+    let genesis_timestamp = if let Some(initial_time) = local_config.genesis_block_time {
+        Some(
+            initial_time
+                .duration_since(UNIX_EPOCH)
+                .map_err(|_error| CreationError::InvalidInitialDate(initial_time))?
+                .as_secs(),
+        )
+    } else {
+        None
+    };
+
     let genesis_block = ChainSpecT::genesis_block(
         genesis_diff.clone(),
         &block_config,
         GenesisBlockOptions {
             extra_data: None,
             withdrawals_root: None,
-            gas_limit: Some(config.block_gas_limit.get()),
-            timestamp: config.initial_date.map(|d| {
-                d.duration_since(UNIX_EPOCH)
-                    .expect("initial date must be after UNIX epoch")
-                    .as_secs()
-            }),
+            gas_limit: Some(local_config.genesis_block_gas_limit.get()),
+            timestamp: genesis_timestamp,
             mix_hash,
             base_fee: config.initial_base_fee_per_gas,
             base_fee_params: config.base_fee_params.clone(),
-            blob_gas: config.initial_blob_gas.clone(),
+            blob_gas: local_config.genesis_blob_gas.clone(),
         },
     )
     .map_err(CreationError::LocalBlockchainCreation)?;
@@ -3247,7 +3257,15 @@ fn create_local_blockchain_and_state<
         .state_at_block_number(0, irregular_state.state_overrides())
         .expect("Genesis state must exist");
 
-    let block_time_offset_seconds = block_time_offset_seconds::<ChainSpecT, TimerT>(config, timer)?;
+    let block_time_offset_seconds = genesis_timestamp.map_or(0i64, |genesis_timestamp| {
+        let genesis_timestamp = i64::try_from(genesis_timestamp)
+            .expect("genesis timestamp must be representable as i64");
+
+        let current_timestamp = i64::try_from(timer.since_epoch())
+            .expect("Current timestamp must be representable as i64");
+
+        genesis_timestamp - current_timestamp
+    });
 
     Ok(BlockchainAndState {
         fork_metadata: None,
@@ -3272,10 +3290,13 @@ fn create_blockchain_and_state<
     config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &TimerT,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
-    if let Some(fork_config) = &config.fork {
-        create_forked_blockchain_and_state(runtime, config, timer, fork_config)
-    } else {
-        create_local_blockchain_and_state(config, timer)
+    match &config.network {
+        NetworkConfig::Fork(fork_config) => {
+            create_forked_blockchain_and_state(runtime, config, timer, fork_config)
+        }
+        NetworkConfig::Local(local_config) => {
+            create_local_blockchain_and_state(config, timer, local_config)
+        }
     }
 }
 
@@ -3314,7 +3335,6 @@ mod tests {
     use crate::{
         console_log::tests::{deploy_console_log_contract, ConsoleLogTransaction},
         test_utils::{create_test_config, one_ether, ProviderTestFixture},
-        MemPoolConfig, MiningConfig, ProviderConfig,
     };
 
     #[test]
@@ -4288,11 +4308,8 @@ mod tests {
         use edr_test_utils::env::json_rpc_url_provider;
 
         use super::*;
-        use crate::{
-            test_utils::{
-                l1_base_header_overrides, l1_header_overrides_before_merge, prague_header_overrides,
-            },
-            ForkConfig,
+        use crate::test_utils::{
+            l1_base_header_overrides, l1_header_overrides_before_merge, prague_header_overrides,
         };
 
         #[test]
@@ -4358,7 +4375,7 @@ mod tests {
 
             let config = ProviderConfig {
                 // SAFETY: literal is non-zero
-                block_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
+                default_transaction_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
                 chain_id: 1,
                 coinbase: Address::ZERO,
                 hardfork: edr_chain_l1::Hardfork::LONDON,
@@ -4510,6 +4527,12 @@ mod tests {
             // precompile, introduced in Cancun
             mainnet_cancun2 => L1ChainSpec {
                 block_number: 19_562_047,
+                url: json_rpc_url_provider::ethereum_mainnet(),
+                header_overrides_constructor: l1_base_header_overrides,
+            },
+            // Issue [#722](https://github.com/NomicFoundation/edr/issues/722)
+            mainnet_issue_722 => L1ChainSpec {
+                block_number: 21_041_283,
                 url: json_rpc_url_provider::ethereum_mainnet(),
                 header_overrides_constructor: l1_base_header_overrides,
             },

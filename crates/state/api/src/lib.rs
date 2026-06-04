@@ -10,9 +10,9 @@ mod r#override;
 use core::{fmt::Debug, ops::Deref};
 
 use alloy_rpc_types::EIP1186AccountProofResponse;
+use alloy_trie::root::{state_root_ref_unhashed, storage_root_unhashed};
 use auto_impl::auto_impl;
 use edr_primitives::{Address, Bytecode, HashMap, StorageKey, B256, U256};
-use edr_trie::sec_trie_root;
 pub use revm_database_interface::DatabaseCommit as StateCommit;
 pub use revm_state::{EvmState, EvmStorage, EvmStorageSlot};
 
@@ -29,7 +29,7 @@ pub type EvmTrieState = HashMap<Address, BasicAccount>;
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait State {
     /// Combinatorial state error.
-    type Error;
+    type Error: Send + Sync + 'static;
 
     /// Get basic account information.
     fn basic(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error>;
@@ -182,10 +182,7 @@ pub fn state_root<'a, I>(state: I) -> B256
 where
     I: IntoIterator<Item = (&'a Address, &'a BasicAccount)>,
 {
-    sec_trie_root(state.into_iter().map(|(address, account)| {
-        let account = alloy_rlp::encode(account);
-        (address, account)
-    }))
+    state_root_ref_unhashed(state)
 }
 
 /// Calculates the storage root hash of the provided storage.
@@ -193,10 +190,11 @@ pub fn storage_root<'a, I>(storage: I) -> B256
 where
     I: IntoIterator<Item = (&'a U256, &'a U256)>,
 {
-    sec_trie_root(storage.into_iter().map(|(index, value)| {
-        let value = alloy_rlp::encode(value);
-        (index.to_be_bytes::<32>(), value)
-    }))
+    storage_root_unhashed(
+        storage
+            .into_iter()
+            .map(|(index, value)| (B256::from(index.to_be_bytes::<32>()), *value)),
+    )
 }
 
 #[cfg(test)]
@@ -219,6 +217,20 @@ mod tests {
         let storage = AccountStorage::default();
 
         assert_eq!(storage_root(&storage), KECCAK_NULL_RLP);
+    }
+
+    // Golden hash for `storage_root` over non-empty storage; values span the RLP
+    // length range (single byte through a full 32-byte word) to exercise encoding.
+    #[test]
+    fn storage_root_with_slots() {
+        const EXPECTED: &str = "0x54b24bc07538750267f9767e591e8b182ff36c9d27e751cdd59ac79fc67df4bd";
+
+        let mut storage = AccountStorage::default();
+        storage.insert(U256::from(1), U256::from(0x42));
+        storage.insert(U256::from(2), U256::from(0xdead_beefu64));
+        storage.insert(U256::from(256), U256::MAX);
+
+        assert_eq!(storage_root(&storage), B256::from_str(EXPECTED).unwrap());
     }
 
     #[test]

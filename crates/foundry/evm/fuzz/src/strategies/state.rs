@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt, sync::Arc};
 use alloy_dyn_abi::{DynSolType, DynSolValue, EventExt, FunctionExt};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{
-    map::{AddressIndexSet, B256IndexSet, HashMap},
+    map::{HashMap, IndexSet},
     Address, Bytes, Log, B256, U256,
 };
 use foundry_evm_core::utils::StateChangeset;
@@ -18,6 +18,17 @@ use crate::{
     invariant::{BasicTxDetails, FuzzRunIdentifiedContracts},
     FuzzDictionaryConfig,
 };
+
+// The fuzz dictionary stores highly-structured values (bytecode PUSH constants,
+// selectors, small integers). alloy's `B256IndexSet` / `AddressIndexSet` use
+// `FbBuildHasher`, which since alloy-primitives 1.5 is backed by FxHash — that
+// hasher collides badly on such structured keys, causing probe-storm slowdowns
+// in `insert_full` (~22x on the StdMathTest benchmark). Use alloy's default
+// (foldhash) hasher instead, which distributes these keys well. `IndexSet`
+// preserves insertion order regardless of hasher, so fuzz behavior is
+// unchanged.
+type B256IndexSet = IndexSet<B256>;
+type AddressIndexSet = IndexSet<Address>;
 
 /// The maximum number of bytes we will look at in bytecodes to find push bytes
 /// (24 KiB).

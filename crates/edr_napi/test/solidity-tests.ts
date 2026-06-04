@@ -27,6 +27,7 @@ describe("Solidity Tests", () => {
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
     const config = {
+      disableTransactionGasCap: true,
       projectRoot: __dirname,
       hardfork: l1HardforkToString(l1HardforkLatest()),
     };
@@ -152,6 +153,7 @@ describe("Solidity Tests", () => {
       artifacts,
       testSuites,
       {
+        disableTransactionGasCap: true,
         projectRoot: __dirname,
         hardfork: l1HardforkToString(l1HardforkLatest()),
         testPattern: "Multiply",

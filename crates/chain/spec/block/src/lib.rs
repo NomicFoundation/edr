@@ -39,7 +39,7 @@ pub trait BlockChainSpec:
         > + FetchBlockReceipts<Arc<Self::Receipt>, Error = Self::FetchReceiptError>;
 
     /// Type representing a block builder.
-    type BlockBuilder<'builder, BlockchainErrorT: 'builder + std::error::Error>: BlockBuilder<
+    type BlockBuilder<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>: BlockBuilder<
         'builder,
         Self,
         Self::Receipt,
