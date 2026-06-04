@@ -356,14 +356,18 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReason
         Some(inst_location) => inst_location,
     };
 
-    if let Some(func) = inst_location.get_containing_function()?
-        && let Some(source_reference) =
-            source_location_to_source_reference(contract_meta, Some(inst_location))?
-    {
-        return Ok(StackTraceEntry::CallstackEntry {
-            source_reference,
-            function_type: func.r#type,
-        });
+    if let Some(func) = inst_location.get_containing_function()? {
+        let source_reference =
+            source_location_to_source_reference(contract_meta, Some(inst_location))?;
+        if let Some(source_reference) = source_reference {
+            return Ok(StackTraceEntry::CallstackEntry {
+                source_reference,
+                function_type: func.r#type,
+            });
+        }
+        if contract_meta.compiler_type != crate::artifacts::CompilerType::Solx {
+            return Err(InferrerError::MissingSourceReference);
+        }
     };
 
     let file = inst_location.file()?;
@@ -497,9 +501,8 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
 
     let mut stacktrace = stacktrace;
 
-    // Synthesize the equivalent of solc's source-map IntoFunction frames
-    // from solx's inline_call_sites (no-op for solc — list is empty).
-    if let Some(loc) = &last_instruction.location
+    if contract_meta.compiler_type == crate::artifacts::CompilerType::Solx
+        && let Some(loc) = &last_instruction.location
         && let Some(failing_function) = loc.get_containing_function()?
     {
         stacktrace.extend(build_solx_inline_callstack_frames::<HaltReasonT>(
@@ -686,22 +689,29 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
         return Ok(Heuristic::Hit(vec![frame]));
     }
 
-    // Fail-inside-function without a jump-in (solc fallback functions, solx
-    // helpers LLVM-inlined into the caller). Use the instruction's location
-    // (the revert line) over the function declaration, and expand any
-    // solx inline_call_sites into intermediate frames.
     if let Some(location) = &last_instruction.location
         && let Some(failing_function) = location.get_containing_function()?
     {
-        let revert_source_reference =
+        let is_solx = contract_meta.compiler_type == crate::artifacts::CompilerType::Solx;
+        let revert_source_reference = if is_solx {
             source_location_to_source_reference(&contract_meta, Some(location))?
-                .ok_or(InferrerError::MissingSourceReference)?;
+                .ok_or(InferrerError::MissingSourceReference)?
+        } else {
+            get_function_start_source_reference(
+                CreateOrCallMessageRef::Call(trace),
+                &failing_function,
+            )?
+        };
 
-        let mut frames = build_solx_inline_callstack_frames(
-            &contract_meta,
-            last_instruction,
-            &failing_function,
-        )?;
+        let mut frames = if is_solx {
+            build_solx_inline_callstack_frames(
+                &contract_meta,
+                last_instruction,
+                &failing_function,
+            )?
+        } else {
+            Vec::new()
+        };
         frames.push(StackTraceEntry::RevertError {
             source_reference: revert_source_reference,
             return_data: trace.return_data.clone(),
@@ -973,13 +983,13 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
         let failing_function = location.get_containing_function()?;
 
         if let Some(failing_function) = failing_function.as_deref() {
-            // Expand solx inline_call_sites for multi-frame chains on
-            // CREATE traces and other "standard path" reverts.
-            inferred_stacktrace.extend(build_solx_inline_callstack_frames::<HaltReasonT>(
-                &contract_meta,
-                last_instruction,
-                failing_function,
-            )?);
+            if contract_meta.compiler_type == crate::artifacts::CompilerType::Solx {
+                inferred_stacktrace.extend(build_solx_inline_callstack_frames::<HaltReasonT>(
+                    &contract_meta,
+                    last_instruction,
+                    failing_function,
+                )?);
+            }
 
             let frame =
                 instruction_within_function_to_revert_stack_trace_entry(trace, last_instruction)?;
