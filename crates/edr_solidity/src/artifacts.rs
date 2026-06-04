@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 
 /// Compiler that produced a Hardhat build-info. Absent on older build-infos
 /// and the EDR in-process flow; absent is treated as `Solc`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, strum::Display, strum::EnumString)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, strum::Display, strum::EnumString,
+)]
 #[serde(rename_all = "camelCase")]
 #[strum(serialize_all = "camelCase")]
 pub enum CompilerType {
@@ -311,9 +313,9 @@ pub struct CompilerOutputSource {
     pub ast: serde_json::Value,
 }
 
-/// Bytecode output for a compiled contract. Wraps an `Arc<dyn CompilerArtifact>`
-/// so the stack-trace pipeline dispatches dynamically over compiler-specific
-/// implementations ([`SolcBytecode`], [`SolxBytecode`]).
+/// Bytecode output for a compiled contract. Wraps an `Arc<dyn
+/// CompilerArtifact>` so the stack-trace pipeline dispatches dynamically over
+/// compiler-specific implementations ([`SolcBytecode`], [`SolxBytecode`]).
 #[derive(Clone, Debug)]
 pub struct CompilerOutputBytecode(pub Arc<dyn crate::debug_info::CompilerArtifact>);
 

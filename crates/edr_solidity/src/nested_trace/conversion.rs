@@ -219,7 +219,7 @@ fn is_calllike_op(step: &CallTraceStep) -> bool {
 mod tests {
     use edr_chain_spec::EvmHaltReason;
     use edr_primitives::Bytes;
-    use revm_inspectors::tracing::types::{CallTrace, CallTraceNode, CallKind};
+    use revm_inspectors::tracing::types::{CallKind, CallTrace, CallTraceNode};
 
     use super::*;
 
@@ -246,9 +246,13 @@ mod tests {
     fn empty_arena_returns_invalid_root_node_error() {
         let mut arena = CallTraceArena::default();
         arena.nodes_mut().clear();
-        let err = convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
-            .expect_err("empty arena must fail");
-        assert!(matches!(err, CallTraceArenaConversionError::InvalidRootNode));
+        let err =
+            convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
+                .expect_err("empty arena must fail");
+        assert!(matches!(
+            err,
+            CallTraceArenaConversionError::InvalidRootNode
+        ));
     }
 
     #[test]
@@ -292,7 +296,10 @@ mod tests {
 
         match trace {
             NestedTrace::Create(msg) => {
-                assert_eq!(msg.code, init_code, "create code must come from creation map");
+                assert_eq!(
+                    msg.code, init_code,
+                    "create code must come from creation map"
+                );
             }
             other => panic!("expected NestedTrace::Create, got {other:?}"),
         }
@@ -301,9 +308,8 @@ mod tests {
     #[test]
     fn precompile_node_produces_precompile_variant() {
         // Precompile #1 (ECRECOVER) — address 0x...01, maybe_precompile = Some(true).
-        let precompile_addr = Address::new([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        ]);
+        let precompile_addr =
+            Address::new([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
         let mut arena = CallTraceArena::default();
         arena.nodes_mut()[0] = CallTraceNode {
             trace: CallTrace {
@@ -315,8 +321,9 @@ mod tests {
             ..Default::default()
         };
 
-        let trace = convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
-            .expect("conversion must succeed");
+        let trace =
+            convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
+                .expect("conversion must succeed");
 
         match trace {
             NestedTrace::Precompile(msg) => {
@@ -334,8 +341,9 @@ mod tests {
             ..Default::default()
         });
 
-        let trace = convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
-            .expect("conversion must succeed");
+        let trace =
+            convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
+                .expect("conversion must succeed");
 
         match trace {
             NestedTrace::Call(msg) => {
@@ -357,8 +365,9 @@ mod tests {
             ..Default::default()
         });
 
-        let trace = convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
-            .expect("conversion must succeed");
+        let trace =
+            convert_from_arena::<EvmHaltReason>(&HashMap::default(), &HashMap::default(), &arena)
+                .expect("conversion must succeed");
 
         match trace {
             NestedTrace::Call(msg) => {

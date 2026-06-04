@@ -704,11 +704,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
         };
 
         let mut frames = if is_solx {
-            build_solx_inline_callstack_frames(
-                &contract_meta,
-                last_instruction,
-                &failing_function,
-            )?
+            build_solx_inline_callstack_frames(&contract_meta, last_instruction, &failing_function)?
         } else {
             Vec::new()
         };

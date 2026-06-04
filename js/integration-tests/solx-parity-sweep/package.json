@@ -1,15 +1,6 @@
 {
   "name": "solx-parity-sweep",
   "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "build": "pnpm run build:dev",
-    "build:dev": "tsc --build --incremental .",
-    "pretest": "node ./scripts/maybe-build.js",
-    "test": "node --import tsx/esm --test \"test/*.ts\""
-  },
   "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
     "@tsconfig/node20": "^20.1.6",
@@ -19,7 +10,13 @@
     "tsx": "^4.19.3",
     "typescript": "~5.8.2"
   },
-  "optionalDependencies": {
-    "@nomicfoundation/hardhat-solx": "*"
-  }
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "build": "pnpm run build:dev",
+    "build:dev": "tsc --build --incremental .",
+    "pretest": "node ./scripts/maybe-build.js",
+    "test": "node --import tsx/esm --test \"test/*.ts\""
+  },
+  "type": "module"
 }

@@ -47,9 +47,7 @@ pub enum DwarfError {
 
     /// A DIE PC range escapes the bytecode it claims to cover —
     /// typically a sign of a mismatched / corrupt debugInfo blob.
-    #[error(
-        "DWARF inlined range {bound} {value:#x} exceeds bytecode length {bytecode_len:#x}"
-    )]
+    #[error("DWARF inlined range {bound} {value:#x} exceeds bytecode length {bytecode_len:#x}")]
     RangeEscapesBytecode {
         bound: &'static str,
         value: u64,
@@ -138,8 +136,8 @@ pub fn decode_instructions(
     let raw = hex::decode(debug_info_hex)?;
     let parsed = ParsedDwarf::from_elf_bytes(&raw)?;
 
-    // 2. Reject debugInfo whose PC ranges escape the bytecode (mismatched
-    //    or corrupt blob).
+    // 2. Reject debugInfo whose PC ranges escape the bytecode (mismatched or
+    //    corrupt blob).
     let bytecode_len = bytecode.len() as u64;
     for range in &parsed.inlined_ranges {
         if range.low_pc >= bytecode_len {
@@ -164,10 +162,10 @@ pub fn decode_instructions(
     // 4. Per-file line-start caches, populated on demand.
     let mut line_starts_by_file_id: HashMap<u32, Vec<usize>> = HashMap::new();
 
-    // 5. Walk PCs, mirroring `source_map::decode_instructions` so PUSH operands
-    //    are skipped consistently. PcOpcodes ends iteration as soon as it
-    //    hits an invalid byte (CBOR metadata region), matching the previous
-    //    `break` semantics.
+    // 5. Walk PCs, mirroring `source_map::decode_instructions` so PUSH operands are
+    //    skipped consistently. PcOpcodes ends iteration as soon as it hits an
+    //    invalid byte (CBOR metadata region), matching the previous `break`
+    //    semantics.
     let mut instructions: Vec<Instruction> = PcOpcodes::new(bytecode)
         .map(|step| {
             let location = parsed.user_visible_location_for_pc(
@@ -405,9 +403,7 @@ impl ParsedDwarf {
             let mut abstract_meta: HashMap<gimli::UnitOffset, AbstractOriginMeta> = HashMap::new();
             {
                 let mut entries = unit.entries();
-                while let Some((_, die)) = entries
-                    .next_dfs()?
-                {
+                while let Some((_, die)) = entries.next_dfs()? {
                     if die.tag() != gimli::DW_TAG_subprogram {
                         continue;
                     }
@@ -439,9 +435,7 @@ impl ParsedDwarf {
             // and the `DW_AT_ranges` list form.
             let mut entries = unit.entries();
             let mut depth: isize = 0;
-            while let Some((delta, die)) = entries
-                .next_dfs()?
-            {
+            while let Some((delta, die)) = entries.next_dfs()? {
                 depth += delta;
 
                 // Two subprogram-like DIEs feed this: DW_TAG_inlined_subroutine
@@ -498,8 +492,7 @@ impl ParsedDwarf {
                     }
                 };
                 let depth_u32 = u32::try_from(depth.max(0)).unwrap_or(u32::MAX);
-                let mut ranges = unit_ref
-                    .die_ranges(die)?;
+                let mut ranges = unit_ref.die_ranges(die)?;
                 while let Some(range) = ranges.next()? {
                     if range.end > range.begin {
                         inlined_ranges.push(InlinedRange {
@@ -577,7 +570,12 @@ impl ParsedDwarf {
         let length = build_model
             .smallest_enclosing_span(file_id, offset as u32)
             .map_or(0, |(_, len)| len);
-        Some(source_location_at(build_model, file_id, offset as u32, length))
+        Some(source_location_at(
+            build_model,
+            file_id,
+            offset as u32,
+            length,
+        ))
     }
 
     /// Best-effort bottom-frame source location for `pc`, in order:
@@ -694,7 +692,12 @@ impl ParsedDwarf {
             let length = build_model
                 .smallest_enclosing_span(file_id, offset as u32)
                 .map_or(0, |(_, len)| len);
-            return Some(source_location_at(build_model, file_id, offset as u32, length));
+            return Some(source_location_at(
+                build_model,
+                file_id,
+                offset as u32,
+                length,
+            ));
         }
 
         // Pass 3: fall back to the user fn's own AST location — coarser, but
@@ -784,9 +787,7 @@ impl ParsedDwarf {
                     && let Some(operand) = data.get(1..)
                 {
                     let take_n = operand.len().min(8);
-                    let tail = operand
-                        .get(operand.len() - take_n..)
-                        .unwrap_or(operand);
+                    let tail = operand.get(operand.len() - take_n..).unwrap_or(operand);
                     let mut val: u64 = 0;
                     for &b in tail {
                         val = (val << 8) | u64::from(b);
@@ -1053,7 +1054,6 @@ mod tests {
         decode_instructions(&raw, &bc.debug_info, model, false).unwrap()
     }
 
-
     /// First instruction whose resolved location starts at `expected` line.
     fn first_inst_at_line(insts: &[Instruction], expected: u32) -> Option<Instruction> {
         insts.iter().find_map(|i| {
@@ -1066,7 +1066,8 @@ mod tests {
         use super::*;
 
         /// Panic 0x12 (div by zero): pin the bottom location to the divide
-        /// expression (line 34), not the panic helper's contract-scope `call_line`.
+        /// expression (line 34), not the panic helper's contract-scope
+        /// `call_line`.
         #[test]
         fn divide_by_zero_filters_out_panic_helper_decl_line() {
             let output = load_scenarios_output();
@@ -1121,8 +1122,9 @@ mod tests {
             );
         }
 
-        /// Assembly reverts: solx emits no `.debug_line` rows for assembly opcodes,
-        /// so we fall back to the function decl line. Update if solx changes.
+        /// Assembly reverts: solx emits no `.debug_line` rows for assembly
+        /// opcodes, so we fall back to the function decl line. Update
+        /// if solx changes.
         #[test]
         fn inline_assembly_revert_falls_back_to_function_decl_line() {
             let output = load_scenarios_output();
@@ -1323,7 +1325,8 @@ mod tests {
         use super::*;
 
         /// solx flattens a modifier into its enclosing function as a single
-        /// inlined-subroutine — pin one frame (vs. solc's duplicate setIfPositive).
+        /// inlined-subroutine — pin one frame (vs. solc's duplicate
+        /// setIfPositive).
         #[test]
         fn modifier_revert_has_single_set_if_positive_inline_call_site() {
             let output = load_scenarios_output();
@@ -1394,8 +1397,8 @@ mod tests {
             let output = load_scenarios_output();
             let model = make_build_model_for_scenarios();
             let insts = decode_deployed_for(&output, "InternalHelperChainContract", &model);
-            let inst =
-                first_inst_at_line(&insts, 149).expect("expected `_checkPositive`'s require at line 149");
+            let inst = first_inst_at_line(&insts, 149)
+                .expect("expected `_checkPositive`'s require at line 149");
             let lines: Vec<u32> = inst
                 .inline_call_sites
                 .iter()
@@ -1422,7 +1425,8 @@ mod tests {
             );
             let raw = hex::decode(&bc.object).unwrap();
             let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
-            let inst = first_inst_at_line(&insts, 295).expect("expected `_check`'s require at line 295");
+            let inst =
+                first_inst_at_line(&insts, 295).expect("expected `_check`'s require at line 295");
             let lines: Vec<u32> = inst
                 .inline_call_sites
                 .iter()
@@ -1617,9 +1621,9 @@ mod tests {
             );
         }
 
-        /// G7' — absolute DWARF path with a basename collision must return None.
-        /// Known limitation: a long DWARF path can't disambiguate when no part of
-        /// it appears in any `BuildModel` key.
+        /// G7' — absolute DWARF path with a basename collision must return
+        /// None. Known limitation: a long DWARF path can't disambiguate
+        /// when no part of it appears in any `BuildModel` key.
         #[test]
         fn match_dwarf_to_build_model_absolute_path_with_basename_collision() {
             let mut map = std::collections::HashMap::new();
@@ -1640,8 +1644,8 @@ mod tests {
     mod source_length_resolution {
         use super::*;
 
-        /// Non-zero `SourceLocation.length` via `BuildModel.ast_spans` — pin that
-        /// at least one resolved instruction gets a non-zero span.
+        /// Non-zero `SourceLocation.length` via `BuildModel.ast_spans` — pin
+        /// that at least one resolved instruction gets a non-zero span.
         #[test]
         fn solx_instructions_carry_nonzero_source_length() {
             let output = load_scenarios_output();
@@ -1664,8 +1668,9 @@ mod tests {
         use super::*;
 
         /// G1 — innermost-first by DIE depth, not range width.
-        /// A parent's `DW_AT_ranges` union can be wider than a child's contiguous
-        /// range; width-based sorting would invert or tie the chain.
+        /// A parent's `DW_AT_ranges` union can be wider than a child's
+        /// contiguous range; width-based sorting would invert or tie
+        /// the chain.
         #[test]
         fn containing_ranges_orders_by_die_depth_not_width() {
             fn r(depth: u32, low_pc: u64, high_pc: u64) -> InlinedRange {
@@ -1719,7 +1724,6 @@ mod tests {
                 "depth-based ordering must pick the inner DIE even when the parent's contiguous segment is narrower"
             );
         }
-
     }
 
     /// Each [`DwarfError`] variant gets a round-trip test that drives

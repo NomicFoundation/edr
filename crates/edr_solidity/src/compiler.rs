@@ -848,9 +848,11 @@ fn decode_evm_bytecode(
         .map(|refs| refs.values().flatten().copied().collect::<Vec<_>>())
         .unwrap_or_default();
 
-    let normalized_code =
-        normalize_compiler_output_bytecode(artifact.object().to_owned(), &library_address_positions)
-            .with_context(|| format!("Failed to decode hex: {compiler_bytecode:?}"))?;
+    let normalized_code = normalize_compiler_output_bytecode(
+        artifact.object().to_owned(),
+        &library_address_positions,
+    )
+    .with_context(|| format!("Failed to decode hex: {compiler_bytecode:?}"))?;
 
     let section = if is_deployment {
         "evm.bytecode"
@@ -974,8 +976,7 @@ mod tests {
     #[test]
     fn solc_fixture_decodes() {
         let (input, output) = solc_fixture();
-        let result =
-            create_models_and_decode_bytecodes("0.8.0".to_string(), &input, &output);
+        let result = create_models_and_decode_bytecodes("0.8.0".to_string(), &input, &output);
         assert!(
             result.is_ok(),
             "solc fixture should still decode: {:?}",
@@ -1024,12 +1025,8 @@ mod tests {
             "solx fixture bytecode must construct as the Solx concrete artifact"
         );
 
-        let bytecodes = create_models_and_decode_bytecodes(
-            "0.8.34".to_string(),
-            &input,
-            &output,
-        )
-        .expect("solx fixture must decode through the DWARF parser");
+        let bytecodes = create_models_and_decode_bytecodes("0.8.34".to_string(), &input, &output)
+            .expect("solx fixture must decode through the DWARF parser");
         // Creation + runtime.
         assert!(
             bytecodes.len() >= 2,

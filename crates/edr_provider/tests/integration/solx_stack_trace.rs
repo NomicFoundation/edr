@@ -70,7 +70,8 @@ fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutpu
         .sources
         .get_mut("project/contracts/Scenarios.t.sol")
         .unwrap()
-        .content = include_str!("../../../edr_solidity/fixtures/sources/Scenarios.t.sol").to_string();
+        .content =
+        include_str!("../../../edr_solidity/fixtures/sources/Scenarios.t.sol").to_string();
     let output: CompilerOutput = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_output_scenarios.json"
     ))?;
@@ -121,11 +122,7 @@ fn make_provider(decoder: ContractDecoder) -> anyhow::Result<(Provider<L1ChainSp
     Ok((provider, from))
 }
 
-fn creation_bytes(
-    output: &CompilerOutput,
-    file: &str,
-    contract: &str,
-) -> anyhow::Result<Bytes> {
+fn creation_bytes(output: &CompilerOutput, file: &str, contract: &str) -> anyhow::Result<Bytes> {
     let evm = &output
         .contracts
         .get(file)
@@ -262,12 +259,17 @@ async fn revert_error_variant_surfaces_for_counter() -> anyhow::Result<()> {
     let decoder = ContractDecoder::new(&build_info)?;
     let (provider, from) = make_provider(decoder)?;
 
-    let counter = deploy(&provider, from, creation_bytes(&output, "Counter.sol", "Counter")?)?;
+    let counter = deploy(
+        &provider,
+        from,
+        creation_bytes(&output, "Counter.sol", "Counter")?,
+    )?;
 
     let mut calldata = Vec::with_capacity(36);
     calldata.extend_from_slice(&selector("set(uint256)"));
     calldata.extend_from_slice(&[0u8; 32]);
-    let stack_trace = expect_failed_call_stack_trace(&provider, from, counter, Bytes::from(calldata));
+    let stack_trace =
+        expect_failed_call_stack_trace(&provider, from, counter, Bytes::from(calldata));
 
     assert!(
         stack_trace
@@ -326,7 +328,11 @@ async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Re
     let addr = deploy(
         &provider,
         from,
-        creation_bytes(&output, "project/contracts/Scenarios.t.sol", "CustomErrorTest")?,
+        creation_bytes(
+            &output,
+            "project/contracts/Scenarios.t.sol",
+            "CustomErrorTest",
+        )?,
     )?;
 
     let stack_trace = expect_failed_call_stack_trace(

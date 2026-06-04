@@ -32,7 +32,8 @@ pub struct BuildModel {
     pub contract_id_to_contract: IndexMap<u32, Arc<RwLock<Contract>>>,
     /// Maps the file ID to the source file.
     pub file_id_to_source_file: Arc<BuildModelSources>,
-    /// Lazy reverse-index `source_name` → `file_id`. See [`Self::name_to_file_id`].
+    /// Lazy reverse-index `source_name` → `file_id`. See
+    /// [`Self::name_to_file_id`].
     pub(crate) name_to_file_id: OnceLock<HashMap<String, u32>>,
     /// Per-file AST `src` spans (`file_id` → sorted `(offset, length)`).
     /// The DWARF parser uses this to derive `SourceLocation.length` from a
@@ -84,9 +85,11 @@ impl SourceFile {
     /// offset doesn't work because column 0 of `decl_line` sits before the
     /// function's AST source range, which starts at the `function` keyword).
     pub fn get_function_by_decl_line(&self, line: u32) -> Option<&Arc<ContractFunction>> {
-        self.functions
-            .iter()
-            .find(|func| func.location.get_starting_line_number().is_ok_and(|l| l == line))
+        self.functions.iter().find(|func| {
+            func.location
+                .get_starting_line_number()
+                .is_ok_and(|l| l == line)
+        })
     }
 
     /// Returns the [`ContractFunction`] that contains the provided

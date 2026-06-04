@@ -1,4 +1,4 @@
-//! Per-compiler debug-info parsers. [`crate::source_map`] (solc) and [`dwarf`]
+//! Per-compiler debug-info parsers. `crate::source_map` (solc) and `dwarf`
 //! (solx) both produce the same [`crate::build_model::Instruction`] vector, so
 //! the rest of the stack-trace pipeline stays compiler-agnostic.
 //!
@@ -14,9 +14,7 @@
 use std::{any::Any, collections::HashMap, sync::Arc};
 
 use crate::{
-    artifacts::{
-        CompilerType, ImmutableReference, LinkReference, SolcBytecode, SolxBytecode,
-    },
+    artifacts::{CompilerType, ImmutableReference, LinkReference, SolcBytecode, SolxBytecode},
     build_model::{BuildModel, Instruction},
 };
 
@@ -175,8 +173,13 @@ impl CompilerArtifact for SolxBytecode {
         build_model: &Arc<BuildModel>,
         is_deployment: bool,
     ) -> anyhow::Result<Vec<Instruction>> {
-        dwarf::decode_instructions(normalized_code, &self.debug_info, build_model, is_deployment)
-            .map_err(Into::into)
+        dwarf::decode_instructions(
+            normalized_code,
+            &self.debug_info,
+            build_model,
+            is_deployment,
+        )
+        .map_err(Into::into)
     }
 
     fn as_any(&self) -> &dyn Any {
