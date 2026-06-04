@@ -141,10 +141,7 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
             isolate: false,
             disable_block_gas_limit: false,
             transaction_gas_cap: None,
-            // Solidity tests intentionally run with very large gas limits
-            // (`i64::MAX`), so opt out of the EIP-7825 transaction gas cap
-            // (active by default for the OSAKA hardfork and later).
-            disable_transaction_gas_cap: true,
+            disable_transaction_gas_cap: false,
             fork_headers: None,
         }
     }
