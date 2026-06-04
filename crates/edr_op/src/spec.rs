@@ -63,7 +63,7 @@ fn cast_evm_error<DatabaseErrorT: Debug + std::error::Error>(
 ) -> TransactionError<DatabaseErrorT, InvalidTransaction> {
     match error {
         EVMError::Custom(error) => TransactionError::Custom(error),
-        EVMError::CustomAny(error) => TransactionError::Custom(error.to_string()),
+        EVMError::CustomAny(error) => TransactionError::CustomAny(error),
         EVMError::Database(error) => TransactionError::Database(error),
         EVMError::Header(error) => TransactionError::InvalidHeader(error),
         EVMError::Transaction(error) => {
