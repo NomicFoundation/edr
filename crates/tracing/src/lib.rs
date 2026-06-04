@@ -29,7 +29,7 @@ use revm_inspector::JournalExt;
 /// figure trace consumers read) is unaffected; only
 /// [`ResultGas::final_refunded`] would differ, and that is not surfaced through
 /// tracing.
-fn result_gas_from(gas: &Gas) -> ResultGas {
+fn result_gas_from_spent(gas: &Gas) -> ResultGas {
     ResultGas::new_with_state_gas(
         gas.total_gas_spent(),
         gas.refunded() as u64,
@@ -41,7 +41,7 @@ fn result_gas_from(gas: &Gas) -> ResultGas {
 /// Build a [`ResultGas`] from a [`Gas`] accumulator where the full limit was
 /// consumed (e.g. for a Halt outcome).
 ///
-/// `floor_gas` is `0` for the same reason as in [`result_gas_from`].
+/// `floor_gas` is `0` for the same reason as in [`result_gas_from_spent`].
 fn result_gas_from_limit(gas: &Gas) -> ResultGas {
     ResultGas::new_with_state_gas(gas.limit(), 0, 0, gas.state_gas_spent())
 }
@@ -327,12 +327,12 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         let execution_result = match SuccessOrHalt::from(safe_ret) {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
-                gas: result_gas_from(&outcome_gas),
+                gas: result_gas_from_spent(&outcome_gas),
                 logs: context.journal().logs().to_vec(),
                 output: Output::Call(outcome.output().clone()),
             },
             SuccessOrHalt::Revert => ExecutionResult::Revert {
-                gas: result_gas_from(&outcome_gas),
+                gas: result_gas_from_spent(&outcome_gas),
                 logs: context.journal().logs().to_vec(),
                 output: outcome.output().clone(),
             },
@@ -419,12 +419,12 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         let execution_result = match SuccessOrHalt::from(safe_ret) {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
-                gas: result_gas_from(outcome.gas()),
+                gas: result_gas_from_spent(outcome.gas()),
                 logs: context.journal().logs().to_vec(),
                 output: Output::Create(outcome.output().clone(), outcome.address),
             },
             SuccessOrHalt::Revert => ExecutionResult::Revert {
-                gas: result_gas_from(outcome.gas()),
+                gas: result_gas_from_spent(outcome.gas()),
                 logs: context.journal().logs().to_vec(),
                 output: outcome.output().clone(),
             },
