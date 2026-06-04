@@ -10,7 +10,7 @@ use std::{
 
 use alloy_genesis::GenesisAccount;
 use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
-use alloy_primitives::{address, keccak256, uint, Address, TxKind, B256, U256};
+use alloy_primitives::{address, keccak256, map::U256Map, uint, Address, TxKind, B256, U256};
 use alloy_rpc_types::{BlockNumberOrTag, Transaction as RpcTransaction};
 use derive_where::derive_where;
 use eyre::Context;
@@ -742,7 +742,7 @@ impl<
     pub fn replace_account_storage(
         &mut self,
         address: Address,
-        storage: alloy_primitives::map::U256Map<U256>,
+        storage: U256Map<U256>,
     ) -> Result<(), DatabaseError> {
         if let Some(db) = self.active_fork_db_mut() {
             db.replace_account_storage(address, storage)
