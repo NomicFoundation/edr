@@ -142,7 +142,7 @@ pub struct EvmObservedData {
 }
 
 impl EvmObservedData {
-    pub fn into_call_traces(
+    pub(crate) fn into_call_traces(
         self,
         include: IncludeTraces,
         is_success: bool,
@@ -326,7 +326,7 @@ impl<
     }
 }
 
-pub trait WithExecutionResult {
+pub(crate) trait WithExecutionResult {
     type HaltReason;
     fn precompile_addresses(&self) -> &HashSet<Address>;
     fn result(&self) -> &ExecutionResult<Self::HaltReason>;
@@ -351,7 +351,7 @@ impl<HaltReasonT> WithExecutionResult for ExecutionResultAndStateWithMetadata<Ha
         &self.result
     }
 }
-pub struct ObservedExecution<ExecutionResultT> {
+pub(crate) struct ObservedExecution<ExecutionResultT> {
     pub evm_observed_data: EvmObservedData,
     pub execution_result: ExecutionResultT,
     include_call_traces: IncludeTraces,
@@ -373,7 +373,7 @@ impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> 
     }
 }
 
-pub fn observe_execution<
+pub(crate) fn observe_execution<
     ExecutionResultT: WithExecutionResult,
     ErrorT: From<EvmObserverCollectionError>,
     ExecutionFn: FnOnce(&mut EvmObserver) -> Result<ExecutionResultT, ErrorT>,
