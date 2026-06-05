@@ -110,11 +110,9 @@ Repeat until `cargo clippy --all-targets ${ALL_FEATURES} --workspace` succeeds.
 Use the same `ALL_FEATURES` variable determined in Step 3. Run each check and fix issues before moving to the next:
 
 1. **Formatting**: `cargo +nightly fmt --check 2>&1`
-
    - If it fails, run `cargo +nightly fmt` to auto-format
 
 2. **Documentation**: `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps 2>&1`
-
    - Fix any doc warnings
 
 3. **Tests**: `cargo test --all-targets ${ALL_FEATURES} --workspace 2>&1`
