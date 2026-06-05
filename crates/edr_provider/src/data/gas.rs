@@ -51,10 +51,9 @@ impl<'a, ChainSpecT: ChainSpec + HardforkChainSpec + BlockEnvChainSpec> Context<
     }
 }
 
-/// Test if the transaction successfully executes with the given gas limit.
-/// Returns true on success and return false if the transaction runs out of gas
-/// or funds or reverts. Returns an error for any other halt reason.
-fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
+/// Executes the transaction with the given gas limit and returns the full
+/// execution result.
+fn run_with_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
     context: &Context<'_, ChainSpecT>,
     gas_limit: u64,
     observer: &mut EvmObserver,
@@ -99,7 +98,7 @@ fn binary_search_estimation<ChainSpecT: ProviderChainSpec<SignedTransaction: Tra
         }
 
         let (execution_result, traces) = observe_execution(observer_config, |observer| {
-            check_gas_limit(context, mid, observer)
+            run_with_gas_limit(context, mid, observer)
         })?
         .into_result_and_traces();
 
@@ -195,7 +194,7 @@ pub(super) fn estimate_gas<
     }
 
     let (execution_result, traces) = observe_execution(observer_config, |observer| {
-        check_gas_limit(context, initial_estimation, observer)
+        run_with_gas_limit(context, initial_estimation, observer)
     })?
     .into_result_and_traces();
 
