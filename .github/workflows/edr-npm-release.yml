@@ -164,7 +164,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@10.33.4 --ignore-scripts
+            npm i -g pnpm@10.34.1 --ignore-scripts
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
@@ -191,7 +191,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@10.33.4 --ignore-scripts
+            npm i -g pnpm@10.34.1 --ignore-scripts
             pnpm -v
             pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
@@ -282,7 +282,7 @@ jobs:
       - name: Test bindings
         # Setting CI=1 is important to make PNPM install non-interactive
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
-        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@10.33.4; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@10.34.1; pnpm testNoBuild"
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
@@ -315,7 +315,7 @@ jobs:
         run: ls -R .
         shell: bash
       - name: Test bindings
-        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@10.33.4; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@10.34.1; pnpm testNoBuild"
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
@@ -354,7 +354,7 @@ jobs:
           image: node:${{ matrix.node }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            npm install -g pnpm@10.33.4
+            npm install -g pnpm@10.34.1
             set -e
             pnpm testNoBuild
             ls -la
@@ -395,7 +395,7 @@ jobs:
           image: node:${{ matrix.node }}-alpine
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            npm install -g pnpm@10.33.4
+            npm install -g pnpm@10.34.1
             set -e
             pnpm testNoBuild
 
