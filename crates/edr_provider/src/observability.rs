@@ -326,6 +326,9 @@ impl<
     }
 }
 
+/// Abstracts over [`ExecutionResultWithMetadata`] and
+/// [`ExecutionResultAndStateWithMetadata`] so that [`observe_execution`] can be
+/// generic over both without duplicating the observer lifecycle.
 pub(crate) trait WithExecutionResult {
     type HaltReason;
     fn precompile_addresses(&self) -> &HashSet<Address>;
