@@ -5,7 +5,7 @@ use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_primitives::U256;
 use revm_context::DBErrorMarker;
 
-use crate::result::EVMError;
+use crate::result::{AnyError, EVMError};
 
 /// Invalid transaction error
 #[derive(Debug, thiserror::Error)]
@@ -13,6 +13,9 @@ pub enum TransactionError<DatabaseErrorT, TransactionValidationErrorT> {
     /// Custom errors
     #[error("{0}")]
     Custom(String),
+    /// Type-erased custom error
+    #[error(transparent)]
+    CustomAny(AnyError),
     /// Database error
     #[error(transparent)]
     Database(DatabaseErrorT),
@@ -55,6 +58,7 @@ impl<DatabaseErrorT: DBErrorMarker + std::error::Error>
     fn from(value: EVMError<DatabaseErrorT, EvmTransactionValidationError>) -> Self {
         match value {
             EVMError::Custom(error) => Self::Custom(error),
+            EVMError::CustomAny(error) => Self::CustomAny(error),
             EVMError::Database(error) => Self::Database(error),
             EVMError::Header(error) => Self::InvalidHeader(error),
             EVMError::Transaction(error) => Self::from(error),

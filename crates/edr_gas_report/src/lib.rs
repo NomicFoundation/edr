@@ -323,7 +323,7 @@ impl DeploymentGasReportAndIdentifiers {
         };
 
         let report = DeploymentGasReport {
-            gas: execution_result.gas_used(),
+            gas: execution_result.tx_gas_used(),
             size: code
                 .len()
                 .try_into()
@@ -424,7 +424,7 @@ impl FunctionGasReportAndIdentifiers {
             }
 
             let report = FunctionGasReport {
-                gas: execution_result.gas_used(),
+                gas: execution_result.tx_gas_used(),
                 status: execution_result.into(),
                 proxy_chain: Vec::new(),
             };
@@ -514,7 +514,7 @@ fn resolve_proxy_chain<HaltReasonT: HaltReasonTrait>(
         .collect::<Result<Vec<String>, ResolveProxyChainError>>()?;
 
     let report = FunctionGasReport {
-        gas: execution_result.gas_used(),
+        gas: execution_result.tx_gas_used(),
         status: execution_result.into(),
         proxy_chain,
     };

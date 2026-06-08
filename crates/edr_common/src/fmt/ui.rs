@@ -163,7 +163,7 @@ impl UIfmt for Eip658Value {
 
 impl UIfmt for AnyTransactionReceipt {
     fn pretty(&self) -> String {
-        let Self {
+        let Self(WithOtherFields {
             inner:
                 TransactionReceipt {
                     transaction_hash,
@@ -193,7 +193,7 @@ impl UIfmt for AnyTransactionReceipt {
                     blob_gas_used,
                 },
             other,
-        } = self;
+        }) = self;
 
         let mut pretty = format!(
             "
@@ -858,6 +858,10 @@ pub fn get_pretty_block_attr(block: &AnyRpcBlock, attr: &str) -> Option<String> 
         "blobGasUsed" | "blob_gas_used" => Some(block.header.blob_gas_used.pretty()),
         "excessBlobGas" | "excess_blob_gas" => Some(block.header.excess_blob_gas.pretty()),
         "requestsHash" | "requests_hash" => Some(block.header.requests_hash.pretty()),
+        "blockAccessListHash" | "block_access_list_hash" => {
+            Some(block.header.block_access_list_hash.pretty())
+        }
+        "slotNumber" | "slot_number" => Some(block.header.slot_number.pretty()),
         other => {
             if let Some(value) = block.other.get(other) {
                 let val = EthValue::from(value.clone());
@@ -898,6 +902,8 @@ fn pretty_block_basics<T>(block: &Block<T, alloy_rpc_types::Header<AnyHeader>>) 
                         excess_blob_gas,
                         parent_beacon_block_root,
                         requests_hash,
+                        block_access_list_hash,
+                        slot_number,
                     },
             },
         uncles: _,
@@ -929,7 +935,9 @@ withdrawalsRoot      {}
 totalDifficulty      {}
 blobGasUsed          {}
 excessBlobGas        {}
-requestsHash         {}",
+requestsHash         {}
+blockAccessListHash  {}
+slotNumber           {}",
         base_fee_per_gas.pretty(),
         difficulty.pretty(),
         extra_data.pretty(),
@@ -957,6 +965,8 @@ requestsHash         {}",
         blob_gas_used.pretty(),
         excess_blob_gas.pretty(),
         requests_hash.pretty(),
+        block_access_list_hash.pretty(),
+        slot_number.pretty(),
     )
 }
 

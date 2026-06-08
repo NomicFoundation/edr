@@ -241,7 +241,9 @@ impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
         self.block_gas_limit
     }
 
-    /// Retrieves the instance's transaction gas cap.
+    /// Retrieves the instance's EIP-7825 transaction gas cap.
+    ///
+    /// If `None`, the transaciton gas cap is disabled.
     pub fn transaction_gas_cap(&self) -> Option<u64> {
         self.transaction_gas_cap
     }

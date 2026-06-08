@@ -69,7 +69,8 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
     let transaction = request.fake_sign(caller);
     let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
 
-    transaction::validate(transaction, EvmSpecId::default())
+    let transaction_gas_cap = u64::MAX;
+    transaction::validate(transaction, EvmSpecId::default(), transaction_gas_cap)
 }
 
 /// Creates a dummy EIP-1559 transaction with the provided max fee and max
@@ -95,5 +96,6 @@ pub fn dummy_eip1559_transaction(
     let transaction = request.fake_sign(caller);
     let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
 
-    transaction::validate(transaction, EvmSpecId::default())
+    let transaction_gas_cap = u64::MAX;
+    transaction::validate(transaction, EvmSpecId::default(), transaction_gas_cap)
 }
