@@ -366,13 +366,15 @@ impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> 
     }
 
     /// Consumes the observed execution, returning the execution result and the
-    /// filtered call traces.
-    pub fn into_result_and_traces(self) -> (ExecutionResultT, Option<CallTraceArena>) {
-        let is_success = self.execution_result.result().is_success();
-        let traces = self
-            .evm_observed_data
-            .into_call_traces(self.include_call_traces, is_success);
+    /// call traces.
+    pub fn into_result_and_traces(self) -> (ExecutionResultT, CallTraceArena) {
+        let traces = self.evm_observed_data.call_trace_arena;
         (self.execution_result, traces)
+    }
+
+    pub fn should_include_traces(&self, success_criteria: impl FnOnce() -> bool) -> bool {
+        self.include_call_traces
+            .should_include(|| !success_criteria())
     }
 }
 
