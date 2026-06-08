@@ -67,7 +67,7 @@ use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
 use edr_state_api::{
     account::{Account, AccountInfo, AccountStatus},
     irregular::IrregularState,
-    AccountModifierFn, DynState, EvmStorageSlot, StateDiff, StateOverride,
+    AccountModifierFn, DynState, EvmState, EvmStorageSlot, StateDiff, StateOverride,
 };
 use edr_transaction::{
     request::TransactionRequestAndSender, BlockDataForTransaction, IsEip4844, IsSupported as _,
@@ -1198,9 +1198,11 @@ where
     ) -> Result<ChainSpecT::SignedTransaction, ProviderErrorForChainSpec<ChainSpecT>> {
         let TransactionRequestAndSender { request, sender } = transaction_request;
 
+        let transaction_gas_cap = self.mem_pool.transaction_gas_cap().unwrap_or(u64::MAX);
+
         if self.impersonated_accounts.contains(&sender) {
             let signed_transaction = request.fake_sign(sender);
-            transaction::validate(signed_transaction, self.evm_spec_id())
+            transaction::validate(signed_transaction, self.evm_spec_id(), transaction_gas_cap)
                 .map_err(ProviderError::TransactionCreationError)
         } else {
             let secret_key = self
@@ -1213,7 +1215,7 @@ where
             let signed_transaction =
                 unsafe { request.sign_for_sender_unchecked(secret_key, sender) }?;
 
-            transaction::validate(signed_transaction, self.evm_spec_id())
+            transaction::validate(signed_transaction, self.evm_spec_id(), transaction_gas_cap)
                 .map_err(ProviderError::TransactionCreationError)
         }
     }
@@ -2751,7 +2753,7 @@ where
         // a block
         let minimum_cost =
             transaction::calculate_initial_tx_gas_for_tx(&transaction, self.evm_spec_id())
-                .initial_gas;
+                .initial_total_gas;
 
         let custom_precompiles = self.precompile_overrides.clone();
         let observer_config =
@@ -2900,7 +2902,7 @@ fn create_forked_blockchain_and_state<
             ))
         })?;
 
-        let genesis_state: HashMap<Address, Account> = config
+        let genesis_state: EvmState = config
             .genesis_state
             .iter()
             .zip(genesis_account_infos)
@@ -3038,7 +3040,7 @@ fn create_local_blockchain_and_state<
         None
     };
 
-    let genesis_state: HashMap<Address, Account> = config
+    let genesis_state: EvmState = config
         .genesis_state
         .iter()
         .map(|(address, account_override)| {

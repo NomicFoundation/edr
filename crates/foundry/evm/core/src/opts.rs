@@ -83,17 +83,41 @@ pub struct EvmOpts<HardforkT> {
     pub disable_transaction_gas_cap: bool,
 }
 
+/// Resolves the effective [EIP-7825] transaction gas limit cap for the given
+/// hardfork and cap configuration, mirroring the resolution performed by
+/// [`configure_env`](crate::fork::configure_env) and revm's hardfork defaults.
+///
+/// Returns `None` when no cap is enforced: either the cap is explicitly
+/// disabled, or the hardfork predates the cap (pre-Osaka) and no explicit cap
+/// is set.
+///
+/// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+pub fn effective_transaction_gas_cap<HardforkT>(
+    spec: HardforkT,
+    transaction_gas_cap: Option<u64>,
+    disable_transaction_gas_cap: bool,
+) -> Option<u64>
+where
+    HardforkT: Into<SpecId>,
+{
+    if disable_transaction_gas_cap {
+        None
+    } else if transaction_gas_cap.is_some() {
+        transaction_gas_cap
+    } else if spec.into() >= SpecId::OSAKA {
+        Some(eip7825::TX_GAS_LIMIT_CAP)
+    } else {
+        None
+    }
+}
+
 impl<HardforkT> Default for EvmOpts<HardforkT>
 where
     HardforkT: Clone + Default + Into<SpecId>,
 {
     fn default() -> Self {
         let spec = HardforkT::default();
-        let transaction_gas_cap = if spec.clone().into() >= SpecId::OSAKA {
-            Some(eip7825::TX_GAS_LIMIT_CAP)
-        } else {
-            None
-        };
+        let transaction_gas_cap = effective_transaction_gas_cap(spec.clone(), None, false);
 
         Self {
             env: Env::default(),

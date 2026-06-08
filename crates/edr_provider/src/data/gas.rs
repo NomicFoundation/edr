@@ -151,7 +151,7 @@ pub(super) fn estimate_gas<
     })?;
 
     let initial_gas_or_failure = match execution_result.result {
-        ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
+        ExecutionResult::Success { gas, .. } => Ok(gas.tx_gas_used()),
         ExecutionResult::Revert { output, .. } => Err(TransactionFailure::revert(
             output,
             None,

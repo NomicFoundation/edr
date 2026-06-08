@@ -10,7 +10,7 @@ use std::{
 
 use alloy_genesis::GenesisAccount;
 use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
-use alloy_primitives::{address, keccak256, uint, Address, TxKind, B256, U256};
+use alloy_primitives::{address, keccak256, map::U256Map, uint, Address, TxKind, B256, U256};
 use alloy_rpc_types::{BlockNumberOrTag, Transaction as RpcTransaction};
 use derive_where::derive_where;
 use eyre::Context;
@@ -24,8 +24,8 @@ use revm::{
     database::{CacheDB, DatabaseRef},
     inspector::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
-    primitives::{hardfork::SpecId, HashMap as Map, Log, KECCAK_EMPTY},
-    state::{Account, AccountInfo, EvmState, EvmStorageSlot},
+    primitives::{hardfork::SpecId, Log, KECCAK_EMPTY},
+    state::{AccountInfo, EvmState, EvmStorageSlot},
     Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
 };
 use serde::{Deserialize, Serialize};
@@ -742,7 +742,7 @@ impl<
     pub fn replace_account_storage(
         &mut self,
         address: Address,
-        storage: Map<U256, U256>,
+        storage: U256Map<U256>,
     ) -> Result<(), DatabaseError> {
         if let Some(db) = self.active_fork_db_mut() {
             db.replace_account_storage(address, storage)
@@ -1974,7 +1974,7 @@ impl<
     > DatabaseCommit
     for Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
 {
-    fn commit(&mut self, changes: Map<Address, Account>) {
+    fn commit(&mut self, changes: EvmState) {
         if let Some(db) = self.active_fork_db_mut() {
             db.commit(changes);
         } else {
@@ -2596,7 +2596,7 @@ pub fn update_state<DB: Database>(
 /// Applies the changeset of a transaction to the active journaled state and
 /// also commits it in the forked db
 fn apply_state_changeset(
-    state: Map<revm::primitives::Address, Account>,
+    state: EvmState,
     journaled_state: &mut JournaledState,
     fork: &mut Fork,
     persistent_accounts: &HashSet<Address>,

@@ -1,11 +1,9 @@
 use alloy_rpc_types::{EIP1186AccountProofResponse, EIP1186StorageProof};
 use alloy_serde::JsonStorageKey;
-use edr_primitives::{
-    Address, Bytecode, HashMap, StorageKey, B256, KECCAK_EMPTY, KECCAK_NULL_RLP, U256,
-};
+use edr_primitives::{Address, Bytecode, StorageKey, B256, KECCAK_EMPTY, KECCAK_NULL_RLP, U256};
 use edr_state_api::{
-    account::{Account, AccountInfo},
-    AccountModifierFn, State, StateCommit, StateDebug, StateDiff, StateError, StateProof,
+    account::AccountInfo, AccountModifierFn, EvmState, State, StateCommit, StateDebug, StateDiff,
+    StateError, StateProof,
 };
 
 pub use self::state::PersistentAccountAndStorageTrie;
@@ -185,7 +183,7 @@ impl State for PersistentStateTrie {
 }
 
 impl StateCommit for PersistentStateTrie {
-    fn commit(&mut self, mut changes: HashMap<Address, Account>) {
+    fn commit(&mut self, mut changes: EvmState) {
         changes.iter_mut().for_each(|(address, account)| {
             if account.is_selfdestructed() {
                 self.remove_code(&account.info.code_hash);

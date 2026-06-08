@@ -544,6 +544,8 @@ export interface SuccessResult {
 export interface RevertResult {
   /** The amount of gas used */
   gasUsed: bigint
+  /** The logs */
+  logs: Array<ExecutionLog>
   /** The transaction output */
   output: Uint8Array
 }
@@ -579,6 +581,8 @@ export interface HaltResult {
    * gas limit
    */
   gasUsed: bigint
+  /** The logs */
+  logs: Array<ExecutionLog>
 }
 /** The result of executing a transaction. */
 export interface ExecutionResult {

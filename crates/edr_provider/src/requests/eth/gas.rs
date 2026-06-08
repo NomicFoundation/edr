@@ -174,7 +174,8 @@ fn resolve_estimate_gas_request<
     let transaction = request.fake_sign(sender);
 
     let hardfork = data.hardfork_at_block_spec(block_spec)?;
-    transaction::validate(transaction, hardfork.into())
+    let transaction_gas_cap = data.transaction_gas_cap().unwrap_or(u64::MAX);
+    transaction::validate(transaction, hardfork.into(), transaction_gas_cap)
         .map_err(ProviderError::TransactionCreationError)
 }
 

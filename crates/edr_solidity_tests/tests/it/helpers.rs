@@ -25,6 +25,7 @@ use edr_solidity_tests::{
     multi_runner::{TestContract, TestContracts},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
+    MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
 use edr_test_utils::{env::json_rpc_url_provider, new_fd_lock};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpointUrl, RpcEndpoints};
@@ -43,7 +44,7 @@ use foundry_evm::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
     inspectors::cheatcodes::CheatsConfigOptions,
-    opts::{Env, EvmOpts},
+    opts::{effective_transaction_gas_cap, Env, EvmOpts},
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -133,7 +134,12 @@ impl ForgeTestProfile {
     fn evm_opts<HardforkT: HardforkTr>(hardfork: HardforkT) -> EvmOpts<HardforkT> {
         EvmOpts {
             env: Env {
-                gas_limit: u64::MAX,
+                // Solidity tests want as much gas as possible, but a transaction whose
+                // gas limit exceeds the EIP-7825 cap (active by default from Osaka on)
+                // is rejected. Lower the default gas limit to the effective cap when
+                // one applies; otherwise use the maximum.
+                gas_limit: effective_transaction_gas_cap(hardfork, None, false)
+                    .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT),
                 chain_id: None,
                 tx_origin: CALLER,
                 block_number: U256::from(1),
@@ -145,6 +151,10 @@ impl ForgeTestProfile {
             ffi: true,
             memory_limit: 1 << 26,
             spec: hardfork,
+            // Set to `None` so revm applies the hardfork-default cap for the
+            // test's `hardfork` rather than the default spec's cap inherited from
+            // `EvmOpts::default()`.
+            transaction_gas_cap: None,
             ..EvmOpts::default()
         }
     }
