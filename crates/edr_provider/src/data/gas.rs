@@ -31,7 +31,7 @@ use crate::{
 };
 
 /// Shared EVM execution context passed to all gas estimation functions.
-pub(super) struct Context<'a, ChainSpecT: ChainSpec + HardforkChainSpec> {
+pub(super) struct GasCallContext<'a, ChainSpecT: ChainSpec + HardforkChainSpec> {
     pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
@@ -41,7 +41,9 @@ pub(super) struct Context<'a, ChainSpecT: ChainSpec + HardforkChainSpec> {
     pub transaction: ChainSpecT::SignedTransaction,
 }
 
-impl<'a, ChainSpecT: ChainSpec + HardforkChainSpec + BlockEnvChainSpec> Context<'a, ChainSpecT> {
+impl<'a, ChainSpecT: ChainSpec + HardforkChainSpec + BlockEnvChainSpec>
+    GasCallContext<'a, ChainSpecT>
+{
     fn new_block_env(&self) -> ChainSpecT::BlockEnv<'_, BlockHeader> {
         ChainSpecT::BlockEnv::new_block_env(
             self.header,
@@ -54,7 +56,7 @@ impl<'a, ChainSpecT: ChainSpec + HardforkChainSpec + BlockEnvChainSpec> Context<
 /// Executes the transaction with the given gas limit and returns the full
 /// execution result.
 fn run_with_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
-    context: &Context<'_, ChainSpecT>,
+    context: &GasCallContext<'_, ChainSpecT>,
     gas_limit: u64,
     observer: &mut EvmObserver,
 ) -> Result<
@@ -78,7 +80,7 @@ fn run_with_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: Transacti
 /// transaction to execute. Matches Hardhat logic, except it's iterative, not
 /// recursive.
 fn binary_search_estimation<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
-    context: &Context<'_, ChainSpecT>,
+    context: &GasCallContext<'_, ChainSpecT>,
     mut lower_bound: u64,
     mut upper_bound: u64,
     observer_config: &EvmObserverConfig,
@@ -126,7 +128,7 @@ pub(super) fn estimate_gas<
     TimerT: Clone + TimeSinceEpoch,
     ChainSpecT: ProviderSpec<TimerT, SignedTransaction: TransactionMut>,
 >(
-    context: &Context<'_, ChainSpecT>,
+    context: &GasCallContext<'_, ChainSpecT>,
     contract_decoder: Arc<RwLock<ContractDecoder>>,
     minimum_cost: u64,
     observer_config: &EvmObserverConfig,

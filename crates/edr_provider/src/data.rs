@@ -2763,7 +2763,7 @@ where
         let scheduled_blob_params = self.scheduled_blob_params().cloned();
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
-            let context = gas::Context {
+            let context = gas::GasCallContext {
                 blockchain,
                 cfg_env,
                 custom_precompiles: &custom_precompiles,
