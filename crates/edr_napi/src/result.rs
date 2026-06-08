@@ -174,7 +174,7 @@ impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
                 Either3::A(SuccessResult {
                     reason: SuccessReason::from(*reason),
                     gas_used: BigInt::from(gas.tx_gas_used()),
-                    gas_refunded: BigInt::from(gas.inner_refunded()),
+                    gas_refunded: BigInt::from(gas.final_refunded()),
                     logs,
                     output: match output {
                         edr_chain_spec_evm::result::Output::Call(return_value) => {

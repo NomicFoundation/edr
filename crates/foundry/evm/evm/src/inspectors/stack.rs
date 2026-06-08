@@ -956,7 +956,7 @@ impl<
                 logs: _,
                 output,
             } => {
-                gas.set_refund(result_gas.inner_refunded() as i64);
+                gas.set_refund(result_gas.final_refunded() as i64);
                 let _ = gas.record_regular_cost(result_gas.tx_gas_used());
                 let address = match output {
                     Output::Create(_, address) => address,

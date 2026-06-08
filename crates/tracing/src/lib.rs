@@ -24,11 +24,16 @@ use revm_inspector::JournalExt;
 /// for Success/Revert outcomes that did not consume the entire gas limit.
 ///
 /// The `floor_gas` argument is `0`: the EIP-7623 calldata floor is a
-/// transaction-level value computed during validation and is not available on
-/// the [`Gas`] accumulator the inspector observes. `total_gas_spent()` (the
-/// figure trace consumers read) is unaffected; only
-/// [`ResultGas::final_refunded`] would differ, and that is not surfaced through
-/// tracing.
+/// transaction-level value that revm only applies during post-execution, after
+/// the outermost frame returns. It is not present on the per-frame [`Gas`]
+/// accumulator the inspector observes here, so there is no floor value to read.
+///
+/// Consequently [`ResultGas::final_refunded`] and [`ResultGas::tx_gas_used`]
+/// derived from this reconstruction are not floor-adjusted: `final_refunded`
+/// collapses to the raw refund and `tx_gas_used` to `spent - refunded`. These
+/// per-message figures are for the trace/debug surface only; consumers that
+/// need the floor-accurate refund or gas used must read them from revm's
+/// [`ExecutionResult`].
 fn result_gas_from_spent(gas: &Gas) -> ResultGas {
     ResultGas::new_with_state_gas(
         gas.total_gas_spent(),

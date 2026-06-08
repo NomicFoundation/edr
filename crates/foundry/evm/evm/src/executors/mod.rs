@@ -1713,7 +1713,7 @@ fn convert_executed_result<
             logs,
         } => (
             reason.into(),
-            gas.inner_refunded(),
+            gas.final_refunded(),
             gas.tx_gas_used(),
             Some(output),
             logs,
