@@ -13,6 +13,8 @@
 
 use std::{any::Any, collections::HashMap, sync::Arc};
 
+use auto_impl::auto_impl;
+
 use crate::{
     artifacts::{CompilerType, ImmutableReference, LinkReference, SolcBytecode, SolxBytecode},
     build_model::{BuildModel, Instruction},
@@ -72,9 +74,10 @@ impl SolxBuildModelExt for BuildModel {
 /// the operations.
 ///
 /// Used through `Arc<dyn CompilerArtifact>` (see
-/// [`crate::artifacts::CompilerOutputBytecode`]) so the pipeline dispatches
+/// [`crate::artifacts::CompilerArtifact`]) so the pipeline dispatches
 /// dynamically and stays open to additional compiler implementations.
-pub trait CompilerArtifact: std::fmt::Debug + Send + Sync {
+#[auto_impl(&, Box)]
+pub trait CompilerArtifact: std::fmt::Debug {
     /// Producing compiler, derived from the concrete type implementing this
     /// trait.
     fn compiler_type(&self) -> CompilerType;

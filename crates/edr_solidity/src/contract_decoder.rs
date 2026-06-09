@@ -541,8 +541,12 @@ pub struct ContractIdentifierAndFunctionSignature {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifacts::{
-        BuildInfoConfig, BuildInfoWithOutput, CompilerInput, CompilerOutput, CompilerType,
+    use crate::{
+        artifacts::{
+            BuildInfoConfig, BuildInfoWithOutput, CompilerInput, CompilerOutput, SolcBytecode,
+            SolxBytecode,
+        },
+        debug_info::CompilerArtifact,
     };
 
     /// A project can have both `default` (solc) and `solx` profiles active;
@@ -552,7 +556,7 @@ mod tests {
         let solc_input: CompilerInput =
             serde_json::from_str(include_str!("../fixtures/compiler_input.json"))
                 .expect("solc fixture input parses");
-        let solc_output: CompilerOutput =
+        let solc_output: CompilerOutput<SolcBytecode> =
             serde_json::from_str(include_str!("../fixtures/compiler_output.json"))
                 .expect("solc fixture output parses");
 
@@ -561,7 +565,7 @@ mod tests {
                 .expect("solx fixture input parses");
         solx_input.sources.get_mut("Counter.sol").unwrap().content =
             include_str!("../fixtures/sources/Counter.sol").to_string();
-        let solx_output: CompilerOutput =
+        let solx_output: CompilerOutput<SolxBytecode> =
             serde_json::from_str(include_str!("../fixtures/solx_compiler_output.json"))
                 .expect("solx fixture output parses");
 
@@ -570,7 +574,6 @@ mod tests {
             id: "solc-mixed".to_string(),
             solc_version: "0.8.0".to_string(),
             solc_long_version: "0.8.0+commit.abc".to_string(),
-            compiler_type: CompilerType::Solc,
             input: solc_input,
             output: solc_output,
         };
@@ -579,13 +582,17 @@ mod tests {
             id: "solx-mixed".to_string(),
             solc_version: "0.8.34".to_string(),
             solc_long_version: "0.8.34+solx".to_string(),
-            compiler_type: CompilerType::Solx,
             input: solx_input,
             output: solx_output,
         };
 
         let config = BuildInfoConfig {
-            build_infos: vec![solc_bi, solx_bi],
+            build_infos: vec![
+                solc_bi
+                    .map_artifact(|artifact| -> Box<dyn CompilerArtifact> { Box::new(artifact) }),
+                solx_bi
+                    .map_artifact(|artifact| -> Box<dyn CompilerArtifact> { Box::new(artifact) }),
+            ],
             ignore_contracts: None,
         };
 

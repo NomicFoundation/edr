@@ -17,8 +17,9 @@ use std::{fs, hint::black_box, path::PathBuf, time::Duration};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use edr_solidity::{
-    artifacts::{BuildInfoConfig, BuildInfoWithOutput},
+    artifacts::{BuildInfoConfig, BuildInfoWithOutput, SolcBytecode},
     contract_decoder::ContractDecoder,
+    debug_info::CompilerArtifact,
 };
 
 const FORGE_STD_ARTIFACTS_DIR: &str = "EDR_FORGE_STD_ARTIFACTS_DIR";
@@ -39,7 +40,10 @@ fn load_build_info_config() -> anyhow::Result<Option<BuildInfoConfig>> {
 
         if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("json") {
             let contents = fs::read(&path)?;
-            let build_info = serde_json::from_slice::<BuildInfoWithOutput>(&contents)?;
+            let build_info =
+                serde_json::from_slice::<BuildInfoWithOutput<SolcBytecode>>(&contents)?
+                    .map_artifact(|artifact| -> Box<dyn CompilerArtifact> { Box::new(artifact) });
+
             build_infos.push(build_info);
         }
     }

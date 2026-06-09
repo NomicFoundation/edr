@@ -9,6 +9,7 @@ alloy-dyn-abi.workspace = true
 alloy-json-abi.workspace = true
 alloy-primitives.workspace = true
 alloy-sol-types.workspace = true
+auto_impl.workspace = true
 derive-where.workspace = true
 edr_artifact.workspace = true
 edr_chain_spec.workspace = true

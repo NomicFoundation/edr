@@ -965,18 +965,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        artifacts::{CompilerOutput, CompilerOutputBytecode, SolxBytecode},
+        artifacts::{CompilerOutput, SolxBytecode},
         build_model::SourceFile,
+        debug_info::CompilerArtifact,
     };
-
-    /// Test helper: every fixture in this module is solx-emitted, so the
-    /// dyn-trait artifact must downcast to the [`SolxBytecode`] concrete type.
-    fn as_solx(bc: &CompilerOutputBytecode) -> &SolxBytecode {
-        bc.as_artifact()
-            .as_any()
-            .downcast_ref::<SolxBytecode>()
-            .expect("expected SolxBytecode — fixture should carry debugInfo")
-    }
 
     /// `ParsedDwarf` with only the given ranges and an empty Context — for
     /// range-logic tests that don't need a real line program.
@@ -1006,12 +998,12 @@ mod tests {
         })
     }
 
-    fn load_solx_output() -> CompilerOutput {
+    fn load_solx_output() -> CompilerOutput<SolxBytecode> {
         let s = include_str!("../../fixtures/solx_compiler_output.json");
         serde_json::from_str(s).unwrap()
     }
 
-    fn load_scenarios_output() -> CompilerOutput {
+    fn load_scenarios_output() -> CompilerOutput<SolxBytecode> {
         let s = include_str!("../../fixtures/solx_compiler_output_scenarios.json");
         serde_json::from_str(s).unwrap()
     }
@@ -1030,26 +1022,29 @@ mod tests {
             .unwrap()
             .content = include_str!("../../fixtures/sources/Scenarios.t.sol").to_string();
         let output = load_scenarios_output();
+
+        let output =
+            output.map_artifact(|artifact| -> Box<dyn CompilerArtifact> { Box::new(artifact) });
+
         let model = crate::compiler::create_sources_model_from_ast(&output, &input)
             .expect("AST processor must accept the scenarios fixture");
         Arc::new(model)
     }
 
     fn decode_deployed_for(
-        output: &CompilerOutput,
+        output: &CompilerOutput<SolxBytecode>,
         contract: &str,
         model: &Arc<BuildModel>,
     ) -> Vec<Instruction> {
-        let bc = as_solx(
-            &output
-                .contracts
-                .get("project/contracts/Scenarios.t.sol")
-                .unwrap()
-                .get(contract)
-                .unwrap()
-                .evm
-                .deployed_bytecode,
-        );
+        let bc = &output
+            .contracts
+            .get("project/contracts/Scenarios.t.sol")
+            .unwrap()
+            .get(contract)
+            .unwrap()
+            .evm
+            .deployed_bytecode;
+
         let raw = hex::decode(&bc.object).unwrap();
         decode_instructions(&raw, &bc.debug_info, model, false).unwrap()
     }
@@ -1151,16 +1146,14 @@ mod tests {
         #[test]
         fn deployed_dwarf_maps_some_pc_to_require_line() {
             let output = load_solx_output();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("Counter.sol")
-                    .expect("Counter.sol")
-                    .get("Counter")
-                    .expect("Counter")
-                    .evm
-                    .deployed_bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("Counter.sol")
+                .expect("Counter.sol")
+                .get("Counter")
+                .expect("Counter")
+                .evm
+                .deployed_bytecode;
             let raw = hex::decode(&bc.object).expect("hex object");
 
             let model = make_build_model_for_counter();
@@ -1231,16 +1224,14 @@ mod tests {
         fn pin_constructor_revert() {
             let output = load_scenarios_output();
             let model = make_build_model_for_scenarios();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("project/contracts/Scenarios.t.sol")
-                    .unwrap()
-                    .get("ConstructorRevertContract")
-                    .unwrap()
-                    .evm
-                    .bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("project/contracts/Scenarios.t.sol")
+                .unwrap()
+                .get("ConstructorRevertContract")
+                .unwrap()
+                .evm
+                .bytecode;
             let raw = hex::decode(&bc.object).unwrap();
             let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
             assert!(first_inst_at_line(&insts, 57).is_some());
@@ -1357,16 +1348,14 @@ mod tests {
             // PCs inside _checkPositive carry the caller line (Counter.sol:8)
             // via inline_call_sites — that's what gives EDR the middle frame.
             let output = load_solx_output();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("Counter.sol")
-                    .unwrap()
-                    .get("Counter")
-                    .unwrap()
-                    .evm
-                    .deployed_bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("Counter.sol")
+                .unwrap()
+                .get("Counter")
+                .unwrap()
+                .evm
+                .deployed_bytecode;
             let raw = hex::decode(&bc.object).unwrap();
             let model = make_build_model_for_counter();
             let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
@@ -1413,16 +1402,14 @@ mod tests {
         fn pin_helper_reverting_constructor_carries_caller_line() {
             let output = load_scenarios_output();
             let model = make_build_model_for_scenarios();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("project/contracts/Scenarios.t.sol")
-                    .unwrap()
-                    .get("HelperRevertingConstructorContract")
-                    .unwrap()
-                    .evm
-                    .bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("project/contracts/Scenarios.t.sol")
+                .unwrap()
+                .get("HelperRevertingConstructorContract")
+                .unwrap()
+                .evm
+                .bytecode;
             let raw = hex::decode(&bc.object).unwrap();
             let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
             let inst =
@@ -1445,16 +1432,14 @@ mod tests {
             // stay inside a single range — we only require every JUMP/JUMPI to
             // get *some* non-default jump_type (not the NotJump placeholder).
             let output = load_solx_output();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("Counter.sol")
-                    .unwrap()
-                    .get("Counter")
-                    .unwrap()
-                    .evm
-                    .deployed_bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("Counter.sol")
+                .unwrap()
+                .get("Counter")
+                .unwrap()
+                .evm
+                .deployed_bytecode;
             let raw = hex::decode(&bc.object).unwrap();
             let model = make_build_model_for_counter();
             let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
@@ -1766,16 +1751,14 @@ mod tests {
         #[test]
         fn range_escapes_bytecode_on_truncated_bytecode() {
             let output = load_solx_output();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("Counter.sol")
-                    .unwrap()
-                    .get("Counter")
-                    .unwrap()
-                    .evm
-                    .deployed_bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("Counter.sol")
+                .unwrap()
+                .get("Counter")
+                .unwrap()
+                .evm
+                .deployed_bytecode;
             // 4 bytes — well short of any subprogram's high_pc.
             let truncated = [0u8; 4];
             let model = make_build_model_for_counter();
