@@ -35,6 +35,20 @@ use crate::{
     subscription::SubscriptionConfig,
 };
 
+/// Unwraps `$expr`, or rejects `$deferred` with the error and returns
+/// `Ok($promise)` from the enclosing function.
+macro_rules! try_or_reject_promise {
+    ($deferred:ident, $promise:ident, $expr:expr) => {
+        match $expr {
+            Ok(value) => value,
+            Err(error) => {
+                $deferred.reject(error);
+                return Ok($promise);
+            }
+        }
+    };
+}
+
 #[napi]
 pub struct EdrContext {
     inner: Arc<AsyncMutex<Context>>,
@@ -65,46 +79,45 @@ impl EdrContext {
     ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
-        macro_rules! try_or_reject_promise {
-            ($expr:expr) => {
-                match $expr {
-                    Ok(value) => value,
-                    Err(error) => {
-                        deferred.reject(error);
-                        return Ok(promise);
-                    }
-                }
-            };
-        }
-
         let runtime = runtime::Handle::current();
 
         let ConfigResolution {
             logger_config,
             provider_config,
             subscription_callback,
-        } = try_or_reject_promise!(resolve_configs(
-            env,
-            runtime.clone(),
-            provider_config,
-            logger_config,
-            subscription_config,
-        ));
+        } = try_or_reject_promise!(
+            deferred,
+            promise,
+            resolve_configs(
+                env,
+                runtime.clone(),
+                provider_config,
+                logger_config,
+                subscription_config,
+            )
+        );
 
         #[cfg(feature = "scenarios")]
-        let scenario_file =
-            try_or_reject_promise!(runtime.clone().block_on(crate::scenarios::scenario_file(
+        let scenario_file = try_or_reject_promise!(
+            deferred,
+            promise,
+            runtime.clone().block_on(crate::scenarios::scenario_file(
                 chain_type.clone(),
                 provider_config.clone(),
                 logger_config.enable,
-            )));
+            ))
+        );
 
         let (factory, dropped_provider_sender) = {
             // TODO: https://github.com/NomicFoundation/edr/issues/760
             // TODO: Don't block the JS event loop
             let context = runtime.block_on(async { self.inner.lock().await });
 
-            let factory = try_or_reject_promise!(context.get_provider_factory(&chain_type));
+            let factory = try_or_reject_promise!(
+                deferred,
+                promise,
+                context.get_provider_factory(&chain_type)
+            );
             let dropped_provider_sender = context.provider_deallocator.sender();
 
             (factory, dropped_provider_sender)
@@ -200,34 +213,23 @@ impl EdrContext {
     ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
-        let on_test_suite_completed_callback = match on_test_suite_completed_callback
-            .build_threadsafe_function::<SuiteResult>()
-            .build_callback(|ctx: ThreadsafeCallContext<SuiteResult>| Ok(ctx.value))
-        {
-            Ok(value) => value,
-            Err(error) => {
-                deferred.reject(error);
-                return Ok(promise);
-            }
-        };
+        let on_test_suite_completed_callback = try_or_reject_promise!(
+            deferred,
+            promise,
+            on_test_suite_completed_callback
+                .build_threadsafe_function::<SuiteResult>()
+                .build_callback(|ctx: ThreadsafeCallContext<SuiteResult>| Ok(ctx.value))
+        );
 
-        let test_filter: Arc<TestFilterConfig> =
-            Arc::new(match config_args.try_get_test_filter() {
-                Ok(test_filter) => test_filter,
-                Err(error) => {
-                    deferred.reject(error);
-                    return Ok(promise);
-                }
-            });
+        let test_filter: Arc<TestFilterConfig> = Arc::new(try_or_reject_promise!(
+            deferred,
+            promise,
+            config_args.try_get_test_filter()
+        ));
 
         let runtime = runtime::Handle::current();
-        let config = match config_args.resolve(env, runtime.clone()) {
-            Ok(config) => config,
-            Err(error) => {
-                deferred.reject(error);
-                return Ok(promise);
-            }
-        };
+        let config =
+            try_or_reject_promise!(deferred, promise, config_args.resolve(env, runtime.clone()));
 
         let context = self.inner.clone();
         runtime.clone().spawn(async move {
@@ -406,31 +408,23 @@ impl EdrContext {
 
         let (deferred, promise) = env.create_deferred()?;
 
-        macro_rules! try_or_reject_promise {
-            ($expr:expr) => {
-                match $expr {
-                    Ok(value) => value,
-                    Err(error) => {
-                        deferred.reject(error);
-                        return Ok(promise);
-                    }
-                }
-            };
-        }
-
         let runtime = runtime::Handle::current();
 
         let ConfigResolution {
             logger_config,
             provider_config,
             subscription_callback,
-        } = try_or_reject_promise!(resolve_configs(
-            env,
-            runtime.clone(),
-            provider_config,
-            logger_config,
-            subscription_config,
-        ));
+        } = try_or_reject_promise!(
+            deferred,
+            promise,
+            resolve_configs(
+                env,
+                runtime.clone(),
+                provider_config,
+                logger_config,
+                subscription_config,
+            )
+        );
 
         let contract_decoder = Arc::clone(contract_decoder.as_inner());
         let timer = Arc::clone(time.as_inner());
