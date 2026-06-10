@@ -51,9 +51,14 @@ mimalloc = { version = "0.1.39", default-features = false, features = [
 # `CallJsBackArgs` of a `ThreadsafeFunction`. The deprecated `JsObject` type
 # remains the only practical way to construct an object inside a TSFN
 # callback and pass it to JavaScript as a single argument.
+# `dyn-symbols` (an upstream default) resolves N-API symbols at runtime via
+# libloading instead of link-time externs. Without it, any test binary that
+# keeps napi code alive (e.g. via `napi::Error`'s Drop) fails to link outside
+# a Node host.
 napi = { version = "3", default-features = false, features = [
     "async",
     "compat-mode",
+    "dyn-symbols",
     "error_anyhow",
     "napi8",
     "serde-json",
