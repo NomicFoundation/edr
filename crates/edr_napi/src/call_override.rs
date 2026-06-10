@@ -37,6 +37,8 @@ struct CallOverrideCall {
     data: Bytes,
 }
 
+// Const generics: `ErrorStatus = Status`, `CalleeHandled = false`,
+// `Weak = true`, `MaxQueueSize = 0` (unbounded).
 type CallOverrideTsfn = ThreadsafeFunction<
     CallOverrideCall,
     Promise<Option<CallOverrideResult>>,
@@ -129,7 +131,10 @@ impl CallOverrideCallback {
             },
         );
 
-        assert_eq!(status, Status::Ok, "Call override callback failed");
+        // Distinct from the callback-failure panic below: a non-`Ok` status
+        // means the threadsafe call itself was not scheduled (e.g. `Closing`
+        // during environment teardown), not that the user's callback failed.
+        assert_eq!(status, Status::Ok, "Call override threadsafe call failed");
 
         // `SyncCallOverride` has no error path, and silently returning `None`
         // would alter `eth_call` results, so a failing JS callback must fail

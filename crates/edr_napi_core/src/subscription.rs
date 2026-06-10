@@ -107,6 +107,11 @@ impl SubscriptionEventData {
     }
 }
 
+// `JsObject` is allowed-deprecated until the `compat-mode` feature is
+// removed; see the module-level comment in `edr_napi/src/subscription.rs`.
+//
+// Const generics: `ErrorStatus = napi::Status`, `CalleeHandled = false`,
+// `Weak = true`, `MaxQueueSize = 0` (unbounded).
 #[allow(deprecated)]
 type SubscriptionTsfn =
     ThreadsafeFunction<SubscriptionEvent, (), JsObject, napi::Status, false, true, 0>;
