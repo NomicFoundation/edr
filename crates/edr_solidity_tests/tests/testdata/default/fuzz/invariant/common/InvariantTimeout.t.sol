@@ -18,6 +18,7 @@ contract TimeoutTest is DSTest {
         handler = new TimeoutHandler();
     }
 
+    /// forge-config: default.invariant.timeout = 1
     function invariant_counter_timeout() public view {
         // Invariant will fail if more than 10000 increments.
         // Make sure test timeouts after one second and remaining runs are canceled.

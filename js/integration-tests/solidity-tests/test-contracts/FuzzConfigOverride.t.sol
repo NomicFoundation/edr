@@ -6,6 +6,7 @@ import {Vm} from "forge-std/src/Vm.sol";
 
 contract FuzzConfigOverrideTest is Test {
     // Test runs with overridden config (runs = 10).
+    /// hardhat-config: default.fuzz.runs = 10
     function testFuzz_OverrideRuns(uint256 a) public pure {
         assertEq(a, a);
     }
@@ -16,11 +17,15 @@ contract FuzzConfigOverrideTest is Test {
     }
 
     // Test times out after 1s and is marked as succeeded. max_test_rejects = 50000 to ensure it doesn't fail.
+    /// hardhat-config: default.fuzz.runs = 256
+    /// hardhat-config: default.fuzz.max-test-rejects = 50000
+    /// hardhat-config: default.fuzz.timeout = 1
     function testFuzz_OverrideTimeoutAndRejects(uint256 a) public pure {
         vm.assume(a == 0);
     }
 
     // vm.assume(a < 0) is never true. Test has no timeout, rejects max_test_rejects = 5000 inputs and fails.
+    /// hardhat-config: default.fuzz.max-test-rejects = 5000
     function testFuzz_NoOverrideTimeout(uint256 a) public pure {
         vm.assume(a < 0);
     }

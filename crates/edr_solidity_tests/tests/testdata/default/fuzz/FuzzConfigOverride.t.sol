@@ -8,6 +8,7 @@ contract FuzzConfigOverrideTest is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 
     // Test runs with overridden config (runs = 10).
+    /// forge-config: default.fuzz.runs = 10
     function testFuzz_OverrideRuns(uint256 a) public {
         assertEq(a, a);
     }
@@ -18,11 +19,15 @@ contract FuzzConfigOverrideTest is DSTest {
     }
 
     // Test times out after 1s and is marked as succeeded. max_test_rejects = 50000 to ensure it doesn't fail.
+    /// forge-config: default.fuzz.runs = 256
+    /// forge-config: default.fuzz.max-test-rejects = 50000
+    /// forge-config: default.fuzz.timeout = 1
     function testFuzz_OverrideTimeoutAndRejects(uint256 a) public {
         vm.assume(a == 0);
     }
 
     // vm.assume(a < 0) is never true. Test has no timeout, rejects max_test_rejects = 5000 inputs and fails.
+    /// forge-config: default.fuzz.max-test-rejects = 5000
     function testFuzz_NoOverrideTimeout(uint256 a) public {
         vm.assume(a < 0);
     }

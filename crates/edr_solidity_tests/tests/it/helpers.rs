@@ -3,7 +3,7 @@
 mod config;
 mod tracing;
 
-pub use config::{assert_multiple, make_test_identifier, TestConfig};
+pub use config::{assert_multiple, TestConfig};
 use edr_decoder_revert::RevertDecoder;
 use parking_lot::RwLock;
 mod integration_test_config;
@@ -11,7 +11,6 @@ mod solidity_error_code;
 mod solidity_test_filter;
 use std::{
     borrow::Cow,
-    collections::HashMap,
     env, fmt,
     io::Write,
     marker::PhantomData,
@@ -193,7 +192,6 @@ impl ForgeTestProfile {
             local_predeploys: Vec::default(),
             on_collected_coverage_fn: None,
             generate_gas_report: false,
-            test_function_overrides: HashMap::default(),
         }
     }
 

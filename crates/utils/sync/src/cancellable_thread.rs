@@ -22,12 +22,14 @@ use crossbeam_channel::{bounded, Receiver, Sender};
 /// to send a shutdown message, we can just drop the sender. This way, we
 /// statically guarantee that we issue shutdown exactly once, even if we
 /// early return via `?` or panic."
+#[derive(Debug)]
 pub struct CancellableThread {
     inner: Option<Inner>,
 }
 
 /// The owned state of a [`CancellableThread`]: the cancellation channel's
 /// sender and the handle to the dedicated thread.
+#[derive(Debug)]
 struct Inner {
     cancellation_sender: Sender<Infallible>,
     thread: JoinHandle<()>,

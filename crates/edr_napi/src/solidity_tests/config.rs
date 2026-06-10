@@ -24,7 +24,6 @@ use crate::{
         serialize_optional_bigint_as_struct, serialize_optional_uint8array_as_hex,
         serialize_uint8array_as_hex,
     },
-    solidity_tests::artifact::ArtifactId,
 };
 
 /// Solidity test runner configuration arguments exposed through the ffi.
@@ -177,9 +176,6 @@ pub struct SolidityTestRunnerConfigArgs {
     /// mode.
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
-    /// Test function level config overrides.
-    /// Defaults to none.
-    pub test_function_overrides: Option<Vec<TestFunctionOverride>>,
     /// A list of EIP-712 canonical type definitions that can be referenced by
     /// type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
     ///
@@ -261,7 +257,6 @@ impl SolidityTestRunnerConfigArgs {
             test_pattern,
             exclude_test_pattern,
             generate_gas_report,
-            test_function_overrides,
             eip712_canonical_types,
         } = self;
 
@@ -333,22 +328,9 @@ impl SolidityTestRunnerConfigArgs {
                 .collect::<Result<_, napi::Error>>()?,
             seed: fuzz.seed,
             allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
-            functions_internal_expect_revert: test_function_overrides
-                .as_ref()
-                .map(|overrides| {
-                    overrides
-                        .iter()
-                        .filter(|override_item| {
-                            override_item
-                                .config
-                                .allow_internal_expect_revert
-                                .unwrap_or_default()
-                        })
-                        .map(|override_item| override_item.identifier.clone().try_into())
-                        .collect::<Result<_, _>>()
-                })
-                .transpose()?
-                .unwrap_or_default(),
+            // Per-function `allowInternalExpectRevert` now comes from inline
+            // config, applied per-suite by the test runner.
+            functions_internal_expect_revert: std::collections::HashSet::default(),
             eip712_types_by_name: foundry_cheatcodes::parse_eip712_canonical_types(
                 eip712_canonical_types.unwrap_or_default(),
             )
@@ -406,19 +388,6 @@ impl SolidityTestRunnerConfigArgs {
             on_collected_coverage_fn,
             test_pattern,
             generate_gas_report,
-            test_function_overrides: test_function_overrides
-                .map(|overrides| {
-                    overrides
-                        .into_iter()
-                        .map(|override_item| {
-                            Ok::<_, napi::Error>((
-                                override_item.identifier.try_into()?,
-                                override_item.config.into(),
-                            ))
-                        })
-                        .collect::<Result<HashMap<_, _>, _>>()
-                })
-                .transpose()?,
         };
 
         Ok(config)
@@ -943,145 +912,6 @@ impl From<edr_solidity::config::IncludeTraces> for IncludeTraces {
             edr_solidity::config::IncludeTraces::None => IncludeTraces::None,
             edr_solidity::config::IncludeTraces::Failing => IncludeTraces::Failing,
             edr_solidity::config::IncludeTraces::All => IncludeTraces::All,
-        }
-    }
-}
-
-/// Test function level config override.
-#[napi(object)]
-#[derive(Clone, Debug, Default, serde::Serialize)]
-pub struct TestFunctionConfigOverride {
-    /// Allow expecting reverts with `expectRevert` at the same callstack depth
-    /// as the test.
-    pub allow_internal_expect_revert: Option<bool>,
-    /// Whether to enable isolation of calls for the test. In isolation mode all
-    /// top-level calls are executed as a separate transaction in a separate
-    /// EVM context, enabling more precise gas accounting and transaction
-    /// state changes.
-    /// Ignored when gas reporting is enabled, as isolation is required for
-    /// accurate gas measurements.
-    pub isolate: Option<bool>,
-    /// The EVM version to use for this test, e.g. "Cancun". This will override
-    /// the global EVM version.
-    pub evm_version: Option<String>,
-    /// Configuration override for fuzz testing.
-    pub fuzz: Option<FuzzConfigOverride>,
-    /// Configuration override for invariant testing.
-    pub invariant: Option<InvariantConfigOverride>,
-}
-
-impl From<TestFunctionConfigOverride> for edr_solidity_tests::TestFunctionConfigOverride {
-    fn from(value: TestFunctionConfigOverride) -> Self {
-        Self {
-            allow_internal_expect_revert: value.allow_internal_expect_revert,
-            isolate: value.isolate,
-            evm_version: value.evm_version,
-            fuzz: value.fuzz.map(Into::into),
-            invariant: value.invariant.map(Into::into),
-        }
-    }
-}
-
-/// Test function override configuration.
-#[napi(object)]
-#[derive(Clone, Debug, serde::Serialize)]
-pub struct TestFunctionOverride {
-    /// The test function identifier.
-    pub identifier: TestFunctionIdentifier,
-    /// The configuration override.
-    pub config: TestFunctionConfigOverride,
-}
-
-/// Test function identifier.
-#[napi(object)]
-#[derive(Clone, Debug, serde::Serialize)]
-pub struct TestFunctionIdentifier {
-    /// The contract artifact id.
-    pub contract_artifact: ArtifactId,
-    /// The function selector as hex string.
-    pub function_selector: String,
-}
-
-impl TryFrom<TestFunctionIdentifier> for foundry_cheatcodes::TestFunctionIdentifier {
-    type Error = napi::Error;
-
-    fn try_from(value: TestFunctionIdentifier) -> napi::Result<Self> {
-        Ok(foundry_cheatcodes::TestFunctionIdentifier {
-            contract_artifact: value.contract_artifact.try_into()?,
-            function_selector: value.function_selector,
-        })
-    }
-}
-
-/// Timeout configuration.
-/// Note: This wrapper is needed to avoid ambiguity with NAPI conversion.
-#[napi(object)]
-#[derive(Clone, Debug, Default, serde::Serialize)]
-pub struct TimeoutConfig {
-    /// Optional timeout (in seconds).
-    pub time: Option<u32>,
-}
-
-impl From<TimeoutConfig> for edr_solidity_tests::TimeoutConfig {
-    fn from(value: TimeoutConfig) -> Self {
-        Self { time: value.time }
-    }
-}
-
-/// Test function or test contract level fuzz config override.
-#[napi(object)]
-#[derive(Clone, Debug, Default, serde::Serialize)]
-pub struct FuzzConfigOverride {
-    /// The number of test cases that must execute for each property test.
-    pub runs: Option<u32>,
-    /// The maximum number of test case rejections allowed by proptest, to be
-    /// encountered during usage of `vm.assume` cheatcode. This will be used
-    /// to set the `max_global_rejects` value in proptest test runner config.
-    /// `max_local_rejects` option isn't exposed here since we're not using
-    /// `prop_filter`.
-    pub max_test_rejects: Option<u32>,
-    /// show `console.log` in fuzz test, defaults to `false`.
-    pub show_logs: Option<bool>,
-    /// Optional timeout (in seconds) for each property test.
-    pub timeout: Option<TimeoutConfig>,
-}
-
-impl From<FuzzConfigOverride> for edr_solidity_tests::FuzzConfigOverride {
-    fn from(value: FuzzConfigOverride) -> Self {
-        Self {
-            runs: value.runs,
-            max_test_rejects: value.max_test_rejects,
-            show_logs: value.show_logs,
-            timeout: value.timeout.map(Into::into),
-        }
-    }
-}
-
-/// Test function or test contract level invariant config override.
-#[napi(object)]
-#[derive(Clone, Debug, Default, serde::Serialize)]
-pub struct InvariantConfigOverride {
-    /// The number of runs that must execute for each invariant test group.
-    pub runs: Option<u32>,
-    /// The number of calls executed to attempt to break invariants in one run.
-    pub depth: Option<u32>,
-    /// Fails the invariant fuzzing if a revert occurs.
-    pub fail_on_revert: Option<bool>,
-    /// Allows overriding an unsafe external call when running invariant tests.
-    /// eg. reentrancy checks
-    pub call_override: Option<bool>,
-    /// Optional timeout (in seconds) for each invariant test.
-    pub timeout: Option<TimeoutConfig>,
-}
-
-impl From<InvariantConfigOverride> for edr_solidity_tests::InvariantConfigOverride {
-    fn from(value: InvariantConfigOverride) -> Self {
-        Self {
-            runs: value.runs,
-            depth: value.depth,
-            fail_on_revert: value.fail_on_revert,
-            call_override: value.call_override,
-            timeout: value.timeout.map(Into::into),
         }
     }
 }

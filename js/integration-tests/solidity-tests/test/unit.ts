@@ -672,24 +672,10 @@ describe("Unit tests", () => {
 
   describe("FunctionLevelConfigOverride", function () {
     it("AllowInternalExepectRevert", async function () {
-      const artifact = testContext.matchingTest("InternalRevertingTest")[0];
-      const testFunctionOverrides = [
-        {
-          identifier: {
-            contractArtifact: artifact,
-            functionSelector: "0x3a1da94e", // testInternalRevert()
-          },
-          config: {
-            allowInternalExpectRevert: true,
-          },
-        },
-      ];
-
+      // `allowInternalExpectRevert` comes from an inline `forge-config:`
+      // directive on `testInternalRevert()` in `InternalRevert.t.sol`.
       const result = await testContext.runTestsWithStats(
-        "InternalRevertingTest",
-        {
-          testFunctionOverrides,
-        }
+        "InternalRevertingTest"
       );
 
       assert.equal(result.totalTests, 1);

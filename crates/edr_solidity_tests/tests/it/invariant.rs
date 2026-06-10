@@ -7,8 +7,7 @@ use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{fuzz::CounterExample, result::TestKind};
 
 use crate::helpers::{
-    assert_multiple, make_test_identifier, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig,
-    TEST_DATA_DEFAULT,
+    assert_multiple, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT,
 };
 
 macro_rules! get_counterexample {
@@ -1151,10 +1150,8 @@ async fn test_invariant_function_override_runs() {
     config.invariant.runs = 2;
     config.invariant.depth = 10;
 
-    let runner = TEST_DATA_DEFAULT
-        .runner_with_fuzz_persistence(config.clone())
-        .await;
-    let results = runner.test_collect(filter.clone()).await.suite_results;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     let test_result = results
         .get("default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantTest")
@@ -1171,30 +1168,21 @@ async fn test_invariant_function_override_runs() {
         }
     ));
 
-    // Override to 1 run and 5 depth.
-    config.test_function_overrides.insert(
-        make_test_identifier(
-            "default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantTest",
-            "invariant_neverFalse()",
-        ),
-        edr_solidity_tests::TestFunctionConfigOverride {
-            allow_internal_expect_revert: None,
-            isolate: None,
-            evm_version: None,
-            fuzz: None,
-            invariant: Some(edr_solidity_tests::InvariantConfigOverride {
-                runs: Some(1),
-                depth: Some(5),
-                ..Default::default()
-            }),
-        },
+    // The inline `invariant.runs`/`invariant.depth` directives (in
+    // `InvariantOverrideRunsDepth.t.sol`) override to 1 run and 5 depth.
+    let override_filter = SolidityTestFilter::new(
+        ".*",
+        ".*",
+        ".*fuzz/invariant/common/InvariantOverrideRunsDepth.t.sol",
     );
-
+    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner.test_collect(override_filter).await.suite_results;
 
     let test_result = results
-        .get("default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantTest")
+        .get(
+            "default/fuzz/invariant/common/InvariantOverrideRunsDepth.t.sol:InvariantOverrideRunsDepth",
+        )
         .unwrap()
         .test_results
         .get("invariant_neverFalse()")
@@ -1223,10 +1211,8 @@ async fn test_invariant_function_override_fail_on_revert() {
     // This is already the default, but being explicit here for clarity.
     config.invariant.fail_on_revert = false;
 
-    let runner = TEST_DATA_DEFAULT
-        .runner_with_fuzz_persistence(config.clone())
-        .await;
-    let results = runner.test_collect(filter.clone()).await.suite_results;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     // Succeeds when not failing on revert.
     assert_multiple(
@@ -1237,32 +1223,25 @@ async fn test_invariant_function_override_fail_on_revert() {
         )]),
     );
 
-    // Override to fail on revert.
-    config.test_function_overrides.insert(
-        make_test_identifier(
-            "default/fuzz/invariant/common/InvariantHandlerFailure.t.sol:InvariantHandlerFailure",
-            "statefulFuzz_BrokenInvariant()",
-        ),
-        edr_solidity_tests::TestFunctionConfigOverride {
-            allow_internal_expect_revert: None,
-            isolate: None,
-            evm_version: None,
-            fuzz: None,
-            invariant: Some(edr_solidity_tests::InvariantConfigOverride {
-                fail_on_revert: Some(true),
-                ..Default::default()
-            }),
-        },
+    // The inline `invariant.fail-on-revert = true` directive (in
+    // `InvariantOverrideFailOnRevert.t.sol`) makes the invariant fail on revert.
+    let override_filter = SolidityTestFilter::new(
+        ".*",
+        ".*",
+        ".*fuzz/invariant/common/InvariantOverrideFailOnRevert.t.sol",
     );
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.invariant.runs = 1;
+    config.invariant.depth = 10;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner.test_collect(override_filter).await.suite_results;
 
     // Fails when overridden to fail on revert.
     assert_multiple(
         &results,
         BTreeMap::from([(
-            "default/fuzz/invariant/common/InvariantHandlerFailure.t.sol:InvariantHandlerFailure",
+            "default/fuzz/invariant/common/InvariantOverrideFailOnRevert.t.sol:InvariantOverrideFailOnRevert",
             vec![(
                 "statefulFuzz_BrokenInvariant()",
                 false,
@@ -1286,10 +1265,8 @@ async fn test_invariant_function_override_call_override() {
     // This is already the default, but being explicit here for clarity.
     config.invariant.call_override = false;
 
-    let runner = TEST_DATA_DEFAULT
-        .runner_with_fuzz_persistence(config.clone())
-        .await;
-    let results = runner.test_collect(filter.clone()).await.suite_results;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
@@ -1299,31 +1276,22 @@ async fn test_invariant_function_override_call_override() {
         )]),
     );
 
-    // Override config to enable call override.
-    config.test_function_overrides.insert(
-        make_test_identifier(
-            "default/fuzz/invariant/common/InvariantReentrancy.t.sol:InvariantReentrancy",
-            "invariantNotStolen()",
-        ),
-        edr_solidity_tests::TestFunctionConfigOverride {
-            allow_internal_expect_revert: None,
-            isolate: None,
-            evm_version: None,
-            fuzz: None,
-            invariant: Some(edr_solidity_tests::InvariantConfigOverride {
-                call_override: Some(true),
-                ..Default::default()
-            }),
-        },
+    // The inline `invariant.call-override = true` directive (in
+    // `InvariantOverrideCallOverride.t.sol`) enables call override, exposing the
+    // reentrancy.
+    let override_filter = SolidityTestFilter::new(
+        ".*",
+        ".*",
+        ".*fuzz/invariant/common/InvariantOverrideCallOverride.t.sol",
     );
-
+    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner.test_collect(override_filter).await.suite_results;
 
     assert_multiple(
         &results,
         BTreeMap::from([(
-            "default/fuzz/invariant/common/InvariantReentrancy.t.sol:InvariantReentrancy",
+            "default/fuzz/invariant/common/InvariantOverrideCallOverride.t.sol:InvariantOverrideCallOverride",
             vec![(
                 "invariantNotStolen()",
                 false,
@@ -1345,24 +1313,9 @@ async fn test_invariant_function_override_timeout() {
     config.invariant.depth = 20000;
 
     // With no timeout the test takes a long time and eventually fails when counter
-    // >= 10000. Not tested here because it would slow down the test suite.
-
-    config.test_function_overrides.insert(
-        make_test_identifier(
-            "default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest",
-            "invariant_counter_timeout()",
-        ),
-        edr_solidity_tests::TestFunctionConfigOverride {
-            allow_internal_expect_revert: None,
-            isolate: None,
-            evm_version: None,
-            fuzz: None,
-            invariant: Some(edr_solidity_tests::InvariantConfigOverride {
-                timeout: Some(edr_solidity_tests::TimeoutConfig { time: Some(1u32) }),
-                ..Default::default()
-            }),
-        },
-    );
+    // >= 10000. Not tested here because it would slow down the test suite. The
+    // 1-second timeout comes from the inline `invariant.timeout` directive in
+    // `InvariantTimeout.t.sol`.
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;

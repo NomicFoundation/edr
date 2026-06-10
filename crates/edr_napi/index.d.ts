@@ -850,11 +850,6 @@ export interface SolidityTestRunnerConfigArgs {
    */
   generateGasReport?: boolean
   /**
-   * Test function level config overrides.
-   * Defaults to none.
-   */
-  testFunctionOverrides?: Array<TestFunctionOverride>
-  /**
    * A list of EIP-712 canonical type definitions that can be referenced by
    * type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
    *
@@ -1103,87 +1098,6 @@ export enum IncludeTraces {
   Failing = 1,
   /** Traces will be included for all test results or executed transactions. */
   All = 2
-}
-/** Test function level config override. */
-export interface TestFunctionConfigOverride {
-  /**
-   * Allow expecting reverts with `expectRevert` at the same callstack depth
-   * as the test.
-   */
-  allowInternalExpectRevert?: boolean
-  /**
-   * Whether to enable isolation of calls for the test. In isolation mode all
-   * top-level calls are executed as a separate transaction in a separate
-   * EVM context, enabling more precise gas accounting and transaction
-   * state changes.
-   * Ignored when gas reporting is enabled, as isolation is required for
-   * accurate gas measurements.
-   */
-  isolate?: boolean
-  /**
-   * The EVM version to use for this test, e.g. "Cancun". This will override
-   * the global EVM version.
-   */
-  evmVersion?: string
-  /** Configuration override for fuzz testing. */
-  fuzz?: FuzzConfigOverride
-  /** Configuration override for invariant testing. */
-  invariant?: InvariantConfigOverride
-}
-/** Test function override configuration. */
-export interface TestFunctionOverride {
-  /** The test function identifier. */
-  identifier: TestFunctionIdentifier
-  /** The configuration override. */
-  config: TestFunctionConfigOverride
-}
-/** Test function identifier. */
-export interface TestFunctionIdentifier {
-  /** The contract artifact id. */
-  contractArtifact: ArtifactId
-  /** The function selector as hex string. */
-  functionSelector: string
-}
-/**
- * Timeout configuration.
- * Note: This wrapper is needed to avoid ambiguity with NAPI conversion.
- */
-export interface TimeoutConfig {
-  /** Optional timeout (in seconds). */
-  time?: number
-}
-/** Test function or test contract level fuzz config override. */
-export interface FuzzConfigOverride {
-  /** The number of test cases that must execute for each property test. */
-  runs?: number
-  /**
-   * The maximum number of test case rejections allowed by proptest, to be
-   * encountered during usage of `vm.assume` cheatcode. This will be used
-   * to set the `max_global_rejects` value in proptest test runner config.
-   * `max_local_rejects` option isn't exposed here since we're not using
-   * `prop_filter`.
-   */
-  maxTestRejects?: number
-  /** show `console.log` in fuzz test, defaults to `false`. */
-  showLogs?: boolean
-  /** Optional timeout (in seconds) for each property test. */
-  timeout?: TimeoutConfig
-}
-/** Test function or test contract level invariant config override. */
-export interface InvariantConfigOverride {
-  /** The number of runs that must execute for each invariant test group. */
-  runs?: number
-  /** The number of calls executed to attempt to break invariants in one run. */
-  depth?: number
-  /** Fails the invariant fuzzing if a revert occurs. */
-  failOnRevert?: boolean
-  /**
-   * Allows overriding an unsafe external call when running invariant tests.
-   * eg. reentrancy checks
-   */
-  callOverride?: boolean
-  /** Optional timeout (in seconds) for each invariant test. */
-  timeout?: TimeoutConfig
 }
 export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory
 export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory
