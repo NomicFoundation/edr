@@ -280,7 +280,7 @@ describe("Unit tests", () => {
           function: "testUnsupportedCheatcode",
           message: "cheatcode 'broadcast()' is not supported",
           errorDetails: {
-            code: "UnsupportedCheatcode" as CheatcodeErrorCode,
+            code: CheatcodeErrorCode.UnsupportedCheatcode,
             cheatcode: "broadcast()",
           },
           line: 9,
@@ -304,7 +304,7 @@ describe("Unit tests", () => {
           function: "testMissingCheatcode",
           message: "cheatcode 'getEvmVersion()' is missing",
           errorDetails: {
-            code: "MissingCheatcode" as CheatcodeErrorCode,
+            code: CheatcodeErrorCode.MissingCheatcode,
             cheatcode: "getEvmVersion()",
           },
           line: 15,
@@ -525,7 +525,7 @@ describe("Unit tests", () => {
 
       assert.equal(suiteResult.id.name, testSuites[i]);
       assert.equal(suiteResult.testResults.length, 1);
-      assert.equal(suiteResult.testResults[0].status, "Success" as TestStatus);
+      assert.equal(suiteResult.testResults[0].status, TestStatus.Success);
 
       if (i > 0) {
         const time = results.testResults[i].time - results.start;
