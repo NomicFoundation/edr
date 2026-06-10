@@ -388,10 +388,12 @@ export interface ChainOverride {
 }
 
 /** Error codes that can be returned by cheatcodes in Solidity tests. */
-export type CheatcodeErrorCode = /** The specified cheatcode is not supported. */
-'UnsupportedCheatcode'|
-/** The specified cheatcode is missing. */
-'MissingCheatcode';
+export declare enum CheatcodeErrorCode {
+  /** The specified cheatcode is not supported. */
+  UnsupportedCheatcode = 'UnsupportedCheatcode',
+  /** The specified cheatcode is missing. */
+  MissingCheatcode = 'MissingCheatcode'
+}
 
 /** Error returned by a cheatcode in Solidity tests. */
 export interface CheatcodeErrorDetails {
@@ -1144,10 +1146,12 @@ export interface MemPoolConfig {
 export const MERGE: string
 
 /** The type of ordering to use when selecting blocks to mine. */
-export type MineOrdering = /** Insertion order */
-'Fifo'|
-/** Effective miner fee */
-'Priority';
+export declare enum MineOrdering {
+  /** Insertion order */
+  Fifo = 'Fifo',
+  /** Effective miner fee */
+  Priority = 'Priority'
+}
 
 /** Configuration for the provider's miner. */
 export interface MiningConfig {
@@ -1837,12 +1841,14 @@ export interface TestFunctionOverride {
 }
 
 /** The result of a test execution. */
-export type TestStatus = /** Test success */
-'Success'|
-/** Test failure */
-'Failure'|
-/** Test skipped */
-'Skipped';
+export declare enum TestStatus {
+  /** Test success */
+  Success = 'Success',
+  /** Test failure */
+  Failure = 'Failure',
+  /** Test skipped */
+  Skipped = 'Skipped'
+}
 
 /**
  * Timeout configuration.
