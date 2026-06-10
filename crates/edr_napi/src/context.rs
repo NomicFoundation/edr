@@ -43,7 +43,7 @@ pub struct EdrContext {
 #[napi]
 impl EdrContext {
     /// Creates a new [`EdrContext`] instance. Should only be called once!
-    #[napi(catch_unwind, constructor)]
+    #[napi(catch_unwind, constructor, async_runtime)]
     pub fn new() -> napi::Result<Self> {
         let context = Context::new(runtime::Handle::current())?;
 
