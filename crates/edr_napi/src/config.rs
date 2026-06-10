@@ -509,6 +509,8 @@ impl ObservabilityConfig<'_> {
                         code_coverage
                             .on_collected_coverage_callback
                             .build_threadsafe_function::<HashSet<Bytes>>()
+                            // Maintain a weak reference to the function to avoid blocking
+                            // the event loop from exiting.
                             .weak::<true>()
                             .build_callback(
                                 |ctx: ThreadsafeCallContext<HashSet<Bytes>>| {
@@ -567,6 +569,8 @@ impl ObservabilityConfig<'_> {
                     gas_report
                         .on_collected_gas_report_callback
                         .build_threadsafe_function::<GasReport>()
+                        // Maintain a weak reference to the function to avoid blocking
+                        // the event loop from exiting.
                         .weak::<true>()
                         .build_callback(|ctx: ThreadsafeCallContext<GasReport>| Ok(ctx.value))?,
                 );

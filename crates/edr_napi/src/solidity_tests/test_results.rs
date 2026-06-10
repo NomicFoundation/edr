@@ -185,12 +185,11 @@ impl TestResult {
     /// See [`edr_solidity_tests::result::TestResult::reason`]
     // The three nullable getters here (reason, counterexample,
     // value_snapshot_groups) return `Either<T, ()>` rather than `Option<T>` so
-    // absence serializes as JS `undefined`, not `null`. napi-rs v3 hardcodes
-    // `Option::None` → `napi_get_null` (napi-3.8.6/src/bindgen_runtime/js_values.rs:243),
-    // which would diverge from the napi-rs v2 contract and break HH3 consumers
-    // that test against `=== undefined` (e.g. `gas-analytics/snapshot-cheatcodes.ts`).
-    // `()` (= `Undefined`) dispatches through `napi_get_undefined`, restoring
-    // the v2 contract.
+    // that absence serializes as JS `undefined`, not `null`: napi-rs
+    // serializes `Option::None` as `null`, which would break Hardhat
+    // consumers that test against `=== undefined` (e.g.
+    // `gas-analytics/snapshot-cheatcodes.ts`), whereas `()` serializes as
+    // `undefined`.
     #[napi(getter)]
     pub fn reason(&self) -> Either<String, ()> {
         match &self.reason {
@@ -532,7 +531,7 @@ pub struct CounterExampleSequence {
 #[napi(object)]
 pub struct BaseCounterExample {
     // Manual Clone impl below; auto-derive doesn't work because `Uint8Array`
-    // is not `Clone` in napi-rs v3.
+    // does not implement `Clone`.
     /// See [`edr_solidity_tests::fuzz::BaseCounterExample::sender`]
     #[napi(readonly)]
     pub sender: Option<Uint8Array>,

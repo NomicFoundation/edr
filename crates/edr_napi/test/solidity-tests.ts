@@ -56,7 +56,7 @@ describe("Solidity Tests", () => {
         // `UnsafeToReplay` in `solidity_tests/test_results.rs`). The
         // discriminant must round-trip through napi as one of those
         // exact strings; if a construction site misses `.to_owned()`,
-        // the JS-side value is empty/garbage and HH3's reporter
+        // the JS-side value is empty/garbage and Hardhat's reporter
         // mis-routes the entry.
         const trace = res.testResults[0].stackTrace();
         if (trace !== null) {

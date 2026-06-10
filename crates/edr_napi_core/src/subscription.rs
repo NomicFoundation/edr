@@ -124,6 +124,8 @@ impl Callback {
     ) -> napi::Result<Self> {
         let callback = subscription_event_callback
             .build_threadsafe_function::<SubscriptionEvent>()
+            // Maintain a weak reference to the function to avoid blocking
+            // the event loop from exiting.
             .weak::<true>()
             .build_callback(|ctx: ThreadsafeCallContext<SubscriptionEvent>| {
                 let env = ctx.env;

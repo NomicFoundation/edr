@@ -1,5 +1,5 @@
 // `JsObject` (used as the TSFN args type for the subscription event callback)
-// is `#[deprecated]` in napi-rs v3, but the v3 typed `Object<'_>` does not
+// is `#[deprecated]` in napi-rs, but the typed `Object<'_>` does not
 // implement `ToNapiValue` by value, so it cannot be used as the
 // `JsValuesTupleIntoVec` arg of a `ThreadsafeFunction`. The deprecation
 // allow has to live at module scope because the `#[napi(object)]` macro
