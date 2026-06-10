@@ -27,9 +27,14 @@ edr_solidity_tests.workspace = true
 edr_transaction.workspace = true
 foundry-cheatcodes.workspace = true
 itertools = { version = "0.14.0", default-features = false }
+# `dyn-symbols` (an upstream default) resolves N-API symbols at runtime via
+# libloading instead of link-time externs. Without it, this crate's unit-test
+# binary fails to link: the tests keep `napi::Error` paths alive, and its Drop
+# references N-API symbols that only a Node host provides.
 napi = { version = "3", default-features = false, features = [
     "async",
     "compat-mode",
+    "dyn-symbols",
     "error_anyhow",
     "napi8",
     "serde-json",
