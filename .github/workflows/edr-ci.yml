@@ -214,6 +214,12 @@ jobs:
           FORCE_COLOR: 3
         shell: bash
         run: |
+          # napi-rs v3's `napi build` implicitly passes `--target=<host-triple>`
+          # to cargo, redirecting output to `target/<triple>/release/`. Pin
+          # CARGO_BUILD_TARGET so `cargo llvm-cov` agrees on the same suffixed
+          # dir; otherwise profraws and the rebuilt .node land in different
+          # subtrees and napi-crate coverage reports as 0%.
+          export CARGO_BUILD_TARGET=$(rustc --print host-tuple)
           source <(cargo llvm-cov show-env --sh)
           pnpm -C crates/edr_napi test
           # `--release` included to match `build:dev` compilation flags
@@ -343,6 +349,10 @@ jobs:
       - name: Run integration tests
         shell: bash
         run: |
+          # See test-edr-ts for the rationale: napi-rs v3 redirects cargo output
+          # to a target-suffixed dir, so pin CARGO_BUILD_TARGET to keep
+          # `cargo llvm-cov` and the rebuilt .node in the same subtree.
+          export CARGO_BUILD_TARGET=$(rustc --print host-tuple)
           source <(cargo llvm-cov show-env --sh)
           pnpm run --recursive --filter './js/integration-tests/*' test
           # `--release` included to match `build:dev` compilation flags

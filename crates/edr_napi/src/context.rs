@@ -11,11 +11,10 @@ use edr_solidity_tests::{
     TestFilterConfig,
 };
 use napi::{
-    threadsafe_function::{
-        ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
-    },
+    bindgen_prelude::{Function, Object},
+    threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunctionCallMode},
     tokio::{runtime, sync::Mutex as AsyncMutex},
-    Env, JsFunction, JsObject,
+    Env,
 };
 use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
@@ -36,6 +35,20 @@ use crate::{
     subscription::SubscriptionConfig,
 };
 
+/// Unwraps `$expr`, or rejects `$deferred` with the error and returns
+/// `Ok($promise)` from the enclosing function.
+macro_rules! try_or_reject_promise {
+    ($deferred:ident, $promise:ident, $expr:expr) => {
+        match $expr {
+            Ok(value) => value,
+            Err(error) => {
+                $deferred.reject(error);
+                return Ok($promise);
+            }
+        }
+    };
+}
+
 #[napi]
 pub struct EdrContext {
     inner: Arc<AsyncMutex<Context>>,
@@ -44,7 +57,7 @@ pub struct EdrContext {
 #[napi]
 impl EdrContext {
     /// Creates a new [`EdrContext`] instance. Should only be called once!
-    #[napi(catch_unwind, constructor)]
+    #[napi(catch_unwind, constructor, async_runtime)]
     pub fn new() -> napi::Result<Self> {
         let context = Context::new(runtime::Handle::current())?;
 
@@ -54,29 +67,17 @@ impl EdrContext {
     }
 
     /// Constructs a new provider with the provided configuration.
-    #[napi(catch_unwind, ts_return_type = "Promise<Provider>")]
-    pub fn create_provider(
+    #[napi(catch_unwind, async_runtime, ts_return_type = "Promise<Provider>")]
+    pub fn create_provider<'env>(
         &self,
-        env: Env,
+        env: &'env Env,
         chain_type: String,
-        provider_config: ProviderConfig,
-        logger_config: LoggerConfig,
-        subscription_config: SubscriptionConfig,
+        provider_config: ProviderConfig<'env>,
+        logger_config: LoggerConfig<'env>,
+        subscription_config: SubscriptionConfig<'env>,
         contract_decoder: &ContractDecoder,
-    ) -> napi::Result<JsObject> {
+    ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
-
-        macro_rules! try_or_reject_promise {
-            ($expr:expr) => {
-                match $expr {
-                    Ok(value) => value,
-                    Err(error) => {
-                        deferred.reject(error);
-                        return Ok(promise);
-                    }
-                }
-            };
-        }
 
         let runtime = runtime::Handle::current();
 
@@ -84,28 +85,38 @@ impl EdrContext {
             logger_config,
             provider_config,
             subscription_callback,
-        } = try_or_reject_promise!(resolve_configs(
-            &env,
-            runtime.clone(),
-            provider_config,
-            logger_config,
-            subscription_config,
-        ));
+        } = try_or_reject_promise!(
+            deferred,
+            promise,
+            resolve_configs(
+                runtime.clone(),
+                provider_config,
+                logger_config,
+                subscription_config,
+            )
+        );
 
         #[cfg(feature = "scenarios")]
-        let scenario_file =
-            try_or_reject_promise!(runtime.clone().block_on(crate::scenarios::scenario_file(
+        let scenario_file = try_or_reject_promise!(
+            deferred,
+            promise,
+            runtime.clone().block_on(crate::scenarios::scenario_file(
                 chain_type.clone(),
                 provider_config.clone(),
                 logger_config.enable,
-            )));
+            ))
+        );
 
         let (factory, dropped_provider_sender) = {
             // TODO: https://github.com/NomicFoundation/edr/issues/760
             // TODO: Don't block the JS event loop
             let context = runtime.block_on(async { self.inner.lock().await });
 
-            let factory = try_or_reject_promise!(context.get_provider_factory(&chain_type));
+            let factory = try_or_reject_promise!(
+                deferred,
+                promise,
+                context.get_provider_factory(&chain_type)
+            );
             let dropped_provider_sender = context.provider_deallocator.sender();
 
             (factory, dropped_provider_sender)
@@ -183,50 +194,41 @@ impl EdrContext {
     /// - `onTestSuiteCompletedCallback`: The progress callback will be called
     ///   with the results of each test suite as soon as it finished executing.
     #[allow(clippy::too_many_arguments)]
-    #[napi(catch_unwind, ts_return_type = "Promise<SolidityTestResult>")]
-    pub fn run_solidity_tests(
+    #[napi(
+        catch_unwind,
+        async_runtime,
+        ts_return_type = "Promise<SolidityTestResult>"
+    )]
+    pub fn run_solidity_tests<'env>(
         &self,
-        env: Env,
+        env: &'env Env,
         chain_type: String,
         artifacts: Vec<Artifact>,
         test_suites: Vec<ArtifactId>,
-        config_args: SolidityTestRunnerConfigArgs,
+        config_args: SolidityTestRunnerConfigArgs<'env>,
         tracing_config: TracingConfigWithBuffers,
         #[napi(ts_arg_type = "(result: SuiteResult) => void")]
-        on_test_suite_completed_callback: JsFunction,
-    ) -> napi::Result<JsObject> {
+        on_test_suite_completed_callback: Function<'env, SuiteResult, ()>,
+    ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
-        let on_test_suite_completed_callback: ThreadsafeFunction<_, ErrorStrategy::Fatal> =
-            match on_test_suite_completed_callback.create_threadsafe_function(
-                // Unbounded queue size
-                0,
-                |ctx: ThreadSafeCallContext<SuiteResult>| Ok(vec![ctx.value]),
-            ) {
-                Ok(value) => value,
-                Err(error) => {
-                    deferred.reject(error);
-                    return Ok(promise);
-                }
-            };
+        let on_test_suite_completed_callback = try_or_reject_promise!(
+            deferred,
+            promise,
+            on_test_suite_completed_callback
+                .build_threadsafe_function::<SuiteResult>()
+                .build_callback(|ctx: ThreadsafeCallContext<SuiteResult>| Ok(ctx.value))
+        );
 
-        let test_filter: Arc<TestFilterConfig> =
-            Arc::new(match config_args.try_get_test_filter() {
-                Ok(test_filter) => test_filter,
-                Err(error) => {
-                    deferred.reject(error);
-                    return Ok(promise);
-                }
-            });
+        let test_filter: Arc<TestFilterConfig> = Arc::new(try_or_reject_promise!(
+            deferred,
+            promise,
+            config_args.try_get_test_filter()
+        ));
 
         let runtime = runtime::Handle::current();
-        let config = match config_args.resolve(&env, runtime.clone()) {
-            Ok(config) => config,
-            Err(error) => {
-                deferred.reject(error);
-                return Ok(promise);
-            }
-        };
+        let config =
+            try_or_reject_promise!(deferred, promise, config_args.resolve(runtime.clone()));
 
         let context = self.inner.clone();
         runtime.clone().spawn(async move {
@@ -358,7 +360,7 @@ impl EdrContext {
 impl EdrContext {
     /// Creates a mock provider, which always returns the given response.
     /// For testing purposes.
-    #[napi]
+    #[napi(async_runtime)]
     pub fn create_mock_provider(
         &self,
         mocked_response: serde_json::Value,
@@ -386,16 +388,16 @@ impl EdrContext {
 
     /// Creates a provider with a mock timer.
     /// For testing purposes.
-    #[napi(catch_unwind, ts_return_type = "Promise<Provider>")]
-    pub fn create_provider_with_mock_timer(
+    #[napi(catch_unwind, async_runtime, ts_return_type = "Promise<Provider>")]
+    pub fn create_provider_with_mock_timer<'env>(
         &self,
-        env: Env,
-        provider_config: ProviderConfig,
-        logger_config: LoggerConfig,
-        subscription_config: SubscriptionConfig,
+        env: &'env Env,
+        provider_config: ProviderConfig<'env>,
+        logger_config: LoggerConfig<'env>,
+        subscription_config: SubscriptionConfig<'env>,
         contract_decoder: &ContractDecoder,
         time: &crate::mock::time::MockTime,
-    ) -> napi::Result<JsObject> {
+    ) -> napi::Result<Object<'env>> {
         use edr_chain_spec::ChainSpec;
         use edr_chain_spec_block::BlockChainSpec;
         use edr_chain_spec_rpc::RpcBlockChainSpec;
@@ -405,31 +407,22 @@ impl EdrContext {
 
         let (deferred, promise) = env.create_deferred()?;
 
-        macro_rules! try_or_reject_promise {
-            ($expr:expr) => {
-                match $expr {
-                    Ok(value) => value,
-                    Err(error) => {
-                        deferred.reject(error);
-                        return Ok(promise);
-                    }
-                }
-            };
-        }
-
         let runtime = runtime::Handle::current();
 
         let ConfigResolution {
             logger_config,
             provider_config,
             subscription_callback,
-        } = try_or_reject_promise!(resolve_configs(
-            &env,
-            runtime.clone(),
-            provider_config,
-            logger_config,
-            subscription_config,
-        ));
+        } = try_or_reject_promise!(
+            deferred,
+            promise,
+            resolve_configs(
+                runtime.clone(),
+                provider_config,
+                logger_config,
+                subscription_config,
+            )
+        );
 
         let contract_decoder = Arc::clone(contract_decoder.as_inner());
         let timer = Arc::clone(time.as_inner());

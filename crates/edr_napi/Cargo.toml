@@ -43,14 +43,25 @@ edr_tracing.workspace = true
 mimalloc = { version = "0.1.39", default-features = false, features = [
     "local_dynamic_tls",
 ] }
-# The `async` feature ensures that a tokio runtime is available
-napi = { version = "2.16.17", default-features = false, features = [
+# The `async` feature ensures that a tokio runtime is available.
+# `compat-mode` is required because `Object<'_>` (the v3 typed object) does
+# not implement `ToNapiValue` by value, so it cannot be used as the
+# `CallJsBackArgs` of a `ThreadsafeFunction`. The deprecated `JsObject` type
+# remains the only practical way to construct an object inside a TSFN
+# callback and pass it to JavaScript as a single argument.
+# `dyn-symbols` (an upstream default) resolves N-API symbols at runtime via
+# libloading instead of link-time externs. Without it, any test binary that
+# keeps napi code alive (e.g. via `napi::Error`'s Drop) fails to link outside
+# a Node host.
+napi = { version = "3", default-features = false, features = [
     "async",
+    "compat-mode",
+    "dyn-symbols",
     "error_anyhow",
     "napi8",
     "serde-json",
 ] }
-napi-derive = "2.16.13"
+napi-derive = "3"
 parking_lot.workspace = true
 rand = { version = "0.9.0", optional = true }
 serde.workspace = true
@@ -87,7 +98,7 @@ openssl-sys = { version = "0.9.93", features = ["vendored"] }
 openssl-sys = { version = "0.9.93", features = ["vendored"] }
 
 [build-dependencies]
-napi-build = "2.0.1"
+napi-build = "2.3"
 
 [features]
 op = ["dep:edr_op"]

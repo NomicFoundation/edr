@@ -48,21 +48,30 @@ pub struct ValueSnapshotEntry {
 }
 
 /// See [`edr_solidity_tests::result::SuiteResult`]
-#[napi]
-#[derive(Clone, Debug)]
+///
+/// `#[napi(object)]` (POJO) rather than `#[napi]` class because there are no
+/// methods, and consumers (e.g. Hardhat's solidity-test reporter) read
+/// `.testResults` multiple times per suite. As a class, each read would
+/// re-clone the entire `Vec<TestResult>`; as an object, the data is serialized
+/// to a plain JS object once when the suite-completion TSFN fires.
+///
+/// `object_from_js = false`: napi-derive's default for `#[napi(object)]` emits
+/// both `ToNapiValue` and `FromNapiValue`. We never receive a `SuiteResult`
+/// from JS (it's only ever constructed Rust-side and pushed through the
+/// progress TSFN), and the `Vec<TestResult>` field can't satisfy
+/// `FromNapiValue` because `TestResult` is a `#[napi]` class and not a POJO.
+/// Disabling the from-JS direction lets the to-JS direction compile cleanly.
+#[napi(object, object_from_js = false)]
+#[derive(Debug)]
 pub struct SuiteResult {
     /// The artifact id can be used to match input to result in the progress
-    /// callback
-    #[napi(readonly)]
+    /// callback.
     pub id: ArtifactId,
-    /// See [`edr_solidity_tests::result::SuiteResult::duration`]
-    #[napi(readonly)]
+    /// See [`edr_solidity_tests::result::SuiteResult::duration`].
     pub duration_ns: BigInt,
-    /// See [`edr_solidity_tests::result::SuiteResult::test_results`]
-    #[napi(readonly)]
+    /// See [`edr_solidity_tests::result::SuiteResult::test_results`].
     pub test_results: Vec<TestResult>,
-    /// See [`edr_solidity_tests::result::SuiteResult::warnings`]
-    #[napi(readonly)]
+    /// See [`edr_solidity_tests::result::SuiteResult::warnings`].
     pub warnings: Vec<String>,
 }
 
@@ -94,35 +103,16 @@ impl SuiteResult {
 
 /// See [`edr_solidity_tests::result::TestResult`]
 #[napi]
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct TestResult {
-    /// The name of the test.
-    #[napi(readonly)]
-    pub name: String,
-    /// See [`edr_solidity_tests::result::TestResult::status`]
-    #[napi(readonly)]
-    pub status: TestStatus,
-    /// See [`edr_solidity_tests::result::TestResult::reason`]
-    #[napi(readonly)]
-    pub reason: Option<String>,
-    /// See [`edr_solidity_tests::result::TestResult::counterexample`]
-    #[napi(readonly)]
-    pub counterexample: Option<Either<BaseCounterExample, CounterExampleSequence>>,
-    /// See [`edr_solidity_tests::result::TestResult::decoded_logs`]
-    #[napi(readonly)]
-    pub decoded_logs: Vec<String>,
-    /// See [`edr_solidity_tests::result::TestResult::kind`]
-    #[napi(readonly)]
-    pub kind: Either3<StandardTestKind, FuzzTestKind, InvariantTestKind>,
-    /// See [`edr_solidity_tests::result::TestResult::duration`]
-    #[napi(readonly)]
-    pub duration_ns: BigInt,
-    /// Groups of value snapshot entries (incl. gas).
-    ///
-    /// Only present if the test runner collected scoped snapshots. Currently,
-    /// this is always the case.
-    #[napi(readonly)]
-    pub value_snapshot_groups: Option<Vec<ValueSnapshotGroup>>,
+    name: String,
+    status: TestStatus,
+    reason: Option<String>,
+    counterexample: Option<Either<BaseCounterExample, CounterExampleSequence>>,
+    decoded_logs: Vec<String>,
+    kind: Either3<StandardTestKind, FuzzTestKind, InvariantTestKind>,
+    duration_ns: BigInt,
+    value_snapshot_groups: Option<Vec<ValueSnapshotGroup>>,
 
     stack_trace_result: Option<Arc<SolidityTestStackTraceResult<String>>>,
     call_trace_arenas: Vec<SparsedTraceArena>,
@@ -133,7 +123,7 @@ pub struct TestResult {
 pub struct StackTrace {
     /// Enum tag for JS.
     #[napi(ts_type = "\"StackTrace\"")]
-    pub kind: &'static str,
+    pub kind: String,
     /// The stack trace entries
     pub entries: Vec<SolidityStackTraceEntry>,
 }
@@ -143,7 +133,7 @@ pub struct StackTrace {
 pub struct UnexpectedError {
     /// Enum tag for JS.
     #[napi(ts_type = "\"UnexpectedError\"")]
-    pub kind: &'static str,
+    pub kind: String,
     /// The error message from the unexpected error.
     pub error_message: String,
 }
@@ -154,7 +144,7 @@ pub struct UnexpectedError {
 pub struct HeuristicFailed {
     /// Enum tag for JS.
     #[napi(ts_type = "\"HeuristicFailed\"")]
-    pub kind: &'static str,
+    pub kind: String,
 }
 
 /// We couldn't generate stack traces, because the test execution is unsafe to
@@ -165,7 +155,7 @@ pub struct HeuristicFailed {
 pub struct UnsafeToReplay {
     /// Enum tag for JS.
     #[napi(ts_type = "\"UnsafeToReplay\"")]
-    pub kind: &'static str,
+    pub kind: String,
     /// Indeterminism due to specifying a fork url without a fork block number
     /// in the test runner config.
     pub global_fork_latest: bool,
@@ -180,6 +170,74 @@ pub struct UnsafeToReplay {
 
 #[napi]
 impl TestResult {
+    /// The name of the test.
+    #[napi(getter)]
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    /// See [`edr_solidity_tests::result::TestResult::status`]
+    #[napi(getter)]
+    pub fn status(&self) -> TestStatus {
+        self.status.clone()
+    }
+
+    /// See [`edr_solidity_tests::result::TestResult::reason`]
+    // The three nullable getters here (reason, counterexample,
+    // value_snapshot_groups) return `Either<T, ()>` rather than `Option<T>` so
+    // that absence serializes as JS `undefined`, not `null`: napi-rs
+    // serializes `Option::None` as `null`, which would break Hardhat
+    // consumers that test against `=== undefined` (e.g.
+    // `gas-analytics/snapshot-cheatcodes.ts`), whereas `()` serializes as
+    // `undefined`.
+    #[napi(getter)]
+    pub fn reason(&self) -> Either<String, ()> {
+        match &self.reason {
+            Some(s) => Either::A(s.clone()),
+            None => Either::B(()),
+        }
+    }
+
+    /// See [`edr_solidity_tests::result::TestResult::counterexample`]
+    #[napi(getter)]
+    pub fn counterexample(&self) -> Either3<BaseCounterExample, CounterExampleSequence, ()> {
+        match self.counterexample.as_ref() {
+            Some(Either::A(b)) => Either3::A(b.clone()),
+            Some(Either::B(s)) => Either3::B(s.clone()),
+            None => Either3::C(()),
+        }
+    }
+
+    /// See [`edr_solidity_tests::result::TestResult::decoded_logs`]
+    #[napi(getter)]
+    pub fn decoded_logs(&self) -> Vec<String> {
+        self.decoded_logs.clone()
+    }
+
+    /// See [`edr_solidity_tests::result::TestResult::kind`]
+    #[napi(getter)]
+    pub fn kind(&self) -> Either3<StandardTestKind, FuzzTestKind, InvariantTestKind> {
+        self.kind.clone()
+    }
+
+    /// See [`edr_solidity_tests::result::TestResult::duration`]
+    #[napi(getter)]
+    pub fn duration_ns(&self) -> BigInt {
+        self.duration_ns.clone()
+    }
+
+    /// Groups of value snapshot entries (incl. gas).
+    ///
+    /// Only present if the test runner collected scoped snapshots. Currently,
+    /// this is always the case.
+    #[napi(getter)]
+    pub fn value_snapshot_groups(&self) -> Either<Vec<ValueSnapshotGroup>, ()> {
+        match &self.value_snapshot_groups {
+            Some(v) => Either::A(v.clone()),
+            None => Either::B(()),
+        }
+    }
+
     /// Compute the error stack trace.
     /// The result is either the stack trace or the reason why we couldn't
     /// generate the stack trace.
@@ -204,7 +262,7 @@ impl TestResult {
                     global_fork_latest,
                     impure_cheatcodes,
                 } => Either4::D(UnsafeToReplay {
-                    kind: "UnsafeToReplay",
+                    kind: "UnsafeToReplay".to_owned(),
                     global_fork_latest: *global_fork_latest,
                     // napi-rs would clone `&'static str` under the hood anyway, so no performance
                     // hit from `Cow::into_owned`.
@@ -339,7 +397,7 @@ impl TestResult {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[napi(string_enum)]
 #[doc = "The result of a test execution."]
 pub enum TestStatus {
@@ -387,7 +445,6 @@ pub struct FuzzTestKind {
 
 /// See [`edr_solidity_tests::fuzz::FuzzCase`]
 #[napi(object)]
-#[derive(Clone)]
 pub struct FuzzCase {
     /// The calldata used for this fuzz test
     #[napi(readonly)]
@@ -398,6 +455,18 @@ pub struct FuzzCase {
     /// The initial gas stipend for the transaction
     #[napi(readonly)]
     pub stipend: BigInt,
+}
+
+// Manual impl; auto-derive doesn't work because `Uint8Array` does not
+// implement `Clone`, so the buffer is deep-copied instead.
+impl Clone for FuzzCase {
+    fn clone(&self) -> Self {
+        Self {
+            calldata: Uint8Array::with_data_copied(&*self.calldata),
+            gas: self.gas.clone(),
+            stipend: self.stipend.clone(),
+        }
+    }
 }
 
 impl Debug for FuzzCase {
@@ -458,7 +527,6 @@ pub struct CounterExampleSequence {
 
 /// See [`edr_solidity_tests::fuzz::BaseCounterExample`]
 #[napi(object)]
-#[derive(Clone)]
 pub struct BaseCounterExample {
     /// See [`edr_solidity_tests::fuzz::BaseCounterExample::sender`]
     #[napi(readonly)]
@@ -478,6 +546,28 @@ pub struct BaseCounterExample {
     /// See [`edr_solidity_tests::fuzz::BaseCounterExample::args`]
     #[napi(readonly)]
     pub args: Option<String>,
+}
+
+// Manual impl; auto-derive doesn't work because `Uint8Array` does not
+// implement `Clone`, so the `sender`, `address`, and `calldata` buffers
+// are deep-copied instead.
+impl Clone for BaseCounterExample {
+    fn clone(&self) -> Self {
+        Self {
+            sender: self
+                .sender
+                .as_ref()
+                .map(|s| Uint8Array::with_data_copied(&**s)),
+            address: self
+                .address
+                .as_ref()
+                .map(|a| Uint8Array::with_data_copied(&**a)),
+            calldata: Uint8Array::with_data_copied(&*self.calldata),
+            contract_name: self.contract_name.clone(),
+            signature: self.signature.clone(),
+            args: self.args.clone(),
+        }
+    }
 }
 
 impl Debug for BaseCounterExample {
