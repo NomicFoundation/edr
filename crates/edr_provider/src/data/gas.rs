@@ -221,7 +221,7 @@ pub(super) fn estimate_gas<
     } = binary_search_estimation::<ChainSpecT>(
         context,
         initial_estimation,
-        context.header.gas_limit,
+        context.transaction.gas_limit(),
         observer_config,
     )?;
 
