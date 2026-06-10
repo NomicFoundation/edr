@@ -531,30 +531,60 @@ impl ObservabilityConfig<'_> {
 
                             let (sender, receiver) = std::sync::mpsc::channel();
 
+                            // Always send through the channel — including the
+                            // `Err` cases when the JS callback throws
+                            // synchronously — so the `recv` below can't be
+                            // left with a dropped sender.
                             let status = on_collected_coverage_callback.call_with_return_value(
                                 hits,
                                 ThreadsafeFunctionCallMode::Blocking,
                                 move |result: napi::Result<Promise<()>>, _env: Env| {
-                                    let result = result?;
-                                    // We spawn a background task to handle the async callback
-                                    runtime.spawn(async move {
-                                        let result = result.await;
-                                        sender.send(result).map_err(|_error| {
-                                            napi::Error::new(
-                                                napi::Status::GenericFailure,
-                                                "Failed to send result from on_collected_coverage_callback",
-                                            )
-                                        })
-                                    });
+                                    match result {
+                                        Ok(promise) => {
+                                            // We spawn a background task to handle the async callback
+                                            runtime.spawn(async move {
+                                                let result = promise.await;
+                                                sender.send(result).map_err(|_error| {
+                                                    napi::Error::new(
+                                                        napi::Status::GenericFailure,
+                                                        "Failed to send result from on_collected_coverage_callback",
+                                                    )
+                                                })
+                                            });
+                                        }
+                                        Err(error) => {
+                                            sender.send(Err(error)).map_err(|_error| {
+                                                napi::Error::new(
+                                                    napi::Status::GenericFailure,
+                                                    "Failed to send result from on_collected_coverage_callback",
+                                                )
+                                            })?;
+                                        }
+                                    }
                                     Ok(())
                                 },
                             );
 
-                            assert_eq!(status, napi::Status::Ok);
+                            if status != napi::Status::Ok {
+                                return Err(napi::Error::new(
+                                    napi::Status::GenericFailure,
+                                    format!("Threadsafe call failed with status {status:?}"),
+                                )
+                                .into());
+                            }
 
+                            // The closure always sends when invoked, so the
+                            // channel can only be closed if the threadsafe
+                            // call was dropped without running it (e.g.
+                            // during environment teardown).
                             let () = receiver
                                 .recv()
-                                .expect("Receive can only fail if the channel is closed")?;
+                                .map_err(|_error| {
+                                    napi::Error::new(
+                                        napi::Status::GenericFailure,
+                                        "Callback was dropped before returning a result",
+                                    )
+                                })??;
 
                             Ok(())
                         });
@@ -581,31 +611,62 @@ impl ObservabilityConfig<'_> {
 
                         let (sender, receiver) = std::sync::mpsc::channel();
 
-                        // Convert the report to the N-API representation
+                        // Convert the report to the N-API representation.
+                        //
+                        // Always send through the channel — including the
+                        // `Err` cases when the JS callback throws
+                        // synchronously — so the `recv` below can't be left
+                        // with a dropped sender.
                         let status = on_collected_gas_report_callback.call_with_return_value(
                             GasReport::from(report),
                             ThreadsafeFunctionCallMode::Blocking,
                             move |result: napi::Result<Promise<()>>, _env: Env| {
-                                let result = result?;
-                                // We spawn a background task to handle the async callback
-                                runtime.spawn(async move {
-                                    let result = result.await;
-                                    sender.send(result).map_err(|_error| {
-                                        napi::Error::new(
-                                            napi::Status::GenericFailure,
-                                            "Failed to send result from on_collected_gas_report_callback",
-                                        )
-                                    })
-                                });
+                                match result {
+                                    Ok(promise) => {
+                                        // We spawn a background task to handle the async callback
+                                        runtime.spawn(async move {
+                                            let result = promise.await;
+                                            sender.send(result).map_err(|_error| {
+                                                napi::Error::new(
+                                                    napi::Status::GenericFailure,
+                                                    "Failed to send result from on_collected_gas_report_callback",
+                                                )
+                                            })
+                                        });
+                                    }
+                                    Err(error) => {
+                                        sender.send(Err(error)).map_err(|_error| {
+                                            napi::Error::new(
+                                                napi::Status::GenericFailure,
+                                                "Failed to send result from on_collected_gas_report_callback",
+                                            )
+                                        })?;
+                                    }
+                                }
                                 Ok(())
                             },
                         );
 
-                        assert_eq!(status, napi::Status::Ok);
+                        if status != napi::Status::Ok {
+                            return Err(napi::Error::new(
+                                napi::Status::GenericFailure,
+                                format!("Threadsafe call failed with status {status:?}"),
+                            )
+                            .into());
+                        }
 
+                        // The closure always sends when invoked, so the
+                        // channel can only be closed if the threadsafe call
+                        // was dropped without running it (e.g. during
+                        // environment teardown).
                         let () = receiver
                             .recv()
-                            .expect("Receive can only fail if the channel is closed")?;
+                            .map_err(|_error| {
+                                napi::Error::new(
+                                    napi::Status::GenericFailure,
+                                    "Callback was dropped before returning a result",
+                                )
+                            })??;
 
                         Ok(())
                     });
