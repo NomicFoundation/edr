@@ -7,7 +7,7 @@ use edr_chain_l1::{
     L1ChainSpec,
 };
 use edr_chain_spec::EvmSpecId;
-use edr_primitives::{bytes, Bytes, B256};
+use edr_primitives::{bytes, Bytes, B256, U64};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
@@ -35,11 +35,11 @@ async fn binary_search_does_not_probe_above_transaction_gas_cap() -> anyhow::Res
     config.hardfork = EvmSpecId::OSAKA;
     // Mirrors the default behaviour of the napi layer: transaction_gas_cap and
     // default_transaction_gas_limit are both derived from the hardfork.
-    let cap = edr_eip7825::transaction_gas_cap_for_hardfork(EvmSpecId::OSAKA)
+    let transaction_gas_cap = edr_eip7825::transaction_gas_cap_for_hardfork(EvmSpecId::OSAKA)
         .expect("Osaka activates EIP-7825");
-    config.transaction_gas_cap = Some(cap);
-    // SAFETY: cap is non-zero.
-    config.default_transaction_gas_limit = unsafe { NonZeroU64::new_unchecked(cap) };
+    config.transaction_gas_cap = Some(transaction_gas_cap);
+    config.default_transaction_gas_limit =
+        NonZeroU64::new(transaction_gas_cap).expect("cap is non-zero");
 
     let from = public_key_to_address(
         config
@@ -74,7 +74,7 @@ async fn binary_search_does_not_probe_above_transaction_gas_cap() -> anyhow::Res
     )?;
     let contract = receipt.contract_address.expect("deployment address");
 
-    let _estimate = provider
+    let estimate_response = provider
         .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
             L1CallRequest {
                 from: Some(from),
@@ -84,7 +84,12 @@ async fn binary_search_does_not_probe_above_transaction_gas_cap() -> anyhow::Res
             },
             None,
         )))
-        .expect("eth_estimateGas should succeed without probing above the transaction gas cap");
+        .expect("eth_estimateGas should succeed");
 
+    let estimate = serde_json::from_value::<U64>(estimate_response.result)?.to::<u64>();
+    assert!(
+        estimate <= transaction_gas_cap,
+        "estimateGas returned {estimate}, which exceeds the transaction gas cap {transaction_gas_cap}"
+    );
     Ok(())
 }
