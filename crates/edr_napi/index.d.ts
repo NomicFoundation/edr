@@ -817,6 +817,7 @@ export interface GasReport {
   contracts: Record<string, ContractGasReport>
 }
 
+/** Configuration for gas report collection. */
 export interface GasReportConfig {
   /**
    * Gas reports are collected after a block is mined or `eth_call` is
@@ -1109,6 +1110,7 @@ export interface LocalConfig {
   genesisBlockTime?: bigint
 }
 
+/** Configuration for the provider's logger. */
 export interface LoggerConfig {
   /** Whether to enable the logger. */
   enable: boolean
@@ -1273,7 +1275,7 @@ export declare function precompileP256Verify(): Precompile
 
 export declare function printStackTrace(trace: SolidityStackTrace): void
 
-/** Configuration for a provider */
+/** Configuration for a provider. */
 export interface ProviderConfig {
   /** Whether to allow blocks with the same timestamp */
   allowBlocksWithSameTimestamp: boolean

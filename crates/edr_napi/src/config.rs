@@ -93,6 +93,7 @@ pub struct CodeCoverageConfig<'env> {
     pub on_collected_coverage_callback: Function<'env, Vec<Uint8Array>, Promise<()>>,
 }
 
+/// Configuration for gas report collection.
 #[napi(object)]
 pub struct GasReportConfig<'env> {
     /// Gas reports are collected after a block is mined or `eth_call` is
@@ -239,7 +240,7 @@ pub struct ObservabilityConfig<'env> {
     pub include_call_traces: Option<IncludeTraces>,
 }
 
-/// Configuration for a provider
+/// Configuration for a provider.
 #[napi(object)]
 pub struct ProviderConfig<'env> {
     /// Whether to allow blocks with the same timestamp
