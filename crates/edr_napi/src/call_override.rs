@@ -55,7 +55,6 @@ pub struct CallOverrideCallback {
 
 impl CallOverrideCallback {
     pub fn new(
-        _env: &Env,
         call_override_callback: Function<
             '_,
             FnArgs<(Uint8Array, Uint8Array)>,

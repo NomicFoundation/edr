@@ -89,7 +89,6 @@ impl EdrContext {
             deferred,
             promise,
             resolve_configs(
-                env,
                 runtime.clone(),
                 provider_config,
                 logger_config,
@@ -229,7 +228,7 @@ impl EdrContext {
 
         let runtime = runtime::Handle::current();
         let config =
-            try_or_reject_promise!(deferred, promise, config_args.resolve(env, runtime.clone()));
+            try_or_reject_promise!(deferred, promise, config_args.resolve(runtime.clone()));
 
         let context = self.inner.clone();
         runtime.clone().spawn(async move {
@@ -418,7 +417,6 @@ impl EdrContext {
             deferred,
             promise,
             resolve_configs(
-                env,
                 runtime.clone(),
                 provider_config,
                 logger_config,
