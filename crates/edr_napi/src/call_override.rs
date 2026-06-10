@@ -97,26 +97,49 @@ impl CallOverrideCallback {
                 data,
             },
             ThreadsafeFunctionCallMode::Blocking,
+            // Always send through the channel — including the `Err` cases
+            // when the JS callback throws synchronously or its promise
+            // rejects — so the `recv` below can't be left with a dropped
+            // sender.
             move |result: napi::Result<Promise<Option<CallOverrideResult>>>, _env: Env| {
-                let result = result?;
-                runtime.spawn(async move {
-                    let result = result.await?.try_cast();
-                    sender.send(result).map_err(|_error| {
-                        napi::Error::new(
-                            Status::GenericFailure,
-                            "Failed to send result from call_override_callback",
-                        )
-                    })
-                });
+                match result {
+                    Ok(promise) => {
+                        runtime.spawn(async move {
+                            let result = match promise.await {
+                                Ok(value) => value.try_cast(),
+                                Err(error) => Err(error),
+                            };
+                            sender.send(result).map_err(|_error| {
+                                napi::Error::new(
+                                    Status::GenericFailure,
+                                    "Failed to send result from call_override_callback",
+                                )
+                            })
+                        });
+                    }
+                    Err(error) => {
+                        sender.send(Err(error)).map_err(|_error| {
+                            napi::Error::new(
+                                Status::GenericFailure,
+                                "Failed to send result from call_override_callback",
+                            )
+                        })?;
+                    }
+                }
                 Ok(())
             },
         );
 
         assert_eq!(status, Status::Ok, "Call override callback failed");
 
+        // `SyncCallOverride` has no error path, and silently returning `None`
+        // would alter `eth_call` results, so a failing JS callback must fail
+        // loudly. This runs on a tokio blocking thread, so the panic is
+        // caught by the runtime and surfaces as a JSON-RPC internal error
+        // rather than aborting the process.
         receiver
             .recv()
-            .unwrap()
-            .expect("Failed call to call_override_callback")
+            .expect("Channel can only close if the threadsafe call was dropped without running")
+            .unwrap_or_else(|error| panic!("Call override callback failed: {error}"))
     }
 }

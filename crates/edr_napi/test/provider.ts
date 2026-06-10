@@ -727,6 +727,52 @@ describe("Provider", () => {
       assert.deepEqual(received, { addressLen: 20, dataLen: 4 });
       assert.equal(JSON.parse(response.data).result, "0xcafebabe");
     });
+
+    it("surfaces a throwing callback as an error instead of hanging or crashing", async function () {
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          genesisState: providerConfig.genesisState.concat(
+            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+          ),
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        new ContractDecoder()
+      );
+
+      await provider.setCallOverrideCallback(
+        async (): Promise<CallOverrideResult | undefined> => {
+          throw new Error("override exploded");
+        }
+      );
+
+      // Guards the override's error handling: the JS exception must not
+      // leave the result channel dangling (a hang) — it reaches a
+      // deliberate Rust panic that tokio's blocking pool catches, so the
+      // request rejects while the process survives.
+      await assert.isRejected(
+        provider.handleRequest(
+          JSON.stringify({
+            id: 1,
+            jsonrpc: "2.0",
+            method: "eth_call",
+            params: [
+              {
+                to: "0xabababababababababababababababababababab",
+                data: "0xdeadbeef",
+                gas: "0xf4240",
+              },
+              "latest",
+            ],
+          })
+        ),
+        /panicked|Call override callback failed/
+      );
+    });
   });
 
   describe("decodeConsoleLogInputsCallback", () => {
