@@ -242,7 +242,7 @@ const providerConfig = {
     // Enable auto-mining
     interval: BigInt(MINING_INTERVAL),
     memPool: {
-      order: "Priority" as MineOrdering,
+      order: MineOrdering.Priority,
     },
   },
   network: {

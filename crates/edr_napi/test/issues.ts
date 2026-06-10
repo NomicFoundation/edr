@@ -50,7 +50,7 @@ describe("Provider", () => {
       autoMine: true,
       blockGasLimit: 300_000_000n,
       memPool: {
-        order: "Priority" as MineOrdering,
+        order: MineOrdering.Priority,
       },
     },
     network: {
