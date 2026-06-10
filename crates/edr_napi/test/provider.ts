@@ -823,6 +823,66 @@ describe("Provider", () => {
       // Asserts the decoded string reached `printLineCallback` end-to-end.
       assert.deepEqual(printedMessages, ["hello"]);
     });
+
+    it("surfaces a throwing callback as an error instead of crashing", async function () {
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          genesisState: providerConfig.genesisState.concat(
+            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+          ),
+        },
+        {
+          enable: false,
+          decodeConsoleLogInputsCallback: (
+            _inputs: ArrayBuffer[]
+          ): string[] => {
+            throw new Error("decode exploded");
+          },
+          printLineCallback: (_message: string, _replace: boolean) => {},
+        },
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        new ContractDecoder()
+      );
+
+      // Same console.log(string "hello") transaction as the test above.
+      const consoleLogHelloCalldata =
+        "0x41304fac" +
+        "0000000000000000000000000000000000000000000000000000000000000020" +
+        "0000000000000000000000000000000000000000000000000000000000000005" +
+        "68656c6c6f000000000000000000000000000000000000000000000000000000";
+      const consoleLogAddress = "0x000000000000000000636f6e736f6c652e6c6f67";
+
+      // The JS exception must come back as a JSON-RPC error response, not
+      // take the process down: before the napi-rs v3 error-propagation fix,
+      // a throwing decode callback closed the result channel and panicked
+      // the Rust side.
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              to: consoleLogAddress,
+              data: consoleLogHelloCalldata,
+              gas: "0xf4240",
+            },
+          ],
+        })
+      );
+
+      const responseData = JSON.parse(response.data);
+      assert.isDefined(responseData.error);
+      assert.match(
+        responseData.error.message,
+        /Failed to decode console\.log inputs.*decode exploded/
+      );
+    });
   });
 
   describe("subscriptionCallback", () => {

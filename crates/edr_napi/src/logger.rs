@@ -9,6 +9,7 @@ use napi::{
 };
 use napi_derive::napi;
 
+/// Configuration for the provider's logger.
 #[napi(object)]
 pub struct LoggerConfig<'env> {
     /// Whether to enable the logger.
@@ -45,11 +46,14 @@ impl LoggerConfig<'_> {
         let decode_console_log_inputs_fn = Arc::new(move |console_log_inputs| {
             let (sender, receiver) = channel();
 
+            // Send the `napi::Result` itself through the channel — including
+            // the `Err` case when the JS callback throws — so a JS exception
+            // surfaces as a `LoggerError` instead of dropping the sender and
+            // poisoning the `recv` below.
             let status = decode_console_log_inputs_callback.call_with_return_value(
                 console_log_inputs,
                 ThreadsafeFunctionCallMode::Blocking,
                 move |decoded_inputs: napi::Result<Vec<String>>, _env: Env| {
-                    let decoded_inputs = decoded_inputs?;
                     sender.send(decoded_inputs).map_err(|_error| {
                         napi::Error::new(
                             Status::GenericFailure,
@@ -58,11 +62,23 @@ impl LoggerConfig<'_> {
                     })
                 },
             );
-            assert_eq!(status, Status::Ok);
+            if status != Status::Ok {
+                return Err(LoggerError::DecodeConsoleLogInputs(format!(
+                    "Threadsafe call failed with status {status:?}"
+                )));
+            }
 
+            // The closure above always sends when invoked; the channel can
+            // only be closed if the threadsafe call was dropped without
+            // running it (e.g. during environment teardown).
             receiver
                 .recv()
-                .expect("Receive can only fail if the channel is closed")
+                .map_err(|_error| {
+                    LoggerError::DecodeConsoleLogInputs(
+                        "Callback was dropped before returning a result".to_owned(),
+                    )
+                })?
+                .map_err(|error| LoggerError::DecodeConsoleLogInputs(error.to_string()))
         });
 
         let print_line_callback = self
@@ -76,11 +92,14 @@ impl LoggerConfig<'_> {
         let print_line_fn = Arc::new(move |message, replace| {
             let (sender, receiver) = channel();
 
+            // Mirror of `decode_console_log_inputs_fn` above: forward the
+            // `napi::Result` so a throwing JS callback yields a `LoggerError`
+            // that carries the actual error message.
             let status = print_line_callback.call_with_return_value(
                 (message, replace),
                 ThreadsafeFunctionCallMode::Blocking,
                 move |result: napi::Result<()>, _env: Env| {
-                    sender.send(result.is_ok()).map_err(|_error| {
+                    sender.send(result).map_err(|_error| {
                         napi::Error::new(
                             Status::GenericFailure,
                             "Failed to send result from print_line_callback",
@@ -88,14 +107,20 @@ impl LoggerConfig<'_> {
                     })
                 },
             );
-
-            let succeeded = receiver.recv().unwrap_or(false);
-
-            if status == napi::Status::Ok && succeeded {
-                Ok(())
-            } else {
-                Err(LoggerError::PrintLine)
+            if status != Status::Ok {
+                return Err(LoggerError::PrintLine(format!(
+                    "Threadsafe call failed with status {status:?}"
+                )));
             }
+
+            receiver
+                .recv()
+                .map_err(|_error| {
+                    LoggerError::PrintLine(
+                        "Callback was dropped before returning a result".to_owned(),
+                    )
+                })?
+                .map_err(|error| LoggerError::PrintLine(error.to_string()))
         });
 
         Ok(edr_napi_core::logger::Config {
