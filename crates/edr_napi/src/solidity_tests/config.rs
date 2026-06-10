@@ -915,7 +915,7 @@ impl From<CollectStackTraces> for edr_solidity_tests::CollectStackTraces {
 /// This can either be for Solidity test results or provider transaction
 /// execution results.
 #[napi]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Serialize)]
 pub enum IncludeTraces {
     /// No traces will be included at all.
     #[default]
