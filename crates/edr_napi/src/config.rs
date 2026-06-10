@@ -496,7 +496,6 @@ impl ObservabilityConfig<'_> {
     /// [`edr_provider::observability::Config`].
     pub fn resolve(
         self,
-        _env: &napi::Env,
         runtime: runtime::Handle,
     ) -> napi::Result<edr_provider::observability::Config> {
         let on_collected_coverage_fn = self
@@ -693,7 +692,6 @@ impl ProviderConfig<'_> {
     /// Resolves the instance to a [`edr_napi_core::provider::Config`].
     pub fn resolve(
         self,
-        env: &napi::Env,
         runtime: runtime::Handle,
     ) -> napi::Result<edr_napi_core::provider::Config> {
         let owned_accounts = self
@@ -792,7 +790,7 @@ impl ProviderConfig<'_> {
                 }
             },
             network_id: self.network_id.try_cast()?,
-            observability: self.observability.resolve(env, runtime)?,
+            observability: self.observability.resolve(runtime)?,
             owned_accounts,
             precompile_overrides,
             transaction_gas_cap,
@@ -856,18 +854,17 @@ pub struct ConfigResolution {
 
 /// Helper function for resolving the provided N-API configs.
 pub fn resolve_configs<'env>(
-    env: &napi::Env,
     runtime: runtime::Handle,
     provider_config: ProviderConfig<'env>,
     logger_config: LoggerConfig<'env>,
     subscription_config: SubscriptionConfig<'env>,
 ) -> napi::Result<ConfigResolution> {
-    let provider_config = provider_config.resolve(env, runtime)?;
-    let logger_config = logger_config.resolve(env)?;
+    let provider_config = provider_config.resolve(runtime)?;
+    let logger_config = logger_config.resolve()?;
 
     let subscription_config = edr_napi_core::subscription::Config::from(subscription_config);
     let subscription_callback =
-        edr_napi_core::subscription::Callback::new(env, subscription_config.subscription_callback)?;
+        edr_napi_core::subscription::Callback::new(subscription_config.subscription_callback)?;
 
     Ok(ConfigResolution {
         logger_config,

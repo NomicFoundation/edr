@@ -118,10 +118,7 @@ pub struct Callback {
 
 impl Callback {
     #[allow(deprecated)]
-    pub fn new(
-        _env: &napi::Env,
-        subscription_event_callback: Function<'_, JsObject, ()>,
-    ) -> napi::Result<Self> {
+    pub fn new(subscription_event_callback: Function<'_, JsObject, ()>) -> napi::Result<Self> {
         let callback = subscription_event_callback
             .build_threadsafe_function::<SubscriptionEvent>()
             // Maintain a weak reference to the function to avoid blocking

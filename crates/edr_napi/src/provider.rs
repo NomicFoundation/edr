@@ -150,7 +150,7 @@ impl Provider {
         let (deferred, promise) = env.create_deferred()?;
 
         let call_override_callback =
-            match CallOverrideCallback::new(env, call_override_callback, self.runtime.clone()) {
+            match CallOverrideCallback::new(call_override_callback, self.runtime.clone()) {
                 Ok(callback) => callback,
                 Err(error) => {
                     deferred.reject(error);

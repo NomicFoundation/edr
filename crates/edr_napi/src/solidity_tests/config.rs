@@ -219,7 +219,6 @@ impl SolidityTestRunnerConfigArgs<'_> {
     /// [`edr_napi_core::solidity::config::TestRunnerConfig`].
     pub fn resolve(
         self,
-        env: &napi::Env,
         runtime: runtime::Handle,
     ) -> napi::Result<edr_napi_core::solidity::config::TestRunnerConfig> {
         let SolidityTestRunnerConfigArgs {
@@ -366,7 +365,7 @@ impl SolidityTestRunnerConfigArgs<'_> {
             || Ok(None),
             |observability| {
                 observability
-                    .resolve(env, runtime)
+                    .resolve(runtime)
                     .map(|config| config.on_collected_coverage_fn)
             },
         )?;

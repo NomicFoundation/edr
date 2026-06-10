@@ -28,7 +28,7 @@ pub struct LoggerConfig<'env> {
 impl LoggerConfig<'_> {
     /// Resolves the logger config, converting it to a
     /// `edr_napi_core::logger::Config`.
-    pub fn resolve(self, _env: &Env) -> napi::Result<edr_napi_core::logger::Config> {
+    pub fn resolve(self) -> napi::Result<edr_napi_core::logger::Config> {
         let decode_console_log_inputs_callback = self
             .decode_console_log_inputs_callback
             .build_threadsafe_function::<Vec<Bytes>>()
