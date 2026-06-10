@@ -716,7 +716,14 @@ describe("Provider", () => {
           id: 1,
           jsonrpc: "2.0",
           method: "eth_call",
-          params: [{ to: targetAddress, data: callData }, "latest"],
+          // Explicit `gas` below the EIP-7825 transaction gas cap (16,777,216
+          // on Osaka); without it the call inherits
+          // `defaultTransactionGasLimit` (300M) and is rejected before the
+          // call override can fire.
+          params: [
+            { to: targetAddress, data: callData, gas: "0xf4240" },
+            "latest",
+          ],
         })
       );
 
@@ -798,6 +805,11 @@ describe("Provider", () => {
               from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
               to: consoleLogAddress,
               data: consoleLogHelloCalldata,
+              // Explicit `gas` below the EIP-7825 transaction gas cap
+              // (16,777,216 on Osaka); without it the transaction inherits
+              // `defaultTransactionGasLimit` (300M) and is rejected before
+              // execution, so the console.log inspector never fires.
+              gas: "0xf4240",
             },
           ],
         })
