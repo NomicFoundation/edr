@@ -1,11 +1,11 @@
 //! Forge test runner for multiple contracts.
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     path::PathBuf,
     sync::Arc,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use alloy_json_abi::JsonAbi;
@@ -41,7 +41,8 @@ use crate::{
     contracts::get_contract_name,
     error::TestRunnerError,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
-    result::SuiteResult,
+    inline_config::{self, SharedInlineConfigProvider},
+    result::{SuiteResult, TestResult},
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
     TestFunctionConfigOverride,
@@ -136,8 +137,8 @@ pub struct MultiContractRunner<
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running the tests.
     generate_gas_report: bool,
-    /// Test function level config overrides.
-    test_function_overrides: HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+    /// Collects and serves the inline configuration parsed from test sources.
+    inline_config_provider: SharedInlineConfigProvider,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
@@ -178,6 +179,7 @@ impl<
         libs_to_deploy: Vec<Bytes>,
         contract_decoder: NestedTraceDecoderT,
         revert_decoder: RevertDecoder,
+        inline_config_provider: SharedInlineConfigProvider,
     ) -> Result<Self, SolidityTestRunnerConfigError> {
         let env = config
             .evm_opts
@@ -201,7 +203,6 @@ impl<
             local_predeploys,
             on_collected_coverage_fn,
             generate_gas_report,
-            test_function_overrides,
         } = config;
 
         // Do canonicalization in blocking context.
@@ -242,7 +243,7 @@ impl<
             on_collected_coverage_fn,
             _phantom: PhantomData,
             generate_gas_report,
-            test_function_overrides,
+            inline_config_provider,
         })
     }
 
@@ -291,6 +292,57 @@ impl<
         TransactionT,
     >
 {
+    /// Parses the inline configuration of the given test contract from its
+    /// source, returning the per-function overrides and the set of functions
+    /// that opted into `allowInternalExpectRevert`.
+    ///
+    /// Returns empty collections when the contract's source isn't available or
+    /// carries no inline configuration.
+    fn inline_config_overrides(
+        &self,
+        artifact_id: &ArtifactId,
+        contract: &TestContract,
+    ) -> Result<
+        (
+            HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+            HashSet<TestFunctionIdentifier>,
+        ),
+        inline_config::InlineConfigError,
+    > {
+        // This runs inside the `into_par_iter` suite dispatch below (a global
+        // rayon-pool worker), and `get` blocks until background collection
+        // finishes. That is only safe because collection runs on its own
+        // dedicated pool — see `CachedInlineConfigProvider::collect`. Keep it
+        // that way, or the suite workers blocked here could starve the
+        // collection of threads and deadlock the whole run.
+        let parsed = self
+            .inline_config_provider
+            .get(&artifact_id.source, &artifact_id.name)?;
+
+        let mut overrides = HashMap::new();
+        let mut allow_internal_expect_revert = HashSet::new();
+
+        for function_override in parsed {
+            let Some(function_selector) =
+                inline_config::resolve_selector(&contract.abi, &function_override.function_name)
+            else {
+                // Not part of the ABI (e.g. not externally callable), so it
+                // can't be run as a test; ignore it.
+                continue;
+            };
+            let identifier = TestFunctionIdentifier {
+                contract_artifact: artifact_id.clone(),
+                function_selector,
+            };
+            if function_override.config.allow_internal_expect_revert == Some(true) {
+                allow_internal_expect_revert.insert(identifier.clone());
+            }
+            overrides.insert(identifier, function_override.config);
+        }
+
+        Ok((overrides, allow_internal_expect_revert))
+    }
+
     fn run_test_suite(
         &self,
         artifact_id: &ArtifactId,
@@ -317,9 +369,34 @@ impl<
 
         debug!("start executing all tests in contract");
 
+        // Extract per-test inline configuration from the contract's source. A
+        // malformed directive fails this suite only, leaving others to run.
+        let (inline_overrides, allow_internal_expect_revert) =
+            match self.inline_config_overrides(artifact_id, contract) {
+                Ok(result) => result,
+                Err(error) => {
+                    let suite = SuiteResult::new(
+                        Duration::ZERO,
+                        Vec::new(),
+                        [(
+                            "inline-config".to_owned(),
+                            TestResult::fail(format!("invalid inline config: {error}")),
+                        )]
+                        .into(),
+                        Vec::new(),
+                    );
+                    return Ok((suite, None));
+                }
+            };
+
+        let mut cheats_config_options = (*self.cheats_config_options).clone();
+        cheats_config_options
+            .functions_internal_expect_revert
+            .extend(allow_internal_expect_revert);
+
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
-            (*self.cheats_config_options).clone(),
+            cheats_config_options,
             self.evm_opts.clone(),
             self.known_contracts.clone(),
             Some(artifact_id.clone()),
@@ -380,7 +457,7 @@ impl<
                     enable_table_tests: self.enable_table_tests,
                     fuzz_config: &self.fuzz_config,
                     invariant_config: &self.invariant_config,
-                    test_function_overrides: &self.test_function_overrides,
+                    test_function_overrides: &inline_overrides,
                     generate_gas_report: self.generate_gas_report,
                 },
                 span,

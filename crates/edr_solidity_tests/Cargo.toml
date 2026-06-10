@@ -14,6 +14,7 @@ edr_defaults.workspace = true
 edr_gas_report.workspace = true
 edr_primitives.workspace = true
 edr_solidity.workspace = true
+edr_utils_sync.workspace = true
 
 foundry-cheatcodes.workspace = true
 foundry-compilers = { workspace = true }
@@ -35,8 +36,11 @@ humantime-serde = "1.1.1"
 
 alloy-dyn-abi.workspace = true
 alloy-json-abi.workspace = true
+crossbeam-channel = "0.5"
 alloy-primitives = { workspace = true, features = ["map-hashbrown", "serde"] }
 
+semver = { workspace = true, features = ["std"] }
+slang_solidity_v2 = { git = "https://github.com/NomicFoundation/slang", rev = "84c5a027c143374d2f5c6cf492c771711f38db6c" }
 tokio = { workspace = true, features = ["time"] }
 thiserror = "2.0.12"
 

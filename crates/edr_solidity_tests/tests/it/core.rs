@@ -12,9 +12,7 @@ use edr_solidity_tests::{
 };
 use foundry_evm::traces::SetupTraceKind;
 
-use crate::helpers::{
-    assert_multiple, make_test_identifier, SolidityTestFilter, TEST_DATA_DEFAULT, TEST_DATA_PARIS,
-};
+use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT, TEST_DATA_PARIS};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_core() {
@@ -128,6 +126,20 @@ async fn test_core() {
             ),
             (
                 "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
+                vec![(
+                    "testNonceIncrementsWithIsolation()",
+                    false,
+                    None,
+                    None,
+                    None,
+                )],
+            ),
+            (
+                "default/core/IsolateOverrideEnabled.t.sol:IsolateOverrideEnabledTest",
+                vec![("testNonceIncrementsWithIsolation()", true, None, None, None)],
+            ),
+            (
+                "default/core/IsolateOverrideDisabled.t.sol:IsolateOverrideDisabledTest",
                 vec![(
                     "testNonceIncrementsWithIsolation()",
                     false,
@@ -1021,29 +1033,18 @@ async fn test_function_override_isolate() {
         )]),
     );
 
-    // Now enable isolation via function-level override and verify the test passes.
-    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config.test_function_overrides.insert(
-        make_test_identifier(
-            "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
-            "testNonceIncrementsWithIsolation()",
-        ),
-        edr_solidity_tests::TestFunctionConfigOverride {
-            allow_internal_expect_revert: None,
-            isolate: Some(true),
-            evm_version: None,
-            fuzz: None,
-            invariant: None,
-        },
-    );
-
+    // Now enable isolation via the inline `isolate = true` directive (in
+    // `IsolateOverrideEnabled.t.sol`) and verify the test passes.
+    let enabled_filter =
+        SolidityTestFilter::new(".*", ".*", "default/core/IsolateOverrideEnabled.t.sol");
+    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner.test_collect(enabled_filter).await.suite_results;
 
     assert_multiple(
         &results,
         BTreeMap::from([(
-            "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
+            "default/core/IsolateOverrideEnabled.t.sol:IsolateOverrideEnabledTest",
             vec![("testNonceIncrementsWithIsolation()", true, None, None, None)],
         )]),
     );
@@ -1070,30 +1071,21 @@ async fn test_function_override_isolate_disable() {
         )]),
     );
 
-    // With a function-level override disabling isolation, the test fails.
+    // With the inline `isolate = false` directive (in
+    // `IsolateOverrideDisabled.t.sol`), the test fails even though isolation is
+    // enabled globally.
+    let disabled_filter =
+        SolidityTestFilter::new(".*", ".*", "default/core/IsolateOverrideDisabled.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.evm_opts.isolate = true;
-    config.test_function_overrides.insert(
-        make_test_identifier(
-            "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
-            "testNonceIncrementsWithIsolation()",
-        ),
-        edr_solidity_tests::TestFunctionConfigOverride {
-            allow_internal_expect_revert: None,
-            isolate: Some(false),
-            evm_version: None,
-            fuzz: None,
-            invariant: None,
-        },
-    );
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner.test_collect(disabled_filter).await.suite_results;
 
     assert_multiple(
         &results,
         BTreeMap::from([(
-            "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
+            "default/core/IsolateOverrideDisabled.t.sol:IsolateOverrideDisabledTest",
             vec![(
                 "testNonceIncrementsWithIsolation()",
                 false,
@@ -1110,26 +1102,14 @@ async fn test_function_override_isolate_disable() {
 /// measurements.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_function_override_isolate_ignored_with_gas_report() {
-    let filter = SolidityTestFilter::new(".*", ".*", "default/core/IsolateOverride.t.sol");
+    // `IsolateOverrideDisabled.t.sol` carries an inline `isolate = false`
+    // directive.
+    let filter = SolidityTestFilter::new(".*", ".*", "default/core/IsolateOverrideDisabled.t.sol");
 
-    let isolate_disabled_override = edr_solidity_tests::TestFunctionConfigOverride {
-        allow_internal_expect_revert: None,
-        isolate: Some(false),
-        evm_version: None,
-        fuzz: None,
-        invariant: None,
-    };
-    let test_id = make_test_identifier(
-        "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
-        "testNonceIncrementsWithIsolation()",
-    );
-
-    // First, verify that the test fails when gas reports are disabled.
+    // First, verify that the test fails when gas reports are disabled (the inline
+    // override disables isolation).
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.evm_opts.isolate = true;
-    config
-        .test_function_overrides
-        .insert(test_id.clone(), isolate_disabled_override.clone());
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter.clone()).await.suite_results;
@@ -1137,7 +1117,7 @@ async fn test_function_override_isolate_ignored_with_gas_report() {
     assert_multiple(
         &results,
         BTreeMap::from([(
-            "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
+            "default/core/IsolateOverrideDisabled.t.sol:IsolateOverrideDisabledTest",
             vec![(
                 "testNonceIncrementsWithIsolation()",
                 false,
@@ -1152,9 +1132,6 @@ async fn test_function_override_isolate_ignored_with_gas_report() {
     // pass because isolation stays enabled.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.generate_gas_report = true;
-    config
-        .test_function_overrides
-        .insert(test_id, isolate_disabled_override);
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
@@ -1162,7 +1139,7 @@ async fn test_function_override_isolate_ignored_with_gas_report() {
     assert_multiple(
         &results,
         BTreeMap::from([(
-            "default/core/IsolateOverride.t.sol:IsolateOverrideTest",
+            "default/core/IsolateOverrideDisabled.t.sol:IsolateOverrideDisabledTest",
             vec![("testNonceIncrementsWithIsolation()", true, None, None, None)],
         )]),
     );

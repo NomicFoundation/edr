@@ -26,3 +26,19 @@ contract InvariantTestFunctionOverride is Test {
         require(inv.flag1(), "false");
     }
 }
+
+// Same as `InvariantTestFunctionOverride`, but the invariant overrides
+// `runs`/`depth` via inline configuration.
+contract InvariantTestFunctionOverrideConfigured is Test {
+    TargetContractTest1 inv;
+
+    function setUp() public {
+        inv = new TargetContractTest1();
+    }
+
+    /// hardhat-config: default.invariant.runs = 1
+    /// hardhat-config: default.invariant.depth = 5
+    function invariant_neverFalse() public view {
+        require(inv.flag1(), "false");
+    }
+}

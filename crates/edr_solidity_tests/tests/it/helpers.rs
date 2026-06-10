@@ -3,7 +3,7 @@
 mod config;
 mod tracing;
 
-pub use config::{assert_multiple, make_test_identifier, TestConfig};
+pub use config::{assert_multiple, TestConfig};
 use edr_decoder_revert::RevertDecoder;
 use parking_lot::RwLock;
 mod integration_test_config;
@@ -31,6 +31,7 @@ use edr_solidity::{
 };
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
+    inline_config::{ImportResolver, InlineConfigRoot, SharedInlineConfigProvider},
     multi_runner::{TestContract, TestContracts},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
@@ -194,7 +195,6 @@ impl ForgeTestProfile {
             local_predeploys: Vec::default(),
             on_collected_coverage_fn: None,
             generate_gas_report: false,
-            test_function_overrides: HashMap::default(),
         }
     }
 
@@ -447,6 +447,9 @@ pub struct ForgeTestData<
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
+    /// Serves the test contracts' inline configuration; collected once per
+    /// profile and shared by every runner built from this test data.
+    inline_config_provider: SharedInlineConfigProvider,
     fuzz_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     invariant_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     hardfork: HardforkT,
@@ -573,12 +576,40 @@ impl<
 
         let known_contracts = ContractsByArtifact::new(linked_contracts);
 
+        // The runner parses inline configuration from the test sources on
+        // disk; the testdata source names are real paths relative to the
+        // project root, so joining them onto the root yields the absolute
+        // path (production callers provide these paths explicitly instead).
+        // Imports to e.g. forge-std have no import mapping and simply stay
+        // unresolved, which still recovers the root file's functions. Collect
+        // once and share the provider across every runner built from this
+        // test data.
+        let mut roots_by_source: HashMap<PathBuf, InlineConfigRoot> = HashMap::new();
+        for id in test_contracts.keys() {
+            if !roots_by_source.contains_key(&id.source) {
+                roots_by_source.insert(
+                    id.source.clone(),
+                    InlineConfigRoot {
+                        source: id.source.clone(),
+                        path: root.join(&id.source),
+                        version: id.version.clone(),
+                    },
+                );
+            }
+        }
+        let inline_config_provider = SharedInlineConfigProvider::collect(
+            roots_by_source.into_values().collect(),
+            ImportResolver::default(),
+        )
+        .expect("inline config collection should succeed");
+
         Ok(Self {
             project,
             test_contracts,
             known_contracts,
             libs_to_deploy,
             revert_decoder,
+            inline_config_provider,
             fuzz_failure_dirs: Mutex::default(),
             invariant_failure_dirs: Mutex::default(),
             hardfork,
@@ -819,6 +850,7 @@ impl<
             self.libs_to_deploy.clone(),
             NoOpContractDecoder::default(),
             self.revert_decoder.clone(),
+            self.inline_config_provider.clone(),
         )
         .await
         .expect("Config should be ok")
@@ -864,6 +896,7 @@ impl<
             self.libs_to_deploy.clone(),
             RwLock::new(contract_decoder),
             self.revert_decoder.clone(),
+            self.inline_config_provider.clone(),
         )
         .await
         .expect("Config should be ok")

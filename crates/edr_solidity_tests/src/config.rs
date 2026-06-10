@@ -1,9 +1,8 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_primitives::{Address, B256, U256};
 use edr_solidity::config::IncludeTraces;
-use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     backend::Predeploy,
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
@@ -61,8 +60,6 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running tests
     pub generate_gas_report: bool,
-    /// Test function level config overrides.
-    pub test_function_overrides: HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
 }
 
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
@@ -174,7 +171,7 @@ pub enum CollectStackTraces {
 }
 
 /// Test function level config override.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TestFunctionConfigOverride {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test.
@@ -196,14 +193,14 @@ pub struct TestFunctionConfigOverride {
 }
 
 /// Timeout configuration.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TimeoutConfig {
     /// Optional timeout (in seconds)
     pub time: Option<u32>,
 }
 
 /// Test function or test contract level fuzz config override.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FuzzConfigOverride {
     /// The number of test cases that must execute for each property test
     pub runs: Option<u32>,
@@ -220,7 +217,7 @@ pub struct FuzzConfigOverride {
 }
 
 /// Test function or test contract level invariant config override.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct InvariantConfigOverride {
     /// The number of runs that must execute for each invariant test group.
     pub runs: Option<u32>,
