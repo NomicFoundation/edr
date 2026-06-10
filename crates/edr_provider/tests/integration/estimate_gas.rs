@@ -2,15 +2,13 @@
 
 use std::{num::NonZeroU64, str::FromStr, sync::Arc};
 
-use edr_chain_l1::{
-    rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
-    L1ChainSpec,
-};
+use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_chain_spec::EvmSpecId;
-use edr_primitives::{bytes, Bytes, B256, U64};
+use edr_primitives::{bytes, Bytes, U64};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    test_utils::{create_test_config, deploy_contract},
+    time::CurrentTime,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -41,7 +39,7 @@ async fn binary_search_does_not_probe_above_transaction_gas_cap() -> anyhow::Res
     config.default_transaction_gas_limit =
         NonZeroU64::new(transaction_gas_cap).expect("cap is non-zero");
 
-    let from = public_key_to_address(
+    let caller = public_key_to_address(
         config
             .owned_accounts
             .first_mut()
@@ -56,28 +54,16 @@ async fn binary_search_does_not_probe_above_transaction_gas_cap() -> anyhow::Res
         Arc::new(RwLock::<ContractDecoder>::default()),
         CurrentTime,
     )?;
-
-    let deploy = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
-            from,
-            data: Some(Bytes::from_str(HIGH_GAS_REQUIRED_BYTECODE)?),
-            ..TransactionRequest::default()
-        }),
-    ))?;
-    let tx_hash: B256 = serde_json::from_value(deploy.result)?;
-    let receipt: L1RpcTransactionReceipt = serde_json::from_value(
-        provider
-            .handle_request(ProviderRequest::with_single(
-                MethodInvocation::GetTransactionReceipt(tx_hash),
-            ))?
-            .result,
+    let contract = deploy_contract(
+        &provider,
+        caller,
+        Bytes::from_str(HIGH_GAS_REQUIRED_BYTECODE)?,
     )?;
-    let contract = receipt.contract_address.expect("deployment address");
 
     let estimate_response = provider
         .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
             L1CallRequest {
-                from: Some(from),
+                from: Some(caller),
                 to: Some(contract),
                 data: Some(FUNCTION_TO_ESTIMATE_CALLDATA),
                 ..L1CallRequest::default()
