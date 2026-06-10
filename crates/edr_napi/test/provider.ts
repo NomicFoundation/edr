@@ -692,14 +692,11 @@ describe("Provider", () => {
           contractAddress: ArrayBuffer,
           data: ArrayBuffer
         ): Promise<CallOverrideResult | undefined> => {
-          // index.d.ts annotates these as `ArrayBuffer` for HH2 backwards-compat
-          // (HH2's provider.ts types its callback the same way and calls
-          // `Buffer.from(x)` on the args). The actual runtime value under
-          // napi-rs v3 is a `Uint8Array`; `Buffer.from(x)` accepts both shapes,
-          // which is what makes the type/runtime skew safe. See the longer
-          // note on `Provider::set_call_override_callback` in
-          // `src/provider.rs` for why we can't produce a real `ArrayBuffer`
-          // Rust-side under v3.
+          // index.d.ts annotates these as `ArrayBuffer` to match Hardhat 2's
+          // typings; the actual runtime value is a `Uint8Array`.
+          // `Buffer.from(x)` accepts both shapes, which is what makes the
+          // skew safe. See the note on
+          // `Provider::set_call_override_callback` in `src/provider.rs`.
           received = {
             addressLen: Buffer.from(contractAddress).length,
             dataLen: Buffer.from(data).length,
@@ -753,12 +750,11 @@ describe("Provider", () => {
           // would add. Cleaner assertions than logs.ts's enable-true path.
           enable: false,
           decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] => {
-            // index.d.ts annotates `inputs` as `ArrayBuffer[]` for HH2
-            // backwards-compat (HH2's provider.ts:288 uses the same annotation
-            // and calls `Buffer.from(input)`). The actual runtime value under
-            // napi-rs v3 is `Uint8Array[]`; `Buffer.from(x)` accepts both. See
-            // the longer note on `LoggerConfig::decode_console_log_inputs_callback`
-            // in `src/logger.rs`.
+            // index.d.ts annotates `inputs` as `ArrayBuffer[]` to match
+            // Hardhat 2's typings; the actual runtime value is a
+            // `Uint8Array[]`, and `Buffer.from(x)` accepts both. See the note
+            // on `LoggerConfig::decode_console_log_inputs_callback` in
+            // `src/logger.rs`.
             for (const input of inputs) {
               receivedInputLengths.push(Buffer.from(input).length);
             }
@@ -856,10 +852,10 @@ describe("Provider", () => {
         "68656c6c6f000000000000000000000000000000000000000000000000000000";
       const consoleLogAddress = "0x000000000000000000636f6e736f6c652e6c6f67";
 
-      // The JS exception must come back as a JSON-RPC error response, not
-      // take the process down: before the napi-rs v3 error-propagation fix,
-      // a throwing decode callback closed the result channel and panicked
-      // the Rust side.
+      // Guards the logger's error propagation: the JS exception must come
+      // back as a JSON-RPC error response. If the Rust side drops the result
+      // channel instead of forwarding the error, it panics and takes the
+      // process down.
       const response = await provider.handleRequest(
         JSON.stringify({
           id: 1,

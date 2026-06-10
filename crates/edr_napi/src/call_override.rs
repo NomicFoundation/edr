@@ -65,8 +65,8 @@ impl CallOverrideCallback {
     ) -> napi::Result<Self> {
         let call_override_callback_fn = call_override_callback
             .build_threadsafe_function::<CallOverrideCall>()
-            // Don't keep the Node event loop alive on this callback
-            // (`weak::<true>` is the v3 equivalent of v2's `unref(env)`).
+            // Maintain a weak reference to the function to avoid blocking
+            // the event loop from exiting.
             .weak::<true>()
             .build_callback(|ctx: ThreadsafeCallContext<CallOverrideCall>| {
                 let address = Uint8Array::from(ctx.value.contract_address.to_vec());

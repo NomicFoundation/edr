@@ -14,12 +14,11 @@ use napi_derive::napi;
 pub struct LoggerConfig<'env> {
     /// Whether to enable the logger.
     pub enable: bool,
-    // `ts_type` declares `ArrayBuffer[]` for HH2 backwards-compat. The
-    // runtime value is a `Uint8Array[]`; HH2's `provider.ts` calls
-    // `Buffer.from(input)` which accepts both. See the longer note on
+    // `ts_type` declares `ArrayBuffer[]` to match Hardhat 2's typings; the
+    // runtime value is a `Uint8Array[]`, which Hardhat 2's `Buffer.from(x)`
+    // accepts identically. See the note on
     // `Provider::set_call_override_callback` in `provider.rs` for the full
-    // rationale (TSFN `'static` bound rules out producing `ArrayBuffer`
-    // Rust-side in v3).
+    // rationale.
     #[napi(ts_type = "(inputs: ArrayBuffer[]) => string[]")]
     pub decode_console_log_inputs_callback: Function<'env, Vec<Uint8Array>, Vec<String>>,
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
@@ -33,6 +32,8 @@ impl LoggerConfig<'_> {
         let decode_console_log_inputs_callback = self
             .decode_console_log_inputs_callback
             .build_threadsafe_function::<Vec<Bytes>>()
+            // Maintain a weak reference to the function to avoid blocking
+            // the event loop from exiting.
             .weak::<true>()
             .build_callback(|ctx: ThreadsafeCallContext<Vec<Bytes>>| {
                 let inputs: Vec<Uint8Array> = ctx
@@ -46,10 +47,9 @@ impl LoggerConfig<'_> {
         let decode_console_log_inputs_fn = Arc::new(move |console_log_inputs| {
             let (sender, receiver) = channel();
 
-            // Send the `napi::Result` itself through the channel — including
-            // the `Err` case when the JS callback throws — so a JS exception
-            // surfaces as a `LoggerError` instead of dropping the sender and
-            // poisoning the `recv` below.
+            // Forward the `napi::Result` itself — including the `Err` when
+            // the JS callback throws — so the closure always sends and a JS
+            // exception reaches the caller as a `LoggerError`.
             let status = decode_console_log_inputs_callback.call_with_return_value(
                 console_log_inputs,
                 ThreadsafeFunctionCallMode::Blocking,
@@ -68,9 +68,9 @@ impl LoggerConfig<'_> {
                 )));
             }
 
-            // The closure above always sends when invoked; the channel can
-            // only be closed if the threadsafe call was dropped without
-            // running it (e.g. during environment teardown).
+            // The closure always sends when invoked, so the channel can only
+            // be closed if the threadsafe call was dropped without running it
+            // (e.g. during environment teardown).
             receiver
                 .recv()
                 .map_err(|_error| {
@@ -84,6 +84,8 @@ impl LoggerConfig<'_> {
         let print_line_callback = self
             .print_line_callback
             .build_threadsafe_function::<(String, bool)>()
+            // Maintain a weak reference to the function to avoid blocking
+            // the event loop from exiting.
             .weak::<true>()
             .build_callback(|ctx: ThreadsafeCallContext<(String, bool)>| {
                 Ok(FnArgs { data: ctx.value })
@@ -92,9 +94,9 @@ impl LoggerConfig<'_> {
         let print_line_fn = Arc::new(move |message, replace| {
             let (sender, receiver) = channel();
 
-            // Mirror of `decode_console_log_inputs_fn` above: forward the
+            // Mirrors `decode_console_log_inputs_fn` above: forward the
             // `napi::Result` so a throwing JS callback yields a `LoggerError`
-            // that carries the actual error message.
+            // carrying the actual error message.
             let status = print_line_callback.call_with_return_value(
                 (message, replace),
                 ThreadsafeFunctionCallMode::Blocking,
