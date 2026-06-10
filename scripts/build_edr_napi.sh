@@ -24,4 +24,9 @@ cp ../../data/contracts/coverage.sol ./coverage.sol
 # `--no-const-enum` behavior so consumers can keep using `MineOrdering.Fifo`
 # as a value.
 napi build --platform --no-const-enum --runtime-string-enum "$@" -- --locked
+
+# Verify the generated typings are self-consistent (no dangling type
+# references): consumers must compile against them without `skipLibCheck`.
+tsc -p tsconfig.typings-check.json
+
 tsc

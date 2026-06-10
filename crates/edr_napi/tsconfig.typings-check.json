@@ -1,0 +1,16 @@
+{
+  "extends": "@tsconfig/node20/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    // The point of this config: the node20 base sets `skipLibCheck: true`,
+    // which hides dangling type references inside generated declaration
+    // files. Checking `index.d.ts` with lib checking enabled guarantees
+    // consumers can compile against the typings without `skipLibCheck`.
+    "skipLibCheck": false
+  },
+  "files": ["./index.d.ts"]
+}
