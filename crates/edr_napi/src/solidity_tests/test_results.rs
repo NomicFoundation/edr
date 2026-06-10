@@ -457,6 +457,8 @@ pub struct FuzzCase {
     pub stipend: BigInt,
 }
 
+// Manual impl; auto-derive doesn't work because `Uint8Array` does not
+// implement `Clone`, so the buffer is deep-copied instead.
 impl Clone for FuzzCase {
     fn clone(&self) -> Self {
         Self {
@@ -526,8 +528,6 @@ pub struct CounterExampleSequence {
 /// See [`edr_solidity_tests::fuzz::BaseCounterExample`]
 #[napi(object)]
 pub struct BaseCounterExample {
-    // Manual Clone impl below; auto-derive doesn't work because `Uint8Array`
-    // does not implement `Clone`.
     /// See [`edr_solidity_tests::fuzz::BaseCounterExample::sender`]
     #[napi(readonly)]
     pub sender: Option<Uint8Array>,
@@ -548,6 +548,9 @@ pub struct BaseCounterExample {
     pub args: Option<String>,
 }
 
+// Manual impl; auto-derive doesn't work because `Uint8Array` does not
+// implement `Clone`, so the `sender`, `address`, and `calldata` buffers
+// are deep-copied instead.
 impl Clone for BaseCounterExample {
     fn clone(&self) -> Self {
         Self {
