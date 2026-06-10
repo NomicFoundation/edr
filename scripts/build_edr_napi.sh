@@ -17,8 +17,11 @@ cp ../../data/contracts/coverage.sol ./coverage.sol
 #     (same as v2, works under `isolatedModules`).
 #   - For string enums (`MineOrdering`, `TestStatus`, `CheatcodeErrorCode`):
 #     emits a type-only union (`'Fifo' | 'Priority'`) — values aren't
-#     accessible at all. Consumers reading `MineOrdering.Fifo` need to switch
-#     to the string literal `"Fifo"`. v2's `--no-const-enum` produced a
-#     regular runtime enum for string enums too; v3 dropped that option.
-napi build --platform --no-const-enum "$@" -- --locked
+#     accessible at all.
+#
+# `--runtime-string-enum` (requires @napi-rs/cli >= 3.7.0): opts string enums
+# back into regular runtime `enum` declarations, restoring v2's
+# `--no-const-enum` behavior so consumers can keep using `MineOrdering.Fifo`
+# as a value.
+napi build --platform --no-const-enum --runtime-string-enum "$@" -- --locked
 tsc
