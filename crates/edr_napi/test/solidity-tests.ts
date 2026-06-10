@@ -59,7 +59,12 @@ describe("Solidity Tests", () => {
         // the JS-side value is empty/garbage and Hardhat's reporter
         // mis-routes the entry.
         const trace = res.testResults[0].stackTrace();
-        if (trace !== null) {
+        if (trace === null) {
+          // `collectStackTraces` defaults to `OnFailure`, so a failing test
+          // must produce a stack-trace result; `null` means collection
+          // silently broke (and would make the kind assertion vacuous).
+          assert.fail("expected a stack-trace result for the failing test");
+        } else {
           assert.oneOf(trace.kind, [
             "StackTrace",
             "UnexpectedError",
