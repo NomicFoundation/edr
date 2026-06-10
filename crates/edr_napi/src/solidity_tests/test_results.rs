@@ -217,11 +217,7 @@ impl TestResult {
     /// See [`edr_solidity_tests::result::TestResult::kind`]
     #[napi(getter)]
     pub fn kind(&self) -> Either3<StandardTestKind, FuzzTestKind, InvariantTestKind> {
-        match &self.kind {
-            Either3::A(s) => Either3::A(s.clone()),
-            Either3::B(f) => Either3::B(f.clone()),
-            Either3::C(i) => Either3::C(i.clone()),
-        }
+        self.kind.clone()
     }
 
     /// See [`edr_solidity_tests::result::TestResult::duration`]
