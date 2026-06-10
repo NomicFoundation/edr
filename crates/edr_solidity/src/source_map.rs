@@ -210,6 +210,7 @@ fn add_unmapped_instructions(
             jump_type,
             push_data,
             location: None,
+            inline_call_sites: Box::default(),
         };
 
         instructions.push(instruction);
@@ -300,6 +301,7 @@ pub fn decode_instructions(
             jump_type,
             push_data,
             location,
+            inline_call_sites: Box::default(),
         };
 
         instructions.push(instruction);
@@ -330,6 +332,7 @@ mod tests {
             jump_type: JumpType::NotJump,
             push_data: Some(vec![0xde, 0xad]),
             location: None,
+            inline_call_sites: Box::default(),
         }];
 
         // Make sure we start decoding from opcode::STOP rather than from inside

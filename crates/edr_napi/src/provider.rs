@@ -72,6 +72,13 @@ impl Provider {
                 let compiler_output = serde_json::from_value(compiler_output)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
+                // `addCompilationResult` is called by both HH2 (via the legacy
+                // `hardhat_addCompilationResult` JSON-RPC method) and HH3
+                // (internally, for its provider's in-process compile flow).
+                // Both feed solc artifacts; solx reaches EDR through HH3's
+                // `BuildInfoConfig` (`runSolidityTests` / `withContracts`).
+                // The compiler is derived from the bytecode variant — no
+                // separate tag needs to be threaded in.
                 let contracts = match create_models_and_decode_bytecodes(
                     solc_version,
                     &compiler_input,

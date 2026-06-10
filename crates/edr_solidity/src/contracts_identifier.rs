@@ -255,7 +255,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        artifacts::ImmutableReference,
+        artifacts::{CompilerType, ImmutableReference},
         build_model::{Contract, ContractKind, SourceFile, SourceLocation},
     };
 
@@ -301,6 +301,7 @@ mod tests {
             library_offsets,
             immutable_references,
             "<dummy-version>".to_string(),
+            CompilerType::Solc,
         ))
     }
 
@@ -322,6 +323,7 @@ mod tests {
             library_offsets,
             immutable_references,
             "<dummy-version>".to_string(),
+            CompilerType::Solc,
         ))
     }
 
@@ -345,6 +347,7 @@ mod tests {
             library_offsets,
             immutable_references,
             "<dummy-version>".to_string(),
+            CompilerType::Solc,
         ))
     }
 
@@ -705,6 +708,62 @@ mod tests {
             contract.as_ref().map(Arc::as_ptr),
             Some(Arc::as_ptr(&bytecode))
         );
+    }
+
+    /// solc and solx variants of the same source contract produce different
+    /// normalized bytecodes; both must coexist and resolve to the right meta.
+    #[test]
+    fn test_contracts_identifier_solc_and_solx_variants_coexist() {
+        let sources = create_sources();
+        let contract = create_test_contract();
+
+        // Different bytecodes with disjoint prefixes so the trie lookup is
+        // unambiguous either way.
+        let solc_code = vec![0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5];
+        let solx_code = vec![0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5];
+
+        let solc_meta = Arc::new(ContractMetadata::new(
+            sources.clone(),
+            contract.clone(),
+            false,
+            solc_code.clone(),
+            vec![],
+            vec![],
+            vec![],
+            "0.8.34".to_string(),
+            CompilerType::Solc,
+        ));
+        let solx_meta = Arc::new(ContractMetadata::new(
+            sources,
+            contract,
+            false,
+            solx_code.clone(),
+            vec![],
+            vec![],
+            vec![],
+            "0.8.34".to_string(),
+            CompilerType::Solx,
+        ));
+
+        let mut identifier = ContractsIdentifier::default();
+        identifier.add_bytecode(solc_meta.clone());
+        identifier.add_bytecode(solx_meta.clone());
+
+        let solc_lookup = identifier.search_bytecode_from_root(false, &solc_code);
+        let solx_lookup = identifier.search_bytecode_from_root(false, &solx_code);
+
+        assert_eq!(
+            solc_lookup.as_ref().map(Arc::as_ptr),
+            Some(Arc::as_ptr(&solc_meta)),
+            "solc-built variant must resolve to its own ContractMetadata"
+        );
+        assert_eq!(
+            solx_lookup.as_ref().map(Arc::as_ptr),
+            Some(Arc::as_ptr(&solx_meta)),
+            "solx-built variant must resolve to its own ContractMetadata"
+        );
+        assert_eq!(solc_lookup.unwrap().compiler_type, CompilerType::Solc);
+        assert_eq!(solx_lookup.unwrap().compiler_type, CompilerType::Solx);
     }
 
     #[test]

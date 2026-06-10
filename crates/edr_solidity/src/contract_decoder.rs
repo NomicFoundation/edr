@@ -537,3 +537,60 @@ pub struct ContractIdentifierAndFunctionSignature {
     /// The function signature.
     pub function_signature: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::artifacts::{
+        BuildInfoConfig, BuildInfoWithOutput, CompilerInput, CompilerOutput, CompilerType,
+    };
+
+    /// A project can have both `default` (solc) and `solx` profiles active;
+    /// each build-info routes through its own decode path.
+    #[test]
+    fn contract_decoder_accepts_mixed_solc_and_solx_build_infos() {
+        let solc_input: CompilerInput =
+            serde_json::from_str(include_str!("../fixtures/compiler_input.json"))
+                .expect("solc fixture input parses");
+        let solc_output: CompilerOutput =
+            serde_json::from_str(include_str!("../fixtures/compiler_output.json"))
+                .expect("solc fixture output parses");
+
+        let mut solx_input: CompilerInput =
+            serde_json::from_str(include_str!("../fixtures/solx_compiler_input.json"))
+                .expect("solx fixture input parses");
+        solx_input.sources.get_mut("Counter.sol").unwrap().content =
+            include_str!("../fixtures/sources/Counter.sol").to_string();
+        let solx_output: CompilerOutput =
+            serde_json::from_str(include_str!("../fixtures/solx_compiler_output.json"))
+                .expect("solx fixture output parses");
+
+        let solc_bi = BuildInfoWithOutput {
+            _format: "hh3-sol-build-info-1".to_string(),
+            id: "solc-mixed".to_string(),
+            solc_version: "0.8.0".to_string(),
+            solc_long_version: "0.8.0+commit.abc".to_string(),
+            compiler_type: CompilerType::Solc,
+            input: solc_input,
+            output: solc_output,
+        };
+        let solx_bi = BuildInfoWithOutput {
+            _format: "hh3-sol-build-info-1".to_string(),
+            id: "solx-mixed".to_string(),
+            solc_version: "0.8.34".to_string(),
+            solc_long_version: "0.8.34+solx".to_string(),
+            compiler_type: CompilerType::Solx,
+            input: solx_input,
+            output: solx_output,
+        };
+
+        let config = BuildInfoConfig {
+            build_infos: vec![solc_bi, solx_bi],
+            ignore_contracts: None,
+        };
+
+        let decoder = ContractDecoder::new(&config)
+            .expect("ContractDecoder must accept a mixed solc+solx BuildInfoConfig");
+        let _ = decoder;
+    }
+}
