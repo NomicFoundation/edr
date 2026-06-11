@@ -26,7 +26,7 @@ on:
 
 jobs:
   build:
-    name: stable - ${{ matrix.settings.target }} - node@20
+    name: stable - ${{ matrix.settings.target }} - node@22
     runs-on: ${{ matrix.settings.host }}
     needs: check_commit
     permissions:
@@ -55,22 +55,22 @@ jobs:
 
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            docker: node:20-bullseye-slim
+            docker: node:22-bullseye-slim
             flavor: gnu
 
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            docker: node:20-bullseye-slim
+            docker: node:22-bullseye-slim
             flavor: gnu
 
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-musl
-            docker: node:20-alpine3.20
+            docker: node:22-alpine
             flavor: musl
 
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
-            docker: node:20-alpine3.20
+            docker: node:22-alpine
             flavor: musl
     outputs:
       commit_sha: ${{ steps.save-commit.outputs.commit_sha}}
@@ -112,7 +112,7 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         uses: ./.github/actions/setup-node
         with:
-          node-version: 20
+          node-version: 22
 
       # Release commits build cold: napi codegen relies on proc-macro
       # expansion (napi-rs#1297), so warm-cache builds risk shipping
@@ -222,8 +222,8 @@ jobs:
           - host: windows-2022
             target: x86_64-pc-windows-msvc
         node:
-          - "20"
           - "22"
+          - "24"
     runs-on: ${{ matrix.settings.host }}
     defaults:
       run:
@@ -258,8 +258,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "20"
           - "22"
+          - "24"
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -293,8 +293,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "20"
           - "22"
+          - "24"
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -326,8 +326,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "20"
           - "22"
+          - "24"
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -368,8 +368,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "20"
           - "22"
+          - "24"
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
