@@ -152,6 +152,9 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             // Overriding precompiles is not supported in scenarios
             precompile_overrides: HashMap::default(),
             transaction_gas_cap: value.transaction_gas_cap,
+            // TODO: consider supporting `gas_estimation_mode` in scenarios to be able to compare
+            // scenarios under each mode.
+            gas_estimation_mode: None,
         }
     }
 }
