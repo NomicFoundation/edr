@@ -710,7 +710,7 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailure<Halt
             }
             TransactionFailureReason::Inner(halt) => write!(f, "{halt:?}"),
             TransactionFailureReason::InternalCallOutOfGas => {
-                write!(f, "Transaction internal call ran out of gas")
+                write!(f, "Transaction's internal call ran out of gas")
             }
             TransactionFailureReason::OpcodeNotFound => {
                 write!(
