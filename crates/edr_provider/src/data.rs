@@ -89,7 +89,10 @@ use crate::{
         ForkConfig, GasEstimationMode, LocalConfig, MemPoolConfig, MiningConfig, NetworkConfig,
         ProviderConfig,
     },
-    data::{call::BlockEnvWithZeroBaseFee, gas::compute_rewards},
+    data::{
+        call::BlockEnvWithZeroBaseFee,
+        gas::{compute_rewards, EstimateGasResult},
+    },
     debug_trace::{debug_trace_transaction, DebugTraceResultWithCallTraces},
     error::{
         CreationError, CreationErrorForChainSpec, ProviderErrorForChainSpec, TransactionFailure,
@@ -169,12 +172,6 @@ impl<HaltReasonT: HaltReasonTrait> From<ObservedExecution<ExecutionResultWithMet
             precompile_addresses: value.execution_result.precompile_addresses,
         }
     }
-}
-
-#[derive(Clone)]
-pub struct EstimateGasResult {
-    pub call_trace_arenas: Vec<CallTraceArena>,
-    pub estimation: u64,
 }
 
 /// Helper type for a chain-specific [`SendTransactionResult`].

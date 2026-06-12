@@ -29,7 +29,7 @@ use parking_lot::RwLock;
 
 use crate::{
     config::GasEstimationMode,
-    data::{call, EstimateGasResult},
+    data::call,
     error::{EstimateGasFailure, ProviderErrorForChainSpec, TransactionFailure},
     observability::{
         observe_execution, EvmObservedData, EvmObserver, EvmObserverConfig, ObservedExecution,
@@ -37,6 +37,11 @@ use crate::{
     time::TimeSinceEpoch,
     ProviderError, ProviderSpec,
 };
+
+pub struct EstimateGasResult {
+    pub call_trace_arenas: Vec<CallTraceArena>,
+    pub estimation: u64,
+}
 
 /// Shared EVM execution context passed to all gas estimation functions.
 pub(super) struct GasCallContext<'a, ChainSpecT: ChainSpec + HardforkChainSpec> {
