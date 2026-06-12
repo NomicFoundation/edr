@@ -61,8 +61,8 @@ impl GasEstimationMode {
         traces: &CallTraceArena,
     ) -> bool {
         match self {
-            GasEstimationMode::Naive => result.is_success(),
-            GasEstimationMode::AvoidInternalOutOfGas => {
+            GasEstimationMode::TopLevelSuccess => result.is_success(),
+            GasEstimationMode::NoInternalOutOfGas => {
                 result.is_success() && !has_internal_oog(traces)
             }
         }
@@ -80,8 +80,8 @@ impl GasEstimationMode {
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Result<u64, TransactionFailure<HaltReasonT>> {
         match self {
-            GasEstimationMode::Naive => Ok(gas.tx_gas_used()),
-            GasEstimationMode::AvoidInternalOutOfGas => {
+            GasEstimationMode::TopLevelSuccess => Ok(gas.tx_gas_used()),
+            GasEstimationMode::NoInternalOutOfGas => {
                 if has_internal_oog(&evm_observed_data.call_trace_arena) {
                     Err(TransactionFailure::internal_call_out_of_gas(
                         output.into_data(),

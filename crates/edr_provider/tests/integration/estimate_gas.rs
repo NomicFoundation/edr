@@ -167,10 +167,9 @@ async fn binary_search_does_not_probe_above_transaction_gas_cap() -> anyhow::Res
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn oog_free_estimation_is_used_when_mode_is_avoid_internal_out_of_gas() -> anyhow::Result<()>
-{
+async fn oog_free_estimation_is_used_when_mode_is_no_internal_out_of_gas() -> anyhow::Result<()> {
     let fixture = Fixture::with_estimation_mode(
-        GasEstimationMode::AvoidInternalOutOfGas,
+        GasEstimationMode::NoInternalOutOfGas,
         INTERNAL_OOG_BYTECODE,
     )?;
 
@@ -189,18 +188,18 @@ async fn oog_free_estimation_is_used_when_mode_is_avoid_internal_out_of_gas() ->
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn naive_estimation_internally_oogs() -> anyhow::Result<()> {
-    let fixture_naive =
-        Fixture::with_estimation_mode(GasEstimationMode::Naive, INTERNAL_OOG_BYTECODE)?;
-    let naive_estimation = fixture_naive.estimate_gas()?;
-    fixture_naive.invoke_with_gas(naive_estimation);
+async fn top_level_success_estimation_internally_oogs() -> anyhow::Result<()> {
+    let fixture =
+        Fixture::with_estimation_mode(GasEstimationMode::TopLevelSuccess, INTERNAL_OOG_BYTECODE)?;
+    let estimation = fixture.estimate_gas()?;
+    fixture.invoke_with_gas(estimation);
 
-    // With the naive mode, the estimation is just small enough that the inner
-    // sub-call OOGs, so `n` stays zero.
+    // With the `TopLevelSuccess` mode, the estimation is just small enough
+    // that the inner sub-call OOGs, so `n` stays zero.
     assert_eq!(
-        fixture_naive.read_n(),
+        fixture.read_n(),
         U256::ZERO,
-        "expected naive estimation to internally OOG (n stays zero)",
+        "expected `TopLevelSuccess` estimation to internally OOG (n stays zero)",
     );
 
     Ok(())
@@ -209,11 +208,11 @@ async fn naive_estimation_internally_oogs() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn error_when_no_oog_free_estimation_exists() -> anyhow::Result<()> {
     let fixture = Fixture::with_estimation_mode(
-        GasEstimationMode::AvoidInternalOutOfGas,
+        GasEstimationMode::NoInternalOutOfGas,
         ALWAYS_INTERNAL_OOG_BYTECODE,
     )?;
 
-    // With AvoidInternalOutOfGas we have nowhere to go: the inner call OOGs at
+    // With `NoInternalOutOfGas` we have nowhere to go: the inner call OOGs at
     // any gas limit, so the estimation must error instead of returning a value
     // that internally OOGs.
     let error = fixture
@@ -236,10 +235,9 @@ async fn error_when_no_oog_free_estimation_exists() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn plain_transfer_estimation_unchanged_with_avoid_internal_out_of_gas() -> anyhow::Result<()>
-{
+async fn plain_transfer_estimation_unchanged_with_no_internal_out_of_gas() -> anyhow::Result<()> {
     let mut config = create_test_config();
-    config.gas_estimation_mode = GasEstimationMode::AvoidInternalOutOfGas;
+    config.gas_estimation_mode = GasEstimationMode::NoInternalOutOfGas;
     let (provider, from) = new_provider(config)?;
 
     let response =

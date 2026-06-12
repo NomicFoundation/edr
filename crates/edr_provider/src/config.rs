@@ -188,10 +188,10 @@ pub struct MiningConfig {
 pub enum GasEstimationMode {
     /// Estimates the minimum gas required for the top-level call to succeed.
     #[default]
-    Naive,
+    TopLevelSuccess,
     /// Estimates the minimum gas required for the top-level call to succeed
     /// without any internal sub-call running out of gas.
-    AvoidInternalOutOfGas,
+    NoInternalOutOfGas,
 }
 
 /// Configuration for the provider

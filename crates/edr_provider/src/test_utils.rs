@@ -205,7 +205,7 @@ pub fn create_test_config_with<HardforkT: Default>(
         bail_on_call_failure: false,
         bail_on_transaction_failure: false,
         base_fee_params: None,
-        gas_estimation_mode: GasEstimationMode::Naive,
+        gas_estimation_mode: GasEstimationMode::TopLevelSuccess,
         chain_id: 123,
         coinbase: Address::from(U160::from(1)),
         // SAFETY: literal is non-zero

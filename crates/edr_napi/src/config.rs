@@ -155,17 +155,17 @@ pub struct HardforkActivationByTimestamp {
 pub enum GasEstimationMode {
     /// Estimates the minimum gas required for the top-level call to succeed.
     #[default]
-    Naive,
+    TopLevelSuccess,
     /// Estimates the minimum gas required for the top-level call to succeed
     /// without any internal sub-call running out of gas.
-    AvoidInternalOutOfGas,
+    NoInternalOutOfGas,
 }
 
 impl From<GasEstimationMode> for edr_provider::config::GasEstimationMode {
     fn from(value: GasEstimationMode) -> Self {
         match value {
-            GasEstimationMode::Naive => Self::Naive,
-            GasEstimationMode::AvoidInternalOutOfGas => Self::AvoidInternalOutOfGas,
+            GasEstimationMode::TopLevelSuccess => Self::TopLevelSuccess,
+            GasEstimationMode::NoInternalOutOfGas => Self::NoInternalOutOfGas,
         }
     }
 }
@@ -290,7 +290,7 @@ pub struct ProviderConfig {
     /// requests that do not specify a `gas` value.
     pub default_transaction_gas_limit: BigInt,
     /// The gas estimation mode to use for `eth_estimateGas`. Defaults to
-    /// `GasEstimationMode.Naive` if not set.
+    /// `GasEstimationMode::TopLevelSuccess` if not set.
     pub gas_estimation_mode: Option<GasEstimationMode>,
     /// The genesis state of the blockchain
     pub genesis_state: Vec<AccountOverride>,
