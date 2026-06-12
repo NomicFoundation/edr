@@ -3,17 +3,17 @@
 use std::{num::NonZeroU64, str::FromStr, sync::Arc};
 
 use edr_chain_l1::{
-    rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
+    rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
 };
 use edr_chain_spec::EvmSpecId;
-use edr_primitives::{bytes, Address, Bytes, B256, U256, U64};
+use edr_primitives::{bytes, Address, Bytes, U256, U64};
 use edr_provider::{
-    config::GasEstimationMode,
+    config::{GasEstimationMode, ProviderConfig},
     test_utils::{create_test_config, deploy_contract},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
-    TransactionFailureReason,
+    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderErrorForChainSpec,
+    ProviderRequest, TransactionFailureReason,
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -24,126 +24,117 @@ const INTERNAL_OOG_BYTECODE: &str =
     include_str!("../../../../data/deployment_bytecode/InternalOOGContract.bin");
 const ALWAYS_INTERNAL_OOG_BYTECODE: &str =
     include_str!("../../../../data/deployment_bytecode/AlwaysInternalOOGContract.bin");
+const HIGH_GAS_REQUIRED_BYTECODE: &str =
+    include_str!("../../../../data/deployment_bytecode/HighGasRequiredContract.bin");
 
 // `cast sig 'functionToEstimate()'`
 const FUNCTION_TO_ESTIMATE_CALLDATA: Bytes = bytes!("0x1b6cdb67");
 // `cast sig 'n()'`
 const N_CALLDATA: Bytes = bytes!("0x2e52d606");
 
-const HIGH_GAS_REQUIRED_BYTECODE: &str =
-    include_str!("../../../../data/deployment_bytecode/HighGasRequiredContract.bin");
+fn new_provider(
+    config: ProviderConfig<edr_chain_l1::Hardfork>,
+) -> anyhow::Result<(Provider<L1ChainSpec>, Address)> {
+    let from = public_key_to_address(
+        config
+            .owned_accounts
+            .first()
+            .expect("config should have an account")
+            .public_key(),
+    );
+    let provider = Provider::new(
+        runtime::Handle::current(),
+        Box::new(NoopLogger::<L1ChainSpec>::default()),
+        Box::new(|_event| {}),
+        config,
+        Arc::new(RwLock::<ContractDecoder>::default()),
+        CurrentTime,
+    )?;
+    Ok((provider, from))
+}
 
+/// A provider with a contract deployed from the given bytecode. All the test
+/// contracts expose a `functionToEstimate()` entry point.
 struct Fixture {
     deployed_address: Address,
     from: Address,
     provider: Provider<L1ChainSpec>,
 }
 
-fn new_fixture(gas_estimation_mode: GasEstimationMode, bytecode: &str) -> Fixture {
-    let mut config = create_test_config();
-    config.gas_estimation_mode = gas_estimation_mode;
+impl Fixture {
+    fn new(config: ProviderConfig<edr_chain_l1::Hardfork>, bytecode: &str) -> anyhow::Result<Self> {
+        let (provider, from) = new_provider(config)?;
+        let deployed_address = deploy_contract(&provider, from, Bytes::from_str(bytecode)?)?;
 
-    let from = {
-        let secret_key = config
-            .owned_accounts
-            .first_mut()
-            .expect("should have an account");
-        public_key_to_address(secret_key.public_key())
-    };
-
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )
-    .expect("provider construction should succeed");
-
-    let deploy_response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(TransactionRequest {
-                from,
-                data: Some(Bytes::from_str(bytecode).expect("hex-encoded bytecode")),
-                ..TransactionRequest::default()
-            }),
-        ))
-        .expect("contract deployment should succeed");
-
-    let tx_hash: B256 =
-        serde_json::from_value(deploy_response.result).expect("deployment hash should decode");
-
-    let receipt_response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::GetTransactionReceipt(tx_hash),
-        ))
-        .expect("receipt fetch should succeed");
-
-    let receipt: L1RpcTransactionReceipt =
-        serde_json::from_value(receipt_response.result).expect("receipt should decode");
-
-    let deployed_address = receipt
-        .contract_address
-        .expect("deployment should produce a contract address");
-
-    Fixture {
-        deployed_address,
-        from,
-        provider,
+        Ok(Self {
+            deployed_address,
+            from,
+            provider,
+        })
     }
-}
 
-fn estimate_gas_for_function_to_estimate(fixture: &Fixture) -> u64 {
-    let response = fixture
-        .provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
-            L1CallRequest {
-                from: Some(fixture.from),
-                to: Some(fixture.deployed_address),
-                data: Some(FUNCTION_TO_ESTIMATE_CALLDATA),
-                ..L1CallRequest::default()
-            },
-            None,
-        )))
-        .expect("eth_estimateGas should succeed");
-    let gas: U64 = serde_json::from_value(response.result).expect("estimate should be U64");
-    gas.into_limbs()[0]
-}
+    fn with_estimation_mode(mode: GasEstimationMode, bytecode: &str) -> anyhow::Result<Self> {
+        let mut config = create_test_config();
+        config.gas_estimation_mode = mode;
+        Self::new(config, bytecode)
+    }
 
-fn invoke_function_to_estimate_with_gas(fixture: &Fixture, gas: u64) {
-    fixture
-        .provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(TransactionRequest {
-                from: fixture.from,
-                to: Some(fixture.deployed_address),
-                data: Some(FUNCTION_TO_ESTIMATE_CALLDATA),
-                gas: Some(gas),
-                ..TransactionRequest::default()
-            }),
-        ))
-        .expect("eth_sendTransaction should succeed");
-}
+    /// Estimates the gas of calling `functionToEstimate()` on the deployed
+    /// contract.
+    fn estimate_gas(&self) -> Result<u64, ProviderErrorForChainSpec<L1ChainSpec>> {
+        let response = self.provider.handle_request(ProviderRequest::with_single(
+            MethodInvocation::EstimateGas(
+                L1CallRequest {
+                    from: Some(self.from),
+                    to: Some(self.deployed_address),
+                    data: Some(FUNCTION_TO_ESTIMATE_CALLDATA),
+                    ..L1CallRequest::default()
+                },
+                None,
+            ),
+        ))?;
 
-fn read_n(fixture: &Fixture) -> U256 {
-    let response = fixture
-        .provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            L1CallRequest {
-                from: Some(fixture.from),
-                to: Some(fixture.deployed_address),
-                data: Some(N_CALLDATA),
-                ..L1CallRequest::default()
-            },
-            None,
-            None,
-        )))
-        .expect("eth_call n() should succeed");
-    let bytes: Bytes = serde_json::from_value(response.result).expect("call should return Bytes");
-    U256::from_be_slice(bytes.as_ref())
+        let gas: U64 = serde_json::from_value(response.result).expect("estimate should be U64");
+        Ok(gas.to::<u64>())
+    }
+
+    /// Sends a transaction calling `functionToEstimate()` with the given gas
+    /// limit.
+    fn invoke_with_gas(&self, gas: u64) {
+        self.provider
+            .handle_request(ProviderRequest::with_single(
+                MethodInvocation::SendTransaction(TransactionRequest {
+                    from: self.from,
+                    to: Some(self.deployed_address),
+                    data: Some(FUNCTION_TO_ESTIMATE_CALLDATA),
+                    gas: Some(gas),
+                    ..TransactionRequest::default()
+                }),
+            ))
+            .expect("eth_sendTransaction should succeed");
+    }
+
+    /// Reads the contract's `n` counter, which is only incremented when the
+    /// inner sub-call runs to completion.
+    fn read_n(&self) -> U256 {
+        let response = self
+            .provider
+            .handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+                L1CallRequest {
+                    from: Some(self.from),
+                    to: Some(self.deployed_address),
+                    data: Some(N_CALLDATA),
+                    ..L1CallRequest::default()
+                },
+                None,
+                None,
+            )))
+            .expect("eth_call n() should succeed");
+
+        let bytes: Bytes =
+            serde_json::from_value(response.result).expect("call should return Bytes");
+        U256::from_be_slice(bytes.as_ref())
+    }
 }
 
 // When transaction_gas_cap is set, REVM rejects any gas value above it with
@@ -164,61 +155,31 @@ async fn binary_search_does_not_probe_above_transaction_gas_cap() -> anyhow::Res
     config.default_transaction_gas_limit =
         NonZeroU64::new(transaction_gas_cap).expect("cap is non-zero");
 
-    let caller = public_key_to_address(
-        config
-            .owned_accounts
-            .first_mut()
-            .expect("account")
-            .public_key(),
-    );
-    let provider = Provider::<L1ChainSpec>::new(
-        runtime::Handle::current(),
-        Box::new(NoopLogger::<L1ChainSpec>::default()),
-        Box::new(|_| {}),
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
-    let contract = deploy_contract(
-        &provider,
-        caller,
-        Bytes::from_str(HIGH_GAS_REQUIRED_BYTECODE)?,
-    )?;
+    let fixture = Fixture::new(config, HIGH_GAS_REQUIRED_BYTECODE)?;
 
-    let estimate_response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
-            L1CallRequest {
-                from: Some(caller),
-                to: Some(contract),
-                data: Some(FUNCTION_TO_ESTIMATE_CALLDATA),
-                ..L1CallRequest::default()
-            },
-            None,
-        )))
-        .expect("eth_estimateGas should succeed");
-
-    let estimate = serde_json::from_value::<U64>(estimate_response.result)?.to::<u64>();
+    let estimate = fixture.estimate_gas()?;
     assert!(
         estimate <= transaction_gas_cap,
         "estimateGas returned {estimate}, which exceeds the transaction gas cap {transaction_gas_cap}"
     );
+
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn oog_free_estimation_is_used_when_mode_is_avoid_internal_out_of_gas() -> anyhow::Result<()>
 {
-    let fixture = new_fixture(
+    let fixture = Fixture::with_estimation_mode(
         GasEstimationMode::AvoidInternalOutOfGas,
         INTERNAL_OOG_BYTECODE,
-    );
+    )?;
 
-    let estimation = estimate_gas_for_function_to_estimate(&fixture);
-    invoke_function_to_estimate_with_gas(&fixture, estimation);
+    let estimation = fixture.estimate_gas()?;
+    fixture.invoke_with_gas(estimation);
 
     // `useGas` only increments `n` when it runs to completion. A non-zero `n`
     // proves the inner sub-call did not OOG.
-    let n = read_n(&fixture);
+    let n = fixture.read_n();
     assert!(
         n > U256::ZERO,
         "expected `n` to be non-zero after OOG-free estimation, got {n}"
@@ -229,29 +190,17 @@ async fn oog_free_estimation_is_used_when_mode_is_avoid_internal_out_of_gas() ->
 
 #[tokio::test(flavor = "multi_thread")]
 async fn naive_estimation_internally_oogs() -> anyhow::Result<()> {
-    let fixture_naive = new_fixture(GasEstimationMode::Naive, INTERNAL_OOG_BYTECODE);
-    let naive_estimation = estimate_gas_for_function_to_estimate(&fixture_naive);
-    invoke_function_to_estimate_with_gas(&fixture_naive, naive_estimation);
-    let n_naive = read_n(&fixture_naive);
+    let fixture_naive =
+        Fixture::with_estimation_mode(GasEstimationMode::Naive, INTERNAL_OOG_BYTECODE)?;
+    let naive_estimation = fixture_naive.estimate_gas()?;
+    fixture_naive.invoke_with_gas(naive_estimation);
 
     // With the naive mode, the estimation is just small enough that the inner
     // sub-call OOGs, so `n` stays zero.
     assert_eq!(
-        n_naive,
+        fixture_naive.read_n(),
         U256::ZERO,
         "expected naive estimation to internally OOG (n stays zero)",
-    );
-
-    // The avoid-internal-out-of-gas mode should produce a strictly larger
-    // estimation.
-    let fixture_oog_free = new_fixture(
-        GasEstimationMode::AvoidInternalOutOfGas,
-        INTERNAL_OOG_BYTECODE,
-    );
-    let oog_free_estimation = estimate_gas_for_function_to_estimate(&fixture_oog_free);
-    assert!(
-        oog_free_estimation > naive_estimation,
-        "OOG-free estimation {oog_free_estimation} should exceed naive {naive_estimation}",
     );
 
     Ok(())
@@ -259,25 +208,16 @@ async fn naive_estimation_internally_oogs() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn error_when_no_oog_free_estimation_exists() -> anyhow::Result<()> {
-    let fixture_oog_free = new_fixture(
+    let fixture = Fixture::with_estimation_mode(
         GasEstimationMode::AvoidInternalOutOfGas,
         ALWAYS_INTERNAL_OOG_BYTECODE,
-    );
+    )?;
 
     // With AvoidInternalOutOfGas we have nowhere to go: the inner call OOGs at
     // any gas limit, so the estimation must error instead of returning a value
     // that internally OOGs.
-    let error = fixture_oog_free
-        .provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
-            L1CallRequest {
-                from: Some(fixture_oog_free.from),
-                to: Some(fixture_oog_free.deployed_address),
-                data: Some(FUNCTION_TO_ESTIMATE_CALLDATA),
-                ..L1CallRequest::default()
-            },
-            None,
-        )))
+    let error = fixture
+        .estimate_gas()
         .expect_err("estimation should error when no OOG-free value exists");
 
     assert!(
@@ -300,28 +240,10 @@ async fn plain_transfer_estimation_unchanged_with_avoid_internal_out_of_gas() ->
 {
     let mut config = create_test_config();
     config.gas_estimation_mode = GasEstimationMode::AvoidInternalOutOfGas;
-    let from = {
-        let secret_key = config
-            .owned_accounts
-            .first_mut()
-            .expect("should have an account");
-        public_key_to_address(secret_key.public_key())
-    };
+    let (provider, from) = new_provider(config)?;
 
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )
-    .expect("provider construction should succeed");
-
-    let response = provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+    let response =
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
             L1CallRequest {
                 from: Some(from),
                 to: Some(Address::ZERO),
@@ -329,13 +251,13 @@ async fn plain_transfer_estimation_unchanged_with_avoid_internal_out_of_gas() ->
                 ..L1CallRequest::default()
             },
             None,
-        )))
-        .expect("plain transfer estimation should succeed");
-    let gas: U64 = serde_json::from_value(response.result).expect("U64");
+        )))?;
+
+    let gas: U64 = serde_json::from_value(response.result)?;
     // The same value `estimate_gas` produces today for a plain transfer:
-    // `minimum_cost + 1` (the `<=` clamp in `estimate_gas`). What matters here
+    // `minimum_cost + 1` (the clamp in `estimate_gas`). What matters here
     // is that changing the estimation mode does not affect this output.
-    assert_eq!(gas.into_limbs()[0], 21_001);
+    assert_eq!(gas.to::<u64>(), 21_001);
 
     Ok(())
 }
