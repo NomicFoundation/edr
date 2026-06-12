@@ -6,9 +6,13 @@ use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{
     BlockEnvChainSpec, BlockEnvConstructor as _, ChainSpec, ExecutableTransaction as _,
-    HardforkChainSpec,
+    HaltReasonTrait, HardforkChainSpec,
 };
-use edr_chain_spec_evm::{interpreter::InstructionResult, result::ExecutionResult, CfgEnv};
+use edr_chain_spec_evm::{
+    interpreter::InstructionResult,
+    result::{ExecutionResult, Output, ResultGas},
+    CfgEnv,
+};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip7892::ScheduledBlobParams;
 use edr_eth::reward_percentile::RewardPercentile;
@@ -27,7 +31,9 @@ use crate::{
     config::GasEstimationMode,
     data::{call, EstimateGasResult},
     error::{EstimateGasFailure, ProviderErrorForChainSpec, TransactionFailure},
-    observability::{observe_execution, EvmObserver, EvmObserverConfig, ObservedExecution},
+    observability::{
+        observe_execution, EvmObservedData, EvmObserver, EvmObserverConfig, ObservedExecution,
+    },
     time::TimeSinceEpoch,
     ProviderError, ProviderSpec,
 };
@@ -44,15 +50,44 @@ pub(super) struct GasCallContext<'a, ChainSpecT: ChainSpec + HardforkChainSpec> 
 }
 
 impl GasEstimationMode {
-    pub(crate) fn is_success<HaltReasonT>(
+    pub(crate) fn accepts<HaltReasonT>(
         &self,
-        execution_result: &ExecutionResultWithMetadata<HaltReasonT>,
+        result: &ExecutionResult<HaltReasonT>,
         traces: &CallTraceArena,
     ) -> bool {
         match self {
-            GasEstimationMode::Naive => execution_result.result.is_success(),
+            GasEstimationMode::Naive => result.is_success(),
             GasEstimationMode::AvoidInternalOutOfGas => {
-                execution_result.result.is_success() && !has_internal_oog(traces)
+                result.is_success() && !has_internal_oog(traces)
+            }
+        }
+    }
+
+    /// Returns the gas used by an execution that the EVM reported as
+    /// successful, provided this mode accepts it; otherwise returns the
+    /// mode-specific failure explaining the rejection.
+    #[allow(clippy::result_large_err)]
+    pub(crate) fn accepted_gas_used<HaltReasonT: HaltReasonTrait>(
+        &self,
+        gas: ResultGas,
+        output: Output,
+        evm_observed_data: &EvmObservedData,
+        contract_decoder: &RwLock<ContractDecoder>,
+    ) -> Result<u64, TransactionFailure<HaltReasonT>> {
+        match self {
+            GasEstimationMode::Naive => Ok(gas.tx_gas_used()),
+            GasEstimationMode::AvoidInternalOutOfGas => {
+                if has_internal_oog(&evm_observed_data.call_trace_arena) {
+                    Err(TransactionFailure::internal_call_out_of_gas(
+                        output.into_data(),
+                        None,
+                        &evm_observed_data.address_to_executed_code,
+                        &evm_observed_data.call_trace_arena,
+                        contract_decoder,
+                    ))
+                } else {
+                    Ok(gas.tx_gas_used())
+                }
             }
         }
     }
@@ -114,9 +149,13 @@ fn run_with_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: Transacti
     )
 }
 
-/// Search for a tight upper bound on the gas limit that will allow the
-/// transaction to execute. Matches Hardhat logic, except it's iterative, not
-/// recursive.
+/// Searches for the lowest gas limit that `estimation_mode` accepts, between
+/// `lower_bound` and `upper_bound`. Matches Hardhat logic, except it's
+/// iterative, not recursive.
+///
+/// The caller must guarantee that the initial `upper_bound` is accepted by
+/// `estimation_mode`, so that the returned estimation is always backed by an
+/// accepted execution.
 fn binary_search_estimation<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
     context: &GasCallContext<'_, ChainSpecT>,
     mut lower_bound: u64,
@@ -138,26 +177,15 @@ fn binary_search_estimation<ChainSpecT: ProviderChainSpec<SignedTransaction: Tra
             mid = cmp::min(mid, initial_mid);
         }
 
-        let observed_execution = observe_execution(observer_config, |observer| {
-            run_with_gas_limit(context, mid, observer)
-        })?;
+        let (call_succeeded, call_trace) =
+            probe_gas_limit(context, observer_config, mid, estimation_mode)?;
 
-        let succeeded = estimation_mode.is_success(
-            &observed_execution.execution_result,
-            &observed_execution.evm_observed_data.call_trace_arena,
-        );
+        call_trace_arenas.extend(call_trace);
 
-        let should_include_traces = observed_execution.should_include_traces(|| succeeded);
-        let execution_call_traces = observed_execution.evm_observed_data.call_trace_arena;
-
-        if succeeded {
+        if call_succeeded {
             upper_bound = mid;
         } else {
             lower_bound = mid + 1;
-        }
-
-        if should_include_traces {
-            call_trace_arenas.push(execution_call_traces);
         }
 
         i += 1;
@@ -180,9 +208,69 @@ pub(super) fn estimate_gas<
     observer_config: &EvmObserverConfig,
     estimation_mode: GasEstimationMode,
 ) -> Result<EstimateGasResult, ProviderErrorForChainSpec<ChainSpecT>> {
-    // Measure the gas used by the transaction with optional limit from call request
-    // defaulting to block limit. Report errors from initial call as if from
-    // `eth_call`.
+    let (gas_used, call_trace_arena) = measure_gas_with_full_limit(
+        context,
+        observer_config,
+        estimation_mode,
+        contract_decoder.as_ref(),
+    )?;
+
+    let mut call_trace_arenas: Vec<_> = call_trace_arena.into_iter().collect();
+
+    // Ensure that the initial estimation is at least the minimum cost + 1.
+    let lowest_estimation = cmp::max(gas_used, minimum_cost + 1);
+
+    let (successful_execution, execution_trace) =
+        probe_gas_limit(context, observer_config, lowest_estimation, estimation_mode)?;
+
+    call_trace_arenas.extend(execution_trace);
+
+    // Return the initial estimation if it was successful
+    if successful_execution {
+        return Ok(EstimateGasResult {
+            estimation: lowest_estimation,
+            call_trace_arenas,
+        });
+    }
+
+    // The estimation mode didn't accept `lowest_estimation` as the gas limit.
+    // This can happen if the execution behavior depends on the available gas.
+    // Search upwards for the lowest gas limit the mode accepts.
+    let EstimateGasResult {
+        call_trace_arenas: estimation_call_trace_arenas,
+        estimation,
+    } = binary_search_estimation::<ChainSpecT>(
+        context,
+        lowest_estimation,
+        context.transaction.gas_limit(), /* transaction original gas_limit was validated on
+                                          * `measure_gas_with_full_limit` */
+        observer_config,
+        estimation_mode,
+    )?;
+
+    call_trace_arenas.extend(estimation_call_trace_arenas);
+
+    Ok(EstimateGasResult {
+        call_trace_arenas,
+        estimation,
+    })
+}
+
+/// Measures the gas used by the transaction executed with its full gas limit,
+/// reporting failures as if they came from `eth_call`.
+///
+/// Returns the gas used by the execution and its call trace (when trace
+/// collection is enabled), or an [`EstimateGasFailure`] when the execution
+/// fails or the estimation mode rejects it.
+fn measure_gas_with_full_limit<
+    TimerT: Clone + TimeSinceEpoch,
+    ChainSpecT: ProviderSpec<TimerT, SignedTransaction: TransactionMut>,
+>(
+    context: &GasCallContext<'_, ChainSpecT>,
+    observer_config: &EvmObserverConfig,
+    estimation_mode: GasEstimationMode,
+    contract_decoder: &RwLock<ContractDecoder>,
+) -> Result<(u64, Option<CallTraceArena>), ProviderErrorForChainSpec<ChainSpecT>> {
     let ObservedExecution {
         evm_observed_data,
         execution_result,
@@ -200,24 +288,26 @@ pub(super) fn estimate_gas<
     })?;
 
     let initial_gas_or_failure = match execution_result.result {
-        ExecutionResult::Success { gas, .. } => Ok(gas.tx_gas_used()),
+        ExecutionResult::Success { gas, output, .. } => {
+            estimation_mode.accepted_gas_used(gas, output, &evm_observed_data, contract_decoder)
+        }
         ExecutionResult::Revert { output, .. } => Err(TransactionFailure::revert(
             output,
             None,
             &evm_observed_data.address_to_executed_code,
             &evm_observed_data.call_trace_arena,
-            contract_decoder.as_ref(),
+            contract_decoder,
         )),
         ExecutionResult::Halt { reason, .. } => Err(TransactionFailure::halt(
             ChainSpecT::cast_halt_reason(reason),
             None,
             &evm_observed_data.address_to_executed_code,
             &evm_observed_data.call_trace_arena,
-            contract_decoder.as_ref(),
+            contract_decoder,
         )),
     };
 
-    let mut initial_estimation = match initial_gas_or_failure {
+    let gas_used = match initial_gas_or_failure {
         Ok(gas_used) => gas_used,
         Err(transaction_failure) => {
             return Err(Box::new(EstimateGasFailure {
@@ -230,89 +320,42 @@ pub(super) fn estimate_gas<
             .into())
         }
     };
+    let call_trace_arena =
+        evm_observed_data.into_call_traces(observer_config.include_call_traces, true);
+    Ok((gas_used, call_trace_arena))
+}
 
-    // Check whether the MAX possible gas produces an OOG error
-    // if it does, it makes no sense to try to find a lesser value that does
-    let max_gas_limit_produces_oog = has_internal_oog(&evm_observed_data.call_trace_arena);
-
-    // Only reached on the success path
-    let mut call_trace_arenas: Vec<_> = evm_observed_data
-        .into_call_traces(observer_config.include_call_traces, true)
-        .into_iter()
-        .collect();
-
-    // Ensure that the initial estimation is at least the minimum cost + 1.
-    if initial_estimation <= minimum_cost {
-        initial_estimation = minimum_cost + 1;
-    }
-
-    let observed_execution = observe_execution(observer_config, |observer| {
-        run_with_gas_limit(context, initial_estimation, observer)
+/// Executes the transaction with the given gas limit and returns whether the
+/// estimation mode accepts the execution, along with its call trace (when the
+/// trace collection criteria are met).
+fn probe_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
+    context: &GasCallContext<'_, ChainSpecT>,
+    observer_config: &EvmObserverConfig,
+    gas_limit: u64,
+    estimation_mode: GasEstimationMode,
+) -> Result<(bool, Option<CallTraceArena>), ProviderErrorForChainSpec<ChainSpecT>> {
+    let observed_limited_execution = observe_execution(observer_config, |observer| {
+        run_with_gas_limit(context, gas_limit, observer)
     })?;
 
-    let should_include_traces = observed_execution.should_include_traces(|| {
-        estimation_mode.is_success(
-            &observed_execution.execution_result,
-            &observed_execution.evm_observed_data.call_trace_arena,
-        )
-    });
-    let (execution_result, execution_trace) = observed_execution.into_result_and_traces();
+    let successful_execution = estimation_mode.accepts(
+        observed_limited_execution.result(),
+        &observed_limited_execution
+            .evm_observed_data
+            .call_trace_arena,
+    );
+    let should_include_traces =
+        observed_limited_execution.should_include_traces(|| successful_execution);
 
-    let initial_estimation_succeeded = initial_estimation_success(
-        &execution_result,
-        &execution_trace,
-        max_gas_limit_produces_oog,
-        estimation_mode,
+    let trace_arena = should_include_traces.then_some(
+        observed_limited_execution
+            .evm_observed_data
+            .call_trace_arena,
     );
 
-    if should_include_traces {
-        call_trace_arenas.push(execution_trace);
-    }
-
-    // Return the initial estimation if it was successful
-    if initial_estimation_succeeded {
-        return Ok(EstimateGasResult {
-            estimation: initial_estimation,
-            call_trace_arenas,
-        });
-    }
-
-    // Correct the initial estimation if the transaction failed with the actually
-    // used gas limit. This can happen if the execution logic is based on the
-    // available gas.
-    let EstimateGasResult {
-        call_trace_arenas: estimation_call_trace_arenas,
-        estimation,
-    } = binary_search_estimation::<ChainSpecT>(
-        context,
-        initial_estimation,
-        context.transaction.gas_limit(),
-        observer_config,
-        estimation_mode,
-    )?;
-
-    call_trace_arenas.extend(estimation_call_trace_arenas);
-
-    Ok(EstimateGasResult {
-        call_trace_arenas,
-        estimation,
-    })
+    Ok((successful_execution, trace_arena))
 }
 
-fn initial_estimation_success<HaltReasonT>(
-    execution_result: &ExecutionResultWithMetadata<HaltReasonT>,
-    traces: &CallTraceArena,
-    max_gas_oog: bool,
-    estimation_mode: GasEstimationMode,
-) -> bool {
-    match estimation_mode {
-        GasEstimationMode::Naive => estimation_mode.is_success(execution_result, traces),
-        GasEstimationMode::AvoidInternalOutOfGas => {
-            (execution_result.result.is_success() && max_gas_oog)
-                || estimation_mode.is_success(execution_result, traces)
-        }
-    }
-}
 // Matches Hardhat
 #[inline]
 fn min_difference(lower_bound: u64) -> u64 {

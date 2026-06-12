@@ -12,7 +12,8 @@ use edr_provider::{
     config::GasEstimationMode,
     test_utils::{create_test_config, deploy_contract},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
+    TransactionFailureReason,
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -257,27 +258,39 @@ async fn naive_estimation_internally_oogs() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn fallback_to_naive_when_no_oog_free_estimation_exists() -> anyhow::Result<()> {
+async fn error_when_no_oog_free_estimation_exists() -> anyhow::Result<()> {
     let fixture_oog_free = new_fixture(
         GasEstimationMode::AvoidInternalOutOfGas,
         ALWAYS_INTERNAL_OOG_BYTECODE,
     );
-    let estimation_oog_free = estimate_gas_for_function_to_estimate(&fixture_oog_free);
 
-    let fixture_naive = new_fixture(GasEstimationMode::Naive, ALWAYS_INTERNAL_OOG_BYTECODE);
-    let estimation_naive = estimate_gas_for_function_to_estimate(&fixture_naive);
+    // With AvoidInternalOutOfGas we have nowhere to go: the inner call OOGs at
+    // any gas limit, so the estimation must error instead of returning a value
+    // that internally OOGs.
+    let error = fixture_oog_free
+        .provider
+        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+            L1CallRequest {
+                from: Some(fixture_oog_free.from),
+                to: Some(fixture_oog_free.deployed_address),
+                data: Some(FUNCTION_TO_ESTIMATE_CALLDATA),
+                ..L1CallRequest::default()
+            },
+            None,
+        )))
+        .expect_err("estimation should error when no OOG-free value exists");
 
-    // Even with AvoidInternalOutOfGas we have nowhere to go: the inner call OOGs
-    // at any gas limit. The estimation must fall back to the naive value.
-    assert_eq!(
-        estimation_oog_free, estimation_naive,
-        "estimation should fall back to naive when no OOG-free value exists",
+    assert!(
+        matches!(
+            &error,
+            ProviderError::TransactionFailed(failure)
+                if matches!(
+                    failure.failure.reason,
+                    TransactionFailureReason::InternalCallOutOfGas
+                )
+        ),
+        "expected an internal call out of gas failure, got: {error:?}"
     );
-
-    // The estimation should still be sendable (outer call catches the inner
-    // failure) and `n` will remain zero, confirming the fallback path.
-    invoke_function_to_estimate_with_gas(&fixture_oog_free, estimation_oog_free);
-    assert_eq!(read_n(&fixture_oog_free), U256::ZERO);
 
     Ok(())
 }
