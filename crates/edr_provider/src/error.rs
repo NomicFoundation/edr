@@ -673,31 +673,6 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         }
     }
 
-    pub fn internal_call_out_of_gas(
-        output: Bytes,
-        transaction_hash: Option<B256>,
-        address_to_executed_code: &HashMap<Address, Bytes>,
-        call_trace_arena: &CallTraceArena,
-        contract_decoder: &RwLock<ContractDecoder>,
-    ) -> Self {
-        let data = format!("0x{}", hex::encode(output.as_ref()));
-        let stack_trace_result = get_stack_trace(
-            contract_decoder,
-            std::iter::once(call_trace_arena),
-            Some(address_to_executed_code),
-        )
-        .transpose()
-        .expect("Contains a single call trace arena")
-        .into();
-
-        Self {
-            reason: TransactionFailureReason::InternalCallOutOfGas,
-            data,
-            stack_trace_result,
-            transaction_hash,
-        }
-    }
-
     pub fn revert(
         output: Bytes,
         transaction_hash: Option<B256>,

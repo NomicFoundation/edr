@@ -71,15 +71,8 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                 state: state.as_ref(),
             });
 
-            let should_include_call_traces = observed_execution
-                .should_include_traces(|| observed_execution.execution_result.result.is_success());
-
-            let (execution_result, call_trace_arena) = observed_execution.into_result_and_traces();
-            let call_trace_arenas = if should_include_call_traces {
-                vec![call_trace_arena]
-            } else {
-                Vec::new()
-            };
+            let (execution_result, call_trace_arena) =
+                observed_execution.into_result_and_filtered_traces();
 
             let geth_trace = debug_inspector
                 .get_result(
@@ -96,7 +89,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                 .map_err(DebugTraceError::from_debug_inspector_result_error)?;
 
             return Ok(DebugTraceResultWithCallTraces {
-                call_trace_arenas,
+                call_trace_arenas: call_trace_arena.into_iter().collect(),
                 result: geth_trace,
             });
         } else {

@@ -1895,15 +1895,8 @@ where
                 state: state.as_ref(),
             });
 
-            let should_include_call_traces = observed_execution
-                .should_include_traces(|| observed_execution.execution_result.result.is_success());
-
-            let (execution_result, call_trace_arena) = observed_execution.into_result_and_traces();
-            let call_trace_arenas = if should_include_call_traces {
-                vec![call_trace_arena]
-            } else {
-                Vec::new()
-            };
+            let (execution_result, call_trace_arena) =
+                observed_execution.into_result_and_filtered_traces();
 
             let geth_trace = debug_inspector
                 .get_result(
@@ -1917,7 +1910,7 @@ where
 
             Ok(DebugTraceResultWithCallTraces {
                 result: geth_trace,
-                call_trace_arenas,
+                call_trace_arenas: call_trace_arena.into_iter().collect(),
             })
         })?
     }

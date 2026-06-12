@@ -10,7 +10,7 @@ use edr_chain_spec::{
 };
 use edr_chain_spec_evm::{
     interpreter::InstructionResult,
-    result::{ExecutionResult, Output, ResultGas},
+    result::{ExecutionResult, ResultGas},
     CfgEnv,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
@@ -35,7 +35,7 @@ use crate::{
         observe_execution, EvmObservedData, EvmObserver, EvmObserverConfig, ObservedExecution,
     },
     time::TimeSinceEpoch,
-    ProviderError, ProviderSpec,
+    ProviderError, ProviderSpec, TransactionFailureReason,
 };
 
 pub struct EstimateGasResult {
@@ -75,7 +75,6 @@ impl GasEstimationMode {
     pub(crate) fn accepted_gas_used<HaltReasonT: HaltReasonTrait>(
         &self,
         gas: ResultGas,
-        output: Output,
         evm_observed_data: &EvmObservedData,
         contract_decoder: &RwLock<ContractDecoder>,
     ) -> Result<u64, TransactionFailure<HaltReasonT>> {
@@ -83,8 +82,8 @@ impl GasEstimationMode {
             GasEstimationMode::TopLevelSuccess => Ok(gas.tx_gas_used()),
             GasEstimationMode::NoInternalOutOfGas => {
                 if has_internal_oog(&evm_observed_data.call_trace_arena) {
-                    Err(TransactionFailure::internal_call_out_of_gas(
-                        output.into_data(),
+                    Err(TransactionFailure::halt(
+                        TransactionFailureReason::InternalCallOutOfGas,
                         None,
                         &evm_observed_data.address_to_executed_code,
                         &evm_observed_data.call_trace_arena,
@@ -293,8 +292,8 @@ fn measure_gas_with_full_limit<
     })?;
 
     let initial_gas_or_failure = match execution_result.result {
-        ExecutionResult::Success { gas, output, .. } => {
-            estimation_mode.accepted_gas_used(gas, output, &evm_observed_data, contract_decoder)
+        ExecutionResult::Success { gas, .. } => {
+            estimation_mode.accepted_gas_used(gas, &evm_observed_data, contract_decoder)
         }
         ExecutionResult::Revert { output, .. } => Err(TransactionFailure::revert(
             output,
@@ -349,8 +348,9 @@ fn probe_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionM
             .evm_observed_data
             .call_trace_arena,
     );
-    let should_include_traces =
-        observed_limited_execution.should_include_traces(|| successful_execution);
+    let should_include_traces = observer_config
+        .include_call_traces
+        .should_include(|| !successful_execution);
 
     let trace_arena = should_include_traces.then_some(
         observed_limited_execution
