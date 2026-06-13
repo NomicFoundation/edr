@@ -334,7 +334,7 @@ dependencies = [
  "foldhash 0.2.0",
  "getrandom 0.4.1",
  "hashbrown 0.17.0",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "itoa",
  "k256",
  "keccak-asm",
@@ -602,7 +602,7 @@ dependencies = [
  "alloy-sol-macro-input",
  "const-hex",
  "heck",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "proc-macro-error3",
  "proc-macro2",
  "quote",
@@ -1751,7 +1751,7 @@ dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 3.0.5",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -2048,9 +2048,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.17"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98b0cc327b5bc766e7fda9c9260cc0fa81b43a8e240440422dff70788e3f9ef1"
+checksum = "d85363c37faeca707aef026efa9f3b34d077bce547e48f770770625c6013679e"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -3099,7 +3099,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "syn 3.0.5",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -3113,7 +3113,7 @@ dependencies = [
  "edr_test_mem_pool",
  "edr_test_transaction",
  "edr_transaction",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "pastey",
  "thiserror 2.0.20",
  "tracing",
@@ -3350,7 +3350,7 @@ dependencies = [
  "edr_utils_sync",
  "foundry-evm-traces",
  "hex",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "itertools 0.15.0",
  "k256",
  "lazy_static",
@@ -3436,7 +3436,7 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
- "uuid 1.26.0",
+ "uuid 1.25.0",
  "walkdir",
 ]
 
@@ -3564,7 +3564,7 @@ dependencies = [
  "foundry-compilers",
  "foundry-evm-traces",
  "gimli",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "itertools 0.15.0",
  "log",
  "object",
@@ -3577,6 +3577,21 @@ dependencies = [
  "serde",
  "serde_json",
  "strum 0.28.0",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "edr_solidity_collector_eip712"
+version = "0.3.8"
+dependencies = [
+ "alloy-dyn-abi",
+ "crossbeam-channel",
+ "derive-where",
+ "edr_common",
+ "edr_utils_sync",
+ "rayon",
+ "semver 1.0.28",
+ "slang_solidity_v2",
  "thiserror 2.0.20",
 ]
 
@@ -3600,6 +3615,7 @@ dependencies = [
  "edr_gas_report",
  "edr_primitives",
  "edr_solidity",
+ "edr_solidity_collector_eip712",
  "edr_test_utils",
  "eyre",
  "foundry-cheatcodes",
@@ -4175,9 +4191,9 @@ checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
 name = "flate2"
-version = "1.1.10"
+version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e634e2e0ebac1ee034020da1ca582e17ffe4e0f5e985823721e168928136dcb"
+checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
@@ -4237,6 +4253,7 @@ dependencies = [
  "edr_common",
  "edr_coverage",
  "edr_decoder_revert",
+ "edr_solidity_collector_eip712",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
  "foundry-cheatcodes-spec 1.5.0",
@@ -4415,7 +4432,7 @@ dependencies = [
  "thiserror 2.0.20",
  "tokio",
  "tracing",
- "uuid 1.26.0",
+ "uuid 1.25.0",
 ]
 
 [[package]]
@@ -4636,7 +4653,7 @@ checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.5",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -4789,7 +4806,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "http",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "slab",
  "tokio",
  "tokio-util",
@@ -4968,9 +4985,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.11.1"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27b501faa50e7a26c3d3560ca625132f4078a17771f4810baf70475ae48cbe43"
+checksum = "d22053281f852e11534f5198498373cbb59295120a20771d90f7ed1897490a72"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -5252,9 +5269,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.14.2"
+version = "2.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
+checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
 dependencies = [
  "arbitrary",
  "equivalent",
@@ -5739,9 +5756,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.18.4"
+version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff9840bcc50b71349309900da0ce7279aa336ae71d73250b07998932c7d97c25"
+checksum = "5d2f2f9b4ba7e6b24d95e7e899329d35be83bcded72c8540cdd5368932d1d90a"
 dependencies = [
  "hashbrown 0.17.0",
 ]
@@ -5864,9 +5881,9 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.9.1"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b63fbc4a50860e98e7b2aa7804ded1db5cbc3aff9193adaff57a6931bf7c4b4c"
+checksum = "3be647b768db090acb35d5ec5db2b0e1f1de11133ca123b9eacf5137868f892a"
 dependencies = [
  "adler2",
  "simd-adler32",
@@ -6431,7 +6448,7 @@ checksum = "8701b58ea97060d5e5b155d383a69952a60943f0e6dfe30b04c287beb0b27455"
 dependencies = [
  "fixedbitset",
  "hashbrown 0.15.2",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
 ]
 
 [[package]]
@@ -6982,7 +6999,7 @@ checksum = "2c9283685feec7d69af75fb0e858d5e7378f33fe4fc699383b2916ab9273e03c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.5",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -7893,7 +7910,7 @@ checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.5",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -7913,7 +7930,7 @@ version = "1.0.151"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14"
 dependencies = [
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "itoa",
  "memchr",
  "serde",
@@ -7963,7 +7980,7 @@ dependencies = [
  "chrono",
  "hex",
  "indexmap 1.9.3",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "jiff",
  "schemars 0.9.0",
  "schemars 1.2.2",
@@ -8017,7 +8034,7 @@ checksum = "a22144e767da4ddd8416dbf383700542ffd8a5dc493dfecedfe1fe3ad03c98ae"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.5",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -8116,9 +8133,9 @@ dependencies = [
 
 [[package]]
 name = "simd-adler32"
-version = "0.3.10"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a219298ac11a56ea9a6d2120044824d6f01aeb034955e7af7bc16858527deea"
+checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
 
 [[package]]
 name = "simd_cesu8"
@@ -8204,8 +8221,8 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity_v2"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?rev=84c5a027c143374d2f5c6cf492c771711f38db6c#84c5a027c143374d2f5c6cf492c771711f38db6c"
+version = "1.3.6"
+source = "git+https://github.com/NomicFoundation/slang.git?rev=7535859e753cb8689970c0a225a0db56d8de8569#7535859e753cb8689970c0a225a0db56d8de8569"
 dependencies = [
  "slang_solidity_v2_ast",
  "slang_solidity_v2_common",
@@ -8217,8 +8234,8 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity_v2_ast"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?rev=84c5a027c143374d2f5c6cf492c771711f38db6c#84c5a027c143374d2f5c6cf492c771711f38db6c"
+version = "1.3.6"
+source = "git+https://github.com/NomicFoundation/slang.git?rev=7535859e753cb8689970c0a225a0db56d8de8569#7535859e753cb8689970c0a225a0db56d8de8569"
 dependencies = [
  "num-bigint",
  "num-rational",
@@ -8233,9 +8250,10 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity_v2_common"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?rev=84c5a027c143374d2f5c6cf492c771711f38db6c#84c5a027c143374d2f5c6cf492c771711f38db6c"
+version = "1.3.6"
+source = "git+https://github.com/NomicFoundation/slang.git?rev=7535859e753cb8689970c0a225a0db56d8de8569#7535859e753cb8689970c0a225a0db56d8de8569"
 dependencies = [
+ "indexmap 2.14.0",
  "itertools 0.14.0",
  "semver 1.0.28",
  "serde",
@@ -8245,13 +8263,13 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity_v2_cst"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?rev=84c5a027c143374d2f5c6cf492c771711f38db6c#84c5a027c143374d2f5c6cf492c771711f38db6c"
+version = "1.3.6"
+source = "git+https://github.com/NomicFoundation/slang.git?rev=7535859e753cb8689970c0a225a0db56d8de8569#7535859e753cb8689970c0a225a0db56d8de8569"
 
 [[package]]
 name = "slang_solidity_v2_ir"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?rev=84c5a027c143374d2f5c6cf492c771711f38db6c#84c5a027c143374d2f5c6cf492c771711f38db6c"
+version = "1.3.6"
+source = "git+https://github.com/NomicFoundation/slang.git?rev=7535859e753cb8689970c0a225a0db56d8de8569#7535859e753cb8689970c0a225a0db56d8de8569"
 dependencies = [
  "slang_solidity_v2_common",
  "slang_solidity_v2_cst",
@@ -8259,8 +8277,8 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity_v2_parser"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?rev=84c5a027c143374d2f5c6cf492c771711f38db6c#84c5a027c143374d2f5c6cf492c771711f38db6c"
+version = "1.3.6"
+source = "git+https://github.com/NomicFoundation/slang.git?rev=7535859e753cb8689970c0a225a0db56d8de8569#7535859e753cb8689970c0a225a0db56d8de8569"
 dependencies = [
  "lalrpop",
  "lalrpop-util",
@@ -8273,10 +8291,9 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity_v2_semantic"
-version = "1.3.5"
-source = "git+https://github.com/NomicFoundation/slang?rev=84c5a027c143374d2f5c6cf492c771711f38db6c#84c5a027c143374d2f5c6cf492c771711f38db6c"
+version = "1.3.6"
+source = "git+https://github.com/NomicFoundation/slang.git?rev=7535859e753cb8689970c0a225a0db56d8de8569#7535859e753cb8689970c0a225a0db56d8de8569"
 dependencies = [
- "indexmap 2.14.2",
  "num-bigint",
  "num-integer",
  "num-rational",
@@ -8352,7 +8369,7 @@ checksum = "3cc21b4df6061e1c825c16faf8e1f16c2341f4c46a2b2a60e03069c4453fc5ac"
 dependencies = [
  "bumpalo",
  "index_vec",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "parking_lot",
  "rayon",
  "rustc-hash",
@@ -8596,9 +8613,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "3.0.5"
+version = "3.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12df2e0110f65b775f769bb17ef989067a1d931b2eb822bd4346631eeada89f9"
+checksum = "53e9bae58849f64dfa4f5d5ae372c8341f7305f82a3868709269343628b659a3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8723,7 +8740,7 @@ checksum = "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.5",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -8910,11 +8927,11 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "1.1.5+spec-1.1.0"
+version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12c0ba9680044b4ce98d391a62094047eada0d64860b80166c39f4a6b5640785"
+checksum = "81f3d15e84cbcd896376e6730314d59fb5a87f31e4b038454184435cd57defee"
 dependencies = [
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "serde_core",
  "serde_spanned",
  "toml_datetime 1.1.1+spec-1.1.0",
@@ -8944,25 +8961,25 @@ version = "0.22.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17b4795ff5edd201c7cd6dca065ae59972ce77d1b80fa0a84d94950ece7d1474"
 dependencies = [
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "toml_datetime 0.6.8",
  "winnow 0.7.13",
 ]
 
 [[package]]
 name = "toml_parser"
-version = "1.1.3+spec-1.1.0"
+version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d38ac1cf9b95face32296c0a3ede1fdc270627c9d9c02a7274dd6d960dc4d56"
+checksum = "a2abe9b86193656635d2411dc43050282ca48aa31c2451210f4202550afb7526"
 dependencies = [
  "winnow 1.0.2",
 ]
 
 [[package]]
 name = "toml_writer"
-version = "1.1.2+spec-1.1.0"
+version = "1.1.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
+checksum = "756daf9b1013ebe47a8776667b466417e2d4c5679d441c26230efd9ef78692db"
 
 [[package]]
 name = "tower"
@@ -9237,9 +9254,9 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.26.0"
+version = "1.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5772d71c9be8a8a6ac2117d949c5b224c1b72241bb611d9a3012edcf8af7812"
+checksum = "f053576934f05a761a402421fbbe3d425d9366f75f978806a037b3ca481abecc"
 dependencies = [
  "getrandom 0.4.1",
  "js-sys",
@@ -9414,7 +9431,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb0e353e6a2fbdc176932bbaab493762eb1255a7900fe0fea1a2f96c296cc909"
 dependencies = [
  "anyhow",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "wasm-encoder",
  "wasmparser",
 ]
@@ -9427,7 +9444,7 @@ checksum = "47b807c72e1bac69382b3a6fb3dbe8ea4c0ed87ff5629b8685ae6b9a611028fe"
 dependencies = [
  "bitflags 2.10.0",
  "hashbrown 0.15.2",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "semver 1.0.28",
 ]
 
@@ -9822,7 +9839,7 @@ checksum = "b7c566e0f4b284dd6561c786d9cb0142da491f46a9fbed79ea69cdad5db17f21"
 dependencies = [
  "anyhow",
  "heck",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "prettyplease",
  "syn 2.0.119",
  "wasm-metadata",
@@ -9853,7 +9870,7 @@ checksum = "9d66ea20e9553b30172b5e831994e35fbde2d165325bec84fc43dbf6f4eb9cb2"
 dependencies = [
  "anyhow",
  "bitflags 2.10.0",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "log",
  "serde",
  "serde_derive",
@@ -9872,7 +9889,7 @@ checksum = "ecc8ac4bc1dc3381b7f59c34f00b67e18f910c2c0f50015669dde7def656a736"
 dependencies = [
  "anyhow",
  "id-arena",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "log",
  "semver 1.0.28",
  "serde",
@@ -10073,7 +10090,7 @@ dependencies = [
  "arbitrary",
  "crc32fast",
  "flate2",
- "indexmap 2.14.2",
+ "indexmap 2.14.0",
  "memchr",
  "zopfli",
 ]
