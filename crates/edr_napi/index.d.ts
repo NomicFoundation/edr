@@ -1718,52 +1718,21 @@ export interface SolidityTestRunnerConfigArgs {
    */
   generateGasReport?: boolean
   /**
-   * A list of EIP-712 canonical type definitions that can be referenced by
-   * type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
-   *
-   * Each entry is an independent, self-contained type definition. A
-   * definition that references nested struct types must inline those
-   * struct definitions, per the EIP-712 `encodeType` spec.
-   *
-   * Only the primary (leftmost) type of each entry is registered by name.
-   * Nested struct types referenced inside an entry are *not* registered
-   * under their own names. To look up a nested struct by name from a
-   * cheatcode, add it as a separate top-level entry whose primary type
-   * is the nested struct.
-   *
-   * The type of a struct is encoded as:
-   *
-   * `name ‖ "(" ‖ member₁ ‖ "," ‖ member₂ ‖ "," ‖ … ‖ memberₙ ")"`
-   *
-   * where each member is written as `type ‖ " " ‖ name`.
-   *
-   * Entries that fail to parse cause a startup error listing every bad
-   * entry.
-   *
-   * Example — to make both `Mail` and `Person` reachable by name:
-   *
-   * ```text
-   * "Mail(Person from,Person to,string contents)Person(address wallet,string name)"
-   * "Person(address wallet,string name)"
-   * ```
-   *
-   * With *only* the first entry, `vm.eip712HashType("Mail")` works but
-   * `vm.eip712HashType("Person")` fails with an unknown-type error.
-   */
-  eip712CanonicalTypes?: Array<string>
-  /**
    * Maps the solc source names of the test-suite sources (e.g.
    * `project/test/Foo.t.sol`) to their absolute paths on disk.
    *
-   * Used to parse inline test configuration (`forge-config:`/
-   * `hardhat-config:` NatSpec directives) directly from the sources. A test
-   * source without an entry has no inline configuration collected.
+   * The test sources are parsed to collect inline test configuration
+   * (`forge-config:`/`hardhat-config:` NatSpec directives) and the EIP-712
+   * struct definitions served to the `eip712HashType` and
+   * `eip712HashStruct` cheatcodes. A test source without an entry has no
+   * inline configuration and no EIP-712 struct definitions collected.
    */
   testSourcePaths?: Record<string, string>
   /**
    * Maps non-relative Solidity import paths (as written in `import`
    * statements, e.g. `forge-std/src/Test.sol`) to absolute file paths on
-   * disk, for parsing inline test configuration.
+   * disk, for resolving imports while parsing the test sources (see
+   * `test_source_paths`).
    *
    * Relative import paths (`./`, `../`) are resolved against the importing
    * file and need no entry here; only non-relative paths (package imports)

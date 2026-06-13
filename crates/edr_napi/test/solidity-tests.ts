@@ -1,4 +1,5 @@
 import { assert } from "chai";
+import * as path from "path";
 
 import {
   EdrContext,
@@ -144,36 +145,119 @@ describe("Solidity Tests", () => {
     );
   });
 
-  it("rejects invalid eip712CanonicalTypes as InvalidArg", async function () {
-    // Boundary check only: an invalid eip712CanonicalTypes entry must
-    // reject with an InvalidArg error. The exhaustive semantics
-    // (collecting every bad entry, duplicate detection, etc.) are covered
-    // by `parse_eip712_canonical_types` unit tests in the cheatcodes crate.
+  // The EIP-712 type cheatcodes resolve type names by parsing the running
+  // test contract's Solidity sources. The sources are read from the absolute
+  // paths supplied via `testSourcePaths` (keyed by the artifacts' solc source
+  // names); mapped (non-relative) imports resolve through `importMappings`.
+  const eip712TestSourcePaths = {
+    "data/contracts/Eip712LazyTest.t.sol": path.join(
+      __dirname,
+      "data/contracts/Eip712LazyTest.t.sol"
+    ),
+    "data/contracts/Eip712UnknownTest.t.sol": path.join(
+      __dirname,
+      "data/contracts/Eip712UnknownTest.t.sol"
+    ),
+  };
+  const eip712ImportMappings = {
+    "@fixtures/Eip712External.sol": path.join(
+      __dirname,
+      "data/contracts/external/Eip712External.sol"
+    ),
+  };
+
+  it("resolves eip712 types from the test contract's sources", async function () {
     const artifacts = [
-      loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
+      loadContract("./data/artifacts/default/Eip712LazyTest.json"),
     ];
     const testSuites = artifacts.map((artifact) => artifact.id);
-    const config = {
-      projectRoot: __dirname,
-      hardfork: l1HardforkToString(l1HardforkLatest()),
-      eip712CanonicalTypes: ["gibberish"],
-    };
 
-    let error: any;
-    try {
-      await runAllSolidityTests(
-        context,
-        L1_CHAIN_TYPE,
-        artifacts,
-        testSuites,
-        config
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        testSourcePaths: eip712TestSourcePaths,
+        importMappings: eip712ImportMappings,
+      }
+    );
+
+    assert.equal(results.length, 1);
+    const suite = results[0];
+    assert.isAbove(suite.testResults.length, 0);
+    for (const res of suite.testResults) {
+      assert.equal(
+        res.status,
+        "Success",
+        `${res.name} failed: ${JSON.stringify(res.reason)}`
       );
-    } catch (e) {
-      error = e;
     }
+  });
 
-    assert.isDefined(error);
-    assert.equal(error.code, "InvalidArg");
+  it("fails when an eip712 type cannot be resolved from sources", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        testSourcePaths: eip712TestSourcePaths,
+      }
+    );
+
+    assert.equal(results.length, 1);
+    const suite = results[0];
+    assert.equal(suite.testResults.length, 1);
+    assert.equal(suite.testResults[0].status, "Failure");
+  });
+
+  it("resolves eip712 types across multiple suites in one run", async function () {
+    // Exercises collection over two different root sources within a single
+    // test run (the sources are parsed in parallel at runner creation).
+    const artifacts = [
+      loadContract("./data/artifacts/default/Eip712LazyTest.json"),
+      loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        testSourcePaths: eip712TestSourcePaths,
+        importMappings: eip712ImportMappings,
+      }
+    );
+
+    assert.equal(results.length, 2);
+    for (const suite of results) {
+      if (suite.id.name.includes("Eip712LazyTest")) {
+        for (const res of suite.testResults) {
+          assert.equal(res.status, "Success", `${res.name} failed`);
+        }
+      } else if (suite.id.name.includes("Eip712UnknownTest")) {
+        assert.equal(suite.testResults[0].status, "Failure");
+      } else {
+        assert.fail("Unexpected test suite name: " + suite.id.name);
+      }
+    }
   });
 
   it("filters tests according to pattern", async function () {

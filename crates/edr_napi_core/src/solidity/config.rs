@@ -195,15 +195,17 @@ pub struct TestRunnerConfig {
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
     /// Maps the solc source names of the test-suite sources to their absolute
-    /// paths on disk. Used to parse inline test configuration
-    /// (`forge-config:`/`hardhat-config:` NatSpec directives) from the sources.
-    /// A test source without an entry has no inline configuration collected.
+    /// paths on disk. The test sources are parsed to collect inline test
+    /// configuration (`forge-config:`/`hardhat-config:` NatSpec directives)
+    /// and the EIP-712 struct definitions served to the `eip712HashType` and
+    /// `eip712HashStruct` cheatcodes. A test source without an entry has
+    /// neither collected.
     pub test_source_paths: HashMap<PathBuf, PathBuf>,
     /// Maps non-relative Solidity import paths (as written in `import`
     /// statements, e.g. `forge-std/src/Test.sol`) to absolute file paths on
-    /// disk, for parsing inline test configuration. Relative import paths
-    /// (`./`, `../`) are resolved against the importing file and need no entry
-    /// here.
+    /// disk, for resolving imports while parsing the test sources. Relative
+    /// import paths (`./`, `../`) are resolved against the importing file and
+    /// need no entry here.
     pub import_mappings: HashMap<String, PathBuf>,
 }
 
@@ -354,11 +356,10 @@ where
 
         evm_opts.transaction_gas_cap = transaction_gas_cap;
 
+        let import_resolver = ImportResolver::new(import_mappings);
         let local_predeploys = local_predeploys.unwrap_or_default();
 
         let generate_gas_report = generate_gas_report.unwrap_or(false);
-
-        let import_resolver = ImportResolver::new(import_mappings);
 
         Ok(SolidityTestRunnerConfig {
             project_root,

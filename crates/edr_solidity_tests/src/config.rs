@@ -66,11 +66,14 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// Whether to generate a gas report after running tests
     pub generate_gas_report: bool,
     /// Maps each test source's solc source name to its absolute path on disk,
-    /// used to read and parse the source for inline configuration. A source
-    /// without an entry has no inline configuration collected.
+    /// used to read and parse the source for inline configuration
+    /// (`forge-config:`/`hardhat-config:` NatSpec directives) and for the
+    /// EIP-712 struct definitions served to the `eip712HashType` and
+    /// `eip712HashStruct` cheatcodes. A source without an entry has neither
+    /// collected.
     pub test_source_paths: HashMap<PathBuf, PathBuf>,
-    /// Resolves the imports of test sources when parsing their inline
-    /// configuration (`forge-config:`/`hardhat-config:` NatSpec directives).
+    /// Resolves the imports of test sources while parsing them (see
+    /// [`Self::test_source_paths`]).
     pub import_resolver: ImportResolver,
 }
 
