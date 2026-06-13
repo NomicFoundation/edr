@@ -1,3 +1,5 @@
+use edr_solidity_collector_eip712::collector::Eip712CollectError;
+
 #[derive(Debug, thiserror::Error)]
 pub enum TestRunnerError {
     #[error("Failed to create executor: {0}")]
@@ -15,4 +17,6 @@ pub enum TestRunnerError {
         .0.display()
     )]
     UnknownFileAtFuzzFailureDir(std::path::PathBuf),
+    #[error(transparent)]
+    Eip712TypeCollectionError(#[from] Eip712CollectError),
 }

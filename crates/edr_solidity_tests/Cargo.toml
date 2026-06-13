@@ -15,6 +15,7 @@ edr_eip8037.workspace = true
 edr_gas_report.workspace = true
 edr_primitives.workspace = true
 edr_solidity.workspace = true
+edr_solidity_collector_eip712.workspace = true
 
 foundry-cheatcodes.workspace = true
 foundry-compilers = { workspace = true }
@@ -39,7 +40,7 @@ alloy-json-abi.workspace = true
 alloy-primitives = { workspace = true, features = ["map-hashbrown", "serde"] }
 
 semver = { workspace = true, features = ["std"] }
-slang_solidity_v2 = { git = "https://github.com/NomicFoundation/slang", rev = "84c5a027c143374d2f5c6cf492c771711f38db6c" }
+slang_solidity_v2.workspace = true
 tokio = { workspace = true, features = ["time"] }
 thiserror = "2.0.12"
 
