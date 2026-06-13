@@ -176,48 +176,19 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     /// mode.
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
-    /// A list of EIP-712 canonical type definitions that can be referenced by
-    /// type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
-    ///
-    /// Each entry is an independent, self-contained type definition. A
-    /// definition that references nested struct types must inline those
-    /// struct definitions, per the EIP-712 `encodeType` spec.
-    ///
-    /// Only the primary (leftmost) type of each entry is registered by name.
-    /// Nested struct types referenced inside an entry are *not* registered
-    /// under their own names. To look up a nested struct by name from a
-    /// cheatcode, add it as a separate top-level entry whose primary type
-    /// is the nested struct.
-    ///
-    /// The type of a struct is encoded as:
-    ///
-    /// `name ‖ "(" ‖ member₁ ‖ "," ‖ member₂ ‖ "," ‖ … ‖ memberₙ ")"`
-    ///
-    /// where each member is written as `type ‖ " " ‖ name`.
-    ///
-    /// Entries that fail to parse cause a startup error listing every bad
-    /// entry.
-    ///
-    /// Example — to make both `Mail` and `Person` reachable by name:
-    ///
-    /// ```text
-    /// "Mail(Person from,Person to,string contents)Person(address wallet,string name)"
-    /// "Person(address wallet,string name)"
-    /// ```
-    ///
-    /// With *only* the first entry, `vm.eip712HashType("Mail")` works but
-    /// `vm.eip712HashType("Person")` fails with an unknown-type error.
-    pub eip712_canonical_types: Option<Vec<String>>,
     /// Maps the solc source names of the test-suite sources (e.g.
     /// `project/test/Foo.t.sol`) to their absolute paths on disk.
     ///
-    /// Used to parse inline test configuration (`forge-config:`/
-    /// `hardhat-config:` NatSpec directives) directly from the sources. A test
-    /// source without an entry has no inline configuration collected.
+    /// The test sources are parsed to collect inline test configuration
+    /// (`forge-config:`/`hardhat-config:` NatSpec directives) and the EIP-712
+    /// struct definitions served to the `eip712HashType` and
+    /// `eip712HashStruct` cheatcodes. A test source without an entry has no
+    /// inline configuration and no EIP-712 struct definitions collected.
     pub test_source_paths: Option<HashMap<String, String>>,
     /// Maps non-relative Solidity import paths (as written in `import`
     /// statements, e.g. `forge-std/src/Test.sol`) to absolute file paths on
-    /// disk, for parsing inline test configuration.
+    /// disk, for resolving imports while parsing the test sources (see
+    /// `test_source_paths`).
     ///
     /// Relative import paths (`./`, `../`) are resolved against the importing
     /// file and need no entry here; only non-relative paths (package imports)
@@ -271,7 +242,6 @@ impl SolidityTestRunnerConfigArgs<'_> {
             test_pattern,
             exclude_test_pattern,
             generate_gas_report,
-            eip712_canonical_types,
             test_source_paths,
             import_mappings,
         } = self;
@@ -358,17 +328,6 @@ impl SolidityTestRunnerConfigArgs<'_> {
                 .collect::<Result<_, napi::Error>>()?,
             seed: fuzz.seed,
             allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
-            eip712_types_by_name: foundry_cheatcodes::parse_eip712_canonical_types(
-                eip712_canonical_types.unwrap_or_default(),
-            )
-            .map_err(|errors| {
-                let msg = errors
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join("; ");
-                napi::Error::new(Status::InvalidArg, msg)
-            })?,
         };
 
         let on_collected_coverage_fn = observability.map_or_else(

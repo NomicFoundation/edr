@@ -557,33 +557,6 @@ pub struct Cheatcodes<
     >,
 }
 
-// This is not derived because calling this in `fn new` with
-// `..Default::default()` creates a second `CheatsConfig` which is unused, and
-// inside it `ProjectPathsConfig` is relatively expensive to create.
-impl<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-        HaltReasonT: HaltReasonTr,
-        HardforkT: HardforkTr,
-        TransactionErrorT: TransactionErrorTrait,
-    > Default
-    for Cheatcodes<
-        BlockT,
-        TxT,
-        ChainContextT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-    >
-{
-    fn default() -> Self {
-        Self::new(Arc::default())
-    }
-}
-
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
