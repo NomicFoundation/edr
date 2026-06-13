@@ -14,6 +14,7 @@ edr_defaults.workspace = true
 edr_gas_report.workspace = true
 edr_primitives.workspace = true
 edr_solidity.workspace = true
+edr_solidity_collector_eip712.workspace = true
 
 foundry-cheatcodes.workspace = true
 foundry-compilers = { workspace = true }

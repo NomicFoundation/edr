@@ -23,6 +23,7 @@ edr_provider.workspace = true
 edr_rpc_client.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
+edr_solidity_collector_eip712.workspace = true
 edr_solidity_tests.workspace = true
 edr_transaction.workspace = true
 foundry-cheatcodes.workspace = true

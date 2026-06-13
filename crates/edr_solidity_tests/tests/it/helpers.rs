@@ -5,6 +5,7 @@ mod tracing;
 
 pub use config::{assert_multiple, make_test_identifier, TestConfig};
 use edr_decoder_revert::RevertDecoder;
+use edr_solidity_collector_eip712::ImportResolver;
 use parking_lot::RwLock;
 mod integration_test_config;
 mod solidity_error_code;
@@ -180,6 +181,7 @@ impl ForgeTestProfile {
             collect_stack_traces: CollectStackTraces::OnFailure,
             include_traces: IncludeTraces::All,
             evm_opts: Self::evm_opts(hardfork),
+            import_resolver: ImportResolver::default(),
             project_root: PROJECT_ROOT.clone(),
             cheats_config_options: CheatsConfigOptions {
                 execution_context: ExecutionContextConfig::Test,

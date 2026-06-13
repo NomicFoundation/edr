@@ -1090,23 +1090,21 @@ fn get_artifact_code<
         [] => Err(fmt_err!("no matching artifact found")),
         [artifact] => Ok(*artifact),
         filtered => {
-            let mut filtered = filtered.to_vec();
-            // If we know the current script/test contract solc version, try to filter by it
-            state
-                .config
-                .running_artifact
-                .as_ref()
-                .and_then(|running| {
-                    // Firstly filter by version
-                    filtered.retain(|(id, _)| id.version == running.version);
+            // Filter by the solc version of the current script/test
+            let filtered = filtered
+                .iter()
+                .filter(|(id, _)| id.version == state.config.running_artifact.version)
+                .collect::<Vec<_>>();
 
-                    if filtered.len() == 1 {
-                        filtered.first().copied()
-                    } else {
-                        None
-                    }
-                })
-                .ok_or_else(|| fmt_err!("multiple matching artifacts found"))
+            if let Some(artifact) = filtered.first() {
+                if filtered.len() == 1 {
+                    Ok(**artifact)
+                } else {
+                    Err(fmt_err!("multiple matching artifacts found"))
+                }
+            } else {
+                Err(fmt_err!("multiple matching artifacts found, but none match the solc version of the current script/test"))
+            }
         }
     }?
     .1;
@@ -1585,7 +1583,8 @@ mod tests {
     use std::sync::Arc;
 
     use alloy_json_abi::ContractObject;
-    use foundry_evm_core::evm_context::L1EvmBuilder;
+    use edr_solidity_collector_eip712::collector::Eip712TypeCollection;
+    use foundry_evm_core::{evm_context::L1EvmBuilder, opts::EvmOpts};
     use revm::{
         context::{
             result::{HaltReason, InvalidTransaction},
@@ -1595,15 +1594,28 @@ mod tests {
     };
 
     use super::*;
-    use crate::CheatsConfig;
+    use crate::{CheatsConfig, CheatsConfigOptions};
 
     fn cheats(
     ) -> Cheatcodes<BlockEnv, TxEnv, (), L1EvmBuilder, HaltReason, SpecId, InvalidTransaction> {
-        let config = CheatsConfig {
-            ffi: true,
-            project_root: PathBuf::from(&env!("CARGO_MANIFEST_DIR")),
-            ..Default::default()
+        let artifact = ArtifactId {
+            source: PathBuf::from("test.sol"),
+            name: "Test".to_owned(),
+            version: Version::new(0, 8, 23),
         };
+
+        let config = CheatsConfig::new(
+            PathBuf::from(&env!("CARGO_MANIFEST_DIR")),
+            CheatsConfigOptions::default(),
+            EvmOpts {
+                ffi: true,
+                ..EvmOpts::default()
+            },
+            Arc::default(),
+            artifact,
+            Eip712TypeCollection::default(),
+        );
+
         Cheatcodes::new(Arc::new(config))
     }
 
