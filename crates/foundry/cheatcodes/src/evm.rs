@@ -3613,14 +3613,7 @@ fn derive_snapshot_name<
     group: Option<String>,
     name: Option<String>,
 ) -> (String, String) {
-    let group = group.unwrap_or_else(|| {
-        ccx.state
-            .config
-            .running_artifact
-            .clone()
-            .expect("expected running contract")
-            .name
-    });
+    let group = group.unwrap_or_else(|| ccx.state.config.running_artifact.name.clone());
     let name = name.unwrap_or_else(|| "default".to_string());
 
     (group, name)
