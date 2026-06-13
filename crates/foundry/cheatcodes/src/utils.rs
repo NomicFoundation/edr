@@ -4,6 +4,7 @@ use alloy_dyn_abi::{DynSolType, DynSolValue, Resolver, TypedData};
 use alloy_ens::namehash;
 use alloy_primitives::{aliases::B32, keccak256, map::HashMap, Bytes, B64, U256};
 use alloy_sol_types::SolValue;
+use edr_solidity_collector_eip712::Eip712Type;
 use foundry_evm_core::{
     backend::CheatcodeBackend,
     constants::DEFAULT_CREATE2_DEPLOYER,
@@ -18,7 +19,7 @@ use revm::{context::result::HaltReasonTr, context_interface::JournalTr as _};
 
 #[allow(clippy::wildcard_imports)]
 use crate::{
-    config::Eip712TypeDef, impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes,
+    config::SuiteEip712TypeProvider, impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes,
     CheatcodesExecutor, CheatsCtxt, Result, Vm::*,
 };
 
@@ -1097,8 +1098,7 @@ impl Cheatcode for eip712HashType_0Call {
             typeNameOrDefinition,
         } = self;
 
-        let type_def =
-            get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types_by_name)?;
+        let type_def = get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_provider)?;
         Ok(keccak256(type_def.canonical_definition().as_bytes()).to_vec())
     }
 }
@@ -1139,8 +1139,7 @@ impl Cheatcode for eip712HashStruct_0Call {
             abiEncodedData,
         } = self;
 
-        let type_def =
-            get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types_by_name)?;
+        let type_def = get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_provider)?;
 
         get_struct_hash(&type_def, abiEncodedData)
     }
@@ -1281,24 +1280,22 @@ fn random_int<
 ///
 /// - an inline type definition string (detected by the presence of `(`), which
 ///   is parsed and canonicalized on demand, or
-/// - a type name, looked up in the `eip712CanonicalTypes` runner config.
+/// - a type name, lazily resolved by parsing the running test contract's
+///   Solidity sources via the EIP-712 type provider.
 fn get_canonical_type_def(
     name_or_def: &str,
-    eip712_types_by_name: &std::collections::HashMap<String, Eip712TypeDef>,
-) -> Result<Eip712TypeDef> {
+    eip712_provider: &SuiteEip712TypeProvider,
+) -> Result<Eip712Type> {
     if name_or_def.contains('(') {
-        Eip712TypeDef::parse(name_or_def).map_err(|error| fmt_err!("{error}"))
+        Eip712Type::parse(name_or_def).map_err(|error| fmt_err!("{error}"))
     } else {
-        eip712_types_by_name
-            .get(name_or_def)
-            .cloned()
-            .ok_or_else(|| fmt_err!("'{name_or_def}' not defined in `eip712CanonicalTypes`"))
+        eip712_provider.type_def(name_or_def)
     }
 }
 
 /// Returns the EIP-712 struct hash for provided name, definition and ABI
 /// encoded data.
-fn get_struct_hash(type_def: &Eip712TypeDef, abi_encoded_data: &Bytes) -> Result {
+fn get_struct_hash(type_def: &Eip712Type, abi_encoded_data: &Bytes) -> Result {
     let mut resolver = Resolver::default();
 
     // Populate the resolver by ingesting the canonical type definition, and then

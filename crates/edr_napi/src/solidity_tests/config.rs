@@ -2,6 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use derive_more::Debug;
 use edr_primitives::hex;
+use edr_solidity_collector_eip712::SharedEip712TypeProvider;
 use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
@@ -176,38 +177,18 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Test function level config overrides.
     /// Defaults to none.
     pub test_function_overrides: Option<Vec<TestFunctionOverride>>,
-    /// A list of EIP-712 canonical type definitions that can be referenced by
-    /// type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
+    /// Maps non-relative Solidity import paths (as written in `import`
+    /// statements, e.g. `"forge-std/Test.sol"` or `"@openzeppelin/..."`) to
+    /// absolute file paths on disk.
     ///
-    /// Each entry is an independent, self-contained type definition. A
-    /// definition that references nested struct types must inline those
-    /// struct definitions, per the EIP-712 `encodeType` spec.
-    ///
-    /// Only the primary (leftmost) type of each entry is registered by name.
-    /// Nested struct types referenced inside an entry are *not* registered
-    /// under their own names. To look up a nested struct by name from a
-    /// cheatcode, add it as a separate top-level entry whose primary type
-    /// is the nested struct.
-    ///
-    /// The type of a struct is encoded as:
-    ///
-    /// `name ‖ "(" ‖ member₁ ‖ "," ‖ member₂ ‖ "," ‖ … ‖ memberₙ ")"`
-    ///
-    /// where each member is written as `type ‖ " " ‖ name`.
-    ///
-    /// Entries that fail to parse cause a startup error listing every bad
-    /// entry.
-    ///
-    /// Example — to make both `Mail` and `Person` reachable by name:
-    ///
-    /// ```text
-    /// "Mail(Person from,Person to,string contents)Person(address wallet,string name)"
-    /// "Person(address wallet,string name)"
-    /// ```
-    ///
-    /// With *only* the first entry, `vm.eip712HashType("Mail")` works but
-    /// `vm.eip712HashType("Person")` fails with an unknown-type error.
-    pub eip712_canonical_types: Option<Vec<String>>,
+    /// Used by the `eip712HashType` and `eip712HashStruct` cheatcodes to
+    /// lazily parse EIP-712 struct definitions from the running test
+    /// contract's Solidity sources: when a type name isn't an inline
+    /// definition, the running contract's source (and its transitive imports)
+    /// is parsed on demand to find the struct. Relative imports (`./`, `../`)
+    /// are resolved automatically against the importing file and need no
+    /// entry here; only non-relative paths require a mapping.
+    pub eip712_import_mappings: Option<HashMap<String, String>>,
 }
 
 impl SolidityTestRunnerConfigArgs {
@@ -257,7 +238,7 @@ impl SolidityTestRunnerConfigArgs {
             test_pattern,
             generate_gas_report,
             test_function_overrides,
-            eip712_canonical_types,
+            eip712_import_mappings,
         } = self;
 
         let test_pattern = TestFilterConfig {
@@ -337,17 +318,14 @@ impl SolidityTestRunnerConfigArgs {
                 })
                 .transpose()?
                 .unwrap_or_default(),
-            eip712_types_by_name: foundry_cheatcodes::parse_eip712_canonical_types(
-                eip712_canonical_types.unwrap_or_default(),
-            )
-            .map_err(|errors| {
-                let msg = errors
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join("; ");
-                napi::Error::new(Status::InvalidArg, msg)
-            })?,
+            eip712_provider: SharedEip712TypeProvider::new(
+                PathBuf::from(project_root.clone()),
+                eip712_import_mappings
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(import_path, disk_path)| (import_path, PathBuf::from(disk_path)))
+                    .collect(),
+            ),
         };
 
         let on_collected_coverage_fn = observability.map_or_else(

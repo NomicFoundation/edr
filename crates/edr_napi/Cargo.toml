@@ -8,7 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 alloy-sol-types.workspace = true
-crossbeam-channel = "0.5"
+crossbeam-channel.workspace = true
 derive_more.workspace = true
 derive-where.workspace = true
 edr_artifact.workspace = true
@@ -36,6 +36,7 @@ edr_provider.workspace = true
 edr_receipt.workspace = true
 edr_rpc_client.workspace = true
 edr_scenarios = { workspace = true, optional = true }
+edr_solidity_collector_eip712.workspace = true
 edr_solidity_tests.workspace = true
 edr_state_api.workspace = true
 edr_signer.workspace = true

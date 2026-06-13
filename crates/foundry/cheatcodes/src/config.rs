@@ -5,10 +5,10 @@ use std::{
     time::Duration,
 };
 
-use alloy_dyn_abi::eip712_parser::EncodeType;
 use alloy_primitives::{map::AddressHashMap, U256};
 use edr_artifact::ArtifactId;
 use edr_common::fs::normalize_path;
+use edr_solidity_collector_eip712::{Eip712Type, SharedEip712TypeProvider};
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, evm_context::HardforkTr, opts::EvmOpts};
 
@@ -62,8 +62,9 @@ pub struct CheatsConfig<HardforkT> {
     pub chains: HashMap<String, ChainData>,
     /// Mapping of chain IDs to their aliases
     pub chain_id_to_alias: HashMap<u64, String>,
-    /// Mapping of known EIP-712 canonical type definitions by type name.
-    pub eip712_types_by_name: HashMap<String, Eip712TypeDef>,
+    /// Lazily resolves EIP-712 canonical types from the running test
+    /// contract's Solidity sources.
+    pub eip712_provider: SuiteEip712TypeProvider,
 }
 
 /// Chain data for getChain cheatcodes
@@ -119,8 +120,9 @@ pub struct CheatsConfigOptions {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test. Overrides the global setting for specific test functions.
     pub functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
-    /// Mapping of known EIP-712 canonical type definitions by type name.
-    pub eip712_types_by_name: HashMap<String, Eip712TypeDef>,
+    /// Run-wide, shared provider that lazily parses EIP-712 canonical types
+    /// from Solidity sources on demand.
+    pub eip712_provider: SharedEip712TypeProvider,
 }
 
 // TODO: https://github.com/NomicFoundation/edr/issues/1184
@@ -134,71 +136,32 @@ pub struct TestFunctionIdentifier {
     pub function_selector: String,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum Eip712Error {
-    #[error("failed to parse EIP-712 canonical type {input}: {reason}")]
-    Parse { input: String, reason: String },
-
-    #[error("failed to canonicalize EIP-712 type {input}: {reason}")]
-    Canonicalize { input: String, reason: String },
-
-    #[error("duplicate EIP-712 type definition {name}")]
-    DuplicateTypeDef { name: String },
-}
-
-/// An EIP-712 type definition in canonical form, paired with its
-/// primary-type name.
+/// EIP-712 type provider scoped to a single test suite's running artifact.
 ///
-/// Only [`Eip712TypeDef::parse`] can construct one, which guarantees the
-/// canonical-form invariant.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Eip712TypeDef {
-    name: String,
-    canonical_definition: String,
+/// Wraps the shared, run-wide [`SharedEip712TypeProvider`] together with the
+/// artifact whose source is currently executing, so cheatcodes can resolve a
+/// type by name without threading the artifact through every call site.
+#[derive(Clone, Debug, Default)]
+pub struct SuiteEip712TypeProvider {
+    provider: SharedEip712TypeProvider,
+    running_artifact: Option<ArtifactId>,
 }
 
-impl Eip712TypeDef {
-    /// Parses and canonicalizes an EIP-712 type definition, extracting its
-    /// primary-type name.
-    pub fn parse(input: &str) -> std::result::Result<Self, Eip712Error> {
-        let encode_type = EncodeType::parse(input).map_err(|error| Eip712Error::Parse {
-            input: input.to_string(),
-            reason: error.to_string(),
-        })?;
-
-        let name = encode_type
-            .types
-            .first()
-            .ok_or_else(|| Eip712Error::Parse {
-                input: input.to_string(),
-                reason: "no parseable type definition found".into(),
-            })?
-            .type_name
-            .to_string();
-
-        let canonical_definition =
-            encode_type
-                .canonicalize()
-                .map_err(|error| Eip712Error::Canonicalize {
-                    input: input.to_string(),
-                    reason: error.to_string(),
-                })?;
-
-        Ok(Self {
-            name,
-            canonical_definition,
-        })
-    }
-
-    /// Primary type name (the leftmost type in the canonical definition).
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Canonical EIP-712 type definition, as produced by
-    /// [`EncodeType::canonicalize`].
-    pub fn canonical_definition(&self) -> &str {
-        &self.canonical_definition
+impl SuiteEip712TypeProvider {
+    /// Resolves an EIP-712 canonical type by name from the running test
+    /// contract's Solidity sources.
+    ///
+    /// Note: this reads project sources from disk the same way the compiler
+    /// does — driven by the test runner, not by user-controlled paths — and so
+    /// intentionally does not go through `fs_permissions`.
+    pub fn type_def(&self, name: &str) -> Result<Eip712Type> {
+        let artifact = self
+            .running_artifact
+            .as_ref()
+            .ok_or_else(|| fmt_err!("no running artifact to resolve EIP-712 type '{name}' from"))?;
+        self.provider
+            .get_eip_712_type(artifact, name)
+            .map_err(|reason| fmt_err!("{reason}"))
     }
 }
 
@@ -240,8 +203,13 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             seed,
             allow_internal_expect_revert,
             functions_internal_expect_revert,
-            eip712_types_by_name,
+            eip712_provider,
         } = config;
+
+        let eip712_provider = SuiteEip712TypeProvider {
+            provider: eip712_provider,
+            running_artifact: running_artifact.clone(),
+        };
 
         // TODO
         // let mut allowed_paths = vec![config.root.clone()];
@@ -267,7 +235,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             functions_internal_expect_revert,
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
-            eip712_types_by_name,
+            eip712_provider,
         }
     }
 
@@ -441,51 +409,6 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
     }
 }
 
-/// Parses and canonicalizes a list of EIP-712 type definitions, keyed by
-/// primary type name.
-///
-/// Each entry must be a self-contained canonical definition — nested struct
-/// types referenced by the primary type must be inlined in the same string.
-///
-/// Only the primary (leftmost) type is registered by name; nested types
-/// are not.
-///
-/// Collects every error encountered rather than stopping at the first.
-pub fn parse_eip712_canonical_types(
-    eip712_type_definitions: Vec<String>,
-) -> Result<HashMap<String, Eip712TypeDef>, Vec<Eip712Error>> {
-    let (eip712_types_by_name, errors) = eip712_type_definitions
-        .into_iter()
-        .map(|def| Eip712TypeDef::parse(&def))
-        .fold(
-            (
-                HashMap::<String, Eip712TypeDef>::new(),
-                Vec::<Eip712Error>::new(),
-            ),
-            |(mut map, mut errors), parsed| {
-                match parsed {
-                    Ok(type_def) => {
-                        // Reject duplicates rather than silently overwriting: conflicting EIP-712
-                        // definitions would yield a wrong hash that's visually indistinguishable
-                        // from a correct one.
-                        let name = type_def.name().to_string();
-                        if map.insert(name.clone(), type_def).is_some() {
-                            errors.push(Eip712Error::DuplicateTypeDef { name });
-                        }
-                    }
-                    Err(err) => errors.push(err),
-                }
-                (map, errors)
-            },
-        );
-
-    if errors.is_empty() {
-        Ok(eip712_types_by_name)
-    } else {
-        Err(errors)
-    }
-}
-
 impl<HardforkT: HardforkTr> Default for CheatsConfig<HardforkT> {
     fn default() -> Self {
         Self {
@@ -506,7 +429,7 @@ impl<HardforkT: HardforkTr> Default for CheatsConfig<HardforkT> {
             functions_internal_expect_revert: HashSet::new(),
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
-            eip712_types_by_name: HashMap::new(),
+            eip712_provider: SuiteEip712TypeProvider::default(),
         }
     }
 }
@@ -917,7 +840,7 @@ mod tests {
             seed: None,
             allow_internal_expect_revert: false,
             functions_internal_expect_revert: HashSet::new(),
-            eip712_types_by_name: HashMap::new(),
+            eip712_provider: SharedEip712TypeProvider::default(),
         };
 
         CheatsConfig::new(
@@ -1117,165 +1040,5 @@ mod tests {
         assert!(config
             .ensure_path_allowed("./out/OtherFile.sol", FsAccessKind::Write)
             .is_ok());
-    }
-
-    const MAIL_WITH_PERSON_CANONICAL: &str =
-        "Mail(Person from,Person to,string contents)Person(address wallet,string name)";
-    const PERSON_CANONICAL: &str = "Person(address wallet,string name)";
-    const SIMPLE_MAIL_CANONICAL: &str = "Mail(address from,address to,string contents)";
-
-    mod eip712_type_def {
-        use super::*;
-
-        #[test]
-        fn parses_canonical_definition() {
-            let def = Eip712TypeDef::parse(SIMPLE_MAIL_CANONICAL).unwrap();
-            assert_eq!(def.name(), "Mail");
-            assert_eq!(def.canonical_definition(), SIMPLE_MAIL_CANONICAL);
-        }
-
-        #[test]
-        fn normalizes_whitespace() {
-            // Extra whitespace after commas — not canonical per EIP-712.
-            let noisy = "Mail(address from, address to, string contents)";
-            let def = Eip712TypeDef::parse(noisy).unwrap();
-            assert_eq!(def.canonical_definition(), SIMPLE_MAIL_CANONICAL);
-        }
-
-        #[test]
-        fn sorts_referenced_types_alphabetically() {
-            // EIP-712: "the set of referenced struct types is collected,
-            // sorted by name and appended to the encoding". Input here has
-            // Person before Asset; canonical output must swap them.
-            let non_canonical = "Transaction(Person from,Person to,Asset tx)\
-                                 Person(address wallet,string name)\
-                                 Asset(address token,uint256 amount)";
-            let expected = "Transaction(Person from,Person to,Asset tx)\
-                            Asset(address token,uint256 amount)\
-                            Person(address wallet,string name)";
-
-            let def = Eip712TypeDef::parse(non_canonical).unwrap();
-            assert_eq!(def.name(), "Transaction");
-            assert_eq!(def.canonical_definition(), expected);
-        }
-
-        #[test]
-        fn rejects_empty_input() {
-            let err = Eip712TypeDef::parse("").unwrap_err();
-            assert!(matches!(
-                &err,
-                Eip712Error::Parse { reason, .. }
-                    if reason == "no parseable type definition found"
-            ));
-        }
-
-        #[test]
-        fn rejects_unparseable_input() {
-            let err = Eip712TypeDef::parse("not a type definition").unwrap_err();
-            assert!(matches!(&err, Eip712Error::Parse { .. }));
-        }
-
-        #[test]
-        fn rejects_unresolved_nested_types() {
-            // Mail references Person but does not inline its definition.
-            // Canonicalization must resolve every referenced type.
-            let err =
-                Eip712TypeDef::parse("Mail(Person from,Person to,string contents)").unwrap_err();
-            assert!(matches!(&err, Eip712Error::Canonicalize { .. }));
-        }
-    }
-
-    mod parse_eip712_canonical_types {
-        use super::*;
-
-        #[test]
-        fn accepts_empty_input() {
-            let map = parse_eip712_canonical_types(vec![]).unwrap();
-            assert!(map.is_empty());
-        }
-
-        #[test]
-        fn registers_only_primary_type() {
-            // Mail inlines Person; only "Mail" should be registered.
-            let map =
-                parse_eip712_canonical_types(vec![MAIL_WITH_PERSON_CANONICAL.to_string()]).unwrap();
-            assert_eq!(map.len(), 1);
-            assert!(map.contains_key("Mail"));
-            assert!(!map.contains_key("Person"));
-        }
-
-        #[test]
-        fn registers_each_entry_under_its_primary() {
-            // Supply Mail and Person as separate entries to expose both by name.
-            let map = parse_eip712_canonical_types(vec![
-                MAIL_WITH_PERSON_CANONICAL.to_string(),
-                PERSON_CANONICAL.to_string(),
-            ])
-            .unwrap();
-            assert_eq!(map.len(), 2);
-            assert_eq!(
-                map.get("Mail").unwrap().canonical_definition(),
-                MAIL_WITH_PERSON_CANONICAL
-            );
-            assert_eq!(
-                map.get("Person").unwrap().canonical_definition(),
-                PERSON_CANONICAL
-            );
-        }
-
-        #[test]
-        fn rejects_duplicate_primary_names() {
-            // Two entries sharing the same primary type name — even with
-            // different bodies — are ambiguous and rejected.
-            let errors = parse_eip712_canonical_types(vec![
-                SIMPLE_MAIL_CANONICAL.to_string(),
-                "Mail(uint256 x)".to_string(),
-            ])
-            .unwrap_err();
-            assert_eq!(errors.len(), 1);
-            assert!(matches!(
-                &errors[0],
-                Eip712Error::DuplicateTypeDef { name } if name == "Mail"
-            ));
-        }
-
-        #[test]
-        fn rejects_identical_duplicates() {
-            // Identical entries are still rejected: silent overwrite would
-            // be worse than an explicit error.
-            let errors = parse_eip712_canonical_types(vec![
-                SIMPLE_MAIL_CANONICAL.to_string(),
-                SIMPLE_MAIL_CANONICAL.to_string(),
-            ])
-            .unwrap_err();
-            assert_eq!(errors.len(), 1);
-            assert!(matches!(&errors[0], Eip712Error::DuplicateTypeDef { .. }));
-        }
-
-        #[test]
-        fn collects_every_error() {
-            // Two parse errors (forwarded from Eip712TypeDef::parse) plus one
-            // duplicate must all surface in a single call.
-            let errors = parse_eip712_canonical_types(vec![
-                String::new(),                     // parse error (empty)
-                "gibberish".to_string(),           // parse error (unparseable)
-                SIMPLE_MAIL_CANONICAL.to_string(), // ok
-                SIMPLE_MAIL_CANONICAL.to_string(), // duplicate
-            ])
-            .unwrap_err();
-
-            assert_eq!(errors.len(), 3);
-
-            let parse_errors = errors
-                .iter()
-                .filter(|e| matches!(e, Eip712Error::Parse { .. }))
-                .count();
-            let dup_errors = errors
-                .iter()
-                .filter(|e| matches!(e, Eip712Error::DuplicateTypeDef { .. }))
-                .count();
-            assert_eq!(parse_errors, 2);
-            assert_eq!(dup_errors, 1);
-        }
     }
 }

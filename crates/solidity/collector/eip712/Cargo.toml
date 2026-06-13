@@ -1,0 +1,18 @@
+[package]
+name = "edr_solidity_collector_eip712"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-dyn-abi = { workspace = true, features = ["eip712"] }
+crossbeam-channel.workspace = true
+derive-where.workspace = true
+edr_common.workspace = true
+edr_utils_sync.workspace = true
+rayon = "1"
+semver.workspace = true
+slang_solidity_v2 = { git = "https://github.com/NomicFoundation/slang.git", rev = "7535859e753cb8689970c0a225a0db56d8de8569", package = "slang_solidity_v2" }
+thiserror.workspace = true
+
+[lints]
+workspace = true

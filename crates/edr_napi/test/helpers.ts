@@ -126,7 +126,7 @@ export function loadContract(artifactPath: string): Artifact {
 
   const id: ArtifactId = {
     name: compiledContract.contractName,
-    solcVersion: "0.8.18",
+    solcVersion: compiledContract.solcVersion ?? "0.8.18",
     source: compiledContract.sourceName,
   };
 

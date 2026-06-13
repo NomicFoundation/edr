@@ -55,6 +55,7 @@ members = [
     "crates/precompile",
     "crates/primitives",
     "crates/receipt/builder/api",
+    "crates/solidity/collector/eip712",
     "crates/state/api",
     "crates/state/fork",
     "crates/state/persistent_trie",
@@ -182,6 +183,7 @@ edr_runtime = { path = "crates/edr_runtime" }
 edr_scenarios = { path = "crates/edr_scenarios" }
 edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
+edr_solidity_collector_eip712 = { path = "crates/solidity/collector/eip712" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_state_api = { path = "crates/state/api" }
 edr_state_fork = { path = "crates/state/fork" }
@@ -316,6 +318,7 @@ alloy-trie = "0.9.3"
 anyhow = { version = "1.0.100", default-features = false }
 arrayvec = "0.7"
 auto_impl = { version = "1.2", default-features = false }
+crossbeam-channel = "0.5"
 dunce = "1"
 dyn-clone = { version = "1.0.13", default-features = false }
 base64 = "0.22"
