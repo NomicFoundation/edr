@@ -17,6 +17,7 @@ use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
+use edr_solidity_collector_eip712::{collector::collect_eip712_types_for_file, ImportResolver};
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
@@ -113,6 +114,11 @@ pub struct MultiContractRunner<
     evm_opts: EvmOpts<HardforkT>,
     /// The configured evm
     env: EvmEnv<BlockT, TransactionT, HardforkT>,
+    /// Maps each test source's solc source name to its absolute path on disk,
+    /// used to parse the source for EIP-712 struct definitions.
+    test_source_paths: HashMap<PathBuf, PathBuf>,
+    /// The import resolver for EIP-712 type collection.
+    import_resolver: ImportResolver,
     /// The local predeploys
     local_predeploys: Vec<Predeploy>,
     /// Revert decoder. Contains all known errors and their selectors.
@@ -211,8 +217,9 @@ impl<
         // test function, each located at its source line — fails here, aborting
         // the whole run before any test executes.
         let roots = inline_config_roots(&test_source_paths, &test_contracts);
+        let inline_import_resolver = import_resolver.clone();
         let inline_config_provider = tokio::task::spawn_blocking(move || {
-            SharedInlineConfigProvider::collect(roots, import_resolver)
+            SharedInlineConfigProvider::collect(roots, inline_import_resolver)
         })
         .await
         .expect("Thread shouldn't panic");
@@ -245,6 +252,8 @@ impl<
             cheats_config_options: Arc::new(cheats_config_options),
             evm_opts,
             env,
+            test_source_paths,
+            import_resolver,
             local_predeploys,
             revert_decoder,
             fork,
@@ -444,13 +453,29 @@ impl<
             warnings: inline_config_warnings,
         } = self.inline_config_overrides(artifact_id, contract);
 
+        // Parse the EIP-712 struct definitions from the contract's source, if
+        // its absolute path is known.
+        let eip712_types = self
+            .test_source_paths
+            .get(&artifact_id.source)
+            .map(|path| {
+                collect_eip712_types_for_file(
+                    path,
+                    artifact_id.version.clone(),
+                    &self.import_resolver,
+                )
+            })
+            .transpose()?
+            .unwrap_or_default();
+
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
             (*self.cheats_config_options).clone(),
             self.evm_opts.clone(),
             self.known_contracts.clone(),
-            Some(artifact_id.clone()),
+            artifact_id.clone(),
             allow_internal_expect_revert,
+            eip712_types,
         );
 
         let tracing_mode = match self.collect_stack_traces {
@@ -468,7 +493,7 @@ impl<
                 .gas_limit(self.evm_opts.gas_limit())
                 .inspectors(|stack| {
                     stack
-                        .cheatcodes(Arc::new(cheats_config))
+                        .cheatcodes(cheats_config)
                         .trace(tracing_mode)
                         .code_coverage(
                             self.on_collected_coverage_fn
