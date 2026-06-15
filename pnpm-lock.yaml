@@ -51,7 +51,7 @@ importers:
         version: 10.0.10
       '@types/node':
         specifier: ^20.0.0
-        version: 20.19.41
+        version: 20.19.42
       '@typescript-eslint/eslint-plugin':
         specifier: 5.62.0
         version: 5.62.0(@typescript-eslint/parser@5.62.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
@@ -96,7 +96,7 @@ importers:
         version: 3.8.3
       ts-node:
         specifier: ^10.8.0
-        version: 10.9.2(@types/node@20.19.41)(typescript@5.8.3)
+        version: 10.9.2(@types/node@20.19.42)(typescript@5.8.3)
       typescript:
         specifier: ~5.8.2
         version: 5.8.3
@@ -156,7 +156,7 @@ importers:
         version: 10.0.10
       '@types/node':
         specifier: ^20.0.0
-        version: 20.19.41
+        version: 20.19.42
       '@types/resolve':
         specifier: ^1.17.1
         version: 1.20.6
@@ -213,7 +213,7 @@ importers:
         version: 7.0.1
       hardhat:
         specifier: 2.28.4
-        version: 2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.41)(typescript@5.8.3))(typescript@5.8.3)
+        version: 2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.42)(typescript@5.8.3))(typescript@5.8.3)
       mocha:
         specifier: ^10.0.0
         version: 10.8.2
@@ -231,7 +231,7 @@ importers:
         version: 9.2.4
       ts-node:
         specifier: ^10.8.0
-        version: 10.9.2(@types/node@20.19.41)(typescript@5.8.3)
+        version: 10.9.2(@types/node@20.19.42)(typescript@5.8.3)
       typescript:
         specifier: ~5.8.2
         version: 5.8.3
@@ -268,7 +268,7 @@ importers:
         version: 4.17.0
       '@types/node':
         specifier: ^20.0.0
-        version: 20.19.41
+        version: 20.19.42
       '@typescript-eslint/eslint-plugin':
         specifier: 5.62.0
         version: 5.62.0(@typescript-eslint/parser@5.62.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
@@ -295,7 +295,7 @@ importers:
         version: 3.4.5(patch_hash=0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805)
       hardhat2:
         specifier: npm:hardhat@2.28.4
-        version: hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.41)(typescript@5.8.3))(typescript@5.8.3)
+        version: hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.42)(typescript@5.8.3))(typescript@5.8.3)
       lodash:
         specifier: ^4.17.11
         version: 4.17.21
@@ -334,7 +334,7 @@ importers:
         version: 5.1.0
       '@types/node':
         specifier: ^20.0.0
-        version: 20.19.41
+        version: 20.19.42
       '@types/semver':
         specifier: ^6.0.2
         version: 6.2.7
@@ -388,7 +388,7 @@ importers:
         version: 20.1.9
       '@types/node':
         specifier: ^20.0.0
-        version: 20.19.41
+        version: 20.19.42
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.14.0
         version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6
@@ -1099,8 +1099,8 @@ packages:
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
 
-  '@types/node@20.19.41':
-    resolution: {integrity: sha512-ECymXOukMnOoVkC2bb1Vc/w/836DXncOg5m8Xj1RH7xSHZJWNYY6Zh7EH477vcnD5egKNNfy2RpNOmuChhFPgQ==}
+  '@types/node@20.19.42':
+    resolution: {integrity: sha512-5L7SUaFC1RyDraj2yRhyBzHTobyXHmohD100CChNtyPyleoq37Mqab5Gn8XEKI04dfN/oqPdpHk38MgcQWHbZg==}
 
   '@types/node@22.7.5':
     resolution: {integrity: sha512-jML7s2NAzMWc//QSJ1a3prpk78cOPchGvXJsC3C6R6PSMoooztvRVQEz89gmBTBY1SPMaqo5teB4uNHPdetShQ==}
@@ -1917,7 +1917,7 @@ packages:
     engines: {node: '>= 0.4'}
 
   forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6}
+    resolution: {gitHosted: true, integrity: sha512-+IFIpknZX7lJ5sa24bCqwSxXuejcpIygxyr+m0F3h1flJsz7COHxwdOEzfLQQciKNyC8o/TPUf9G9Vq1qynVzA==, tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6}
     version: 1.14.0
 
   fp-ts@1.19.3:
@@ -4024,7 +4024,7 @@ snapshots:
 
   '@types/bn.js@4.11.6':
     dependencies:
-      '@types/node': 20.19.41
+      '@types/node': 20.19.42
 
   '@types/chai-as-promised@7.1.8':
     dependencies:
@@ -4044,12 +4044,12 @@ snapshots:
 
   '@types/fs-extra@5.1.0':
     dependencies:
-      '@types/node': 20.19.41
+      '@types/node': 20.19.42
 
   '@types/glob@7.2.0':
     dependencies:
       '@types/minimatch': 5.1.2
-      '@types/node': 20.19.41
+      '@types/node': 20.19.42
 
   '@types/json-schema@7.0.15': {}
 
@@ -4057,7 +4057,7 @@ snapshots:
 
   '@types/keccak@3.0.4':
     dependencies:
-      '@types/node': 20.19.41
+      '@types/node': 20.19.42
 
   '@types/lodash@4.17.0': {}
 
@@ -4069,7 +4069,7 @@ snapshots:
 
   '@types/node@12.20.55': {}
 
-  '@types/node@20.19.41':
+  '@types/node@20.19.42':
     dependencies:
       undici-types: 6.21.0
 
@@ -4079,18 +4079,18 @@ snapshots:
 
   '@types/pbkdf2@3.1.2':
     dependencies:
-      '@types/node': 20.19.41
+      '@types/node': 20.19.42
 
   '@types/readable-stream@2.3.15':
     dependencies:
-      '@types/node': 20.19.41
+      '@types/node': 20.19.42
       safe-buffer: 5.1.2
 
   '@types/resolve@1.20.6': {}
 
   '@types/secp256k1@4.0.6':
     dependencies:
-      '@types/node': 20.19.41
+      '@types/node': 20.19.42
 
   '@types/semver@6.2.7': {}
 
@@ -4106,7 +4106,7 @@ snapshots:
 
   '@types/ws@7.4.7':
     dependencies:
-      '@types/node': 20.19.41
+      '@types/node': 20.19.42
 
   '@typescript-eslint/eslint-plugin@5.62.0(@typescript-eslint/parser@5.62.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)':
     dependencies:
@@ -5207,7 +5207,7 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.41)(typescript@5.8.3))(typescript@5.8.3):
+  hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.42)(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
       '@ethereumjs/util': 9.1.0
       '@ethersproject/abi': 5.7.0
@@ -5249,7 +5249,7 @@ snapshots:
       uuid: 8.3.2
       ws: 7.5.9
     optionalDependencies:
-      ts-node: 10.9.2(@types/node@20.19.41)(typescript@5.8.3)
+      ts-node: 10.9.2(@types/node@20.19.42)(typescript@5.8.3)
       typescript: 5.8.3
     transitivePeerDependencies:
       - bufferutil
@@ -6302,14 +6302,14 @@ snapshots:
 
   toidentifier@1.0.1: {}
 
-  ts-node@10.9.2(@types/node@20.19.41)(typescript@5.8.3):
+  ts-node@10.9.2(@types/node@20.19.42)(typescript@5.8.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.11
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 20.19.41
+      '@types/node': 20.19.42
       acorn: 8.11.3
       acorn-walk: 8.3.2
       arg: 4.1.3
