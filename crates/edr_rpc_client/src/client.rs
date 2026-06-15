@@ -10,8 +10,8 @@ use std::{
 use edr_eth::block::{block_time, is_safe_block_number, IsSafeBlockNumberArgs};
 use edr_primitives::U64;
 use futures::{future, TryFutureExt};
-use hyper::header::HeaderValue;
-pub use hyper::{header, HeaderMap};
+use http::header::HeaderValue;
+pub use http::{header, HeaderMap};
 use reqwest::Client as HttpClient;
 use reqwest_middleware::{ClientBuilder as HttpClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
@@ -846,7 +846,7 @@ mod tests {
         use edr_primitives::U64;
         use edr_test_utils::env::json_rpc_url_provider;
         use futures::future::join_all;
-        use hyper::StatusCode;
+        use http::StatusCode;
         use tempfile::TempDir;
         use walkdir::WalkDir;
 

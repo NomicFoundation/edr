@@ -1,3 +1,7 @@
+// The deeply nested async futures in this crate exceed the default
+// layout-computation recursion limit of 128.
+#![recursion_limit = "256"]
+
 /// Types and constants for Ethereum improvements proposals (EIPs)
 pub mod eips;
 
