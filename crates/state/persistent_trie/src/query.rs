@@ -91,7 +91,9 @@ pub fn build_proof_nodes(query: TrieQuery, targets: Vec<Nibbles>) -> ProofNodes 
         .iter()
         .map(|(key, value)| (Nibbles::unpack(key), value))
         .collect();
-    storage.sort_by_key(|(key1, _)| *key1);
+    // Sort by borrowed keys; clippy's `sort_by_key` would copy each `Nibbles`.
+    #[allow(clippy::unnecessary_sort_by)]
+    storage.sort_by(|(key1, _), (key2, _)| key1.cmp(key2));
     for (key, value) in storage {
         builder.add_leaf(key, &value);
     }
