@@ -423,8 +423,7 @@ fn generate_hardfork_activations_for(
                 log::warn!("{chain_name}: ignoring activation - {error}");
                 None
             }
-            Ok(opt_hardfork) => opt_hardfork
-                .and_then(|hardfork| activation_value.as_integer().map(|value| (hardfork, value))),
+            Ok(opt_hardfork) => opt_hardfork.zip(activation_value.as_integer()),
         },
     );
 
