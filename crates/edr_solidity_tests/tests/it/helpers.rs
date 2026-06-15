@@ -493,8 +493,8 @@ impl<
         // Build revert decoder from ABIs of all artifacts.
         let abis = linker
             .contracts
-            .iter()
-            .filter_map(|(_, contract)| contract.abi.as_ref().map(std::borrow::Borrow::borrow));
+            .values()
+            .filter_map(|contract| contract.abi.as_ref().map(std::borrow::Borrow::borrow));
         let revert_decoder = RevertDecoder::new().with_abis(abis);
 
         let LinkOutput {
