@@ -246,8 +246,8 @@ pub(super) fn estimate_gas<
     } = binary_search_estimation::<ChainSpecT>(
         context,
         lowest_estimation,
-        context.transaction.gas_limit(), /* transaction original gas_limit was validated on
-                                          * `measure_gas_with_full_limit` */
+        // transaction's `gas_limit` was validated by `measure_gas_with_full_limit`
+        context.transaction.gas_limit(),
         observer_config,
         estimation_mode,
     )?;
