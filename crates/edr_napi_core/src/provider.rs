@@ -52,7 +52,7 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
                 {
                     // Ignore potential failure of logging, as returning the original error is more
                     // important
-                    let _result = self.log_failed_deserialization(method_name, &provider_error);
+                    let _result = self.log_failed_deserialization(method_name, provider_error);
                 }
 
                 let response = jsonrpc::ResponseData::<()>::Error {

@@ -13,6 +13,7 @@ alloy-serde.workspace = true
 alloy-sol-types.workspace = true
 anyhow = { workspace = true, optional = true }
 auto_impl = { version = "1.2", default-features = false }
+crossbeam-channel = "0.5"
 derive-where.workspace = true
 dyn-clone.workspace = true
 edr_block_api.workspace = true
@@ -54,6 +55,7 @@ edr_test_utils = { workspace = true, optional = true }
 edr_tracing.workspace = true
 edr_transaction.workspace = true
 edr_utils.workspace = true
+edr_utils_sync.workspace = true
 foundry-evm-traces.workspace = true
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
 itertools = { version = "0.14.0", default-features = false, features = [
