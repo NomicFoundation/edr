@@ -541,7 +541,12 @@ impl Context {
         Ok(Self {
             provider_factories: HashMap::default(),
             solidity_test_runner_factories: HashMap::default(),
-            provider_deallocator: AsyncDeallocator::new(runtime),
+            provider_deallocator: AsyncDeallocator::new(runtime).map_err(|error| {
+                napi::Error::new(
+                    napi::Status::GenericFailure,
+                    format!("Failed to spawn the provider deallocator thread: {error}"),
+                )
+            })?,
             #[cfg(feature = "tracing")]
             _tracing_write_guard: guard,
         })

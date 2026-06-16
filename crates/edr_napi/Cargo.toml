@@ -40,6 +40,7 @@ edr_state_api.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_tracing.workspace = true
+edr_utils_sync.workspace = true
 mimalloc = { version = "0.1.39", default-features = false, features = [
     "local_dynamic_tls",
 ] }

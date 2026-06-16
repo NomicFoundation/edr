@@ -3169,6 +3169,7 @@ dependencies = [
  "edr_solidity_tests",
  "edr_state_api",
  "edr_tracing",
+ "edr_utils_sync",
  "foundry-cheatcodes",
  "foundry-compilers",
  "mimalloc",
@@ -3914,6 +3915,14 @@ name = "edr_utils"
 version = "0.3.8"
 dependencies = [
  "edr_primitives",
+]
+
+[[package]]
+name = "edr_utils_sync"
+version = "0.3.8"
+dependencies = [
+ "crossbeam-channel",
+ "tracing",
 ]
 
 [[package]]
