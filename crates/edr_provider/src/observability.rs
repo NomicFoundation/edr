@@ -171,6 +171,13 @@ impl EvmObserver {
             code_coverage,
             console_logger: ConsoleLogCollector::default(),
             mocker: Mocker::new(config.call_override.clone()),
+            // The tracing inspector must be created unconditionally: the
+            // recorded traces are needed to generate stack traces for
+            // transaction failures (see `get_stack_trace`) and to detect
+            // internal out-of-gas errors during gas estimation (see
+            // `has_internal_oog`). Whether traces are also included in
+            // responses is decided separately, according to
+            // `include_call_traces`.
             tracing_inspector: SolidityTracingInspector::new(
                 TracingInspector::new(tracing_config),
                 config.contract_decoder,
@@ -366,13 +373,16 @@ impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> 
     }
 
     /// Consumes the observed execution, returning the execution result and the
-    /// filtered call traces.
-    pub fn into_result_and_traces(self) -> (ExecutionResultT, Option<CallTraceArena>) {
+    /// call traces filtered by the observability configuration, using the
+    /// EVM-level success of the execution as the success criteria.
+    pub fn into_result_and_filtered_traces(self) -> (ExecutionResultT, Option<CallTraceArena>) {
         let is_success = self.execution_result.result().is_success();
-        let traces = self
+
+        let call_trace_arena = self
             .evm_observed_data
             .into_call_traces(self.include_call_traces, is_success);
-        (self.execution_result, traces)
+
+        (self.execution_result, call_trace_arena)
     }
 }
 
