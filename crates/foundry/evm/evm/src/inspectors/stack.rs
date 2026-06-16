@@ -22,7 +22,7 @@ use revm::{
         result::{ExecutionResult, HaltReason, HaltReasonTr},
         BlockEnv, CfgEnv, Context as EvmContext, CreateScheme,
     },
-    context_interface::{result::Output, ContextTr, JournalTr},
+    context_interface::{result::Output, ContextError, ContextTr, JournalTr},
     interpreter::{
         interpreter::EthInterpreter, CallInputs, CallOutcome, CallScheme, CreateInputs,
         CreateOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
@@ -1351,10 +1351,25 @@ impl<
                 }) {
                     call.bytecode_address = *target;
 
-                    let target_account = ecx
-                        .journal_mut()
-                        .load_account_with_code(*target)
-                        .expect("failed to load account");
+                    let target_account = match ecx.journal_mut().load_account_with_code(*target) {
+                        Ok(account) => account,
+                        Err(error) => {
+                            // Mirror revm's DB-error handling: stash the typed error on the context
+                            // and abort the frame with a fatal external error, which the handler
+                            // surfaces to the caller as `EVMError::Database`.
+                            *ecx.error() = Err(ContextError::Db(error));
+                            return Some(CallOutcome {
+                                result: InterpreterResult {
+                                    result: InstructionResult::FatalExternalError,
+                                    output: Bytes::new(),
+                                    gas: Gas::new(call.gas_limit),
+                                },
+                                memory_offset: call.return_memory_offset.clone(),
+                                was_precompile_called: false,
+                                precompile_call_logs: vec![],
+                            });
+                        }
+                    };
                     call.known_bytecode = (
                         target_account.info.code_hash,
                         target_account.info.code.clone().unwrap_or_default(),
