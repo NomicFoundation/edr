@@ -151,10 +151,8 @@ pub struct HardforkActivationByTimestamp {
 
 /// Controls the gas estimation strategy used by `eth_estimateGas`.
 #[napi]
-#[derive(Default)]
 pub enum GasEstimationMode {
     /// Estimates the minimum gas required for the top-level call to succeed.
-    #[default]
     TopLevelSuccess,
     /// Estimates the minimum gas required for the top-level call to succeed
     /// without any internal sub-call running out of gas.
