@@ -376,15 +376,13 @@ impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> 
     /// call traces filtered by the observability configuration, using the
     /// EVM-level success of the execution as the success criteria.
     pub fn into_result_and_filtered_traces(self) -> (ExecutionResultT, Option<CallTraceArena>) {
-        let should_include_traces = self
-            .include_call_traces
-            .should_include(|| !self.execution_result.result().is_success());
+        let is_success = self.execution_result.result().is_success();
 
-        let execution_result = self.execution_result;
-        let call_trace_arena =
-            should_include_traces.then_some(self.evm_observed_data.call_trace_arena);
+        let call_trace_arena = self
+            .evm_observed_data
+            .into_call_traces(self.include_call_traces, is_success);
 
-        (execution_result, call_trace_arena)
+        (self.execution_result, call_trace_arena)
     }
 }
 
