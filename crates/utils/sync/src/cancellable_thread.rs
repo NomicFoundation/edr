@@ -9,7 +9,7 @@ use crossbeam_channel::{bounded, Receiver, Sender};
 ///
 /// # Shutdown via channel disconnection
 ///
-/// On [`Self::cancel_and_join`], the thread is signalled to exit by
+/// When a `CancellableThread` is dropped, the thread is signalled to exit by
 /// **disconnecting** the cancellation channel — that is, by dropping its
 /// `Sender`, rather than by sending a sentinel message. The channel's item
 /// type is [`std::convert::Infallible`], so the compiler statically guarantees
@@ -23,6 +23,12 @@ use crossbeam_channel::{bounded, Receiver, Sender};
 /// statically guarantee that we issue shutdown exactly once, even if we
 /// early return via `?` or panic."
 pub struct CancellableThread {
+    inner: Option<Inner>,
+}
+
+/// The owned state of a [`CancellableThread`]: the cancellation channel's
+/// sender and the handle to the dedicated thread.
+struct Inner {
     cancellation_sender: Sender<Infallible>,
     thread: JoinHandle<()>,
 }
@@ -45,21 +51,31 @@ impl CancellableThread {
             .spawn(move || f(cancellation_receiver))?;
 
         Ok(Self {
-            cancellation_sender,
-            thread,
+            inner: Some(Inner {
+                cancellation_sender,
+                thread,
+            }),
         })
     }
+}
 
+impl Drop for CancellableThread {
     /// Signals the thread to exit by disconnecting the cancellation channel,
     /// then waits for it to finish.
-    pub fn cancel_and_join(self) {
-        // Drop the cancellation sender, disconnecting the cancellation
-        // channel and waking the thread.
-        drop(self.cancellation_sender);
+    fn drop(&mut self) {
+        if let Some(Inner {
+            cancellation_sender,
+            thread,
+        }) = self.inner.take()
+        {
+            // Drop the cancellation sender, disconnecting the cancellation
+            // channel and waking the thread.
+            drop(cancellation_sender);
 
-        let thread_name = self.thread.thread().name().unwrap_or("unnamed").to_owned();
-        if let Err(error) = self.thread.join() {
-            tracing::error!("'{thread_name}' thread panicked: {error:?}");
+            let thread_name = thread.thread().name().unwrap_or("unnamed").to_owned();
+            if let Err(error) = thread.join() {
+                tracing::error!("'{thread_name}' thread panicked: {error:?}");
+            }
         }
     }
 }

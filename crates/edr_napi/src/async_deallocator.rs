@@ -14,7 +14,9 @@ use napi::tokio::runtime;
 pub struct AsyncDeallocator<T: Send + 'static> {
     sender: Sender<T>,
     runtime: runtime::Handle,
-    thread: Option<CancellableThread>,
+    // Dropping this disconnects the cancellation channel and joins the
+    // dedicated thread, so no explicit shutdown is needed.
+    _thread: CancellableThread,
 }
 
 impl<T: Send + 'static> AsyncDeallocator<T> {
@@ -29,7 +31,7 @@ impl<T: Send + 'static> AsyncDeallocator<T> {
                     // `select_biased!` picks the first listed branch when multiple
                     // arms are ready, so cancellation always wins over pending work.
                     select_biased! {
-                        // Cancellation channel was disconnected by AsyncDeallocator::drop.
+                        // Cancellation channel was disconnected by dropping the CancellableThread.
                         recv(cancellation_receiver) -> _ => break,
                         recv(receiver) -> msg => match msg {
                             Ok(value) => drop(value),
@@ -44,7 +46,7 @@ impl<T: Send + 'static> AsyncDeallocator<T> {
         Ok(Self {
             sender,
             runtime,
-            thread: Some(thread),
+            _thread: thread,
         })
     }
 
@@ -54,14 +56,6 @@ impl<T: Send + 'static> AsyncDeallocator<T> {
         AsyncDeallocatorSender {
             sender: self.sender.clone(),
             runtime: self.runtime.clone(),
-        }
-    }
-}
-
-impl<T: Send + 'static> Drop for AsyncDeallocator<T> {
-    fn drop(&mut self) {
-        if let Some(thread) = self.thread.take() {
-            thread.cancel_and_join();
         }
     }
 }
