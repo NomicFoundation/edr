@@ -1,10 +1,5 @@
 // Resolve refs, authorize, and gate the EDR regression benchmark trigger.
 //
-// Invoked from .github/workflows/edr-regression-benchmark.yml via
-// actions/github-script, which provides the `github`, `context` and `core`
-// objects. Sets the job outputs `should_run`, `edr_ref`, `hardhat_ref` and
-// `is_baseline`.
-//
 // By event:
 //   push                -> baseline run of HEAD against Hardhat main
 //   workflow_dispatch   -> run HEAD against the requested Hardhat ref
@@ -45,7 +40,7 @@ module.exports = async ({ github, context, core }) => {
       }
       core.info(
         `EDR CI for ${sha.slice(0, 12)} not finished yet ` +
-          `(status: ${run?.status ?? "not started"}); waiting...`,
+          `(status: ${run?.status ?? "not started"}); waiting...`
       );
       await new Promise((r) => setTimeout(r, CI_POLL_INTERVAL_MS));
     }
@@ -93,7 +88,7 @@ module.exports = async ({ github, context, core }) => {
     if (!allowed.includes(assoc)) {
       core.warning(
         `Comment author ${comment.user.login} (${assoc}) is not ` +
-          `authorized to trigger benchmarks.`,
+          `authorized to trigger benchmarks.`
       );
     } else {
       const { data: pr } = await github.rest.pulls.get({
@@ -107,7 +102,7 @@ module.exports = async ({ github, context, core }) => {
           "🚫 Regression benchmarks can only run for branches in " +
             "this repository, not forks (the self-hosted runner must " +
             "not execute untrusted code). Push your branch to " +
-            `\`${fullName}\` and comment \`/bench\` again.`,
+            `\`${fullName}\` and comment \`/bench\` again.`
         );
       } else {
         edrRef = pr.head.sha;
@@ -123,13 +118,13 @@ module.exports = async ({ github, context, core }) => {
           shouldRun = true;
           await postComment(
             `🚀 Starting regression benchmark for \`${edrRef.slice(0, 12)}\` ` +
-              `against Hardhat \`${hardhatRef}\`.`,
+              `against Hardhat \`${hardhatRef}\`.`
           );
         } else {
           await postComment(
             "⏳ EDR CI for this commit hasn't passed yet, so the " +
               "regression benchmark was not started. Comment " +
-              "`/bench` again once CI is green.",
+              "`/bench` again once CI is green."
           );
         }
       }
@@ -142,6 +137,6 @@ module.exports = async ({ github, context, core }) => {
   core.setOutput("is_baseline", String(isBaseline));
   core.info(
     `should_run=${shouldRun} edr_ref=${edrRef} ` +
-      `hardhat_ref=${hardhatRef} is_baseline=${isBaseline}`,
+      `hardhat_ref=${hardhatRef} is_baseline=${isBaseline}`
   );
 };

@@ -2,12 +2,6 @@
 #
 # Publish a locally-built EDR NAPI package to a (Verdaccio) registry.
 #
-# This is the single source of truth for the "build EDR locally and publish it
-# to Verdaccio" flow used by:
-#   - book/src/02_development/03_local_release.md (manual local release)
-#   - .claude/skills/setup-verdaccio-env/SKILL.md
-#   - .github/workflows/edr-regression-benchmark.yml
-#
 # It stages the prebuilt native binary into its platform package, compiles the
 # bundled TypeScript helpers, pins both the main and platform packages to the
 # requested version, wires the main package's dependency on the platform
