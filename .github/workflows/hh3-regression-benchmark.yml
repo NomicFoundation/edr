@@ -1,0 +1,262 @@
+name: Hardhat 3 Regression Benchmark
+
+# Benchmarks the *local* EDR build under test against Hardhat's E2E regression
+# scenarios. Unlike Hardhat's own regression-benchmark (which uses whatever EDR
+# is pinned on npm), this workflow builds EDR locally, publishes it to a local
+# Verdaccio registry, repoints Hardhat's `@nomicfoundation/edr` dependency at it,
+# and then runs Hardhat's `pnpm bench:regression --use-local`.
+
+on:
+  # Records baselines for main.
+  push:
+    branches:
+      - "main"
+  # Manual runs, optionally against a specific Hardhat ref.
+  workflow_dispatch:
+    inputs:
+      hardhat-ref:
+        description: "The branch, tag or SHA of Hardhat to benchmark against"
+        required: false
+        type: string
+        default: "main"
+  # ChatOps: comment `/bench` (optionally `/bench hardhat-ref=<branch|sha|PR>`)
+  # on a same-repo PR. Authorization + gating happens in the `setup` job.
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.ref }}
+  # Don't cancel in-progress baseline runs on main so baselines aren't lost.
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+jobs:
+  setup:
+    name: Resolve refs and authorize
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read # read PR head / checkout metadata
+      pull-requests: read # pulls.get to resolve PR head + fork check
+      issues: write # post status comments + reactions on the PR
+      actions: read # list EDR CI workflow runs for the CI-green gate
+    # For comment events, only proceed for `/bench` comments on a PR. Other
+    # events (push/workflow_dispatch) always evaluate inside the script.
+    if: >-
+      github.event_name != 'issue_comment' || (github.event.issue.pull_request != null &&
+       startsWith(github.event.comment.body, '/bench'))
+
+
+    outputs:
+      should_run: ${{ steps.resolve.outputs.should_run }}
+      edr_ref: ${{ steps.resolve.outputs.edr_ref }}
+      hardhat_ref: ${{ steps.resolve.outputs.hardhat_ref }}
+      is_baseline: ${{ steps.resolve.outputs.is_baseline }}
+    steps:
+      # Sparse-checkout only the workflow scripts so the github-script step can
+      # require the resolver module below.
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - id: resolve
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const resolve = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/resolve-regression-trigger.cjs`);
+            await resolve({ github, context, core });
+
+  regression-benchmark:
+    name: Regression benchmark
+    needs: setup
+    if: needs.setup.outputs.should_run == 'true'
+    environment: github-action-benchmark
+    # Use Hardhat's dedicated self-hosted runner for stable measurements that
+    # are comparable to Hardhat's own regression baselines.
+    runs-on: hardhat-linux-amd64-self-hosted
+    timeout-minutes: 180
+    env:
+      # Hardhat is checked out into ./hardhat; the EDR repo is the workspace root.
+      HH: ${{ github.workspace }}/hardhat
+      # Known clone dir, shared by the benchmark and validation steps so the
+      # installed EDR can be inspected after the run.
+      E2E_CLONE_DIR: ${{ github.workspace }}/hardhat/e2e-clones
+    steps:
+      - name: Checkout EDR
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ needs.setup.outputs.edr_ref }}
+          persist-credentials: false
+
+      - name: Checkout Hardhat
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: NomicFoundation/hardhat
+          ref: ${{ needs.setup.outputs.hardhat_ref }}
+          path: hardhat
+          # `sinceReleasePublish` needs the full history + release tags to
+          # decide which workspace packages to (re)publish.
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      # cspell:disable-next-line
+      - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
+        with:
+          mode: firewall
+
+      - uses: ./.github/actions/setup-node
+        with:
+          # Match Hardhat main's expected Node version.
+          node-version: "24"
+      - uses: ./.github/actions/setup-rust
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y hyperfine jq
+
+      - name: Compute sentinel versions
+        run: |
+          set -euo pipefail
+          EDR_BASE=$(node -p "require('./crates/edr_napi/package.json').version")
+          HH_BASE=$(node -p "require('./hardhat/packages/hardhat/package.json').version")
+          SHORT_SHA="${{ needs.setup.outputs.edr_ref }}"
+          SHORT_SHA="${SHORT_SHA:0:12}"
+          echo "EDR_VER=${EDR_BASE}-local.${SHORT_SHA}" >> "$GITHUB_ENV"
+          echo "HH_VER=${HH_BASE}-edr.${SHORT_SHA}" >> "$GITHUB_ENV"
+
+      - name: Install EDR dependencies
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build EDR
+        working-directory: crates/edr_napi
+        run: pnpm build
+
+      - name: Install Hardhat dependencies
+        working-directory: hardhat
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build Hardhat
+        working-directory: hardhat
+        run: |
+          pnpm build
+          # pnpm 11 skips creating bin symlinks whose target isn't built at
+          # install time; relink now that build output exists. See pnpm/pnpm#10524.
+          pnpm rebuild -r
+
+      - name: Repoint Hardhat at the local EDR build
+        working-directory: hardhat
+        # Repoint the EDR dependency, and bump the hardhat package's own version
+        # so `decidePublishAction` returns "publish" (not "skip") and
+        # `--use-local` republishes hardhat carrying our EDR dependency, even
+        # right after a Hardhat release.
+        run: |
+          set -euo pipefail
+          npm pkg set "dependencies.@nomicfoundation/edr=$EDR_VER" --prefix packages/hardhat
+          npm pkg set version="$HH_VER" --prefix packages/hardhat
+
+      - name: Start Verdaccio
+        working-directory: hardhat
+        run: pnpm verdaccio start --background
+
+      - name: Publish local EDR to Verdaccio
+        # Reuses Hardhat's pre-seeded Verdaccio auth.
+        run: |
+          bash ./scripts/publish_to_verdaccio.sh \
+            --version "$EDR_VER" \
+            --registry http://127.0.0.1:4873/ \
+            --npmrc "$HH/.verdaccio/.npmrc"
+
+      - name: Run regression benchmark
+        working-directory: hardhat
+        env:
+          ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
+        # --force-publish: reuse our already-running Verdaccio (instead of
+        #   erroring) and run the global sinceReleasePublish once up front.
+        # --use-local: republish the (repointed) hardhat workspace packages and
+        #   pin each scenario's hardhat/@nomicfoundation deps to Verdaccio.
+        run: |
+          pnpm bench:regression \
+            --use-local \
+            --force-publish \
+            --force-checkout \
+            --e2e-clone-dir "$E2E_CLONE_DIR" \
+            --output regression-report.json
+
+      - name: Validate scenarios used the local EDR build
+        working-directory: hardhat
+        run: |
+          set -euo pipefail
+
+          echo "== Check A: published hardhat carries the local EDR =="
+          MANIFEST=$(curl -sf http://127.0.0.1:4873/hardhat)
+          LATEST=$(echo "$MANIFEST" | jq -r '."dist-tags".latest')
+          EDR_DEP=$(echo "$MANIFEST" | jq -r --arg v "$LATEST" \
+            '.versions[$v].dependencies["@nomicfoundation/edr"] // empty')
+          echo "hardhat dist-tags.latest=$LATEST (expected $HH_VER)"
+          echo "  -> @nomicfoundation/edr=$EDR_DEP (expected $EDR_VER)"
+          if [ "$LATEST" != "$HH_VER" ]; then
+            echo "::error::Published hardhat latest ($LATEST) != $HH_VER"
+            exit 1
+          fi
+          if [ "$EDR_DEP" != "$EDR_VER" ]; then
+            echo "::error::Published hardhat depends on EDR $EDR_DEP, expected $EDR_VER"
+            exit 1
+          fi
+
+          echo "== Check B: scenarios installed the local EDR build =="
+          found=0
+          fail=0
+          for d in "$E2E_CLONE_DIR"/*/; do
+            [ -d "$d" ] || continue
+            while IFS= read -r pj; do
+              found=1
+              name=$(jq -r .name "$pj")
+              version=$(jq -r .version "$pj")
+              if [ "$version" != "$EDR_VER" ]; then
+                echo "::error::$name in $pj is $version, expected $EDR_VER"
+                fail=1
+              else
+                echo "OK: $name@$version ($pj)"
+              fi
+            done < <(find "$d" \
+              \( -path '*/node_modules/@nomicfoundation/edr/package.json' \
+                 -o -path '*/node_modules/@nomicfoundation/edr-linux-x64-gnu/package.json' \) \
+              2>/dev/null)
+
+            # yarn Plug'n'Play scenarios have no node_modules; fall back to the lockfile.
+            if [ -f "$d/.pnp.cjs" ] || [ -f "$d/.pnp.loader.mjs" ]; then
+              if grep -rqs -- "$EDR_VER" "$d/yarn.lock"; then
+                found=1
+                echo "OK (PnP lockfile): $d"
+              else
+                echo "::warning::PnP scenario $d: $EDR_VER not found in yarn.lock"
+              fi
+            fi
+          done
+
+          if [ "$found" -eq 0 ]; then
+            echo "::error::No installed @nomicfoundation/edr found in any scenario clone — local EDR was NOT used"
+            exit 1
+          fi
+          if [ "$fail" -ne 0 ]; then
+            exit 1
+          fi
+          echo "All inspected scenarios use the local EDR build ($EDR_VER)."
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        with:
+          tool: customSmallerIsBetter
+          output-file-path: hardhat/regression-report.json
+          gh-repository: github.com/nomic-foundation-automation/edr-benchmark-results
+          gh-pages-branch: main
+          benchmark-data-dir-path: hardhat3
+          github-token: ${{ secrets.BENCHMARK_GITHUB_TOKEN }}
+          # Only push a new baseline on main-branch pushes; PRs/dispatch only compare.
+          auto-push: ${{ needs.setup.outputs.is_baseline == 'true' }}
+          alert-threshold: "110%"
+          # Fail the run on a regression for comparisons; never break main.
+          fail-on-alert: ${{ needs.setup.outputs.is_baseline != 'true' }}
+          summary-always: true

@@ -29,6 +29,7 @@
     "lint": "syncpack lint && pnpm run prettier && pnpm run --recursive lint",
     "lint:fix": "syncpack format && pnpm run prettier:fix && pnpm run --recursive lint:fix",
     "prettier": "prettier --check \".github/**/*.{yml,ts,js}\" \"**/*.md\"",
-    "prettier:fix": "pnpm run prettier --write"
+    "prettier:fix": "pnpm run prettier --write",
+    "test:workflows": "node --test \".github/scripts/*.test.cjs\""
   }
 }
