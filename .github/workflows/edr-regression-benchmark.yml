@@ -45,6 +45,7 @@ jobs:
       github.event_name != 'issue_comment' || (github.event.issue.pull_request != null &&
        startsWith(github.event.comment.body, '/bench'))
 
+
     outputs:
       should_run: ${{ steps.resolve.outputs.should_run }}
       edr_ref: ${{ steps.resolve.outputs.edr_ref }}
@@ -128,15 +129,12 @@ jobs:
       - name: Install EDR dependencies
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Build EDR (linux-x64-gnu)
+      - name: Build EDR
         working-directory: crates/edr_napi
         run: pnpm build
 
       - name: Install Hardhat dependencies
         working-directory: hardhat
-        # setup-node installs EDR's pinned pnpm (10.x). Hardhat pins pnpm 11 via
-        # `packageManager`; pnpm 10's default `manage-package-manager-versions`
-        # transparently self-switches to it for commands run in this directory.
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build Hardhat
@@ -163,11 +161,7 @@ jobs:
         run: pnpm verdaccio start --background
 
       - name: Publish local EDR to Verdaccio
-        # Stage the built binary, compile the TS helpers, pin the versions, wire
-        # the platform dependency, and publish both packages (platform first).
-        # See scripts/publish_to_verdaccio.sh — the shared source of
-        # truth also used by the local-release docs and the verdaccio skill.
-        # Reuses Hardhat's pre-seeded Verdaccio auth (user test:test).
+        # Reuses Hardhat's pre-seeded Verdaccio auth.
         run: |
           bash ./scripts/publish_to_verdaccio.sh \
             --version "$EDR_VER" \
@@ -258,7 +252,7 @@ jobs:
           output-file-path: hardhat/regression-report.json
           gh-repository: github.com/nomic-foundation-automation/edr-benchmark-results
           gh-pages-branch: main
-          benchmark-data-dir-path: hardhat-regression
+          benchmark-data-dir-path: hardhat3
           github-token: ${{ secrets.BENCHMARK_GITHUB_TOKEN }}
           # Only push a new baseline on main-branch pushes; PRs/dispatch only compare.
           auto-push: ${{ needs.setup.outputs.is_baseline == 'true' }}
@@ -266,4 +260,3 @@ jobs:
           # Fail the run on a regression for comparisons; never break main.
           fail-on-alert: ${{ needs.setup.outputs.is_baseline != 'true' }}
           summary-always: true
-          max-items-in-chart: 50
