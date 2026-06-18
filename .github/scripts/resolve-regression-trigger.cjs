@@ -11,6 +11,11 @@
 //   issue_comment        -> a `/bench` comment on a same-repo PR, gated on the
 //                          commenter's permissions and EDR CI being green
 
+// How long to wait for the EDR CI run to conclude before giving up, and how
+// often to re-check while waiting. Tunable independently.
+const CI_WAIT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const CI_POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
+
 module.exports = async ({ github, context, core }) => {
   const { owner, repo } = context.repo;
   const fullName = `${owner}/${repo}`;
@@ -22,9 +27,9 @@ module.exports = async ({ github, context, core }) => {
   let isBaseline = false;
 
   // Wait for the EDR CI workflow run for `sha` to conclude. Returns true only
-  // if it completed successfully. Polls for up to ~30 min.
+  // if it completed successfully. Polls until CI_WAIT_TIMEOUT_MS elapses.
   async function waitForEdrCi(sha) {
-    const deadline = Date.now() + 30 * 60 * 1000;
+    const deadline = Date.now() + CI_WAIT_TIMEOUT_MS;
     while (Date.now() < deadline) {
       const { data } = await github.rest.actions.listWorkflowRuns({
         owner,
@@ -42,7 +47,7 @@ module.exports = async ({ github, context, core }) => {
         `EDR CI for ${sha.slice(0, 12)} not finished yet ` +
           `(status: ${run?.status ?? "not started"}); waiting...`,
       );
-      await new Promise((r) => setTimeout(r, 30000));
+      await new Promise((r) => setTimeout(r, CI_POLL_INTERVAL_MS));
     }
     core.warning("Timed out waiting for EDR CI to conclude");
     return false;
