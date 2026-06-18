@@ -211,6 +211,13 @@ pub(crate) fn infer_after_tracing<HaltReasonT: HaltReasonTrait>(
         };
     }
 
+    // Cheatcode errors are identified by the revert data selector, which is
+    // independent of how the contract was compiled. Check for them first so the
+    // error is always attributed correctly (e.g. with `viaIR` enabled), instead
+    // of falling through to a generic "unrecognized custom error".
+    let result = check_cheatcode_error(trace, stacktrace)?;
+    let stacktrace = return_if_hit!(result);
+
     let result = check_last_submessage(trace, stacktrace, last_submessage_data)?;
     let stacktrace = return_if_hit!(result);
 
@@ -495,12 +502,6 @@ fn check_failed_last_call<HaltReasonT: HaltReasonTrait>(
             (inst.opcode, next_step)
             && is_call_failed_error(trace, step_index as u32, inst)?
         {
-            // Check whether the call failure was caused by a cheatcode error
-            stacktrace = match check_cheatcode_error(trace, inst, &contract_meta, stacktrace)? {
-                Heuristic::Hit(stacktrace) => return Ok(Heuristic::Hit(stacktrace)),
-                Heuristic::Miss(stacktrace) => stacktrace,
-            };
-
             stacktrace.push(
                 call_instruction_to_call_failed_to_execute_stack_trace_entry(&contract_meta, inst)?,
             );
@@ -514,8 +515,6 @@ fn check_failed_last_call<HaltReasonT: HaltReasonTrait>(
 
 fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
-    instruction: &Instruction,
-    contract_meta: &ContractMetadata,
     mut stacktrace: Vec<StackTraceEntry>,
 ) -> Result<Heuristic, InferrerError<HaltReasonT>> {
     enum CheatcodeErrorType {
@@ -523,6 +522,10 @@ fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
         Structured,
     }
 
+    // A cheatcode error is identified purely by the selector of the revert data,
+    // which is produced by the cheatcode runtime and is therefore independent of
+    // how the calling contract was compiled (e.g. `viaIR`). This makes the check
+    // robust: we only need to locate a source reference to attribute it to.
     let return_data = ReturnData::new(trace.return_data());
     let error_type = if return_data.is_cheatcode_error_return_data() {
         CheatcodeErrorType::String
@@ -532,15 +535,7 @@ fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
         return Ok(Heuristic::Miss(stacktrace));
     };
 
-    let call_stack_frame = instruction_to_callstack_stack_trace_entry(contract_meta, instruction)?;
-    let source_reference = call_stack_frame
-        .source_reference()
-        .cloned()
-        .ok_or_else(|| {
-            InferrerError::InvariantViolation(
-                "Callstack entry must have source reference".to_string(),
-            )
-        })?;
+    let source_reference = get_cheatcode_error_source_reference(trace)?;
 
     let entry = match error_type {
         CheatcodeErrorType::String => StackTraceEntry::CheatCodeError {
@@ -573,6 +568,63 @@ fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
     stacktrace.push(entry);
 
     fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit)
+}
+
+/// Returns the source reference to attribute a cheatcode error to.
+///
+/// Prefers the exact call site that invoked the cheatcode, but only when its
+/// location resolves to a function. With `viaIR` the call instruction may map
+/// to optimizer-generated code with no recognizable location, so in that case
+/// we fall back to the start of the function (or constructor) that performed
+/// the call, which is always meaningful.
+fn get_cheatcode_error_source_reference<HaltReasonT: HaltReasonTrait>(
+    trace: CreateOrCallMessageRef<'_, HaltReasonT>,
+) -> Result<SourceReference, InferrerError<HaltReasonT>> {
+    let contract_meta = trace
+        .contract_meta()
+        .ok_or(InferrerError::MissingContract)?;
+
+    // Prefer the exact cheatcode call site, when its location maps to a function.
+    for step in trace.steps().iter().rev() {
+        let NestedTraceStep::Evm(step) = step else {
+            continue;
+        };
+
+        let inst = contract_meta.get_instruction(step.pc)?;
+        if !matches!(
+            inst.opcode,
+            OpCode::CALL | OpCode::STATICCALL | OpCode::DELEGATECALL
+        ) {
+            continue;
+        }
+
+        if let Some(source_reference) =
+            source_location_to_source_reference(&contract_meta, inst.location.as_deref())?
+        {
+            return Ok(source_reference);
+        }
+    }
+
+    // Fall back to the start of the function (or constructor) that invoked the
+    // cheatcode.
+    match trace {
+        CreateOrCallMessageRef::Create(create) => get_constructor_start_source_reference(create),
+        CreateOrCallMessageRef::Call(call) => {
+            let contract = contract_meta.contract.read();
+            let func = contract.get_function_from_selector(
+                call.calldata.get(..4).unwrap_or(
+                    call.calldata
+                        .get(..)
+                        .expect("calldata should be accessible"),
+                ),
+            );
+
+            match func {
+                Some(func) => get_function_start_source_reference(trace, func),
+                None => get_contract_start_without_function_source_reference(trace),
+            }
+        }
+    }
 }
 
 fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
@@ -695,7 +747,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
 /// Check if the last submessage can be used to generate the stack trace.
 fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
-    mut stacktrace: Vec<StackTraceEntry>,
+    stacktrace: Vec<StackTraceEntry>,
     last_submessage_data: Option<SubmessageData<HaltReasonT>>,
 ) -> Result<Heuristic, InferrerError<HaltReasonT>> {
     let contract_meta = trace
@@ -727,13 +779,6 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
                 "Callstack entry must have source reference".to_string(),
             )
         })?;
-
-    // Check trace for cheatcode error as last submessage data may not have
-    // cheatcode error or have different error if the error is from expect revert.
-    stacktrace = match check_cheatcode_error(trace, call_inst, &contract_meta, stacktrace)? {
-        Heuristic::Hit(stacktrace) => return Ok(Heuristic::Hit(stacktrace)),
-        Heuristic::Miss(stacktrace) => stacktrace,
-    };
 
     let mut inferred_stacktrace = Cow::from(&stacktrace);
 
