@@ -7,7 +7,7 @@ These are instructions for releasing the [EDR NPM package](../../crates/edr_napi
 3. Publish the local build with the helper script, which stages the native binary into its platform package, pins the version, wires the platform dependency, and publishes both packages:
 
    ```bash
-   scripts/publish_to_verdaccio.sh --version <version> --registry http://localhost:4873/
+   ../../scripts/publish_to_verdaccio.sh --version <version> --registry http://localhost:4873/
    ```
 
    Pick a `--version` that differs from any version already on npm (e.g. `0.12.1-local.1`), because Verdaccio proxies `@nomicfoundation/*` to npmjs and will reject re-publishing an existing version. The platform package is autodetected; pass `--help` for all options.
