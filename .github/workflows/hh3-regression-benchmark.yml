@@ -1,4 +1,4 @@
-name: EDR Regression Benchmark
+name: Hardhat 3 Regression Benchmark
 
 # Benchmarks the *local* EDR build under test against Hardhat's E2E regression
 # scenarios. Unlike Hardhat's own regression-benchmark (which uses whatever EDR
