@@ -49,9 +49,15 @@ usage() {
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --version) VERSION="$2"; shift 2 ;;
-    --registry) REGISTRY="$2"; shift 2 ;;
-    --npmrc) NPMRC="$2"; shift 2 ;;
+    --version)
+      [ $# -ge 2 ] || { echo "error: --version requires a value" >&2; usage >&2; exit 1; }
+      VERSION="$2"; shift 2 ;;
+    --registry)
+      [ $# -ge 2 ] || { echo "error: --registry requires a value" >&2; usage >&2; exit 1; }
+      REGISTRY="$2"; shift 2 ;;
+    --npmrc)
+      [ $# -ge 2 ] || { echo "error: --npmrc requires a value" >&2; usage >&2; exit 1; }
+      NPMRC="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; usage >&2; exit 1 ;;
   esac
