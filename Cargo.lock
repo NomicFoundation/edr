@@ -3138,6 +3138,7 @@ version = "0.3.8"
 dependencies = [
  "alloy-sol-types",
  "crossbeam-channel",
+ "derive-where",
  "derive_more 2.1.1",
  "edr_artifact",
  "edr_block_header",

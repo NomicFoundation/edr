@@ -1,6 +1,7 @@
 use std::io;
 
 use crossbeam_channel::{select_biased, unbounded, SendError, Sender};
+use derive_where::derive_where;
 use edr_utils_sync::CancellableThread;
 use napi::tokio::runtime;
 
@@ -64,7 +65,7 @@ impl<T: Send + 'static> AsyncDeallocator<T> {
 ///
 /// [`Self::deallocate`] is infallible from the caller's perspective: if the
 /// dedicated thread is unavailable, it falls back to the tokio blocking pool.
-#[derive(Clone)]
+#[derive_where(Clone)]
 pub struct AsyncDeallocatorSender<T: Send + 'static> {
     sender: Sender<T>,
     runtime: runtime::Handle,
