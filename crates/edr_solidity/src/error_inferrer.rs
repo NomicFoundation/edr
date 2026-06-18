@@ -2,7 +2,8 @@ use std::{borrow::Cow, collections::HashSet, mem, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use edr_chain_spec::HaltReasonTrait;
-use edr_primitives::{bytecode::opcode::OpCode, hex, U256};
+use edr_defaults::SELECTOR_LEN;
+use edr_primitives::{bytecode::opcode::OpCode, hex, Bytes, U256};
 use semver::{Version, VersionReq};
 
 use crate::{
@@ -211,10 +212,6 @@ pub(crate) fn infer_after_tracing<HaltReasonT: HaltReasonTrait>(
         };
     }
 
-    // Cheatcode errors are identified by the revert data selector, which is
-    // independent of how the contract was compiled. Check for them first so the
-    // error is always attributed correctly (e.g. with `viaIR` enabled), instead
-    // of falling through to a generic "unrecognized custom error".
     let result = check_cheatcode_error(trace, stacktrace)?;
     let stacktrace = return_if_hit!(result);
 
@@ -242,6 +239,12 @@ pub(crate) fn infer_after_tracing<HaltReasonT: HaltReasonTrait>(
     Ok(stacktrace)
 }
 
+fn selector_from(calldata: &Bytes) -> &[u8] {
+    calldata
+        .get(..SELECTOR_LEN)
+        .unwrap_or(calldata.get(..).expect("calldata should be accessible"))
+}
+
 pub(crate) fn infer_before_tracing_call_message<HaltReasonT: HaltReasonTrait>(
     trace: &CallMessage<HaltReasonT>,
 ) -> Result<Option<Vec<StackTraceEntry>>, InferrerError<HaltReasonT>> {
@@ -255,14 +258,7 @@ pub(crate) fn infer_before_tracing_call_message<HaltReasonT: HaltReasonTrait>(
         .ok_or(InferrerError::MissingContract)?;
     let contract = contract_meta.contract.read();
 
-    let called_function = contract.get_function_from_selector(
-        trace.calldata.get(..4).unwrap_or(
-            trace
-                .calldata
-                .get(..)
-                .expect("calldata should be accessible"),
-        ),
-    );
+    let called_function = contract.get_function_from_selector(selector_from(&trace.calldata));
 
     if let Some(called_function) = called_function
         && is_function_not_payable_error(trace, called_function)?
@@ -513,6 +509,12 @@ fn check_failed_last_call<HaltReasonT: HaltReasonTrait>(
     Ok(Heuristic::Miss(stacktrace))
 }
 
+/// Checks whether the trace reverted with a cheatcode error.
+///
+/// A cheatcode error is identified purely by the selector of the revert data,
+/// which is produced by the cheatcode runtime and is therefore independent of
+/// how the calling contract was compiled (e.g. `viaIR`). This makes the check
+/// robust: we only need to locate a source reference to attribute it to.
 fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
     mut stacktrace: Vec<StackTraceEntry>,
@@ -522,10 +524,6 @@ fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
         Structured,
     }
 
-    // A cheatcode error is identified purely by the selector of the revert data,
-    // which is produced by the cheatcode runtime and is therefore independent of
-    // how the calling contract was compiled (e.g. `viaIR`). This makes the check
-    // robust: we only need to locate a source reference to attribute it to.
     let return_data = ReturnData::new(trace.return_data());
     let error_type = if return_data.is_cheatcode_error_return_data() {
         CheatcodeErrorType::String
@@ -590,36 +588,30 @@ fn get_cheatcode_error_source_reference<HaltReasonT: HaltReasonTrait>(
             continue;
         };
 
-        let inst = contract_meta.get_instruction(step.pc)?;
+        let instruction = contract_meta.get_instruction(step.pc)?;
         if !matches!(
-            inst.opcode,
+            instruction.opcode,
             OpCode::CALL | OpCode::STATICCALL | OpCode::DELEGATECALL
         ) {
             continue;
         }
 
         if let Some(source_reference) =
-            source_location_to_source_reference(&contract_meta, inst.location.as_deref())?
+            source_location_to_source_reference(&contract_meta, instruction.location.as_deref())?
         {
             return Ok(source_reference);
         }
     }
 
-    // Fall back to the start of the function (or constructor) that invoked the
-    // cheatcode.
+    // Cheatcode call side not found. Fall back to the start of the function (or
+    // constructor) that invoked the cheatcode.
     match trace {
         CreateOrCallMessageRef::Create(create) => get_constructor_start_source_reference(create),
         CreateOrCallMessageRef::Call(call) => {
             let contract = contract_meta.contract.read();
-            let func = contract.get_function_from_selector(
-                call.calldata.get(..4).unwrap_or(
-                    call.calldata
-                        .get(..)
-                        .expect("calldata should be accessible"),
-                ),
-            );
+            let function = contract.get_function_from_selector(selector_from(&call.calldata));
 
-            match func {
+            match function {
                 Some(func) => get_function_start_source_reference(trace, func),
                 None => get_contract_start_without_function_source_reference(trace),
             }
@@ -702,10 +694,8 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
 
     let contract = contract_meta.contract.read();
 
-    let selector = calldata
-        .get(..4)
-        .unwrap_or(calldata.get(..).expect("calldata should be accessible"));
-    let calldata = &calldata.get(4..).unwrap_or(&[]);
+    let selector = selector_from(calldata);
+    let calldata = &calldata.get(SELECTOR_LEN..).unwrap_or(&[]);
 
     let called_function = contract.get_function_from_selector(selector);
 
@@ -967,11 +957,8 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
                     let contract = contract_meta.contract.read();
 
                     // This is here because of the optimizations
-                    let function_from_selector = contract.get_function_from_selector(
-                        calldata
-                            .get(..4)
-                            .unwrap_or(calldata.get(..).expect("calldata should be accessible")),
-                    );
+                    let function_from_selector =
+                        contract.get_function_from_selector(selector_from(calldata));
 
                     // in general this shouldn't happen, but it does when viaIR is enabled,
                     // "optimizerSteps": "u" is used, and the called function is fallback or
@@ -1218,14 +1205,7 @@ fn get_direct_library_call_error_stack_trace<HaltReasonT: HaltReasonTrait>(
         .ok_or(InferrerError::MissingContract)?;
     let contract = contract_meta.contract.read();
 
-    let func = contract.get_function_from_selector(
-        trace.calldata.get(..4).unwrap_or(
-            trace
-                .calldata
-                .get(..)
-                .expect("calldata should be accessible"),
-        ),
-    );
+    let func = contract.get_function_from_selector(selector_from(&trace.calldata));
 
     let source_reference = match func {
         Some(func) => {
@@ -1293,14 +1273,7 @@ fn get_entry_before_initial_modifier_callstack_entry<HaltReasonT: HaltReasonTrai
         // Defaulting to shorter slice doesn't make much sense at first glance, but we
         // keep it after fixing the receive fallback, as this pattern is consistently
         // used in the codebase.
-        contract.get_function_from_selector(
-            trace.calldata.get(..4).unwrap_or(
-                trace
-                    .calldata
-                    .get(..)
-                    .expect("calldata should be accessible"),
-            ),
-        )
+        contract.get_function_from_selector(selector_from(&trace.calldata))
     };
 
     let source_reference = match called_function {
