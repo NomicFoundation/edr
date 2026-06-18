@@ -288,6 +288,9 @@ jobs:
 
       - uses: ./.github/actions/setup-node
 
+      - name: Test workflow scripts
+        run: pnpm run test:workflows
+
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Run build script

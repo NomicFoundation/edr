@@ -51,137 +51,19 @@ jobs:
       hardhat_ref: ${{ steps.resolve.outputs.hardhat_ref }}
       is_baseline: ${{ steps.resolve.outputs.is_baseline }}
     steps:
+      # Sparse-checkout only the workflow scripts so the github-script step can
+      # require the resolver module below.
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
       - id: resolve
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const { owner, repo } = context.repo;
-            const fullName = `${owner}/${repo}`;
-            const eventName = context.eventName;
-
-            let shouldRun = false;
-            let edrRef = "";
-            let hardhatRef = "main";
-            let isBaseline = false;
-
-            // Wait for the EDR CI workflow run for `sha` to conclude. Returns
-            // true only if it completed successfully. Polls for up to ~30 min.
-            async function waitForEdrCi(sha) {
-              const deadline = Date.now() + 30 * 60 * 1000;
-              while (Date.now() < deadline) {
-                const { data } = await github.rest.actions.listWorkflowRuns({
-                  owner,
-                  repo,
-                  workflow_id: "edr-ci.yml",
-                  head_sha: sha,
-                  per_page: 1,
-                });
-                const run = data.workflow_runs[0];
-                if (run !== undefined && run.status === "completed") {
-                  core.info(`EDR CI run ${run.id} concluded: ${run.conclusion}`);
-                  return run.conclusion === "success";
-                }
-                core.info(
-                  `EDR CI for ${sha.slice(0, 12)} not finished yet ` +
-                    `(status: ${run?.status ?? "not started"}); waiting...`,
-                );
-                await new Promise((r) => setTimeout(r, 30000));
-              }
-              core.warning("Timed out waiting for EDR CI to conclude");
-              return false;
-            }
-
-            async function postComment(body) {
-              if (eventName !== "issue_comment") return;
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: context.payload.issue.number,
-                body,
-              });
-            }
-
-            if (eventName === "push") {
-              shouldRun = true;
-              edrRef = context.sha;
-              hardhatRef = "main";
-              isBaseline = true;
-            } else if (eventName === "workflow_dispatch") {
-              shouldRun = true;
-              edrRef = context.sha;
-              hardhatRef = context.payload.inputs["hardhat-ref"] || "main";
-              isBaseline = false;
-            } else if (eventName === "issue_comment") {
-              const comment = context.payload.comment;
-              const assoc = comment.author_association;
-              const allowed = ["OWNER", "MEMBER", "COLLABORATOR"];
-
-              // Acknowledge the request.
-              try {
-                await github.rest.reactions.createForIssueComment({
-                  owner,
-                  repo,
-                  comment_id: comment.id,
-                  content: "eyes",
-                });
-              } catch (e) {
-                core.warning(`Could not add reaction: ${e.message}`);
-              }
-
-              if (!allowed.includes(assoc)) {
-                core.warning(
-                  `Comment author ${comment.user.login} (${assoc}) is not ` +
-                    `authorized to trigger benchmarks.`,
-                );
-              } else {
-                const { data: pr } = await github.rest.pulls.get({
-                  owner,
-                  repo,
-                  pull_number: context.payload.issue.number,
-                });
-
-                if (pr.head.repo.full_name !== fullName) {
-                  await postComment(
-                    "🚫 Regression benchmarks can only run for branches in " +
-                      "this repository, not forks (the self-hosted runner must " +
-                      "not execute untrusted code). Push your branch to " +
-                      `\`${fullName}\` and comment \`/bench\` again.`,
-                  );
-                } else {
-                  edrRef = pr.head.sha;
-                  isBaseline = false;
-
-                  const match = comment.body.match(/hardhat-ref=(\S+)/);
-                  hardhatRef = match ? match[1] : "main";
-
-                  // Gate on EDR CI being green for the PR head before spending
-                  // ~3h on the self-hosted runner.
-                  const green = await waitForEdrCi(pr.head.sha);
-                  if (green) {
-                    shouldRun = true;
-                    await postComment(
-                      `🚀 Starting regression benchmark for \`${edrRef.slice(0, 12)}\` ` +
-                        `against Hardhat \`${hardhatRef}\`.`,
-                    );
-                  } else {
-                    await postComment(
-                      "⏳ EDR CI for this commit hasn't passed yet, so the " +
-                        "regression benchmark was not started. Comment " +
-                        "`/bench` again once CI is green.",
-                    );
-                  }
-                }
-              }
-            }
-
-            core.setOutput("should_run", String(shouldRun));
-            core.setOutput("edr_ref", edrRef);
-            core.setOutput("hardhat_ref", hardhatRef);
-            core.setOutput("is_baseline", String(isBaseline));
-            core.info(
-              `should_run=${shouldRun} edr_ref=${edrRef} ` +
-                `hardhat_ref=${hardhatRef} is_baseline=${isBaseline}`,
-            );
+            const resolve = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/resolve-regression-trigger.cjs`);
+            await resolve({ github, context, core });
 
   regression-benchmark:
     name: Regression benchmark
