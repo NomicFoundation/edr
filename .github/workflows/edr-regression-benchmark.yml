@@ -250,30 +250,6 @@ jobs:
         working-directory: crates/edr_napi
         run: pnpm build
 
-      - name: Stage built binary into the platform package
-        working-directory: crates/edr_napi
-        run: cp edr.linux-x64-gnu.node npm/linux-x64-gnu/edr.linux-x64-gnu.node
-
-      - name: Compile EDR TypeScript helpers
-        working-directory: crates/edr_napi
-        # Mirror the release flow (edr-npm-release.yml): the published package's
-        # `files`/`exports` reference dist/src and coverage.sol, so produce them
-        # here too — otherwise the `@nomicfoundation/edr/coverage` export is broken.
-        run: |
-          cp ../../data/contracts/coverage.sol ./coverage.sol
-          pnpm exec tsc
-
-      - name: Version + wire the local EDR packages
-        working-directory: crates/edr_napi
-        # Skip scripts/prepublish.sh: it would inject all 7 platform packages as
-        # hard dependencies, but we only build & publish linux-x64-gnu. Wire the
-        # single platform dependency manually instead (index.js requires it).
-        run: |
-          set -euo pipefail
-          npm pkg set version="$EDR_VER"
-          npm pkg set version="$EDR_VER" --prefix npm/linux-x64-gnu
-          npm pkg set "dependencies.@nomicfoundation/edr-linux-x64-gnu=$EDR_VER"
-
       - name: Install Hardhat dependencies
         working-directory: hardhat
         # setup-node installs EDR's pinned pnpm (10.x). Hardhat pins pnpm 11 via
@@ -305,14 +281,16 @@ jobs:
         run: pnpm verdaccio start --background
 
       - name: Publish local EDR to Verdaccio
-        working-directory: crates/edr_napi
-        # Platform package first, then the main package that depends on it.
-        # Reuse Hardhat's pre-seeded Verdaccio auth (user test:test).
+        # Stage the built binary, compile the TS helpers, pin the versions, wire
+        # the platform dependency, and publish both packages (platform first).
+        # See scripts/publish_to_verdaccio.sh — the shared source of
+        # truth also used by the local-release docs and the verdaccio skill.
+        # Reuses Hardhat's pre-seeded Verdaccio auth (user test:test).
         run: |
-          set -euo pipefail
-          export NPM_CONFIG_USERCONFIG="$HH/.verdaccio/.npmrc"
-          ( cd npm/linux-x64-gnu && pnpm publish --registry=http://127.0.0.1:4873/ --no-git-checks --access public )
-          pnpm publish --registry=http://127.0.0.1:4873/ --no-git-checks --access public
+          bash ./scripts/publish_to_verdaccio.sh \
+            --version "$EDR_VER" \
+            --registry http://127.0.0.1:4873/ \
+            --npmrc "$HH/.verdaccio/.npmrc"
 
       - name: Run regression benchmark
         working-directory: hardhat
