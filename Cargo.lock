@@ -3138,6 +3138,7 @@ version = "0.3.8"
 dependencies = [
  "alloy-sol-types",
  "crossbeam-channel",
+ "derive-where",
  "derive_more 2.1.1",
  "edr_artifact",
  "edr_block_header",
@@ -3169,6 +3170,7 @@ dependencies = [
  "edr_solidity_tests",
  "edr_state_api",
  "edr_tracing",
+ "edr_utils_sync",
  "foundry-cheatcodes",
  "foundry-compilers",
  "mimalloc",
@@ -3914,6 +3916,14 @@ name = "edr_utils"
 version = "0.3.8"
 dependencies = [
  "edr_primitives",
+]
+
+[[package]]
+name = "edr_utils_sync"
+version = "0.3.8"
+dependencies = [
+ "crossbeam-channel",
+ "tracing",
 ]
 
 [[package]]

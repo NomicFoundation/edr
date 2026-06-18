@@ -64,6 +64,7 @@ members = [
     "crates/test/mem_pool",
     "crates/test/receipt",
     "crates/test/transaction",
+    "crates/utils/sync",
     "crates/tool/cli",
     "crates/tool/solidity",
     "crates/tool/op_chain_config_generator",
@@ -195,6 +196,7 @@ edr_test_utils = { path = "crates/edr_test_utils" }
 edr_tracing = { path = "crates/tracing" }
 edr_transaction = { path = "crates/edr_transaction" }
 edr_utils = { path = "crates/edr_utils" }
+edr_utils_sync = { path = "crates/utils/sync" }
 
 foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
 foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }

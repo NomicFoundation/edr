@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 alloy-sol-types.workspace = true
 crossbeam-channel = "0.5"
 derive_more.workspace = true
+derive-where.workspace = true
 edr_artifact.workspace = true
 edr_block_header.workspace = true
 edr_block_miner.workspace = true
@@ -40,6 +41,7 @@ edr_state_api.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_tracing.workspace = true
+edr_utils_sync.workspace = true
 mimalloc = { version = "0.1.39", default-features = false, features = [
     "local_dynamic_tls",
 ] }

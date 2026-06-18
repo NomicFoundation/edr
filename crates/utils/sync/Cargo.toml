@@ -1,0 +1,11 @@
+[package]
+name = "edr_utils_sync"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+crossbeam-channel = "0.5"
+tracing = { workspace = true }
+
+[lints]
+workspace = true
