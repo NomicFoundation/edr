@@ -25,8 +25,8 @@ use foundry_evm::{
 };
 
 use crate::helpers::{
-    ForgeTestData, L1ForgeTestData, SolidityTestFilter, TestConfig, TEST_DATA_DEFAULT,
-    TEST_DATA_VIA_IR,
+    contract_decoder, ForgeTestData, L1ForgeTestData, SolidityTestFilter, TestConfig,
+    TEST_DATA_DEFAULT, TEST_DATA_VIA_IR,
 };
 
 macro_rules! remote_test_repro {
@@ -605,7 +605,7 @@ async fn issue_1482() {
     // Use a real contract decoder (not the `NoOpContractDecoder` the other
     // helpers use) so that the test contract is recognized and the full stack
     // trace error inferrer runs — that's where the cheatcode error is decoded.
-    let contract_decoder = TEST_DATA_VIA_IR.contract_decoder();
+    let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
     let runner = TEST_DATA_VIA_IR
         .runner_with_contract_decoder(config, contract_decoder)
         .await;
@@ -616,33 +616,31 @@ async fn issue_1482() {
         .get("via-ir/repros/Issue1482.t.sol:Issue1482Test")
         .expect("the Issue1482 test suite should have run");
 
-    assert!(
-        !suite.test_results.is_empty(),
-        "the Issue1482 test suite should contain test functions"
+    let result = suite
+        .test_results
+        .get("testUnsupportedBreakpoint()")
+        .expect("testUnsupportedBreakpoint should have run");
+
+    assert_eq!(
+        result.status,
+        TestStatus::Failure,
+        "the test should fail because the cheatcode is unsupported"
     );
 
-    for (test_name, result) in &suite.test_results {
-        assert_eq!(
-            result.status,
-            TestStatus::Failure,
-            "{test_name} should fail because the cheatcode is unsupported"
-        );
+    let stack_trace = match result
+        .stack_trace_result
+        .as_ref()
+        .expect("stack trace should be computed on failure")
+    {
+        SolidityTestStackTraceResult::Success(entries) => entries,
+        other => panic!("expected a stack trace, got {other:?}"),
+    };
 
-        let stack_trace = match result
-            .stack_trace_result
-            .as_ref()
-            .unwrap_or_else(|| panic!("{test_name}: stack trace should be computed on failure"))
-        {
-            SolidityTestStackTraceResult::Success(entries) => entries,
-            other => panic!("{test_name}: expected a stack trace, got {other:?}"),
-        };
-
-        assert!(
-            stack_trace.iter().any(|entry| matches!(
-                entry,
-                StackTraceEntry::CheatCodeError { message, .. } if message.contains("not supported")
-            )),
-            "{test_name}: expected an unsupported-cheatcode stack trace entry, got:\n{stack_trace:#?}"
-        );
-    }
+    assert!(
+        stack_trace.iter().any(|entry| matches!(
+            entry,
+            StackTraceEntry::CheatCodeError { message, .. } if message.contains("not supported")
+        )),
+        "expected an unsupported-cheatcode stack trace entry, got:\n{stack_trace:#?}"
+    );
 }

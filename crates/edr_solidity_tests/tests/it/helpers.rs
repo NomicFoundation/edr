@@ -5,11 +5,17 @@ mod tracing;
 
 pub use config::{assert_multiple, make_test_identifier, TestConfig};
 use edr_decoder_revert::RevertDecoder;
+use parking_lot::RwLock;
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
 use std::{
-    borrow::Cow, collections::HashMap, env, fmt, io::Write, marker::PhantomData, path::PathBuf,
+    borrow::Cow,
+    collections::HashMap,
+    env, fmt,
+    io::Write,
+    marker::PhantomData,
+    path::{Path, PathBuf},
     sync::Mutex,
 };
 
@@ -17,7 +23,7 @@ use alloy_primitives::{Bytes, U256};
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
-    artifacts::{BuildInfoBuffers, BuildInfoConfig, BuildInfoConfigWithBuffers},
+    artifacts::{BuildInfoConfig, BuildInfoWithOutput},
     config::IncludeTraces,
     contract_decoder::ContractDecoder,
     linker::{LinkOutput, Linker},
@@ -817,79 +823,13 @@ impl<
         .expect("Config should be ok")
     }
 
-    /// Builds a real [`ContractDecoder`] from the build-info files emitted by
-    /// the project (requires the profile to set `build_info = true`).
-    ///
-    /// Unlike the [`NoOpContractDecoder`] used by [`Self::build_runner`], this
-    /// decoder recognizes contracts from their bytecode and attaches contract
-    /// metadata, so stack-trace generation runs the full error inferrer.
-    pub fn contract_decoder(&self) -> ContractDecoder {
-        let build_info_dir = self.project.build_info_path();
-        let buffers: Vec<Vec<u8>> = std::fs::read_dir(build_info_dir)
-            .unwrap_or_else(|err| {
-                panic!(
-                    "failed to read build-info dir {}: {err}",
-                    build_info_dir.display()
-                )
-            })
-            .filter_map(Result::ok)
-            .map(|entry| entry.path())
-            .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
-            .map(|path| {
-                let bytes = std::fs::read(&path).expect("failed to read build-info file");
-                let mut value: serde_json::Value =
-                    serde_json::from_slice(&bytes).expect("failed to parse build-info json");
-                // Foundry's build-info omits `evm.{bytecode,deployedBytecode}.opcodes`,
-                // which edr_solidity's artifact parser requires (the field is
-                // otherwise unused). Inject an empty value so parsing succeeds.
-                if let Some(contracts) = value
-                    .get_mut("output")
-                    .and_then(|output| output.get_mut("contracts"))
-                    .and_then(serde_json::Value::as_object_mut)
-                {
-                    for file in contracts.values_mut() {
-                        let Some(file) = file.as_object_mut() else {
-                            continue;
-                        };
-                        for contract in file.values_mut() {
-                            for key in ["bytecode", "deployedBytecode"] {
-                                if let Some(bytecode) = contract
-                                    .get_mut("evm")
-                                    .and_then(|evm| evm.get_mut(key))
-                                    .and_then(serde_json::Value::as_object_mut)
-                                    && !bytecode.contains_key("opcodes")
-                                {
-                                    bytecode.insert(
-                                        "opcodes".to_string(),
-                                        serde_json::Value::String(String::new()),
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-                serde_json::to_vec(&value).expect("failed to serialize patched build-info")
-            })
-            .collect();
-        assert!(
-            !buffers.is_empty(),
-            "no build-info files found in {}",
-            build_info_dir.display()
-        );
-
-        let config = BuildInfoConfig::parse_from_buffers(BuildInfoConfigWithBuffers {
-            build_infos: Some(BuildInfoBuffers::WithOutput(
-                buffers.iter().map(Vec::as_slice).collect(),
-            )),
-            ignore_contracts: None,
-        })
-        .expect("failed to parse build infos");
-
-        ContractDecoder::new(&config).expect("failed to build contract decoder")
+    /// Path to the project's build-info files
+    pub fn build_info_path(&self) -> &Path {
+        self.project.build_info_path()
     }
 
-    /// Builds a runner that uses the given (real) contract decoder so that
-    /// stack traces are computed against recognized contracts.
+    /// Builds a runner backed by the given [`ContractDecoder`], rather than the
+    /// [`NoOpContractDecoder`] used by [`Self::build_runner`].
     pub async fn runner_with_contract_decoder(
         &self,
         mut config: SolidityTestRunnerConfig<HardforkT>,
@@ -913,7 +853,7 @@ impl<
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
-            parking_lot::RwLock<ContractDecoder>,
+            RwLock<ContractDecoder>,
             TransactionErrorT,
             TransactionT,
         >::new(
@@ -921,7 +861,7 @@ impl<
             self.test_contracts.clone(),
             self.known_contracts.clone(),
             self.libs_to_deploy.clone(),
-            parking_lot::RwLock::new(contract_decoder),
+            RwLock::new(contract_decoder),
             self.revert_decoder.clone(),
         )
         .await
@@ -950,6 +890,73 @@ impl<
         invariant_failure_dirs.push(dir);
         path
     }
+}
+
+/// Builds a real [`ContractDecoder`] from the build-info files in
+/// `build_info_dir` (requires the profile to set `build_info = true`).
+///
+/// Unlike the [`NoOpContractDecoder`] used by [`ForgeTestData::build_runner`],
+/// this decoder recognizes contracts from their bytecode and attaches contract
+/// metadata, so stack-trace generation runs the full error inferrer.
+pub fn contract_decoder(build_info_dir: &Path) -> ContractDecoder {
+    let build_infos: Vec<BuildInfoWithOutput> = std::fs::read_dir(build_info_dir)
+        .unwrap_or_else(|err| {
+            panic!(
+                "failed to read build-info dir {}: {err}",
+                build_info_dir.display()
+            )
+        })
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+        .map(|path| {
+            let bytes = std::fs::read(&path).expect("failed to read build-info file");
+            let mut value: serde_json::Value =
+                serde_json::from_slice(&bytes).expect("failed to parse build-info json");
+            // Foundry's build-info omits `evm.{bytecode,deployedBytecode}.opcodes`,
+            // which edr_solidity's artifact parser requires (the field is
+            // otherwise unused). Inject an empty value so parsing succeeds.
+            if let Some(contracts) = value
+                .get_mut("output")
+                .and_then(|output| output.get_mut("contracts"))
+                .and_then(serde_json::Value::as_object_mut)
+            {
+                for file in contracts.values_mut() {
+                    let Some(file) = file.as_object_mut() else {
+                        continue;
+                    };
+                    for contract in file.values_mut() {
+                        for key in ["bytecode", "deployedBytecode"] {
+                            if let Some(bytecode) = contract
+                                .get_mut("evm")
+                                .and_then(|evm| evm.get_mut(key))
+                                .and_then(serde_json::Value::as_object_mut)
+                                && !bytecode.contains_key("opcodes")
+                            {
+                                bytecode.insert(
+                                    "opcodes".to_string(),
+                                    serde_json::Value::String(String::new()),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            serde_json::from_value(value).expect("failed to parse patched build-info")
+        })
+        .collect();
+    assert!(
+        !build_infos.is_empty(),
+        "no build-info files found in {}",
+        build_info_dir.display()
+    );
+
+    let config = BuildInfoConfig {
+        build_infos,
+        ignore_contracts: None,
+    };
+
+    ContractDecoder::new(&config).expect("failed to build contract decoder")
 }
 
 fn get_compiled(project: &Project) -> ProjectCompileOutput {
