@@ -56,7 +56,8 @@ module.exports = async ({ github, context, core }) => {
     try {
       await fn();
     } catch (e) {
-      core.warning(`${description} failed (ignored): ${e.message}`);
+      const message = e instanceof Error ? e.message : String(e);
+      core.warning(`${description} failed (ignored): ${message}`);
     }
   }
 

@@ -88,15 +88,6 @@ jobs:
       # Known clone dir, shared by the benchmark and validation steps so the
       # installed EDR can be inspected after the run.
       E2E_CLONE_DIR: ${{ github.workspace }}/hardhat/e2e-clones
-      # The "Repoint Hardhat at the local EDR build" step deliberately desyncs
-      # packages/hardhat/package.json from Hardhat's pnpm-lock.yaml (the
-      # `-local.<sha>` sentinel only exists in Verdaccio, published later). Stop
-      # pnpm from running a frozen-lockfile deps check before `pnpm <script>`/bin
-      # invocations (`pnpm verdaccio ...`, `pnpm bench:regression ...`), which
-      # would otherwise abort with ERR_PNPM_OUTDATED_LOCKFILE. The explicit
-      # `pnpm install --frozen-lockfile` steps run before the repoint and still
-      # validate normally.
-      PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
     steps:
       - name: Checkout EDR
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -174,6 +165,14 @@ jobs:
 
       - name: Start Verdaccio
         working-directory: hardhat
+        # The preceding repoint desyncs packages/hardhat/package.json from
+        # pnpm-lock.yaml (the `-local.<sha>` sentinel only exists in Verdaccio,
+        # published later), so disable pnpm's pre-run frozen-lockfile deps check
+        # for this `pnpm <bin>` invocation — it would otherwise abort with
+        # ERR_PNPM_OUTDATED_LOCKFILE. Scoped to this step so the earlier
+        # `pnpm build`/`rebuild` steps keep their verification.
+        env:
+          PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
         run: pnpm verdaccio start --background
 
       - name: Publish local EDR to Verdaccio
@@ -188,6 +187,9 @@ jobs:
         working-directory: hardhat
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
+          # See "Start Verdaccio": bypass pnpm's frozen-lockfile deps check for
+          # the repoint-desynced workspace.
+          PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
         # --force-publish: reuse our already-running Verdaccio (instead of
         #   erroring) and run the global sinceReleasePublish once up front.
         # --use-local: republish the (repointed) hardhat workspace packages and
