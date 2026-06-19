@@ -85,9 +85,12 @@ jobs:
     env:
       # Hardhat is checked out into ./hardhat; the EDR repo is the workspace root.
       HH: ${{ github.workspace }}/hardhat
-      # Known clone dir, shared by the benchmark and validation steps so the
-      # installed EDR can be inspected after the run.
-      E2E_CLONE_DIR: ${{ github.workspace }}/hardhat/e2e-clones
+      # We use a clone dir that's different than Hardhat's CI to avoid overwriting
+      # their CI files and allow inspection before the next workflow run.
+      #
+      # The clone dir is deliberately outside of the workspace to avoid package
+      # managers of the scenarios from picking up the workspace's configuration.
+      E2E_CLONE_DIR: /tmp/edr-e2e-clones
     steps:
       - name: Checkout EDR
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -124,14 +127,10 @@ jobs:
           sudo apt-get install -y hyperfine jq
 
       - name: Compute sentinel versions
-        run: |
-          set -euo pipefail
-          EDR_BASE=$(node -p "require('./crates/edr_napi/package.json').version")
-          HH_BASE=$(node -p "require('./hardhat/packages/hardhat/package.json').version")
-          SHORT_SHA="${{ needs.setup.outputs.edr_ref }}"
-          SHORT_SHA="${SHORT_SHA:0:12}"
-          echo "EDR_VER=${EDR_BASE}-local.${SHORT_SHA}" >> "$GITHUB_ENV"
-          echo "HH_VER=${HH_BASE}-edr.${SHORT_SHA}" >> "$GITHUB_ENV"
+        # Writes EDR_VER and HH_VER to $GITHUB_ENV
+        env:
+          EDR_REF: ${{ needs.setup.outputs.edr_ref }}
+        run: node .github/scripts/compute-sentinel-versions.cjs
 
       - name: Install EDR dependencies
         run: sfw pnpm install --frozen-lockfile --prefer-offline
