@@ -25,7 +25,14 @@ on:
     types: [created]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.issue.number || github.ref }}
+  # Group by PR (comment events) or ref (push/dispatch) so re-triggering `/bench`
+  # on a PR supersedes the previous run.
+  #
+  # Every comment triggers a workflow run. The job-level `if` skips non-`/bench`
+  # ones, but that runs after concurrency is evaluated, so an unrelated comment
+  # can cancel an in-progress benchmark. Give those skipped runs a unique group
+  # so they collide with nothing.
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.ref }}${{ (github.event_name == 'issue_comment' && !startsWith(github.event.comment.body, '/bench')) && format('-skip-{0}', github.run_id) || '' }}
   # Don't cancel in-progress baseline runs on main so baselines aren't lost.
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
@@ -36,7 +43,7 @@ jobs:
     timeout-minutes: 40
     permissions:
       contents: read # read PR head / checkout metadata
-      pull-requests: read # pulls.get to resolve PR head + fork check
+      pull-requests: write # pulls.get + post status comments/reactions on the PR
       issues: write # post status comments + reactions on the PR
       actions: read # list EDR CI workflow runs for the CI-green gate
     # For comment events, only proceed for `/bench` comments on a PR. Other
