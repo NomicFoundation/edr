@@ -107,11 +107,20 @@ if [ -n "$NPMRC" ]; then
   export NPM_CONFIG_USERCONFIG="$NPMRC"
 fi
 
+# npm refuses to publish a prerelease (a version with a `-<pre-release>` segment,
+# e.g. `0.12.1-local.<sha>`) to the implicit `latest` dist-tag, so publish those
+# under an explicit tag. Consumers pin the exact version, so the tag name is only
+# there to satisfy npm.
+PUBLISH_ARGS=(--registry="$REGISTRY" --no-git-checks --access public)
+case "$VERSION" in
+  *-*) PUBLISH_ARGS+=(--tag local) ;;
+esac
+
 # Publish the platform package first so the main package's dependency resolves.
 echo ">> Publishing @nomicfoundation/edr-$PLATFORM@$VERSION"
-( cd "$PLATFORM_DIR" && pnpm publish --registry="$REGISTRY" --no-git-checks --access public )
+( cd "$PLATFORM_DIR" && pnpm publish "${PUBLISH_ARGS[@]}" )
 
 echo ">> Publishing @nomicfoundation/edr@$VERSION"
-( cd "$NAPI_DIR" && pnpm publish --registry="$REGISTRY" --no-git-checks --access public )
+( cd "$NAPI_DIR" && pnpm publish "${PUBLISH_ARGS[@]}" )
 
 echo ">> Done. Published @nomicfoundation/edr@$VERSION (+ -$PLATFORM) to $REGISTRY"
