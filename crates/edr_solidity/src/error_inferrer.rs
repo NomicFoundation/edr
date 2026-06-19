@@ -240,9 +240,7 @@ pub(crate) fn infer_after_tracing<HaltReasonT: HaltReasonTrait>(
 }
 
 fn selector_from(calldata: &Bytes) -> &[u8] {
-    calldata
-        .get(..SELECTOR_LEN)
-        .unwrap_or(calldata.get(..).expect("calldata should be accessible"))
+    calldata.get(..SELECTOR_LEN).unwrap_or(calldata)
 }
 
 pub(crate) fn infer_before_tracing_call_message<HaltReasonT: HaltReasonTrait>(
@@ -603,7 +601,7 @@ fn get_cheatcode_error_source_reference<HaltReasonT: HaltReasonTrait>(
         }
     }
 
-    // Cheatcode call side not found. Fall back to the start of the function (or
+    // Cheatcode call site not found. Fall back to the start of the function (or
     // constructor) that invoked the cheatcode.
     match trace {
         CreateOrCallMessageRef::Create(create) => get_constructor_start_source_reference(create),
