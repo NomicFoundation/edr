@@ -85,8 +85,8 @@ jobs:
     env:
       # Hardhat is checked out into ./hardhat; the EDR repo is the workspace root.
       HH: ${{ github.workspace }}/hardhat
-      # We use a unique clone dir to avoid conflicts with other jobs on the
-      # dedicated CI runner and to allow inspection after the run.
+      # We use a clone dir that's different than Hardhat's CI to avoid overwriting
+      # their CI files and allow inspection before the next workflow run.
       #
       # The clone dir is deliberately outside of the workspace to avoid package
       # managers of the scenarios from picking up the workspace's configuration.
