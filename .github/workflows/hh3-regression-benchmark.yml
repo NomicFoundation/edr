@@ -127,14 +127,10 @@ jobs:
           sudo apt-get install -y hyperfine jq
 
       - name: Compute sentinel versions
-        run: |
-          set -euo pipefail
-          EDR_BASE=$(node -p "require('./crates/edr_napi/package.json').version")
-          HH_BASE=$(node -p "require('./hardhat/packages/hardhat/package.json').version")
-          SHORT_SHA="${{ needs.setup.outputs.edr_ref }}"
-          SHORT_SHA="${SHORT_SHA:0:12}"
-          echo "EDR_VER=${EDR_BASE}-local.${SHORT_SHA}" >> "$GITHUB_ENV"
-          echo "HH_VER=${HH_BASE}-edr.${SHORT_SHA}" >> "$GITHUB_ENV"
+        # Writes EDR_VER and HH_VER to $GITHUB_ENV
+        env:
+          EDR_REF: ${{ needs.setup.outputs.edr_ref }}
+        run: node .github/scripts/compute-sentinel-versions.cjs
 
       - name: Install EDR dependencies
         run: sfw pnpm install --frozen-lockfile --prefer-offline
