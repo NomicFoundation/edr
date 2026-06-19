@@ -50,12 +50,20 @@ module.exports = async ({ github, context, core }) => {
 
   async function postComment(body) {
     if (eventName !== "issue_comment") return;
-    await github.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: context.payload.issue.number,
-      body,
-    });
+    // A read-only GITHUB_TOKEN (e.g. when the repo's default workflow
+    // permissions are read-only) rejects comment writes with 403. Posting the
+    // status is cosmetic; the gating decision (`should_run`) is what matters, so
+    // degrade to a warning instead of aborting the job.
+    try {
+      await github.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: context.payload.issue.number,
+        body,
+      });
+    } catch (e) {
+      core.warning(`Could not post comment: ${e.message}`);
+    }
   }
 
   if (eventName === "push") {
