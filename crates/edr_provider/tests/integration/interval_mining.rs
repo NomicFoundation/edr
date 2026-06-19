@@ -100,7 +100,10 @@ async fn evm_set_interval_mining_enables_and_disables() -> anyhow::Result<()> {
     );
 
     // Enable interval mining at runtime and confirm blocks start appearing.
-    set_interval_mining(&provider, IntervalConfigRequest::FixedOrDisabled(INTERVAL_MS))?;
+    set_interval_mining(
+        &provider,
+        IntervalConfigRequest::FixedOrDisabled(INTERVAL_MS),
+    )?;
     assert!(
         wait_for_block_after(&provider, start)?,
         "enabling interval mining should produce a new block"
