@@ -24,7 +24,7 @@ importers:
         version: 2.31.0(@types/node@22.7.5)
       prettier:
         specifier: ^3.2.5
-        version: 3.8.3
+        version: 3.8.4
       syncpack:
         specifier: ^12.4.0
         version: 12.4.0(typescript@5.9.3)
@@ -51,7 +51,7 @@ importers:
         version: 10.0.10
       '@types/node':
         specifier: ^20.0.0
-        version: 20.19.42
+        version: 20.19.43
       '@typescript-eslint/eslint-plugin':
         specifier: 5.62.0
         version: 5.62.0(@typescript-eslint/parser@5.62.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
@@ -81,7 +81,7 @@ importers:
         version: 10.5.0(eslint@8.57.1)
       eslint-plugin-prettier:
         specifier: 5.5.6
-        version: 5.5.6(eslint-config-prettier@9.1.2(eslint@8.57.1))(eslint@8.57.1)(prettier@3.8.3)
+        version: 5.5.6(eslint-config-prettier@9.1.2(eslint@8.57.1))(eslint@8.57.1)(prettier@3.8.4)
       ethers:
         specifier: ^6.1.0
         version: 6.16.0
@@ -93,10 +93,10 @@ importers:
         version: 10.8.2
       prettier:
         specifier: ^3.2.5
-        version: 3.8.3
+        version: 3.8.4
       ts-node:
         specifier: ^10.8.0
-        version: 10.9.2(@types/node@20.19.42)(typescript@5.8.3)
+        version: 10.9.2(@types/node@20.19.43)(typescript@5.8.3)
       typescript:
         specifier: ~5.8.2
         version: 5.8.3
@@ -156,7 +156,7 @@ importers:
         version: 10.0.10
       '@types/node':
         specifier: ^20.0.0
-        version: 20.19.42
+        version: 20.19.43
       '@types/resolve':
         specifier: ^1.17.1
         version: 1.20.6
@@ -201,7 +201,7 @@ importers:
         version: 10.5.0(eslint@8.57.1)
       eslint-plugin-prettier:
         specifier: 5.5.6
-        version: 5.5.6(eslint-config-prettier@9.1.2(eslint@8.57.1))(eslint@8.57.1)(prettier@3.8.3)
+        version: 5.5.6(eslint-config-prettier@9.1.2(eslint@8.57.1))(eslint@8.57.1)(prettier@3.8.4)
       ethereumjs-abi:
         specifier: ^0.6.8
         version: 0.6.8
@@ -213,13 +213,13 @@ importers:
         version: 7.0.1
       hardhat:
         specifier: 2.28.4
-        version: 2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.42)(typescript@5.8.3))(typescript@5.8.3)
+        version: 2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.43)(typescript@5.8.3))(typescript@5.8.3)
       mocha:
         specifier: ^10.0.0
         version: 10.8.2
       prettier:
         specifier: ^3.2.5
-        version: 3.8.3
+        version: 3.8.4
       rimraf:
         specifier: ^3.0.2
         version: 3.0.2
@@ -231,7 +231,7 @@ importers:
         version: 9.2.4
       ts-node:
         specifier: ^10.8.0
-        version: 10.9.2(@types/node@20.19.42)(typescript@5.8.3)
+        version: 10.9.2(@types/node@20.19.43)(typescript@5.8.3)
       typescript:
         specifier: ~5.8.2
         version: 5.8.3
@@ -268,7 +268,7 @@ importers:
         version: 4.17.0
       '@types/node':
         specifier: ^20.0.0
-        version: 20.19.42
+        version: 20.19.43
       '@typescript-eslint/eslint-plugin':
         specifier: 5.62.0
         version: 5.62.0(@typescript-eslint/parser@5.62.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)
@@ -289,19 +289,19 @@ importers:
         version: 2.32.0(@typescript-eslint/parser@5.62.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)
       eslint-plugin-prettier:
         specifier: 5.5.6
-        version: 5.5.6(eslint-config-prettier@9.1.2(eslint@8.57.1))(eslint@8.57.1)(prettier@3.8.3)
+        version: 5.5.6(eslint-config-prettier@9.1.2(eslint@8.57.1))(eslint@8.57.1)(prettier@3.8.4)
       hardhat:
         specifier: 3.4.5
         version: 3.4.5(patch_hash=0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805)
       hardhat2:
         specifier: npm:hardhat@2.28.4
-        version: hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.42)(typescript@5.8.3))(typescript@5.8.3)
+        version: hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.43)(typescript@5.8.3))(typescript@5.8.3)
       lodash:
         specifier: ^4.17.11
         version: 4.17.21
       prettier:
         specifier: ^3.2.5
-        version: 3.8.3
+        version: 3.8.4
       simple-git:
         specifier: ^3.25.0
         version: 3.28.0
@@ -334,7 +334,7 @@ importers:
         version: 5.1.0
       '@types/node':
         specifier: ^20.0.0
-        version: 20.19.42
+        version: 20.19.43
       '@types/semver':
         specifier: ^6.0.2
         version: 6.2.7
@@ -358,7 +358,7 @@ importers:
         version: 10.5.0(eslint@8.57.1)
       eslint-plugin-prettier:
         specifier: 5.5.6
-        version: 5.5.6(eslint-config-prettier@9.1.2(eslint@8.57.1))(eslint@8.57.1)(prettier@3.8.3)
+        version: 5.5.6(eslint-config-prettier@9.1.2(eslint@8.57.1))(eslint@8.57.1)(prettier@3.8.4)
       fs-extra:
         specifier: ^7.0.1
         version: 7.0.1
@@ -367,7 +367,7 @@ importers:
         version: 3.4.5(patch_hash=0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805)
       prettier:
         specifier: ^3.2.5
-        version: 3.8.3
+        version: 3.8.4
       semver:
         specifier: ^6.3.0
         version: 6.3.1
@@ -388,7 +388,7 @@ importers:
         version: 20.1.9
       '@types/node':
         specifier: ^20.0.0
-        version: 20.19.42
+        version: 20.19.43
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.14.0
         version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6
@@ -397,7 +397,7 @@ importers:
         version: 3.4.5(patch_hash=0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805)
       prettier:
         specifier: ^3.2.5
-        version: 3.8.3
+        version: 3.8.4
       tsx:
         specifier: ^4.19.3
         version: 4.19.4
@@ -1099,8 +1099,8 @@ packages:
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
 
-  '@types/node@20.19.42':
-    resolution: {integrity: sha512-5L7SUaFC1RyDraj2yRhyBzHTobyXHmohD100CChNtyPyleoq37Mqab5Gn8XEKI04dfN/oqPdpHk38MgcQWHbZg==}
+  '@types/node@20.19.43':
+    resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
 
   '@types/node@22.7.5':
     resolution: {integrity: sha512-jML7s2NAzMWc//QSJ1a3prpk78cOPchGvXJsC3C6R6PSMoooztvRVQEz89gmBTBY1SPMaqo5teB4uNHPdetShQ==}
@@ -2658,8 +2658,8 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
 
-  prettier@3.8.3:
-    resolution: {integrity: sha512-7igPTM53cGHMW8xWuVTydi2KO233VFiTNyF5hLJqpilHfmn8C8gPf+PS7dUT64YcXFbiMGZxS9pCSxL/Dxm/Jw==}
+  prettier@3.8.4:
+    resolution: {integrity: sha512-N2MylSdi48+5N/6S5j+maeHbUSIzzZ5uOcX5Hm4QpV8Dkb1HFjfAKTKX6yNPJQD9AhcT3ifHNB66tWTTJDi11Q==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -4024,7 +4024,7 @@ snapshots:
 
   '@types/bn.js@4.11.6':
     dependencies:
-      '@types/node': 20.19.42
+      '@types/node': 20.19.43
 
   '@types/chai-as-promised@7.1.8':
     dependencies:
@@ -4044,12 +4044,12 @@ snapshots:
 
   '@types/fs-extra@5.1.0':
     dependencies:
-      '@types/node': 20.19.42
+      '@types/node': 20.19.43
 
   '@types/glob@7.2.0':
     dependencies:
       '@types/minimatch': 5.1.2
-      '@types/node': 20.19.42
+      '@types/node': 20.19.43
 
   '@types/json-schema@7.0.15': {}
 
@@ -4057,7 +4057,7 @@ snapshots:
 
   '@types/keccak@3.0.4':
     dependencies:
-      '@types/node': 20.19.42
+      '@types/node': 20.19.43
 
   '@types/lodash@4.17.0': {}
 
@@ -4069,7 +4069,7 @@ snapshots:
 
   '@types/node@12.20.55': {}
 
-  '@types/node@20.19.42':
+  '@types/node@20.19.43':
     dependencies:
       undici-types: 6.21.0
 
@@ -4079,18 +4079,18 @@ snapshots:
 
   '@types/pbkdf2@3.1.2':
     dependencies:
-      '@types/node': 20.19.42
+      '@types/node': 20.19.43
 
   '@types/readable-stream@2.3.15':
     dependencies:
-      '@types/node': 20.19.42
+      '@types/node': 20.19.43
       safe-buffer: 5.1.2
 
   '@types/resolve@1.20.6': {}
 
   '@types/secp256k1@4.0.6':
     dependencies:
-      '@types/node': 20.19.42
+      '@types/node': 20.19.43
 
   '@types/semver@6.2.7': {}
 
@@ -4106,7 +4106,7 @@ snapshots:
 
   '@types/ws@7.4.7':
     dependencies:
-      '@types/node': 20.19.42
+      '@types/node': 20.19.43
 
   '@typescript-eslint/eslint-plugin@5.62.0(@typescript-eslint/parser@5.62.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)':
     dependencies:
@@ -4838,10 +4838,10 @@ snapshots:
       globals: 13.24.0
       rambda: 7.5.0
 
-  eslint-plugin-prettier@5.5.6(eslint-config-prettier@9.1.2(eslint@8.57.1))(eslint@8.57.1)(prettier@3.8.3):
+  eslint-plugin-prettier@5.5.6(eslint-config-prettier@9.1.2(eslint@8.57.1))(eslint@8.57.1)(prettier@3.8.4):
     dependencies:
       eslint: 8.57.1
-      prettier: 3.8.3
+      prettier: 3.8.4
       prettier-linter-helpers: 1.0.1
       synckit: 0.11.13
     optionalDependencies:
@@ -5207,7 +5207,7 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.42)(typescript@5.8.3))(typescript@5.8.3):
+  hardhat@2.28.4(patch_hash=e673aa2222bae6d08ea4b76561adbbf94ee393d74412eaea64f8837258809600)(ts-node@10.9.2(@types/node@20.19.43)(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
       '@ethereumjs/util': 9.1.0
       '@ethersproject/abi': 5.7.0
@@ -5249,7 +5249,7 @@ snapshots:
       uuid: 8.3.2
       ws: 7.5.9
     optionalDependencies:
-      ts-node: 10.9.2(@types/node@20.19.42)(typescript@5.8.3)
+      ts-node: 10.9.2(@types/node@20.19.43)(typescript@5.8.3)
       typescript: 5.8.3
     transitivePeerDependencies:
       - bufferutil
@@ -5886,7 +5886,7 @@ snapshots:
 
   prettier@2.8.8: {}
 
-  prettier@3.8.3: {}
+  prettier@3.8.4: {}
 
   proc-log@4.2.0: {}
 
@@ -6302,14 +6302,14 @@ snapshots:
 
   toidentifier@1.0.1: {}
 
-  ts-node@10.9.2(@types/node@20.19.42)(typescript@5.8.3):
+  ts-node@10.9.2(@types/node@20.19.43)(typescript@5.8.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.11
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 20.19.42
+      '@types/node': 20.19.43
       acorn: 8.11.3
       acorn-walk: 8.3.2
       arg: 4.1.3
