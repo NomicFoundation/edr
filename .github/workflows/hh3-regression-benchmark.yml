@@ -85,12 +85,8 @@ jobs:
     env:
       # Hardhat is checked out into ./hardhat; the EDR repo is the workspace root.
       HH: ${{ github.workspace }}/hardhat
-      # We use a clone dir that's different than Hardhat's CI to avoid overwriting
-      # their CI files and allow inspection before the next workflow run.
-      #
-      # The clone dir is deliberately outside of the workspace to avoid package
-      # managers of the scenarios from picking up the workspace's configuration.
-      E2E_CLONE_DIR: /tmp/edr-e2e-clones
+      # E2E_CLONE_DIR is derived from the runner's temp dir in the "Configure E2E
+      # clone directory" step below (runner.temp is unavailable in job-level env).
     steps:
       - name: Checkout EDR
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -125,6 +121,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y hyperfine jq
+
+      - name: Configure E2E clone directory
+        # Use the runner's per-job temp dir (emptied at the start/end of each job)
+        # so stale scenario clones from a previous run can't shadow the current
+        # EDR bump. `runner.temp` is unavailable in job-level env:, so set it here.
+        run: echo "E2E_CLONE_DIR=$RUNNER_TEMP/edr-e2e-clones" >> "$GITHUB_ENV"
 
       - name: Compute sentinel versions
         # Writes EDR_VER and HH_VER to $GITHUB_ENV
@@ -261,6 +263,17 @@ jobs:
             exit 1
           fi
           echo "All inspected scenarios use the local EDR build ($EDR_VER)."
+
+      # Persist the (possibly partial) benchmark output in the job log so it
+      # survives the runner's temp-dir cleanup and is available for debugging.
+      - name: Dump regression report on failure
+        if: failure()
+        working-directory: hardhat
+        run: |
+          echo "== regression-report.json =="
+          jq . regression-report.json 2>/dev/null \
+            || cat regression-report.json 2>/dev/null \
+            || echo "(no regression-report.json produced)"
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
