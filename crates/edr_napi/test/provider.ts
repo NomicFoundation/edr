@@ -927,6 +927,74 @@ describe("Provider", () => {
     });
   });
 
+  describe("printLineCallback", () => {
+    it("surfaces a throwing callback as an error instead of crashing", async function () {
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          genesisState: providerConfig.genesisState.concat(
+            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+          ),
+        },
+        {
+          // With `enable: false` the decoded console.log output is passed
+          // straight to `printLineCallback` (the else-branch in
+          // `edr_napi_core/src/logger.rs::log_console_log_messages`), so a
+          // throwing `printLineCallback` is reachable without the
+          // `enable: true` formatting path. `decodeConsoleLogInputsCallback`
+          // must succeed here so execution reaches the print step.
+          enable: false,
+          decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] =>
+            inputs.map(() => "hello"),
+          printLineCallback: (_message: string, _replace: boolean) => {
+            throw new Error("print exploded");
+          },
+        },
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        new ContractDecoder()
+      );
+
+      // Same console.log(string "hello") transaction as the decode tests.
+      const consoleLogHelloCalldata =
+        "0x41304fac" +
+        "0000000000000000000000000000000000000000000000000000000000000020" +
+        "0000000000000000000000000000000000000000000000000000000000000005" +
+        "68656c6c6f000000000000000000000000000000000000000000000000000000";
+      const consoleLogAddress = "0x000000000000000000636f6e736f6c652e6c6f67";
+
+      // Guards the logger's print error propagation (the other half of the
+      // decode test above): the JS exception must come back as a JSON-RPC
+      // error response carrying the message, not crash the process by
+      // dropping the result channel. Previously a throwing print callback
+      // was swallowed.
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              to: consoleLogAddress,
+              data: consoleLogHelloCalldata,
+              gas: "0xf4240",
+            },
+          ],
+        })
+      );
+
+      const responseData = JSON.parse(response.data);
+      assert.isDefined(responseData.error);
+      assert.match(
+        responseData.error.message,
+        /Failed to print line.*print exploded/
+      );
+    });
+  });
+
   describe("subscriptionCallback", () => {
     it("delivers a SubscriptionEvent for each new block under a newHeads subscription", async function () {
       const events: SubscriptionEvent[] = [];
