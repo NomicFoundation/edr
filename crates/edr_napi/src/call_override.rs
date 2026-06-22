@@ -37,16 +37,14 @@ struct CallOverrideCall {
     data: Bytes,
 }
 
-// Const generics: `ErrorStatus = Status`, `CalleeHandled = false`,
-// `Weak = true`, `MaxQueueSize = 0` (unbounded).
 type CallOverrideTsfn = ThreadsafeFunction<
     CallOverrideCall,
     Promise<Option<CallOverrideResult>>,
     FnArgs<(Uint8Array, Uint8Array)>,
-    Status,
-    false,
-    true,
-    0,
+    /* ErrorStatus */ Status,
+    /* CalleeHandled */ false,
+    /* Weak */ true,
+    /* MaxQueueSize */ 0,
 >;
 
 #[derive(Clone)]
