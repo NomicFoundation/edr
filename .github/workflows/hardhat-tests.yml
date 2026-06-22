@@ -38,10 +38,9 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
+      - uses: ./.github/actions/setup-llvm-cov
         with:
-          tool: cargo-llvm-cov@0.8.5
+          builds-napi-crate: "true"
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -70,11 +69,6 @@ jobs:
           DEBUG: "hardhat:core:hardhat-network:*"
         shell: bash
         run: |
-          # See `edr-ci.yml`'s test-edr-ts step for the rationale: napi-rs v3
-          # redirects cargo output to a target-suffixed dir, so pin
-          # CARGO_BUILD_TARGET to keep `cargo llvm-cov` and the rebuilt .node
-          # in the same subtree.
-          export CARGO_BUILD_TARGET=$(rustc --print host-tuple)
           source <(cargo llvm-cov show-env --sh)
           pnpm -C hardhat-tests test
           # `--release` included to match `build:dev` compilation flags
