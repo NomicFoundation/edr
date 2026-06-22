@@ -12,7 +12,7 @@ use edr_napi_core::provider::ConfigOption;
 use edr_primitives::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
 use napi::{
-    bindgen_prelude::{BigInt, Function, Promise, Reference, Uint8Array},
+    bindgen_prelude::{BigInt, Function, Promise, Reference, ToNapiValue, Uint8Array},
     threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunctionCallMode},
     tokio::runtime,
     Either, Env, JsString,
@@ -491,6 +491,99 @@ impl TryFrom<MiningConfig> for edr_provider::config::Mining {
     }
 }
 
+/// Bridges a JS async callback (`fn(Js) -> Promise<()>`) into the synchronous,
+/// blocking Rust callback the provider core requires.
+///
+/// Builds a weak threadsafe function from `callback`, then returns a closure
+/// that, on each call, converts the core value via `to_js`, invokes the JS
+/// function on its own thread, and blocks until the returned promise resolves.
+/// The three failure points — the threadsafe call not being scheduled, a
+/// synchronous exception in the callback, and a promise rejection — are all
+/// funneled into the returned `Result`. `label` names the callback in error
+/// messages.
+fn blocking_promise_callback<Core, Js, ToJs>(
+    callback: Function<'_, Js, Promise<()>>,
+    runtime: runtime::Handle,
+    label: &'static str,
+    to_js: ToJs,
+) -> napi::Result<
+    impl Fn(Core) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+        + Clone
+        + Send
+        + Sync
+        + use<Core, Js, ToJs>,
+>
+where
+    Js: ToNapiValue + Send + 'static,
+    ToJs: Fn(Core) -> Js + Clone + Send + Sync + 'static,
+{
+    let tsfn = std::sync::Arc::new(
+        callback
+            .build_threadsafe_function::<Js>()
+            // Maintain a weak reference to the function to avoid blocking the
+            // event loop from exiting.
+            .weak::<true>()
+            .build_callback(|ctx: ThreadsafeCallContext<Js>| Ok(ctx.value))?,
+    );
+
+    Ok(move |value: Core| {
+        let runtime = runtime.clone();
+        let (sender, receiver) = std::sync::mpsc::channel();
+
+        let status = tsfn.call_with_return_value(
+            to_js(value),
+            ThreadsafeFunctionCallMode::Blocking,
+            // Always send through the channel — including the `Err` case when
+            // the JS callback throws synchronously — so the `recv` below can't
+            // be left waiting on a dropped sender.
+            move |result: napi::Result<Promise<()>>, _env: Env| {
+                match result {
+                    Ok(promise) => {
+                        // Drive the returned promise on a background task.
+                        runtime.spawn(async move {
+                            sender.send(promise.await).map_err(|_error| {
+                                napi::Error::new(
+                                    napi::Status::GenericFailure,
+                                    format!("Failed to send result from {label}"),
+                                )
+                            })
+                        });
+                    }
+                    Err(error) => {
+                        sender.send(Err(error)).map_err(|_error| {
+                            napi::Error::new(
+                                napi::Status::GenericFailure,
+                                format!("Failed to send result from {label}"),
+                            )
+                        })?;
+                    }
+                }
+                Ok(())
+            },
+        );
+
+        if status != napi::Status::Ok {
+            return Err(napi::Error::new(
+                napi::Status::GenericFailure,
+                format!("Threadsafe call to {label} failed with status {status:?}"),
+            )
+            .into());
+        }
+
+        // The closure always sends when invoked, so the channel can only be
+        // closed if the threadsafe call was dropped without running it (e.g.
+        // during environment teardown).
+        receiver.recv().map_err(|_error| {
+            napi::Error::new(
+                napi::Status::GenericFailure,
+                format!("{label} was dropped before returning a result"),
+            )
+        })??;
+
+        Ok(())
+    })
+}
+
 impl ObservabilityConfig<'_> {
     /// Resolves the instance, converting it to a
     /// [`edr_provider::observability::Config`].
@@ -502,177 +595,38 @@ impl ObservabilityConfig<'_> {
             .code_coverage
             .map(
                 |code_coverage| -> napi::Result<Box<dyn SyncOnCollectedCoverageCallback>> {
-                    let runtime = runtime.clone();
+                    let callback = blocking_promise_callback(
+                        code_coverage.on_collected_coverage_callback,
+                        runtime.clone(),
+                        "on_collected_coverage_callback",
+                        // An array of unique coverage hit markers per transaction.
+                        |hits: HashSet<Bytes>| {
+                            hits.into_iter()
+                                .map(|hit| Uint8Array::from(hit.to_vec()))
+                                .collect::<Vec<_>>()
+                        },
+                    )?;
 
-                    let on_collected_coverage_callback = std::sync::Arc::new(
-                        code_coverage
-                            .on_collected_coverage_callback
-                            .build_threadsafe_function::<HashSet<Bytes>>()
-                            // Maintain a weak reference to the function to avoid blocking
-                            // the event loop from exiting.
-                            .weak::<true>()
-                            .build_callback(
-                                |ctx: ThreadsafeCallContext<HashSet<Bytes>>| {
-                                    let hits: Vec<Uint8Array> = ctx
-                                        .value
-                                        .into_iter()
-                                        .map(|hit| Uint8Array::from(hit.to_vec()))
-                                        .collect();
-
-                                    Ok(hits)
-                                },
-                            )?,
-                    );
-
-                    let on_collected_coverage_fn: Box<dyn SyncOnCollectedCoverageCallback> =
-                        Box::new(move |hits| {
-                            let runtime = runtime.clone();
-
-                            let (sender, receiver) = std::sync::mpsc::channel();
-
-                            // Always send through the channel — including the
-                            // `Err` cases when the JS callback throws
-                            // synchronously — so the `recv` below can't be
-                            // left with a dropped sender.
-                            let status = on_collected_coverage_callback.call_with_return_value(
-                                hits,
-                                ThreadsafeFunctionCallMode::Blocking,
-                                move |result: napi::Result<Promise<()>>, _env: Env| {
-                                    match result {
-                                        Ok(promise) => {
-                                            // We spawn a background task to handle the async callback
-                                            runtime.spawn(async move {
-                                                let result = promise.await;
-                                                sender.send(result).map_err(|_error| {
-                                                    napi::Error::new(
-                                                        napi::Status::GenericFailure,
-                                                        "Failed to send result from on_collected_coverage_callback",
-                                                    )
-                                                })
-                                            });
-                                        }
-                                        Err(error) => {
-                                            sender.send(Err(error)).map_err(|_error| {
-                                                napi::Error::new(
-                                                    napi::Status::GenericFailure,
-                                                    "Failed to send result from on_collected_coverage_callback",
-                                                )
-                                            })?;
-                                        }
-                                    }
-                                    Ok(())
-                                },
-                            );
-
-                            if status != napi::Status::Ok {
-                                return Err(napi::Error::new(
-                                    napi::Status::GenericFailure,
-                                    format!("Threadsafe call failed with status {status:?}"),
-                                )
-                                .into());
-                            }
-
-                            // The closure always sends when invoked, so the
-                            // channel can only be closed if the threadsafe
-                            // call was dropped without running it (e.g.
-                            // during environment teardown).
-                            let () = receiver
-                                .recv()
-                                .map_err(|_error| {
-                                    napi::Error::new(
-                                        napi::Status::GenericFailure,
-                                        "Callback was dropped before returning a result",
-                                    )
-                                })??;
-
-                            Ok(())
-                        });
-
-                    Ok(on_collected_coverage_fn)
+                    Ok(Box::new(callback))
                 },
             )
             .transpose()?;
-        let on_collected_gas_report_fn = self.gas_report.map(
-            |gas_report| -> napi::Result<Box<dyn SyncOnCollectedGasReportCallback>> {
-                let on_collected_gas_report_callback = std::sync::Arc::new(
-                    gas_report
-                        .on_collected_gas_report_callback
-                        .build_threadsafe_function::<GasReport>()
-                        // Maintain a weak reference to the function to avoid blocking
-                        // the event loop from exiting.
-                        .weak::<true>()
-                        .build_callback(|ctx: ThreadsafeCallContext<GasReport>| Ok(ctx.value))?,
-                );
 
-                let on_collected_gas_report_fn: Box<dyn SyncOnCollectedGasReportCallback> =
-                    Box::new(move |report| {
-                        let runtime = runtime.clone();
+        let on_collected_gas_report_fn = self
+            .gas_report
+            .map(
+                |gas_report| -> napi::Result<Box<dyn SyncOnCollectedGasReportCallback>> {
+                    let callback = blocking_promise_callback(
+                        gas_report.on_collected_gas_report_callback,
+                        runtime.clone(),
+                        "on_collected_gas_report_callback",
+                        |report: edr_gas_report::GasReport| GasReport::from(report),
+                    )?;
 
-                        let (sender, receiver) = std::sync::mpsc::channel();
-
-                        // Convert the report to the N-API representation.
-                        //
-                        // Always send through the channel — including the
-                        // `Err` cases when the JS callback throws
-                        // synchronously — so the `recv` below can't be left
-                        // with a dropped sender.
-                        let status = on_collected_gas_report_callback.call_with_return_value(
-                            GasReport::from(report),
-                            ThreadsafeFunctionCallMode::Blocking,
-                            move |result: napi::Result<Promise<()>>, _env: Env| {
-                                match result {
-                                    Ok(promise) => {
-                                        // We spawn a background task to handle the async callback
-                                        runtime.spawn(async move {
-                                            let result = promise.await;
-                                            sender.send(result).map_err(|_error| {
-                                                napi::Error::new(
-                                                    napi::Status::GenericFailure,
-                                                    "Failed to send result from on_collected_gas_report_callback",
-                                                )
-                                            })
-                                        });
-                                    }
-                                    Err(error) => {
-                                        sender.send(Err(error)).map_err(|_error| {
-                                            napi::Error::new(
-                                                napi::Status::GenericFailure,
-                                                "Failed to send result from on_collected_gas_report_callback",
-                                            )
-                                        })?;
-                                    }
-                                }
-                                Ok(())
-                            },
-                        );
-
-                        if status != napi::Status::Ok {
-                            return Err(napi::Error::new(
-                                napi::Status::GenericFailure,
-                                format!("Threadsafe call failed with status {status:?}"),
-                            )
-                            .into());
-                        }
-
-                        // The closure always sends when invoked, so the
-                        // channel can only be closed if the threadsafe call
-                        // was dropped without running it (e.g. during
-                        // environment teardown).
-                        let () = receiver
-                            .recv()
-                            .map_err(|_error| {
-                                napi::Error::new(
-                                    napi::Status::GenericFailure,
-                                    "Callback was dropped before returning a result",
-                                )
-                            })??;
-
-                        Ok(())
-                    });
-
-                Ok(on_collected_gas_report_fn)
-            },
-        ).transpose()?;
+                    Ok(Box::new(callback))
+                },
+            )
+            .transpose()?;
 
         let default_config = edr_provider::observability::Config::default();
         Ok(edr_provider::observability::Config {
