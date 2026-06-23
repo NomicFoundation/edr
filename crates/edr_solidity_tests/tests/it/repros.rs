@@ -6,7 +6,7 @@ use alloy_json_abi::Event;
 use alloy_primitives::address;
 use alloy_primitives::{b256, Address, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
-use edr_solidity::config::IncludeTraces;
+use edr_solidity::{config::IncludeTraces, solidity_stack_trace::StackTraceEntry};
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
     revm::context::{BlockEnv, TxEnv},
@@ -20,11 +20,13 @@ use foundry_evm::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, L1EvmBuilder, TransactionEnvTr,
         TransactionErrorTrait,
     },
+    executors::stack_trace::SolidityTestStackTraceResult,
     traces::{CallKind, CallTraceDecoder, DecodedCallData},
 };
 
 use crate::helpers::{
-    ForgeTestData, L1ForgeTestData, SolidityTestFilter, TestConfig, TEST_DATA_DEFAULT,
+    contract_decoder, ForgeTestData, L1ForgeTestData, SolidityTestFilter, TestConfig,
+    TEST_DATA_DEFAULT, TEST_DATA_VIA_IR,
 };
 
 macro_rules! remote_test_repro {
@@ -588,3 +590,57 @@ test_repro!(5521, false, None, |res| {
     let test = res.test_results.remove("test_stackPrank()").unwrap();
     assert_eq!(test.status, TestStatus::Success);
 });
+
+// https://github.com/NomicFoundation/edr/issues/1482
+//
+// When the test sources are compiled with `via_ir`, calling an unsupported
+// cheatcode must still produce a "cheatcode '...' is not supported" stack trace
+// entry, rather than falling through to a generic "reverted with an
+// unrecognized custom error" entry (the `StructuredCheatcodeError` selector
+// `0xdd2ce9c4`). The `Issue1482Test` suite lives in the `via-ir` test profile,
+// which is compiled with `via_ir = true`.
+#[tokio::test(flavor = "multi_thread")]
+async fn issue_1482() {
+    let config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
+    // Use a real contract decoder (not the `NoOpContractDecoder` the other
+    // helpers use) so that the test contract is recognized and the full stack
+    // trace error inferrer runs — that's where the cheatcode error is decoded.
+    let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
+    let runner = TEST_DATA_VIA_IR
+        .runner_with_contract_decoder(config, contract_decoder)
+        .await;
+    let filter = repro_filter(1482);
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite = suite_results
+        .get("via-ir/repros/Issue1482.t.sol:Issue1482Test")
+        .expect("the Issue1482 test suite should have run");
+
+    let result = suite
+        .test_results
+        .get("testUnsupportedBreakpoint()")
+        .expect("testUnsupportedBreakpoint should have run");
+
+    assert_eq!(
+        result.status,
+        TestStatus::Failure,
+        "the test should fail because the cheatcode is unsupported"
+    );
+
+    let stack_trace = match result
+        .stack_trace_result
+        .as_ref()
+        .expect("stack trace should be computed on failure")
+    {
+        SolidityTestStackTraceResult::Success(entries) => entries,
+        other => panic!("expected a stack trace, got {other:?}"),
+    };
+
+    assert!(
+        stack_trace.iter().any(|entry| matches!(
+            entry,
+            StackTraceEntry::CheatCodeError { message, .. } if message.contains("not supported")
+        )),
+        "expected an unsupported-cheatcode stack trace entry, got:\n{stack_trace:#?}"
+    );
+}
