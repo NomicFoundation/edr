@@ -539,7 +539,6 @@ where
             move |result: napi::Result<Promise<()>>, _env: Env| {
                 match result {
                     Ok(promise) => {
-                        // Drive the returned promise on a background task.
                         runtime.spawn(async move {
                             sender.send(promise.await).map_err(|_error| {
                                 napi::Error::new(
@@ -599,7 +598,6 @@ impl ObservabilityConfig<'_> {
                         code_coverage.on_collected_coverage_callback,
                         runtime.clone(),
                         "on_collected_coverage_callback",
-                        // An array of unique coverage hit markers per transaction.
                         |hits: HashSet<Bytes>| {
                             hits.into_iter()
                                 .map(|hit| Uint8Array::from(hit.to_vec()))

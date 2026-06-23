@@ -107,8 +107,7 @@ impl SubscriptionEventData {
     }
 }
 
-// `JsObject` is allowed-deprecated until the `compat-mode` feature is
-// removed; see the module-level comment in `edr_napi/src/subscription.rs`.
+// `JsObject` is allowed-deprecated under the `compat-mode` feature.
 #[allow(deprecated)]
 type SubscriptionTsfn = ThreadsafeFunction<
     SubscriptionEvent,
@@ -136,8 +135,6 @@ impl Callback {
             .build_callback(|ctx: ThreadsafeCallContext<SubscriptionEvent>| {
                 let env = ctx.env;
 
-                // Build the event object using JsObject; the TSFN will pass it to the JS
-                // callback as a single argument.
                 #[allow(deprecated)]
                 let mut event = env.create_object()?;
 

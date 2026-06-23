@@ -15,10 +15,7 @@ pub struct LoggerConfig<'env> {
     /// Whether to enable the logger.
     pub enable: bool,
     // `ts_type` declares `ArrayBuffer[]` to match Hardhat 2's typings; the
-    // runtime value is a `Uint8Array[]`, which Hardhat 2's `Buffer.from(x)`
-    // accepts identically. See the note on
-    // `Provider::set_call_override_callback` in `provider.rs` for the full
-    // rationale.
+    // runtime value is a `Uint8Array[]`, which `Buffer.from(x)` accepts.
     #[napi(ts_type = "(inputs: ArrayBuffer[]) => string[]")]
     pub decode_console_log_inputs_callback: Function<'env, Vec<Uint8Array>, Vec<String>>,
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
@@ -94,9 +91,8 @@ impl LoggerConfig<'_> {
         let print_line_fn = Arc::new(move |message, replace| {
             let (sender, receiver) = channel();
 
-            // Mirrors `decode_console_log_inputs_fn` above: forward the
-            // `napi::Result` so a throwing JS callback yields a `LoggerError`
-            // carrying the actual error message.
+            // Forward the `Err` so a throwing `printLineCallback` surfaces as a
+            // `LoggerError`.
             let status = print_line_callback.call_with_return_value(
                 (message, replace),
                 ThreadsafeFunctionCallMode::Blocking,

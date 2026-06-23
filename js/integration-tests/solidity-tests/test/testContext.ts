@@ -132,13 +132,8 @@ export class TestContext {
     const callTraces = new Map();
     for (const suiteResult of suiteResults) {
       for (const testResult of suiteResult.testResults) {
-        // Absent values on the three nullable TestResult getters must be
-        // `undefined`, never `null`: Hardhat 3 compares them with
-        // `=== undefined` (e.g. in gas-analytics' snapshot-cheatcode
-        // handling) and would fall through to `for ... of null` on a
-        // regression. napi-rs serializes `Option::None` as `null`, which is
-        // why the getters return `Either<T, ()>` instead — see
-        // `crates/edr_napi/src/solidity_tests/test_results.rs`.
+        // Absent values must be `undefined`, not `null`: Hardhat 3 compares
+        // with `=== undefined`.
         assert.notStrictEqual(testResult.reason, null);
         assert.notStrictEqual(testResult.counterexample, null);
         assert.notStrictEqual(testResult.valueSnapshotGroups, null);
