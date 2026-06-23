@@ -222,45 +222,74 @@ jobs:
             exit 1
           fi
 
-          echo "== Check B: scenarios installed the local EDR build =="
+          echo "== Check B: each scenario's hardhat resolves the local EDR build =="
           found=0
           fail=0
           for d in "$E2E_CLONE_DIR"/*/; do
             [ -d "$d" ] || continue
-            while IFS= read -r pj; do
-              found=1
-              name=$(jq -r .name "$pj")
-              version=$(jq -r .version "$pj")
-              if [ "$version" != "$EDR_VER" ]; then
-                echo "::error::$name in $pj is $version, expected $EDR_VER"
-                fail=1
-              else
-                echo "OK: $name@$version ($pj)"
-              fi
-            done < <(find "$d" \
-              \( -path '*/node_modules/@nomicfoundation/edr/package.json' \
-                 -o -path '*/node_modules/@nomicfoundation/edr-linux-x64-gnu/package.json' \) \
-              2>/dev/null)
+            id=$(basename "$d")
 
-            # yarn Plug'n'Play scenarios have no node_modules; fall back to the lockfile.
-            if [ -f "$d/.pnp.cjs" ] || [ -f "$d/.pnp.loader.mjs" ]; then
-              if grep -rqs -- "$EDR_VER" "$d/yarn.lock"; then
+            # Resolve the EDR that THIS scenario's hardhat loads. Works across
+            # npm/pnpm/yarn node_modules layouts (Node realpaths pnpm symlinks).
+            # Nested EDR copies pulled by other dependents (e.g. @1inch/solidity-utils,
+            # hardhat-network-helpers) are intentionally ignored — only hardhat's
+            # EDR (the build under test) matters for the benchmark.
+            read -r hh_ver edr_ver < <(node -e '
+              const fs = require("node:fs");
+              const path = require("node:path");
+              const dir = process.argv[1];
+              // Resolve a package via its "." export (defined), then walk up to
+              // its package.json. require.resolve("<pkg>/package.json") is blocked
+              // by EDR/Hardhat exports maps, so we cannot ask for it directly.
+              function pkgJsonPath(name, fromDir) {
+                const main = require.resolve(name, { paths: [fromDir] });
+                let d = path.dirname(main);
+                for (;;) {
+                  const cand = path.join(d, "package.json");
+                  if (fs.existsSync(cand)) {
+                    try { if (JSON.parse(fs.readFileSync(cand, "utf8")).name === name) return cand; } catch {}
+                  }
+                  const parent = path.dirname(d);
+                  if (parent === d) throw new Error("package.json for " + name + " not found above " + main);
+                  d = parent;
+                }
+              }
+              try {
+                const hhPkg = pkgJsonPath("hardhat", dir);
+                const edrPkg = pkgJsonPath("@nomicfoundation/edr", path.dirname(hhPkg));
+                const ver = (p) => JSON.parse(fs.readFileSync(p, "utf8")).version;
+                process.stdout.write(ver(hhPkg) + " " + ver(edrPkg));
+              } catch (e) { process.stderr.write(String(e.message || e)); }
+            ' "$d" 2>/tmp/edr-resolve-err)  || true
+
+            if [ -z "${edr_ver:-}" ]; then
+              # yarn Plug'n'Play scenarios have no node_modules to resolve through.
+              if { [ -f "$d/.pnp.cjs" ] || [ -f "$d/.pnp.loader.mjs" ]; } \
+                   && grep -rqs -- "$EDR_VER" "$d/yarn.lock"; then
                 found=1
-                echo "OK (PnP lockfile): $d"
-              else
-                echo "::warning::PnP scenario $d: $EDR_VER not found in yarn.lock"
+                echo "OK (PnP lockfile): $id"
+                continue
               fi
+              echo "::error::$id: could not resolve hardhat's @nomicfoundation/edr ($(cat /tmp/edr-resolve-err))"
+              fail=1
+              continue
+            fi
+
+            found=1
+            if [ "$edr_ver" != "$EDR_VER" ]; then
+              echo "::error::$id: hardhat@$hh_ver resolves @nomicfoundation/edr@$edr_ver, expected $EDR_VER"
+              fail=1
+            else
+              echo "OK: $id -> hardhat@$hh_ver, @nomicfoundation/edr@$edr_ver"
             fi
           done
 
           if [ "$found" -eq 0 ]; then
-            echo "::error::No installed @nomicfoundation/edr found in any scenario clone — local EDR was NOT used"
+            echo "::error::No scenario resolved @nomicfoundation/edr via hardhat — local EDR was NOT used"
             exit 1
           fi
-          if [ "$fail" -ne 0 ]; then
-            exit 1
-          fi
-          echo "All inspected scenarios use the local EDR build ($EDR_VER)."
+          [ "$fail" -eq 0 ] || exit 1
+          echo "All scenarios resolve the local EDR build ($EDR_VER) through hardhat."
 
       # Persist the (possibly partial) benchmark output in the job log so it
       # survives the runner's temp-dir cleanup and is available for debugging.

@@ -3626,7 +3626,7 @@ dependencies = [
  "itertools 0.14.0",
  "num-traits",
  "once_cell",
- "parking_lot 0.12.5",
+ "parking_lot",
  "paste",
  "proptest",
  "rayon",
