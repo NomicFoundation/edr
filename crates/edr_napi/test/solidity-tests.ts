@@ -50,31 +50,45 @@ describe("Solidity Tests", () => {
       } else if (res.id.name.includes("PaymentFailureTest")) {
         assert.equal(res.testResults.length, 1);
         assert.equal(res.testResults[0].status, "Failure");
-
-        // Regression test for `kind: String` on the StackTrace tag
-        // structs (`StackTrace`, `UnexpectedError`, `HeuristicFailed`,
-        // `UnsafeToReplay` in `solidity_tests/test_results.rs`). The
-        // discriminant must round-trip through napi as one of those
-        // exact strings; if a construction site misses `.to_owned()`,
-        // the JS-side value is empty/garbage and Hardhat's reporter
-        // mis-routes the entry.
-        const trace = res.testResults[0].stackTrace();
-        if (trace === null) {
-          // `collectStackTraces` defaults to `OnFailure`, so a failing test
-          // must produce a stack-trace result; `null` means collection
-          // silently broke (and would make the kind assertion vacuous).
-          assert.fail("expected a stack-trace result for the failing test");
-        } else {
-          assert.oneOf(trace.kind, [
-            "StackTrace",
-            "UnexpectedError",
-            "HeuristicFailed",
-            "UnsafeToReplay",
-          ]);
-        }
       } else {
         assert.fail("Unexpected test suite name: " + res.id.name);
       }
+    }
+  });
+
+  it("exposes the stack-trace kind tag for a failing test", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/PaymentFailureTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+      }
+    );
+
+    const failure = results[0].testResults[0];
+    assert.equal(failure.status, "Failure");
+
+    const trace = failure.stackTrace();
+    if (trace === null) {
+      // collectStackTraces defaults to OnFailure, so a failing test must
+      // produce a stack trace; null would make the kind assertion vacuous.
+      assert.fail("expected a stack-trace result for the failing test");
+    } else {
+      assert.oneOf(trace.kind, [
+        "StackTrace",
+        "UnexpectedError",
+        "HeuristicFailed",
+        "UnsafeToReplay",
+      ]);
     }
   });
 
