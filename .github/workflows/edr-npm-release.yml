@@ -548,7 +548,7 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         id: setup-node
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
       - name: Validate that packages have everything for publishing
         run: |
@@ -679,7 +679,7 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         id: setup-node
         with:
-          node-version: 22
+          node-version: 24
           package-manager-cache: false
       - name: Update npm to make sure it supports Trusted Publishing
         run: npm install -g npm@v11.6.2
