@@ -100,8 +100,12 @@ describe("Provider", () => {
     printLineCallback: (_message: string, _replace: boolean) => {},
   };
 
-  it("initialize local generic provider", async function () {
-    const provider = context.createProvider(
+  // Used by the callback tests below.
+  async function createL1Provider(
+    logger: typeof loggerConfig,
+    subscriptionCallback: (event: SubscriptionEvent) => void = () => {}
+  ): Promise<Provider> {
+    return context.createProvider(
       GENERIC_CHAIN_TYPE,
       {
         ...providerConfig,
@@ -109,14 +113,45 @@ describe("Provider", () => {
           l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
         ),
       },
-      loggerConfig,
-      {
-        subscriptionCallback: (_event: SubscriptionEvent) => {},
-      },
+      logger,
+      { subscriptionCallback },
       new ContractDecoder()
     );
+  }
 
-    await assert.isFulfilled(provider);
+  // console.log("hello") calldata and the "console.log" address it targets.
+  const CONSOLE_LOG_ADDRESS = "0x000000000000000000636f6e736f6c652e6c6f67";
+  const CONSOLE_LOG_HELLO_CALLDATA =
+    "0x41304fac" +
+    "0000000000000000000000000000000000000000000000000000000000000020" +
+    "0000000000000000000000000000000000000000000000000000000000000005" +
+    "68656c6c6f000000000000000000000000000000000000000000000000000000";
+
+  // defaultTransactionGasLimit (300M) exceeds the EIP-7825 Osaka cap; set an
+  // explicit sub-cap gas.
+  const GAS_BELOW_OSAKA_CAP = "0xf4240";
+
+  async function sendConsoleLogHello(provider: Provider): Promise<any> {
+    const response = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: genesisAddress,
+            to: CONSOLE_LOG_ADDRESS,
+            data: CONSOLE_LOG_HELLO_CALLDATA,
+            gas: GAS_BELOW_OSAKA_CAP,
+          },
+        ],
+      })
+    );
+    return JSON.parse(response.data);
+  }
+
+  it("initialize local generic provider", async function () {
+    await assert.isFulfilled(createL1Provider(loggerConfig));
   });
 
   it("initialize remote", async function () {
@@ -668,23 +703,8 @@ describe("Provider", () => {
 
   describe("setCallOverrideCallback", () => {
     it("invokes the callback and uses its return value for eth_call", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-        },
-        loggerConfig,
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+      const provider = await createL1Provider(loggerConfig);
 
-      const targetAddress = "0xabababababababababababababababababababab";
-      const callData = "0xdeadbeef";
       let received: { addressLen: number; dataLen: number } | undefined;
 
       await provider.setCallOverrideCallback(
@@ -692,11 +712,7 @@ describe("Provider", () => {
           contractAddress: ArrayBuffer,
           data: ArrayBuffer
         ): Promise<CallOverrideResult | undefined> => {
-          // index.d.ts annotates these as `ArrayBuffer` to match Hardhat 2's
-          // typings; the actual runtime value is a `Uint8Array`.
-          // `Buffer.from(x)` accepts both shapes, which is what makes the
-          // skew safe. See the note on
-          // `Provider::set_call_override_callback` in `src/provider.rs`.
+          // Runtime value is a Uint8Array despite the ArrayBuffer annotation.
           received = {
             addressLen: Buffer.from(contractAddress).length,
             dataLen: Buffer.from(data).length,
@@ -713,12 +729,12 @@ describe("Provider", () => {
           id: 1,
           jsonrpc: "2.0",
           method: "eth_call",
-          // Explicit `gas` below the EIP-7825 transaction gas cap (16,777,216
-          // on Osaka); without it the call inherits
-          // `defaultTransactionGasLimit` (300M) and is rejected before the
-          // call override can fire.
           params: [
-            { to: targetAddress, data: callData, gas: "0xf4240" },
+            {
+              to: "0xabababababababababababababababababababab",
+              data: "0xdeadbeef",
+              gas: GAS_BELOW_OSAKA_CAP,
+            },
             "latest",
           ],
         })
@@ -727,160 +743,19 @@ describe("Provider", () => {
       assert.deepEqual(received, { addressLen: 20, dataLen: 4 });
       assert.equal(JSON.parse(response.data).result, "0xcafebabe");
     });
-
-    // NOTE: a throwing setCallOverrideCallback is intentionally NOT tested
-    // here. `SyncCallOverride` is infallible (`-> Option<CallOverrideResult>`),
-    // so a failed callback can only be reported by panicking, and the
-    // published binding builds with `panic = "abort"` (profile.napi-publish)
-    // — the panic aborts the process rather than surfacing as an error, which
-    // a same-process test can't assert. Giving the callback a real error
-    // channel is tracked as a follow-up (see edr-call-override-error-channel-followup.md).
   });
 
   describe("decodeConsoleLogInputsCallback", () => {
-    it("invokes the callback with Buffer.from-compatible args for console.log calls", async function () {
-      const receivedInputLengths: number[] = [];
-      const printedMessages: string[] = [];
-
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-        },
-        {
-          // With `enable: false` the decode callback still fires (see the
-          // else-branch in `edr_napi_core/src/logger.rs::log_console_log_messages`)
-          // and the decoded output is passed straight to `printLineCallback`
-          // without the formatted "console.log:" header that `enable: true`
-          // would add. Cleaner assertions than logs.ts's enable-true path.
-          enable: false,
-          decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] => {
-            // index.d.ts annotates `inputs` as `ArrayBuffer[]` to match
-            // Hardhat 2's typings; the actual runtime value is a
-            // `Uint8Array[]`, and `Buffer.from(x)` accepts both. See the note
-            // on `LoggerConfig::decode_console_log_inputs_callback` in
-            // `src/logger.rs`.
-            for (const input of inputs) {
-              receivedInputLengths.push(Buffer.from(input).length);
-            }
-            // Hard-coded so the printedMessages assertion below is independent
-            // of the `ConsoleLogger.getDecodedLogs` helper used in logs.ts.
-            return inputs.map(() => "hello");
-          },
-          printLineCallback: (message: string, _replace: boolean) => {
-            printedMessages.push(message);
-          },
-        },
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
-
-      // ABI-encoded `console.log(string)` calldata for the message "hello":
-      //   selector       0x41304fac          (4 bytes)
-      //   string offset  0x20  (= 32)        (32 bytes)
-      //   string length  0x05                (32 bytes)
-      //   string data    0x68656c6c6f...     (32 bytes, right-padded)
-      // Total: 4 + 96 = 100 bytes.
-      const consoleLogHelloCalldata =
-        "0x41304fac" +
-        "0000000000000000000000000000000000000000000000000000000000000020" +
-        "0000000000000000000000000000000000000000000000000000000000000005" +
-        "68656c6c6f000000000000000000000000000000000000000000000000000000";
-
-      // EDR's `ConsoleLogCollector` (`crates/edr_provider/src/console_log.rs`)
-      // is an inspector that fires on any CALL frame whose bytecode_address is
-      // `0x000000000000000000636f6e736f6c652e6c6f67` ("console.log"
-      // right-padded). A top-level `eth_sendTransaction` to that address
-      // triggers the hook without any contract deployment.
-      const consoleLogAddress = "0x000000000000000000636f6e736f6c652e6c6f67";
-
-      await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              to: consoleLogAddress,
-              data: consoleLogHelloCalldata,
-              // Explicit `gas` below the EIP-7825 transaction gas cap
-              // (16,777,216 on Osaka); without it the transaction inherits
-              // `defaultTransactionGasLimit` (300M) and is rejected before
-              // execution, so the console.log inspector never fires.
-              gas: "0xf4240",
-            },
-          ],
-        })
-      );
-
-      // Asserts the decode callback fired and `Buffer.from()` accepted the
-      // runtime value (the implicit assertion is "no exception thrown" — if
-      // the runtime value were neither ArrayBuffer nor a TypedArray view,
-      // `Buffer.from()` would throw a TypeError).
-      assert.deepEqual(receivedInputLengths, [100]);
-      // Asserts the decoded string reached `printLineCallback` end-to-end.
-      assert.deepEqual(printedMessages, ["hello"]);
-    });
-
     it("surfaces a throwing callback as an error instead of crashing", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
+      const provider = await createL1Provider({
+        ...loggerConfig,
+        decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
+          throw new Error("decode exploded");
         },
-        {
-          enable: false,
-          decodeConsoleLogInputsCallback: (
-            _inputs: ArrayBuffer[]
-          ): string[] => {
-            throw new Error("decode exploded");
-          },
-          printLineCallback: (_message: string, _replace: boolean) => {},
-        },
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+      });
 
-      // Same console.log(string "hello") transaction as the test above.
-      const consoleLogHelloCalldata =
-        "0x41304fac" +
-        "0000000000000000000000000000000000000000000000000000000000000020" +
-        "0000000000000000000000000000000000000000000000000000000000000005" +
-        "68656c6c6f000000000000000000000000000000000000000000000000000000";
-      const consoleLogAddress = "0x000000000000000000636f6e736f6c652e6c6f67";
+      const responseData = await sendConsoleLogHello(provider);
 
-      // Guards the logger's error propagation: the JS exception must come
-      // back as a JSON-RPC error response. If the Rust side drops the result
-      // channel instead of forwarding the error, it panics and takes the
-      // process down.
-      const response = await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              to: consoleLogAddress,
-              data: consoleLogHelloCalldata,
-              gas: "0xf4240",
-            },
-          ],
-        })
-      );
-
-      const responseData = JSON.parse(response.data);
       assert.isDefined(responseData.error);
       assert.match(
         responseData.error.message,
@@ -891,64 +766,17 @@ describe("Provider", () => {
 
   describe("printLineCallback", () => {
     it("surfaces a throwing callback as an error instead of crashing", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
+      const provider = await createL1Provider({
+        ...loggerConfig,
+        decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] =>
+          inputs.map(() => "hello"),
+        printLineCallback: (_message: string, _replace: boolean) => {
+          throw new Error("print exploded");
         },
-        {
-          // With `enable: false` the decoded console.log output is passed
-          // straight to `printLineCallback` (the else-branch in
-          // `edr_napi_core/src/logger.rs::log_console_log_messages`), so a
-          // throwing `printLineCallback` is reachable without the
-          // `enable: true` formatting path. `decodeConsoleLogInputsCallback`
-          // must succeed here so execution reaches the print step.
-          enable: false,
-          decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] =>
-            inputs.map(() => "hello"),
-          printLineCallback: (_message: string, _replace: boolean) => {
-            throw new Error("print exploded");
-          },
-        },
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+      });
 
-      // Same console.log(string "hello") transaction as the decode tests.
-      const consoleLogHelloCalldata =
-        "0x41304fac" +
-        "0000000000000000000000000000000000000000000000000000000000000020" +
-        "0000000000000000000000000000000000000000000000000000000000000005" +
-        "68656c6c6f000000000000000000000000000000000000000000000000000000";
-      const consoleLogAddress = "0x000000000000000000636f6e736f6c652e6c6f67";
+      const responseData = await sendConsoleLogHello(provider);
 
-      // Guards the logger's print error propagation (the other half of the
-      // decode test above): the JS exception must come back as a JSON-RPC
-      // error response carrying the message, not crash the process by
-      // dropping the result channel. Previously a throwing print callback
-      // was swallowed.
-      const response = await provider.handleRequest(
-        JSON.stringify({
-          id: 1,
-          jsonrpc: "2.0",
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-              to: consoleLogAddress,
-              data: consoleLogHelloCalldata,
-              gas: "0xf4240",
-            },
-          ],
-        })
-      );
-
-      const responseData = JSON.parse(response.data);
       assert.isDefined(responseData.error);
       assert.match(
         responseData.error.message,
@@ -965,23 +793,10 @@ describe("Provider", () => {
         resolveFirst = resolve;
       });
 
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-        },
-        loggerConfig,
-        {
-          subscriptionCallback: (evt: SubscriptionEvent) => {
-            events.push(evt);
-            resolveFirst();
-          },
-        },
-        new ContractDecoder()
-      );
+      const provider = await createL1Provider(loggerConfig, (evt) => {
+        events.push(evt);
+        resolveFirst();
+      });
 
       const subscribeResponse = await provider.handleRequest(
         JSON.stringify({
@@ -1004,11 +819,7 @@ describe("Provider", () => {
 
       await firstEvent;
 
-      // Pins the SubscriptionEvent shape produced by the `compat-mode`
-      // JsObject construction in `edr_napi_core/src/subscription.rs`. The
-      // `compat-mode` feature is documented as temporary (Design decision §4
-      // in the PR body); when it's removed in a follow-up, this test should
-      // keep passing as long as the event shape stays the same.
+      // Pins the event shape built in compat-mode (edr_napi_core/src/subscription.rs).
       assert.equal(events.length, 1);
       const event = events[0];
       assert.equal(typeof event.filterId, "bigint");
