@@ -260,7 +260,7 @@ jobs:
                 const ver = (p) => JSON.parse(fs.readFileSync(p, "utf8")).version;
                 process.stdout.write(ver(hhPkg) + " " + ver(edrPkg));
               } catch (e) { process.stderr.write(String(e.message || e)); }
-            ' "$d" 2>/tmp/edr-resolve-err)
+            ' "$d" 2>/tmp/edr-resolve-err)  || true
 
             if [ -z "${edr_ver:-}" ]; then
               # yarn Plug'n'Play scenarios have no node_modules to resolve through.
