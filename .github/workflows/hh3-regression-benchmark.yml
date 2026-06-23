@@ -277,3 +277,16 @@ jobs:
           # Fail the run on a regression for comparisons; never break main.
           fail-on-alert: ${{ needs.setup.outputs.is_baseline != 'true' }}
           summary-always: true
+
+      - name: Notify failures
+        # Only ping Slack for failed baseline runs (pushes to main)
+        if: ${{ failure() && needs.setup.outputs.is_baseline == 'true' }}
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
+        with:
+          webhook: ${{ secrets.GH_ACTION_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+          payload: |
+            {
+              "workflow_name": "${{ github.workflow }}",
+              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
