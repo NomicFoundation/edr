@@ -17,17 +17,16 @@ use crate::{
         SourceLocation,
     },
     library_utils::{get_library_address_positions, normalize_compiler_output_bytecode},
-    source_map::decode_instructions,
 };
 
 /// First Solc version supported for stack trace generation
 pub const FIRST_SOLC_VERSION_SUPPORTED: semver::Version = semver::Version::new(0, 5, 1);
 
-/// For the Solidity compiler version and its standard JSON input and
-/// output, creates the source model, decodes the bytecode with source
-/// mapping and links them to the source files.
-///
-/// Returns the decoded bytecodes that reference the resolved source model.
+/// For the Solidity compiler version and its standard JSON input and output,
+/// creates the source model, decodes the bytecode, and links them to the
+/// source files. The producing compiler is derived from each contract's
+/// bytecode variant (see [`CompilerOutputBytecode`]) — no external tag
+/// needs to be threaded in.
 pub fn create_models_and_decode_bytecodes(
     solc_version: String,
     compiler_input: &CompilerInput,
@@ -43,7 +42,7 @@ pub fn create_models_and_decode_bytecodes(
     Ok(bytecodes)
 }
 
-fn create_sources_model_from_ast(
+pub(crate) fn create_sources_model_from_ast(
     compiler_output: &CompilerOutput,
     compiler_input: &CompilerInput,
 ) -> anyhow::Result<BuildModel> {
@@ -95,10 +94,50 @@ fn create_sources_model_from_ast(
         &contract_id_to_linearized_base_contract_ids,
     )?;
 
+    // Collect AST `src` spans per file, sorted so `smallest_enclosing_span`
+    // can scan in order and break early.
+    let mut ast_spans: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
+    for source in compiler_output.sources.values() {
+        collect_ast_spans(&source.ast, &mut ast_spans);
+    }
+    for spans in ast_spans.values_mut() {
+        spans.sort_unstable();
+        spans.dedup();
+    }
+
     Ok(BuildModel {
         file_id_to_source_file: sources,
         contract_id_to_contract,
+        ast_spans,
+        ..BuildModel::default()
     })
+}
+
+/// Walk an AST subtree and append every node's `src` span keyed by file ID.
+fn collect_ast_spans(node: &serde_json::Value, out: &mut HashMap<u32, Vec<(u32, u32)>>) {
+    if let Some(src) = node.get("src").and_then(serde_json::Value::as_str)
+        && let Some((offset, length, file_id)) = parse_src(src)
+    {
+        out.entry(file_id).or_default().push((offset, length));
+    }
+    if let Some(obj) = node.as_object() {
+        for value in obj.values() {
+            collect_ast_spans(value, out);
+        }
+    } else if let Some(arr) = node.as_array() {
+        for value in arr {
+            collect_ast_spans(value, out);
+        }
+    }
+}
+
+/// Parse `"offset:length:fileIndex"` into `(offset, length, file_id)`.
+fn parse_src(src: &str) -> Option<(u32, u32, u32)> {
+    let mut parts = src.splitn(3, ':');
+    let offset = parts.next()?.parse::<u32>().ok()?;
+    let length = parts.next()?.parse::<u32>().ok()?;
+    let file_id = parts.next()?.parse::<u32>().ok()?;
+    Some((offset, length, file_id))
 }
 
 fn process_ast_nodes(
@@ -801,26 +840,29 @@ fn decode_evm_bytecode(
     compiler_bytecode: &CompilerOutputBytecode,
     build_model: &Arc<BuildModel>,
 ) -> anyhow::Result<ContractMetadata> {
-    let library_address_positions = get_library_address_positions(compiler_bytecode);
+    let artifact = compiler_bytecode.as_artifact();
+    let library_address_positions = get_library_address_positions(artifact);
 
-    let immutable_references = compiler_bytecode
-        .immutable_references
-        .as_ref()
+    let immutable_references = artifact
+        .immutable_references()
         .map(|refs| refs.values().flatten().copied().collect::<Vec<_>>())
         .unwrap_or_default();
 
     let normalized_code = normalize_compiler_output_bytecode(
-        compiler_bytecode.object.clone(),
+        artifact.object().to_owned(),
         &library_address_positions,
     )
     .with_context(|| format!("Failed to decode hex: {compiler_bytecode:?}"))?;
 
-    let instructions = decode_instructions(
-        &normalized_code,
-        &compiler_bytecode.source_map,
-        build_model,
-        is_deployment,
-    )?;
+    let section = if is_deployment {
+        "evm.bytecode"
+    } else {
+        "evm.deployedBytecode"
+    };
+    let compiler_type = artifact.compiler_type();
+    let instructions = artifact
+        .decode_instructions(&normalized_code, build_model, is_deployment)
+        .with_context(|| format!("failed to decode debug-info for {section}"))?;
 
     Ok(ContractMetadata::new(
         Arc::clone(&build_model.file_id_to_source_file),
@@ -831,6 +873,7 @@ fn decode_evm_bytecode(
         library_address_positions,
         immutable_references,
         solc_version,
+        compiler_type,
     ))
 }
 
@@ -875,7 +918,12 @@ fn decode_bytecodes(
         };
 
         // This is an abstract contract
-        if contract_evm_output.bytecode.object.is_empty() {
+        if contract_evm_output
+            .bytecode
+            .as_artifact()
+            .object()
+            .is_empty()
+        {
             continue;
         }
 
@@ -900,4 +948,91 @@ fn decode_bytecodes(
     }
 
     Ok(bytecodes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::artifacts::{CompilerInput, CompilerOutput};
+
+    fn solc_fixture() -> (CompilerInput, CompilerOutput) {
+        let input: CompilerInput =
+            serde_json::from_str(include_str!("../fixtures/compiler_input.json")).unwrap();
+        let output: CompilerOutput =
+            serde_json::from_str(include_str!("../fixtures/compiler_output.json")).unwrap();
+        (input, output)
+    }
+
+    fn solx_fixture() -> (CompilerInput, CompilerOutput) {
+        let mut input: CompilerInput =
+            serde_json::from_str(include_str!("../fixtures/solx_compiler_input.json")).unwrap();
+        input.sources.get_mut("Counter.sol").unwrap().content =
+            include_str!("../fixtures/sources/Counter.sol").to_string();
+        let output: CompilerOutput =
+            serde_json::from_str(include_str!("../fixtures/solx_compiler_output.json")).unwrap();
+        (input, output)
+    }
+
+    #[test]
+    fn solc_fixture_decodes() {
+        let (input, output) = solc_fixture();
+        let result = create_models_and_decode_bytecodes("0.8.0".to_string(), &input, &output);
+        assert!(
+            result.is_ok(),
+            "solc fixture should still decode: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn unknown_compiler_type_string_falls_back_to_solc() {
+        // Unknown compilerType (e.g. from a newer Hardhat) must deserialize
+        // and route through the solc decode path; warn instead of failing.
+        let raw = serde_json::json!({
+            "_format": "hh3-sol-build-info-1",
+            "id": "id-1",
+            "solcVersion": "0.8.0",
+            "solcLongVersion": "0.8.0+commit",
+            "compilerType": "future-thing",
+            "input": {
+                "language": "Solidity",
+                "sources": {},
+                "settings": null
+            }
+        });
+        let bi: crate::artifacts::BuildInfo =
+            serde_json::from_value(raw).expect("unknown compilerType must NOT fail to deserialize");
+        assert_eq!(
+            bi.compiler_type,
+            crate::artifacts::CompilerType::Solc,
+            "unknown compilerType should fall back to Solc",
+        );
+    }
+
+    #[test]
+    fn solx_fixture_decodes_via_dwarf() {
+        let (input, output) = solx_fixture();
+        // Sanity: dyn-trait dispatch resolved to the SolxBytecode concrete type.
+        let first_evm = output
+            .contracts
+            .values()
+            .flat_map(|m| m.values())
+            .next()
+            .expect("solx fixture has at least one contract");
+        assert_eq!(
+            first_evm.evm.bytecode.as_artifact().compiler_type(),
+            crate::artifacts::CompilerType::Solx,
+            "solx fixture bytecode must construct as the Solx concrete artifact"
+        );
+
+        let bytecodes = create_models_and_decode_bytecodes("0.8.34".to_string(), &input, &output)
+            .expect("solx fixture must decode through the DWARF parser");
+        // Creation + runtime.
+        assert!(
+            bytecodes.len() >= 2,
+            "expected at least 2 ContractMetadata for the Counter contract, got {}",
+            bytecodes.len()
+        );
+        // PC → line assertions live in `crate::debug_info::dwarf::tests`.
+    }
 }

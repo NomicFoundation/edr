@@ -118,7 +118,9 @@ impl<HaltReasonT: HaltReasonTrait> From<alloy_dyn_abi::Error> for InferrerError<
 
 pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
     stacktrace: Vec<StackTraceEntry>,
+    compiler_type: crate::artifacts::CompilerType,
 ) -> Result<Vec<StackTraceEntry>, InferrerError<HaltReasonT>> {
+    let is_solx = compiler_type == crate::artifacts::CompilerType::Solx;
     // To work around the borrow checker, we'll collect the indices of the frames we
     // want to keep. We can't clone the frames, because some of them contain
     // non-Clone `ClassInstance`s`
@@ -166,8 +168,10 @@ pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
                 return true;
             }
 
-            // this is probably a recursive call
-            if *idx > 0
+            // Same-location same-variant consecutive frames = recursion.
+            // For solx, lift the original solc `idx > 0` gate so cross-CALL
+            // recursive frames at idx 0 survive.
+            if (is_solx || *idx > 0)
                 && mem::discriminant(*frame) == mem::discriminant(next_frame)
                 && frame_source.range == next_frame_source.range
                 && frame_source.line == next_frame_source.line
@@ -354,13 +358,16 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReason
 
     if let Some(func) = inst_location.get_containing_function()? {
         let source_reference =
-            source_location_to_source_reference(contract_meta, Some(inst_location))?
-                .ok_or(InferrerError::MissingSourceReference)?;
-
-        return Ok(StackTraceEntry::CallstackEntry {
-            source_reference,
-            function_type: func.r#type,
-        });
+            source_location_to_source_reference(contract_meta, Some(inst_location))?;
+        if let Some(source_reference) = source_reference {
+            return Ok(StackTraceEntry::CallstackEntry {
+                source_reference,
+                function_type: func.r#type,
+            });
+        }
+        if contract_meta.compiler_type != crate::artifacts::CompilerType::Solx {
+            return Err(InferrerError::MissingSourceReference);
+        }
     };
 
     let file = inst_location.file()?;
@@ -408,6 +415,46 @@ fn check_contract_too_large<HaltReasonT: HaltReasonTrait>(
     Ok(None)
 }
 
+/// Turn an instruction's `inline_call_sites` (solx-only; empty for solc)
+/// into `CallstackEntry` frames in outer-first order. Dedups against the
+/// previous frame's function so dispatcher → function-entry pairs and
+/// modifier-into-function pairs fold to a single frame.
+fn build_solx_inline_callstack_frames<HaltReasonT>(
+    contract_meta: &ContractMetadata,
+    last_instruction: &Instruction,
+    failing_function: &ContractFunction,
+) -> Result<Vec<StackTraceEntry>, InferrerError<HaltReasonT>> {
+    let bottom_func_name = match failing_function.r#type {
+        ContractFunctionType::Constructor => Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
+        ContractFunctionType::Fallback => Some(FALLBACK_FUNCTION_NAME.to_string()),
+        ContractFunctionType::Receive => Some(RECEIVE_FUNCTION_NAME.to_string()),
+        _ => Some(failing_function.name.clone()),
+    };
+    let mut prev_function_name = bottom_func_name;
+    let mut kept_innermost_first: Vec<SourceReference> = Vec::new();
+    for call_site in &last_instruction.inline_call_sites {
+        let Some(call_site_ref) =
+            source_location_to_source_reference::<HaltReasonT>(contract_meta, Some(call_site))?
+        else {
+            continue;
+        };
+        if call_site_ref.function == prev_function_name {
+            continue;
+        }
+        prev_function_name = call_site_ref.function.clone();
+        kept_innermost_first.push(call_site_ref);
+    }
+
+    let mut frames: Vec<StackTraceEntry> = Vec::with_capacity(kept_innermost_first.len());
+    for source_reference in kept_innermost_first.iter().rev().cloned() {
+        frames.push(StackTraceEntry::CallstackEntry {
+            source_reference,
+            function_type: ContractFunctionType::Function,
+        });
+    }
+    Ok(frames)
+}
+
 fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
     stacktrace: Vec<StackTraceEntry>,
@@ -453,6 +500,18 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
     }
 
     let mut stacktrace = stacktrace;
+
+    if contract_meta.compiler_type == crate::artifacts::CompilerType::Solx
+        && let Some(loc) = &last_instruction.location
+        && let Some(failing_function) = loc.get_containing_function()?
+    {
+        stacktrace.extend(build_solx_inline_callstack_frames::<HaltReasonT>(
+            &contract_meta,
+            last_instruction,
+            &failing_function,
+        )?);
+    }
+
     stacktrace.push(
         instruction_within_function_to_custom_error_stack_trace_entry(
             trace,
@@ -630,22 +689,32 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
         return Ok(Heuristic::Hit(vec![frame]));
     }
 
-    // Sometimes we do fail inside of a function but there's no jump into
-    if let Some(location) = &last_instruction.location {
-        let failing_function = location.get_containing_function()?;
+    if let Some(location) = &last_instruction.location
+        && let Some(failing_function) = location.get_containing_function()?
+    {
+        let is_solx = contract_meta.compiler_type == crate::artifacts::CompilerType::Solx;
+        let revert_source_reference = if is_solx {
+            source_location_to_source_reference(&contract_meta, Some(location))?
+                .ok_or(InferrerError::MissingSourceReference)?
+        } else {
+            get_function_start_source_reference(
+                CreateOrCallMessageRef::Call(trace),
+                &failing_function,
+            )?
+        };
 
-        if let Some(failing_function) = failing_function {
-            let frame = StackTraceEntry::RevertError {
-                source_reference: get_function_start_source_reference(
-                    CreateOrCallMessageRef::Call(trace),
-                    &failing_function,
-                )?,
-                return_data: trace.return_data.clone(),
-                is_invalid_opcode_error: last_instruction.opcode == OpCode::INVALID,
-            };
+        let mut frames = if is_solx {
+            build_solx_inline_callstack_frames(&contract_meta, last_instruction, &failing_function)?
+        } else {
+            Vec::new()
+        };
+        frames.push(StackTraceEntry::RevertError {
+            source_reference: revert_source_reference,
+            return_data: trace.return_data.clone(),
+            is_invalid_opcode_error: last_instruction.opcode == OpCode::INVALID,
+        });
 
-            return Ok(Heuristic::Hit(vec![frame]));
-        }
+        return Ok(Heuristic::Hit(frames));
     }
 
     let contract = contract_meta.contract.read();
@@ -909,7 +978,15 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
     {
         let failing_function = location.get_containing_function()?;
 
-        if failing_function.is_some() {
+        if let Some(failing_function) = failing_function.as_deref() {
+            if contract_meta.compiler_type == crate::artifacts::CompilerType::Solx {
+                inferred_stacktrace.extend(build_solx_inline_callstack_frames::<HaltReasonT>(
+                    &contract_meta,
+                    last_instruction,
+                    failing_function,
+                )?);
+            }
+
             let frame =
                 instruction_within_function_to_revert_stack_trace_entry(trace, last_instruction)?;
 
@@ -1532,7 +1609,45 @@ fn instruction_within_function_to_panic_stack_trace_entry<HaltReasonT: HaltReaso
     let source_reference =
         source_location_to_source_reference(&contract_meta, inst.location.as_deref())?;
 
-    let source_reference = source_reference.or(last_source_reference);
+    // solx-only fallback: panic-helper PCs sit outside any inlined-subroutine.
+    // On a None location, walk back through trace steps for the most recent
+    // located PC, then fall back to the calldata-selector function.
+    let is_solx = contract_meta.compiler_type == crate::artifacts::CompilerType::Solx;
+    // No file_id filter: the DWARF parser already drops PCs in artificial
+    // subprograms, so any `Some(location)` here is a user-visible line —
+    // including legitimate inherited-base-contract frames.
+    let solx_user_line_fallback =
+        || -> Result<Option<SourceReference>, InferrerError<HaltReasonT>> {
+            for step in trace.steps().iter().rev() {
+                let NestedTraceStep::Evm(evm_step) = step else {
+                    continue;
+                };
+                let prev_inst = contract_meta.get_instruction(evm_step.pc)?;
+                let Some(loc) = &prev_inst.location else {
+                    continue;
+                };
+                if let Some(sref) = source_location_to_source_reference(&contract_meta, Some(loc))?
+                {
+                    return Ok(Some(sref));
+                }
+            }
+            Ok(None)
+        };
+    let solx_function_start_fallback = || -> Option<SourceReference> {
+        let CreateOrCallMessageRef::Call(call) = trace else {
+            return None;
+        };
+        let contract = contract_meta.contract.read();
+        let selector = call.calldata.get(..4)?;
+        let called_function = contract.get_function_from_selector(selector)?;
+        get_function_start_source_reference(trace, called_function).ok()
+    };
+
+    let source_reference = source_reference.or(last_source_reference).or(if is_solx {
+        solx_user_line_fallback()?.or_else(solx_function_start_fallback)
+    } else {
+        None
+    });
 
     Ok(StackTraceEntry::PanicError {
         source_reference,

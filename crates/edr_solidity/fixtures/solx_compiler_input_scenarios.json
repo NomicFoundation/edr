@@ -1,0 +1,93 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "npm/forge-std@1.14.0/src/Base.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/console.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/console2.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/interfaces/IMulticall3.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/safeconsole.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdAssertions.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdChains.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdCheats.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdConstants.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdError.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdInvariant.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdJson.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdMath.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdStorage.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdStyle.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdToml.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/StdUtils.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/Test.sol": {
+      "content": ""
+    },
+    "npm/forge-std@1.14.0/src/Vm.sol": {
+      "content": ""
+    },
+    "project/contracts/Scenarios.t.sol": {
+      "content": ""
+    }
+  },
+  "settings": {
+    "evmVersion": "osaka",
+    "outputSelection": {
+      "*": {
+        "": [
+          "ast"
+        ],
+        "*": [
+          "abi",
+          "evm.bytecode.debugInfo",
+          "evm.bytecode.linkReferences",
+          "evm.bytecode.object",
+          "evm.bytecode.opcodes",
+          "evm.bytecode.sourceMap",
+          "evm.deployedBytecode.debugInfo",
+          "evm.deployedBytecode.immutableReferences",
+          "evm.deployedBytecode.linkReferences",
+          "evm.deployedBytecode.object",
+          "evm.deployedBytecode.opcodes",
+          "evm.deployedBytecode.sourceMap",
+          "evm.methodIdentifiers"
+        ]
+      }
+    },
+    "remappings": [
+      "project/:forge-std/Test.sol=npm/forge-std@1.14.0/src/Test.sol"
+    ]
+  }
+}

@@ -3,6 +3,17 @@
 version = 4
 
 [[package]]
+name = "addr2line"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b5d307320b3181d6d7954e663bd7c774a838b8220fe0593c86d9fb09f498b4b"
+dependencies = [
+ "fallible-iterator",
+ "gimli",
+ "smallvec",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3553,6 +3564,7 @@ dependencies = [
 name = "edr_solidity"
 version = "0.3.8"
 dependencies = [
+ "addr2line",
  "alloy-dyn-abi",
  "alloy-json-abi",
  "alloy-primitives",
@@ -3570,9 +3582,11 @@ dependencies = [
  "edr_tracing",
  "foundry-compilers",
  "foundry-evm-traces",
+ "gimli",
  "indexmap 2.14.0",
  "itertools 0.14.0",
  "log",
+ "object",
  "parking_lot 0.12.5",
  "revm-bytecode",
  "revm-inspector",
@@ -4077,6 +4091,12 @@ dependencies = [
  "indenter",
  "once_cell",
 ]
+
+[[package]]
+name = "fallible-iterator"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
 
 [[package]]
 name = "fastrand"
@@ -4716,6 +4736,16 @@ dependencies = [
  "r-efi",
  "wasip2",
  "wasip3",
+]
+
+[[package]]
+name = "gimli"
+version = "0.32.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
+dependencies = [
+ "fallible-iterator",
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -6144,6 +6174,15 @@ dependencies = [
  "ruint",
  "serde",
  "smallvec",
+]
+
+[[package]]
+name = "object"
+version = "0.37.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
