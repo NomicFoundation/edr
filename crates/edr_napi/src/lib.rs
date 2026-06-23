@@ -2,10 +2,6 @@
 
 //! NAPI bindings for EDR's core types.
 
-// The deeply nested async futures in this crate exceed the default
-// layout-computation recursion limit of 128.
-#![recursion_limit = "256"]
-
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
