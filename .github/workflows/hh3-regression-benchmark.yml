@@ -25,14 +25,20 @@ on:
     types: [created]
 
 concurrency:
-  # Group by PR (comment events) or ref (push/dispatch) so re-triggering `/bench`
+  # Group by PR (comment events) or ref (dispatch) so re-triggering `/bench`
   # on a PR supersedes the previous run.
+  #
+  # Pushes to main are the exception: every commit must record its own baseline
+  # entry, so each push gets a group keyed by commit SHA. `cancel-in-progress`
+  # only protects the *in-progress* run, not runs *waiting* in the queue. A
+  # unique-per-commit group collides with nothing, so every commit's run is
+  # preserved and serialized by the self-hosted runner.
   #
   # Every comment triggers a workflow run. The job-level `if` skips non-`/bench`
   # ones, but that runs after concurrency is evaluated, so an unrelated comment
   # can cancel an in-progress benchmark. Give those skipped runs a unique group
   # so they collide with nothing.
-  group: ${{ github.workflow }}-${{ github.event.issue.number || github.ref }}${{ (github.event_name == 'issue_comment' && !startsWith(github.event.comment.body, '/bench')) && format('-skip-{0}', github.run_id) || '' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.event.issue.number || github.ref }}${{ (github.event_name == 'issue_comment' && !startsWith(github.event.comment.body, '/bench')) && format('-skip-{0}', github.run_id) || '' }}
   # Don't cancel in-progress baseline runs on main so baselines aren't lost.
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
