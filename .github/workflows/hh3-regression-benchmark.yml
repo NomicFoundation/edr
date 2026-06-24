@@ -127,9 +127,7 @@ jobs:
           sudo apt-get install -y hyperfine jq
 
       - name: Configure E2E clone directory
-        # Use the runner's per-job temp dir (emptied at the start/end of each job)
-        # so stale scenario clones from a previous run can't shadow the current
-        # EDR bump. `runner.temp` is unavailable in job-level env:, so set it here.
+        # Use the runner's temp dir for the scenario clones.
         run: echo "E2E_CLONE_DIR=$RUNNER_TEMP/edr-e2e-clones" >> "$GITHUB_ENV"
 
       - name: Compute sentinel versions
@@ -195,6 +193,10 @@ jobs:
           # See "Start Verdaccio": bypass pnpm's frozen-lockfile deps check for
           # the repoint-desynced workspace.
           PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
+          # Fresh per-run pnpm metadata cache. The default cache persists on the
+          # self-hosted runner and would serve a prior run's manifest if the
+          # version number hasn't changed, so publish/install resolve a stale build.
+          npm_config_cache_dir: ${{ runner.temp }}/pnpm-metadata-cache
         # --force-publish: reuse our already-running Verdaccio (instead of
         #   erroring) and run the global sinceReleasePublish once up front.
         # --use-local: republish the (repointed) hardhat workspace packages and
@@ -336,3 +338,9 @@ jobs:
               "workflow_name": "${{ github.workflow }}",
               "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
+
+      - name: Clean up temp dir
+        # Self-hosted runners don't automatically wipe RUNNER_TEMP between jobs, so we do
+        # this manually to avoid polluting future runs.
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/edr-e2e-clones" "$RUNNER_TEMP/pnpm-metadata-cache"
