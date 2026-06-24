@@ -1,5 +1,15 @@
 # @nomicfoundation/edr
 
+## 0.13.0
+
+### Minor Changes
+
+- 6ca30cd: Added a new `excludeTestPattern` option to the Solidity test runner config for negative test name filtering
+
+### Patch Changes
+
+- b59337e: Fixed stack traces for unsupported cheatcode errors not being identified when compiled with `viaIR`.
+
 ## 0.12.1
 
 ### Patch Changes
