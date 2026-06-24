@@ -187,6 +187,10 @@ jobs:
           # See "Start Verdaccio": bypass pnpm's frozen-lockfile deps check for
           # the repoint-desynced workspace.
           PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
+          # Fresh per-run pnpm metadata cache. The default cache persists on the
+          # self-hosted runner and would serve a prior run's manifest if the
+          # version number hasn't changed, so publish/install resolve a stale build.
+          npm_config_cache_dir: ${{ runner.temp }}/pnpm-metadata-cache
         # --force-publish: reuse our already-running Verdaccio (instead of
         #   erroring) and run the global sinceReleasePublish once up front.
         # --use-local: republish the (repointed) hardhat workspace packages and
