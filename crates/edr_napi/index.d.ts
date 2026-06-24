@@ -837,6 +837,12 @@ export interface SolidityTestRunnerConfigArgs {
    */
   testPattern?: string
   /**
+   * A regex pattern to exclude tests. If provided, test methods that match
+   * the pattern will not be executed or reported as a test result. Applied
+   * after `test_pattern`.
+   */
+  excludeTestPattern?: string
+  /**
    * Controls whether to generate a gas report after running the tests.
    * Enabling this also enables collection of all traces and EVM isolation
    * mode.
