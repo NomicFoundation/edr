@@ -355,7 +355,7 @@ jobs:
     if: >-
       !cancelled()
         && github.event_name == 'issue_comment'
-        && needs.setup.outputs.should_run == 'true'
+        && needs.regression-benchmark.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       issues: write # post the result comment on the PR
