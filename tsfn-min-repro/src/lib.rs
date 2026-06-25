@@ -10,6 +10,8 @@
 use std::thread;
 
 use napi::bindgen_prelude::{Function, ObjectFinalize};
+#[allow(deprecated)]
+use napi::JsObject;
 use napi::threadsafe_function::{
     ThreadsafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
 };
@@ -108,5 +110,66 @@ pub fn runtime_called_tsfn(callback: Function<u32, ()>) -> Result<()> {
         tsfn.call(0, ThreadsafeFunctionCallMode::NonBlocking);
         std::mem::forget(tsfn);
     });
+    Ok(())
+}
+
+/// EDR's subscription TSFN shape: `compat-mode` + a `JsObject` call arg (the
+/// callback builds an object via `env`). This is the deprecated v2->v3 shim
+/// EDR enables but the plain modes above don't.
+#[allow(deprecated)]
+type CompatTsfn = ThreadsafeFunction<u32, (), JsObject, napi::Status, false, true, 0>;
+
+#[allow(deprecated)]
+fn build_compat_tsfn(callback: Function<JsObject, ()>) -> Result<CompatTsfn> {
+    callback
+        .build_threadsafe_function::<u32>()
+        .weak::<true>()
+        .build_callback(|ctx: ThreadsafeCallContext<u32>| {
+            let mut obj = ctx.env.create_object()?;
+            obj.set_named_property("value", ctx.value)?;
+            Ok(obj)
+        })
+}
+
+/// V6: compat-mode/JsObject weak TSFN, leaked, never called.
+#[napi]
+#[allow(deprecated)]
+pub fn compat_tsfn(callback: Function<JsObject, ()>) -> Result<()> {
+    std::mem::forget(build_compat_tsfn(callback)?);
+    Ok(())
+}
+
+/// V6 + V2: compat-mode/JsObject weak TSFN called once (builds a JsObject).
+#[napi]
+#[allow(deprecated)]
+pub fn compat_tsfn_called(callback: Function<JsObject, ()>) -> Result<()> {
+    let tsfn = build_compat_tsfn(callback)?;
+    tsfn.call(0, ThreadsafeFunctionCallMode::NonBlocking);
+    std::mem::forget(tsfn);
+    Ok(())
+}
+
+/// V6 + heavy: compat-mode/JsObject weak TSFN called many times (subscription
+/// firing per block) — many JsObjects created through the shim before teardown.
+#[napi]
+#[allow(deprecated)]
+pub fn compat_tsfn_heavy(callback: Function<JsObject, ()>) -> Result<()> {
+    let tsfn = build_compat_tsfn(callback)?;
+    for value in 0..200 {
+        tsfn.call(value, ThreadsafeFunctionCallMode::NonBlocking);
+    }
+    std::mem::forget(tsfn);
+    Ok(())
+}
+
+/// Heavy single variable: plain (non-compat) weak TSFN called many times —
+/// isolates "many calls" from the compat-mode/JsObject shim.
+#[napi]
+pub fn heavy_call(callback: Function<u32, ()>) -> Result<()> {
+    let tsfn = build_weak_tsfn(callback)?;
+    for value in 0..200 {
+        tsfn.call(value, ThreadsafeFunctionCallMode::NonBlocking);
+    }
+    std::mem::forget(tsfn);
     Ok(())
 }

@@ -26,6 +26,18 @@ switch (mode) {
   case "runtime-called-tsfn":
     addon.runtimeCalledTsfn(() => {});
     break;
+  case "compat-tsfn":
+    addon.compatTsfn(() => {});
+    break;
+  case "compat-tsfn-called":
+    addon.compatTsfnCalled(() => {});
+    break;
+  case "compat-tsfn-heavy":
+    addon.compatTsfnHeavy(() => {});
+    break;
+  case "heavy-call":
+    addon.heavyCall(() => {});
+    break;
   default:
     throw new Error("unknown mode: " + mode);
 }
