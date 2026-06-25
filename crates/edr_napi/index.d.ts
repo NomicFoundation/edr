@@ -813,6 +813,17 @@ export interface FuzzTestKind {
   readonly medianGas: bigint
 }
 
+/** Controls the gas estimation strategy used by `eth_estimateGas`. */
+export declare enum GasEstimationMode {
+  /** Estimates the minimum gas required for the top-level call to succeed. */
+  TopLevelSuccess = 0,
+  /**
+   * Estimates the minimum gas required for the top-level call to succeed
+   * without any internal sub-call running out of gas.
+   */
+  NoInternalOutOfGas = 1
+}
+
 export interface GasReport {
   contracts: Record<string, ContractGasReport>
 }
@@ -1305,6 +1316,11 @@ export interface ProviderConfig {
    * requests that do not specify a `gas` value.
    */
   defaultTransactionGasLimit: bigint
+  /**
+   * The gas estimation mode to use for `eth_estimateGas`. Defaults to
+   * `GasEstimationMode::TopLevelSuccess` if not set.
+   */
+  gasEstimationMode?: GasEstimationMode
   /** The genesis state of the blockchain */
   genesisState: Array<AccountOverride>
   /** The hardfork of the blockchain */
