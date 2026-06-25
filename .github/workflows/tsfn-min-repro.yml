@@ -1,11 +1,12 @@
 # Isolation experiment for the napi v3 `Check failed: node->IsInUse()` teardown
 # crash (see edr-napi-tsfn-teardown-race-followup.md). Builds the *standalone*
-# tsfn-min-repro addon (a bare napi-rs v3 weak ThreadsafeFunction, no EDR code)
-# and loops a trivial node driver at process exit on the native arm64 runner.
+# tsfn-min-repro addon (bare napi-rs v3, no EDR code) and loops a trivial node
+# driver at process exit on the native arm64 runner.
 #
-# If this bare addon crashes the same way EDR does, the bug is napi-rs v3 / Node
-# (#52418), not EDR -> clean upstream report + an isolated rig to test fixes.
-# musl reproduces reliably; gnu (glibc) lets V8 symbolize its native stack.
+# A bare weak TSFN is 0/500. This matrix grows the addon toward EDR ~2 variables
+# at a time (ObjectWrap Reference, a *called* TSFN, a tokio runtime, off-thread
+# finalize) to find which combination crashes. Search platform is musl (where
+# EDR reproduces); add gnu once a mode hits, to symbolize the frame.
 #
 # NOT merge-required. Job SUCCEEDS even on crashes — crashes are the signal.
 name: TSFN minimal repro
@@ -26,25 +27,25 @@ concurrency:
 
 jobs:
   repro:
-    name: min-repro ${{ matrix.flavor }} node@${{ matrix.node }}
+    name: min-repro node@${{ matrix.node }} ${{ matrix.mode }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
+        node: ["24", "26"]
+        mode:
+          - control
+          - objectwrap
+          - objectwrap-tsfn
+          - objectwrap-offthread
+          - called-tsfn
+          - runtime-called-tsfn
         include:
-          - flavor: musl
-            node: "24"
+          - node: "24"
             image: node:24-alpine3.20
-          - flavor: musl
-            node: "26"
+          - node: "26"
             image: node:26-alpine
-          - flavor: gnu
-            node: "24"
-            image: node:24
-          - flavor: gnu
-            node: "26"
-            image: node:26
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -55,24 +56,18 @@ jobs:
           sudo sysctl -w kernel.core_pattern='core.%p'
           echo "core_pattern=$(cat /proc/sys/kernel/core_pattern)"
 
-      - name: Build standalone addon + loop driver
+      - name: Build standalone addon + loop driver (musl)
         uses: NomicFoundation/docker-run-action@63f044457cfb71a5c63fa589218c89a418565d9c # Fork of v3 with updated Docker
         env:
-          FLAVOR: ${{ matrix.flavor }}
+          MODE: ${{ matrix.mode }}
           ITER: "500"
         with:
           image: ${{ matrix.image }}
-          options: "--user 0:0 --ulimit core=-1 -e FLAVOR -e ITER -v ${{ github.workspace }}:/build -w /build/tsfn-min-repro"
+          options: "--user 0:0 --ulimit core=-1 -e MODE -e ITER -v ${{ github.workspace }}:/build -w /build/tsfn-min-repro"
           run: |
             set -e
-            if [ "$FLAVOR" = "musl" ]; then
-              apk add --no-cache build-base python3 git curl bash gdb
-              ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
-            else
-              export DEBIAN_FRONTEND=noninteractive
-              apt-get update
-              apt-get install -y --no-install-recommends build-essential python3 git curl gdb ca-certificates
-            fi
+            apk add --no-cache build-base python3 git curl bash gdb
+            ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
             export CARGO_NET_RETRY=10
@@ -85,16 +80,16 @@ jobs:
 
             ulimit -c unlimited || true
             crashes=0
-            echo "=== [$FLAVOR] running driver x${ITER} ==="
+            echo "=== [$MODE] running driver x${ITER} ==="
             for i in $(seq 1 "$ITER"); do
               rm -f core.* 2>/dev/null || true
               set +e
-              node test.js > "run.$i.log" 2>&1
+              node test.js "$MODE" > "run.$i.log" 2>&1
               code=$?
               set -e
               if [ "$code" -ne 0 ]; then
                 crashes=$((crashes + 1))
-                echo "::group::[$FLAVOR] iteration $i FAILED exit=$code (signal ~$((code - 128)))"
+                echo "::group::[$MODE] iteration $i FAILED exit=$code (signal ~$((code - 128)))"
                 cat "run.$i.log" || true
                 core=$(ls -t core.* 2>/dev/null | head -1 || true)
                 if [ -n "$core" ]; then
@@ -105,5 +100,5 @@ jobs:
               fi
             done
             echo "================================================"
-            echo "[$FLAVOR] MIN-REPRO CRASH RATE: ${crashes} / ${ITER}"
+            echo "[$MODE] node@${{ matrix.node }} MIN-REPRO CRASH RATE: ${crashes} / ${ITER}"
             echo "================================================"

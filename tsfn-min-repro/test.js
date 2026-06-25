@@ -1,11 +1,31 @@
 "use strict";
 
-// Minimal driver: load the bare napi-rs v3 addon, register a weak
-// ThreadsafeFunction (leaked inside the addon), then let the process exit.
-// Because the TSFN is weak it does not keep the event loop alive, so node
-// proceeds to env teardown with a still-registered weak global handle — the
-// condition that crashes EDR with `Check failed: node->IsInUse()`.
+// Driver: load the bare napi-rs v3 addon and run one mode, then let the process
+// exit (env teardown). `node test.js <mode>`, looped in CI. See src/lib.rs.
 const path = require("path");
 const addon = require(path.join(__dirname, "tsfn_min_repro.node"));
 
-addon.registerWeakTsfn(() => {});
+const mode = process.argv[2] || "control";
+
+switch (mode) {
+  case "control":
+    addon.weakTsfn(() => {});
+    break;
+  case "objectwrap":
+    new addon.PlainWrap();
+    break;
+  case "objectwrap-tsfn":
+    new addon.WrapHoldingTsfn(() => {});
+    break;
+  case "objectwrap-offthread":
+    new addon.WrapOffThreadDrop(() => {});
+    break;
+  case "called-tsfn":
+    addon.calledWeakTsfn(() => {});
+    break;
+  case "runtime-called-tsfn":
+    addon.runtimeCalledTsfn(() => {});
+    break;
+  default:
+    throw new Error("unknown mode: " + mode);
+}
