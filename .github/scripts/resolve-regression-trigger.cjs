@@ -15,6 +15,7 @@ module.exports = async ({ github, context, core }) => {
   const { owner, repo } = context.repo;
   const fullName = `${owner}/${repo}`;
   const eventName = context.eventName;
+  const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
 
   let shouldRun = false;
   let edrRef = "";
@@ -130,8 +131,8 @@ module.exports = async ({ github, context, core }) => {
         if (green) {
           shouldRun = true;
           await postComment(
-            `🚀 Starting regression benchmark for \`${edrRef.slice(0, 12)}\` ` +
-              `against Hardhat \`${hardhatRef}\`.`
+            `🚀 [Starting regression benchmark](${runUrl}) for ` +
+              `\`${edrRef.slice(0, 12)}\` against Hardhat \`${hardhatRef}\`.`
           );
         } else {
           await postComment(
