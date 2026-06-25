@@ -34,13 +34,15 @@ jobs:
       fail-fast: false
       matrix:
         node: ["24", "26"]
+        # Proven 0/500 (objectwrap*, called-tsfn, runtime-called-tsfn) stay in
+        # the addon but are dropped from the matrix to keep legs lean. This round
+        # targets the compat-mode/JsObject shim + heavy calling (subscription shape).
         mode:
           - control
-          - objectwrap
-          - objectwrap-tsfn
-          - objectwrap-offthread
-          - called-tsfn
-          - runtime-called-tsfn
+          - compat-tsfn
+          - compat-tsfn-called
+          - compat-tsfn-heavy
+          - heavy-call
         include:
           - node: "24"
             image: node:24-alpine3.20

@@ -12,7 +12,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = { version = "3", default-features = false, features = ["napi8", "async"] }
+napi = { version = "3", default-features = false, features = ["napi8", "async", "compat-mode"] }
 napi-derive = "3"
 
 [build-dependencies]
