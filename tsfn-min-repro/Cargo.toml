@@ -1,0 +1,21 @@
+# Standalone (NOT an edr workspace member — own [workspace] table) minimal
+# reproduction for the napi v3 `Check failed: node->IsInUse()` teardown crash.
+# Goal: determine whether a bare napi-rs v3 addon with a weak ThreadsafeFunction
+# crashes at process exit on arm64-musl — isolating napi-rs/Node (#52418) from EDR.
+[package]
+name = "tsfn-min-repro"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "3", default-features = false, features = ["napi8", "async", "compat-mode"] }
+napi-derive = "3"
+
+[build-dependencies]
+napi-build = "2.3"
+
+[workspace]

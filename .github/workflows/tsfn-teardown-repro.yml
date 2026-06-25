@@ -1,0 +1,126 @@
+# Research apparatus for the napi v3 TSFN/Reference teardown crash
+# (`Check failed: node->IsInUse()` / SIGSEGV / SIGABRT at process exit; see
+# edr-napi-tsfn-teardown-race-followup.md — root cause is the nodejs/node#52418
+# GlobalHandles double-free family, not #55706).
+#
+# NOT merge-required. Runs on push to the investigation branch. Native arm64
+# runner (ubuntu-24.04-arm). Two legs:
+#   - musl (alpine): reliably reproduces the crash -> crash RATE.
+#   - gnu  (debian): V8 can symbolize its own "Native stack trace" here (musl
+#     can't), so a crash names the Reference::~Reference() caller. Reproduces
+#     less often -> higher iteration count.
+# Builds the binding WITH debug symbols, loops testNoBuild, dumps the full crash
+# log, and best-effort gdb backtrace from any core. Job SUCCEEDS even on crashes.
+name: TSFN teardown repro
+
+on:
+  push:
+    branches:
+      - "bas/diag-tsfn-*"
+      - "bas/tsfn-*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tsfn-teardown-repro-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repro:
+    name: repro ${{ matrix.flavor }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - flavor: musl
+            image: node:24-alpine3.20
+            iterations: "200"
+          - flavor: gnu
+            image: node:24
+            iterations: "300"
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      # core_pattern is the shared host kernel's. A *relative* pattern makes the
+      # kernel write the core into the crashing process's cwd, which inside the
+      # container is the mounted workspace -> cores land where gdb can read them.
+      - name: Enable core dumps on host
+        run: |
+          sudo sysctl -w kernel.core_pattern='core.%p'
+          echo "core_pattern=$(cat /proc/sys/kernel/core_pattern)"
+
+      - name: Build (debug symbols) + stress-loop + backtrace
+        uses: NomicFoundation/docker-run-action@63f044457cfb71a5c63fa589218c89a418565d9c # Fork of v3 with updated Docker
+        env:
+          FLAVOR: ${{ matrix.flavor }}
+          ITER: ${{ matrix.iterations }}
+        with:
+          image: ${{ matrix.image }}
+          options: "--user 0:0 --ulimit core=-1 -e FLAVOR -e ITER -v /home/runner/.cargo/git:/usr/local/cargo/git -v /home/runner/.cargo/registry:/usr/local/cargo/registry -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          run: |
+            set -e
+            if [ "$FLAVOR" = "musl" ]; then
+              apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake gdb
+              ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
+            else
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends build-essential python3 make git pkg-config libssl-dev ca-certificates curl perl cmake gdb
+            fi
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            export PATH="/root/.cargo/bin:$PATH"
+
+            # Resilience against transient crates.io download failures
+            # ("curl [56] ... OpenSSL SSL_read: unexpected eof").
+            export CARGO_NET_RETRY=10
+            export CARGO_HTTP_MULTIPLEXING=false
+
+            npm i -g pnpm@10.34.3 --ignore-scripts
+            pnpm install --frozen-lockfile --prefer-offline
+
+            # Debug symbols + unstripped (dev profile).
+            pnpm run build:debug
+
+            ulimit -c unlimited || true
+            crashes=0
+            echo "=== [$FLAVOR] running testNoBuild x${ITER} ==="
+            for i in $(seq 1 "$ITER"); do
+              rm -f core.* 2>/dev/null || true
+              set +e
+              pnpm testNoBuild > "run.$i.log" 2>&1
+              code=$?
+              set -e
+              if [ "$code" -ne 0 ]; then
+                crashes=$((crashes + 1))
+                echo "::group::[$FLAVOR] iteration $i FAILED exit=$code (signal ~$((code - 128)))"
+                # Full log: on glibc V8 prints its own symbolized "Native stack
+                # trace" + the failing CHECK here.
+                echo "--- run.$i.log (full) ---"
+                cat "run.$i.log" || true
+                core=$(ls -t core.* 2>/dev/null | head -1 || true)
+                if [ -n "$core" ]; then
+                  echo "--- gdb 'thread apply all bt full' from $core ---"
+                  gdb -batch -ex 'thread apply all bt full' -ex quit /usr/local/bin/node "$core" 2>&1 | head -n 300
+                else
+                  echo "(no core file; core_pattern=$(cat /proc/sys/kernel/core_pattern))"
+                fi
+                echo "::endgroup::"
+              fi
+            done
+            echo "================================================"
+            echo "[$FLAVOR] CRASH RATE: ${crashes} / ${ITER}"
+            echo "================================================"
+
+      - name: Upload run logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tsfn-repro-logs-${{ matrix.flavor }}
+          path: crates/edr_napi/run.*.log
+          if-no-files-found: ignore

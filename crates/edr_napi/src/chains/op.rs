@@ -61,6 +61,7 @@ impl SyncProviderFactory for OpProviderFactory {
 
 /// Enumeration of supported OP hardforks.
 #[napi]
+#[derive(Clone, Copy)]
 pub enum OpHardfork {
     Bedrock = 100,
     Regolith = 101,

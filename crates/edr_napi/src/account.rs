@@ -15,7 +15,7 @@ use crate::{
 
 /// Specification of overrides for an account and its storage.
 #[napi(object)]
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize)]
 pub struct AccountOverride {
     /// The account's address
     #[debug("{}", hex::encode(address))]
