@@ -88,6 +88,10 @@ jobs:
     # are comparable to Hardhat's own regression baselines.
     runs-on: hardhat-linux-amd64-self-hosted
     timeout-minutes: 180
+    permissions:
+      # Lets the short-lived GITHUB_TOKEN used on non-baseline runs read commit
+      # metadata via the REST API (see "Store benchmark result").
+      contents: read
     env:
       # Hardhat is checked out into ./hardhat; the EDR repo is the workspace root.
       HH: ${{ github.workspace }}/hardhat
@@ -330,7 +334,12 @@ jobs:
           gh-repository: github.com/nomic-foundation-automation/edr-benchmark-results
           gh-pages-branch: main
           benchmark-data-dir-path: hardhat3
-          github-token: ${{ secrets.BENCHMARK_GITHUB_TOKEN }}
+          # Baseline (main push) runs push to the external results repo, which
+          # needs the cross-repo PAT. Non-baseline runs (PR/dispatch and the
+          # `/bench` issue_comment path) never push — the token is only used to
+          # read commit metadata and to clone the (public) results repo for
+          # comparison — so use the short-lived GITHUB_TOKEN.
+          github-token: ${{ needs.setup.outputs.is_baseline == 'true' && secrets.BENCHMARK_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           # Only push a new baseline on main-branch pushes; PRs/dispatch only compare.
           auto-push: ${{ needs.setup.outputs.is_baseline == 'true' }}
           alert-threshold: "110%"
