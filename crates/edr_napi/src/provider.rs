@@ -6,7 +6,11 @@ use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
 use edr_solidity::compiler::create_models_and_decode_bytecodes;
-use napi::{bindgen_prelude::ObjectFinalize, tokio::runtime, Env, JsFunction, JsObject, Status};
+use napi::{
+    bindgen_prelude::{FnArgs, Function, Object, ObjectFinalize, Promise, Uint8Array},
+    tokio::runtime,
+    Env, Status,
+};
 use napi_derive::napi;
 use parking_lot::RwLock;
 
@@ -118,18 +122,35 @@ impl Provider {
     }
 
     #[napi(catch_unwind, ts_return_type = "Promise<void>")]
-    pub fn set_call_override_callback(
+    pub fn set_call_override_callback<'env>(
         &self,
-        env: Env,
+        env: &'env Env,
+        // `ts_arg_type` declares `ArrayBuffer` to match Hardhat 2's typings
+        // for this callback; the runtime value is actually a `Uint8Array`.
+        // Producing a real `ArrayBuffer` is not possible: napi-rs's
+        // `ArrayBuffer<'env>` carries a lifetime, while threadsafe-function
+        // arguments must be `'static`.
+        //
+        // Hardhat 2 reads the arguments with `Buffer.from(x)`, which accepts
+        // both shapes identically. Any new consumer should treat this
+        // argument as a typed-array view: `Buffer.from(x)` and
+        // `new Uint8Array(x)` work, while ArrayBuffer-specific operations
+        // (`new DataView(x)` with no offset, ArrayBuffer `.slice(start, end)`
+        // semantics) would silently behave like `Uint8Array`. The same caveat
+        // applies to `decodeConsoleLogInputsCallback` in `logger.rs`.
         #[napi(
             ts_arg_type = "(contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>"
         )]
-        call_override_callback: JsFunction,
-    ) -> napi::Result<JsObject> {
+        call_override_callback: Function<
+            'env,
+            FnArgs<(Uint8Array, Uint8Array)>,
+            Promise<Option<crate::call_override::CallOverrideResult>>,
+        >,
+    ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
         let call_override_callback =
-            match CallOverrideCallback::new(&env, call_override_callback, self.runtime.clone()) {
+            match CallOverrideCallback::new(call_override_callback, self.runtime.clone()) {
                 Ok(callback) => callback,
                 Err(error) => {
                     deferred.reject(error);

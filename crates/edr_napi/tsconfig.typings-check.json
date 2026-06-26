@@ -1,0 +1,14 @@
+{
+  "extends": "@tsconfig/node20/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    // The node20 base enables this, which hides dangling type refs in
+    // generated `.d.ts`.
+    "skipLibCheck": false
+  },
+  "files": ["./index.d.ts"]
+}

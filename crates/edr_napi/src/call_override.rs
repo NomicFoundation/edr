@@ -1,13 +1,11 @@
-use std::sync::mpsc::channel;
+use std::sync::{mpsc::channel, Arc};
 
 use edr_primitives::{Address, Bytes};
 use napi::{
-    bindgen_prelude::{Promise, Uint8Array},
-    threadsafe_function::{
-        ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
-    },
+    bindgen_prelude::{FnArgs, Function, Promise, Uint8Array},
+    threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode},
     tokio::runtime,
-    Env, JsFunction, Status,
+    Env, Status,
 };
 use napi_derive::napi;
 
@@ -39,41 +37,47 @@ struct CallOverrideCall {
     data: Bytes,
 }
 
+type CallOverrideTsfn = ThreadsafeFunction<
+    CallOverrideCall,
+    Promise<Option<CallOverrideResult>>,
+    FnArgs<(Uint8Array, Uint8Array)>,
+    /* ErrorStatus */ Status,
+    /* CalleeHandled */ false,
+    /* Weak */ true,
+    /* MaxQueueSize */ 0,
+>;
+
 #[derive(Clone)]
 pub struct CallOverrideCallback {
-    call_override_callback_fn: ThreadsafeFunction<CallOverrideCall, ErrorStrategy::Fatal>,
+    call_override_callback_fn: Arc<CallOverrideTsfn>,
     runtime: runtime::Handle,
 }
 
 impl CallOverrideCallback {
     pub fn new(
-        env: &Env,
-        call_override_callback: JsFunction,
+        call_override_callback: Function<
+            '_,
+            FnArgs<(Uint8Array, Uint8Array)>,
+            Promise<Option<CallOverrideResult>>,
+        >,
         runtime: runtime::Handle,
     ) -> napi::Result<Self> {
-        let mut call_override_callback_fn = call_override_callback.create_threadsafe_function(
-            0,
-            |ctx: ThreadSafeCallContext<CallOverrideCall>| {
-                let address = ctx
-                    .env
-                    .create_arraybuffer_with_data(ctx.value.contract_address.to_vec())?
-                    .into_raw();
+        let call_override_callback_fn = call_override_callback
+            .build_threadsafe_function::<CallOverrideCall>()
+            // Maintain a weak reference to the function to avoid blocking
+            // the event loop from exiting.
+            .weak::<true>()
+            .build_callback(|ctx: ThreadsafeCallContext<CallOverrideCall>| {
+                let address = Uint8Array::from(ctx.value.contract_address.to_vec());
+                let data = Uint8Array::from(ctx.value.data.to_vec());
 
-                let data = ctx
-                    .env
-                    .create_arraybuffer_with_data(ctx.value.data.to_vec())?
-                    .into_raw();
-
-                Ok(vec![address, data])
-            },
-        )?;
-
-        // Maintain a weak reference to the function to avoid blocking the event loop
-        // from exiting.
-        call_override_callback_fn.unref(env)?;
+                Ok(FnArgs {
+                    data: (address, data),
+                })
+            })?;
 
         Ok(Self {
-            call_override_callback_fn,
+            call_override_callback_fn: Arc::new(call_override_callback_fn),
             runtime,
         })
     }
@@ -92,25 +96,52 @@ impl CallOverrideCallback {
                 data,
             },
             ThreadsafeFunctionCallMode::Blocking,
-            move |result: Promise<Option<CallOverrideResult>>| {
-                runtime.spawn(async move {
-                    let result = result.await?.try_cast();
-                    sender.send(result).map_err(|_error| {
-                        napi::Error::new(
-                            Status::GenericFailure,
-                            "Failed to send result from call_override_callback",
-                        )
-                    })
-                });
+            // Always send through the channel — including the `Err` cases
+            // when the JS callback throws synchronously or its promise
+            // rejects — so the `recv` below can't be left with a dropped
+            // sender.
+            move |result: napi::Result<Promise<Option<CallOverrideResult>>>, _env: Env| {
+                match result {
+                    Ok(promise) => {
+                        runtime.spawn(async move {
+                            let result = match promise.await {
+                                Ok(value) => value.try_cast(),
+                                Err(error) => Err(error),
+                            };
+                            sender.send(result).map_err(|_error| {
+                                napi::Error::new(
+                                    Status::GenericFailure,
+                                    "Failed to send result from call_override_callback",
+                                )
+                            })
+                        });
+                    }
+                    Err(error) => {
+                        sender.send(Err(error)).map_err(|_error| {
+                            napi::Error::new(
+                                Status::GenericFailure,
+                                "Failed to send result from call_override_callback",
+                            )
+                        })?;
+                    }
+                }
                 Ok(())
             },
         );
 
-        assert_eq!(status, Status::Ok, "Call override callback failed");
+        // Distinct from the callback-failure panic below: a non-`Ok` status
+        // means the threadsafe call itself was not scheduled (e.g. `Closing`
+        // during environment teardown), not that the user's callback failed.
+        assert_eq!(status, Status::Ok, "Call override threadsafe call failed");
 
+        // `SyncCallOverride` has no error path, and silently returning `None`
+        // would alter `eth_call` results, so a failing JS callback must fail
+        // loudly. This runs on a tokio blocking thread, so the panic is
+        // caught by the runtime and surfaces as a JSON-RPC internal error
+        // rather than aborting the process.
         receiver
             .recv()
-            .unwrap()
-            .expect("Failed call to call_override_callback")
+            .expect("Channel can only close if the threadsafe call was dropped without running")
+            .unwrap_or_else(|error| panic!("Call override callback failed: {error}"))
     }
 }

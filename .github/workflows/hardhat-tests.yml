@@ -38,10 +38,9 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
+      - uses: ./.github/actions/setup-llvm-cov
         with:
-          tool: cargo-llvm-cov@0.8.5
+          builds-napi-crate: "true"
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
