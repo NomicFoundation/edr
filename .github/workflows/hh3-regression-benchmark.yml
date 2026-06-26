@@ -186,6 +186,22 @@ jobs:
             --registry http://127.0.0.1:4873/ \
             --npmrc "$HH/.verdaccio/.npmrc"
 
+      - name: Clear stale pnpm metadata cache
+        # The self-hosted runner reuses ~/.cache/pnpm across runs. The benchmark
+        # republishes deterministic versions (e.g. hardhat@3.9.1) whose content
+        # changes each run (new @nomicfoundation/edr pin), so a prior run's cached
+        # packument makes `pnpm publish` skip ("already exists") and scenario
+        # installs resolve a stale EDR dependency.
+        #
+        # pnpm 11 ignores `npm_config_cache_dir`, so the metadata cache can't be
+        # relocated.
+        #
+        # The content-addressable store is separate and kept on purpose: it's
+        # keyed by integrity hash, so with fresh metadata pnpm derives the correct
+        # hash and any stale entry is simply never matched. Keeping it is safe and
+        # preserves install speed.
+        run: rm -rf "$HOME/.cache/pnpm"
+
       - name: Run regression benchmark
         working-directory: hardhat
         env:
@@ -193,10 +209,6 @@ jobs:
           # See "Start Verdaccio": bypass pnpm's frozen-lockfile deps check for
           # the repoint-desynced workspace.
           PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
-          # Fresh per-run pnpm metadata cache. The default cache persists on the
-          # self-hosted runner and would serve a prior run's manifest if the
-          # version number hasn't changed, so publish/install resolve a stale build.
-          npm_config_cache_dir: ${{ runner.temp }}/pnpm-metadata-cache
         # --force-publish: reuse our already-running Verdaccio (instead of
         #   erroring) and run the global sinceReleasePublish once up front.
         # --use-local: republish the (repointed) hardhat workspace packages and
@@ -343,7 +355,7 @@ jobs:
         # Self-hosted runners don't automatically wipe RUNNER_TEMP between jobs, so we do
         # this manually to avoid polluting future runs.
         if: always()
-        run: rm -rf "$RUNNER_TEMP/edr-e2e-clones" "$RUNNER_TEMP/pnpm-metadata-cache"
+        run: rm -rf "$RUNNER_TEMP/edr-e2e-clones"
 
   report:
     name: Report result to PR
