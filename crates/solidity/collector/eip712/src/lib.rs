@@ -3,14 +3,10 @@
 
 mod collector;
 pub mod parse;
-mod provider;
+pub mod provider;
 mod resolver;
 
-pub use crate::{
-    collector::CollectError,
-    provider::{CachedEip712Provider, Eip712Root, SharedEip712Provider},
-    resolver::ImportResolver,
-};
+pub use crate::{collector::CollectError, resolver::ImportResolver};
 
 /// An EIP-712 type definition in canonical form, paired with its
 /// primary-type name.

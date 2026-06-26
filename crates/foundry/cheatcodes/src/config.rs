@@ -8,7 +8,10 @@ use std::{
 use alloy_primitives::{map::AddressHashMap, U256};
 use edr_artifact::ArtifactId;
 use edr_common::fs::normalize_path;
-use edr_solidity_collector_eip712::{Eip712Type, SharedEip712TypeProvider};
+use edr_solidity_collector_eip712::{
+    provider::{Eip712LookupError, SharedEip712TypeProvider},
+    Eip712Type,
+};
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, evm_context::HardforkTr, opts::EvmOpts};
 
@@ -49,7 +52,7 @@ pub struct CheatsConfig<HardforkT> {
     /// Solidity compilation artifacts.
     pub available_artifacts: Arc<ContractsByArtifact>,
     /// Currently running artifact.
-    pub running_artifact: Option<ArtifactId>,
+    pub running_artifact: ArtifactId,
     /// Optional seed for the RNG algorithm.
     pub seed: Option<U256>,
     /// Whether to allow `expectRevert` to work for internal calls. Global
@@ -64,7 +67,7 @@ pub struct CheatsConfig<HardforkT> {
     pub chain_id_to_alias: HashMap<u64, String>,
     /// Lazily resolves EIP-712 canonical types from the running test
     /// contract's Solidity sources.
-    pub eip712_provider: SuiteEip712TypeProvider,
+    pub eip712_provider: SuiteEip712TypeProvider<Eip712LookupError>,
 }
 
 /// Chain data for getChain cheatcodes
@@ -90,7 +93,7 @@ pub enum ExecutionContextConfig {
 }
 
 /// Configuration options specific to cheat codes.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct CheatsConfigOptions {
     /// Solidity test execution contexts.
     pub execution_context: ExecutionContextConfig,
@@ -122,7 +125,7 @@ pub struct CheatsConfigOptions {
     pub functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
     /// Run-wide, shared provider that lazily parses EIP-712 canonical types
     /// from Solidity sources on demand.
-    pub eip712_provider: SharedEip712TypeProvider,
+    pub eip712_provider: SharedEip712TypeProvider<Eip712LookupError>,
 }
 
 // TODO: https://github.com/NomicFoundation/edr/issues/1184
@@ -141,26 +144,22 @@ pub struct TestFunctionIdentifier {
 /// Wraps the shared, run-wide [`SharedEip712TypeProvider`] together with the
 /// artifact whose source is currently executing, so cheatcodes can resolve a
 /// type by name without threading the artifact through every call site.
-#[derive(Clone, Debug, Default)]
-pub struct SuiteEip712TypeProvider {
-    provider: SharedEip712TypeProvider,
-    running_artifact: Option<ArtifactId>,
+#[derive(Clone, Debug)]
+pub struct SuiteEip712TypeProvider<ErrorT> {
+    provider: SharedEip712TypeProvider<ErrorT>,
+    running_artifact: ArtifactId,
 }
 
-impl SuiteEip712TypeProvider {
+impl<ErrorT: std::error::Error> SuiteEip712TypeProvider<ErrorT> {
     /// Resolves an EIP-712 canonical type by name from the running test
     /// contract's Solidity sources.
     ///
     /// Note: this reads project sources from disk the same way the compiler
     /// does — driven by the test runner, not by user-controlled paths — and so
     /// intentionally does not go through `fs_permissions`.
-    pub fn type_def(&self, name: &str) -> Result<Eip712Type> {
-        let artifact = self
-            .running_artifact
-            .as_ref()
-            .ok_or_else(|| fmt_err!("no running artifact to resolve EIP-712 type '{name}' from"))?;
+    pub fn get_eip712_type(&self, type_name: &str) -> Result<Eip712Type> {
         self.provider
-            .get_eip_712_type(artifact, name)
+            .get_eip712_type(&self.running_artifact.source, type_name)
             .map_err(|reason| fmt_err!("{reason}"))
     }
 }
@@ -190,7 +189,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         config: CheatsConfigOptions,
         evm_opts: EvmOpts<HardforkT>,
         available_artifacts: Arc<ContractsByArtifact>,
-        running_artifact: Option<ArtifactId>,
+        running_artifact: ArtifactId,
     ) -> Self {
         let CheatsConfigOptions {
             execution_context,
@@ -405,31 +404,6 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             // If not in config, try to get default URL
             let chain_data = self.get_chain_data_by_alias_non_mut(alias)?;
             Ok(chain_data.default_rpc_url)
-        }
-    }
-}
-
-impl<HardforkT: HardforkTr> Default for CheatsConfig<HardforkT> {
-    fn default() -> Self {
-        Self {
-            execution_context: ExecutionContextConfig::default(),
-            ffi: false,
-            prompt_timeout: Duration::from_secs(120),
-            rpc_cache_path: None,
-            rpc_storage_caching: StorageCachingConfig::default(),
-            rpc_endpoints: RpcEndpoints::default(),
-            fs_permissions: FsPermissions::default(),
-            project_root: PathBuf::default(),
-            evm_opts: EvmOpts::default(),
-            labels: AddressHashMap::<String>::default(),
-            available_artifacts: Arc::<ContractsByArtifact>::default(),
-            running_artifact: None,
-            seed: None,
-            internal_expect_revert: false,
-            functions_internal_expect_revert: HashSet::new(),
-            chains: HashMap::new(),
-            chain_id_to_alias: HashMap::new(),
-            eip712_provider: SuiteEip712TypeProvider::default(),
         }
     }
 }
@@ -824,6 +798,7 @@ fn create_default_chains() -> HashMap<String, ChainData> {
 #[cfg(test)]
 mod tests {
     use revm::primitives::hardfork::SpecId;
+    use semver::Version;
 
     use super::*;
     use crate::{cache::StorageCachingConfig, PathPermission};
@@ -840,7 +815,7 @@ mod tests {
             seed: None,
             allow_internal_expect_revert: false,
             functions_internal_expect_revert: HashSet::new(),
-            eip712_provider: SharedEip712TypeProvider::default(),
+            eip712_provider: SharedEip712TypeProvider(),
         };
 
         CheatsConfig::new(
@@ -848,7 +823,12 @@ mod tests {
             cheats_config_options,
             EvmOpts::default(),
             Arc::<ContractsByArtifact>::default(),
-            None,
+            // Test-only artifact, not used in the tests
+            ArtifactId {
+                name: "Test".to_string(),
+                source: PathBuf::from("Test.sol"),
+                version: Version::new(0, 8, 0),
+            },
         )
     }
 

@@ -71,11 +71,11 @@ pub enum Eip712LookupError {
 /// result is retained even on failure so a query can report *why* a scope has
 /// no types.
 #[derive(Debug, Default)]
-pub struct CachedEip712Provider {
+pub struct CachedEip712TypeProvider {
     by_source: HashMap<PathBuf, Eip712TypeCollection>,
 }
 
-impl CachedEip712Provider {
+impl CachedEip712TypeProvider {
     /// Collects EIP-712 canonical types for every root in parallel. Parses
     /// whatever it is given — it makes no assumptions about which roots are
     /// relevant.
@@ -148,14 +148,14 @@ pub struct Eip712TypeRequest<ErrorT> {
 /// until collection has finished.
 #[derive(Debug)]
 #[derive_where(Clone;)]
-pub struct SharedEip712Provider<ErrorT> {
+pub struct SharedEip712TypeProvider<ErrorT> {
     request_sender: crossbeam_channel::Sender<Eip712TypeRequest<ErrorT>>,
     // Dropping this disconnects the cancellation channel and joins the
     // dedicated thread, so no explicit shutdown is needed.
     _thread: Arc<CancellableThread>,
 }
 
-impl<ErrorT> SharedEip712Provider<ErrorT> {
+impl<ErrorT> SharedEip712TypeProvider<ErrorT> {
     const THREAD_NAME: &'static str = "async-eip712-provider";
 
     /// Looks up a canonical type by name within the scope of `source`, blocking
@@ -178,13 +178,13 @@ impl<ErrorT> SharedEip712Provider<ErrorT> {
     }
 }
 
-impl SharedEip712Provider<AsyncEip712Error> {
+impl SharedEip712TypeProvider<AsyncEip712Error> {
     /// Spawns a background thread that collects every root in parallel and then
     /// makes the resulting [`Eip712Provider`] available to queries.
     pub fn collect_in_background(roots: Vec<Eip712Root>, import_resolver: ImportResolver) -> Self {
         let (request_sender, request_receiver) = crossbeam_channel::unbounded();
         let thread = CancellableThread::spawn(Self::THREAD_NAME.to_owned(), move |cancellation_receiver| {
-                match CachedEip712Provider::collect(&roots, &import_resolver) {
+                match CachedEip712TypeProvider::collect(&roots, &import_resolver) {
                     Ok(provider) => loop {
                         // `select_biased!` picks the first listed branch when multiple
                         // arms are ready, so cancellation always wins over pending work.
@@ -227,14 +227,14 @@ impl SharedEip712Provider<AsyncEip712Error> {
     }
 }
 
-impl SharedEip712Provider<Eip712LookupError> {
+impl SharedEip712TypeProvider<Eip712LookupError> {
     /// Collects EIP-712 types for every root in parallel and then spawns a
     /// background thread to serve queries.
     pub fn collect(
         roots: Vec<Eip712Root>,
         import_resolver: ImportResolver,
     ) -> Result<Self, CollectError> {
-        let provider = CachedEip712Provider::collect(&roots, &import_resolver)?;
+        let provider = CachedEip712TypeProvider::collect(&roots, &import_resolver)?;
 
         let (request_sender, request_receiver) = crossbeam_channel::unbounded();
         let thread = CancellableThread::spawn(Self::THREAD_NAME.to_owned(), move |cancellation_receiver| {
@@ -297,9 +297,11 @@ mod tests {
 
     #[test]
     fn sync_provider_collects_and_queries_by_scope() {
-        let provider =
-            CachedEip712Provider::collect(&[root("relative/Root.sol")], &ImportResolver::default())
-                .expect("should collect EIP-712 types");
+        let provider = CachedEip712TypeProvider::collect(
+            &[root("relative/Root.sol")],
+            &ImportResolver::default(),
+        )
+        .expect("should collect EIP-712 types");
 
         assert_eq!(
             provider
@@ -324,7 +326,7 @@ mod tests {
             "@lib/Token.sol".to_string(),
             fixtures_root().join("mapped/lib/Token.sol"),
         );
-        let provider = CachedEip712Provider::collect(
+        let provider = CachedEip712TypeProvider::collect(
             &[root("mapped/Root.sol")],
             &ImportResolver::new(import_map),
         )
@@ -341,7 +343,7 @@ mod tests {
 
     #[test]
     fn async_provider_collects_all_roots_then_serves() {
-        let provider = SharedEip712Provider::collect_in_background(
+        let provider = SharedEip712TypeProvider::collect_in_background(
             vec![root("relative/Root.sol"), root("relative/Dep.sol")],
             ImportResolver::default(),
         );
@@ -364,7 +366,7 @@ mod tests {
 
     #[test]
     fn async_provider_blocks_concurrent_queries_until_ready() {
-        let provider = SharedEip712Provider::collect_in_background(
+        let provider = SharedEip712TypeProvider::collect_in_background(
             vec![root("relative/Root.sol")],
             ImportResolver::default(),
         );

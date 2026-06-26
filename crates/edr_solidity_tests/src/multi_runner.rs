@@ -322,7 +322,7 @@ impl<
             (*self.cheats_config_options).clone(),
             self.evm_opts.clone(),
             self.known_contracts.clone(),
-            Some(artifact_id.clone()),
+            artifact_id.clone(),
         );
 
         let tracing_mode = match self.collect_stack_traces {

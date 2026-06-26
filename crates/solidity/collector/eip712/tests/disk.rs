@@ -8,7 +8,8 @@ use std::{
 };
 
 use edr_solidity_collector_eip712::{
-    CachedEip712Provider, CollectError, Eip712Root, ImportResolver,
+    provider::{CachedEip712TypeProvider, Eip712Root},
+    CollectError, ImportResolver,
 };
 use semver::Version;
 
@@ -34,9 +35,11 @@ fn root(relative: &str, version: &Version) -> Eip712Root {
 
 #[test]
 fn resolves_relative_imports() {
-    let provider =
-        CachedEip712Provider::collect(&[root("relative/Root.sol", &solc())], &ImportResolver::default())
-            .expect("collection should succeed");
+    let provider = CachedEip712TypeProvider::collect(
+        &[root("relative/Root.sol", &solc())],
+        &ImportResolver::default(),
+    )
+    .expect("collection should succeed");
 
     assert_eq!(
         provider
@@ -55,7 +58,7 @@ fn resolves_mapped_imports() {
         fixture("mapped/lib/Token.sol"),
     );
 
-    let provider = CachedEip712Provider::collect(
+    let provider = CachedEip712TypeProvider::collect(
         &[root("mapped/Root.sol", &solc())],
         &ImportResolver::new(import_map),
     )
@@ -75,7 +78,7 @@ fn unmapped_import_leaves_dependency_unresolved_but_unit_builds() {
     // No import mapping supplied: the import is unresolved (a diagnostic, not a
     // hard error). `Payment` depends on the missing `Token`, so it is not
     // usable, but collection itself still succeeds.
-    let provider = CachedEip712Provider::collect(
+    let provider = CachedEip712TypeProvider::collect(
         &[root("mapped/Root.sol", &solc())],
         &ImportResolver::default(),
     )
@@ -88,7 +91,7 @@ fn unmapped_import_leaves_dependency_unresolved_but_unit_builds() {
 
 #[test]
 fn missing_root_file_is_an_error() {
-    let error = CachedEip712Provider::collect(
+    let error = CachedEip712TypeProvider::collect(
         &[root("does/not/exist.sol", &solc())],
         &ImportResolver::default(),
     )
@@ -98,7 +101,7 @@ fn missing_root_file_is_an_error() {
 
 #[test]
 fn unsupported_solc_version_is_an_error() {
-    let error = CachedEip712Provider::collect(
+    let error = CachedEip712TypeProvider::collect(
         &[root("relative/Root.sol", &Version::new(0, 7, 6))],
         &ImportResolver::default(),
     )
