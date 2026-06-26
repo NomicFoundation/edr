@@ -3244,6 +3244,7 @@ dependencies = [
  "edr_rpc_client",
  "edr_signer",
  "edr_solidity",
+ "edr_solidity_collector_eip712",
  "edr_solidity_tests",
  "edr_transaction",
  "foundry-cheatcodes",

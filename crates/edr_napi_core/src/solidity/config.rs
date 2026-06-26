@@ -3,6 +3,7 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use edr_chain_spec::EvmSpecId;
 use edr_primitives::{Address, UnknownHardfork, U256};
 use edr_solidity::config::IncludeTraces;
+use edr_solidity_collector_eip712::ImportResolver;
 use edr_solidity_tests::{
     backend::Predeploy,
     evm_context::HardforkTr,
@@ -164,6 +165,8 @@ pub struct TestRunnerConfig {
     /// The memory limit of the EVM in bytes.
     /// Defaults to `33_554_432` (2^25 = 32MiB).
     pub memory_limit: Option<u64>,
+    /// The import mappings for resolving Solidity imports.
+    pub import_mappings: HashMap<String, PathBuf>,
     /// The predeploys applied in local mode. Defaults to no predeploys.
     /// These should match the predeploys of the network in fork mode, so they
     /// aren't set in fork mode.
@@ -240,6 +243,7 @@ where
             transaction_gas_cap,
             disable_transaction_gas_cap,
             memory_limit,
+            import_mappings,
             local_predeploys,
             fork_url,
             fork_block_number,
@@ -346,6 +350,7 @@ where
 
         evm_opts.transaction_gas_cap = transaction_gas_cap;
 
+        let import_resolver = ImportResolver::new(import_mappings);
         let local_predeploys = local_predeploys.unwrap_or_default();
 
         let generate_gas_report = generate_gas_report.unwrap_or(false);
@@ -400,6 +405,7 @@ mod tests {
             transaction_gas_cap: None,
             disable_transaction_gas_cap: None,
             memory_limit: None,
+            import_mappings: HashMap::new(),
             local_predeploys: None,
             fork_url: None,
             fork_block_number: None,

@@ -853,15 +853,15 @@ export interface SolidityTestRunnerConfigArgs {
    * statements, e.g. `"forge-std/Test.sol"` or `"@openzeppelin/..."`) to
    * absolute file paths on disk.
    *
-   * Used by the `eip712HashType` and `eip712HashStruct` cheatcodes to
-   * lazily parse EIP-712 struct definitions from the running test
-   * contract's Solidity sources: when a type name isn't an inline
-   * definition, the running contract's source (and its transitive imports)
-   * is parsed on demand to find the struct. Relative imports (`./`, `../`)
-   * are resolved automatically against the importing file and need no
-   * entry here; only non-relative paths require a mapping.
+   * Used by the `eip712HashType` and `eip712HashStruct` cheatcodes to parse
+   * EIP-712 struct definitions from the running test contract's Solidity
+   * sources.
+   *
+   * Relative imports (`./`, `../`) are resolved automatically against the
+   * importing file and need no entry here; only non-relative paths
+   * require a mapping.
    */
-  eip712ImportMappings?: Record<string, string>
+  importMappings?: Record<string, string>
 }
 /** Fuzz testing configuration */
 export interface FuzzConfigArgs {

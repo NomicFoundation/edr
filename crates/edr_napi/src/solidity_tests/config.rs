@@ -2,7 +2,6 @@ use std::{collections::HashMap, path::PathBuf};
 
 use derive_more::Debug;
 use edr_primitives::hex;
-use edr_solidity_collector_eip712::SharedEip712TypeProvider;
 use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
@@ -181,14 +180,14 @@ pub struct SolidityTestRunnerConfigArgs {
     /// statements, e.g. `"forge-std/Test.sol"` or `"@openzeppelin/..."`) to
     /// absolute file paths on disk.
     ///
-    /// Used by the `eip712HashType` and `eip712HashStruct` cheatcodes to
-    /// lazily parse EIP-712 struct definitions from the running test
-    /// contract's Solidity sources: when a type name isn't an inline
-    /// definition, the running contract's source (and its transitive imports)
-    /// is parsed on demand to find the struct. Relative imports (`./`, `../`)
-    /// are resolved automatically against the importing file and need no
-    /// entry here; only non-relative paths require a mapping.
-    pub eip712_import_mappings: Option<HashMap<String, String>>,
+    /// Used by the `eip712HashType` and `eip712HashStruct` cheatcodes to parse
+    /// EIP-712 struct definitions from the running test contract's Solidity
+    /// sources.
+    ///
+    /// Relative imports (`./`, `../`) are resolved automatically against the
+    /// importing file and need no entry here; only non-relative paths
+    /// require a mapping.
+    pub import_mappings: Option<HashMap<String, String>>,
 }
 
 impl SolidityTestRunnerConfigArgs {
@@ -223,6 +222,7 @@ impl SolidityTestRunnerConfigArgs {
             transaction_gas_cap,
             disable_transaction_gas_cap,
             memory_limit,
+            import_mappings,
             local_predeploys,
             eth_rpc_url,
             rpc_cache_path,
@@ -238,7 +238,6 @@ impl SolidityTestRunnerConfigArgs {
             test_pattern,
             generate_gas_report,
             test_function_overrides,
-            eip712_import_mappings,
         } = self;
 
         let test_pattern = TestFilterConfig {
@@ -250,6 +249,13 @@ impl SolidityTestRunnerConfigArgs {
                 })
                 .transpose()?,
         };
+
+        let import_mappings = import_mappings.map_or(HashMap::new(), |import_mappings| {
+            import_mappings
+                .into_iter()
+                .map(|(import_path, disk_path)| (import_path, PathBuf::from(disk_path)))
+                .collect()
+        });
 
         let local_predeploys = local_predeploys
             .map(|local_predeploys| {
@@ -318,14 +324,6 @@ impl SolidityTestRunnerConfigArgs {
                 })
                 .transpose()?
                 .unwrap_or_default(),
-            eip712_provider: SharedEip712TypeProvider::new(
-                PathBuf::from(project_root.clone()),
-                eip712_import_mappings
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|(import_path, disk_path)| (import_path, PathBuf::from(disk_path)))
-                    .collect(),
-            ),
         };
 
         let on_collected_coverage_fn = observability.map_or_else(
@@ -359,6 +357,7 @@ impl SolidityTestRunnerConfigArgs {
             transaction_gas_cap: transaction_gas_cap.map(TryCast::try_cast).transpose()?,
             disable_transaction_gas_cap,
             memory_limit: memory_limit.map(TryCast::try_cast).transpose()?,
+            import_mappings,
             local_predeploys,
             fork_url: eth_rpc_url,
             fork_block_number: fork_block_number.map(TryCast::try_cast).transpose()?,
