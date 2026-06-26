@@ -26,7 +26,7 @@ edr_test_block_replay.workspace = true
 flate2 = "1.0.28"
 indicatif = { version = "0.18.4", features = ["rayon"] }
 mimalloc = { version = "0.1.39", default-features = false }
-reqwest = { version = "0.11.12", features = ["blocking"] }
+reqwest = { version = "0.13.0", features = ["blocking"] }
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true

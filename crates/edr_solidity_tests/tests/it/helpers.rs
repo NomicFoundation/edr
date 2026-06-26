@@ -5,11 +5,17 @@ mod tracing;
 
 pub use config::{assert_multiple, make_test_identifier, TestConfig};
 use edr_decoder_revert::RevertDecoder;
+use parking_lot::RwLock;
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
 use std::{
-    borrow::Cow, collections::HashMap, env, fmt, io::Write, marker::PhantomData, path::PathBuf,
+    borrow::Cow,
+    collections::HashMap,
+    env, fmt,
+    io::Write,
+    marker::PhantomData,
+    path::{Path, PathBuf},
     sync::Mutex,
 };
 
@@ -17,7 +23,9 @@ use alloy_primitives::{Bytes, U256};
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
+    artifacts::{BuildInfoConfig, BuildInfoWithOutput},
     config::IncludeTraces,
+    contract_decoder::ContractDecoder,
     linker::{LinkOutput, Linker},
 };
 use edr_solidity_tests::{
@@ -107,6 +115,8 @@ pub enum ForgeTestProfile {
     Default,
     Paris,
     MultiVersion,
+    /// Like [`ForgeTestProfile::Default`], but compiled with `via_ir = true`.
+    ViaIr,
 }
 
 impl fmt::Display for ForgeTestProfile {
@@ -115,6 +125,7 @@ impl fmt::Display for ForgeTestProfile {
             ForgeTestProfile::Default => write!(f, "default"),
             ForgeTestProfile::Paris => write!(f, "paris"),
             ForgeTestProfile::MultiVersion => write!(f, "multi-version"),
+            ForgeTestProfile::ViaIr => write!(f, "via-ir"),
         }
     }
 }
@@ -206,6 +217,25 @@ impl ForgeTestProfile {
 
         if self.is_paris() {
             config.evm_version = EvmVersion::Paris;
+        }
+
+        if matches!(self, Self::ViaIr) {
+            config.via_ir = true;
+            // Emit build-info (standard JSON input + output, incl. AST and source
+            // maps) so the integration test can build a real `ContractDecoder`
+            // and exercise contract recognition — unlike the `NoOpContractDecoder`
+            // used elsewhere in this harness. Source maps are required by the
+            // decoder but are not part of the default output selection.
+            config.build_info = true;
+            // Select the full `evm.bytecode` / `evm.deployedBytecode` output
+            // (object, opcodes, source map, link references) — all required by
+            // the `ContractDecoder` to build its codebase model.
+            config
+                .extra_output
+                .push("evm.bytecode".parse().expect("valid selection"));
+            config
+                .extra_output
+                .push("evm.deployedBytecode".parse().expect("valid selection"));
         }
 
         config
@@ -793,6 +823,51 @@ impl<
         .expect("Config should be ok")
     }
 
+    /// Path to the project's build-info files
+    pub fn build_info_path(&self) -> &Path {
+        self.project.build_info_path()
+    }
+
+    /// Builds a runner backed by the given [`ContractDecoder`], rather than the
+    /// [`NoOpContractDecoder`] used by [`Self::build_runner`].
+    pub async fn runner_with_contract_decoder(
+        &self,
+        mut config: SolidityTestRunnerConfig<HardforkT>,
+        contract_decoder: ContractDecoder,
+    ) -> MultiContractRunner<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        parking_lot::RwLock<ContractDecoder>,
+        TransactionErrorT,
+        TransactionT,
+    > {
+        config.fuzz.failure_persist_dir = Some(self.new_fuzz_failure_dir());
+        config.invariant.failure_persist_dir = Some(self.new_invariant_failure_dir());
+
+        MultiContractRunner::<
+            BlockT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            RwLock<ContractDecoder>,
+            TransactionErrorT,
+            TransactionT,
+        >::new(
+            config,
+            self.test_contracts.clone(),
+            self.known_contracts.clone(),
+            self.libs_to_deploy.clone(),
+            RwLock::new(contract_decoder),
+            self.revert_decoder.clone(),
+        )
+        .await
+        .expect("Config should be ok")
+    }
+
     /// Returns a new fuzz failure dir that will be cleaned up after this struct
     /// is dropped.
     fn new_fuzz_failure_dir(&self) -> PathBuf {
@@ -815,6 +890,73 @@ impl<
         invariant_failure_dirs.push(dir);
         path
     }
+}
+
+/// Builds a real [`ContractDecoder`] from the build-info files in
+/// `build_info_dir` (requires the profile to set `build_info = true`).
+///
+/// Unlike the [`NoOpContractDecoder`] used by [`ForgeTestData::build_runner`],
+/// this decoder recognizes contracts from their bytecode and attaches contract
+/// metadata, so stack-trace generation runs the full error inferrer.
+pub fn contract_decoder(build_info_dir: &Path) -> ContractDecoder {
+    let build_infos: Vec<BuildInfoWithOutput> = std::fs::read_dir(build_info_dir)
+        .unwrap_or_else(|err| {
+            panic!(
+                "failed to read build-info dir {}: {err}",
+                build_info_dir.display()
+            )
+        })
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+        .map(|path| {
+            let bytes = std::fs::read(&path).expect("failed to read build-info file");
+            let mut value: serde_json::Value =
+                serde_json::from_slice(&bytes).expect("failed to parse build-info json");
+            // Foundry's build-info omits `evm.{bytecode,deployedBytecode}.opcodes`,
+            // which edr_solidity's artifact parser requires (the field is
+            // otherwise unused). Inject an empty value so parsing succeeds.
+            if let Some(contracts) = value
+                .get_mut("output")
+                .and_then(|output| output.get_mut("contracts"))
+                .and_then(serde_json::Value::as_object_mut)
+            {
+                for file in contracts.values_mut() {
+                    let Some(file) = file.as_object_mut() else {
+                        continue;
+                    };
+                    for contract in file.values_mut() {
+                        for key in ["bytecode", "deployedBytecode"] {
+                            if let Some(bytecode) = contract
+                                .get_mut("evm")
+                                .and_then(|evm| evm.get_mut(key))
+                                .and_then(serde_json::Value::as_object_mut)
+                                && !bytecode.contains_key("opcodes")
+                            {
+                                bytecode.insert(
+                                    "opcodes".to_string(),
+                                    serde_json::Value::String(String::new()),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            serde_json::from_value(value).expect("failed to parse patched build-info")
+        })
+        .collect();
+    assert!(
+        !build_infos.is_empty(),
+        "no build-info files found in {}",
+        build_info_dir.display()
+    );
+
+    let config = BuildInfoConfig {
+        build_infos,
+        ignore_contracts: None,
+    };
+
+    ContractDecoder::new(&config).expect("failed to build contract decoder")
 }
 
 fn get_compiled(project: &Project) -> ProjectCompileOutput {
@@ -860,6 +1002,11 @@ pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
         edr_chain_l1::Hardfork::PRAGUE,
     )
     .expect("linking ok")
+});
+
+/// Data for tests that need the sources compiled with `via_ir = true`.
+pub static TEST_DATA_VIA_IR: Lazy<L1ForgeTestData> = Lazy::new(|| {
+    ForgeTestData::new(ForgeTestProfile::ViaIr, edr_chain_l1::Hardfork::PRAGUE).expect("linking ok")
 });
 
 fn mock_rpc_endpoints() -> RpcEndpoints {

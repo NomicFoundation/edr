@@ -408,7 +408,10 @@ mod tests {
             collect_stack_traces: CollectStackTraces::OnFailure,
             include_traces: IncludeTraces::default(),
             on_collected_coverage_fn: None,
-            test_pattern: TestFilterConfig { test_pattern: None },
+            test_pattern: TestFilterConfig {
+                test_pattern: None,
+                exclude_test_pattern: None,
+            },
             generate_gas_report: None,
             test_function_overrides: None,
         }

@@ -168,6 +168,10 @@ pub struct SolidityTestRunnerConfigArgs {
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
+    /// A regex pattern to exclude tests. If provided, test methods that match
+    /// the pattern will not be executed or reported as a test result. Applied
+    /// after `test_pattern`.
+    pub exclude_test_pattern: Option<String>,
     /// Controls whether to generate a gas report after running the tests.
     /// Enabling this also enables collection of all traces and EVM isolation
     /// mode.
@@ -255,6 +259,7 @@ impl SolidityTestRunnerConfigArgs {
             include_traces,
             observability,
             test_pattern,
+            exclude_test_pattern,
             generate_gas_report,
             test_function_overrides,
             eip712_canonical_types,
@@ -262,6 +267,13 @@ impl SolidityTestRunnerConfigArgs {
 
         let test_pattern = TestFilterConfig {
             test_pattern: test_pattern
+                .as_ref()
+                .map(|p| {
+                    p.parse()
+                        .map_err(|error| napi::Error::new(Status::InvalidArg, error))
+                })
+                .transpose()?,
+            exclude_test_pattern: exclude_test_pattern
                 .as_ref()
                 .map(|p| {
                     p.parse()
@@ -530,7 +542,18 @@ impl SolidityTestRunnerConfigArgs {
                     .map_err(|e| napi::Error::new(Status::InvalidArg, e))
             })
             .transpose()?;
-        Ok(TestFilterConfig { test_pattern })
+        let exclude_test_pattern = self
+            .exclude_test_pattern
+            .as_ref()
+            .map(|p| {
+                p.parse()
+                    .map_err(|e| napi::Error::new(Status::InvalidArg, e))
+            })
+            .transpose()?;
+        Ok(TestFilterConfig {
+            test_pattern,
+            exclude_test_pattern,
+        })
     }
 }
 

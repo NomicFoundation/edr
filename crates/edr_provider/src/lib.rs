@@ -1,3 +1,7 @@
+// The deeply nested async futures in this crate exceed the default
+// layout-computation recursion limit of 128.
+#![recursion_limit = "256"]
+
 mod backend;
 /// Types for configuring the provider.
 pub mod config;

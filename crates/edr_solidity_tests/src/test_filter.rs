@@ -16,6 +16,7 @@ pub trait TestFilter: Send + Sync {
 
 pub struct TestFilterConfig {
     pub test_pattern: Option<Regex>,
+    pub exclude_test_pattern: Option<Regex>,
 }
 
 impl TestFilter for TestFilterConfig {
@@ -23,6 +24,10 @@ impl TestFilter for TestFilterConfig {
         self.test_pattern
             .as_ref()
             .is_none_or(|p| p.is_match(test_name))
+            && self
+                .exclude_test_pattern
+                .as_ref()
+                .is_none_or(|p| !p.is_match(test_name))
     }
 
     fn matches_contract(&self, _contract_name: &str) -> bool {
@@ -40,7 +45,10 @@ mod tests {
 
     #[test]
     fn test_pattern_none() {
-        let config = TestFilterConfig { test_pattern: None };
+        let config = TestFilterConfig {
+            test_pattern: None,
+            exclude_test_pattern: None,
+        };
 
         assert!(config.matches_test("test_foo"));
         assert!(config.matches_test("test_bar"));
@@ -50,9 +58,33 @@ mod tests {
     fn test_pattern_some() {
         let config = TestFilterConfig {
             test_pattern: Some("f?o+".parse().unwrap()),
+            exclude_test_pattern: None,
         };
 
         assert!(config.matches_test("test_foo"));
         assert!(!config.matches_test("test_bar"));
+    }
+
+    #[test]
+    fn exclude_test_pattern_some() {
+        let config = TestFilterConfig {
+            test_pattern: None,
+            exclude_test_pattern: Some("f?o+".parse().unwrap()),
+        };
+
+        assert!(!config.matches_test("test_foo"));
+        assert!(config.matches_test("test_bar"));
+    }
+
+    #[test]
+    fn test_pattern_and_exclude_test_pattern() {
+        let config = TestFilterConfig {
+            test_pattern: Some("test_".parse().unwrap()),
+            exclude_test_pattern: Some("bar".parse().unwrap()),
+        };
+
+        assert!(config.matches_test("test_foo"));
+        assert!(!config.matches_test("test_bar"));
+        assert!(!config.matches_test("other_foo"));
     }
 }

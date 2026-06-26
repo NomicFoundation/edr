@@ -15,6 +15,7 @@ module.exports = async ({ github, context, core }) => {
   const { owner, repo } = context.repo;
   const fullName = `${owner}/${repo}`;
   const eventName = context.eventName;
+  const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
 
   let shouldRun = false;
   let edrRef = "";
@@ -48,14 +49,29 @@ module.exports = async ({ github, context, core }) => {
     return false;
   }
 
+  // Cosmetic side effects (reactions, status comments) must never fail the job:
+  // the gating decision (`should_run`) is the only thing that matters. Run them
+  // through this wrapper so any API rejection — insufficient token permissions,
+  // rate limits, transient 5xx — degrades to a warning instead of aborting.
+  async function bestEffort(description, fn) {
+    try {
+      await fn();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      core.warning(`${description} failed (ignored): ${message}`);
+    }
+  }
+
   async function postComment(body) {
     if (eventName !== "issue_comment") return;
-    await github.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number: context.payload.issue.number,
-      body,
-    });
+    await bestEffort("Posting status comment", () =>
+      github.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: context.payload.issue.number,
+        body,
+      })
+    );
   }
 
   if (eventName === "push") {
@@ -74,16 +90,14 @@ module.exports = async ({ github, context, core }) => {
     const allowed = ["OWNER", "MEMBER", "COLLABORATOR"];
 
     // Acknowledge the request.
-    try {
-      await github.rest.reactions.createForIssueComment({
+    await bestEffort("Adding reaction", () =>
+      github.rest.reactions.createForIssueComment({
         owner,
         repo,
         comment_id: comment.id,
         content: "eyes",
-      });
-    } catch (e) {
-      core.warning(`Could not add reaction: ${e.message}`);
-    }
+      })
+    );
 
     if (!allowed.includes(assoc)) {
       core.warning(
@@ -117,8 +131,8 @@ module.exports = async ({ github, context, core }) => {
         if (green) {
           shouldRun = true;
           await postComment(
-            `🚀 Starting regression benchmark for \`${edrRef.slice(0, 12)}\` ` +
-              `against Hardhat \`${hardhatRef}\`.`
+            `🚀 [Starting regression benchmark](${runUrl}) for ` +
+              `\`${edrRef.slice(0, 12)}\` against Hardhat \`${hardhatRef}\`.`
           );
         } else {
           await postComment(
