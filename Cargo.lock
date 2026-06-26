@@ -3652,6 +3652,7 @@ dependencies = [
  "edr_gas_report",
  "edr_primitives",
  "edr_solidity",
+ "edr_solidity_collector_eip712",
  "edr_test_utils",
  "eyre",
  "foundry-cheatcodes",

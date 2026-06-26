@@ -1,12 +1,12 @@
 //! Defines EIP-712 types and a means of collecting EIP-712 canonical type
 //! definitions from Solidity sources.
 
-mod collector;
+pub mod collector;
 pub mod parse;
 pub mod provider;
 mod resolver;
 
-pub use crate::{collector::CollectError, resolver::ImportResolver};
+pub use crate::resolver::ImportResolver;
 
 /// An EIP-712 type definition in canonical form, paired with its
 /// primary-type name.

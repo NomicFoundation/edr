@@ -360,6 +360,7 @@ where
             coverage: false,
             cheats_config_options,
             evm_opts,
+            import_resolver,
             local_predeploys,
             fuzz,
             invariant,

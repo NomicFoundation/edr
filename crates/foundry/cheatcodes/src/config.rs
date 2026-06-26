@@ -9,8 +9,7 @@ use alloy_primitives::{map::AddressHashMap, U256};
 use edr_artifact::ArtifactId;
 use edr_common::fs::normalize_path;
 use edr_solidity_collector_eip712::{
-    provider::{Eip712LookupError, SharedEip712TypeProvider},
-    Eip712Type,
+    collector::Eip712TypeCollection, provider::SharedEip712TypeProvider, Eip712Type,
 };
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, evm_context::HardforkTr, opts::EvmOpts};
@@ -65,9 +64,9 @@ pub struct CheatsConfig<HardforkT> {
     pub chains: HashMap<String, ChainData>,
     /// Mapping of chain IDs to their aliases
     pub chain_id_to_alias: HashMap<u64, String>,
-    /// Lazily resolves EIP-712 canonical types from the running test
-    /// contract's Solidity sources.
-    pub eip712_provider: SuiteEip712TypeProvider<Eip712LookupError>,
+    /// EIP-712 types collected from Solidity sources scoped to the running
+    /// artifact.
+    pub eip712_types: Eip712TypeCollection,
 }
 
 /// Chain data for getChain cheatcodes
@@ -93,7 +92,7 @@ pub enum ExecutionContextConfig {
 }
 
 /// Configuration options specific to cheat codes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct CheatsConfigOptions {
     /// Solidity test execution contexts.
     pub execution_context: ExecutionContextConfig,
@@ -123,9 +122,6 @@ pub struct CheatsConfigOptions {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test. Overrides the global setting for specific test functions.
     pub functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
-    /// Run-wide, shared provider that lazily parses EIP-712 canonical types
-    /// from Solidity sources on demand.
-    pub eip712_provider: SharedEip712TypeProvider<Eip712LookupError>,
 }
 
 // TODO: https://github.com/NomicFoundation/edr/issues/1184
@@ -190,6 +186,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         evm_opts: EvmOpts<HardforkT>,
         available_artifacts: Arc<ContractsByArtifact>,
         running_artifact: ArtifactId,
+        eip712_types: Eip712TypeCollection,
     ) -> Self {
         let CheatsConfigOptions {
             execution_context,
@@ -202,13 +199,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             seed,
             allow_internal_expect_revert,
             functions_internal_expect_revert,
-            eip712_provider,
         } = config;
-
-        let eip712_provider = SuiteEip712TypeProvider {
-            provider: eip712_provider,
-            running_artifact: running_artifact.clone(),
-        };
 
         // TODO
         // let mut allowed_paths = vec![config.root.clone()];
@@ -234,7 +225,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             functions_internal_expect_revert,
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
-            eip712_provider,
+            eip712_types,
         }
     }
 
@@ -815,7 +806,6 @@ mod tests {
             seed: None,
             allow_internal_expect_revert: false,
             functions_internal_expect_revert: HashSet::new(),
-            eip712_provider: SharedEip712TypeProvider(),
         };
 
         CheatsConfig::new(
@@ -829,6 +819,7 @@ mod tests {
                 source: PathBuf::from("Test.sol"),
                 version: Version::new(0, 8, 0),
             },
+            Eip712TypeCollection::default(),
         )
     }
 

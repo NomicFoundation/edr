@@ -23,11 +23,11 @@ use semver::Version;
 
 use crate::{
     collector::{
-        collect_eip712_types_for_file, Eip712CollectionLookupError, Eip712TypeCollection,
-        Eip712TypeRejected,
+        collect_eip712_types_for_file, Eip712CollectError, Eip712CollectionLookupError,
+        Eip712TypeCollection, Eip712TypeRejected,
     },
     resolver::ImportResolver,
-    CollectError, Eip712Type,
+    Eip712Type,
 };
 
 /// A Solidity source file to collect EIP-712 canonical types from.
@@ -82,7 +82,7 @@ impl CachedEip712TypeProvider {
     pub fn collect(
         roots: &[Eip712Root],
         import_resolver: &ImportResolver,
-    ) -> Result<Self, CollectError> {
+    ) -> Result<Self, Eip712CollectError> {
         let by_source = roots
             .par_iter()
             .map(
@@ -132,7 +132,7 @@ impl CachedEip712TypeProvider {
 #[derive(Debug, thiserror::Error)]
 pub enum AsyncEip712Error {
     #[error("Background collection failed: {0}")]
-    CollectionFailed(#[from] CollectError),
+    CollectionFailed(#[from] Eip712CollectError),
     #[error(transparent)]
     LookupFailed(#[from] Eip712LookupError),
 }
@@ -233,7 +233,7 @@ impl SharedEip712TypeProvider<Eip712LookupError> {
     pub fn collect(
         roots: Vec<Eip712Root>,
         import_resolver: ImportResolver,
-    ) -> Result<Self, CollectError> {
+    ) -> Result<Self, Eip712CollectError> {
         let provider = CachedEip712TypeProvider::collect(&roots, &import_resolver)?;
 
         let (request_sender, request_receiver) = crossbeam_channel::unbounded();

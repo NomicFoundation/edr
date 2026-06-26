@@ -17,6 +17,7 @@ use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
+use edr_solidity_collector_eip712::{collector::collect_eip712_types_for_file, ImportResolver};
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
@@ -112,6 +113,8 @@ pub struct MultiContractRunner<
     evm_opts: EvmOpts<HardforkT>,
     /// The configured evm
     env: EvmEnv<BlockT, TransactionT, HardforkT>,
+    /// The import resolver for EIP-712 type collection.
+    import_resolver: ImportResolver,
     /// The local predeploys
     local_predeploys: Vec<Predeploy>,
     /// Revert decoder. Contains all known errors and their selectors.
@@ -192,6 +195,7 @@ impl<
             mut include_traces,
             coverage,
             mut evm_opts,
+            import_resolver,
             project_root,
             cheats_config_options,
             fuzz,
@@ -229,6 +233,7 @@ impl<
             cheats_config_options: Arc::new(cheats_config_options),
             evm_opts,
             env,
+            import_resolver,
             local_predeploys,
             revert_decoder,
             fork,
@@ -317,12 +322,20 @@ impl<
 
         debug!("start executing all tests in contract");
 
+        let absolute_artifact_path = self.project_root.join(&artifact_id.source);
+        let eip712_types = collect_eip712_types_for_file(
+            &absolute_artifact_path,
+            artifact_id.version.clone(),
+            &self.import_resolver,
+        )?;
+
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
             (*self.cheats_config_options).clone(),
             self.evm_opts.clone(),
             self.known_contracts.clone(),
             artifact_id.clone(),
+            eip712_types,
         );
 
         let tracing_mode = match self.collect_stack_traces {
@@ -340,7 +353,7 @@ impl<
                 .gas_limit(self.evm_opts.gas_limit())
                 .inspectors(|stack| {
                     stack
-                        .cheatcodes(Arc::new(cheats_config))
+                        .cheatcodes(cheats_config)
                         .trace(tracing_mode)
                         .code_coverage(
                             self.on_collected_coverage_fn

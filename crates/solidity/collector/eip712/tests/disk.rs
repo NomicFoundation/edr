@@ -8,8 +8,9 @@ use std::{
 };
 
 use edr_solidity_collector_eip712::{
+    collector::Eip712CollectError,
     provider::{CachedEip712TypeProvider, Eip712Root},
-    CollectError, ImportResolver,
+    ImportResolver,
 };
 use semver::Version;
 
@@ -96,7 +97,7 @@ fn missing_root_file_is_an_error() {
         &ImportResolver::default(),
     )
     .unwrap_err();
-    assert!(matches!(error, CollectError::RootFileNotFound { .. }));
+    assert!(matches!(error, Eip712CollectError::RootFileNotFound { .. }));
 }
 
 #[test]
@@ -106,5 +107,8 @@ fn unsupported_solc_version_is_an_error() {
         &ImportResolver::default(),
     )
     .unwrap_err();
-    assert!(matches!(error, CollectError::InvalidSolcVersion { .. }));
+    assert!(matches!(
+        error,
+        Eip712CollectError::InvalidSolcVersion { .. }
+    ));
 }

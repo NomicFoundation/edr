@@ -4,7 +4,7 @@ use alloy_dyn_abi::{DynSolType, DynSolValue, Resolver, TypedData};
 use alloy_ens::namehash;
 use alloy_primitives::{aliases::B32, keccak256, map::HashMap, Bytes, B64, U256};
 use alloy_sol_types::SolValue;
-use edr_solidity_collector_eip712::Eip712Type;
+use edr_solidity_collector_eip712::{collector::Eip712TypeCollection, Eip712Type};
 use foundry_evm_core::{
     backend::CheatcodeBackend,
     constants::DEFAULT_CREATE2_DEPLOYER,
@@ -19,8 +19,8 @@ use revm::{context::result::HaltReasonTr, context_interface::JournalTr as _};
 
 #[allow(clippy::wildcard_imports)]
 use crate::{
-    config::SuiteEip712TypeProvider, impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes,
-    CheatcodesExecutor, CheatsCtxt, Result, Vm::*,
+    impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt,
+    Result, Vm::*,
 };
 
 /// Contains locations of traces ignored via cheatcodes.
@@ -1098,7 +1098,7 @@ impl Cheatcode for eip712HashType_0Call {
             typeNameOrDefinition,
         } = self;
 
-        let type_def = get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_provider)?;
+        let type_def = get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types)?;
         Ok(keccak256(type_def.canonical_definition().as_bytes()).to_vec())
     }
 }
@@ -1139,7 +1139,7 @@ impl Cheatcode for eip712HashStruct_0Call {
             abiEncodedData,
         } = self;
 
-        let type_def = get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_provider)?;
+        let type_def = get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types)?;
 
         get_struct_hash(&type_def, abiEncodedData)
     }
@@ -1284,12 +1284,15 @@ fn random_int<
 ///   Solidity sources via the EIP-712 type provider.
 fn get_canonical_type_def(
     name_or_def: &str,
-    eip712_provider: &SuiteEip712TypeProvider,
+    eip712_types: &Eip712TypeCollection,
 ) -> Result<Eip712Type> {
     if name_or_def.contains('(') {
         Eip712Type::parse(name_or_def).map_err(|error| fmt_err!("{error}"))
     } else {
-        eip712_provider.type_def(name_or_def)
+        eip712_types
+            .get(name_or_def)
+            .cloned()
+            .map_err(|error| fmt_err!("{error}"))
     }
 }
 

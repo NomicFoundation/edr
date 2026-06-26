@@ -95,7 +95,7 @@ impl Eip712Type {
 /// files, a non-EIP-712-encodable member, or a transitively non-encodable
 /// dependency) are recorded separately so a lookup can explain *why* a type is
 /// unavailable rather than reporting a bare "not found".
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Eip712TypeCollection {
     types: HashMap<String, Eip712Type>,
     rejected: HashMap<String, RejectReason>,
@@ -103,7 +103,7 @@ pub struct Eip712TypeCollection {
 
 /// An error type for a struct that exists but could not be converted to an
 /// EIP-712 canonical type.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 #[error("EIP-712 type '{name}' cannot be used: {reason}")]
 pub struct Eip712TypeRejected {
     /// The requested type name.
@@ -113,8 +113,8 @@ pub struct Eip712TypeRejected {
 }
 
 /// Why a [`Eip712Collection::get`] lookup did not return a type.
-#[derive(Debug, thiserror::Error)]
-pub(crate) enum Eip712CollectionLookupError {
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum Eip712CollectionLookupError {
     /// No struct with this name exists in the compilation unit.
     #[error("EIP-712 type '{type_name}' was not found.")]
     NotFound { type_name: String },
@@ -145,7 +145,7 @@ impl Eip712TypeCollection {
 /// Errors that prevent collection from running at all (as opposed to per-type
 /// rejections, which are surfaced lazily via [`Eip712Collection::get`]).
 #[derive(Debug, thiserror::Error)]
-pub enum CollectError {
+pub enum Eip712CollectError {
     /// The provided solc version is invalid.
     #[error(transparent)]
     InvalidSolcVersion(#[from] FromSemverError),
@@ -162,7 +162,7 @@ pub enum CollectError {
 
 // TODO: `derive(Clone)` on CollectError once `FromSemverError` implements
 // `Clone`.
-impl Clone for CollectError {
+impl Clone for Eip712CollectError {
     fn clone(&self) -> Self {
         match self {
             Self::InvalidSolcVersion(FromSemverError::UnexpectedMetadata) => {
@@ -190,13 +190,13 @@ pub fn collect_eip712_types_for_file(
     root_source: &Path,
     solc_version: Version,
     import_resolver: &ImportResolver,
-) -> Result<Eip712TypeCollection, CollectError> {
+) -> Result<Eip712TypeCollection, Eip712CollectError> {
     let language_version = to_language_version(solc_version)?;
 
     // Pre-check the root: a build over a missing root only yields a diagnostic
     // and an empty unit, which we would otherwise mistake for "no types".
     if let Err(error) = std::fs::metadata(root_source) {
-        return Err(CollectError::RootFileNotFound {
+        return Err(Eip712CollectError::RootFileNotFound {
             path: root_source.display().to_string(),
             reason: error.to_string(),
         });

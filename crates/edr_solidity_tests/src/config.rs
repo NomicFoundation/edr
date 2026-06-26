@@ -3,6 +3,7 @@ use std::{collections::HashMap, path::PathBuf};
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_primitives::{Address, B256, U256};
 use edr_solidity::config::IncludeTraces;
+use edr_solidity_collector_eip712::ImportResolver;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     backend::Predeploy,
@@ -49,6 +50,8 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     pub cheats_config_options: CheatsConfigOptions,
     /// EVM options
     pub evm_opts: EvmOpts<HardforkT>,
+    /// The import resolver for EIP-712 type collection.
+    pub import_resolver: ImportResolver,
     /// The predeploys applied in local mode.
     /// These should match the predeploys of the network in fork mode, so they
     /// aren't set in fork mode.
