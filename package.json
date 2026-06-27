@@ -9,10 +9,10 @@
   },
   "engines": {
     "node": ">=20",
-    "pnpm": ">=10.28.2"
+    "pnpm": ">=11.5.3"
   },
   "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
-  "packageManager": "pnpm@10.34.3",
+  "packageManager": "pnpm@11.5.3",
   "pnpm": {
     "overrides": {
       "hardhat>@nomicfoundation/edr": "workspace:*"
