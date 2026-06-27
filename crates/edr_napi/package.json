@@ -31,7 +31,8 @@
   },
   "exports": {
     ".": "./index.js",
-    "./coverage": "./dist/src/ts/coverage.js"
+    "./coverage": "./dist/src/ts/coverage.js",
+    "./hardforks": "./dist/src/ts/hardforks.js"
   },
   "files": [
     "index.js",
@@ -69,11 +70,11 @@
     "build:tracing": "bash ../../scripts/build_edr_napi.sh --release --features op,tracing",
     "build:typingFile": "bash ../../scripts/build_edr_napi.sh --features op",
     "clean": "rm -rf @nomicfoundation/edr.node",
-    "eslint": "eslint 'test/**/*.ts'",
+    "eslint": "eslint 'test/**/*.ts' 'src/ts/**/*.ts'",
     "lint": "pnpm run prettier && pnpm run eslint",
     "lint:fix": "pnpm run prettier --write",
     "pretest": "pnpm build:test",
-    "prettier": "prettier --check \"test/**.ts\"",
+    "prettier": "prettier --check \"test/**.ts\" \"src/ts/**/*.ts\"",
     "test": "mocha --recursive \"test/**/*.ts\"",
     "testNoBuild": "mocha --recursive \"test/**/{,!(logs|mock)}.ts\"",
     "universal": "napi universal",

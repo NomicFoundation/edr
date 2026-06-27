@@ -13,7 +13,7 @@ export function getCoverageLibrary(): CoverageLib {
   const sourcePath = path.join(packageRoot, "coverage.sol");
   if (!fs.existsSync(sourcePath)) {
     throw new Error(
-      `Coverage library file not found at ${sourcePath}. It should be bundled with @nomicfoundation/edr.`,
+      `Coverage library file not found at ${sourcePath}. It should be bundled with @nomicfoundation/edr.`
     );
   }
   return {
