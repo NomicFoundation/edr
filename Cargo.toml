@@ -378,7 +378,7 @@ walkdir = "2"
 hyper = "1.0"
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 tower = "0.5"
-tower-http = "0.6"
+tower-http = "0.7"
 axum = "0.8"
 
 [workspace.lints.rust]
