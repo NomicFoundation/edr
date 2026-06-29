@@ -2566,7 +2566,7 @@ dependencies = [
  "edr_state_persistent_trie",
  "edr_transaction",
  "edr_utils",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "thiserror 2.0.18",
 ]
 
@@ -2942,7 +2942,7 @@ dependencies = [
  "edr_defaults",
  "edr_primitives",
  "foundry-cheatcodes-spec 0.3.8",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "revm-interpreter",
 ]
 
@@ -3226,7 +3226,7 @@ dependencies = [
  "edr_solidity_tests",
  "edr_transaction",
  "foundry-cheatcodes",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "napi",
  "parking_lot",
  "serde",
@@ -3371,7 +3371,7 @@ dependencies = [
  "foundry-evm-traces",
  "hex",
  "indexmap 2.14.0",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "k256",
  "lazy_static",
  "log",
@@ -3582,7 +3582,7 @@ dependencies = [
  "foundry-compilers",
  "foundry-evm-traces",
  "indexmap 2.14.0",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "log",
  "parking_lot",
  "revm-bytecode",
@@ -3623,7 +3623,7 @@ dependencies = [
  "foundry-evm",
  "futures",
  "humantime-serde",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "num-traits",
  "once_cell",
  "parking_lot",
@@ -3862,7 +3862,7 @@ dependencies = [
  "anyhow",
  "clap 3.2.25",
  "git2",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "log",
  "op-revm",
  "serde",
@@ -4228,7 +4228,7 @@ dependencies = [
  "foundry-compilers",
  "foundry-evm-core",
  "foundry-evm-traces",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "jsonpath_lib",
  "k256",
  "memchr",
@@ -4436,7 +4436,7 @@ dependencies = [
  "foundry-compilers",
  "foundry-fork-db",
  "futures",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "op-revm",
  "parking_lot",
  "reqwest 0.13.4",
@@ -4481,7 +4481,7 @@ dependencies = [
  "foundry-evm-core",
  "foundry-evm-coverage",
  "foundry-evm-traces",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "parking_lot",
  "proptest",
  "rand 0.9.4",
@@ -4505,7 +4505,7 @@ dependencies = [
  "edr_defaults",
  "eyre",
  "foundry-evm-core",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "reqwest 0.13.4",
  "revm",
  "revm-inspectors",
@@ -5360,6 +5360,15 @@ name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
 dependencies = [
  "either",
 ]
