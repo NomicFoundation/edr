@@ -310,52 +310,16 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1GenesisState, l1ProviderFactory, SpecId, l1HardforkFromString, l1HardforkToString, l1HardforkLatest, FRONTIER, FRONTIER_THAWING, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, OSAKA, OpHardfork, opHardforkFromString, opHardforkToString, opLatestHardfork, OP_CHAIN_TYPE, opGenesisState, opProviderFactory, BEDROCK, REGOLITH, CANYON, ECOTONE, FJORD, GRANITE, HOLOCENE, ISTHMUS, GasEstimationMode, MineOrdering, EdrContext, ContractDecoder, GasReportExecutionStatus, COVERAGE_LIBRARY_FILE_NAME, addStatementCoverageInstrumentation, latestSupportedSolidityVersion, Precompile, precompileP256Verify, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, CheatcodeErrorCode, CachedChains, CachedEndpoints, FsAccessPermission, CollectStackTraces, IncludeTraces, SolidityTestRunnerFactory, l1SolidityTestRunnerFactory, opSolidityTestRunnerFactory, SuiteResult, TestResult, TestStatus, CallKind, LogKind, linkHexStringBytecode, printStackTrace, Exit, ExitCode, BytecodeWrapper, ContractFunctionType, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, RawTrace } = nativeBinding
+const { GENERIC_CHAIN_TYPE, genericChainProviderFactory, L1_CHAIN_TYPE, l1GenesisState, l1ProviderFactory, OP_CHAIN_TYPE, opGenesisState, opProviderFactory, GasEstimationMode, MineOrdering, EdrContext, ContractDecoder, GasReportExecutionStatus, COVERAGE_LIBRARY_FILE_NAME, addStatementCoverageInstrumentation, latestSupportedSolidityVersion, Precompile, precompileP256Verify, ProviderFactory, Response, Provider, SuccessReason, ExceptionalHalt, CheatcodeErrorCode, CachedChains, CachedEndpoints, FsAccessPermission, CollectStackTraces, IncludeTraces, SolidityTestRunnerFactory, l1SolidityTestRunnerFactory, opSolidityTestRunnerFactory, SuiteResult, TestResult, TestStatus, CallKind, LogKind, linkHexStringBytecode, printStackTrace, Exit, ExitCode, BytecodeWrapper, ContractFunctionType, ReturnData, StackTraceEntryType, stackTraceEntryTypeToString, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, CONSTRUCTOR_FUNCTION_NAME, UNRECOGNIZED_FUNCTION_NAME, UNKNOWN_FUNCTION_NAME, PRECOMPILE_FUNCTION_NAME, UNRECOGNIZED_CONTRACT_NAME, RawTrace } = nativeBinding
 
 module.exports.GENERIC_CHAIN_TYPE = GENERIC_CHAIN_TYPE
 module.exports.genericChainProviderFactory = genericChainProviderFactory
 module.exports.L1_CHAIN_TYPE = L1_CHAIN_TYPE
 module.exports.l1GenesisState = l1GenesisState
 module.exports.l1ProviderFactory = l1ProviderFactory
-module.exports.SpecId = SpecId
-module.exports.l1HardforkFromString = l1HardforkFromString
-module.exports.l1HardforkToString = l1HardforkToString
-module.exports.l1HardforkLatest = l1HardforkLatest
-module.exports.FRONTIER = FRONTIER
-module.exports.FRONTIER_THAWING = FRONTIER_THAWING
-module.exports.HOMESTEAD = HOMESTEAD
-module.exports.DAO_FORK = DAO_FORK
-module.exports.TANGERINE = TANGERINE
-module.exports.SPURIOUS_DRAGON = SPURIOUS_DRAGON
-module.exports.BYZANTIUM = BYZANTIUM
-module.exports.CONSTANTINOPLE = CONSTANTINOPLE
-module.exports.PETERSBURG = PETERSBURG
-module.exports.ISTANBUL = ISTANBUL
-module.exports.MUIR_GLACIER = MUIR_GLACIER
-module.exports.BERLIN = BERLIN
-module.exports.LONDON = LONDON
-module.exports.ARROW_GLACIER = ARROW_GLACIER
-module.exports.GRAY_GLACIER = GRAY_GLACIER
-module.exports.MERGE = MERGE
-module.exports.SHANGHAI = SHANGHAI
-module.exports.CANCUN = CANCUN
-module.exports.PRAGUE = PRAGUE
-module.exports.OSAKA = OSAKA
-module.exports.OpHardfork = OpHardfork
-module.exports.opHardforkFromString = opHardforkFromString
-module.exports.opHardforkToString = opHardforkToString
-module.exports.opLatestHardfork = opLatestHardfork
 module.exports.OP_CHAIN_TYPE = OP_CHAIN_TYPE
 module.exports.opGenesisState = opGenesisState
 module.exports.opProviderFactory = opProviderFactory
-module.exports.BEDROCK = BEDROCK
-module.exports.REGOLITH = REGOLITH
-module.exports.CANYON = CANYON
-module.exports.ECOTONE = ECOTONE
-module.exports.FJORD = FJORD
-module.exports.GRANITE = GRANITE
-module.exports.HOLOCENE = HOLOCENE
-module.exports.ISTHMUS = ISTHMUS
 module.exports.GasEstimationMode = GasEstimationMode
 module.exports.MineOrdering = MineOrdering
 module.exports.EdrContext = EdrContext

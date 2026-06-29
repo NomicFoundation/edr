@@ -30,9 +30,12 @@
     "node": ">= 20"
   },
   "exports": {
-    ".": "./index.js",
+    ".": "./dist/src/ts/index.js",
     "./coverage": "./dist/src/ts/coverage.js",
     "./hardforks": "./dist/src/ts/hardforks.js"
+  },
+  "imports": {
+    "#native": "./index.js"
   },
   "files": [
     "index.js",
@@ -41,7 +44,7 @@
     "coverage.sol"
   ],
   "license": "MIT",
-  "main": "index.js",
+  "main": "dist/src/ts/index.js",
   "napi": {
     "name": "edr",
     "triples": {
@@ -80,5 +83,5 @@
     "universal": "napi universal",
     "version": "napi version"
   },
-  "types": "index.d.ts"
+  "types": "dist/src/ts/index.d.ts"
 }

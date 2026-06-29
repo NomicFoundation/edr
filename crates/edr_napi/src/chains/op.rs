@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use edr_napi_core::{
     logger::Logger,
@@ -11,7 +11,7 @@ use edr_op::{
         l1_block_code_bedrock, l1_block_code_ecotone, l1_block_code_isthmus,
         GAS_PRICE_ORACLE_ADDRESS, L1_BLOCK_PREDEPLOY_ADDRESS,
     },
-    OpChainSpec,
+    Hardfork, OpChainSpec,
 };
 use edr_primitives::hex;
 use edr_provider::time::CurrentTime;
@@ -59,99 +59,41 @@ impl SyncProviderFactory for OpProviderFactory {
     }
 }
 
-/// Enumeration of supported OP hardforks.
-#[napi]
-pub enum OpHardfork {
-    Bedrock = 100,
-    Regolith = 101,
-    Canyon = 102,
-    Ecotone = 103,
-    Fjord = 104,
-    Granite = 105,
-    Holocene = 106,
-    Isthmus = 107,
-}
-
-impl From<OpHardfork> for edr_op::Hardfork {
-    fn from(hardfork: OpHardfork) -> Self {
-        match hardfork {
-            OpHardfork::Bedrock => edr_op::Hardfork::BEDROCK,
-            OpHardfork::Regolith => edr_op::Hardfork::REGOLITH,
-            OpHardfork::Canyon => edr_op::Hardfork::CANYON,
-            OpHardfork::Ecotone => edr_op::Hardfork::ECOTONE,
-            OpHardfork::Fjord => edr_op::Hardfork::FJORD,
-            OpHardfork::Granite => edr_op::Hardfork::GRANITE,
-            OpHardfork::Holocene => edr_op::Hardfork::HOLOCENE,
-            OpHardfork::Isthmus => edr_op::Hardfork::ISTHMUS,
-        }
-    }
-}
-
-impl FromStr for OpHardfork {
-    type Err = napi::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            edr_op::hardfork::name::BEDROCK => Ok(OpHardfork::Bedrock),
-            edr_op::hardfork::name::REGOLITH => Ok(OpHardfork::Regolith),
-            edr_op::hardfork::name::CANYON => Ok(OpHardfork::Canyon),
-            edr_op::hardfork::name::ECOTONE => Ok(OpHardfork::Ecotone),
-            edr_op::hardfork::name::FJORD => Ok(OpHardfork::Fjord),
-            edr_op::hardfork::name::GRANITE => Ok(OpHardfork::Granite),
-            edr_op::hardfork::name::HOLOCENE => Ok(OpHardfork::Holocene),
-            edr_op::hardfork::name::ISTHMUS => Ok(OpHardfork::Isthmus),
-            _ => Err(napi::Error::new(
+/// Converts an EDR public hardfork name string to its [`Hardfork`]. The
+/// only place EDR's public OP hardfork names are tied to internal variants.
+fn op_hardfork_from_name(name: &str) -> napi::Result<Hardfork> {
+    Ok(match name {
+        "Bedrock" => Hardfork::BEDROCK,
+        "Regolith" => Hardfork::REGOLITH,
+        "Canyon" => Hardfork::CANYON,
+        "Ecotone" => Hardfork::ECOTONE,
+        "Fjord" => Hardfork::FJORD,
+        "Granite" => Hardfork::GRANITE,
+        "Holocene" => Hardfork::HOLOCENE,
+        "Isthmus" => Hardfork::ISTHMUS,
+        _ => {
+            return Err(napi::Error::new(
                 napi::Status::InvalidArg,
-                format!("The provided OP hardfork `{s}` is not supported."),
-            )),
+                format!("The provided hardfork `{name}` is not supported."),
+            ))
         }
-    }
-}
-
-/// Tries to parse the provided string to create an [`OpHardfork`]
-/// instance.
-///
-/// Returns an error if the string does not match any known hardfork.
-#[napi(catch_unwind)]
-pub fn op_hardfork_from_string(hardfork: String) -> napi::Result<OpHardfork> {
-    hardfork.parse()
-}
-
-/// Returns the string representation of the provided OP hardfork.
-#[napi(catch_unwind)]
-pub fn op_hardfork_to_string(hardfork: OpHardfork) -> &'static str {
-    match hardfork {
-        OpHardfork::Bedrock => edr_op::hardfork::name::BEDROCK,
-        OpHardfork::Regolith => edr_op::hardfork::name::REGOLITH,
-        OpHardfork::Canyon => edr_op::hardfork::name::CANYON,
-        OpHardfork::Ecotone => edr_op::hardfork::name::ECOTONE,
-        OpHardfork::Fjord => edr_op::hardfork::name::FJORD,
-        OpHardfork::Granite => edr_op::hardfork::name::GRANITE,
-        OpHardfork::Holocene => edr_op::hardfork::name::HOLOCENE,
-        OpHardfork::Isthmus => edr_op::hardfork::name::ISTHMUS,
-    }
-}
-
-/// Returns the latest supported OP hardfork.
-///
-/// The returned value will be updated after each network upgrade.
-#[napi(catch_unwind)]
-pub fn op_latest_hardfork() -> OpHardfork {
-    OpHardfork::Isthmus
+    })
 }
 
 #[napi]
 pub const OP_CHAIN_TYPE: &str = edr_op::CHAIN_TYPE;
 
 #[napi(catch_unwind)]
-pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
-    let l1_block_code = l1_block_code(hardfork.into());
+pub fn op_genesis_state(hardfork: String) -> napi::Result<Vec<AccountOverride>> {
+    let hardfork = op_hardfork_from_name(&hardfork)?;
+
+    let l1_block_code = l1_block_code(hardfork);
     let l1_block = AccountOverride {
         address: Uint8Array::with_data_copied(L1_BLOCK_PREDEPLOY_ADDRESS),
         balance: Some(BigInt::from(0u64)),
         nonce: Some(BigInt::from(0u64)),
         code: Some(l1_block_code),
-        storage: Some(l1_block_storage(hardfork.into())),
+        storage: Some(l1_block_storage(hardfork)),
     };
 
     /* The rest of the predeploys use a stubbed bytecode that reverts with a
@@ -279,9 +221,9 @@ pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
             storage: Some(vec![]),
         });
 
-    let predeploys = vec![gas_price_oracle_override(hardfork.into()), l1_block];
+    let predeploys = vec![gas_price_oracle_override(hardfork), l1_block];
 
-    predeploys.into_iter().chain(stubbed_predeploys).collect()
+    Ok(predeploys.into_iter().chain(stubbed_predeploys).collect())
 }
 
 #[napi(catch_unwind)]
@@ -428,24 +370,4 @@ fn l1_block_code(hardfork: edr_op::Hardfork) -> Uint8Array {
     } else {
         l1_block_code_bedrock().into()
     }
-}
-
-macro_rules! export_spec_id {
-    ($($variant:ident,)*) => {
-        $(
-            #[napi]
-            pub const $variant: &str = edr_op::hardfork::name::$variant;
-        )*
-    };
-}
-
-export_spec_id! {
-    BEDROCK,
-    REGOLITH,
-    CANYON,
-    ECOTONE,
-    FJORD,
-    GRANITE,
-    HOLOCENE,
-    ISTHMUS,
 }
