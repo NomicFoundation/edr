@@ -5,7 +5,7 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.5",
     "prettier": "^3.2.5",
-    "syncpack": "^12.4.0"
+    "syncpack": "^15.0.0"
   },
   "engines": {
     "node": ">=20",
