@@ -10,6 +10,7 @@ use edr_provider::{
     NoopLogger, Provider, ProviderSpec, SyncProviderSpec,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use parking_lot::RwLock;
 use tokio::runtime;
 
@@ -20,7 +21,11 @@ pub(crate) fn get_chain_fork_provider<
     ChainSpecT: SyncProviderSpec<
             CurrentTime,
             Hardfork = edr_chain_l1::Hardfork,
-            SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
+            PooledTransaction: IsEip155,
+            SignedTransaction: Default
+                                   + TransactionMut
+                                   + TransactionType<Type: IsEip4844>
+                                   + TransactionValidation<ValidationError: PartialEq>,
         > + ProviderSpec<CurrentTime>,
 >(
     chain_id: u64,
