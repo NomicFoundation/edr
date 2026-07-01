@@ -213,8 +213,8 @@ pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
 }
 
 #[napi(catch_unwind)]
-pub fn l1_hardfork_to_string(harfork: SpecId) -> &'static str {
-    match harfork {
+pub fn l1_hardfork_to_string(hardfork: SpecId) -> &'static str {
+    match hardfork {
         SpecId::Frontier => edr_chain_l1::chains::name::FRONTIER,
         SpecId::FrontierThawing => edr_chain_l1::chains::name::FRONTIER_THAWING,
         SpecId::Homestead => edr_chain_l1::chains::name::HOMESTEAD,

@@ -103,7 +103,7 @@ export enum SpecId {
  * Returns an error if the string does not match any known hardfork.
  */
 export declare function l1HardforkFromString(hardfork: string): SpecId
-export declare function l1HardforkToString(harfork: SpecId): string
+export declare function l1HardforkToString(hardfork: SpecId): string
 /**
  * Returns the latest supported OP hardfork.
  *
