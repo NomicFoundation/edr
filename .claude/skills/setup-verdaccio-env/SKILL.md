@@ -26,39 +26,16 @@ If the Hardhat or EDR directories cannot be found, ask the user to provide the c
 
 ## Steps
 
-### 1. Detect the current platform
+### 1. Build EDR
 
-Detect the platform triple for the napi binary. Use the Node.js `process.platform` and `process.arch` values, plus musl detection, to determine:
-
-- The **binary filename** (e.g. `edr.linux-x64-gnu.node`, `edr.darwin-arm64.node`)
-- The **npm platform directory** under `crates/edr_napi/npm/` (e.g. `linux-x64-gnu`, `darwin-arm64`)
-- The **npm platform package name** (e.g. `@nomicfoundation/edr-linux-x64-gnu`)
-
-The supported platforms can be found as subdirectories of `crates/edr_napi/npm/`. Determine the current platform using `process.platform`, `process.arch`, and musl detection (on Linux). The result must match one of those directory names.
-
-Store the detected suffix for use in subsequent steps (e.g. `linux-x64-gnu`). The binary filename is `edr.<suffix>.node` and the npm package name is `@nomicfoundation/edr-<suffix>`.
-
-### 2. Build EDR
+Build the napi binary for the current platform:
 
 ```bash
 cd /workspaces/edr/crates/edr_napi
 pnpm run <edr-build-script>
 ```
 
-Verify the binary was produced:
-
-```bash
-ls -la /workspaces/edr/crates/edr_napi/edr.<suffix>.node
-```
-
-### 3. Copy the built binary to the platform npm directory
-
-```bash
-cp /workspaces/edr/crates/edr_napi/edr.<suffix>.node \
-   /workspaces/edr/crates/edr_napi/npm/<suffix>/edr.<suffix>.node
-```
-
-### 4. Start Verdaccio
+### 2. Start Verdaccio
 
 The Hardhat repo has a built-in Verdaccio management script.
 
@@ -66,33 +43,26 @@ Before starting verdaccio, verify the `max_body_size` setting in `/workspaces/ha
 
 1. If necessary, edit `/workspaces/hardhat/scripts/verdaccio/start.ts` to include `max_body_size: 100mb` in the config template (before the `log:` line).
 2. Start verdaccio:
-   ```
+   ```bash
    cd /workspaces/hardhat
    pnpm verdaccio start --background
    ```
 
-### 5. Bump and publish EDR packages to Verdaccio
+### 3. Publish the local EDR build to Verdaccio
 
-Read the current version from `crates/edr_napi/package.json`, bump the prerelease number (e.g. `0.12.0-next.29` -> `0.12.0-next.30`).
-
-Apply the same version bump to:
-
-- `crates/edr_napi/package.json` (main `@nomicfoundation/edr` package)
-- `crates/edr_napi/npm/<suffix>/package.json` (platform package `@nomicfoundation/edr-<suffix>`)
-
-Publish both packages (platform package first), using the Verdaccio auth token via `NPM_CONFIG_USERCONFIG`:
+Use the shared helper script. It autodetects the platform triple, stages the built binary into its platform package, compiles the bundled TypeScript helpers, pins both packages to the chosen version, wires the platform dependency, and publishes both (platform package first):
 
 ```bash
-cd /workspaces/edr/crates/edr_napi/npm/<suffix>
-NPM_CONFIG_USERCONFIG=/workspaces/hardhat/.verdaccio/.npmrc \
-  pnpm publish --registry=http://127.0.0.1:4873/ --no-git-checks
-
-cd /workspaces/edr/crates/edr_napi
-NPM_CONFIG_USERCONFIG=/workspaces/hardhat/.verdaccio/.npmrc \
-  pnpm publish --registry=http://127.0.0.1:4873/ --no-git-checks
+cd /workspaces/edr
+scripts/publish_to_verdaccio.sh \
+  --version <version> \
+  --registry http://127.0.0.1:4873/ \
+  --npmrc /workspaces/hardhat/.verdaccio/.npmrc
 ```
 
-### 6. Bump and publish Hardhat packages to Verdaccio
+Choose a `<version>` that does not already exist on npm — bump the prerelease number from `crates/edr_napi/package.json` (e.g. `0.12.0-next.29` -> `0.12.0-next.30`). Verdaccio proxies `@nomicfoundation/*` to npmjs, so re-publishing an existing version fails. Note the chosen `<version>`; the Hardhat EDR dependency update in the next step must match it.
+
+### 4. Bump and publish Hardhat packages to Verdaccio
 
 First, update Hardhat's EDR dependency to the new version:
 
@@ -128,7 +98,7 @@ NPM_CONFIG_USERCONFIG=/workspaces/hardhat/.verdaccio/.npmrc \
 
 Publish in dependency order: `hardhat-errors` and `hardhat-utils` first (they are commonly depended upon), then the rest, then `hardhat` itself last.
 
-### 7. Install in the target repo
+### 5. Install in the target repo
 
 Detect the target repo's package manager by checking which lockfile exists:
 
@@ -149,7 +119,9 @@ rm -rf node_modules
 <detected-install-command>
 ```
 
-### 8. Validate
+### 6. Validate
+
+`<suffix>` below is the platform triple the publish script reported in step 3 (e.g. `linux-x64-gnu`, `darwin-arm64`) — the subdirectory of `crates/edr_napi/npm/` matching this host.
 
 Verify all installed versions match what was published:
 
@@ -169,7 +141,7 @@ nm <target-repo>/node_modules/@nomicfoundation/edr-<suffix>/edr.<suffix>.node 2>
 
 Report the installed versions to the user and confirm the environment is ready.
 
-### 9. Cleanup reminder
+### 7. Cleanup reminder
 
 Remind the user that:
 

@@ -51,7 +51,7 @@ pub(crate) fn compare(baseline: &Path, candidate: &Path) -> anyhow::Result<()> {
         }
     }
 
-    diffs.sort_by(|a, b| b.absolute_diff.cmp(&a.absolute_diff));
+    diffs.sort_by_key(|b| std::cmp::Reverse(b.absolute_diff));
     for diff in &diffs {
         println!(
             "`{}` is slower than baseline. Absolute diff: {} ms. Increase: {:.2} %",

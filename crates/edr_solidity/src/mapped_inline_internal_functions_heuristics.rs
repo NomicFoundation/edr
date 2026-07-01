@@ -58,9 +58,9 @@ pub fn stack_trace_may_require_adjustments<HaltReasonT: HaltReasonTrait>(
     {
         let result = !is_invalid_opcode_error
             && return_data.is_empty()
-            && Version::parse(&contract_meta.compiler_version)
-                .map(|version| version >= FIRST_SOLC_VERSION_WITH_MAPPED_SMALL_INTERNAL_FUNCTIONS)
-                .unwrap_or(false);
+            && Version::parse(&contract_meta.compiler_version).is_ok_and(|version| {
+                version >= FIRST_SOLC_VERSION_WITH_MAPPED_SMALL_INTERNAL_FUNCTIONS
+            });
         return Ok(result);
     }
 
@@ -152,7 +152,7 @@ fn match_opcodes<HaltReasonT: HaltReasonTrait>(
 
     // If the index is negative, we start from the end of the trace,
     // just like in the original JS code
-    let mut index = match first_step_index {
+    let index = match first_step_index {
         0.. => first_step_index as usize,
         ..=-1 if first_step_index.abs() < steps.len() as i32 => {
             (steps.len() as i32 + first_step_index) as usize
@@ -161,8 +161,8 @@ fn match_opcodes<HaltReasonT: HaltReasonTrait>(
         _ => return Ok(false),
     };
 
-    for opcode in opcodes {
-        let Some(NestedTraceStep::Evm(EvmStep { pc })) = steps.get(index) else {
+    for (offset, opcode) in opcodes.iter().enumerate() {
+        let Some(NestedTraceStep::Evm(EvmStep { pc })) = steps.get(index + offset) else {
             return Ok(false);
         };
 
@@ -171,8 +171,6 @@ fn match_opcodes<HaltReasonT: HaltReasonTrait>(
         if instruction.opcode != *opcode {
             return Ok(false);
         }
-
-        index += 1;
     }
 
     Ok(true)

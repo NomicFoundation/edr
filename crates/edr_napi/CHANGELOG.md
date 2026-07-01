@@ -1,5 +1,24 @@
 # @nomicfoundation/edr
 
+## 0.13.0
+
+### Minor Changes
+
+- 6ca30cd: Added a new `excludeTestPattern` option to the Solidity test runner config for negative test name filtering
+
+### Patch Changes
+
+- b59337e: Fixed stack traces for unsupported cheatcode errors not being identified when compiled with `viaIR`.
+
+## 0.12.1
+
+### Patch Changes
+
+- b02d57f: Added the optional `gasEstimationMode` provider configuration that controls the success criteria of `eth_estimateGas`: the default `TopLevelSuccess` preserves the previous behavior, while `NoInternalOutOfGas` returns estimations that also avoid internal calls running out of gas, erroring when no such estimation exists.
+- 6b146a5: Fixed `eth_estimateGas` erroring on Osaka+ when the binary search probed gas values above the EIP-7825 per-transaction cap
+- e43de3e: Added the `logs` field on `RevertResult` and `HaltResult` so logs emitted before a revert or halt are propagated through NAPI
+- e43de3e: Added `daFootPrintGasScalar` field to RPC receipts for OP stack (post-Jovian)
+
 ## 0.12.0
 
 ### Minor Changes

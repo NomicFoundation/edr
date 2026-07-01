@@ -1,6 +1,9 @@
 import { assert } from "chai";
 
-import { RpcDebugTraceOutput } from "hardhat/internal/hardhat-network/provider/output";
+import {
+  RpcDebugTraceOutput,
+  RpcStructLog,
+} from "hardhat/internal/hardhat-network/provider/output";
 
 export function assertEqualTraces(
   actual: RpcDebugTraceOutput,
@@ -23,6 +26,16 @@ export function assertEqualTraces(
       expectedLog.memory === undefined
     ) {
       expectedLog.memory = [];
+    }
+
+    // revm-inspectors emits `refund: 0` on every step, whereas Geth only emits
+    // `refund` when non-zero. Normalize the expected log to match.
+    const refund = (actualLog as RpcStructLog & { refund?: number }).refund;
+    if (
+      refund === 0 &&
+      (expectedLog as RpcStructLog & { refund?: number }).refund === undefined
+    ) {
+      (expectedLog as RpcStructLog & { refund?: number }).refund = 0;
     }
 
     assert.deepEqual(

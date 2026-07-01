@@ -246,6 +246,16 @@ export interface HardforkActivationByTimestamp {
   /** The timestamp at which the hardfork is activated */
   timestamp: bigint
 }
+/** Controls the gas estimation strategy used by `eth_estimateGas`. */
+export enum GasEstimationMode {
+  /** Estimates the minimum gas required for the top-level call to succeed. */
+  TopLevelSuccess = 0,
+  /**
+   * Estimates the minimum gas required for the top-level call to succeed
+   * without any internal sub-call running out of gas.
+   */
+  NoInternalOutOfGas = 1
+}
 /**The type of ordering to use when selecting blocks to mine. */
 export enum MineOrdering {
   /**Insertion order */
@@ -331,6 +341,11 @@ export interface ProviderConfig {
    * requests that do not specify a `gas` value.
    */
   defaultTransactionGasLimit: bigint
+  /**
+   * The gas estimation mode to use for `eth_estimateGas`. Defaults to
+   * `GasEstimationMode::TopLevelSuccess` if not set.
+   */
+  gasEstimationMode?: GasEstimationMode
   /** The genesis state of the blockchain */
   genesisState: Array<AccountOverride>
   /** The hardfork of the blockchain */
@@ -544,6 +559,8 @@ export interface SuccessResult {
 export interface RevertResult {
   /** The amount of gas used */
   gasUsed: bigint
+  /** The logs */
+  logs: Array<ExecutionLog>
   /** The transaction output */
   output: Uint8Array
 }
@@ -579,6 +596,8 @@ export interface HaltResult {
    * gas limit
    */
   gasUsed: bigint
+  /** The logs */
+  logs: Array<ExecutionLog>
 }
 /** The result of executing a transaction. */
 export interface ExecutionResult {
@@ -817,6 +836,12 @@ export interface SolidityTestRunnerConfigArgs {
    * match the pattern will be executed and reported as a test result.
    */
   testPattern?: string
+  /**
+   * A regex pattern to exclude tests. If provided, test methods that match
+   * the pattern will not be executed or reported as a test result. Applied
+   * after `test_pattern`.
+   */
+  excludeTestPattern?: string
   /**
    * Controls whether to generate a gas report after running the tests.
    * Enabling this also enables collection of all traces and EVM isolation

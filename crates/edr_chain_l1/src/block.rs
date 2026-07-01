@@ -25,7 +25,7 @@ use edr_chain_spec_evm::{
 };
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_evm::{dry_run, dry_run_with_inspector};
-use edr_precompile::{OverriddenPrecompileProvider, PrecompileProvider};
+use edr_precompile::OverriddenPrecompileProvider;
 use edr_primitives::{Address, Bloom, HashMap, HashSet, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
@@ -318,7 +318,7 @@ impl<
 
         let precompile_addresses = {
             #[allow(clippy::type_complexity)]
-            let mut precompile_provider: OverriddenPrecompileProvider<
+            let precompile_provider: OverriddenPrecompileProvider<
                 _,
                 ContextForChainSpec<
                     ChainSpecT,
@@ -338,10 +338,9 @@ impl<
                     >,
                 >,
             > = OverriddenPrecompileProvider::with_precompiles(
-                ChainSpecT::PrecompileProvider::default(),
+                ChainSpecT::new_precompile_provider(hardfork),
                 custom_precompiles.clone(),
             );
-            precompile_provider.set_spec(hardfork);
             precompile_provider.into_addresses()
         };
 
@@ -495,7 +494,7 @@ impl<
 
         self.state.commit(state_diff);
 
-        self.header.gas_used += transaction_result.gas_used();
+        self.header.gas_used += transaction_result.tx_gas_used();
 
         if let Some(BlobGas { gas_used, .. }) = self.header.blob_gas.as_mut() {
             let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();

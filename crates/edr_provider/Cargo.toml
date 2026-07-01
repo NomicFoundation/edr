@@ -8,7 +8,7 @@ alloy-dyn-abi.workspace = true
 alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-rpc-types.workspace = true
-alloy-rpc-types-trace = "1.2.1"
+alloy-rpc-types-trace.workspace = true
 alloy-serde.workspace = true
 alloy-sol-types.workspace = true
 anyhow = { workspace = true, optional = true }
@@ -56,7 +56,7 @@ edr_transaction.workspace = true
 edr_utils.workspace = true
 foundry-evm-traces.workspace = true
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
-itertools = { version = "0.14.0", default-features = false, features = [
+itertools = { version = "0.15.0", default-features = false, features = [
     "use_alloc",
 ] }
 k256 = { version = "0.13.1", default-features = false, features = [
@@ -88,6 +88,7 @@ tracing = { version = "0.1.44", features = [
 [dev-dependencies]
 alloy-eips.workspace = true
 anyhow = "1.0.100"
+edr_eip7825.workspace = true
 edr_test_block_replay.workspace = true
 hex = "0.4"
 edr_test_utils.workspace = true

@@ -183,6 +183,17 @@ pub struct MiningConfig {
     pub mem_pool: MemPoolConfig,
 }
 
+/// Controls the gas estimation strategy used by `eth_estimateGas`.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum GasEstimationMode {
+    /// Estimates the minimum gas required for the top-level call to succeed.
+    #[default]
+    TopLevelSuccess,
+    /// Estimates the minimum gas required for the top-level call to succeed
+    /// without any internal sub-call running out of gas.
+    NoInternalOutOfGas,
+}
+
 /// Configuration for the provider
 #[derive(Clone, Debug)]
 pub struct ProviderConfig<HardforkT> {
@@ -198,6 +209,7 @@ pub struct ProviderConfig<HardforkT> {
     /// The default transaction gas limit to use for RPC call and transaction
     /// requests that do not specify a `gas` value.
     pub default_transaction_gas_limit: NonZeroU64,
+    pub gas_estimation_mode: GasEstimationMode,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: HardforkT,
     pub initial_base_fee_per_gas: Option<u128>,
