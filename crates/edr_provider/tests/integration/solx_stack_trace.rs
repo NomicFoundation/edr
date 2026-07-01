@@ -135,7 +135,12 @@ fn creation_bytes(
 }
 
 fn selector(signature: &str) -> Selector {
-    Selector::from_slice(&keccak256(signature.as_bytes())[..4])
+    let hash = keccak256(signature.as_bytes());
+    Selector::from(
+        *hash
+            .first_chunk::<4>()
+            .expect("keccak256 output is 32 bytes"),
+    )
 }
 
 fn deploy(

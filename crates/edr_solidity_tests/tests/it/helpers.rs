@@ -23,9 +23,10 @@ use alloy_primitives::{Bytes, U256};
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
-    artifacts::{BuildInfoConfig, BuildInfoWithOutput},
+    artifacts::{BuildInfoConfig, BuildInfoWithOutput, SolcBytecode},
     config::IncludeTraces,
     contract_decoder::ContractDecoder,
+    debug_info::CompilerArtifact,
     linker::{LinkOutput, Linker},
 };
 use edr_solidity_tests::{
@@ -899,52 +900,58 @@ impl<
 /// this decoder recognizes contracts from their bytecode and attaches contract
 /// metadata, so stack-trace generation runs the full error inferrer.
 pub fn contract_decoder(build_info_dir: &Path) -> ContractDecoder {
-    let build_infos: Vec<BuildInfoWithOutput> = std::fs::read_dir(build_info_dir)
-        .unwrap_or_else(|err| {
-            panic!(
-                "failed to read build-info dir {}: {err}",
-                build_info_dir.display()
-            )
-        })
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
-        .map(|path| {
-            let bytes = std::fs::read(&path).expect("failed to read build-info file");
-            let mut value: serde_json::Value =
-                serde_json::from_slice(&bytes).expect("failed to parse build-info json");
-            // Foundry's build-info omits `evm.{bytecode,deployedBytecode}.opcodes`,
-            // which edr_solidity's artifact parser requires (the field is
-            // otherwise unused). Inject an empty value so parsing succeeds.
-            if let Some(contracts) = value
-                .get_mut("output")
-                .and_then(|output| output.get_mut("contracts"))
-                .and_then(serde_json::Value::as_object_mut)
-            {
-                for file in contracts.values_mut() {
-                    let Some(file) = file.as_object_mut() else {
-                        continue;
-                    };
-                    for contract in file.values_mut() {
-                        for key in ["bytecode", "deployedBytecode"] {
-                            if let Some(bytecode) = contract
-                                .get_mut("evm")
-                                .and_then(|evm| evm.get_mut(key))
-                                .and_then(serde_json::Value::as_object_mut)
-                                && !bytecode.contains_key("opcodes")
-                            {
-                                bytecode.insert(
-                                    "opcodes".to_string(),
-                                    serde_json::Value::String(String::new()),
-                                );
+    // Foundry emits solc-only build-info; deserialize into the concrete
+    // `SolcBytecode` type, then erase into `Box<dyn CompilerArtifact>` so the
+    // vec matches `BuildInfoConfig.build_infos`.
+    let build_infos: Vec<BuildInfoWithOutput<Box<dyn CompilerArtifact>>> =
+        std::fs::read_dir(build_info_dir)
+            .unwrap_or_else(|err| {
+                panic!(
+                    "failed to read build-info dir {}: {err}",
+                    build_info_dir.display()
+                )
+            })
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+            .map(|path| {
+                let bytes = std::fs::read(&path).expect("failed to read build-info file");
+                let mut value: serde_json::Value =
+                    serde_json::from_slice(&bytes).expect("failed to parse build-info json");
+                // Foundry's build-info omits `evm.{bytecode,deployedBytecode}.opcodes`,
+                // which edr_solidity's artifact parser requires (the field is
+                // otherwise unused). Inject an empty value so parsing succeeds.
+                if let Some(contracts) = value
+                    .get_mut("output")
+                    .and_then(|output| output.get_mut("contracts"))
+                    .and_then(serde_json::Value::as_object_mut)
+                {
+                    for file in contracts.values_mut() {
+                        let Some(file) = file.as_object_mut() else {
+                            continue;
+                        };
+                        for contract in file.values_mut() {
+                            for key in ["bytecode", "deployedBytecode"] {
+                                if let Some(bytecode) = contract
+                                    .get_mut("evm")
+                                    .and_then(|evm| evm.get_mut(key))
+                                    .and_then(serde_json::Value::as_object_mut)
+                                    && !bytecode.contains_key("opcodes")
+                                {
+                                    bytecode.insert(
+                                        "opcodes".to_string(),
+                                        serde_json::Value::String(String::new()),
+                                    );
+                                }
                             }
                         }
                     }
                 }
-            }
-            serde_json::from_value(value).expect("failed to parse patched build-info")
-        })
-        .collect();
+                let bi: BuildInfoWithOutput<SolcBytecode> =
+                    serde_json::from_value(value).expect("failed to parse patched build-info");
+                bi.map_artifact(|b| -> Box<dyn CompilerArtifact> { Box::new(b) })
+            })
+            .collect();
     assert!(
         !build_infos.is_empty(),
         "no build-info files found in {}",
