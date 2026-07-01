@@ -278,12 +278,12 @@ describe("Eth module", function () {
           // Also equalize left padding (signedTx has a leading 0)
           assert.equal(
             toBuffer(fetchedTx.r).toString("hex"),
-            toBuffer(signedTx.r!).toString("hex")
+            toBuffer(signedTx.r).toString("hex")
           );
 
           assert.equal(
             toBuffer(fetchedTx.s).toString("hex"),
-            toBuffer(signedTx.s!).toString("hex")
+            toBuffer(signedTx.s).toString("hex")
           );
         });
 

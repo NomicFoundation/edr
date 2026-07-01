@@ -132,6 +132,7 @@ describe("Gas reports", function () {
         ),
         observability: {
           gasReport: {
+            // eslint-disable-next-line @typescript-eslint/require-await -- napi callback signature is (…) => Promise<void>
             onCollectedGasReportCallback: async (report: GasReport) => {
               gasReporter.report = report;
             },
@@ -164,7 +165,7 @@ describe("Gas reports", function () {
         "No gas report received after deployment"
       );
 
-      let gasReport = gasReporter.report!;
+      let gasReport = gasReporter.report;
 
       assert.equal(
         Object.keys(gasReport.contracts).length,
@@ -286,7 +287,7 @@ describe("Gas reports", function () {
         "No gas report received after deployment"
       );
 
-      let gasReport = gasReporter.report!;
+      let gasReport = gasReporter.report;
 
       assert.equal(
         Object.keys(gasReport.contracts).length,
@@ -444,6 +445,7 @@ describe("Gas reports", function () {
           ),
           observability: {
             gasReport: {
+              // eslint-disable-next-line @typescript-eslint/require-await -- napi callback signature is (…) => Promise<void>
               onCollectedGasReportCallback: async (report: GasReport) => {
                 proxyGasReporter.report = report;
               },
@@ -478,7 +480,7 @@ describe("Gas reports", function () {
       });
 
       assert.isDefined(proxyGasReporter.report);
-      const gasReport = proxyGasReporter.report!;
+      const gasReport = proxyGasReporter.report;
 
       const contractReport =
         gasReport.contracts[
@@ -530,7 +532,7 @@ describe("Gas reports", function () {
       });
 
       assert.isDefined(proxyGasReporter.report);
-      const gasReport = proxyGasReporter.report!;
+      const gasReport = proxyGasReporter.report;
 
       assert.equal(
         Object.keys(gasReport.contracts).length,
@@ -607,7 +609,7 @@ describe("Gas reports", function () {
       );
 
       assert.isDefined(proxyGasReporter.report);
-      const gasReport = proxyGasReporter.report!;
+      const gasReport = proxyGasReporter.report;
 
       assert.equal(
         Object.keys(gasReport.contracts).length,
@@ -683,7 +685,7 @@ describe("Gas reports", function () {
       assert.isDefined(txHash1, "Transaction hash should be defined");
 
       assert.isDefined(proxyGasReporter.report);
-      let gasReport = proxyGasReporter.report!;
+      let gasReport = proxyGasReporter.report;
 
       assert.equal(
         Object.keys(gasReport.contracts).length,

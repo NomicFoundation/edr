@@ -30,7 +30,7 @@ declare module "mocha" {
  * @deprecated
  */
 export function useHelpers() {
-  beforeEach("Initialize helpers", async function () {
+  beforeEach("Initialize helpers", function () {
     if (this.provider === undefined) {
       throw new Error("useHelpers has to be called after useProvider");
     }
@@ -82,7 +82,7 @@ export function useHelpers() {
     };
   });
 
-  afterEach("Remove helpers", async function () {
+  afterEach("Remove helpers", function () {
     delete (this as any).sendTx;
     delete (this as any).assertLatestBlockTxs;
     delete (this as any).assertPendingTxs;

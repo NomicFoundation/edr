@@ -45,7 +45,7 @@ export function getContext(): EdrContext {
 export function collectSteps(
   trace: Array<TracingMessage | TracingStep | TracingMessageResult>
 ): TracingStep[] {
-  return trace.filter((traceItem) => "pc" in traceItem) as TracingStep[];
+  return trace.filter((traceItem) => "pc" in traceItem);
 }
 
 /**
@@ -54,9 +54,7 @@ export function collectSteps(
 export function collectMessages(
   trace: Array<TracingMessage | TracingStep | TracingMessageResult>
 ): TracingMessage[] {
-  return trace.filter(
-    (traceItem) => "isStaticCall" in traceItem
-  ) as TracingMessage[];
+  return trace.filter((traceItem) => "isStaticCall" in traceItem);
 }
 
 export async function deployContract(
@@ -122,6 +120,7 @@ export function toBuffer(x: Parameters<typeof toBytes>[0]) {
 
 // Load a contract built with Hardhat into a test suite
 export function loadContract(artifactPath: string): Artifact {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic, module-relative artifact path (fs would resolve against cwd)
   const compiledContract = require(artifactPath);
 
   const id: ArtifactId = {

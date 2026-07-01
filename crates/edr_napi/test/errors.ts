@@ -2,7 +2,7 @@ import { assert } from "chai";
 import { ReturnData } from "..";
 
 describe("Errors", () => {
-  it("check error message", async function () {
+  it("check error message", function () {
     // ABI encoded Error(string) of "Test error"
     const validData = new Uint8Array([
       0x08, 0xc3, 0x79, 0xa0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -42,7 +42,7 @@ describe("Errors", () => {
     );
   });
 
-  it("check panic message", async function () {
+  it("check panic message", function () {
     // ABI encoded Panic(uint256) of 0x11
     const validData = new Uint8Array([
       0x4e, 0x48, 0x7b, 0x71, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
