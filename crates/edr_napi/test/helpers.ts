@@ -243,7 +243,6 @@ export const DEFAULT_OWNED_ACCOUNT =
 export const DEFAULT_GENESIS_ADDRESS =
   "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 
-
 /**
  * Builds a local L1 [`ProviderConfig`] with sensible defaults for tests. The
  * hardfork defaults to the latest L1 hardfork.
