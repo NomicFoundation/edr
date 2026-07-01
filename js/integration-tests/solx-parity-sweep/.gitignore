@@ -1,6 +1,4 @@
-node_modules/
 dist/
-*.tsbuildinfo
 artifacts/
 cache/
 # Copied at pretest from crates/edr_solidity/fixtures/sources/

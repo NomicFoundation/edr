@@ -17,6 +17,7 @@ pub mod nested_tracer;
 pub mod proxy_detection;
 pub mod solidity_stack_trace;
 pub mod solidity_tracer;
+pub mod trace_strategy;
 pub mod tracing;
 pub mod utils;
 

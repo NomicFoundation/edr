@@ -18,6 +18,10 @@ use crate::{
         SourceReference, StackTraceEntry, CONSTRUCTOR_FUNCTION_NAME, FALLBACK_FUNCTION_NAME,
         RECEIVE_FUNCTION_NAME,
     },
+    trace_strategy::{
+        source_location_to_source_reference, PanicHelperContext, TraceContext, TraceStrategy,
+        TraceStrategyError,
+    },
 };
 
 const FIRST_SOLC_VERSION_CREATE_PARAMS_VALIDATION: Version = Version::new(0, 5, 9);
@@ -116,11 +120,20 @@ impl<HaltReasonT: HaltReasonTrait> From<alloy_dyn_abi::Error> for InferrerError<
     }
 }
 
+impl<HaltReasonT> From<TraceStrategyError> for InferrerError<HaltReasonT> {
+    fn from(err: TraceStrategyError) -> Self {
+        match err {
+            TraceStrategyError::MissingSourceReference => InferrerError::MissingSourceReference,
+            TraceStrategyError::ContractMetadata(err) => InferrerError::ContractMetadata(err),
+        }
+    }
+}
+
 pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
     stacktrace: Vec<StackTraceEntry>,
-    compiler_type: crate::artifacts::CompilerType,
+    strategy: &dyn TraceStrategy,
 ) -> Result<Vec<StackTraceEntry>, InferrerError<HaltReasonT>> {
-    let is_solx = compiler_type == crate::artifacts::CompilerType::Solx;
+    let recursion_start_idx = strategy.recursion_start_idx();
     // To work around the borrow checker, we'll collect the indices of the frames we
     // want to keep. We can't clone the frames, because some of them contain
     // non-Clone `ClassInstance`s`
@@ -169,9 +182,8 @@ pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
             }
 
             // Same-location same-variant consecutive frames = recursion.
-            // For solx, lift the original solc `idx > 0` gate so cross-CALL
-            // recursive frames at idx 0 survive.
-            if (is_solx || *idx > 0)
+            // The strategy dictates the minimum idx at which this filter applies.
+            if *idx >= recursion_start_idx
                 && mem::discriminant(*frame) == mem::discriminant(next_frame)
                 && frame_source.range == next_frame_source.range
                 && frame_source.line == next_frame_source.line
@@ -327,10 +339,10 @@ pub(crate) fn infer_before_tracing_create_message<HaltReasonT: HaltReasonTrait>(
 }
 
 pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReasonTrait>(
-    contract_meta: &ContractMetadata,
+    context: TraceContext<'_>,
     inst: &Instruction,
 ) -> Result<StackTraceEntry, InferrerError<HaltReasonT>> {
-    let contract = contract_meta.contract.read();
+    let contract = context.contract_meta.contract.read();
 
     // This means that a jump is made from within an internal solc function.
     // These are normally made from yul code, so they don't map to any Solidity
@@ -358,16 +370,14 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReason
 
     if let Some(func) = inst_location.get_containing_function()? {
         let source_reference =
-            source_location_to_source_reference(contract_meta, Some(inst_location))?;
+            source_location_to_source_reference(context.contract_meta, Some(inst_location))?;
         if let Some(source_reference) = source_reference {
             return Ok(StackTraceEntry::CallstackEntry {
                 source_reference,
                 function_type: func.r#type,
             });
         }
-        if contract_meta.compiler_type != crate::artifacts::CompilerType::Solx {
-            return Err(InferrerError::MissingSourceReference);
-        }
+        return Ok(context.unresolved_callstack_entry(&contract.name, inst_location)?);
     };
 
     let file = inst_location.file()?;
@@ -413,46 +423,6 @@ fn check_contract_too_large<HaltReasonT: HaltReasonTrait>(
         }]));
     }
     Ok(None)
-}
-
-/// Turn an instruction's `inline_call_sites` (solx-only; empty for solc)
-/// into `CallstackEntry` frames in outer-first order. Dedups against the
-/// previous frame's function so dispatcher → function-entry pairs and
-/// modifier-into-function pairs fold to a single frame.
-fn build_solx_inline_callstack_frames<HaltReasonT>(
-    contract_meta: &ContractMetadata,
-    last_instruction: &Instruction,
-    failing_function: &ContractFunction,
-) -> Result<Vec<StackTraceEntry>, InferrerError<HaltReasonT>> {
-    let bottom_func_name = match failing_function.r#type {
-        ContractFunctionType::Constructor => Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
-        ContractFunctionType::Fallback => Some(FALLBACK_FUNCTION_NAME.to_string()),
-        ContractFunctionType::Receive => Some(RECEIVE_FUNCTION_NAME.to_string()),
-        _ => Some(failing_function.name.clone()),
-    };
-    let mut prev_function_name = bottom_func_name;
-    let mut kept_innermost_first: Vec<SourceReference> = Vec::new();
-    for call_site in &last_instruction.inline_call_sites {
-        let Some(call_site_ref) =
-            source_location_to_source_reference::<HaltReasonT>(contract_meta, Some(call_site))?
-        else {
-            continue;
-        };
-        if call_site_ref.function == prev_function_name {
-            continue;
-        }
-        prev_function_name = call_site_ref.function.clone();
-        kept_innermost_first.push(call_site_ref);
-    }
-
-    let mut frames: Vec<StackTraceEntry> = Vec::with_capacity(kept_innermost_first.len());
-    for source_reference in kept_innermost_first.iter().rev().cloned() {
-        frames.push(StackTraceEntry::CallstackEntry {
-            source_reference,
-            function_type: ContractFunctionType::Function,
-        });
-    }
-    Ok(frames)
 }
 
 fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
@@ -501,15 +471,15 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
 
     let mut stacktrace = stacktrace;
 
-    if contract_meta.compiler_type == crate::artifacts::CompilerType::Solx
-        && let Some(loc) = &last_instruction.location
+    if let Some(loc) = &last_instruction.location
         && let Some(failing_function) = loc.get_containing_function()?
+        && let Some(strategy) = trace.trace_strategy()
     {
-        stacktrace.extend(build_solx_inline_callstack_frames::<HaltReasonT>(
-            &contract_meta,
-            last_instruction,
-            &failing_function,
-        )?);
+        let context = TraceContext {
+            contract_meta: &contract_meta,
+            strategy,
+        };
+        stacktrace.extend(context.intermediate_frames(last_instruction, &failing_function)?);
     }
 
     stacktrace.push(
@@ -591,7 +561,16 @@ fn check_cheatcode_error<HaltReasonT: HaltReasonTrait>(
         return Ok(Heuristic::Miss(stacktrace));
     };
 
-    let call_stack_frame = instruction_to_callstack_stack_trace_entry(contract_meta, instruction)?;
+    let strategy = trace
+        .trace_strategy()
+        .ok_or(InferrerError::MissingContract)?;
+    let call_stack_frame = instruction_to_callstack_stack_trace_entry(
+        TraceContext {
+            contract_meta,
+            strategy,
+        },
+        instruction,
+    )?;
     let source_reference = call_stack_frame
         .source_reference()
         .cloned()
@@ -692,22 +671,21 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
     if let Some(location) = &last_instruction.location
         && let Some(failing_function) = location.get_containing_function()?
     {
-        let is_solx = contract_meta.compiler_type == crate::artifacts::CompilerType::Solx;
-        let revert_source_reference = if is_solx {
-            source_location_to_source_reference(&contract_meta, Some(location))?
-                .ok_or(InferrerError::MissingSourceReference)?
-        } else {
-            get_function_start_source_reference(
-                CreateOrCallMessageRef::Call(trace),
-                &failing_function,
-            )?
+        let strategy = CreateOrCallMessageRef::Call(trace)
+            .trace_strategy()
+            .ok_or(InferrerError::MissingContract)?;
+        let context = TraceContext {
+            contract_meta: &contract_meta,
+            strategy,
         };
+        let failing_function_start_ref = get_function_start_source_reference(
+            CreateOrCallMessageRef::Call(trace),
+            &failing_function,
+        )?;
+        let revert_source_reference =
+            context.revert_source_reference(location, failing_function_start_ref)?;
 
-        let mut frames = if is_solx {
-            build_solx_inline_callstack_frames(&contract_meta, last_instruction, &failing_function)?
-        } else {
-            Vec::new()
-        };
+        let mut frames = context.intermediate_frames(last_instruction, &failing_function)?;
         frames.push(StackTraceEntry::RevertError {
             source_reference: revert_source_reference,
             return_data: trace.return_data.clone(),
@@ -787,7 +765,16 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
     };
 
     let call_inst = contract_meta.get_instruction(call_step.pc)?;
-    let call_stack_frame = instruction_to_callstack_stack_trace_entry(&contract_meta, call_inst)?;
+    let strategy = trace
+        .trace_strategy()
+        .ok_or(InferrerError::MissingContract)?;
+    let call_stack_frame = instruction_to_callstack_stack_trace_entry(
+        TraceContext {
+            contract_meta: &contract_meta,
+            strategy,
+        },
+        call_inst,
+    )?;
     let call_stack_frame_source_reference = call_stack_frame
         .source_reference()
         .cloned()
@@ -979,12 +966,13 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
         let failing_function = location.get_containing_function()?;
 
         if let Some(failing_function) = failing_function.as_deref() {
-            if contract_meta.compiler_type == crate::artifacts::CompilerType::Solx {
-                inferred_stacktrace.extend(build_solx_inline_callstack_frames::<HaltReasonT>(
-                    &contract_meta,
-                    last_instruction,
-                    failing_function,
-                )?);
+            if let Some(strategy) = trace.trace_strategy() {
+                let context = TraceContext {
+                    contract_meta: &contract_meta,
+                    strategy,
+                };
+                inferred_stacktrace
+                    .extend(context.intermediate_frames(last_instruction, failing_function)?);
             }
 
             let frame =
@@ -1365,7 +1353,16 @@ fn get_entry_before_failure_in_modifier<HaltReasonT: HaltReasonTrait>(
     // If there's a jumpdest, this modifier belongs to the last function that it
     // represents
     if let Some(last_jumpdest) = function_jumpdests.last() {
-        let entry = instruction_to_callstack_stack_trace_entry(&contract_meta, last_jumpdest)?;
+        let strategy = trace
+            .trace_strategy()
+            .ok_or(InferrerError::MissingContract)?;
+        let entry = instruction_to_callstack_stack_trace_entry(
+            TraceContext {
+                contract_meta: &contract_meta,
+                strategy,
+            },
+            last_jumpdest,
+        )?;
 
         return Ok(entry);
     }
@@ -1605,49 +1602,44 @@ fn instruction_within_function_to_panic_stack_trace_entry<HaltReasonT: HaltReaso
     let contract_meta = trace
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
-
-    let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?;
-
-    // solx-only fallback: panic-helper PCs sit outside any inlined-subroutine.
-    // On a None location, walk back through trace steps for the most recent
-    // located PC, then fall back to the calldata-selector function.
-    let is_solx = contract_meta.compiler_type == crate::artifacts::CompilerType::Solx;
-    // No file_id filter: the DWARF parser already drops PCs in artificial
-    // subprograms, so any `Some(location)` here is a user-visible line —
-    // including legitimate inherited-base-contract frames.
-    let solx_user_line_fallback =
-        || -> Result<Option<SourceReference>, InferrerError<HaltReasonT>> {
-            for step in trace.steps().iter().rev() {
-                let NestedTraceStep::Evm(evm_step) = step else {
-                    continue;
-                };
-                let prev_inst = contract_meta.get_instruction(evm_step.pc)?;
-                let Some(loc) = &prev_inst.location else {
-                    continue;
-                };
-                if let Some(sref) = source_location_to_source_reference(&contract_meta, Some(loc))?
-                {
-                    return Ok(Some(sref));
-                }
-            }
-            Ok(None)
-        };
-    let solx_function_start_fallback = || -> Option<SourceReference> {
-        let CreateOrCallMessageRef::Call(call) = trace else {
-            return None;
-        };
-        let contract = contract_meta.contract.read();
-        let selector = call.calldata.get(..4)?;
-        let called_function = contract.get_function_from_selector(selector)?;
-        get_function_start_source_reference(trace, called_function).ok()
+    let strategy = trace
+        .trace_strategy()
+        .ok_or(InferrerError::MissingContract)?;
+    let context = TraceContext {
+        contract_meta: &contract_meta,
+        strategy,
     };
 
-    let source_reference = source_reference.or(last_source_reference).or(if is_solx {
-        solx_user_line_fallback()?.or_else(solx_function_start_fallback)
-    } else {
-        None
-    });
+    let primary_ref =
+        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?
+            .or(last_source_reference);
+
+    // Pre-compute the halt-reason-generic pieces the fallback strategy needs.
+    let step_pcs: Vec<u32> = trace
+        .steps()
+        .iter()
+        .filter_map(|step| match step {
+            NestedTraceStep::Evm(evm) => Some(evm.pc),
+            _ => None,
+        })
+        .collect();
+    let call_selector_function_start_ref = match trace {
+        CreateOrCallMessageRef::Call(call) => {
+            let contract = contract_meta.contract.read();
+            call.calldata
+                .get(..4)
+                .and_then(|selector| contract.get_function_from_selector(selector))
+                .and_then(|f| get_function_start_source_reference(trace, f).ok())
+        }
+        CreateOrCallMessageRef::Create(_) => None,
+    };
+    let source_reference = context.panic_helper_source_reference(
+        primary_ref,
+        PanicHelperContext {
+            step_pcs: &step_pcs,
+            call_selector_function_start_ref,
+        },
+    )?;
 
     Ok(StackTraceEntry::PanicError {
         source_reference,
@@ -2406,41 +2398,6 @@ fn solidity_0_6_3_correct_line_number(mut source_reference: SourceReference) -> 
     }
 
     source_reference
-}
-
-fn source_location_to_source_reference<HaltReasonT>(
-    contract_meta: &ContractMetadata,
-    location: Option<&SourceLocation>,
-) -> Result<Option<SourceReference>, InferrerError<HaltReasonT>> {
-    let Some(location) = location else {
-        return Ok(None);
-    };
-    let Some(func) = location.get_containing_function()? else {
-        return Ok(None);
-    };
-
-    let func_name = match func.r#type {
-        ContractFunctionType::Constructor => CONSTRUCTOR_FUNCTION_NAME.to_string(),
-        ContractFunctionType::Fallback => FALLBACK_FUNCTION_NAME.to_string(),
-        ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
-        _ => func.name.clone(),
-    };
-
-    let func_location_file = func.location.file()?;
-    let func_location_file = func_location_file.read();
-
-    Ok(Some(SourceReference {
-        function: Some(func_name.clone()),
-        contract: if func.r#type == ContractFunctionType::FreeFunction {
-            None
-        } else {
-            Some(contract_meta.contract.read().name.clone())
-        },
-        source_name: func_location_file.source_name.clone(),
-        source_content: func_location_file.content.clone(),
-        line: location.get_starting_line_number()?,
-        range: (location.offset, location.offset + location.length),
-    }))
 }
 
 #[cfg(test)]

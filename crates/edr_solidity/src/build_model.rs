@@ -41,9 +41,36 @@ pub struct BuildModel {
     pub(crate) ast_spans: HashMap<u32, Vec<(u32, u32)>>,
 }
 
-// Solc-only paths reach for none of the surface declared on
-// [`crate::debug_info::SolxBuildModelExt`]; that trait holds the
-// methods that exist solely to support DWARF resolution.
+impl BuildModel {
+    /// Reverse-index of `file_id_to_source_file` keyed by source name.
+    /// Lazily populated on first call, reused thereafter.
+    pub fn name_to_file_id(&self) -> &HashMap<String, u32> {
+        self.name_to_file_id.get_or_init(|| {
+            self.file_id_to_source_file
+                .iter()
+                .map(|(id, file)| (file.read().source_name.clone(), *id))
+                .collect()
+        })
+    }
+
+    /// Smallest (leafmost) AST `(offset, length)` span containing `offset`.
+    /// Returns `None` if no span in `ast_spans[file_id]` covers `offset`.
+    pub fn smallest_enclosing_span(&self, file_id: u32, offset: u32) -> Option<(u32, u32)> {
+        let spans = self.ast_spans.get(&file_id)?;
+        let mut best: Option<(u32, u32)> = None;
+        for &(span_offset, span_length) in spans {
+            if span_offset > offset {
+                break;
+            }
+            if offset < span_offset.saturating_add(span_length)
+                && best.is_none_or(|(_, best_len)| span_length < best_len)
+            {
+                best = Some((span_offset, span_length));
+            }
+        }
+        best
+    }
+}
 
 // TODO https://github.com/NomicFoundation/edr/issues/759
 /// Type alias for the source file mapping used by [`BuildModel`].
@@ -414,9 +441,6 @@ pub struct ContractMetadata {
     pub immutable_references: Vec<ImmutableReference>,
     /// Solidity compiler version used to compile the bytecode.
     pub compiler_version: String,
-    /// Producing compiler. `None` is treated as
-    /// [`crate::artifacts::CompilerType::Solc`].
-    pub compiler_type: crate::artifacts::CompilerType,
 }
 
 impl ContractMetadata {
@@ -431,7 +455,6 @@ impl ContractMetadata {
         library_address_positions: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
         compiler_version: String,
-        compiler_type: crate::artifacts::CompilerType,
     ) -> ContractMetadata {
         let mut pc_to_instruction = HashMap::new();
         for inst in instructions {
@@ -447,7 +470,6 @@ impl ContractMetadata {
             library_address_positions,
             immutable_references,
             compiler_version,
-            compiler_type,
         }
     }
 

@@ -26,8 +26,9 @@ use crate::{
     artifacts::BuildInfoConfig,
     build_model::{ContractFunctionType, ContractMetadata},
     compiler::create_models_and_decode_bytecodes,
-    contracts_identifier::ContractsIdentifier,
+    contracts_identifier::{ContractsIdentifier, IdentifiedContract},
     nested_trace::{NestedTrace, NestedTraceStep},
+    trace_strategy::TraceStrategy,
 };
 
 /// Errors that can occur during the decoding of the nested trace.
@@ -90,15 +91,21 @@ impl ContractDecoder {
             )
             .map_err(|error| ContractDecoderError::Initialization(error.to_string()))?;
 
-            for bytecode in bytecodes {
+            for identified in bytecodes {
                 if config.ignore_contracts == Some(true)
-                    && bytecode.contract.read().name.starts_with("Ignored")
+                    && identified
+                        .metadata
+                        .contract
+                        .read()
+                        .name
+                        .starts_with("Ignored")
                 {
                     continue;
                 }
 
                 // Add the contract's custom errors to the revert decoder
-                bytecode
+                identified
+                    .metadata
                     .contract
                     .read()
                     .custom_errors
@@ -107,7 +114,7 @@ impl ContractDecoder {
                         revert_decoder.push_error(error.abi().clone());
                     });
 
-                contracts_identifier.add_bytecode(Arc::new(bytecode));
+                contracts_identifier.add_bytecode(identified);
             }
         }
 
@@ -117,10 +124,12 @@ impl ContractDecoder {
         })
     }
 
-    /// Adds contract metadata to the decoder.
-    pub fn add_contract_metadata(&mut self, bytecode: ContractMetadata) {
+    /// Adds an identified contract (metadata + trace strategy) to the decoder.
+    /// Used by the napi `hardhat_addCompilationResult` bridge.
+    pub fn add_contract_metadata(&mut self, identified: IdentifiedContract) {
         // Add all custom errors to the revert decoder
-        bytecode
+        identified
+            .metadata
             .contract
             .read()
             .custom_errors
@@ -129,7 +138,7 @@ impl ContractDecoder {
                 self.revert_decoder.push_error(error.abi().clone());
             });
 
-        self.contracts_identifier.add_bytecode(Arc::new(bytecode));
+        self.contracts_identifier.add_bytecode(identified);
     }
 
     /// Returns the contract and function names for the provided calldata.
@@ -172,7 +181,7 @@ impl ContractDecoder {
                 .get_bytecode_for_call(code.as_ref(), is_create)
         };
 
-        let contract = bytecode.map(|bytecode| bytecode.contract.clone());
+        let contract = bytecode.map(|b| b.metadata.contract.clone());
         let contract = contract.as_ref().map(|c| c.read());
 
         let contract_identifier = contract.as_ref().map_or_else(
@@ -263,13 +272,13 @@ impl ContractDecoder {
             {
                 decoded
             } else if call_trace.kind.is_any_create() {
-                let contract_metadata = self
+                let identified = self
                     .contracts_identifier
                     .get_bytecode_for_call(&call_trace.data, true);
 
-                let contract_identifier = contract_metadata
-                    .map_or(UNRECOGNIZED_CONTRACT_NAME.to_string(), |metadata| {
-                        metadata.contract.read().name.clone()
+                let contract_identifier = identified
+                    .map_or(UNRECOGNIZED_CONTRACT_NAME.to_string(), |i| {
+                        i.metadata.contract.read().name.clone()
                     });
 
                 DecodedCallTrace {
@@ -282,13 +291,12 @@ impl ContractDecoder {
                     .get(&call_trace.address)
                     .unwrap_or_default();
 
-                let contract_metadata =
-                    self.contracts_identifier.get_bytecode_for_call(code, false);
+                let identified = self.contracts_identifier.get_bytecode_for_call(code, false);
 
-                if let Some(contract_metadata) = contract_metadata {
+                if let Some(identified) = identified {
                     if let Some(Ok(selector)) = calldata.get(..SELECTOR_LEN).map(Selector::try_from)
                     {
-                        let contract = contract_metadata.contract.read();
+                        let contract = identified.metadata.contract.read();
                         let label = Some(contract.name.clone());
                         if let Some(function) =
                             contract.get_function_from_selector(selector.as_slice())
@@ -445,10 +453,10 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoderMut<HaltReasonT> for Contra
             NestedTrace::Call(mut call) => {
                 let is_create = false;
 
-                let contract_meta = {
-                    self.contracts_identifier
-                        .get_bytecode_for_call(call.code.as_ref(), is_create)
-                };
+                let identified = self
+                    .contracts_identifier
+                    .get_bytecode_for_call(call.code.as_ref(), is_create);
+                let (contract_meta, trace_strategy) = split_identified(identified);
 
                 let steps = call
                     .steps
@@ -476,6 +484,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoderMut<HaltReasonT> for Contra
                     .collect::<Result<Vec<_>, _>>()?;
 
                 call.contract_meta = contract_meta;
+                call.trace_strategy = trace_strategy;
                 call.steps = steps;
 
                 Ok(NestedTrace::Call(call))
@@ -483,10 +492,10 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoderMut<HaltReasonT> for Contra
             NestedTrace::Create(mut create @ CreateMessage { .. }) => {
                 let is_create = true;
 
-                let contract_meta = {
-                    self.contracts_identifier
-                        .get_bytecode_for_call(create.code.as_ref(), is_create)
-                };
+                let identified = self
+                    .contracts_identifier
+                    .get_bytecode_for_call(create.code.as_ref(), is_create);
+                let (contract_meta, trace_strategy) = split_identified(identified);
 
                 let steps = create
                     .steps
@@ -514,11 +523,29 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoderMut<HaltReasonT> for Contra
                     .collect::<Result<Vec<_>, _>>()?;
 
                 create.contract_meta = contract_meta;
+                create.trace_strategy = trace_strategy;
                 create.steps = steps;
 
                 Ok(NestedTrace::Create(create))
             }
         }
+    }
+}
+
+/// Split an [`IdentifiedContract`] lookup result into the separate
+/// `(contract_meta, trace_strategy)` fields the frame types carry.
+fn split_identified(
+    identified: Option<IdentifiedContract>,
+) -> (
+    Option<Arc<ContractMetadata>>,
+    Option<&'static dyn TraceStrategy>,
+) {
+    match identified {
+        Some(IdentifiedContract {
+            metadata,
+            trace_strategy,
+        }) => (Some(metadata), Some(trace_strategy)),
+        None => (None, None),
     }
 }
 
@@ -541,8 +568,12 @@ pub struct ContractIdentifierAndFunctionSignature {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artifacts::{
-        BuildInfoConfig, BuildInfoWithOutput, CompilerInput, CompilerOutput, CompilerType,
+    use crate::{
+        artifacts::{
+            BuildInfoConfig, BuildInfoWithOutput, CompilerInput, CompilerOutput, SolcBytecode,
+            SolxBytecode,
+        },
+        debug_info::CompilerArtifact,
     };
 
     /// A project can have both `default` (solc) and `solx` profiles active;
@@ -552,7 +583,7 @@ mod tests {
         let solc_input: CompilerInput =
             serde_json::from_str(include_str!("../fixtures/compiler_input.json"))
                 .expect("solc fixture input parses");
-        let solc_output: CompilerOutput =
+        let solc_output: CompilerOutput<SolcBytecode> =
             serde_json::from_str(include_str!("../fixtures/compiler_output.json"))
                 .expect("solc fixture output parses");
 
@@ -561,7 +592,7 @@ mod tests {
                 .expect("solx fixture input parses");
         solx_input.sources.get_mut("Counter.sol").unwrap().content =
             include_str!("../fixtures/sources/Counter.sol").to_string();
-        let solx_output: CompilerOutput =
+        let solx_output: CompilerOutput<SolxBytecode> =
             serde_json::from_str(include_str!("../fixtures/solx_compiler_output.json"))
                 .expect("solx fixture output parses");
 
@@ -570,19 +601,19 @@ mod tests {
             id: "solc-mixed".to_string(),
             solc_version: "0.8.0".to_string(),
             solc_long_version: "0.8.0+commit.abc".to_string(),
-            compiler_type: CompilerType::Solc,
             input: solc_input,
             output: solc_output,
-        };
+        }
+        .map_artifact(|b| -> Box<dyn CompilerArtifact> { Box::new(b) });
         let solx_bi = BuildInfoWithOutput {
             _format: "hh3-sol-build-info-1".to_string(),
             id: "solx-mixed".to_string(),
             solc_version: "0.8.34".to_string(),
             solc_long_version: "0.8.34+solx".to_string(),
-            compiler_type: CompilerType::Solx,
             input: solx_input,
             output: solx_output,
-        };
+        }
+        .map_artifact(|b| -> Box<dyn CompilerArtifact> { Box::new(b) });
 
         let config = BuildInfoConfig {
             build_infos: vec![solc_bi, solx_bi],
