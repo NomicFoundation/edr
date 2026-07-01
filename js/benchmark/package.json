@@ -12,7 +12,7 @@
     "@nomicfoundation/edr-helpers": "workspace:*",
     "@types/argparse": "^2.0.16",
     "@types/lodash": "^4.14.123",
-    "@types/node": "^20.0.0",
+    "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "@typescript-eslint/parser": "5.62.0",
     "argparse": "^2.0.1",
