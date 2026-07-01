@@ -1,99 +1,33 @@
-import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 
+import { ContractDecoder, MineOrdering } from "..";
 import {
-  AccountOverride,
-  ContractDecoder,
-  GENERIC_CHAIN_TYPE,
-  genericChainProviderFactory,
-  l1HardforkLatest,
-  l1HardforkToString,
-  MineOrdering,
-  SubscriptionEvent,
-} from "..";
-import { getContext } from "./helpers";
+  createL1Provider,
+  getContext,
+  registerGenericProviderFactory,
+} from "./helpers";
 
 describe("Provider", () => {
   const context = getContext();
 
   before(async () => {
-    await context.registerProviderFactory(
-      GENERIC_CHAIN_TYPE,
-      genericChainProviderFactory()
-    );
+    await registerGenericProviderFactory(context);
   });
 
-  const genesisState: AccountOverride[] = [
-    {
-      address: toBytes("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
-      balance: 1000n * 10n ** 18n,
-    },
-  ];
-
-  const providerConfig = {
-    allowBlocksWithSameTimestamp: false,
-    allowUnlimitedContractSize: true,
-    bailOnCallFailure: false,
-    bailOnTransactionFailure: false,
-    chainId: 1n,
-    chainOverrides: [],
-    coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
-    defaultTransactionGasLimit: 300_000_000n,
-    genesisState,
-    hardfork: l1HardforkToString(l1HardforkLatest()),
-    initialParentBeaconBlockRoot: Buffer.from(
-      "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex"
-    ),
-    minGasPrice: 0n,
-    mining: {
-      autoMine: true,
-      blockGasLimit: 300_000_000n,
-      memPool: {
-        order: MineOrdering.Priority,
-      },
-    },
-    network: {
-      genesisBlobGas: {
-        gasUsed: 0n,
-        excessGas: 0n,
-      },
-      genesisBlockGasLimit: 300_000_000n,
-    },
-    networkId: 123n,
-    observability: {},
-    ownedAccounts: [
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    ],
-    precompileOverrides: [],
-  };
-
-  const loggerConfig = {
-    enable: false,
-    decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
-      return [];
-    },
-    printLineCallback: (_message: string, _replace: boolean) => {},
-  };
-
   it("issue 771", async function () {
-    const provider = await context.createProvider(
-      GENERIC_CHAIN_TYPE,
-      {
-        ...providerConfig,
-        initialBaseFeePerGas: 0n,
-        mining: {
-          // Enable interval mining to validate that provider shutdown works correctly
-          interval: 1n,
-          ...providerConfig.mining,
+    const provider = await createL1Provider(context, {
+      chainId: 1n,
+      initialBaseFeePerGas: 0n,
+      mining: {
+        // Enable interval mining to validate that provider shutdown works correctly
+        autoMine: true,
+        blockGasLimit: 300_000_000n,
+        interval: 1n,
+        memPool: {
+          order: MineOrdering.Priority,
         },
       },
-      loggerConfig,
-      {
-        subscriptionCallback: (_event: SubscriptionEvent) => {},
-      },
-      new ContractDecoder()
-    );
+    });
 
     // Make a dummy request to ensure the provider constructor doesn't become a no-op
     await provider.handleRequest(
