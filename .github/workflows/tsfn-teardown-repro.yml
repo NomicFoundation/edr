@@ -9,8 +9,10 @@
 #   - gnu  (debian): V8 can symbolize its own "Native stack trace" here (musl
 #     can't), so a crash names the Reference::~Reference() caller. Reproduces
 #     less often -> higher iteration count.
-# Builds the binding WITH debug symbols, loops testNoBuild, dumps the full crash
-# log, and best-effort gdb backtrace from any core. Job SUCCEEDS even on crashes.
+# Builds the binding WITH debug symbols, then loops mocha UNDER gdb: a JS-level
+# signal handler (signal-exit) re-raises fatal signals via process.kill, so
+# post-mortem cores only ever capture the re-raise. gdb's first-chance stop
+# captures the real faulting stack instead. Job SUCCEEDS even on crashes.
 name: TSFN teardown repro
 
 on:
@@ -47,14 +49,6 @@ jobs:
         with:
           persist-credentials: false
 
-      # core_pattern is the shared host kernel's. A *relative* pattern makes the
-      # kernel write the core into the crashing process's cwd, which inside the
-      # container is the mounted workspace -> cores land where gdb can read them.
-      - name: Enable core dumps on host
-        run: |
-          sudo sysctl -w kernel.core_pattern='core.%p'
-          echo "core_pattern=$(cat /proc/sys/kernel/core_pattern)"
-
       - name: Build (debug symbols) + stress-loop + backtrace
         uses: NomicFoundation/docker-run-action@63f044457cfb71a5c63fa589218c89a418565d9c # Fork of v3 with updated Docker
         env:
@@ -62,7 +56,7 @@ jobs:
           ITER: ${{ matrix.iterations }}
         with:
           image: ${{ matrix.image }}
-          options: "--user 0:0 --ulimit core=-1 -e FLAVOR -e ITER -v /home/runner/.cargo/git:/usr/local/cargo/git -v /home/runner/.cargo/registry:/usr/local/cargo/registry -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          options: "--user 0:0 -e FLAVOR -e ITER -v /home/runner/.cargo/git:/usr/local/cargo/git -v /home/runner/.cargo/registry:/usr/local/cargo/registry -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
             if [ "$FLAVOR" = "musl" ]; then
@@ -87,29 +81,40 @@ jobs:
             # Debug symbols + unstripped (dev profile).
             pnpm run build:debug
 
-            ulimit -c unlimited || true
+            # Run mocha under gdb so the FIRST-CHANCE fatal signal stops the
+            # process before any JS-level handler sees it: run-5 cores all
+            # bottom out at a process.kill re-raise (signal-exit), which
+            # destroys the faulting stack. Post-mortem cores are useless here;
+            # a live first-chance stop is not.
+            #
+            # bin/_mocha is the non-respawning entry. bin/mocha.js re-spawns
+            # node as a CHILD to apply .mocharc.cjs `node-option` — the crash
+            # would escape gdb — so pass those node options here instead.
+            MOCHA_BIN=$(node -p 'require.resolve("mocha/bin/_mocha")')
+            NO_STRIP_FLAG=$(node -p 'const f = require("../../config/mocha.cjs").noStripTypesFlag; f ? `--${f}` : ""')
+            # --disable-wasm-trap-handler: V8 otherwise handles in-process
+            # SIGSEGV for wasm bounds checks; without it any gdb stop is real.
+            NODE_FLAGS="--max-old-space-size=8192 --disable-wasm-trap-handler $NO_STRIP_FLAG"
+
             crashes=0
-            echo "=== [$FLAVOR] running testNoBuild x${ITER} ==="
+            echo "=== [$FLAVOR] running _mocha under gdb x${ITER} ==="
             for i in $(seq 1 "$ITER"); do
-              rm -f core.* 2>/dev/null || true
               set +e
-              pnpm testNoBuild > "run.$i.log" 2>&1
-              code=$?
+              gdb -q -batch \
+                -ex 'handle SIGPIPE nostop noprint pass' \
+                -ex run \
+                -ex 'thread apply all bt full' \
+                -ex quit \
+                --args node $NODE_FLAGS "$MOCHA_BIN" --recursive 'test/**/{,!(logs|mock)}.ts' \
+                > "run.$i.log" 2>&1
               set -e
-              if [ "$code" -ne 0 ]; then
+              # gdb's batch exit code doesn't reflect the inferior's; a fatal
+              # signal shows up as a "received signal" stop in the output.
+              if grep -q "received signal" "run.$i.log"; then
                 crashes=$((crashes + 1))
-                echo "::group::[$FLAVOR] iteration $i FAILED exit=$code (signal ~$((code - 128)))"
-                # Full log: on glibc V8 prints its own symbolized "Native stack
-                # trace" + the failing CHECK here.
+                echo "::group::[$FLAVOR] iteration $i CRASHED (first-chance stop + backtrace)"
                 echo "--- run.$i.log (full) ---"
                 cat "run.$i.log" || true
-                core=$(ls -t core.* 2>/dev/null | head -1 || true)
-                if [ -n "$core" ]; then
-                  echo "--- gdb 'thread apply all bt full' from $core ---"
-                  gdb -batch -ex 'thread apply all bt full' -ex quit /usr/local/bin/node "$core" 2>&1 | head -n 300
-                else
-                  echo "(no core file; core_pattern=$(cat /proc/sys/kernel/core_pattern))"
-                fi
                 echo "::endgroup::"
               fi
             done
