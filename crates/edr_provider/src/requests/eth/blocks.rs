@@ -263,5 +263,6 @@ fn block_to_rpc_output<ChainSpecT: ProviderChainSpec>(
         excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),
         parent_beacon_block_root: header.parent_beacon_block_root,
         requests_hash: header.requests_hash,
+        block_access_list_hash: header.block_access_list_hash,
     })
 }

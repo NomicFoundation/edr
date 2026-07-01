@@ -102,6 +102,11 @@ pub struct L1RpcBlock<TransactionT> {
     /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requests_hash: Option<B256>,
+    /// Keccak-256 hash of the RLP-encoded block access list
+    ///
+    /// [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub block_access_list_hash: Option<B256>,
 }
 
 impl<TransactionT> GetBlockNumber for L1RpcBlock<TransactionT> {
@@ -166,6 +171,7 @@ where
             excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),
             parent_beacon_block_root: header.parent_beacon_block_root,
             requests_hash: header.requests_hash,
+            block_access_list_hash: header.block_access_list_hash,
         }
     }
 }
@@ -220,6 +226,7 @@ impl<RpcTransactionT> TryFrom<&L1RpcBlock<RpcTransactionT>> for BlockHeader {
             }),
             parent_beacon_block_root: value.parent_beacon_block_root,
             requests_hash: value.requests_hash,
+            block_access_list_hash: value.block_access_list_hash,
         };
 
         Ok(header)
@@ -260,6 +267,7 @@ impl<RpcTransactionT, SignedTransactionT: TryFrom<RpcTransactionT>>
             }),
             parent_beacon_block_root: value.parent_beacon_block_root,
             requests_hash: value.requests_hash,
+            block_access_list_hash: value.block_access_list_hash,
         };
 
         let transactions = value
