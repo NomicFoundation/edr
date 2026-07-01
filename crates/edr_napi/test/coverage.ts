@@ -234,7 +234,10 @@ describe("Code coverage", () => {
         })
       );
 
-      const error = JSON.parse(sendTransactionResponse.data).error;
+      const error = JSON.parse(sendTransactionResponse.data).error as {
+        message: string;
+        code: number;
+      };
 
       assert(
         error.message.includes(ERROR_MESSAGE),

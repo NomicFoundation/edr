@@ -8,7 +8,7 @@
     "syncpack": "^15.0.0"
   },
   "engines": {
-    "node": ">=22",
+    "node": ">=22.13.0",
     "pnpm": ">=10.28.2"
   },
   "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
