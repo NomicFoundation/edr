@@ -438,6 +438,7 @@ mod tests {
             blob_gas,
             parent_beacon_block_root: None,
             requests_hash: Some(B256::random()),
+            block_access_list_hash: None,
         }
     }
 

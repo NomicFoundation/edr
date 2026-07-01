@@ -76,6 +76,9 @@ pub struct BlockHeader {
     ///
     /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
     pub requests_hash: Option<B256>,
+    /// The Keccack-256 hash of the RLP-encoded access list.
+    /// Was added by EIP-7928 and is ignored in legacy headers
+    pub block_access_list_hash: Option<B256>,
 }
 
 impl BlockHeader {
@@ -103,6 +106,7 @@ impl BlockHeader {
             blob_gas: partial_header.blob_gas,
             parent_beacon_block_root: partial_header.parent_beacon_block_root,
             requests_hash: partial_header.requests_hash,
+            block_access_list_hash: partial_header.block_access_list_hash,
         }
     }
 
@@ -310,6 +314,8 @@ pub struct PartialHeader {
     ///
     /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
     pub requests_hash: Option<B256>,
+    /// The Keccack-256 hash of the RLP-encoded access list (EIP-7928)
+    pub block_access_list_hash: Option<B256>,
 }
 
 impl PartialHeader {
@@ -478,6 +484,11 @@ impl PartialHeader {
                     None
                 }
             }),
+            block_access_list_hash: if evm_spec_id >= EvmSpecId::AMSTERDAM {
+                Some(B256::ZERO)
+            } else {
+                None
+            },
         }
     }
 }
@@ -504,6 +515,7 @@ impl From<BlockHeader> for PartialHeader {
             blob_gas: header.blob_gas,
             parent_beacon_block_root: header.parent_beacon_block_root,
             requests_hash: header.requests_hash,
+            block_access_list_hash: header.block_access_list_hash,
         }
     }
 }
@@ -712,6 +724,7 @@ mod tests {
             blob_gas: None,
             parent_beacon_block_root: None,
             requests_hash: Some(B256::random()),
+            block_access_list_hash: None,
         };
 
         let encoded = alloy_rlp::encode(&header);
@@ -751,6 +764,7 @@ mod tests {
             blob_gas: None,
             parent_beacon_block_root: None,
             requests_hash: None,
+            block_access_list_hash: None,
         };
         let encoded = alloy_rlp::encode(&header);
         assert_eq!(encoded, expected);
@@ -798,6 +812,7 @@ mod tests {
             blob_gas: None,
             parent_beacon_block_root: None,
             requests_hash: None,
+            block_access_list_hash: None,
         };
         assert_eq!(header.hash(), expected_hash);
     }
@@ -828,6 +843,7 @@ mod tests {
             blob_gas: None,
             parent_beacon_block_root: None,
             requests_hash: None,
+            block_access_list_hash: None,
         };
         let decoded = BlockHeader::decode(&mut data.as_slice()).unwrap();
         assert_eq!(decoded, expected);
@@ -877,6 +893,7 @@ mod tests {
             ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
             withdrawals_root: Some(KECCAK_NULL_RLP),
             requests_hash: None,
+            block_access_list_hash: None,
         };
 
         let encoded = alloy_rlp::encode(&header);
@@ -936,6 +953,7 @@ mod tests {
             .unwrap(),
             ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
             withdrawals_root: Some(KECCAK_NULL_RLP),
+            block_access_list_hash: None,
         };
 
         let encoded = alloy_rlp::encode(&header);
