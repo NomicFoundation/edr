@@ -2,7 +2,7 @@ use napi_derive::napi;
 use serde::Serialize;
 
 #[napi(string_enum)]
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[doc = "Error codes that can be returned by cheatcodes in Solidity tests."]
 pub enum CheatcodeErrorCode {
     #[doc = "The specified cheatcode is not supported."]

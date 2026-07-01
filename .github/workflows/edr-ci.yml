@@ -71,7 +71,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
 
       # Install pre-built binaries for cargo hack
-      - uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2.82.2
+      - uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
         with:
           tool: cargo-hack@0.6.39
 
@@ -105,10 +105,7 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2.82.2
-        with:
-          tool: cargo-llvm-cov@0.8.5
+      - uses: ./.github/actions/setup-llvm-cov
 
       - name: Restore EDR RPC cache
         uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
@@ -188,10 +185,9 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2.82.2
+      - uses: ./.github/actions/setup-llvm-cov
         with:
-          tool: cargo-llvm-cov@0.8.5
+          builds-napi-crate: "true"
 
       - name: Restore EDR RPC cache
         uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
@@ -335,10 +331,9 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2.82.2
+      - uses: ./.github/actions/setup-llvm-cov
         with:
-          tool: cargo-llvm-cov@0.8.5
+          builds-napi-crate: "true"
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
