@@ -1,24 +1,22 @@
-import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import chai, { assert, expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import * as fs from "fs";
 
 import {
-  AccountOverride,
-  ContractDecoder,
-  GENERIC_CHAIN_TYPE,
-  genericChainProviderFactory,
   L1_CHAIN_TYPE,
-  l1GenesisState,
-  l1HardforkFromString,
   l1HardforkLatest,
   l1HardforkToString,
   l1SolidityTestRunnerFactory,
-  MineOrdering,
-  SubscriptionEvent,
   TestStatus,
 } from "..";
-import { getContext, loadContract, runAllSolidityTests } from "./helpers";
+import {
+  createL1Provider,
+  fundedGenesisState,
+  getContext,
+  loadContract,
+  registerGenericProviderFactory,
+  runAllSolidityTests,
+} from "./helpers";
 
 chai.use(chaiAsPromised);
 
@@ -44,10 +42,7 @@ describe("Code coverage", () => {
 
   let coverageReporter: CoverageReporter;
   before(async () => {
-    await context.registerProviderFactory(
-      GENERIC_CHAIN_TYPE,
-      genericChainProviderFactory()
-    );
+    await registerGenericProviderFactory(context);
 
     await context.registerSolidityTestRunnerFactory(
       L1_CHAIN_TYPE,
@@ -60,85 +55,24 @@ describe("Code coverage", () => {
     coverageReporter = new CoverageReporter();
   });
 
-  const genesisState: AccountOverride[] = [
-    {
-      address: toBytes("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
-      balance: 1000n * 10n ** 18n,
-    },
-  ];
-
-  const providerConfig = {
-    allowBlocksWithSameTimestamp: false,
-    allowUnlimitedContractSize: true,
-    bailOnCallFailure: false,
-    bailOnTransactionFailure: false,
-    chainId: 123n,
+  const providerOverrides = {
     chainOverrides: [],
-    coinbase: new Uint8Array(
-      Buffer.from("0000000000000000000000000000000000000000", "hex")
-    ),
     defaultTransactionGasLimit: 16_777_216n,
-    genesisState,
-    hardfork: l1HardforkToString(l1HardforkLatest()),
-    initialParentBeaconBlockRoot: new Uint8Array(
-      Buffer.from(
-        "0000000000000000000000000000000000000000000000000000000000000000",
-        "hex"
-      )
-    ),
-    minGasPrice: 0n,
-    mining: {
-      autoMine: true,
-      blockGasLimit: 300_000_000n,
-      memPool: {
-        order: MineOrdering.Priority,
-      },
-    },
-    network: {
-      genesisBlobGas: {
-        gasUsed: 0n,
-        excessGas: 0n,
-      },
-      genesisBlockGasLimit: 300_000_000n,
-    },
-    networkId: 123n,
-    observability: {
-      codeCoverage: {
-        onCollectedCoverageCallback: async (coverage: Uint8Array[]) => {
-          coverageReporter.hits.push(...coverage);
-        },
-      },
-    },
-    ownedAccounts: [
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    ],
-    precompileOverrides: [],
-  };
-
-  const loggerConfig = {
-    enable: false,
-    decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
-      return [];
-    },
-    printLineCallback: (_message: string, _replace: boolean) => {},
+    genesisState: fundedGenesisState(),
   };
 
   describe("eth_sendTransaction", function () {
     it("should report code coverage hits", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
+      const provider = await createL1Provider(context, {
+        ...providerOverrides,
+        observability: {
+          codeCoverage: {
+            onCollectedCoverageCallback: async (coverage: Uint8Array[]) => {
+              coverageReporter.hits.push(...coverage);
+            },
+          },
         },
-        loggerConfig,
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+      });
 
       const sendTransactionResponse = await provider.handleRequest(
         JSON.stringify({
@@ -198,27 +132,16 @@ describe("Code coverage", () => {
     });
 
     it("should handle thrown exception", async function () {
-      const provider = await context.createProvider(
-        GENERIC_CHAIN_TYPE,
-        {
-          ...providerConfig,
-          genesisState: providerConfig.genesisState.concat(
-            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-          ),
-          observability: {
-            codeCoverage: {
-              onCollectedCoverageCallback: async (_coverage: Uint8Array[]) => {
-                throw new Error(ERROR_MESSAGE);
-              },
+      const provider = await createL1Provider(context, {
+        ...providerOverrides,
+        observability: {
+          codeCoverage: {
+            onCollectedCoverageCallback: async (_coverage: Uint8Array[]) => {
+              throw new Error(ERROR_MESSAGE);
             },
           },
         },
-        loggerConfig,
-        {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
-        },
-        new ContractDecoder()
-      );
+      });
 
       const sendTransactionResponse = await provider.handleRequest(
         JSON.stringify({

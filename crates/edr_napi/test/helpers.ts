@@ -1,5 +1,6 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import {
+  AccountOverride,
   Artifact,
   ArtifactId,
   ContractData,
@@ -318,6 +319,24 @@ export function createL1Provider(
     },
     new ContractDecoder()
   );
+}
+
+/**
+ * Genesis state that funds {@link DEFAULT_GENESIS_ADDRESS} and includes the
+ * hardfork's required accounts. Use this for tests that need to send
+ * transactions from the default owned account.
+ */
+export function fundedGenesisState(
+  hardfork: string = l1HardforkToString(l1HardforkLatest()),
+  balance: bigint = 1000n * 10n ** 18n
+): AccountOverride[] {
+  return [
+    {
+      address: toBytes(DEFAULT_GENESIS_ADDRESS),
+      balance,
+    },
+    ...l1GenesisState(l1HardforkFromString(hardfork)),
+  ];
 }
 
 /** Registers the generic chain-type provider factory on the given context. */
