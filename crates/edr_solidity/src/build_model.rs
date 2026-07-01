@@ -32,6 +32,44 @@ pub struct BuildModel {
     pub contract_id_to_contract: IndexMap<u32, Arc<RwLock<Contract>>>,
     /// Maps the file ID to the source file.
     pub file_id_to_source_file: Arc<BuildModelSources>,
+    /// Lazy reverse-index `source_name` → `file_id`. See
+    /// [`Self::name_to_file_id`].
+    pub(crate) name_to_file_id: OnceLock<HashMap<String, u32>>,
+    /// Per-file AST `src` spans (`file_id` → sorted `(offset, length)`).
+    /// The DWARF parser uses this to derive `SourceLocation.length` from a
+    /// `(file, line, column)` triple.
+    pub(crate) ast_spans: HashMap<u32, Vec<(u32, u32)>>,
+}
+
+impl BuildModel {
+    /// Reverse-index of `file_id_to_source_file` keyed by source name.
+    /// Lazily populated on first call, reused thereafter.
+    pub fn name_to_file_id(&self) -> &HashMap<String, u32> {
+        self.name_to_file_id.get_or_init(|| {
+            self.file_id_to_source_file
+                .iter()
+                .map(|(id, file)| (file.read().source_name.clone(), *id))
+                .collect()
+        })
+    }
+
+    /// Smallest (leafmost) AST `(offset, length)` span containing `offset`.
+    /// Returns `None` if no span in `ast_spans[file_id]` covers `offset`.
+    pub fn smallest_enclosing_span(&self, file_id: u32, offset: u32) -> Option<(u32, u32)> {
+        let spans = self.ast_spans.get(&file_id)?;
+        let mut best: Option<(u32, u32)> = None;
+        for &(span_offset, span_length) in spans {
+            if span_offset > offset {
+                break;
+            }
+            if offset < span_offset.saturating_add(span_length)
+                && best.is_none_or(|(_, best_len)| span_length < best_len)
+            {
+                best = Some((span_offset, span_length));
+            }
+        }
+        best
+    }
 }
 
 // TODO https://github.com/NomicFoundation/edr/issues/759
@@ -66,6 +104,19 @@ impl SourceFile {
     /// Should only be called when resolving the source model.
     pub fn add_function(&mut self, contract_function: Arc<ContractFunction>) {
         self.functions.push(contract_function);
+    }
+
+    /// Returns the [`ContractFunction`] declared at the given 1-based line
+    /// number, if any. Used by the DWARF parser to map a
+    /// `DW_AT_decl_file/decl_line` pair to an AST function (probing by
+    /// offset doesn't work because column 0 of `decl_line` sits before the
+    /// function's AST source range, which starts at the `function` keyword).
+    pub fn get_function_by_decl_line(&self, line: u32) -> Option<&Arc<ContractFunction>> {
+        self.functions.iter().find(|func| {
+            func.location
+                .get_starting_line_number()
+                .is_ok_and(|l| l == line)
+        })
     }
 
     /// Returns the [`ContractFunction`] that contains the provided
@@ -324,6 +375,9 @@ pub struct Instruction {
     pub push_data: Option<Vec<u8>>,
     /// The source location of the instruction, if any.
     pub location: Option<Arc<SourceLocation>>,
+    /// Inlined call sites for this PC, innermost-first. Always empty for
+    /// solc; solx populates it from `DW_TAG_inlined_subroutine` chains.
+    pub inline_call_sites: Box<[Arc<SourceLocation>]>,
 }
 
 /// The type of a jump.

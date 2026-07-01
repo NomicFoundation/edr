@@ -8,6 +8,7 @@ pub mod compiler;
 pub mod config;
 pub mod contract_decoder;
 pub mod contracts_identifier;
+pub mod debug_info;
 pub mod exit_code;
 pub mod library_utils;
 pub mod linker;
@@ -16,6 +17,7 @@ pub mod nested_tracer;
 pub mod proxy_detection;
 pub mod solidity_stack_trace;
 pub mod solidity_tracer;
+pub mod trace_strategy;
 pub mod tracing;
 pub mod utils;
 

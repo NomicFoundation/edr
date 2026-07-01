@@ -1,0 +1,22 @@
+{
+  "name": "solx-parity-sweep",
+  "version": "1.0.0",
+  "devDependencies": {
+    "@nomicfoundation/edr": "workspace:*",
+    "@tsconfig/node22": "^22.0.2",
+    "@types/node": "^22.0.0",
+    "forge-std": "github:foundry-rs/forge-std#v1.14.0",
+    "hardhat": "^3.4.5",
+    "tsx": "^4.19.3",
+    "typescript": "~5.8.2"
+  },
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "build": "pnpm run build:dev",
+    "build:dev": "tsc --build --incremental .",
+    "pretest": "node ./scripts/maybe-build.js",
+    "test": "node --import tsx/esm --test \"test/*.ts\""
+  },
+  "type": "module"
+}

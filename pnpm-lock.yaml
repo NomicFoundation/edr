@@ -405,6 +405,30 @@ importers:
         specifier: ~5.8.2
         version: 5.8.3
 
+  js/integration-tests/solx-parity-sweep:
+    devDependencies:
+      '@nomicfoundation/edr':
+        specifier: workspace:*
+        version: link:../../../crates/edr_napi
+      '@tsconfig/node22':
+        specifier: ^22.0.2
+        version: 22.0.5
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.7.5
+      forge-std:
+        specifier: github:foundry-rs/forge-std#v1.14.0
+        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6
+      hardhat:
+        specifier: ^3.4.5
+        version: 3.4.5(patch_hash=0de38ef817bceff74a51505ab96d0c87085e888d660f71a437d879da576ba805)
+      tsx:
+        specifier: ^4.19.3
+        version: 4.19.4
+      typescript:
+        specifier: ~5.8.2
+        version: 5.8.3
+
 packages:
 
   '@adraffy/ens-normalize@1.11.1':
@@ -1027,6 +1051,9 @@ packages:
 
   '@tsconfig/node20@20.1.9':
     resolution: {integrity: sha512-IjlTv1RsvnPtUcjTqtVsZExKVq+KQx4g5pCP5tI7rAs6Xesl2qFwSz/tPDBC4JajkL/MlezBu3gPUwqRHl+RIg==}
+
+  '@tsconfig/node22@22.0.5':
+    resolution: {integrity: sha512-hLf2ld+sYN/BtOJjHUWOk568dvjFQkHnLNa6zce25GIH+vxKfvTgm3qpaH6ToF5tu/NN0IH66s+Bb5wElHrLcw==}
 
   '@types/argparse@2.0.17':
     resolution: {integrity: sha512-fueJssTf+4dW4HODshEGkIZbkLKHzgu1FvCI4cTc/MKum/534Euo3SrN+ilq8xgyHnOjtmg33/hee8iXLRg1XA==}
@@ -3128,18 +3155,6 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.18.2:
-    resolution: {integrity: sha512-DMricUmwGZUVr++AEAe2uiVM7UoO9MAVZMDu05UQOaUII0lp+zOzLLU4Xqh/JvTqklB1T4uELaaPBKyjE1r4fQ==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
   ws@8.21.0:
     resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
     engines: {node: '>=10.0.0'}
@@ -3916,6 +3931,8 @@ snapshots:
   '@tsconfig/node16@1.0.4': {}
 
   '@tsconfig/node20@20.1.9': {}
+
+  '@tsconfig/node22@22.0.5': {}
 
   '@types/argparse@2.0.17': {}
 
@@ -5143,9 +5160,9 @@ snapshots:
       micro-eth-signer: 0.14.0
       p-map: 7.0.3
       resolve.exports: 2.0.3
-      semver: 7.6.3
+      semver: 7.8.1
       tsx: 4.19.4
-      ws: 8.18.2
+      ws: 8.21.0
       zod: 3.24.4
     transitivePeerDependencies:
       - bufferutil
@@ -6330,8 +6347,6 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@7.5.9: {}
-
-  ws@8.18.2: {}
 
   ws@8.21.0: {}
 

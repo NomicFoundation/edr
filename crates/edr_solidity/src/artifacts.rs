@@ -4,11 +4,30 @@
 //! See <https://docs.soliditylang.org/en/latest/using-the-compiler.html#compiler-input-and-output-json-description>.
 #![allow(missing_docs)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use indexmap::IndexMap;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+
+use crate::debug_info::CompilerArtifact;
+
+/// Producing compiler for a Hardhat build-info. Used ONLY inside
+/// [`BuildInfoBuffers::parse`] — the single factory that consumes it to
+/// dispatch to the correct [`CompilerArtifact`] impl. Absent or unknown
+/// values fall back to `Solc`.
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, strum::Display, strum::EnumString,
+)]
+#[serde(rename_all = "camelCase")]
+#[strum(serialize_all = "camelCase")]
+pub(crate) enum CompilerType {
+    /// Reference Solidity compiler; uses `evm.{deployed,}Bytecode.sourceMap`.
+    #[default]
+    Solc,
+    /// solx compiler; uses `evm.{deployed,}Bytecode.debugInfo`.
+    Solx,
+}
 
 /// Error in the build info config
 #[derive(Debug, thiserror::Error)]
@@ -25,11 +44,10 @@ pub enum BuildInfoConfigError {
 }
 
 /// Configuration for the [`crate::contract_decoder::ContractDecoder`].
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct BuildInfoConfig {
     /// Build information to use for decoding contracts.
-    pub build_infos: Vec<BuildInfoWithOutput>,
+    pub build_infos: Vec<BuildInfoWithOutput<Box<dyn CompilerArtifact>>>,
     /// Whether to ignore contracts whose name starts with "Ignored".
     pub ignore_contracts: Option<bool>,
 }
@@ -67,17 +85,46 @@ pub struct BuildInfoConfigWithBuffers<'a> {
 /// Unparsed build infos.
 #[derive(Clone, Debug)]
 pub enum BuildInfoBuffers<'a> {
-    /// Deserializes to `BuildInfoWithOutput`.
+    /// Deserializes to [`BuildInfoWithOutput`].
     WithOutput(Vec<&'a [u8]>),
     /// Separate build info input and output files.
     SeparateInputOutput(Vec<BuildInfoBufferSeparateOutput<'a>>),
 }
 
+/// Peeks at `compilerType` from a build-info JSON, borrowing the field as
+/// a `&str`. `#[serde(default)]` makes the field optional so older
+/// build-infos (Hardhat 2 flow, EDR in-process) still parse.
+///
+/// Used ONLY inside [`BuildInfoBuffers::parse`] — the single factory site
+/// permitted to inspect the compiler tag. Every other consumer sees the
+/// erased `Box<dyn CompilerArtifact>` output.
+#[derive(Deserialize)]
+struct PeekableCompilerType<'a> {
+    #[serde(rename = "compilerType", default, borrow)]
+    compiler_type: Option<&'a str>,
+}
+
+fn to_compiler_type(compiler_type_str: Option<&str>) -> CompilerType {
+    let Some(raw) = compiler_type_str else {
+        return CompilerType::Solc;
+    };
+    match CompilerType::from_str(raw) {
+        Ok(compiler_type) => compiler_type,
+        Err(strum::ParseError::VariantNotFound) => {
+            log::warn!("Unknown build-info compilerType {raw:?}; treating as \"solc\".");
+            CompilerType::Solc
+        }
+    }
+}
+
 impl BuildInfoBuffers<'_> {
-    fn parse(&self) -> Result<Vec<BuildInfoWithOutput>, BuildInfoConfigError> {
+    fn parse(
+        &self,
+    ) -> Result<Vec<BuildInfoWithOutput<Box<dyn CompilerArtifact>>>, BuildInfoConfigError> {
         fn filter_on_solc_version(
-            build_info: BuildInfoWithOutput,
-        ) -> Result<Option<BuildInfoWithOutput>, BuildInfoConfigError> {
+            build_info: BuildInfoWithOutput<Box<dyn CompilerArtifact>>,
+        ) -> Result<Option<BuildInfoWithOutput<Box<dyn CompilerArtifact>>>, BuildInfoConfigError>
+        {
             let solc_version = build_info.solc_version.parse::<semver::Version>()?;
 
             if crate::compiler::FIRST_SOLC_VERSION_SUPPORTED <= solc_version {
@@ -87,38 +134,78 @@ impl BuildInfoBuffers<'_> {
             }
         }
 
+        fn erase<A: CompilerArtifact>(bytecode: A) -> Box<dyn CompilerArtifact> {
+            Box::new(bytecode)
+        }
+
         match self {
             BuildInfoBuffers::WithOutput(build_infos_with_output) => build_infos_with_output
                 .iter()
                 .map(|item| {
-                    let build_info: BuildInfoWithOutput = serde_json::from_slice(item)?;
+                    let peek: PeekableCompilerType<'_> = serde_json::from_slice(item)?;
+                    let build_info = match to_compiler_type(peek.compiler_type) {
+                        CompilerType::Solc => {
+                            serde_json::from_slice::<BuildInfoWithOutput<SolcBytecode>>(item)?
+                                .map_artifact(erase)
+                        }
+                        CompilerType::Solx => {
+                            serde_json::from_slice::<BuildInfoWithOutput<SolxBytecode>>(item)?
+                                .map_artifact(erase)
+                        }
+                    };
                     filter_on_solc_version(build_info)
                 })
                 .flatten_ok()
-                .collect::<Result<Vec<BuildInfoWithOutput>, _>>(),
+                .collect(),
             BuildInfoBuffers::SeparateInputOutput(separate_output) => separate_output
                 .iter()
                 .map(|item| {
+                    let peek: PeekableCompilerType<'_> = serde_json::from_slice(item.build_info)?;
                     let input: BuildInfo = serde_json::from_slice(item.build_info)?;
-                    let output: BuildInfoOutput = serde_json::from_slice(item.output)?;
-                    // Make sure we get the output matching the input.
-                    if input.id != output.id {
-                        return Err(BuildInfoConfigError::InputOutputMismatch {
-                            input_id: input.id,
-                            output_id: output.id,
-                        });
-                    }
-                    filter_on_solc_version(BuildInfoWithOutput {
-                        _format: input._format,
-                        id: input.id,
-                        solc_version: input.solc_version,
-                        solc_long_version: input.solc_long_version,
-                        input: input.input,
-                        output: output.output,
-                    })
+                    let build_info = match to_compiler_type(peek.compiler_type) {
+                        CompilerType::Solc => {
+                            let output: BuildInfoOutput<SolcBytecode> =
+                                serde_json::from_slice(item.output)?;
+                            if input.id != output.id {
+                                return Err(BuildInfoConfigError::InputOutputMismatch {
+                                    input_id: input.id,
+                                    output_id: output.id,
+                                });
+                            }
+                            BuildInfoWithOutput {
+                                _format: input._format,
+                                id: input.id,
+                                solc_version: input.solc_version,
+                                solc_long_version: input.solc_long_version,
+                                input: input.input,
+                                output: output.output,
+                            }
+                            .map_artifact(erase)
+                        }
+                        CompilerType::Solx => {
+                            let output: BuildInfoOutput<SolxBytecode> =
+                                serde_json::from_slice(item.output)?;
+                            if input.id != output.id {
+                                return Err(BuildInfoConfigError::InputOutputMismatch {
+                                    input_id: input.id,
+                                    output_id: output.id,
+                                });
+                            }
+                            BuildInfoWithOutput {
+                                _format: input._format,
+                                id: input.id,
+                                solc_version: input.solc_version,
+                                solc_long_version: input.solc_long_version,
+                                input: input.input,
+                                output: output.output,
+                            }
+                            .map_artifact(erase)
+                        }
+                    };
+                    filter_on_solc_version(build_info)
                 })
                 .flatten_ok()
-                .collect::<Result<Vec<BuildInfoWithOutput>, _>>(),
+                .collect(),
         }
     }
 }
@@ -132,22 +219,44 @@ pub struct BuildInfoBufferSeparateOutput<'a> {
     pub output: &'a [u8],
 }
 
-/// A `BuildInfoWithOutput` contains all the information of a solc run. It
+/// A `BuildInfoWithOutput` contains all the information of a compiler run. It
 /// includes all the necessary information to recreate that exact same run, and
 /// the output of the run.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BuildInfoWithOutput {
+pub struct BuildInfoWithOutput<ArtifactT: CompilerArtifact> {
     #[serde(rename = "_format")]
     pub _format: String,
     pub id: String,
     pub solc_version: String,
     pub solc_long_version: String,
     pub input: CompilerInput,
-    pub output: CompilerOutput,
+    pub output: CompilerOutput<ArtifactT>,
 }
 
-/// A `BuildInfo` contains all the input information of a solc run. It
+impl<ArtifactT: CompilerArtifact> BuildInfoWithOutput<ArtifactT> {
+    /// Convert the artifact type by mapping every bytecode through
+    /// `conversion_fn`. Threads through the nested generic types.
+    pub fn map_artifact<Fn, NewArtifactT>(
+        self,
+        conversion_fn: Fn,
+    ) -> BuildInfoWithOutput<NewArtifactT>
+    where
+        Fn: FnMut(ArtifactT) -> NewArtifactT,
+        NewArtifactT: CompilerArtifact,
+    {
+        BuildInfoWithOutput {
+            _format: self._format,
+            id: self.id,
+            solc_version: self.solc_version,
+            solc_long_version: self.solc_long_version,
+            input: self.input,
+            output: self.output.map_artifact(conversion_fn),
+        }
+    }
+}
+
+/// A `BuildInfo` contains all the input information of a compiler run. It
 /// includes all the necessary information to recreate that exact same run.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -160,14 +269,14 @@ pub struct BuildInfo {
     pub input: CompilerInput,
 }
 
-/// A `BuildInfoOutput` contains all the output of a solc run.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+/// A `BuildInfoOutput` contains all the output of a compiler run.
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BuildInfoOutput {
+pub struct BuildInfoOutput<ArtifactT: CompilerArtifact> {
     #[serde(rename = "_format")]
     pub _format: String,
     pub id: String,
-    pub output: CompilerOutput,
+    pub output: CompilerOutput<ArtifactT>,
 }
 
 /// References: of source name -> library name -> link references.
@@ -232,19 +341,62 @@ pub struct MetadataSettings {
 }
 
 /// The main output of the Solidity compiler.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub struct CompilerOutput {
+#[derive(Clone, Debug, Deserialize)]
+pub struct CompilerOutput<ArtifactT: CompilerArtifact> {
     // Retain the order of the sources as emitted by the compiler.
     // Our post processing relies on this order to build the codebase model.
     pub sources: IndexMap<String, CompilerOutputSource>,
-    pub contracts: HashMap<String, HashMap<String, CompilerOutputContract>>,
+    pub contracts: HashMap<String, HashMap<String, CompilerOutputContract<ArtifactT>>>,
+}
+
+impl<ArtifactT: CompilerArtifact> CompilerOutput<ArtifactT> {
+    /// Convert the artifact type across every contract in this output.
+    pub fn map_artifact<Fn, NewArtifactT>(
+        self,
+        mut conversion_fn: Fn,
+    ) -> CompilerOutput<NewArtifactT>
+    where
+        Fn: FnMut(ArtifactT) -> NewArtifactT,
+        NewArtifactT: CompilerArtifact,
+    {
+        CompilerOutput {
+            sources: self.sources,
+            contracts: self
+                .contracts
+                .into_iter()
+                .map(|(source_name, contracts)| {
+                    let contracts = contracts
+                        .into_iter()
+                        .map(|(name, contract)| (name, contract.map_artifact(&mut conversion_fn)))
+                        .collect();
+                    (source_name, contracts)
+                })
+                .collect(),
+        }
+    }
 }
 
 /// The output of a contract compilation.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub struct CompilerOutputContract {
+#[derive(Clone, Debug, Deserialize)]
+pub struct CompilerOutputContract<ArtifactT: CompilerArtifact> {
     pub abi: Vec<ContractAbiEntry>,
-    pub evm: CompilerOutputEvm,
+    pub evm: CompilerOutputEvm<ArtifactT>,
+}
+
+impl<ArtifactT: CompilerArtifact> CompilerOutputContract<ArtifactT> {
+    pub fn map_artifact<Fn, NewArtifactT>(
+        self,
+        conversion_fn: &mut Fn,
+    ) -> CompilerOutputContract<NewArtifactT>
+    where
+        Fn: FnMut(ArtifactT) -> NewArtifactT,
+        NewArtifactT: CompilerArtifact,
+    {
+        CompilerOutputContract {
+            abi: self.abi,
+            evm: self.evm.map_artifact(conversion_fn),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -255,12 +407,29 @@ pub struct ContractAbiEntry {
 }
 
 /// The EVM-specific output of a contract compilation.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CompilerOutputEvm {
-    pub bytecode: CompilerOutputBytecode,
-    pub deployed_bytecode: CompilerOutputBytecode,
+pub struct CompilerOutputEvm<ArtifactT: CompilerArtifact> {
+    pub bytecode: ArtifactT,
+    pub deployed_bytecode: ArtifactT,
     pub method_identifiers: HashMap<String, String>,
+}
+
+impl<ArtifactT: CompilerArtifact> CompilerOutputEvm<ArtifactT> {
+    pub fn map_artifact<Fn, NewArtifactT>(
+        self,
+        conversion_fn: &mut Fn,
+    ) -> CompilerOutputEvm<NewArtifactT>
+    where
+        Fn: FnMut(ArtifactT) -> NewArtifactT,
+        NewArtifactT: CompilerArtifact,
+    {
+        CompilerOutputEvm {
+            bytecode: conversion_fn(self.bytecode),
+            deployed_bytecode: conversion_fn(self.deployed_bytecode),
+            method_identifiers: self.method_identifiers,
+        }
+    }
 }
 
 /// The ID and the AST of the compiled sources.
@@ -270,13 +439,24 @@ pub struct CompilerOutputSource {
     pub ast: serde_json::Value,
 }
 
-/// The bytecode output for a given compiled contract.
+/// Solc-emitted bytecode.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CompilerOutputBytecode {
+pub struct SolcBytecode {
     pub object: String,
     pub opcodes: String,
     pub source_map: String,
+    pub link_references: HashMap<String, HashMap<String, Vec<LinkReference>>>,
+    pub immutable_references: Option<HashMap<String, Vec<ImmutableReference>>>,
+}
+
+/// Solx-emitted bytecode. `debug_info` is hex-encoded ELF (DWARF v5).
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolxBytecode {
+    pub object: String,
+    pub opcodes: String,
+    pub debug_info: String,
     pub link_references: HashMap<String, HashMap<String, Vec<LinkReference>>>,
     pub immutable_references: Option<HashMap<String, Vec<ImmutableReference>>>,
 }
@@ -301,16 +481,35 @@ mod tests {
 
     #[test]
     fn serde_compiler_input() {
-        // these were taken from a run of TypeScript function compileLiteral
         let compiler_input_json = include_str!("../fixtures/compiler_input.json");
-
         let _compiler_input: CompilerInput = serde_json::from_str(compiler_input_json).unwrap();
     }
 
     #[test]
-    fn serde_compiler_output() {
-        // these were taken from a run of TypeScript function compileLiteral
+    fn serde_solc_output() {
         let compiler_output_json = include_str!("../fixtures/compiler_output.json");
-        let _compiler_output: CompilerOutput = serde_json::from_str(compiler_output_json).unwrap();
+        // Solc artifacts deserialize as CompilerOutput<SolcBytecode>.
+        let _output: CompilerOutput<SolcBytecode> =
+            serde_json::from_str(compiler_output_json).unwrap();
+    }
+
+    #[test]
+    fn solx_compiler_output_carries_debug_info() {
+        let compiler_output_json = include_str!("../fixtures/solx_compiler_output.json");
+        let output: CompilerOutput<SolxBytecode> =
+            serde_json::from_str(compiler_output_json).unwrap();
+        let contract = output
+            .contracts
+            .get("Counter.sol")
+            .and_then(|m| m.get("Counter"))
+            .expect("Counter.sol::Counter should be in the solx fixture");
+        assert!(contract.evm.bytecode.debug_info.starts_with("7f454c46"));
+        assert!(contract
+            .evm
+            .deployed_bytecode
+            .debug_info
+            .starts_with("7f454c46"));
+        assert!(contract.evm.bytecode.debug_info.len() >= 200);
+        assert!(contract.evm.deployed_bytecode.debug_info.len() >= 200);
     }
 }

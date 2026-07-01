@@ -69,7 +69,14 @@ impl Provider {
                 let compiler_input = serde_json::from_value(compiler_input)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
-                let compiler_output = serde_json::from_value(compiler_output)
+                // Solc-only bridge: HH2's legacy `hardhat_addCompilationResult`
+                // JSON-RPC and HH3's in-process solc compile flow both feed
+                // solc artifacts here. Solx reaches EDR through
+                // `BuildInfoConfig` (`runSolidityTests` / `withContracts`),
+                // dispatched by `BuildInfoBuffers::parse`.
+                let compiler_output: edr_solidity::artifacts::CompilerOutput<
+                    edr_solidity::artifacts::SolcBytecode,
+                > = serde_json::from_value(compiler_output)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
                 let contracts = match create_models_and_decode_bytecodes(

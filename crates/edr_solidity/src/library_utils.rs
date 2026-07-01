@@ -4,7 +4,7 @@
 use anyhow::Context;
 use edr_primitives::hex;
 
-use crate::artifacts::CompilerOutputBytecode;
+use crate::debug_info::CompilerArtifact;
 
 /// Normalizes the compiler output bytecode by replacing the library addresses
 /// with zeros.
@@ -23,9 +23,9 @@ pub fn normalize_compiler_output_bytecode(
 }
 
 /// Retrieves the positions of the library addresses in the bytecode.
-pub fn get_library_address_positions(bytecode_output: &CompilerOutputBytecode) -> Vec<u32> {
-    bytecode_output
-        .link_references
+pub fn get_library_address_positions(artifact: &dyn CompilerArtifact) -> Vec<u32> {
+    artifact
+        .link_references()
         .values()
         .flat_map(|libs| {
             libs.values()
