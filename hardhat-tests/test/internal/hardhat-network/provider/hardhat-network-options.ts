@@ -6,7 +6,6 @@ import {
   dateToTimestampSeconds,
   parseDateString,
 } from "hardhat/internal/util/date";
-import { HardhatNetworkConfig } from "hardhat/types";
 import { useEnvironment } from "../../../helpers/environment";
 import { expectErrorAsync } from "../../../helpers/errors";
 import { useFixtureProject } from "../../../helpers/project";

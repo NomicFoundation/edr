@@ -810,7 +810,7 @@ describe("Stack traces", function () {
 });
 
 describe("Solidity support", function () {
-  it("check that the latest tested version matches the one that EDR exports", async function () {
+  it("check that the latest tested version matches the one that EDR exports", function () {
     const latestSupportedVersion = getLatestTestedSolcVersion();
     const edrLatestSupportedVersion = latestSupportedSolidityVersion();
 

@@ -25,8 +25,7 @@ describe("Provider (Mock)", () => {
     // Local tests indicate <100.000ms timeout is enough, but CI may be slower.
     this.timeout(300_000);
 
-    // Ignore this on testNoBuild
-    // @ts-ignore
+    // @ts-ignore createMockProvider is absent in the testNoBuild (no test-mock) build
     const provider = context.createMockProvider(parsedJson);
 
     // This is a transaction that has a very large response.

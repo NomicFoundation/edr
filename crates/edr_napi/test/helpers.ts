@@ -120,6 +120,7 @@ export function toBuffer(x: Parameters<typeof toBytes>[0]) {
 
 // Load a contract built with Hardhat into a test suite
 export function loadContract(artifactPath: string): Artifact {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic, module-relative artifact path (fs would resolve against cwd)
   const compiledContract = require(artifactPath);
 
   const id: ArtifactId = {

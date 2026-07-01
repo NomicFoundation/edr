@@ -7,8 +7,7 @@ import {
   l1GenesisState,
   l1HardforkFromString,
   MineOrdering,
-  // Ignore this on testNoBuild
-  // @ts-ignore
+  // @ts-ignore MockTime is absent in the testNoBuild (no test-mock) build
   MockTime,
   Provider,
   SHANGHAI,
@@ -294,8 +293,7 @@ describe("Provider logs", function () {
         },
       };
 
-      // Ignore this on testNoBuild
-      // @ts-ignore
+      // @ts-ignore createProviderWithMockTimer is absent in the testNoBuild (no test-mock) build
       provider = await context.createProviderWithMockTimer(
         {
           ...providerConfig,

@@ -149,12 +149,12 @@ async function main(): Promise<boolean> {
         }
       }
     } else {
-      await benchmarkAllScenarios(benchmarkOutputPath);
+      benchmarkAllScenarios(benchmarkOutputPath);
     }
   } else if (args.command === "verify-provider-benchmark") {
     return verify(benchmarkOutputPath);
   } else if (args.command === "report-provider-benchmark") {
-    await report(benchmarkOutputPath);
+    report(benchmarkOutputPath);
   } else if (args.command === "solidity-tests-benchmark") {
     await runSolidityTestsBenchmark(benchmarkOutputPath);
   } else if (args.command === "solidity-tests") {
@@ -220,7 +220,7 @@ async function main(): Promise<boolean> {
       return false;
     }
 
-    const reportResults = await generateForgeReport(args.csv_input);
+    const reportResults = generateForgeReport(args.csv_input);
     console.log(reportResults);
   } else {
     const _exhaustiveCheck: never = args.command;
@@ -241,7 +241,7 @@ async function repoArgToRepoPath(
   return setupRepo(repoData, tool);
 }
 
-async function report(benchmarkResultPath: string) {
+function report(benchmarkResultPath: string) {
   const benchmarkResult: Record<string, BenchmarkResult> = JSON.parse(
     fs.readFileSync(benchmarkResultPath, "utf-8")
   );
@@ -267,7 +267,7 @@ async function report(benchmarkResultPath: string) {
   console.log(JSON.stringify(reports));
 }
 
-async function verify(benchmarkResultPath: string) {
+function verify(benchmarkResultPath: string) {
   let success = true;
   const benchmarkResult = JSON.parse(
     fs.readFileSync(benchmarkResultPath, "utf-8")
@@ -341,7 +341,7 @@ function setDifference<T>(a: Set<T>, b: Set<T>): Set<T> {
   return new Set(Array.from(a).filter((item) => !b.has(item)));
 }
 
-async function benchmarkAllScenarios(outPath: string) {
+function benchmarkAllScenarios(outPath: string) {
   const result: any = {};
   let totalTime = 0;
   let totalFailures = 0;
@@ -632,7 +632,7 @@ function getScenarioFileNames(): string[] {
   return scenarioFiles.filter((fileName) => fileName.endsWith(".jsonl.gz"));
 }
 
-async function runSolidityTestsInSubprocess(repo: string): Promise<string> {
+function runSolidityTestsInSubprocess(repo: string): string {
   const args = [
     "--noconcurrent_sweeping",
     "--noconcurrent_recompilation",
@@ -685,7 +685,7 @@ async function runCompareTests(
   for (let i = 0; i < count; i++) {
     // Run EDR test in subprocess
     console.error(`EDR run ${i + 1}/${count}`);
-    const edrResultsCsv = await runSolidityTestsInSubprocess(hardhatRepoPath);
+    const edrResultsCsv = runSolidityTestsInSubprocess(hardhatRepoPath);
 
     // Parse EDR CSV results
     const edrParseResult = parse(edrResultsCsv, {
@@ -765,10 +765,10 @@ interface CompareForgeRow {
 }
 
 // Compares the sum the test execution times. Shouldn't compare suite execution times as there is unpredictability due to nested parallelism in test suites.
-async function generateForgeReport(csvInputPath: string): Promise<string> {
+function generateForgeReport(csvInputPath: string): string {
   const csvContent = fs.readFileSync(csvInputPath, "utf-8");
 
-  const parseResult = parse(csvContent, {
+  const parseResult: CompareForgeRow[] = parse(csvContent, {
     columns: true,
     skip_empty_lines: true,
     skip_records_with_empty_values: true,

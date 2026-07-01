@@ -132,6 +132,7 @@ describe("Gas reports", function () {
         ),
         observability: {
           gasReport: {
+            // eslint-disable-next-line @typescript-eslint/require-await -- napi callback signature is (…) => Promise<void>
             onCollectedGasReportCallback: async (report: GasReport) => {
               gasReporter.report = report;
             },
@@ -444,6 +445,7 @@ describe("Gas reports", function () {
           ),
           observability: {
             gasReport: {
+              // eslint-disable-next-line @typescript-eslint/require-await -- napi callback signature is (…) => Promise<void>
               onCollectedGasReportCallback: async (report: GasReport) => {
                 proxyGasReporter.report = report;
               },

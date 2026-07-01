@@ -25,6 +25,24 @@ module.exports = {
     "@typescript-eslint/no-unsafe-member-access": "off",
     "@typescript-eslint/no-unsafe-return": "off",
     "@typescript-eslint/no-unsafe-unary-minus": "off",
+    // `@ts-ignore` is banned by default in favor of `@ts-expect-error`, but the
+    // napi test suites legitimately need it: feature-gated exports (op / mock)
+    // are absent only in the `testNoBuild` build, so `@ts-expect-error` would
+    // report an unused directive in the normal build. Require a description.
+    "@typescript-eslint/ban-ts-comment": [
+      "error",
+      {
+        "ts-ignore": "allow-with-description",
+      },
+    ],
+    // chai's `AssertionError` type does not extend `Error`, so throwing it (as
+    // our async assertion helpers do) trips only-throw-error. Allow it.
+    "@typescript-eslint/only-throw-error": [
+      "error",
+      {
+        allow: [{ from: "package", name: "AssertionError", package: "chai" }],
+      },
+    ],
     "@typescript-eslint/adjacent-overload-signatures": "error",
     "@typescript-eslint/array-type": [
       "error",
