@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.14.0
+
+### Minor Changes
+
+- cfff1da: Raised the minimum supported Node.js version to 22. Node.js 20 has reached end-of-life and is no longer supported; the package now targets Node.js 22, 24, and 26.
+
 ## 0.13.0
 
 ### Minor Changes
