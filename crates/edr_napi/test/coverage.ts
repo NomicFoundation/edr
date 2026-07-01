@@ -56,7 +56,6 @@ describe("Code coverage", () => {
   });
 
   const providerOverrides = {
-    chainOverrides: [],
     defaultTransactionGasLimit: 16_777_216n,
     genesisState: fundedGenesisState(),
   };
