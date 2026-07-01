@@ -16,7 +16,7 @@ module.exports = {
       },
     ],
     "@typescript-eslint/await-thenable": "error",
-    "@typescript-eslint/ban-types": [
+    "@typescript-eslint/no-restricted-types": [
       "error",
       {
         types: {
@@ -40,7 +40,6 @@ module.exports = {
             message: "Avoid using the `Symbol` type. Did you mean `symbol`?",
           },
         },
-        extendDefaults: false,
       },
     ],
     "@typescript-eslint/consistent-type-assertions": "error",
@@ -62,6 +61,12 @@ module.exports = {
         format: ["camelCase"],
         leadingUnderscore: "allow",
         trailingUnderscore: "allow",
+      },
+      {
+        // Import names are dictated by the imported module (`WebSocket`, `_`),
+        // so don't enforce a format on them.
+        selector: "import",
+        format: null,
       },
       {
         selector: ["variable", "parameter"],
@@ -114,7 +119,7 @@ module.exports = {
         format: null,
       },
     ],
-    "@typescript-eslint/no-empty-interface": "error",
+    "@typescript-eslint/no-empty-object-type": "error",
     "@typescript-eslint/no-floating-promises": "error",
     "@typescript-eslint/no-misused-new": "error",
     "@typescript-eslint/no-namespace": "error",
@@ -192,7 +197,7 @@ module.exports = {
     "no-cond-assign": "error",
     "no-debugger": "error",
     "no-duplicate-case": "error",
-    "@typescript-eslint/no-duplicate-imports": "error",
+    "import/no-duplicates": "error",
     "no-eval": "error",
     "no-extra-bind": "error",
     "no-new-func": "error",

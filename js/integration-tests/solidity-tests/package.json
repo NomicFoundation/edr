@@ -4,7 +4,7 @@
   "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
-    "@tsconfig/node20": "^20.1.6",
+    "@tsconfig/node22": "^22.0.0",
     "@types/node": "^22.0.0",
     "forge-std": "github:foundry-rs/forge-std#v1.14.0",
     "hardhat": "3.4.5",

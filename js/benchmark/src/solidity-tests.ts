@@ -431,8 +431,8 @@ function extractTestSuiteSource(suitePath: string): string {
 interface ForgeTestKind {
   Fuzz?: { runs: number };
   Invariant?: { runs: number };
-  Standard?: {};
-  Unit?: {};
+  Standard?: Record<string, never>;
+  Unit?: Record<string, never>;
 }
 
 function getForgeTestType(kind: ForgeTestKind): string {
