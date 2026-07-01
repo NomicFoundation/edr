@@ -51,7 +51,7 @@ pub trait CompilerArtifact: std::fmt::Debug + 'static {
     ) -> anyhow::Result<Vec<Instruction>>;
 
     /// Compiler-specific stack-trace strategy — the polymorphic hook
-    /// used by [`crate::error_inferrer`] in place of per-site
+    /// used by `error_inferrer` in place of per-site
     /// `if compiler_type == Solx` branches.
     fn trace_strategy(&self) -> &'static dyn TraceStrategy;
 }

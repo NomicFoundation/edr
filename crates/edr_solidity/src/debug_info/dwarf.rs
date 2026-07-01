@@ -315,8 +315,7 @@ impl ParsedDwarf {
             // fails loudly instead of producing empty traces.
             let compressed = section
                 .compressed_file_range()
-                .map(|r| r.format != object::CompressionFormat::None)
-                .unwrap_or(false);
+                .is_ok_and(|r| r.format != object::CompressionFormat::None);
             if compressed {
                 return Err(DwarfError::CompressedSection(id.name()));
             }
@@ -540,7 +539,7 @@ impl ParsedDwarf {
             .filter(|r| r.low_pc <= pc && pc < r.high_pc)
             .copied()
             .collect();
-        out.sort_by(|a, b| b.depth.cmp(&a.depth));
+        out.sort_by_key(|r| std::cmp::Reverse(r.depth));
         out
     }
 

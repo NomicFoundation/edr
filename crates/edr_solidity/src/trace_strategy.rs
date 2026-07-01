@@ -32,7 +32,7 @@ pub struct PanicHelperContext<'a> {
     pub call_selector_function_start_ref: Option<SourceReference>,
 }
 
-/// Compiler-specific stack-trace policy used by [`crate::error_inferrer`].
+/// Compiler-specific stack-trace policy used by `error_inferrer`.
 pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
     /// Minimum `idx` at which same-location consecutive frames are treated
     /// as recursion in `filter_redundant_frames`.
@@ -280,7 +280,7 @@ impl TraceStrategy for SolxTraceStrategy {
 }
 
 /// Non-halt-reason-generic source-location resolver used by
-/// [`TraceStrategy`] impls and re-used from [`crate::error_inferrer`].
+/// [`TraceStrategy`] impls and re-used from `error_inferrer`.
 pub(crate) fn source_location_to_source_reference(
     contract_meta: &ContractMetadata,
     location: Option<&SourceLocation>,
