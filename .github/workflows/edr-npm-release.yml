@@ -164,7 +164,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@10.34.3 --ignore-scripts
+            npm i -g pnpm@11.9.0 --ignore-scripts
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
@@ -191,7 +191,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@10.34.3 --ignore-scripts
+            npm i -g pnpm@11.9.0 --ignore-scripts
             pnpm -v
             pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
@@ -284,7 +284,7 @@ jobs:
       - name: Test bindings
         # Setting CI=1 is important to make PNPM install non-interactive
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
-        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@10.34.3; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@11.9.0; pnpm testNoBuild"
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
@@ -318,7 +318,7 @@ jobs:
         run: ls -R .
         shell: bash
       - name: Test bindings
-        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@10.34.3; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@11.9.0; pnpm testNoBuild"
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
@@ -358,7 +358,7 @@ jobs:
           image: node:${{ matrix.node }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            npm install -g pnpm@10.34.3
+            npm install -g pnpm@11.9.0
             set -e
             pnpm testNoBuild
             ls -la
@@ -400,7 +400,7 @@ jobs:
           image: node:${{ matrix.node }}-alpine
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            npm install -g pnpm@10.34.3
+            npm install -g pnpm@11.9.0
             set -e
             pnpm testNoBuild
 
@@ -476,11 +476,16 @@ jobs:
         # we NEED to to this before pnpm artifacts, if not prepublish will try to publish
         run: ../../scripts/prepublish.sh
       - name: Move artifacts
-        run: pnpm artifacts
+        # prepublish.sh (above) adds the platform packages to edr_napi's
+        # package.json but not the lockfile; skip pnpm 11's pre-run frozen
+        # deps check, which would otherwise fail on that intentional desync.
+        run: pnpm --config.verify-deps-before-run=false artifacts
       - name: Copy coverage library into edr_napi crate
         run: cp ../../data/contracts/coverage.sol ./coverage.sol
       - name: Compile TypeScript helpers
-        run: pnpm exec tsc
+        # See "Move artifacts": package.json is intentionally out of sync with
+        # the lockfile here, so skip pnpm 11's pre-run frozen deps check.
+        run: pnpm --config.verify-deps-before-run=false exec tsc
       - name: Create bundle with pnpm root & napi files
         # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
         id: pack
