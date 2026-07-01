@@ -93,7 +93,9 @@ export enum SpecId {
   /** Prague */
   Prague = 18,
   /** Osaka */
-  Osaka = 19
+  Osaka = 19,
+  /** Amsterdam */
+  Amsterdam = 20
 }
 /**
  * Tries to parse the provided string to create a [`SpecId`] instance.
@@ -101,7 +103,7 @@ export enum SpecId {
  * Returns an error if the string does not match any known hardfork.
  */
 export declare function l1HardforkFromString(hardfork: string): SpecId
-export declare function l1HardforkToString(harfork: SpecId): string
+export declare function l1HardforkToString(hardfork: SpecId): string
 /**
  * Returns the latest supported OP hardfork.
  *
@@ -128,6 +130,7 @@ export const SHANGHAI: string
 export const CANCUN: string
 export const PRAGUE: string
 export const OSAKA: string
+export const AMSTERDAM: string
 /** Enumeration of supported OP hardforks. */
 export enum OpHardfork {
   Bedrock = 100,

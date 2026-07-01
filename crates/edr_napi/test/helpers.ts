@@ -3,10 +3,21 @@ import {
   Artifact,
   ArtifactId,
   ContractData,
+  ContractDecoder,
   EdrContext,
+  GENERIC_CHAIN_TYPE,
+  genericChainProviderFactory,
+  l1GenesisState,
+  l1HardforkFromString,
+  l1HardforkLatest,
+  l1HardforkToString,
+  LoggerConfig,
+  MineOrdering,
   Provider,
+  ProviderConfig,
   SolidityTestResult,
   SolidityTestRunnerConfigArgs,
+  SubscriptionEvent,
   SuiteResult,
   TracingMessage,
   TracingMessageResult,
@@ -222,4 +233,99 @@ export async function sendTransaction(
 
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Secret key of the default funded account used across provider tests. */
+export const DEFAULT_OWNED_ACCOUNT =
+  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
+/** Address corresponding to {@link DEFAULT_OWNED_ACCOUNT}. */
+export const DEFAULT_GENESIS_ADDRESS =
+  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+
+/**
+ * Builds a local L1 [`ProviderConfig`] with sensible defaults for tests. The
+ * hardfork defaults to the latest L1 hardfork.
+ *
+ * Any field can be overridden. When `genesisState` is not overridden it
+ * defaults to the hardfork's required accounts ({@link l1GenesisState}).
+ */
+export function l1ProviderConfig(
+  overrides: Partial<ProviderConfig> = {}
+): ProviderConfig {
+  const { genesisState, hardfork: hardforkOverride, ...rest } = overrides;
+  const hardfork = hardforkOverride ?? l1HardforkToString(l1HardforkLatest());
+
+  return {
+    allowBlocksWithSameTimestamp: false,
+    allowUnlimitedContractSize: true,
+    bailOnCallFailure: false,
+    bailOnTransactionFailure: false,
+    chainId: 123n,
+    coinbase: new Uint8Array(20),
+    defaultTransactionGasLimit: 300_000_000n,
+    genesisState:
+      genesisState ?? l1GenesisState(l1HardforkFromString(hardfork)),
+    hardfork,
+    initialParentBeaconBlockRoot: new Uint8Array(32),
+    minGasPrice: 0n,
+    mining: {
+      autoMine: true,
+      blockGasLimit: 300_000_000n,
+      memPool: {
+        order: MineOrdering.Priority,
+      },
+    },
+    network: {
+      genesisBlobGas: {
+        gasUsed: 0n,
+        excessGas: 0n,
+      },
+      genesisBlockGasLimit: 300_000_000n,
+    },
+    networkId: 123n,
+    observability: {},
+    ownedAccounts: [DEFAULT_OWNED_ACCOUNT],
+    precompileOverrides: [],
+    ...rest,
+  };
+}
+
+/** A [`LoggerConfig`] with logging disabled, for tests that don't inspect logs. */
+export function silentLoggerConfig(): LoggerConfig {
+  return {
+    enable: false,
+    decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => [],
+    printLineCallback: (_message: string, _replace: boolean) => {},
+  };
+}
+
+/**
+ * Creates a local generic-chain-type provider configured for L1, using
+ * {@link l1ProviderConfig} defaults and a silent logger. The provided `context`
+ * must already have the generic provider factory registered.
+ */
+export function createL1Provider(
+  context: EdrContext,
+  overrides: Partial<ProviderConfig> = {}
+): Promise<Provider> {
+  return context.createProvider(
+    GENERIC_CHAIN_TYPE,
+    l1ProviderConfig(overrides),
+    silentLoggerConfig(),
+    {
+      subscriptionCallback: (_event: SubscriptionEvent) => {},
+    },
+    new ContractDecoder()
+  );
+}
+
+/** Registers the generic chain-type provider factory on the given context. */
+export async function registerGenericProviderFactory(
+  context: EdrContext
+): Promise<void> {
+  await context.registerProviderFactory(
+    GENERIC_CHAIN_TYPE,
+    genericChainProviderFactory()
+  );
 }
