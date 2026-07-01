@@ -222,7 +222,6 @@ jobs:
           - host: windows-2022
             target: x86_64-pc-windows-msvc
         node:
-          - "20"
           - "22"
           - "24"
           - "26"
@@ -260,7 +259,6 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "20"
           - "22"
           - "24"
           - "26"
@@ -297,7 +295,6 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "20"
           - "22"
           - "24"
           - "26"
@@ -332,7 +329,6 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "20"
           - "22"
           - "24"
           - "26"
@@ -376,7 +372,6 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "20"
           - "22"
           - "24"
           - "26"
