@@ -217,6 +217,9 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
     let contract_meta = trace
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
+    let strategy = trace
+        .trace_strategy()
+        .ok_or(InferrerError::MissingContract)?;
     let steps = trace.steps();
     let number_of_subtraces = trace.number_of_subtraces();
 
@@ -247,7 +250,10 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
 
                 if next_inst.opcode == OpCode::JUMPDEST {
                     let frame = error_inferrer::instruction_to_callstack_stack_trace_entry(
-                        &contract_meta,
+                        crate::trace_strategy::TraceContext {
+                            contract_meta: &contract_meta,
+                            strategy,
+                        },
                         inst,
                     )?;
                     stacktrace.push(frame);
@@ -287,8 +293,6 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
         }
     }
 
-    let compiler_type = contract_meta.compiler_type;
-
     let stacktrace_with_inferred_error = error_inferrer::infer_after_tracing(
         trace,
         stacktrace,
@@ -297,6 +301,6 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
         last_submessage_data,
     )?;
 
-    error_inferrer::filter_redundant_frames(stacktrace_with_inferred_error, compiler_type)
+    error_inferrer::filter_redundant_frames(stacktrace_with_inferred_error, strategy)
         .map_err(SolidityTracerError::from)
 }

@@ -3,9 +3,8 @@
 //! Verifies the solx (DWARF) stack-trace path through the JSON-RPC
 //! provider. Solidity-test runs are exercised by the JS parity sweep in
 //! `js/integration-tests/solx-parity-sweep`; this file pins the
-//! provider-side surface ([R3.2] in the review), and exercises a small
-//! slice of the [`StackTraceEntry`] variance axis ([R3.3]) — one test
-//! per variant we can hit from the existing solx fixtures.
+//! provider-side surface and exercises a small slice of the
+//! [`StackTraceEntry`] variants we can hit from the existing solx fixtures.
 
 use std::sync::Arc;
 
@@ -14,7 +13,7 @@ use edr_chain_l1::{
     rpc::{receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_primitives::{hex, Address, Bytes, B256};
+use edr_primitives::{hex, keccak256, Address, Bytes, Selector, B256};
 use edr_provider::{
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
@@ -23,25 +22,24 @@ use edr_provider::{
 use edr_signer::public_key_to_address;
 use edr_solidity::{
     artifacts::{
-        BuildInfoConfig, BuildInfoWithOutput, CompilerInput, CompilerOutput, CompilerType,
-        SolxBytecode,
+        BuildInfoConfig, BuildInfoWithOutput, CompilerInput, CompilerOutput, SolxBytecode,
     },
     contract_decoder::ContractDecoder,
+    debug_info::CompilerArtifact,
     solidity_stack_trace::{SourceReference, StackTraceCreationResult, StackTraceEntry},
 };
 use parking_lot::RwLock;
-use sha3::{Digest, Keccak256};
 use tokio::runtime;
 
 // ---------- build-info loaders ----------
 
-fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput)> {
+fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
     let mut input: CompilerInput = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_input.json"
     ))?;
     input.sources.get_mut("Counter.sol").unwrap().content =
         include_str!("../../../edr_solidity/fixtures/sources/Counter.sol").to_string();
-    let output: CompilerOutput = serde_json::from_str(include_str!(
+    let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_output.json"
     ))?;
     let bi = BuildInfoWithOutput {
@@ -49,10 +47,10 @@ fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput)
         id: "solx-counter".to_string(),
         solc_version: "0.8.34".to_string(),
         solc_long_version: "0.8.34+solx".to_string(),
-        compiler_type: CompilerType::Solx,
-        input,
+        input: input.clone(),
         output: output.clone(),
-    };
+    }
+    .map_artifact(|b| -> Box<dyn CompilerArtifact> { Box::new(b) });
     Ok((
         BuildInfoConfig {
             build_infos: vec![bi],
@@ -62,7 +60,7 @@ fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput)
     ))
 }
 
-fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput)> {
+fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
     let mut input: CompilerInput = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_input_scenarios.json"
     ))?;
@@ -72,7 +70,7 @@ fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutpu
         .unwrap()
         .content =
         include_str!("../../../edr_solidity/fixtures/sources/Scenarios.t.sol").to_string();
-    let output: CompilerOutput = serde_json::from_str(include_str!(
+    let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_output_scenarios.json"
     ))?;
     let bi = BuildInfoWithOutput {
@@ -80,10 +78,10 @@ fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutpu
         id: "solx-scenarios".to_string(),
         solc_version: "0.8.34".to_string(),
         solc_long_version: "0.8.34+solx".to_string(),
-        compiler_type: CompilerType::Solx,
-        input,
+        input: input.clone(),
         output: output.clone(),
-    };
+    }
+    .map_artifact(|b| -> Box<dyn CompilerArtifact> { Box::new(b) });
     Ok((
         BuildInfoConfig {
             build_infos: vec![bi],
@@ -122,28 +120,22 @@ fn make_provider(decoder: ContractDecoder) -> anyhow::Result<(Provider<L1ChainSp
     Ok((provider, from))
 }
 
-fn creation_bytes(output: &CompilerOutput, file: &str, contract: &str) -> anyhow::Result<Bytes> {
+fn creation_bytes(
+    output: &CompilerOutput<SolxBytecode>,
+    file: &str,
+    contract: &str,
+) -> anyhow::Result<Bytes> {
     let evm = &output
         .contracts
         .get(file)
         .and_then(|m| m.get(contract))
         .with_context(|| format!("fixture missing {file}::{contract}"))?
         .evm;
-    let artifact = evm.bytecode.as_artifact();
-    let object = artifact
-        .as_any()
-        .downcast_ref::<SolxBytecode>()
-        .map(|b| &b.object)
-        .context("fixture must carry SolxBytecode")?;
-    Ok(Bytes::from(hex::decode(object)?))
+    Ok(Bytes::from(hex::decode(&evm.bytecode.object)?))
 }
 
-fn selector(signature: &str) -> [u8; 4] {
-    let hash = Keccak256::new_with_prefix(signature).finalize();
-    let prefix = hash.get(..4).expect("Keccak256 output has 32 bytes");
-    let mut s = [0u8; 4];
-    s.copy_from_slice(prefix);
-    s
+fn selector(signature: &str) -> Selector {
+    Selector::from_slice(&keccak256(signature.as_bytes())[..4])
 }
 
 fn deploy(
@@ -251,8 +243,8 @@ fn source_reference_of(entry: &StackTraceEntry) -> Option<&SourceReference> {
 
 /// Counter.set(0) reverts via `require(v > 0, "must be positive")`.
 /// Pin: stack trace surfaces a [`StackTraceEntry::RevertError`] referencing
-/// Counter.sol. Covers the provider-flow plumbing end-to-end ([R3.2]) and
-/// the `RevertError` axis ([R3.3]).
+/// Counter.sol. Covers the provider-flow plumbing end-to-end and
+/// the `RevertError` axis.
 #[tokio::test(flavor = "multi_thread")]
 async fn revert_error_variant_surfaces_for_counter() -> anyhow::Result<()> {
     let (build_info, output) = solx_counter_build_info()?;
@@ -266,7 +258,7 @@ async fn revert_error_variant_surfaces_for_counter() -> anyhow::Result<()> {
     )?;
 
     let mut calldata = Vec::with_capacity(36);
-    calldata.extend_from_slice(&selector("set(uint256)"));
+    calldata.extend_from_slice(selector("set(uint256)").as_slice());
     calldata.extend_from_slice(&[0u8; 32]);
     let stack_trace =
         expect_failed_call_stack_trace(&provider, from, counter, Bytes::from(calldata));
@@ -287,7 +279,7 @@ async fn revert_error_variant_surfaces_for_counter() -> anyhow::Result<()> {
 
 /// OverflowTest.testOverflow does `x = x + 1` with `x = uint256.max` →
 /// panic 0x11. Pin: stack trace surfaces a [`StackTraceEntry::PanicError`].
-/// Covers the `PanicError` axis ([R3.3]).
+/// Covers the `PanicError` axis.
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_error_variant_surfaces_for_overflow_scenario() -> anyhow::Result<()> {
     let (build_info, output) = solx_scenarios_build_info()?;
@@ -304,7 +296,7 @@ async fn panic_error_variant_surfaces_for_overflow_scenario() -> anyhow::Result<
         &provider,
         from,
         addr,
-        Bytes::from(selector("testOverflow()").to_vec()),
+        Bytes::from(selector("testOverflow()").as_slice().to_vec()),
     );
 
     assert!(
@@ -318,7 +310,7 @@ async fn panic_error_variant_surfaces_for_overflow_scenario() -> anyhow::Result<
 
 /// CustomErrorTest.testCustomError does `revert MyError(42, "...")`.
 /// Pin: stack trace surfaces a [`StackTraceEntry::CustomError`].
-/// Covers the `CustomError` axis ([R3.3]).
+/// Covers the `CustomError` axis.
 #[tokio::test(flavor = "multi_thread")]
 async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Result<()> {
     let (build_info, output) = solx_scenarios_build_info()?;
@@ -339,7 +331,7 @@ async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Re
         &provider,
         from,
         addr,
-        Bytes::from(selector("testCustomError()").to_vec()),
+        Bytes::from(selector("testCustomError()").as_slice().to_vec()),
     );
 
     assert!(

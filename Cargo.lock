@@ -3416,6 +3416,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "anyhow",
+ "auto_impl",
  "criterion",
  "derive-where",
  "edr_artifact",

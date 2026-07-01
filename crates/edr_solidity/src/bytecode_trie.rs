@@ -288,6 +288,12 @@ impl TrieKeyTrait for Arc<ContractMetadata> {
     }
 }
 
+impl TrieKeyTrait for crate::contracts_identifier::IdentifiedContract {
+    fn key(&self) -> &[u8] {
+        &self.metadata.normalized_code
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::bytecode_trie::{BytecodeTrie, TrieKeyTrait, TrieSearch};

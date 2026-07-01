@@ -2,17 +2,14 @@
 //! [`Instruction`] vector as [`crate::source_map::decode_instructions`] does
 //! for solc, so the rest of the stack-trace pipeline stays compiler-agnostic.
 
-use std::{collections::HashMap, rc::Rc, sync::Arc};
+use std::{collections::HashMap, num::NonZeroU64, rc::Rc, sync::Arc};
 
 use addr2line::Context as Addr2lineContext;
 use edr_primitives::{bytecode::opcode::OpCode, hex};
 use gimli::{EndianRcSlice, Reader, RunTimeEndian};
 use object::{Endianness, Object, ObjectSection};
 
-use crate::{
-    build_model::{BuildModel, Instruction, JumpType, SourceLocation},
-    debug_info::SolxBuildModelExt as _,
-};
+use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
 
 type DwarfReader = EndianRcSlice<RunTimeEndian>;
 
@@ -254,8 +251,8 @@ impl Iterator for PcOpcodes<'_> {
 struct LineRow {
     /// Combined `<dir>/<name>` from the DWARF file table.
     file: String,
-    /// `0` is DWARF's "no line" sentinel.
-    line: u64,
+    /// `None` when the DWARF row's line was `0` (its "no line" sentinel).
+    line: Option<NonZeroU64>,
     column: u64,
 }
 
@@ -528,7 +525,7 @@ impl ParsedDwarf {
         let loc = self.context.find_location(pc).ok().flatten()?;
         Some(LineRow {
             file: loc.file?.to_string(),
-            line: loc.line.map_or(0, u64::from),
+            line: loc.line.and_then(|l| NonZeroU64::new(u64::from(l))),
             column: loc.column.map_or(0, u64::from),
         })
     }
@@ -617,11 +614,11 @@ impl ParsedDwarf {
         let _ = dwarf_file_names; // unused on this path
         let line_program_func: Option<Arc<crate::build_model::ContractFunction>> = self
             .location_for_pc(pc)
-            .filter(|row| row.line != 0)
             .and_then(|row| {
+                let line = row.line?.get();
                 let (file_id, offset) = resolve_location_by_name(
                     &row.file,
-                    row.line,
+                    line,
                     row.column,
                     name_to_file_id,
                     build_model,
@@ -678,10 +675,10 @@ impl ParsedDwarf {
 
         // Pass 2: line-program row, only when it lands inside the user fn.
         if let Some(row) = self.location_for_pc(pc)
-            && row.line != 0
+            && let Some(line) = row.line
             && let Some((file_id, offset)) = resolve_location_by_name(
                 &row.file,
-                row.line,
+                line.get(),
                 row.column,
                 name_to_file_id,
                 build_model,
@@ -795,6 +792,14 @@ impl ParsedDwarf {
                     dest = Some(val);
                     break;
                 }
+            }
+            if dest.is_none() {
+                log::debug!(
+                    "DWARF jump classifier: JUMP at pc={:#x} has no PUSH \
+                     destination within 8 preceding instructions; \
+                     falling back to InternalJump",
+                    inst.pc,
+                );
             }
             let here = self.smallest_containing_range(u64::from(inst.pc));
             let there = dest.and_then(|d| self.smallest_containing_range(d));
@@ -965,18 +970,9 @@ mod tests {
 
     use super::*;
     use crate::{
-        artifacts::{CompilerOutput, CompilerOutputBytecode, SolxBytecode},
+        artifacts::{CompilerOutput, SolxBytecode},
         build_model::SourceFile,
     };
-
-    /// Test helper: every fixture in this module is solx-emitted, so the
-    /// dyn-trait artifact must downcast to the [`SolxBytecode`] concrete type.
-    fn as_solx(bc: &CompilerOutputBytecode) -> &SolxBytecode {
-        bc.as_artifact()
-            .as_any()
-            .downcast_ref::<SolxBytecode>()
-            .expect("expected SolxBytecode — fixture should carry debugInfo")
-    }
 
     /// `ParsedDwarf` with only the given ranges and an empty Context — for
     /// range-logic tests that don't need a real line program.
@@ -1006,12 +1002,12 @@ mod tests {
         })
     }
 
-    fn load_solx_output() -> CompilerOutput {
+    fn load_solx_output() -> CompilerOutput<SolxBytecode> {
         let s = include_str!("../../fixtures/solx_compiler_output.json");
         serde_json::from_str(s).unwrap()
     }
 
-    fn load_scenarios_output() -> CompilerOutput {
+    fn load_scenarios_output() -> CompilerOutput<SolxBytecode> {
         let s = include_str!("../../fixtures/solx_compiler_output_scenarios.json");
         serde_json::from_str(s).unwrap()
     }
@@ -1036,20 +1032,18 @@ mod tests {
     }
 
     fn decode_deployed_for(
-        output: &CompilerOutput,
+        output: &CompilerOutput<SolxBytecode>,
         contract: &str,
         model: &Arc<BuildModel>,
     ) -> Vec<Instruction> {
-        let bc = as_solx(
-            &output
-                .contracts
-                .get("project/contracts/Scenarios.t.sol")
-                .unwrap()
-                .get(contract)
-                .unwrap()
-                .evm
-                .deployed_bytecode,
-        );
+        let bc = &output
+            .contracts
+            .get("project/contracts/Scenarios.t.sol")
+            .unwrap()
+            .get(contract)
+            .unwrap()
+            .evm
+            .deployed_bytecode;
         let raw = hex::decode(&bc.object).unwrap();
         decode_instructions(&raw, &bc.debug_info, model, false).unwrap()
     }
@@ -1151,16 +1145,14 @@ mod tests {
         #[test]
         fn deployed_dwarf_maps_some_pc_to_require_line() {
             let output = load_solx_output();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("Counter.sol")
-                    .expect("Counter.sol")
-                    .get("Counter")
-                    .expect("Counter")
-                    .evm
-                    .deployed_bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("Counter.sol")
+                .expect("Counter.sol")
+                .get("Counter")
+                .expect("Counter")
+                .evm
+                .deployed_bytecode;
             let raw = hex::decode(&bc.object).expect("hex object");
 
             let model = make_build_model_for_counter();
@@ -1231,16 +1223,14 @@ mod tests {
         fn pin_constructor_revert() {
             let output = load_scenarios_output();
             let model = make_build_model_for_scenarios();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("project/contracts/Scenarios.t.sol")
-                    .unwrap()
-                    .get("ConstructorRevertContract")
-                    .unwrap()
-                    .evm
-                    .bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("project/contracts/Scenarios.t.sol")
+                .unwrap()
+                .get("ConstructorRevertContract")
+                .unwrap()
+                .evm
+                .bytecode;
             let raw = hex::decode(&bc.object).unwrap();
             let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
             assert!(first_inst_at_line(&insts, 57).is_some());
@@ -1357,16 +1347,14 @@ mod tests {
             // PCs inside _checkPositive carry the caller line (Counter.sol:8)
             // via inline_call_sites — that's what gives EDR the middle frame.
             let output = load_solx_output();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("Counter.sol")
-                    .unwrap()
-                    .get("Counter")
-                    .unwrap()
-                    .evm
-                    .deployed_bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("Counter.sol")
+                .unwrap()
+                .get("Counter")
+                .unwrap()
+                .evm
+                .deployed_bytecode;
             let raw = hex::decode(&bc.object).unwrap();
             let model = make_build_model_for_counter();
             let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
@@ -1413,16 +1401,14 @@ mod tests {
         fn pin_helper_reverting_constructor_carries_caller_line() {
             let output = load_scenarios_output();
             let model = make_build_model_for_scenarios();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("project/contracts/Scenarios.t.sol")
-                    .unwrap()
-                    .get("HelperRevertingConstructorContract")
-                    .unwrap()
-                    .evm
-                    .bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("project/contracts/Scenarios.t.sol")
+                .unwrap()
+                .get("HelperRevertingConstructorContract")
+                .unwrap()
+                .evm
+                .bytecode;
             let raw = hex::decode(&bc.object).unwrap();
             let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
             let inst =
@@ -1445,16 +1431,14 @@ mod tests {
             // stay inside a single range — we only require every JUMP/JUMPI to
             // get *some* non-default jump_type (not the NotJump placeholder).
             let output = load_solx_output();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("Counter.sol")
-                    .unwrap()
-                    .get("Counter")
-                    .unwrap()
-                    .evm
-                    .deployed_bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("Counter.sol")
+                .unwrap()
+                .get("Counter")
+                .unwrap()
+                .evm
+                .deployed_bytecode;
             let raw = hex::decode(&bc.object).unwrap();
             let model = make_build_model_for_counter();
             let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
@@ -1766,16 +1750,14 @@ mod tests {
         #[test]
         fn range_escapes_bytecode_on_truncated_bytecode() {
             let output = load_solx_output();
-            let bc = as_solx(
-                &output
-                    .contracts
-                    .get("Counter.sol")
-                    .unwrap()
-                    .get("Counter")
-                    .unwrap()
-                    .evm
-                    .deployed_bytecode,
-            );
+            let bc = &output
+                .contracts
+                .get("Counter.sol")
+                .unwrap()
+                .get("Counter")
+                .unwrap()
+                .evm
+                .deployed_bytecode;
             // 4 bytes — well short of any subprogram's high_pc.
             let truncated = [0u8; 4];
             let model = make_build_model_for_counter();

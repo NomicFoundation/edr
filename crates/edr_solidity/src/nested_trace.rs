@@ -146,6 +146,10 @@ pub struct CreateMessage<HaltReasonT> {
     pub steps: Vec<NestedTraceStep<HaltReasonT>>,
     /// Resolved metadata of the contract that is being executed.
     pub contract_meta: Option<Arc<ContractMetadata>>,
+    /// Compiler-specific stack-trace strategy for the contract that is
+    /// being executed. Set together with `contract_meta` at frame
+    /// construction time; `None` when the contract is unrecognised.
+    pub trace_strategy: Option<&'static dyn crate::trace_strategy::TraceStrategy>,
     /// Address of the deployed contract.
     pub deployed_contract: Option<Bytes>,
     /// Code of the contract that is being executed.
@@ -179,6 +183,7 @@ impl<HaltReasonT> CreateMessage<HaltReasonT> {
                 .map(|step| step.map_halt_reason(conversion_fn))
                 .collect(),
             contract_meta: self.contract_meta,
+            trace_strategy: self.trace_strategy,
             deployed_contract: self.deployed_contract,
             code: self.code,
             value: self.value,
@@ -202,6 +207,10 @@ pub struct CallMessage<HaltReasonT> {
     pub steps: Vec<NestedTraceStep<HaltReasonT>>,
     /// Resolved metadata of the contract that is being executed.
     pub contract_meta: Option<Arc<ContractMetadata>>,
+    /// Compiler-specific stack-trace strategy for the contract that is
+    /// being executed. Set together with `contract_meta` at frame
+    /// construction time; `None` when the contract is unrecognised.
+    pub trace_strategy: Option<&'static dyn crate::trace_strategy::TraceStrategy>,
     /// Calldata buffer
     pub calldata: Bytes,
     /// Address of the contract that is being executed.
@@ -239,6 +248,7 @@ impl<HaltReasonT> CallMessage<HaltReasonT> {
                 .map(|step| step.map_halt_reason(conversion_fn))
                 .collect(),
             contract_meta: self.contract_meta,
+            trace_strategy: self.trace_strategy,
             calldata: self.calldata,
             address: self.address,
             code_address: self.code_address,
@@ -292,6 +302,15 @@ impl<'a, HaltReasonT: HaltReasonTrait> CreateOrCallMessageRef<'a, HaltReasonT> {
         match self {
             CreateOrCallMessageRef::Create(create) => create.contract_meta.as_ref().map(Arc::clone),
             CreateOrCallMessageRef::Call(call) => call.contract_meta.as_ref().map(Arc::clone),
+        }
+    }
+
+    /// The [`crate::trace_strategy::TraceStrategy`] paired with this frame's
+    /// contract at [`crate::contract_decoder::ContractDecoder`] lookup time.
+    pub fn trace_strategy(&self) -> Option<&'static dyn crate::trace_strategy::TraceStrategy> {
+        match self {
+            CreateOrCallMessageRef::Create(create) => create.trace_strategy,
+            CreateOrCallMessageRef::Call(call) => call.trace_strategy,
         }
     }
 

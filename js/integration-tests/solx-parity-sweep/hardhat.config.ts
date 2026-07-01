@@ -1,10 +1,6 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import HardhatSolx from "@nomicfoundation/hardhat-solx";
 
-// `as HardhatUserConfig` tells TypeScript to accept the `type: "solx"`
-// solidity profile — the hardhat-solx plugin augments the config types
-// at runtime via module declaration merging, which the TypeScript
-// compiler doesn't always pick up across plugin boundaries.
 export default {
   plugins: [HardhatSolx],
   solidity: {
