@@ -316,7 +316,7 @@ describe("Code coverage", () => {
           assert.equal(testResult.status, TestStatus.Failure);
           assert.isDefined(testResult.reason);
           assert(
-            testResult.reason!.includes(ERROR_MESSAGE),
+            testResult.reason.includes(ERROR_MESSAGE),
             `Test failure reason should contain the expected error. Found: ${testResult.reason}`
           );
         }

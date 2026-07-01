@@ -45,7 +45,7 @@ export function getContext(): EdrContext {
 export function collectSteps(
   trace: Array<TracingMessage | TracingStep | TracingMessageResult>
 ): TracingStep[] {
-  return trace.filter((traceItem) => "pc" in traceItem) as TracingStep[];
+  return trace.filter((traceItem) => "pc" in traceItem);
 }
 
 /**
@@ -54,9 +54,7 @@ export function collectSteps(
 export function collectMessages(
   trace: Array<TracingMessage | TracingStep | TracingMessageResult>
 ): TracingMessage[] {
-  return trace.filter(
-    (traceItem) => "isStaticCall" in traceItem
-  ) as TracingMessage[];
+  return trace.filter((traceItem) => "isStaticCall" in traceItem);
 }
 
 export async function deployContract(

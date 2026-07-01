@@ -72,9 +72,8 @@ describe("Hardhat Network special options", function () {
         ["latest", false]
       );
 
-      const hardhatNetworkConfig = this.env.config.networks
-        .hardhat as HardhatNetworkConfig;
-      const initialDateString = hardhatNetworkConfig.initialDate!;
+      const hardhatNetworkConfig = this.env.config.networks.hardhat;
+      const initialDateString = hardhatNetworkConfig.initialDate;
       const initialDate = dateToTimestampSeconds(
         parseDateString(initialDateString)
       );

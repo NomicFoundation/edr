@@ -109,7 +109,7 @@ describe("Block's baseFeePerGas", function () {
 
                 const blockNumber = await this.provider.send("eth_blockNumber");
                 const { forkClient } = await makeForkClient({
-                  jsonRpcUrl: ALCHEMY_URL!,
+                  jsonRpcUrl: ALCHEMY_URL,
                 });
 
                 const remoteLatestBlockBaseFeePerGas =

@@ -772,7 +772,7 @@ async function generateForgeReport(csvInputPath: string): Promise<string> {
     columns: true,
     skip_empty_lines: true,
     skip_records_with_empty_values: true,
-  }) as CompareForgeRow[];
+  });
 
   // Parse data rows and filter only actual tests (rows with test names)
   const testRows = parseResult.filter((row) => {

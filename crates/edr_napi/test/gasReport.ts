@@ -164,7 +164,7 @@ describe("Gas reports", function () {
         "No gas report received after deployment"
       );
 
-      let gasReport = gasReporter.report!;
+      let gasReport = gasReporter.report;
 
       assert.equal(
         Object.keys(gasReport.contracts).length,
@@ -286,7 +286,7 @@ describe("Gas reports", function () {
         "No gas report received after deployment"
       );
 
-      let gasReport = gasReporter.report!;
+      let gasReport = gasReporter.report;
 
       assert.equal(
         Object.keys(gasReport.contracts).length,
@@ -478,7 +478,7 @@ describe("Gas reports", function () {
       });
 
       assert.isDefined(proxyGasReporter.report);
-      const gasReport = proxyGasReporter.report!;
+      const gasReport = proxyGasReporter.report;
 
       const contractReport =
         gasReport.contracts[
@@ -530,7 +530,7 @@ describe("Gas reports", function () {
       });
 
       assert.isDefined(proxyGasReporter.report);
-      const gasReport = proxyGasReporter.report!;
+      const gasReport = proxyGasReporter.report;
 
       assert.equal(
         Object.keys(gasReport.contracts).length,
@@ -607,7 +607,7 @@ describe("Gas reports", function () {
       );
 
       assert.isDefined(proxyGasReporter.report);
-      const gasReport = proxyGasReporter.report!;
+      const gasReport = proxyGasReporter.report;
 
       assert.equal(
         Object.keys(gasReport.contracts).length,
@@ -683,7 +683,7 @@ describe("Gas reports", function () {
       assert.isDefined(txHash1, "Transaction hash should be defined");
 
       assert.isDefined(proxyGasReporter.report);
-      let gasReport = proxyGasReporter.report!;
+      let gasReport = proxyGasReporter.report;
 
       assert.equal(
         Object.keys(gasReport.contracts).length,
