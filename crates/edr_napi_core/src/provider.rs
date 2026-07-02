@@ -1,15 +1,11 @@
 mod config;
-mod factory;
 
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_provider::{time::TimeSinceEpoch, InvalidRequestReason, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
 
-pub use self::{
-    config::{Config, ConfigOption},
-    factory::SyncProviderFactory,
-};
+pub use self::config::{Config, ConfigOption};
 use crate::spec::{Response, SyncNapiSpec};
 
 /// Trait for a synchronous N-API provider that can be used for dynamic trait

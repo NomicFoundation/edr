@@ -1,44 +1,90 @@
-// `JsObject` (used as the TSFN args type for the subscription event callback)
-// is `#[deprecated]` in napi-rs, but the typed `Object<'_>` does not
-// implement `ToNapiValue` by value, so it cannot be used as the
-// `JsValuesTupleIntoVec` arg of a `ThreadsafeFunction`. The deprecation
-// allow has to live at module scope because the `#[napi(object)]` macro
-// expands into impl blocks outside the struct where a struct-level
-// `#[allow]` would not reach.
-#![allow(deprecated)]
+use std::sync::Arc;
 
+use edr_napi_core::subscription::SubscriptionEventData;
+use edr_primitives::B256;
+use edr_provider::{time::TimeSinceEpoch, ProviderSpec, SyncSubscriberCallback};
 use napi::{
     bindgen_prelude::{BigInt, Function},
-    JsObject,
+    threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode},
+    Unknown,
 };
 use napi_derive::napi;
+
+/// Creates a chain-specific [`SyncSubscriberCallback`] for the provided
+/// function and chain type.
+pub fn subscriber_callback_for_chain_spec<
+    ChainSpecT: ProviderSpec<TimerT, Block: 'static, SignedTransaction: 'static>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    subscription_callback_fn: Arc<SubscriptionTsfn>,
+) -> Box<dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>> {
+    Box::new(move |event| {
+        let event = edr_napi_core::subscription::SubscriptionEvent::new::<
+            ChainSpecT::Block,
+            ChainSpecT::RpcBlock<B256>,
+            ChainSpecT::SignedTransaction,
+        >(event);
+
+        // This is blocking because it's important that the subscription events are
+        // in-order
+        subscription_callback_fn.call(event, ThreadsafeFunctionCallMode::Blocking);
+    })
+}
 
 /// Configuration for subscriptions.
 #[napi(object)]
 pub struct SubscriptionConfig<'env> {
     /// Callback to be called when a new event is received.
-    #[napi(ts_type = "(event: SubscriptionEvent) => void")]
-    pub subscription_callback: Function<'env, JsObject, ()>,
+    pub subscription_callback: Function<'env, SubscriptionEvent<'static>, ()>,
 }
 
-impl<'env> From<edr_napi_core::subscription::Config<'env>> for SubscriptionConfig<'env> {
-    fn from(config: edr_napi_core::subscription::Config<'env>) -> Self {
-        Self {
-            subscription_callback: config.subscription_callback,
-        }
-    }
-}
+pub type SubscriptionTsfn = ThreadsafeFunction<
+    edr_napi_core::subscription::SubscriptionEvent,
+    (),
+    SubscriptionEvent<'static>,
+    /* ErrorStatus */ napi::Status,
+    /* CalleeHandled */ false,
+    /* Weak */ true,
+    /* MaxQueueSize */ 0,
+>;
 
-impl<'env> From<SubscriptionConfig<'env>> for edr_napi_core::subscription::Config<'env> {
-    fn from(config: SubscriptionConfig<'env>) -> Self {
-        Self {
-            subscription_callback: config.subscription_callback,
-        }
+impl SubscriptionConfig<'_> {
+    pub fn resolve(self) -> napi::Result<Arc<SubscriptionTsfn>> {
+        let subscription_event_callback_fn = self
+            .subscription_callback
+            .build_threadsafe_function::<edr_napi_core::subscription::SubscriptionEvent>()
+            // Maintain a weak reference to the function to avoid blocking
+            // the event loop from exiting.
+            .weak::<true>()
+            .build_callback(
+                |ctx: ThreadsafeCallContext<edr_napi_core::subscription::SubscriptionEvent>| {
+                    let env = ctx.env;
+
+                    let filter_id = BigInt {
+                        sign_bit: false,
+                        words: ctx.value.filter_id.as_limbs().to_vec(),
+                    };
+
+                    let result: Unknown<'static> = match ctx.value.result {
+                        SubscriptionEventData::Logs(logs) => env.to_js_value(&logs)?,
+                        SubscriptionEventData::NewHeads(block_to_js_value_fn) => {
+                            block_to_js_value_fn(&env)?
+                        }
+                        SubscriptionEventData::NewPendingTransactions(tx_hash) => {
+                            env.to_js_value(&tx_hash)?
+                        }
+                    };
+
+                    Ok(SubscriptionEvent { filter_id, result })
+                },
+            )?;
+
+        Ok(Arc::new(subscription_event_callback_fn))
     }
 }
 
 #[napi(object)]
-pub struct SubscriptionEvent {
+pub struct SubscriptionEvent<'env> {
     pub filter_id: BigInt,
-    pub result: serde_json::Value,
+    pub result: Unknown<'env>,
 }

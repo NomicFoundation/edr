@@ -1,8 +1,6 @@
 use core::fmt::{Debug, Display};
 use std::{
-    num::NonZeroU64,
-    path::PathBuf,
-    time::{Duration, SystemTime},
+    num::NonZeroU64, path::PathBuf, sync::Arc, time::{Duration, SystemTime},
 };
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
@@ -20,9 +18,15 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
-    account::AccountOverride, block::BlobGas, cast::TryCast, gas_report::GasReport,
-    logger::LoggerConfig, napi_error, precompile::Precompile,
-    solidity_tests::config::IncludeTraces, subscription::SubscriptionConfig,
+    account::AccountOverride,
+    block::BlobGas,
+    cast::TryCast,
+    gas_report::GasReport,
+    logger::LoggerConfig,
+    napi_error,
+    precompile::Precompile,
+    solidity_tests::config::IncludeTraces,
+    subscription::{SubscriptionConfig, SubscriptionTsfn},
 };
 
 /// Configuration for EIP-1559 parameters
@@ -89,7 +93,6 @@ pub struct CodeCoverageConfig<'env> {
     ///
     /// Exceptions thrown in the callback will be propagated to the original
     /// caller.
-    #[napi(ts_type = "(coverageHits: Uint8Array[]) => Promise<void>")]
     pub on_collected_coverage_callback: Function<'env, Vec<Uint8Array>, Promise<()>>,
 }
 
@@ -101,7 +104,6 @@ pub struct GasReportConfig<'env> {
     ///
     /// Exceptions thrown in the callback will be propagated to the original
     /// caller.
-    #[napi(ts_type = "(gasReport: GasReport) => Promise<void>")]
     pub on_collected_gas_report_callback: Function<'env, GasReport, Promise<()>>,
 }
 
@@ -806,7 +808,7 @@ impl From<BuildInfoAndOutput> for edr_napi_core::solidity::config::BuildInfoAndO
 pub struct ConfigResolution {
     pub logger_config: edr_napi_core::logger::Config,
     pub provider_config: edr_napi_core::provider::Config,
-    pub subscription_callback: edr_napi_core::subscription::Callback,
+    pub subscription_callback: Arc<SubscriptionTsfn>,
 }
 
 /// Helper function for resolving the provided N-API configs.
@@ -819,9 +821,7 @@ pub fn resolve_configs<'env>(
     let provider_config = provider_config.resolve(runtime)?;
     let logger_config = logger_config.resolve()?;
 
-    let subscription_config = edr_napi_core::subscription::Config::from(subscription_config);
-    let subscription_callback =
-        edr_napi_core::subscription::Callback::new(subscription_config.subscription_callback)?;
+    let subscription_callback = subscription_config.resolve()?;
 
     Ok(ConfigResolution {
         logger_config,

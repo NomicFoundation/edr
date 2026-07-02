@@ -5,11 +5,7 @@ use edr_blockchain_fork::eips::{
     eip4788::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
 };
 use edr_chain_l1::L1ChainSpec;
-use edr_napi_core::{
-    logger::Logger,
-    provider::{SyncProvider, SyncProviderFactory},
-    subscription::subscriber_callback_for_chain_spec,
-};
+use edr_napi_core::{logger::Logger, provider::SyncProvider};
 use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
@@ -19,7 +15,11 @@ use napi::{
 use napi_derive::napi;
 use parking_lot::RwLock;
 
-use crate::{account::AccountOverride, provider::ProviderFactory};
+use crate::{
+    account::AccountOverride,
+    provider::{factory::SyncProviderFactory, ProviderFactory},
+    subscription::{subscriber_callback_for_chain_spec, SubscriptionTsfn},
+};
 
 pub struct L1ProviderFactory;
 
@@ -29,7 +29,7 @@ impl SyncProviderFactory for L1ProviderFactory {
         runtime: runtime::Handle,
         provider_config: edr_napi_core::provider::Config,
         logger_config: edr_napi_core::logger::Config,
-        subscription_callback: edr_napi_core::subscription::Callback,
+        subscription_callback: Arc<SubscriptionTsfn>,
         contract_decoder: Arc<RwLock<ContractDecoder>>,
     ) -> napi::Result<Arc<dyn SyncProvider>> {
         let logger =

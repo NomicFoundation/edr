@@ -1,10 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use edr_napi_core::{
-    logger::Logger,
-    provider::{SyncProvider, SyncProviderFactory},
-    subscription::subscriber_callback_for_chain_spec,
-};
+use edr_napi_core::{logger::Logger, provider::SyncProvider};
 use edr_op::{
     predeploys::{
         gas_price_oracle_code_ecotone, gas_price_oracle_code_fjord, gas_price_oracle_code_isthmus,
@@ -24,8 +20,7 @@ use napi_derive::napi;
 use parking_lot::RwLock;
 
 use crate::{
-    account::{AccountOverride, StorageSlot},
-    provider::ProviderFactory,
+    account::{AccountOverride, StorageSlot}, provider::{ProviderFactory, factory::SyncProviderFactory}, subscription::{SubscriptionTsfn, subscriber_callback_for_chain_spec},
 };
 
 pub struct OpProviderFactory;
@@ -36,7 +31,7 @@ impl SyncProviderFactory for OpProviderFactory {
         runtime: runtime::Handle,
         provider_config: edr_napi_core::provider::Config,
         logger_config: edr_napi_core::logger::Config,
-        subscription_callback: edr_napi_core::subscription::Callback,
+        subscription_callback: Arc<SubscriptionTsfn>,
         contract_decoder: Arc<RwLock<ContractDecoder>>,
     ) -> napi::Result<Arc<dyn SyncProvider>> {
         let logger =

@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use edr_decoder_revert::RevertDecoder;
-use edr_napi_core::{
-    provider::{SyncProvider, SyncProviderFactory},
-    solidity,
-};
+use edr_napi_core::{provider::SyncProvider, solidity};
 use edr_primitives::HashMap;
 use edr_solidity_tests::{
     multi_runner::{SuiteResultAndArtifactId, TestContract, TestContracts},
@@ -24,7 +21,7 @@ use crate::{
     config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     contract_decoder::ContractDecoder,
     logger::LoggerConfig,
-    provider::{Provider, ProviderFactory},
+    provider::{factory::SyncProviderFactory, Provider, ProviderFactory},
     solidity_tests::{
         artifact::{Artifact, ArtifactId},
         config::SolidityTestRunnerConfigArgs,
@@ -207,7 +204,6 @@ impl EdrContext {
         test_suites: Vec<ArtifactId>,
         config_args: SolidityTestRunnerConfigArgs<'env>,
         tracing_config: TracingConfigWithBuffers,
-        #[napi(ts_arg_type = "(result: SuiteResult) => void")]
         on_test_suite_completed_callback: Function<'env, SuiteResult, ()>,
     ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
@@ -398,12 +394,8 @@ impl EdrContext {
         contract_decoder: &ContractDecoder,
         time: &crate::mock::time::MockTime,
     ) -> napi::Result<Object<'env>> {
-        use edr_chain_spec::ChainSpec;
-        use edr_chain_spec_block::BlockChainSpec;
-        use edr_chain_spec_rpc::RpcBlockChainSpec;
         use edr_generic::GenericChainSpec;
         use edr_napi_core::logger::Logger;
-        use edr_primitives::B256;
 
         let (deferred, promise) = env.create_deferred()?;
 
@@ -437,6 +429,8 @@ impl EdrContext {
             // handling. This is necessary because the result of the closure is used
             // to resolve the deferred promise.
             let create_provider = move || -> napi::Result<Provider> {
+                use crate::subscription::subscriber_callback_for_chain_spec;
+
                 let logger = Logger::<GenericChainSpec, Arc<edr_provider::time::MockTime>>::new(
                     logger_config,
                     Arc::clone(&contract_decoder),
@@ -453,15 +447,10 @@ impl EdrContext {
                 >::new(
                     runtime.clone(),
                     Box::new(logger),
-                    Box::new(move |event| {
-                        let event = edr_napi_core::subscription::SubscriptionEvent::new::<
-                            <GenericChainSpec as BlockChainSpec>::Block,
-                            <GenericChainSpec as RpcBlockChainSpec>::RpcBlock<B256>,
-                            <GenericChainSpec as ChainSpec>::SignedTransaction,
-                        >(event);
-
-                        subscription_callback.call(event);
-                    }),
+                    subscriber_callback_for_chain_spec::<
+                        GenericChainSpec,
+                        Arc<edr_provider::time::MockTime>,
+                    >(subscription_callback),
                     provider_config,
                     Arc::clone(&contract_decoder),
                     timer,

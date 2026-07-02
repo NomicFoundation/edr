@@ -3,30 +3,7 @@ use std::sync::Arc;
 use edr_block_api::BlockAndTotalDifficulty;
 use edr_eth::filter::LogOutput;
 use edr_primitives::{B256, U256};
-use edr_provider::{time::TimeSinceEpoch, ProviderSpec, SyncSubscriberCallback};
-#[allow(deprecated)]
-use napi::JsObject;
-use napi::{
-    bindgen_prelude::{BigInt, Function, Unknown},
-    threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode},
-};
-
-pub fn subscriber_callback_for_chain_spec<
-    ChainSpecT: ProviderSpec<TimerT, Block: 'static, SignedTransaction: 'static>,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    subscription_callback: Callback,
-) -> Box<dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>> {
-    Box::new(move |event| {
-        let event = SubscriptionEvent::new::<
-            ChainSpecT::Block,
-            ChainSpecT::RpcBlock<B256>,
-            ChainSpecT::SignedTransaction,
-        >(event);
-
-        subscription_callback.call(event);
-    })
-}
+use napi::bindgen_prelude::Unknown;
 
 /// A chain-agnostic version of [`edr_provider::SubscriptionEvent`].
 pub struct SubscriptionEvent {
@@ -67,7 +44,7 @@ impl SubscriptionEvent {
 /// 3. Convert the `serde_json::Value` to a JavaScript value using
 ///    `napi::Env::to_js_value`.
 pub type DynJsValueConstructor =
-    dyn for<'env> FnOnce(&'env napi::Env) -> napi::Result<Unknown<'env>>;
+    dyn for<'env> FnOnce(&'env napi::Env) -> napi::Result<Unknown<'static>>;
 
 /// A chain-agnostic version of [`edr_provider::SubscriptionEventData`].
 pub enum SubscriptionEventData {
@@ -105,75 +82,4 @@ impl SubscriptionEventData {
             }
         }
     }
-}
-
-// `JsObject` is allowed-deprecated under the `compat-mode` feature.
-#[allow(deprecated)]
-type SubscriptionTsfn = ThreadsafeFunction<
-    SubscriptionEvent,
-    (),
-    JsObject,
-    /* ErrorStatus */ napi::Status,
-    /* CalleeHandled */ false,
-    /* Weak */ true,
-    /* MaxQueueSize */ 0,
->;
-
-#[derive(Clone)]
-pub struct Callback {
-    inner: Arc<SubscriptionTsfn>,
-}
-
-impl Callback {
-    #[allow(deprecated)]
-    pub fn new(subscription_event_callback: Function<'_, JsObject, ()>) -> napi::Result<Self> {
-        let callback = subscription_event_callback
-            .build_threadsafe_function::<SubscriptionEvent>()
-            // Maintain a weak reference to the function to avoid blocking
-            // the event loop from exiting.
-            .weak::<true>()
-            .build_callback(|ctx: ThreadsafeCallContext<SubscriptionEvent>| {
-                let env = ctx.env;
-
-                #[allow(deprecated)]
-                let mut event = env.create_object()?;
-
-                let filter_id = BigInt {
-                    sign_bit: false,
-                    words: ctx.value.filter_id.as_limbs().to_vec(),
-                };
-                event.set_named_property("filterId", filter_id)?;
-
-                let result: Unknown<'_> = match ctx.value.result {
-                    SubscriptionEventData::Logs(logs) => env.to_js_value(&logs)?,
-                    SubscriptionEventData::NewHeads(block_to_js_value_fn) => {
-                        block_to_js_value_fn(&env)?
-                    }
-                    SubscriptionEventData::NewPendingTransactions(tx_hash) => {
-                        env.to_js_value(&tx_hash)?
-                    }
-                };
-
-                event.set_named_property("result", result)?;
-
-                Ok(event)
-            })?;
-
-        Ok(Self {
-            inner: Arc::new(callback),
-        })
-    }
-
-    pub fn call(&self, event: SubscriptionEvent) {
-        // This is blocking because it's important that the subscription events are
-        // in-order
-        self.inner.call(event, ThreadsafeFunctionCallMode::Blocking);
-    }
-}
-
-/// Configuration for subscriptions.
-#[allow(deprecated)]
-pub struct Config<'env> {
-    /// Callback to be called when a new event is received.
-    pub subscription_callback: Function<'env, JsObject, ()>,
 }
