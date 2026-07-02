@@ -101,7 +101,7 @@ describe("Provider", () => {
   };
 
   // Used by the callback tests below.
-  async function createL1Provider(
+  async function createGenericProvider(
     logger: typeof loggerConfig,
     subscriptionCallback: (event: SubscriptionEvent) => void = () => {}
   ): Promise<Provider> {
@@ -151,7 +151,7 @@ describe("Provider", () => {
   }
 
   it("initialize local generic provider", async function () {
-    await assert.isFulfilled(createL1Provider(loggerConfig));
+    await assert.isFulfilled(createGenericProvider(loggerConfig));
   });
 
   it("initialize remote", async function () {
@@ -703,7 +703,7 @@ describe("Provider", () => {
 
   describe("setCallOverrideCallback", () => {
     it("invokes the callback and uses its return value for eth_call", async function () {
-      const provider = await createL1Provider(loggerConfig);
+      const provider = await createGenericProvider(loggerConfig);
 
       let received: { addressLen: number; dataLen: number } | undefined;
 
@@ -747,7 +747,7 @@ describe("Provider", () => {
 
   describe("decodeConsoleLogInputsCallback", () => {
     it("surfaces a throwing callback as an error instead of crashing", async function () {
-      const provider = await createL1Provider({
+      const provider = await createGenericProvider({
         ...loggerConfig,
         decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
           throw new Error("decode exploded");
@@ -766,7 +766,7 @@ describe("Provider", () => {
 
   describe("printLineCallback", () => {
     it("surfaces a throwing callback as an error instead of crashing", async function () {
-      const provider = await createL1Provider({
+      const provider = await createGenericProvider({
         ...loggerConfig,
         decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] =>
           inputs.map(() => "hello"),
@@ -793,7 +793,7 @@ describe("Provider", () => {
         resolveFirst = resolve;
       });
 
-      const provider = await createL1Provider(loggerConfig, (evt) => {
+      const provider = await createGenericProvider(loggerConfig, (evt) => {
         events.push(evt);
         resolveFirst();
       });
