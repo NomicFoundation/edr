@@ -707,6 +707,7 @@ describe("Provider", () => {
 
       let received: { addressLen: number; dataLen: number } | undefined;
 
+      const RESULT = [0xca, 0xfe, 0xba, 0xbe];
       await provider.setCallOverrideCallback(
         async (
           contractAddress: ArrayBuffer,
@@ -718,7 +719,7 @@ describe("Provider", () => {
             dataLen: Buffer.from(data).length,
           };
           return {
-            result: new Uint8Array([0xca, 0xfe, 0xba, 0xbe]),
+            result: new Uint8Array(RESULT),
             shouldRevert: false,
           };
         }
@@ -741,16 +742,20 @@ describe("Provider", () => {
       );
 
       assert.deepEqual(received, { addressLen: 20, dataLen: 4 });
-      assert.equal(JSON.parse(response.data).result, "0xcafebabe");
+      assert.equal(
+        JSON.parse(response.data).result,
+        "0x" + RESULT.map((byte) => byte.toString(16).padStart(2, "0")).join("")
+      );
     });
   });
 
   describe("decodeConsoleLogInputsCallback", () => {
     it("surfaces a throwing callback as an error instead of crashing", async function () {
+      const ERROR_MESSAGE = "decode exploded";
       const provider = await createGenericProvider({
         ...loggerConfig,
         decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
-          throw new Error("decode exploded");
+          throw new Error(ERROR_MESSAGE);
         },
       });
 
@@ -759,19 +764,20 @@ describe("Provider", () => {
       assert.isDefined(responseData.error);
       assert.match(
         responseData.error.message,
-        /Failed to decode console\.log inputs.*decode exploded/
+        new RegExp(`Failed to decode console\\.log inputs.*${ERROR_MESSAGE}`)
       );
     });
   });
 
   describe("printLineCallback", () => {
     it("surfaces a throwing callback as an error instead of crashing", async function () {
+      const ERROR_MESSAGE = "print exploded";
       const provider = await createGenericProvider({
         ...loggerConfig,
         decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] =>
           inputs.map(() => "hello"),
         printLineCallback: (_message: string, _replace: boolean) => {
-          throw new Error("print exploded");
+          throw new Error(ERROR_MESSAGE);
         },
       });
 
@@ -780,7 +786,7 @@ describe("Provider", () => {
       assert.isDefined(responseData.error);
       assert.match(
         responseData.error.message,
-        /Failed to print line.*print exploded/
+        new RegExp(`Failed to print line.*${ERROR_MESSAGE}`)
       );
     });
   });
