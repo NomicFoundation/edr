@@ -44,19 +44,23 @@ impl LoggerConfig<'_> {
         let decode_console_log_inputs_fn = Arc::new(move |console_log_inputs| {
             let (sender, receiver) = channel();
 
-            // Forward the `napi::Result` itself — including the `Err` when
-            // the JS callback throws — so the closure always sends and a JS
-            // exception reaches the caller as a `LoggerError`.
+            // Always send — including the `Err` when the JS callback throws —
+            // so the `recv` below can't be left with a dropped sender. The
+            // `Err` is stringified here, on the JS thread: a JS-thrown
+            // `napi::Error` owns a `napi_ref` that must not drop on the
+            // receiving thread (see `crate::napi_error`).
             let status = decode_console_log_inputs_callback.call_with_return_value(
                 console_log_inputs,
                 ThreadsafeFunctionCallMode::Blocking,
                 move |decoded_inputs: napi::Result<Vec<String>>, _env: Env| {
-                    sender.send(decoded_inputs).map_err(|_error| {
-                        napi::Error::new(
-                            Status::GenericFailure,
-                            "Failed to send result from decode_console_log_inputs",
-                        )
-                    })
+                    sender
+                        .send(decoded_inputs.map_err(|error| error.to_string()))
+                        .map_err(|_error| {
+                            napi::Error::new(
+                                Status::GenericFailure,
+                                "Failed to send result from decode_console_log_inputs",
+                            )
+                        })
                 },
             );
             if status != Status::Ok {
@@ -75,7 +79,7 @@ impl LoggerConfig<'_> {
                         "Callback was dropped before returning a result".to_owned(),
                     )
                 })?
-                .map_err(|error| LoggerError::DecodeConsoleLogInputs(error.to_string()))
+                .map_err(LoggerError::DecodeConsoleLogInputs)
         });
 
         let print_line_callback = self
@@ -91,18 +95,22 @@ impl LoggerConfig<'_> {
         let print_line_fn = Arc::new(move |message, replace| {
             let (sender, receiver) = channel();
 
-            // Forward the `Err` so a throwing `printLineCallback` surfaces as a
-            // `LoggerError`.
+            // Forward the `Err` so a throwing `printLineCallback` surfaces as
+            // a `LoggerError` — stringified on the JS thread, since a
+            // JS-thrown `napi::Error` owns a `napi_ref` that must not drop on
+            // the receiving thread (see `crate::napi_error`).
             let status = print_line_callback.call_with_return_value(
                 (message, replace),
                 ThreadsafeFunctionCallMode::Blocking,
                 move |result: napi::Result<()>, _env: Env| {
-                    sender.send(result).map_err(|_error| {
-                        napi::Error::new(
-                            Status::GenericFailure,
-                            "Failed to send result from print_line_callback",
-                        )
-                    })
+                    sender
+                        .send(result.map_err(|error| error.to_string()))
+                        .map_err(|_error| {
+                            napi::Error::new(
+                                Status::GenericFailure,
+                                "Failed to send result from print_line_callback",
+                            )
+                        })
                 },
             );
             if status != Status::Ok {
@@ -118,7 +126,7 @@ impl LoggerConfig<'_> {
                         "Callback was dropped before returning a result".to_owned(),
                     )
                 })?
-                .map_err(|error| LoggerError::PrintLine(error.to_string()))
+                .map_err(LoggerError::PrintLine)
         });
 
         Ok(edr_napi_core::logger::Config {

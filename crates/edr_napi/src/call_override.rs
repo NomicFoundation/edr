@@ -9,7 +9,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::cast::TryCast;
+use crate::{cast::TryCast, napi_error};
 
 /// The result of executing a call override.
 #[napi(object)]
@@ -99,15 +99,20 @@ impl CallOverrideCallback {
             // Always send through the channel — including the `Err` cases
             // when the JS callback throws synchronously or its promise
             // rejects — so the `recv` below can't be left with a dropped
-            // sender.
+            // sender. Errors cross the channel as `String`: a `napi::Error`
+            // from a JS throw or rejection owns a `napi_ref` that must not
+            // drop off the JS thread (see `crate::napi_error`).
             move |result: napi::Result<Promise<Option<CallOverrideResult>>>, _env: Env| {
                 match result {
                     Ok(promise) => {
                         runtime.spawn(async move {
-                            let result = match promise.await {
-                                Ok(value) => value.try_cast(),
-                                Err(error) => Err(error),
-                            };
+                            let result: Result<Option<edr_provider::CallOverrideResult>, String> =
+                                match promise.await {
+                                    Ok(value) => value
+                                        .try_cast()
+                                        .map_err(|error: napi::Error| error.to_string()),
+                                    Err(error) => Err(napi_error::reason_and_forget(error)),
+                                };
                             sender.send(result).map_err(|_error| {
                                 napi::Error::new(
                                     Status::GenericFailure,
@@ -117,7 +122,8 @@ impl CallOverrideCallback {
                         });
                     }
                     Err(error) => {
-                        sender.send(Err(error)).map_err(|_error| {
+                        // On the JS thread; dropping the error here is safe.
+                        sender.send(Err(error.to_string())).map_err(|_error| {
                             napi::Error::new(
                                 Status::GenericFailure,
                                 "Failed to send result from call_override_callback",
