@@ -26,7 +26,10 @@ use edr_chain_spec_evm::{
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_evm::{dry_run, dry_run_with_inspector};
 use edr_precompile::OverriddenPrecompileProvider;
-use edr_primitives::{Address, Bloom, HashMap, HashSet, KECCAK_NULL_RLP, U256};
+use edr_primitives::{
+    keccak256, Address, Bloom, HashMap, HashSet, B256, KECCAK_NULL_RLP, KECCAK_RLP_EMPTY_ARRAY,
+    U256,
+};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     ExecutionReceipt, ExecutionReceiptChainSpec, MapReceiptLogs, ReceiptTrait, TransactionReceipt,
@@ -623,6 +626,14 @@ impl<
                 .as_secs();
         }
 
+        // Must run after the reward loop and state-root computation above, so both
+        // `state_diff` and `state_root` are final.
+        self.header.block_access_list_hash = block_access_list_hash(
+            self.cfg.spec.into(),
+            &self.state_diff,
+            self.header.state_root,
+        );
+
         // TODO: handle ommers
         let block = EthLocalBlock::new::<ExecutionReceiptChainSpecT>(
             &self.context,
@@ -807,5 +818,88 @@ impl<
         BlockFinalizeError<StateError>,
     > {
         self.finalize(rewards)
+    }
+}
+
+/// EIP-7928 (Amsterdam) block access list hash.
+///
+/// Returns `None` before Amsterdam. From Amsterdam onwards, an empty state diff
+/// yields the empty-RLP-list hash; otherwise a deterministic pseudo-hash
+/// derived from the post-block state root, so that differing transactions on
+/// the same parent produce differing hashes.
+fn block_access_list_hash(
+    spec: EvmSpecId,
+    state_diff: &StateDiff,
+    state_root: B256,
+) -> Option<B256> {
+    if spec < EvmSpecId::AMSTERDAM {
+        return None;
+    }
+
+    Some(if state_diff.as_inner().is_empty() {
+        KECCAK_RLP_EMPTY_ARRAY
+    } else {
+        keccak256(format!("blockAccessListHash{state_root}").as_bytes())
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use edr_state_api::account::AccountInfo;
+
+    use super::*;
+
+    fn non_empty_state_diff() -> StateDiff {
+        let mut state_diff = StateDiff::default();
+        state_diff.apply_account_change(Address::ZERO, AccountInfo::default());
+        state_diff
+    }
+
+    #[test]
+    fn block_access_list_hash_is_none_before_amsterdam() {
+        assert_eq!(
+            block_access_list_hash(EvmSpecId::OSAKA, &non_empty_state_diff(), B256::random()),
+            None
+        );
+    }
+
+    #[test]
+    fn block_access_list_hash_is_empty_rlp_hash_for_empty_state_diff() {
+        assert_eq!(
+            block_access_list_hash(EvmSpecId::AMSTERDAM, &StateDiff::default(), B256::random()),
+            Some(KECCAK_RLP_EMPTY_ARRAY)
+        );
+    }
+
+    #[test]
+    fn block_access_list_hash_is_deterministic_for_non_empty_state_diff() {
+        let state_root = B256::random();
+
+        let hash =
+            block_access_list_hash(EvmSpecId::AMSTERDAM, &non_empty_state_diff(), state_root)
+                .expect("Amsterdam should produce a hash");
+
+        // Not the empty-RLP-list hash, and reproducible for the same state root.
+        assert_ne!(hash, KECCAK_RLP_EMPTY_ARRAY);
+        assert_eq!(
+            block_access_list_hash(EvmSpecId::AMSTERDAM, &non_empty_state_diff(), state_root),
+            Some(hash)
+        );
+    }
+
+    #[test]
+    fn block_access_list_hash_varies_with_state_root() {
+        let hash_a = block_access_list_hash(
+            EvmSpecId::AMSTERDAM,
+            &non_empty_state_diff(),
+            B256::repeat_byte(1),
+        );
+        let hash_b = block_access_list_hash(
+            EvmSpecId::AMSTERDAM,
+            &non_empty_state_diff(),
+            B256::repeat_byte(2),
+        );
+
+        assert_ne!(hash_a, hash_b);
     }
 }

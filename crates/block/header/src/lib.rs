@@ -484,11 +484,7 @@ impl PartialHeader {
                     None
                 }
             }),
-            block_access_list_hash: if evm_spec_id >= EvmSpecId::AMSTERDAM {
-                Some(B256::ZERO)
-            } else {
-                None
-            },
+            block_access_list_hash: None,
         }
     }
 }
