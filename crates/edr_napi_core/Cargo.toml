@@ -33,7 +33,6 @@ itertools = { version = "0.15.0", default-features = false }
 # references N-API symbols that only a Node host provides.
 napi = { version = "3", default-features = false, features = [
     "async",
-    "compat-mode",
     "dyn-symbols",
     "error_anyhow",
     "napi8",

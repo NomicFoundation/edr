@@ -825,7 +825,6 @@ describe("Provider", () => {
 
       await firstEvent;
 
-      // Pins the event shape built in compat-mode (edr_napi_core/src/subscription.rs).
       assert.equal(events.length, 1);
       const event = events[0];
       assert.equal(typeof event.filterId, "bigint");

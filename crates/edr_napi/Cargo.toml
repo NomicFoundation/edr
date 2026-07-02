@@ -46,11 +46,9 @@ mimalloc = { version = "0.1.39", default-features = false, features = [
     "local_dynamic_tls",
 ] }
 # The `async` feature ensures that a tokio runtime is available.
-# `compat-mode` is a temporary napi v2->v3 shim for passing objects through threadsafe functions.
 # `dyn-symbols` lets test binaries that keep napi code alive link outside a Node host.
 napi = { version = "3", default-features = false, features = [
     "async",
-    "compat-mode",
     "dyn-symbols",
     "error_anyhow",
     "napi8",
