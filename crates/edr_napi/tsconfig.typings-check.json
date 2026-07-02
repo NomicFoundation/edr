@@ -6,8 +6,6 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
-    // The node22 base enables this, which hides dangling type refs in
-    // generated `.d.ts`.
     "skipLibCheck": false
   },
   "files": ["./index.d.ts"]
