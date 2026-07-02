@@ -1,6 +1,9 @@
 use core::fmt::{Debug, Display};
 use std::{
-    num::NonZeroU64, path::PathBuf, sync::Arc, time::{Duration, SystemTime},
+    num::NonZeroU64,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, SystemTime},
 };
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
@@ -13,7 +16,7 @@ use napi::{
     bindgen_prelude::{BigInt, Function, Promise, Reference, ToNapiValue, Uint8Array},
     threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunctionCallMode},
     tokio::runtime,
-    Either, Env, JsString,
+    Either, Env, JsString, JsStringUtf8,
 };
 use napi_derive::napi;
 
@@ -93,6 +96,8 @@ pub struct CodeCoverageConfig<'env> {
     ///
     /// Exceptions thrown in the callback will be propagated to the original
     /// caller.
+    // Override is needed because napi-rs resolves `Promise<()>` to `Promise<undefined>`.
+    #[napi(ts_type = "(coverageHits: Uint8Array[]) => Promise<void>")]
     pub on_collected_coverage_callback: Function<'env, Vec<Uint8Array>, Promise<()>>,
 }
 
@@ -104,6 +109,8 @@ pub struct GasReportConfig<'env> {
     ///
     /// Exceptions thrown in the callback will be propagated to the original
     /// caller.
+    // Override is needed because napi-rs resolves `Promise<()>` to `Promise<undefined>`.
+    #[napi(ts_type = "(gasReport: GasReport) => Promise<void>")]
     pub on_collected_gas_report_callback: Function<'env, GasReport, Promise<()>>,
 }
 

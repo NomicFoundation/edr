@@ -46,7 +46,7 @@ export declare class EdrContext {
    * - `onTestSuiteCompletedCallback`: The progress callback will be called
    *   with the results of each test suite as soon as it finished executing.
    */
-  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
+  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (arg: SuiteResult) => void): Promise<SolidityTestResult>
 }
 
 export declare class Exit {
@@ -1757,12 +1757,12 @@ export interface StorageSlot {
 /** Configuration for subscriptions. */
 export interface SubscriptionConfig {
   /** Callback to be called when a new event is received. */
-  subscriptionCallback: (event: SubscriptionEvent) => void
+  subscriptionCallback: (arg: SubscriptionEvent) => void
 }
 
 export interface SubscriptionEvent {
   filterId: bigint
-  result: any
+  result: unknown
 }
 
 /** The possible reasons for successful termination of the EVM. */

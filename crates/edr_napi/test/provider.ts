@@ -824,10 +824,16 @@ describe("Provider", () => {
       const event = events[0];
       assert.equal(typeof event.filterId, "bigint");
       assert.equal(event.filterId, filterId);
-      assert.notStrictEqual(event.result, null);
-      assert.notStrictEqual(event.result, undefined);
+
       // newHeads result is a block header; pin one well-known field rather
       // than the full structure to avoid coupling to RPC formatting details.
+      function assertHasNumber(x: unknown): asserts x is { number: unknown } {
+        if (typeof x !== "object" || x === null || !("number" in x)) {
+          throw new Error("missing `number` field");
+        }
+      }
+
+      assertHasNumber(event.result);
       assert.equal(typeof event.result.number, "string");
     });
   });
