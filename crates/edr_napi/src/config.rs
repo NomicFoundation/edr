@@ -21,8 +21,8 @@ use napi_derive::napi;
 
 use crate::{
     account::AccountOverride, block::BlobGas, cast::TryCast, gas_report::GasReport,
-    logger::LoggerConfig, precompile::Precompile, solidity_tests::config::IncludeTraces,
-    subscription::SubscriptionConfig,
+    logger::LoggerConfig, napi_error, precompile::Precompile,
+    solidity_tests::config::IncludeTraces, subscription::SubscriptionConfig,
 };
 
 /// Configuration for EIP-1559 parameters
@@ -535,12 +535,16 @@ where
             ThreadsafeFunctionCallMode::Blocking,
             // Always send through the channel — including the `Err` case when
             // the JS callback throws synchronously — so the `recv` below can't
-            // be left waiting on a dropped sender.
+            // be left waiting on a dropped sender. Errors cross the channel as
+            // `String`: a `napi::Error` from a JS throw or rejection owns a
+            // `napi_ref` that must not drop off the JS thread (see
+            // `crate::napi_error`).
             move |result: napi::Result<Promise<()>>, _env: Env| {
                 match result {
                     Ok(promise) => {
                         runtime.spawn(async move {
-                            sender.send(promise.await).map_err(|_error| {
+                            let result = promise.await.map_err(napi_error::reason_and_forget);
+                            sender.send(result).map_err(|_error| {
                                 napi::Error::new(
                                     napi::Status::GenericFailure,
                                     format!("Failed to send result from {label}"),
@@ -549,7 +553,8 @@ where
                         });
                     }
                     Err(error) => {
-                        sender.send(Err(error)).map_err(|_error| {
+                        // On the JS thread; dropping the error here is safe.
+                        sender.send(Err(error.to_string())).map_err(|_error| {
                             napi::Error::new(
                                 napi::Status::GenericFailure,
                                 format!("Failed to send result from {label}"),
