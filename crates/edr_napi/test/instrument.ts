@@ -27,7 +27,7 @@ describe("Code coverage", () => {
   const incrementSourceCode = readSourceCode();
 
   describe("instrumentation", function () {
-    it("Statement coverage", async function () {
+    it("Statement coverage", function () {
       const result = addStatementCoverageInstrumentation(
         incrementSourceCode,
         "instrumentation.sol",
