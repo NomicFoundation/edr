@@ -670,7 +670,7 @@ impl ProviderConfig<'_> {
                 use edr_signer::DangerousSecretKeyStr;
 
                 static_assertions::assert_not_impl_all!(JsString<'_>: Debug, Display, serde::Serialize);
-                static_assertions::assert_not_impl_all!(napi::JsStringUtf8<'_>: Debug, Display, serde::Serialize);
+                static_assertions::assert_not_impl_all!(JsStringUtf8<'_>: Debug, Display, serde::Serialize);
                 // `SecretKey` has `Debug` implementation, but it's opaque (only shows the
                 // type name)
                 static_assertions::assert_not_impl_any!(SecretKey: Display, serde::Serialize);
