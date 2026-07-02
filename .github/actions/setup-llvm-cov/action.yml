@@ -1,0 +1,18 @@
+name: Setup cargo-llvm-cov
+description: "Installs cargo-llvm-cov at the version pinned across EDR coverage jobs, and optionally pins CARGO_BUILD_TARGET to the host triple for jobs that build the napi crate. Requires a prior setup-rust step (rustc must be on PATH)."
+inputs:
+  builds-napi-crate:
+    description: 'Set to "true" if the job builds the napi crate via `napi build` (e.g. any job whose tests run through `pnpm`). Doing so pins CARGO_BUILD_TARGET to the host triple: napi-rs v3''s `napi build` implicitly passes `--target=<host>`, redirecting cargo output to `target/<triple>/`. Without the pin, the rebuilt .node and `cargo llvm-cov`''s profraws land in different subtrees and napi-crate coverage reports as 0%.'
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2.82.2
+      with:
+        tool: cargo-llvm-cov@0.8.5
+
+    - name: Pin CARGO_BUILD_TARGET to the host triple
+      if: inputs.builds-napi-crate == 'true'
+      shell: bash
+      run: echo "CARGO_BUILD_TARGET=$(rustc --print host-tuple)" >> "$GITHUB_ENV"
