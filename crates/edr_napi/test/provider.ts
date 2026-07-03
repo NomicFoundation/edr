@@ -16,15 +16,11 @@ import {
   opHardforkToString,
   OpHardfork,
   SpecId,
-  l1GenesisState,
-  l1HardforkFromString,
-  GENERIC_CHAIN_TYPE,
-  l1HardforkLatest,
-  MineOrdering,
 } from "..";
 import {
   ALCHEMY_URL,
-  createGenericProvider as createProvider,
+  createGenericProvider,
+  DEFAULT_GENESIS_ADDRESS,
   fundedGenesisState,
   getContext,
   l1ProviderConfig,
@@ -43,86 +39,15 @@ describe("Provider", () => {
     await context.registerProviderFactory(OP_CHAIN_TYPE, opProviderFactory());
   });
 
-  const genesisAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+  // Funded-only genesis (no L1 genesis fold) for tests that just need the
+  // default account to exist; use {@link fundedGenesisState} when a test also
+  // needs the hardfork's required accounts.
   const genesisState: AccountOverride[] = [
     {
-      address: toBytes(genesisAddress),
+      address: toBytes(DEFAULT_GENESIS_ADDRESS),
       balance: 1000n * 10n ** 18n,
     },
   ];
-
-  const providerConfig = {
-    allowBlocksWithSameTimestamp: false,
-    allowUnlimitedContractSize: true,
-    bailOnCallFailure: false,
-    bailOnTransactionFailure: false,
-    chainId: 123n,
-    chainOverrides: [],
-    coinbase: new Uint8Array(
-      Buffer.from("0000000000000000000000000000000000000000", "hex")
-    ),
-    defaultTransactionGasLimit: 300_000_000n,
-    genesisState,
-    hardfork: l1HardforkToString(l1HardforkLatest()),
-    initialBlobGas: {
-      gasUsed: 0n,
-      excessGas: 0n,
-    },
-    initialParentBeaconBlockRoot: new Uint8Array(
-      Buffer.from(
-        "0000000000000000000000000000000000000000000000000000000000000000",
-        "hex"
-      )
-    ),
-    minGasPrice: 0n,
-    mining: {
-      autoMine: true,
-      blockGasLimit: 300_000_000n,
-      memPool: {
-        order: MineOrdering.Priority,
-      },
-    },
-    network: {
-      genesisBlobGas: {
-        gasUsed: 0n,
-        excessGas: 0n,
-      },
-      genesisBlockGasLimit: 300_000_000n,
-    },
-    networkId: 123n,
-    observability: {},
-    ownedAccounts: [
-      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    ],
-    precompileOverrides: [],
-  };
-
-  const loggerConfig = {
-    enable: false,
-    decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
-      return [];
-    },
-    printLineCallback: (_message: string, _replace: boolean) => {},
-  };
-
-  // Used by the callback tests below.
-  async function createGenericProvider(
-    logger: typeof loggerConfig,
-    subscriptionCallback: (event: SubscriptionEvent) => void = () => {}
-  ): Promise<Provider> {
-    return context.createProvider(
-      GENERIC_CHAIN_TYPE,
-      {
-        ...providerConfig,
-        genesisState: providerConfig.genesisState.concat(
-          l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-        ),
-      },
-      logger,
-      { subscriptionCallback },
-      new ContractDecoder()
-    );
-  }
 
   // console.log("hello") calldata and the "console.log" address it targets.
   const CONSOLE_LOG_ADDRESS = "0x000000000000000000636f6e736f6c652e6c6f67";
@@ -144,7 +69,7 @@ describe("Provider", () => {
         method: "eth_sendTransaction",
         params: [
           {
-            from: genesisAddress,
+            from: DEFAULT_GENESIS_ADDRESS,
             to: CONSOLE_LOG_ADDRESS,
             data: CONSOLE_LOG_HELLO_CALLDATA,
             gas: GAS_BELOW_OSAKA_CAP,
@@ -156,7 +81,7 @@ describe("Provider", () => {
   }
 
   it("initialize local generic provider", async function () {
-    await assert.isFulfilled(createGenericProvider(loggerConfig));
+    await assert.isFulfilled(createGenericProvider(context));
   });
 
   it("initialize remote", async function () {
@@ -164,7 +89,7 @@ describe("Provider", () => {
       this.skip();
     }
 
-    const provider = createProvider(context, {
+    const provider = createGenericProvider(context, {
       genesisState,
       // TODO: Add support for overriding remote fork state when the local fork is different
       network: {
@@ -535,7 +460,7 @@ describe("Provider", () => {
     );
     const contractInterface = new Interface(contractArtifact.contract.abi);
 
-    const provider = await createProvider(context, {
+    const provider = await createGenericProvider(context, {
       // Genesis for the latest hardfork (matches the original behavior), while
       // the provider itself runs a pre-Osaka hardfork so the precompile is not
       // available by default.
@@ -692,7 +617,7 @@ describe("Provider", () => {
 
   describe("setCallOverrideCallback", () => {
     it("invokes the callback and uses its return value for eth_call", async function () {
-      const provider = await createGenericProvider(loggerConfig);
+      const provider = await createGenericProvider(context);
 
       let received: { addressLen: number; dataLen: number } | undefined;
 
@@ -741,12 +666,18 @@ describe("Provider", () => {
   describe("decodeConsoleLogInputsCallback", () => {
     it("surfaces a throwing callback as an error instead of crashing", async function () {
       const ERROR_MESSAGE = "decode exploded";
-      const provider = await createGenericProvider({
-        ...loggerConfig,
-        decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
-          throw new Error(ERROR_MESSAGE);
-        },
-      });
+      const provider = await createGenericProvider(
+        context,
+        { genesisState: fundedGenesisState() },
+        {
+          ...silentLoggerConfig(),
+          decodeConsoleLogInputsCallback: (
+            _inputs: ArrayBuffer[]
+          ): string[] => {
+            throw new Error(ERROR_MESSAGE);
+          },
+        }
+      );
 
       const responseData = await sendConsoleLogHello(provider);
 
@@ -761,14 +692,18 @@ describe("Provider", () => {
   describe("printLineCallback", () => {
     it("surfaces a throwing callback as an error instead of crashing", async function () {
       const ERROR_MESSAGE = "print exploded";
-      const provider = await createGenericProvider({
-        ...loggerConfig,
-        decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] =>
-          inputs.map(() => "hello"),
-        printLineCallback: (_message: string, _replace: boolean) => {
-          throw new Error(ERROR_MESSAGE);
-        },
-      });
+      const provider = await createGenericProvider(
+        context,
+        { genesisState: fundedGenesisState() },
+        {
+          ...silentLoggerConfig(),
+          decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] =>
+            inputs.map(() => "hello"),
+          printLineCallback: (_message: string, _replace: boolean) => {
+            throw new Error(ERROR_MESSAGE);
+          },
+        }
+      );
 
       const responseData = await sendConsoleLogHello(provider);
 
@@ -788,10 +723,15 @@ describe("Provider", () => {
         resolveFirst = resolve;
       });
 
-      const provider = await createGenericProvider(loggerConfig, (evt) => {
-        events.push(evt);
-        resolveFirst();
-      });
+      const provider = await createGenericProvider(
+        context,
+        {},
+        silentLoggerConfig(),
+        (evt) => {
+          events.push(evt);
+          resolveFirst();
+        }
+      );
 
       const subscribeResponse = await provider.handleRequest(
         JSON.stringify({
@@ -839,7 +779,7 @@ describe("Provider", () => {
     async function createProviderWithGasCap(
       transactionGasCap: bigint | false | undefined
     ): Promise<Provider> {
-      return createProvider(context, {
+      return createGenericProvider(context, {
         hardfork: l1HardforkToString(SpecId.Osaka),
         genesisState: fundedGenesisState(l1HardforkToString(SpecId.Osaka)),
         transactionGasCap,
@@ -857,8 +797,8 @@ describe("Provider", () => {
           method: "eth_sendTransaction",
           params: [
             {
-              from: genesisAddress,
-              to: genesisAddress,
+              from: DEFAULT_GENESIS_ADDRESS,
+              to: DEFAULT_GENESIS_ADDRESS,
               gas: "0x" + gas.toString(16),
             },
           ],
@@ -942,7 +882,7 @@ describe("Provider", () => {
         this.skip();
       }
 
-      const provider = await createProvider(context, {
+      const provider = await createGenericProvider(context, {
         genesisState,
         network: {
           url: ALCHEMY_URL,
@@ -954,7 +894,7 @@ describe("Provider", () => {
           id: 1,
           jsonrpc: "2.0",
           method: "eth_getProof",
-          params: [genesisAddress, [], "latest"],
+          params: [DEFAULT_GENESIS_ADDRESS, [], "latest"],
         })
       );
       const responseData = JSON.parse(response.data);
@@ -965,7 +905,7 @@ describe("Provider", () => {
     });
 
     it("fails on invalid storage key", async function () {
-      const provider = await createProvider(context, {
+      const provider = await createGenericProvider(context, {
         genesisState,
       });
 
@@ -976,7 +916,7 @@ describe("Provider", () => {
           id: 1,
           jsonrpc: "2.0",
           method: "eth_getProof",
-          params: [genesisAddress, [storageKey], "latest"],
+          params: [DEFAULT_GENESIS_ADDRESS, [storageKey], "latest"],
         })
       );
       const INVALID_PARAM_CODE = -32602;
@@ -985,7 +925,7 @@ describe("Provider", () => {
     });
 
     it("deserializes storage keys correctly", async function () {
-      const provider = await createProvider(context, {
+      const provider = await createGenericProvider(context, {
         genesisState,
       });
 
@@ -996,7 +936,7 @@ describe("Provider", () => {
           id: 1,
           jsonrpc: "2.0",
           method: "eth_getProof",
-          params: [genesisAddress, [storageKey], "latest"],
+          params: [DEFAULT_GENESIS_ADDRESS, [storageKey], "latest"],
         })
       );
       const responseData = JSON.parse(response.data);

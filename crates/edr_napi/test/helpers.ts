@@ -304,18 +304,21 @@ export function silentLoggerConfig(): LoggerConfig {
  * Creates a local generic-chain-type provider configured for L1, using
  * {@link l1ProviderConfig} defaults and a silent logger. The provided `context`
  * must already have the generic provider factory registered.
+ *
+ * The logger and subscription callback default to a silent logger and a no-op
+ * callback; override them for tests that exercise logging or subscriptions.
  */
 export function createGenericProvider(
   context: EdrContext,
-  overrides: Partial<ProviderConfig> = {}
+  overrides: Partial<ProviderConfig> = {},
+  loggerConfig: LoggerConfig = silentLoggerConfig(),
+  subscriptionCallback: (event: SubscriptionEvent) => void = () => {}
 ): Promise<Provider> {
   return context.createProvider(
     GENERIC_CHAIN_TYPE,
     l1ProviderConfig(overrides),
-    silentLoggerConfig(),
-    {
-      subscriptionCallback: (_event: SubscriptionEvent) => {},
-    },
+    loggerConfig,
+    { subscriptionCallback },
     new ContractDecoder()
   );
 }
