@@ -46,11 +46,8 @@ mimalloc = { version = "0.1.39", default-features = false, features = [
     "local_dynamic_tls",
 ] }
 # The `async` feature ensures that a tokio runtime is available.
-# `dyn-symbols` lets test binaries that keep napi code alive link outside a Node host.
-# TODO(#1533): gate `dyn-symbols` behind a non-default feature so it stays out of the published addon.
 napi = { version = "3", default-features = false, features = [
     "async",
-    "dyn-symbols",
     "error_anyhow",
     "napi8",
     "serde-json",
@@ -94,6 +91,12 @@ openssl-sys = { version = "0.9.93", features = ["vendored"] }
 [build-dependencies]
 # napi-build has no v3 release; 2.x is current for napi 3.
 napi-build = "2.3"
+
+[dev-dependencies]
+# `dyn-symbols` resolves N-API symbols at runtime so standalone test binaries
+# link without a Node host. Kept out of [dependencies] so the published addon
+# links against Node's symbols directly and doesn't ship libloading resolution.
+napi = { version = "3", default-features = false, features = ["dyn-symbols"] }
 
 [features]
 op = ["dep:edr_op"]
