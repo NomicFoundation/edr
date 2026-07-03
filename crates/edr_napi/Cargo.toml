@@ -47,6 +47,7 @@ mimalloc = { version = "0.1.39", default-features = false, features = [
 ] }
 # The `async` feature ensures that a tokio runtime is available.
 # `dyn-symbols` lets test binaries that keep napi code alive link outside a Node host.
+# TODO(#1533): gate `dyn-symbols` behind a non-default feature so it stays out of the published addon.
 napi = { version = "3", default-features = false, features = [
     "async",
     "dyn-symbols",
