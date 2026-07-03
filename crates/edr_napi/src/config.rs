@@ -510,32 +510,32 @@ impl TryFrom<MiningConfig> for edr_provider::config::Mining {
 /// synchronous exception in the callback, and a promise rejection — are all
 /// funneled into the returned `Result`. `label` names the callback in error
 /// messages.
-fn blocking_promise_callback<Core, Js, ToJs>(
-    callback: Function<'_, Js, Promise<()>>,
+fn blocking_promise_callback<CoreT, JsT, ToJsFnT>(
+    callback: Function<'_, JsT, Promise<()>>,
     runtime: runtime::Handle,
     label: &'static str,
-    to_js: ToJs,
+    to_js: ToJsFnT,
 ) -> napi::Result<
-    impl Fn(Core) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+    impl Fn(CoreT) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
         + Clone
         + Send
         + Sync
-        + use<Core, Js, ToJs>,
+        + use<CoreT, JsT, ToJsFnT>,
 >
 where
-    Js: ToNapiValue + Send + 'static,
-    ToJs: Fn(Core) -> Js + Clone + Send + Sync + 'static,
+    JsT: ToNapiValue + Send + 'static,
+    ToJsFnT: Fn(CoreT) -> JsT + Clone + Send + Sync + 'static,
 {
     let tsfn = std::sync::Arc::new(
         callback
-            .build_threadsafe_function::<Js>()
+            .build_threadsafe_function::<JsT>()
             // Maintain a weak reference to the function to avoid blocking the
             // event loop from exiting.
             .weak::<true>()
-            .build_callback(|ctx: ThreadsafeCallContext<Js>| Ok(ctx.value))?,
+            .build_callback(|ctx: ThreadsafeCallContext<JsT>| Ok(ctx.value))?,
     );
 
-    Ok(move |value: Core| {
+    Ok(move |value: CoreT| {
         let runtime = runtime.clone();
         let (sender, receiver) = std::sync::mpsc::channel();
 
