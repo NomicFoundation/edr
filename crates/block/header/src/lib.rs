@@ -484,7 +484,7 @@ impl PartialHeader {
                     None
                 }
             }),
-            block_access_list_hash: None,
+            block_access_list_hash: overrides.block_access_list_hash,
         }
     }
 }

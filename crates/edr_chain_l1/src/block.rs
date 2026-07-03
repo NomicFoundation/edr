@@ -626,13 +626,16 @@ impl<
                 .as_secs();
         }
 
-        // Must run after the reward loop and state-root computation above, so both
+        // Only simulate the hash when the header doesn't already carry one. Must
+        // run after the reward loop and state-root computation above, so both
         // `state_diff` and `state_root` are final.
-        self.header.block_access_list_hash = block_access_list_hash(
-            self.cfg.spec.into(),
-            &self.state_diff,
-            self.header.state_root,
-        );
+        if self.header.block_access_list_hash.is_none() {
+            self.header.block_access_list_hash = block_access_list_hash(
+                self.cfg.spec.into(),
+                &self.state_diff,
+                self.header.state_root,
+            );
+        }
 
         // TODO: handle ommers
         let block = EthLocalBlock::new::<ExecutionReceiptChainSpecT>(
