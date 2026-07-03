@@ -31,6 +31,7 @@ import {
 import {
   FsAccessPermission,
   SuiteResult,
+  TestStatus,
   EdrContext,
   StandardTestKind,
   FuzzTestKind,
@@ -431,8 +432,8 @@ function extractTestSuiteSource(suitePath: string): string {
 interface ForgeTestKind {
   Fuzz?: { runs: number };
   Invariant?: { runs: number };
-  Standard?: {};
-  Unit?: {};
+  Standard?: Record<string, never>;
+  Unit?: Record<string, never>;
 }
 
 function getForgeTestType(kind: ForgeTestKind): string {
@@ -443,7 +444,7 @@ function getForgeTestType(kind: ForgeTestKind): string {
   } else if (kind.Standard !== undefined || kind.Unit !== undefined) {
     return "unit";
   } else {
-    throw new Error(`Unknown test type: ${kind}`);
+    throw new Error(`Unknown test type: ${JSON.stringify(kind)}`);
   }
 }
 
@@ -704,7 +705,7 @@ function assertNoFailures(results: SuiteResult[]) {
   const failed = new Set();
   for (const res of results) {
     for (const r of res.testResults) {
-      if (r.status !== "Success") {
+      if (r.status !== TestStatus.Success) {
         failed.add(`${res.id.name} ${r.name} ${r.status} reason:\n${r.reason}`);
       }
     }

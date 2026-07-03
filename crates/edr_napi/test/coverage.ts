@@ -104,6 +104,7 @@ describe("Code coverage", () => {
     networkId: 123n,
     observability: {
       codeCoverage: {
+        // eslint-disable-next-line @typescript-eslint/require-await -- napi callback signature is (…) => Promise<void>
         onCollectedCoverageCallback: async (coverage: Uint8Array[]) => {
           coverageReporter.hits.push(...coverage);
         },
@@ -207,6 +208,7 @@ describe("Code coverage", () => {
           ),
           observability: {
             codeCoverage: {
+              // eslint-disable-next-line @typescript-eslint/require-await -- napi callback signature is (…) => Promise<void>
               onCollectedCoverageCallback: async (_coverage: Uint8Array[]) => {
                 throw new Error(ERROR_MESSAGE);
               },
@@ -234,7 +236,10 @@ describe("Code coverage", () => {
         })
       );
 
-      const error = JSON.parse(sendTransactionResponse.data).error;
+      const error = JSON.parse(sendTransactionResponse.data).error as {
+        message: string;
+        code: number;
+      };
 
       assert(
         error.message.includes(ERROR_MESSAGE),
@@ -260,6 +265,7 @@ describe("Code coverage", () => {
         hardfork: l1HardforkToString(l1HardforkLatest()),
         observability: {
           codeCoverage: {
+            // eslint-disable-next-line @typescript-eslint/require-await -- napi callback signature is (…) => Promise<void>
             onCollectedCoverageCallback: async (coverage: Uint8Array[]) => {
               coverageReporter.hits.push(...coverage);
             },
@@ -293,6 +299,7 @@ describe("Code coverage", () => {
         hardfork: l1HardforkToString(l1HardforkLatest()),
         observability: {
           codeCoverage: {
+            // eslint-disable-next-line @typescript-eslint/require-await -- napi callback signature is (…) => Promise<void>
             onCollectedCoverageCallback: async (_coverage: Uint8Array[]) => {
               throw new Error(ERROR_MESSAGE);
             },
@@ -313,7 +320,7 @@ describe("Code coverage", () => {
           assert.equal(testResult.status, TestStatus.Failure);
           assert.isDefined(testResult.reason);
           assert(
-            testResult.reason!.includes(ERROR_MESSAGE),
+            testResult.reason.includes(ERROR_MESSAGE),
             `Test failure reason should contain the expected error. Found: ${testResult.reason}`
           );
         }
