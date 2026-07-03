@@ -20,7 +20,9 @@ use napi_derive::napi;
 use parking_lot::RwLock;
 
 use crate::{
-    account::{AccountOverride, StorageSlot}, provider::{ProviderFactory, factory::SyncProviderFactory}, subscription::{SubscriptionTsfn, subscriber_callback_for_chain_spec},
+    account::{AccountOverride, StorageSlot},
+    provider::{factory::SyncProviderFactory, ProviderFactory},
+    subscription::{subscriber_callback_for_chain_spec, SubscriptionTsfn},
 };
 
 pub struct OpProviderFactory;

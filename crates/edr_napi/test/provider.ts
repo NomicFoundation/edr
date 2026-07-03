@@ -709,7 +709,7 @@ describe("Provider", () => {
 
       const RESULT = [0xca, 0xfe, 0xba, 0xbe];
       await provider.setCallOverrideCallback(
-        async (
+        (
           contractAddress: ArrayBuffer,
           data: ArrayBuffer
         ): Promise<CallOverrideResult | undefined> => {
@@ -718,10 +718,10 @@ describe("Provider", () => {
             addressLen: Buffer.from(contractAddress).length,
             dataLen: Buffer.from(data).length,
           };
-          return {
+          return Promise.resolve({
             result: new Uint8Array(RESULT),
             shouldRevert: false,
-          };
+          });
         }
       );
 
