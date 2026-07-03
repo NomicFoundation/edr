@@ -305,7 +305,7 @@ export function silentLoggerConfig(): LoggerConfig {
  * {@link l1ProviderConfig} defaults and a silent logger. The provided `context`
  * must already have the generic provider factory registered.
  */
-export function createL1Provider(
+export function createGenericProvider(
   context: EdrContext,
   overrides: Partial<ProviderConfig> = {}
 ): Promise<Provider> {
