@@ -16,6 +16,7 @@ function toBuffer(x: Parameters<typeof toBytes>[0]) {
   return Buffer.from(toBytes(x));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- ethereumjs-abi ships no type declarations
 const abi = require("ethereumjs-abi");
 
 const senderPrivateKey =
@@ -153,6 +154,11 @@ export async function traceTransaction(
         `Failed to get stack trace due to unexpected error: ${stackTrace.errorMessage}`
       );
     case "StackTrace":
-      return stackTrace.entries;
+      // TODO: https://github.com/NomicFoundation/edr/issues/1532
+      // EDR's `SolidityStackTraceEntry` union now includes
+      // `CheatcodeErrorStackTraceEntry`, which HH2's local copy doesn't
+      // know about. Cheatcodes only fire from solidity-test runs, never
+      // from HH2's network-provider path; the cast is safe at runtime.
+      return stackTrace.entries as SolidityStackTrace;
   }
 }

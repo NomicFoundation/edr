@@ -21,9 +21,15 @@ use itertools::izip;
 use parking_lot::RwLock;
 
 /// Trait for a function that decodes console log inputs.
-pub trait DecodeConsoleLogInputsFn: Fn(Vec<Bytes>) -> Vec<String> + Send + Sync {}
+pub trait DecodeConsoleLogInputsFn:
+    Fn(Vec<Bytes>) -> Result<Vec<String>, LoggerError> + Send + Sync
+{
+}
 
-impl<FnT> DecodeConsoleLogInputsFn for FnT where FnT: Fn(Vec<Bytes>) -> Vec<String> + Send + Sync {}
+impl<FnT> DecodeConsoleLogInputsFn for FnT where
+    FnT: Fn(Vec<Bytes>) -> Result<Vec<String>, LoggerError> + Send + Sync
+{
+}
 
 /// Trait for a function that prints a line or replaces the last printed line.
 pub trait PrintLineFn: Fn(String, bool) -> Result<(), LoggerError> + Send + Sync {}
@@ -81,8 +87,15 @@ enum LogLine {
 
 #[derive(Debug, thiserror::Error)]
 pub enum LoggerError {
-    #[error("Failed to print line")]
-    PrintLine,
+    /// The JS `decodeConsoleLogInputsCallback` failed. Carries the error
+    /// message as a `String` because `napi::Error` holds JS-environment
+    /// state that must not cross thread boundaries.
+    #[error("Failed to decode console.log inputs: {0}")]
+    DecodeConsoleLogInputs(String),
+    /// The JS `printLineCallback` failed. Carries the error message as a
+    /// `String` (see [`LoggerError::DecodeConsoleLogInputs`]).
+    #[error("Failed to print line: {0}")]
+    PrintLine(String),
 }
 
 #[derive_where(Clone)]
@@ -685,7 +698,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         encoded_console_logs: &[Bytes],
     ) -> Result<(), LoggerError> {
         let console_log_inputs =
-            (self.config.decode_console_log_inputs_fn)(encoded_console_logs.to_vec());
+            (self.config.decode_console_log_inputs_fn)(encoded_console_logs.to_vec())?;
 
         // This is a special case, as we always want to print the console.log messages.
         // The difference is how. If we have a logger, we should use that, so that logs

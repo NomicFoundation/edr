@@ -2,7 +2,7 @@ import { assert } from "chai";
 
 import { ContractDecoder, MineOrdering } from "..";
 import {
-  createL1Provider,
+  createGenericProvider,
   getContext,
   registerGenericProviderFactory,
 } from "./helpers";
@@ -15,7 +15,7 @@ describe("Provider", () => {
   });
 
   it("issue 771", async function () {
-    const provider = await createL1Provider(context, {
+    const provider = await createGenericProvider(context, {
       chainId: 1n,
       initialBaseFeePerGas: 0n,
       mining: {
@@ -39,7 +39,7 @@ describe("Provider", () => {
       })
     );
   });
-  it("Invalid build info", async function () {
+  it("Invalid build info", function () {
     // Test data taken from CI run:
     // <https://github.com/NomicFoundation/hardhat/actions/runs/14475363227/job/40604573807?pr=6577>
     const config = {

@@ -5,6 +5,7 @@ import { Interface } from "ethers";
 
 import {
   AccountOverride,
+  CallOverrideResult,
   ContractDecoder,
   l1HardforkToString,
   Provider,
@@ -15,10 +16,15 @@ import {
   opHardforkToString,
   OpHardfork,
   SpecId,
+  l1GenesisState,
+  l1HardforkFromString,
+  GENERIC_CHAIN_TYPE,
+  l1HardforkLatest,
+  MineOrdering,
 } from "..";
 import {
   ALCHEMY_URL,
-  createL1Provider,
+  createGenericProvider as createProvider,
   fundedGenesisState,
   getContext,
   l1ProviderConfig,
@@ -45,12 +51,112 @@ describe("Provider", () => {
     },
   ];
 
-  it("initialize local generic provider", async function () {
-    const provider = createL1Provider(context, {
-      genesisState: fundedGenesisState(),
-    });
+  const providerConfig = {
+    allowBlocksWithSameTimestamp: false,
+    allowUnlimitedContractSize: true,
+    bailOnCallFailure: false,
+    bailOnTransactionFailure: false,
+    chainId: 123n,
+    chainOverrides: [],
+    coinbase: new Uint8Array(
+      Buffer.from("0000000000000000000000000000000000000000", "hex")
+    ),
+    defaultTransactionGasLimit: 300_000_000n,
+    genesisState,
+    hardfork: l1HardforkToString(l1HardforkLatest()),
+    initialBlobGas: {
+      gasUsed: 0n,
+      excessGas: 0n,
+    },
+    initialParentBeaconBlockRoot: new Uint8Array(
+      Buffer.from(
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "hex"
+      )
+    ),
+    minGasPrice: 0n,
+    mining: {
+      autoMine: true,
+      blockGasLimit: 300_000_000n,
+      memPool: {
+        order: MineOrdering.Priority,
+      },
+    },
+    network: {
+      genesisBlobGas: {
+        gasUsed: 0n,
+        excessGas: 0n,
+      },
+      genesisBlockGasLimit: 300_000_000n,
+    },
+    networkId: 123n,
+    observability: {},
+    ownedAccounts: [
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    ],
+    precompileOverrides: [],
+  };
 
-    await assert.isFulfilled(provider);
+  const loggerConfig = {
+    enable: false,
+    decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
+      return [];
+    },
+    printLineCallback: (_message: string, _replace: boolean) => {},
+  };
+
+  // Used by the callback tests below.
+  async function createGenericProvider(
+    logger: typeof loggerConfig,
+    subscriptionCallback: (event: SubscriptionEvent) => void = () => {}
+  ): Promise<Provider> {
+    return context.createProvider(
+      GENERIC_CHAIN_TYPE,
+      {
+        ...providerConfig,
+        genesisState: providerConfig.genesisState.concat(
+          l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+        ),
+      },
+      logger,
+      { subscriptionCallback },
+      new ContractDecoder()
+    );
+  }
+
+  // console.log("hello") calldata and the "console.log" address it targets.
+  const CONSOLE_LOG_ADDRESS = "0x000000000000000000636f6e736f6c652e6c6f67";
+  const CONSOLE_LOG_HELLO_CALLDATA =
+    "0x41304fac" +
+    "0000000000000000000000000000000000000000000000000000000000000020" +
+    "0000000000000000000000000000000000000000000000000000000000000005" +
+    "68656c6c6f000000000000000000000000000000000000000000000000000000";
+
+  // defaultTransactionGasLimit (300M) exceeds the EIP-7825 Osaka cap; set an
+  // explicit sub-cap gas.
+  const GAS_BELOW_OSAKA_CAP = "0xf4240";
+
+  async function sendConsoleLogHello(provider: Provider): Promise<any> {
+    const response = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: genesisAddress,
+            to: CONSOLE_LOG_ADDRESS,
+            data: CONSOLE_LOG_HELLO_CALLDATA,
+            gas: GAS_BELOW_OSAKA_CAP,
+          },
+        ],
+      })
+    );
+    return JSON.parse(response.data);
+  }
+
+  it("initialize local generic provider", async function () {
+    await assert.isFulfilled(createGenericProvider(loggerConfig));
   });
 
   it("initialize remote", async function () {
@@ -58,7 +164,7 @@ describe("Provider", () => {
       this.skip();
     }
 
-    const provider = createL1Provider(context, {
+    const provider = createProvider(context, {
       genesisState,
       // TODO: Add support for overriding remote fork state when the local fork is different
       network: {
@@ -429,7 +535,7 @@ describe("Provider", () => {
     );
     const contractInterface = new Interface(contractArtifact.contract.abi);
 
-    const provider = await createL1Provider(context, {
+    const provider = await createProvider(context, {
       // Genesis for the latest hardfork (matches the original behavior), while
       // the provider itself runs a pre-Osaka hardfork so the precompile is not
       // available by default.
@@ -584,6 +690,148 @@ describe("Provider", () => {
     assert.equal(6, dataView.getUint8(elasticityLeastSignificantByte));
   });
 
+  describe("setCallOverrideCallback", () => {
+    it("invokes the callback and uses its return value for eth_call", async function () {
+      const provider = await createGenericProvider(loggerConfig);
+
+      let received: { addressLen: number; dataLen: number } | undefined;
+
+      const RESULT = [0xca, 0xfe, 0xba, 0xbe];
+      await provider.setCallOverrideCallback(
+        (
+          contractAddress: ArrayBuffer,
+          data: ArrayBuffer
+        ): Promise<CallOverrideResult | undefined> => {
+          // Runtime value is a Uint8Array despite the ArrayBuffer annotation.
+          received = {
+            addressLen: Buffer.from(contractAddress).length,
+            dataLen: Buffer.from(data).length,
+          };
+          return Promise.resolve({
+            result: new Uint8Array(RESULT),
+            shouldRevert: false,
+          });
+        }
+      );
+
+      const response = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_call",
+          params: [
+            {
+              to: "0xabababababababababababababababababababab",
+              data: "0xdeadbeef",
+              gas: GAS_BELOW_OSAKA_CAP,
+            },
+            "latest",
+          ],
+        })
+      );
+
+      assert.deepEqual(received, { addressLen: 20, dataLen: 4 });
+      assert.equal(
+        JSON.parse(response.data).result,
+        "0x" + RESULT.map((byte) => byte.toString(16).padStart(2, "0")).join("")
+      );
+    });
+  });
+
+  describe("decodeConsoleLogInputsCallback", () => {
+    it("surfaces a throwing callback as an error instead of crashing", async function () {
+      const ERROR_MESSAGE = "decode exploded";
+      const provider = await createGenericProvider({
+        ...loggerConfig,
+        decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
+          throw new Error(ERROR_MESSAGE);
+        },
+      });
+
+      const responseData = await sendConsoleLogHello(provider);
+
+      assert.isDefined(responseData.error);
+      assert.match(
+        responseData.error.message,
+        new RegExp(`Failed to decode console\\.log inputs.*${ERROR_MESSAGE}`)
+      );
+    });
+  });
+
+  describe("printLineCallback", () => {
+    it("surfaces a throwing callback as an error instead of crashing", async function () {
+      const ERROR_MESSAGE = "print exploded";
+      const provider = await createGenericProvider({
+        ...loggerConfig,
+        decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]): string[] =>
+          inputs.map(() => "hello"),
+        printLineCallback: (_message: string, _replace: boolean) => {
+          throw new Error(ERROR_MESSAGE);
+        },
+      });
+
+      const responseData = await sendConsoleLogHello(provider);
+
+      assert.isDefined(responseData.error);
+      assert.match(
+        responseData.error.message,
+        new RegExp(`Failed to print line.*${ERROR_MESSAGE}`)
+      );
+    });
+  });
+
+  describe("subscriptionCallback", () => {
+    it("delivers a SubscriptionEvent for each new block under a newHeads subscription", async function () {
+      const events: SubscriptionEvent[] = [];
+      let resolveFirst!: () => void;
+      const firstEvent = new Promise<void>((resolve) => {
+        resolveFirst = resolve;
+      });
+
+      const provider = await createGenericProvider(loggerConfig, (evt) => {
+        events.push(evt);
+        resolveFirst();
+      });
+
+      const subscribeResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_subscribe",
+          params: ["newHeads"],
+        })
+      );
+      const filterId = BigInt(JSON.parse(subscribeResponse.data).result);
+
+      await provider.handleRequest(
+        JSON.stringify({
+          id: 2,
+          jsonrpc: "2.0",
+          method: "evm_mine",
+          params: [],
+        })
+      );
+
+      await firstEvent;
+
+      assert.equal(events.length, 1);
+      const event = events[0];
+      assert.equal(typeof event.filterId, "bigint");
+      assert.equal(event.filterId, filterId);
+
+      // newHeads result is a block header; pin one well-known field rather
+      // than the full structure to avoid coupling to RPC formatting details.
+      function assertHasNumber(x: unknown): asserts x is { number: unknown } {
+        if (typeof x !== "object" || x === null || !("number" in x)) {
+          throw new Error("missing `number` field");
+        }
+      }
+
+      assertHasNumber(event.result);
+      assert.equal(typeof event.result.number, "string");
+    });
+  });
+
   describe("transactionGasCap", () => {
     // EIP-7825 caps transaction gas at MAX_TX_GAS_LIMIT_OSAKA = 16,777,216 on Osaka.
     const OSAKA_TRANSACTION_GAS_CAP = 16_777_216n;
@@ -591,7 +839,7 @@ describe("Provider", () => {
     async function createProviderWithGasCap(
       transactionGasCap: bigint | false | undefined
     ): Promise<Provider> {
-      return createL1Provider(context, {
+      return createProvider(context, {
         hardfork: l1HardforkToString(SpecId.Osaka),
         genesisState: fundedGenesisState(l1HardforkToString(SpecId.Osaka)),
         transactionGasCap,
@@ -694,7 +942,7 @@ describe("Provider", () => {
         this.skip();
       }
 
-      const provider = await createL1Provider(context, {
+      const provider = await createProvider(context, {
         genesisState,
         network: {
           url: ALCHEMY_URL,
@@ -717,7 +965,7 @@ describe("Provider", () => {
     });
 
     it("fails on invalid storage key", async function () {
-      const provider = await createL1Provider(context, {
+      const provider = await createProvider(context, {
         genesisState,
       });
 
@@ -737,7 +985,7 @@ describe("Provider", () => {
     });
 
     it("deserializes storage keys correctly", async function () {
-      const provider = await createL1Provider(context, {
+      const provider = await createProvider(context, {
         genesisState,
       });
 

@@ -9,7 +9,7 @@ import {
   SpecId,
 } from "..";
 import {
-  createL1Provider,
+  createGenericProvider,
   getContext,
   registerGenericProviderFactory,
 } from "./helpers";
@@ -40,7 +40,7 @@ describe("Hardforks", () => {
 
     it("can be used to configure a provider", async () => {
       await assert.isFulfilled(
-        createL1Provider(context, { hardfork: AMSTERDAM })
+        createGenericProvider(context, { hardfork: AMSTERDAM })
       );
     });
   });

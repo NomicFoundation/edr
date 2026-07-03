@@ -8,14 +8,12 @@
 
 use std::sync::Arc;
 
-use edr_chain_l1::{
-    rpc::{receipt::L1RpcTransactionReceipt, TransactionRequest},
-    L1ChainSpec,
-};
+use edr_chain_l1::L1ChainSpec;
 use edr_primitives::{address, eip7708, Address, Bytes, B256, U256};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    test_utils::{create_test_config, transfer_value},
+    time::CurrentTime,
+    NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -41,40 +39,6 @@ fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1C
     )?;
 
     Ok(provider)
-}
-
-fn transfer_value(
-    provider: &Provider<L1ChainSpec>,
-    from: Address,
-    to: Address,
-    value: U256,
-) -> L1RpcTransactionReceipt {
-    let request = TransactionRequest {
-        from,
-        to: Some(to),
-        value: Some(value),
-        ..TransactionRequest::default()
-    };
-
-    let response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(request),
-        ))
-        .expect("eth_sendTransaction should succeed");
-
-    let transaction_hash: B256 =
-        serde_json::from_value(response.result).expect("response should be a transaction hash");
-
-    let response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::GetTransactionReceipt(transaction_hash),
-        ))
-        .expect("eth_getTransactionReceipt should succeed");
-
-    let receipt: Option<L1RpcTransactionReceipt> =
-        serde_json::from_value(response.result).expect("response should be a receipt");
-
-    receipt.expect("receipt should exist")
 }
 
 #[tokio::test(flavor = "multi_thread")]
