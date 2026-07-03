@@ -153,6 +153,7 @@ export async function traceTransaction(
         `Failed to get stack trace due to unexpected error: ${stackTrace.errorMessage}`
       );
     case "StackTrace":
+      // TODO: https://github.com/NomicFoundation/edr/issues/1532
       // EDR's `SolidityStackTraceEntry` union now includes
       // `CheatcodeErrorStackTraceEntry`, which HH2's local copy doesn't
       // know about. Cheatcodes only fire from solidity-test runs, never

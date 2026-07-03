@@ -14,6 +14,7 @@ use napi_derive::napi;
 pub struct LoggerConfig<'env> {
     /// Whether to enable the logger.
     pub enable: bool,
+    // TODO: https://github.com/NomicFoundation/edr/issues/1532
     // `ts_type` declares `ArrayBuffer[]` to match Hardhat 2's typings; the
     // runtime value is a `Uint8Array[]`, which `Buffer.from(x)` accepts.
     #[napi(ts_type = "(inputs: ArrayBuffer[]) => string[]")]

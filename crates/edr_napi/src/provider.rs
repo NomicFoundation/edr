@@ -125,6 +125,7 @@ impl Provider {
     pub fn set_call_override_callback<'env>(
         &self,
         env: &'env Env,
+        // TODO: https://github.com/NomicFoundation/edr/issues/1532
         // `ts_arg_type` declares `ArrayBuffer` to match Hardhat 2's typings
         // for this callback; the runtime value is actually a `Uint8Array`.
         // Producing a real `ArrayBuffer` is not possible: napi-rs's
