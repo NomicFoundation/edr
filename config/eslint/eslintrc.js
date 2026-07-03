@@ -4,10 +4,45 @@ module.exports = {
     es6: true,
     node: true,
   },
-  extends: ["plugin:prettier/recommended"],
+  extends: [
+    "plugin:@typescript-eslint/recommended-type-checked",
+    "plugin:prettier/recommended",
+  ],
   parser: "@typescript-eslint/parser",
   plugins: ["import", "mocha", "@typescript-eslint"],
   rules: {
+    // The `recommended-type-checked` preset (extended above) is the baseline.
+    // Everything below is our delta on top of it:
+    //   1. the `no-unsafe-*` / `no-explicit-any` family is turned OFF — this
+    //      repo's test/RPC code is pervasively `any` (dynamic JSON payloads),
+    //      so enforcing it would mean thousands of low-value assertions;
+    //   2. the remaining entries are stricter or stylistic rules the preset
+    //      does not include, or preset rules we run with non-default options.
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unsafe-argument": "off",
+    "@typescript-eslint/no-unsafe-assignment": "off",
+    "@typescript-eslint/no-unsafe-call": "off",
+    "@typescript-eslint/no-unsafe-member-access": "off",
+    "@typescript-eslint/no-unsafe-return": "off",
+    "@typescript-eslint/no-unsafe-unary-minus": "off",
+    // `@ts-ignore` is banned by default in favor of `@ts-expect-error`, but the
+    // napi test suites legitimately need it: feature-gated exports (op / mock)
+    // are absent only in the `testNoBuild` build, so `@ts-expect-error` would
+    // report an unused directive in the normal build. Require a description.
+    "@typescript-eslint/ban-ts-comment": [
+      "error",
+      {
+        "ts-ignore": "allow-with-description",
+      },
+    ],
+    // chai's `AssertionError` type does not extend `Error`, so throwing it (as
+    // our async assertion helpers do) trips only-throw-error. Allow it.
+    "@typescript-eslint/only-throw-error": [
+      "error",
+      {
+        allow: [{ from: "package", name: "AssertionError", package: "chai" }],
+      },
+    ],
     "@typescript-eslint/adjacent-overload-signatures": "error",
     "@typescript-eslint/array-type": [
       "error",
@@ -15,7 +50,6 @@ module.exports = {
         default: "array-simple",
       },
     ],
-    "@typescript-eslint/await-thenable": "error",
     "@typescript-eslint/no-restricted-types": [
       "error",
       {
@@ -119,10 +153,6 @@ module.exports = {
         format: null,
       },
     ],
-    "@typescript-eslint/no-empty-object-type": "error",
-    "@typescript-eslint/no-floating-promises": "error",
-    "@typescript-eslint/no-misused-new": "error",
-    "@typescript-eslint/no-namespace": "error",
     "@typescript-eslint/no-redeclare": "error",
     "@typescript-eslint/no-shadow": [
       "error",
@@ -130,8 +160,6 @@ module.exports = {
         hoist: "all",
       },
     ],
-    "@typescript-eslint/no-this-alias": "error",
-    "@typescript-eslint/no-unused-expressions": "error",
     "@typescript-eslint/no-unused-vars": [
       "error",
       {
@@ -141,8 +169,6 @@ module.exports = {
     ],
     "@typescript-eslint/prefer-for-of": "error",
     "@typescript-eslint/prefer-function-type": "error",
-    "@typescript-eslint/prefer-namespace-keyword": "error",
-    "@typescript-eslint/restrict-plus-operands": "error",
     "@typescript-eslint/restrict-template-expressions": [
       "error",
       {
@@ -207,7 +233,6 @@ module.exports = {
     "no-sequences": "error",
     "no-sparse-arrays": "error",
     "no-template-curly-in-string": "error",
-    "no-throw-literal": "error",
     "no-undef-init": "error",
     "no-unsafe-finally": "error",
     "no-unused-labels": "error",

@@ -116,15 +116,9 @@
       "enabled": false
     },
     {
-      "description": "pnpm/action-setup v6+ ships a pnpm 11 bootstrap that requires Node >= 22.13. Cap at v5 (= v4.4.0 retagged) until the Node-major rule above moves us off Node 20.",
+      "description": "pnpm/action-setup: hold at v5. v6's self-installer bootstraps pnpm via the runner's system npm, which is corrupted on the self-hosted edr-benchmark-runner (v5's install path isn't affected). Lift once that runner's npm is repaired.",
       "matchPackageNames": ["pnpm/action-setup"],
       "allowedVersions": "<6"
-    },
-    {
-      "description": "pnpm major: pnpm 11 requires Node >= 22.13, so it's tied to the Node-major bump above. Blocks `packageManager`, `engines.pnpm`, and the `pnpm@X.Y.Z` customManager hits in workflow YAML. Minor/patch (incl. security) still flow through.",
-      "matchDepNames": ["pnpm"],
-      "matchUpdateTypes": ["major"],
-      "enabled": false
     },
     {
       "description": "TS major: cascades to typescript-eslint and to consumers of EDR's TS-aware bindings. Bump manually when the ecosystem catches up.",

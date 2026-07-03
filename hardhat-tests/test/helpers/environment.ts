@@ -12,6 +12,7 @@ export function useEnvironment(configPath?: string) {
     if (configPath !== undefined) {
       process.env.HARDHAT_CONFIG = configPath;
     }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- runtime require: must load after HARDHAT_CONFIG is set above
     this.env = require("hardhat/internal/lib/hardhat-lib");
   });
 

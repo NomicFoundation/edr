@@ -127,7 +127,7 @@ export async function sendTransactionFromTxParams(
   }
 
   if (txParams.to !== undefined) {
-    rpcTxParams.to = bufferToHex(txParams.to!);
+    rpcTxParams.to = bufferToHex(txParams.to);
   }
   return provider.send("eth_sendTransaction", [rpcTxParams]);
 }

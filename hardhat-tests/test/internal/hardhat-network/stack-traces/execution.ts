@@ -16,6 +16,7 @@ function toBuffer(x: Parameters<typeof toBytes>[0]) {
   return Buffer.from(toBytes(x));
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- ethereumjs-abi ships no type declarations
 const abi = require("ethereumjs-abi");
 
 const senderPrivateKey =

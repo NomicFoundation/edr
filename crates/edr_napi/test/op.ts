@@ -14,19 +14,19 @@ import {
   SubscriptionEvent,
   // HACK: There is no way to exclude tsc type checking for a file from the
   // CLI, so we ignore the error here to allow `pnpm testNoBuild` to pass.
-  // @ts-ignore
+  // @ts-ignore op exports are absent in the testNoBuild build
   OP_CHAIN_TYPE,
-  // @ts-ignore
+  // @ts-ignore op exports are absent in the testNoBuild build
   opGenesisState,
-  // @ts-ignore
+  // @ts-ignore op exports are absent in the testNoBuild build
   opHardforkFromString,
-  // @ts-ignore
+  // @ts-ignore op exports are absent in the testNoBuild build
   opHardforkToString,
-  // @ts-ignore
+  // @ts-ignore op exports are absent in the testNoBuild build
   opLatestHardfork,
-  // @ts-ignore
+  // @ts-ignore op exports are absent in the testNoBuild build
   opProviderFactory,
-  // @ts-ignore
+  // @ts-ignore op exports are absent in the testNoBuild build
   opSolidityTestRunnerFactory,
   ContractDecoder,
 } from "..";

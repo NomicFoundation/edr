@@ -105,7 +105,7 @@ describe("Provider", () => {
       })
     );
   });
-  it("Invalid build info", async function () {
+  it("Invalid build info", function () {
     // Test data taken from CI run:
     // <https://github.com/NomicFoundation/hardhat/actions/runs/14475363227/job/40604573807?pr=6577>
     const config = {
