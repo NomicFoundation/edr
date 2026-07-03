@@ -130,6 +130,7 @@ describe("Provider", () => {
               // PUSH1 3
               // STOP
               data: "0x60016002600300",
+              gas: "0x" + 1_000_000n.toString(16),
             },
           ],
         })
@@ -170,6 +171,7 @@ describe("Provider", () => {
               // PUSH1 3
               // STOP
               data: "0x60016002600300",
+              gas: "0x" + 1_000_000n.toString(16),
             },
           ],
         })
@@ -212,6 +214,7 @@ describe("Provider", () => {
               // MSTORE
               // STOP
               data: "0x60015f5200",
+              gas: "0x" + 1_000_000n.toString(16),
             },
           ],
         })
@@ -251,6 +254,7 @@ describe("Provider", () => {
               // MSTORE
               // STOP
               data: "0x60015f5200",
+              gas: "0x" + 1_000_000n.toString(16),
             },
           ],
         })
