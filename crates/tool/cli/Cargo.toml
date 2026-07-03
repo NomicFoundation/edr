@@ -26,6 +26,10 @@ edr_test_block_replay.workspace = true
 flate2 = "1.0.28"
 indicatif = { version = "0.18.4", features = ["rayon"] }
 mimalloc = { version = "0.1.39", default-features = false }
+# This standalone binary links napi code (via edr_napi_core's napi::Error) but
+# runs with no Node host to supply the N-API symbols. `dyn-symbols` resolves them
+# at runtime instead of as link-time externs, so the binary links.
+napi = { version = "3", default-features = false, features = ["dyn-symbols"] }
 reqwest = { version = "0.13.0", features = ["blocking"] }
 serde.workspace = true
 serde_json.workspace = true
