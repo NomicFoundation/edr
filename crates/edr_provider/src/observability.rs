@@ -24,7 +24,7 @@ use edr_state_api::State;
 use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
 use revm_inspector::JournalExt;
-use revm_inspectors::tracing::{StackSnapshotType, TracingInspector, TracingInspectorConfig};
+use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 
 use crate::{
     console_log::ConsoleLogCollector,
@@ -163,10 +163,17 @@ impl EvmObserver {
         let tracing_config = if config.verbose_raw_tracing {
             TracingInspectorConfig::all()
         } else {
-            TracingInspectorConfig::default_parity()
-                .set_steps(true)
-                .set_stack_snapshots(StackSnapshotType::Full)
+            TracingInspectorConfig::default_parity().set_steps(true)
         };
+
+        // Released `revm_inspectors` versions can only record full stack
+        // snapshots, which is prohibitively expensive, so the top of the
+        // stack that non-verbose raw traces expose per step is captured
+        // separately. Capture is skipped when traces can't be included in
+        // responses: the stack-trace and internal-OOG paths read pcs and
+        // statuses, never step stacks.
+        let record_top_of_stack =
+            !config.verbose_raw_tracing && config.include_call_traces != IncludeTraces::None;
 
         Self {
             bytecode_collector: ExecutedBytecodeCollector::default(),
@@ -183,6 +190,7 @@ impl EvmObserver {
             tracing_inspector: SolidityTracingInspector::new(
                 TracingInspector::new(tracing_config),
                 config.contract_decoder,
+                record_top_of_stack,
             ),
         }
     }
