@@ -10,7 +10,10 @@ use edr_chain_spec::{
 use edr_eip1559::BaseFeeParams;
 pub use edr_eip4844::BlobGas;
 use edr_eip7892::ScheduledBlobParams;
-use edr_primitives::{b256, keccak256, Address, Bloom, Bytes, B256, B64, KECCAK_NULL_RLP, U256};
+use edr_primitives::{
+    b256, keccak256, Address, Bloom, Bytes, B256, B64, KECCAK_NULL_RLP, KECCAK_RLP_EMPTY_ARRAY,
+    U256,
+};
 
 pub use self::overrides::HeaderOverrides;
 use crate::difficulty::calculate_ethash_canonical_difficulty;
@@ -484,7 +487,19 @@ impl PartialHeader {
                     None
                 }
             }),
-            block_access_list_hash: overrides.block_access_list_hash,
+            // The block access list hash exists only from Amsterdam onwards (EIP-7928); earlier
+            // hardforks must not carry it, so an override is ignored there. Within Amsterdam,
+            // honor an override, otherwise default to the empty block access list hash;
+            // the block builder is responsible to upgrade it when the block changes state.
+            block_access_list_hash: if evm_spec_id >= EvmSpecId::AMSTERDAM {
+                Some(
+                    overrides
+                        .block_access_list_hash
+                        .unwrap_or(KECCAK_RLP_EMPTY_ARRAY),
+                )
+            } else {
+                None
+            },
         }
     }
 }
@@ -1010,5 +1025,60 @@ mod tests {
         let blob_params =
             blob_params_for_hardfork(EvmSpecId::OSAKA, now, Some(&scheduled_blob_params));
         assert_eq!(blob_params, BlobParams::bpo2());
+    }
+
+    fn partial_header_with_hardfork(
+        hardfork: EvmSpecId,
+        overrides: HeaderOverrides<EvmSpecId>,
+    ) -> PartialHeader {
+        let block_config = BlockConfig {
+            base_fee_params: BaseFeeParams::Constant(edr_eip1559::ConstantBaseFeeParams {
+                max_change_denominator: 8,
+                elasticity_multiplier: 2,
+            }),
+            hardfork,
+            min_ethash_difficulty: 0,
+            scheduled_blob_params: None,
+        };
+
+        PartialHeader::new(&block_config, overrides, None, &Vec::new(), None)
+    }
+
+    // `PartialHeader::new` owns the EIP-7928 hardfork gate: whether a header
+    // carries a `block_access_list_hash` at all is decided here.
+    #[test]
+    fn block_access_list_hash_absent_before_amsterdam_even_with_override() {
+        // An override on an earlier hardfork is ignored, so no spec-invalid header can
+        // be built.
+        let header = partial_header_with_hardfork(
+            EvmSpecId::PRAGUE,
+            HeaderOverrides {
+                block_access_list_hash: Some(B256::repeat_byte(1)),
+                ..HeaderOverrides::default()
+            },
+        );
+
+        assert_eq!(header.block_access_list_hash, None);
+    }
+
+    #[test]
+    fn block_access_list_hash_defaults_to_empty_list_hash_on_amsterdam() {
+        let header = partial_header_with_hardfork(EvmSpecId::AMSTERDAM, HeaderOverrides::default());
+
+        assert_eq!(header.block_access_list_hash, Some(KECCAK_RLP_EMPTY_ARRAY));
+    }
+
+    #[test]
+    fn block_access_list_hash_honors_override_on_amsterdam() {
+        let supplied = B256::repeat_byte(0xab);
+        let header = partial_header_with_hardfork(
+            EvmSpecId::AMSTERDAM,
+            HeaderOverrides {
+                block_access_list_hash: Some(supplied),
+                ..HeaderOverrides::default()
+            },
+        );
+
+        assert_eq!(header.block_access_list_hash, Some(supplied));
     }
 }

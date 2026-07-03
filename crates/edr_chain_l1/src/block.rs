@@ -626,16 +626,13 @@ impl<
                 .as_secs();
         }
 
-        // Only simulate the hash when the header doesn't already carry one. Must
-        // run after the reward loop and state-root computation above, so both
+        // Must run after the reward loop and state-root computation above, so both
         // `state_diff` and `state_root` are final.
-        if self.header.block_access_list_hash.is_none() {
-            self.header.block_access_list_hash = block_access_list_hash(
-                self.cfg.spec.into(),
-                &self.state_diff,
-                self.header.state_root,
-            );
-        }
+        self.header.block_access_list_hash = block_access_list_hash(
+            self.header.block_access_list_hash,
+            &self.state_diff,
+            self.header.state_root,
+        );
 
         // TODO: handle ommers
         let block = EthLocalBlock::new::<ExecutionReceiptChainSpecT>(
@@ -824,85 +821,117 @@ impl<
     }
 }
 
-/// EIP-7928 (Amsterdam) block access list hash.
+/// Finalizes a block's block access list hash (EIP-7928) from the value its
+/// header already carries.
 ///
-/// Returns `None` before Amsterdam. From Amsterdam onwards, an empty state diff
-/// yields the empty-RLP-list hash; otherwise a deterministic pseudo-hash
-/// derived from the post-block state root, so that differing transactions on
-/// the same parent produce differing hashes.
+/// Whether the field exists at all is decided upstream: a header carries the
+/// empty-list hash by default, `None` when the field doesn't apply, or a hash
+/// supplied externally. This upgrades the empty-list default to a
+/// content-derived simulated hash once the block has changed state, and leaves
+/// every other value unchanged.
+///
+/// The simulated hash is derived deterministically from the post-block state
+/// root, so it is reproducible for a given state root yet differs for blocks
+/// that produced different state.
 fn block_access_list_hash(
-    spec: EvmSpecId,
+    current: Option<B256>,
     state_diff: &StateDiff,
     state_root: B256,
 ) -> Option<B256> {
-    if spec < EvmSpecId::AMSTERDAM {
-        return None;
-    }
-
-    Some(if state_diff.as_inner().is_empty() {
-        KECCAK_RLP_EMPTY_ARRAY
+    if current == Some(KECCAK_RLP_EMPTY_ARRAY) && !state_diff.as_inner().is_empty() {
+        Some(keccak256(
+            format!("blockAccessListHash{state_root}").as_bytes(),
+        ))
     } else {
-        keccak256(format!("blockAccessListHash{state_root}").as_bytes())
-    })
+        current
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use edr_state_api::account::AccountInfo;
-
     use super::*;
+    mod block_access_list {
+        use edr_state_api::account::AccountInfo;
 
-    fn non_empty_state_diff() -> StateDiff {
-        let mut state_diff = StateDiff::default();
-        state_diff.apply_account_change(Address::ZERO, AccountInfo::default());
-        state_diff
-    }
+        use super::*;
+        fn non_empty_state_diff() -> StateDiff {
+            let mut state_diff = StateDiff::default();
+            state_diff.apply_account_change(Address::ZERO, AccountInfo::default());
+            state_diff
+        }
 
-    #[test]
-    fn block_access_list_hash_is_none_before_amsterdam() {
-        assert_eq!(
-            block_access_list_hash(EvmSpecId::OSAKA, &non_empty_state_diff(), B256::random()),
-            None
-        );
-    }
+        #[test]
+        fn keeps_absent_hash() {
+            // A header without the field keeps it absent, whatever the state.
+            assert_eq!(
+                block_access_list_hash(None, &non_empty_state_diff(), B256::repeat_byte(1)),
+                None
+            );
+        }
 
-    #[test]
-    fn block_access_list_hash_is_empty_rlp_hash_for_empty_state_diff() {
-        assert_eq!(
-            block_access_list_hash(EvmSpecId::AMSTERDAM, &StateDiff::default(), B256::random()),
-            Some(KECCAK_RLP_EMPTY_ARRAY)
-        );
-    }
+        #[test]
+        fn keeps_empty_list_hash_when_state_unchanged() {
+            assert_eq!(
+                block_access_list_hash(
+                    Some(KECCAK_RLP_EMPTY_ARRAY),
+                    &StateDiff::default(),
+                    B256::repeat_byte(1)
+                ),
+                Some(KECCAK_RLP_EMPTY_ARRAY)
+            );
+        }
 
-    #[test]
-    fn block_access_list_hash_is_deterministic_for_non_empty_state_diff() {
-        let state_root = B256::random();
+        #[test]
+        fn keeps_externally_supplied_hash() {
+            let supplied = B256::repeat_byte(0xab);
+            assert_eq!(
+                block_access_list_hash(
+                    Some(supplied),
+                    &non_empty_state_diff(),
+                    B256::repeat_byte(1)
+                ),
+                Some(supplied)
+            );
+        }
 
-        let hash =
-            block_access_list_hash(EvmSpecId::AMSTERDAM, &non_empty_state_diff(), state_root)
-                .expect("Amsterdam should produce a hash");
+        #[test]
+        fn upgrades_empty_list_hash_when_state_changed() {
+            let state_root = B256::repeat_byte(1);
 
-        // Not the empty-RLP-list hash, and reproducible for the same state root.
-        assert_ne!(hash, KECCAK_RLP_EMPTY_ARRAY);
-        assert_eq!(
-            block_access_list_hash(EvmSpecId::AMSTERDAM, &non_empty_state_diff(), state_root),
-            Some(hash)
-        );
-    }
+            let hash = block_access_list_hash(
+                Some(KECCAK_RLP_EMPTY_ARRAY),
+                &non_empty_state_diff(),
+                state_root,
+            )
+            .expect("should produce a hash");
 
-    #[test]
-    fn block_access_list_hash_varies_with_state_root() {
-        let hash_a = block_access_list_hash(
-            EvmSpecId::AMSTERDAM,
-            &non_empty_state_diff(),
-            B256::repeat_byte(1),
-        );
-        let hash_b = block_access_list_hash(
-            EvmSpecId::AMSTERDAM,
-            &non_empty_state_diff(),
-            B256::repeat_byte(2),
-        );
+            // Upgraded away from the empty-list default, and reproducible for the same
+            // state root.
+            assert_ne!(hash, KECCAK_RLP_EMPTY_ARRAY);
+            assert_eq!(
+                block_access_list_hash(
+                    Some(KECCAK_RLP_EMPTY_ARRAY),
+                    &non_empty_state_diff(),
+                    state_root
+                ),
+                Some(hash)
+            );
+        }
 
-        assert_ne!(hash_a, hash_b);
+        #[test]
+        fn upgraded_hash_varies_with_state_root() {
+            assert_ne!(
+                block_access_list_hash(
+                    Some(KECCAK_RLP_EMPTY_ARRAY),
+                    &non_empty_state_diff(),
+                    B256::repeat_byte(1)
+                ),
+                block_access_list_hash(
+                    Some(KECCAK_RLP_EMPTY_ARRAY),
+                    &non_empty_state_diff(),
+                    B256::repeat_byte(2)
+                ),
+            );
+        }
     }
 }
