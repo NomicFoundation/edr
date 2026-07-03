@@ -1,5 +1,6 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import {
+  AccountOverride,
   Artifact,
   ArtifactId,
   ContractData,
@@ -303,20 +304,41 @@ export function silentLoggerConfig(): LoggerConfig {
  * Creates a local generic-chain-type provider configured for L1, using
  * {@link l1ProviderConfig} defaults and a silent logger. The provided `context`
  * must already have the generic provider factory registered.
+ *
+ * The logger and subscription callback default to a silent logger and a no-op
+ * callback; override them for tests that exercise logging or subscriptions.
  */
 export function createGenericProvider(
   context: EdrContext,
-  overrides: Partial<ProviderConfig> = {}
+  overrides: Partial<ProviderConfig> = {},
+  loggerConfig: LoggerConfig = silentLoggerConfig(),
+  subscriptionCallback: (event: SubscriptionEvent) => void = () => {}
 ): Promise<Provider> {
   return context.createProvider(
     GENERIC_CHAIN_TYPE,
     l1ProviderConfig(overrides),
-    silentLoggerConfig(),
-    {
-      subscriptionCallback: (_event: SubscriptionEvent) => {},
-    },
+    loggerConfig,
+    { subscriptionCallback },
     new ContractDecoder()
   );
+}
+
+/**
+ * Genesis state that funds {@link DEFAULT_GENESIS_ADDRESS} and includes the
+ * hardfork's required accounts. Use this for tests that need to send
+ * transactions from the default owned account.
+ */
+export function fundedGenesisState(
+  hardfork: string = l1HardforkToString(l1HardforkLatest()),
+  balance: bigint = 1000n * 10n ** 18n
+): AccountOverride[] {
+  return [
+    {
+      address: toBytes(DEFAULT_GENESIS_ADDRESS),
+      balance,
+    },
+    ...l1GenesisState(l1HardforkFromString(hardfork)),
+  ];
 }
 
 /** Registers the generic chain-type provider factory on the given context. */
