@@ -192,6 +192,8 @@ export interface AddressLabel {
  */
 export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
 
+export const AMSTERDAM: string
+
 export const ARROW_GLACIER: string
 
 /** A compilation artifact. */
@@ -1091,7 +1093,7 @@ export declare function l1HardforkFromString(hardfork: string): SpecId
  */
 export declare function l1HardforkLatest(): SpecId
 
-export declare function l1HardforkToString(harfork: SpecId): string
+export declare function l1HardforkToString(hardfork: SpecId): string
 
 export declare function l1ProviderFactory(): ProviderFactory
 
@@ -1686,7 +1688,9 @@ export declare enum SpecId {
   /** Prague */
   Prague = 18,
   /** Osaka */
-  Osaka = 19
+  Osaka = 19,
+  /** Amsterdam */
+  Amsterdam = 20
 }
 
 export const SPURIOUS_DRAGON: string

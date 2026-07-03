@@ -600,6 +600,7 @@ module.exports.ReturnData = nativeBinding.ReturnData
 module.exports.SolidityTestRunnerFactory = nativeBinding.SolidityTestRunnerFactory
 module.exports.TestResult = nativeBinding.TestResult
 module.exports.addStatementCoverageInstrumentation = nativeBinding.addStatementCoverageInstrumentation
+module.exports.AMSTERDAM = nativeBinding.AMSTERDAM
 module.exports.ARROW_GLACIER = nativeBinding.ARROW_GLACIER
 module.exports.BEDROCK = nativeBinding.BEDROCK
 module.exports.BERLIN = nativeBinding.BERLIN

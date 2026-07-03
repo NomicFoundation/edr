@@ -138,6 +138,8 @@ pub enum SpecId {
     Prague = 18,
     /// Osaka
     Osaka = 19,
+    /// Amsterdam
+    Amsterdam = 20,
 }
 
 impl FromStr for SpecId {
@@ -165,6 +167,7 @@ impl FromStr for SpecId {
             edr_chain_l1::chains::name::CANCUN => Ok(SpecId::Cancun),
             edr_chain_l1::chains::name::PRAGUE => Ok(SpecId::Prague),
             edr_chain_l1::chains::name::OSAKA => Ok(SpecId::Osaka),
+            edr_chain_l1::chains::name::AMSTERDAM => Ok(SpecId::Amsterdam),
             _ => Err(napi::Error::new(
                 napi::Status::InvalidArg,
                 format!("The provided hardfork `{s}` is not supported."),
@@ -196,6 +199,7 @@ impl From<SpecId> for edr_chain_l1::Hardfork {
             SpecId::Cancun => edr_chain_l1::Hardfork::CANCUN,
             SpecId::Prague => edr_chain_l1::Hardfork::PRAGUE,
             SpecId::Osaka => edr_chain_l1::Hardfork::OSAKA,
+            SpecId::Amsterdam => edr_chain_l1::Hardfork::AMSTERDAM,
         }
     }
 }
@@ -209,8 +213,8 @@ pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
 }
 
 #[napi(catch_unwind)]
-pub fn l1_hardfork_to_string(harfork: SpecId) -> &'static str {
-    match harfork {
+pub fn l1_hardfork_to_string(hardfork: SpecId) -> &'static str {
+    match hardfork {
         SpecId::Frontier => edr_chain_l1::chains::name::FRONTIER,
         SpecId::FrontierThawing => edr_chain_l1::chains::name::FRONTIER_THAWING,
         SpecId::Homestead => edr_chain_l1::chains::name::HOMESTEAD,
@@ -231,6 +235,7 @@ pub fn l1_hardfork_to_string(harfork: SpecId) -> &'static str {
         SpecId::Cancun => edr_chain_l1::chains::name::CANCUN,
         SpecId::Prague => edr_chain_l1::chains::name::PRAGUE,
         SpecId::Osaka => edr_chain_l1::chains::name::OSAKA,
+        SpecId::Amsterdam => edr_chain_l1::chains::name::AMSTERDAM,
     }
 }
 
@@ -271,5 +276,6 @@ export_spec_id!(
     SHANGHAI,
     CANCUN,
     PRAGUE,
-    OSAKA
+    OSAKA,
+    AMSTERDAM
 );
