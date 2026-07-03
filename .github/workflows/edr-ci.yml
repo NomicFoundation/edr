@@ -282,6 +282,7 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: ./.github/actions/setup-rust
       - uses: ./.github/actions/setup-node
 
       - name: Test workflow scripts
