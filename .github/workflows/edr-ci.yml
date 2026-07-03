@@ -294,6 +294,26 @@ jobs:
       - name: Run lint script
         run: pnpm run lint
 
+  link-standalone-bins:
+    name: Link standalone binaries
+    runs-on: ubuntu-24.04
+    needs: check-edr
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-rust
+
+      # edr_tool_cli links napi but runs without a Node host, so it needs napi's
+      # `dyn-symbols`. Nothing else in CI links it standalone: check jobs don't
+      # link, and --all-targets builds hide a missing `dyn-symbols` by unifying it
+      # in from edr_napi_core's tests. This scoped build reproduces the standalone
+      # link the scheduled block-replay workflows depend on; --release matches how
+      # they build it.
+      - name: Build standalone binaries that link napi
+        run: cargo build --locked --release --bin edr_tool_cli
+
   edr-napi-typings-file:
     name: Check that edr_napi typings file is up to date
     runs-on: ubuntu-24.04
