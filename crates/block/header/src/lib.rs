@@ -712,6 +712,9 @@ mod tests {
 
     use super::*;
 
+    // TODO: add an Amsterdam-shaped RLP round-trip test where `block_access_list_hash` is `Some`
+    // (alongside `requests_hash: Some`, the real trailing-`Option` layout). It is a trailing RLP
+    // field, so it feeds the block hash on Amsterdam, and no test currently covers it set.
     #[test]
     fn header_rlp_roundtrip() {
         let mut header = BlockHeader {
