@@ -120,6 +120,8 @@ fn write_node_stack_tops(
     node_idx: usize,
     tops: &mut std::slice::Iter<'_, Option<U256>>,
 ) {
+    // Cloned so that `nodes` can be mutably borrowed in the loop; the entries
+    // are `Copy` and this only runs once per node at collection time.
     let ordering = nodes
         .get(node_idx)
         .expect("node indices come from the arena's own children lists")
