@@ -20,7 +20,7 @@ use edr_evm::ExecutionResultWithMetadata;
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::{contract_decoder::ContractDecoder, tracing::CallTraces};
 use edr_state_api::DynState;
 use edr_transaction::TransactionMut;
 use foundry_evm_traces::CallTraceArena;
@@ -39,7 +39,7 @@ use crate::{
 };
 
 pub struct EstimateGasResult {
-    pub call_trace_arenas: Vec<CallTraceArena>,
+    pub call_traces: Vec<CallTraces>,
     pub estimation: u64,
 }
 
@@ -81,12 +81,12 @@ impl GasEstimationMode {
         match self {
             GasEstimationMode::TopLevelSuccess => Ok(gas.tx_gas_used()),
             GasEstimationMode::NoInternalOutOfGas => {
-                if has_internal_oog(&evm_observed_data.call_trace_arena) {
+                if has_internal_oog(&evm_observed_data.call_traces.arena) {
                     Err(TransactionFailure::halt(
                         TransactionFailureReason::InternalCallOutOfGas,
                         None,
                         &evm_observed_data.address_to_executed_code,
-                        &evm_observed_data.call_trace_arena,
+                        &evm_observed_data.call_traces.arena,
                         contract_decoder,
                     ))
                 } else {
@@ -170,7 +170,7 @@ fn binary_search_estimation<ChainSpecT: ProviderChainSpec<SignedTransaction: Tra
     const MAX_ITERATIONS: usize = 20;
 
     let mut i = 0;
-    let mut call_trace_arenas = Vec::new();
+    let mut call_traces = Vec::new();
 
     while upper_bound - lower_bound > min_difference(lower_bound) && i < MAX_ITERATIONS {
         let mut mid = lower_bound + (upper_bound - lower_bound) / 2;
@@ -186,7 +186,7 @@ fn binary_search_estimation<ChainSpecT: ProviderChainSpec<SignedTransaction: Tra
             call_trace,
         } = probe_gas_limit(context, observer_config, mid, estimation_mode)?;
 
-        call_trace_arenas.extend(call_trace);
+        call_traces.extend(call_trace);
 
         if accepted {
             upper_bound = mid;
@@ -198,7 +198,7 @@ fn binary_search_estimation<ChainSpecT: ProviderChainSpec<SignedTransaction: Tra
     }
 
     Ok(EstimateGasResult {
-        call_trace_arenas,
+        call_traces,
         estimation: upper_bound,
     })
 }
@@ -224,7 +224,7 @@ pub(super) fn estimate_gas<
         contract_decoder.as_ref(),
     )?;
 
-    let mut call_trace_arenas: Vec<_> = call_trace.into_iter().collect();
+    let mut call_traces: Vec<_> = call_trace.into_iter().collect();
 
     // Ensure that the initial estimation is at least the minimum cost + 1.
     let lowest_estimation = cmp::max(gas_used, minimum_cost + 1);
@@ -234,13 +234,13 @@ pub(super) fn estimate_gas<
         call_trace,
     } = probe_gas_limit(context, observer_config, lowest_estimation, estimation_mode)?;
 
-    call_trace_arenas.extend(call_trace);
+    call_traces.extend(call_trace);
 
     // Return the initial estimation if it was successful
     if accepted {
         return Ok(EstimateGasResult {
             estimation: lowest_estimation,
-            call_trace_arenas,
+            call_traces,
         });
     }
 
@@ -248,7 +248,7 @@ pub(super) fn estimate_gas<
     // This can happen if the execution behavior depends on the available gas.
     // Search upwards for the lowest gas limit the mode accepts.
     let EstimateGasResult {
-        call_trace_arenas: estimation_call_trace_arenas,
+        call_traces: estimation_call_traces,
         estimation,
     } = binary_search_estimation::<ChainSpecT>(
         context,
@@ -259,10 +259,10 @@ pub(super) fn estimate_gas<
         estimation_mode,
     )?;
 
-    call_trace_arenas.extend(estimation_call_trace_arenas);
+    call_traces.extend(estimation_call_traces);
 
     Ok(EstimateGasResult {
-        call_trace_arenas,
+        call_traces,
         estimation,
     })
 }
@@ -271,14 +271,14 @@ pub(super) fn estimate_gas<
 /// collection criteria are met.
 struct GasMeasurement {
     gas_used: u64,
-    call_trace: Option<CallTraceArena>,
+    call_trace: Option<CallTraces>,
 }
 
 /// Whether the estimation mode accepted an execution at a probed gas limit,
 /// along with its call trace when the trace collection criteria are met.
 struct GasProbe {
     accepted: bool,
-    call_trace: Option<CallTraceArena>,
+    call_trace: Option<CallTraces>,
 }
 
 /// Measures the gas used by the transaction executed with its full gas limit,
@@ -320,14 +320,14 @@ fn measure_gas_with_full_limit<
             output,
             None,
             &evm_observed_data.address_to_executed_code,
-            &evm_observed_data.call_trace_arena,
+            &evm_observed_data.call_traces.arena,
             contract_decoder,
         )),
         ExecutionResult::Halt { reason, .. } => Err(TransactionFailure::halt(
             ChainSpecT::cast_halt_reason(reason),
             None,
             &evm_observed_data.address_to_executed_code,
-            &evm_observed_data.call_trace_arena,
+            &evm_observed_data.call_traces.arena,
             contract_decoder,
         )),
     };
@@ -337,7 +337,7 @@ fn measure_gas_with_full_limit<
         Err(transaction_failure) => {
             return Err(Box::new(EstimateGasFailure {
                 address_to_executed_code: evm_observed_data.address_to_executed_code,
-                call_trace_arena: evm_observed_data.call_trace_arena,
+                call_traces: evm_observed_data.call_traces,
                 encoded_console_logs: evm_observed_data.encoded_console_logs,
                 precompile_addresses: execution_result.precompile_addresses,
                 transaction_failure,
@@ -369,17 +369,15 @@ fn probe_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionM
         observed_limited_execution.result(),
         &observed_limited_execution
             .evm_observed_data
-            .call_trace_arena,
+            .call_traces
+            .arena,
     );
     let should_include_traces = observer_config
         .include_call_traces
         .should_include(|| !accepted);
 
-    let call_trace = should_include_traces.then_some(
-        observed_limited_execution
-            .evm_observed_data
-            .call_trace_arena,
-    );
+    let call_trace =
+        should_include_traces.then_some(observed_limited_execution.evm_observed_data.call_traces);
 
     Ok(GasProbe {
         accepted,

@@ -60,9 +60,9 @@ impl Response {
     #[napi(catch_unwind)]
     pub fn call_traces(&self) -> Vec<CallTrace> {
         self.inner
-            .call_trace_arenas
+            .call_traces
             .iter()
-            .map(|call_trace_arena| CallTrace::from_arena_node(call_trace_arena, 0))
+            .map(|call_traces| CallTrace::from_arena_node(&call_traces.arena, 0))
             .collect()
     }
 
@@ -72,9 +72,9 @@ impl Response {
     #[napi(catch_unwind)]
     pub fn traces(&self) -> Vec<Vec<Either3<TracingMessage, TracingStep, TracingMessageResult>>> {
         self.inner
-            .call_trace_arenas
+            .call_traces
             .iter()
-            .map(|arena| raw_trace_from_call_trace_arena(arena, self.inner.verbose))
+            .map(|call_traces| raw_trace_from_call_trace_arena(call_traces, self.inner.verbose))
             .collect()
     }
 }

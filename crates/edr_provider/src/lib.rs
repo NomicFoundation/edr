@@ -33,7 +33,7 @@ use core::fmt::Debug;
 
 pub use edr_block_miner::{MineBlockResultWithMetadata, MineBlockResultWithMetadataForChainSpec};
 use edr_primitives::HashSet;
-use foundry_evm_traces::CallTraceArena;
+use edr_solidity::tracing::CallTraces;
 use lazy_static::lazy_static;
 
 pub use self::{
@@ -63,12 +63,12 @@ lazy_static! {
 }
 
 pub type ProviderResultWithCallTraces<T, ChainSpecT> =
-    Result<(T, Vec<CallTraceArena>), ProviderErrorForChainSpec<ChainSpecT>>;
+    Result<(T, Vec<CallTraces>), ProviderErrorForChainSpec<ChainSpecT>>;
 
 #[derive(Clone, Debug)]
 pub struct ResponseWithCallTraces {
     pub result: serde_json::Value,
-    pub call_trace_arenas: Vec<CallTraceArena>,
+    pub call_traces: Vec<CallTraces>,
 }
 
 fn to_json<
@@ -82,7 +82,7 @@ fn to_json<
 
     Ok(ResponseWithCallTraces {
         result: response,
-        call_trace_arenas: Vec::new(),
+        call_traces: Vec::new(),
     })
 }
 
@@ -91,13 +91,13 @@ fn to_json_with_trace<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    value: (T, Option<CallTraceArena>),
+    value: (T, Option<CallTraces>),
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithCallTraces {
         result: response,
-        call_trace_arenas: value.1.into_iter().collect(),
+        call_traces: value.1.into_iter().collect(),
     })
 }
 
@@ -106,12 +106,12 @@ fn to_json_with_traces<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    value: (T, Vec<CallTraceArena>),
+    value: (T, Vec<CallTraces>),
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithCallTraces {
         result: response,
-        call_trace_arenas: value.1,
+        call_traces: value.1,
     })
 }

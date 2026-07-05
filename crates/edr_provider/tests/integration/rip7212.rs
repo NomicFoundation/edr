@@ -106,10 +106,11 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
     let nested_trace = NestedTrace::<edr_chain_l1::HaltReason>::from_call_trace_arena(
         &HashMap::default(),
         &HashMap::default(),
-        response
-            .call_trace_arenas
+        &response
+            .call_traces
             .first()
-            .expect("Trace should exist"),
+            .expect("Trace should exist")
+            .arena,
     )
     .expect("Should convert to nested trace");
 
@@ -156,10 +157,11 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
     let nested_trace = NestedTrace::<edr_chain_l1::HaltReason>::from_call_trace_arena(
         &HashMap::default(),
         &HashMap::default(),
-        response
-            .call_trace_arenas
+        &response
+            .call_traces
             .first()
-            .expect("Trace should exist"),
+            .expect("Trace should exist")
+            .arena,
     )
     .expect("Should convert to nested trace");
 

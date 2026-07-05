@@ -18,10 +18,11 @@ use edr_inspector_bytecode::ExecutedBytecodeCollector;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
 use edr_receipt::ExecutionResult;
 use edr_solidity::{
-    config::IncludeTraces, contract_decoder::ContractDecoder, tracing::SolidityTracingInspector,
+    config::IncludeTraces,
+    contract_decoder::ContractDecoder,
+    tracing::{CallTraces, SolidityTracingInspector},
 };
 use edr_state_api::State;
-use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
 use revm_inspector::JournalExt;
 use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
@@ -134,9 +135,9 @@ impl JsonRpcError for EvmObserverCollectionError {
 pub struct EvmObservedData {
     /// Mapping of contract address to executed bytecode
     pub address_to_executed_code: HashMap<Address, Bytes>,
-    /// The call trace arena collected during execution, including ABI-decoded
-    /// information.
-    pub call_trace_arena: CallTraceArena,
+    /// The call traces collected during execution, including ABI-decoded
+    /// information and captured top-of-stack values.
+    pub call_traces: CallTraces,
     /// Encoded `console.log` call inputs
     pub encoded_console_logs: Vec<Bytes>,
 }
@@ -146,10 +147,10 @@ impl EvmObservedData {
         self,
         include: IncludeTraces,
         is_success: bool,
-    ) -> Option<CallTraceArena> {
+    ) -> Option<CallTraces> {
         include
             .should_include(|| !is_success)
-            .then_some(self.call_trace_arena)
+            .then_some(self.call_traces)
     }
 }
 
@@ -215,13 +216,13 @@ impl EvmObserver {
         }
 
         let address_to_executed_code = bytecode_collector.collect();
-        let call_trace_arena = tracing_inspector
+        let call_traces = tracing_inspector
             .collect(&address_to_executed_code, precompile_addresses)
             .map_err(EvmObserverCollectionError::AbiDecoding)?;
 
         Ok(EvmObservedData {
             address_to_executed_code,
-            call_trace_arena,
+            call_traces,
             encoded_console_logs: console_logger.into_encoded_messages(),
         })
     }
@@ -246,7 +247,7 @@ impl EvmObserver {
                 .map_err(EvmObserverCollectionError::OnCollectedCoverageCallback)?;
         }
 
-        let call_trace_arena = tracing_inspector
+        let call_traces = tracing_inspector
             .take(&address_to_executed_code, precompile_addresses)
             .map_err(EvmObserverCollectionError::AbiDecoding)?;
 
@@ -254,7 +255,7 @@ impl EvmObserver {
 
         Ok(EvmObservedData {
             address_to_executed_code,
-            call_trace_arena,
+            call_traces,
             encoded_console_logs,
         })
     }
@@ -385,14 +386,14 @@ impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> 
     /// Consumes the observed execution, returning the execution result and the
     /// call traces filtered by the observability configuration, using the
     /// EVM-level success of the execution as the success criteria.
-    pub fn into_result_and_filtered_traces(self) -> (ExecutionResultT, Option<CallTraceArena>) {
+    pub fn into_result_and_filtered_traces(self) -> (ExecutionResultT, Option<CallTraces>) {
         let is_success = self.execution_result.result().is_success();
 
-        let call_trace_arena = self
+        let call_traces = self
             .evm_observed_data
             .into_call_traces(self.include_call_traces, is_success);
 
-        (self.execution_result, call_trace_arena)
+        (self.execution_result, call_traces)
     }
 }
 

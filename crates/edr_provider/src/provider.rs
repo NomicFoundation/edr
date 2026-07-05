@@ -186,13 +186,13 @@ impl<
         for req in request {
             let response = self.handle_single_request(data, req)?;
             results.push(response.result);
-            traces.extend(response.call_trace_arenas);
+            traces.extend(response.call_traces);
         }
 
         let result = serde_json::to_value(results).map_err(ProviderError::Serialization)?;
         Ok(ResponseWithCallTraces {
             result,
-            call_trace_arenas: traces,
+            call_traces: traces,
         })
     }
 
