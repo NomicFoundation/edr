@@ -26,7 +26,7 @@ pub fn handle_debug_trace_transaction<
 ) -> ProviderResultWithCallTraces<GethTrace, ChainSpecT> {
     let DebugTraceResultWithCallTraces {
         result,
-        call_trace_arenas,
+        call_traces,
     } = data
         .debug_trace_transaction(&transaction_hash, tracing_options.unwrap_or_default())
         .map_err(|error| match error {
@@ -36,7 +36,7 @@ pub fn handle_debug_trace_transaction<
             _ => error,
         })?;
 
-    Ok((result, call_trace_arenas))
+    Ok((result, call_traces))
 }
 
 pub fn handle_debug_trace_call<ChainSpecT, TimerT>(
@@ -59,12 +59,12 @@ where
 
     let DebugTraceResultWithCallTraces {
         result,
-        call_trace_arenas,
+        call_traces,
     } = data.debug_trace_call(
         transaction,
         &block_spec,
         tracing_options.unwrap_or_default(),
     )?;
 
-    Ok((result, call_trace_arenas))
+    Ok((result, call_traces))
 }

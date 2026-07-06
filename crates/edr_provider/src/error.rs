@@ -25,6 +25,7 @@ use edr_signer::SignatureError;
 use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractDecoderError},
     solidity_stack_trace::{get_stack_trace, StackTraceCreationResult},
+    tracing::CallTraces,
 };
 use edr_state_api::StateError;
 use foundry_evm_traces::CallTraceArena;
@@ -581,7 +582,7 @@ impl<
 pub struct EstimateGasFailure<HaltReasonT: HaltReasonTrait> {
     /// Mapping of contract address to executed bytecode
     pub address_to_executed_code: HashMap<Address, Bytes>,
-    pub call_trace_arena: CallTraceArena,
+    pub call_traces: CallTraces,
     pub encoded_console_logs: Vec<Bytes>,
     /// The set of precompile addresses that were available during execution.
     pub precompile_addresses: HashSet<Address>,
@@ -597,7 +598,7 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for EstimateGasFailure<Halt
 #[derive(Clone, Debug, thiserror::Error)]
 pub struct TransactionFailureWithCallTraces<HaltReasonT: HaltReasonTrait> {
     pub failure: TransactionFailure<HaltReasonT>,
-    pub call_trace_arenas: Vec<CallTraceArena>,
+    pub call_traces: Vec<CallTraces>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> std::fmt::Display

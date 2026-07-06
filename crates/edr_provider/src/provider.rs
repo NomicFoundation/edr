@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_chain_spec::{HardforkChainSpec, TransactionValidation};
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use parking_lot::{Mutex, RwLock};
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
@@ -141,6 +141,13 @@ impl<
         data.set_verbose_tracing(enabled);
     }
 
+    /// Sets which transactions' call traces are included in responses, for
+    /// requests handled from this point on.
+    pub fn set_include_call_traces(&self, include_call_traces: IncludeTraces) {
+        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
+        data.set_include_call_traces(include_call_traces);
+    }
+
     pub fn verbose_tracing(&self) -> bool {
         let data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
         data.verbose_tracing()
@@ -186,13 +193,13 @@ impl<
         for req in request {
             let response = self.handle_single_request(data, req)?;
             results.push(response.result);
-            traces.extend(response.call_trace_arenas);
+            traces.extend(response.call_traces);
         }
 
         let result = serde_json::to_value(results).map_err(ProviderError::Serialization)?;
         Ok(ResponseWithCallTraces {
             result,
-            call_trace_arenas: traces,
+            call_traces: traces,
         })
     }
 

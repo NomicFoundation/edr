@@ -7,8 +7,8 @@
 
 use edr_chain_spec::EvmHaltReason;
 use edr_chain_spec_evm::interpreter::{return_revert, InstructionResult, SuccessOrHalt};
-use edr_primitives::{bytecode::opcode::OpCode, Address};
-use edr_solidity::nested_trace::is_calllike_op;
+use edr_primitives::{bytecode::opcode::OpCode, Address, U256};
+use edr_solidity::{nested_trace::is_calllike_op, tracing::CallTraces};
 use edr_solidity_tests::traces::{CallKind, CallTrace, CallTraceArena, CallTraceNode};
 use napi::bindgen_prelude::{BigInt, Either, Either3, Uint8Array};
 use napi_derive::napi;
@@ -121,15 +121,34 @@ pub(crate) fn u256_to_bigint(v: &edr_primitives::U256) -> BigInt {
 
 type RawTrace = Either3<TracingMessage, TracingStep, TracingMessageResult>;
 
-/// Converts a `CallTraceArena` into a flat vector of `RawTrace` messages,
+/// Converts collected call traces into a flat vector of `RawTrace` messages,
 /// following the order that `EthereumJS` would have produced.
+///
+/// Captured stack tops are consumed in step order during the traversal; they
+/// are only materialized as JS values here, so transactions whose traces are
+/// never read don't pay for per-step stack snapshots.
 pub(crate) fn raw_trace_from_call_trace_arena(
-    arena: &CallTraceArena,
+    call_traces: &CallTraces,
     verbose: bool,
 ) -> Vec<RawTrace> {
+    let CallTraces { arena, stack_tops } = call_traces;
+
     let mut result = Vec::new();
     if let Some(node) = arena.nodes().first() {
-        convert_node(arena, node, false, node.trace.caller, verbose, &mut result);
+        let mut tops = (!stack_tops.is_empty()).then(|| stack_tops.iter());
+        convert_node(
+            arena,
+            node,
+            false,
+            node.trace.caller,
+            verbose,
+            &mut tops,
+            &mut result,
+        );
+        debug_assert!(
+            tops.as_ref().is_none_or(|tops| tops.len() == 0),
+            "captured more stack tops than steps in the arena"
+        );
     }
     result
 }
@@ -142,6 +161,7 @@ fn convert_node(
     mut is_static_call: bool,
     original_caller: Address,
     verbose: bool,
+    tops: &mut Option<std::slice::Iter<'_, Option<U256>>>,
     output: &mut Vec<Either3<TracingMessage, TracingStep, TracingMessageResult>>,
 ) {
     let trace = &node.trace;
@@ -181,6 +201,10 @@ fn convert_node(
         // Historically, Hardhat 2 didn't record the first step if it was a STOP opcode,
         // so we skip it to maintain compatibility with existing traces.
         steps.next();
+        // The skipped step still captured a stack top.
+        if let Some(tops) = tops.as_mut() {
+            tops.next();
+        }
     }
 
     let mut child_index = 0;
@@ -194,18 +218,32 @@ fn convert_node(
             opcode: TracingOpcode {
                 name: OpCode::name_by_op(step.op.get()).to_string(),
             },
-            stack: if verbose {
-                // Full stack
-                step.stack
-                    .as_ref()
-                    .map(|s| s.iter().map(u256_to_bigint).collect())
-                    .unwrap_or_default()
-            } else {
-                // Top of stack only
-                step.stack
-                    .as_ref()
-                    .and_then(|s| s.last().map(|v| vec![u256_to_bigint(v)]))
-                    .unwrap_or_default()
+            stack: match tops.as_mut() {
+                // Tops are only captured in configurations where the arena
+                // records no stack snapshots, so they take precedence.
+                Some(tops) => {
+                    let top = tops.next().unwrap_or_else(|| {
+                        debug_assert!(false, "more steps in the arena than captured stack tops");
+                        &None
+                    });
+                    top.as_ref()
+                        .map(|top| vec![u256_to_bigint(top)])
+                        .unwrap_or_default()
+                }
+                None if verbose => {
+                    // Full stack
+                    step.stack
+                        .as_ref()
+                        .map(|s| s.iter().map(u256_to_bigint).collect())
+                        .unwrap_or_default()
+                }
+                None => {
+                    // Top of stack only
+                    step.stack
+                        .as_ref()
+                        .and_then(|s| s.last().map(|v| vec![u256_to_bigint(v)]))
+                        .unwrap_or_default()
+                }
             },
             memory: step.memory.as_ref().and_then(|m| {
                 if verbose {
@@ -239,6 +277,7 @@ fn convert_node(
                             _ => child_node.trace.caller,
                         },
                         verbose,
+                        tops,
                         output,
                     );
                 }
@@ -294,4 +333,131 @@ fn should_skip_call(trace: &CallTrace) -> bool {
         && trace
             .status
             .is_some_and(|status| matches!(status, return_revert!()))
+}
+
+#[cfg(test)]
+mod tests {
+    use edr_primitives::Bytes;
+    use edr_solidity_tests::traces::CallTraceStep;
+
+    use super::*;
+
+    fn step(op: OpCode) -> CallTraceStep {
+        CallTraceStep {
+            pc: 0,
+            op,
+            stack: None,
+            push_stack: None,
+            memory: None,
+            returndata: Bytes::new(),
+            gas_remaining: 0,
+            gas_refund_counter: 0,
+            gas_used: 0,
+            gas_cost: 0,
+            storage_change: None,
+            status: None,
+            immediate_bytes: None,
+            decoded: None,
+        }
+    }
+
+    /// Root with three steps, the second of which calls into a child frame
+    /// with two steps: execution order is root step 0, root step 1 (`CALL`),
+    /// child steps 0-1, root step 2.
+    fn nested_arena() -> CallTraceArena {
+        let mut arena = CallTraceArena::default();
+
+        let root = &mut arena.nodes_mut()[0];
+        root.children = vec![1];
+        root.trace.steps = vec![step(OpCode::PUSH1), step(OpCode::CALL), step(OpCode::PUSH1)];
+
+        let mut child = CallTraceNode {
+            parent: Some(0),
+            idx: 1,
+            ..CallTraceNode::default()
+        };
+        child.trace.depth = 1;
+        child.trace.steps = vec![step(OpCode::PUSH1), step(OpCode::PUSH1)];
+        arena.nodes_mut().push(child);
+
+        arena
+    }
+
+    /// Extracts the emitted steps' stacks as `u64` values.
+    fn emitted_stacks(output: &[RawTrace]) -> Vec<Vec<u64>> {
+        output
+            .iter()
+            .filter_map(|item| match item {
+                Either3::B(step) => Some(
+                    step.stack
+                        .iter()
+                        .map(|value| {
+                            assert!(!value.sign_bit);
+                            value.words[0]
+                        })
+                        .collect(),
+                ),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn tops(values: &[Option<u64>]) -> Vec<Option<U256>> {
+        values.iter().map(|top| top.map(U256::from)).collect()
+    }
+
+    #[test]
+    fn stack_tops_follow_execution_order_across_frames() {
+        let call_traces = CallTraces {
+            arena: nested_arena(),
+            stack_tops: tops(&[Some(10), Some(11), None, Some(20), Some(12)]),
+        };
+
+        let output = raw_trace_from_call_trace_arena(&call_traces, false);
+
+        assert_eq!(
+            emitted_stacks(&output),
+            [
+                vec![10], // root step 0
+                vec![11], // root step 1 (CALL)
+                vec![],   // child step 0: empty stack
+                vec![20], // child step 1
+                vec![12], // root step 2
+            ]
+        );
+    }
+
+    #[test]
+    fn skipped_leading_stop_step_still_consumes_a_stack_top() {
+        let mut arena = CallTraceArena::default();
+        arena.nodes_mut()[0].trace.steps = vec![step(OpCode::STOP), step(OpCode::PUSH1)];
+
+        let call_traces = CallTraces {
+            arena,
+            stack_tops: tops(&[Some(1), Some(2)]),
+        };
+
+        let output = raw_trace_from_call_trace_arena(&call_traces, false);
+
+        assert_eq!(emitted_stacks(&output), [vec![2]]);
+    }
+
+    #[test]
+    fn without_captured_tops_recorded_stacks_are_used() {
+        let mut arena = CallTraceArena::default();
+        let recorded = [U256::from(1), U256::from(2)];
+        arena.nodes_mut()[0].trace.steps = vec![step(OpCode::PUSH1)];
+        arena.nodes_mut()[0].trace.steps[0].stack = Some(Box::from(recorded));
+
+        let call_traces = CallTraces {
+            arena,
+            stack_tops: Vec::new(),
+        };
+
+        let verbose = raw_trace_from_call_trace_arena(&call_traces, true);
+        assert_eq!(emitted_stacks(&verbose), [vec![1, 2]]);
+
+        let non_verbose = raw_trace_from_call_trace_arena(&call_traces, false);
+        assert_eq!(emitted_stacks(&non_verbose), [vec![2]]);
+    }
 }

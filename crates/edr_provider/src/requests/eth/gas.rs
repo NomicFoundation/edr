@@ -44,12 +44,12 @@ pub fn handle_estimate_gas<
         Err(ProviderError::TransactionFailed(Box::new(
             TransactionFailureWithCallTraces {
                 failure: failure.transaction_failure,
-                call_trace_arenas: vec![failure.call_trace_arena],
+                call_traces: vec![failure.call_traces],
             },
         )))
     } else {
         let result = result?;
-        Ok((U64::from(result.estimation), result.call_trace_arenas))
+        Ok((U64::from(result.estimation), result.call_traces))
     }
 }
 

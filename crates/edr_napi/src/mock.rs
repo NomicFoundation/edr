@@ -25,7 +25,7 @@ impl SyncProvider for MockProvider {
             .map(|data| edr_napi_core::spec::Response {
                 data,
                 stack_trace_result: None,
-                call_trace_arenas: Vec::new(),
+                call_traces: Vec::new(),
                 verbose: false,
             })
             .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))
@@ -38,4 +38,6 @@ impl SyncProvider for MockProvider {
     }
 
     fn set_verbose_tracing(&self, _enabled: bool) {}
+
+    fn set_include_call_traces(&self, _include_call_traces: edr_solidity::config::IncludeTraces) {}
 }
