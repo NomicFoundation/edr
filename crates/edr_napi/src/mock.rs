@@ -38,4 +38,6 @@ impl SyncProvider for MockProvider {
     }
 
     fn set_verbose_tracing(&self, _enabled: bool) {}
+
+    fn set_include_call_traces(&self, _include_call_traces: edr_solidity::config::IncludeTraces) {}
 }

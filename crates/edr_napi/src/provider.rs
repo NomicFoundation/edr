@@ -18,7 +18,7 @@ pub use self::factory::ProviderFactory;
 use self::response::Response;
 use crate::{
     async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
-    contract_decoder::ContractDecoder,
+    contract_decoder::ContractDecoder, solidity_tests::config::IncludeTraces,
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -183,6 +183,28 @@ impl Provider {
         self.runtime
             .spawn_blocking(move || {
                 provider.set_verbose_tracing(verbose_tracing);
+            })
+            .await
+            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+    }
+
+    /// Sets which transactions' call traces are included in responses'
+    /// `traces()`, for requests handled from this point on.
+    ///
+    /// Traces that are not included are never collected, so consumers that
+    /// only read traces conditionally (e.g. when VM event listeners are
+    /// attached) can avoid the collection cost by keeping this at
+    /// `IncludeTraces.None` while there are no readers.
+    #[napi(catch_unwind)]
+    pub async fn set_include_call_traces(
+        &self,
+        include_call_traces: IncludeTraces,
+    ) -> napi::Result<()> {
+        let provider = self.provider.clone();
+
+        self.runtime
+            .spawn_blocking(move || {
+                provider.set_include_call_traces(include_call_traces.into());
             })
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))

@@ -80,6 +80,16 @@ export declare class Provider {
    * `false` to disable this.
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
+  /**
+   * Sets which transactions' call traces are included in responses'
+   * `traces()`, for requests handled from this point on.
+   *
+   * Traces that are not included are never collected, so consumers that
+   * only read traces conditionally (e.g. when VM event listeners are
+   * attached) can avoid the collection cost by keeping this at
+   * `IncludeTraces.None` while there are no readers.
+   */
+  setIncludeCallTraces(includeCallTraces: IncludeTraces): Promise<void>
 }
 
 export declare class ProviderFactory {

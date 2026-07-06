@@ -446,6 +446,10 @@ where
         self.observability.verbose_raw_tracing = verbose_tracing;
     }
 
+    pub fn set_include_call_traces(&mut self, include_call_traces: IncludeTraces) {
+        self.observability.include_call_traces = include_call_traces;
+    }
+
     pub fn verbose_tracing(&self) -> bool {
         self.observability.verbose_raw_tracing
     }

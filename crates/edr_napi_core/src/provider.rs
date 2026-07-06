@@ -4,6 +4,7 @@ use std::{str::FromStr as _, sync::Arc};
 
 use edr_provider::{time::TimeSinceEpoch, InvalidRequestReason, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
+use edr_solidity::config::IncludeTraces;
 
 pub use self::config::{Config, ConfigOption};
 use crate::spec::{Response, SyncNapiSpec};
@@ -22,6 +23,10 @@ pub trait SyncProvider: Send + Sync {
 
     /// Set the verbose tracing flag to the provided value.
     fn set_verbose_tracing(&self, enabled: bool);
+
+    /// Sets which transactions' call traces are included in responses, for
+    /// requests handled from this point on.
+    fn set_include_call_traces(&self, include_call_traces: IncludeTraces);
 }
 
 impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvider
@@ -82,5 +87,9 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
 
     fn set_verbose_tracing(&self, enabled: bool) {
         self.set_verbose_tracing(enabled);
+    }
+
+    fn set_include_call_traces(&self, include_call_traces: IncludeTraces) {
+        self.set_include_call_traces(include_call_traces);
     }
 }

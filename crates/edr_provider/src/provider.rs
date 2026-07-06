@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_chain_spec::{HardforkChainSpec, TransactionValidation};
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use parking_lot::{Mutex, RwLock};
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
@@ -139,6 +139,13 @@ impl<
     pub fn set_verbose_tracing(&self, enabled: bool) {
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
         data.set_verbose_tracing(enabled);
+    }
+
+    /// Sets which transactions' call traces are included in responses, for
+    /// requests handled from this point on.
+    pub fn set_include_call_traces(&self, include_call_traces: IncludeTraces) {
+        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
+        data.set_include_call_traces(include_call_traces);
     }
 
     pub fn verbose_tracing(&self) -> bool {

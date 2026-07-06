@@ -283,6 +283,48 @@ describe("Provider", () => {
       );
     });
 
+    it("should follow setIncludeCallTraces toggles for subsequent requests", async function () {
+      const provider = await createGenericProvider(context, {
+        genesisState: fundedGenesisState(),
+        observability: {},
+      });
+
+      const sendTransaction = (id: number) =>
+        provider.handleRequest(
+          JSON.stringify({
+            id,
+            jsonrpc: "2.0",
+            method: "eth_sendTransaction",
+            params: [
+              {
+                from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+                // PUSH1 1
+                // STOP
+                data: "0x600100",
+                gas: "0x" + 1_000_000n.toString(16),
+              },
+            ],
+          })
+        );
+
+      const withDefault = await sendTransaction(1);
+      assert.lengthOf(withDefault.traces(), 0);
+
+      await provider.setIncludeCallTraces(IncludeTraces.All);
+      const withTraces = await sendTransaction(2);
+      const rawTraces = withTraces.traces();
+      assert.lengthOf(rawTraces, 1);
+      const steps = collectSteps(rawTraces[0]);
+      assert.deepEqual(
+        steps.map((step) => step.stack),
+        [[], [1n]]
+      );
+
+      await provider.setIncludeCallTraces(IncludeTraces.None);
+      const withDisabled = await sendTransaction(3);
+      assert.lengthOf(withDisabled.traces(), 0);
+    });
+
     it("should not include memory by default", async function () {
       const provider = await createGenericProvider(
         context,
