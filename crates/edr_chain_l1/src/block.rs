@@ -826,9 +826,9 @@ impl<
 ///
 /// Whether the field exists at all is decided upstream: a header carries the
 /// empty-list hash by default, `None` when the field doesn't apply, or a hash
-/// supplied externally. This upgrades the empty-list default to a
+/// supplied externally. This upgrades the empty-list hash to a
 /// content-derived simulated hash once the block has changed state, and leaves
-/// every other value unchanged.
+/// every other (non-empty) value unchanged.
 ///
 /// The simulated hash is derived deterministically from the post-block state
 /// root, so it is reproducible for a given state root yet differs for blocks
