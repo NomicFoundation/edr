@@ -5,6 +5,9 @@ on:
     - cron: "0 */8 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test-recent-op-block:
     name: Test recent OP block (${{ matrix.network }})

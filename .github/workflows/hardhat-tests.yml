@@ -9,6 +9,9 @@ on:
       - "**"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   run-hardhat-tests:
     name: Run Hardhat tests (${{ matrix.os }}, Node ${{ matrix.node }})

@@ -11,6 +11,11 @@ on:
       - "**"
   workflow_dispatch:
 
+# Every job here only reads the repo (checks, tests, docs, build; coverage
+# uploads via CODECOV_TOKEN, not GITHUB_TOKEN). Jobs needing more set their own.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: true
@@ -396,8 +401,6 @@ jobs:
   actionlint:
     name: Lint GitHub Actions workflows
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -413,8 +416,6 @@ jobs:
   zizmor:
     name: Audit GitHub Actions security (zizmor)
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
