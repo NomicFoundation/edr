@@ -631,6 +631,7 @@ impl<
         self.header.block_access_list_hash = block_access_list_hash(
             self.header.block_access_list_hash,
             &self.state_diff,
+            self.header.parent_hash,
             self.header.state_root,
         );
 
@@ -830,17 +831,20 @@ impl<
 /// content-derived simulated hash once the block has changed state, and leaves
 /// every other (non-empty) value unchanged.
 ///
-/// The simulated hash is derived deterministically from the post-block state
-/// root, so it is reproducible for a given state root yet differs for blocks
-/// that produced different state.
+/// The simulated hash is derived deterministically from the parent hash and
+/// post-block state root: the parent hash keeps it distinct per block even in
+/// forked mode (where the state root is a shared placeholder rather than a real
+/// root), while the state root keeps it sensitive to the block's resulting
+/// state.
 fn block_access_list_hash(
     current: Option<B256>,
     state_diff: &StateDiff,
+    parent_hash: B256,
     state_root: B256,
 ) -> Option<B256> {
     if current == Some(KECCAK_RLP_EMPTY_ARRAY) && !state_diff.as_inner().is_empty() {
         Some(keccak256(
-            format!("blockAccessListHash{state_root}").as_bytes(),
+            format!("blockAccessListHash{parent_hash}{state_root}").as_bytes(),
         ))
     } else {
         current
@@ -860,11 +864,18 @@ mod tests {
             state_diff
         }
 
+        const PARENT_HASH: B256 = B256::repeat_byte(9);
+
         #[test]
         fn keeps_absent_hash() {
             // A header without the field keeps it absent, whatever the state.
             assert_eq!(
-                block_access_list_hash(None, &non_empty_state_diff(), B256::repeat_byte(1)),
+                block_access_list_hash(
+                    None,
+                    &non_empty_state_diff(),
+                    PARENT_HASH,
+                    B256::repeat_byte(1)
+                ),
                 None
             );
         }
@@ -875,6 +886,7 @@ mod tests {
                 block_access_list_hash(
                     Some(KECCAK_RLP_EMPTY_ARRAY),
                     &StateDiff::default(),
+                    PARENT_HASH,
                     B256::repeat_byte(1)
                 ),
                 Some(KECCAK_RLP_EMPTY_ARRAY)
@@ -888,6 +900,7 @@ mod tests {
                 block_access_list_hash(
                     Some(supplied),
                     &non_empty_state_diff(),
+                    PARENT_HASH,
                     B256::repeat_byte(1)
                 ),
                 Some(supplied)
@@ -901,17 +914,19 @@ mod tests {
             let hash = block_access_list_hash(
                 Some(KECCAK_RLP_EMPTY_ARRAY),
                 &non_empty_state_diff(),
+                PARENT_HASH,
                 state_root,
             )
             .expect("should produce a hash");
 
             // Upgraded away from the empty-list default, and reproducible for the same
-            // state root.
+            // inputs.
             assert_ne!(hash, KECCAK_RLP_EMPTY_ARRAY);
             assert_eq!(
                 block_access_list_hash(
                     Some(KECCAK_RLP_EMPTY_ARRAY),
                     &non_empty_state_diff(),
+                    PARENT_HASH,
                     state_root
                 ),
                 Some(hash)
@@ -924,12 +939,36 @@ mod tests {
                 block_access_list_hash(
                     Some(KECCAK_RLP_EMPTY_ARRAY),
                     &non_empty_state_diff(),
+                    PARENT_HASH,
                     B256::repeat_byte(1)
                 ),
                 block_access_list_hash(
                     Some(KECCAK_RLP_EMPTY_ARRAY),
                     &non_empty_state_diff(),
+                    PARENT_HASH,
                     B256::repeat_byte(2)
+                ),
+            );
+        }
+
+        #[test]
+        fn upgraded_hash_varies_with_parent_hash() {
+            // Distinct per block even when the state root is shared, as it is in forked
+            // mode.
+            let state_root = B256::repeat_byte(1);
+
+            assert_ne!(
+                block_access_list_hash(
+                    Some(KECCAK_RLP_EMPTY_ARRAY),
+                    &non_empty_state_diff(),
+                    B256::repeat_byte(2),
+                    state_root
+                ),
+                block_access_list_hash(
+                    Some(KECCAK_RLP_EMPTY_ARRAY),
+                    &non_empty_state_diff(),
+                    B256::repeat_byte(3),
+                    state_root
                 ),
             );
         }

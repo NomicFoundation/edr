@@ -137,3 +137,64 @@ async fn block_header_omits_block_access_list_hash_before_amsterdam() -> anyhow:
 
     Ok(())
 }
+
+#[cfg(feature = "test-remote")]
+mod fork {
+    use edr_primitives::HashMap;
+    use edr_provider::{
+        config::ForkConfig,
+        test_utils::{create_test_config_with, MinimalProviderConfig},
+    };
+    use edr_test_utils::env::json_rpc_url_provider;
+
+    use super::*;
+
+    /// Mines a state-modifying block and returns its block access list hash.
+    fn mine_and_get_bal_hash(provider: &Provider<L1ChainSpec>) -> B256 {
+        transfer_funds(provider);
+        let block: L1RpcBlock<B256> =
+            serde_json::from_value(get_latest_block(provider)).expect("block should deserialize");
+        block
+            .block_access_list_hash
+            .expect("Amsterdam block should include a block access list hash")
+    }
+
+    // The simulated block access list hash must be unique per block, including in
+    // forked mode.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn block_access_list_hash_differs_across_forked_amsterdam_blocks() -> anyhow::Result<()> {
+        let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
+        let subscriber = Box::new(|_event| {});
+
+        let mut config =
+            create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
+                block_number: Some(20_384_300),
+                cache_dir: edr_defaults::CACHE_DIR.into(),
+                chain_overrides: HashMap::default(),
+                http_headers: None,
+                url: json_rpc_url_provider::ethereum_mainnet(),
+            }));
+        config.hardfork = edr_chain_l1::Hardfork::AMSTERDAM;
+
+        let provider = Provider::new(
+            runtime::Handle::current(),
+            logger,
+            subscriber,
+            config,
+            Arc::new(RwLock::<ContractDecoder>::default()),
+            CurrentTime,
+        )?;
+
+        let first_block = mine_and_get_bal_hash(&provider);
+        let second_block = mine_and_get_bal_hash(&provider);
+
+        assert_ne!(first_block, KECCAK_RLP_EMPTY_ARRAY);
+        assert_ne!(second_block, KECCAK_RLP_EMPTY_ARRAY);
+        assert_ne!(
+            first_block, second_block,
+            "forked blocks that modify state should have distinct block access list hashes"
+        );
+
+        Ok(())
+    }
+}
