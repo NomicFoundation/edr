@@ -258,7 +258,12 @@ c-kzg = { version = "2.1.4", default-features = false, features = [
     "ethereum_kzg_settings",
 ] }
 
-revm-inspectors = { version = "0.39.0", features = ["serde"] }
+# Temporary fork adding `StackSnapshotType::Top` on the 0.39.0 line; revert to
+# crates.io once paradigmxyz/revm-inspectors#468 is released and EDR is on its
+# revm major.
+revm-inspectors = { git = "https://github.com/nebasuke/revm-inspectors", branch = "feat/top-of-stack-snapshot-0.39", features = [
+    "serde",
+] }
 foundry-fork-db = "0.26"
 
 ## ethers
