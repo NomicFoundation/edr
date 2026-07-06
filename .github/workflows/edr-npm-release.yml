@@ -95,7 +95,8 @@ jobs:
 
       - name: Check number of targets
         shell: bash
-        run: | # zizmor: ignore[template-injection] strategy.job-total is a controlled integer, not external input
+        run:
+          | # zizmor: ignore[template-injection] strategy.job-total is a controlled integer, not external input
           echo "Number of build jobs: ${{ strategy.job-total }}"
           echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
