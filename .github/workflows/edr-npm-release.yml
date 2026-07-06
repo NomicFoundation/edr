@@ -285,7 +285,7 @@ jobs:
       - name: Test bindings
         # Setting CI=1 is important to make PNPM install non-interactive
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
-        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@11.9.0; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@11.9.0; pnpm testNoBuild"
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
@@ -319,7 +319,7 @@ jobs:
         run: ls -R .
         shell: bash
       - name: Test bindings
-        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@11.9.0; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@11.9.0; pnpm testNoBuild"
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
@@ -430,7 +430,7 @@ jobs:
           # matches with release commit
           elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
           then
-            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]
+            if [ "$GITHUB_REF" == "refs/heads/main" ] || [ "$GITHUB_REF" == "refs/heads/hh2" ]
             then
               echo "release commit: tag=latest"
               echo "tag=latest" >> "$GITHUB_OUTPUT"
@@ -503,7 +503,7 @@ jobs:
           echo "Creating bundle with necessary files for publishing"
           ROOT_FILES=("package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
           ALL_FILES=("${ROOT_FILES[@]}" "${NAPI_FILES[@]}")
-          echo "files to include in tar: ${ALL_FILES[@]}"
+          echo "files to include in tar: ${ALL_FILES[*]}"
           # Using --dereference since LICENSE file are symlinks
           tar --dereference -czvf $FILENAME "${ALL_FILES[@]}"
           echo "FILENAME=$FILENAME"
@@ -541,6 +541,7 @@ jobs:
         shell: bash
         run: |
           # get number of artifacts with unique names
+          # shellcheck disable=SC2011 # .node names are fixed target triples, no special chars
           NUMBER_OF_ARTIFACTS=$(ls -1q crates/edr_napi/npm/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
           echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
           echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
