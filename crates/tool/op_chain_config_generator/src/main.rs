@@ -38,10 +38,10 @@ const LOGGER: SimpleLogger = SimpleLogger;
 struct CliArgs {
     /// Checks if there are config changes to be included, but does not
     /// apply them
-    #[clap(long, takes_value = false)]
+    #[clap(long)]
     check: bool,
     /// Enables verbose mode
-    #[clap(short, long, takes_value = false)]
+    #[clap(short, long)]
     verbose: bool,
 }
 
