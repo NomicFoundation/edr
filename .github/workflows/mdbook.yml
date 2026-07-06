@@ -5,7 +5,6 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-# Only the deploy job needs Pages write + id-token; keep the rest read-only.
 permissions:
   contents: read
 

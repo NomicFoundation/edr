@@ -1,6 +1,4 @@
-# Self-hosted runner labels actionlint can't know about, so it doesn't flag
-# `runs-on:` as an unknown label. Keep in sync with the runners registered for
-# this repo/org.
+# Self-hosted runner labels, so actionlint doesn't flag `runs-on:` as unknown.
 self-hosted-runner:
   labels:
     - edr-benchmark-runner

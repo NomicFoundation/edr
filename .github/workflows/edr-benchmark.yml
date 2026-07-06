@@ -10,8 +10,7 @@ on:
       - "**"
   workflow_dispatch:
 
-# Benchmark results are pushed to an external repo via BENCHMARK_GITHUB_TOKEN
-# (a PAT), and job summaries need no scope — so GITHUB_TOKEN only reads.
+# Results are pushed to an external repo via a PAT, so GITHUB_TOKEN only reads.
 permissions:
   contents: read
 
