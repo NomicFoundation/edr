@@ -392,3 +392,39 @@ jobs:
           key: cooldown-check-v1-${{ hashFiles('**/Cargo.lock') }}
 
       - uses: NomicFoundation/cargo-cooldown-check@ac40e701f9f1155741a761ac9039987fb892af4b
+
+  actionlint:
+    name: Lint GitHub Actions workflows
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      # rhysd's official image bundles actionlint + shellcheck + pyflakes, so
+      # `run:`-block linting works with no runner deps. Exits non-zero on any
+      # finding -> blocks. Digest-pinned (Renovate manages docker `uses:` too).
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        with:
+          args: -color
+
+  zizmor:
+    name: Audit GitHub Actions security (zizmor)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
+        with:
+          tool: zizmor@1.26.1
+      # GH_TOKEN enables the online audits (known-vulnerabilities, tag->SHA
+      # resolution for unpinned-uses). zizmor exits non-zero on findings -> blocks.
+      - name: Run zizmor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: zizmor --format github .github

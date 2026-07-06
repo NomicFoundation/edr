@@ -45,7 +45,7 @@ runs:
     # itself before any later step appends instrumentation flags.
     - name: Augment RUSTFLAGS with platform target features
       shell: bash
-      run: |
+      run: | # zizmor: ignore[github-env] static target-feature flag, not external input
         case "$RUNNER_OS" in
           Windows)
             echo "RUSTFLAGS=${RUSTFLAGS:-} -C target-feature=+crt-static" >> "$GITHUB_ENV"

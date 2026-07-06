@@ -15,4 +15,4 @@ runs:
     - name: Pin CARGO_BUILD_TARGET to the host triple
       if: inputs.builds-napi-crate == 'true'
       shell: bash
-      run: echo "CARGO_BUILD_TARGET=$(rustc --print host-tuple)" >> "$GITHUB_ENV"
+      run: echo "CARGO_BUILD_TARGET=$(rustc --print host-tuple)" >> "$GITHUB_ENV" # zizmor: ignore[github-env] rustc output, not external input
