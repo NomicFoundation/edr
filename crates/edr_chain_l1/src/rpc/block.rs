@@ -105,7 +105,7 @@ pub struct L1RpcBlock<TransactionT> {
     /// Keccak-256 hash of the RLP-encoded block access list
     ///
     /// [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub block_access_list_hash: Option<B256>,
 }
 
