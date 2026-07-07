@@ -190,46 +190,6 @@ describe("solx-vs-solc trace parity", { skip: !hardhatSolxAvailable }, () => {
         ],
       },
     ],
-    // Outer test-entry frame resolves to `internal@<pc>` because solx
-    // emits no subprogram for the test contract's dispatch PC.
-    [
-      "MutualRecursionTest#testMutualRecursion",
-      {
-        contract: "MutualRecursionTest",
-        test: "testMutualRecursion",
-        reason: "mutual bottom",
-        frames: [
-          { location: "MutualA.pingA", file: "contracts/Scenarios.t.sol:377" },
-          { location: "MutualB.pingB", file: "contracts/Scenarios.t.sol:386" },
-          { location: "MutualA.pingA", file: "contracts/Scenarios.t.sol:378" },
-          { location: "MutualB.pingB", file: "contracts/Scenarios.t.sol:386" },
-          { location: "MutualA.pingA", file: "contracts/Scenarios.t.sol:378" },
-          {
-            location: "MutualRecursionTest.internal@270",
-            file: "contracts/Scenarios.t.sol",
-          },
-        ],
-      },
-    ],
-    // Modifier body flattened into its function — 2 frames vs solc's 3.
-    [
-      "NestedModifierRevertTest#testRevertInModifierBody",
-      {
-        contract: "NestedModifierRevertTest",
-        test: "testRevertInModifierBody",
-        reason: "unlucky",
-        frames: [
-          {
-            location: "NestedModifierTarget.bumpIfValid",
-            file: "contracts/Scenarios.t.sol:420",
-          },
-          {
-            location: "NestedModifierRevertTest.testRevertInModifierBody",
-            file: "contracts/Scenarios.t.sol:428",
-          },
-        ],
-      },
-    ],
   ]);
 
   it("compiles both profiles and produces failing-test trace blocks", () => {
