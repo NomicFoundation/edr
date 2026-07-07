@@ -74,7 +74,7 @@ impl Response {
         self.inner
             .call_trace_arenas
             .iter()
-            .map(|arena| raw_trace_from_call_trace_arena(arena, self.inner.verbose))
+            .map(raw_trace_from_call_trace_arena)
             .collect()
     }
 }

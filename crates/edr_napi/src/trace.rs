@@ -123,13 +123,10 @@ type RawTrace = Either3<TracingMessage, TracingStep, TracingMessageResult>;
 
 /// Converts a `CallTraceArena` into a flat vector of `RawTrace` messages,
 /// following the order that `EthereumJS` would have produced.
-pub(crate) fn raw_trace_from_call_trace_arena(
-    arena: &CallTraceArena,
-    verbose: bool,
-) -> Vec<RawTrace> {
+pub(crate) fn raw_trace_from_call_trace_arena(arena: &CallTraceArena) -> Vec<RawTrace> {
     let mut result = Vec::new();
     if let Some(node) = arena.nodes().first() {
-        convert_node(arena, node, false, node.trace.caller, verbose, &mut result);
+        convert_node(arena, node, false, node.trace.caller, &mut result);
     }
     result
 }
@@ -141,7 +138,6 @@ fn convert_node(
     node: &CallTraceNode,
     mut is_static_call: bool,
     original_caller: Address,
-    verbose: bool,
     output: &mut Vec<Either3<TracingMessage, TracingStep, TracingMessageResult>>,
 ) {
     let trace = &node.trace;
@@ -194,26 +190,15 @@ fn convert_node(
             opcode: TracingOpcode {
                 name: OpCode::name_by_op(step.op.get()).to_string(),
             },
-            stack: if verbose {
-                // Full stack
-                step.stack
-                    .as_ref()
-                    .map(|s| s.iter().map(u256_to_bigint).collect())
-                    .unwrap_or_default()
-            } else {
-                // Top of stack only
-                step.stack
-                    .as_ref()
-                    .and_then(|s| s.last().map(|v| vec![u256_to_bigint(v)]))
-                    .unwrap_or_default()
-            },
-            memory: step.memory.as_ref().and_then(|m| {
-                if verbose {
-                    Some(Uint8Array::with_data_copied(m.as_bytes()))
-                } else {
-                    None
-                }
-            }),
+            stack: step
+                .stack
+                .as_ref()
+                .map(|s| s.iter().map(u256_to_bigint).collect())
+                .unwrap_or_default(),
+            memory: step
+                .memory
+                .as_ref()
+                .map(|m| Uint8Array::with_data_copied(m.as_bytes())),
         }));
 
         if is_calllike_op(step) {
@@ -238,7 +223,6 @@ fn convert_node(
                             CallKind::DelegateCall => original_caller,
                             _ => child_node.trace.caller,
                         },
-                        verbose,
                         output,
                     );
                 }

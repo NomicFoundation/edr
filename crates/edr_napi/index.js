@@ -668,6 +668,7 @@ module.exports.REGOLITH = nativeBinding.REGOLITH
 module.exports.SHANGHAI = nativeBinding.SHANGHAI
 module.exports.SpecId = nativeBinding.SpecId
 module.exports.SPURIOUS_DRAGON = nativeBinding.SPURIOUS_DRAGON
+module.exports.StackSnapshotType = nativeBinding.StackSnapshotType
 module.exports.StackTraceEntryType = nativeBinding.StackTraceEntryType
 module.exports.stackTraceEntryTypeToString = nativeBinding.stackTraceEntryTypeToString
 module.exports.SuccessReason = nativeBinding.SuccessReason

@@ -1176,6 +1176,12 @@ export interface ObservabilityConfig {
    * Defaults to `IncludeTraces.None`.
    */
   includeCallTraces?: IncludeTraces
+  /**
+   * If present, configures runtime observability to collect stack entries.
+   *
+   * Defaults to `StackSnapshotType::None`.
+   */
+  recordStack?: StackSnapshotType
 }
 
 export const OP_CHAIN_TYPE: string
@@ -1653,6 +1659,16 @@ export declare enum SpecId {
 }
 
 export const SPURIOUS_DRAGON: string
+
+/** The type of stack entries to record in traces. */
+export declare enum StackSnapshotType {
+  /** The stack is not recorded in traces. */
+  None = 0,
+  /** The full stack is recorded in traces. */
+  Full = 1,
+  /** Only the top item of the stack is recorded in traces. */
+  Top = 2
+}
 
 /** The stack trace result */
 export interface StackTrace {

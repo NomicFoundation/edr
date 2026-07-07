@@ -28,8 +28,6 @@ pub struct Response {
     pub stack_trace_result: Option<StackTraceCreationResult<String>>,
     /// This may contain zero or more traces, depending on the (batch) request
     pub call_trace_arenas: Vec<CallTraceArena>,
-    /// Whether verbose raw tracing was enabled when this response was created.
-    pub verbose: bool,
 }
 
 impl From<String> for Response {
@@ -38,7 +36,6 @@ impl From<String> for Response {
             data: Either::A(value),
             stack_trace_result: None,
             call_trace_arenas: Vec::new(),
-            verbose: false,
         }
     }
 }
@@ -63,7 +60,6 @@ pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
     /// implementing type conversions for third-party types.
     fn cast_response(
         response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
-        verbose: bool,
     ) -> napi::Result<Response>;
 }
 
@@ -87,7 +83,6 @@ pub fn cast_provider_result_to_response<
             TransactionValidationErrorT,
         >,
     >,
-    verbose: bool,
 ) -> napi::Result<Response> {
     let stack_trace_result = response.as_ref().err().and_then(|error| {
         if let edr_provider::ProviderError::TransactionFailed(failure) = error {
@@ -129,7 +124,6 @@ pub fn cast_provider_result_to_response<
         data,
         stack_trace_result,
         call_trace_arenas,
-        verbose,
     })
 }
 
@@ -138,9 +132,8 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
 
     fn cast_response(
         response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
-        verbose: bool,
     ) -> napi::Result<Response> {
-        cast_provider_result_to_response(response, verbose)
+        cast_provider_result_to_response(response)
     }
 }
 
@@ -149,9 +142,8 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
 
     fn cast_response(
         response: Result<ResponseWithCallTraces, ProviderErrorForChainSpec<Self>>,
-        verbose: bool,
     ) -> napi::Result<Response> {
-        cast_provider_result_to_response(response, verbose)
+        cast_provider_result_to_response(response)
     }
 }
 
