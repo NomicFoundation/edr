@@ -80,7 +80,9 @@ pub struct BlockHeader {
     /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
     pub requests_hash: Option<B256>,
     /// The Keccak-256 hash of the RLP-encoded access list.
-    /// Was added by EIP-7928 and is ignored in legacy headers
+    /// Was added by [EIP-7928] and is ignored in legacy headers
+    ///
+    /// [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)
     pub block_access_list_hash: Option<B256>,
 }
 
@@ -317,7 +319,9 @@ pub struct PartialHeader {
     ///
     /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
     pub requests_hash: Option<B256>,
-    /// The Keccak-256 hash of the RLP-encoded access list (EIP-7928)
+    /// The Keccak-256 hash of the RLP-encoded access list ([EIP-7928])
+    ///
+    /// [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)
     pub block_access_list_hash: Option<B256>,
 }
 
