@@ -31,7 +31,7 @@ use crate::{
 /// Docs based on <https://book.getfoundry.sh/reference/config/testing>.
 #[napi(object)]
 #[derive(Debug, serde::Serialize)]
-pub struct SolidityTestRunnerConfigArgs {
+pub struct SolidityTestRunnerConfigArgs<'env> {
     /// The absolute path to the project root directory.
     /// Relative paths in cheat codes are resolved against this path.
     pub project_root: String,
@@ -164,10 +164,14 @@ pub struct SolidityTestRunnerConfigArgs {
     /// The configuration for the Solidity test runner's observability
     #[debug(skip)]
     #[serde(skip)]
-    pub observability: Option<ObservabilityConfig>,
+    pub observability: Option<ObservabilityConfig<'env>>,
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
+    /// A regex pattern to exclude tests. If provided, test methods that match
+    /// the pattern will not be executed or reported as a test result. Applied
+    /// after `test_pattern`.
+    pub exclude_test_pattern: Option<String>,
     /// Controls whether to generate a gas report after running the tests.
     /// Enabling this also enables collection of all traces and EVM isolation
     /// mode.
@@ -210,12 +214,11 @@ pub struct SolidityTestRunnerConfigArgs {
     pub eip712_canonical_types: Option<Vec<String>>,
 }
 
-impl SolidityTestRunnerConfigArgs {
+impl SolidityTestRunnerConfigArgs<'_> {
     /// Resolves the instance, converting it to a
     /// [`edr_napi_core::solidity::config::TestRunnerConfig`].
     pub fn resolve(
         self,
-        env: &napi::Env,
         runtime: runtime::Handle,
     ) -> napi::Result<edr_napi_core::solidity::config::TestRunnerConfig> {
         let SolidityTestRunnerConfigArgs {
@@ -255,6 +258,7 @@ impl SolidityTestRunnerConfigArgs {
             include_traces,
             observability,
             test_pattern,
+            exclude_test_pattern,
             generate_gas_report,
             test_function_overrides,
             eip712_canonical_types,
@@ -262,6 +266,13 @@ impl SolidityTestRunnerConfigArgs {
 
         let test_pattern = TestFilterConfig {
             test_pattern: test_pattern
+                .as_ref()
+                .map(|p| {
+                    p.parse()
+                        .map_err(|error| napi::Error::new(Status::InvalidArg, error))
+                })
+                .transpose()?,
+            exclude_test_pattern: exclude_test_pattern
                 .as_ref()
                 .map(|p| {
                     p.parse()
@@ -354,7 +365,7 @@ impl SolidityTestRunnerConfigArgs {
             || Ok(None),
             |observability| {
                 observability
-                    .resolve(env, runtime)
+                    .resolve(runtime)
                     .map(|config| config.on_collected_coverage_fn)
             },
         )?;
@@ -520,7 +531,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
     }
 }
 
-impl SolidityTestRunnerConfigArgs {
+impl SolidityTestRunnerConfigArgs<'_> {
     pub fn try_get_test_filter(&self) -> napi::Result<TestFilterConfig> {
         let test_pattern = self
             .test_pattern
@@ -530,7 +541,18 @@ impl SolidityTestRunnerConfigArgs {
                     .map_err(|e| napi::Error::new(Status::InvalidArg, e))
             })
             .transpose()?;
-        Ok(TestFilterConfig { test_pattern })
+        let exclude_test_pattern = self
+            .exclude_test_pattern
+            .as_ref()
+            .map(|p| {
+                p.parse()
+                    .map_err(|e| napi::Error::new(Status::InvalidArg, e))
+            })
+            .transpose()?;
+        Ok(TestFilterConfig {
+            test_pattern,
+            exclude_test_pattern,
+        })
     }
 }
 
@@ -741,7 +763,7 @@ impl TryFrom<StorageCachingConfig> for foundry_cheatcodes::StorageCachingConfig 
 
 /// What chains to cache
 #[napi]
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize)]
 pub enum CachedChains {
     /// Cache all chains
     #[default]
@@ -761,7 +783,7 @@ impl From<CachedChains> for foundry_cheatcodes::CachedChains {
 
 /// What endpoints to enable caching for
 #[napi]
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize)]
 pub enum CachedEndpoints {
     /// Cache all endpoints
     #[default]
@@ -814,7 +836,7 @@ impl From<PathPermission> for foundry_cheatcodes::PathPermission {
  * directory, nor in any subdirectories.
  */
 #[napi]
-#[derive(Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub enum FsAccessPermission {
     /// Allows reading and writing the file
     ReadWriteFile,
@@ -853,7 +875,7 @@ impl From<FsAccessPermission> for foundry_cheatcodes::FsAccessPermission {
 }
 
 #[napi(object)]
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize)]
 pub struct AddressLabel {
     /// The address to label
     #[serde(serialize_with = "serialize_uint8array_as_hex")]
@@ -892,7 +914,7 @@ impl From<CollectStackTraces> for edr_solidity_tests::CollectStackTraces {
 /// This can either be for Solidity test results or provider transaction
 /// execution results.
 #[napi]
-#[derive(Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Serialize)]
 pub enum IncludeTraces {
     /// No traces will be included at all.
     #[default]

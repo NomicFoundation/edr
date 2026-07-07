@@ -308,7 +308,11 @@ describe("Eth module", function () {
                 parsedMessage.params?.subscription === subscription
               ) {
                 ws.removeListener("message", listener);
-                reject();
+                reject(
+                  new Error(
+                    `Unexpected message for subscription ${subscription}`
+                  )
+                );
               }
             };
 
@@ -344,7 +348,7 @@ describe("Eth module", function () {
       describe("ethers.WebSocketProvider", function () {
         let provider: ethers.WebSocketProvider;
 
-        beforeEach(async function () {
+        beforeEach(function () {
           if (this.serverInfo !== undefined) {
             const { address, port } = this.serverInfo;
             provider = new ethers.WebSocketProvider(`ws://${address}:${port}`);
@@ -354,9 +358,11 @@ describe("Eth module", function () {
         });
 
         it("'block' event works", async function () {
-          const onBlock = new Promise((resolve) =>
-            provider.on("block", resolve)
-          );
+          const onBlock = new Promise((resolve) => {
+            // ethers v6 `.on()` returns a Promise; the executor expects void and
+            // the subscription settling is covered by the sleep below.
+            void provider.on("block", resolve);
+          });
 
           // If we call evm_mine immediately, the event won't be triggered
           // ideally `.on` would be async and resolve when the subscription is
@@ -368,9 +374,9 @@ describe("Eth module", function () {
         });
 
         it("'pending' event works", async function () {
-          const onPending = new Promise((resolve) =>
-            provider.on("pending", resolve)
-          );
+          const onPending = new Promise((resolve) => {
+            void provider.on("pending", resolve);
+          });
           await sleep(100);
 
           const signer = await provider.getSigner();
@@ -391,9 +397,9 @@ describe("Eth module", function () {
           );
           const contract = await Factory.deploy();
 
-          const onContractEvent = new Promise((resolve) =>
-            contract.on("StateModified", resolve)
-          );
+          const onContractEvent = new Promise((resolve) => {
+            void contract.on("StateModified", resolve);
+          });
           await sleep(100);
 
           await contract.modifiesState(1);

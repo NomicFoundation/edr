@@ -211,6 +211,7 @@ fn to_rpc_l1_block_info(
                     .try_into()
                     .expect("Operator fee constant cannot be larger than u128::max")
             }),
+            da_footprint_gas_scalar: l1_block_info.da_footprint_gas_scalar,
         };
 
         Some(l1_block_info)

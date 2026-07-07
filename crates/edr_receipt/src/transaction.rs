@@ -85,7 +85,7 @@ impl<ExecutionReceiptT: ExecutionReceipt> TransactionReceipt<ExecutionReceiptT> 
             from: *transaction.caller(),
             to: transaction.kind().to().copied(),
             contract_address,
-            gas_used: result.gas_used(),
+            gas_used: result.tx_gas_used(),
             effective_gas_price,
         }
     }

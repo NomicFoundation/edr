@@ -63,6 +63,7 @@ fn cast_evm_error<DatabaseErrorT: Debug + std::error::Error>(
 ) -> TransactionError<DatabaseErrorT, InvalidTransaction> {
     match error {
         EVMError::Custom(error) => TransactionError::Custom(error),
+        EVMError::CustomAny(error) => TransactionError::CustomAny(error),
         EVMError::Database(error) => TransactionError::Database(error),
         EVMError::Header(error) => TransactionError::InvalidHeader(error),
         EVMError::Transaction(error) => {
@@ -112,6 +113,12 @@ impl ContextChainSpec for OpChainSpec {
 
 impl EvmChainSpec for OpChainSpec {
     type PrecompileProvider<BlockT: revm_context::Block, DatabaseT: Database> = OpPrecompiles;
+
+    fn new_precompile_provider<BlockT: revm_context::Block, DatabaseT: Database>(
+        hardfork: Self::Hardfork,
+    ) -> Self::PrecompileProvider<BlockT, DatabaseT> {
+        OpPrecompiles::new_with_spec(hardfork)
+    }
 
     fn dry_run<
         BlockT: revm_context::Block,

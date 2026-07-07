@@ -8,8 +8,8 @@ use edr_primitives::{
 };
 use edr_rpc_eth::client::EthRpcClient;
 use edr_state_api::{
-    account::{Account, AccountInfo},
-    AccountModifierFn, State, StateCommit, StateDebug, StateError, StateMut as _, StateProof,
+    account::AccountInfo, AccountModifierFn, EvmState, State, StateCommit, StateDebug, StateError,
+    StateMut as _, StateProof,
 };
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_state_remote::{CachedRemoteState, RemoteState};
@@ -142,7 +142,7 @@ impl<
         RpcTransactionT: DeserializeOwned + Serialize,
     > StateCommit for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
 {
-    fn commit(&mut self, changes: HashMap<Address, Account>) {
+    fn commit(&mut self, changes: EvmState) {
         changes.iter().for_each(|(address, account)| {
             account.storage.iter().for_each(|(index, value)| {
                 // We never need to remove zero entries as a "removed" entry means that the

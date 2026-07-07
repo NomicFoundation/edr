@@ -16,7 +16,7 @@ use revm_inspectors::tracing::{DebugInspector, DebugInspectorError, MuxError, Tr
 
 use crate::{
     error::{JsonRpcError, INTERNAL_ERROR, INVALID_PARAMS},
-    observability::{EvmObservedData, EvmObserver, EvmObserverCollectionError, EvmObserverConfig},
+    observability::{observe_execution, EvmObserverCollectionError, EvmObserverConfig},
 };
 
 /// Get trace output for `debug_traceTransaction`
@@ -51,37 +51,28 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
             let mut debug_inspector = DebugInspector::new(tracing_options)
                 .map_err(DebugTraceError::from_debug_inspector_creation_error)?;
 
-            let include_call_traces = observer_config.include_call_traces;
-            let mut evm_observer = EvmObserver::new(observer_config);
-
             let transaction_hash = *transaction.transaction_hash();
-            let result = dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
-                blockchain,
-                state.as_ref(),
-                evm_config,
-                transaction.clone(),
-                &block,
-                &HashMap::default(),
-                &mut DualInspector::new(&mut debug_inspector, &mut evm_observer),
-            )?;
 
-            let EvmObservedData {
-                address_to_executed_code: _,
-                call_trace_arena,
-                encoded_console_logs: _,
-            } = evm_observer.collect_and_report(&result.precompile_addresses)?;
+            let observed_execution = observe_execution(&observer_config, |observer| {
+                dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
+                    blockchain,
+                    state.as_ref(),
+                    evm_config,
+                    transaction.clone(),
+                    &block,
+                    &HashMap::default(),
+                    &mut DualInspector::new(&mut debug_inspector, observer),
+                )
+                .map_err(DebugTraceErrorForChainSpec::<ChainSpecT>::from)
+            })?;
 
             let mut database = WrapDatabaseRef(DatabaseComponents {
                 blockchain,
                 state: state.as_ref(),
             });
 
-            let call_trace_arenas =
-                if include_call_traces.should_include(|| !result.result.is_success()) {
-                    vec![call_trace_arena]
-                } else {
-                    Vec::new()
-                };
+            let (execution_result, call_trace_arena) =
+                observed_execution.into_result_and_filtered_traces();
 
             let geth_trace = debug_inspector
                 .get_result(
@@ -92,13 +83,13 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
                     }),
                     &transaction,
                     &block,
-                    &result.into_result_and_state(),
+                    &execution_result.into_result_and_state(),
                     &mut database,
                 )
                 .map_err(DebugTraceError::from_debug_inspector_result_error)?;
 
             return Ok(DebugTraceResultWithCallTraces {
-                call_trace_arenas,
+                call_trace_arenas: call_trace_arena.into_iter().collect(),
                 result: geth_trace,
             });
         } else {

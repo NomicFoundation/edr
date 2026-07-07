@@ -26,7 +26,7 @@ use proptest::{strategy::Strategy, test_runner::TestRunner};
 use result::{assert_invariants, can_continue};
 use revm::{
     context::result::{HaltReason, HaltReasonTr},
-    primitives::HashMap,
+    state::EvmState,
 };
 use serde::{Deserialize, Serialize};
 use shrink::shrink_sequence;
@@ -1247,7 +1247,7 @@ fn collect_data<
         HardforkT,
         TransactionErrorT,
     >,
-    state_changeset: &mut HashMap<Address, revm::state::Account>,
+    state_changeset: &mut EvmState,
     tx: &BasicTxDetails,
     call_result: &RawCallResult<
         BlockT,

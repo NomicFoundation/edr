@@ -56,6 +56,42 @@ describe("Solidity Tests", () => {
     }
   });
 
+  it("exposes the stack-trace kind tag for a failing test", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/PaymentFailureTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+      }
+    );
+
+    const failure = results[0].testResults[0];
+    assert.equal(failure.status, "Failure");
+
+    const trace = failure.stackTrace();
+    if (trace === null) {
+      // collectStackTraces defaults to OnFailure, so a failing test must
+      // produce a stack trace; null would make the kind assertion vacuous.
+      assert.fail("expected a stack-trace result for the failing test");
+    } else {
+      assert.oneOf(trace.kind, [
+        "StackTrace",
+        "UnexpectedError",
+        "HeuristicFailed",
+        "UnsafeToReplay",
+      ]);
+    }
+  });
+
   it("throws errors", async function () {
     const artifacts = [
       loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
@@ -166,6 +202,73 @@ describe("Solidity Tests", () => {
       if (res.id.name.includes("SetupConsistencyCheck")) {
         assert.equal(res.testResults.length, 1);
         assert.equal(res.testResults[0].name, "testMultiply()");
+      } else {
+        assert.fail("Unexpected test suite name: " + res.id.name);
+      }
+    }
+  });
+
+  it("excludes tests according to pattern", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
+    ];
+    // All artifacts are test suites.
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        excludeTestPattern: "Multiply",
+      }
+    );
+
+    assert.equal(results.length, artifacts.length);
+
+    for (const res of results) {
+      if (res.id.name.includes("SetupConsistencyCheck")) {
+        assert.equal(res.testResults.length, 1);
+        assert.equal(res.testResults[0].name, "testAdd()");
+      } else {
+        assert.fail("Unexpected test suite name: " + res.id.name);
+      }
+    }
+  });
+
+  it("combines testPattern and excludeTestPattern", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
+    ];
+    // All artifacts are test suites.
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        // `testPattern` selects both `testAdd` and `testMultiply`, while
+        // `excludeTestPattern` removes `testMultiply`, leaving only `testAdd`.
+        testPattern: "test",
+        excludeTestPattern: "Multiply",
+      }
+    );
+
+    assert.equal(results.length, artifacts.length);
+
+    for (const res of results) {
+      if (res.id.name.includes("SetupConsistencyCheck")) {
+        assert.equal(res.testResults.length, 1);
+        assert.equal(res.testResults[0].name, "testAdd()");
       } else {
         assert.fail("Unexpected test suite name: " + res.id.name);
       }

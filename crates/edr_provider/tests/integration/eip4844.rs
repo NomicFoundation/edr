@@ -496,10 +496,8 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
 
     let contract_address = deploy_contract(&provider, caller, fixture.bytecode)?;
 
-    let mut nonce = 1;
-    for num_blobs in 1..=6 {
+    for (nonce, num_blobs) in (1..).zip(1..=6) {
         assert_blob_hash_opcodes(&provider, &contract_address, num_blobs, nonce)?;
-        nonce += 1;
     }
 
     Ok(())

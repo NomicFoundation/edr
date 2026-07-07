@@ -60,6 +60,7 @@ impl<T: Into<Self>> From<EVMError<T>> for BackendError {
         match err {
             EVMError::Database(err) => err.into(),
             EVMError::Custom(err) => Self::msg(err),
+            EVMError::CustomAny(err) => Self::msg(err.to_string()),
             EVMError::Header(err) => Self::msg(err.to_string()),
             EVMError::Transaction(err) => Self::msg(err.to_string()),
         }

@@ -38,10 +38,10 @@ const LOGGER: SimpleLogger = SimpleLogger;
 struct CliArgs {
     /// Checks if there are config changes to be included, but does not
     /// apply them
-    #[clap(long, takes_value = false)]
+    #[clap(long)]
     check: bool,
     /// Enables verbose mode
-    #[clap(short, long, takes_value = false)]
+    #[clap(short, long)]
     verbose: bool,
 }
 
@@ -423,8 +423,7 @@ fn generate_hardfork_activations_for(
                 log::warn!("{chain_name}: ignoring activation - {error}");
                 None
             }
-            Ok(opt_hardfork) => opt_hardfork
-                .and_then(|hardfork| activation_value.as_integer().map(|value| (hardfork, value))),
+            Ok(opt_hardfork) => opt_hardfork.zip(activation_value.as_integer()),
         },
     );
 

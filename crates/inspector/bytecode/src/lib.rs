@@ -5,8 +5,8 @@
 //! decoding call traces and other debugging purposes.
 
 use edr_chain_spec_evm::{
-    interpreter::{CallInputs, CallOutcome, Gas, InstructionResult, InterpreterResult},
-    ContextError, ContextTrait, Database as _, Inspector, JournalTrait,
+    interpreter::{CallInputs, CallOutcome},
+    ContextTrait, Inspector,
 };
 use edr_primitives::{Address, Bytes, HashMap};
 use revm_inspector::JournalExt;
@@ -37,59 +37,8 @@ impl ExecutedBytecodeCollector {
 impl<ContextT: ContextTrait<Journal: JournalExt>> Inspector<ContextT>
     for ExecutedBytecodeCollector
 {
-    fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
-        let code = inputs
-            .known_bytecode
-            .as_ref()
-            .map_or_else(
-                || {
-                    // We need to use `map` before `unwrap_or_else` to please the borrow checker.
-                    #[allow(clippy::map_unwrap_or)]
-                    context
-                        .journal()
-                        .evm_state()
-                        .get(&inputs.bytecode_address)
-                        // Clone to end the borrow of the journal
-                        .map(|account| Ok(account.info.clone()))
-                        .unwrap_or_else(|| {
-                            context
-                                .journal_mut()
-                                .db_mut()
-                                .basic(inputs.bytecode_address)
-                                // If an invalid contract address was provided, return empty code
-                                .map(Option::unwrap_or_default)
-                        })
-                        .and_then(|account_info| {
-                            account_info.code.map_or_else(
-                                || {
-                                    context
-                                        .journal_mut()
-                                        .db_mut()
-                                        .code_by_hash(account_info.code_hash)
-                                },
-                                Ok,
-                            )
-                        })
-                },
-                |(_, bytecode)| Ok(bytecode.clone()),
-            )
-            // Get the original bytes for proper decoding
-            .map(|code| code.original_bytes());
-
-        let code = match code {
-            Ok(code) => code,
-            Err(error) => {
-                *context.error() = Err(ContextError::Db(error));
-                return Some(CallOutcome::new(
-                    InterpreterResult::new(
-                        InstructionResult::FatalExternalError,
-                        Bytes::new(),
-                        Gas::new(0),
-                    ),
-                    inputs.return_memory_offset.clone(),
-                ));
-            }
-        };
+    fn call(&mut self, _context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
+        let code = inputs.known_bytecode.1.original_bytes();
 
         self.address_to_executed_code
             .insert(inputs.bytecode_address, code);

@@ -13,7 +13,7 @@ use edr_block_local::EthLocalBlock;
 use edr_chain_l1::{receipt::builder::L1ExecutionReceiptBuilder, L1ChainSpec};
 use edr_chain_spec::{ChainSpec, ExecutableTransaction as _, HardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
-use edr_chain_spec_evm::result::{ExecutionResult, Output, SuccessReason};
+use edr_chain_spec_evm::result::{ExecutionResult, Output, ResultGas, SuccessReason};
 use edr_chain_spec_provider::ProviderChainSpec as _;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_primitives::{Address, Bytes, B256, U256};
@@ -187,8 +187,7 @@ pub fn insert_dummy_block_with_transaction<
 
     let execution_result = ExecutionResult::Success {
         reason: SuccessReason::Stop,
-        gas_used: GAS_USED,
-        gas_refunded: 0,
+        gas: ResultGas::new_with_state_gas(GAS_USED, 0, 0, 0),
         logs: vec![
             ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::new()),
             ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::new()),

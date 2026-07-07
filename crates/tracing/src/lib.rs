@@ -10,15 +10,46 @@ use edr_chain_spec::HaltReasonTrait;
 use edr_chain_spec_evm::{
     interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
-        EthInterpreter, Interpreter, Jumps as _, SuccessOrHalt,
+        EthInterpreter, Gas, Interpreter, Jumps as _, SuccessOrHalt,
     },
-    result::{ExecutionResult, Output},
+    result::{ExecutionResult, Output, ResultGas},
     ContextTrait, Inspector, JournalTrait,
 };
 use edr_database_components::DatabaseComponents;
 use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
 use edr_state_api::State;
 use revm_inspector::JournalExt;
+
+/// Build a [`ResultGas`] from a [`Gas`] accumulator at end-of-execution. Used
+/// for Success/Revert outcomes that did not consume the entire gas limit.
+///
+/// The `floor_gas` argument is `0`: the EIP-7623 calldata floor is a
+/// transaction-level value that revm only applies during post-execution, after
+/// the outermost frame returns. It is not present on the per-frame [`Gas`]
+/// accumulator the inspector observes here, so there is no floor value to read.
+///
+/// Consequently [`ResultGas::final_refunded`] and [`ResultGas::tx_gas_used`]
+/// derived from this reconstruction are not floor-adjusted: `final_refunded`
+/// collapses to the raw refund and `tx_gas_used` to `spent - refunded`. These
+/// per-message figures are for the trace/debug surface only; consumers that
+/// need the floor-accurate refund or gas used must read them from revm's
+/// [`ExecutionResult`].
+fn result_gas_from_spent(gas: &Gas) -> ResultGas {
+    ResultGas::new_with_state_gas(
+        gas.total_gas_spent(),
+        gas.refunded() as u64,
+        0,
+        gas.state_gas_spent(),
+    )
+}
+
+/// Build a [`ResultGas`] from a [`Gas`] accumulator where the full limit was
+/// consumed (e.g. for a Halt outcome).
+///
+/// `floor_gas` is `0` for the same reason as in [`result_gas_from_spent`].
+fn result_gas_from_limit(gas: &Gas) -> ResultGas {
+    ResultGas::new_with_state_gas(gas.limit(), 0, 0, gas.state_gas_spent())
+}
 
 /// Stack tracing message
 #[derive(Clone, Debug)]
@@ -297,21 +328,23 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             ret
         };
 
+        let outcome_gas = outcome.gas();
         let execution_result = match SuccessOrHalt::from(safe_ret) {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
-                gas_used: outcome.gas().spent(),
-                gas_refunded: outcome.gas().refunded() as u64,
+                gas: result_gas_from_spent(&outcome_gas),
                 logs: context.journal().logs().to_vec(),
                 output: Output::Call(outcome.output().clone()),
             },
             SuccessOrHalt::Revert => ExecutionResult::Revert {
-                gas_used: outcome.gas().spent(),
+                gas: result_gas_from_spent(&outcome_gas),
+                logs: context.journal().logs().to_vec(),
                 output: outcome.output().clone(),
             },
             SuccessOrHalt::Halt(reason) => ExecutionResult::Halt {
                 reason,
-                gas_used: outcome.gas().limit(),
+                gas: result_gas_from_limit(&outcome_gas),
+                logs: context.journal().logs().to_vec(),
             },
             SuccessOrHalt::Internal(_) => {
                 panic!("Internal error: {safe_ret:?}")
@@ -391,18 +424,19 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         let execution_result = match SuccessOrHalt::from(safe_ret) {
             SuccessOrHalt::Success(reason) => ExecutionResult::Success {
                 reason,
-                gas_used: outcome.gas().spent(),
-                gas_refunded: outcome.gas().refunded() as u64,
+                gas: result_gas_from_spent(outcome.gas()),
                 logs: context.journal().logs().to_vec(),
                 output: Output::Create(outcome.output().clone(), outcome.address),
             },
             SuccessOrHalt::Revert => ExecutionResult::Revert {
-                gas_used: outcome.gas().spent(),
+                gas: result_gas_from_spent(outcome.gas()),
+                logs: context.journal().logs().to_vec(),
                 output: outcome.output().clone(),
             },
             SuccessOrHalt::Halt(reason) => ExecutionResult::Halt {
                 reason,
-                gas_used: outcome.gas().limit(),
+                gas: result_gas_from_limit(outcome.gas()),
+                logs: context.journal().logs().to_vec(),
             },
             SuccessOrHalt::Internal(error) => {
                 panic!("Internal error: {error:?}")

@@ -1,6 +1,6 @@
 import { RpcDebugTraceOutput } from "hardhat/internal/hardhat-network/provider/output";
 
-// Trace generated using Geth 1.16.7
+// Trace generated using Geth 1.17.3
 //
 // Start the Geth dev node with debug API enabled:
 // ```bash
@@ -104,7 +104,7 @@ export const trace: RpcDebugTraceOutput = {
       depth: 1,
       stack: [],
       memory: [
-        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
       ],
     },
     {
@@ -115,7 +115,7 @@ export const trace: RpcDebugTraceOutput = {
       depth: 1,
       stack: ["0x0"],
       memory: [
-        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
       ],
     },
   ],

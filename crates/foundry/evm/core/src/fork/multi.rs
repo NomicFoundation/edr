@@ -329,7 +329,6 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 
     /// Returns the list of additional senders of a matching task for the given
     /// id, if any.
-    #[expect(irrefutable_let_patterns)]
     fn find_in_progress_task(
         &mut self,
         id: &ForkId,

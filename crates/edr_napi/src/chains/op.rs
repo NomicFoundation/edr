@@ -1,10 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use edr_napi_core::{
-    logger::Logger,
-    provider::{SyncProvider, SyncProviderFactory},
-    subscription::subscriber_callback_for_chain_spec,
-};
+use edr_napi_core::{logger::Logger, provider::SyncProvider};
 use edr_op::{
     predeploys::{
         gas_price_oracle_code_ecotone, gas_price_oracle_code_fjord, gas_price_oracle_code_isthmus,
@@ -25,7 +21,8 @@ use parking_lot::RwLock;
 
 use crate::{
     account::{AccountOverride, StorageSlot},
-    provider::ProviderFactory,
+    provider::{factory::SyncProviderFactory, ProviderFactory},
+    subscription::{subscriber_callback_for_chain_spec, SubscriptionTsfn},
 };
 
 pub struct OpProviderFactory;
@@ -36,7 +33,7 @@ impl SyncProviderFactory for OpProviderFactory {
         runtime: runtime::Handle,
         provider_config: edr_napi_core::provider::Config,
         logger_config: edr_napi_core::logger::Config,
-        subscription_callback: edr_napi_core::subscription::Callback,
+        subscription_callback: Arc<SubscriptionTsfn>,
         contract_decoder: Arc<RwLock<ContractDecoder>>,
     ) -> napi::Result<Arc<dyn SyncProvider>> {
         let logger =
@@ -61,6 +58,7 @@ impl SyncProviderFactory for OpProviderFactory {
 
 /// Enumeration of supported OP hardforks.
 #[napi]
+#[derive(Clone, Copy)]
 pub enum OpHardfork {
     Bedrock = 100,
     Regolith = 101,

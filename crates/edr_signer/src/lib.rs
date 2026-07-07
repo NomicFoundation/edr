@@ -152,7 +152,7 @@ pub fn secret_key_from_str(
     }
     // Hex error can leak character, so use opaque one.
     .map_err(|_err| SignatureError::InvalidSecretKeyHex)?;
-    let secret_key = FieldBytes::from_exact_iter(secret_key.into_iter())
+    let secret_key = FieldBytes::from_exact_iter(secret_key)
         .ok_or_else(|| SignatureError::InvalidSecretKeyLength)?;
     SecretKey::from_bytes(&secret_key).map_err(SignatureError::EllipticCurveError)
 }

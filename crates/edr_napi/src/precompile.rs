@@ -24,15 +24,6 @@ impl Precompile {
     }
 }
 
-impl From<edr_precompile::Precompile> for Precompile {
-    fn from(value: edr_precompile::Precompile) -> Self {
-        Self {
-            address: *value.address(),
-            precompile_fn: value.into_precompile(),
-        }
-    }
-}
-
 #[napi]
 impl Precompile {
     /// Returns the address of the precompile.
@@ -46,5 +37,18 @@ impl Precompile {
 /// secp256r1 precompile.
 #[napi(catch_unwind)]
 pub fn precompile_p256_verify() -> Precompile {
-    Precompile::from(edr_precompile::secp256r1::P256VERIFY)
+    /// Wrapper function for the `P256VERIFY` precompile that conforms to the
+    /// [`edr_precompile::PrecompileFn`] signature.
+    fn p256_verify_precompile_fn(
+        input: &[u8],
+        gas_limit: u64,
+        reservoir: u64,
+    ) -> edr_precompile::PrecompileResult {
+        edr_precompile::secp256r1::P256VERIFY.execute(input, gas_limit, reservoir)
+    }
+
+    Precompile::new(
+        *edr_precompile::secp256r1::P256VERIFY.address(),
+        p256_verify_precompile_fn,
+    )
 }

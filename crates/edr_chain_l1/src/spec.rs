@@ -88,6 +88,12 @@ impl ContextChainSpec for L1ChainSpec {
 impl EvmChainSpec for L1ChainSpec {
     type PrecompileProvider<BlockEnvT: BlockEnvTrait, DatabaseT: Database> = EthPrecompiles;
 
+    fn new_precompile_provider<BlockEnvT: BlockEnvTrait, DatabaseT: Database>(
+        hardfork: Self::Hardfork,
+    ) -> Self::PrecompileProvider<BlockEnvT, DatabaseT> {
+        EthPrecompiles::new(hardfork)
+    }
+
     fn dry_run<
         BlockEnvT: BlockEnvTrait,
         DatabaseT: Database,

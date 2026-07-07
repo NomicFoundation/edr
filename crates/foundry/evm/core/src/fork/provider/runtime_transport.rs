@@ -6,7 +6,7 @@ use std::{fmt, path::PathBuf, str::FromStr, sync::Arc};
 
 use alloy_json_rpc::{RequestPacket, ResponsePacket};
 use alloy_pubsub::{PubSubConnect, PubSubFrontend};
-use alloy_rpc_types::engine::{Claims, JwtSecret};
+use alloy_rpc_types_engine::{Claims, JwtSecret};
 use alloy_transport::{
     Authorization, BoxTransport, TransportError, TransportErrorKind, TransportFut,
 };
@@ -172,7 +172,6 @@ impl RuntimeTransport {
     pub fn reqwest_client(&self) -> Result<reqwest::Client, RuntimeTransportError> {
         let mut client_builder = reqwest::Client::builder()
             .timeout(self.timeout)
-            .tls_built_in_root_certs(self.url.scheme() == "https")
             .danger_accept_invalid_certs(self.accept_invalid_certs);
         let mut headers = reqwest::header::HeaderMap::new();
 

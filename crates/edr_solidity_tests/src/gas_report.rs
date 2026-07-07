@@ -230,8 +230,8 @@ impl From<GasReport> for edr_gas_report::GasReport {
             .map(|(contract_name, contract)| {
                 let functions = contract
                     .functions
-                    .into_iter()
-                    .flat_map(|(_, sigs)| {
+                    .into_values()
+                    .flat_map(|sigs| {
                         sigs.into_iter().map(|(sig, gas_info)| {
                             let reports = gas_info
                                 .calls

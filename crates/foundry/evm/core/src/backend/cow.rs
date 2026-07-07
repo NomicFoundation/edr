@@ -12,8 +12,7 @@ use revm::{
     context::{result::HaltReasonTr, JournalInner},
     context_interface::result::ResultAndState,
     database::DatabaseRef,
-    primitives::HashMap as Map,
-    state::{Account, AccountInfo},
+    state::{AccountInfo, EvmState},
     Database, DatabaseCommit, InspectEvm, JournalEntry,
 };
 
@@ -536,7 +535,7 @@ impl<
         ChainContextT,
     >
 {
-    fn commit(&mut self, changes: Map<Address, Account>) {
+    fn commit(&mut self, changes: EvmState) {
         self.backend.to_mut().commit(changes);
     }
 }

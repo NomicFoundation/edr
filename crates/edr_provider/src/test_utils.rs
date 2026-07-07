@@ -18,7 +18,7 @@ use parking_lot::RwLock;
 use tokio::runtime;
 
 use crate::{
-    config::{ForkConfig, LocalConfig, MiningConfig, ProviderConfig},
+    config::{ForkConfig, GasEstimationMode, LocalConfig, MiningConfig, ProviderConfig},
     error::ProviderErrorForChainSpec,
     observability::ObservabilityConfig,
     time::{CurrentTime, TimeSinceEpoch},
@@ -205,6 +205,7 @@ pub fn create_test_config_with<HardforkT: Default>(
         bail_on_call_failure: false,
         bail_on_transaction_failure: false,
         base_fee_params: None,
+        gas_estimation_mode: GasEstimationMode::TopLevelSuccess,
         chain_id: 123,
         coinbase: Address::from(U160::from(1)),
         // SAFETY: literal is non-zero
@@ -434,4 +435,38 @@ fn genesis_state_with_funded_owned_accounts(
             (address, account_override)
         })
         .collect()
+}
+
+pub fn transfer_value(
+    provider: &Provider<L1ChainSpec>,
+    from: Address,
+    to: Address,
+    value: U256,
+) -> L1RpcTransactionReceipt {
+    let request = TransactionRequest {
+        from,
+        to: Some(to),
+        value: Some(value),
+        ..TransactionRequest::default()
+    };
+
+    let response = provider
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(request),
+        ))
+        .expect("eth_sendTransaction should succeed");
+
+    let transaction_hash: B256 =
+        serde_json::from_value(response.result).expect("response should be a transaction hash");
+
+    let response = provider
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::GetTransactionReceipt(transaction_hash),
+        ))
+        .expect("eth_getTransactionReceipt should succeed");
+
+    let receipt: Option<L1RpcTransactionReceipt> =
+        serde_json::from_value(response.result).expect("response should be a receipt");
+
+    receipt.expect("receipt should exist")
 }

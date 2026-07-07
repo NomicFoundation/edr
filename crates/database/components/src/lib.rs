@@ -2,11 +2,8 @@
 #![warn(missing_docs)]
 
 use edr_blockchain_api::BlockHashByNumber;
-use edr_primitives::{Address, Bytecode, HashMap, B256, U256};
-use edr_state_api::{
-    account::{Account, AccountInfo},
-    State, StateCommit,
-};
+use edr_primitives::{Address, Bytecode, B256, U256};
+use edr_state_api::{account::AccountInfo, EvmState, State, StateCommit};
 use revm_database_interface::{DBErrorMarker, DatabaseRef};
 pub use revm_database_interface::{Database, WrapDatabaseRef};
 
@@ -71,7 +68,7 @@ where
 impl<BlockchainT: BlockHashByNumber, StateT: StateCommit> StateCommit
     for DatabaseComponents<BlockchainT, StateT>
 {
-    fn commit(&mut self, changes: HashMap<Address, Account>) {
+    fn commit(&mut self, changes: EvmState) {
         self.state.commit(changes);
     }
 }

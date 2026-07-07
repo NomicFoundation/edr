@@ -119,11 +119,10 @@ pub trait EvmBuilderTrait<
     >;
 
     /// Type of the precompile provider used in the EVM.
-    type PrecompileProvider<DatabaseT: Database>: Default
-        + PrecompileProvider<
-            EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
-            Output = InterpreterResult,
-        >;
+    type PrecompileProvider<DatabaseT: Database>: PrecompileProvider<
+        EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
+        Output = InterpreterResult,
+    >;
 
     fn evm_with_inspector<
         DatabaseT: Database,
@@ -221,7 +220,7 @@ impl
             context,
             inspector,
             EthInstructions::new_mainnet_with_spec(hardfork),
-            EthPrecompiles::default(),
+            EthPrecompiles::new(hardfork),
         )
     }
 }

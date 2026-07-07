@@ -13,7 +13,7 @@ use foundry_evm::{
 
 use crate::{
     fork::CreateFork,
-    opts::{Env as EvmEnv, EvmOpts},
+    opts::{effective_transaction_gas_cap, Env as EvmEnv, EvmOpts},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -109,12 +109,25 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
     }
 }
 
+/// The gas limit Solidity tests run with when no EIP-7825 transaction gas cap
+/// applies. Tests intentionally use a very large limit so they never run out of
+/// gas.
+pub const MAX_TEST_TRANSACTION_GAS_LIMIT: u64 = i64::MAX as u64;
+
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
     /// The default evm options for the Solidity test runner.
     pub fn default_evm_opts() -> EvmOpts<HardforkT> {
+        let spec = HardforkT::default();
+        // Solidity tests want as much gas as possible, but a transaction whose
+        // gas limit exceeds the EIP-7825 cap (active by default from Osaka on)
+        // is rejected. Lower the default gas limit to the effective cap when
+        // one applies; otherwise use the maximum.
+        let gas_limit = effective_transaction_gas_cap(spec, None, false)
+            .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT);
+
         EvmOpts {
             env: EvmEnv {
-                gas_limit: i64::MAX.try_into().expect("max i64 fits into u64"),
+                gas_limit,
                 chain_id: Some(31337),
                 gas_price: Some(0),
                 block_base_fee_per_gas: 0,
@@ -127,7 +140,7 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
                 block_coinbase: Address::default(),
                 code_size_limit: None,
             },
-            spec: HardforkT::default(),
+            spec,
             fork_url: None,
             fork_block_number: None,
             fork_retries: None,

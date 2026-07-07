@@ -1,7 +1,10 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
 use edr_primitives::{Address, Bytes, HashMap, StorageKey, B256, U256};
-use edr_state_api::account::{Account, AccountInfo, BasicAccount};
+use edr_state_api::{
+    account::{Account, AccountInfo, BasicAccount},
+    EvmState,
+};
 use hasher::{Hasher, HasherKeccak};
 use rpds::HashTrieMapSync;
 
@@ -51,7 +54,7 @@ impl PersistentAccountAndStorageTrie {
     /// Commits changes to the state.
     /// Inspired by <https://github.com/bluealloy/revm/blob/688c36ca4525cc44aa7c547b7b0f22a9490c4f2f/crates/revm/src/db/in_memory_db.rs#L131>
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
-    pub fn commit(&mut self, changes: &HashMap<Address, Account>) {
+    pub fn commit(&mut self, changes: &EvmState) {
         let mut account_trie_mutation = self.mutate();
 
         changes.iter().for_each(|(address, account)| {

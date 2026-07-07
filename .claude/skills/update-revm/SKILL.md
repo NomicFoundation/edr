@@ -52,6 +52,7 @@ Also check and update these related ecosystem crates if needed:
 - `revm-inspectors` (from paradigmxyz/revm-inspectors) — find a compatible version/commit
 - `foundry-fork-db` — find a compatible version if it exists
 - `c-kzg` — update if the REVM release requires a newer version
+- `op-alloy-rpc-types` (from alloy-rs/op-alloy) — keep compatible with the op-revm/alloy versions; bump if the upgrade requires it
 
 If the project uses a `[patch]` section for any of these crates, note it may need updating.
 

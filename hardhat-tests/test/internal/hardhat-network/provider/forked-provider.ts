@@ -123,6 +123,12 @@ describe("Forked provider", function () {
               await this.provider.send("hardhat_impersonateAccount", [
                 BITFINEX_WALLET_ADDRESS.toString(),
               ]);
+              // Fork is at the latest block, so don't rely on the impersonated
+              // account's live balance to cover the transaction.
+              await this.provider.send("hardhat_setBalance", [
+                BITFINEX_WALLET_ADDRESS.toString(),
+                numberToRpcQuantity(10n ** 20n),
+              ]);
 
               const getWrappedBalance = async () => {
                 const balanceOfSelector = `0x70a08231${leftPad32(
@@ -167,6 +173,12 @@ describe("Forked provider", function () {
 
               await this.provider.send("hardhat_impersonateAccount", [
                 BITFINEX_WALLET_ADDRESS.toString(),
+              ]);
+              // Fork is at the latest block, so don't rely on the impersonated
+              // account's live balance to cover the transaction.
+              await this.provider.send("hardhat_setBalance", [
+                BITFINEX_WALLET_ADDRESS.toString(),
+                numberToRpcQuantity(10n ** 20n),
               ]);
 
               await this.provider.send("eth_sendTransaction", [
@@ -401,6 +413,12 @@ describe("Forked provider", function () {
           await this.provider.send("hardhat_impersonateAccount", [
             BITFINEX_WALLET_ADDRESS.toString(),
           ]);
+          // Fork is at the latest block, so don't rely on the impersonated
+          // account's live balance to cover the transaction.
+          await this.provider.send("hardhat_setBalance", [
+            BITFINEX_WALLET_ADDRESS.toString(),
+            numberToRpcQuantity(10n ** 20n),
+          ]);
 
           await this.provider.send("eth_sendTransaction", [
             {
@@ -433,6 +451,12 @@ describe("Forked provider", function () {
           // Impersonate the DAI exchange contract
           await this.provider.send("hardhat_impersonateAccount", [
             daiExchangeAddress,
+          ]);
+          // Fork is at the latest block, so don't rely on the impersonated
+          // account's live balance to cover the transaction.
+          await this.provider.send("hardhat_setBalance", [
+            daiExchangeAddress,
+            numberToRpcQuantity(10n ** 20n),
           ]);
 
           // Transfer 10^18 DAI from the exchange contract to the EMPTY_ACCOUNT_ADDRESS

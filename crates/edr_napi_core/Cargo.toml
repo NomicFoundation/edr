@@ -26,8 +26,8 @@ edr_solidity.workspace = true
 edr_solidity_tests.workspace = true
 edr_transaction.workspace = true
 foundry-cheatcodes.workspace = true
-itertools = { version = "0.14.0", default-features = false }
-napi = { version = "2.16.10", default-features = false, features = [
+itertools = { version = "0.15.0", default-features = false }
+napi = { version = "3", default-features = false, features = [
     "async",
     "error_anyhow",
     "napi8",
@@ -38,6 +38,13 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+
+[dev-dependencies]
+# `dyn-symbols` resolves N-API symbols at runtime so this crate's unit-test
+# binary links without a Node host: the tests keep `napi::Error` Drop paths
+# alive, which reference N-API symbols only a Node host provides. Kept out of
+# [dependencies] so nothing downstream ships libloading resolution.
+napi = { version = "3", default-features = false, features = ["dyn-symbols"] }
 
 [features]
 tracing = [

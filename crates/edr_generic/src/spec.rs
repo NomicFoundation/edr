@@ -161,6 +161,12 @@ impl EvmChainSpec for GenericChainSpec {
     type PrecompileProvider<BlockT: BlockEnvTrait, DatabaseT: Database> =
         <L1ChainSpec as EvmChainSpec>::PrecompileProvider<BlockT, DatabaseT>;
 
+    fn new_precompile_provider<BlockT: BlockEnvTrait, DatabaseT: Database>(
+        hardfork: Self::Hardfork,
+    ) -> Self::PrecompileProvider<BlockT, DatabaseT> {
+        <L1ChainSpec as EvmChainSpec>::new_precompile_provider::<BlockT, DatabaseT>(hardfork)
+    }
+
     fn dry_run<
         BlockT: BlockEnvTrait,
         DatabaseT: Database,

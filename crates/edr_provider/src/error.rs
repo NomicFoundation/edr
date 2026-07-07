@@ -709,6 +709,9 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailure<Halt
                 )
             }
             TransactionFailureReason::Inner(halt) => write!(f, "{halt:?}"),
+            TransactionFailureReason::InternalCallOutOfGas => {
+                write!(f, "Transaction's internal call ran out of gas")
+            }
             TransactionFailureReason::OpcodeNotFound => {
                 write!(
                     f,
@@ -728,6 +731,7 @@ pub enum TransactionFailureReason<HaltReasonT: HaltReasonTrait> {
     OpcodeNotFound,
     OutOfGas(OutOfGasError),
     Revert(Bytes),
+    InternalCallOutOfGas,
 }
 
 fn revert_error(output: &Bytes) -> String {

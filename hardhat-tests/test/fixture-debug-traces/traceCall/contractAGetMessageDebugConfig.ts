@@ -1,6 +1,6 @@
 import { GethTrace } from "../types";
 
-// Trace generated using Geth 1.16.7
+// Trace generated using Geth 1.17.3
 //
 // Start the Geth dev node with debug API enabled:
 // ```bash

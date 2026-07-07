@@ -223,7 +223,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTracer<HaltReasonT> {
         if let Some(trace) = self.message_traces.last_mut() {
             let mut trace = trace.borrow_mut();
 
-            trace.set_gas_used(result.gas_used());
+            trace.set_gas_used(result.tx_gas_used());
 
             match result {
                 ExecutionResult::Success { output, .. } => {
