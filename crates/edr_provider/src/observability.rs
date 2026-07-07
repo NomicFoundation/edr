@@ -163,9 +163,18 @@ impl EvmObserver {
         let tracing_config = if config.verbose_raw_tracing {
             TracingInspectorConfig::all()
         } else {
+            // The stack-trace and internal-OOG paths read pcs and statuses,
+            // never step stacks, so snapshots are only needed when traces are
+            // included in responses.
+            let stack_snapshots = if config.include_call_traces == IncludeTraces::None {
+                StackSnapshotType::None
+            } else {
+                StackSnapshotType::Top
+            };
+
             TracingInspectorConfig::default_parity()
                 .set_steps(true)
-                .set_stack_snapshots(StackSnapshotType::Full)
+                .set_stack_snapshots(stack_snapshots)
         };
 
         Self {

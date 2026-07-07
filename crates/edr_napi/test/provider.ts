@@ -194,6 +194,95 @@ describe("Provider", () => {
       assert.deepEqual(steps[3].stack, [1n, 2n, 3n]);
     });
 
+    it("should include the top of the stack across nested call frames", async function () {
+      const provider = await createGenericProvider(
+        context,
+        tracingProviderOverrides
+      );
+
+      // Deploy a contract with runtime code:
+      // PUSH1 0x0a
+      // PUSH1 0x0b
+      // STOP
+      await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH5 0x600a600b00
+              // PUSH0
+              // MSTORE
+              // PUSH1 5 (length)
+              // PUSH1 27 (offset)
+              // RETURN
+              data: "0x64600a600b005f526005601bf3",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      const calleeAddress = 0x5fbdb2315678afecb367f032d93f642f64180aa3n;
+
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 2,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 0 (x5: return length & offset, args length & offset, value)
+              // PUSH20 <callee address>
+              // PUSH2 0xffff (gas)
+              // CALL
+              // PUSH1 0x2a
+              // STOP
+              data: "0x60006000600060006000735fbdb2315678afecb367f032d93f642f64180aa361fffff1602a00",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      const rawTraces = responseObject.traces();
+      assert.lengthOf(rawTraces, 1);
+
+      const trace = rawTraces[0];
+      const steps = collectSteps(trace);
+
+      assert.lengthOf(steps, 13);
+      assert.deepEqual(
+        steps.map((step) => step.depth),
+        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0]
+      );
+
+      assert.deepEqual(
+        steps.map((step) => step.stack),
+        [
+          // Caller frame: PUSH1 0 (x5), PUSH20, PUSH2, CALL
+          [],
+          [0n],
+          [0n],
+          [0n],
+          [0n],
+          [0n],
+          [calleeAddress],
+          [0xffffn],
+          // Callee frame: PUSH1 0x0a, PUSH1 0x0b, STOP
+          [],
+          [0x0an],
+          [0x0bn],
+          // Caller frame: PUSH1 0x2a sees the CALL success flag, then STOP
+          [1n],
+          [0x2an],
+        ]
+      );
+    });
+
     it("should not include memory by default", async function () {
       const provider = await createGenericProvider(
         context,
