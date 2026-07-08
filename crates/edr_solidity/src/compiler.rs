@@ -29,10 +29,10 @@ pub const FIRST_SOLC_VERSION_SUPPORTED: semver::Version = semver::Version::new(0
 /// source files. The producing compiler is expressed by the concrete
 /// `ArtifactT` (or `Box<dyn CompilerArtifact>` after the factory) — no
 /// external tag is threaded in.
-pub fn create_models_and_decode_bytecodes<A: CompilerArtifact>(
+pub fn create_models_and_decode_bytecodes<ArtifactT: CompilerArtifact>(
     solc_version: String,
     compiler_input: &CompilerInput,
-    compiler_output: &CompilerOutput<A>,
+    compiler_output: &CompilerOutput<ArtifactT>,
 ) -> anyhow::Result<Vec<IdentifiedContract>> {
     let build_model = create_sources_model_from_ast(compiler_output, compiler_input)?;
     let build_model = Arc::new(build_model);
@@ -46,8 +46,8 @@ pub fn create_models_and_decode_bytecodes<A: CompilerArtifact>(
 
 /// Build the [`BuildModel`] from the compiler input AST + output — the
 /// compiler-agnostic per-project index that the stack-trace pipeline reads.
-pub fn create_sources_model_from_ast<A: CompilerArtifact>(
-    compiler_output: &CompilerOutput<A>,
+pub fn create_sources_model_from_ast<ArtifactT: CompilerArtifact>(
+    compiler_output: &CompilerOutput<ArtifactT>,
     compiler_input: &CompilerInput,
 ) -> anyhow::Result<BuildModel> {
     // First, collect and store all the files to be able to resolve the source
@@ -122,12 +122,12 @@ pub fn create_sources_model_from_ast<A: CompilerArtifact>(
     })
 }
 
-fn process_ast_nodes<A: CompilerArtifact>(
+fn process_ast_nodes<ArtifactT: CompilerArtifact>(
     source_name: &str,
     ast: &serde_json::Value,
     file: &RwLock<SourceFile>,
     sources: &Arc<BuildModelSources>,
-    compiler_output: &CompilerOutput<A>,
+    compiler_output: &CompilerOutput<ArtifactT>,
     contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
     contract_id_to_contract: &mut IndexMap<u32, Arc<RwLock<Contract>>>,
 ) -> anyhow::Result<()> {
@@ -751,9 +751,9 @@ fn ast_src_to_source_location(
     ))))
 }
 
-fn correct_selectors<A: CompilerArtifact>(
+fn correct_selectors<ArtifactT: CompilerArtifact>(
     contracts: &[IdentifiedContract],
-    compiler_output: &CompilerOutput<A>,
+    compiler_output: &CompilerOutput<ArtifactT>,
 ) -> anyhow::Result<()> {
     for identified in contracts.iter().filter(|c| !c.metadata.is_deployment) {
         let mut contract = identified.metadata.contract.write();
@@ -815,11 +815,11 @@ fn abi_method_id(name: &str, param_types: Vec<impl AsRef<str>>) -> Vec<u8> {
         .to_vec()
 }
 
-fn decode_evm_bytecode<A: CompilerArtifact>(
+fn decode_evm_bytecode<ArtifactT: CompilerArtifact>(
     contract: Arc<RwLock<Contract>>,
     solc_version: String,
     is_deployment: bool,
-    artifact: &A,
+    artifact: &ArtifactT,
     build_model: &Arc<BuildModel>,
 ) -> anyhow::Result<IdentifiedContract> {
     let library_address_positions = get_library_address_positions(artifact);
