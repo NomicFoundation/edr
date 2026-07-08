@@ -377,8 +377,10 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReason
                 source_reference,
                 function_type: func.r#type,
             });
+        } else {
+            let fallback = context.unresolved_callstack_entry(&contract.name, inst_location)?;
+            return Ok(fallback);
         }
-        return Ok(context.unresolved_callstack_entry(&contract.name, inst_location)?);
     };
 
     let file = inst_location.file()?;
