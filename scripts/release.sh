@@ -17,4 +17,8 @@ cd ./crates/edr_napi
 # Run `napi version` to update version in cross-platform packages
 pnpm napi version
 
-cd ../.. 
+# Regenerate index.js/index.d.ts so napi-rs v3 updates the version check
+# to match the bump (otherwise the edr-napi-typings-file CI check fails).
+pnpm build:typingFile
+
+cd ../..
