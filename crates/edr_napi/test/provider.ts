@@ -17,6 +17,7 @@ import {
   opHardforkToString,
   OpHardfork,
   SpecId,
+  StackSnapshotType,
 } from "..";
 import {
   ALCHEMY_URL,
@@ -111,11 +112,53 @@ describe("Provider", () => {
       },
     };
 
-    it("should only include the top of the stack by default", async function () {
+    it("should not include the stack by default", async function () {
       const provider = await createGenericProvider(
         context,
         tracingProviderOverrides
       );
+
+      const responseObject = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              // PUSH1 1
+              // PUSH1 2
+              // PUSH1 3
+              // STOP
+              data: "0x60016002600300",
+              gas: "0x" + 1_000_000n.toString(16),
+            },
+          ],
+        })
+      );
+
+      const rawTraces = responseObject.traces();
+      assert.lengthOf(rawTraces, 1);
+
+      const trace = rawTraces[0];
+      const steps = collectSteps(trace);
+
+      assert.lengthOf(steps, 4);
+
+      assert.deepEqual(steps[0].stack, []);
+      assert.deepEqual(steps[1].stack, []);
+      assert.deepEqual(steps[2].stack, []);
+      assert.deepEqual(steps[3].stack, []);
+    });
+
+    it("should only include the top of the stack if configured", async function () {
+      const provider = await createGenericProvider(context, {
+        ...tracingProviderOverrides,
+        observability: {
+          recordStack: StackSnapshotType.Top,
+          ...tracingProviderOverrides.observability,
+        },
+      });
 
       const responseObject = await provider.handleRequest(
         JSON.stringify({
@@ -195,10 +238,13 @@ describe("Provider", () => {
     });
 
     it("should include the top of the stack across nested call frames", async function () {
-      const provider = await createGenericProvider(
-        context,
-        tracingProviderOverrides
-      );
+      const provider = await createGenericProvider(context, {
+        ...tracingProviderOverrides,
+        observability: {
+          recordStack: StackSnapshotType.Top,
+          ...tracingProviderOverrides.observability,
+        },
+      });
 
       // Deploy a contract with runtime code:
       // PUSH1 0x0a
