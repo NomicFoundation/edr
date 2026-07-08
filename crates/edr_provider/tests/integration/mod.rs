@@ -1,3 +1,4 @@
+mod call_traces;
 mod coverage;
 mod disable_balance_check;
 mod disable_block_gas_limit;
