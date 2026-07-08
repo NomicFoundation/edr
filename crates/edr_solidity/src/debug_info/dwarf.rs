@@ -553,6 +553,14 @@ impl ParsedDwarf {
         line_starts_cache: &mut HashMap<u32, Vec<usize>>,
     ) -> Option<Arc<SourceLocation>> {
         let (file_idx, line) = (r.call_file?, r.call_line?);
+        let Some(line) = NonZeroU64::new(line) else {
+            log::warn!(
+                "DWARF inlined range call_line=0 (no line) for call_file={file_idx}, \
+                 skipping bottom-frame resolution for this range"
+            );
+            return None;
+        };
+
         let column = r.call_column.unwrap_or(0);
         let (file_id, offset) = resolve_location(
             file_idx,
@@ -614,7 +622,7 @@ impl ParsedDwarf {
         let line_program_func: Option<Arc<crate::build_model::ContractFunction>> = self
             .location_for_pc(pc)
             .and_then(|row| {
-                let line = row.line?.get();
+                let line = row.line?;
                 let (file_id, offset) = resolve_location_by_name(
                     &row.file,
                     line,
@@ -677,7 +685,7 @@ impl ParsedDwarf {
             && let Some(line) = row.line
             && let Some((file_id, offset)) = resolve_location_by_name(
                 &row.file,
-                line.get(),
+                line,
                 row.column,
                 name_to_file_id,
                 build_model,
@@ -839,7 +847,7 @@ impl ParsedDwarf {
 /// `(file_id, byte_offset)` pair.
 fn resolve_location(
     dwarf_file_index: u64,
-    line: u64,
+    line: NonZeroU64,
     column: u64,
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
@@ -861,7 +869,7 @@ fn resolve_location(
 /// Used when the file path is already resolved (e.g. via `addr2line`).
 fn resolve_location_by_name(
     dwarf_name: &str,
-    line: u64,
+    line: NonZeroU64,
     column: u64,
     name_to_file_id: &HashMap<String, u32>,
     build_model: &Arc<BuildModel>,
@@ -871,7 +879,7 @@ fn resolve_location_by_name(
     let starts = line_starts_cache
         .entry(file_id)
         .or_insert_with(|| compute_line_starts(build_model, file_id));
-    let line_idx = line.saturating_sub(1) as usize;
+    let line_idx = (line.get() - 1) as usize;
     let line_start = starts.get(line_idx).copied()?;
     let column_offset = if column == 0 { 0 } else { column as usize - 1 };
     Some((file_id, line_start + column_offset))
