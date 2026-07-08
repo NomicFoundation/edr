@@ -33,6 +33,7 @@ pub struct Provider {
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
     dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+    dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
     /// What a response reports to V8 for each call trace arena it carries.
     /// Follows `verbose_raw_tracing`, which [`Self::set_verbose_tracing`]
     /// toggles.
@@ -51,6 +52,7 @@ impl Provider {
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
         dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+        dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
@@ -60,6 +62,7 @@ impl Provider {
             provider,
             runtime,
             dropped_provider_sender,
+            dropped_response_sender,
             // `verbose_raw_tracing` is not exposed in the provider config, so
             // it starts disabled.
             call_trace_external_mem_size: AtomicI64::new(call_trace_external_mem_size(false)),
@@ -183,6 +186,8 @@ impl Provider {
             .call_trace_external_mem_size
             .load(atomic::Ordering::Relaxed);
 
+        let dropped_response_sender = self.dropped_response_sender.clone();
+
         let enqueue_request =
             move |provider: &dyn SyncProvider, request: napi::Result<String>| match request {
                 Ok(request) => provider.enqueue_request(
@@ -192,6 +197,7 @@ impl Provider {
                             Ok(GcResponse::from(Response::new(
                                 response,
                                 call_trace_external_mem_size,
+                                dropped_response_sender,
                             )))
                         }),
                         Err(error) => deferred.reject(error),

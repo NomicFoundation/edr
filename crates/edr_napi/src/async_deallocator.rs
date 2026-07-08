@@ -22,27 +22,24 @@ pub struct AsyncDeallocator<T: Send + 'static> {
 
 impl<T: Send + 'static> AsyncDeallocator<T> {
     /// Constructs a new instance.
-    pub fn new(runtime: runtime::Handle) -> io::Result<Self> {
+    pub fn new(thread_name: String, runtime: runtime::Handle) -> io::Result<Self> {
         let (sender, receiver) = unbounded::<T>();
 
-        let thread = CancellableThread::spawn(
-            "async-deallocator".to_owned(),
-            move |cancellation_receiver| {
-                loop {
-                    // `select_biased!` picks the first listed branch when multiple
-                    // arms are ready, so cancellation always wins over pending work.
-                    select_biased! {
-                        // Cancellation channel was disconnected by dropping the CancellableThread.
-                        recv(cancellation_receiver) -> _ => break,
-                        recv(receiver) -> msg => match msg {
-                            Ok(value) => drop(value),
-                            // All senders dropped; no more work can arrive.
-                            Err(_) => break,
-                        },
-                    }
+        let thread = CancellableThread::spawn(thread_name, move |cancellation_receiver| {
+            loop {
+                // `select_biased!` picks the first listed branch when multiple
+                // arms are ready, so cancellation always wins over pending work.
+                select_biased! {
+                    // Cancellation channel was disconnected by dropping the CancellableThread.
+                    recv(cancellation_receiver) -> _ => break,
+                    recv(receiver) -> msg => match msg {
+                        Ok(value) => drop(value),
+                        // All senders dropped; no more work can arrive.
+                        Err(_) => break,
+                    },
                 }
-            },
-        )?;
+            }
+        })?;
 
         Ok(Self {
             sender,
