@@ -76,62 +76,6 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
     ) -> Result<Option<SourceReference>, TraceStrategyError>;
 }
 
-/// Bundles `ContractMetadata` + [`TraceStrategy`] into one call-site handle.
-#[derive(Clone, Copy)]
-pub struct TraceContext<'a> {
-    /// Contract metadata for the current frame.
-    pub contract_meta: &'a ContractMetadata,
-    /// Compiler-specific stack-trace strategy for that contract.
-    pub strategy: &'a dyn TraceStrategy,
-}
-
-impl<'a> TraceContext<'a> {
-    /// See [`TraceStrategy::recursion_start_idx`].
-    pub fn recursion_start_idx(&self) -> usize {
-        self.strategy.recursion_start_idx()
-    }
-
-    /// See [`TraceStrategy::unresolved_callstack_entry`].
-    pub fn unresolved_callstack_entry(
-        &self,
-        contract_name: &str,
-        inst_location: &SourceLocation,
-    ) -> Result<StackTraceEntry, TraceStrategyError> {
-        self.strategy
-            .unresolved_callstack_entry(contract_name, inst_location)
-    }
-
-    /// See [`TraceStrategy::intermediate_frames`].
-    pub fn intermediate_frames(
-        &self,
-        last_instruction: &Instruction,
-        failing_function: &ContractFunction,
-    ) -> Result<Vec<StackTraceEntry>, TraceStrategyError> {
-        self.strategy
-            .intermediate_frames(self.contract_meta, last_instruction, failing_function)
-    }
-
-    /// See [`TraceStrategy::revert_source_reference`].
-    pub fn revert_source_reference(
-        &self,
-        inst_location: &SourceLocation,
-        failing_function: &ContractFunction,
-    ) -> Result<SourceReference, TraceStrategyError> {
-        self.strategy
-            .revert_source_reference(self.contract_meta, inst_location, failing_function)
-    }
-
-    /// See [`TraceStrategy::panic_helper_source_reference`].
-    pub fn panic_helper_source_reference(
-        &self,
-        primary_ref: Option<SourceReference>,
-        context: PanicHelperContext<'_>,
-    ) -> Result<Option<SourceReference>, TraceStrategyError> {
-        self.strategy
-            .panic_helper_source_reference(primary_ref, self.contract_meta, context)
-    }
-}
-
 /// Solc (sourceMap) trace-strategy impl.
 #[derive(Debug)]
 pub struct SolcTraceStrategy;

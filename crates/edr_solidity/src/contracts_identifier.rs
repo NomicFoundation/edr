@@ -23,7 +23,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct IdentifiedContract {
     /// Resolved metadata for the contract's bytecode.
-    pub metadata: Arc<ContractMetadata>,
+    pub contract_metadata: Arc<ContractMetadata>,
     /// Compiler-specific stack-trace strategy.
     pub trace_strategy: &'static dyn TraceStrategy,
 }
@@ -138,7 +138,7 @@ impl ContractsIdentifier {
         // We take advantage of this last observation, and just return the bytecode that
         // exactly matched the search_result (sub)trie that we got.
         match match_ {
-            Some(contract) if is_create && contract.metadata.is_deployment => {
+            Some(contract) if is_create && contract.contract_metadata.is_deployment => {
                 return Some(contract);
             }
             _ => {}
@@ -146,15 +146,18 @@ impl ContractsIdentifier {
 
         if normalize_libraries {
             for contract in &search_result.descendants {
-                if contract.metadata.library_address_positions.is_empty()
-                    && contract.metadata.immutable_references.is_empty()
+                if contract
+                    .contract_metadata
+                    .library_address_positions
+                    .is_empty()
+                    && contract.contract_metadata.immutable_references.is_empty()
                 {
                     continue;
                 }
 
                 let mut normalized_code = code.to_vec();
                 // zero out addresses
-                for &pos in &contract.metadata.library_address_positions {
+                for &pos in &contract.contract_metadata.library_address_positions {
                     let range = pos as usize..(pos as usize + Address::len_bytes());
 
                     if let Some(chunk) = normalized_code.get_mut(range) {
@@ -162,7 +165,7 @@ impl ContractsIdentifier {
                     }
                 }
                 // zero out slices
-                for imm in &contract.metadata.immutable_references {
+                for imm in &contract.contract_metadata.immutable_references {
                     let range = imm.start as usize..(imm.start as usize + imm.length as usize);
 
                     if let Some(chunk) = normalized_code.get_mut(range) {
@@ -278,7 +281,7 @@ mod tests {
 
     fn wrap(metadata: Arc<ContractMetadata>) -> IdentifiedContract {
         IdentifiedContract {
-            metadata,
+            contract_metadata: metadata,
             trace_strategy: &SolcTraceStrategy,
         }
     }
@@ -398,7 +401,7 @@ mod tests {
         let is_create = false;
         let contract = contracts_identifier.search_bytecode_from_root(is_create, &[1, 2, 3, 4, 5]);
         assert_eq!(
-            contract.as_ref().map(|c| Arc::as_ptr(&c.metadata)),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
 
@@ -420,7 +423,7 @@ mod tests {
         // should find the exact match
         let contract = contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3, 4, 5]);
         assert_eq!(
-            contract.as_ref().map(|c| Arc::as_ptr(&c.metadata)),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode1))
         );
 
@@ -428,7 +431,7 @@ mod tests {
         let contract =
             contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(
-            contract.as_ref().map(|c| Arc::as_ptr(&c.metadata)),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode2))
         );
 
@@ -466,7 +469,7 @@ mod tests {
         let contract =
             contracts_identifier.search_bytecode_from_root(is_create, &[1, 2, 3, 4, 5, 10, 11]);
         assert_eq!(
-            contract.as_ref().map(|c| Arc::as_ptr(&c.metadata)),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
 
@@ -524,7 +527,7 @@ mod tests {
         );
 
         assert_eq!(
-            contract.as_ref().map(|c| Arc::as_ptr(&c.metadata)),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }
@@ -566,7 +569,7 @@ mod tests {
         );
 
         assert_eq!(
-            contract.as_ref().map(|c| Arc::as_ptr(&c.metadata)),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }
@@ -619,7 +622,7 @@ mod tests {
         );
 
         assert_eq!(
-            contract.as_ref().map(|c| Arc::as_ptr(&c.metadata)),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }
@@ -701,7 +704,7 @@ mod tests {
         );
 
         assert_eq!(
-            contract.as_ref().map(|c| Arc::as_ptr(&c.metadata)),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }
@@ -726,7 +729,7 @@ mod tests {
             ],
         );
         assert_eq!(
-            contract.as_ref().map(|c| Arc::as_ptr(&c.metadata)),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }
@@ -766,11 +769,11 @@ mod tests {
 
         let mut identifier = ContractsIdentifier::default();
         identifier.add_bytecode(IdentifiedContract {
-            metadata: solc_meta.clone(),
+            contract_metadata: solc_meta.clone(),
             trace_strategy: &crate::trace_strategy::SolcTraceStrategy,
         });
         identifier.add_bytecode(IdentifiedContract {
-            metadata: solx_meta.clone(),
+            contract_metadata: solx_meta.clone(),
             trace_strategy: &crate::trace_strategy::SolxTraceStrategy,
         });
 
@@ -782,12 +785,12 @@ mod tests {
             .expect("solx variant must resolve");
 
         assert_eq!(
-            Arc::as_ptr(&solc_lookup.metadata),
+            Arc::as_ptr(&solc_lookup.contract_metadata),
             Arc::as_ptr(&solc_meta),
             "solc-built variant must resolve to its own ContractMetadata"
         );
         assert_eq!(
-            Arc::as_ptr(&solx_lookup.metadata),
+            Arc::as_ptr(&solx_lookup.contract_metadata),
             Arc::as_ptr(&solx_meta),
             "solx-built variant must resolve to its own ContractMetadata"
         );
@@ -827,7 +830,7 @@ mod tests {
         );
 
         assert_eq!(
-            contract.as_ref().map(|c| Arc::as_ptr(&c.metadata)),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }

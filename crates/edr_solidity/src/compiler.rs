@@ -755,8 +755,11 @@ fn correct_selectors<ArtifactT: CompilerArtifact>(
     contracts: &[IdentifiedContract],
     compiler_output: &CompilerOutput<ArtifactT>,
 ) -> anyhow::Result<()> {
-    for identified in contracts.iter().filter(|c| !c.metadata.is_deployment) {
-        let mut contract = identified.metadata.contract.write();
+    for identified in contracts
+        .iter()
+        .filter(|c| !c.contract_metadata.is_deployment)
+    {
+        let mut contract = identified.contract_metadata.contract.write();
         // Fetch the method identifiers for the contract from the compiler output
         let method_identifiers = match compiler_output
             .contracts
@@ -845,7 +848,7 @@ fn decode_evm_bytecode<ArtifactT: CompilerArtifact>(
         .with_context(|| format!("failed to decode debug-info for {section}"))?;
 
     Ok(IdentifiedContract {
-        metadata: Arc::new(ContractMetadata::new(
+        contract_metadata: Arc::new(ContractMetadata::new(
             Arc::clone(&build_model.file_id_to_source_file),
             contract,
             is_deployment,
@@ -859,9 +862,9 @@ fn decode_evm_bytecode<ArtifactT: CompilerArtifact>(
     })
 }
 
-fn decode_bytecodes<A: CompilerArtifact>(
+fn decode_bytecodes<ArtifactT: CompilerArtifact>(
     solc_version: String,
-    compiler_output: &CompilerOutput<A>,
+    compiler_output: &CompilerOutput<ArtifactT>,
     build_model: &Arc<BuildModel>,
 ) -> anyhow::Result<Vec<IdentifiedContract>> {
     let mut bytecodes = Vec::new();

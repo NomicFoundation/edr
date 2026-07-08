@@ -396,8 +396,7 @@ fn convert_to_external_trace<HaltReasonT: HaltReasonTrait>(
             NestedTrace::Create(CreateMessage {
                 number_of_subtraces,
                 steps: steps.into_iter().map(convert_to_external_step).collect(),
-                contract_meta: None,
-                trace_strategy: None,
+                identified_contract: None,
                 deployed_contract,
                 code,
                 value,
@@ -424,8 +423,7 @@ fn convert_to_external_trace<HaltReasonT: HaltReasonTrait>(
             NestedTrace::Call(CallMessage {
                 number_of_subtraces,
                 steps: steps.into_iter().map(convert_to_external_step).collect(),
-                contract_meta: None,
-                trace_strategy: None,
+                identified_contract: None,
                 calldata,
                 address,
                 code_address,

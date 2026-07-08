@@ -290,7 +290,7 @@ impl TrieKeyTrait for Arc<ContractMetadata> {
 
 impl TrieKeyTrait for crate::contracts_identifier::IdentifiedContract {
     fn key(&self) -> &[u8] {
-        &self.metadata.normalized_code
+        &self.contract_metadata.normalized_code
     }
 }
 

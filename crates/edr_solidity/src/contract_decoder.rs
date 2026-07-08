@@ -1,6 +1,6 @@
 //! Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
 
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
 
 use alloy_dyn_abi::{DynSolValue, FunctionExt as _, JsonAbiExt};
 use edr_chain_spec::HaltReasonTrait;
@@ -24,11 +24,10 @@ use super::{
 };
 use crate::{
     artifacts::BuildInfoConfig,
-    build_model::{ContractFunctionType, ContractMetadata},
+    build_model::ContractFunctionType,
     compiler::create_models_and_decode_bytecodes,
     contracts_identifier::{ContractsIdentifier, IdentifiedContract},
     nested_trace::{NestedTrace, NestedTraceStep},
-    trace_strategy::TraceStrategy,
 };
 
 /// Errors that can occur during the decoding of the nested trace.
@@ -94,7 +93,7 @@ impl ContractDecoder {
             for identified in bytecodes {
                 if config.ignore_contracts == Some(true)
                     && identified
-                        .metadata
+                        .contract_metadata
                         .contract
                         .read()
                         .name
@@ -105,7 +104,7 @@ impl ContractDecoder {
 
                 // Add the contract's custom errors to the revert decoder
                 identified
-                    .metadata
+                    .contract_metadata
                     .contract
                     .read()
                     .custom_errors
@@ -129,7 +128,7 @@ impl ContractDecoder {
     pub fn add_contract_metadata(&mut self, identified: IdentifiedContract) {
         // Add all custom errors to the revert decoder
         identified
-            .metadata
+            .contract_metadata
             .contract
             .read()
             .custom_errors
@@ -181,7 +180,7 @@ impl ContractDecoder {
                 .get_bytecode_for_call(code.as_ref(), is_create)
         };
 
-        let contract = bytecode.map(|b| b.metadata.contract.clone());
+        let contract = bytecode.map(|b| b.contract_metadata.contract.clone());
         let contract = contract.as_ref().map(|c| c.read());
 
         let contract_identifier = contract.as_ref().map_or_else(
@@ -278,7 +277,7 @@ impl ContractDecoder {
 
                 let contract_identifier = identified
                     .map_or(UNRECOGNIZED_CONTRACT_NAME.to_string(), |i| {
-                        i.metadata.contract.read().name.clone()
+                        i.contract_metadata.contract.read().name.clone()
                     });
 
                 DecodedCallTrace {
@@ -296,7 +295,7 @@ impl ContractDecoder {
                 if let Some(identified) = identified {
                     if let Some(Ok(selector)) = calldata.get(..SELECTOR_LEN).map(Selector::try_from)
                     {
-                        let contract = identified.metadata.contract.read();
+                        let contract = identified.contract_metadata.contract.read();
                         let label = Some(contract.name.clone());
                         if let Some(function) =
                             contract.get_function_from_selector(selector.as_slice())
@@ -456,7 +455,6 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoderMut<HaltReasonT> for Contra
                 let identified = self
                     .contracts_identifier
                     .get_bytecode_for_call(call.code.as_ref(), is_create);
-                let (contract_meta, trace_strategy) = split_identified(identified);
 
                 let steps = call
                     .steps
@@ -483,8 +481,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoderMut<HaltReasonT> for Contra
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                call.contract_meta = contract_meta;
-                call.trace_strategy = trace_strategy;
+                call.identified_contract = identified;
                 call.steps = steps;
 
                 Ok(NestedTrace::Call(call))
@@ -495,7 +492,6 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoderMut<HaltReasonT> for Contra
                 let identified = self
                     .contracts_identifier
                     .get_bytecode_for_call(create.code.as_ref(), is_create);
-                let (contract_meta, trace_strategy) = split_identified(identified);
 
                 let steps = create
                     .steps
@@ -522,30 +518,12 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoderMut<HaltReasonT> for Contra
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                create.contract_meta = contract_meta;
-                create.trace_strategy = trace_strategy;
+                create.identified_contract = identified;
                 create.steps = steps;
 
                 Ok(NestedTrace::Create(create))
             }
         }
-    }
-}
-
-/// Split an [`IdentifiedContract`] lookup result into the separate
-/// `(contract_meta, trace_strategy)` fields the frame types carry.
-fn split_identified(
-    identified: Option<IdentifiedContract>,
-) -> (
-    Option<Arc<ContractMetadata>>,
-    Option<&'static dyn TraceStrategy>,
-) {
-    match identified {
-        Some(IdentifiedContract {
-            metadata,
-            trace_strategy,
-        }) => (Some(metadata), Some(trace_strategy)),
-        None => (None, None),
     }
 }
 
