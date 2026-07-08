@@ -18,6 +18,7 @@ pub(crate) struct Snapshot<SignedTransactionT: ExecutableTransaction> {
     pub mem_pool: MemPool<SignedTransactionT>,
     pub next_block_base_fee_per_gas: Option<u128>,
     pub next_block_timestamp: Option<u64>,
+    pub block_access_list_hash_generator: RandomHashGenerator,
     pub parent_beacon_block_root_generator: RandomHashGenerator,
     pub prev_randao_generator: RandomHashGenerator,
     pub time: Instant,

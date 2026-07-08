@@ -13,7 +13,7 @@ pub use edr_chain_spec_evm::{
     result::ExecutionResult, CfgEnv, Context, Inspector, Journal, TransactionError,
 };
 pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
-use edr_primitives::{Address, HashMap, HashSet};
+use edr_primitives::{Address, HashMap, HashSet, B256};
 use edr_state_api::{DynState, StateDiff, StateError};
 pub use revm_precompile::PrecompileFn;
 
@@ -219,6 +219,10 @@ pub trait BlockBuilder<
     fn finalize_block(
         self,
         rewards: Vec<(Address, u128)>,
+        // EIP-7928: simulated block access list hash, used for a non-empty block whose header
+        // doesn't already carry one (e.g. via overrides). EDR does not compute the real access
+        // list, so callers supply a per-block value (see `ProviderData`'s generator).
+        block_access_list_hash: B256,
     ) -> Result<
         BuiltBlockAndStateWithMetadata<Self::LocalBlock, ChainSpecT::HaltReason>,
         BlockFinalizeError<StateError>,

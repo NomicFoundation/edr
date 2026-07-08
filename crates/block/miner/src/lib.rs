@@ -206,6 +206,7 @@ pub fn mine_block<ChainSpecT, BlockchainErrorT, InspectorT>(
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
+    block_access_list_hash: B256,
     mut inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
@@ -323,7 +324,7 @@ where
     let rewards = vec![(beneficiary, reward)];
 
     let block_and_state = block_builder
-        .finalize_block(rewards)
+        .finalize_block(rewards, block_access_list_hash)
         .map_err(MineBlockError::BlockFinalize)?;
 
     Ok(MineBlockResultAndStateWithMetadata::new(
@@ -479,6 +480,7 @@ pub fn mine_block_with_single_transaction<
     overrides: HeaderOverrides<ChainSpecT::Hardfork>,
     min_gas_price: u128,
     reward: u128,
+    block_access_list_hash: B256,
     inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
@@ -598,7 +600,7 @@ where
     }
 
     block_builder
-        .finalize_block(rewards)
+        .finalize_block(rewards, block_access_list_hash)
         .map_err(MineTransactionError::Finalize)
 }
 

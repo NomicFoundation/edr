@@ -262,6 +262,7 @@ pub struct ProviderData<
     bail_on_transaction_failure: bool,
     beneficiary: Address,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
+    block_access_list_hash_generator: RandomHashGenerator,
     block_config: BlockConfig<ChainSpecT::Hardfork>,
     default_transaction_gas_limit: NonZeroU64,
     gas_estimation_mode: GasEstimationMode,
@@ -609,6 +610,7 @@ where
                 mem_pool,
                 next_block_base_fee_per_gas,
                 next_block_timestamp,
+                block_access_list_hash_generator,
                 parent_beacon_block_root_generator,
                 prev_randao_generator,
                 time,
@@ -631,6 +633,7 @@ where
             self.mem_pool = mem_pool;
             self.next_block_base_fee_per_gas = next_block_base_fee_per_gas;
             self.next_block_timestamp = next_block_timestamp;
+            self.block_access_list_hash_generator = block_access_list_hash_generator;
             self.parent_beacon_block_root_generator = parent_beacon_block_root_generator;
             self.prev_randao_generator = prev_randao_generator;
 
@@ -769,6 +772,9 @@ where
             base_fee_params,
             beneficiary,
             blockchain,
+            block_access_list_hash_generator: RandomHashGenerator::with_seed(
+                "randomBlockAccessListHashSeed",
+            ),
             block_config,
             default_transaction_gas_limit,
             gas_estimation_mode,
@@ -1762,6 +1768,7 @@ where
             mem_pool: self.mem_pool.clone(),
             next_block_base_fee_per_gas: self.next_block_base_fee_per_gas,
             next_block_timestamp: self.next_block_timestamp,
+            block_access_list_hash_generator: self.block_access_list_hash_generator.clone(),
             parent_beacon_block_root_generator: self.parent_beacon_block_root_generator.clone(),
             prev_randao_generator: self.prev_randao_generator.clone(),
             time: Instant::now(),
@@ -2461,6 +2468,7 @@ where
     > {
         let reward = miner_reward(self.blockchain.hardfork().into()).unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
+        let block_access_list_hash = self.block_access_list_hash_generator.generate_next();
 
         let result = mine_block::<ChainSpecT, _, _>(
             self.blockchain.as_ref(),
@@ -2472,6 +2480,7 @@ where
             self.min_gas_price,
             self.mining_order,
             reward,
+            block_access_list_hash,
             Some(evm_observer),
             &self.precompile_overrides,
         )?;
@@ -2496,6 +2505,7 @@ where
     > {
         let reward = miner_reward(self.blockchain.hardfork().into()).unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
+        let block_access_list_hash = self.block_access_list_hash_generator.generate_next();
 
         let result = mine_block_with_single_transaction::<ChainSpecT, _, _>(
             self.blockchain.as_ref(),
@@ -2506,6 +2516,7 @@ where
             options,
             self.min_gas_price,
             reward,
+            block_access_list_hash,
             Some(evm_observer),
             &self.precompile_overrides,
         )?;

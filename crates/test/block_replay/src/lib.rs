@@ -230,7 +230,9 @@ pub async fn run_full_block<
         replay_header.beneficiary,
         miner_reward(hardfork.into()).unwrap_or(0),
     )];
-    let mined_block = builder.finalize_block(rewards)?;
+    // Replayed blocks carry their block access list hash via header overrides, so
+    // this simulated value is never used; pass a placeholder.
+    let mined_block = builder.finalize_block(rewards, B256::ZERO)?;
 
     let mined_header = mined_block.block_and_state.block.block_header();
 
