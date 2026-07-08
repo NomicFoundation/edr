@@ -1,5 +1,18 @@
 # @nomicfoundation/edr
 
+## 0.14.0
+
+### Minor Changes
+
+- cfff1da: Raised the minimum supported Node.js version to 22. Node.js 20 has reached end-of-life and is no longer supported; the package now targets Node.js 22, 24, and 26.
+- 99e2d33: - Changed the `reason`, `counterexample`, and `valueSnapshotGroups` fields on `TestResult` to class getters returning `T | undefined`.
+  - Changed `SuiteResult` from a class to a plain object; field shapes are unchanged.
+  - Fixed exceptions thrown by the `decodeConsoleLogInputsCallback` and `printLineCallback` logger callbacks from being swallowed or crashing the process. They now surface as JSON-RPC internal-error responses carrying the JS error message.
+
+### Patch Changes
+
+- 5ad2418: Added experimental support for the Amsterdam hardfork, starting with EIP-7708 (ETH transfers emit logs). It is opt-in and not yet stable, so support is incomplete and its behavior may still change.
+
 ## 0.13.0
 
 ### Minor Changes
