@@ -13,6 +13,7 @@
 - cfff1da: Raised the minimum supported Node.js version to 22. Node.js 20 has reached end-of-life and is no longer supported; the package now targets Node.js 22, 24, and 26.
 - 99e2d33: - Changed the `reason`, `counterexample`, and `valueSnapshotGroups` fields on `TestResult` to class getters returning `T | undefined`.
   - Changed `SuiteResult` from a class to a plain object; field shapes are unchanged.
+  - Changed the `result` field on `SubscriptionEvent` from `any` to `unknown`.
   - Fixed exceptions thrown by the `decodeConsoleLogInputsCallback` and `printLineCallback` logger callbacks from being swallowed or crashing the process. They now surface as JSON-RPC internal-error responses carrying the JS error message.
 
 ### Patch Changes
