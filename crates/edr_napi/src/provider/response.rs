@@ -1,8 +1,12 @@
 use edr_solidity::solidity_stack_trace::StackTraceCreationResult;
-use napi::{bindgen_prelude::Either3, Either};
+use napi::{
+    bindgen_prelude::{Either3, ObjectFinalize},
+    Either,
+};
 use napi_derive::napi;
 
 use crate::{
+    async_deallocator::AsyncDeallocatorSender,
     solidity_tests::test_results::{CallTrace, HeuristicFailed, StackTrace, UnexpectedError},
     trace::solidity_stack_trace::{
         solidity_stack_trace_error_to_napi, solidity_stack_trace_heuristic_failed_to_napi,
@@ -10,14 +14,22 @@ use crate::{
     },
 };
 
-#[napi]
+#[napi(custom_finalize)]
 pub struct Response {
+    dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
     inner: edr_napi_core::spec::Response,
 }
 
-impl From<edr_napi_core::spec::Response> for Response {
-    fn from(value: edr_napi_core::spec::Response) -> Self {
-        Self { inner: value }
+impl Response {
+    /// Constructs a new instance.
+    pub fn new(
+        response: edr_napi_core::spec::Response,
+        dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
+    ) -> Self {
+        Self {
+            dropped_response_sender,
+            inner: response,
+        }
     }
 }
 
@@ -72,4 +84,19 @@ impl Response {
     //         .map(|trace| RawTrace::from(trace.clone()))
     //         .collect()
     // }
+}
+
+impl ObjectFinalize for Response {
+    fn finalize(self, _env: napi::Env) -> napi::Result<()> {
+        let Self {
+            dropped_response_sender,
+            inner,
+        } = self;
+
+        // Off-loads deallocation of memory-heavy `call_trace_arenas` to a background
+        // thread to avoid blocking the JS thread; wasting valuable time.
+        dropped_response_sender.deallocate(inner);
+
+        Ok(())
+    }
 }
