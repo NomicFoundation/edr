@@ -5,7 +5,7 @@ mod response;
 use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
-use edr_solidity::{artifacts::{to_compiler_type}, compiler::create_models_and_decode_bytecodes};
+use edr_solidity::{artifacts::to_compiler_type, compiler::create_models_and_decode_bytecodes};
 use napi::{
     bindgen_prelude::{FnArgs, Function, Object, ObjectFinalize, Promise, Uint8Array},
     tokio::runtime,
@@ -83,7 +83,7 @@ impl Provider {
                 ) -> Box<dyn edr_solidity::debug_info::CompilerArtifact> {
                     Box::new(artifact)
                 }
-                
+
                 let compiler_input = serde_json::from_value(compiler_input)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 

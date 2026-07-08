@@ -12,10 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::debug_info::CompilerArtifact;
 
-/// Producing compiler for a Hardhat build-info. Used ONLY inside
-/// [`BuildInfoBuffers::parse`] — the single factory that consumes it to
-/// dispatch to the correct [`CompilerArtifact`] impl. Absent or unknown
-/// values fall back to `Solc`.
+/// Producing compiler for a Hardhat build-info. Absent or unknown values fall
+/// back to `Solc`.
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, strum::Display, strum::EnumString,
 )]

@@ -1,4 +1,4 @@
-//! Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
+//! Enriches the [`NestedTrace`] with the resolved `ContractMetadata`.
 
 use std::fmt::Debug;
 
@@ -40,7 +40,7 @@ pub enum ContractDecoderError {
 
 /// Provides trace decoding
 pub trait NestedTraceDecoder<HaltReasonT: HaltReasonTrait> {
-    /// Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
+    /// Enriches the [`NestedTrace`] with the resolved `ContractMetadata`.
     fn try_to_decode_nested_trace(
         &self,
         nested_trace: NestedTrace<HaltReasonT>,
@@ -49,7 +49,7 @@ pub trait NestedTraceDecoder<HaltReasonT: HaltReasonTrait> {
 
 /// Provides trace decoding with mutable access.
 pub trait NestedTraceDecoderMut<HaltReasonT: HaltReasonTrait> {
-    /// Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
+    /// Enriches the [`NestedTrace`] with the resolved `ContractMetadata`.
     fn try_to_decode_nested_trace_mut(
         &mut self,
         nested_trace: NestedTrace<HaltReasonT>,

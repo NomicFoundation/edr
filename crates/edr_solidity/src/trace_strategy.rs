@@ -1,5 +1,5 @@
 //! Per-compiler stack-trace behaviour dispatched through the [`TraceStrategy`]
-//! trait, accessed at call sites via a [`TraceContext`] façade.
+//! trait.
 
 use edr_primitives::Bytes;
 
