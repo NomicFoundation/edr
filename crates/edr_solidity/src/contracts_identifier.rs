@@ -20,21 +20,12 @@ use crate::{
 /// callers get both together — the strategy is not a field of
 /// `ContractMetadata` itself, keeping compiler-side concerns out of the
 /// per-bytecode data.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IdentifiedContract {
     /// Resolved metadata for the contract's bytecode.
     pub metadata: Arc<ContractMetadata>,
     /// Compiler-specific stack-trace strategy.
     pub trace_strategy: &'static dyn TraceStrategy,
-}
-
-impl std::fmt::Debug for IdentifiedContract {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("IdentifiedContract")
-            .field("metadata", &self.metadata)
-            .field("trace_strategy", &self.trace_strategy)
-            .finish()
-    }
 }
 
 /// Returns true if the `last_byte` is placed right when the metadata starts or
