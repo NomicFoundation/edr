@@ -5,7 +5,7 @@ mod response;
 use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
-use edr_solidity::compiler::create_models_and_decode_bytecodes;
+use edr_solidity::{artifacts::{to_compiler_type}, compiler::create_models_and_decode_bytecodes};
 use napi::{
     bindgen_prelude::{FnArgs, Function, Object, ObjectFinalize, Promise, Uint8Array},
     tokio::runtime,
@@ -70,18 +70,47 @@ impl Provider {
 
         self.runtime
             .spawn_blocking(move || {
+                #[derive(serde::Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct CompilerTypeAndRemainder {
+                    #[serde(default)]
+                    compiler_type: Option<String>,
+                    remainder: Box<serde_json::value::RawValue>,
+                }
+
+                fn erase_artifact<ArtifactT: edr_solidity::debug_info::CompilerArtifact>(
+                    artifact: ArtifactT,
+                ) -> Box<dyn edr_solidity::debug_info::CompilerArtifact> {
+                    Box::new(artifact)
+                }
+                
                 let compiler_input = serde_json::from_value(compiler_input)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
-                // Solc-only bridge: HH2's legacy `hardhat_addCompilationResult`
-                // JSON-RPC and HH3's in-process solc compile flow both feed
-                // solc artifacts here. Solx reaches EDR through
-                // `BuildInfoConfig` (`runSolidityTests` / `withContracts`),
-                // dispatched by `BuildInfoBuffers::parse`.
-                let compiler_output: edr_solidity::artifacts::CompilerOutput<
-                    edr_solidity::artifacts::SolcBytecode,
-                > = serde_json::from_value(compiler_output)
+                let peekable = serde_json::from_value(compiler_output)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+
+                let CompilerTypeAndRemainder {
+                    compiler_type,
+                    remainder,
+                } = peekable;
+
+                let compiler_output = match to_compiler_type(compiler_type.as_deref()) {
+                    edr_solidity::artifacts::CompilerType::Solc => {
+                        serde_json::from_str::<edr_solidity::artifacts::CompilerOutput<
+                            edr_solidity::artifacts::SolcBytecode,
+                        >>(remainder.get())
+                            .map_err(|error| napi::Error::from_reason(error.to_string()))?
+                            .map_artifact(erase_artifact)
+                    },
+                    edr_solidity::artifacts::CompilerType::Solx => {
+                        serde_json::from_str::<edr_solidity::artifacts::CompilerOutput<
+                            edr_solidity::artifacts::SolxBytecode,
+                        >>(remainder.get())
+                            .map_err(|error| napi::Error::from_reason(error.to_string()))?
+                            .map_artifact(erase_artifact)
+                    },
+                };
 
                 let contracts = match create_models_and_decode_bytecodes(
                     solc_version,

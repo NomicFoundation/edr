@@ -21,7 +21,7 @@ use crate::debug_info::CompilerArtifact;
 )]
 #[serde(rename_all = "camelCase")]
 #[strum(serialize_all = "camelCase")]
-pub(crate) enum CompilerType {
+pub enum CompilerType {
     /// Reference Solidity compiler; uses `evm.{deployed,}Bytecode.sourceMap`.
     #[default]
     Solc,
@@ -92,8 +92,7 @@ pub enum BuildInfoBuffers<'a> {
 }
 
 /// Peeks at `compilerType` from a build-info JSON, borrowing the field as
-/// a `&str`. `#[serde(default)]` makes the field optional so older
-/// build-infos (Hardhat 2 flow, EDR in-process) still parse.
+/// a `&str`.
 ///
 /// Used ONLY inside [`BuildInfoBuffers::parse`] — the single factory site
 /// permitted to inspect the compiler tag. Every other consumer sees the
@@ -104,14 +103,16 @@ struct PeekableCompilerType<'a> {
     compiler_type: Option<&'a str>,
 }
 
-fn to_compiler_type(compiler_type_str: Option<&str>) -> CompilerType {
+/// Converts an optional compiler type string to a [`CompilerType`]. Unknown
+/// values are treated as `Solc` with a warning.
+pub fn to_compiler_type(compiler_type_str: Option<&str>) -> CompilerType {
     let Some(raw) = compiler_type_str else {
         return CompilerType::Solc;
     };
     match CompilerType::from_str(raw) {
         Ok(compiler_type) => compiler_type,
         Err(strum::ParseError::VariantNotFound) => {
-            log::warn!("Unknown build-info compilerType {raw:?}; treating as \"solc\".");
+            log::warn!("Unknown build-info compilerType {raw}; treating as \"solc\".");
             CompilerType::Solc
         }
     }
