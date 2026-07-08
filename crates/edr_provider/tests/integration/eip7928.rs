@@ -8,15 +8,13 @@
 
 use std::sync::Arc;
 
-use edr_chain_l1::{
-    rpc::{block::L1RpcBlock, TransactionRequest},
-    L1ChainSpec,
-};
+use edr_chain_l1::{rpc::block::L1RpcBlock, L1ChainSpec};
 use edr_eth::PreEip1898BlockSpec;
 use edr_primitives::{address, Address, B256, KECCAK_RLP_EMPTY_ARRAY, U256};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    test_utils::{create_test_config, transfer_value},
+    time::CurrentTime,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -55,22 +53,6 @@ fn mine_block(provider: &Provider<L1ChainSpec>) {
         .expect("evm_mine should succeed");
 }
 
-/// Sends a value-transfer transaction, mined into a block.
-fn transfer_funds(provider: &Provider<L1ChainSpec>) {
-    let request = TransactionRequest {
-        from: SENDER,
-        to: Some(RECIPIENT),
-        value: Some(U256::from(1000)),
-        ..TransactionRequest::default()
-    };
-
-    provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(request),
-        ))
-        .expect("eth_sendTransaction should succeed");
-}
-
 /// Returns the raw JSON of the latest block.
 fn get_latest_block(provider: &Provider<L1ChainSpec>) -> serde_json::Value {
     provider
@@ -101,7 +83,7 @@ async fn block_header_includes_block_access_list_hash_on_amsterdam() -> anyhow::
 async fn block_access_list_hash_is_non_empty_for_block_with_transactions() -> anyhow::Result<()> {
     let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
 
-    transfer_funds(&provider);
+    transfer_value(&provider, SENDER, RECIPIENT, U256::from(1000));
     let block_json = get_latest_block(&provider);
 
     let block: L1RpcBlock<B256> = serde_json::from_value(block_json)?;
@@ -151,7 +133,7 @@ mod fork {
 
     /// Mines a state-modifying block and returns its block access list hash.
     fn mine_and_get_bal_hash(provider: &Provider<L1ChainSpec>) -> B256 {
-        transfer_funds(provider);
+        transfer_value(provider, SENDER, RECIPIENT, U256::from(1000));
         let block: L1RpcBlock<B256> =
             serde_json::from_value(get_latest_block(provider)).expect("block should deserialize");
         block
