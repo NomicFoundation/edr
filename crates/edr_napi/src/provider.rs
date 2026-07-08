@@ -30,6 +30,7 @@ pub struct Provider {
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
     dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+    dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<Arc<napi::tokio::sync::Mutex<napi::tokio::fs::File>>>,
 }
@@ -41,6 +42,7 @@ impl Provider {
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
         dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+        dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
@@ -50,6 +52,7 @@ impl Provider {
             provider,
             runtime,
             dropped_provider_sender,
+            dropped_response_sender,
             #[cfg(feature = "scenarios")]
             scenario_file: scenario_file.map(Arc::new),
         }
@@ -163,12 +166,16 @@ impl Provider {
     ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
+        let dropped_response_sender = self.dropped_response_sender.clone();
+
         let enqueue_request =
             move |provider: &dyn SyncProvider, request: napi::Result<String>| match request {
                 Ok(request) => provider.enqueue_request(
                     request,
                     Box::new(move |result| match result {
-                        Ok(response) => deferred.resolve(move |_env| Ok(Response::from(response))),
+                        Ok(response) => deferred.resolve(move |_env| {
+                            Ok(Response::new(response, dropped_response_sender))
+                        }),
                         Err(error) => deferred.reject(error),
                     }),
                 ),
