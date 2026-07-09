@@ -23,5 +23,5 @@ For a list of EIPs and chain specifications that EDR does not fully support, inc
 
 ## Production Usage
 
-- [Hardhat 3](https://hardhat.org/)
+- [How to use it in Hardhat 3](https://hardhat.org/docs/reference/edr-simulated-networks)
 - [Hardhat 2](https://hardhat.org/hardhat2)
