@@ -43,6 +43,15 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
     /// than an entry point (solc).
     fn recursion_start_idx(&self) -> usize;
 
+    /// Whether `step_location` counts as "execution is still at
+    /// `reference_location`" when deciding that a statement was the last
+    /// user code to run (`is_last_location`-style checks).
+    fn locations_equivalent(
+        &self,
+        step_location: &SourceLocation,
+        reference_location: &SourceLocation,
+    ) -> bool;
+
     /// Fallback frame when source-reference resolution returned `None` but
     /// the enclosing function is known.
     fn unresolved_callstack_entry(
@@ -60,12 +69,15 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
     ) -> Result<Vec<StackTraceEntry>, TraceStrategyError>;
 
     /// Source anchor for a revert that happened at a specific instruction
-    /// inside a known function.
+    /// inside a known function. `step_pcs` lazily yields the trace's EVM
+    /// step PCs in execution order, for strategies that need to walk back
+    /// from the reverting instruction.
     fn revert_source_reference(
         &self,
         contract_meta: &ContractMetadata,
         inst_location: &SourceLocation,
         failing_function: &ContractFunction,
+        step_pcs: &dyn Fn() -> Vec<u32>,
     ) -> Result<SourceReference, TraceStrategyError>;
 
     /// Fallback source reference for a panic-helper PC when the primary
@@ -90,6 +102,14 @@ impl TraceStrategy for SolcTraceStrategy {
         1
     }
 
+    fn locations_equivalent(
+        &self,
+        step_location: &SourceLocation,
+        reference_location: &SourceLocation,
+    ) -> bool {
+        step_location == reference_location
+    }
+
     fn unresolved_callstack_entry(
         &self,
         _contract_name: &str,
@@ -112,6 +132,7 @@ impl TraceStrategy for SolcTraceStrategy {
         contract_meta: &ContractMetadata,
         _inst_location: &SourceLocation,
         failing_function: &ContractFunction,
+        _step_pcs: &dyn Fn() -> Vec<u32>,
     ) -> Result<SourceReference, TraceStrategyError> {
         function_start_source_reference(contract_meta, failing_function)
     }
@@ -136,6 +157,19 @@ pub struct SolxTraceStrategy;
 impl TraceStrategy for SolxTraceStrategy {
     fn recursion_start_idx(&self) -> usize {
         0
+    }
+
+    fn locations_equivalent(
+        &self,
+        step_location: &SourceLocation,
+        reference_location: &SourceLocation,
+    ) -> bool {
+        // solx attributes compiler-generated helper code (calldata decoding,
+        // revert builders) to the enclosing function or contract
+        // *declaration*, whose range contains the statement — where solc
+        // leaves such code unmapped. Treat declaration-level padding as
+        // "still at the statement".
+        step_location == reference_location || step_location.contains(reference_location)
     }
 
     fn unresolved_callstack_entry(
@@ -203,8 +237,33 @@ impl TraceStrategy for SolxTraceStrategy {
         &self,
         contract_meta: &ContractMetadata,
         inst_location: &SourceLocation,
-        _failing_function: &ContractFunction,
+        failing_function: &ContractFunction,
+        step_pcs: &dyn Fn() -> Vec<u32>,
     ) -> Result<SourceReference, TraceStrategyError> {
+        // solx attributes shared revert helpers to the *declaration line* of
+        // the function they were flattened into (e.g. a modifier's `require`
+        // reverting at the modified function's signature line). When the
+        // reverting instruction sits on the declaration line, walk the
+        // executed steps backwards to the statement that actually led here —
+        // the message-building code preceding the revert keeps its own line.
+        let declaration_line = failing_function.location.get_starting_line_number()?;
+        if inst_location.get_starting_line_number()? == declaration_line {
+            for pc in step_pcs().iter().rev() {
+                let prev_inst = contract_meta.get_instruction(*pc)?;
+                let Some(prev_location) = &prev_inst.location else {
+                    continue;
+                };
+                if prev_location.get_starting_line_number()? == declaration_line {
+                    continue;
+                }
+                if let Some(source_reference) =
+                    source_location_to_source_reference(contract_meta, Some(prev_location))?
+                {
+                    return Ok(source_reference);
+                }
+            }
+        }
+
         source_location_to_source_reference(contract_meta, Some(inst_location))?
             .ok_or(TraceStrategyError::MissingSourceReference)
     }

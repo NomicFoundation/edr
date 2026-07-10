@@ -718,10 +718,21 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
     if let Some(location) = &last_instruction.location
         && let Some(failing_function) = location.get_containing_function()?
     {
+        // Thunked so only strategies that need the walk pay for it.
+        let step_pcs = || -> Vec<u32> {
+            steps
+                .iter()
+                .filter_map(|step| match step {
+                    NestedTraceStep::Evm(evm) => Some(evm.pc),
+                    _ => None,
+                })
+                .collect()
+        };
         let revert_source_reference = trace_strategy.revert_source_reference(
             contract_metadata.as_ref(),
             location,
             &failing_function,
+            &step_pcs,
         )?;
 
         let mut frames = trace_strategy.intermediate_frames(
@@ -1964,8 +1975,11 @@ fn is_last_location<HaltReasonT: HaltReasonTrait>(
     from_step: u32,
     location: &SourceLocation,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
-    let contract_meta = trace
-        .contract_meta()
+    let IdentifiedContract {
+        contract_metadata,
+        trace_strategy,
+    } = trace
+        .identified_contract()
         .ok_or(InferrerError::MissingContract)?;
     let steps = trace.steps();
 
@@ -1975,10 +1989,10 @@ fn is_last_location<HaltReasonT: HaltReasonTrait>(
             _ => return Ok(false),
         };
 
-        let step_inst = contract_meta.get_instruction(step.pc)?;
+        let step_inst = contract_metadata.get_instruction(step.pc)?;
 
         if let Some(step_inst_location) = &step_inst.location
-            && step_inst_location != location
+            && !trace_strategy.locations_equivalent(step_inst_location, location)
         {
             return Ok(false);
         }
