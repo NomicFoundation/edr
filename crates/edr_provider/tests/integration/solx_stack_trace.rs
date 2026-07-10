@@ -82,6 +82,33 @@ fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutpu
     ))
 }
 
+fn solx_long_tail_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
+    let mut input: CompilerInput = serde_json::from_str(include_str!(
+        "../../../edr_solidity/fixtures/solx_compiler_input_long_tail.json"
+    ))?;
+
+    input
+        .sources
+        .get_mut("project/contracts/LongTail.sol")
+        .unwrap()
+        .content = include_str!("../../../edr_solidity/fixtures/sources/LongTail.sol").to_owned();
+
+    let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
+        "../../../edr_solidity/fixtures/solx_compiler_output_long_tail.json"
+    ))?;
+
+    let identified_contracts =
+        extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
+
+    Ok((
+        BuildInfoConfig {
+            identified_contracts,
+            ignore_contracts: None,
+        },
+        output,
+    ))
+}
+
 /// Builds a local provider seeded with `decoder`, with bail-on-failure set
 /// so a reverting tx surfaces as [`ProviderError::TransactionFailed`].
 fn make_provider(decoder: ContractDecoder) -> anyhow::Result<(Provider<L1ChainSpec>, Address)> {
@@ -164,12 +191,25 @@ fn expect_failed_call_stack_trace(
     to: Address,
     calldata: Bytes,
 ) -> Vec<StackTraceEntry> {
+    expect_failed_call_with_value_stack_trace(provider, from, to, calldata, U256::ZERO)
+}
+
+/// Like [`expect_failed_call_stack_trace`], but transfers `value` — for the
+/// payability dispatch errors.
+fn expect_failed_call_with_value_stack_trace(
+    provider: &Provider<L1ChainSpec>,
+    from: Address,
+    to: Address,
+    calldata: Bytes,
+    value: U256,
+) -> Vec<StackTraceEntry> {
     let err = provider
         .handle_request(ProviderRequest::with_single(
             MethodInvocation::SendTransaction(TransactionRequest {
                 from,
                 to: Some(to),
                 data: Some(calldata),
+                value: Some(value),
                 ..TransactionRequest::default()
             }),
         ))
@@ -405,11 +445,8 @@ async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Re
 
 const SCENARIOS_SOURCE: &str = "project/contracts/Scenarios.t.sol";
 
-fn scenarios_provider() -> anyhow::Result<(
-    Provider<L1ChainSpec>,
-    Address,
-    CompilerOutput<SolxBytecode>,
-)> {
+fn scenarios_provider(
+) -> anyhow::Result<(Provider<L1ChainSpec>, Address, CompilerOutput<SolxBytecode>)> {
     let (build_info, output) = solx_scenarios_build_info()?;
     let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
@@ -449,7 +486,7 @@ fn brief_trace(stack_trace: &[StackTraceEntry]) -> String {
                     source_reference.contract.as_deref().unwrap_or("?"),
                     source_reference.function.as_deref().unwrap_or("?"),
                 ),
-                None => variant.to_string(),
+                None => variant,
             }
         })
         .collect::<Vec<_>>()
@@ -481,7 +518,8 @@ fn assert_revert_at_line(stack_trace: &[StackTraceEntry], line: u32, reason: &st
         "expected revert reason {reason:?} in return data, got: {return_data:?}"
     );
     assert_eq!(
-        source_reference.line, line,
+        source_reference.line,
+        line,
         "expected RevertError at {}:{line}, got:\n{}",
         source_reference.source_name,
         brief_trace(stack_trace)
@@ -685,11 +723,13 @@ async fn external_recursion_keeps_one_frame_per_call() -> anyhow::Result<()> {
     assert_revert_at_line(&stack_trace, 109, "bottomed out");
     let recursion_frames = stack_trace
         .iter()
-        .filter(|e| matches!(
-            e,
-            StackTraceEntry::CallstackEntry { source_reference, .. }
-                if source_reference.function.as_deref() == Some("recurse")
-        ))
+        .filter(|e| {
+            matches!(
+                e,
+                StackTraceEntry::CallstackEntry { source_reference, .. }
+                    if source_reference.function.as_deref() == Some("recurse")
+            )
+        })
         .count();
     assert!(
         recursion_frames >= 3,
@@ -775,12 +815,309 @@ async fn mutual_recursion_pins_bottom_revert_line() -> anyhow::Result<()> {
         b,
         encode_call_address("setOther(address)", a),
     )?;
+    let stack_trace =
+        expect_failed_call_stack_trace(&provider, from, a, encode_call_u256("pingA(uint256)", 2));
+    assert_revert_at_line(&stack_trace, 377, "mutual bottom");
+    Ok(())
+}
+
+// ---------- long-tail inference tests ----------
+//
+// Dispatch-level and call-shape errors from the LongTail fixture — entry
+// variants the solc corpus covers that no solx test reached. Regenerate the
+// fixture with `cargo run -p edr_tool_cli -- gen-solx-fixtures` when bumping
+// solx.
+
+const LONG_TAIL_SOURCE: &str = "project/contracts/LongTail.sol";
+
+fn long_tail_provider(
+) -> anyhow::Result<(Provider<L1ChainSpec>, Address, CompilerOutput<SolxBytecode>)> {
+    let (build_info, output) = solx_long_tail_build_info()?;
+    let decoder = ContractDecoder::new(build_info);
+    let (provider, from) = make_provider(decoder)?;
+    Ok((provider, from, output))
+}
+
+fn deploy_long_tail(
+    provider: &Provider<L1ChainSpec>,
+    from: Address,
+    output: &CompilerOutput<SolxBytecode>,
+    contract: &str,
+) -> anyhow::Result<Address> {
+    deploy(
+        provider,
+        from,
+        creation_bytes(output, LONG_TAIL_SOURCE, contract)?,
+    )
+}
+
+/// Replaces solc-style `__$<keccak>$__` library placeholders (40 chars, the
+/// width of a hex-encoded address) with the deployed library address.
+fn link_library(bytecode_object: &str, library: Address) -> anyhow::Result<String> {
+    let address_hex = hex::encode(library);
+    let mut linked = String::with_capacity(bytecode_object.len());
+    let mut rest = bytecode_object;
+    while let Some(start) = rest.find("__$") {
+        let placeholder_end = start + 40;
+        anyhow::ensure!(
+            rest.len() >= placeholder_end && rest[..placeholder_end].ends_with("$__"),
+            "malformed link placeholder in bytecode"
+        );
+        linked.push_str(&rest[..start]);
+        linked.push_str(&address_hex);
+        rest = &rest[placeholder_end..];
+    }
+    linked.push_str(rest);
+    Ok(linked)
+}
+
+#[track_caller]
+fn assert_single_variant<'a>(
+    stack_trace: &'a [StackTraceEntry],
+    matcher: impl Fn(&StackTraceEntry) -> bool,
+    variant: &str,
+) -> &'a StackTraceEntry {
+    stack_trace.iter().find(|e| matcher(e)).unwrap_or_else(|| {
+        panic!(
+            "expected a {variant} entry, got:\n{}",
+            brief_trace(stack_trace)
+        )
+    })
+}
+
+/// Sending value to a non-payable function.
+#[tokio::test(flavor = "multi_thread")]
+async fn function_not_payable_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = long_tail_provider()?;
+    let addr = deploy_long_tail(&provider, from, &output, "NotPayable")?;
+    let stack_trace = expect_failed_call_with_value_stack_trace(
+        &provider,
+        from,
+        addr,
+        encode_call_u256("store(uint256)", 1),
+        U256::from(1u64),
+    );
+    let entry = assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::FunctionNotPayableError { .. }),
+        "FunctionNotPayableError",
+    );
+    let source_reference =
+        source_reference_of(entry).expect("FunctionNotPayableError carries a source reference");
+    assert_eq!(source_reference.function.as_deref(), Some("store"));
+    Ok(())
+}
+
+/// Calling an unknown selector on a contract without a fallback.
+#[tokio::test(flavor = "multi_thread")]
+async fn unrecognized_function_without_fallback_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = long_tail_provider()?;
+    let addr = deploy_long_tail(&provider, from, &output, "NoFallback")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
         from,
-        a,
-        encode_call_u256("pingA(uint256)", 2),
+        addr,
+        Bytes::from(selector("nonExistent()").as_slice().to_vec()),
     );
-    assert_revert_at_line(&stack_trace, 377, "mutual bottom");
+    assert_single_variant(
+        &stack_trace,
+        |e| {
+            matches!(
+                e,
+                StackTraceEntry::UnrecognizedFunctionWithoutFallbackError { .. }
+            )
+        },
+        "UnrecognizedFunctionWithoutFallbackError",
+    );
+    Ok(())
+}
+
+/// Plain value transfer to a contract with neither fallback nor receive.
+#[tokio::test(flavor = "multi_thread")]
+async fn missing_fallback_or_receive_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = long_tail_provider()?;
+    let addr = deploy_long_tail(&provider, from, &output, "NoFallback")?;
+    let stack_trace = expect_failed_call_with_value_stack_trace(
+        &provider,
+        from,
+        addr,
+        Bytes::new(),
+        U256::from(1u64),
+    );
+    assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::MissingFallbackOrReceiveError { .. }),
+        "MissingFallbackOrReceiveError",
+    );
+    Ok(())
+}
+
+/// Value + calldata hitting a non-payable fallback.
+#[tokio::test(flavor = "multi_thread")]
+async fn fallback_not_payable_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = long_tail_provider()?;
+    let addr = deploy_long_tail(&provider, from, &output, "NonPayableFallback")?;
+    let stack_trace = expect_failed_call_with_value_stack_trace(
+        &provider,
+        from,
+        addr,
+        Bytes::from(selector("nonExistent()").as_slice().to_vec()),
+        U256::from(1u64),
+    );
+    assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::FallbackNotPayableError { .. }),
+        "FallbackNotPayableError",
+    );
+    Ok(())
+}
+
+/// Plain value transfer where only a non-payable fallback exists.
+#[tokio::test(flavor = "multi_thread")]
+async fn fallback_not_payable_and_no_receive_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = long_tail_provider()?;
+    let addr = deploy_long_tail(&provider, from, &output, "NonPayableFallback")?;
+    let stack_trace = expect_failed_call_with_value_stack_trace(
+        &provider,
+        from,
+        addr,
+        Bytes::new(),
+        U256::from(1u64),
+    );
+    assert_single_variant(
+        &stack_trace,
+        |e| {
+            matches!(
+                e,
+                StackTraceEntry::FallbackNotPayableAndNoReceiveError { .. }
+            )
+        },
+        "FallbackNotPayableAndNoReceiveError",
+    );
+    Ok(())
+}
+
+/// Truncated calldata: right selector, missing argument words.
+#[tokio::test(flavor = "multi_thread")]
+async fn invalid_params_error_surfaces_for_truncated_calldata() -> anyhow::Result<()> {
+    let (provider, from, output) = long_tail_provider()?;
+    let addr = deploy_long_tail(&provider, from, &output, "RequiresArgs")?;
+    let mut calldata = selector("needsBoth(uint256,uint256)").as_slice().to_vec();
+    calldata.extend_from_slice(&[0u8; 32]); // only one of the two words
+    let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, Bytes::from(calldata));
+    assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::InvalidParamsError { .. }),
+        "InvalidParamsError",
+    );
+    Ok(())
+}
+
+/// Interface promises a word; callee returns nothing.
+///
+/// Golden inference gap: the solc route infers `ReturndataSizeError` at the
+/// call site (line 47) for this shape — the DWARF route currently degrades
+/// to `OtherExecutionError` at the contract declaration (line 45). If this
+/// pin breaks with `ReturndataSizeError`, the inference improved: flip the
+/// assertion.
+#[tokio::test(flavor = "multi_thread")]
+async fn returndata_size_mismatch_degrades_to_other_execution_error() -> anyhow::Result<()> {
+    let (provider, from, output) = long_tail_provider()?;
+    let callee = deploy_long_tail(&provider, from, &output, "ReturnsNothing")?;
+    let caller = deploy_long_tail(&provider, from, &output, "ExpectsWord")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        caller,
+        encode_call_address("callGet(address)", callee),
+    );
+    let entry = assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::OtherExecutionError { .. }),
+        "OtherExecutionError",
+    );
+    let source_reference =
+        source_reference_of(entry).expect("the degraded entry keeps a source reference");
+    assert_eq!(source_reference.contract.as_deref(), Some("ExpectsWord"));
+    assert_eq!(
+        source_reference.line,
+        45,
+        "expected the contract declaration line, got:\n{}",
+        brief_trace(&stack_trace)
+    );
+    Ok(())
+}
+
+/// Typed call to an address with no code.
+///
+/// Golden inference gap: the solc route infers
+/// `NoncontractAccountCalledError` at the call site for this shape — the
+/// DWARF route currently degrades to `OtherExecutionError` at the contract
+/// declaration. If this pin breaks with `NoncontractAccountCalledError`,
+/// the inference improved: flip the assertion.
+#[tokio::test(flavor = "multi_thread")]
+async fn noncontract_account_call_degrades_to_other_execution_error() -> anyhow::Result<()> {
+    let (provider, from, output) = long_tail_provider()?;
+    let caller = deploy_long_tail(&provider, from, &output, "ExpectsWord")?;
+    let eoa = Address::repeat_byte(0x42);
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        caller,
+        encode_call_address("callGet(address)", eoa),
+    );
+    assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::OtherExecutionError { .. }),
+        "OtherExecutionError",
+    );
+    Ok(())
+}
+
+/// External (public) library function reached through a linked contract:
+/// exercises `linkReferences` placeholder substitution and DELEGATECALL
+/// frame decoding into the library's own debugInfo.
+#[tokio::test(flavor = "multi_thread")]
+async fn linked_external_library_revert_points_into_library() -> anyhow::Result<()> {
+    let (provider, from, output) = long_tail_provider()?;
+    let library = deploy_long_tail(&provider, from, &output, "ExternalLib")?;
+
+    let unlinked = &output
+        .contracts
+        .get(LONG_TAIL_SOURCE)
+        .and_then(|m| m.get("UsesExternalLib"))
+        .context("fixture missing UsesExternalLib")?
+        .evm
+        .bytecode
+        .object;
+    let linked = link_library(unlinked, library)?;
+    let user = deploy(&provider, from, Bytes::from(hex::decode(&linked)?))?;
+
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        user,
+        Bytes::from(selector("go()").as_slice().to_vec()),
+    );
+    assert_revert_at_line(&stack_trace, 53, "external lib boom");
+    Ok(())
+}
+
+/// Calling a deployed library's external function directly.
+#[tokio::test(flavor = "multi_thread")]
+async fn direct_library_call_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = long_tail_provider()?;
+    let library = deploy_long_tail(&provider, from, &output, "ExternalLib")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        library,
+        Bytes::from(selector("fail()").as_slice().to_vec()),
+    );
+    assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::DirectLibraryCallError { .. }),
+        "DirectLibraryCallError",
+    );
     Ok(())
 }
