@@ -658,18 +658,17 @@ async fn modifier_revert_points_at_modifier_require() -> anyhow::Result<()> {
 
 /// Revert inside a multi-statement modifier body (`validates`, pre-`_`).
 ///
-/// Golden divergence from solc: the failing `require` is on line 415, but
-/// solx flattens the modifier into `bumpIfValid` and attributes the revert
-/// to the function declaration (line 420) — the provider-level twin of the
-/// sweep's pinned `NestedModifierRevertTest` divergence. If this pin breaks
-/// with a future solx, check whether it now reports 415 (improvement:
-/// update the pin and the sweep golden together).
+/// solx flattens the modifier into `bumpIfValid` and attributes the shared
+/// revert helper to the function declaration line (420);
+/// `SolxTraceStrategy::revert_source_reference` walks the executed steps
+/// back to the message-building code of the `require` that actually fired
+/// (line 415), matching solc.
 #[tokio::test(flavor = "multi_thread")]
-async fn nested_modifier_revert_attributes_to_function_declaration() -> anyhow::Result<()> {
+async fn nested_modifier_revert_points_at_failing_require() -> anyhow::Result<()> {
     expect_scenario_revert(
         "NestedModifierTarget",
         encode_call_u256("bumpIfValid(uint256)", 13),
-        420,
+        415,
         "unlucky",
     )?;
     Ok(())
@@ -1013,15 +1012,29 @@ async fn invalid_params_error_surfaces_for_truncated_calldata() -> anyhow::Resul
     Ok(())
 }
 
-/// Interface promises a word; callee returns nothing.
-///
-/// Golden inference gap: the solc route infers `ReturndataSizeError` at the
-/// call site (line 47) for this shape — the DWARF route currently degrades
-/// to `OtherExecutionError` at the contract declaration (line 45). If this
-/// pin breaks with `ReturndataSizeError`, the inference improved: flip the
-/// assertion.
+#[track_caller]
+fn assert_returndata_size_error_at_call_get(stack_trace: &[StackTraceEntry]) {
+    let entry = assert_single_variant(
+        stack_trace,
+        |e| matches!(e, StackTraceEntry::ReturndataSizeError { .. }),
+        "ReturndataSizeError",
+    );
+    let source_reference =
+        source_reference_of(entry).expect("ReturndataSizeError carries a source reference");
+    assert_eq!(source_reference.function.as_deref(), Some("callGet"));
+    assert_eq!(
+        source_reference.line,
+        47,
+        "expected the call-site line, got:\n{}",
+        brief_trace(stack_trace)
+    );
+}
+
+/// Interface promises a word; callee returns nothing. Pin: the
+/// returndata-size check reverting right after the call is attributed to
+/// the call site, matching the solc route.
 #[tokio::test(flavor = "multi_thread")]
-async fn returndata_size_mismatch_degrades_to_other_execution_error() -> anyhow::Result<()> {
+async fn returndata_size_error_surfaces_at_call_site() -> anyhow::Result<()> {
     let (provider, from, output) = long_tail_provider()?;
     let callee = deploy_long_tail(&provider, from, &output, "ReturnsNothing")?;
     let caller = deploy_long_tail(&provider, from, &output, "ExpectsWord")?;
@@ -1031,32 +1044,17 @@ async fn returndata_size_mismatch_degrades_to_other_execution_error() -> anyhow:
         caller,
         encode_call_address("callGet(address)", callee),
     );
-    let entry = assert_single_variant(
-        &stack_trace,
-        |e| matches!(e, StackTraceEntry::OtherExecutionError { .. }),
-        "OtherExecutionError",
-    );
-    let source_reference =
-        source_reference_of(entry).expect("the degraded entry keeps a source reference");
-    assert_eq!(source_reference.contract.as_deref(), Some("ExpectsWord"));
-    assert_eq!(
-        source_reference.line,
-        45,
-        "expected the contract declaration line, got:\n{}",
-        brief_trace(&stack_trace)
-    );
+    assert_returndata_size_error_at_call_get(&stack_trace);
     Ok(())
 }
 
-/// Typed call to an address with no code.
-///
-/// Golden inference gap: the solc route infers
-/// `NoncontractAccountCalledError` at the call site for this shape — the
-/// DWARF route currently degrades to `OtherExecutionError` at the contract
-/// declaration. If this pin breaks with `NoncontractAccountCalledError`,
-/// the inference improved: flip the assertion.
+/// Typed call to an address with no code. Like solc (which emits no
+/// EXTCODESIZE probe for returndata-expecting calls since 0.8.10), solx
+/// surfaces this as the returndata-size check failing at the call site —
+/// a true `NoncontractAccountCalledError` would need a void-returning
+/// call scenario.
 #[tokio::test(flavor = "multi_thread")]
-async fn noncontract_account_call_degrades_to_other_execution_error() -> anyhow::Result<()> {
+async fn noncontract_account_call_surfaces_as_returndata_size_error() -> anyhow::Result<()> {
     let (provider, from, output) = long_tail_provider()?;
     let caller = deploy_long_tail(&provider, from, &output, "ExpectsWord")?;
     let eoa = Address::repeat_byte(0x42);
@@ -1066,11 +1064,7 @@ async fn noncontract_account_call_degrades_to_other_execution_error() -> anyhow:
         caller,
         encode_call_address("callGet(address)", eoa),
     );
-    assert_single_variant(
-        &stack_trace,
-        |e| matches!(e, StackTraceEntry::OtherExecutionError { .. }),
-        "OtherExecutionError",
-    );
+    assert_returndata_size_error_at_call_get(&stack_trace);
     Ok(())
 }
 
