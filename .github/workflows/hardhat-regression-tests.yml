@@ -33,6 +33,10 @@ on:
         required: false
         type: string
 
+# The called reusable workflow only checks out code to run tests.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Run the regression tests

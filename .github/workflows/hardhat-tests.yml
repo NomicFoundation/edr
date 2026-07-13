@@ -9,6 +9,9 @@ on:
       - "**"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   run-hardhat-tests:
     name: Run Hardhat tests (${{ matrix.os }}, Node ${{ matrix.node }})
@@ -69,6 +72,7 @@ jobs:
           DEBUG: "hardhat:core:hardhat-network:*"
         shell: bash
         run: |
+          # shellcheck disable=SC1090 # generated env from cargo-llvm-cov, not a static file
           source <(cargo llvm-cov show-env --sh)
           pnpm -C hardhat-tests test
           # `--release` included to match `build:dev` compilation flags
