@@ -26,7 +26,10 @@ use edr_chain_spec_evm::{
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_evm::{dry_run, dry_run_with_inspector};
 use edr_precompile::OverriddenPrecompileProvider;
-use edr_primitives::{Address, Bloom, HashMap, HashSet, KECCAK_NULL_RLP, U256};
+use edr_primitives::{
+    keccak256, Address, Bloom, HashMap, HashSet, B256, KECCAK_NULL_RLP, KECCAK_RLP_EMPTY_ARRAY,
+    U256,
+};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     ExecutionReceipt, ExecutionReceiptChainSpec, MapReceiptLogs, ReceiptTrait, TransactionReceipt,
@@ -623,6 +626,14 @@ impl<
                 .as_secs();
         }
 
+        // Must run after the reward loop and state-root computation above, so
+        // `state_diff` is final.
+        self.header.block_access_list_hash = block_access_list_hash(
+            self.header.block_access_list_hash,
+            &self.state_diff,
+            self.header.parent_hash,
+        );
+
         // TODO: handle ommers
         let block = EthLocalBlock::new::<ExecutionReceiptChainSpecT>(
             &self.context,
@@ -807,5 +818,118 @@ impl<
         BlockFinalizeError<StateError>,
     > {
         self.finalize(rewards)
+    }
+}
+
+/// Resolves a block's simulated block access list hash (EIP-7928), upholding
+/// two guarantees:
+/// - a block that introduces no state changes keeps the empty-RLP-list hash, as
+///   the EIP specifies;
+/// - no two blocks in the same chain share a hash: a state-changing block's
+///   hash is derived from its parent hash, which is unique per block.
+///   (Reverting to a snapshot forks the chain, so the same hash can reoccur on
+///   that fork — but not within a single chain.)
+///
+/// `current` is the value the header already carries (the empty-list default,
+/// or a hash supplied externally); only the empty-list default of a
+/// state-changing block is replaced.
+fn block_access_list_hash(
+    current: Option<B256>,
+    state_diff: &StateDiff,
+    parent_hash: B256,
+) -> Option<B256> {
+    if current == Some(KECCAK_RLP_EMPTY_ARRAY) && !state_diff.as_inner().is_empty() {
+        Some(keccak256(
+            format!("blockAccessListHash{parent_hash}").as_bytes(),
+        ))
+    } else {
+        current
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    mod block_access_list {
+        use edr_state_api::account::AccountInfo;
+
+        use super::*;
+        fn non_empty_state_diff() -> StateDiff {
+            let mut state_diff = StateDiff::default();
+            state_diff.apply_account_change(Address::ZERO, AccountInfo::default());
+            state_diff
+        }
+
+        const PARENT_HASH: B256 = B256::repeat_byte(9);
+
+        #[test]
+        fn keeps_absent_hash() {
+            // A header without the field keeps it absent, whatever the state.
+            assert_eq!(
+                block_access_list_hash(None, &non_empty_state_diff(), PARENT_HASH),
+                None
+            );
+        }
+
+        #[test]
+        fn keeps_empty_list_hash_when_state_unchanged() {
+            assert_eq!(
+                block_access_list_hash(
+                    Some(KECCAK_RLP_EMPTY_ARRAY),
+                    &StateDiff::default(),
+                    PARENT_HASH
+                ),
+                Some(KECCAK_RLP_EMPTY_ARRAY)
+            );
+        }
+
+        #[test]
+        fn keeps_externally_supplied_hash() {
+            let supplied = B256::repeat_byte(0xab);
+            assert_eq!(
+                block_access_list_hash(Some(supplied), &non_empty_state_diff(), PARENT_HASH),
+                Some(supplied)
+            );
+        }
+
+        #[test]
+        fn upgrades_empty_list_hash_when_state_changed() {
+            let hash = block_access_list_hash(
+                Some(KECCAK_RLP_EMPTY_ARRAY),
+                &non_empty_state_diff(),
+                PARENT_HASH,
+            )
+            .expect("should produce a hash");
+
+            // Upgraded away from the empty-list default, and reproducible for the same
+            // inputs.
+            assert_ne!(hash, KECCAK_RLP_EMPTY_ARRAY);
+            assert_eq!(
+                block_access_list_hash(
+                    Some(KECCAK_RLP_EMPTY_ARRAY),
+                    &non_empty_state_diff(),
+                    PARENT_HASH
+                ),
+                Some(hash)
+            );
+        }
+
+        #[test]
+        fn upgraded_hash_varies_with_parent_hash() {
+            // Distinct per block: the parent hash is unique per block within a chain, so no
+            // two sibling blocks share a hash (including in forked mode).
+            assert_ne!(
+                block_access_list_hash(
+                    Some(KECCAK_RLP_EMPTY_ARRAY),
+                    &non_empty_state_diff(),
+                    B256::repeat_byte(2)
+                ),
+                block_access_list_hash(
+                    Some(KECCAK_RLP_EMPTY_ARRAY),
+                    &non_empty_state_diff(),
+                    B256::repeat_byte(3)
+                ),
+            );
+        }
     }
 }

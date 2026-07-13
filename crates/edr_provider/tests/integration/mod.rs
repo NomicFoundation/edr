@@ -9,6 +9,7 @@ mod eip7691;
 mod eip7702;
 mod eip7708;
 mod eip7825;
+mod eip7928;
 mod estimate_gas;
 mod eth_get_proof;
 mod eth_max_priority_fee_per_gas;
