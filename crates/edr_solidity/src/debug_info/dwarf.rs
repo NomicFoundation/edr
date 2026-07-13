@@ -9,7 +9,10 @@ use edr_primitives::{bytecode::opcode::OpCode, hex};
 use gimli::{EndianRcSlice, Reader, RunTimeEndian};
 use object::{Endianness, Object, ObjectSection};
 
-use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
+use crate::{
+    artifacts::solx::SolxBuildModel,
+    build_model::{BuildModel as _, Instruction, JumpType, SourceLocation},
+};
 
 type DwarfReader = EndianRcSlice<RunTimeEndian>;
 
@@ -124,9 +127,9 @@ fn is_stack_shuffle(opcode: OpCode) -> bool {
 /// [`Instruction`] vector that [`crate::source_map::decode_instructions`]
 /// produces for solc artifacts.
 pub fn decode_instructions(
-    bytecode: &[u8],
+    normalized_code: &[u8],
     debug_info_hex: &str,
-    build_model: &Arc<BuildModel>,
+    build_model: &SolxBuildModel,
     _is_deployment: bool,
 ) -> Result<Vec<Instruction>, DwarfError> {
     // 1. Hex → ELF → gimli::Dwarf.
@@ -135,7 +138,7 @@ pub fn decode_instructions(
 
     // 2. Reject debugInfo whose PC ranges escape the bytecode (mismatched or
     //    corrupt blob).
-    let bytecode_len = bytecode.len() as u64;
+    let bytecode_len = normalized_code.len() as u64;
     for range in &parsed.inlined_ranges {
         if range.low_pc >= bytecode_len {
             return Err(DwarfError::RangeEscapesBytecode {
@@ -163,7 +166,7 @@ pub fn decode_instructions(
     //    skipped consistently. PcOpcodes ends iteration as soon as it hits an
     //    invalid byte (CBOR metadata region), matching the previous `break`
     //    semantics.
-    let mut instructions: Vec<Instruction> = PcOpcodes::new(bytecode)
+    let mut instructions: Vec<Instruction> = PcOpcodes::new(normalized_code)
         .map(|step| {
             let location = parsed.user_visible_location_for_pc(
                 step.pc as u64,
@@ -543,45 +546,6 @@ impl ParsedDwarf {
         out
     }
 
-    /// Resolve an [`InlinedRange`]'s `call_*` attributes to a `SourceLocation`,
-    /// or `None` if any required field is missing.
-    fn range_call_site_to_location(
-        r: &InlinedRange,
-        dwarf_file_names: &[String],
-        name_to_file_id: &HashMap<String, u32>,
-        build_model: &Arc<BuildModel>,
-        line_starts_cache: &mut HashMap<u32, Vec<usize>>,
-    ) -> Option<Arc<SourceLocation>> {
-        let (file_idx, line) = (r.call_file?, r.call_line?);
-        let Some(line) = NonZeroU64::new(line) else {
-            log::warn!(
-                "DWARF inlined range call_line=0 (no line) for call_file={file_idx}, \
-                 skipping bottom-frame resolution for this range"
-            );
-            return None;
-        };
-
-        let column = r.call_column.unwrap_or(0);
-        let (file_id, offset) = resolve_location(
-            file_idx,
-            line,
-            column,
-            dwarf_file_names,
-            name_to_file_id,
-            build_model,
-            line_starts_cache,
-        )?;
-        let length = build_model
-            .smallest_enclosing_span(file_id, offset as u32)
-            .map_or(0, |(_, len)| len);
-        Some(source_location_at(
-            build_model,
-            file_id,
-            offset as u32,
-            length,
-        ))
-    }
-
     /// Best-effort bottom-frame source location for `pc`, in order:
     /// 1. innermost artificial helper's `call_site` (if inside the user fn);
     /// 2. line-program row at `pc`;
@@ -591,9 +555,9 @@ impl ParsedDwarf {
         pc: u64,
         dwarf_file_names: &[String],
         name_to_file_id: &HashMap<String, u32>,
-        build_model: &Arc<BuildModel>,
+        build_model: &SolxBuildModel,
         line_starts_cache: &mut HashMap<u32, Vec<usize>>,
-    ) -> Option<Arc<SourceLocation>> {
+    ) -> Option<SourceLocation> {
         let containing = self.containing_ranges(pc);
 
         // Innermost non-artificial range = the user fn body executing at this
@@ -609,7 +573,14 @@ impl ParsedDwarf {
                 let (file_idx, decl_line) = (r.decl_file?, r.decl_line?);
                 let dwarf_name = dwarf_file_names.get(file_idx as usize)?.as_str();
                 let file_id = match_dwarf_to_build_model(dwarf_name, name_to_file_id)?;
-                let file = build_model.file_id_to_source_file.get(&file_id)?;
+
+                let Some(file) = build_model.source_model_by_file_id(file_id) else {
+                    log::debug!(
+                        "DWARF decoder: no source file for file_id {file_id} (dwarf_name={dwarf_name})"
+                    );
+                    return None;
+                };
+
                 let file = file.read();
                 file.get_function_by_decl_line(u32::try_from(decl_line).ok()?)
                     .cloned()
@@ -631,12 +602,16 @@ impl ParsedDwarf {
                     build_model,
                     line_starts_cache,
                 )?;
-                let probe = SourceLocation::new(
-                    Arc::clone(&build_model.file_id_to_source_file),
-                    file_id,
-                    offset as u32,
-                    0,
-                );
+
+                let Some(source_file) = build_model.source_model_by_file_id(file_id) else {
+                    log::debug!(
+                        "DWARF decoder: no source file for file_id {file_id} (row.file={})",
+                        row.file
+                    );
+                    return None;
+                };
+
+                let probe = SourceLocation::new(source_file, offset as u32, 0);
                 probe.get_containing_function().ok().flatten()
             })
             .filter(|lp_func| match abstract_origin_func.as_ref() {
@@ -650,15 +625,16 @@ impl ParsedDwarf {
                 },
             });
 
-        let user_func: Option<(u32, u32, u32)> =
-            line_program_func.or(abstract_origin_func).map(|f| {
-                let file_id = f.location.file_id;
-                (file_id, f.location.offset, f.location.length)
-            });
-        let user_func_range: Option<(u32, u32)> = user_func.map(|(_, off, len)| (off, off + len));
+        let user_source_location = line_program_func
+            .as_ref()
+            .or(abstract_origin_func.as_ref())
+            .map(|func| &func.location);
+
+        let user_func_range: Option<(u32, u32)> =
+            user_source_location.map(|loc| (loc.offset, loc.offset + loc.length));
 
         let inside_user_func = |offset: u32| -> bool {
-            user_func_range.is_none_or(|(lo, hi)| offset >= lo && offset < hi)
+            user_func_range.is_none_or(|(begin, end)| offset >= begin && offset < end)
         };
 
         // Pass 1: innermost artificial entry whose call_site is inside the user fn.
@@ -666,7 +642,8 @@ impl ParsedDwarf {
             if !r.is_artificial {
                 continue;
             }
-            let Some(loc) = Self::range_call_site_to_location(
+
+            let Some(loc) = range_call_site_to_location(
                 r,
                 dwarf_file_names,
                 name_to_file_id,
@@ -675,6 +652,7 @@ impl ParsedDwarf {
             ) else {
                 continue;
             };
+
             if inside_user_func(loc.offset) {
                 return Some(loc);
             }
@@ -696,19 +674,21 @@ impl ParsedDwarf {
             let length = build_model
                 .smallest_enclosing_span(file_id, offset as u32)
                 .map_or(0, |(_, len)| len);
-            return Some(source_location_at(
-                build_model,
-                file_id,
-                offset as u32,
-                length,
-            ));
+
+            let Some(source_file) = build_model.source_model_by_file_id(file_id) else {
+                log::debug!(
+                    "DWARF decoder: no source file for file_id {file_id} (row.file={})",
+                    row.file
+                );
+                return None;
+            };
+
+            return Some(SourceLocation::new(source_file, offset as u32, length));
         }
 
         // Pass 3: fall back to the user fn's own AST location — coarser, but
         // at least `get_containing_function` will name the right function.
-        user_func.map(|(file_id, offset, length)| {
-            source_location_at(build_model, file_id, offset, length)
-        })
+        user_source_location.cloned()
     }
 
     /// Inlined call-site chain for `pc`, innermost-first. Non-artificial only;
@@ -719,16 +699,16 @@ impl ParsedDwarf {
         pc: u64,
         dwarf_file_names: &[String],
         name_to_file_id: &HashMap<String, u32>,
-        build_model: &Arc<BuildModel>,
+        build_model: &SolxBuildModel,
         line_starts_cache: &mut HashMap<u32, Vec<usize>>,
-    ) -> Box<[Arc<SourceLocation>]> {
+    ) -> Box<[SourceLocation]> {
         let containing = self.containing_ranges(pc);
-        let mut out: Vec<Arc<SourceLocation>> = Vec::with_capacity(containing.len());
+        let mut out: Vec<SourceLocation> = Vec::with_capacity(containing.len());
         for r in containing {
             if r.is_artificial {
                 continue;
             }
-            if let Some(loc) = Self::range_call_site_to_location(
+            if let Some(loc) = range_call_site_to_location(
                 &r,
                 dwarf_file_names,
                 name_to_file_id,
@@ -843,6 +823,47 @@ impl ParsedDwarf {
     }
 }
 
+/// Resolve an [`InlinedRange`]'s `call_*` attributes to a `SourceLocation`,
+/// or `None` if any required field is missing.
+fn range_call_site_to_location(
+    r: &InlinedRange,
+    dwarf_file_names: &[String],
+    name_to_file_id: &HashMap<String, u32>,
+    build_model: &SolxBuildModel,
+    line_starts_cache: &mut HashMap<u32, Vec<usize>>,
+) -> Option<SourceLocation> {
+    let (file_idx, line) = (r.call_file?, r.call_line?);
+    let Some(line) = NonZeroU64::new(line) else {
+        log::warn!(
+            "DWARF inlined range call_line=0 (no line) for call_file={file_idx}, \
+                 skipping bottom-frame resolution for this range"
+        );
+        return None;
+    };
+
+    let column = r.call_column.unwrap_or(0);
+    let (file_id, offset) = resolve_location(
+        file_idx,
+        line,
+        column,
+        dwarf_file_names,
+        name_to_file_id,
+        build_model,
+        line_starts_cache,
+    )?;
+
+    let length = build_model
+        .smallest_enclosing_span(file_id, offset as u32)
+        .map_or(0, |(_, len)| len);
+
+    let Some(source_file) = build_model.source_model_by_file_id(file_id) else {
+        log::debug!("DWARF decoder: no source file for file_id {file_id}");
+        return None;
+    };
+
+    Some(SourceLocation::new(source_file, offset as u32, length))
+}
+
 /// Resolve a DWARF file index plus `(line, column)` to an EDR
 /// `(file_id, byte_offset)` pair.
 fn resolve_location(
@@ -851,7 +872,7 @@ fn resolve_location(
     column: u64,
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &Arc<BuildModel>,
+    build_model: &SolxBuildModel,
     line_starts_cache: &mut HashMap<u32, Vec<usize>>,
 ) -> Option<(u32, usize)> {
     let dwarf_name = dwarf_file_names.get(dwarf_file_index as usize)?.as_str();
@@ -872,7 +893,7 @@ fn resolve_location_by_name(
     line: NonZeroU64,
     column: u64,
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &Arc<BuildModel>,
+    build_model: &SolxBuildModel,
     line_starts_cache: &mut HashMap<u32, Vec<usize>>,
 ) -> Option<(u32, usize)> {
     let file_id = match_dwarf_to_build_model(dwarf_name, name_to_file_id)?;
@@ -883,21 +904,6 @@ fn resolve_location_by_name(
     let line_start = starts.get(line_idx).copied()?;
     let column_offset = if column == 0 { 0 } else { column as usize - 1 };
     Some((file_id, line_start + column_offset))
-}
-
-/// Construct a `SourceLocation` against the `BuildModel`'s source map.
-fn source_location_at(
-    build_model: &Arc<BuildModel>,
-    file_id: u32,
-    offset: u32,
-    length: u32,
-) -> Arc<SourceLocation> {
-    Arc::new(SourceLocation::new(
-        Arc::clone(&build_model.file_id_to_source_file),
-        file_id,
-        offset,
-        length,
-    ))
 }
 
 /// Match a DWARF source path against `BuildModel` keys: exact → `/suffix` →
@@ -955,8 +961,8 @@ fn pick_unambiguous(candidates: &[(&String, u32)], dwarf_name: &str) -> Option<u
     longest.first().map(|(_, id)| *id)
 }
 
-fn compute_line_starts(build_model: &Arc<BuildModel>, file_id: u32) -> Vec<usize> {
-    let Some(file) = build_model.file_id_to_source_file.get(&file_id) else {
+fn compute_line_starts(build_model: &SolxBuildModel, file_id: u32) -> Vec<usize> {
+    let Some(file) = build_model.source_model_by_file_id(file_id) else {
         return Vec::new();
     };
     let content = file.read().content.clone();
@@ -998,15 +1004,14 @@ mod tests {
 
     /// Minimal `BuildModel` (Counter.sol only) for `(file, line, column)`
     /// resolution tests.
-    fn make_build_model_for_counter() -> Arc<BuildModel> {
+    fn make_build_model_for_counter() -> SolxBuildModel {
         let counter_src = include_str!("../../fixtures/sources/Counter.sol");
         let file = SourceFile::new("Counter.sol".to_string(), counter_src.to_string());
-        let mut map = std::collections::HashMap::new();
-        map.insert(0u32, Arc::new(RwLock::new(file)));
-        Arc::new(BuildModel {
-            file_id_to_source_file: Arc::new(map),
-            ..BuildModel::default()
-        })
+
+        let mut file_id_to_source_file = std::collections::HashMap::new();
+        file_id_to_source_file.insert(0u32, Arc::new(RwLock::new(file)));
+
+        SolxBuildModel::with_sources(file_id_to_source_file)
     }
 
     fn load_solx_output() -> CompilerOutput<SolxBytecode> {
@@ -1022,7 +1027,7 @@ mod tests {
     /// `BuildModel` for `Scenarios.t.sol`, built via the same AST walk
     /// production uses — so regenerating the fixture JSON is the only
     /// step needed when scenarios are added or reordered.
-    fn make_build_model_for_scenarios() -> Arc<BuildModel> {
+    fn make_build_model_for_scenarios() -> SolxBuildModel {
         let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
             "../../fixtures/solx_compiler_input_scenarios.json"
         ))
@@ -1032,16 +1037,16 @@ mod tests {
             .get_mut("project/contracts/Scenarios.t.sol")
             .unwrap()
             .content = include_str!("../../fixtures/sources/Scenarios.t.sol").to_string();
+
         let output = load_scenarios_output();
-        let model = crate::compiler::create_sources_model_from_ast(&output, &input)
-            .expect("AST processor must accept the scenarios fixture");
-        Arc::new(model)
+        SolxBuildModel::new(input, &output)
+            .expect("AST processor must accept the scenarios fixture")
     }
 
     fn decode_deployed_for(
         output: &CompilerOutput<SolxBytecode>,
         contract: &str,
-        model: &Arc<BuildModel>,
+        model: &SolxBuildModel,
     ) -> Vec<Instruction> {
         let bc = &output
             .contracts
@@ -1645,7 +1650,7 @@ mod tests {
 
             let any_with_length = insts
                 .iter()
-                .filter_map(|i| i.location.as_deref())
+                .filter_map(|i| i.location.as_ref())
                 .any(|loc| loc.length > 0);
             assert!(
                 any_with_length,

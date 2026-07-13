@@ -301,7 +301,8 @@ mod tests {
     fn create_test_contract() -> Arc<RwLock<Contract>> {
         let sources = create_sources();
 
-        let location = Arc::new(SourceLocation::new(sources.clone(), 0, 0, 0));
+        let source_file = sources.get(&0).expect("source file should exist");
+        let location = SourceLocation::new(source_file, 0, 0);
 
         Arc::new(RwLock::new(Contract::new(
             "TestContract".to_string(),
@@ -311,7 +312,6 @@ mod tests {
     }
 
     fn create_test_bytecode(normalized_code: Vec<u8>) -> Arc<ContractMetadata> {
-        let sources = create_sources();
         let contract = create_test_contract();
         let is_deployment = false;
 
@@ -320,7 +320,6 @@ mod tests {
         let immutable_references = vec![];
 
         Arc::new(ContractMetadata::new(
-            sources,
             contract,
             is_deployment,
             normalized_code,
@@ -332,7 +331,6 @@ mod tests {
     }
 
     fn create_test_deployment_bytecode(normalized_code: Vec<u8>) -> Arc<ContractMetadata> {
-        let sources = create_sources();
         let contract = create_test_contract();
         let is_deployment = true;
 
@@ -341,7 +339,6 @@ mod tests {
         let immutable_references = vec![];
 
         Arc::new(ContractMetadata::new(
-            sources,
             contract,
             is_deployment,
             normalized_code,
@@ -357,14 +354,12 @@ mod tests {
         library_offsets: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
     ) -> Arc<ContractMetadata> {
-        let sources = create_sources();
         let contract = create_test_contract();
         let is_deployment = false;
 
         let instructions = vec![];
 
         Arc::new(ContractMetadata::new(
-            sources,
             contract,
             is_deployment,
             normalized_code,
@@ -738,7 +733,6 @@ mod tests {
     /// normalized bytecodes; both must coexist and resolve to the right meta.
     #[test]
     fn test_contracts_identifier_solc_and_solx_variants_coexist() {
-        let sources = create_sources();
         let contract = create_test_contract();
 
         // Different bytecodes with disjoint prefixes so the trie lookup is
@@ -747,7 +741,6 @@ mod tests {
         let solx_code = vec![0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5];
 
         let solc_meta = Arc::new(ContractMetadata::new(
-            sources.clone(),
             contract.clone(),
             false,
             solc_code.clone(),
@@ -757,7 +750,6 @@ mod tests {
             "0.8.34".to_string(),
         ));
         let solx_meta = Arc::new(ContractMetadata::new(
-            sources,
             contract,
             false,
             solx_code.clone(),

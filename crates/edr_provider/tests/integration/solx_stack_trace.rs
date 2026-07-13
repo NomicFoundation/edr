@@ -22,38 +22,32 @@ use edr_provider::{
 use edr_signer::public_key_to_address;
 use edr_solidity::{
     artifacts::{
-        BuildInfoConfig, BuildInfoWithOutput, CompilerInput, CompilerOutput, SolxBytecode,
+        solx::extract_solx_contract_metadata, BuildInfoConfig, CompilerInput, CompilerOutput,
+        SolxBytecode,
     },
     contract_decoder::ContractDecoder,
-    debug_info::CompilerArtifact,
     solidity_stack_trace::{SourceReference, StackTraceCreationResult, StackTraceEntry},
 };
 use parking_lot::RwLock;
 use tokio::runtime;
-
-// ---------- build-info loaders ----------
 
 fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
     let mut input: CompilerInput = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_input.json"
     ))?;
     input.sources.get_mut("Counter.sol").unwrap().content =
-        include_str!("../../../edr_solidity/fixtures/sources/Counter.sol").to_string();
+        include_str!("../../../edr_solidity/fixtures/sources/Counter.sol").to_owned();
+
     let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_output.json"
     ))?;
-    let bi = BuildInfoWithOutput {
-        _format: "hh3-sol-build-info-1".to_string(),
-        id: "solx-counter".to_string(),
-        solc_version: "0.8.34".to_string(),
-        solc_long_version: "0.8.34+solx".to_string(),
-        input: input.clone(),
-        output: output.clone(),
-    }
-    .map_artifact(|b| -> Box<dyn CompilerArtifact> { Box::new(b) });
+
+    let identified_contracts =
+        extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
+
     Ok((
         BuildInfoConfig {
-            build_infos: vec![bi],
+            identified_contracts,
             ignore_contracts: None,
         },
         output,
@@ -64,34 +58,29 @@ fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutpu
     let mut input: CompilerInput = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_input_scenarios.json"
     ))?;
+
     input
         .sources
         .get_mut("project/contracts/Scenarios.t.sol")
         .unwrap()
         .content =
-        include_str!("../../../edr_solidity/fixtures/sources/Scenarios.t.sol").to_string();
+        include_str!("../../../edr_solidity/fixtures/sources/Scenarios.t.sol").to_owned();
+
     let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_output_scenarios.json"
     ))?;
-    let bi = BuildInfoWithOutput {
-        _format: "hh3-sol-build-info-1".to_string(),
-        id: "solx-scenarios".to_string(),
-        solc_version: "0.8.34".to_string(),
-        solc_long_version: "0.8.34+solx".to_string(),
-        input: input.clone(),
-        output: output.clone(),
-    }
-    .map_artifact(|b| -> Box<dyn CompilerArtifact> { Box::new(b) });
+
+    let identified_contracts =
+        extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
+
     Ok((
         BuildInfoConfig {
-            build_infos: vec![bi],
+            identified_contracts,
             ignore_contracts: None,
         },
         output,
     ))
 }
-
-// ---------- provider plumbing ----------
 
 /// Builds a local provider seeded with `decoder`, with bail-on-failure set
 /// so a reverting tx surfaces as [`ProviderError::TransactionFailed`].
@@ -253,7 +242,7 @@ fn source_reference_of(entry: &StackTraceEntry) -> Option<&SourceReference> {
 #[tokio::test(flavor = "multi_thread")]
 async fn revert_error_variant_surfaces_for_counter() -> anyhow::Result<()> {
     let (build_info, output) = solx_counter_build_info()?;
-    let decoder = ContractDecoder::new(&build_info)?;
+    let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
 
     let counter = deploy(
@@ -288,7 +277,7 @@ async fn revert_error_variant_surfaces_for_counter() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_error_variant_surfaces_for_overflow_scenario() -> anyhow::Result<()> {
     let (build_info, output) = solx_scenarios_build_info()?;
-    let decoder = ContractDecoder::new(&build_info)?;
+    let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
 
     let addr = deploy(
@@ -319,7 +308,7 @@ async fn panic_error_variant_surfaces_for_overflow_scenario() -> anyhow::Result<
 #[tokio::test(flavor = "multi_thread")]
 async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Result<()> {
     let (build_info, output) = solx_scenarios_build_info()?;
-    let decoder = ContractDecoder::new(&build_info)?;
+    let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
 
     let addr = deploy(

@@ -4,7 +4,7 @@
 use anyhow::Context;
 use edr_primitives::hex;
 
-use crate::debug_info::CompilerArtifact;
+use crate::artifacts::CompilerArtifact;
 
 /// Normalizes the compiler output bytecode by replacing the library addresses
 /// with zeros.
