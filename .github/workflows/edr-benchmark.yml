@@ -10,6 +10,10 @@ on:
       - "**"
   workflow_dispatch:
 
+# Results are pushed to an external repo via a PAT, so GITHUB_TOKEN only reads.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: js/benchmark

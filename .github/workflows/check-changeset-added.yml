@@ -14,6 +14,10 @@ on:
       - labeled
       - unlabeled
 
+# Only reads PR files and labels via the API.
+permissions:
+  pull-requests: read
+
 jobs:
   check-if-changeset:
     name: Check that PR has a changeset
