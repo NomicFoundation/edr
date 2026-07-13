@@ -626,8 +626,8 @@ impl<
                 .as_secs();
         }
 
-        // Must run after the reward loop and state-root computation above, so both
-        // `state_diff` and `state_root` are final.
+        // Must run after the reward loop and state-root computation above, so
+        // `state_diff` is final.
         self.header.block_access_list_hash = block_access_list_hash(
             self.header.block_access_list_hash,
             &self.state_diff,
@@ -827,6 +827,8 @@ impl<
 ///   the EIP specifies;
 /// - no two blocks in the same chain share a hash: a state-changing block's
 ///   hash is derived from its parent hash, which is unique per block.
+///   (Reverting to a snapshot forks the chain, so the same hash can reoccur on
+///   that fork — but not within a single chain.)
 ///
 /// `current` is the value the header already carries (the empty-list default,
 /// or a hash supplied externally); only the empty-list default of a
