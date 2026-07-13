@@ -411,7 +411,7 @@ fn call_instruction_to_call_failed_to_execute_stack_trace_entry<HaltReasonT: Hal
     contract_meta: &ContractMetadata,
     call_inst: &Instruction,
 ) -> Result<StackTraceEntry, InferrerError<HaltReasonT>> {
-    let location = call_inst.location.as_deref();
+    let location = call_inst.location.as_ref();
 
     let source_reference = source_location_to_source_reference(contract_meta, location)?
         .ok_or(InferrerError::MissingSourceReference)?;
@@ -634,7 +634,7 @@ fn get_cheatcode_error_source_reference<HaltReasonT: HaltReasonTrait>(
         }
 
         if let Some(source_reference) =
-            source_location_to_source_reference(&contract_meta, instruction.location.as_deref())?
+            source_location_to_source_reference(&contract_meta, instruction.location.as_ref())?
         {
             return Ok(source_reference);
         }
@@ -1585,7 +1585,7 @@ fn instruction_within_function_to_custom_error_stack_trace_entry<HaltReasonT: Ha
         .ok_or(InferrerError::MissingContract)?;
 
     let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?;
+        source_location_to_source_reference(&contract_meta, inst.location.as_ref())?;
 
     let source_reference = source_reference.unwrap_or(last_source_reference);
 
@@ -1610,7 +1610,7 @@ fn instruction_within_function_to_panic_stack_trace_entry<HaltReasonT: HaltReaso
         .ok_or(InferrerError::MissingContract)?;
 
     let primary_ref =
-        source_location_to_source_reference(contract_metadata.as_ref(), inst.location.as_deref())?
+        source_location_to_source_reference(contract_metadata.as_ref(), inst.location.as_ref())?
             .or(last_source_reference);
 
     // Thunked so only strategies that need the walk pay for it.
@@ -1652,7 +1652,7 @@ fn instruction_within_function_to_revert_stack_trace_entry<HaltReasonT: HaltReas
         .ok_or(InferrerError::MissingContract)?;
 
     let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?
+        source_location_to_source_reference(&contract_meta, inst.location.as_ref())?
             .ok_or(InferrerError::MissingSourceReference)?;
 
     Ok(StackTraceEntry::RevertError {
@@ -1673,7 +1673,7 @@ fn instruction_within_function_to_unmapped_solc_0_6_3_revert_error_source_refere
         .ok_or(InferrerError::MissingContract)?;
 
     let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?;
+        source_location_to_source_reference(&contract_meta, inst.location.as_ref())?;
 
     Ok(source_reference)
 }
@@ -1977,7 +1977,7 @@ fn is_last_location<HaltReasonT: HaltReasonTrait>(
         let step_inst = contract_meta.get_instruction(step.pc)?;
 
         if let Some(step_inst_location) = &step_inst.location
-            && **step_inst_location != *location
+            && step_inst_location != location
         {
             return Ok(false);
         }
@@ -2280,8 +2280,8 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function<HaltReasonT: Hal
     if has_next_inst {
         let next_inst = contract_meta.get_instruction(next_inst_pc)?;
 
-        let prev_loc = prev_inst.as_ref().and_then(|i| i.location.as_deref());
-        let next_loc = next_inst.location.as_deref();
+        let prev_loc = prev_inst.as_ref().and_then(|i| i.location.as_ref());
+        let next_loc = next_inst.location.as_ref();
 
         let prev_func = prev_loc
             .map(SourceLocation::get_containing_function)

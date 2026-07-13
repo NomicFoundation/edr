@@ -5,7 +5,7 @@ mod response;
 use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
-use edr_solidity::{artifacts::to_compiler_type, compiler::create_models_and_decode_bytecodes};
+use edr_solidity::{artifacts::to_compiler_type, compiler::populate_decoded_bytecodes};
 use napi::{
     bindgen_prelude::{FnArgs, Function, Object, ObjectFinalize, Promise, Uint8Array},
     tokio::runtime,
@@ -112,7 +112,7 @@ impl Provider {
                     },
                 };
 
-                let contracts = match create_models_and_decode_bytecodes(
+                let contracts = match populate_decoded_bytecodes(
                     solc_version,
                     &compiler_input,
                     &compiler_output,

@@ -10,71 +10,150 @@
 //! - the resolved [`ContractMetadata`] of the contract
 //!   - related resolved [`Instruction`]s and their location
 
+pub mod solc;
+pub mod solx;
+
 use std::{
     collections::HashMap,
+    str::FromStr,
     sync::{Arc, OnceLock, Weak},
 };
 
 use alloy_dyn_abi::ErrorExt;
+use anyhow::Context as _;
 use edr_primitives::{bytecode::opcode::OpCode, hex};
 use indexmap::IndexMap;
 use parking_lot::RwLock;
-use serde::Serialize;
-use serde_json::Value;
 
-use crate::artifacts::{ContractAbiEntry, ImmutableReference};
+use crate::{
+    artifacts::{CompilerInput, CompilerOutput, ContractAbiEntry, ImmutableReference},
+    build_model::solc::process_ast_nodes,
+    debug_info::CompilerArtifact,
+};
 
-/// A resolved build model from a Solidity compiler standard JSON output.
-#[derive(Debug, Default)]
-pub struct BuildModel {
+/// Trait for a build model, which is a resolved representation of the source
+/// code and its artifacts.
+pub trait BuildModel {
+    type Artifact: CompilerArtifact;
+
+    /// Retrieves the instance's contracts.
+    fn contracts(&self) -> impl Iterator<Item = &Arc<RwLock<Contract>>>;
+
+    /// Decodes the artifact's debug-info into the canonical [`Instruction`]
+    /// vector consumed by the stack-trace pipeline.
+    fn decode_instructions(
+        &self,
+        artifact: &Self::Artifact,
+        normalized_code: &[u8],
+        is_deployment: bool,
+    ) -> anyhow::Result<Vec<Instruction>>;
+
+    /// Retrieves a [`SourceFile`] by its file ID, if it exists.
+    fn source_model_by_file_id(&self, file_id: u32) -> Option<&Arc<RwLock<SourceFile>>>;
+}
+
+/// An error that can occur when creating a [`SolxBuildModel`] from compiler
+/// input and output.
+#[derive(Debug, thiserror::Error)]
+pub enum BuildModelCreationError {
+    #[error("Compiler input missing source for {source_name}")]
+    MissingSource { source_name: String },
+}
+
+struct CompiledContractsAndFiles {
     // TODO https://github.com/NomicFoundation/edr/issues/759
     /// Maps the contract ID to the contract.
     pub contract_id_to_contract: IndexMap<u32, Arc<RwLock<Contract>>>,
     /// Maps the file ID to the source file.
-    pub file_id_to_source_file: Arc<BuildModelSources>,
-    /// Lazy reverse-index `source_name` → `file_id`. See
-    /// [`Self::name_to_file_id`].
-    pub(crate) name_to_file_id: OnceLock<HashMap<String, u32>>,
-    /// Per-file AST `src` spans (`file_id` → sorted `(offset, length)`).
-    /// The DWARF parser uses this to derive `SourceLocation.length` from a
-    /// `(file, line, column)` triple.
-    pub(crate) ast_spans: HashMap<u32, Vec<(u32, u32)>>,
+    pub file_id_to_source_file: HashMap<u32, Arc<RwLock<SourceFile>>>,
 }
 
-impl BuildModel {
-    /// Reverse-index of `file_id_to_source_file` keyed by source name.
-    /// Lazily populated on first call, reused thereafter.
-    pub fn name_to_file_id(&self) -> &HashMap<String, u32> {
-        self.name_to_file_id.get_or_init(|| {
-            self.file_id_to_source_file
-                .iter()
-                .map(|(id, file)| (file.read().source_name.clone(), *id))
-                .collect()
+fn collect_compiled_contracts_and_files<ArtifactT: CompilerArtifact>(
+    input: CompilerInput,
+    output: &CompilerOutput<ArtifactT>,
+) -> anyhow::Result<CompiledContractsAndFiles> {
+    // First, collect and store all the files to be able to resolve the source
+    // locations
+    let file_id_to_source_file = output
+        .sources
+        .iter()
+        .map(|(source_name, source)| {
+            let file = SourceFile::new(
+                source_name.clone(),
+                input.sources.get(source_name).map_or_else(
+                    || {
+                        Err(BuildModelCreationError::MissingSource {
+                            source_name: source_name.clone(),
+                        })
+                    },
+                    |source| Ok(source.content.clone()),
+                )?,
+            );
+
+            let file = Arc::new(RwLock::new(file));
+            Ok((source.id, file))
         })
+        .collect::<Result<HashMap<_, _>, BuildModelCreationError>>()?;
+
+    // Secondly, collect all the contracts and fill the source file/contracts with
+    // processed functions
+    let mut contract_id_to_linearized_base_contract_ids = HashMap::new();
+    let mut contract_id_to_contract = IndexMap::new();
+
+    for (source_name, source) in &output.sources {
+        let file = file_id_to_source_file
+            .get(&source.id)
+            .expect("source.id should exist in sources");
+
+        process_ast_nodes(
+            source_name,
+            &source.ast,
+            file,
+            &file_id_to_source_file,
+            &output,
+            &mut contract_id_to_linearized_base_contract_ids,
+            &mut contract_id_to_contract,
+        )
+        .with_context(|| format!("Failed to process AST for {source_name}"))?;
     }
 
-    /// Smallest (leafmost) AST `(offset, length)` span containing `offset`.
-    /// Returns `None` if no span in `ast_spans[file_id]` covers `offset`.
-    pub fn smallest_enclosing_span(&self, file_id: u32, offset: u32) -> Option<(u32, u32)> {
-        let spans = self.ast_spans.get(&file_id)?;
-        let mut best: Option<(u32, u32)> = None;
-        for &(span_offset, span_length) in spans {
-            if span_offset > offset {
-                break;
-            }
-            if offset < span_offset.saturating_add(span_length)
-                && best.is_none_or(|(_, best_len)| span_length < best_len)
-            {
-                best = Some((span_offset, span_length));
+    apply_contracts_inheritance(
+        &contract_id_to_contract,
+        &contract_id_to_linearized_base_contract_ids,
+    )?;
+
+    Ok(CompiledContractsAndFiles {
+        contract_id_to_contract,
+        file_id_to_source_file,
+    })
+}
+
+fn apply_contracts_inheritance(
+    contract_id_to_contract: &IndexMap<u32, Arc<RwLock<Contract>>>,
+    contract_id_to_linearized_base_contract_ids: &HashMap<u32, Vec<u32>>,
+) -> anyhow::Result<()> {
+    for (cid, contract) in contract_id_to_contract {
+        let mut contract = contract.write();
+
+        let inheritance_ids = &contract_id_to_linearized_base_contract_ids[cid];
+
+        for base_id in inheritance_ids {
+            let base_contract = contract_id_to_contract.get(base_id);
+
+            let base_contract = match base_contract {
+                Some(base_contract) => base_contract,
+                // This list includes interface, which we don't model
+                None => continue,
+            };
+
+            if cid != base_id {
+                let base_contract = &base_contract.read();
+                contract.add_next_linearized_base_contract(base_contract)?;
             }
         }
-        best
     }
+    Ok(())
 }
-
-// TODO https://github.com/NomicFoundation/edr/issues/759
-/// Type alias for the source file mapping used by [`BuildModel`].
-pub type BuildModelSources = HashMap<u32, Arc<RwLock<SourceFile>>>;
 
 /// A source file.
 #[derive(Debug)]
@@ -140,12 +219,8 @@ impl SourceFile {
 pub struct SourceLocation {
     /// Cached 1-based line number of the source location.
     line: OnceLock<u32>,
-    /// A weak reference to the source files mapping.
-    ///
-    /// Used to access the source file when needed.
-    pub(crate) sources: Weak<BuildModelSources>,
-    /// The file ID of the source file.
-    pub file_id: u32,
+    /// A weak reference to the source file.
+    source_file: Weak<RwLock<SourceFile>>,
     /// Byte offset of the source location.
     pub offset: u32,
     /// Byte length of the source location.
@@ -154,50 +229,39 @@ pub struct SourceLocation {
 
 impl PartialEq for SourceLocation {
     fn eq(&self, other: &Self) -> bool {
-        Weak::ptr_eq(&self.sources, &other.sources)
-            && self.file_id == other.file_id
+        Weak::ptr_eq(&self.source_file, &other.source_file)
             && self.offset == other.offset
             && self.length == other.length
     }
 }
 
 impl SourceLocation {
-    /// Creates a new [`SourceLocation`] with the provided file ID, offset, and
-    /// length.
-    pub fn new(
-        sources: Arc<BuildModelSources>,
-        file_id: u32,
-        offset: u32,
-        length: u32,
-    ) -> SourceLocation {
+    /// Creates a new [`SourceLocation`] with the provided source file, offset,
+    /// and length.
+    pub fn new(source_file: &Arc<RwLock<SourceFile>>, offset: u32, length: u32) -> SourceLocation {
         SourceLocation {
             line: OnceLock::new(),
             // We need to break the cycle between SourceLocation and SourceFile
             // (via ContractFunction); the Bytecode struct is owning the build
             // model sources, so we should always be alive.
-            sources: Arc::downgrade(&sources),
-            file_id,
+            source_file: Arc::downgrade(source_file),
             offset,
             length,
         }
     }
 
     /// Returns the file that contains the given source location.
+    ///
     /// # Errors
+    ///
     /// This function returns an error if the source location is dangling, i.e.
     /// source files mapping has been dropped (currently only owned by the
     /// [`ContractMetadata`]), or if the source file is not found for the given
     /// file ID.
     pub fn file(&self) -> Result<Arc<RwLock<SourceFile>>, ContractMetadataError> {
-        match self.sources.upgrade() {
-            Some(ref sources) => sources
-                .get(&self.file_id)
-                .ok_or(ContractMetadataError::SourceFileNotFound {
-                    file_id: self.file_id,
-                })
-                .cloned(),
-            None => Err(ContractMetadataError::DanglingSourceLocation),
-        }
+        self.source_file
+            .upgrade()
+            .ok_or(ContractMetadataError::DanglingSourceLocation)
     }
 
     /// Returns the 1-based line number of the source location.
@@ -234,7 +298,7 @@ impl SourceLocation {
     /// Returns whether the source location is contained within the other source
     /// location.
     pub fn contains(&self, other: &SourceLocation) -> bool {
-        if !Weak::ptr_eq(&self.sources, &other.sources) || self.file_id != other.file_id {
+        if !Weak::ptr_eq(&self.source_file, &other.source_file) {
             return false;
         }
 
@@ -248,7 +312,7 @@ impl SourceLocation {
 
 /// The type of a contract function.
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ContractFunctionType {
     Constructor,
     Function,
@@ -261,12 +325,28 @@ pub enum ContractFunctionType {
 
 /// The visibility of a contract function.
 #[allow(missing_docs)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub enum ContractFunctionVisibility {
     Private,
     Internal,
+    // The default function visibility in Solidity is `public`
+    #[default]
     Public,
     External,
+}
+
+impl FromStr for ContractFunctionVisibility {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "private" => Ok(ContractFunctionVisibility::Private),
+            "internal" => Ok(ContractFunctionVisibility::Internal),
+            "public" => Ok(ContractFunctionVisibility::Public),
+            "external" => Ok(ContractFunctionVisibility::External),
+            _ => Err(()),
+        }
+    }
 }
 
 /// A contract function.
@@ -277,7 +357,7 @@ pub struct ContractFunction {
     /// The type of the contract function.
     pub r#type: ContractFunctionType,
     /// The source location of the contract function.
-    pub location: Arc<SourceLocation>,
+    pub location: SourceLocation,
     /// The name of the contract that contains the contract function.
     pub contract_name: Option<String>,
     /// The visibility of the contract function.
@@ -288,7 +368,7 @@ pub struct ContractFunction {
     /// May be fixed up by [`Contract::correct_selector`].
     pub selector: RwLock<Option<Vec<u8>>>,
     /// JSON ABI parameter types of the contract function.
-    pub param_types: Option<Vec<Value>>,
+    pub param_types: Option<Vec<serde_json::Value>>,
 }
 
 impl<'a> TryFrom<&'a ContractFunction> for alloy_json_abi::Function {
@@ -323,7 +403,7 @@ pub struct CustomError {
     /// The name of the custom error.
     pub name: String,
     /// JSON ABI parameter types of the custom error.
-    pub param_types: Vec<Value>,
+    pub param_types: Vec<serde_json::Value>,
 
     def: alloy_json_abi::Error,
 }
@@ -374,10 +454,10 @@ pub struct Instruction {
     /// The push data of the instruction, if it's a `PUSHx` instruction.
     pub push_data: Option<Vec<u8>>,
     /// The source location of the instruction, if any.
-    pub location: Option<Arc<SourceLocation>>,
+    pub location: Option<SourceLocation>,
     /// Inlined call sites for this PC, innermost-first. Always empty for
     /// solc; solx populates it from `DW_TAG_inlined_subroutine` chains.
-    pub inline_call_sites: Box<[Arc<SourceLocation>]>,
+    pub inline_call_sites: Box<[SourceLocation]>,
 }
 
 /// The type of a jump.
@@ -408,12 +488,6 @@ pub enum ContractMetadataError {
         /// The name of the function missing its selector.
         function_name: String,
     },
-    /// Source file not found for the given file ID.
-    #[error("Source file not found for file ID {file_id}")]
-    SourceFileNotFound {
-        /// The file ID that was not found.
-        file_id: u32,
-    },
     /// Dangling source location reference.
     #[error("Dangling SourceLocation. The owning Bytecode has been dropped")]
     DanglingSourceLocation,
@@ -423,10 +497,6 @@ pub enum ContractMetadataError {
 #[derive(Debug)]
 pub struct ContractMetadata {
     pc_to_instruction: HashMap<u32, Instruction>,
-
-    // This owns the source files transitively used by the source locations
-    // in the Instruction structs.
-    _sources: Arc<BuildModelSources>,
     // TODO https://github.com/NomicFoundation/edr/issues/759
     /// Contract that the bytecode belongs to.
     pub contract: Arc<RwLock<Contract>>,
@@ -447,7 +517,6 @@ impl ContractMetadata {
     /// Creates a new [`ContractMetadata`] with the provided arguments.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        sources: Arc<BuildModelSources>,
         contract: Arc<RwLock<Contract>>,
         is_deployment: bool,
         normalized_code: Vec<u8>,
@@ -463,7 +532,6 @@ impl ContractMetadata {
 
         ContractMetadata {
             pc_to_instruction,
-            _sources: sources,
             contract,
             is_deployment,
             normalized_code,
@@ -526,16 +594,12 @@ pub struct Contract {
     /// The contract's kind, i.e. contract or library.
     pub r#type: ContractKind,
     /// The source location of the contract.
-    pub location: Arc<SourceLocation>,
+    pub location: SourceLocation,
 }
 
 impl Contract {
     /// Creates a new [`Contract`] with the provided arguments.
-    pub fn new(
-        name: String,
-        contract_type: ContractKind,
-        location: Arc<SourceLocation>,
-    ) -> Contract {
+    pub fn new(name: String, contract_type: ContractKind, location: SourceLocation) -> Contract {
         Contract {
             custom_errors: Vec::new(),
             constructor: None,

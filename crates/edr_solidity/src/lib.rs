@@ -25,4 +25,3 @@ mod bytecode_trie;
 mod error_inferrer;
 mod mapped_inline_internal_functions_heuristics;
 pub mod return_data;
-mod source_map;

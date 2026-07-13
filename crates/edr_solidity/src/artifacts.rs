@@ -460,6 +460,53 @@ pub struct SolxBytecode {
     pub immutable_references: Option<HashMap<String, Vec<ImmutableReference>>>,
 }
 
+/// Collects the AST spans from the compiler output's sources. The DWARF
+/// parser uses this to derive `SourceLocation.length` from a `(file, line,
+/// column)` triple.
+pub fn collect_ast_spans<'a>(
+    sources: impl Iterator<Item = &'a CompilerOutputSource>,
+) -> HashMap<u32, Vec<(u32, u32)>> {
+    let mut spans: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
+    for source in sources {
+        collect_node_spans(&source.ast, &mut spans);
+    }
+    // Sorted so `BuildModel::smallest_enclosing_span` can scan in order
+    // and break early.
+    for file_spans in spans.values_mut() {
+        file_spans.sort_unstable();
+        file_spans.dedup();
+    }
+    spans
+}
+
+/// Walk an AST subtree and append every node's `src` span keyed by file ID.
+fn collect_node_spans(node: &serde_json::Value, out: &mut HashMap<u32, Vec<(u32, u32)>>) {
+    if let Some(src) = node.get("src").and_then(serde_json::Value::as_str)
+        && let Some((offset, length, file_id)) = parse_src(src)
+    {
+        out.entry(file_id).or_default().push((offset, length));
+    }
+
+    if let Some(obj) = node.as_object() {
+        for value in obj.values() {
+            collect_node_spans(value, out);
+        }
+    } else if let Some(arr) = node.as_array() {
+        for value in arr {
+            collect_node_spans(value, out);
+        }
+    }
+}
+
+/// Parse `"offset:length:fileIndex"` into `(offset, length, file_id)`.
+fn parse_src(src: &str) -> Option<(u32, u32, u32)> {
+    let mut parts = src.splitn(3, ':');
+    let offset = parts.next()?.parse::<u32>().ok()?;
+    let length = parts.next()?.parse::<u32>().ok()?;
+    let file_id = parts.next()?.parse::<u32>().ok()?;
+    Some((offset, length, file_id))
+}
+
 /// A reference to a library.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct LinkReference {

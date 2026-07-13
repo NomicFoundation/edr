@@ -25,7 +25,7 @@ use super::{
 use crate::{
     artifacts::BuildInfoConfig,
     build_model::ContractFunctionType,
-    compiler::create_models_and_decode_bytecodes,
+    compiler::populate_decoded_bytecodes,
     contracts_identifier::{ContractsIdentifier, IdentifiedContract},
     nested_trace::{NestedTrace, NestedTraceStep},
 };
@@ -83,7 +83,7 @@ impl ContractDecoder {
         let mut revert_decoder = RevertDecoder::default();
 
         for build_info in &config.build_infos {
-            let bytecodes = create_models_and_decode_bytecodes(
+            let bytecodes = populate_decoded_bytecodes(
                 build_info.solc_version.clone(),
                 &build_info.input,
                 &build_info.output,
