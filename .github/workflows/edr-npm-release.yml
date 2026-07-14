@@ -595,7 +595,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
 
-      - uses: NomicFoundation/cargo-cooldown-check@ac40e701f9f1155741a761ac9039987fb892af4b
+      - uses: NomicFoundation/cargo-cooldown-check@0e9231d9dc6084e8ed2e2eee2fa812f27776cab8 # v0.2.0
 
   notify-deploy:
     name: Notify pre-deploy to Slack
