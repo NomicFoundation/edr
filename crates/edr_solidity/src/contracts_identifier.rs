@@ -786,9 +786,6 @@ mod tests {
             Arc::as_ptr(&solx_meta),
             "solx-built variant must resolve to its own ContractMetadata"
         );
-        // The strategy attached to each lookup reflects its producing compiler.
-        assert_eq!(solc_lookup.trace_strategy.recursion_start_idx(), 1);
-        assert_eq!(solx_lookup.trace_strategy.recursion_start_idx(), 0);
     }
 
     #[test]
