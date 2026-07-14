@@ -3204,7 +3204,6 @@ dependencies = [
  "edr_utils_sync",
  "foundry-cheatcodes",
  "foundry-compilers",
- "memchr",
  "mimalloc",
  "napi",
  "napi-build",

@@ -358,8 +358,8 @@ impl SolidityTestRunnerConfigArgs<'_> {
                 .collect::<Result<_, napi::Error>>()?,
             seed: fuzz.seed,
             allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
-            // Per-function `allowInternalExpectRevert` now comes from inline
-            // config, applied per-suite by the test runner.
+            // Per-function `allowInternalExpectRevert` comes from inline config, applied per-suite
+            // by the test runner.
             functions_internal_expect_revert: std::collections::HashSet::default(),
             eip712_types_by_name: foundry_cheatcodes::parse_eip712_canonical_types(
                 eip712_canonical_types.unwrap_or_default(),

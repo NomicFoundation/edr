@@ -23,9 +23,7 @@ use edr_solidity_tests::{
 /// configuration collected.
 ///
 /// This uses the synchronous [`SharedInlineConfigProvider::collect`], so
-/// collection happens here (blocking) and a failure surfaces immediately. Swap
-/// to [`SharedInlineConfigProvider::collect_in_background`] (returning the
-/// handle directly, infallibly) to compare against off-thread collection.
+/// collection happens here (blocking) and a failure surfaces immediately.
 pub(crate) fn collect_inline_configs(
     config: &TestRunnerConfig,
     test_contracts: &BTreeMap<ArtifactId, TestContract>,

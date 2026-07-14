@@ -59,11 +59,6 @@ enum KeyCategory {
 }
 
 /// A recognized inline-config key.
-///
-/// Parsing a directive's canonical (camelCase) key into this enum is the single
-/// place the supported key set is enumerated; everything downstream matches
-/// exhaustively on the variant, so the compiler guarantees every key has a
-/// category and is applied — no key can be accepted yet left unhandled.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Key {
     Isolate,
@@ -209,7 +204,8 @@ struct RawOverride {
 
 /// Replaces each `delim` followed by a character with the uppercased character
 /// (`max-test-rejects` and `max_test_rejects` both become `maxTestRejects`).
-/// A trailing delimiter with no following character is left untouched.
+/// A trailing delimiter with no following character is left untouched to avoid
+/// silently fixing malformed keys.
 fn delimiter_to_camel(input: &str, delim: char) -> String {
     let mut out = String::with_capacity(input.len());
     let mut chars = input.chars();
@@ -327,10 +323,7 @@ fn parse_u32(value: &str, raw_key: &str, test_function: &str) -> Result<u32, Inl
 /// Parses the inline configuration for a single function from its leading
 /// NatSpec blocks.
 ///
-/// Returns `Ok(None)` when no inline-config directive is present. `contract`
-/// and `function` are used only for diagnostics; `function` additionally
-/// determines whether `fuzz.*` or `invariant.*` keys are permitted (by its
-/// `test`/`invariant` name prefix).
+/// Returns `Ok(None)` when no inline-config directive is present.
 pub fn parse_inline_config(
     blocks: &[NatSpecBlock],
     contract: &str,

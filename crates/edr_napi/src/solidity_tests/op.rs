@@ -34,7 +34,6 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
         revert_decoder: RevertDecoder,
         tracing_config: TracingConfigWithBuffers,
     ) -> napi::Result<Box<dyn SyncTestRunner>> {
-        // Start collecting inline configuration in the background.
         let inline_config_provider = inline_config::collect_inline_configs(&config, &contracts)?;
 
         let contract_decoder = LazyContractDecoder::new(tracing_config);
