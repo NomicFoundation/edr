@@ -16,6 +16,9 @@
 pub struct NatSpecBlock {
     /// The raw block text, delimiters included.
     pub text: String,
+    /// Byte offset of the block within the source, used to report the line of
+    /// an offending directive.
+    pub offset: usize,
 }
 
 /// Returns the NatSpec comment blocks immediately preceding the node starting
@@ -56,6 +59,7 @@ pub fn collect_natspec(src: &str, node_start: usize) -> Vec<NatSpecBlock> {
             if block.starts_with("/**") {
                 blocks.push(NatSpecBlock {
                     text: block.to_owned(),
+                    offset: start,
                 });
             }
             end = start;
@@ -72,6 +76,7 @@ pub fn collect_natspec(src: &str, node_start: usize) -> Vec<NatSpecBlock> {
             if content.starts_with("///") {
                 blocks.push(NatSpecBlock {
                     text: content.to_owned(),
+                    offset: line_start,
                 });
             } else if !content.starts_with("//") {
                 break;

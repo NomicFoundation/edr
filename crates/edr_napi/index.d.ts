@@ -906,6 +906,27 @@ export declare enum IncludeTraces {
   All = 2
 }
 
+/**
+ * A single ill-formed inline-config directive, located so the user can find
+ * and fix it. Attached to the rejected `runSolidityTests` promise as the
+ * `inlineConfigErrors` array on the thrown error.
+ */
+export interface InlineConfigError {
+  /**
+   * The solc source name the problem was found in (e.g.
+   * `project/test/Foo.t.sol`).
+   */
+  sourceName: string
+  /** The contract the offending directive belongs to, if known. */
+  contract?: string
+  /** The test function the offending directive belongs to, if known. */
+  function?: string
+  /** The 1-based line of the offending directive within the source, if known. */
+  line?: number
+  /** A human-readable description of the problem. */
+  message: string
+}
+
 export interface InstrumentationMetadata {
   /**
    * The tag that identifies the instrumented code. Tags are

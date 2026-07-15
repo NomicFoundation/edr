@@ -14,8 +14,8 @@ use std::{
 use semver::Version;
 
 use super::{
-    directives,
-    error::InlineConfigError,
+    directives::{self, LocatedDirectiveError},
+    error::{InlineConfigError, InlineConfigErrorItem},
     natspec,
     parse::{locate_functions, LocatedFunction},
     resolver::ImportResolver,
@@ -31,27 +31,60 @@ pub struct FunctionOverride {
     pub config: TestFunctionConfigOverride,
 }
 
-/// The fully-parsed inline configuration of every contract in one source, keyed
-/// by contract name. A contract that declares no inline configuration is
-/// omitted (a query for it returns an empty vector).
+/// The successfully-parsed inline configuration of every contract in one source
+/// that declares any, keyed by contract name. A contract with no directives is
+/// simply absent; a contract whose directives were all malformed is likewise
+/// absent (its problems live in [`SourceCollection::errors`]).
 pub(super) type SourceOverrides = HashMap<String, Vec<FunctionOverride>>;
+
+/// The outcome of collecting one source's inline configuration: the overrides
+/// that parsed successfully, plus every problem found (at most one per test
+/// function). Problems are accumulated rather than short-circuited so the run
+/// can report them all together and abort up front.
+pub(super) struct SourceCollection {
+    /// The successfully-parsed overrides, keyed by contract name.
+    pub(super) overrides: SourceOverrides,
+    /// The problems found, in source order, each with its location.
+    pub(super) errors: Vec<InlineConfigErrorItem>,
+}
 
 /// Parses the file at `root_path` (its `content`, compiled with `version`) into
 /// the inline configuration of every contract it declares. Its imports are
-/// resolved by `import_resolver` and read from disk.
+/// resolved by `import_resolver` and read from disk. `source` names the file
+/// in error reports (the solc source name the caller queries by).
 ///
-/// A malformed directive fails the whole source (and, in turn, the whole run).
+/// A failure to locate the source's functions (an unsupported solc version)
+/// becomes the collection's single (source-level) error; otherwise every
+/// contract is parsed and its per-function problems accumulated.
 pub(super) fn collect_source(
+    source: &Path,
     root_path: &Path,
     content: Arc<str>,
     version: Version,
     import_resolver: &ImportResolver,
-) -> Result<SourceOverrides, InlineConfigError> {
-    let functions = locate_functions(root_path, version, import_resolver)?;
-    source_overrides(&SourceAst {
-        source: content,
-        functions,
-    })
+) -> SourceCollection {
+    let functions = match locate_functions(root_path, version, import_resolver) {
+        Ok(functions) => functions,
+        Err(error) => {
+            return SourceCollection {
+                overrides: SourceOverrides::new(),
+                errors: vec![InlineConfigErrorItem {
+                    source: source.to_path_buf(),
+                    contract: None,
+                    function: None,
+                    line: None,
+                    message: InlineConfigError::Collect(error).to_string(),
+                }],
+            };
+        }
+    };
+    source_overrides(
+        source,
+        &SourceAst {
+            source: content,
+            functions,
+        },
+    )
 }
 
 /// The structural information extracted from a single source file: its text and
@@ -62,33 +95,40 @@ struct SourceAst {
     functions: Vec<LocatedFunction>,
 }
 
-/// Parses the inline configuration of every contract in `ast`, keyed by
-/// contract name. Contracts with no directives are omitted (a query returns an
-/// empty vector). A malformed directive short-circuits with an error.
-fn source_overrides(ast: &SourceAst) -> Result<SourceOverrides, InlineConfigError> {
-    let mut by_contract = SourceOverrides::new();
+/// Parses the inline configuration of every contract in `ast` that declares a
+/// directive. Contracts with no directives are omitted from
+/// [`SourceCollection::overrides`] (a query for them returns an empty vector);
+/// malformed directives are accumulated into [`SourceCollection::errors`]
+/// rather than failing the source.
+fn source_overrides(source: &Path, ast: &SourceAst) -> SourceCollection {
+    let mut overrides = SourceOverrides::new();
+    let mut errors = Vec::new();
     let mut seen = HashSet::new();
 
     for function in &ast.functions {
         if !seen.insert(function.contract_name.as_str()) {
             continue;
         }
-        let overrides = contract_overrides(ast, &function.contract_name)?;
-        if !overrides.is_empty() {
-            by_contract.insert(function.contract_name.clone(), overrides);
+        let (contract, contract_errors) = contract_overrides(source, ast, &function.contract_name);
+        if !contract.is_empty() {
+            overrides.insert(function.contract_name.clone(), contract);
         }
+        errors.extend(contract_errors);
     }
 
-    Ok(by_contract)
+    SourceCollection { overrides, errors }
 }
 
 /// Parses the inline configuration of every test function in `contract_name`
-/// within the already-parsed `ast`.
+/// within the already-parsed `ast`, returning the successful overrides and the
+/// problems found (at most one per function), each located at its source line.
 fn contract_overrides(
+    source: &Path,
     ast: &SourceAst,
     contract_name: &str,
-) -> Result<Vec<FunctionOverride>, InlineConfigError> {
+) -> (Vec<FunctionOverride>, Vec<InlineConfigErrorItem>) {
     let mut overrides = Vec::new();
+    let mut errors = Vec::new();
 
     for function in &ast.functions {
         if function.contract_name != contract_name {
@@ -106,15 +146,35 @@ fn contract_overrides(
             continue;
         }
 
-        if let Some(config) =
-            directives::parse_inline_config(&blocks, contract_name, &function.function_name)?
-        {
-            overrides.push(FunctionOverride {
+        // Only the first problem in a given function is reported; parsing moves
+        // on to the next function so every function's problems surface.
+        match directives::parse_inline_config(&blocks, &function.function_name) {
+            Ok(Some(config)) => overrides.push(FunctionOverride {
                 function_name: function.function_name.clone(),
                 config,
-            });
+            }),
+            Ok(None) => {}
+            Err(LocatedDirectiveError { offset, error }) => errors.push(InlineConfigErrorItem {
+                source: source.to_path_buf(),
+                contract: Some(contract_name.to_owned()),
+                function: Some(function.function_name.clone()),
+                line: Some(line_of(&ast.source, offset)),
+                message: error.to_string(),
+            }),
         }
     }
 
-    Ok(overrides)
+    (overrides, errors)
+}
+
+/// The 1-based line number of `offset` within `source`.
+fn line_of(source: &str, offset: usize) -> u32 {
+    let end = offset.min(source.len());
+    let newlines = source
+        .as_bytes()
+        .iter()
+        .take(end)
+        .filter(|&&byte| byte == b'\n')
+        .count();
+    u32::try_from(newlines + 1).unwrap_or(u32::MAX)
 }

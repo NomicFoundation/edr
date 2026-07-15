@@ -14,6 +14,25 @@ use crate::config::{TestFunctionConfigOverride, TimeoutConfig};
 const HARDHAT_CONFIG_PREFIX: &str = "hardhat-config:";
 const FORGE_CONFIG_PREFIX: &str = "forge-config:";
 
+/// A candidate directive line, stripped of comment decoration, together with
+/// the byte offset of the source line it came from (for line-number reporting).
+struct DirectiveLine {
+    /// Byte offset within the source of the line this came from.
+    offset: usize,
+    /// The line text, stripped of comment decoration.
+    text: String,
+}
+
+/// A directive problem together with the byte offset of the offending line, so
+/// the collection layer can resolve it to a source line number.
+#[derive(Debug)]
+pub(super) struct LocatedDirectiveError {
+    /// Byte offset within the source of the offending directive.
+    pub(super) offset: usize,
+    /// The problem.
+    pub(super) error: InlineConfigError,
+}
+
 /// Returns `true` if `source` contains an inline-config directive prefix. Used
 /// to skip the (expensive) parse of sources that carry no directive.
 pub(super) fn contains_inline_config_directive(source: &str) -> bool {
@@ -117,10 +136,8 @@ impl Key {
         self,
         config: &mut TestFunctionConfigOverride,
         raw: &RawOverride,
-        test_function: &str,
     ) -> Result<(), InlineConfigError> {
         let invalid_value = |expected: &'static str| InlineConfigError::InvalidValue {
-            test_function: test_function.to_owned(),
             key: raw.raw_key.clone(),
             value: raw.raw_value.clone(),
             expected,
@@ -137,7 +154,7 @@ impl Key {
         };
         let as_u32 = || {
             if is_non_negative_integer(&raw.raw_value) {
-                parse_u32(&raw.raw_value, &raw.raw_key, test_function)
+                parse_u32(&raw.raw_value, &raw.raw_key)
             } else {
                 Err(invalid_value("non-negative integer"))
             }
@@ -200,6 +217,8 @@ struct RawOverride {
     raw_key: String,
     /// The value exactly as written.
     raw_value: String,
+    /// Byte offset within the source of the directive's line.
+    offset: usize,
 }
 
 /// Replaces each `delim` followed by a character with the uppercased character
@@ -224,44 +243,59 @@ fn delimiter_to_camel(input: &str, delim: char) -> String {
 
 /// Splits a scanned comment block into candidate directive lines, stripping
 /// both the block delimiters (`///`, `/**`, `*/`) and each line's leading
-/// NatSpec decoration (whitespace, an optional `*`, then whitespace).
-fn block_to_lines(block: &str) -> Vec<String> {
-    let block = block.trim();
-    let lines: Vec<&str> = if let Some(rest) = block.strip_prefix("///") {
-        vec![rest]
-    } else {
-        let inner = block.strip_prefix("/**").unwrap_or(block);
-        let inner = inner.strip_suffix("*/").unwrap_or(inner);
-        inner.split('\n').collect()
+/// NatSpec decoration (whitespace, an optional `*`, then whitespace). Each line
+/// keeps the byte offset of the source line it came from.
+fn block_to_lines(block: &NatSpecBlock) -> Vec<DirectiveLine> {
+    let strip_decoration = |line: &str| -> String {
+        let line = line.trim_start();
+        let line = line.strip_prefix("///").unwrap_or(line);
+        let line = line.strip_prefix("/**").unwrap_or(line);
+        let line = line.strip_suffix("*/").unwrap_or(line);
+        let line = line.trim_start();
+        let line = line.strip_prefix('*').unwrap_or(line);
+        // A block comment's closing `*/` can trail a directive on its own line.
+        let line = line.strip_suffix("*/").unwrap_or(line);
+        line.trim().to_owned()
     };
 
+    // Walk the block's physical lines, tracking each one's byte offset within
+    // the source (`block.offset` is the block's start). A `///` block is a
+    // single line whose stored text was left-trimmed by the scanner, so its
+    // offset is simply the block offset.
+    let mut lines = Vec::new();
+    let mut line_start = 0;
+    for physical in block.text.split_inclusive('\n') {
+        lines.push(DirectiveLine {
+            offset: block.offset + line_start,
+            text: strip_decoration(physical),
+        });
+        line_start += physical.len();
+    }
     lines
-        .into_iter()
-        .map(|line| {
-            let line = line.trim_start();
-            let line = line.strip_prefix('*').unwrap_or(line);
-            line.trim_start().to_owned()
-        })
-        .collect()
 }
 
 /// Parses a single candidate directive line — already stripped of comment
 /// decoration by [`block_to_lines`] — returning `None` if it is not an inline
 /// config directive.
-fn parse_line(line: &str, test_function: &str) -> Result<Option<RawOverride>, InlineConfigError> {
-    let segment = if let Some(rest) = line.strip_prefix(HARDHAT_CONFIG_PREFIX) {
+fn parse_line(line: &DirectiveLine) -> Result<Option<RawOverride>, LocatedDirectiveError> {
+    let text = line.text.as_str();
+    let located = |error: InlineConfigError| LocatedDirectiveError {
+        offset: line.offset,
+        error,
+    };
+
+    let segment = if let Some(rest) = text.strip_prefix(HARDHAT_CONFIG_PREFIX) {
         rest.trim()
-    } else if let Some(rest) = line.strip_prefix(FORGE_CONFIG_PREFIX) {
+    } else if let Some(rest) = text.strip_prefix(FORGE_CONFIG_PREFIX) {
         rest.trim()
     } else {
         return Ok(None);
     };
 
     let Some((raw_key, raw_value)) = segment.split_once('=') else {
-        return Err(InlineConfigError::InvalidSyntax {
-            test_function: test_function.to_owned(),
-            line: line.to_owned(),
-        });
+        return Err(located(InlineConfigError::InvalidSyntax {
+            line: text.to_owned(),
+        }));
     };
     let raw_key = raw_key.trim();
     let raw_value = raw_value.trim();
@@ -272,10 +306,9 @@ fn parse_line(line: &str, test_function: &str) -> Result<Option<RawOverride>, In
         && !TOP_LEVEL_KEYS.contains(&first_segment)
     {
         if !SUPPORTED_PROFILES.contains(&first_segment) {
-            return Err(InlineConfigError::UnsupportedProfile {
-                test_function: test_function.to_owned(),
+            return Err(located(InlineConfigError::UnsupportedProfile {
                 profile: first_segment.to_owned(),
-            });
+            }));
         }
         key = rest;
     }
@@ -286,6 +319,7 @@ fn parse_line(line: &str, test_function: &str) -> Result<Option<RawOverride>, In
         key,
         raw_key: raw_key.to_owned(),
         raw_value: raw_value.to_owned(),
+        offset: line.offset,
     }))
 }
 
@@ -309,11 +343,10 @@ fn is_quoted_string(value: &str) -> bool {
 }
 
 /// Parses a validated non-negative integer into a `u32`.
-fn parse_u32(value: &str, raw_key: &str, test_function: &str) -> Result<u32, InlineConfigError> {
+fn parse_u32(value: &str, raw_key: &str) -> Result<u32, InlineConfigError> {
     value
         .parse::<u32>()
         .map_err(|_error| InlineConfigError::InvalidValue {
-            test_function: test_function.to_owned(),
             key: raw_key.to_owned(),
             value: value.to_owned(),
             expected: "non-negative integer",
@@ -323,18 +356,17 @@ fn parse_u32(value: &str, raw_key: &str, test_function: &str) -> Result<u32, Inl
 /// Parses the inline configuration for a single function from its leading
 /// NatSpec blocks.
 ///
-/// Returns `Ok(None)` when no inline-config directive is present.
-pub fn parse_inline_config(
+/// Returns `Ok(None)` when no inline-config directive is present. On a
+/// malformed directive, the error carries the byte offset of the offending line
+/// so the caller can resolve it to a source line number.
+pub(super) fn parse_inline_config(
     blocks: &[NatSpecBlock],
-    contract: &str,
     function: &str,
-) -> Result<Option<TestFunctionConfigOverride>, InlineConfigError> {
-    let test_function = format!("{contract}.{function}");
-
+) -> Result<Option<TestFunctionConfigOverride>, LocatedDirectiveError> {
     let mut raw_overrides = Vec::new();
     for block in blocks {
-        for line in block_to_lines(&block.text) {
-            if let Some(raw) = parse_line(&line, &test_function)? {
+        for line in block_to_lines(block) {
+            if let Some(raw) = parse_line(&line)? {
                 raw_overrides.push(raw);
             }
         }
@@ -351,11 +383,15 @@ pub fn parse_inline_config(
     let mut seen = Vec::new();
 
     for raw in &raw_overrides {
+        let located = |error: InlineConfigError| LocatedDirectiveError {
+            offset: raw.offset,
+            error,
+        };
+
         let Some(key) = Key::from_canonical(&raw.key) else {
-            return Err(InlineConfigError::InvalidKey {
-                test_function: test_function.clone(),
+            return Err(located(InlineConfigError::InvalidKey {
                 key: raw.raw_key.clone(),
-            });
+            }));
         };
 
         // Key must match the test kind; top-level keys are valid on both.
@@ -365,23 +401,21 @@ pub fn parse_inline_config(
             KeyCategory::Invariant => is_invariant_test,
         };
         if !valid_for_kind {
-            return Err(InlineConfigError::InvalidKeyForTestType {
-                test_function: test_function.clone(),
+            return Err(located(InlineConfigError::InvalidKeyForTestType {
                 key: raw.raw_key.clone(),
                 test_type: if is_fuzz_test { "fuzz" } else { "invariant" }.to_owned(),
-            });
+            }));
         }
 
         // Reject duplicate keys for the same function.
         if seen.contains(&key) {
-            return Err(InlineConfigError::DuplicateKey {
-                test_function: test_function.clone(),
+            return Err(located(InlineConfigError::DuplicateKey {
                 key: raw.raw_key.clone(),
-            });
+            }));
         }
         seen.push(key);
 
-        key.apply(&mut config, raw, &test_function)?;
+        key.apply(&mut config, raw).map_err(located)?;
     }
 
     Ok(Some(config))
@@ -394,6 +428,7 @@ mod tests {
     fn block(text: &str) -> NatSpecBlock {
         NatSpecBlock {
             text: text.to_owned(),
+            offset: 0,
         }
     }
 
@@ -401,7 +436,7 @@ mod tests {
         text: &str,
         function: &str,
     ) -> Result<Option<TestFunctionConfigOverride>, InlineConfigError> {
-        parse_inline_config(&[block(text)], "C", function)
+        parse_inline_config(&[block(text)], function).map_err(|located| located.error)
     }
 
     #[test]
@@ -485,7 +520,6 @@ mod tests {
                 block("/// hardhat-config: evmVersion = \"cancun\""),
                 block("/// hardhat-config: allow-internal-expect-revert = true"),
             ],
-            "C",
             "testFoo",
         )
         .unwrap()
@@ -610,10 +644,10 @@ mod tests {
                 block("/// forge-config: fuzz.runs = 1"),
                 block("/// forge-config: fuzz.runs = 2"),
             ],
-            "C",
             "testFoo",
         )
-        .unwrap_err();
+        .unwrap_err()
+        .error;
         assert!(matches!(err, InlineConfigError::DuplicateKey { .. }));
     }
 

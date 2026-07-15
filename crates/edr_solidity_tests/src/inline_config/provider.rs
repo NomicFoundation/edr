@@ -2,12 +2,16 @@
 //!
 //! Collection: given the set of test sources to cover — each with the absolute
 //! path of its file on disk — parse each with Slang and extract every
-//! contract's inline configuration. A malformed directive (or an unreadable
-//! root file, or an unsupported solc version) fails collection outright, which
-//! aborts the whole run before any test executes.
+//! contract's inline configuration, accumulating every problem found (a
+//! malformed directive, an unreadable root file, or an unsupported solc
+//! version).
 //!
-//! Query: look up the precomputed inline configuration for one test contract —
-//! a plain map lookup, since all parsing happened during collection.
+//! Use: the runner first [`validate`](SharedInlineConfigProvider::validate)s —
+//! if collection found any problem, runner creation fails and the whole run is
+//! aborted before any test executes (matching Hardhat/Foundry). Otherwise each
+//! suite [`get`](SharedInlineConfigProvider::get)s the precomputed
+//! configuration of its test contract — a plain map lookup, since all parsing
+//! happened during collection.
 
 use std::{
     collections::HashMap,
@@ -20,8 +24,10 @@ use semver::Version;
 
 use super::{
     directives,
-    error::{InlineConfigCollectError, InlineConfigError},
-    overrides::{collect_source, FunctionOverride, SourceOverrides},
+    error::{
+        InlineConfigCollectError, InlineConfigError, InlineConfigErrorItem, InlineConfigErrors,
+    },
+    overrides::{collect_source, FunctionOverride, SourceCollection, SourceOverrides},
     resolver::ImportResolver,
 };
 
@@ -39,58 +45,101 @@ pub struct InlineConfigRoot {
 }
 
 /// Caches the fully-parsed inline configuration of every test contract, keyed
-/// by source name, so a query is a plain lookup.
+/// by source name, so a query is a plain lookup, and the problems found while
+/// parsing so the run can be aborted up front.
 ///
 /// [`collect`](Self::collect) does all the work — read each source and its
 /// imports from disk, parse them with Slang, and extract every contract's
 /// per-function overrides — once. Only sources that carry a directive are
-/// parsed. Any problem (a malformed directive, an unreadable root file, or an
-/// unsupported solc version) fails collection.
+/// parsed. Problems (a malformed directive, an unreadable root file, or an
+/// unsupported solc version) are accumulated (see
+/// [`validate`](Self::validate)) rather than short-circuiting, so every
+/// problem across every source is reported together.
 #[derive(Debug)]
 pub struct CachedInlineConfigProvider {
     by_source: HashMap<PathBuf, SourceOverrides>,
+    errors: Vec<InlineConfigErrorItem>,
 }
 
 impl CachedInlineConfigProvider {
     /// Parses every root's inline configuration in parallel, reading each
     /// root's file — and its imports, resolved by `import_resolver` — from
-    /// disk. Sources that carry no inline-config directive are skipped. Any
-    /// malformed directive, unreadable root file, or unsupported solc
-    /// version fails the whole collection.
-    pub fn collect(
-        roots: &[InlineConfigRoot],
-        import_resolver: &ImportResolver,
-    ) -> Result<Self, InlineConfigError> {
-        let parse =
-            |root: &InlineConfigRoot| -> Result<Option<(PathBuf, SourceOverrides)>, InlineConfigError> {
-                let content = std::fs::read_to_string(&root.path).map_err(|error| {
-                    InlineConfigError::Collect(InlineConfigCollectError::RootFileNotFound {
-                        path: root.path.display().to_string(),
-                        reason: error.to_string(),
-                    })
-                })?;
-                // Fast path: only parse sources that carry a directive.
-                if !directives::contains_inline_config_directive(&content) {
-                    return Ok(None);
+    /// disk. Sources that carry no inline-config directive are skipped. Every
+    /// problem found (a malformed directive, an unreadable root file, or an
+    /// unsupported solc version) is accumulated and surfaced by
+    /// [`validate`](Self::validate).
+    pub fn collect(roots: &[InlineConfigRoot], import_resolver: &ImportResolver) -> Self {
+        let parse = |root: &InlineConfigRoot| -> Option<(PathBuf, SourceCollection)> {
+            let content = match std::fs::read_to_string(&root.path) {
+                Ok(content) => content,
+                Err(error) => {
+                    return Some((
+                        root.source.clone(),
+                        SourceCollection {
+                            overrides: SourceOverrides::new(),
+                            errors: vec![InlineConfigErrorItem {
+                                source: root.source.clone(),
+                                contract: None,
+                                function: None,
+                                line: None,
+                                message: InlineConfigError::Collect(
+                                    InlineConfigCollectError::RootFileNotFound {
+                                        path: root.path.display().to_string(),
+                                        reason: error.to_string(),
+                                    },
+                                )
+                                .to_string(),
+                            }],
+                        },
+                    ));
                 }
-                let overrides = collect_source(
-                    &root.path,
-                    Arc::from(content),
-                    root.version.clone(),
-                    import_resolver,
-                )?;
-                Ok(Some((root.source.clone(), overrides)))
             };
+            // Fast path: only parse sources that carry a directive.
+            if !directives::contains_inline_config_directive(&content) {
+                return None;
+            }
+            let collection = collect_source(
+                &root.source,
+                &root.path,
+                Arc::from(content),
+                root.version.clone(),
+                import_resolver,
+            );
+            Some((root.source.clone(), collection))
+        };
 
         // Parse the roots in parallel on rayon's global pool. Collection runs
         // synchronously and completes before any test suite is dispatched, so it
         // never contends with suite execution.
-        let collected: Vec<Option<(PathBuf, SourceOverrides)>> =
-            roots.par_iter().map(parse).collect::<Result<_, _>>()?;
+        let collected: Vec<Option<(PathBuf, SourceCollection)>> =
+            roots.par_iter().map(parse).collect();
 
-        Ok(Self {
-            by_source: collected.into_iter().flatten().collect(),
-        })
+        let mut by_source = HashMap::new();
+        let mut errors = Vec::new();
+        for (source, collection) in collected.into_iter().flatten() {
+            let SourceCollection {
+                overrides,
+                errors: source_errors,
+            } = collection;
+            // Each item already carries its source name, contract, function and
+            // line, so problems from every source flatten into one report.
+            errors.extend(source_errors);
+            if !overrides.is_empty() {
+                by_source.insert(source, overrides);
+            }
+        }
+
+        Self { by_source, errors }
+    }
+
+    /// Returns `Err` listing every problem found during collection, or `Ok` if
+    /// there were none. Callers abort the run on `Err` before any suite runs.
+    pub fn validate(&self) -> Result<(), InlineConfigErrors> {
+        if self.errors.is_empty() {
+            Ok(())
+        } else {
+            Err(InlineConfigErrors::new(self.errors.clone()))
+        }
     }
 
     /// Returns the inline configuration of every test function declared
@@ -98,7 +147,8 @@ impl CachedInlineConfigProvider {
     /// collection.
     ///
     /// Returns an empty vector if the contract carries no inline configuration.
-    /// This is infallible: any malformed directive already failed collection.
+    /// Malformed directives never reach here — they are caught up front by
+    /// [`validate`](Self::validate), which aborts the run.
     pub fn get(&self, source: &Path, contract_name: &str) -> Vec<FunctionOverride> {
         self.by_source
             .get(source)
@@ -115,15 +165,21 @@ pub struct SharedInlineConfigProvider(Arc<CachedInlineConfigProvider>);
 
 impl SharedInlineConfigProvider {
     /// Collects every root's inline configuration, returning a shared handle to
-    /// the result. A collection failure (a malformed directive, an unreadable
-    /// root file, or an unsupported solc version) is returned to the caller,
-    /// which aborts the whole run.
-    pub fn collect(
-        roots: Vec<InlineConfigRoot>,
-        import_resolver: ImportResolver,
-    ) -> Result<Self, InlineConfigError> {
-        let provider = CachedInlineConfigProvider::collect(&roots, &import_resolver)?;
-        Ok(Self(Arc::new(provider)))
+    /// the result. Problems found during collection are surfaced together by
+    /// [`validate`](Self::validate), which the runner calls up front to abort
+    /// the run before any test executes.
+    pub fn collect(roots: Vec<InlineConfigRoot>, import_resolver: ImportResolver) -> Self {
+        Self(Arc::new(CachedInlineConfigProvider::collect(
+            &roots,
+            &import_resolver,
+        )))
+    }
+
+    /// Returns `Err` listing every problem found during collection, or `Ok` if
+    /// there were none. The runner calls this before dispatching any suite and
+    /// aborts on `Err`.
+    pub fn validate(&self) -> Result<(), InlineConfigErrors> {
+        self.0.validate()
     }
 
     /// Returns the inline configuration of `contract_name` within `source` — a
@@ -157,10 +213,30 @@ contract MyTest {
 }
 "#;
 
+    /// A source with two malformed test functions — one of which has *two* bad
+    /// directives — and one well-formed function, to pin down that exactly one
+    /// error is reported per malformed function (not per source, and not one
+    /// per bad directive).
+    const MALFORMED_SOURCE: &str = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract BadTest {
+    /// forge-config: default.fuzz.runs = -1
+    /// forge-config: fuzz.maxTestRejects = -2
+    function testFuzz(uint256 x) public {}
+
+    /// forge-config: fuzz.bogus = 1
+    function testOther() public {}
+
+    /// forge-config: default.fuzz.runs = 5
+    function testValid(uint256 x) public {}
+}
+"#;
+
     /// Writes `source` to a temporary `.sol` file and returns a root under the
-    /// query identity `project/test.sol`, together with the handle keeping the
+    /// query identity `source_name`, together with the handle keeping the
     /// file alive.
-    fn root_for(source: &str) -> (InlineConfigRoot, tempfile::NamedTempFile) {
+    fn root_named(source_name: &str, source: &str) -> (InlineConfigRoot, tempfile::NamedTempFile) {
         let mut file = tempfile::Builder::new()
             .suffix(".sol")
             .tempfile()
@@ -168,7 +244,7 @@ contract MyTest {
         file.write_all(source.as_bytes()).expect("write source");
 
         let root = InlineConfigRoot {
-            source: PathBuf::from(SOURCE_NAME),
+            source: PathBuf::from(source_name),
             path: file.path().to_path_buf(),
             version: Version::new(0, 8, 0),
         };
@@ -176,7 +252,11 @@ contract MyTest {
     }
 
     fn root_with_source() -> (InlineConfigRoot, tempfile::NamedTempFile) {
-        root_for(SOURCE)
+        root_named(SOURCE_NAME, SOURCE)
+    }
+
+    fn malformed_root() -> (InlineConfigRoot, tempfile::NamedTempFile) {
+        root_named("project/bad.sol", MALFORMED_SOURCE)
     }
 
     fn assert_overrides(overrides: &[FunctionOverride]) {
@@ -197,66 +277,79 @@ contract MyTest {
     #[test]
     fn cached_collects_and_queries() {
         let (root, _file) = root_with_source();
-        let provider = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default())
-            .expect("collect succeeds");
+        let provider = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default());
 
+        provider.validate().expect("no problems");
         assert_overrides(&provider.get(Path::new(SOURCE_NAME), "MyTest"));
         // A source that was never collected reports no overrides.
         assert!(provider.get(Path::new("never.sol"), "MyTest").is_empty());
     }
 
     #[test]
-    fn collect_fails_on_missing_root_file() {
+    fn missing_root_file_reported_by_validate() {
         let root = InlineConfigRoot {
             source: PathBuf::from(SOURCE_NAME),
             path: PathBuf::from("/nonexistent/test.sol"),
             version: Version::new(0, 8, 0),
         };
 
-        let error = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default())
-            .expect_err("missing root file fails collection");
-        assert!(matches!(
-            error,
-            InlineConfigError::Collect(InlineConfigCollectError::RootFileNotFound { .. })
-        ));
+        let provider = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default());
+        let errors = provider.validate().expect_err("problems reported");
+        let items = errors.items();
+        assert_eq!(items.len(), 1, "{items:#?}");
+        // A source-level problem has no directive to point at.
+        assert_eq!(items[0].source, PathBuf::from(SOURCE_NAME));
+        assert_eq!(items[0].contract, None);
+        assert_eq!(items[0].line, None);
+        assert!(items[0].message.contains("/nonexistent/test.sol"));
     }
 
     #[test]
-    fn collect_fails_on_malformed_directive() {
-        let source = r#"// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+    fn cached_accumulates_one_error_per_function() {
+        let (root, _file) = malformed_root();
+        let provider = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default());
 
-contract BadTest {
-    /// forge-config: default.fuzz.bogus = 1
-    function testFoo(uint256 x) public {}
-}
-"#;
-        let (root, _file) = root_for(source);
+        let errors = provider.validate().expect_err("problems reported");
+        let items = errors.items();
 
-        // A malformed directive fails the whole collection rather than being
-        // isolated to the offending contract.
-        let error = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default())
-            .expect_err("malformed directive fails collection");
-        assert!(
-            matches!(error, InlineConfigError::InvalidKey { .. }),
-            "{error:?}"
-        );
-    }
+        // Exactly one problem per malformed function — not one per source, and
+        // not one per bad directive (`testFuzz` has two), and never the
+        // well-formed `testValid`.
+        assert_eq!(items.len(), 2, "{items:#?}");
 
-    #[test]
-    fn shared_collect_then_serves() {
-        let (root, _file) = root_with_source();
-        let provider = SharedInlineConfigProvider::collect(vec![root], ImportResolver::default())
-            .expect("collect succeeds");
+        // Each item carries structured location: source, contract, function and
+        // the 1-based line of the *first* offending directive in that function.
+        let fuzz = items
+            .iter()
+            .find(|item| item.function.as_deref() == Some("testFuzz"))
+            .expect("testFuzz reported");
+        assert_eq!(fuzz.source, PathBuf::from("project/bad.sol"));
+        assert_eq!(fuzz.contract.as_deref(), Some("BadTest"));
+        assert_eq!(fuzz.line, Some(5)); // the `runs = -1` line, not `-2` on line 6
 
-        assert_overrides(&provider.get(Path::new(SOURCE_NAME), "MyTest"));
+        let other = items
+            .iter()
+            .find(|item| item.function.as_deref() == Some("testOther"))
+            .expect("testOther reported");
+        assert_eq!(other.line, Some(9));
+
+        assert!(items
+            .iter()
+            .all(|item| item.function.as_deref() != Some("testValid")));
+
+        // The well-formed function's override is still collected alongside the
+        // malformed ones.
+        let overrides = provider.get(Path::new("project/bad.sol"), "BadTest");
+        assert_eq!(overrides.len(), 1);
+        assert_eq!(overrides[0].function_name, "testValid");
     }
 
     #[test]
     fn shared_serves_concurrent_queries() {
         let (root, _file) = root_with_source();
-        let provider = SharedInlineConfigProvider::collect(vec![root], ImportResolver::default())
-            .expect("collect succeeds");
+        let provider = SharedInlineConfigProvider::collect(vec![root], ImportResolver::default());
+
+        provider.validate().expect("no problems");
 
         let handles: Vec<_> = (0..8)
             .map(|_| {
@@ -271,22 +364,15 @@ contract BadTest {
     }
 
     #[test]
-    fn shared_collect_fails_on_malformed_directive() {
-        let source = r#"// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+    fn shared_validate_reports_collection_problems() {
+        let (good, _good_file) = root_with_source();
+        let (bad, _bad_file) = malformed_root();
+        let provider =
+            SharedInlineConfigProvider::collect(vec![good, bad], ImportResolver::default());
 
-contract BadTest {
-    /// forge-config: default.fuzz.runs = -1
-    function testFoo(uint256 x) public {}
-}
-"#;
-        let (root, _file) = root_for(source);
-
-        let error = SharedInlineConfigProvider::collect(vec![root], ImportResolver::default())
-            .expect_err("malformed directive fails collection");
-        assert!(
-            matches!(error, InlineConfigError::InvalidValue { .. }),
-            "{error:?}"
-        );
+        let errors = provider.validate().expect_err("problems reported");
+        assert!(errors.to_string().contains("project/bad.sol"));
+        // The well-formed source is still queryable alongside the bad one.
+        assert_overrides(&provider.get(Path::new(SOURCE_NAME), "MyTest"));
     }
 }

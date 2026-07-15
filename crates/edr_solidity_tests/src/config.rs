@@ -12,7 +12,7 @@ use foundry_evm::{
 
 use crate::{
     fork::CreateFork,
-    inline_config::{ImportResolver, InlineConfigError},
+    inline_config::{ImportResolver, InlineConfigErrors},
     opts::{effective_transaction_gas_cap, Env as EvmEnv, EvmOpts},
 };
 
@@ -27,9 +27,10 @@ pub enum SolidityTestRunnerConfigError {
     /// Failed to normalize project root
     #[error("Failed to normalize project root with error: {0}")]
     InvalidProjectRoot(std::io::Error),
-    /// A test source carries invalid inline configuration.
-    #[error("{0}")]
-    InlineConfig(InlineConfigError),
+    /// One or more test sources carry invalid inline configuration. Carries
+    /// every problem found, each located at its source line.
+    #[error("Found invalid inline configuration in test sources:\n{0}")]
+    InlineConfig(InlineConfigErrors),
 }
 
 /// Solidity tests configuration

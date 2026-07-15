@@ -1,5 +1,7 @@
 //! The errors surfaced while resolving inline configuration.
 
+use std::path::PathBuf;
+
 use slang_solidity_v2::utils::FromSemverError;
 
 /// Errors produced while collecting a source's inline configuration before the
@@ -41,49 +43,35 @@ impl Clone for InlineConfigCollectError {
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
 pub enum InlineConfigError {
     /// A directive was missing the `=` separator.
-    #[error("Invalid inline config syntax in {test_function}: missing '=' in `{line}`")]
+    #[error("missing '=' in `{line}`")]
     InvalidSyntax {
-        /// The function the directive belongs to.
-        test_function: String,
         /// The offending directive line.
         line: String,
     },
     /// A profile other than `default` was used.
-    #[error(
-        "Unsupported inline config profile `{profile}` in {test_function}; only `default` is supported"
-    )]
+    #[error("unsupported profile `{profile}`; only `default` is supported")]
     UnsupportedProfile {
-        /// The function the directive belongs to.
-        test_function: String,
         /// The unsupported profile name.
         profile: String,
     },
     /// An unknown configuration key was used.
-    #[error("Invalid inline config key `{key}` in {test_function}")]
+    #[error("invalid key `{key}`")]
     InvalidKey {
-        /// The function the directive belongs to.
-        test_function: String,
         /// The offending (raw) key.
         key: String,
     },
     /// A key was used on a test of the wrong kind (e.g. `fuzz.*` on an
     /// invariant test).
-    #[error("Inline config key `{key}` is not valid for {test_type} test {test_function}")]
+    #[error("key `{key}` is not valid for {test_type} tests")]
     InvalidKeyForTestType {
-        /// The function the directive belongs to.
-        test_function: String,
         /// The offending (raw) key.
         key: String,
-        /// The kind of test (`fuzz` or `invariant`).
+        /// The kind of test the function is (`fuzz` or `invariant`).
         test_type: String,
     },
     /// A value did not match the expected type for its key.
-    #[error(
-        "Invalid value `{value}` for inline config key `{key}` in {test_function}: expected {expected}"
-    )]
+    #[error("invalid value `{value}` for key `{key}`: expected {expected}")]
     InvalidValue {
-        /// The function the directive belongs to.
-        test_function: String,
         /// The offending (raw) key.
         key: String,
         /// The offending value.
@@ -92,10 +80,8 @@ pub enum InlineConfigError {
         expected: &'static str,
     },
     /// The same key was specified more than once for a function.
-    #[error("Duplicate inline config key `{key}` in {test_function}")]
+    #[error("duplicate key `{key}`")]
     DuplicateKey {
-        /// The function the directive belongs to.
-        test_function: String,
         /// The duplicated (raw) key.
         key: String,
     },
@@ -104,3 +90,77 @@ pub enum InlineConfigError {
     #[error(transparent)]
     Collect(#[from] InlineConfigCollectError),
 }
+
+/// A single inline-config problem together with enough location to point the
+/// user at it — modeled on the stack-trace `SourceReference` surfaced to
+/// consumers.
+///
+/// [`contract`](Self::contract), [`function`](Self::function) and
+/// [`line`](Self::line) are absent for a source-level problem (e.g. an
+/// unsupported solc version or an unreadable source file), where there is no
+/// single directive to point at.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InlineConfigErrorItem {
+    /// The solc source name the problem was found in (e.g.
+    /// `project/test/Foo.t.sol`).
+    pub source: PathBuf,
+    /// The contract the offending directive belongs to.
+    pub contract: Option<String>,
+    /// The test function the offending directive belongs to.
+    pub function: Option<String>,
+    /// The 1-based line of the offending directive within the source.
+    pub line: Option<u32>,
+    /// A human-readable description of the problem.
+    pub message: String,
+}
+
+impl std::fmt::Display for InlineConfigErrorItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.source.display())?;
+        if let Some(line) = self.line {
+            write!(f, ":{line}")?;
+        }
+        write!(f, ": ")?;
+        if let (Some(contract), Some(function)) = (&self.contract, &self.function) {
+            write!(f, "{contract}.{function}: ")?;
+        }
+        write!(f, "{}", self.message)
+    }
+}
+
+/// Every inline-config problem found while collecting the test sources.
+///
+/// When collection surfaces any problem, runner creation fails and the whole
+/// test run is aborted before any suite executes. At most one problem is
+/// reported per test function (the first one encountered while parsing it),
+/// across every source.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InlineConfigErrors {
+    items: Vec<InlineConfigErrorItem>,
+}
+
+impl InlineConfigErrors {
+    pub(crate) fn new(items: Vec<InlineConfigErrorItem>) -> Self {
+        Self { items }
+    }
+
+    /// The individual problems, each with its location, for structured
+    /// reporting to consumers.
+    pub fn items(&self) -> &[InlineConfigErrorItem] {
+        &self.items
+    }
+}
+
+impl std::fmt::Display for InlineConfigErrors {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (index, item) in self.items.iter().enumerate() {
+            if index > 0 {
+                writeln!(f)?;
+            }
+            write!(f, "  {item}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for InlineConfigErrors {}

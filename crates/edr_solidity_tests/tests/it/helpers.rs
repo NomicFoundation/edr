@@ -35,7 +35,7 @@ use edr_solidity_tests::{
     multi_runner::{TestContract, TestContracts},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
-    MAX_TEST_TRANSACTION_GAS_LIMIT,
+    SolidityTestRunnerConfigError, MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
 use edr_test_utils::{env::json_rpc_url_provider, new_fd_lock};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpointUrl, RpcEndpoints};
@@ -823,6 +823,30 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
+        self.try_build_runner(config)
+            .await
+            .expect("Config should be ok")
+    }
+
+    /// Builds a non-tracing runner with the given config, returning the
+    /// creation error instead of panicking. Used to exercise configs that fail
+    /// runner creation, e.g. malformed inline configuration.
+    pub async fn try_build_runner(
+        &self,
+        config: SolidityTestRunnerConfig<HardforkT>,
+    ) -> Result<
+        MultiContractRunner<
+            BlockT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            NoOpContractDecoder<HaltReasonT>,
+            TransactionErrorT,
+            TransactionT,
+        >,
+        SolidityTestRunnerConfigError,
+    > {
         MultiContractRunner::<
             BlockT,
             ChainContextT,
@@ -841,7 +865,6 @@ impl<
             self.revert_decoder.clone(),
         )
         .await
-        .expect("Config should be ok")
     }
 
     /// Path to the project's build-info files

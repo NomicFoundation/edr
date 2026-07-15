@@ -207,15 +207,18 @@ impl<
         } = config;
 
         // Collect the test sources' inline configuration up front, off the async
-        // runtime (it reads and parses files). A malformed directive fails here,
-        // aborting the whole run before any test executes.
+        // runtime (it reads and parses files). Any problem found — reported per
+        // test function, each located at its source line — fails here, aborting
+        // the whole run before any test executes.
         let roots = inline_config_roots(&test_source_paths, &test_contracts);
         let inline_config_provider = tokio::task::spawn_blocking(move || {
             SharedInlineConfigProvider::collect(roots, import_resolver)
         })
         .await
-        .expect("Thread shouldn't panic")
-        .map_err(SolidityTestRunnerConfigError::InlineConfig)?;
+        .expect("Thread shouldn't panic");
+        inline_config_provider
+            .validate()
+            .map_err(SolidityTestRunnerConfigError::InlineConfig)?;
 
         // Do canonicalization in blocking context.
         // Canonicalization can touch the file system, hence the blocking thread
@@ -309,7 +312,9 @@ impl<
     /// that opted into `allowInternalExpectRevert`.
     ///
     /// Returns empty collections when the contract's source isn't available or
-    /// carries no inline configuration.
+    /// carries no inline configuration. Malformed directives never reach here:
+    /// they are caught up front by [`SharedInlineConfigProvider::validate`],
+    /// which fails runner creation (see [`Self::new`]).
     fn inline_config_overrides(
         &self,
         artifact_id: &ArtifactId,

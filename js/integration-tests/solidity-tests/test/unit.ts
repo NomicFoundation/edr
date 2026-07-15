@@ -8,6 +8,7 @@ import {
 import {
   CheatcodeErrorCode,
   CollectStackTraces,
+  InlineConfigError,
   L1_CHAIN_TYPE,
   OP_CHAIN_TYPE,
   SuiteResult,
@@ -33,6 +34,50 @@ describe("Unit tests", () => {
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 2);
+  });
+
+  it("InvalidInlineConfig", async function () {
+    // Ill-formed inline configuration rejects the whole run up front, carrying
+    // the structured, located problems on the error so Hardhat can point the
+    // user at each one.
+    await assert.rejects(
+      testContext.runTestsWithStats("InlineConfigInvalidTest"),
+      (error: Error & { inlineConfigErrors?: InlineConfigError[] }) => {
+        const errors = error.inlineConfigErrors;
+        if (!Array.isArray(errors)) {
+          throw new Error(
+            "expected structured `inlineConfigErrors` on the thrown error"
+          );
+        }
+
+        // One entry per malformed function, each located.
+        assert.equal(errors.length, 2);
+        const byFunction = new Map(
+          errors.map((entry) => [entry.function, entry])
+        );
+
+        const invalidRuns = byFunction.get("testFuzz_InvalidRuns");
+        if (invalidRuns === undefined) {
+          throw new Error("expected testFuzz_InvalidRuns to be reported");
+        }
+        assert.equal(invalidRuns.contract, "InlineConfigInvalidTest");
+        assert.match(invalidRuns.sourceName, /InlineConfigInvalid\.t\.sol$/);
+        assert.equal(invalidRuns.line, 10);
+        assert.equal(
+          invalidRuns.message,
+          "invalid value `-1` for key `default.fuzz.runs`: expected non-negative integer"
+        );
+
+        const invalidKey = byFunction.get("testFuzz_InvalidKey");
+        if (invalidKey === undefined) {
+          throw new Error("expected testFuzz_InvalidKey to be reported");
+        }
+        assert.equal(invalidKey.contract, "InlineConfigInvalidTest");
+        assert.equal(invalidKey.line, 15);
+        assert.equal(invalidKey.message, "invalid key `default.fuzz.bogusKey`");
+        return true;
+      }
+    );
   });
 
   it("Latest global fork stack trace", async function (t) {

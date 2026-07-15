@@ -31,7 +31,9 @@ mod resolver;
 use alloy_json_abi::JsonAbi;
 
 pub use self::{
-    error::{InlineConfigCollectError, InlineConfigError},
+    error::{
+        InlineConfigCollectError, InlineConfigError, InlineConfigErrorItem, InlineConfigErrors,
+    },
     overrides::FunctionOverride,
     provider::{CachedInlineConfigProvider, InlineConfigRoot, SharedInlineConfigProvider},
     resolver::ImportResolver,
