@@ -502,10 +502,8 @@ impl<
         self.state.commit(state_diff);
 
         self.cumulative_gas_used += transaction_result.tx_gas_used();
-        self.header.gas_used += transaction_block_gas_contribution::<ChainSpecT>(
-            self.blockchain.hardfork(),
-            &transaction_result,
-        );
+        self.header.gas_used +=
+            transaction_block_gas_contribution::<ChainSpecT>(self.cfg.spec, &transaction_result);
 
         if let Some(BlobGas { gas_used, .. }) = self.header.blob_gas.as_mut() {
             let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();
