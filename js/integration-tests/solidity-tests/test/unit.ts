@@ -63,10 +63,16 @@ describe("Unit tests", () => {
         assert.equal(invalidRuns.contract, "InlineConfigInvalidTest");
         assert.match(invalidRuns.sourceName, /InlineConfigInvalid\.t\.sol$/);
         assert.equal(invalidRuns.line, 10);
-        assert.equal(
-          invalidRuns.message,
-          "invalid value `-1` for key `default.fuzz.runs`: expected non-negative integer"
-        );
+        // The problem is a discriminated union carrying the structured data of
+        // the offending directive.
+        if (invalidRuns.problem.kind !== "InlineConfigInvalidValue") {
+          throw new Error(
+            `expected InlineConfigInvalidValue, got ${invalidRuns.problem.kind}`
+          );
+        }
+        assert.equal(invalidRuns.problem.key, "default.fuzz.runs");
+        assert.equal(invalidRuns.problem.value, "-1");
+        assert.equal(invalidRuns.problem.expected, "non-negative integer");
 
         const invalidKey = byFunction.get("testFuzz_InvalidKey");
         if (invalidKey === undefined) {
@@ -74,7 +80,12 @@ describe("Unit tests", () => {
         }
         assert.equal(invalidKey.contract, "InlineConfigInvalidTest");
         assert.equal(invalidKey.line, 15);
-        assert.equal(invalidKey.message, "invalid key `default.fuzz.bogusKey`");
+        if (invalidKey.problem.kind !== "InlineConfigInvalidKey") {
+          throw new Error(
+            `expected InlineConfigInvalidKey, got ${invalidKey.problem.kind}`
+          );
+        }
+        assert.equal(invalidKey.problem.key, "default.fuzz.bogusKey");
         return true;
       }
     );

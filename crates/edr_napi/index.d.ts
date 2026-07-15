@@ -906,6 +906,14 @@ export declare enum IncludeTraces {
   All = 2
 }
 
+/** The same key was specified more than once for a function. */
+export interface InlineConfigDuplicateKey {
+  /** Enum tag for JS. */
+  kind: "InlineConfigDuplicateKey"
+  /** The duplicated key, exactly as written. */
+  key: string
+}
+
 /**
  * A single ill-formed inline-config directive, located so the user can find
  * and fix it. Attached to the rejected `runSolidityTests` promise as the
@@ -923,8 +931,76 @@ export interface InlineConfigError {
   function?: string
   /** The 1-based line of the offending directive within the source, if known. */
   line?: number
-  /** A human-readable description of the problem. */
-  message: string
+  /** The problem itself; discriminate on its `kind` tag. */
+  problem: InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey | InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound
+}
+
+/** An unknown configuration key was used. */
+export interface InlineConfigInvalidKey {
+  /** Enum tag for JS. */
+  kind: "InlineConfigInvalidKey"
+  /** The offending key, exactly as written. */
+  key: string
+}
+
+/**
+ * A key was used on a test of the wrong kind (e.g. `fuzz.*` on an invariant
+ * test).
+ */
+export interface InlineConfigInvalidKeyForTestType {
+  /** Enum tag for JS. */
+  kind: "InlineConfigInvalidKeyForTestType"
+  /** The offending key, exactly as written. */
+  key: string
+  /** The kind of test the function is (`fuzz` or `invariant`). */
+  testType: string
+}
+
+/**
+ * The source's solc version has no supported grammar, so its inline
+ * configuration could not be parsed.
+ */
+export interface InlineConfigInvalidSolcVersion {
+  /** Enum tag for JS. */
+  kind: "InlineConfigInvalidSolcVersion"
+}
+
+/** A directive was missing the `=` separator. */
+export interface InlineConfigInvalidSyntax {
+  /** Enum tag for JS. */
+  kind: "InlineConfigInvalidSyntax"
+  /** The offending directive line, stripped of comment decoration. */
+  directive: string
+}
+
+/** A value did not match the expected type for its key. */
+export interface InlineConfigInvalidValue {
+  /** Enum tag for JS. */
+  kind: "InlineConfigInvalidValue"
+  /** The offending key, exactly as written. */
+  key: string
+  /** The offending value, exactly as written. */
+  value: string
+  /** A description of the expected value type. */
+  expected: string
+}
+
+/** The source's file could not be read at the path it was declared at. */
+export interface InlineConfigSourceFileNotFound {
+  /** Enum tag for JS. */
+  kind: "InlineConfigSourceFileNotFound"
+  /** The path the source was expected at. */
+  path: string
+  /** Why reading it failed. */
+  reason: string
+}
+
+/** A profile other than `default` was used. */
+export interface InlineConfigUnsupportedProfile {
+  /** Enum tag for JS. */
+  kind: "InlineConfigUnsupportedProfile"
+  /** The unsupported profile name. */
+  profile: string
 }
 
 export interface InstrumentationMetadata {

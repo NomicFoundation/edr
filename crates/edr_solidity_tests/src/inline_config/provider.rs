@@ -82,13 +82,12 @@ impl CachedInlineConfigProvider {
                                 contract: None,
                                 function: None,
                                 line: None,
-                                message: InlineConfigError::Collect(
+                                error: InlineConfigError::Collect(
                                     InlineConfigCollectError::RootFileNotFound {
                                         path: root.path.display().to_string(),
                                         reason: error.to_string(),
                                     },
-                                )
-                                .to_string(),
+                                ),
                             }],
                         },
                     ));
@@ -301,7 +300,11 @@ contract BadTest {
         assert_eq!(items[0].source, PathBuf::from(SOURCE_NAME));
         assert_eq!(items[0].contract, None);
         assert_eq!(items[0].line, None);
-        assert!(items[0].message.contains("/nonexistent/test.sol"));
+        assert!(matches!(
+            items[0].error,
+            InlineConfigError::Collect(InlineConfigCollectError::RootFileNotFound { .. })
+        ));
+        assert!(items[0].error.to_string().contains("/nonexistent/test.sol"));
     }
 
     #[test]

@@ -110,8 +110,9 @@ pub struct InlineConfigErrorItem {
     pub function: Option<String>,
     /// The 1-based line of the offending directive within the source.
     pub line: Option<u32>,
-    /// A human-readable description of the problem.
-    pub message: String,
+    /// The problem itself, kept structured so consumers can map it onto their
+    /// own error types; render it with `to_string()` for a human.
+    pub error: InlineConfigError,
 }
 
 impl std::fmt::Display for InlineConfigErrorItem {
@@ -124,7 +125,7 @@ impl std::fmt::Display for InlineConfigErrorItem {
         if let (Some(contract), Some(function)) = (&self.contract, &self.function) {
             write!(f, "{contract}.{function}: ")?;
         }
-        write!(f, "{}", self.message)
+        write!(f, "{}", self.error)
     }
 }
 

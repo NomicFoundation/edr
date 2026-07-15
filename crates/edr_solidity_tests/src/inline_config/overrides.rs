@@ -73,7 +73,7 @@ pub(super) fn collect_source(
                     contract: None,
                     function: None,
                     line: None,
-                    message: InlineConfigError::Collect(error).to_string(),
+                    error: InlineConfigError::Collect(error),
                 }],
             };
         }
@@ -159,7 +159,7 @@ fn contract_overrides(
                 contract: Some(contract_name.to_owned()),
                 function: Some(function.function_name.clone()),
                 line: Some(line_of(&ast.source, offset)),
-                message: error.to_string(),
+                error,
             }),
         }
     }
