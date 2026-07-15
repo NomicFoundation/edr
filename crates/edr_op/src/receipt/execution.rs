@@ -2,9 +2,8 @@
 
 mod deposit;
 
-use edr_block_header::PartialHeader;
 use edr_chain_spec_evm::result::ExecutionResult;
-use edr_primitives::Bloom;
+use edr_primitives::{Bloom, B256};
 pub use edr_receipt::execution::{Eip658, Legacy};
 use edr_receipt::{
     log::{logs_to_bloom, ExecutionLog},
@@ -117,10 +116,11 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, OpSignedTransaction>
 
     fn build_receipt(
         self,
-        header: &PartialHeader,
         transaction: &OpSignedTransaction,
         result: &ExecutionResult<HaltReason>,
         hardfork: Hardfork,
+        cumulative_gas_used: u64,
+        _state_root: B256,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = logs_to_bloom(&logs);
@@ -128,7 +128,7 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, OpSignedTransaction>
         let receipt = if transaction.transaction_type() == OpTransactionType::Deposit {
             OpExecutionReceipt::Deposit(Deposit {
                 status: result.is_success(),
-                cumulative_gas_used: header.gas_used,
+                cumulative_gas_used,
                 logs_bloom,
                 logs,
                 deposit_nonce: self.deposit_nonce,
@@ -141,7 +141,7 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, OpSignedTransaction>
         } else {
             OpExecutionReceipt::Eip658(Eip658 {
                 status: result.is_success(),
-                cumulative_gas_used: header.gas_used,
+                cumulative_gas_used,
                 logs_bloom,
                 logs,
             })

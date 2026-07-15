@@ -4,8 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-edr_block_header.workspace = true
 edr_chain_spec_evm.workspace = true
+edr_primitives.workspace = true
 edr_state_api.workspace = true
 
 [features]

@@ -3403,8 +3403,8 @@ dependencies = [
 name = "edr_receipt_builder_api"
 version = "0.3.8"
 dependencies = [
- "edr_block_header",
  "edr_chain_spec_evm",
+ "edr_primitives",
  "edr_state_api",
 ]
 
