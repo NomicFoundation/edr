@@ -15,9 +15,9 @@
 //! ```text
 //!   - parse      locate contract/function definitions via Slang
 //!   - natspec    scan the NatSpec comment blocks above each function
-//!   - directives parse a block's lines into a config (or an error)
+//!   - directives parse a block's lines into a config
 //!   - overrides  compose the above into a source's per-contract overrides
-//!   - provider   cache the overrides and serve them (in the background)
+//!   - provider   cache the overrides and serve them
 //! ```
 
 mod directives;

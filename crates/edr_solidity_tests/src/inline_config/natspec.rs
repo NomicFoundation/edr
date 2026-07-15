@@ -27,10 +27,7 @@ pub struct NatSpecBlock {
 /// bounded by the size of the leading comments, not the rest of the source.
 ///
 /// Plain `//` and `/* */` comments are skipped like whitespace rather than
-/// terminating the scan: solc attaches a doc comment to the following
-/// definition across intervening plain comments, and inline configs must be
-/// read exactly where solc-AST-based tools (Hardhat, Foundry) read them. Only
-/// `///` and `/** */` text is collected.
+/// terminating the scan. Only `///` and `/** */` text is collected.
 pub fn collect_natspec(src: &str, node_start: usize) -> Vec<NatSpecBlock> {
     let Some(region) = src.get(..node_start) else {
         return Vec::new();
