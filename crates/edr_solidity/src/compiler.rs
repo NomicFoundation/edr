@@ -10,7 +10,7 @@ use parking_lot::RwLock;
 
 use crate::{
     artifacts::{CompilerArtifact, CompilerOutput, CompilerOutputContract},
-    build_model::{BuildModel, Contract, ContractMetadata, CustomError},
+    build_model::{BuildModel, Contract, ContractMetadata, CustomError, SourceFile},
     contracts_identifier::IdentifiedContract,
     library_utils::{get_library_address_positions, normalize_compiler_output_bytecode},
 };
@@ -74,6 +74,7 @@ fn decode_evm_bytecode<BuildModelT: BuildModel>(
     is_deployment: bool,
     artifact: &<BuildModelT as BuildModel>::Artifact,
     build_model: &BuildModelT,
+    sources: Arc<[Arc<RwLock<SourceFile>>]>,
 ) -> anyhow::Result<IdentifiedContract> {
     let library_address_positions = get_library_address_positions(artifact);
 
@@ -99,6 +100,7 @@ fn decode_evm_bytecode<BuildModelT: BuildModel>(
 
     Ok(IdentifiedContract {
         contract_metadata: Arc::new(ContractMetadata::new(
+            sources,
             contract,
             is_deployment,
             normalized_code,
@@ -114,7 +116,8 @@ fn decode_evm_bytecode<BuildModelT: BuildModel>(
 pub(crate) fn decode_bytecodes<BuildModelT: BuildModel>(
     solc_version: String,
     compiler_output: &CompilerOutput<<BuildModelT as BuildModel>::Artifact>,
-    build_model: &BuildModelT,
+    build_model: BuildModelT,
+    sources: &Arc<[Arc<RwLock<SourceFile>>]>,
 ) -> anyhow::Result<Vec<IdentifiedContract>> {
     let mut bytecodes = Vec::new();
 
@@ -153,7 +156,8 @@ pub(crate) fn decode_bytecodes<BuildModelT: BuildModel>(
             solc_version.clone(),
             true,
             &contract_evm_output.bytecode,
-            build_model,
+            &build_model,
+            sources.clone(),
         )?;
 
         let runtime_bytecode = decode_evm_bytecode(
@@ -161,7 +165,8 @@ pub(crate) fn decode_bytecodes<BuildModelT: BuildModel>(
             solc_version.clone(),
             false,
             &contract_evm_output.deployed_bytecode,
-            build_model,
+            &build_model,
+            sources.clone(),
         )?;
 
         bytecodes.push(deployment_bytecode);

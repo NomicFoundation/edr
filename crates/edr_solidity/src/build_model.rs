@@ -45,10 +45,11 @@ pub trait BuildModel {
 }
 
 /// A source file.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SourceFile {
     // Referenced because it can be later updated by outside code
-    functions: Vec<Arc<ContractFunction>>,
+    // Contains both contract and free functions
+    functions: Box<[Arc<ContractFunction>]>,
 
     /// The name of the source file.
     pub source_name: String,
@@ -60,18 +61,15 @@ impl SourceFile {
     /// Creates a new [`SourceFile`] with the provided name and content.
     pub fn new(source_name: String, content: String) -> SourceFile {
         SourceFile {
-            functions: Vec::new(),
-
+            functions: Box::default(),
             content,
             source_name,
         }
     }
 
-    /// Adds a [`ContractFunction`] to the source file.
-    /// # Note
-    /// Should only be called when resolving the source model.
-    pub fn add_function(&mut self, contract_function: Arc<ContractFunction>) {
-        self.functions.push(contract_function);
+    /// Finalizes construction of the [`SourceFile`] by setting its functions.
+    pub fn finalize(&mut self, functions: Box<[Arc<ContractFunction>]>) {
+        self.functions = functions;
     }
 
     /// Returns the [`ContractFunction`] declared at the given 1-based line
@@ -386,6 +384,9 @@ pub enum ContractMetadataError {
 #[derive(Debug)]
 pub struct ContractMetadata {
     pc_to_instruction: HashMap<u32, Instruction>,
+    // This owns the [`SourceFile`]s weakly referenced by the `SourceLocation`s
+    // in the Instruction structs.
+    _sources: Arc<[Arc<RwLock<SourceFile>>]>,
     // TODO https://github.com/NomicFoundation/edr/issues/759
     /// Contract that the bytecode belongs to.
     pub contract: Arc<RwLock<Contract>>,
@@ -406,6 +407,7 @@ impl ContractMetadata {
     /// Creates a new [`ContractMetadata`] with the provided arguments.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        sources: Arc<[Arc<RwLock<SourceFile>>]>,
         contract: Arc<RwLock<Contract>>,
         is_deployment: bool,
         normalized_code: Vec<u8>,
@@ -421,6 +423,7 @@ impl ContractMetadata {
 
         ContractMetadata {
             pc_to_instruction,
+            _sources: sources,
             contract,
             is_deployment,
             normalized_code,

@@ -93,8 +93,16 @@ pub fn extract_solx_contract_metadata(
     }
 
     let build_model = SolxBuildModel::new(compiler_input, &compiler_output)?;
+    let sources = Arc::from(
+        build_model
+            .file_id_to_source_file
+            .values()
+            .cloned()
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    );
 
-    let contracts = decode_bytecodes(solc_version, &compiler_output, &build_model)?;
+    let contracts = decode_bytecodes(solc_version, &compiler_output, build_model, &sources)?;
     correct_selectors(&contracts, &compiler_output)?;
 
     Ok(contracts)

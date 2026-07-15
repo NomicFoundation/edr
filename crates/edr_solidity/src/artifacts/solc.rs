@@ -63,14 +63,15 @@ pub(super) fn collect_compiled_contracts_and_files<ArtifactT: CompilerArtifact>(
     let mut contract_id_to_contract = IndexMap::new();
 
     for (source_name, source) in &output.sources {
-        let file = file_id_to_source_file
+        let mut file = file_id_to_source_file
             .get(&source.id)
-            .expect("source.id should exist in sources");
+            .expect("source.id should exist in sources")
+            .write();
 
         process_ast_nodes(
+            &mut file,
             source_name,
             &source.ast,
-            file,
             &file_id_to_source_file,
             output,
             &mut contract_id_to_linearized_base_contract_ids,
@@ -188,8 +189,16 @@ pub fn extract_solc_contract_metadata(
     }
 
     let build_model = SolcBuildModel::new(compiler_input, &compiler_output)?;
+    let sources = Arc::from(
+        build_model
+            .file_id_to_source_file
+            .values()
+            .cloned()
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    );
 
-    let contracts = decode_bytecodes(solc_version, &compiler_output, &build_model)?;
+    let contracts = decode_bytecodes(solc_version, &compiler_output, build_model, &sources)?;
     correct_selectors(&contracts, &compiler_output)?;
 
     Ok(contracts)

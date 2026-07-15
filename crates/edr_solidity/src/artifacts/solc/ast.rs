@@ -14,14 +14,16 @@ use crate::{
 };
 
 pub(super) fn process_ast_nodes<ArtifactT: CompilerArtifact>(
+    file: &mut SourceFile,
     source_name: &str,
     ast: &serde_json::Value,
-    file: &RwLock<SourceFile>,
-    sources: &HashMap<u32, Arc<RwLock<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Arc<RwLock<SourceFile>>>,
     compiler_output: &CompilerOutput<ArtifactT>,
     contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
     contract_id_to_contract: &mut IndexMap<u32, Arc<RwLock<Contract>>>,
 ) -> anyhow::Result<()> {
+    let mut functions = Vec::new();
+
     let nodes = ast["nodes"]
         .as_array()
         .with_context(|| "Expected nodes array in AST")?;
@@ -54,24 +56,36 @@ pub(super) fn process_ast_nodes<ArtifactT: CompilerArtifact>(
                                 .map(|contract| &contract.abi)
                         });
 
-                let (contract_id, contract) = process_contract_ast_node(
-                    file,
+                let ProcessContractResult {
+                    contract_id,
+                    contract,
+                    functions: contract_functions,
+                } = process_contract_ast_node(
                     node,
                     contract_type,
-                    sources,
+                    file_id_to_source_file,
                     contract_id_to_linearized_base_contract_ids,
                     contract_abi.map(Vec::as_slice),
                 )?;
+
+                functions.extend(contract_functions);
 
                 contract_id_to_contract.insert(contract_id, contract);
             }
             // top-level functions
             "FunctionDefinition" => {
-                process_function_definition_ast_node(node, sources, None, file, None)?;
+                if let Some(function) =
+                    process_function_definition_ast_node(node, file_id_to_source_file, None, None)?
+                {
+                    functions.push(function);
+                }
             }
             _ => {}
         }
     }
+
+    file.finalize(functions.into_boxed_slice());
+
     Ok(())
 }
 
@@ -170,7 +184,7 @@ fn ast_function_definition_to_selector(
 
 fn ast_src_to_source_location(
     src: &str,
-    build_model_sources: &HashMap<u32, Arc<RwLock<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Arc<RwLock<SourceFile>>>,
 ) -> anyhow::Result<Option<SourceLocation>> {
     let parts: Vec<&str> = src.split(':').collect();
     if parts.len() != 3 {
@@ -193,7 +207,7 @@ fn ast_src_to_source_location(
         .parse::<u32>()
         .with_context(|| format!("Failed to parse file ID: {src:?}"))?;
 
-    if let Some(source_file) = build_model_sources.get(&file_id) {
+    if let Some(source_file) = file_id_to_source_file.get(&file_id) {
         Ok(Some(SourceLocation::new(source_file, offset, length)))
     } else {
         Err(anyhow::anyhow!("Failed to find file by ID: {file_id}"))
@@ -299,23 +313,29 @@ fn is_enum_type(param: &serde_json::Value) -> bool {
             .is_some_and(|s| s.starts_with("enum "))
 }
 
+struct ProcessContractResult {
+    pub contract_id: u32,
+    pub contract: Arc<RwLock<Contract>>,
+    pub functions: Vec<Arc<ContractFunction>>,
+}
+
 fn process_contract_ast_node(
-    file: &RwLock<SourceFile>,
     contract_node: &serde_json::Value,
     contract_type: ContractKind,
-    sources: &HashMap<u32, Arc<RwLock<SourceFile>>>,
+    file_id_to_source_file: &HashMap<u32, Arc<RwLock<SourceFile>>>,
     contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
     contract_abi: Option<&[ContractAbiEntry]>,
-) -> anyhow::Result<(u32, Arc<RwLock<Contract>>)> {
+) -> anyhow::Result<ProcessContractResult> {
+    let mut functions = Vec::new();
     let contract_location = ast_src_to_source_location(
         contract_node["src"]
             .as_str()
             .with_context(|| "Expected contract src to be a string")?,
-        sources,
+        file_id_to_source_file,
     )?
     .with_context(|| "The original JS code always asserts that".to_string())?;
 
-    let contract = Contract::new(
+    let mut contract = Contract::new(
         contract_node["name"]
             .as_str()
             .with_context(|| "Expected contract name to be a string")?
@@ -323,7 +343,6 @@ fn process_contract_ast_node(
         contract_type,
         contract_location,
     );
-    let contract = Arc::new(RwLock::new(contract));
 
     let contract_id = contract_node["id"]
         .as_u64()
@@ -359,16 +378,22 @@ fn process_contract_ast_node(
                         .collect::<Vec<_>>()
                 });
 
-                process_function_definition_ast_node(
+                if let Some(function) = process_function_definition_ast_node(
                     node,
-                    sources,
+                    file_id_to_source_file,
                     Some(&contract),
-                    file,
                     function_abis,
-                )?;
+                )? {
+                    contract.add_local_function(function.clone())?;
+                    functions.push(function);
+                }
             }
             "ModifierDefinition" => {
-                process_modifier_definition_ast_node(node, sources, &contract, file)?;
+                let function =
+                    process_modifier_definition_ast_node(node, file_id_to_source_file, &contract)?;
+
+                contract.add_local_function(function.clone())?;
+                functions.push(function);
             }
             "VariableDeclaration" => {
                 let getter_abi = contract_abi.and_then(|contract_abi| {
@@ -377,24 +402,35 @@ fn process_contract_ast_node(
                         .find(|abi_entry| abi_entry.name.as_deref() == node["name"].as_str())
                 });
 
-                process_variable_declaration_ast_node(node, sources, &contract, file, getter_abi)?;
+                if let Some(function) = process_variable_declaration_ast_node(
+                    node,
+                    file_id_to_source_file,
+                    &contract,
+                    getter_abi,
+                )? {
+                    contract.add_local_function(function.clone())?;
+                    functions.push(function);
+                }
             }
             _ => {}
         }
     }
 
-    Ok((contract_id, contract))
+    Ok(ProcessContractResult {
+        contract_id,
+        contract: Arc::new(RwLock::new(contract)),
+        functions,
+    })
 }
 
 fn process_function_definition_ast_node(
     node: &serde_json::Value,
-    sources: &HashMap<u32, Arc<RwLock<SourceFile>>>,
-    contract: Option<&RwLock<Contract>>,
-    file: &RwLock<SourceFile>,
+    file_id_to_source_file: &HashMap<u32, Arc<RwLock<SourceFile>>>,
+    contract: Option<&Contract>,
     function_abis: Option<Vec<&ContractAbiEntry>>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<Arc<ContractFunction>>> {
     if node.get("implemented").and_then(serde_json::Value::as_bool) == Some(false) {
-        return Ok(());
+        return Ok(None);
     }
 
     let function_type = function_definition_kind_to_function_type(node["kind"].as_str());
@@ -403,7 +439,7 @@ fn process_function_definition_ast_node(
         node["src"]
             .as_str()
             .with_context(|| "Expected function src to be a string")?,
-        sources,
+        file_id_to_source_file,
     )?
     .with_context(|| "The original JS code always asserts that".to_string())?;
 
@@ -480,7 +516,7 @@ fn process_function_definition_ast_node(
             .to_string(),
         r#type: function_type,
         location: function_location,
-        contract_name: contract.as_ref().map(|c| c.read()).map(|c| c.name.clone()),
+        contract_name: contract.map(|c| c.name.clone()),
         visibility: Some(visibility),
         is_payable: Some(
             node["stateMutability"]
@@ -491,27 +527,21 @@ fn process_function_definition_ast_node(
         selector: RwLock::new(selector),
         param_types,
     };
+
     let contract_func = Arc::new(contract_func);
-
-    file.write().add_function(contract_func.clone());
-    if let Some(contract) = contract {
-        contract.write().add_local_function(contract_func)?;
-    }
-
-    Ok(())
+    Ok(Some(contract_func))
 }
 
 fn process_modifier_definition_ast_node(
     node: &serde_json::Value,
-    sources: &HashMap<u32, Arc<RwLock<SourceFile>>>,
-    contract: &RwLock<Contract>,
-    file: &RwLock<SourceFile>,
-) -> anyhow::Result<()> {
+    file_id_to_source_file: &HashMap<u32, Arc<RwLock<SourceFile>>>,
+    contract: &Contract,
+) -> anyhow::Result<Arc<ContractFunction>> {
     let function_location = ast_src_to_source_location(
         node["src"]
             .as_str()
             .with_context(|| "Expected modifier src to be a string")?,
-        sources,
+        file_id_to_source_file,
     )?
     .with_context(|| "The original JS code always asserts that".to_string())?;
 
@@ -522,28 +552,22 @@ fn process_modifier_definition_ast_node(
             .to_string(),
         r#type: ContractFunctionType::Modifier,
         location: function_location,
-        contract_name: Some(contract.read().name.clone()),
+        contract_name: Some(contract.name.clone()),
         visibility: None,
         is_payable: None,
         selector: RwLock::new(None),
         param_types: None,
     };
 
-    let contract_func = Arc::new(contract_func);
-
-    file.write().add_function(contract_func.clone());
-    contract.write().add_local_function(contract_func)?;
-
-    Ok(())
+    Ok(Arc::new(contract_func))
 }
 
 fn process_variable_declaration_ast_node(
     node: &serde_json::Value,
-    sources: &HashMap<u32, Arc<RwLock<SourceFile>>>,
-    contract: &RwLock<Contract>,
-    file: &RwLock<SourceFile>,
+    file_id_to_source_file: &HashMap<u32, Arc<RwLock<SourceFile>>>,
+    contract: &Contract,
     getter_abi: Option<&ContractAbiEntry>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<Arc<ContractFunction>>> {
     let visibility = {
         let visibility = node["visibility"]
             .as_str()
@@ -554,14 +578,14 @@ fn process_variable_declaration_ast_node(
 
     // Variables can't be external
     if visibility != ContractFunctionVisibility::Public {
-        return Ok(());
+        return Ok(None);
     }
 
     let function_location = ast_src_to_source_location(
         node["src"]
             .as_str()
             .with_context(|| "Expected variable src to be a string")?,
-        sources,
+        file_id_to_source_file,
     )?
     .with_context(|| "The original JS code always asserts that".to_string())?;
 
@@ -577,7 +601,7 @@ fn process_variable_declaration_ast_node(
             .to_string(),
         r#type: ContractFunctionType::Getter,
         location: function_location,
-        contract_name: Some(contract.read().name.clone()),
+        contract_name: Some(contract.name.clone()),
         visibility: Some(visibility),
         is_payable: Some(false), // Getters aren't payable
         selector: RwLock::new(Some(
@@ -585,12 +609,8 @@ fn process_variable_declaration_ast_node(
         )),
         param_types,
     };
-    let contract_func = Arc::new(contract_func);
 
-    file.write().add_function(contract_func.clone());
-    contract.write().add_local_function(contract_func)?;
-
-    Ok(())
+    Ok(Some(Arc::new(contract_func)))
 }
 
 fn to_canonical_abi_type(type_: &str) -> String {

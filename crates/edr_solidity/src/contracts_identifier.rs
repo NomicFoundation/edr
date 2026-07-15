@@ -298,10 +298,7 @@ mod tests {
         Arc::new(sources)
     }
 
-    fn create_test_contract() -> Arc<RwLock<Contract>> {
-        let sources = create_sources();
-
-        let source_file = sources.get(&0).expect("source file should exist");
+    fn create_test_contract(source_file: &Arc<RwLock<SourceFile>>) -> Arc<RwLock<Contract>> {
         let location = SourceLocation::new(source_file, 0, 0);
 
         Arc::new(RwLock::new(Contract::new(
@@ -312,14 +309,26 @@ mod tests {
     }
 
     fn create_test_bytecode(normalized_code: Vec<u8>) -> Arc<ContractMetadata> {
-        let contract = create_test_contract();
+        let sources = create_sources();
+        let source_file = sources.get(&0).expect("source file should exist");
+
+        let contract = create_test_contract(source_file);
         let is_deployment = false;
 
         let instructions = vec![];
         let library_offsets = vec![];
         let immutable_references = vec![];
 
+        let sources = Arc::from(
+            sources
+                .values()
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        );
+
         Arc::new(ContractMetadata::new(
+            sources,
             contract,
             is_deployment,
             normalized_code,
@@ -331,14 +340,26 @@ mod tests {
     }
 
     fn create_test_deployment_bytecode(normalized_code: Vec<u8>) -> Arc<ContractMetadata> {
-        let contract = create_test_contract();
+        let sources = create_sources();
+        let source_file = sources.get(&0).expect("source file should exist");
+
+        let contract = create_test_contract(source_file);
         let is_deployment = true;
 
         let instructions = vec![];
         let library_offsets = vec![];
         let immutable_references = vec![];
 
+        let sources = Arc::from(
+            sources
+                .values()
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        );
+
         Arc::new(ContractMetadata::new(
+            sources,
             contract,
             is_deployment,
             normalized_code,
@@ -354,12 +375,23 @@ mod tests {
         library_offsets: Vec<u32>,
         immutable_references: Vec<ImmutableReference>,
     ) -> Arc<ContractMetadata> {
-        let contract = create_test_contract();
-        let is_deployment = false;
+        let sources = create_sources();
+        let source_file = sources.get(&0).expect("source file should exist");
 
+        let contract = create_test_contract(source_file);
+        let is_deployment = false;
         let instructions = vec![];
 
+        let sources = Arc::from(
+            sources
+                .values()
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        );
+
         Arc::new(ContractMetadata::new(
+            sources,
             contract,
             is_deployment,
             normalized_code,
@@ -733,14 +765,26 @@ mod tests {
     /// normalized bytecodes; both must coexist and resolve to the right meta.
     #[test]
     fn test_contracts_identifier_solc_and_solx_variants_coexist() {
-        let contract = create_test_contract();
+        let sources = create_sources();
+        let source_file = sources.get(&0).expect("source file should exist");
+
+        let contract = create_test_contract(source_file);
 
         // Different bytecodes with disjoint prefixes so the trie lookup is
         // unambiguous either way.
         let solc_code = vec![0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5];
         let solx_code = vec![0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5];
 
+        let sources: Arc<[Arc<RwLock<SourceFile>>]> = Arc::from(
+            sources
+                .values()
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        );
+
         let solc_meta = Arc::new(ContractMetadata::new(
+            sources.clone(),
             contract.clone(),
             false,
             solc_code.clone(),
@@ -750,6 +794,7 @@ mod tests {
             "0.8.34".to_string(),
         ));
         let solx_meta = Arc::new(ContractMetadata::new(
+            sources,
             contract,
             false,
             solx_code.clone(),
