@@ -41,7 +41,7 @@ use crate::{
     contracts::get_contract_name,
     error::TestRunnerError,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
-    inline_config::{self, SharedInlineConfigProvider},
+    inline_config::{self, InlineConfigRoot, SharedInlineConfigProvider},
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
@@ -179,7 +179,6 @@ impl<
         libs_to_deploy: Vec<Bytes>,
         contract_decoder: NestedTraceDecoderT,
         revert_decoder: RevertDecoder,
-        inline_config_provider: SharedInlineConfigProvider,
     ) -> Result<Self, SolidityTestRunnerConfigError> {
         let env = config
             .evm_opts
@@ -203,7 +202,20 @@ impl<
             local_predeploys,
             on_collected_coverage_fn,
             generate_gas_report,
+            test_source_paths,
+            import_resolver,
         } = config;
+
+        // Collect the test sources' inline configuration up front, off the async
+        // runtime (it reads and parses files). A malformed directive fails here,
+        // aborting the whole run before any test executes.
+        let roots = inline_config_roots(&test_source_paths, &test_contracts);
+        let inline_config_provider = tokio::task::spawn_blocking(move || {
+            SharedInlineConfigProvider::collect(roots, import_resolver)
+        })
+        .await
+        .expect("Thread shouldn't panic")
+        .map_err(SolidityTestRunnerConfigError::InlineConfig)?;
 
         // Do canonicalization in blocking context.
         // Canonicalization can touch the file system, hence the blocking thread
@@ -637,4 +649,26 @@ impl<
 
 fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
     filter.matches_path(&id.source) && filter.matches_contract(&id.name)
+}
+
+/// Builds the inline-config roots for every test contract whose source has a
+/// known on-disk path, deduplicated by source (a source declaring multiple test
+/// contracts is parsed once).
+fn inline_config_roots(
+    test_source_paths: &HashMap<PathBuf, PathBuf>,
+    test_contracts: &TestContracts,
+) -> Vec<InlineConfigRoot> {
+    let mut roots_by_source = HashMap::new();
+    for artifact_id in test_contracts.keys() {
+        if let Some(path) = test_source_paths.get(&artifact_id.source) {
+            roots_by_source
+                .entry(artifact_id.source.clone())
+                .or_insert_with(|| InlineConfigRoot {
+                    source: artifact_id.source.clone(),
+                    path: path.clone(),
+                    version: artifact_id.version.clone(),
+                });
+        }
+    }
+    roots_by_source.into_values().collect()
 }

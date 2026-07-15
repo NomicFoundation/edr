@@ -17,9 +17,7 @@ use edr_solidity_tests::{
 use napi::tokio;
 use napi_derive::napi;
 
-use crate::solidity_tests::{
-    factory::SolidityTestRunnerFactory, inline_config, runner::LazyContractDecoder,
-};
+use crate::solidity_tests::{factory::SolidityTestRunnerFactory, runner::LazyContractDecoder};
 
 struct L1TestRunnerFactory;
 
@@ -34,8 +32,6 @@ impl SyncTestRunnerFactory for L1TestRunnerFactory {
         revert_decoder: RevertDecoder,
         tracing_config: TracingConfigWithBuffers,
     ) -> napi::Result<Box<dyn SyncTestRunner>> {
-        let inline_config_provider = inline_config::collect_inline_configs(&config, &contracts)?;
-
         let contract_decoder = LazyContractDecoder::new(tracing_config);
 
         let runner = tokio::task::block_in_place(|| {
@@ -56,7 +52,6 @@ impl SyncTestRunnerFactory for L1TestRunnerFactory {
                     libs_to_deploy,
                     contract_decoder,
                     revert_decoder,
-                    inline_config_provider,
                 ))
                 .map_err(|err| {
                     napi::Error::new(

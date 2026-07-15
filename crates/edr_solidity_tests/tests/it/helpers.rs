@@ -31,7 +31,7 @@ use edr_solidity::{
 };
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
-    inline_config::{ImportResolver, InlineConfigRoot, SharedInlineConfigProvider},
+    inline_config::ImportResolver,
     multi_runner::{TestContract, TestContracts},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
@@ -195,6 +195,11 @@ impl ForgeTestProfile {
             local_predeploys: Vec::default(),
             on_collected_coverage_fn: None,
             generate_gas_report: false,
+            // The test data's source paths are injected by `config_with_*_rpc`,
+            // which have access to `ForgeTestData`; testdata needs no import
+            // mappings (relative imports resolve, others degrade gracefully).
+            test_source_paths: HashMap::new(),
+            import_resolver: ImportResolver::default(),
         }
     }
 
@@ -447,9 +452,7 @@ pub struct ForgeTestData<
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
-    /// Serves the test contracts' inline configuration; collected once per
-    /// profile and shared by every runner built from this test data.
-    inline_config_provider: SharedInlineConfigProvider,
+    test_source_paths: HashMap<PathBuf, PathBuf>,
     fuzz_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     invariant_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     hardfork: HardforkT,
@@ -578,30 +581,14 @@ impl<
 
         // The runner parses inline configuration from the test sources on
         // disk; the testdata source names are real paths relative to the
-        // project root, so joining them onto the root yields the absolute
-        // path (production callers provide these paths explicitly instead).
-        // Imports to e.g. forge-std have no import mapping and simply stay
-        // unresolved, which still recovers the root file's functions. Collect
-        // once and share the provider across every runner built from this
-        // test data.
-        let mut roots_by_source: HashMap<PathBuf, InlineConfigRoot> = HashMap::new();
-        for id in test_contracts.keys() {
-            if !roots_by_source.contains_key(&id.source) {
-                roots_by_source.insert(
-                    id.source.clone(),
-                    InlineConfigRoot {
-                        source: id.source.clone(),
-                        path: root.join(&id.source),
-                        version: id.version.clone(),
-                    },
-                );
-            }
-        }
-        let inline_config_provider = SharedInlineConfigProvider::collect(
-            roots_by_source.into_values().collect(),
-            ImportResolver::default(),
-        )
-        .expect("inline config collection should succeed");
+        // project root, so joining them onto the root yields the absolute path
+        // (production callers provide these paths explicitly instead). Imports
+        // to e.g. forge-std have no import mapping and simply stay unresolved,
+        // which still recovers the root file's functions.
+        let test_source_paths: HashMap<PathBuf, PathBuf> = test_contracts
+            .keys()
+            .map(|id| (id.source.clone(), root.join(&id.source)))
+            .collect();
 
         Ok(Self {
             project,
@@ -609,7 +596,7 @@ impl<
             known_contracts,
             libs_to_deploy,
             revert_decoder,
-            inline_config_provider,
+            test_source_paths,
             fuzz_failure_dirs: Mutex::default(),
             invariant_failure_dirs: Mutex::default(),
             hardfork,
@@ -627,6 +614,7 @@ impl<
             self.new_invariant_failure_dir(),
         );
         config.cheats_config_options.rpc_endpoints = mock_rpc_endpoints();
+        config.test_source_paths = self.test_source_paths.clone();
 
         config
     }
@@ -645,6 +633,7 @@ impl<
         //`**/edr-cache` is cached in CI
         config.cheats_config_options.rpc_cache_path =
             Some(self.project.root().join("edr-cache/solidity-tests/rpc"));
+        config.test_source_paths = self.test_source_paths.clone();
         config
     }
 
@@ -850,7 +839,6 @@ impl<
             self.libs_to_deploy.clone(),
             NoOpContractDecoder::default(),
             self.revert_decoder.clone(),
-            self.inline_config_provider.clone(),
         )
         .await
         .expect("Config should be ok")
@@ -896,7 +884,6 @@ impl<
             self.libs_to_deploy.clone(),
             RwLock::new(contract_decoder),
             self.revert_decoder.clone(),
-            self.inline_config_provider.clone(),
         )
         .await
         .expect("Config should be ok")

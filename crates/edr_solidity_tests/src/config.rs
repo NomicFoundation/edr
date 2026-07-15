@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_primitives::{Address, B256, U256};
@@ -12,6 +12,7 @@ use foundry_evm::{
 
 use crate::{
     fork::CreateFork,
+    inline_config::{ImportResolver, InlineConfigError},
     opts::{effective_transaction_gas_cap, Env as EvmEnv, EvmOpts},
 };
 
@@ -26,6 +27,9 @@ pub enum SolidityTestRunnerConfigError {
     /// Failed to normalize project root
     #[error("Failed to normalize project root with error: {0}")]
     InvalidProjectRoot(std::io::Error),
+    /// A test source carries invalid inline configuration.
+    #[error("{0}")]
+    InlineConfig(InlineConfigError),
 }
 
 /// Solidity tests configuration
@@ -60,6 +64,13 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running tests
     pub generate_gas_report: bool,
+    /// Maps each test source's solc source name to its absolute path on disk,
+    /// used to read and parse the source for inline configuration. A source
+    /// without an entry has no inline configuration collected.
+    pub test_source_paths: HashMap<PathBuf, PathBuf>,
+    /// Resolves the imports of test sources when parsing their inline
+    /// configuration (`forge-config:`/`hardhat-config:` NatSpec directives).
+    pub import_resolver: ImportResolver,
 }
 
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {

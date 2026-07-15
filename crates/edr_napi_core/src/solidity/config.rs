@@ -7,6 +7,7 @@ use edr_solidity_tests::{
     backend::Predeploy,
     evm_context::HardforkTr,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
+    inline_config::ImportResolver,
     inspectors::cheatcodes::CheatsConfigOptions,
     opts::effective_transaction_gas_cap,
     CollectStackTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
@@ -257,10 +258,8 @@ where
             on_collected_coverage_fn,
             test_pattern: _,
             generate_gas_report,
-            // Consumed by the test runner factory to build the inline-config
-            // provider; not part of the runner's own configuration.
-            test_source_paths: _,
-            import_mappings: _,
+            test_source_paths,
+            import_mappings,
         } = value;
 
         let mut evm_opts = SolidityTestRunnerConfig::default_evm_opts();
@@ -359,6 +358,8 @@ where
 
         let generate_gas_report = generate_gas_report.unwrap_or(false);
 
+        let import_resolver = ImportResolver::new(import_mappings);
+
         Ok(SolidityTestRunnerConfig {
             project_root,
             collect_stack_traces,
@@ -375,6 +376,8 @@ where
             enable_fuzz_fixtures: false,
             enable_table_tests: false,
             generate_gas_report,
+            test_source_paths,
+            import_resolver,
         })
     }
 }
