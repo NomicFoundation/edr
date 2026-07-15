@@ -5,7 +5,7 @@ use std::{
     marker::PhantomData,
     path::PathBuf,
     sync::Arc,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use alloy_json_abi::JsonAbi;
@@ -42,7 +42,7 @@ use crate::{
     error::TestRunnerError,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inline_config::{self, SharedInlineConfigProvider},
-    result::{SuiteResult, TestResult},
+    result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
     TestFunctionConfigOverride,
@@ -302,22 +302,13 @@ impl<
         &self,
         artifact_id: &ArtifactId,
         contract: &TestContract,
-    ) -> Result<
-        (
-            HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
-            HashSet<TestFunctionIdentifier>,
-        ),
-        inline_config::InlineConfigError,
-    > {
-        // This runs inside the `into_par_iter` suite dispatch below (a global
-        // rayon-pool worker), and `get` blocks until background collection
-        // finishes. That is only safe because collection runs on its own
-        // dedicated pool — see `CachedInlineConfigProvider::collect`. Keep it
-        // that way, or the suite workers blocked here could starve the
-        // collection of threads and deadlock the whole run.
+    ) -> (
+        HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+        HashSet<TestFunctionIdentifier>,
+    ) {
         let parsed = self
             .inline_config_provider
-            .get(&artifact_id.source, &artifact_id.name)?;
+            .get(&artifact_id.source, &artifact_id.name);
 
         let mut overrides = HashMap::new();
         let mut allow_internal_expect_revert = HashSet::new();
@@ -340,7 +331,7 @@ impl<
             overrides.insert(identifier, function_override.config);
         }
 
-        Ok((overrides, allow_internal_expect_revert))
+        (overrides, allow_internal_expect_revert)
     }
 
     fn run_test_suite(
@@ -369,25 +360,9 @@ impl<
 
         debug!("start executing all tests in contract");
 
-        // Extract per-test inline configuration from the contract's source. A
-        // malformed directive fails this suite only, leaving others to run.
+        // Extract per-test inline configuration from the contract's source.
         let (inline_overrides, allow_internal_expect_revert) =
-            match self.inline_config_overrides(artifact_id, contract) {
-                Ok(result) => result,
-                Err(error) => {
-                    let suite = SuiteResult::new(
-                        Duration::ZERO,
-                        Vec::new(),
-                        [(
-                            "inline-config".to_owned(),
-                            TestResult::fail(format!("invalid inline config: {error}")),
-                        )]
-                        .into(),
-                        Vec::new(),
-                    );
-                    return Ok((suite, None));
-                }
-            };
+            self.inline_config_overrides(artifact_id, contract);
 
         let mut cheats_config_options = (*self.cheats_config_options).clone();
         cheats_config_options

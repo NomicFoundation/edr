@@ -22,8 +22,9 @@ use edr_solidity_tests::{
 /// disk locations here. A test source without a provided path has no inline
 /// configuration collected.
 ///
-/// This uses the synchronous [`SharedInlineConfigProvider::collect`], so
-/// collection happens here (blocking) and a failure surfaces immediately.
+/// Any malformed inline configuration (or an unreadable/unsupported source)
+/// fails here and is propagated to the caller, aborting the whole run before
+/// any test executes.
 pub(crate) fn collect_inline_configs(
     config: &TestRunnerConfig,
     test_contracts: &BTreeMap<ArtifactId, TestContract>,
@@ -48,7 +49,7 @@ pub(crate) fn collect_inline_configs(
         .map_err(|error| {
             napi::Error::new(
                 napi::Status::GenericFailure,
-                format!("Failed to collect inline configuration: {error}"),
+                format!("Invalid inline configuration: {error}"),
             )
         })
 }

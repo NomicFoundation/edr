@@ -1,24 +1,20 @@
-//! Two-phase inline-config resolution.
+//! Inline-config resolution.
 //!
-//! Phase 1 (collection): given the set of test sources to cover — each with the
-//! absolute path of its file on disk — parse each with Slang and extract every
-//! contract's inline configuration. [`CachedInlineConfigProvider`] does this
-//! eagerly and synchronously; [`SharedInlineConfigProvider`] wraps it, running
-//! the per-root work in parallel on a background thread.
+//! Collection: given the set of test sources to cover — each with the absolute
+//! path of its file on disk — parse each with Slang and extract every
+//! contract's inline configuration. A malformed directive (or an unreadable
+//! root file, or an unsupported solc version) fails collection outright, which
+//! aborts the whole run before any test executes.
 //!
-//! Phase 2 (query): look up the precomputed inline configuration for one test
-//! contract. For [`SharedInlineConfigProvider`], a query blocks until
-//! background collection has finished.
+//! Query: look up the precomputed inline configuration for one test contract —
+//! a plain map lookup, since all parsing happened during collection.
 
 use std::{
     collections::HashMap,
-    convert::Infallible,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
-use crossbeam_channel::select_biased;
-use edr_utils_sync::CancellableThread;
 use rayon::prelude::*;
 use semver::Version;
 
@@ -45,13 +41,12 @@ pub struct InlineConfigRoot {
 /// Caches the fully-parsed inline configuration of every test contract, keyed
 /// by source name, so a query is a plain lookup.
 ///
-/// [`collect`](Self::collect) does all the work — parse each source's text
-/// with Slang and extract every contract's per-function overrides — once
-/// (eager and synchronous here; [`SharedInlineConfigProvider`] runs it in the
-/// background). Only sources that carry a directive are parsed. A malformed
-/// directive is stored as the offending contract's error and surfaces only when
-/// that contract is queried, rather than failing collection for the whole run.
-#[derive(Debug, Default)]
+/// [`collect`](Self::collect) does all the work — read each source and its
+/// imports from disk, parse them with Slang, and extract every contract's
+/// per-function overrides — once. Only sources that carry a directive are
+/// parsed. Any problem (a malformed directive, an unreadable root file, or an
+/// unsupported solc version) fails collection.
+#[derive(Debug)]
 pub struct CachedInlineConfigProvider {
     by_source: HashMap<PathBuf, SourceOverrides>,
 }
@@ -59,21 +54,20 @@ pub struct CachedInlineConfigProvider {
 impl CachedInlineConfigProvider {
     /// Parses every root's inline configuration in parallel, reading each
     /// root's file — and its imports, resolved by `import_resolver` — from
-    /// disk. Sources that carry no inline-config directive are skipped; a root
-    /// file that can't be read, or whose solc version is unsupported, fails the
-    /// whole collection. All directive parsing happens here, so queries are a
-    /// plain lookup.
+    /// disk. Sources that carry no inline-config directive are skipped. Any
+    /// malformed directive, unreadable root file, or unsupported solc
+    /// version fails the whole collection.
     pub fn collect(
         roots: &[InlineConfigRoot],
         import_resolver: &ImportResolver,
-    ) -> Result<Self, InlineConfigCollectError> {
+    ) -> Result<Self, InlineConfigError> {
         let parse =
-            |root: &InlineConfigRoot| -> Result<Option<(PathBuf, SourceOverrides)>, InlineConfigCollectError> {
+            |root: &InlineConfigRoot| -> Result<Option<(PathBuf, SourceOverrides)>, InlineConfigError> {
                 let content = std::fs::read_to_string(&root.path).map_err(|error| {
-                    InlineConfigCollectError::RootFileNotFound {
+                    InlineConfigError::Collect(InlineConfigCollectError::RootFileNotFound {
                         path: root.path.display().to_string(),
                         reason: error.to_string(),
-                    }
+                    })
                 })?;
                 // Fast path: only parse sources that carry a directive.
                 if !directives::contains_inline_config_directive(&content) {
@@ -88,27 +82,11 @@ impl CachedInlineConfigProvider {
                 Ok(Some((root.source.clone(), overrides)))
             };
 
-        // Parse in parallel, but on a *dedicated* thread pool rather than
-        // rayon's global pool.
-        //
-        // The test runner dispatches its suites on the global rayon pool, and
-        // each suite blocks on `SharedInlineConfigProvider::get` until this
-        // collection has finished. If the collection also ran on the global
-        // pool, those blocked suite workers and this parsing work would compete
-        // for the very same threads; with enough suites in flight the pool
-        // deadlocks — every worker parked waiting for a collection that has no
-        // worker left to run on. A dedicated pool keeps collection independent,
-        // so it always makes progress and the blocked queries are released
-        // promptly. If the pool can't be built (e.g. thread exhaustion under
-        // heavy load), fall back to a sequential parse, which is correct and
-        // likewise free of the global-pool dependency.
+        // Parse the roots in parallel on rayon's global pool. Collection runs
+        // synchronously and completes before any test suite is dispatched, so it
+        // never contends with suite execution.
         let collected: Vec<Option<(PathBuf, SourceOverrides)>> =
-            match build_collection_pool(roots.len()) {
-                Some(pool) => {
-                    pool.install(|| roots.par_iter().map(parse).collect::<Result<_, _>>())?
-                }
-                None => roots.iter().map(parse).collect::<Result<_, _>>()?,
-            };
+            roots.par_iter().map(parse).collect::<Result<_, _>>()?;
 
         Ok(Self {
             by_source: collected.into_iter().flatten().collect(),
@@ -119,176 +97,39 @@ impl CachedInlineConfigProvider {
     /// directly in `contract_name` within `source`, as computed during
     /// collection.
     ///
-    /// Returns an empty vector if the contract carries no inline configuration,
-    /// or an error if one of its directives is malformed.
-    pub fn get(
-        &self,
-        source: &Path,
-        contract_name: &str,
-    ) -> Result<Vec<FunctionOverride>, InlineConfigError> {
-        match self
-            .by_source
+    /// Returns an empty vector if the contract carries no inline configuration.
+    /// This is infallible: any malformed directive already failed collection.
+    pub fn get(&self, source: &Path, contract_name: &str) -> Vec<FunctionOverride> {
+        self.by_source
             .get(source)
             .and_then(|configs| configs.get(contract_name))
-        {
-            Some(result) => result.clone(),
-            None => Ok(Vec::new()),
-        }
+            .cloned()
+            .unwrap_or_default()
     }
 }
 
-/// Builds a dedicated thread pool for parsing the collection's roots, isolated
-/// from rayon's global pool (see [`CachedInlineConfigProvider::collect`]).
-///
-/// Sized to the available parallelism, but never to more threads than there are
-/// roots to parse. Returns `None` if the pool can't be built, in which case the
-/// caller parses sequentially.
-fn build_collection_pool(root_count: usize) -> Option<rayon::ThreadPool> {
-    let threads = std::thread::available_parallelism()
-        .map_or(1, std::num::NonZero::get)
-        .min(root_count.max(1));
-
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .thread_name(|index| format!("inline-config-collect-{index}"))
-        .build()
-        .ok()
-}
-
-/// A single query sent to the background collection thread.
-struct InlineConfigRequest {
-    source: PathBuf,
-    contract_name: String,
-    response_sender: crossbeam_channel::Sender<Result<Vec<FunctionOverride>, InlineConfigError>>,
-}
-
-/// A cloneable, `Send + Sync` handle that collects inline configuration in the
-/// background, parallelizing the per-root parses (via [`rayon`]). Queries block
-/// until collection has finished.
+/// A cloneable, `Send + Sync` handle to the collected inline configuration,
+/// shared across the test runner's parallel suite dispatch.
 #[derive(Clone, Debug)]
-pub struct SharedInlineConfigProvider {
-    request_sender: crossbeam_channel::Sender<InlineConfigRequest>,
-    // Dropping this disconnects the cancellation channel and joins the
-    // dedicated thread, so no explicit shutdown is needed.
-    _thread: Arc<CancellableThread>,
-}
+pub struct SharedInlineConfigProvider(Arc<CachedInlineConfigProvider>);
 
 impl SharedInlineConfigProvider {
-    const THREAD_NAME: &'static str = "inline-config-provider";
-
-    /// Collects every root's inline configuration synchronously on the calling
-    /// thread, then spawns a background thread that only *serves* queries from
-    /// the finished [`CachedInlineConfigProvider`].
-    ///
-    /// A collection failure (an unreadable root file, or a source whose solc
-    /// version is unsupported) is returned immediately, before the handle is
-    /// created. Contrast
-    /// [`collect_in_background`](Self::collect_in_background),
-    /// which returns instantly and does the collection off-thread.
+    /// Collects every root's inline configuration, returning a shared handle to
+    /// the result. A collection failure (a malformed directive, an unreadable
+    /// root file, or an unsupported solc version) is returned to the caller,
+    /// which aborts the whole run.
     pub fn collect(
         roots: Vec<InlineConfigRoot>,
         import_resolver: ImportResolver,
-    ) -> Result<Self, InlineConfigCollectError> {
-        let collected = CachedInlineConfigProvider::collect(&roots, &import_resolver)?;
-
-        let (request_sender, request_receiver) = crossbeam_channel::unbounded();
-        let thread = CancellableThread::spawn(Self::THREAD_NAME.to_owned(), move |cancellation| {
-            Self::serve(Ok(collected), &request_receiver, &cancellation);
-        })
-        .expect("inline-config provider thread should spawn");
-
-        Ok(Self {
-            request_sender,
-            _thread: Arc::new(thread),
-        })
+    ) -> Result<Self, InlineConfigError> {
+        let provider = CachedInlineConfigProvider::collect(&roots, &import_resolver)?;
+        Ok(Self(Arc::new(provider)))
     }
 
-    /// Spawns a background thread that collects every root in parallel and then
-    /// makes the resulting [`CachedInlineConfigProvider`] available to queries.
-    ///
-    /// If collection itself fails (an unreadable root file, or a source whose
-    /// solc version is unsupported), every query returns that failure as an
-    /// [`InlineConfigError::Collect`], so the offending run surfaces the error
-    /// rather than silently dropping inline configuration.
-    pub fn collect_in_background(
-        roots: Vec<InlineConfigRoot>,
-        import_resolver: ImportResolver,
-    ) -> Self {
-        let (request_sender, request_receiver) = crossbeam_channel::unbounded();
-
-        let thread = CancellableThread::spawn(Self::THREAD_NAME.to_owned(), move |cancellation| {
-            let collected = CachedInlineConfigProvider::collect(&roots, &import_resolver);
-            Self::serve(collected, &request_receiver, &cancellation);
-        })
-        .expect("inline-config provider thread should spawn");
-
-        Self {
-            request_sender,
-            _thread: Arc::new(thread),
-        }
-    }
-
-    /// Serves queries against `collected` until the handle is dropped
-    /// (cancellation) or every request sender is dropped. A collection failure
-    /// is served to every query as an [`InlineConfigError::Collect`].
-    fn serve(
-        collected: Result<CachedInlineConfigProvider, InlineConfigCollectError>,
-        request_receiver: &crossbeam_channel::Receiver<InlineConfigRequest>,
-        cancellation: &crossbeam_channel::Receiver<Infallible>,
-    ) {
-        loop {
-            // `select_biased!` picks the first listed branch when multiple arms
-            // are ready, so cancellation always wins over pending work.
-            select_biased! {
-                // The cancellation channel was disconnected by dropping the
-                // `CancellableThread`.
-                recv(cancellation) -> _ => break,
-                recv(request_receiver) -> message => match message {
-                    Ok(InlineConfigRequest { source, contract_name, response_sender }) => {
-                        let response = match &collected {
-                            Ok(provider) => provider.get(&source, &contract_name),
-                            // Collection failed; serve the error to every query.
-                            Err(error) => Err(InlineConfigError::Collect(error.clone())),
-                        };
-                        // The caller may have stopped waiting; ignore a
-                        // disconnected response channel.
-                        let _ = response_sender.send(response);
-                    }
-                    // All request senders were dropped.
-                    Err(_) => break,
-                },
-            }
-        }
-    }
-
-    /// Extracts the inline configuration of `contract_name` within `source`,
-    /// blocking until background collection has finished.
-    ///
-    /// This is called from the test runner's suite dispatch, which runs on
-    /// rayon's global pool — so this blocks a global-pool worker until the
-    /// background collection completes. That is only deadlock-free because the
-    /// collection runs on its own dedicated pool and therefore never needs the
-    /// workers parked here; see [`CachedInlineConfigProvider::collect`]. Do not
-    /// make the collection borrow the global pool.
-    pub fn get(
-        &self,
-        source: &Path,
-        contract_name: &str,
-    ) -> Result<Vec<FunctionOverride>, InlineConfigError> {
-        let (sender, receiver) = crossbeam_channel::bounded(1);
-        let request = InlineConfigRequest {
-            source: source.to_path_buf(),
-            contract_name: contract_name.to_owned(),
-            response_sender: sender,
-        };
-
-        self.request_sender
-            .send(request)
-            .expect("inline-config provider request channel should be open");
-
-        receiver
-            .recv()
-            .expect("inline-config provider response channel should be open")
+    /// Returns the inline configuration of `contract_name` within `source` — a
+    /// plain lookup against the already-collected configuration.
+    pub fn get(&self, source: &Path, contract_name: &str) -> Vec<FunctionOverride> {
+        self.0.get(source, contract_name)
     }
 }
 
@@ -316,15 +157,15 @@ contract MyTest {
 }
 "#;
 
-    /// Writes `SOURCE` to a temporary file and returns a root under the
-    /// (namespaced, non-path) query identity `project/test.sol`, together with
-    /// the handle keeping the file alive.
-    fn root_with_source() -> (InlineConfigRoot, tempfile::NamedTempFile) {
+    /// Writes `source` to a temporary `.sol` file and returns a root under the
+    /// query identity `project/test.sol`, together with the handle keeping the
+    /// file alive.
+    fn root_for(source: &str) -> (InlineConfigRoot, tempfile::NamedTempFile) {
         let mut file = tempfile::Builder::new()
             .suffix(".sol")
             .tempfile()
             .expect("temp file");
-        file.write_all(SOURCE.as_bytes()).expect("write source");
+        file.write_all(source.as_bytes()).expect("write source");
 
         let root = InlineConfigRoot {
             source: PathBuf::from(SOURCE_NAME),
@@ -332,6 +173,10 @@ contract MyTest {
             version: Version::new(0, 8, 0),
         };
         (root, file)
+    }
+
+    fn root_with_source() -> (InlineConfigRoot, tempfile::NamedTempFile) {
+        root_for(SOURCE)
     }
 
     fn assert_overrides(overrides: &[FunctionOverride]) {
@@ -355,16 +200,13 @@ contract MyTest {
         let provider = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default())
             .expect("collect succeeds");
 
-        assert_overrides(&provider.get(Path::new(SOURCE_NAME), "MyTest").unwrap());
+        assert_overrides(&provider.get(Path::new(SOURCE_NAME), "MyTest"));
         // A source that was never collected reports no overrides.
-        assert!(provider
-            .get(Path::new("never.sol"), "MyTest")
-            .unwrap()
-            .is_empty());
+        assert!(provider.get(Path::new("never.sol"), "MyTest").is_empty());
     }
 
     #[test]
-    fn cached_collect_fails_on_missing_root_file() {
+    fn collect_fails_on_missing_root_file() {
         let root = InlineConfigRoot {
             source: PathBuf::from(SOURCE_NAME),
             path: PathBuf::from("/nonexistent/test.sol"),
@@ -375,22 +217,51 @@ contract MyTest {
             .expect_err("missing root file fails collection");
         assert!(matches!(
             error,
-            InlineConfigCollectError::RootFileNotFound { .. }
+            InlineConfigError::Collect(InlineConfigCollectError::RootFileNotFound { .. })
         ));
     }
 
     #[test]
-    fn shared_collects_then_serves_concurrent_queries() {
-        let (root, _file) = root_with_source();
-        let provider = SharedInlineConfigProvider::collect_in_background(
-            vec![root],
-            ImportResolver::default(),
+    fn collect_fails_on_malformed_directive() {
+        let source = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract BadTest {
+    /// forge-config: default.fuzz.bogus = 1
+    function testFoo(uint256 x) public {}
+}
+"#;
+        let (root, _file) = root_for(source);
+
+        // A malformed directive fails the whole collection rather than being
+        // isolated to the offending contract.
+        let error = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default())
+            .expect_err("malformed directive fails collection");
+        assert!(
+            matches!(error, InlineConfigError::InvalidKey { .. }),
+            "{error:?}"
         );
+    }
+
+    #[test]
+    fn shared_collect_then_serves() {
+        let (root, _file) = root_with_source();
+        let provider = SharedInlineConfigProvider::collect(vec![root], ImportResolver::default())
+            .expect("collect succeeds");
+
+        assert_overrides(&provider.get(Path::new(SOURCE_NAME), "MyTest"));
+    }
+
+    #[test]
+    fn shared_serves_concurrent_queries() {
+        let (root, _file) = root_with_source();
+        let provider = SharedInlineConfigProvider::collect(vec![root], ImportResolver::default())
+            .expect("collect succeeds");
 
         let handles: Vec<_> = (0..8)
             .map(|_| {
                 let provider = provider.clone();
-                thread::spawn(move || provider.get(Path::new(SOURCE_NAME), "MyTest").unwrap())
+                thread::spawn(move || provider.get(Path::new(SOURCE_NAME), "MyTest"))
             })
             .collect();
 
@@ -400,29 +271,22 @@ contract MyTest {
     }
 
     #[test]
-    fn shared_synchronous_collect_then_serves() {
-        let (root, _file) = root_with_source();
-        let provider = SharedInlineConfigProvider::collect(vec![root], ImportResolver::default())
-            .expect("collect succeeds");
+    fn shared_collect_fails_on_malformed_directive() {
+        let source = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 
-        assert_overrides(&provider.get(Path::new(SOURCE_NAME), "MyTest").unwrap());
-    }
+contract BadTest {
+    /// forge-config: default.fuzz.runs = -1
+    function testFoo(uint256 x) public {}
+}
+"#;
+        let (root, _file) = root_for(source);
 
-    #[test]
-    fn shared_synchronous_collect_fails_eagerly_on_missing_root_file() {
-        let root = InlineConfigRoot {
-            source: PathBuf::from(SOURCE_NAME),
-            path: PathBuf::from("/nonexistent/test.sol"),
-            version: Version::new(0, 8, 0),
-        };
-
-        // Unlike `collect_in_background`, a collection failure surfaces
-        // immediately rather than being deferred to the first query.
         let error = SharedInlineConfigProvider::collect(vec![root], ImportResolver::default())
-            .expect_err("missing root file fails collection eagerly");
-        assert!(matches!(
-            error,
-            InlineConfigCollectError::RootFileNotFound { .. }
-        ));
+            .expect_err("malformed directive fails collection");
+        assert!(
+            matches!(error, InlineConfigError::InvalidValue { .. }),
+            "{error:?}"
+        );
     }
 }

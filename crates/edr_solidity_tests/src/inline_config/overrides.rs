@@ -5,13 +5,17 @@
 //! ([`super::natspec`]), parses the directives within
 //! ([`super::directives`]), and groups the results per contract.
 
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+};
 
 use semver::Version;
 
 use super::{
     directives,
-    error::{InlineConfigCollectError, InlineConfigError},
+    error::InlineConfigError,
     natspec,
     parse::{locate_functions, LocatedFunction},
     resolver::ImportResolver,
@@ -27,26 +31,27 @@ pub struct FunctionOverride {
     pub config: TestFunctionConfigOverride,
 }
 
-/// The fully-parsed inline configuration of every contract in one source that
-/// declares any — each contract's overrides, or the error from a malformed
-/// directive. Errors are kept per contract so one bad contract doesn't poison
-/// its neighbours; a contract with no directives is simply absent.
-pub(super) type SourceOverrides = HashMap<String, Result<Vec<FunctionOverride>, InlineConfigError>>;
+/// The fully-parsed inline configuration of every contract in one source, keyed
+/// by contract name. A contract that declares no inline configuration is
+/// omitted (a query for it returns an empty vector).
+pub(super) type SourceOverrides = HashMap<String, Vec<FunctionOverride>>;
 
 /// Parses the file at `root_path` (its `content`, compiled with `version`) into
 /// the inline configuration of every contract it declares. Its imports are
 /// resolved by `import_resolver` and read from disk.
+///
+/// A malformed directive fails the whole source (and, in turn, the whole run).
 pub(super) fn collect_source(
     root_path: &Path,
     content: Arc<str>,
     version: Version,
     import_resolver: &ImportResolver,
-) -> Result<SourceOverrides, InlineConfigCollectError> {
+) -> Result<SourceOverrides, InlineConfigError> {
     let functions = locate_functions(root_path, version, import_resolver)?;
-    Ok(source_overrides(&SourceAst {
+    source_overrides(&SourceAst {
         source: content,
         functions,
-    }))
+    })
 }
 
 /// The structural information extracted from a single source file: its text and
@@ -57,27 +62,24 @@ struct SourceAst {
     functions: Vec<LocatedFunction>,
 }
 
-/// Parses the inline configuration of every contract in `ast` that declares a
-/// directive, keyed by contract name. Contracts with no directives are omitted
-/// (a query for them returns an empty vector); a malformed directive is
-/// captured as that contract's error rather than failing the whole source.
-fn source_overrides(ast: &SourceAst) -> SourceOverrides {
+/// Parses the inline configuration of every contract in `ast`, keyed by
+/// contract name. Contracts with no directives are omitted (a query returns an
+/// empty vector). A malformed directive short-circuits with an error.
+fn source_overrides(ast: &SourceAst) -> Result<SourceOverrides, InlineConfigError> {
     let mut by_contract = SourceOverrides::new();
+    let mut seen = HashSet::new();
 
     for function in &ast.functions {
-        if by_contract.contains_key(&function.contract_name) {
+        if !seen.insert(function.contract_name.as_str()) {
             continue;
         }
-        match contract_overrides(ast, &function.contract_name) {
-            // Nothing to cache; a query returns an empty vector for absent entries.
-            Ok(overrides) if overrides.is_empty() => {}
-            result => {
-                by_contract.insert(function.contract_name.clone(), result);
-            }
+        let overrides = contract_overrides(ast, &function.contract_name)?;
+        if !overrides.is_empty() {
+            by_contract.insert(function.contract_name.clone(), overrides);
         }
     }
 
-    by_contract
+    Ok(by_contract)
 }
 
 /// Parses the inline configuration of every test function in `contract_name`
