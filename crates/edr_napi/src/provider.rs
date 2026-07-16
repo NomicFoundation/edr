@@ -77,7 +77,8 @@ impl Provider {
                 struct CompilerTypeAndRemainder {
                     #[serde(default)]
                     compiler_type: Option<String>,
-                    remainder: Box<serde_json::value::RawValue>,
+                    #[serde(flatten)]
+                    remainder: serde_json::Value,
                 }
 
                 let compiler_input = serde_json::from_value(compiler_input)
@@ -92,38 +93,34 @@ impl Provider {
                 } = peekable;
 
                 let identified_contracts = match to_compiler_type(compiler_type.as_deref()) {
-                    edr_solidity::artifacts::CompilerType::Solc => {
-                        serde_json::from_str::<
-                            edr_solidity::artifacts::CompilerOutput<
-                                edr_solidity::artifacts::SolcBytecode,
-                            >,
-                        >(remainder.get())
+                    edr_solidity::artifacts::CompilerType::Solc => serde_json::from_value::<
+                        edr_solidity::artifacts::CompilerOutput<
+                            edr_solidity::artifacts::SolcBytecode,
+                        >,
+                    >(remainder)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    .and_then(|compiler_output| {
+                        extract_solc_contract_metadata(
+                            solc_version,
+                            compiler_input,
+                            compiler_output,
+                        )
                         .map_err(|error| napi::Error::from_reason(error.to_string()))
-                        .and_then(|compiler_output| {
-                            extract_solc_contract_metadata(
-                                solc_version,
-                                compiler_input,
-                                compiler_output,
-                            )
-                            .map_err(|error| napi::Error::from_reason(error.to_string()))
-                        })
-                    }
-                    edr_solidity::artifacts::CompilerType::Solx => {
-                        serde_json::from_str::<
-                            edr_solidity::artifacts::CompilerOutput<
-                                edr_solidity::artifacts::SolxBytecode,
-                            >,
-                        >(remainder.get())
+                    }),
+                    edr_solidity::artifacts::CompilerType::Solx => serde_json::from_value::<
+                        edr_solidity::artifacts::CompilerOutput<
+                            edr_solidity::artifacts::SolxBytecode,
+                        >,
+                    >(remainder)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    .and_then(|compiler_output| {
+                        extract_solx_contract_metadata(
+                            solc_version,
+                            compiler_input,
+                            compiler_output,
+                        )
                         .map_err(|error| napi::Error::from_reason(error.to_string()))
-                        .and_then(|compiler_output| {
-                            extract_solx_contract_metadata(
-                                solc_version,
-                                compiler_input,
-                                compiler_output,
-                            )
-                            .map_err(|error| napi::Error::from_reason(error.to_string()))
-                        })
-                    }
+                    }),
                 }?;
 
                 let mut contract_decoder = contract_decoder.write();
