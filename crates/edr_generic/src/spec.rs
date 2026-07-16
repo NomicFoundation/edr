@@ -92,6 +92,10 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
         self.inner.prevrandao()
     }
 
+    fn slot_num(&self) -> u64 {
+        self.inner.slot_num()
+    }
+
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
         self.inner.blob_excess_gas_and_price().or_else(|| {
             // If the hardfork requires it, set ExcessGasAndPrice default value

@@ -216,6 +216,10 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for BlockHeader 
             )
         })
     }
+
+    fn slot_number_for_hardfork(&self, _hardfork: HardforkT) -> u64 {
+        self.slot_number.unwrap_or(0)
+    }
 }
 
 /// Wrapper type combining a header with its associated hardfork.
@@ -278,6 +282,10 @@ impl<HardforkT: Copy + Into<EvmSpecId>, BlockHeaderT: BlockEnvForHardfork<Hardfo
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
         self.header
             .blob_excess_gas_and_price_for_hardfork(self.hardfork, self.scheduled_blob_params)
+    }
+
+    fn slot_num(&self) -> u64 {
+        self.header.slot_number_for_hardfork(self.hardfork)
     }
 }
 
@@ -608,6 +616,10 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for PartialHeade
                 scheduled_blob_params,
             )
         })
+    }
+
+    fn slot_number_for_hardfork(&self, _hardfork: HardforkT) -> u64 {
+        self.slot_number.unwrap_or(0)
     }
 }
 

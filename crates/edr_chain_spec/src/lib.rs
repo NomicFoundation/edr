@@ -91,6 +91,12 @@ pub trait BlockEnvForHardfork<HardforkT> {
         hardfork: HardforkT,
         scheduled_blob_params: Option<&ScheduledBlobParams>,
     ) -> Option<BlobExcessGasAndPrice>;
+
+    /// The slot number of the block, added in the Amsterdam upgrade with
+    /// [EIP-7843]. Zero on hardforks that predate it.
+    ///
+    /// [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
+    fn slot_number_for_hardfork(&self, hardfork: HardforkT) -> u64;
 }
 
 /// Trait for specifying the contextual information type of a chain.
