@@ -84,6 +84,12 @@ pub struct BlockHeader {
     ///
     /// [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)
     pub block_access_list_hash: Option<B256>,
+    /// The slot number corresponding to this block. Was added by [EIP-7843] and
+    /// is ignored in legacy headers.
+    ///
+    /// [EIP-7843](https://eips.ethereum.org/EIPS/eip-7843)
+    #[serde(default, with = "alloy_serde::quantity::opt")]
+    pub slot_number: Option<u64>,
 }
 
 impl BlockHeader {
@@ -112,6 +118,7 @@ impl BlockHeader {
             parent_beacon_block_root: partial_header.parent_beacon_block_root,
             requests_hash: partial_header.requests_hash,
             block_access_list_hash: partial_header.block_access_list_hash,
+            slot_number: partial_header.slot_number,
         }
     }
 
@@ -323,6 +330,10 @@ pub struct PartialHeader {
     ///
     /// [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)
     pub block_access_list_hash: Option<B256>,
+    /// The slot number corresponding to this block ([EIP-7843])
+    ///
+    /// [EIP-7843](https://eips.ethereum.org/EIPS/eip-7843)
+    pub slot_number: Option<u64>,
 }
 
 impl PartialHeader {
@@ -504,6 +515,19 @@ impl PartialHeader {
             } else {
                 None
             },
+            // The slot number exists only from Amsterdam onwards (EIP-7843); earlier hardforks
+            // must not carry it. EDR has no consensus layer, so within Amsterdam we simulate one
+            // slot per mined block by incrementing the parent's slot number (anchoring at 0 for
+            // genesis or a pre-Amsterdam parent that carries no slot number).
+            slot_number: if evm_spec_id >= EvmSpecId::AMSTERDAM {
+                Some(
+                    parent
+                        .and_then(|parent| parent.slot_number)
+                        .map_or(0, |slot_number| slot_number + 1),
+                )
+            } else {
+                None
+            },
         }
     }
 }
@@ -531,6 +555,7 @@ impl From<BlockHeader> for PartialHeader {
             parent_beacon_block_root: header.parent_beacon_block_root,
             requests_hash: header.requests_hash,
             block_access_list_hash: header.block_access_list_hash,
+            slot_number: header.slot_number,
         }
     }
 }
@@ -740,6 +765,7 @@ mod tests {
             parent_beacon_block_root: None,
             requests_hash: Some(B256::random()),
             block_access_list_hash: Some(B256::random()),
+            slot_number: Some(1337),
         };
 
         let encoded = alloy_rlp::encode(&header);
@@ -780,6 +806,7 @@ mod tests {
             parent_beacon_block_root: None,
             requests_hash: None,
             block_access_list_hash: None,
+            slot_number: None,
         };
         let encoded = alloy_rlp::encode(&header);
         assert_eq!(encoded, expected);
@@ -828,6 +855,7 @@ mod tests {
             parent_beacon_block_root: None,
             requests_hash: None,
             block_access_list_hash: None,
+            slot_number: None,
         };
         assert_eq!(header.hash(), expected_hash);
     }
@@ -859,6 +887,7 @@ mod tests {
             parent_beacon_block_root: None,
             requests_hash: None,
             block_access_list_hash: None,
+            slot_number: None,
         };
         let decoded = BlockHeader::decode(&mut data.as_slice()).unwrap();
         assert_eq!(decoded, expected);
@@ -909,6 +938,7 @@ mod tests {
             withdrawals_root: Some(KECCAK_NULL_RLP),
             requests_hash: None,
             block_access_list_hash: None,
+            slot_number: None,
         };
 
         let encoded = alloy_rlp::encode(&header);
@@ -969,6 +999,7 @@ mod tests {
             ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
             withdrawals_root: Some(KECCAK_NULL_RLP),
             block_access_list_hash: None,
+            slot_number: None,
         };
 
         let encoded = alloy_rlp::encode(&header);
