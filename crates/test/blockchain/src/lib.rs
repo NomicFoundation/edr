@@ -196,10 +196,11 @@ pub fn insert_dummy_block_with_transaction<
     };
 
     let execution_receipt = receipt_builder.build_receipt(
-        &header,
         &transaction,
         &execution_result,
         blockchain.hardfork(),
+        header.gas_used,
+        header.state_root,
     );
 
     let transaction_receipt = TransactionReceipt::new(

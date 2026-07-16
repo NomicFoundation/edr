@@ -15,8 +15,8 @@ use edr_block_header::{
 };
 use edr_block_local::EthLocalBlock;
 use edr_chain_spec::{
-    BlockEnvChainSpec, BlockEnvConstructor as _, EvmSpecId, ExecutableTransaction,
-    TransactionValidation,
+    BlockEnvChainSpec, BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction,
+    HardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
@@ -83,6 +83,9 @@ pub struct EthBlockBuilder<
     // creation should be deterministic.
     precompile_addresses: HashSet<Address>,
     _phantom: PhantomData<fn() -> (EvmChainSpecT, ExecutionReceiptBuilderT)>,
+    // Net cumulative gas used (after refunds), tracked separately because from Amsterdam
+    // (EIP-7778) the header's `gas_used` is gross (before refunds).
+    cumulative_gas_used: u64,
 }
 
 impl<
@@ -363,6 +366,7 @@ impl<
             custom_precompiles,
             precompile_addresses,
             _phantom: PhantomData,
+            cumulative_gas_used: 0,
         })
     }
 
@@ -497,7 +501,9 @@ impl<
 
         self.state.commit(state_diff);
 
-        self.header.gas_used += transaction_result.tx_gas_used();
+        self.cumulative_gas_used += transaction_result.tx_gas_used();
+        self.header.gas_used +=
+            transaction_block_gas_contribution::<ChainSpecT>(self.cfg.spec, &transaction_result);
 
         if let Some(BlobGas { gas_used, .. }) = self.header.blob_gas.as_mut() {
             let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();
@@ -505,10 +511,11 @@ impl<
         }
 
         let receipt = receipt_builder.build_receipt(
-            &self.header,
             &transaction,
             &transaction_result,
             self.cfg.spec,
+            self.cumulative_gas_used,
+            self.header.state_root,
         );
         let receipt = TransactionReceipt::new(
             receipt,
@@ -522,6 +529,22 @@ impl<
 
         self.transactions.push(transaction);
         self.transaction_results.push(transaction_result);
+    }
+}
+
+/// Gas a transaction contributes to the block's `gas_used`: from Amsterdam
+/// (EIP-7778) the gross gas before refunds, otherwise its net gas used.
+fn transaction_block_gas_contribution<ChainSpecT: ChainSpec + HardforkChainSpec>(
+    hardfork: ChainSpecT::Hardfork,
+    execution_result: &ExecutionResult<ChainSpecT::HaltReason>,
+) -> u64 {
+    if hardfork.into() >= EvmSpecId::AMSTERDAM {
+        let execution_gas = execution_result.gas();
+        execution_gas
+            .total_gas_spent()
+            .max(execution_gas.floor_gas())
+    } else {
+        execution_result.tx_gas_used()
     }
 }
 
@@ -929,6 +952,71 @@ mod tests {
                     &non_empty_state_diff(),
                     B256::repeat_byte(3)
                 ),
+            );
+        }
+    }
+
+    mod transaction_block_gas_contribution {
+        use edr_chain_spec_evm::result::{Output, ResultGas, SuccessReason};
+        use edr_primitives::Bytes;
+
+        use super::*;
+        use crate::{HaltReason, Hardfork, L1ChainSpec};
+
+        // A successful result carrying the given raw gas figures.
+        fn execution_result(
+            total_gas_spent: u64,
+            refunded: u64,
+            floor_gas: u64,
+        ) -> ExecutionResult<HaltReason> {
+            ExecutionResult::Success {
+                reason: SuccessReason::Stop,
+                gas: ResultGas::default()
+                    .with_total_gas_spent(total_gas_spent)
+                    .with_refunded(refunded)
+                    .with_floor_gas(floor_gas),
+                logs: Vec::new(),
+                output: Output::Call(Bytes::new()),
+            }
+        }
+
+        #[test]
+        fn before_amsterdam_uses_gas_after_refunds() {
+            // Net gas: total - refund = 40_000, above the (30_000) floor.
+            let result = execution_result(50_000, 10_000, 30_000);
+            assert_eq!(
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::OSAKA, &result),
+                40_000
+            );
+        }
+
+        #[test]
+        fn from_amsterdam_uses_gas_before_refunds() {
+            // EIP-7778: the refund is not subtracted from the block gas.
+            let result = execution_result(50_000, 10_000, 0);
+            assert_eq!(
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::AMSTERDAM, &result),
+                50_000
+            );
+        }
+
+        #[test]
+        fn from_amsterdam_applies_calldata_floor() {
+            // The EIP-7623 floor still applies when it exceeds the gas spent.
+            let result = execution_result(20_000, 0, 25_000);
+            assert_eq!(
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::AMSTERDAM, &result),
+                25_000
+            );
+        }
+
+        #[test]
+        fn before_amsterdam_applies_calldata_floor() {
+            // Net gas is floored too: max(total - refund, floor).
+            let result = execution_result(50_000, 10_000, 45_000);
+            assert_eq!(
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::OSAKA, &result),
+                45_000
             );
         }
     }

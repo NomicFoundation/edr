@@ -8,6 +8,7 @@ mod eip7623;
 mod eip7691;
 mod eip7702;
 mod eip7708;
+mod eip7778;
 mod eip7825;
 mod eip7928;
 mod estimate_gas;
