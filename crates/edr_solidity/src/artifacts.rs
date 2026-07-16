@@ -80,7 +80,7 @@ pub struct UnsupportedSolcVersionError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CompilerMetadataParseError {
-    #[error("Invalid JSON: {0}")]
+    #[error("Failed to parse build info: {0}")]
     InvalidJson(#[from] serde_json::Error),
     #[error(transparent)]
     InvalidSolcVersion(#[from] InvalidSolcVersionError),
@@ -104,7 +104,7 @@ impl From<ContractMetadataExtractionError> for CompilerMetadataParseError {
 pub enum SplitCompilerMetadataParseError {
     #[error("The compiler input and output IDs do not match: input ID = {input_id}, output ID = {output_id}")]
     IdMismatch { input_id: String, output_id: String },
-    #[error("Invalid JSON: {0}")]
+    #[error("Failed to parse build info: {0}")]
     InvalidJson(#[from] serde_json::Error),
     #[error(transparent)]
     InvalidSolcVersion(#[from] InvalidSolcVersionError),
