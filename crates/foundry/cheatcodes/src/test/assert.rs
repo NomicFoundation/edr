@@ -154,7 +154,7 @@ impl EqRelAssertionError<U256> {
                 format_units_uint(&f.left, decimals),
                 format_units_uint(&f.right, decimals),
                 format_delta_percent(&f.max_delta),
-                &f.real_delta,
+                f.real_delta,
             ),
             Self::Overflow => self.to_string(),
         }
@@ -169,7 +169,7 @@ impl EqRelAssertionError<I256> {
                 format_units_int(&f.left, decimals),
                 format_units_int(&f.right, decimals),
                 format_delta_percent(&f.max_delta),
-                &f.real_delta,
+                f.real_delta,
             ),
             Self::Overflow => self.to_string(),
         }
