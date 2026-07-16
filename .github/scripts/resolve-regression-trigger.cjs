@@ -21,6 +21,11 @@ module.exports = async ({ github, context, core }) => {
   let edrRef = "";
   let hardhatRef = "main";
   let isBaseline = false;
+  // Glob(s) selecting which projects / benchmarks to run (forwarded to
+  // bench:regression's --scenarios / --benchmarks). Empty means all. Never set
+  // for baseline (push) runs so baselines cover the full benchmark.
+  let scenarioFilter = "";
+  let benchmarkFilter = "";
 
   // Wait for the EDR CI workflow run for `sha` to conclude. Returns true only
   // if it completed successfully. Polls until CI_WAIT_TIMEOUT_MS elapses.
@@ -83,6 +88,8 @@ module.exports = async ({ github, context, core }) => {
     shouldRun = true;
     edrRef = context.sha;
     hardhatRef = context.payload.inputs["hardhat-ref"] || "main";
+    scenarioFilter = context.payload.inputs["scenario-filter"] || "";
+    benchmarkFilter = context.payload.inputs["benchmark-filter"] || "";
     isBaseline = false;
   } else if (eventName === "issue_comment") {
     const comment = context.payload.comment;
@@ -122,17 +129,34 @@ module.exports = async ({ github, context, core }) => {
         edrRef = pr.head.sha;
         isBaseline = false;
 
-        const match = comment.body.match(/hardhat-ref=(\S+)/);
-        hardhatRef = match ? match[1] : "main";
+        // Parse `key=value` or `key="value with spaces"` (command/step globs
+        // like "cold compile" contain spaces, so quotes are supported).
+        const parseParam = (key) => {
+          const m = comment.body.match(
+            new RegExp(`${key}=(?:"([^"]*)"|(\\S+))`)
+          );
+          return m ? (m[1] ?? m[2]) : "";
+        };
+
+        hardhatRef = parseParam("hardhat-ref") || "main";
+        scenarioFilter = parseParam("scenarios");
+        benchmarkFilter = parseParam("benchmarks");
 
         // Gate on EDR CI being green for the PR head before spending
         // ~3h on the self-hosted runner.
         const green = await waitForEdrCi(pr.head.sha);
         if (green) {
           shouldRun = true;
+          const filterNotes = [
+            scenarioFilter && `projects matching \`${scenarioFilter}\``,
+            benchmarkFilter && `benchmarks matching \`${benchmarkFilter}\``,
+          ].filter(Boolean);
+          const filterNote = filterNotes.length
+            ? ` (${filterNotes.join(", ")})`
+            : "";
           await postComment(
             `🚀 [Starting regression benchmark](${runUrl}) for ` +
-              `\`${edrRef.slice(0, 12)}\` against Hardhat \`${hardhatRef}\`.`
+              `\`${edrRef.slice(0, 12)}\` against Hardhat \`${hardhatRef}\`${filterNote}.`
           );
         } else {
           await postComment(
@@ -149,8 +173,11 @@ module.exports = async ({ github, context, core }) => {
   core.setOutput("edr_ref", edrRef);
   core.setOutput("hardhat_ref", hardhatRef);
   core.setOutput("is_baseline", String(isBaseline));
+  core.setOutput("scenario_filter", scenarioFilter);
+  core.setOutput("benchmark_filter", benchmarkFilter);
   core.info(
     `should_run=${shouldRun} edr_ref=${edrRef} ` +
-      `hardhat_ref=${hardhatRef} is_baseline=${isBaseline}`
+      `hardhat_ref=${hardhatRef} is_baseline=${isBaseline} ` +
+      `scenario_filter=${scenarioFilter} benchmark_filter=${benchmarkFilter}`
   );
 };
