@@ -349,10 +349,10 @@ impl EdrContext {
                                 // We add an assertion for
                                 // completeness.
                                 assert_eq!(
-                            status,
-                            napi::Status::Ok,
-                            "Failed to call on_test_suite_completed_callback with status: {status}"
-                        );
+                                    status,
+                                    napi::Status::Ok,
+                                    "Failed to call on_test_suite_completed_callback with status: {status}"
+                                );
                             },
                         ),
                     )
