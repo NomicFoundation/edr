@@ -1,6 +1,6 @@
-//! Per-compiler debug-info parsers. `crate::source_map` (solc) and `dwarf`
-//! (solx) both produce the same [`crate::build_model::Instruction`] vector, so
-//! the rest of the stack-trace pipeline stays compiler-agnostic.
+//! Per-compiler debug-info parsers. `crate::artifacts::solc::source_map` (solc)
+//! and `dwarf` (solx) both produce the same [`crate::build_model::Instruction`]
+//! vector, so the rest of the stack-trace pipeline stays compiler-agnostic.
 //!
 //! The [`CompilerArtifact`] trait is the seam: each compiler-specific bytecode
 //! type knows how to decode its own debug-info AND advertises its

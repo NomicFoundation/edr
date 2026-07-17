@@ -1,5 +1,6 @@
 //! DWARF debug-info parser for solx-built artifacts. Produces the same
-//! [`Instruction`] vector as [`crate::source_map::decode_instructions`] does
+//! [`Instruction`] vector as
+//! [`crate::artifacts::solc::source_map::decode_instructions`] does
 //! for solc, so the rest of the stack-trace pipeline stays compiler-agnostic.
 
 use std::{collections::HashMap, num::NonZeroU64, rc::Rc, sync::Arc};
@@ -124,8 +125,9 @@ fn is_stack_shuffle(opcode: OpCode) -> bool {
 }
 
 /// Decode a solx-emitted DWARF blob into the same
-/// [`Instruction`] vector that [`crate::source_map::decode_instructions`]
-/// produces for solc artifacts.
+/// [`Instruction`] vector that
+/// [`crate::artifacts::solc::source_map::decode_instructions`] produces for
+/// solc artifacts.
 pub fn decode_instructions(
     normalized_code: &[u8],
     debug_info_hex: &str,
