@@ -9,12 +9,11 @@
 use std::sync::Arc;
 
 use edr_chain_l1::{rpc::block::L1RpcBlock, L1ChainSpec};
-use edr_eth::PreEip1898BlockSpec;
 use edr_primitives::{address, Address, B256, KECCAK_RLP_EMPTY_ARRAY, U256};
 use edr_provider::{
-    test_utils::{create_test_config, transfer_value},
+    test_utils::{create_test_config, get_latest_block, mine_block, transfer_value},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -42,25 +41,6 @@ fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1C
     )?;
 
     Ok(provider)
-}
-
-/// Mines an empty block.
-fn mine_block(provider: &Provider<L1ChainSpec>) {
-    provider
-        .handle_request(ProviderRequest::with_single(MethodInvocation::EvmMine(
-            None,
-        )))
-        .expect("evm_mine should succeed");
-}
-
-/// Returns the raw JSON of the latest block.
-fn get_latest_block(provider: &Provider<L1ChainSpec>) -> serde_json::Value {
-    provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
-        ))
-        .expect("eth_getBlockByNumber should succeed")
-        .result
 }
 
 #[tokio::test(flavor = "multi_thread")]

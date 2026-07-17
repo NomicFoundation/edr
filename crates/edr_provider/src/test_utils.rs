@@ -9,6 +9,7 @@ use edr_chain_l1::{
     L1ChainSpec,
 };
 use edr_chain_spec::TransactionValidation;
+use edr_eth::PreEip1898BlockSpec;
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -286,6 +287,31 @@ where
     let contract_address = receipt.contract_address.expect("Call must create contract");
 
     Ok(contract_address)
+}
+
+/// Mines an empty block.
+pub fn mine_block<TimerT>(provider: &Provider<L1ChainSpec, TimerT>)
+where
+    TimerT: Clone + TimeSinceEpoch,
+{
+    provider
+        .handle_request(ProviderRequest::with_single(MethodInvocation::EvmMine(
+            None,
+        )))
+        .expect("evm_mine should succeed");
+}
+
+/// Returns the raw JSON of the latest block.
+pub fn get_latest_block<TimerT>(provider: &Provider<L1ChainSpec, TimerT>) -> serde_json::Value
+where
+    TimerT: Clone + TimeSinceEpoch,
+{
+    provider
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+        ))
+        .expect("eth_getBlockByNumber should succeed")
+        .result
 }
 
 /// Fixture for testing `ProviderData`.

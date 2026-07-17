@@ -1078,6 +1078,14 @@ mod tests {
         hardfork: EvmSpecId,
         overrides: HeaderOverrides<EvmSpecId>,
     ) -> PartialHeader {
+        partial_header_with_parent(hardfork, overrides, None)
+    }
+
+    fn partial_header_with_parent(
+        hardfork: EvmSpecId,
+        overrides: HeaderOverrides<EvmSpecId>,
+        parent: Option<&BlockHeader>,
+    ) -> PartialHeader {
         let block_config = BlockConfig {
             base_fee_params: BaseFeeParams::Constant(edr_eip1559::ConstantBaseFeeParams {
                 max_change_denominator: 8,
@@ -1088,7 +1096,7 @@ mod tests {
             scheduled_blob_params: None,
         };
 
-        PartialHeader::new(&block_config, overrides, None, &Vec::new(), None)
+        PartialHeader::new(&block_config, overrides, parent, &Vec::new(), None)
     }
 
     // `PartialHeader::new` owns the EIP-7928 hardfork gate: whether a header
@@ -1127,5 +1135,46 @@ mod tests {
         );
 
         assert_eq!(header.block_access_list_hash, Some(supplied));
+    }
+
+    // `PartialHeader::new` owns the EIP-7843 hardfork gate and simulates one slot
+    // per mined block, since EDR has no consensus layer.
+    #[test]
+    fn slot_number_absent_before_amsterdam() {
+        let header = partial_header_with_hardfork(EvmSpecId::PRAGUE, HeaderOverrides::default());
+
+        assert_eq!(header.slot_number, None);
+    }
+
+    #[test]
+    fn slot_number_increments_from_the_parent() {
+        let parent = BlockHeader {
+            slot_number: Some(41),
+            ..BlockHeader::default()
+        };
+
+        let header = partial_header_with_parent(
+            EvmSpecId::AMSTERDAM,
+            HeaderOverrides::default(),
+            Some(&parent),
+        );
+
+        assert_eq!(header.slot_number, Some(42));
+    }
+
+    #[test]
+    fn slot_number_anchors_at_zero_when_parent_has_no_slot_number() {
+        // A pre-Amsterdam parent carries no slot number, so its Amsterdam child
+        // anchors at 0 rather than incrementing.
+        let parent = BlockHeader::default();
+        assert_eq!(parent.slot_number, None);
+
+        let header = partial_header_with_parent(
+            EvmSpecId::AMSTERDAM,
+            HeaderOverrides::default(),
+            Some(&parent),
+        );
+
+        assert_eq!(header.slot_number, Some(0));
     }
 }
