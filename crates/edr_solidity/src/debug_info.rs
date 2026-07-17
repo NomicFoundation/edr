@@ -3,9 +3,7 @@
 //! vector, so the rest of the stack-trace pipeline stays compiler-agnostic.
 //!
 //! The [`CompilerArtifact`] trait is the seam: each compiler-specific bytecode
-//! type knows how to decode its own debug-info AND advertises its
-//! stack-trace strategy through [`CompilerArtifact::trace_strategy`], so
-//! callers dispatch polymorphically over both concerns.
+//! type knows how to decode its own debug-info.
 
 use std::collections::HashMap;
 
