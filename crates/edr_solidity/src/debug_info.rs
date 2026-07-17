@@ -9,9 +9,8 @@
 
 use std::collections::HashMap;
 
-use crate::{
-    artifacts::{CompilerArtifact, ImmutableReference, LinkReference, SolcBytecode, SolxBytecode},
-    trace_strategy::{SolcTraceStrategy, SolxTraceStrategy, TraceStrategy},
+use crate::artifacts::{
+    CompilerArtifact, ImmutableReference, LinkReference, SolcBytecode, SolxBytecode,
 };
 
 pub(crate) mod dwarf;
@@ -21,20 +20,12 @@ impl CompilerArtifact for SolcBytecode {
         &self.object
     }
 
-    fn opcodes(&self) -> &str {
-        &self.opcodes
-    }
-
     fn link_references(&self) -> &HashMap<String, HashMap<String, Vec<LinkReference>>> {
         &self.link_references
     }
 
     fn immutable_references(&self) -> Option<&HashMap<String, Vec<ImmutableReference>>> {
         self.immutable_references.as_ref()
-    }
-
-    fn trace_strategy(&self) -> &'static dyn TraceStrategy {
-        &SolcTraceStrategy
     }
 }
 
@@ -43,19 +34,11 @@ impl CompilerArtifact for SolxBytecode {
         &self.object
     }
 
-    fn opcodes(&self) -> &str {
-        &self.opcodes
-    }
-
     fn link_references(&self) -> &HashMap<String, HashMap<String, Vec<LinkReference>>> {
         &self.link_references
     }
 
     fn immutable_references(&self) -> Option<&HashMap<String, Vec<ImmutableReference>>> {
         self.immutable_references.as_ref()
-    }
-
-    fn trace_strategy(&self) -> &'static dyn TraceStrategy {
-        &SolxTraceStrategy
     }
 }

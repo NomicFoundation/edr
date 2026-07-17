@@ -11,7 +11,6 @@ use parking_lot::RwLock;
 use crate::{
     artifacts::{CompilerArtifact, CompilerOutput, CompilerOutputContract},
     build_model::{BuildModel, Contract, ContractMetadata, CustomError, SourceFile},
-    contracts_identifier::IdentifiedContract,
     library_utils::{get_library_address_positions, normalize_compiler_output_bytecode},
 };
 
@@ -19,14 +18,11 @@ use crate::{
 pub const FIRST_SOLC_VERSION_SUPPORTED: semver::Version = semver::Version::new(0, 5, 1);
 
 pub(crate) fn correct_selectors<ArtifactT: CompilerArtifact>(
-    contracts: &[IdentifiedContract],
+    contracts: &[Arc<ContractMetadata>],
     compiler_output: &CompilerOutput<ArtifactT>,
 ) -> anyhow::Result<()> {
-    for identified in contracts
-        .iter()
-        .filter(|c| !c.contract_metadata.is_deployment)
-    {
-        let mut contract = identified.contract_metadata.contract.write();
+    for identified in contracts.iter().filter(|c| !c.is_deployment) {
+        let mut contract = identified.contract.write();
         // Fetch the method identifiers for the contract from the compiler output
         let method_identifiers = match compiler_output
             .contracts
@@ -75,7 +71,7 @@ fn decode_evm_bytecode<BuildModelT: BuildModel>(
     artifact: &<BuildModelT as BuildModel>::Artifact,
     build_model: &BuildModelT,
     sources: Arc<[Arc<RwLock<SourceFile>>]>,
-) -> anyhow::Result<IdentifiedContract> {
+) -> anyhow::Result<Arc<ContractMetadata>> {
     let library_address_positions = get_library_address_positions(artifact);
 
     let immutable_references = artifact
@@ -98,19 +94,16 @@ fn decode_evm_bytecode<BuildModelT: BuildModel>(
         .decode_instructions(artifact, &normalized_code, is_deployment)
         .with_context(|| format!("failed to decode debug-info for {section}"))?;
 
-    Ok(IdentifiedContract {
-        contract_metadata: Arc::new(ContractMetadata::new(
-            sources,
-            contract,
-            is_deployment,
-            normalized_code,
-            instructions,
-            library_address_positions,
-            immutable_references,
-            solc_version,
-        )),
-        trace_strategy: artifact.trace_strategy(),
-    })
+    Ok(Arc::new(ContractMetadata::new(
+        sources,
+        contract,
+        is_deployment,
+        normalized_code,
+        instructions,
+        library_address_positions,
+        immutable_references,
+        solc_version,
+    )))
 }
 
 pub(crate) fn decode_bytecodes<BuildModelT: BuildModel>(
@@ -118,7 +111,7 @@ pub(crate) fn decode_bytecodes<BuildModelT: BuildModel>(
     compiler_output: &CompilerOutput<<BuildModelT as BuildModel>::Artifact>,
     build_model: BuildModelT,
     sources: &Arc<[Arc<RwLock<SourceFile>>]>,
-) -> anyhow::Result<Vec<IdentifiedContract>> {
+) -> anyhow::Result<Vec<Arc<ContractMetadata>>> {
     let mut bytecodes = Vec::new();
 
     for contract in build_model.contracts() {

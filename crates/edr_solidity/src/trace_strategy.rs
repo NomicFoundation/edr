@@ -76,6 +76,9 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
 #[derive(Debug)]
 pub struct SolcTraceStrategy;
 
+/// Global instance of [`SolcTraceStrategy`] used by the error inferrer.
+pub static SOLC_TRACE_STRATEGY: SolcTraceStrategy = SolcTraceStrategy;
+
 impl TraceStrategy for SolcTraceStrategy {
     fn unresolved_callstack_entry(
         &self,
@@ -112,6 +115,9 @@ impl TraceStrategy for SolcTraceStrategy {
         Ok(primary_ref)
     }
 }
+
+/// Global instance of [`SolxTraceStrategy`] used by the error inferrer.
+pub static SOLX_TRACE_STRATEGY: SolxTraceStrategy = SolxTraceStrategy;
 
 /// Solx (DWARF) trace-strategy impl.
 #[derive(Debug)]

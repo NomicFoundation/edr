@@ -24,6 +24,7 @@ use crate::{
     build_model::{BuildModel, Contract, Instruction, JumpType, SourceFile, SourceLocation},
     compiler::{correct_selectors, decode_bytecodes, FIRST_SOLC_VERSION_SUPPORTED},
     contracts_identifier::IdentifiedContract,
+    trace_strategy::SOLC_TRACE_STRATEGY,
 };
 
 pub(super) struct CompiledContractsAndFiles {
@@ -201,7 +202,13 @@ pub fn extract_solc_contract_metadata(
     let contracts = decode_bytecodes(solc_version, &compiler_output, build_model, &sources)?;
     correct_selectors(&contracts, &compiler_output)?;
 
-    Ok(contracts)
+    Ok(contracts
+        .into_iter()
+        .map(|contract_metadata| IdentifiedContract {
+            contract_metadata,
+            trace_strategy: &SOLC_TRACE_STRATEGY,
+        })
+        .collect())
 }
 
 /// A resolved build model from a Solidity compiler standard JSON output.

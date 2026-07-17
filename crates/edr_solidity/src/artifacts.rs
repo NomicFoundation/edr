@@ -15,7 +15,7 @@ use self::{
     solc::{parse_solc_compiler_metadata, parse_split_solc_compiler_metadata},
     solx::{parse_solx_compiler_metadata, parse_split_solx_compiler_metadata},
 };
-use crate::{contracts_identifier::IdentifiedContract, trace_strategy::TraceStrategy};
+use crate::contracts_identifier::IdentifiedContract;
 
 pub mod solc;
 pub mod solx;
@@ -27,18 +27,11 @@ pub trait CompilerArtifact: std::fmt::Debug + 'static {
     /// Standard JSON output.
     fn object(&self) -> &str;
 
-    /// Disassembled opcode text from the Standard JSON output.
-    fn opcodes(&self) -> &str;
-
     /// Library link references (source → library name → positions).
     fn link_references(&self) -> &HashMap<String, HashMap<String, Vec<LinkReference>>>;
 
     /// Immutable-variable references emitted by the compiler, if any.
     fn immutable_references(&self) -> Option<&HashMap<String, Vec<ImmutableReference>>>;
-
-    /// Compiler-specific stack-trace strategy used by the error inferrer's
-    /// heuristics.
-    fn trace_strategy(&self) -> &'static dyn TraceStrategy;
 }
 
 /// A JSON source that can be deserialized into an owned type. Lets the

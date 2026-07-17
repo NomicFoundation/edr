@@ -276,13 +276,13 @@ mod tests {
     use crate::{
         artifacts::ImmutableReference,
         build_model::{Contract, ContractKind, SourceFile, SourceLocation},
-        trace_strategy::SolcTraceStrategy,
+        trace_strategy::SOLC_TRACE_STRATEGY,
     };
 
     fn wrap(metadata: Arc<ContractMetadata>) -> IdentifiedContract {
         IdentifiedContract {
             contract_metadata: metadata,
-            trace_strategy: &SolcTraceStrategy,
+            trace_strategy: &SOLC_TRACE_STRATEGY,
         }
     }
 
