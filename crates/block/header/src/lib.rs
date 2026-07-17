@@ -524,15 +524,16 @@ impl PartialHeader {
                 None
             },
             // The slot number exists only from Amsterdam onwards (EIP-7843); earlier hardforks
-            // must not carry it. EDR has no consensus layer, so within Amsterdam we simulate one
-            // slot per mined block by incrementing the parent's slot number (anchoring at 0 for
-            // genesis or a pre-Amsterdam parent that carries no slot number).
+            // must not carry it, so an override is ignored there. EDR has no consensus layer, so
+            // within Amsterdam we honor an override, otherwise simulate one slot per mined block
+            // by incrementing the parent's slot number (anchoring at 0 for genesis or a
+            // pre-Amsterdam parent that carries no slot number).
             slot_number: if evm_spec_id >= EvmSpecId::AMSTERDAM {
-                Some(
+                Some(overrides.slot_number.unwrap_or_else(|| {
                     parent
                         .and_then(|parent| parent.slot_number)
-                        .map_or(0, |slot_number| slot_number + 1),
-                )
+                        .map_or(0, |slot_number| slot_number + 1)
+                }))
             } else {
                 None
             },
@@ -1140,10 +1141,38 @@ mod tests {
     // `PartialHeader::new` owns the EIP-7843 hardfork gate and simulates one slot
     // per mined block, since EDR has no consensus layer.
     #[test]
-    fn slot_number_absent_before_amsterdam() {
-        let header = partial_header_with_hardfork(EvmSpecId::PRAGUE, HeaderOverrides::default());
+    fn slot_number_absent_before_amsterdam_even_with_override() {
+        // An override on an earlier hardfork is ignored, so no spec-invalid header can
+        // be built.
+        let header = partial_header_with_hardfork(
+            EvmSpecId::PRAGUE,
+            HeaderOverrides {
+                slot_number: Some(1),
+                ..HeaderOverrides::default()
+            },
+        );
 
         assert_eq!(header.slot_number, None);
+    }
+
+    #[test]
+    fn slot_number_honors_override_on_amsterdam() {
+        // The override must win over the parent-increment path (which would be 42).
+        let parent = BlockHeader {
+            slot_number: Some(41),
+            ..BlockHeader::default()
+        };
+
+        let header = partial_header_with_parent(
+            EvmSpecId::AMSTERDAM,
+            HeaderOverrides {
+                slot_number: Some(7843),
+                ..HeaderOverrides::default()
+            },
+            Some(&parent),
+        );
+
+        assert_eq!(header.slot_number, Some(7843));
     }
 
     #[test]

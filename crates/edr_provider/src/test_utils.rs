@@ -82,6 +82,9 @@ pub fn amsterdam_header_overrides(
         // EDR does not compute the real block access list (EIP-7928), only a simulated hash, so
         // replay the value from the block being replayed.
         block_access_list_hash: replay_header.block_access_list_hash,
+        // EDR only simulates the slot number (EIP-7843), so replay the value from the block being
+        // replayed.
+        slot_number: replay_header.slot_number,
         ..prague_header_overrides(replay_header)
     }
 }
