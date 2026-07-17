@@ -523,11 +523,8 @@ impl PartialHeader {
             } else {
                 None
             },
-            // The slot number exists only from Amsterdam onwards (EIP-7843); earlier hardforks
-            // must not carry it, so an override is ignored there. EDR has no consensus layer, so
-            // within Amsterdam we honor an override, otherwise simulate one slot per mined block
-            // by incrementing the parent's slot number (anchoring at 0 for genesis or a
-            // pre-Amsterdam parent that carries no slot number).
+            // EIP-7843 (Amsterdam+): honor an override, else the parent's slot number + 1
+            // (anchoring at 0 for genesis or a pre-Amsterdam parent).
             slot_number: if evm_spec_id >= EvmSpecId::AMSTERDAM {
                 Some(overrides.slot_number.unwrap_or_else(|| {
                     parent
@@ -1138,8 +1135,6 @@ mod tests {
         assert_eq!(header.block_access_list_hash, Some(supplied));
     }
 
-    // `PartialHeader::new` owns the EIP-7843 hardfork gate and simulates one slot
-    // per mined block, since EDR has no consensus layer.
     #[test]
     fn slot_number_absent_before_amsterdam_even_with_override() {
         // An override on an earlier hardfork is ignored, so no spec-invalid header can
