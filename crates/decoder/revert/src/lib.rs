@@ -208,8 +208,8 @@ fn trimmed_hex(s: &[u8]) -> String {
             .expect("slice end index should be valid");
         format!(
             "{}…{} ({} bytes)",
-            &hex::encode(start),
-            &hex::encode(end),
+            hex::encode(start),
+            hex::encode(end),
             s.len(),
         )
     }
