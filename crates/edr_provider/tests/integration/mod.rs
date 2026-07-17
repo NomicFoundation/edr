@@ -1,3 +1,4 @@
+mod call_traces;
 mod coverage;
 mod disable_balance_check;
 mod disable_block_gas_limit;
@@ -7,7 +8,9 @@ mod eip7623;
 mod eip7691;
 mod eip7702;
 mod eip7708;
+mod eip7778;
 mod eip7825;
+mod eip7928;
 mod estimate_gas;
 mod eth_get_proof;
 mod eth_max_priority_fee_per_gas;

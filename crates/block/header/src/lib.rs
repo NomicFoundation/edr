@@ -10,7 +10,10 @@ use edr_chain_spec::{
 use edr_eip1559::BaseFeeParams;
 pub use edr_eip4844::BlobGas;
 use edr_eip7892::ScheduledBlobParams;
-use edr_primitives::{b256, keccak256, Address, Bloom, Bytes, B256, B64, KECCAK_NULL_RLP, U256};
+use edr_primitives::{
+    b256, keccak256, Address, Bloom, Bytes, B256, B64, KECCAK_NULL_RLP, KECCAK_RLP_EMPTY_ARRAY,
+    U256,
+};
 
 pub use self::overrides::HeaderOverrides;
 use crate::difficulty::calculate_ethash_canonical_difficulty;
@@ -76,6 +79,11 @@ pub struct BlockHeader {
     ///
     /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
     pub requests_hash: Option<B256>,
+    /// The Keccak-256 hash of the RLP-encoded access list.
+    /// Was added by [EIP-7928] and is ignored in legacy headers
+    ///
+    /// [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)
+    pub block_access_list_hash: Option<B256>,
 }
 
 impl BlockHeader {
@@ -103,6 +111,7 @@ impl BlockHeader {
             blob_gas: partial_header.blob_gas,
             parent_beacon_block_root: partial_header.parent_beacon_block_root,
             requests_hash: partial_header.requests_hash,
+            block_access_list_hash: partial_header.block_access_list_hash,
         }
     }
 
@@ -310,6 +319,10 @@ pub struct PartialHeader {
     ///
     /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
     pub requests_hash: Option<B256>,
+    /// The Keccak-256 hash of the RLP-encoded access list ([EIP-7928])
+    ///
+    /// [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)
+    pub block_access_list_hash: Option<B256>,
 }
 
 impl PartialHeader {
@@ -478,6 +491,19 @@ impl PartialHeader {
                     None
                 }
             }),
+            // The block access list hash exists only from Amsterdam onwards (EIP-7928); earlier
+            // hardforks must not carry it, so an override is ignored there. Within Amsterdam,
+            // honor an override, otherwise default to the empty block access list hash;
+            // the block builder is responsible to upgrade it when the block changes state.
+            block_access_list_hash: if evm_spec_id >= EvmSpecId::AMSTERDAM {
+                Some(
+                    overrides
+                        .block_access_list_hash
+                        .unwrap_or(KECCAK_RLP_EMPTY_ARRAY),
+                )
+            } else {
+                None
+            },
         }
     }
 }
@@ -504,6 +530,7 @@ impl From<BlockHeader> for PartialHeader {
             blob_gas: header.blob_gas,
             parent_beacon_block_root: header.parent_beacon_block_root,
             requests_hash: header.requests_hash,
+            block_access_list_hash: header.block_access_list_hash,
         }
     }
 }
@@ -712,6 +739,7 @@ mod tests {
             blob_gas: None,
             parent_beacon_block_root: None,
             requests_hash: Some(B256::random()),
+            block_access_list_hash: Some(B256::random()),
         };
 
         let encoded = alloy_rlp::encode(&header);
@@ -751,6 +779,7 @@ mod tests {
             blob_gas: None,
             parent_beacon_block_root: None,
             requests_hash: None,
+            block_access_list_hash: None,
         };
         let encoded = alloy_rlp::encode(&header);
         assert_eq!(encoded, expected);
@@ -798,6 +827,7 @@ mod tests {
             blob_gas: None,
             parent_beacon_block_root: None,
             requests_hash: None,
+            block_access_list_hash: None,
         };
         assert_eq!(header.hash(), expected_hash);
     }
@@ -828,6 +858,7 @@ mod tests {
             blob_gas: None,
             parent_beacon_block_root: None,
             requests_hash: None,
+            block_access_list_hash: None,
         };
         let decoded = BlockHeader::decode(&mut data.as_slice()).unwrap();
         assert_eq!(decoded, expected);
@@ -877,6 +908,7 @@ mod tests {
             ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
             withdrawals_root: Some(KECCAK_NULL_RLP),
             requests_hash: None,
+            block_access_list_hash: None,
         };
 
         let encoded = alloy_rlp::encode(&header);
@@ -936,6 +968,7 @@ mod tests {
             .unwrap(),
             ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
             withdrawals_root: Some(KECCAK_NULL_RLP),
+            block_access_list_hash: None,
         };
 
         let encoded = alloy_rlp::encode(&header);
@@ -996,5 +1029,60 @@ mod tests {
         let blob_params =
             blob_params_for_hardfork(EvmSpecId::OSAKA, now, Some(&scheduled_blob_params));
         assert_eq!(blob_params, BlobParams::bpo2());
+    }
+
+    fn partial_header_with_hardfork(
+        hardfork: EvmSpecId,
+        overrides: HeaderOverrides<EvmSpecId>,
+    ) -> PartialHeader {
+        let block_config = BlockConfig {
+            base_fee_params: BaseFeeParams::Constant(edr_eip1559::ConstantBaseFeeParams {
+                max_change_denominator: 8,
+                elasticity_multiplier: 2,
+            }),
+            hardfork,
+            min_ethash_difficulty: 0,
+            scheduled_blob_params: None,
+        };
+
+        PartialHeader::new(&block_config, overrides, None, &Vec::new(), None)
+    }
+
+    // `PartialHeader::new` owns the EIP-7928 hardfork gate: whether a header
+    // carries a `block_access_list_hash` at all is decided here.
+    #[test]
+    fn block_access_list_hash_absent_before_amsterdam_even_with_override() {
+        // An override on an earlier hardfork is ignored, so no spec-invalid header can
+        // be built.
+        let header = partial_header_with_hardfork(
+            EvmSpecId::PRAGUE,
+            HeaderOverrides {
+                block_access_list_hash: Some(B256::repeat_byte(1)),
+                ..HeaderOverrides::default()
+            },
+        );
+
+        assert_eq!(header.block_access_list_hash, None);
+    }
+
+    #[test]
+    fn block_access_list_hash_defaults_to_empty_list_hash_on_amsterdam() {
+        let header = partial_header_with_hardfork(EvmSpecId::AMSTERDAM, HeaderOverrides::default());
+
+        assert_eq!(header.block_access_list_hash, Some(KECCAK_RLP_EMPTY_ARRAY));
+    }
+
+    #[test]
+    fn block_access_list_hash_honors_override_on_amsterdam() {
+        let supplied = B256::repeat_byte(0xab);
+        let header = partial_header_with_hardfork(
+            EvmSpecId::AMSTERDAM,
+            HeaderOverrides {
+                block_access_list_hash: Some(supplied),
+                ..HeaderOverrides::default()
+            },
+        );
+
+        assert_eq!(header.block_access_list_hash, Some(supplied));
     }
 }

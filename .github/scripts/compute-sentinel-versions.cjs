@@ -19,20 +19,68 @@ function edrVersion(edrBaseVersion, shortSha) {
 // harness pins each scenario's `hardhat` dependency to it, and scenarios pull
 // Hardhat plugins whose `peerDependencies` use ranges like `hardhat@^3.8.0`.
 // node-semver excludes prereleases from such ranges.
-function hardhatVersion(hardhatBaseVersion) {
-  const core = hardhatBaseVersion.split("+")[0].split("-")[0];
-  const [major, minor, patch] = core.split(".").map(Number);
-  if (![major, minor, patch].every(Number.isInteger)) {
-    throw new Error(`Unparseable Hardhat version: ${hardhatBaseVersion}`);
+//
+// It must also be strictly ahead of the *last npm release*, not just of the
+// checked-out repo's version: the harness's publish step patch-bumps any
+// workspace package whose version doesn't exceed its last release, which would
+// desync the published version from this prediction and fail the workflow's
+// "Validate scenarios used the local EDR build" step. The Hardhat checkout can
+// lag npm (its package.json only catches up when a release lands on the
+// benchmarked ref), so floor the sentinel at the published version before
+// bumping.
+function hardhatVersion(hardhatBaseVersion, lastPublishedVersion) {
+  let core = parseCore(hardhatBaseVersion);
+  if (lastPublishedVersion !== undefined) {
+    const published = parseCore(lastPublishedVersion);
+    if (compareCores(core, published) < 0) {
+      core = published;
+    }
   }
+  const [major, minor, patch] = core;
   return `${major}.${minor}.${patch + 1}`;
+}
+
+// Parses `major.minor.patch` out of a semver string, dropping any prerelease
+// tag or build metadata.
+function parseCore(version) {
+  const core = version.split("+")[0].split("-")[0];
+  const parts = core.split(".").map(Number);
+  if (parts.length !== 3 || !parts.every(Number.isInteger)) {
+    throw new Error(`Unparseable Hardhat version: ${version}`);
+  }
+  return parts;
+}
+
+function compareCores(a, b) {
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i];
+  }
+  return 0;
+}
+
+// The latest release of `pkg`, pinned to the public npm registry on purpose:
+// the sentinel must be computed against the same "last release" the e2e
+// harness's publish step compares to, so it must not be silently repointed by
+// npm configuration (an `.npmrc`, `npm_config_registry`, …). The benchmark's
+// Verdaccio isn't running yet when the sentinels are computed.
+async function npmLatestVersion(pkg) {
+  const url = `https://registry.npmjs.org/${pkg}/latest`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`GET ${url} failed: ${response.status}`);
+  }
+  const { version } = await response.json();
+  if (!version) {
+    throw new Error(`GET ${url} returned no version`);
+  }
+  return version;
 }
 
 function readVersion(pkgJsonPath) {
   return JSON.parse(fs.readFileSync(pkgJsonPath, "utf8")).version;
 }
 
-function main() {
+async function main() {
   const { EDR_REF, GITHUB_ENV } = process.env;
   for (const [name, value] of Object.entries({ EDR_REF, GITHUB_ENV })) {
     if (!value) throw new Error(`${name} is not set`);
@@ -42,10 +90,11 @@ function main() {
   const versions = {
     EDR_VER: edrVersion(
       readVersion(path.join(cwd, "crates/edr_napi/package.json")),
-      EDR_REF.slice(0, 12),
+      EDR_REF.slice(0, 12)
     ),
     HH_VER: hardhatVersion(
       readVersion(path.join(cwd, "hardhat/packages/hardhat/package.json")),
+      await npmLatestVersion("hardhat")
     ),
   };
 
@@ -57,5 +106,8 @@ function main() {
 module.exports = { edrVersion, hardhatVersion };
 
 if (require.main === module) {
-  main();
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }

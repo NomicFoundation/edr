@@ -1,6 +1,6 @@
-use edr_block_header::PartialHeader;
 use edr_chain_spec::EvmSpecId;
 use edr_chain_spec_evm::result::ExecutionResult;
+use edr_primitives::B256;
 use edr_receipt::log::{logs_to_bloom, ExecutionLog};
 use edr_receipt_builder_api::ExecutionReceiptBuilder;
 use edr_state_api::State;
@@ -28,10 +28,11 @@ impl
 
     fn build_receipt(
         self,
-        header: &PartialHeader,
         transaction: &crate::transaction::SignedTransactionWithFallbackToPostEip155,
         result: &ExecutionResult<edr_chain_l1::HaltReason>,
         hardfork: edr_chain_l1::Hardfork,
+        cumulative_gas_used: u64,
+        state_root: B256,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = logs_to_bloom(&logs);
@@ -39,15 +40,15 @@ impl
         let receipt = if hardfork >= EvmSpecId::BYZANTIUM {
             edr_receipt::execution::Eip658 {
                 status: result.is_success(),
-                cumulative_gas_used: header.gas_used,
+                cumulative_gas_used,
                 logs_bloom,
                 logs,
             }
             .into()
         } else {
             edr_receipt::execution::Legacy {
-                root: header.state_root,
-                cumulative_gas_used: header.gas_used,
+                root: state_root,
+                cumulative_gas_used,
                 logs_bloom,
                 logs,
             }

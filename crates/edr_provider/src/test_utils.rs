@@ -73,6 +73,18 @@ pub fn prague_header_overrides(
     }
 }
 
+/// Default header overrides for replaying L1 blocks after Amsterdam hardfork.
+pub fn amsterdam_header_overrides(
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
+    HeaderOverrides {
+        // EDR does not compute the real block access list (EIP-7928), only a simulated hash, so
+        // replay the value from the block being replayed.
+        block_access_list_hash: replay_header.block_access_list_hash,
+        ..prague_header_overrides(replay_header)
+    }
+}
+
 /// Default header overrides for replaying blocks.
 pub fn header_overrides<HardforkT: Default>(
     replay_header: &BlockHeader,

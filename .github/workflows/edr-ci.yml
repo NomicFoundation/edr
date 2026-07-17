@@ -11,6 +11,10 @@ on:
       - "**"
   workflow_dispatch:
 
+# Read-only: even the coverage upload uses CODECOV_TOKEN, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: true
@@ -71,7 +75,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
 
       # Install pre-built binaries for cargo hack
-      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
+      - uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3 # v2.82.9
         with:
           tool: cargo-hack@0.6.39
 
@@ -210,6 +214,7 @@ jobs:
           FORCE_COLOR: 3
         shell: bash
         run: |
+          # shellcheck disable=SC1090 # generated env from cargo-llvm-cov, not a static file
           source <(cargo llvm-cov show-env --sh)
           pnpm -C crates/edr_napi test
           # `--release` included to match `build:dev` compilation flags
@@ -362,6 +367,7 @@ jobs:
       - name: Run integration tests
         shell: bash
         run: |
+          # shellcheck disable=SC1090 # generated env from cargo-llvm-cov, not a static file
           source <(cargo llvm-cov show-env --sh)
           pnpm run --recursive --filter './js/integration-tests/*' test
           # `--release` included to match `build:dev` compilation flags
@@ -384,11 +390,36 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
 
-      - name: Cache cooldown data
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
-        with:
-          path: |
-            **/edr-cache/cargo-cooldown-check
-          key: cooldown-check-v1-${{ hashFiles('**/Cargo.lock') }}
+      - uses: NomicFoundation/cargo-cooldown-check@0e9231d9dc6084e8ed2e2eee2fa812f27776cab8 # v0.2.0
 
-      - uses: NomicFoundation/cargo-cooldown-check@ac40e701f9f1155741a761ac9039987fb892af4b
+  actionlint:
+    name: Lint GitHub Actions workflows
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      # Official image bundles shellcheck + pyflakes, so `run:` linting needs no runner deps.
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        env:
+          # Gate on shellcheck warnings/errors; info-level style nits are noise.
+          SHELLCHECK_OPTS: --severity=warning
+        with:
+          args: -color
+
+  zizmor:
+    name: Audit GitHub Actions security (zizmor)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@9bcaee1dcae34154180f412e2fa69355a7cda9f6 # v2.82.6
+        with:
+          tool: zizmor@1.26.1
+      # GH_TOKEN enables the online audits (known-vulnerabilities, tag->SHA resolution).
+      - name: Run zizmor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: zizmor --format github .github

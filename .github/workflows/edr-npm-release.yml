@@ -95,7 +95,8 @@ jobs:
 
       - name: Check number of targets
         shell: bash
-        run: |
+        run:
+          | # zizmor: ignore[template-injection] strategy.job-total is a controlled integer, not external input
           echo "Number of build jobs: ${{ strategy.job-total }}"
           echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
@@ -117,7 +118,7 @@ jobs:
       # Release commits build cold: napi codegen relies on proc-macro
       # expansion (napi-rs#1297), so warm-cache builds risk shipping
       # stale or empty index.js / index.d.ts. Don't enable for releases.
-      - name: Cache cargo
+      - name: Cache cargo # zizmor: ignore[cache-poisoning] release builds run cold (guarded below); PR/main caches never feed a publish
         if: needs.check_commit.outputs.tag == ''
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
@@ -284,7 +285,7 @@ jobs:
       - name: Test bindings
         # Setting CI=1 is important to make PNPM install non-interactive
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
-        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@11.9.0; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@11.9.0; pnpm testNoBuild"
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
@@ -318,7 +319,7 @@ jobs:
         run: ls -R .
         shell: bash
       - name: Test bindings
-        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@11.9.0; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@11.9.0; pnpm testNoBuild"
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
@@ -352,7 +353,7 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=glibc
-      - name: Setup and run tests
+      - name: Setup and run tests # zizmor: ignore[superfluous-actions] deliberate cross-arch (arm64) test runner
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         with:
           image: node:${{ matrix.node }}
@@ -394,7 +395,7 @@ jobs:
         shell: bash
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=musl
-      - name: Setup and run tests
+      - name: Setup and run tests # zizmor: ignore[superfluous-actions] deliberate cross-arch (arm64/musl) test runner
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 # v3
         with:
           image: node:${{ matrix.node }}-alpine
@@ -429,7 +430,7 @@ jobs:
           # matches with release commit
           elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
           then
-            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]
+            if [ "$GITHUB_REF" == "refs/heads/main" ] || [ "$GITHUB_REF" == "refs/heads/hh2" ]
             then
               echo "release commit: tag=latest"
               echo "tag=latest" >> "$GITHUB_OUTPUT"
@@ -502,7 +503,7 @@ jobs:
           echo "Creating bundle with necessary files for publishing"
           ROOT_FILES=("package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
           ALL_FILES=("${ROOT_FILES[@]}" "${NAPI_FILES[@]}")
-          echo "files to include in tar: ${ALL_FILES[@]}"
+          echo "files to include in tar: ${ALL_FILES[*]}"
           # Using --dereference since LICENSE file are symlinks
           tar --dereference -czvf $FILENAME "${ALL_FILES[@]}"
           echo "FILENAME=$FILENAME"
@@ -531,13 +532,16 @@ jobs:
           name: ${{ needs.prepare.outputs.filename }}
           path: .
       - name: Decompress tarball
-        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
+        env:
+          FILENAME: ${{ needs.prepare.outputs.filename }}
+        run: tar -xvzf "$FILENAME"
       - name: Inspect contents
         run: tree .
       - name: Check number of artifacts
         shell: bash
         run: |
           # get number of artifacts with unique names
+          # shellcheck disable=SC2011 # .node names are fixed target triples, no special chars
           NUMBER_OF_ARTIFACTS=$(ls -1q crates/edr_napi/npm/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
           echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
           echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
@@ -549,7 +553,8 @@ jobs:
         id: setup-node
         with:
           node-version: 24
-          cache: pnpm
+          # A publish workflow must not restore a poisonable cache.
+          package-manager-cache: false
       - name: Validate that packages have everything for publishing
         run: |
           cd crates/edr_napi
@@ -590,14 +595,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
 
-      - name: Cache cooldown data
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
-        with:
-          path: |
-            **/edr-cache/cargo-cooldown-check
-          key: cooldown-check-v1-${{ hashFiles('**/Cargo.lock') }}
-
-      - uses: NomicFoundation/cargo-cooldown-check@ac40e701f9f1155741a761ac9039987fb892af4b
+      - uses: NomicFoundation/cargo-cooldown-check@0e9231d9dc6084e8ed2e2eee2fa812f27776cab8 # v0.2.0
 
   notify-deploy:
     name: Notify pre-deploy to Slack
@@ -672,7 +670,9 @@ jobs:
           name: ${{ needs.prepare.outputs.filename }}
           path: .
       - name: Decompress tarball
-        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
+        env:
+          FILENAME: ${{ needs.prepare.outputs.filename }}
+        run: tar -xvzf "$FILENAME"
       - name: Setup pnpm
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
       - name: Setup node
@@ -682,17 +682,19 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Update npm to make sure it supports Trusted Publishing
-        run: npm install -g npm@v11.6.2
+        run: npm install -g npm@v11.6.2 # zizmor: ignore[adhoc-packages] pinned npm required for Trusted Publishing support
       - name: Publish
+        env:
+          TAG: ${{ needs.check_commit.outputs.tag }}
         run: |
-          if [ "${{ needs.check_commit.outputs.tag}}" = "next" ]
+          if [ "$TAG" = "next" ]
           then
             echo "Publishing pre-release"
-          elif [ "${{ needs.check_commit.outputs.tag}}" = "latest" ]
+          elif [ "$TAG" = "latest" ]
           then
             echo "Publishing release"
           else
-            echo "Unrecognized tag ${{ needs.check_commit.outputs.tag}}. Skipping publish"
+            echo "Unrecognized tag $TAG. Skipping publish"
             exit 1
           fi
 
@@ -702,8 +704,8 @@ jobs:
           # First publish every cross-platform package
           for platform in ./npm/* ; do
             cd $platform
-            pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
+            pnpm publish --no-git-checks --tag "$TAG" --access public
             cd -
           done
           # Finally Publish edr napi root package (because it depends on the cross-platform ones)
-          pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
+          pnpm publish --no-git-checks --tag "$TAG" --access public
