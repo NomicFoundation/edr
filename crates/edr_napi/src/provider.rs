@@ -105,6 +105,14 @@ impl Provider {
                             compiler_input,
                             compiler_output,
                         )
+                        // Silently ignore unsupported solc versions
+                        .or_else(|error| {
+                            if matches!(error, edr_solidity::artifacts::ContractMetadataExtractionError::UnsupportedSolcVersion(_)) {
+                                Ok(Vec::new())
+                            } else {
+                                Err(error)
+                            }
+                        })
                         .map_err(|error| napi::Error::from_reason(error.to_string()))
                     }),
                     edr_solidity::artifacts::CompilerType::Solx => serde_json::from_value::<
@@ -119,6 +127,12 @@ impl Provider {
                             compiler_input,
                             compiler_output,
                         )
+                        // Silently ignore unsupported solc versions
+                        .or_else(|error| if matches!(error, edr_solidity::artifacts::ContractMetadataExtractionError::UnsupportedSolcVersion(_)) {
+                            Ok(Vec::new())
+                        } else {
+                            Err(error)
+                        })
                         .map_err(|error| napi::Error::from_reason(error.to_string()))
                     }),
                 }?;

@@ -246,6 +246,14 @@ impl BuildInfoBuffers<'_> {
                         CompilerType::Solc => parse_solc_compiler_metadata(*item),
                         CompilerType::Solx => parse_solx_compiler_metadata(*item),
                     }
+                    // Silently ignore unsupported solc versions
+                    .or_else(|error| {
+                        if matches!(error, CompilerMetadataParseError::UnsupportedSolcVersion(_)) {
+                            Ok(Vec::new())
+                        } else {
+                            Err(error)
+                        }
+                    })
                     .map_err(SplitCompilerMetadataParseError::from)
                 })
                 .flatten_ok()
@@ -262,6 +270,17 @@ impl BuildInfoBuffers<'_> {
                             parse_split_solx_compiler_metadata(item.build_info, item.output)
                         }
                     }
+                    // Silently ignore unsupported solc versions
+                    .or_else(|error| {
+                        if matches!(
+                            error,
+                            SplitCompilerMetadataParseError::UnsupportedSolcVersion(_)
+                        ) {
+                            Ok(Vec::new())
+                        } else {
+                            Err(error)
+                        }
+                    })
                 })
                 .flatten_ok()
                 .collect(),
