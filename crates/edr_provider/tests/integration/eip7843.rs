@@ -126,6 +126,46 @@ async fn slot_number_increments_per_block() -> anyhow::Result<()> {
     Ok(())
 }
 
+// `hardhat_mine` fast-forwards by reserving a run of gap-fill blocks. A user
+// who then mines another block must see the slot number continue rather than
+// reset: each block in between advances it by exactly one.
+#[tokio::test(flavor = "multi_thread")]
+async fn slot_number_continues_after_reserved_blocks() -> anyhow::Result<()> {
+    const FORWARDED_BLOCKS: u64 = 10;
+    let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
+
+    // Mine a couple of blocks, then record the last block before reserving.
+    mine_block(&provider);
+    mine_block(&provider);
+    let before: L1RpcBlock<B256> = serde_json::from_value(get_latest_block(&provider))?;
+    let before_slot = before
+        .slot_number
+        .expect("Amsterdam block should include a slot number");
+
+    // Reserve a run of gap-fill blocks (see `MINIMUM_RESERVABLE_BLOCKS`).
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
+        Some(FORWARDED_BLOCKS),
+        None,
+    )))?;
+
+    // Explicitly mine a block on top of the reservation.
+    mine_block(&provider);
+
+    let after: L1RpcBlock<B256> = serde_json::from_value(get_latest_block(&provider))?;
+    let after_slot = after
+        .slot_number
+        .expect("Amsterdam block should include a slot number");
+
+    // Every block since (reserved or not) advances the slot number by one.
+    assert_eq!(
+        after_slot,
+        before_slot + FORWARDED_BLOCKS + 1,
+        "slot number must continue across reserved blocks, not reset"
+    );
+
+    Ok(())
+}
+
 // The SLOTNUM opcode (0x4b) must return the executing block's slot number.
 #[tokio::test(flavor = "multi_thread")]
 async fn slotnum_opcode_returns_block_slot_number() -> anyhow::Result<()> {
