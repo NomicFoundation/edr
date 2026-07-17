@@ -1,6 +1,6 @@
 use edr_solidity::solidity_stack_trace::StackTraceCreationResult;
 use napi::{
-    bindgen_prelude::{Either3, ObjectFinalize},
+    bindgen_prelude::{Either3, ObjectFinalize, ToNapiValue},
     Either,
 };
 use napi_derive::napi;
@@ -13,6 +13,14 @@ use crate::{
         solidity_stack_trace_success_to_napi,
     },
 };
+
+/// A heuristic for the memory size of a [`edr_napi_core::spec::Response`]
+/// object, reported as external memory to ensure GC triggers in a timely
+/// manner.
+///
+/// When calling `Env::adjust_external_memory`, the exact same amount needs to
+/// be reported for allocation and deallocation.
+pub const RESPONSE_MEM_SIZE_HEURISTIC: i64 = 16 * 1_024 * 1_024;
 
 #[napi(custom_finalize)]
 pub struct Response {
@@ -87,7 +95,7 @@ impl Response {
 }
 
 impl ObjectFinalize for Response {
-    fn finalize(self, _env: napi::Env) -> napi::Result<()> {
+    fn finalize(self, env: napi::Env) -> napi::Result<()> {
         let Self {
             dropped_response_sender,
             inner,
@@ -97,6 +105,45 @@ impl ObjectFinalize for Response {
         // thread to avoid blocking the JS thread; wasting valuable time.
         dropped_response_sender.deallocate(inner);
 
+        // Signal to the GC that the memory used by this object has been freed
+        env.adjust_external_memory(-RESPONSE_MEM_SIZE_HEURISTIC)?;
+
         Ok(())
+    }
+}
+
+/// A wrapper around [`Response`] that reports external memory usage to ensure
+/// the GC triggers in a timely manner.
+///
+/// This is merely used during construction of the [`Response`] JS object from
+/// Rust. Once constructed, the [`Response`] object itself is returned to JS,
+/// and the finalizer on that object handles deallocation.
+#[repr(transparent)]
+pub struct GcResponse(Response);
+
+impl From<Response> for GcResponse {
+    fn from(response: Response) -> Self {
+        GcResponse(response)
+    }
+}
+
+impl ToNapiValue for GcResponse {
+    unsafe fn to_napi_value(
+        env: napi::sys::napi_env,
+        val: Self,
+    ) -> napi::Result<napi::sys::napi_value> {
+        let env = napi::Env::from_raw(env);
+
+        // Signal to the GC that this object holds external memory. We use a heuristic
+        // instead of the actual memory size, as it's difficult to compute the exact
+        // size of the `Response` object and signaling the exact size is not necessary
+        // for the GC to trigger in a timely manner.
+        env.adjust_external_memory(RESPONSE_MEM_SIZE_HEURISTIC)?;
+
+        // SAFETY:
+        // - the safety requirement for `env` is propagated through the `to_napi_value`
+        //   function.
+        // - `val.0` is a valid `Response` object.
+        unsafe { Response::to_napi_value(env.raw(), val.0) }
     }
 }

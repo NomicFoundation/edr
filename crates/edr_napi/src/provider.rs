@@ -18,7 +18,7 @@ pub use self::factory::ProviderFactory;
 use self::response::Response;
 use crate::{
     async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
-    contract_decoder::ContractDecoder,
+    contract_decoder::ContractDecoder, provider::response::GcResponse,
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -108,8 +108,10 @@ impl Provider {
     }
 
     #[doc = "Handles a JSON-RPC request and returns a JSON-RPC response."]
-    #[napi(catch_unwind)]
-    pub async fn handle_request(&self, request: String) -> napi::Result<Response> {
+    // `GcResponse` is merely a wrapper around `Response` used during construction, so rename the
+    // return type to actually constructed `Promise<Response>`.
+    #[napi(catch_unwind, ts_return_type = "Promise<Response>")]
+    pub async fn handle_request(&self, request: String) -> napi::Result<GcResponse> {
         let provider = self.provider.clone();
         let dropped_response_sender = self.dropped_response_sender.clone();
 
@@ -122,7 +124,7 @@ impl Provider {
             .spawn_blocking(move || provider.handle_request(request))
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?
-            .map(|response| Response::new(response, dropped_response_sender))
+            .map(|response| Response::new(response, dropped_response_sender).into())
     }
 
     #[napi(catch_unwind, ts_return_type = "Promise<void>")]
