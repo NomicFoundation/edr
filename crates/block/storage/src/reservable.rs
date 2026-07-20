@@ -358,8 +358,12 @@ impl<
                     block_number,
                 );
 
-                let slot_number =
-                    calculate_slot_number_for_reserved_block(&storage, &reservation, block_number);
+                let slot_number = calculate_slot_number_for_reserved_block(
+                    &storage,
+                    &reservations,
+                    &reservation,
+                    block_number,
+                );
 
                 let block = BlockT::empty(
                     reservation.block_config.hardfork.clone(),
@@ -425,9 +429,8 @@ fn calculate_timestamp_for_reserved_block<
 /// Calculates the slot number for a reserved block ([EIP-7843]).
 ///
 /// EDR simulates one slot per block, so the slot number continues from the
-/// block preceding the reservation instead of resetting. That block
-/// (`first_number - 1`) is always stored and, on an Amsterdam reservation,
-/// always carries a slot number, so no reservation walk is needed.
+/// block preceding the reservation instead of resetting, anchoring at 0 when
+/// that block carries no slot number (a pre-Amsterdam parent).
 ///
 /// [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -438,6 +441,7 @@ fn calculate_slot_number_for_reserved_block<
     SignedTransactionT,
 >(
     storage: &SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>,
+    reservations: &Vec<Reservation<HardforkT>>,
     reservation: &Reservation<HardforkT>,
     block_number: u64,
 ) -> Option<u64> {
@@ -447,15 +451,29 @@ fn calculate_slot_number_for_reserved_block<
     }
 
     let previous_block_number = reservation.first_number - 1;
-    let previous_slot_number = storage
-        .block_by_number(previous_block_number)
-        .expect("Block must exist")
-        .block_header()
-        .slot_number
-        .expect("Amsterdam block must have a slot number");
+    let previous_slot_number =
+        if let Some(previous_reservation) = find_reservation(reservations, previous_block_number) {
+            calculate_slot_number_for_reserved_block(
+                storage,
+                reservations,
+                previous_reservation,
+                previous_block_number,
+            )
+        } else {
+            storage
+                .block_by_number(previous_block_number)
+                .expect("Block must exist")
+                .block_header()
+                .slot_number
+        };
 
-    // One slot per block, continuing from the block before the reservation.
-    Some(previous_slot_number + (block_number - previous_block_number))
+    // One slot per block, anchoring at 0 when the preceding block has no slot
+    // number.
+    Some(
+        previous_slot_number.map_or(block_number - reservation.first_number, |slot_number| {
+            slot_number + (block_number - previous_block_number)
+        }),
+    )
 }
 
 fn find_reservation<HardforkT>(
