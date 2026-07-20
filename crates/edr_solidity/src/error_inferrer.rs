@@ -11,6 +11,7 @@ use crate::{
         ContractFunction, ContractFunctionType, ContractKind, ContractMetadata,
         ContractMetadataError, Instruction, JumpType, SourceLocation,
     },
+    contracts_identifier::IdentifiedContract,
     nested_trace::{
         CallMessage, CreateMessage, CreateOrCallMessageRef, NestedTrace, NestedTraceStep,
     },
@@ -18,6 +19,10 @@ use crate::{
     solidity_stack_trace::{
         SourceReference, StackTraceEntry, CONSTRUCTOR_FUNCTION_NAME, FALLBACK_FUNCTION_NAME,
         RECEIVE_FUNCTION_NAME,
+    },
+    trace_strategy::{
+        function_start_source_reference, source_location_to_source_reference, PanicHelperContext,
+        TraceStrategyError,
     },
 };
 
@@ -117,6 +122,15 @@ impl<HaltReasonT: HaltReasonTrait> From<alloy_dyn_abi::Error> for InferrerError<
     }
 }
 
+impl<HaltReasonT> From<TraceStrategyError> for InferrerError<HaltReasonT> {
+    fn from(err: TraceStrategyError) -> Self {
+        match err {
+            TraceStrategyError::MissingSourceReference => InferrerError::MissingSourceReference,
+            TraceStrategyError::ContractMetadata(err) => InferrerError::ContractMetadata(err),
+        }
+    }
+}
+
 pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
     stacktrace: Vec<StackTraceEntry>,
 ) -> Result<Vec<StackTraceEntry>, InferrerError<HaltReasonT>> {
@@ -167,12 +181,14 @@ pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
                 return true;
             }
 
-            // this is probably a recursive call
-            if *idx > 0
-                && mem::discriminant(*frame) == mem::discriminant(next_frame)
-                && frame_source.range == next_frame_source.range
-                && frame_source.line == next_frame_source.line
-            {
+            let is_recursing = || {
+                *idx > 0
+                    && mem::discriminant(*frame) == mem::discriminant(next_frame)
+                    && frame_source.range == next_frame_source.range
+                    && frame_source.line == next_frame_source.line
+            };
+
+            if is_recursing() {
                 return true;
             }
 
@@ -250,12 +266,12 @@ pub(crate) fn infer_before_tracing_call_message<HaltReasonT: HaltReasonTrait>(
         return Ok(Some(get_direct_library_call_error_stack_trace(trace)?));
     }
 
-    let contract_meta = trace
-        .contract_meta
+    let identified_contract = trace
+        .identified_contract
         .as_ref()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.read();
 
+    let contract = identified_contract.contract_metadata.contract.read();
     let called_function = contract.get_function_from_selector(selector_from(&trace.calldata));
 
     if let Some(called_function) = called_function
@@ -324,10 +340,10 @@ pub(crate) fn infer_before_tracing_create_message<HaltReasonT: HaltReasonTrait>(
 }
 
 pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReasonTrait>(
-    contract_meta: &ContractMetadata,
+    identified_contract: &IdentifiedContract,
     inst: &Instruction,
 ) -> Result<StackTraceEntry, InferrerError<HaltReasonT>> {
-    let contract = contract_meta.contract.read();
+    let contract = identified_contract.contract_metadata.contract.read();
 
     // This means that a jump is made from within an internal solc function.
     // These are normally made from yul code, so they don't map to any Solidity
@@ -354,14 +370,21 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReason
     };
 
     if let Some(func) = inst_location.get_containing_function()? {
-        let source_reference =
-            source_location_to_source_reference(contract_meta, Some(inst_location))?
-                .ok_or(InferrerError::MissingSourceReference)?;
-
-        return Ok(StackTraceEntry::CallstackEntry {
-            source_reference,
-            function_type: func.r#type,
-        });
+        let source_reference = source_location_to_source_reference(
+            &identified_contract.contract_metadata,
+            Some(inst_location),
+        )?;
+        if let Some(source_reference) = source_reference {
+            return Ok(StackTraceEntry::CallstackEntry {
+                source_reference,
+                function_type: func.r#type,
+            });
+        } else {
+            let fallback = identified_contract
+                .trace_strategy
+                .unresolved_callstack_entry(&contract.name, inst_location)?;
+            return Ok(fallback);
+        }
     };
 
     let file = inst_location.file()?;
@@ -387,7 +410,7 @@ fn call_instruction_to_call_failed_to_execute_stack_trace_entry<HaltReasonT: Hal
     contract_meta: &ContractMetadata,
     call_inst: &Instruction,
 ) -> Result<StackTraceEntry, InferrerError<HaltReasonT>> {
-    let location = call_inst.location.as_deref();
+    let location = call_inst.location.as_ref();
 
     let source_reference = source_location_to_source_reference(contract_meta, location)?
         .ok_or(InferrerError::MissingSourceReference)?;
@@ -414,10 +437,13 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
     stacktrace: Vec<StackTraceEntry>,
     last_instruction: &Instruction,
 ) -> Result<Heuristic, InferrerError<HaltReasonT>> {
-    let contract_meta = trace
-        .contract_meta()
+    let IdentifiedContract {
+        contract_metadata,
+        trace_strategy,
+    } = trace
+        .identified_contract()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.read();
+    let contract = contract_metadata.contract.read();
 
     let return_data = ReturnData::new(trace.return_data());
 
@@ -454,6 +480,17 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
     }
 
     let mut stacktrace = stacktrace;
+
+    if let Some(loc) = &last_instruction.location
+        && let Some(failing_function) = loc.get_containing_function()?
+    {
+        stacktrace.extend(trace_strategy.intermediate_frames(
+            &contract_metadata,
+            last_instruction,
+            &failing_function,
+        )?);
+    }
+
     stacktrace.push(
         instruction_within_function_to_custom_error_stack_trace_entry(
             trace,
@@ -473,6 +510,7 @@ fn check_failed_last_call<HaltReasonT: HaltReasonTrait>(
     let contract_meta = trace
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
+
     let steps = trace.steps();
 
     if steps.is_empty() {
@@ -595,7 +633,7 @@ fn get_cheatcode_error_source_reference<HaltReasonT: HaltReasonTrait>(
         }
 
         if let Some(source_reference) =
-            source_location_to_source_reference(&contract_meta, instruction.location.as_deref())?
+            source_location_to_source_reference(&contract_meta, instruction.location.as_ref())?
         {
             return Ok(source_reference);
         }
@@ -623,8 +661,11 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
     function_jumpdests: &[&Instruction],
     jumped_into_function: bool,
 ) -> Result<Heuristic, InferrerError<HaltReasonT>> {
-    let contract_meta = trace
-        .contract_meta()
+    let IdentifiedContract {
+        contract_metadata,
+        trace_strategy,
+    } = trace
+        .identified_contract()
         .ok_or(InferrerError::MissingContract)?;
     let steps = trace.steps();
 
@@ -641,7 +682,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
         }
     };
 
-    let last_instruction = contract_meta.get_instruction(last_step.pc)?;
+    let last_instruction = contract_metadata.get_instruction(last_step.pc)?;
 
     let revert_or_invalid_stacktrace = check_revert_or_invalid_opcode(
         trace,
@@ -672,25 +713,30 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
         return Ok(Heuristic::Hit(vec![frame]));
     }
 
-    // Sometimes we do fail inside of a function but there's no jump into
-    if let Some(location) = &last_instruction.location {
-        let failing_function = location.get_containing_function()?;
+    if let Some(location) = &last_instruction.location
+        && let Some(failing_function) = location.get_containing_function()?
+    {
+        let revert_source_reference = trace_strategy.revert_source_reference(
+            contract_metadata.as_ref(),
+            location,
+            &failing_function,
+        )?;
 
-        if let Some(failing_function) = failing_function {
-            let frame = StackTraceEntry::RevertError {
-                source_reference: get_function_start_source_reference(
-                    CreateOrCallMessageRef::Call(trace),
-                    &failing_function,
-                )?,
-                return_data: trace.return_data.clone(),
-                is_invalid_opcode_error: last_instruction.opcode == OpCode::INVALID,
-            };
+        let mut frames = trace_strategy.intermediate_frames(
+            contract_metadata.as_ref(),
+            last_instruction,
+            &failing_function,
+        )?;
+        frames.push(StackTraceEntry::RevertError {
+            source_reference: revert_source_reference,
+            return_data: trace.return_data.clone(),
+            is_invalid_opcode_error: last_instruction.opcode == OpCode::INVALID,
+        });
 
-            return Ok(Heuristic::Hit(vec![frame]));
-        }
+        return Ok(Heuristic::Hit(frames));
     }
 
-    let contract = contract_meta.contract.read();
+    let contract = contract_metadata.contract.read();
 
     let selector = selector_from(calldata);
     let calldata = &calldata.get(SELECTOR_LEN..).unwrap_or(&[]);
@@ -738,8 +784,8 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
     stacktrace: Vec<StackTraceEntry>,
     last_submessage_data: Option<SubmessageData<HaltReasonT>>,
 ) -> Result<Heuristic, InferrerError<HaltReasonT>> {
-    let contract_meta = trace
-        .contract_meta()
+    let identified_contract = trace
+        .identified_contract()
         .ok_or(InferrerError::MissingContract)?;
     let steps = trace.steps();
 
@@ -757,8 +803,11 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
         }
     };
 
-    let call_inst = contract_meta.get_instruction(call_step.pc)?;
-    let call_stack_frame = instruction_to_callstack_stack_trace_entry(&contract_meta, call_inst)?;
+    let call_inst = identified_contract
+        .contract_metadata
+        .get_instruction(call_step.pc)?;
+    let call_stack_frame =
+        instruction_to_callstack_stack_trace_entry(&identified_contract, call_inst)?;
     let call_stack_frame_source_reference = call_stack_frame
         .source_reference()
         .cloned()
@@ -893,9 +942,13 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
         _ => return Ok(Heuristic::Miss(stacktrace)),
     }
 
-    let contract_meta = trace
-        .contract_meta()
+    let IdentifiedContract {
+        contract_metadata,
+        trace_strategy,
+    } = trace
+        .identified_contract()
         .ok_or(InferrerError::MissingContract)?;
+
     let return_data = trace.return_data();
 
     let mut inferred_stacktrace = stacktrace.clone();
@@ -942,7 +995,13 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
     {
         let failing_function = location.get_containing_function()?;
 
-        if failing_function.is_some() {
+        if let Some(failing_function) = failing_function.as_deref() {
+            inferred_stacktrace.extend(trace_strategy.intermediate_frames(
+                contract_metadata.as_ref(),
+                last_instruction,
+                failing_function,
+            )?);
+
             let frame =
                 instruction_within_function_to_revert_stack_trace_entry(trace, last_instruction)?;
 
@@ -952,7 +1011,7 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
 
             match &trace {
                 CreateOrCallMessageRef::Call(CallMessage { calldata, .. }) => {
-                    let contract = contract_meta.contract.read();
+                    let contract = contract_metadata.contract.read();
 
                     // This is here because of the optimizations
                     let function_from_selector =
@@ -1029,11 +1088,13 @@ fn empty_calldata_and_no_receive<HaltReasonT: HaltReasonTrait>(
     trace: &CallMessage<HaltReasonT>,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.read();
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
 
+    let contract = contract_meta.contract.read();
     let version = Version::parse(&contract_meta.compiler_version).map_err(Arc::new)?;
 
     // this only makes sense when receive functions are available
@@ -1143,9 +1204,11 @@ fn get_constructor_start_source_reference<HaltReasonT: HaltReasonTrait>(
     trace: &CreateMessage<HaltReasonT>,
 ) -> Result<SourceReference, InferrerError<HaltReasonT>> {
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
     let contract = contract_meta.contract.read();
     let contract_location = &contract.location;
 
@@ -1177,8 +1240,8 @@ fn get_contract_start_without_function_source_reference<HaltReasonT: HaltReasonT
         .contract_meta()
         .clone()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.read();
 
+    let contract = contract_meta.contract.read();
     let location = &contract.location;
     let file = location.file()?;
     let file = file.read();
@@ -1198,11 +1261,13 @@ fn get_direct_library_call_error_stack_trace<HaltReasonT: HaltReasonTrait>(
     trace: &CallMessage<HaltReasonT>,
 ) -> Result<Vec<StackTraceEntry>, InferrerError<HaltReasonT>> {
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.read();
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
 
+    let contract = contract_meta.contract.read();
     let func = contract.get_function_from_selector(selector_from(&trace.calldata));
 
     let source_reference = match func {
@@ -1226,22 +1291,8 @@ fn get_function_start_source_reference<HaltReasonT: HaltReasonTrait>(
     let contract_meta = trace
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.read();
 
-    let file = func.location.file()?;
-    let file = file.read();
-
-    let location = &func.location;
-
-    Ok(SourceReference {
-        source_name: file.source_name.clone(),
-        source_content: file.content.clone(),
-        contract: Some(contract.name.clone()),
-
-        function: Some(func.name.clone()),
-        line: location.get_starting_line_number()?,
-        range: (location.offset, location.offset + location.length),
-    })
+    Ok(function_start_source_reference(&contract_meta, func)?)
 }
 
 fn get_entry_before_initial_modifier_callstack_entry<HaltReasonT: HaltReasonTrait>(
@@ -1258,11 +1309,13 @@ fn get_entry_before_initial_modifier_callstack_entry<HaltReasonT: HaltReasonTrai
     };
 
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.read();
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
 
+    let contract = contract_meta.contract.read();
     let called_function = if trace.calldata.is_empty() {
         // If there is no selector, it must be a transfer.
         contract.receive.as_ref()
@@ -1297,14 +1350,15 @@ fn get_entry_before_failure_in_modifier<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
     function_jumpdests: &[&Instruction],
 ) -> Result<StackTraceEntry, InferrerError<HaltReasonT>> {
-    let contract_meta = trace
-        .contract_meta()
+    let identified_contract = trace
+        .identified_contract()
         .ok_or(InferrerError::MissingContract)?;
 
     // If there's a jumpdest, this modifier belongs to the last function that it
     // represents
     if let Some(last_jumpdest) = function_jumpdests.last() {
-        let entry = instruction_to_callstack_stack_trace_entry(&contract_meta, last_jumpdest)?;
+        let entry =
+            instruction_to_callstack_stack_trace_entry(&identified_contract, last_jumpdest)?;
 
         return Ok(entry);
     }
@@ -1331,11 +1385,13 @@ fn get_fallback_start_source_reference<HaltReasonT: HaltReasonTrait>(
     trace: &CallMessage<HaltReasonT>,
 ) -> Result<SourceReference, InferrerError<HaltReasonT>> {
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.read();
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
 
+    let contract = contract_meta.contract.read();
     let func = match &contract.fallback {
         Some(func) => func,
         None => {
@@ -1451,13 +1507,14 @@ fn get_other_error_before_called_function_stack_trace_entry<HaltReasonT: HaltRea
 fn has_failed_inside_the_fallback_function<HaltReasonT: HaltReasonTrait>(
     trace: &CallMessage<HaltReasonT>,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
-    let contract = &trace
-        .contract_meta
+    let contract_metadata = trace
+        .identified_contract
         .as_ref()
         .ok_or(InferrerError::MissingContract)?
-        .contract;
-    let contract = contract.read();
+        .contract_metadata
+        .as_ref();
 
+    let contract = contract_metadata.contract.read();
     match &contract.fallback {
         Some(fallback) => has_failed_inside_function(trace, fallback),
         None => Ok(false),
@@ -1467,13 +1524,14 @@ fn has_failed_inside_the_fallback_function<HaltReasonT: HaltReasonTrait>(
 fn has_failed_inside_the_receive_function<HaltReasonT: HaltReasonTrait>(
     trace: &CallMessage<HaltReasonT>,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
-    let contract = &trace
-        .contract_meta
+    let contract_metadata = trace
+        .identified_contract
         .as_ref()
         .ok_or(InferrerError::MissingContract)?
-        .contract;
-    let contract = contract.read();
+        .contract_metadata
+        .as_ref();
 
+    let contract = contract_metadata.contract.read();
     match &contract.receive {
         Some(receive) => has_failed_inside_function(trace, receive),
         None => Ok(false),
@@ -1494,9 +1552,11 @@ fn has_failed_inside_function<HaltReasonT: HaltReasonTrait>(
     };
 
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
 
     let last_instruction = contract_meta.get_instruction(last_step.pc)?;
 
@@ -1524,7 +1584,7 @@ fn instruction_within_function_to_custom_error_stack_trace_entry<HaltReasonT: Ha
         .ok_or(InferrerError::MissingContract)?;
 
     let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?;
+        source_location_to_source_reference(&contract_meta, inst.location.as_ref())?;
 
     let source_reference = source_reference.unwrap_or(last_source_reference);
 
@@ -1541,14 +1601,40 @@ fn instruction_within_function_to_panic_stack_trace_entry<HaltReasonT: HaltReaso
 ) -> Result<StackTraceEntry, InferrerError<HaltReasonT>> {
     let last_source_reference = get_last_source_reference(trace)?;
 
-    let contract_meta = trace
-        .contract_meta()
+    let IdentifiedContract {
+        contract_metadata,
+        trace_strategy,
+    } = trace
+        .identified_contract()
         .ok_or(InferrerError::MissingContract)?;
 
-    let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?;
+    let primary_ref =
+        source_location_to_source_reference(contract_metadata.as_ref(), inst.location.as_ref())?
+            .or(last_source_reference);
 
-    let source_reference = source_reference.or(last_source_reference);
+    // Thunked so only strategies that need the walk pay for it.
+    let step_pcs = || -> Vec<u32> {
+        trace
+            .steps()
+            .iter()
+            .filter_map(|step| match step {
+                NestedTraceStep::Evm(evm) => Some(evm.pc),
+                _ => None,
+            })
+            .collect()
+    };
+    let calldata = match trace {
+        CreateOrCallMessageRef::Call(call) => Some(&call.calldata),
+        CreateOrCallMessageRef::Create(_) => None,
+    };
+    let source_reference = trace_strategy.panic_helper_source_reference(
+        primary_ref,
+        contract_metadata.as_ref(),
+        PanicHelperContext {
+            step_pcs: &step_pcs,
+            calldata,
+        },
+    )?;
 
     Ok(StackTraceEntry::PanicError {
         source_reference,
@@ -1565,7 +1651,7 @@ fn instruction_within_function_to_revert_stack_trace_entry<HaltReasonT: HaltReas
         .ok_or(InferrerError::MissingContract)?;
 
     let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?
+        source_location_to_source_reference(&contract_meta, inst.location.as_ref())?
             .ok_or(InferrerError::MissingSourceReference)?;
 
     Ok(StackTraceEntry::RevertError {
@@ -1586,7 +1672,7 @@ fn instruction_within_function_to_unmapped_solc_0_6_3_revert_error_source_refere
         .ok_or(InferrerError::MissingContract)?;
 
     let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?;
+        source_location_to_source_reference(&contract_meta, inst.location.as_ref())?;
 
     Ok(source_reference)
 }
@@ -1672,9 +1758,12 @@ fn is_constructor_invalid_arguments_error<HaltReasonT: HaltReasonTrait>(
     }
 
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
+
     let contract = contract_meta.contract.read();
 
     // This function is only matters with contracts that have constructors defined.
@@ -1735,9 +1824,12 @@ fn is_constructor_not_payable_error<HaltReasonT: HaltReasonTrait>(
     }
 
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
+
     let contract = contract_meta.contract.read();
 
     // This function is only matters with contracts that have constructors defined.
@@ -1758,13 +1850,14 @@ fn is_constructor_not_payable_error<HaltReasonT: HaltReasonTrait>(
 fn is_direct_library_call<HaltReasonT: HaltReasonTrait>(
     trace: &CallMessage<HaltReasonT>,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
-    let contract = &trace
-        .contract_meta
+    let contract_metadata = trace
+        .identified_contract
         .as_ref()
         .ok_or(InferrerError::MissingContract)?
-        .contract;
-    let contract = contract.read();
+        .contract_metadata
+        .as_ref();
 
+    let contract = contract_metadata.contract.read();
     Ok(trace.depth == 0 && contract.r#type == ContractKind::Library)
 }
 
@@ -1821,11 +1914,13 @@ fn is_fallback_not_payable_error<HaltReasonT: HaltReasonTrait>(
     }
 
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
-    let contract = contract_meta.contract.read();
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
 
+    let contract = contract_meta.contract.read();
     match &contract.fallback {
         Some(fallback) => Ok(fallback.is_payable != Some(true)),
         None => Ok(false),
@@ -1846,9 +1941,12 @@ fn is_function_not_payable_error<HaltReasonT: HaltReasonTrait>(
     }
 
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
+
     let contract = contract_meta.contract.read();
 
     // Libraries don't have a nonpayable check
@@ -1878,7 +1976,7 @@ fn is_last_location<HaltReasonT: HaltReasonTrait>(
         let step_inst = contract_meta.get_instruction(step.pc)?;
 
         if let Some(step_inst_location) = &step_inst.location
-            && **step_inst_location != *location
+            && step_inst_location != location
         {
             return Ok(false);
         }
@@ -1902,9 +2000,12 @@ fn is_missing_function_and_fallback_error<HaltReasonT: HaltReasonTrait>(
     }
 
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
+
     let contract = contract_meta.contract.read();
 
     // there's a receive function and no calldata
@@ -1925,9 +2026,11 @@ fn is_proxy_error_propagated<HaltReasonT: HaltReasonTrait>(
     };
 
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
 
     let call_step = match trace.steps.get(call_subtrace_step_index as usize - 1) {
         Some(NestedTraceStep::Evm(step)) => step,
@@ -2080,9 +2183,12 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function<HaltReasonT: Hal
     trace: &CallMessage<HaltReasonT>,
 ) -> Result<Option<StackTraceEntry>, InferrerError<HaltReasonT>> {
     let contract_meta = trace
-        .contract_meta
+        .identified_contract
         .as_ref()
-        .ok_or(InferrerError::MissingContract)?;
+        .ok_or(InferrerError::MissingContract)?
+        .contract_metadata
+        .as_ref();
+
     let contract = contract_meta.contract.read();
 
     let revert_frame = solidity_0_6_3_get_frame_for_unmapped_revert_within_function(
@@ -2173,8 +2279,8 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function<HaltReasonT: Hal
     if has_next_inst {
         let next_inst = contract_meta.get_instruction(next_inst_pc)?;
 
-        let prev_loc = prev_inst.as_ref().and_then(|i| i.location.as_deref());
-        let next_loc = next_inst.location.as_deref();
+        let prev_loc = prev_inst.as_ref().and_then(|i| i.location.as_ref());
+        let next_loc = next_inst.location.as_ref();
 
         let prev_func = prev_loc
             .map(SourceLocation::get_containing_function)
@@ -2307,41 +2413,6 @@ fn solidity_0_6_3_correct_line_number(mut source_reference: SourceReference) -> 
     }
 
     source_reference
-}
-
-fn source_location_to_source_reference<HaltReasonT>(
-    contract_meta: &ContractMetadata,
-    location: Option<&SourceLocation>,
-) -> Result<Option<SourceReference>, InferrerError<HaltReasonT>> {
-    let Some(location) = location else {
-        return Ok(None);
-    };
-    let Some(func) = location.get_containing_function()? else {
-        return Ok(None);
-    };
-
-    let func_name = match func.r#type {
-        ContractFunctionType::Constructor => CONSTRUCTOR_FUNCTION_NAME.to_string(),
-        ContractFunctionType::Fallback => FALLBACK_FUNCTION_NAME.to_string(),
-        ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
-        _ => func.name.clone(),
-    };
-
-    let func_location_file = func.location.file()?;
-    let func_location_file = func_location_file.read();
-
-    Ok(Some(SourceReference {
-        function: Some(func_name.clone()),
-        contract: if func.r#type == ContractFunctionType::FreeFunction {
-            None
-        } else {
-            Some(contract_meta.contract.read().name.clone())
-        },
-        source_name: func_location_file.source_name.clone(),
-        source_content: func_location_file.content.clone(),
-        line: location.get_starting_line_number()?,
-        range: (location.offset, location.offset + location.length),
-    }))
 }
 
 #[cfg(test)]

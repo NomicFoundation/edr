@@ -18,4 +18,5 @@ mod eth_request_serialization;
 mod hardhat_request_serialization;
 mod issues;
 mod rip7212;
+mod solx_stack_trace;
 mod timestamp;

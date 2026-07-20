@@ -12,7 +12,21 @@ use edr_primitives::{bytecode::opcode::OpCode, Address};
 use crate::{
     build_model::ContractMetadata,
     bytecode_trie::{BytecodeTrie, TrieSearch},
+    trace_strategy::TraceStrategy,
 };
+
+/// A [`ContractMetadata`] paired with the [`TraceStrategy`] for the
+/// compiler that produced it. Stored in [`ContractsIdentifier`] so
+/// callers get both together — the strategy is not a field of
+/// `ContractMetadata` itself, keeping compiler-side concerns out of the
+/// per-bytecode data.
+#[derive(Clone, Debug)]
+pub struct IdentifiedContract {
+    /// Resolved metadata for the contract's bytecode.
+    pub contract_metadata: Arc<ContractMetadata>,
+    /// Compiler-specific stack-trace strategy.
+    pub trace_strategy: &'static dyn TraceStrategy,
+}
 
 /// Returns true if the `last_byte` is placed right when the metadata starts or
 /// after it.
@@ -44,8 +58,8 @@ fn is_matching_metadata(code: &[u8], last_byte: usize) -> bool {
 /// A data structure that allows searching for well-known bytecodes.
 #[derive(Debug)]
 pub struct ContractsIdentifier {
-    trie: BytecodeTrie<Arc<ContractMetadata>>,
-    cache: HashMap<Vec<u8>, Arc<ContractMetadata>>,
+    trie: BytecodeTrie<IdentifiedContract>,
+    cache: HashMap<Vec<u8>, IdentifiedContract>,
     enable_cache: bool,
 }
 
@@ -67,9 +81,9 @@ impl ContractsIdentifier {
         }
     }
 
-    /// Adds a bytecode to the tree.
-    pub fn add_bytecode(&mut self, bytecode: Arc<ContractMetadata>) {
-        self.trie.add(bytecode);
+    /// Adds a contract to the tree.
+    pub fn add_bytecode(&mut self, contract: IdentifiedContract) {
+        self.trie.add(contract);
         self.cache.clear();
     }
 
@@ -77,7 +91,7 @@ impl ContractsIdentifier {
         &mut self,
         is_create: bool,
         code: &[u8],
-    ) -> Option<Arc<ContractMetadata>> {
+    ) -> Option<IdentifiedContract> {
         let normalize_libraries = true;
         let first_byte_to_search = 0;
 
@@ -94,12 +108,12 @@ impl ContractsIdentifier {
         is_create: bool,
         code: &[u8],
         normalize_libraries: bool,
-        trie: &BytecodeTrie<Arc<ContractMetadata>>,
+        trie: &BytecodeTrie<IdentifiedContract>,
         first_byte_to_search: usize,
-    ) -> Option<Arc<ContractMetadata>> {
+    ) -> Option<IdentifiedContract> {
         let (search_result, diff_index, match_) = match trie.search(code, first_byte_to_search) {
             None => return None,
-            Some(TrieSearch::ExactHit(bytecode)) => return Some(bytecode.clone()),
+            Some(TrieSearch::ExactHit(contract)) => return Some(contract.clone()),
             Some(TrieSearch::LongestPrefixNode {
                 node,
                 diff_index,
@@ -124,23 +138,26 @@ impl ContractsIdentifier {
         // We take advantage of this last observation, and just return the bytecode that
         // exactly matched the search_result (sub)trie that we got.
         match match_ {
-            Some(bytecode) if is_create && bytecode.is_deployment => {
-                return Some(bytecode);
+            Some(contract) if is_create && contract.contract_metadata.is_deployment => {
+                return Some(contract);
             }
             _ => {}
         };
 
         if normalize_libraries {
-            for bytecode_with_libraries in &search_result.descendants {
-                if bytecode_with_libraries.library_address_positions.is_empty()
-                    && bytecode_with_libraries.immutable_references.is_empty()
+            for contract in &search_result.descendants {
+                if contract
+                    .contract_metadata
+                    .library_address_positions
+                    .is_empty()
+                    && contract.contract_metadata.immutable_references.is_empty()
                 {
                     continue;
                 }
 
                 let mut normalized_code = code.to_vec();
                 // zero out addresses
-                for &pos in &bytecode_with_libraries.library_address_positions {
+                for &pos in &contract.contract_metadata.library_address_positions {
                     let range = pos as usize..(pos as usize + Address::len_bytes());
 
                     if let Some(chunk) = normalized_code.get_mut(range) {
@@ -148,7 +165,7 @@ impl ContractsIdentifier {
                     }
                 }
                 // zero out slices
-                for imm in &bytecode_with_libraries.immutable_references {
+                for imm in &contract.contract_metadata.immutable_references {
                     let range = imm.start as usize..(imm.start as usize + imm.length as usize);
 
                     if let Some(chunk) = normalized_code.get_mut(range) {
@@ -196,12 +213,14 @@ impl ContractsIdentifier {
         None
     }
 
-    /// Searches for a bytecode that matches the given (call/create) code.
+    /// Searches for a contract whose bytecode matches the given
+    /// (call/create) code. Returns the contract paired with its
+    /// stack-trace strategy — the pair is what the trace pipeline needs.
     pub fn get_bytecode_for_call(
         &mut self,
         code: &[u8],
         is_create: bool,
-    ) -> Option<Arc<ContractMetadata>> {
+    ) -> Option<IdentifiedContract> {
         let normalized_code = normalize_library_runtime_bytecode_if_necessary(code);
 
         if self.enable_cache {
@@ -257,7 +276,15 @@ mod tests {
     use crate::{
         artifacts::ImmutableReference,
         build_model::{Contract, ContractKind, SourceFile, SourceLocation},
+        trace_strategy::SOLC_TRACE_STRATEGY,
     };
+
+    fn wrap(metadata: Arc<ContractMetadata>) -> IdentifiedContract {
+        IdentifiedContract {
+            contract_metadata: metadata,
+            trace_strategy: &SOLC_TRACE_STRATEGY,
+        }
+    }
 
     fn create_sources() -> Arc<HashMap<u32, Arc<RwLock<SourceFile>>>> {
         let mut sources = HashMap::new();
@@ -271,10 +298,8 @@ mod tests {
         Arc::new(sources)
     }
 
-    fn create_test_contract() -> Arc<RwLock<Contract>> {
-        let sources = create_sources();
-
-        let location = Arc::new(SourceLocation::new(sources.clone(), 0, 0, 0));
+    fn create_test_contract(source_file: &Arc<RwLock<SourceFile>>) -> Arc<RwLock<Contract>> {
+        let location = SourceLocation::new(source_file, 0, 0);
 
         Arc::new(RwLock::new(Contract::new(
             "TestContract".to_string(),
@@ -285,12 +310,22 @@ mod tests {
 
     fn create_test_bytecode(normalized_code: Vec<u8>) -> Arc<ContractMetadata> {
         let sources = create_sources();
-        let contract = create_test_contract();
+        let source_file = sources.get(&0).expect("source file should exist");
+
+        let contract = create_test_contract(source_file);
         let is_deployment = false;
 
         let instructions = vec![];
         let library_offsets = vec![];
         let immutable_references = vec![];
+
+        let sources = Arc::from(
+            sources
+                .values()
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        );
 
         Arc::new(ContractMetadata::new(
             sources,
@@ -306,12 +341,22 @@ mod tests {
 
     fn create_test_deployment_bytecode(normalized_code: Vec<u8>) -> Arc<ContractMetadata> {
         let sources = create_sources();
-        let contract = create_test_contract();
+        let source_file = sources.get(&0).expect("source file should exist");
+
+        let contract = create_test_contract(source_file);
         let is_deployment = true;
 
         let instructions = vec![];
         let library_offsets = vec![];
         let immutable_references = vec![];
+
+        let sources = Arc::from(
+            sources
+                .values()
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        );
 
         Arc::new(ContractMetadata::new(
             sources,
@@ -331,10 +376,19 @@ mod tests {
         immutable_references: Vec<ImmutableReference>,
     ) -> Arc<ContractMetadata> {
         let sources = create_sources();
-        let contract = create_test_contract();
-        let is_deployment = false;
+        let source_file = sources.get(&0).expect("source file should exist");
 
+        let contract = create_test_contract(source_file);
+        let is_deployment = false;
         let instructions = vec![];
+
+        let sources = Arc::from(
+            sources
+                .values()
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        );
 
         Arc::new(ContractMetadata::new(
             sources,
@@ -368,13 +422,13 @@ mod tests {
         let mut contracts_identifier = ContractsIdentifier::default();
 
         let bytecode = create_test_bytecode(vec![1, 2, 3, 4, 5]);
-        contracts_identifier.add_bytecode(bytecode.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode.clone()));
 
         // should find a bytecode that matches exactly
         let is_create = false;
         let contract = contracts_identifier.search_bytecode_from_root(is_create, &[1, 2, 3, 4, 5]);
         assert_eq!(
-            contract.as_ref().map(Arc::as_ptr),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
 
@@ -390,13 +444,13 @@ mod tests {
 
         let bytecode1 = create_test_bytecode(vec![1, 2, 3, 4, 5]);
         let bytecode2 = create_test_bytecode(vec![1, 2, 3, 4, 5, 6, 7, 8]);
-        contracts_identifier.add_bytecode(bytecode1.clone());
-        contracts_identifier.add_bytecode(bytecode2.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode1.clone()));
+        contracts_identifier.add_bytecode(wrap(bytecode2.clone()));
 
         // should find the exact match
         let contract = contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3, 4, 5]);
         assert_eq!(
-            contract.as_ref().map(Arc::as_ptr),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode1))
         );
 
@@ -404,7 +458,7 @@ mod tests {
         let contract =
             contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(
-            contract.as_ref().map(Arc::as_ptr),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode2))
         );
 
@@ -421,8 +475,8 @@ mod tests {
         // add two bytecodes that share a prefix
         let bytecode1 = create_test_bytecode(vec![1, 2, 3, 4, 5]);
         let bytecode2 = create_test_bytecode(vec![1, 2, 3, 6, 7]);
-        contracts_identifier.add_bytecode(bytecode1.clone());
-        contracts_identifier.add_bytecode(bytecode2.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode1.clone()));
+        contracts_identifier.add_bytecode(wrap(bytecode2.clone()));
 
         // search a trace that matches the common prefix
         let contract = contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3]);
@@ -434,7 +488,7 @@ mod tests {
         let mut contracts_identifier = ContractsIdentifier::default();
 
         let bytecode = create_test_deployment_bytecode(vec![1, 2, 3, 4, 5]);
-        contracts_identifier.add_bytecode(bytecode.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode.clone()));
 
         // a create trace that matches the a deployment bytecode plus some extra stuff
         // (constructor args)
@@ -442,7 +496,7 @@ mod tests {
         let contract =
             contracts_identifier.search_bytecode_from_root(is_create, &[1, 2, 3, 4, 5, 10, 11]);
         assert_eq!(
-            contract.as_ref().map(Arc::as_ptr),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
 
@@ -454,7 +508,7 @@ mod tests {
         // the same scenario but with a runtime bytecode shouldn't result in matches
         let mut contracts_identifier = ContractsIdentifier::default();
         let bytecode = create_test_bytecode(vec![1, 2, 3, 4, 5]);
-        contracts_identifier.add_bytecode(bytecode.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode.clone()));
 
         let contract =
             contracts_identifier.search_bytecode_from_root(true, &[1, 2, 3, 4, 5, 10, 11]);
@@ -482,7 +536,7 @@ mod tests {
             vec![20],
             vec![],
         );
-        contracts_identifier.add_bytecode(bytecode.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode.clone()));
 
         // the same bytecode, but for a call trace, should not match
         let contract = contracts_identifier.search_bytecode_from_root(
@@ -500,7 +554,7 @@ mod tests {
         );
 
         assert_eq!(
-            contract.as_ref().map(Arc::as_ptr),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }
@@ -525,7 +579,7 @@ mod tests {
                 length: 10,
             }],
         );
-        contracts_identifier.add_bytecode(bytecode.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode.clone()));
 
         // the same bytecode, but for a call trace, should not match
         let contract = contracts_identifier.search_bytecode_from_root(
@@ -542,7 +596,7 @@ mod tests {
         );
 
         assert_eq!(
-            contract.as_ref().map(Arc::as_ptr),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }
@@ -572,7 +626,7 @@ mod tests {
                 length: 10,
             }],
         );
-        contracts_identifier.add_bytecode(bytecode.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode.clone()));
 
         // the same bytecode, but for a call trace, should not match
         let contract = contracts_identifier.search_bytecode_from_root(
@@ -595,7 +649,7 @@ mod tests {
         );
 
         assert_eq!(
-            contract.as_ref().map(Arc::as_ptr),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }
@@ -642,7 +696,7 @@ mod tests {
                 },
             ],
         );
-        contracts_identifier.add_bytecode(bytecode.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode.clone()));
 
         // the same bytecode, but for a call trace, should not match
         let contract = contracts_identifier.search_bytecode_from_root(
@@ -677,7 +731,7 @@ mod tests {
         );
 
         assert_eq!(
-            contract.as_ref().map(Arc::as_ptr),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }
@@ -691,7 +745,7 @@ mod tests {
             // metadata ----------------------------------------------------------------------------
             0xfd, 0xfe, 11, 12, 13, 14, 15,
         ]);
-        contracts_identifier.add_bytecode(bytecode.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode.clone()));
 
         let contract = contracts_identifier.search_bytecode_from_root(
             false,
@@ -702,8 +756,80 @@ mod tests {
             ],
         );
         assert_eq!(
-            contract.as_ref().map(Arc::as_ptr),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
+        );
+    }
+
+    /// solc and solx variants of the same source contract produce different
+    /// normalized bytecodes; both must coexist and resolve to the right meta.
+    #[test]
+    fn test_contracts_identifier_solc_and_solx_variants_coexist() {
+        let sources = create_sources();
+        let source_file = sources.get(&0).expect("source file should exist");
+
+        let contract = create_test_contract(source_file);
+
+        // Different bytecodes with disjoint prefixes so the trie lookup is
+        // unambiguous either way.
+        let solc_code = vec![0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5];
+        let solx_code = vec![0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5];
+
+        let sources: Arc<[Arc<RwLock<SourceFile>>]> = Arc::from(
+            sources
+                .values()
+                .cloned()
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        );
+
+        let solc_meta = Arc::new(ContractMetadata::new(
+            sources.clone(),
+            contract.clone(),
+            false,
+            solc_code.clone(),
+            vec![],
+            vec![],
+            vec![],
+            "0.8.34".to_string(),
+        ));
+        let solx_meta = Arc::new(ContractMetadata::new(
+            sources,
+            contract,
+            false,
+            solx_code.clone(),
+            vec![],
+            vec![],
+            vec![],
+            "0.8.34".to_string(),
+        ));
+
+        let mut identifier = ContractsIdentifier::default();
+        identifier.add_bytecode(IdentifiedContract {
+            contract_metadata: solc_meta.clone(),
+            trace_strategy: &crate::trace_strategy::SolcTraceStrategy,
+        });
+        identifier.add_bytecode(IdentifiedContract {
+            contract_metadata: solx_meta.clone(),
+            trace_strategy: &crate::trace_strategy::SolxTraceStrategy,
+        });
+
+        let solc_lookup = identifier
+            .search_bytecode_from_root(false, &solc_code)
+            .expect("solc variant must resolve");
+        let solx_lookup = identifier
+            .search_bytecode_from_root(false, &solx_code)
+            .expect("solx variant must resolve");
+
+        assert_eq!(
+            Arc::as_ptr(&solc_lookup.contract_metadata),
+            Arc::as_ptr(&solc_meta),
+            "solc-built variant must resolve to its own ContractMetadata"
+        );
+        assert_eq!(
+            Arc::as_ptr(&solx_lookup.contract_metadata),
+            Arc::as_ptr(&solx_meta),
+            "solx-built variant must resolve to its own ContractMetadata"
         );
     }
 
@@ -721,7 +847,7 @@ mod tests {
             // --------------------------------------------------------------------
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
         ]);
-        contracts_identifier.add_bytecode(bytecode.clone());
+        contracts_identifier.add_bytecode(wrap(bytecode.clone()));
 
         let contract = contracts_identifier.get_bytecode_for_call(
             &[
@@ -738,7 +864,7 @@ mod tests {
         );
 
         assert_eq!(
-            contract.as_ref().map(Arc::as_ptr),
+            contract.as_ref().map(|c| Arc::as_ptr(&c.contract_metadata)),
             Some(Arc::as_ptr(&bytecode))
         );
     }

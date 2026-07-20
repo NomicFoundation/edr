@@ -9,7 +9,9 @@ use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{Address, Bytes, HashMap, U256};
 
 pub use self::conversion::CallTraceArenaConversionError;
-use crate::{build_model::ContractMetadata, exit_code::ExitCode};
+use crate::{
+    build_model::ContractMetadata, contracts_identifier::IdentifiedContract, exit_code::ExitCode,
+};
 
 /// An EVM trace where the steps are nested according to the call stack.
 #[derive(Clone, Debug)]
@@ -144,8 +146,9 @@ pub struct CreateMessage<HaltReasonT> {
     pub number_of_subtraces: u32,
     /// Children messages.
     pub steps: Vec<NestedTraceStep<HaltReasonT>>,
-    /// Resolved metadata of the contract that is being executed.
-    pub contract_meta: Option<Arc<ContractMetadata>>,
+    /// Resolved metadata of the contract that is being executed paired with its
+    /// compiler-specific stack-trace strategy.
+    pub identified_contract: Option<IdentifiedContract>,
     /// Address of the deployed contract.
     pub deployed_contract: Option<Bytes>,
     /// Code of the contract that is being executed.
@@ -178,7 +181,7 @@ impl<HaltReasonT> CreateMessage<HaltReasonT> {
                 .into_iter()
                 .map(|step| step.map_halt_reason(conversion_fn))
                 .collect(),
-            contract_meta: self.contract_meta,
+            identified_contract: self.identified_contract,
             deployed_contract: self.deployed_contract,
             code: self.code,
             value: self.value,
@@ -200,8 +203,9 @@ pub struct CallMessage<HaltReasonT> {
     pub number_of_subtraces: u32,
     /// Children messages.
     pub steps: Vec<NestedTraceStep<HaltReasonT>>,
-    /// Resolved metadata of the contract that is being executed.
-    pub contract_meta: Option<Arc<ContractMetadata>>,
+    /// Resolved metadata of the contract that is being executed paired with its
+    /// compiler-specific stack-trace strategy.
+    pub identified_contract: Option<IdentifiedContract>,
     /// Calldata buffer
     pub calldata: Bytes,
     /// Address of the contract that is being executed.
@@ -238,7 +242,7 @@ impl<HaltReasonT> CallMessage<HaltReasonT> {
                 .into_iter()
                 .map(|step| step.map_halt_reason(conversion_fn))
                 .collect(),
-            contract_meta: self.contract_meta,
+            identified_contract: self.identified_contract,
             calldata: self.calldata,
             address: self.address,
             code_address: self.code_address,
@@ -290,8 +294,36 @@ pub(crate) enum CreateOrCallMessageRef<'a, HaltReasonT: HaltReasonTrait> {
 impl<'a, HaltReasonT: HaltReasonTrait> CreateOrCallMessageRef<'a, HaltReasonT> {
     pub fn contract_meta(&self) -> Option<Arc<ContractMetadata>> {
         match self {
-            CreateOrCallMessageRef::Create(create) => create.contract_meta.as_ref().map(Arc::clone),
-            CreateOrCallMessageRef::Call(call) => call.contract_meta.as_ref().map(Arc::clone),
+            CreateOrCallMessageRef::Create(create) => create
+                .identified_contract
+                .as_ref()
+                .map(|identified| Arc::clone(&identified.contract_metadata)),
+            CreateOrCallMessageRef::Call(call) => call
+                .identified_contract
+                .as_ref()
+                .map(|identified| Arc::clone(&identified.contract_metadata)),
+        }
+    }
+
+    pub fn identified_contract(&self) -> Option<IdentifiedContract> {
+        match self {
+            CreateOrCallMessageRef::Create(create) => {
+                create
+                    .identified_contract
+                    .as_ref()
+                    .map(|identified| IdentifiedContract {
+                        contract_metadata: Arc::clone(&identified.contract_metadata),
+                        trace_strategy: identified.trace_strategy,
+                    })
+            }
+            CreateOrCallMessageRef::Call(call) => {
+                call.identified_contract
+                    .as_ref()
+                    .map(|identified| IdentifiedContract {
+                        contract_metadata: Arc::clone(&identified.contract_metadata),
+                        trace_strategy: identified.trace_strategy,
+                    })
+            }
         }
     }
 

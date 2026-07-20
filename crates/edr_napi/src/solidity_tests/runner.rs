@@ -41,11 +41,14 @@ impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT> for LazyContr
                     .tracing_config
                     .lock()
                     .expect("Can't get poisoned, because only called once");
+
                 edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers(
                     BuildInfoConfigWithBuffers::from(&*tracing_config),
                 )
-                .map_err(|err| ContractDecoderError::Initialization(err.to_string()))
-                .and_then(|config| ContractDecoder::new(&config).map(RwLock::new))
+                .map_or_else(
+                    |err| Err(ContractDecoderError::Initialization(err.to_string())),
+                    |config| Ok(RwLock::new(ContractDecoder::new(config))),
+                )
             })
             .as_ref()
             .map_err(Clone::clone)

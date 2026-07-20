@@ -5,7 +5,9 @@ mod response;
 use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
-use edr_solidity::compiler::create_models_and_decode_bytecodes;
+use edr_solidity::artifacts::{
+    solc::extract_solc_contract_metadata, solx::extract_solx_contract_metadata, to_compiler_type,
+};
 use napi::{
     bindgen_prelude::{FnArgs, Function, Object, ObjectFinalize, Promise, Uint8Array},
     tokio::runtime,
@@ -70,25 +72,73 @@ impl Provider {
 
         self.runtime
             .spawn_blocking(move || {
+                #[derive(serde::Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct CompilerTypeAndRemainder {
+                    #[serde(default)]
+                    compiler_type: Option<String>,
+                    #[serde(flatten)]
+                    remainder: serde_json::Value,
+                }
+
                 let compiler_input = serde_json::from_value(compiler_input)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
-                let compiler_output = serde_json::from_value(compiler_output)
+                let peekable = serde_json::from_value(compiler_output)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
-                let contracts = match create_models_and_decode_bytecodes(
-                    solc_version,
-                    &compiler_input,
-                    &compiler_output,
-                ) {
-                    Ok(contracts) => contracts,
-                    Err(error) => {
-                        return Err(napi::Error::from_reason(format!("Contract decoder failed to be updated. Please report this to help us improve Hardhat.\n{error}")));
-                    }
-                };
+                let CompilerTypeAndRemainder {
+                    compiler_type,
+                    remainder,
+                } = peekable;
+
+                let identified_contracts = match to_compiler_type(compiler_type.as_deref()) {
+                    edr_solidity::artifacts::CompilerType::Solc => serde_json::from_value::<
+                        edr_solidity::artifacts::CompilerOutput<
+                            edr_solidity::artifacts::SolcBytecode,
+                        >,
+                    >(remainder)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    .and_then(|compiler_output| {
+                        extract_solc_contract_metadata(
+                            solc_version,
+                            compiler_input,
+                            compiler_output,
+                        )
+                        // Silently ignore unsupported solc versions
+                        .or_else(|error| {
+                            if matches!(error, edr_solidity::artifacts::ContractMetadataExtractionError::UnsupportedSolcVersion(_)) {
+                                Ok(Vec::new())
+                            } else {
+                                Err(error)
+                            }
+                        })
+                        .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    }),
+                    edr_solidity::artifacts::CompilerType::Solx => serde_json::from_value::<
+                        edr_solidity::artifacts::CompilerOutput<
+                            edr_solidity::artifacts::SolxBytecode,
+                        >,
+                    >(remainder)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    .and_then(|compiler_output| {
+                        extract_solx_contract_metadata(
+                            solc_version,
+                            compiler_input,
+                            compiler_output,
+                        )
+                        // Silently ignore unsupported solc versions
+                        .or_else(|error| if matches!(error, edr_solidity::artifacts::ContractMetadataExtractionError::UnsupportedSolcVersion(_)) {
+                            Ok(Vec::new())
+                        } else {
+                            Err(error)
+                        })
+                        .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    }),
+                }?;
 
                 let mut contract_decoder = contract_decoder.write();
-                for contract in contracts {
+                for contract in identified_contracts {
                     contract_decoder.add_contract_metadata(contract);
                 }
 
