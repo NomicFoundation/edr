@@ -24,7 +24,7 @@ use edr_state_api::State;
 use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
 use revm_inspector::JournalExt;
-use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
+use revm_inspectors::tracing::{StackSnapshotType, TracingInspector, TracingInspectorConfig};
 
 use crate::{
     console_log::ConsoleLogCollector,
@@ -49,7 +49,10 @@ pub struct ObservabilityConfig {
     pub include_call_traces: IncludeTraces,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     pub on_collected_gas_report_fn: Option<Box<dyn SyncOnCollectedGasReportCallback>>,
-    pub verbose_raw_tracing: bool,
+    // Hardhat 2 option to record memory snapshots in traces.
+    pub record_memory: bool,
+    // Hardhat 2 option to record
+    pub record_stack: StackSnapshotType,
 }
 
 impl Debug for ObservabilityConfig {
@@ -65,7 +68,8 @@ impl Debug for ObservabilityConfig {
                 "on_collected_gas_report_fn",
                 &self.on_collected_gas_report_fn.is_some(),
             )
-            .field("verbose_raw_traces", &self.verbose_raw_tracing)
+            .field("record_memory", &self.record_memory)
+            .field("record_stack", &self.record_stack)
             .finish()
     }
 }
@@ -77,7 +81,8 @@ pub struct EvmObserverConfig {
     pub include_call_traces: IncludeTraces,
     pub contract_decoder: Arc<RwLock<ContractDecoder>>,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
-    pub verbose_raw_tracing: bool,
+    pub record_memory: bool,
+    pub record_stack: StackSnapshotType,
 }
 
 impl EvmObserverConfig {
@@ -91,7 +96,8 @@ impl EvmObserverConfig {
             contract_decoder,
             include_call_traces: config.include_call_traces,
             on_collected_coverage_fn: config.on_collected_coverage_fn.clone(),
-            verbose_raw_tracing: config.verbose_raw_tracing,
+            record_memory: config.record_memory,
+            record_stack: config.record_stack,
         }
     }
 }
@@ -160,13 +166,11 @@ impl EvmObserver {
             .on_collected_coverage_fn
             .map(CodeCoverageReporter::new);
 
-        let tracing_config = if config.verbose_raw_tracing {
-            TracingInspectorConfig::all()
-        } else {
-            TracingInspectorConfig::default_parity()
-                .set_steps(true)
-                .set_record_logs(true)
-        };
+        let tracing_config = TracingInspectorConfig::none()
+            .set_steps(true)
+            .set_memory_snapshots(config.record_memory)
+            .set_stack_snapshots(config.record_stack)
+            .set_record_logs(true);
 
         Self {
             bytecode_collector: ExecutedBytecodeCollector::default(),

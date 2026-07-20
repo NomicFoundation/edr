@@ -17,7 +17,7 @@ use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
-    async_deallocator::AsyncDeallocator,
+    async_deallocator::{AsyncDeallocator, AsyncDeallocatorSender},
     config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     contract_decoder::ContractDecoder,
     logger::LoggerConfig,
@@ -74,6 +74,12 @@ impl EdrContext {
         subscription_config: SubscriptionConfig<'env>,
         contract_decoder: &ContractDecoder,
     ) -> napi::Result<Object<'env>> {
+        struct ContextualParameters {
+            factory: Arc<dyn SyncProviderFactory>,
+            dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+            dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
+        }
+
         let (deferred, promise) = env.create_deferred()?;
 
         let runtime = runtime::Handle::current();
@@ -104,7 +110,11 @@ impl EdrContext {
             ))
         );
 
-        let (factory, dropped_provider_sender) = {
+        let ContextualParameters {
+            factory,
+            dropped_provider_sender,
+            dropped_response_sender,
+        } = {
             // TODO: https://github.com/NomicFoundation/edr/issues/760
             // TODO: Don't block the JS event loop
             let context = runtime.block_on(async { self.inner.lock().await });
@@ -115,8 +125,13 @@ impl EdrContext {
                 context.get_provider_factory(&chain_type)
             );
             let dropped_provider_sender = context.provider_deallocator.sender();
+            let dropped_response_sender = context.response_deallocator.sender();
 
-            (factory, dropped_provider_sender)
+            ContextualParameters {
+                factory,
+                dropped_provider_sender,
+                dropped_response_sender,
+            }
         };
 
         let contract_decoder = Arc::clone(contract_decoder.as_inner());
@@ -135,6 +150,7 @@ impl EdrContext {
                         runtime,
                         contract_decoder,
                         dropped_provider_sender,
+                        dropped_response_sender,
                         #[cfg(feature = "scenarios")]
                         scenario_file,
                     )
@@ -363,11 +379,23 @@ impl EdrContext {
     ) -> napi::Result<Provider> {
         use crate::mock::MockProvider;
 
+        struct ContextualParameters {
+            dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+            dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
+        }
+
         let runtime = runtime::Handle::current();
 
-        let dropped_provider_sender = {
+        let ContextualParameters {
+            dropped_provider_sender,
+            dropped_response_sender,
+        } = {
             let context = runtime.block_on(async { self.inner.lock().await });
-            context.provider_deallocator.sender()
+
+            ContextualParameters {
+                dropped_provider_sender: context.provider_deallocator.sender(),
+                dropped_response_sender: context.response_deallocator.sender(),
+            }
         };
 
         let provider = Provider::new(
@@ -375,6 +403,7 @@ impl EdrContext {
             runtime,
             Arc::default(),
             dropped_provider_sender,
+            dropped_response_sender,
             #[cfg(feature = "scenarios")]
             None,
         );
@@ -396,6 +425,11 @@ impl EdrContext {
     ) -> napi::Result<Object<'env>> {
         use edr_generic::GenericChainSpec;
         use edr_napi_core::logger::Logger;
+
+        struct ContextualParameters {
+            dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+            dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
+        }
 
         let (deferred, promise) = env.create_deferred()?;
 
@@ -419,9 +453,16 @@ impl EdrContext {
         let contract_decoder = Arc::clone(contract_decoder.as_inner());
         let timer = Arc::clone(time.as_inner());
 
-        let dropped_provider_sender = {
+        let ContextualParameters {
+            dropped_provider_sender,
+            dropped_response_sender,
+        } = {
             let context = runtime.block_on(async { self.inner.lock().await });
-            context.provider_deallocator.sender()
+
+            ContextualParameters {
+                dropped_provider_sender: context.provider_deallocator.sender(),
+                dropped_response_sender: context.response_deallocator.sender(),
+            }
         };
 
         runtime.clone().spawn_blocking(move || {
@@ -462,6 +503,7 @@ impl EdrContext {
                     runtime,
                     contract_decoder,
                     dropped_provider_sender,
+                    dropped_response_sender,
                     #[cfg(feature = "scenarios")]
                     None,
                 ))
@@ -479,6 +521,7 @@ pub struct Context {
     provider_factories: HashMap<String, Arc<dyn SyncProviderFactory>>,
     solidity_test_runner_factories: HashMap<String, Arc<dyn solidity::SyncTestRunnerFactory>>,
     provider_deallocator: AsyncDeallocator<Arc<dyn SyncProvider>>,
+    response_deallocator: AsyncDeallocator<edr_napi_core::spec::Response>,
     #[cfg(feature = "tracing")]
     _tracing_write_guard: tracing_flame::FlushGuard<std::io::BufWriter<std::fs::File>>,
 }
@@ -523,10 +566,24 @@ impl Context {
         Ok(Self {
             provider_factories: HashMap::default(),
             solidity_test_runner_factories: HashMap::default(),
-            provider_deallocator: AsyncDeallocator::new(runtime).map_err(|error| {
+            provider_deallocator: AsyncDeallocator::new(
+                "async-deallocator-provider".to_owned(),
+                runtime.clone(),
+            )
+            .map_err(|error| {
                 napi::Error::new(
                     napi::Status::GenericFailure,
                     format!("Failed to spawn the provider deallocator thread: {error}"),
+                )
+            })?,
+            response_deallocator: AsyncDeallocator::new(
+                "async-deallocator-response".to_owned(),
+                runtime,
+            )
+            .map_err(|error| {
+                napi::Error::new(
+                    napi::Status::GenericFailure,
+                    format!("Failed to spawn the response deallocator thread: {error}"),
                 )
             })?,
             #[cfg(feature = "tracing")]

@@ -254,6 +254,27 @@ impl TryFrom<LocalConfig> for edr_provider::config::Local {
     }
 }
 
+/// The type of stack entries to record in traces.
+#[napi]
+pub enum StackSnapshotType {
+    /// The stack is not recorded in traces.
+    None,
+    /// The full stack is recorded in traces.
+    Full,
+    /// Only the top item of the stack is recorded in traces.
+    Top,
+}
+
+impl From<StackSnapshotType> for edr_solidity_tests::traces::StackSnapshotType {
+    fn from(value: StackSnapshotType) -> Self {
+        match value {
+            StackSnapshotType::None => Self::None,
+            StackSnapshotType::Full => Self::Full,
+            StackSnapshotType::Top => Self::Top,
+        }
+    }
+}
+
 /// Configuration for runtime observability.
 #[napi(object)]
 pub struct ObservabilityConfig<'env> {
@@ -266,6 +287,11 @@ pub struct ObservabilityConfig<'env> {
     ///
     /// Defaults to `IncludeTraces.None`.
     pub include_call_traces: Option<IncludeTraces>,
+    /// If present, configures runtime observability to collect stack entries.
+    ///
+    /// Defaults to `StackSnapshotType::None`.
+    // Hardhat 2 option to record memory snapshots in traces.
+    pub record_stack: Option<StackSnapshotType>,
 }
 
 /// Configuration for a provider.
@@ -640,6 +666,8 @@ impl ObservabilityConfig<'_> {
             )
             .transpose()?;
 
+        let record_stack = self.record_stack.unwrap_or(StackSnapshotType::None).into();
+
         let default_config = edr_provider::observability::Config::default();
         Ok(edr_provider::observability::Config {
             call_override: default_config.call_override,
@@ -649,7 +677,8 @@ impl ObservabilityConfig<'_> {
             ),
             on_collected_coverage_fn,
             on_collected_gas_report_fn,
-            verbose_raw_tracing: default_config.verbose_raw_tracing,
+            record_memory: default_config.record_memory,
+            record_stack,
         })
     }
 }

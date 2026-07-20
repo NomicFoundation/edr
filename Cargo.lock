@@ -3158,7 +3158,6 @@ dependencies = [
  "edr_solidity",
  "edr_solidity_tests",
  "edr_state_api",
- "edr_tracing",
  "edr_utils_sync",
  "foundry-cheatcodes",
  "foundry-compilers",
@@ -3343,7 +3342,6 @@ dependencies = [
  "edr_state_api",
  "edr_test_block_replay",
  "edr_test_utils",
- "edr_tracing",
  "edr_transaction",
  "edr_utils",
  "foundry-evm-traces",
@@ -3556,7 +3554,6 @@ dependencies = [
  "edr_decoder_revert",
  "edr_defaults",
  "edr_primitives",
- "edr_tracing",
  "foundry-compilers",
  "foundry-evm-traces",
  "indexmap 2.14.0",
@@ -7071,8 +7068,7 @@ dependencies = [
 [[package]]
 name = "revm-inspectors"
 version = "0.39.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "731b682530a732ef9c189ef831589128e2ce34d4a306c956322ae2dffe009715"
+source = "git+https://github.com/nebasuke/revm-inspectors?branch=feat%2Ftop-of-stack-snapshot-0.39#c96538fb42198b88e37771104c5bdf52b31ca706"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-eth",

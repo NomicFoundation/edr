@@ -74,7 +74,7 @@ use edr_transaction::{
     TransactionAndBlock, TransactionMut, TransactionType, TxKind,
 };
 use edr_utils::{random::RandomHashGenerator, CastArcInto};
-use foundry_evm_traces::CallTraceArena;
+use foundry_evm_traces::{CallTraceArena, StackSnapshotType};
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
@@ -443,8 +443,15 @@ where
         self.beneficiary = coinbase;
     }
 
+    // Hardhat 2 option to enable recording of memory and full stack snapshots in
+    // traces.
     pub fn set_verbose_tracing(&mut self, verbose_tracing: bool) {
-        self.observability.verbose_raw_tracing = verbose_tracing;
+        self.observability.record_memory = verbose_tracing;
+        self.observability.record_stack = if verbose_tracing {
+            StackSnapshotType::All
+        } else {
+            StackSnapshotType::Top
+        };
     }
 
     pub fn stop_impersonating_account(&mut self, address: Address) -> bool {
