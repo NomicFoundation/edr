@@ -854,9 +854,12 @@ fn deploy_stack_trace_scenario(
 
 /// Replaces solc-style `__$<keccak>$__` library placeholders (40 chars, the
 /// width of a hex-encoded address) with the deployed library address.
+/// Bails on bytecode referencing more than one distinct library — this
+/// helper takes a single address.
 fn link_library(bytecode_object: &str, library: Address) -> anyhow::Result<String> {
     let address_hex = hex::encode(library);
     let mut linked = String::with_capacity(bytecode_object.len());
+    let mut placeholder: Option<&str> = None;
     let mut rest = bytecode_object;
     while let Some(start) = rest.find("__$") {
         let placeholder_end = start + 40;
@@ -864,6 +867,12 @@ fn link_library(bytecode_object: &str, library: Address) -> anyhow::Result<Strin
             rest.len() >= placeholder_end && rest[..placeholder_end].ends_with("$__"),
             "malformed link placeholder in bytecode"
         );
+        let found = &rest[start..placeholder_end];
+        anyhow::ensure!(
+            placeholder.is_none_or(|first| first == found),
+            "bytecode references multiple libraries; link_library takes one address"
+        );
+        placeholder = Some(found);
         linked.push_str(&rest[..start]);
         linked.push_str(&address_hex);
         rest = &rest[placeholder_end..];
