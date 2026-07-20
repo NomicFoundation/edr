@@ -150,14 +150,18 @@ fn run_solx(solx: &Path, args: &[&str], stdin: Option<&str>) -> anyhow::Result<S
         .stdout(Stdio::piped())
         .spawn()
         .with_context(|| format!("failed to run {}", solx.display()))?;
-    if let Some(stdin_contents) = stdin {
-        child
-            .stdin
-            .take()
-            .expect("stdin is piped")
-            .write_all(stdin_contents.as_bytes())?;
-    }
-    let output = child.wait_with_output()?;
+    // Feed stdin from a thread so a large input can't deadlock against the
+    // child filling the stdout pipe; a write error surfaces as a non-zero
+    // exit status below.
+    let output = std::thread::scope(|scope| {
+        if let Some(stdin_contents) = stdin {
+            let mut child_stdin = child.stdin.take().expect("stdin is piped");
+            scope.spawn(move || {
+                let _ = child_stdin.write_all(stdin_contents.as_bytes());
+            });
+        }
+        child.wait_with_output()
+    })?;
     if !output.status.success() {
         bail!(
             "`{} {}` failed: {}",
