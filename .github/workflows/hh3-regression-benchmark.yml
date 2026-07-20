@@ -20,15 +20,15 @@ on:
         type: string
         default: "main"
       scenario-filter:
-        description: "Glob(s) selecting which projects/scenarios to run, by directory name (e.g. `1inch*`). Comma-separated. Empty = all. Forwarded to `bench:regression --scenarios`."
+        description: "Glob(s) selecting which projects/scenarios to run, by directory name (e.g. `1inch*`). Comma-separated. Defaults to `*` (all projects). Forwarded to `bench:regression --scenarios`."
         required: false
         type: string
-        default: ""
+        default: "*"
       benchmark-filter:
-        description: "Glob(s) selecting which benchmarks to run within each project, by name — a command or step name, i.e. the part after `<project> /` in a report (e.g. `test solidity`, `cold compile`, `*compile*`). Comma-separated. Empty = all. Forwarded to `bench:regression --benchmarks`."
+        description: "Glob(s) selecting which benchmarks to run within each project, by name — a command or step name, i.e. the part after `<project> /` in a report (e.g. `test solidity`, `cold compile`, `*compile*`). Comma-separated. Defaults to `test solidity,mocha test` (EDR affects test execution, not compilation); pass `*` to run the full suite. Forwarded to `bench:regression --benchmarks`."
         required: false
         type: string
-        default: ""
+        default: "test solidity,mocha test"
   # ChatOps: comment `/bench` on a same-repo PR, optionally with
   # `hardhat-ref=<branch|sha|PR>`, `scenarios="<glob>[,<glob>...]"` and/or
   # `benchmarks="<glob>[,<glob>...]"` to select which projects/benchmarks run
@@ -228,34 +228,26 @@ jobs:
           # See "Start Verdaccio": bypass pnpm's frozen-lockfile deps check for
           # the repoint-desynced workspace.
           PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
-          # Scenario/benchmark glob filters (empty on baseline runs, so they
-          # always cover the full benchmark). Forwarded verbatim to
-          # bench:regression, which matches them against scenario directory /
-          # benchmark (command or step) names natively.
+          # Scenario/benchmark glob filters, always set by the setup job (`*`
+          # matches all). Forwarded verbatim to bench:regression, which matches
+          # them against scenario directory / benchmark (command or step) names.
           SCENARIO_FILTER: ${{ needs.setup.outputs.scenario_filter }}
           BENCHMARK_FILTER: ${{ needs.setup.outputs.benchmark_filter }}
         # --force-publish: reuse our already-running Verdaccio (instead of
         #   erroring) and run the global sinceReleasePublish once up front.
         # --use-local: republish the (repointed) hardhat workspace packages and
         #   pin each scenario's hardhat/@nomicfoundation deps to Verdaccio.
-        # --scenarios / --benchmarks: only added when a filter was provided;
-        #   otherwise the whole benchmark runs.
+        # --scenarios / --benchmarks: always passed; `*` means "all".
         run: |
           set -euo pipefail
-          extra_args=()
-          if [ -n "${SCENARIO_FILTER:-}" ]; then
-            extra_args+=(--scenarios "$SCENARIO_FILTER")
-          fi
-          if [ -n "${BENCHMARK_FILTER:-}" ]; then
-            extra_args+=(--benchmarks "$BENCHMARK_FILTER")
-          fi
           pnpm bench:regression \
             --use-local \
             --force-publish \
             --force-checkout \
             --e2e-clone-dir "$E2E_CLONE_DIR" \
             --output regression-report.json \
-            "${extra_args[@]}"
+            --scenarios "$SCENARIO_FILTER" \
+            --benchmarks "$BENCHMARK_FILTER"
 
       - name: Validate scenarios used the local EDR build
         working-directory: hardhat

@@ -88,9 +88,10 @@ test("push → baseline run against Hardhat main", async () => {
     edr_ref: "deadbeefcafe1234",
     hardhat_ref: "main",
     is_baseline: "true",
-    // Baselines never filter — they must cover the full benchmark.
-    scenario_filter: "",
-    benchmark_filter: "",
+    // Baseline runs all projects (`*`), but only the default test-execution
+    // benchmarks — EDR doesn't affect compilation, so compile ones are skipped.
+    scenario_filter: "*",
+    benchmark_filter: "test solidity,mocha test",
   });
 });
 
@@ -116,20 +117,21 @@ test("workflow_dispatch → defaults hardhat-ref to main", async () => {
   assert.equal(captured.outputs.hardhat_ref, "main");
 });
 
-test("workflow_dispatch → forwards scenario/benchmark filters, defaults to empty", async () => {
+test("workflow_dispatch → forwards explicit filters; benchmark uses the default when unset", async () => {
   const withFilter = makeDeps({
     eventName: "workflow_dispatch",
     sha: "abc123",
     payload: {
       inputs: {
         "scenario-filter": "1inch*",
-        "benchmark-filter": "test solidity",
+        "benchmark-filter": "cold compile",
       },
     },
   });
   await resolve(withFilter);
   assert.equal(withFilter.captured.outputs.scenario_filter, "1inch*");
-  assert.equal(withFilter.captured.outputs.benchmark_filter, "test solidity");
+  // Explicit override wins over the default.
+  assert.equal(withFilter.captured.outputs.benchmark_filter, "cold compile");
 
   const withoutFilter = makeDeps({
     eventName: "workflow_dispatch",
@@ -137,8 +139,23 @@ test("workflow_dispatch → forwards scenario/benchmark filters, defaults to emp
     payload: { inputs: {} },
   });
   await resolve(withoutFilter);
-  assert.equal(withoutFilter.captured.outputs.scenario_filter, "");
-  assert.equal(withoutFilter.captured.outputs.benchmark_filter, "");
+  // No scenario-filter given → default `*` (all projects).
+  assert.equal(withoutFilter.captured.outputs.scenario_filter, "*");
+  // No benchmark-filter given → default test-execution benchmarks.
+  assert.equal(
+    withoutFilter.captured.outputs.benchmark_filter,
+    "test solidity,mocha test"
+  );
+});
+
+test("workflow_dispatch → benchmark-filter=* runs the full suite", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "workflow_dispatch",
+    sha: "abc123",
+    payload: { inputs: { "benchmark-filter": "*" } },
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.benchmark_filter, "*");
 });
 
 test("issue_comment → unauthorized author does not run", async () => {
@@ -177,10 +194,14 @@ test("issue_comment → same-repo PR with green CI runs and parses hardhat-ref",
   assert.equal(captured.outputs.edr_ref, "1234567890ab");
   assert.equal(captured.outputs.hardhat_ref, "feature/x");
   assert.equal(captured.outputs.is_baseline, "false");
-  assert.equal(captured.outputs.scenario_filter, ""); // no scenarios= in body
-  assert.equal(captured.outputs.benchmark_filter, ""); // no benchmarks= in body
+  assert.equal(captured.outputs.scenario_filter, "*"); // no scenarios= → all
+  // default test-execution benchmarks (no benchmarks= in body)
+  assert.equal(captured.outputs.benchmark_filter, "test solidity,mocha test");
   assert.equal(captured.comments.length, 1);
   assert.match(captured.comments[0], /Starting regression benchmark/);
+  // A `*` (all) scenario filter is not called out; the benchmark default is.
+  assert.doesNotMatch(captured.comments[0], /projects matching/);
+  assert.match(captured.comments[0], /benchmarks matching/);
 });
 
 test("issue_comment → parses the 1inch* / test solidity example against a hardhat ref", async () => {
@@ -230,7 +251,8 @@ test("issue_comment → parses an unquoted single-token filter", async () => {
   });
   await resolve(deps);
   assert.equal(captured.outputs.benchmark_filter, "cold-compile");
-  assert.equal(captured.outputs.scenario_filter, "");
+  // No scenarios= given → default `*` (all projects).
+  assert.equal(captured.outputs.scenario_filter, "*");
 });
 
 test("issue_comment → same-repo PR with failing CI does not run", async () => {
