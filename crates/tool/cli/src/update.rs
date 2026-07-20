@@ -46,9 +46,11 @@ pub fn reformat(text: impl std::fmt::Display) -> anyhow::Result<String> {
 }
 
 pub fn project_root() -> PathBuf {
+    // Must match this crate's depth below the repo root
+    // (`crates/tool/cli` -> three ancestors up).
     Path::new(&env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(2)
+        .nth(3)
         .unwrap()
         .to_path_buf()
 }
