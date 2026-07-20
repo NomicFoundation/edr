@@ -1117,3 +1117,38 @@ async fn direct_library_call_error_surfaces() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+/// A modifier's bare `revert()` builds no message, so nothing in the
+/// flattened frame keeps its own line.
+///
+/// Golden inference gap: the solc route reports `RevertError` at the
+/// `revert()` line (68) — solx attributes the whole shared bare-revert
+/// helper to the *contract* declaration, whose location has no containing
+/// function, so inference bails to `OtherExecutionError` at line 63 before
+/// the failing-function machinery (and its declaration-line walk-back) is
+/// ever consulted. If this pin breaks with a `RevertError`, the inference
+/// improved: flip the assertion.
+#[tokio::test(flavor = "multi_thread")]
+async fn bare_modifier_revert_degrades_to_contract_declaration() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "GuardedBareRevert")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        addr,
+        Bytes::from(selector("fire()").as_slice().to_vec()),
+    );
+    let entry = assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::OtherExecutionError { .. }),
+        "OtherExecutionError",
+    );
+    let source_reference = source_reference_of(entry).expect("entry carries a source reference");
+    assert_eq!(
+        source_reference.line,
+        63,
+        "expected the contract declaration line, got:\n{}",
+        brief_trace(&stack_trace)
+    );
+    Ok(())
+}

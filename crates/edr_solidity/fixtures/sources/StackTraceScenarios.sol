@@ -59,3 +59,16 @@ contract UsesExternalLib {
         ExternalLib.fail();
     }
 }
+
+contract GuardedBareRevert {
+    bool public armed = true;
+
+    modifier guarded() {
+        if (armed) {
+            revert();
+        }
+        _;
+    }
+
+    function fire() external guarded {}
+}
