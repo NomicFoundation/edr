@@ -22,7 +22,7 @@ use crate::{
     },
     trace_strategy::{
         function_start_source_reference, source_location_to_source_reference, PanicHelperContext,
-        TraceStrategyError,
+        TraceStrategy, TraceStrategyError,
     },
 };
 
@@ -133,7 +133,9 @@ impl<HaltReasonT> From<TraceStrategyError> for InferrerError<HaltReasonT> {
 
 pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
     stacktrace: Vec<StackTraceEntry>,
+    trace_strategy: &dyn TraceStrategy,
 ) -> Result<Vec<StackTraceEntry>, InferrerError<HaltReasonT>> {
+    let recursion_start_idx = trace_strategy.recursion_start_idx();
     // To work around the borrow checker, we'll collect the indices of the frames we
     // want to keep. We can't clone the frames, because some of them contain
     // non-Clone `ClassInstance`s`
@@ -182,7 +184,7 @@ pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
             }
 
             let is_recursing = || {
-                *idx > 0
+                *idx >= recursion_start_idx
                     && mem::discriminant(*frame) == mem::discriminant(next_frame)
                     && frame_source.range == next_frame_source.range
                     && frame_source.line == next_frame_source.line

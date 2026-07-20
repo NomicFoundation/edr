@@ -298,6 +298,9 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
         last_submessage_data,
     )?;
 
-    error_inferrer::filter_redundant_frames(stacktrace_with_inferred_error)
-        .map_err(SolidityTracerError::from)
+    error_inferrer::filter_redundant_frames(
+        stacktrace_with_inferred_error,
+        identified_contract.trace_strategy,
+    )
+    .map_err(SolidityTracerError::from)
 }
