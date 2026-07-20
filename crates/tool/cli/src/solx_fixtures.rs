@@ -42,10 +42,13 @@ const FIXTURES: &[Fixture] = &[
         output: "solx_compiler_output.json",
     },
     Fixture {
-        name: "long_tail",
-        input: "solx_compiler_input_long_tail.json",
-        sources: &[("project/contracts/LongTail.sol", "LongTail.sol")],
-        output: "solx_compiler_output_long_tail.json",
+        name: "stack_trace_scenarios",
+        input: "solx_compiler_input_stack_trace_scenarios.json",
+        sources: &[(
+            "project/contracts/StackTraceScenarios.sol",
+            "StackTraceScenarios.sol",
+        )],
+        output: "solx_compiler_output_stack_trace_scenarios.json",
     },
 ];
 

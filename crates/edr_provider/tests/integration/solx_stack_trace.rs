@@ -82,19 +82,21 @@ fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutpu
     ))
 }
 
-fn solx_long_tail_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
+fn solx_stack_trace_scenarios_build_info(
+) -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
     let mut input: CompilerInput = serde_json::from_str(include_str!(
-        "../../../edr_solidity/fixtures/solx_compiler_input_long_tail.json"
+        "../../../edr_solidity/fixtures/solx_compiler_input_stack_trace_scenarios.json"
     ))?;
 
     input
         .sources
-        .get_mut("project/contracts/LongTail.sol")
+        .get_mut("project/contracts/StackTraceScenarios.sol")
         .unwrap()
-        .content = include_str!("../../../edr_solidity/fixtures/sources/LongTail.sol").to_owned();
+        .content =
+        include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenarios.sol").to_owned();
 
     let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
-        "../../../edr_solidity/fixtures/solx_compiler_output_long_tail.json"
+        "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios.json"
     ))?;
 
     let identified_contracts =
@@ -820,24 +822,24 @@ async fn mutual_recursion_pins_bottom_revert_line() -> anyhow::Result<()> {
     Ok(())
 }
 
-// ---------- long-tail inference tests ----------
+// ---------- StackTraceScenarios fixture tests ----------
 //
-// Dispatch-level and call-shape errors from the LongTail fixture — entry
-// variants the solc corpus covers that no solx test reached. Regenerate the
-// fixture with `cargo run -p edr_tool_cli -- gen-solx-fixtures` when bumping
-// solx.
+// Dispatch-level and call-shape errors from the StackTraceScenarios fixture
+// — entry variants the solc corpus covers that no solx test reached.
+// Regenerate the fixture with `cargo run -p edr_tool_cli -- gen-solx-fixtures`
+// when bumping solx.
 
-const LONG_TAIL_SOURCE: &str = "project/contracts/LongTail.sol";
+const STACK_TRACE_SCENARIOS_SOURCE: &str = "project/contracts/StackTraceScenarios.sol";
 
-fn long_tail_provider(
+fn stack_trace_scenarios_provider(
 ) -> anyhow::Result<(Provider<L1ChainSpec>, Address, CompilerOutput<SolxBytecode>)> {
-    let (build_info, output) = solx_long_tail_build_info()?;
+    let (build_info, output) = solx_stack_trace_scenarios_build_info()?;
     let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
     Ok((provider, from, output))
 }
 
-fn deploy_long_tail(
+fn deploy_stack_trace_scenario(
     provider: &Provider<L1ChainSpec>,
     from: Address,
     output: &CompilerOutput<SolxBytecode>,
@@ -846,7 +848,7 @@ fn deploy_long_tail(
     deploy(
         provider,
         from,
-        creation_bytes(output, LONG_TAIL_SOURCE, contract)?,
+        creation_bytes(output, STACK_TRACE_SCENARIOS_SOURCE, contract)?,
     )
 }
 
@@ -887,8 +889,8 @@ fn assert_single_variant<'a>(
 /// Sending value to a non-payable function.
 #[tokio::test(flavor = "multi_thread")]
 async fn function_not_payable_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = long_tail_provider()?;
-    let addr = deploy_long_tail(&provider, from, &output, "NotPayable")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "NotPayable")?;
     let stack_trace = expect_failed_call_with_value_stack_trace(
         &provider,
         from,
@@ -910,8 +912,8 @@ async fn function_not_payable_error_surfaces() -> anyhow::Result<()> {
 /// Calling an unknown selector on a contract without a fallback.
 #[tokio::test(flavor = "multi_thread")]
 async fn unrecognized_function_without_fallback_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = long_tail_provider()?;
-    let addr = deploy_long_tail(&provider, from, &output, "NoFallback")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "NoFallback")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
         from,
@@ -934,8 +936,8 @@ async fn unrecognized_function_without_fallback_error_surfaces() -> anyhow::Resu
 /// Plain value transfer to a contract with neither fallback nor receive.
 #[tokio::test(flavor = "multi_thread")]
 async fn missing_fallback_or_receive_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = long_tail_provider()?;
-    let addr = deploy_long_tail(&provider, from, &output, "NoFallback")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "NoFallback")?;
     let stack_trace = expect_failed_call_with_value_stack_trace(
         &provider,
         from,
@@ -954,8 +956,8 @@ async fn missing_fallback_or_receive_error_surfaces() -> anyhow::Result<()> {
 /// Value + calldata hitting a non-payable fallback.
 #[tokio::test(flavor = "multi_thread")]
 async fn fallback_not_payable_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = long_tail_provider()?;
-    let addr = deploy_long_tail(&provider, from, &output, "NonPayableFallback")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "NonPayableFallback")?;
     let stack_trace = expect_failed_call_with_value_stack_trace(
         &provider,
         from,
@@ -974,8 +976,8 @@ async fn fallback_not_payable_error_surfaces() -> anyhow::Result<()> {
 /// Plain value transfer where only a non-payable fallback exists.
 #[tokio::test(flavor = "multi_thread")]
 async fn fallback_not_payable_and_no_receive_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = long_tail_provider()?;
-    let addr = deploy_long_tail(&provider, from, &output, "NonPayableFallback")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "NonPayableFallback")?;
     let stack_trace = expect_failed_call_with_value_stack_trace(
         &provider,
         from,
@@ -999,8 +1001,8 @@ async fn fallback_not_payable_and_no_receive_error_surfaces() -> anyhow::Result<
 /// Truncated calldata: right selector, missing argument words.
 #[tokio::test(flavor = "multi_thread")]
 async fn invalid_params_error_surfaces_for_truncated_calldata() -> anyhow::Result<()> {
-    let (provider, from, output) = long_tail_provider()?;
-    let addr = deploy_long_tail(&provider, from, &output, "RequiresArgs")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "RequiresArgs")?;
     let mut calldata = selector("needsBoth(uint256,uint256)").as_slice().to_vec();
     calldata.extend_from_slice(&[0u8; 32]); // only one of the two words
     let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, Bytes::from(calldata));
@@ -1035,9 +1037,9 @@ fn assert_returndata_size_error_at_call_get(stack_trace: &[StackTraceEntry]) {
 /// the call site, matching the solc route.
 #[tokio::test(flavor = "multi_thread")]
 async fn returndata_size_error_surfaces_at_call_site() -> anyhow::Result<()> {
-    let (provider, from, output) = long_tail_provider()?;
-    let callee = deploy_long_tail(&provider, from, &output, "ReturnsNothing")?;
-    let caller = deploy_long_tail(&provider, from, &output, "ExpectsWord")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let callee = deploy_stack_trace_scenario(&provider, from, &output, "ReturnsNothing")?;
+    let caller = deploy_stack_trace_scenario(&provider, from, &output, "ExpectsWord")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
         from,
@@ -1055,8 +1057,8 @@ async fn returndata_size_error_surfaces_at_call_site() -> anyhow::Result<()> {
 /// call scenario.
 #[tokio::test(flavor = "multi_thread")]
 async fn noncontract_account_call_surfaces_as_returndata_size_error() -> anyhow::Result<()> {
-    let (provider, from, output) = long_tail_provider()?;
-    let caller = deploy_long_tail(&provider, from, &output, "ExpectsWord")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let caller = deploy_stack_trace_scenario(&provider, from, &output, "ExpectsWord")?;
     let eoa = Address::repeat_byte(0x42);
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
@@ -1073,12 +1075,12 @@ async fn noncontract_account_call_surfaces_as_returndata_size_error() -> anyhow:
 /// frame decoding into the library's own debugInfo.
 #[tokio::test(flavor = "multi_thread")]
 async fn linked_external_library_revert_points_into_library() -> anyhow::Result<()> {
-    let (provider, from, output) = long_tail_provider()?;
-    let library = deploy_long_tail(&provider, from, &output, "ExternalLib")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let library = deploy_stack_trace_scenario(&provider, from, &output, "ExternalLib")?;
 
     let unlinked = &output
         .contracts
-        .get(LONG_TAIL_SOURCE)
+        .get(STACK_TRACE_SCENARIOS_SOURCE)
         .and_then(|m| m.get("UsesExternalLib"))
         .context("fixture missing UsesExternalLib")?
         .evm
@@ -1100,8 +1102,8 @@ async fn linked_external_library_revert_points_into_library() -> anyhow::Result<
 /// Calling a deployed library's external function directly.
 #[tokio::test(flavor = "multi_thread")]
 async fn direct_library_call_error_surfaces() -> anyhow::Result<()> {
-    let (provider, from, output) = long_tail_provider()?;
-    let library = deploy_long_tail(&provider, from, &output, "ExternalLib")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let library = deploy_stack_trace_scenario(&provider, from, &output, "ExternalLib")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
         from,

@@ -1,7 +1,7 @@
 {
  "language": "Solidity",
  "sources": {
-  "project/contracts/LongTail.sol": {
+  "project/contracts/StackTraceScenarios.sol": {
    "content": ""
   }
  },

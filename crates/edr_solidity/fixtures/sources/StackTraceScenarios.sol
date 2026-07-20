@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.34;
 
-/// Long-tail inference scenarios: each contract targets a StackTraceEntry
+/// Stack-trace inference scenarios: each contract targets a StackTraceEntry
 /// variant that Scenarios.t.sol doesn't reach — dispatch-level errors
 /// (payability, missing fallback/receive, calldata decoding), returndata
 /// shape, calls to non-contract accounts, and external library linking.
