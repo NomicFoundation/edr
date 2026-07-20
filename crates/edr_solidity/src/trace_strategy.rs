@@ -37,6 +37,12 @@ pub struct PanicHelperContext<'a> {
 
 /// Compiler-specific stack-trace policy used by the error inferrer.
 pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
+    /// Minimum `idx` at which same-location consecutive frames are treated
+    /// as recursion in `filter_redundant_frames`. The filter runs
+    /// per-message, so frame 0 can be a recursive call site (solx) rather
+    /// than an entry point (solc).
+    fn recursion_start_idx(&self) -> usize;
+
     /// Fallback frame when source-reference resolution returned `None` but
     /// the enclosing function is known.
     fn unresolved_callstack_entry(
@@ -80,6 +86,10 @@ pub struct SolcTraceStrategy;
 pub static SOLC_TRACE_STRATEGY: SolcTraceStrategy = SolcTraceStrategy;
 
 impl TraceStrategy for SolcTraceStrategy {
+    fn recursion_start_idx(&self) -> usize {
+        1
+    }
+
     fn unresolved_callstack_entry(
         &self,
         _contract_name: &str,
@@ -124,6 +134,10 @@ pub static SOLX_TRACE_STRATEGY: SolxTraceStrategy = SolxTraceStrategy;
 pub struct SolxTraceStrategy;
 
 impl TraceStrategy for SolxTraceStrategy {
+    fn recursion_start_idx(&self) -> usize {
+        0
+    }
+
     fn unresolved_callstack_entry(
         &self,
         contract_name: &str,
