@@ -19,7 +19,8 @@ use edr_primitives::{address, bytes, Address, Bytes, B256, U256};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, get_latest_block, mine_block},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
+    TransactionFailureReason,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
@@ -201,6 +202,58 @@ async fn slotnum_opcode_returns_block_slot_number() -> anyhow::Result<()> {
         slotnum_opcode_returned_value,
         U256::from(slot_number),
         "SLOTNUM should return the executing block's slot number"
+    );
+
+    Ok(())
+}
+
+// Before Amsterdam the SLOTNUM opcode (0x4b) is undefined, so executing it must
+// fail rather than return a value.
+#[tokio::test(flavor = "multi_thread")]
+async fn slotnum_opcode_unavailable_before_amsterdam() -> anyhow::Result<()> {
+    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
+    let subscriber = Box::new(|_event| {});
+
+    let mut config = create_test_config();
+    config.hardfork = edr_chain_l1::Hardfork::OSAKA;
+    // Surface the resulting halt as an error instead of empty output.
+    config.bail_on_call_failure = true;
+
+    let provider = Provider::new(
+        runtime::Handle::current(),
+        logger,
+        subscriber,
+        config,
+        Arc::new(RwLock::<ContractDecoder>::default()),
+        CurrentTime,
+    )?;
+
+    // The init bytecode never executes 0x4b (it only copies the runtime out), so
+    // deployment succeeds even pre-Amsterdam.
+    let contract_address = deploy_contract(&provider, SENDER, SLOT_NUMBER_CONTRACT.clone())?;
+
+    let result = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        L1CallRequest {
+            from: Some(SENDER),
+            to: Some(contract_address),
+            ..L1CallRequest::default()
+        },
+        None,
+        None,
+    )));
+
+    // The opcode is recognized by revm but gated on the hardfork, so it halts with
+    // `NotActivated` rather than a generic failure.
+    assert!(
+        matches!(
+            &result,
+            Err(ProviderError::TransactionFailed(failure))
+                if matches!(
+                    failure.failure.reason,
+                    TransactionFailureReason::Inner(edr_chain_l1::HaltReason::NotActivated)
+                )
+        ),
+        "SLOTNUM should be inactive before Amsterdam, got {result:?}"
     );
 
     Ok(())
