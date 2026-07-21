@@ -402,7 +402,7 @@ fn calculate_timestamp_for_reserved_block<
     SignedTransactionT,
 >(
     storage: &SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>,
-    reservations: &Vec<Reservation<HardforkT>>,
+    reservations: &[Reservation<HardforkT>],
     reservation: &Reservation<HardforkT>,
     block_number: u64,
 ) -> u64 {
@@ -441,7 +441,7 @@ fn calculate_slot_number_for_reserved_block<
     SignedTransactionT,
 >(
     storage: &SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>,
-    reservations: &Vec<Reservation<HardforkT>>,
+    reservations: &[Reservation<HardforkT>],
     reservation: &Reservation<HardforkT>,
     block_number: u64,
 ) -> Option<u64> {
