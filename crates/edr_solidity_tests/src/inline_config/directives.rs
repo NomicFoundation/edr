@@ -16,11 +16,11 @@ const FORGE_CONFIG_PREFIX: &str = "forge-config:";
 
 /// A candidate directive line, stripped of comment decoration, together with
 /// the byte offset of the source line it came from (for line-number reporting).
-struct DirectiveLine {
+struct DirectiveLine<'a> {
     /// Byte offset within the source of the line this came from.
     offset: usize,
     /// The line text, stripped of comment decoration.
-    text: String,
+    text: &'a str,
 }
 
 /// A directive problem together with the byte offset of the offending line, so
@@ -245,8 +245,8 @@ fn delimiter_to_camel(input: &str, delim: char) -> String {
 /// both the block delimiters (`///`, `/**`, `*/`) and each line's leading
 /// NatSpec decoration (whitespace, an optional `*`, then whitespace). Each line
 /// keeps the byte offset of the source line it came from.
-fn block_to_lines(block: &NatSpecBlock) -> Vec<DirectiveLine> {
-    let strip_decoration = |line: &str| -> String {
+fn block_to_lines(block: &NatSpecBlock) -> Vec<DirectiveLine<'_>> {
+    fn strip_decoration(line: &str) -> &str {
         let line = line.trim_start();
         let line = line.strip_prefix("///").unwrap_or(line);
         let line = line.strip_prefix("/**").unwrap_or(line);
@@ -255,8 +255,8 @@ fn block_to_lines(block: &NatSpecBlock) -> Vec<DirectiveLine> {
         let line = line.strip_prefix('*').unwrap_or(line);
         // A block comment's closing `*/` can trail a directive on its own line.
         let line = line.strip_suffix("*/").unwrap_or(line);
-        line.trim().to_owned()
-    };
+        line.trim()
+    }
 
     // Walk the block's physical lines, tracking each one's byte offset within
     // the source (`block.offset` is the block's start). A `///` block is a
@@ -277,8 +277,8 @@ fn block_to_lines(block: &NatSpecBlock) -> Vec<DirectiveLine> {
 /// Parses a single candidate directive line — already stripped of comment
 /// decoration by [`block_to_lines`] — returning `None` if it is not an inline
 /// config directive.
-fn parse_line(line: &DirectiveLine) -> Result<Option<RawOverride>, LocatedDirectiveError> {
-    let text = line.text.as_str();
+fn parse_line(line: &DirectiveLine<'_>) -> Result<Option<RawOverride>, LocatedDirectiveError> {
+    let text = line.text;
     let located = |error: InlineConfigError| LocatedDirectiveError {
         offset: line.offset,
         error,
