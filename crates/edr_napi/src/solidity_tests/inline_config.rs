@@ -194,7 +194,7 @@ impl From<&InlineConfigErrorItem> for InlineConfigError {
     }
 }
 
-/// Builds the error to reject `runSolidityTests` with when inline-config
+/// Builds the error that rejects `runSolidityTests` when inline-config
 /// validation fails, carrying the structured, located problems on the JS error
 /// as its `inlineConfigErrors` property.
 ///
