@@ -103,6 +103,15 @@ pub struct GenericRpcBlock<TransactionT> {
     /// [EIP-7928](https://eips.ethereum.org/EIPS/eip-7928)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub block_access_list_hash: Option<B256>,
+    /// The slot number corresponding to this block
+    ///
+    /// [EIP-7843](https://eips.ethereum.org/EIPS/eip-7843)
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub slot_number: Option<u64>,
 }
 
 impl<T> GetBlockNumber for GenericRpcBlock<T> {
@@ -183,6 +192,7 @@ where
             parent_beacon_block_root: value.parent_beacon_block_root,
             requests_hash: value.requests_hash,
             block_access_list_hash: value.block_access_list_hash,
+            slot_number: value.slot_number,
         };
 
         let transactions = value
@@ -249,6 +259,7 @@ impl<BlockT: Block<SignedTransactionT>, SignedTransactionT: ExecutableTransactio
             parent_beacon_block_root: header.parent_beacon_block_root,
             requests_hash: header.requests_hash,
             block_access_list_hash: header.block_access_list_hash,
+            slot_number: header.slot_number,
         }
     }
 }

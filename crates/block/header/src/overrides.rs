@@ -56,4 +56,10 @@ pub struct HeaderOverrides<HardforkT> {
     ///
     /// [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
     pub block_access_list_hash: Option<B256>,
+    /// The slot number corresponding to this block ([EIP-7843]).
+    ///
+    /// Lets callers supply the exact value instead of the simulated one.
+    ///
+    /// [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
+    pub slot_number: Option<u64>,
 }

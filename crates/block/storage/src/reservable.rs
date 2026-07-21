@@ -358,6 +358,13 @@ impl<
                     block_number,
                 );
 
+                let slot_number = calculate_slot_number_for_reserved_block(
+                    &storage,
+                    &reservations,
+                    &reservation,
+                    block_number,
+                );
+
                 let block = BlockT::empty(
                     reservation.block_config.hardfork.clone(),
                     PartialHeader::new(
@@ -367,6 +374,7 @@ impl<
                             state_root: Some(reservation.previous_state_root),
                             base_fee: reservation.previous_base_fee_per_gas,
                             timestamp: Some(timestamp),
+                            slot_number,
                             ..HeaderOverrides::default()
                         },
                         None,
@@ -394,7 +402,7 @@ fn calculate_timestamp_for_reserved_block<
     SignedTransactionT,
 >(
     storage: &SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>,
-    reservations: &Vec<Reservation<HardforkT>>,
+    reservations: &[Reservation<HardforkT>],
     reservation: &Reservation<HardforkT>,
     block_number: u64,
 ) -> u64 {
@@ -416,6 +424,56 @@ fn calculate_timestamp_for_reserved_block<
         };
 
     previous_timestamp + reservation.interval * (block_number - reservation.first_number + 1)
+}
+
+/// Calculates the slot number for a reserved block ([EIP-7843]).
+///
+/// EDR simulates one slot per block, so the slot number continues from the
+/// block preceding the reservation instead of resetting, anchoring at 0 when
+/// that block carries no slot number (a pre-Amsterdam parent).
+///
+/// [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+fn calculate_slot_number_for_reserved_block<
+    BlockReceiptT: ReceiptTrait,
+    BlockT: Block<SignedTransactionT>,
+    HardforkT: Clone + Into<EvmSpecId>,
+    SignedTransactionT,
+>(
+    storage: &SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>,
+    reservations: &[Reservation<HardforkT>],
+    reservation: &Reservation<HardforkT>,
+    block_number: u64,
+) -> Option<u64> {
+    // The slot number exists only from Amsterdam onwards.
+    if reservation.block_config.hardfork.clone().into() < EvmSpecId::AMSTERDAM {
+        return None;
+    }
+
+    let previous_block_number = reservation.first_number - 1;
+    let previous_slot_number =
+        if let Some(previous_reservation) = find_reservation(reservations, previous_block_number) {
+            calculate_slot_number_for_reserved_block(
+                storage,
+                reservations,
+                previous_reservation,
+                previous_block_number,
+            )
+        } else {
+            storage
+                .block_by_number(previous_block_number)
+                .expect("Block must exist")
+                .block_header()
+                .slot_number
+        };
+
+    // One slot per block, anchoring at 0 when the preceding block has no slot
+    // number.
+    Some(
+        previous_slot_number.map_or(block_number - reservation.first_number, |slot_number| {
+            slot_number + (block_number - previous_block_number)
+        }),
+    )
 }
 
 fn find_reservation<HardforkT>(
