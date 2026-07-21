@@ -932,7 +932,7 @@ export interface InlineConfigError {
   /** The 1-based line of the offending directive within the source, if known. */
   line?: number
   /** The problem itself; discriminate on its `kind` tag. */
-  problem: InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey | InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound
+  problem: InlineConfigProblem
 }
 
 /** An unknown configuration key was used. */
@@ -984,6 +984,14 @@ export interface InlineConfigInvalidValue {
   /** A description of the expected value type. */
   expected: string
 }
+
+/**
+ * The problem in a single inline-config directive, as a discriminated union
+ * over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
+ * consumers can map each problem onto their own error types.
+ */
+export type InlineConfigProblem =
+  InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey | InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound
 
 /** The source's file could not be read at the path it was declared at. */
 export interface InlineConfigSourceFileNotFound {

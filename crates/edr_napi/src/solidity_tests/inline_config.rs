@@ -99,11 +99,8 @@ pub struct InlineConfigSourceFileNotFound {
 /// The problem in a single inline-config directive, as a discriminated union
 /// over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
 /// consumers can map each problem onto their own error types.
-///
-/// This alias is for Rust-side convenience only; the `#[napi(object)]` field
-/// below must spell out the `Either8` type literally, as the napi macro cannot
-/// see through a type alias when generating the TypeScript union.
-type InlineConfigProblem = Either8<
+#[napi]
+pub type InlineConfigProblem = Either8<
     InlineConfigInvalidSyntax,
     InlineConfigUnsupportedProfile,
     InlineConfigInvalidKey,
@@ -129,16 +126,7 @@ pub struct InlineConfigError {
     /// The 1-based line of the offending directive within the source, if known.
     pub line: Option<u32>,
     /// The problem itself; discriminate on its `kind` tag.
-    pub problem: Either8<
-        InlineConfigInvalidSyntax,
-        InlineConfigUnsupportedProfile,
-        InlineConfigInvalidKey,
-        InlineConfigInvalidKeyForTestType,
-        InlineConfigInvalidValue,
-        InlineConfigDuplicateKey,
-        InlineConfigInvalidSolcVersion,
-        InlineConfigSourceFileNotFound,
-    >,
+    pub problem: InlineConfigProblem,
 }
 
 fn to_problem(error: &CoreInlineConfigError) -> InlineConfigProblem {
