@@ -381,17 +381,13 @@ impl<
         let (inline_overrides, allow_internal_expect_revert) =
             self.inline_config_overrides(artifact_id, contract);
 
-        let mut cheats_config_options = (*self.cheats_config_options).clone();
-        cheats_config_options
-            .functions_internal_expect_revert
-            .extend(allow_internal_expect_revert);
-
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
-            cheats_config_options,
+            (*self.cheats_config_options).clone(),
             self.evm_opts.clone(),
             self.known_contracts.clone(),
             Some(artifact_id.clone()),
+            allow_internal_expect_revert,
         );
 
         let tracing_mode = match self.collect_stack_traces {

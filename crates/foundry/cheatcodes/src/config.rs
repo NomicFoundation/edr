@@ -116,9 +116,6 @@ pub struct CheatsConfigOptions {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test.
     pub allow_internal_expect_revert: bool,
-    /// Allow expecting reverts with `expectRevert` at the same callstack depth
-    /// as the test. Overrides the global setting for specific test functions.
-    pub functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
     /// Mapping of known EIP-712 canonical type definitions by type name.
     pub eip712_types_by_name: HashMap<String, Eip712TypeDef>,
 }
@@ -228,6 +225,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         evm_opts: EvmOpts<HardforkT>,
         available_artifacts: Arc<ContractsByArtifact>,
         running_artifact: Option<ArtifactId>,
+        functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
     ) -> Self {
         let CheatsConfigOptions {
             execution_context,
@@ -239,7 +237,6 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             labels,
             seed,
             allow_internal_expect_revert,
-            functions_internal_expect_revert,
             eip712_types_by_name,
         } = config;
 
@@ -916,7 +913,6 @@ mod tests {
             labels: AddressHashMap::<String>::default(),
             seed: None,
             allow_internal_expect_revert: false,
-            functions_internal_expect_revert: HashSet::new(),
             eip712_types_by_name: HashMap::new(),
         };
 
@@ -926,6 +922,7 @@ mod tests {
             EvmOpts::default(),
             Arc::<ContractsByArtifact>::default(),
             None,
+            HashSet::new(),
         )
     }
 
