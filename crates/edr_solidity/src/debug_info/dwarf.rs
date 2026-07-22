@@ -1054,16 +1054,32 @@ mod tests {
     /// generation-time prefix shifts offsets and desyncs every line
     /// assertion on this fixture — in the worst case to
     /// plausible-but-wrong locations rather than loud failures.
+    ///
+    /// The prefix length comes from the `SourceUnit` span in the fixture's
+    /// own AST, so a regeneration moves it automatically and forces the
+    /// hash below to be re-pinned to the value the failing assertion
+    /// prints.
     #[test]
     fn scenarios_source_is_append_only() {
-        const GENERATION_PREFIX_LEN: usize = 11450;
         const GENERATION_PREFIX_KECCAK256: &str =
             "23d9edd08863d54481118d7fac8268fd1863f4a4e7ef3d0e1a3799158632545d";
+
+        let output = load_scenarios_output();
+        let span = output.sources["project/contracts/Scenarios.t.sol"].ast["src"]
+            .as_str()
+            .expect("the scenarios SourceUnit must carry a `src` span");
+        // `src` is `start:length:file`; the span's end is the length of the
+        // source as it was when the fixture was generated.
+        let mut span_fields = span
+            .split(':')
+            .map(|field| field.parse::<usize>().expect("`src` span fields are numeric"));
+        let generation_prefix_len = span_fields.next().expect("`src` span has a start")
+            + span_fields.next().expect("`src` span has a length");
 
         let source = include_str!("../../fixtures/sources/Scenarios.t.sol");
         let prefix = source
             .as_bytes()
-            .get(..GENERATION_PREFIX_LEN)
+            .get(..generation_prefix_len)
             .expect("Scenarios.t.sol shrank below its generation-time prefix");
         assert_eq!(
             hex::encode(edr_primitives::keccak256(prefix)),
@@ -1071,8 +1087,8 @@ mod tests {
             "Scenarios.t.sol changed within the prefix the committed scenarios \
              fixture was compiled from. Either append instead, or regenerate \
              the fixture through the sweep's standard flow (see the sweep \
-             README), re-pin the tests that assert on it, and update these \
-             constants."
+             README), re-pin the tests that assert on it, and re-pin this \
+             hash to the computed value above."
         );
     }
 
