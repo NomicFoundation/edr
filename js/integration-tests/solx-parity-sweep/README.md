@@ -45,11 +45,7 @@ mkdir -p node_modules/@nomicfoundation
 ln -s <path-to-hardhat-clone>/packages/hardhat-solx node_modules/@nomicfoundation/hardhat-solx
 ```
 
-> Do not use `pnpm link` for step 3: with pnpm ≥ 9 it writes a machine-local
-> `link:` dependency into the workspace root's `package.json`,
-> `pnpm-workspace.yaml` and `pnpm-lock.yaml`, which must never be committed.
-> The plain symlink has no side effects. Note that a `pnpm install` recreates
-> `node_modules`, removing the symlink — re-create it afterwards.
+> Do not use `pnpm link` for step 3: with pnpm ≥ 9 it writes a machine-local `link:` dependency into the workspace root's `package.json`, `pnpm-workspace.yaml` and `pnpm-lock.yaml`, which must never be committed. The plain symlink has no side effects. Note that a `pnpm install` recreates `node_modules`, removing the symlink — re-create it afterwards.
 
 ## Running
 
