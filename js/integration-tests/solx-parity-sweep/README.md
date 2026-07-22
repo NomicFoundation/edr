@@ -19,8 +19,8 @@ A small set of scenarios diverge from solc today and are pinned to their current
 | `InlineAssemblyRevertTest` | solx omits `.debug_line` rows for assembly opcodes; bottom frame falls back to the function decl line. |
 | `InvalidOpcodeTest` | Same as inline-assembly: function decl line instead of statement line. |
 | `InternalRecurseTest` | solx's optimizer fully unrolls 3-deep self-recursion; inlined frames collapse. |
-| `MutualRecursionTest` | solx emits no subprogram for the test contract's dispatch PC; outer frame falls back to `internal@<pc>`. |
-| `NestedModifierRevertTest` | solx flattens the modifier body into its function — 2 frames vs solc's 3. |
+
+`MutualRecursionTest` and `NestedModifierRevertTest` were previously pinned but reached full parity with the debug info emitted by the merged `hardhat-solx` plugin, so they run under the strict parity check.
 
 ## Current state
 
@@ -31,7 +31,7 @@ Not yet running in CI. The suite has `@nomicfoundation/hardhat-solx` as an `opti
 To run the sweep, a local build of `hardhat-solx` must be linked into this package.
 
 ```sh
-# 1. Clone the hardhat monorepo and check out the hardhat-solx branch.
+# 1. Clone the hardhat monorepo (the plugin lives on main, under packages/hardhat-solx).
 git clone https://github.com/NomicFoundation/hardhat.git
 cd hardhat
 
@@ -39,10 +39,13 @@ cd hardhat
 pnpm install
 pnpm --filter @nomicfoundation/hardhat-solx build
 
-# 3. Link the built plugin into this package.
+# 3. Symlink the built plugin into this package's node_modules.
 cd <edr-repo>/js/integration-tests/solx-parity-sweep
-pnpm link <path-to-hardhat-clone>/packages/hardhat-solx
+mkdir -p node_modules/@nomicfoundation
+ln -s <path-to-hardhat-clone>/packages/hardhat-solx node_modules/@nomicfoundation/hardhat-solx
 ```
+
+> Do not use `pnpm link` for step 3: with pnpm ≥ 9 it writes a machine-local `link:` dependency into the workspace root's `package.json`, `pnpm-workspace.yaml` and `pnpm-lock.yaml`, which must never be committed. The plain symlink has no side effects. Note that a `pnpm install` recreates `node_modules`, removing the symlink — re-create it afterwards.
 
 ## Running
 
