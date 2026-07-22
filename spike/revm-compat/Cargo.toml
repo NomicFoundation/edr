@@ -1,0 +1,19 @@
+[package]
+name = "revm-compat-spike"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Phase 0 spike (see docs/revm-41-op-compat-plan.md): prove that a revm@41
+# `Database` can back op-revm@20 (revm@38) execution via a type-conversion
+# bridge, preserving EVM semantics. Throwaway code — never merged.
+
+# Empty table: keep this crate standalone, outside the EDR workspace.
+[workspace]
+
+[dependencies]
+# The two revm majors, side by side via dependency renaming.
+revm38 = { package = "revm", version = "=38.0.0" }
+revm41 = { package = "revm", version = "=41.0.0" }
+# Latest *released* op-revm; speaks revm@38.
+op-revm = "=20.0.0"
