@@ -10,6 +10,11 @@
 //!
 //! solx release binaries: <https://github.com/NomicFoundation/solx/releases>.
 //!
+//! The committed inputs pin `settings.optimizer.mode` explicitly (trace
+//! shapes differ per mode) so a change to solx's default can't silently
+//! change what the fixtures test. Note hardhat-solx defaults to mode "1",
+//! not solx's own "3".
+//!
 //! The `scenarios` fixture is NOT regenerable by this tool: its input also
 //! depends on forge-std sources whose contents are scrubbed from the
 //! committed JSON. It was generated from a hardhat project with

@@ -6,6 +6,9 @@
   }
  },
  "settings": {
+  "optimizer": {
+   "mode": "3"
+  },
   "outputSelection": {
    "*": {
     "*": [
