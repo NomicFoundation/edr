@@ -4,7 +4,7 @@ Committed compiler artifacts are outputs of documented flows. To understand or r
 
 | Fixture | What it is | Regeneration |
 | --- | --- | --- |
-| `solx_compiler_{input,output}_scenarios.json` | solx compile of `sources/Scenarios.t.sol` by the parity-sweep project | The provenance section of [the sweep README](../../../js/integration-tests/solx-parity-sweep/README.md) |
+| `solx_compiler_{input,output}_scenarios.json` | solx compile of `sources/Scenarios.t.sol` by the parity-sweep project | `pnpm regen-fixtures` in the sweep project; provenance in [the sweep README](../../../js/integration-tests/solx-parity-sweep/README.md) |
 | `solx_compiler_{input,output}.json` | solx compile of `sources/Counter.sol` | Tooling in review ([#1552](https://github.com/NomicFoundation/edr/pull/1552), `edr_tool_cli gen-solx-fixtures`); until then, `solx --standard-json` with the committed input plus the spliced source |
 | `compiler_{input,output}.json` | Minimal solc pair (single inline `literal.sol`) for the artifact-parsing unit tests | Hand-maintained; provenance predates this index |
 

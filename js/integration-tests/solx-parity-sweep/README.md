@@ -75,13 +75,10 @@ The Rust tests in `edr_solidity` pair this project's scenario source with a comm
 - The **input** names every source of that same compile and carries its settings. The `content` fields stay blank: `Scenarios.t.sol`'s text is spliced in at test time from `fixtures/sources/` (the same file this project compiles), and the forge-std text is never needed by the tests.
 - The Rust tests that assert on fixture shapes are **re-pinned in the same change** as any regeneration; `scenarios_source_is_append_only` pins the generation-time source state and its failure message says what to update. Between regenerations the source file is append-only (see above).
 
-Both files are produced from the build-info pair the compile already writes:
+Both files are produced from the build-info pair of a fresh solx-profile compile:
 
 ```sh
-pnpm test  # or: npx hardhat compile --build-profile solx
-BI=artifacts/build-info; ID=$(ls $BI | grep solx | grep -v output)
-jq '.input | .sources[].content = ""' "$BI/$ID" > ../../../crates/edr_solidity/fixtures/solx_compiler_input_scenarios.json
-jq --arg s "project/contracts/Scenarios.t.sol" '.output | { contracts: { ($s): .contracts[$s] }, sources: { ($s): .sources[$s] } }' "$BI/${ID%.json}.output.json" > ../../../crates/edr_solidity/fixtures/solx_compiler_output_scenarios.json
+pnpm regen-fixtures
 ```
 
-The committed fixtures are byte-for-byte the output of these commands. Note for regenerators: solx embeds the build directory in the DWARF ([solx#594](https://github.com/NomicFoundation/solx/issues/594)), so `debugInfo` bytes differ across checkouts even on identical toolchains.
+The script (`scripts/regen-fixtures.js`) wipes `artifacts/build-info`, compiles the solx profile, and writes the extracted pair; the committed fixtures are byte-for-byte its output. Note for regenerators: solx embeds the build directory in the DWARF ([solx#594](https://github.com/NomicFoundation/solx/issues/594)), so `debugInfo` bytes differ across checkouts even on identical toolchains.
