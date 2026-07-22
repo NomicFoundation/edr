@@ -1152,6 +1152,37 @@ async fn nested_modifier_revert_walks_back_from_line_zero_helper() -> anyhow::Re
     Ok(())
 }
 
+/// Cross-contract variant of the modifier revert: `ValidatedCounterCaller`
+/// CALLs `ValidatedCounter.bumpIfValid`, which reverts in the flattened
+/// `validates` modifier. Pin solc's frame shape: a callstack frame for the
+/// called function (its declaration, line 86 — recovered from the line-0
+/// dispatch call site via the decl-line fallback) between the caller frame
+/// and the revert.
+#[tokio::test(flavor = "multi_thread")]
+async fn cross_contract_modifier_revert_keeps_called_function_frame() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounterCaller")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        addr,
+        encode_call_u256("callBump(uint256)", 13),
+    );
+    assert_revert_at_line(&stack_trace, 80, "unlucky");
+    let callee_frame = stack_trace.iter().any(|e| {
+        matches!(e, StackTraceEntry::CallstackEntry { source_reference, .. }
+            if source_reference.function.as_deref() == Some("bumpIfValid")
+                && source_reference.line == 86)
+    });
+    assert!(
+        callee_frame,
+        "expected a CallstackEntry for bumpIfValid at its declaration \
+         (line 86), got:\n{}",
+        brief_trace(&stack_trace)
+    );
+    Ok(())
+}
+
 /// A modifier's bare `revert()` builds no message and its shared helper is
 /// unmapped in the DWARF, so the selector-resolved fallback plus the
 /// walk-back attribute the revert to the guard condition (line 67) inside

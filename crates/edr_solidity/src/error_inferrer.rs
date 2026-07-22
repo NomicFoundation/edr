@@ -483,23 +483,24 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
 
     let mut stacktrace = stacktrace;
 
+    let bottom_entry = instruction_within_function_to_custom_error_stack_trace_entry(
+        trace,
+        last_instruction,
+        error_message,
+    )?;
+
     if let Some(loc) = &last_instruction.location
-        && let Some(failing_function) = loc.get_containing_function()?
+        && loc.get_containing_function()?.is_some()
+        && let Some(bottom_source_reference) = bottom_entry.source_reference()
     {
         stacktrace.extend(trace_strategy.intermediate_frames(
             &contract_metadata,
             last_instruction,
-            &failing_function,
+            bottom_source_reference,
         )?);
     }
 
-    stacktrace.push(
-        instruction_within_function_to_custom_error_stack_trace_entry(
-            trace,
-            last_instruction,
-            error_message,
-        )?,
-    );
+    stacktrace.push(bottom_entry);
 
     fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit)
 }
@@ -765,7 +766,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
         let mut frames = trace_strategy.intermediate_frames(
             contract_metadata.as_ref(),
             last_instruction,
-            &failing_function,
+            &revert_source_reference,
         )?;
         frames.push(StackTraceEntry::RevertError {
             source_reference: revert_source_reference,
@@ -1035,15 +1036,17 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
     {
         let failing_function = location.get_containing_function()?;
 
-        if let Some(failing_function) = failing_function.as_deref() {
-            inferred_stacktrace.extend(trace_strategy.intermediate_frames(
-                contract_metadata.as_ref(),
-                last_instruction,
-                failing_function,
-            )?);
-
+        if failing_function.is_some() {
             let frame =
                 instruction_within_function_to_revert_stack_trace_entry(trace, last_instruction)?;
+
+            if let Some(bottom_source_reference) = frame.source_reference() {
+                inferred_stacktrace.extend(trace_strategy.intermediate_frames(
+                    contract_metadata.as_ref(),
+                    last_instruction,
+                    bottom_source_reference,
+                )?);
+            }
 
             inferred_stacktrace.push(frame);
         } else {

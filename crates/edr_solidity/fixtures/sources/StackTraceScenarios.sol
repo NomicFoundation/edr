@@ -87,3 +87,15 @@ contract ValidatedCounter {
         count = v;
     }
 }
+
+contract ValidatedCounterCaller {
+    ValidatedCounter public target;
+
+    constructor() {
+        target = new ValidatedCounter();
+    }
+
+    function callBump(uint256 v) public {
+        target.bumpIfValid(v);
+    }
+}

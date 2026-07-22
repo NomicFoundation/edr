@@ -73,11 +73,14 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
     ) -> Result<StackTraceEntry, TraceStrategyError>;
 
     /// Extra frames inserted before the final revert / panic / custom frame.
+    /// `bottom_source_reference` is that final frame's already-resolved
+    /// source reference — the dedup anchor, so an intermediate frame naming
+    /// the same function as the rendered bottom frame is dropped.
     fn intermediate_frames(
         &self,
         contract_meta: &ContractMetadata,
         last_instruction: &Instruction,
-        failing_function: &ContractFunction,
+        bottom_source_reference: &SourceReference,
     ) -> Result<Vec<StackTraceEntry>, TraceStrategyError>;
 
     /// Source anchor for a revert that happened inside a known function;
@@ -143,7 +146,7 @@ impl TraceStrategy for SolcTraceStrategy {
         &self,
         _contract_meta: &ContractMetadata,
         _last_instruction: &Instruction,
-        _failing_function: &ContractFunction,
+        _bottom_source_reference: &SourceReference,
     ) -> Result<Vec<StackTraceEntry>, TraceStrategyError> {
         Ok(Vec::new())
     }
@@ -233,15 +236,14 @@ impl TraceStrategy for SolxTraceStrategy {
         &self,
         contract_meta: &ContractMetadata,
         last_instruction: &Instruction,
-        failing_function: &ContractFunction,
+        bottom_source_reference: &SourceReference,
     ) -> Result<Vec<StackTraceEntry>, TraceStrategyError> {
-        let bottom_func_name = match failing_function.r#type {
-            ContractFunctionType::Constructor => Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
-            ContractFunctionType::Fallback => Some(FALLBACK_FUNCTION_NAME.to_string()),
-            ContractFunctionType::Receive => Some(RECEIVE_FUNCTION_NAME.to_string()),
-            _ => Some(failing_function.name.clone()),
-        };
-        let mut prev_function_name = bottom_func_name;
+        // Dedup against the frame actually rendered below these, not the
+        // raw instruction location: under line-0 emission (solx ≥0.1.6) the
+        // instruction resolves to the flattened-into function's declaration
+        // while the bottom frame's revert walk-back may land in a modifier —
+        // the function frame between them is real, not a duplicate.
+        let mut prev_function_name = bottom_source_reference.function.clone();
         let mut kept_innermost_first: Vec<SourceReference> = Vec::new();
         for call_site in &last_instruction.inline_call_sites {
             let Some(call_site_ref) =
