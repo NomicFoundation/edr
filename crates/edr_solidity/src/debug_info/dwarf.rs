@@ -1027,8 +1027,10 @@ mod tests {
     }
 
     /// `BuildModel` for `Scenarios.t.sol`, built via the same AST walk
-    /// production uses — so regenerating the fixture JSON is the only
-    /// step needed when scenarios are added or reordered.
+    /// production uses. The compiled fixture is frozen (solx 0.1.4, not
+    /// regenerable — see `solx_fixtures.rs`), so the spliced-in live
+    /// source must keep the fixture's byte offsets valid; see
+    /// [`scenarios_source_is_append_only`].
     fn make_build_model_for_scenarios() -> SolxBuildModel {
         let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
             "../../fixtures/solx_compiler_input_scenarios.json"
@@ -1043,6 +1045,32 @@ mod tests {
         let output = load_scenarios_output();
         SolxBuildModel::new(input, &output)
             .expect("AST processor must accept the scenarios fixture")
+    }
+
+    /// `Scenarios.t.sol` is spliced into the frozen scenarios fixture,
+    /// whose AST and DWARF reference byte offsets into the source as it
+    /// existed at generation time. The file may only be APPENDED to (new
+    /// sweep scenarios); any edit inside the frozen prefix shifts offsets
+    /// and desyncs every line assertion on this fixture — in the worst
+    /// case to plausible-but-wrong locations rather than loud failures.
+    #[test]
+    fn scenarios_source_is_append_only() {
+        const FROZEN_PREFIX_LEN: usize = 10244;
+        const FROZEN_PREFIX_KECCAK256: &str =
+            "7155a2219b14614e9a9f18f4f0f9ebfb13968ff542b5333a813ed300e3894f04";
+
+        let source = include_str!("../../fixtures/sources/Scenarios.t.sol");
+        let prefix = source
+            .as_bytes()
+            .get(..FROZEN_PREFIX_LEN)
+            .expect("Scenarios.t.sol shrank below its frozen prefix — it is append-only");
+        assert_eq!(
+            hex::encode(edr_primitives::keccak256(prefix)),
+            FROZEN_PREFIX_KECCAK256,
+            "Scenarios.t.sol's frozen prefix changed. This file is append-only: \
+             the committed scenarios fixture was compiled from exactly this \
+             prefix and is not regenerable (see solx_fixtures.rs)."
+        );
     }
 
     fn decode_deployed_for(
