@@ -495,6 +495,21 @@ fn brief_trace(stack_trace: &[StackTraceEntry]) -> String {
         .join("\n")
 }
 
+/// Pins a trace's full rendered shape — every entry's variant, location
+/// and function, via [`brief_trace`]. Catches frame gains/losses that the
+/// variant + line assertions can't see (the solx 0.1.6 inlined-frame loss
+/// only surfaced as a missing middle frame). Kept to a few representative
+/// call shapes; exhaustive frame parity with solc remains the sweep's job.
+#[track_caller]
+fn assert_trace_shape(stack_trace: &[StackTraceEntry], expected: &[&str]) {
+    assert_eq!(
+        brief_trace(stack_trace),
+        expected.join("\n"),
+        "trace shape drifted — a gained frame may be a solx/inference \
+         improvement (update the pin), a lost frame is a regression"
+    );
+}
+
 /// Finds the sole `RevertError` entry and asserts its source line and
 /// reason string (the reason is ABI-encoded inside `return_data`).
 #[track_caller]
@@ -707,6 +722,15 @@ async fn cross_contract_call_keeps_caller_frame() -> anyhow::Result<()> {
         "expected a CallstackEntry for CrossContractCallTest, got:\n{}",
         brief_trace(&stack_trace)
     );
+    // No separate `Other.fail` callstack frame: the bottom entry already
+    // renders as `Other.fail`, so the intermediate frame dedups against it.
+    assert_trace_shape(
+        &stack_trace,
+        &[
+            "CallstackEntry project/contracts/Scenarios.t.sol:81 (CrossContractCallTest.testCrossContractCall)",
+            "RevertError project/contracts/Scenarios.t.sol:69 (Other.fail)",
+        ],
+    );
     Ok(())
 }
 
@@ -738,6 +762,15 @@ async fn external_recursion_keeps_one_frame_per_call() -> anyhow::Result<()> {
         recursion_frames >= 3,
         "expected >= 3 recurse callstack frames, got {recursion_frames}:\n{}",
         brief_trace(&stack_trace)
+    );
+    assert_trace_shape(
+        &stack_trace,
+        &[
+            "CallstackEntry project/contracts/Scenarios.t.sol:111 (DeepRecursionTarget.recurse)",
+            "CallstackEntry project/contracts/Scenarios.t.sol:111 (DeepRecursionTarget.recurse)",
+            "CallstackEntry project/contracts/Scenarios.t.sol:111 (DeepRecursionTarget.recurse)",
+            "RevertError project/contracts/Scenarios.t.sol:109 (DeepRecursionTarget.recurse)",
+        ],
     );
     Ok(())
 }
@@ -1107,6 +1140,13 @@ async fn linked_external_library_revert_points_into_library() -> anyhow::Result<
         Bytes::from(selector("go()").as_slice().to_vec()),
     );
     assert_revert_at_line(&stack_trace, 53, "external lib boom");
+    assert_trace_shape(
+        &stack_trace,
+        &[
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:59 (UsesExternalLib.go)",
+            "RevertError project/contracts/StackTraceScenarios.sol:53 (ExternalLib.fail)",
+        ],
+    );
     Ok(())
 }
 
@@ -1179,6 +1219,14 @@ async fn cross_contract_modifier_revert_keeps_called_function_frame() -> anyhow:
         "expected a CallstackEntry for bumpIfValid at its declaration \
          (line 86), got:\n{}",
         brief_trace(&stack_trace)
+    );
+    assert_trace_shape(
+        &stack_trace,
+        &[
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:99 (ValidatedCounterCaller.callBump)",
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:86 (ValidatedCounter.bumpIfValid)",
+            "RevertError project/contracts/StackTraceScenarios.sol:80 (ValidatedCounter.validates)",
+        ],
     );
     Ok(())
 }
