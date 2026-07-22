@@ -660,11 +660,13 @@ async fn modifier_revert_points_at_modifier_require() -> anyhow::Result<()> {
 
 /// Revert inside a multi-statement modifier body (`validates`, pre-`_`).
 ///
-/// solx flattens the modifier into `bumpIfValid` and attributes the shared
-/// revert helper to the function declaration line (420);
+/// solx flattens the modifier into `bumpIfValid` and — in this fixture's
+/// pre-0.1.6 artifacts (not regenerable, see `solx_fixtures.rs`) — attributes
+/// the shared revert helper to the function declaration line (420);
 /// `SolxTraceStrategy::revert_source_reference` walks the executed steps
 /// back to the message-building code of the `require` that actually fired
-/// (line 415), matching solc.
+/// (line 415), matching solc. The same shape on current artifacts is
+/// pinned in `nested_modifier_revert_walks_back_from_line_zero_helper`.
 #[tokio::test(flavor = "multi_thread")]
 async fn nested_modifier_revert_points_at_failing_require() -> anyhow::Result<()> {
     expect_scenario_revert(
@@ -1124,6 +1126,29 @@ async fn direct_library_call_error_surfaces() -> anyhow::Result<()> {
         |e| matches!(e, StackTraceEntry::DirectLibraryCallError { .. }),
         "DirectLibraryCallError",
     );
+    Ok(())
+}
+
+/// Revert inside a multi-statement modifier body (`validates`, pre-`_`),
+/// compiled with current solx. Since 0.1.6 solx emits DWARF line 0 for the
+/// flattened shared revert helper (compiler-generated code) instead of the
+/// modified function's declaration line; the decoder's Pass-3 fallback
+/// turns that into the function's AST location, so the walk-back still
+/// triggers on a declaration-attributed location and recovers the
+/// message-building code of the `require` that actually fired (line 80),
+/// matching solc. The raw declaration-line attribution of pre-0.1.6
+/// artifacts is pinned in `nested_modifier_revert_points_at_failing_require`.
+#[tokio::test(flavor = "multi_thread")]
+async fn nested_modifier_revert_walks_back_from_line_zero_helper() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounter")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        addr,
+        encode_call_u256("bumpIfValid(uint256)", 13),
+    );
+    assert_revert_at_line(&stack_trace, 80, "unlucky");
     Ok(())
 }
 

@@ -185,11 +185,13 @@ impl TraceStrategy for SolxTraceStrategy {
         step_location: &SourceLocation,
         reference_location: &SourceLocation,
     ) -> bool {
-        // solx attributes compiler-generated helper code (calldata decoding,
-        // revert builders) to the enclosing function or contract
-        // *declaration*, whose range contains the statement — where solc
-        // leaves such code unmapped. Treat declaration-level padding as
-        // "still at the statement".
+        // Compiler-generated helper code (calldata decoding, revert
+        // builders) reaches us at the enclosing function or contract
+        // *declaration*, whose range contains the statement — attributed
+        // there by solx before 0.1.6, synthesized by the decoder's Pass-3
+        // fallback for the line-0 rows solx emits since — where solc leaves
+        // such code unmapped. Treat declaration-level padding as "still at
+        // the statement".
         step_location == reference_location || step_location.contains(reference_location)
     }
 
@@ -271,17 +273,19 @@ impl TraceStrategy for SolxTraceStrategy {
         failing_function: &ContractFunction,
         step_pcs: &dyn Fn() -> Vec<u32>,
     ) -> Result<SourceReference, TraceStrategyError> {
-        // solx attributes shared revert helpers to the *declaration line* of
-        // the function they were flattened into (e.g. a modifier's `require`
+        // Shared revert helpers reach us at the *declaration line* of the
+        // function they were flattened into (e.g. a modifier's `require`
         // reverting at the modified function's signature line) or of the
-        // enclosing contract, or leaves them unmapped entirely (bare
-        // `revert()`). In all three cases, walk the executed steps backwards
-        // to the statement that actually led here — the code preceding the
-        // revert keeps its own line. Only statements of the failing function
-        // itself or of a modifier (flattened into its frame, possibly from
-        // another file) qualify; a statement of any other function marks the
-        // end of the flattened frame, and the declaration-line reference is
-        // kept.
+        // enclosing contract — attributed there by solx before 0.1.6,
+        // synthesized by the decoder's Pass-3 fallback for the line-0 rows
+        // solx emits since — or entirely unmapped (bare `revert()`, no
+        // covering subprogram). In all cases, walk the executed steps
+        // backwards to the statement that actually led here — the code
+        // preceding the revert keeps its own line. Only statements of the
+        // failing function itself or of a modifier (flattened into its
+        // frame, possibly from another file) qualify; a statement of any
+        // other function marks the end of the flattened frame, and the
+        // declaration-line reference is kept.
         let needs_walk_back = match inst_location {
             Some(location) => is_declaration_attributed(contract_meta, location, failing_function)?,
             None => true,

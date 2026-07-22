@@ -72,3 +72,18 @@ contract GuardedBareRevert {
 
     function fire() external guarded {}
 }
+
+contract ValidatedCounter {
+    uint256 public count;
+
+    modifier validates(uint256 v) {
+        require(v != 13, "unlucky");
+        require(v < 1000, "too large");
+        _;
+        require(count != 666, "post-mortem");
+    }
+
+    function bumpIfValid(uint256 v) public validates(v) {
+        count = v;
+    }
+}
