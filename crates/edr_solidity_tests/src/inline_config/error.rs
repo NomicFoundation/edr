@@ -19,6 +19,20 @@ pub enum InlineConfigCollectError {
         /// Why reading it failed.
         reason: String,
     },
+    /// A directive's offset could not be resolved to a line number: it lies
+    /// outside the source text (or the line count overflows), meaning the
+    /// parsing stages disagree about the source, so its directives cannot be
+    /// trusted.
+    #[error("could not locate a directive of `{contract}.{function}`: {reason}")]
+    DirectiveLocation {
+        /// The contract the directive belongs to.
+        contract: String,
+        /// The test function the directive belongs to.
+        function: String,
+        /// Why resolving the location failed, including the directive problem
+        /// that was being reported.
+        reason: String,
+    },
 }
 
 // TODO: `derive(Clone)` once `FromSemverError` implements `Clone`.
@@ -33,6 +47,15 @@ impl Clone for InlineConfigCollectError {
             }
             Self::RootFileNotFound { path, reason } => Self::RootFileNotFound {
                 path: path.clone(),
+                reason: reason.clone(),
+            },
+            Self::DirectiveLocation {
+                contract,
+                function,
+                reason,
+            } => Self::DirectiveLocation {
+                contract: contract.clone(),
+                function: function.clone(),
                 reason: reason.clone(),
             },
         }
@@ -100,11 +123,11 @@ pub struct InlineConfigErrorItem {
 }
 
 /// An inline-config problem, split by whether it can be pinned to a single
-/// directive.
+/// directive line.
 ///
-/// A source-level problem (e.g. an unsupported solc version or an unreadable
-/// source file) is found before any directive is parsed, so it carries no
-/// contract/function/line — there is no single directive to point at. A
+/// A source-level problem (e.g. an unsupported solc version, an unreadable
+/// source file, or a directive whose location could not be resolved) carries
+/// no contract/function/line — there is no directive line to point at. A
 /// directive-level problem always carries all three.
 #[derive(Clone, Debug, PartialEq)]
 pub enum InlineConfigProblem {

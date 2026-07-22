@@ -6,7 +6,7 @@ use edr_solidity_tests::inline_config::{
     InlineConfigErrors, InlineConfigProblem as CoreInlineConfigProblem,
 };
 use napi::{
-    bindgen_prelude::{Either, Either6},
+    bindgen_prelude::{Either, Either3, Either6},
     Env, JsValue,
 };
 use napi_derive::napi;
@@ -99,12 +99,31 @@ pub struct InlineConfigSourceFileNotFound {
     pub reason: String,
 }
 
+/// A directive's offset could not be resolved to a line number within its
+/// source, meaning the parsing stages disagree about the source text, so its
+/// directives cannot be trusted.
+#[napi(object)]
+pub struct InlineConfigDirectiveLocation {
+    /// Enum tag for JS.
+    #[napi(ts_type = "\"InlineConfigDirectiveLocation\"")]
+    pub kind: String,
+    /// The contract the directive belongs to.
+    pub contract: String,
+    /// The test function the directive belongs to.
+    pub function: String,
+    /// Why resolving the location failed, including the directive problem
+    /// that was being reported.
+    pub reason: String,
+}
+
 /// A source-level problem, as a discriminated union over its `kind` tag. These
-/// are found before any directive is parsed (no single directive to point at),
-/// so they carry no contract/function/line.
+/// cannot be pinned to a single directive line, so they carry no line.
 #[napi]
-pub type InlineConfigSourceProblem =
-    Either<InlineConfigInvalidSolcVersion, InlineConfigSourceFileNotFound>;
+pub type InlineConfigSourceProblem = Either3<
+    InlineConfigInvalidSolcVersion,
+    InlineConfigSourceFileNotFound,
+    InlineConfigDirectiveLocation,
+>;
 
 /// The problem in a single inline-config directive, as a discriminated union
 /// over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
@@ -163,17 +182,27 @@ pub type InlineConfigError = Either<InlineConfigSourceError, InlineConfigDirecti
 fn to_source_problem(error: &InlineConfigCollectError) -> InlineConfigSourceProblem {
     match error {
         InlineConfigCollectError::InvalidSolcVersion(_) => {
-            Either::A(InlineConfigInvalidSolcVersion {
+            Either3::A(InlineConfigInvalidSolcVersion {
                 kind: "InlineConfigInvalidSolcVersion".to_owned(),
             })
         }
         InlineConfigCollectError::RootFileNotFound { path, reason } => {
-            Either::B(InlineConfigSourceFileNotFound {
+            Either3::B(InlineConfigSourceFileNotFound {
                 kind: "InlineConfigSourceFileNotFound".to_owned(),
                 path: path.clone(),
                 reason: reason.clone(),
             })
         }
+        InlineConfigCollectError::DirectiveLocation {
+            contract,
+            function,
+            reason,
+        } => Either3::C(InlineConfigDirectiveLocation {
+            kind: "InlineConfigDirectiveLocation".to_owned(),
+            contract: contract.clone(),
+            function: function.clone(),
+            reason: reason.clone(),
+        }),
     }
 }
 

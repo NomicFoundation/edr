@@ -15,7 +15,7 @@ use semver::Version;
 
 use super::{
     directives::{self, LocatedDirectiveError},
-    error::{InlineConfigErrorItem, InlineConfigProblem},
+    error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
     natspec,
     parse::{locate_functions, LocatedFunction},
     resolver::ImportResolver,
@@ -151,29 +151,95 @@ fn contract_overrides(
                 config,
             }),
             Ok(None) => {}
-            Err(LocatedDirectiveError { offset, error }) => errors.push(InlineConfigErrorItem {
-                source: source.to_path_buf(),
-                problem: InlineConfigProblem::Directive {
-                    contract: contract_name.to_owned(),
-                    function: function.function_name.clone(),
-                    line: line_of(&ast.source, offset),
-                    error,
-                },
-            }),
+            Err(LocatedDirectiveError { offset, error }) => {
+                // If the offending line itself cannot be located, report that
+                // as a source-level problem — carrying the directive problem
+                // in its message — rather than fabricating a line number.
+                let problem = match line_of(&ast.source, offset) {
+                    Ok(line) => InlineConfigProblem::Directive {
+                        contract: contract_name.to_owned(),
+                        function: function.function_name.clone(),
+                        line,
+                        error,
+                    },
+                    Err(line_error) => {
+                        InlineConfigProblem::Source(InlineConfigCollectError::DirectiveLocation {
+                            contract: contract_name.to_owned(),
+                            function: function.function_name.clone(),
+                            reason: format!("{line_error} (while reporting: {error})"),
+                        })
+                    }
+                };
+                errors.push(InlineConfigErrorItem {
+                    source: source.to_path_buf(),
+                    problem,
+                });
+            }
         }
     }
 
     (overrides, errors)
 }
 
+/// Why [`line_of`] could not resolve an offset to a line number. Either way,
+/// the offsets handed across parsing stages are out of sync with the source
+/// text, so a fabricated line number would point the user at the wrong place.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+enum LineOfError {
+    /// The offset lies beyond the end of the source text.
+    #[error("directive offset {offset} lies beyond the {source_len}-byte source")]
+    OffsetOutOfBounds {
+        /// The offending offset.
+        offset: usize,
+        /// The length of the source text.
+        source_len: usize,
+    },
+    /// The line number does not fit in `u32`.
+    #[error("line number {line} overflows u32")]
+    LineOverflow {
+        /// The 1-based line number that did not fit.
+        line: usize,
+    },
+}
+
 /// The 1-based line number of `offset` within `source`.
-fn line_of(source: &str, offset: usize) -> u32 {
-    let end = offset.min(source.len());
+fn line_of(source: &str, offset: usize) -> Result<u32, LineOfError> {
+    if offset > source.len() {
+        return Err(LineOfError::OffsetOutOfBounds {
+            offset,
+            source_len: source.len(),
+        });
+    }
     let newlines = source
         .as_bytes()
         .iter()
-        .take(end)
+        .take(offset)
         .filter(|&&byte| byte == b'\n')
         .count();
-    u32::try_from(newlines + 1).unwrap_or(u32::MAX)
+    u32::try_from(newlines + 1).map_err(|_| LineOfError::LineOverflow { line: newlines + 1 })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn line_of_counts_lines() {
+        let source = "a\nb\nc";
+        assert_eq!(line_of(source, 0), Ok(1));
+        assert_eq!(line_of(source, 2), Ok(2));
+        assert_eq!(line_of(source, source.len()), Ok(3));
+    }
+
+    #[test]
+    fn line_of_rejects_out_of_bounds_offsets() {
+        let source = "a\nb";
+        assert_eq!(
+            line_of(source, source.len() + 1),
+            Err(LineOfError::OffsetOutOfBounds {
+                offset: source.len() + 1,
+                source_len: source.len(),
+            })
+        );
+    }
 }

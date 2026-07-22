@@ -926,6 +926,25 @@ export interface InlineConfigDirectiveError {
 }
 
 /**
+ * A directive's offset could not be resolved to a line number within its
+ * source, meaning the parsing stages disagree about the source text, so its
+ * directives cannot be trusted.
+ */
+export interface InlineConfigDirectiveLocation {
+  /** Enum tag for JS. */
+  kind: "InlineConfigDirectiveLocation"
+  /** The contract the directive belongs to. */
+  contract: string
+  /** The test function the directive belongs to. */
+  function: string
+  /**
+   * Why resolving the location failed, including the directive problem
+   * that was being reported.
+   */
+  reason: string
+}
+
+/**
  * The problem in a single inline-config directive, as a discriminated union
  * over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
  * consumers can map each problem onto their own error types.
@@ -1029,11 +1048,10 @@ export interface InlineConfigSourceFileNotFound {
 
 /**
  * A source-level problem, as a discriminated union over its `kind` tag. These
- * are found before any directive is parsed (no single directive to point at),
- * so they carry no contract/function/line.
+ * cannot be pinned to a single directive line, so they carry no line.
  */
 export type InlineConfigSourceProblem =
-  InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound
+  InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound | InlineConfigDirectiveLocation
 
 /** A profile other than `default` was used. */
 export interface InlineConfigUnsupportedProfile {
