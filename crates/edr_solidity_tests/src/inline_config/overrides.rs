@@ -216,7 +216,8 @@ fn line_of(source: &str, offset: usize) -> Result<u32, LineOfError> {
         .take(offset)
         .filter(|&&byte| byte == b'\n')
         .count();
-    u32::try_from(newlines + 1).map_err(|_| LineOfError::LineOverflow { line: newlines + 1 })
+    u32::try_from(newlines + 1)
+        .map_err(|_overflow| LineOfError::LineOverflow { line: newlines + 1 })
 }
 
 #[cfg(test)]
