@@ -15,7 +15,7 @@ use semver::Version;
 
 use super::{
     directives::{self, LocatedDirectiveError},
-    error::{InlineConfigError, InlineConfigErrorItem},
+    error::{InlineConfigErrorItem, InlineConfigProblem},
     natspec,
     parse::{locate_functions, LocatedFunction},
     resolver::ImportResolver,
@@ -70,10 +70,7 @@ pub(super) fn collect_source(
                 overrides: SourceOverrides::new(),
                 errors: vec![InlineConfigErrorItem {
                     source: source.to_path_buf(),
-                    contract: None,
-                    function: None,
-                    line: None,
-                    error: InlineConfigError::Collect(error),
+                    problem: InlineConfigProblem::Source(error),
                 }],
             };
         }
@@ -156,10 +153,12 @@ fn contract_overrides(
             Ok(None) => {}
             Err(LocatedDirectiveError { offset, error }) => errors.push(InlineConfigErrorItem {
                 source: source.to_path_buf(),
-                contract: Some(contract_name.to_owned()),
-                function: Some(function.function_name.clone()),
-                line: Some(line_of(&ast.source, offset)),
-                error,
+                problem: InlineConfigProblem::Directive {
+                    contract: contract_name.to_owned(),
+                    function: function.function_name.clone(),
+                    line: line_of(&ast.source, offset),
+                    error,
+                },
             }),
         }
     }

@@ -906,6 +906,33 @@ export declare enum IncludeTraces {
   All = 2
 }
 
+/** A directive-level inline-config problem, located at the offending directive. */
+export interface InlineConfigDirectiveError {
+  /** Discriminant tag for the `InlineConfigError` union. */
+  kind: "directive"
+  /**
+   * The solc source name the problem was found in (e.g.
+   * `project/test/Foo.t.sol`).
+   */
+  sourceName: string
+  /** The contract the offending directive belongs to. */
+  contract: string
+  /** The test function the offending directive belongs to. */
+  function: string
+  /** The 1-based line of the offending directive within the source. */
+  line: number
+  /** The problem itself; discriminate on its `kind` tag. */
+  problem: InlineConfigDirectiveProblem
+}
+
+/**
+ * The problem in a single inline-config directive, as a discriminated union
+ * over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
+ * consumers can map each problem onto their own error types.
+ */
+export type InlineConfigDirectiveProblem =
+  InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey
+
 /** The same key was specified more than once for a function. */
 export interface InlineConfigDuplicateKey {
   /** Enum tag for JS. */
@@ -915,25 +942,14 @@ export interface InlineConfigDuplicateKey {
 }
 
 /**
- * A single ill-formed inline-config directive, located so the user can find
- * and fix it. Attached to the rejected `runSolidityTests` promise as the
+ * A single ill-formed inline-config entry, located so the user can find and
+ * fix it. A discriminated union over `kind`: a `source`-level entry carries no
+ * directive location, a `directive`-level entry carries contract/function/
+ * line. Attached to the rejected `runSolidityTests` promise as the
  * `inlineConfigErrors` array on the thrown error.
  */
-export interface InlineConfigError {
-  /**
-   * The solc source name the problem was found in (e.g.
-   * `project/test/Foo.t.sol`).
-   */
-  sourceName: string
-  /** The contract the offending directive belongs to, if known. */
-  contract?: string
-  /** The test function the offending directive belongs to, if known. */
-  function?: string
-  /** The 1-based line of the offending directive within the source, if known. */
-  line?: number
-  /** The problem itself; discriminate on its `kind` tag. */
-  problem: InlineConfigProblem
-}
+export type InlineConfigError =
+  InlineConfigSourceError | InlineConfigDirectiveError
 
 /** An unknown configuration key was used. */
 export interface InlineConfigInvalidKey {
@@ -986,12 +1002,20 @@ export interface InlineConfigInvalidValue {
 }
 
 /**
- * The problem in a single inline-config directive, as a discriminated union
- * over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
- * consumers can map each problem onto their own error types.
+ * A source-level inline-config problem: one that could not be tied to a single
+ * directive (e.g. an unsupported solc version or an unreadable source).
  */
-export type InlineConfigProblem =
-  InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey | InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound
+export interface InlineConfigSourceError {
+  /** Discriminant tag for the `InlineConfigError` union. */
+  kind: "source"
+  /**
+   * The solc source name the problem was found in (e.g.
+   * `project/test/Foo.t.sol`).
+   */
+  sourceName: string
+  /** The problem itself; discriminate on its `kind` tag. */
+  problem: InlineConfigSourceProblem
+}
 
 /** The source's file could not be read at the path it was declared at. */
 export interface InlineConfigSourceFileNotFound {
@@ -1002,6 +1026,14 @@ export interface InlineConfigSourceFileNotFound {
   /** Why reading it failed. */
   reason: string
 }
+
+/**
+ * A source-level problem, as a discriminated union over its `kind` tag. These
+ * are found before any directive is parsed (no single directive to point at),
+ * so they carry no contract/function/line.
+ */
+export type InlineConfigSourceProblem =
+  InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound
 
 /** A profile other than `default` was used. */
 export interface InlineConfigUnsupportedProfile {

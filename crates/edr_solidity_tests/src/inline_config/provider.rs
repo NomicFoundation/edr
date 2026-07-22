@@ -25,7 +25,7 @@ use semver::Version;
 use super::{
     directives,
     error::{
-        InlineConfigCollectError, InlineConfigError, InlineConfigErrorItem, InlineConfigErrors,
+        InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors, InlineConfigProblem,
     },
     overrides::{collect_source, FunctionOverride, SourceCollection, SourceOverrides},
     resolver::ImportResolver,
@@ -79,10 +79,7 @@ impl CachedInlineConfigProvider {
                             overrides: SourceOverrides::new(),
                             errors: vec![InlineConfigErrorItem {
                                 source: root.source.clone(),
-                                contract: None,
-                                function: None,
-                                line: None,
-                                error: InlineConfigError::Collect(
+                                problem: InlineConfigProblem::Source(
                                     InlineConfigCollectError::RootFileNotFound {
                                         path: root.path.display().to_string(),
                                         reason: error.to_string(),
@@ -298,13 +295,14 @@ contract BadTest {
         assert_eq!(items.len(), 1, "{items:#?}");
         // A source-level problem has no directive to point at.
         assert_eq!(items[0].source, PathBuf::from(SOURCE_NAME));
-        assert_eq!(items[0].contract, None);
-        assert_eq!(items[0].line, None);
+        let InlineConfigProblem::Source(error) = &items[0].problem else {
+            panic!("expected a source-level problem, got {:#?}", items[0].problem);
+        };
         assert!(matches!(
-            items[0].error,
-            InlineConfigError::Collect(InlineConfigCollectError::RootFileNotFound { .. })
+            error,
+            InlineConfigCollectError::RootFileNotFound { .. }
         ));
-        assert!(items[0].error.to_string().contains("/nonexistent/test.sol"));
+        assert!(error.to_string().contains("/nonexistent/test.sol"));
     }
 
     #[test]
@@ -324,21 +322,40 @@ contract BadTest {
         // the 1-based line of the *first* offending directive in that function.
         let fuzz = items
             .iter()
-            .find(|item| item.function.as_deref() == Some("testFuzz"))
+            .find(|item| {
+                matches!(
+                    &item.problem,
+                    InlineConfigProblem::Directive { function, .. } if function == "testFuzz"
+                )
+            })
             .expect("testFuzz reported");
         assert_eq!(fuzz.source, PathBuf::from("project/bad.sol"));
-        assert_eq!(fuzz.contract.as_deref(), Some("BadTest"));
-        assert_eq!(fuzz.line, Some(5)); // the `runs = -1` line, not `-2` on line 6
+        let InlineConfigProblem::Directive { contract, line, .. } = &fuzz.problem else {
+            unreachable!("filtered to a testFuzz directive above");
+        };
+        assert_eq!(contract, "BadTest");
+        assert_eq!(*line, 5); // the `runs = -1` line, not `-2` on line 6
 
         let other = items
             .iter()
-            .find(|item| item.function.as_deref() == Some("testOther"))
+            .find(|item| {
+                matches!(
+                    &item.problem,
+                    InlineConfigProblem::Directive { function, .. } if function == "testOther"
+                )
+            })
             .expect("testOther reported");
-        assert_eq!(other.line, Some(9));
+        let InlineConfigProblem::Directive { line, .. } = &other.problem else {
+            unreachable!("filtered to a testOther directive above");
+        };
+        assert_eq!(*line, 9);
 
-        assert!(items
-            .iter()
-            .all(|item| item.function.as_deref() != Some("testValid")));
+        assert!(items.iter().all(|item| {
+            !matches!(
+                &item.problem,
+                InlineConfigProblem::Directive { function, .. } if function == "testValid"
+            )
+        }));
 
         // The well-formed function's override is still collected alongside the
         // malformed ones.

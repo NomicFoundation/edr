@@ -85,47 +85,59 @@ pub enum InlineConfigError {
         /// The duplicated (raw) key.
         key: String,
     },
-    /// Collecting the source's inline configuration failed before its
-    /// directives could be parsed.
-    #[error(transparent)]
-    Collect(#[from] InlineConfigCollectError),
 }
 
 /// A single inline-config problem together with enough location to point the
 /// user at it — modeled on the stack-trace `SourceReference` surfaced to
 /// consumers.
-///
-/// [`contract`](Self::contract), [`function`](Self::function) and
-/// [`line`](Self::line) are absent for a source-level problem (e.g. an
-/// unsupported solc version or an unreadable source file), where there is no
-/// single directive to point at.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InlineConfigErrorItem {
     /// The solc source name the problem was found in (e.g.
     /// `project/test/Foo.t.sol`).
     pub source: PathBuf,
-    /// The contract the offending directive belongs to.
-    pub contract: Option<String>,
-    /// The test function the offending directive belongs to.
-    pub function: Option<String>,
-    /// The 1-based line of the offending directive within the source.
-    pub line: Option<u32>,
-    /// The problem itself, kept structured so consumers can map it onto their
-    /// own error types; render it with `to_string()` for a human.
-    pub error: InlineConfigError,
+    /// The problem, together with whatever location detail applies to it.
+    pub problem: InlineConfigProblem,
+}
+
+/// An inline-config problem, split by whether it can be pinned to a single
+/// directive.
+///
+/// A source-level problem (e.g. an unsupported solc version or an unreadable
+/// source file) is found before any directive is parsed, so it carries no
+/// contract/function/line — there is no single directive to point at. A
+/// directive-level problem always carries all three.
+#[derive(Clone, Debug, PartialEq)]
+pub enum InlineConfigProblem {
+    /// A problem found while collecting the source, before its directives could
+    /// be parsed. Kept structured so consumers can map it onto their own error
+    /// types; render it with `to_string()` for a human.
+    Source(InlineConfigCollectError),
+    /// A problem in a specific directive. Kept structured so consumers can map
+    /// it onto their own error types; render it with `to_string()` for a human.
+    Directive {
+        /// The contract the offending directive belongs to.
+        contract: String,
+        /// The test function the offending directive belongs to.
+        function: String,
+        /// The 1-based line of the offending directive within the source.
+        line: u32,
+        /// The problem itself.
+        error: InlineConfigError,
+    },
 }
 
 impl std::fmt::Display for InlineConfigErrorItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.source.display())?;
-        if let Some(line) = self.line {
-            write!(f, ":{line}")?;
+        match &self.problem {
+            InlineConfigProblem::Source(error) => write!(f, ": {error}"),
+            InlineConfigProblem::Directive {
+                contract,
+                function,
+                line,
+                error,
+            } => write!(f, ":{line}: {contract}.{function}: {error}"),
         }
-        write!(f, ": ")?;
-        if let (Some(contract), Some(function)) = (&self.contract, &self.function) {
-            write!(f, "{contract}.{function}: ")?;
-        }
-        write!(f, "{}", self.error)
     }
 }
 

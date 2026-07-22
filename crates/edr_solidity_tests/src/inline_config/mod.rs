@@ -33,6 +33,7 @@ use alloy_json_abi::JsonAbi;
 pub use self::{
     error::{
         InlineConfigCollectError, InlineConfigError, InlineConfigErrorItem, InlineConfigErrors,
+        InlineConfigProblem,
     },
     overrides::FunctionOverride,
     provider::{CachedInlineConfigProvider, InlineConfigRoot, SharedInlineConfigProvider},

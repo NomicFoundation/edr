@@ -3,9 +3,12 @@
 
 use edr_solidity_tests::inline_config::{
     InlineConfigCollectError, InlineConfigError as CoreInlineConfigError, InlineConfigErrorItem,
-    InlineConfigErrors,
+    InlineConfigErrors, InlineConfigProblem as CoreInlineConfigProblem,
 };
-use napi::{bindgen_prelude::Either8, Env, JsValue};
+use napi::{
+    bindgen_prelude::{Either, Either6},
+    Env, JsValue,
+};
 use napi_derive::napi;
 
 /// A directive was missing the `=` separator.
@@ -96,57 +99,102 @@ pub struct InlineConfigSourceFileNotFound {
     pub reason: String,
 }
 
+/// A source-level problem, as a discriminated union over its `kind` tag. These
+/// are found before any directive is parsed (no single directive to point at),
+/// so they carry no contract/function/line.
+#[napi]
+pub type InlineConfigSourceProblem =
+    Either<InlineConfigInvalidSolcVersion, InlineConfigSourceFileNotFound>;
+
 /// The problem in a single inline-config directive, as a discriminated union
 /// over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
 /// consumers can map each problem onto their own error types.
 #[napi]
-pub type InlineConfigProblem = Either8<
+pub type InlineConfigDirectiveProblem = Either6<
     InlineConfigInvalidSyntax,
     InlineConfigUnsupportedProfile,
     InlineConfigInvalidKey,
     InlineConfigInvalidKeyForTestType,
     InlineConfigInvalidValue,
     InlineConfigDuplicateKey,
-    InlineConfigInvalidSolcVersion,
-    InlineConfigSourceFileNotFound,
 >;
 
-/// A single ill-formed inline-config directive, located so the user can find
-/// and fix it. Attached to the rejected `runSolidityTests` promise as the
-/// `inlineConfigErrors` array on the thrown error.
+/// A source-level inline-config problem: one that could not be tied to a single
+/// directive (e.g. an unsupported solc version or an unreadable source).
 #[napi(object)]
-pub struct InlineConfigError {
+pub struct InlineConfigSourceError {
+    /// Discriminant tag for the `InlineConfigError` union.
+    #[napi(ts_type = "\"source\"")]
+    pub kind: String,
     /// The solc source name the problem was found in (e.g.
     /// `project/test/Foo.t.sol`).
     pub source_name: String,
-    /// The contract the offending directive belongs to, if known.
-    pub contract: Option<String>,
-    /// The test function the offending directive belongs to, if known.
-    pub function: Option<String>,
-    /// The 1-based line of the offending directive within the source, if known.
-    pub line: Option<u32>,
     /// The problem itself; discriminate on its `kind` tag.
-    pub problem: InlineConfigProblem,
+    pub problem: InlineConfigSourceProblem,
 }
 
-fn to_problem(error: &CoreInlineConfigError) -> InlineConfigProblem {
+/// A directive-level inline-config problem, located at the offending directive.
+#[napi(object)]
+pub struct InlineConfigDirectiveError {
+    /// Discriminant tag for the `InlineConfigError` union.
+    #[napi(ts_type = "\"directive\"")]
+    pub kind: String,
+    /// The solc source name the problem was found in (e.g.
+    /// `project/test/Foo.t.sol`).
+    pub source_name: String,
+    /// The contract the offending directive belongs to.
+    pub contract: String,
+    /// The test function the offending directive belongs to.
+    pub function: String,
+    /// The 1-based line of the offending directive within the source.
+    pub line: u32,
+    /// The problem itself; discriminate on its `kind` tag.
+    pub problem: InlineConfigDirectiveProblem,
+}
+
+/// A single ill-formed inline-config entry, located so the user can find and
+/// fix it. A discriminated union over `kind`: a `source`-level entry carries no
+/// directive location, a `directive`-level entry carries contract/function/
+/// line. Attached to the rejected `runSolidityTests` promise as the
+/// `inlineConfigErrors` array on the thrown error.
+#[napi]
+pub type InlineConfigError = Either<InlineConfigSourceError, InlineConfigDirectiveError>;
+
+fn to_source_problem(error: &InlineConfigCollectError) -> InlineConfigSourceProblem {
     match error {
-        CoreInlineConfigError::InvalidSyntax { line } => Either8::A(InlineConfigInvalidSyntax {
+        InlineConfigCollectError::InvalidSolcVersion(_) => {
+            Either::A(InlineConfigInvalidSolcVersion {
+                kind: "InlineConfigInvalidSolcVersion".to_owned(),
+            })
+        }
+        InlineConfigCollectError::RootFileNotFound { path, reason } => {
+            Either::B(InlineConfigSourceFileNotFound {
+                kind: "InlineConfigSourceFileNotFound".to_owned(),
+                path: path.clone(),
+                reason: reason.clone(),
+            })
+        }
+    }
+}
+
+fn to_directive_problem(error: &CoreInlineConfigError) -> InlineConfigDirectiveProblem {
+    match error {
+        CoreInlineConfigError::InvalidSyntax { line } => Either6::A(InlineConfigInvalidSyntax {
             kind: "InlineConfigInvalidSyntax".to_owned(),
             directive: line.clone(),
         }),
         CoreInlineConfigError::UnsupportedProfile { profile } => {
-            Either8::B(InlineConfigUnsupportedProfile {
+            Either6::B(InlineConfigUnsupportedProfile {
                 kind: "InlineConfigUnsupportedProfile".to_owned(),
                 profile: profile.clone(),
             })
         }
-        CoreInlineConfigError::InvalidKey { key } => Either8::C(InlineConfigInvalidKey {
+        CoreInlineConfigError::InvalidKey { key } => Either6::C(InlineConfigInvalidKey {
             kind: "InlineConfigInvalidKey".to_owned(),
             key: key.clone(),
         }),
         CoreInlineConfigError::InvalidKeyForTestType { key, test_type } => {
-            Either8::D(InlineConfigInvalidKeyForTestType {
+            Either6::D(InlineConfigInvalidKeyForTestType {
                 kind: "InlineConfigInvalidKeyForTestType".to_owned(),
                 key: key.clone(),
                 test_type: test_type.clone(),
@@ -156,41 +204,40 @@ fn to_problem(error: &CoreInlineConfigError) -> InlineConfigProblem {
             key,
             value,
             expected,
-        } => Either8::E(InlineConfigInvalidValue {
+        } => Either6::E(InlineConfigInvalidValue {
             kind: "InlineConfigInvalidValue".to_owned(),
             key: key.clone(),
             value: value.clone(),
             expected: (*expected).to_owned(),
         }),
-        CoreInlineConfigError::DuplicateKey { key } => Either8::F(InlineConfigDuplicateKey {
+        CoreInlineConfigError::DuplicateKey { key } => Either6::F(InlineConfigDuplicateKey {
             kind: "InlineConfigDuplicateKey".to_owned(),
             key: key.clone(),
-        }),
-        CoreInlineConfigError::Collect(InlineConfigCollectError::InvalidSolcVersion(_)) => {
-            Either8::G(InlineConfigInvalidSolcVersion {
-                kind: "InlineConfigInvalidSolcVersion".to_owned(),
-            })
-        }
-        CoreInlineConfigError::Collect(InlineConfigCollectError::RootFileNotFound {
-            path,
-            reason,
-        }) => Either8::H(InlineConfigSourceFileNotFound {
-            kind: "InlineConfigSourceFileNotFound".to_owned(),
-            path: path.clone(),
-            reason: reason.clone(),
         }),
     }
 }
 
-impl From<&InlineConfigErrorItem> for InlineConfigError {
-    fn from(item: &InlineConfigErrorItem) -> Self {
-        Self {
-            source_name: item.source.to_string_lossy().into_owned(),
-            contract: item.contract.clone(),
-            function: item.function.clone(),
-            line: item.line,
-            problem: to_problem(&item.error),
-        }
+fn to_entry(item: &InlineConfigErrorItem) -> InlineConfigError {
+    let source_name = item.source.to_string_lossy().into_owned();
+    match &item.problem {
+        CoreInlineConfigProblem::Source(error) => Either::A(InlineConfigSourceError {
+            kind: "source".to_owned(),
+            source_name,
+            problem: to_source_problem(error),
+        }),
+        CoreInlineConfigProblem::Directive {
+            contract,
+            function,
+            line,
+            error,
+        } => Either::B(InlineConfigDirectiveError {
+            kind: "directive".to_owned(),
+            source_name,
+            contract: contract.clone(),
+            function: function.clone(),
+            line: *line,
+            problem: to_directive_problem(error),
+        }),
     }
 }
 
@@ -208,8 +255,7 @@ pub(crate) fn to_napi_error(env: &Env, errors: &InlineConfigErrors) -> napi::Err
 
 fn build_structured_error(env: &Env, errors: &InlineConfigErrors) -> napi::Result<napi::Error> {
     let mut error_object = env.create_error(napi::Error::from_reason(summary(errors)))?;
-    let items: Vec<InlineConfigError> =
-        errors.items().iter().map(InlineConfigError::from).collect();
+    let items: Vec<InlineConfigError> = errors.items().iter().map(to_entry).collect();
     error_object.set("inlineConfigErrors", items)?;
     Ok(napi::Error::from(error_object.to_unknown()))
 }

@@ -2,7 +2,7 @@
 
 use std::io::Write as _;
 
-use edr_solidity_tests::SolidityTestRunnerConfigError;
+use edr_solidity_tests::{inline_config::InlineConfigProblem, SolidityTestRunnerConfigError};
 
 use crate::helpers::TEST_DATA_DEFAULT;
 
@@ -60,17 +60,33 @@ async fn malformed_inline_config_aborts_whole_run() {
 
     let fuzz = items
         .iter()
-        .find(|item| item.function.as_deref() == Some("testFuzzBad"))
+        .find(|item| {
+            matches!(
+                &item.problem,
+                InlineConfigProblem::Directive { function, .. } if function == "testFuzzBad"
+            )
+        })
         .expect("testFuzzBad reported");
     assert_eq!(fuzz.source, source);
-    assert_eq!(fuzz.contract.as_deref(), Some("BadInlineConfig"));
-    assert_eq!(fuzz.line, Some(5));
+    let InlineConfigProblem::Directive { contract, line, .. } = &fuzz.problem else {
+        unreachable!("filtered to a testFuzzBad directive above");
+    };
+    assert_eq!(contract, "BadInlineConfig");
+    assert_eq!(*line, 5);
 
     let other = items
         .iter()
-        .find(|item| item.function.as_deref() == Some("testOtherBad"))
+        .find(|item| {
+            matches!(
+                &item.problem,
+                InlineConfigProblem::Directive { function, .. } if function == "testOtherBad"
+            )
+        })
         .expect("testOtherBad reported");
-    assert_eq!(other.line, Some(8));
+    let InlineConfigProblem::Directive { line, .. } = &other.problem else {
+        unreachable!("filtered to a testOtherBad directive above");
+    };
+    assert_eq!(*line, 8);
 
     // The rendered report names the source and both functions.
     let rendered = errors.to_string();
