@@ -296,7 +296,10 @@ contract BadTest {
         // A source-level problem has no directive to point at.
         assert_eq!(items[0].source, PathBuf::from(SOURCE_NAME));
         let InlineConfigProblem::Source(error) = &items[0].problem else {
-            panic!("expected a source-level problem, got {:#?}", items[0].problem);
+            panic!(
+                "expected a source-level problem, got {:#?}",
+                items[0].problem
+            );
         };
         assert!(matches!(
             error,

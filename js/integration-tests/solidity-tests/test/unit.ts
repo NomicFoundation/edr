@@ -8,6 +8,7 @@ import {
 import {
   CheatcodeErrorCode,
   CollectStackTraces,
+  InlineConfigDirectiveError,
   InlineConfigError,
   L1_CHAIN_TYPE,
   OP_CHAIN_TYPE,
@@ -50,11 +51,18 @@ describe("Unit tests", () => {
           );
         }
 
-        // One entry per malformed function, each located.
+        // One entry per malformed function, each a directive-level problem
+        // located at its offending directive.
         assert.equal(errors.length, 2);
         const byFunction = new Map(
-          errors.map((entry) => [entry.function, entry])
+          errors
+            .filter(
+              (entry): entry is InlineConfigDirectiveError =>
+                entry.kind === "directive"
+            )
+            .map((entry) => [entry.function, entry])
         );
+        assert.equal(byFunction.size, 2);
 
         const invalidRuns = byFunction.get("testFuzz_InvalidRuns");
         if (invalidRuns === undefined) {
