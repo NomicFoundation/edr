@@ -1027,10 +1027,11 @@ mod tests {
     }
 
     /// `BuildModel` for `Scenarios.t.sol`, built via the same AST walk
-    /// production uses. The compiled fixture is frozen (solx 0.1.4, not
-    /// regenerable — see `solx_fixtures.rs`), so the spliced-in live
-    /// source must keep the fixture's byte offsets valid; see
-    /// [`scenarios_source_is_append_only`].
+    /// production uses. The compiled fixture is frozen — compiled once
+    /// with solx 0.1.4; the committed compiler input's forge-std sources
+    /// are scrubbed, so it cannot be recompiled from the repo — and the
+    /// spliced-in live source must keep the fixture's byte offsets valid;
+    /// see [`scenarios_source_is_append_only`].
     fn make_build_model_for_scenarios() -> SolxBuildModel {
         let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
             "../../fixtures/solx_compiler_input_scenarios.json"
@@ -1069,7 +1070,8 @@ mod tests {
             FROZEN_PREFIX_KECCAK256,
             "Scenarios.t.sol's frozen prefix changed. This file is append-only: \
              the committed scenarios fixture was compiled from exactly this \
-             prefix and is not regenerable (see solx_fixtures.rs)."
+             prefix and cannot be regenerated from the repo (the compiler \
+             input's forge-std sources are scrubbed)."
         );
     }
 
