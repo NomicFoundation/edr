@@ -827,6 +827,11 @@ impl ParsedDwarf {
 
 /// Resolve an [`InlinedRange`]'s `call_*` attributes to a `SourceLocation`,
 /// or `None` if any required field is missing.
+///
+/// A `call_line` of 0 means the call site is compiler-generated code (solx
+/// emits this since 0.1.6 for user functions inlined into the `__entry`
+/// dispatch); anchor at the inlined function's own declaration instead so
+/// the frame survives — the same line solc renders for that frame.
 fn range_call_site_to_location(
     r: &InlinedRange,
     dwarf_file_names: &[String],
@@ -834,17 +839,20 @@ fn range_call_site_to_location(
     build_model: &SolxBuildModel,
     line_starts_cache: &mut HashMap<u32, Vec<usize>>,
 ) -> Option<SourceLocation> {
-    let (file_idx, line) = (r.call_file?, r.call_line?);
-    let Some(line) = NonZeroU64::new(line) else {
-        log::warn!(
-            "DWARF inlined range call_line=0 (no line) for call_file={file_idx}, \
-                 skipping bottom-frame resolution for this range"
-        );
-        return None;
+    let call_site = r.call_file.zip(r.call_line.and_then(NonZeroU64::new));
+    let (file_idx, line, column, from_decl) = if let Some((file_idx, line)) = call_site {
+        (file_idx, line, r.call_column.unwrap_or(0), false)
+    } else {
+        let Some((file_idx, line)) = r.decl_file.zip(r.decl_line.and_then(NonZeroU64::new)) else {
+            log::debug!(
+                "DWARF inlined range has neither a nonzero call_line nor a \
+                 nonzero decl_line, skipping frame resolution for this range"
+            );
+            return None;
+        };
+        (file_idx, line, 0, true)
     };
-
-    let column = r.call_column.unwrap_or(0);
-    let (file_id, offset) = resolve_location(
+    let (file_id, mut offset) = resolve_location(
         file_idx,
         line,
         column,
@@ -854,14 +862,25 @@ fn range_call_site_to_location(
         line_starts_cache,
     )?;
 
-    let length = build_model
-        .smallest_enclosing_span(file_id, offset as u32)
-        .map_or(0, |(_, len)| len);
-
     let Some(source_file) = build_model.source_model_by_file_id(file_id) else {
         log::debug!("DWARF decoder: no source file for file_id {file_id}");
         return None;
     };
+
+    if from_decl {
+        // No decl_column in the DWARF, so the offset sits at the line
+        // start; skip the indentation so the location lands on the
+        // declaration's first token, inside the function's AST span.
+        let file = source_file.read();
+        let bytes = file.content.as_bytes();
+        while matches!(bytes.get(offset), Some(b' ' | b'\t')) {
+            offset += 1;
+        }
+    }
+
+    let length = build_model
+        .smallest_enclosing_span(file_id, offset as u32)
+        .map_or(0, |(_, len)| len);
 
     Some(SourceLocation::new(source_file, offset as u32, length))
 }
@@ -1024,6 +1043,29 @@ mod tests {
     fn load_scenarios_output() -> CompilerOutput<SolxBytecode> {
         let s = include_str!("../../fixtures/solx_compiler_output_scenarios.json");
         serde_json::from_str(s).unwrap()
+    }
+
+    fn load_stack_trace_scenarios_output() -> CompilerOutput<SolxBytecode> {
+        let s = include_str!("../../fixtures/solx_compiler_output_stack_trace_scenarios.json");
+        serde_json::from_str(s).unwrap()
+    }
+
+    /// `BuildModel` for `StackTraceScenarios.sol` — the fixture regenerated
+    /// with current solx, unlike `Scenarios.t.sol` (frozen on 0.1.4).
+    fn make_build_model_for_stack_trace_scenarios() -> SolxBuildModel {
+        let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
+            "../../fixtures/solx_compiler_input_stack_trace_scenarios.json"
+        ))
+        .expect("solx_compiler_input_stack_trace_scenarios.json must parse");
+        input
+            .sources
+            .get_mut("project/contracts/StackTraceScenarios.sol")
+            .unwrap()
+            .content = include_str!("../../fixtures/sources/StackTraceScenarios.sol").to_string();
+
+        let output = load_stack_trace_scenarios_output();
+        SolxBuildModel::new(input, &output)
+            .expect("AST processor must accept the stack-trace-scenarios fixture")
     }
 
     /// `BuildModel` for `Scenarios.t.sol`, built via the same AST walk
@@ -1487,6 +1529,41 @@ mod tests {
                 .filter_map(|cs| cs.get_starting_line_number().ok())
                 .collect();
             assert!(lines.contains(&144), "got {lines:?}");
+        }
+
+        /// Since 0.1.6 solx emits `DW_AT_call_line 0` for inlined
+        /// subroutines called from compiler-generated dispatch code (the
+        /// user function inlined into `__entry`). The call-site resolution
+        /// must fall back to the function's own declaration (line 86) so
+        /// the callstack frame survives — that's the frame solc renders at
+        /// the same declaration line.
+        #[test]
+        fn line_zero_call_site_falls_back_to_the_function_declaration() {
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let bc = &output
+                .contracts
+                .get("project/contracts/StackTraceScenarios.sol")
+                .unwrap()
+                .get("ValidatedCounter")
+                .unwrap()
+                .evm
+                .deployed_bytecode;
+            let raw = hex::decode(&bc.object).unwrap();
+            let insts = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
+            let inst = first_inst_at_line(&insts, 80)
+                .expect("expected the modifier's `unlucky` require at line 80");
+            let lines: Vec<u32> = inst
+                .inline_call_sites
+                .iter()
+                .filter_map(|cs| cs.get_starting_line_number().ok())
+                .collect();
+            assert!(
+                lines.contains(&86),
+                "expected an inline call site at line 86 (bumpIfValid's \
+                 declaration, from the decl-line fallback for its line-0 \
+                 dispatch call site), got {lines:?}"
+            );
         }
 
         /// Constructor → internal `_check` revert (CREATE). `inline_call_sites`
