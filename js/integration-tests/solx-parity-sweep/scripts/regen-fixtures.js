@@ -29,9 +29,11 @@ const fixturesDir = resolve(repoRoot, "crates/edr_solidity/fixtures");
 const buildInfoDir = resolve(sweepRoot, "artifacts", "build-info");
 const scenariosSource = "project/contracts/Scenarios.t.sol";
 
-// Refresh the pretest copy of the corpus (see maybe-build.js) so the compile
-// picks up the current fixture source even when no test run preceded it.
+// Rebuild the corpus copy (see maybe-build.js) from scratch: `contracts/` is
+// gitignored and is hardhat's sources dir, so a stray leftover .sol would be
+// silently compiled into the committed fixtures.
 const contractsDir = resolve(sweepRoot, "contracts");
+rmSync(contractsDir, { recursive: true, force: true });
 mkdirSync(contractsDir, { recursive: true });
 copyFileSync(
   resolve(fixturesDir, "sources", "Scenarios.t.sol"),
@@ -46,7 +48,7 @@ execSync("pnpm hardhat compile --build-profile solx", {
 });
 
 const ids = readdirSync(buildInfoDir).filter(
-  (name) => !name.endsWith(".output.json")
+  (name) => name.endsWith(".json") && !name.endsWith(".output.json")
 );
 if (ids.length !== 1) {
   throw new Error(`expected exactly one build info, found: ${ids}`);
@@ -70,14 +72,16 @@ for (const source of Object.values(input.sources)) {
 }
 
 // Keep only the section the Rust tests read; the forge-std artifacts are
-// ~40 MB they never touch.
+// ~40 MB they never touch. A missing section would otherwise be silently
+// dropped by JSON.stringify and committed as `{}`.
+const contracts = buildInfoOutput.output.contracts[scenariosSource];
+const sources = buildInfoOutput.output.sources[scenariosSource];
+if (contracts === undefined || sources === undefined) {
+  throw new Error(`compile output has no section for ${scenariosSource}`);
+}
 const output = {
-  contracts: {
-    [scenariosSource]: buildInfoOutput.output.contracts[scenariosSource],
-  },
-  sources: {
-    [scenariosSource]: buildInfoOutput.output.sources[scenariosSource],
-  },
+  contracts: { [scenariosSource]: contracts },
+  sources: { [scenariosSource]: sources },
 };
 
 for (const [name, data] of [
@@ -91,6 +95,12 @@ for (const [name, data] of [
   console.log(`[regen-fixtures] wrote ${resolve(fixturesDir, name)}`);
 }
 
+const changed = execSync(
+  "git status --porcelain -- crates/edr_solidity/fixtures/solx_compiler_input_scenarios.json crates/edr_solidity/fixtures/solx_compiler_output_scenarios.json",
+  { cwd: repoRoot, encoding: "utf8" }
+).trim();
 console.log(
-  "[regen-fixtures] if the fixtures changed, re-pin the Rust tests that assert on them — `cargo test -p edr_solidity` prints the new guard hash (see the README)."
+  changed === ""
+    ? "[regen-fixtures] committed fixtures already match — nothing to re-pin."
+    : "[regen-fixtures] fixtures changed — re-pin the Rust tests that assert on them; `cargo test -p edr_solidity` prints the new guard hash (see the README)."
 );
