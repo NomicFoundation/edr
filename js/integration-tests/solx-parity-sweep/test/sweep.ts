@@ -190,6 +190,26 @@ describe("solx-vs-solc trace parity", { skip: !hardhatSolxAvailable }, () => {
         ],
       },
     ],
+    // A modifier's bare `revert()` compiles to a shared helper that is
+    // unmapped in the DWARF and returns no data, so every revert heuristic
+    // misses: the target contract's frames vanish and the trace collapses
+    // to the test's own call site with the raw EvmError. solc reports the
+    // `revert()` statement inside the modifier (line 442) with the full
+    // 3-frame stack.
+    [
+      "BareModifierRevertTest#testBareModifierRevert",
+      {
+        contract: "BareModifierRevertTest",
+        test: "testBareModifierRevert",
+        reason: "EvmError: Revert",
+        frames: [
+          {
+            location: "BareModifierRevertTest.testBareModifierRevert",
+            file: "contracts/Scenarios.t.sol:454",
+          },
+        ],
+      },
+    ],
   ]);
 
   it("compiles both profiles and produces failing-test trace blocks", () => {

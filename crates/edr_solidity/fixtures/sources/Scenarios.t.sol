@@ -428,3 +428,47 @@ contract NestedModifierRevertTest is Test {
     t.bumpIfValid(13);
   }
 }
+
+// ===== modifier with a bare revert() =====
+//
+// The bare `revert()` builds no message and compiles to a shared helper
+// that solx leaves unmapped in the DWARF, so every location-anchored
+// revert heuristic misses. solc reports the `revert()` statement itself.
+contract BareRevertGuardTarget {
+  bool public armed = true;
+
+  modifier guarded() {
+    if (armed) {
+      revert();
+    }
+    _;
+  }
+
+  function fire() external guarded {}
+}
+
+contract BareModifierRevertTest is Test {
+  BareRevertGuardTarget t;
+  function setUp() public { t = new BareRevertGuardTarget(); }
+  function testBareModifierRevert() public {
+    t.fire();
+  }
+}
+
+// ===== externally linked library (DELEGATECALL via linkReferences) =====
+//
+// `fail` is `public`, so calls go through DELEGATECALL into a separately
+// deployed library and the frame must resolve inside the library's own
+// debug info — unlike `RevertingLib`, whose `internal` function is
+// inlined into the caller.
+library ExternalRevertingLib {
+  function fail() public pure {
+    require(false, "external lib boom");
+  }
+}
+
+contract ExternalLibraryRevertTest is Test {
+  function testExternalLibraryRevert() public {
+    ExternalRevertingLib.fail();
+  }
+}
