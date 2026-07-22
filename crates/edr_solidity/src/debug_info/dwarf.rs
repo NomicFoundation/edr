@@ -1070,9 +1070,11 @@ mod tests {
             .expect("the scenarios SourceUnit must carry a `src` span");
         // `src` is `start:length:file`; the span's end is the length of the
         // source as it was when the fixture was generated.
-        let mut span_fields = span
-            .split(':')
-            .map(|field| field.parse::<usize>().expect("`src` span fields are numeric"));
+        let mut span_fields = span.split(':').map(|field| {
+            field
+                .parse::<usize>()
+                .expect("`src` span fields are numeric")
+        });
         let generation_prefix_len = span_fields.next().expect("`src` span has a start")
             + span_fields.next().expect("`src` span has a length");
 
