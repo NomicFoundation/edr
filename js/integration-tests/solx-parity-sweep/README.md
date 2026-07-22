@@ -55,3 +55,23 @@ pnpm test
 ```
 
 The `pretest` step builds the workspace's `@nomicfoundation/edr` napi binary so the sweep runs against current EDR sources. With no `hardhat-solx` linked the suite self-skips quickly.
+
+## Adding scenarios
+
+Scenarios live in `crates/edr_solidity/fixtures/sources/Scenarios.t.sol` (copied into `contracts/` at pretest). To add one:
+
+1. **Append** a target contract plus a failing forge test at the **end of the file** — never edit the existing content. The file is spliced at test time into a frozen compiled fixture whose AST and DWARF reference byte offsets into the source as it was when the fixture was generated; any edit inside that prefix desyncs the Rust tests built on it. The rule is enforced by `scenarios_source_is_append_only` in `crates/edr_solidity/src/debug_info/dwarf.rs`.
+2. Run `pnpm test`. Scenario keys are discovered dynamically from the failing-test output, so the new scenario joins the strict parity check with no further wiring.
+3. If solx matches solc: done. If it diverges: pin the solx output in `scenariosDivergingFromSolc` with a comment saying why it diverges and which direction a future golden break means (improvement → remove or shrink the entry; regression → investigate).
+
+New scenarios exist only in the sweep until someone regenerates the compiled fixture — the Rust tests that share this file cannot see them, so provider-path coverage for the same shape needs a separate scenario in the regenerable `StackTraceScenarios.sol` fixture.
+
+## Scenarios fixture provenance
+
+The compiled fixture the Rust tests pair with this source (`crates/edr_solidity/fixtures/solx_compiler_output_scenarios.json`) was generated once with solx 0.1.4 (per the CBOR `solcx` stamp in its bytecode) from this file plus forge-std 1.14.0. The committed compiler input scrubs the forge-std contents, so the repo alone cannot recompile it — but it is fully reproducible from pinned public inputs:
+
+```sh
+scripts/reproduce-scenarios-fixture.sh
+```
+
+The script restores forge-std from its GitHub tag (the npm registry's `forge-std` package is stale), compiles with the solx 0.1.4 release binary, and verifies every contract's bytecode round-trips byte-identically. The `debugInfo` payloads differ only because solx embeds the build directory in the DWARF ([solx#594](https://github.com/NomicFoundation/solx/issues/594)); once that is fixed, the fixture becomes byte-stable to regenerate and the append-only constraint above can be retired.
