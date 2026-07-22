@@ -71,7 +71,7 @@ New scenarios exist only in the sweep until someone regenerates the compiled fix
 
 The Rust tests in `edr_solidity` pair this project's scenario source with a committed compile of it: `crates/edr_solidity/fixtures/solx_compiler_{input,output}_scenarios.json`. For the pair to be up to date, the following must hold:
 
-- The **output** is the verbatim compiler output of a solx-profile compile of this project — the tests read bytecode, DWARF `debugInfo` and ASTs from it. What that compile produces depends on the toolchain of the day: hardhat-solx's compilation settings (e.g. its explicit `-O1` optimizer default) and the solx release its version map selects (`SOLIDITY_TO_SOLX_VERSION_MAP`; `0.8.34` → `0.1.4` today, with a bump to `0.1.6` planned).
+- The **output** is the compiler output of a solx-profile compile of this project, filtered down to `Scenarios.t.sol`'s own section — the only one the tests read (bytecode, DWARF `debugInfo` and ASTs); the forge-std artifacts are ~40 MB the tests never touch. What that compile produces depends on the toolchain of the day: hardhat-solx's compilation settings (e.g. its explicit `-O1` optimizer default) and the solx release its version map selects (`SOLIDITY_TO_SOLX_VERSION_MAP`; `0.8.34` → `0.1.4` today, with a bump to `0.1.6` planned).
 - The **input** names every source of that same compile and carries its settings. The `content` fields stay blank: `Scenarios.t.sol`'s text is spliced in at test time from `fixtures/sources/` (the same file this project compiles), and the forge-std text is never needed by the tests.
 - The Rust tests that assert on fixture shapes are **re-pinned in the same change** as any regeneration; `scenarios_source_is_append_only` pins the generation-time source state and its failure message says what to update. Between regenerations the source file is append-only (see above).
 
@@ -81,7 +81,7 @@ Both files are produced from the build-info pair the compile already writes:
 pnpm test  # or: npx hardhat compile --build-profile solx
 BI=artifacts/build-info; ID=$(ls $BI | grep solx | grep -v output)
 jq '.input | .sources[].content = ""' "$BI/$ID" > ../../../crates/edr_solidity/fixtures/solx_compiler_input_scenarios.json
-jq '.output' "$BI/${ID%.json}.output.json" > ../../../crates/edr_solidity/fixtures/solx_compiler_output_scenarios.json
+jq --arg s "project/contracts/Scenarios.t.sol" '.output | { contracts: { ($s): .contracts[$s] }, sources: { ($s): .sources[$s] } }' "$BI/${ID%.json}.output.json" > ../../../crates/edr_solidity/fixtures/solx_compiler_output_scenarios.json
 ```
 
 The committed fixtures are byte-for-byte the output of these commands. Note for regenerators: solx embeds the build directory in the DWARF ([solx#594](https://github.com/NomicFoundation/solx/issues/594)), so `debugInfo` bytes differ across checkouts even on identical toolchains.
