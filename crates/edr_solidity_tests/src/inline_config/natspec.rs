@@ -6,6 +6,23 @@
 //! first byte that is neither whitespace nor part of a comment, so it reads
 //! only the leading comments immediately above the function and never the rest
 //! of the contract.
+//!
+//! # Which comments count
+//!
+//! *All* NatSpec blocks (`///` runs and `/** */` comments) in the function's
+//! leading comment region are collected, in source order. Plain `//` and
+//! `/* */` comments and blank lines in that region are transparent: they
+//! neither terminate the scan nor split off the NatSpec blocks around them.
+//!
+//! This matches the parser Foundry uses (Solar), whose lexer discards plain
+//! comments and whitespace as trivia and attaches every preceding doc comment
+//! to the item. It is deliberately *more* permissive than the solc AST's
+//! `documentation` field: solc treats a plain comment or a blank line between
+//! two NatSpec blocks as a break and keeps only the last block before the
+//! declaration. Directives in an earlier block are therefore honored here and
+//! by Foundry, but are invisible in solc build info. In the common cases —
+//! one NatSpec block, possibly with plain comments between it and the
+//! function — all three agree.
 
 /// A NatSpec comment block found in a function's leading region.
 ///
@@ -156,6 +173,35 @@ mod tests {
         assert_eq!(
             scan(src),
             vec!["/// forge-config: default.fuzz.runs = 10".to_owned()]
+        );
+    }
+
+    #[test]
+    fn collects_both_blocks_split_by_plain_comment() {
+        // A plain comment between two NatSpec blocks splits them, but both are
+        // still collected (Solar semantics). The solc AST would keep only the
+        // last block — see the module docs.
+        let src = "contract C {\n    /// forge-config: default.fuzz.runs = 5\n    // regular\n    /// forge-config: default.fuzz.max-test-rejects = 7\n    function f() {}\n}";
+        assert_eq!(
+            scan(src),
+            vec![
+                "/// forge-config: default.fuzz.runs = 5".to_owned(),
+                "/// forge-config: default.fuzz.max-test-rejects = 7".to_owned(),
+            ]
+        );
+    }
+
+    #[test]
+    fn collects_both_blocks_split_by_blank_line() {
+        // A blank line also splits NatSpec blocks in solc (only the last would
+        // survive in build info); both are collected here, matching Solar.
+        let src = "contract C {\n    /// forge-config: default.fuzz.runs = 5\n\n    /// forge-config: default.fuzz.max-test-rejects = 7\n    function f() {}\n}";
+        assert_eq!(
+            scan(src),
+            vec![
+                "/// forge-config: default.fuzz.runs = 5".to_owned(),
+                "/// forge-config: default.fuzz.max-test-rejects = 7".to_owned(),
+            ]
         );
     }
 
