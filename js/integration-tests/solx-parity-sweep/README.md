@@ -69,16 +69,17 @@ New scenarios exist only in the sweep until someone regenerates the compiled fix
 
 ## Scenarios fixture provenance
 
-The Rust tests in `edr_solidity` pair this project's scenario source with a committed compile of it: `crates/edr_solidity/fixtures/solx_compiler_{input,output}_scenarios.json`. For the pair to be up to date, the following must hold:
-
-- The **output** is the compiler output of a solx-profile compile of this project, filtered down to `Scenarios.t.sol`'s own section — the only one the tests read (bytecode, DWARF `debugInfo` and ASTs); the forge-std artifacts are ~40 MB the tests never touch. What that compile produces depends on the toolchain of the day: hardhat-solx's compilation settings (e.g. its explicit `-O1` optimizer default) and the solx release its version map selects (`SOLIDITY_TO_SOLX_VERSION_MAP`; `0.8.34` → `0.1.4` today, with a bump to `0.1.6` planned).
-- The **input** names every source of that same compile and carries its settings. The `content` fields stay blank: `Scenarios.t.sol`'s text is spliced in at test time from `fixtures/sources/` (the same file this project compiles), and the forge-std text is never needed by the tests.
-- The Rust tests that assert on fixture shapes are **re-pinned in the same change** as any regeneration; `scenarios_source_is_append_only` pins the generation-time source state and its failure message says what to update. Between regenerations the source file is append-only (see above).
-
-Both files are produced from the build-info pair of a fresh solx-profile compile:
+The Rust tests in `edr_solidity` pair this project's scenario source with a committed compile of it: `crates/edr_solidity/fixtures/solx_compiler_{input,output}_scenarios.json`. To regenerate the pair:
 
 ```sh
 pnpm regen-fixtures
 ```
 
-The script (`scripts/regen-fixtures.js`) wipes `artifacts/build-info`, compiles the solx profile, and writes the extracted pair; the committed fixtures are byte-for-byte its output. Note for regenerators: solx embeds the build directory in the DWARF ([solx#594](https://github.com/NomicFoundation/solx/issues/594)), so `debugInfo` bytes differ across checkouts even on identical toolchains.
+The script (`scripts/regen-fixtures.js`) wipes `artifacts/build-info`, compiles the solx profile, and writes the extracted pair; the committed fixtures are byte-for-byte its output. If it reports changes, re-pin the Rust tests that assert on the fixture **in the same commit** — `cargo test -p edr_solidity` prints the new guard hash, and the PC-anchored tests may need new offsets.
+
+Details, for when a regeneration surprises you:
+
+- What the compile produces depends on the toolchain of the day: hardhat-solx's compilation settings (e.g. its explicit `-O1` optimizer default) and the solx release its version map selects (`SOLIDITY_TO_SOLX_VERSION_MAP`; `0.8.34` → `0.1.4` today, with a bump to `0.1.6` planned). If the fixtures change when you didn't touch the corpus, one of those moved.
+- The **output** is filtered down to `Scenarios.t.sol`'s own section — the only one the tests read (bytecode, DWARF `debugInfo` and ASTs); the compiled forge-std artifacts are ~40 MB the tests never touch.
+- The **input** names every source of the compile and carries its settings, with `content` blank: `Scenarios.t.sol`'s text is spliced in at test time from `fixtures/sources/` (the same file this project compiles), and the forge-std text is never needed by the tests.
+- solx embeds the build directory in the DWARF ([solx#594](https://github.com/NomicFoundation/solx/issues/594)), so `debugInfo` bytes differ across checkouts even on identical toolchains.
