@@ -1225,8 +1225,7 @@ mod tests {
 
         /// Cross-contract leak guard: the test's INVALID opcode used to pick
         /// up a line-program row pointing at a different contract's setUp;
-        /// the contract-match check must reject that and fall back to the
-        /// abstract origin's `decl_line`.
+        /// the contract-match check must reject that.
         #[test]
         fn invalid_opcode_does_not_leak_unrelated_contract_setup_line() {
             let output = load_scenarios_output();
@@ -1247,16 +1246,18 @@ mod tests {
                  must reject it."
             );
             assert_eq!(
-                line, 182,
-                "expected fall-back to `testInvalidOpcode`'s decl_line (182), got {line}."
+                line, 183,
+                "expected `invalid()`'s statement line (183), got {line}. A regression \
+                 to 182 means solx stopped emitting `.debug_line` rows for assembly \
+                 opcodes and the decl-line fall-back is back."
             );
         }
 
-        /// Assembly reverts: solx emits no `.debug_line` rows for assembly
-        /// opcodes, so we fall back to the function decl line. Update
-        /// if solx changes.
+        /// Assembly reverts: solx 0.1.6 emits `.debug_line` rows for assembly
+        /// opcodes ([solx#583](https://github.com/NomicFoundation/solx/pull/583)),
+        /// so the assembly `revert` maps to its statement line, matching solc.
         #[test]
-        fn inline_assembly_revert_falls_back_to_function_decl_line() {
+        fn inline_assembly_revert_maps_to_statement_line() {
             let output = load_scenarios_output();
             let model = make_build_model_for_scenarios();
             let instructions = decode_deployed_for(&output, "InlineAssemblyRevertTest", &model);
@@ -1271,10 +1272,10 @@ mod tests {
                 .and_then(|loc| loc.get_starting_line_number().ok())
                 .expect("PC 0x3be must have a resolved location");
             assert_eq!(
-                line, 129,
-                "expected fall-back to testInlineAssemblyRevert's decl line (129), got {line}. \
-                 Solc would emit line 135 (the literal `revert(...)` statement); update this \
-                 assertion when solx emits `.debug_line` rows for assembly opcodes."
+                line, 135,
+                "expected the `revert(...)` statement line (135), got {line}. A regression \
+                 to 129 means solx stopped emitting `.debug_line` rows for assembly opcodes \
+                 and the function-decl-line fall-back is back."
             );
         }
 
