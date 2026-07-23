@@ -1232,13 +1232,13 @@ async fn cross_contract_modifier_revert_keeps_called_function_frame() -> anyhow:
 }
 
 /// A modifier's bare `revert()` builds no message and its shared helper is
-/// unmapped in the DWARF, so the selector-resolved fallback plus the
-/// walk-back attribute the revert to the guard condition (line 67) inside
-/// the modifier — the closest mapped statement. The solc route reports the
-/// `revert()` statement itself (line 68); closing that last line is solx
-/// line-table fidelity, not inferrable EDR-side.
+/// unmapped in the DWARF; the selector-resolved fallback plus the walk-back
+/// attribute the revert to the `revert()` statement (line 68) inside the
+/// modifier, matching solc. A regression to 67 means the line table stopped
+/// at the guard condition again — the mode-3 shape (shape 4 of the solx
+/// line-attribution issue).
 #[tokio::test(flavor = "multi_thread")]
-async fn bare_modifier_revert_attributes_to_the_guard() -> anyhow::Result<()> {
+async fn bare_modifier_revert_attributes_to_the_revert_statement() -> anyhow::Result<()> {
     let (provider, from, output) = stack_trace_scenarios_provider()?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "GuardedBareRevert")?;
     let stack_trace = expect_failed_call_stack_trace(
@@ -1255,8 +1255,8 @@ async fn bare_modifier_revert_attributes_to_the_guard() -> anyhow::Result<()> {
     let source_reference = source_reference_of(entry).expect("entry carries a source reference");
     assert_eq!(
         (source_reference.line, source_reference.function.as_deref()),
-        (67, Some("guarded")),
-        "expected the guard line inside the modifier, got:\n{}",
+        (68, Some("guarded")),
+        "expected the `revert()` statement line inside the modifier, got:\n{}",
         brief_trace(&stack_trace)
     );
     Ok(())
