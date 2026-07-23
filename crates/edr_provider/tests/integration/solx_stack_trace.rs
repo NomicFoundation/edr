@@ -62,16 +62,18 @@ use tokio::runtime;
 
 const SCENARIOS_SOURCE: &str = "project/contracts/Scenarios.t.sol";
 const STACK_TRACE_SCENARIOS_SOURCE: &str = "project/contracts/StackTraceScenarios.sol";
+const STACK_TRACE_SCENARIOS_BASE_SOURCE: &str = "project/contracts/StackTraceScenariosBase.sol";
 
 /// The `include_str!` literals stay at the call sites — the macro needs a
 /// literal path.
 fn assemble_build_info(
     mut input: CompilerInput,
-    source_key: &str,
-    source_content: &str,
+    sources: &[(&str, &str)],
     output: CompilerOutput<SolxBytecode>,
 ) -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
-    input.sources.get_mut(source_key).unwrap().content = source_content.to_owned();
+    for (source_key, source_content) in sources {
+        input.sources.get_mut(*source_key).unwrap().content = (*source_content).to_owned();
+    }
 
     let identified_contracts =
         extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
@@ -90,8 +92,10 @@ fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<
         serde_json::from_str(include_str!(
             "../../../edr_solidity/fixtures/solx_compiler_input.json"
         ))?,
-        "Counter.sol",
-        include_str!("../../../edr_solidity/fixtures/sources/Counter.sol"),
+        &[(
+            "Counter.sol",
+            include_str!("../../../edr_solidity/fixtures/sources/Counter.sol"),
+        )],
         serde_json::from_str(include_str!(
             "../../../edr_solidity/fixtures/solx_compiler_output.json"
         ))?,
@@ -103,8 +107,10 @@ fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutpu
         serde_json::from_str(include_str!(
             "../../../edr_solidity/fixtures/solx_compiler_input_scenarios.json"
         ))?,
-        SCENARIOS_SOURCE,
-        include_str!("../../../edr_solidity/fixtures/sources/Scenarios.t.sol"),
+        &[(
+            SCENARIOS_SOURCE,
+            include_str!("../../../edr_solidity/fixtures/sources/Scenarios.t.sol"),
+        )],
         serde_json::from_str(include_str!(
             "../../../edr_solidity/fixtures/solx_compiler_output_scenarios.json"
         ))?,
@@ -117,8 +123,16 @@ fn solx_stack_trace_scenarios_build_info(
 ) -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
     assemble_build_info(
         serde_json::from_str(input_json)?,
-        STACK_TRACE_SCENARIOS_SOURCE,
-        include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenarios.sol"),
+        &[
+            (
+                STACK_TRACE_SCENARIOS_SOURCE,
+                include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenarios.sol"),
+            ),
+            (
+                STACK_TRACE_SCENARIOS_BASE_SOURCE,
+                include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenariosBase.sol"),
+            ),
+        ],
         serde_json::from_str(output_json)?,
     )
 }
