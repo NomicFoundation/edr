@@ -69,8 +69,12 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// used to read and parse the source for inline configuration
     /// (`forge-config:`/`hardhat-config:` NatSpec directives) and for the
     /// EIP-712 struct definitions served to the `eip712HashType` and
-    /// `eip712HashStruct` cheatcodes. A source without an entry has neither
-    /// collected.
+    /// `eip712HashStruct` cheatcodes.
+    ///
+    /// An empty map disables collection. A non-empty map must cover every
+    /// test suite whose source can be parsed (solc >= 0.8): a missing entry,
+    /// an unreadable or unparseable source, or an unsupported solc version
+    /// for a listed source fails runner creation.
     pub test_source_paths: HashMap<PathBuf, PathBuf>,
     /// Resolves the imports of test sources while parsing them (see
     /// [`Self::test_source_paths`]).
