@@ -579,14 +579,22 @@ impl<
 
         let known_contracts = ContractsByArtifact::new(linked_contracts);
 
-        // The runner parses inline configuration from the test sources on
-        // disk; the testdata source names are real paths relative to the
-        // project root, so joining them onto the root yields the absolute path
-        // (production callers provide these paths explicitly instead). Imports
-        // to e.g. forge-std have no import mapping and simply stay unresolved,
-        // which still recovers the root file's functions.
+        // The runner parses inline configuration and EIP-712 struct
+        // definitions from the test sources on disk; the testdata source
+        // names are real paths relative to the project root, so joining them
+        // onto the root yields the absolute path (production callers provide
+        // these paths explicitly instead). Imports to e.g. forge-std have no
+        // import mapping and simply stay unresolved, which still recovers the
+        // root file's functions.
+        //
+        // Sources compiled with a solc version Slang has no grammar for
+        // (< 0.8) get no entry: a source in the map that fails to parse
+        // aborts the whole run at runner creation, and the testdata
+        // deliberately includes a few pre-0.8 sources (which use neither
+        // inline config nor EIP-712 cheatcodes).
         let test_source_paths: HashMap<PathBuf, PathBuf> = test_contracts
             .keys()
+            .filter(|id| id.version >= semver::Version::new(0, 8, 0))
             .map(|id| (id.source.clone(), root.join(&id.source)))
             .collect();
 

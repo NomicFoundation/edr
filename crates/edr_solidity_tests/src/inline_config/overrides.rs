@@ -14,12 +14,13 @@ use std::{
 use semver::Version;
 
 use edr_solidity_parser_slang::ImportResolver;
+use slang_solidity_v2::compilation::CompilationUnit;
 
 use super::{
     directives::{self, LocatedDirectiveError},
     error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
     natspec,
-    parse::{locate_functions, LocatedFunction},
+    parse::{locate_functions, locate_functions_in_unit, LocatedFunction},
 };
 use crate::config::TestFunctionConfigOverride;
 
@@ -36,17 +37,17 @@ pub struct FunctionOverride {
 /// that declares any, keyed by contract name. A contract with no directives is
 /// simply absent; a contract whose directives were all malformed is likewise
 /// absent (its problems live in [`SourceCollection::errors`]).
-pub(super) type SourceOverrides = HashMap<String, Vec<FunctionOverride>>;
+pub(crate) type SourceOverrides = HashMap<String, Vec<FunctionOverride>>;
 
 /// The outcome of collecting one source's inline configuration: the overrides
 /// that parsed successfully, plus every problem found (at most one per test
 /// function). Problems are accumulated rather than short-circuited so the run
 /// can report them all together and abort up front.
-pub(super) struct SourceCollection {
+pub(crate) struct SourceCollection {
     /// The successfully-parsed overrides, keyed by contract name.
-    pub(super) overrides: SourceOverrides,
+    pub(crate) overrides: SourceOverrides,
     /// The problems found, in source order, each with its location.
-    pub(super) errors: Vec<InlineConfigErrorItem>,
+    pub(crate) errors: Vec<InlineConfigErrorItem>,
 }
 
 /// Parses the file at `root_path` (its `content`, compiled with `version`) into
@@ -76,6 +77,30 @@ pub(super) fn collect_source(
             };
         }
     };
+    source_overrides(
+        source,
+        &SourceAst {
+            source: content,
+            functions,
+        },
+    )
+}
+
+/// Like [`collect_source`], but extracts from an already-built compilation
+/// unit instead of reading and parsing the source itself. `file_id` is the id
+/// the root file was added to the unit under (its on-disk path).
+///
+/// Used by the combined test-source collection
+/// ([`crate::test_sources::collect_test_sources`]), which parses each source
+/// once and extracts both its inline configuration and its EIP-712 struct
+/// definitions from the same unit.
+pub(crate) fn collect_source_from_unit(
+    source: &Path,
+    content: Arc<str>,
+    unit: &CompilationUnit,
+    file_id: &str,
+) -> SourceCollection {
+    let functions = locate_functions_in_unit(unit, file_id);
     source_overrides(
         source,
         &SourceAst {

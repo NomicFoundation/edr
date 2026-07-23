@@ -19,6 +19,12 @@
 //!   - overrides  compose the above into a source's per-contract overrides
 //!   - provider   cache the overrides and serve them
 //! ```
+//!
+//! The test runner drives extraction through
+//! `crate::test_sources::collect_test_sources`, which parses each test
+//! source once and extracts both its inline configuration (entering the
+//! pipeline at `overrides`) and its EIP-712 struct definitions from the same
+//! compilation unit.
 
 mod directives;
 mod error;
@@ -30,6 +36,7 @@ mod provider;
 use alloy_json_abi::JsonAbi;
 pub use edr_solidity_parser_slang::ImportResolver;
 
+pub(crate) use self::overrides::{collect_source_from_unit, SourceOverrides};
 pub use self::{
     error::{
         InlineConfigCollectError, InlineConfigError, InlineConfigErrorItem, InlineConfigErrors,

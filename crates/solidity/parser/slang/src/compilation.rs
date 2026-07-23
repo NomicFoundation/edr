@@ -25,6 +25,10 @@ pub struct UnsupportedSolcVersionError {
 // TODO: `derive(Clone)` once `FromSemverError` implements `Clone`.
 impl Clone for UnsupportedSolcVersionError {
     fn clone(&self) -> Self {
+        // Not a needless match: `FromSemverError` is neither `Clone` nor
+        // `Copy`, so the identity match is the only way to duplicate it out
+        // of the borrow.
+        #[allow(clippy::needless_match)]
         let source = match self.source {
             FromSemverError::UnexpectedMetadata => FromSemverError::UnexpectedMetadata,
             FromSemverError::UnsupportedVersion => FromSemverError::UnsupportedVersion,

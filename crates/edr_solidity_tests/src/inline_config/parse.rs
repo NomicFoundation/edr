@@ -15,7 +15,10 @@ use std::path::Path;
 
 use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver};
 use semver::Version;
-use slang_solidity_v2::ast::{ContractMember, SourceUnitMember};
+use slang_solidity_v2::{
+    ast::{ContractMember, SourceUnitMember},
+    compilation::CompilationUnit,
+};
 
 use super::error::InlineConfigCollectError;
 
@@ -50,8 +53,19 @@ pub fn locate_functions(
     let unit = build_compilation_unit(root_path, version, import_resolver)?;
     let file_id = root_path.to_string_lossy().into_owned();
 
-    let Some(file) = unit.file(&file_id) else {
-        return Ok(Vec::new());
+    Ok(locate_functions_in_unit(&unit, &file_id))
+}
+
+/// Walks the already-built `unit`'s file `file_id` (the id the root was added
+/// under) and returns every function definition together with the offset
+/// required to recover its leading NatSpec. A file id missing from the unit
+/// (e.g. the root file could not be read) yields no functions.
+pub(crate) fn locate_functions_in_unit(
+    unit: &CompilationUnit,
+    file_id: &str,
+) -> Vec<LocatedFunction> {
+    let Some(file) = unit.file(file_id) else {
+        return Vec::new();
     };
 
     let mut functions = Vec::new();
@@ -76,7 +90,7 @@ pub fn locate_functions(
         }
     }
 
-    Ok(functions)
+    functions
 }
 
 #[cfg(test)]

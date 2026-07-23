@@ -17,7 +17,7 @@ use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
-use edr_solidity_collector_eip712::{collector::collect_eip712_types_for_file, ImportResolver};
+use edr_solidity_collector_eip712::collector::Eip712TypeCollection;
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
@@ -42,9 +42,10 @@ use crate::{
     contracts::get_contract_name,
     error::TestRunnerError,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
-    inline_config::{self, InlineConfigRoot, SharedInlineConfigProvider},
+    inline_config::{self, InlineConfigErrors},
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
+    test_sources::{collect_test_sources, CollectedTestSource, TestSourceRoot},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
     TestFunctionConfigOverride,
 };
@@ -114,11 +115,6 @@ pub struct MultiContractRunner<
     evm_opts: EvmOpts<HardforkT>,
     /// The configured evm
     env: EvmEnv<BlockT, TransactionT, HardforkT>,
-    /// Maps each test source's solc source name to its absolute path on disk,
-    /// used to parse the source for EIP-712 struct definitions.
-    test_source_paths: HashMap<PathBuf, PathBuf>,
-    /// The import resolver for EIP-712 type collection.
-    import_resolver: ImportResolver,
     /// The local predeploys
     local_predeploys: Vec<Predeploy>,
     /// Revert decoder. Contains all known errors and their selectors.
@@ -143,8 +139,9 @@ pub struct MultiContractRunner<
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running the tests.
     generate_gas_report: bool,
-    /// Collects and serves the inline configuration parsed from test sources.
-    inline_config_provider: SharedInlineConfigProvider,
+    /// Per suite, the data extracted from its test source at construction:
+    /// resolved inline-config overrides and EIP-712 struct definitions.
+    suite_source_data: BTreeMap<ArtifactId, SuiteSourceData>,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
@@ -212,20 +209,36 @@ impl<
             import_resolver,
         } = config;
 
-        // Collect the test sources' inline configuration up front, off the async
-        // runtime (it reads and parses files). Any problem found — reported per
-        // test function, each located at its source line — fails here, aborting
-        // the whole run before any test executes.
-        let roots = inline_config_roots(&test_source_paths, &test_contracts);
-        let inline_import_resolver = import_resolver.clone();
-        let inline_config_provider = tokio::task::spawn_blocking(move || {
-            SharedInlineConfigProvider::collect(roots, inline_import_resolver)
-        })
-        .await
-        .expect("Thread shouldn't panic");
-        inline_config_provider
-            .validate()
-            .map_err(SolidityTestRunnerConfigError::InlineConfig)?;
+        // Read and parse the test sources up front, off the async runtime.
+        // Each unique source is parsed once; both its inline test
+        // configuration and its EIP-712 struct definitions are extracted from
+        // the same compilation unit. Any inline-config problem found —
+        // reported per test function, each located at its source line — fails
+        // here, aborting the whole run before any test executes.
+        let roots = test_source_roots(&test_source_paths, &test_contracts);
+        let (collected_sources, inline_config_errors) =
+            tokio::task::spawn_blocking(move || collect_test_sources(&roots, &import_resolver))
+                .await
+                .expect("Thread shouldn't panic");
+        if !inline_config_errors.is_empty() {
+            return Err(SolidityTestRunnerConfigError::InlineConfig(
+                InlineConfigErrors::new(inline_config_errors),
+            ));
+        }
+
+        // Attach to each suite the data extracted from its source. Suites
+        // whose source wasn't collected (no `test_source_paths` entry) get
+        // empty data.
+        let suite_source_data = test_contracts
+            .iter()
+            .map(|(artifact_id, contract)| {
+                let data = collected_sources
+                    .get(&artifact_id.source)
+                    .map(|source| SuiteSourceData::new(source, artifact_id, &contract.abi))
+                    .unwrap_or_default();
+                (artifact_id.clone(), data)
+            })
+            .collect();
 
         // Do canonicalization in blocking context.
         // Canonicalization can touch the file system, hence the blocking thread
@@ -252,8 +265,6 @@ impl<
             cheats_config_options: Arc::new(cheats_config_options),
             evm_opts,
             env,
-            test_source_paths,
-            import_resolver,
             local_predeploys,
             revert_decoder,
             fork,
@@ -267,7 +278,7 @@ impl<
             on_collected_coverage_fn,
             _phantom: PhantomData,
             generate_gas_report,
-            inline_config_provider,
+            suite_source_data,
         })
     }
 
@@ -316,50 +327,6 @@ impl<
         TransactionT,
     >
 {
-    /// Parses the inline configuration of the given test contract from its
-    /// source, returning the per-function overrides and the set of functions
-    /// that opted into `allowInternalExpectRevert`.
-    ///
-    /// Returns empty collections when the contract's source isn't available or
-    /// carries no inline configuration. Malformed directives never reach here:
-    /// they are caught up front by [`SharedInlineConfigProvider::validate`],
-    /// which fails runner creation (see [`Self::new`]).
-    fn inline_config_overrides(
-        &self,
-        artifact_id: &ArtifactId,
-        contract: &TestContract,
-    ) -> (
-        HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
-        HashSet<TestFunctionIdentifier>,
-    ) {
-        let parsed = self
-            .inline_config_provider
-            .get(&artifact_id.source, &artifact_id.name);
-
-        let mut overrides = HashMap::new();
-        let mut allow_internal_expect_revert = HashSet::new();
-
-        for function_override in parsed {
-            let Some(function_selector) =
-                inline_config::resolve_selector(&contract.abi, &function_override.function_name)
-            else {
-                // Not part of the ABI (e.g. not externally callable), so it
-                // can't be run as a test; ignore it.
-                continue;
-            };
-            let identifier = TestFunctionIdentifier {
-                contract_artifact: artifact_id.clone(),
-                function_selector,
-            };
-            if function_override.config.allow_internal_expect_revert == Some(true) {
-                allow_internal_expect_revert.insert(identifier.clone());
-            }
-            overrides.insert(identifier, function_override.config);
-        }
-
-        (overrides, allow_internal_expect_revert)
-    }
-
     fn run_test_suite(
         &self,
         artifact_id: &ArtifactId,
@@ -386,23 +353,16 @@ impl<
 
         debug!("start executing all tests in contract");
 
-        // Extract per-test inline configuration from the contract's source.
-        let (inline_overrides, allow_internal_expect_revert) =
-            self.inline_config_overrides(artifact_id, contract);
-
-        // Parse the EIP-712 struct definitions from the contract's source, if
-        // its absolute path is known.
-        let eip712_types = self
-            .test_source_paths
-            .get(&artifact_id.source)
-            .map(|path| {
-                collect_eip712_types_for_file(
-                    path,
-                    artifact_id.version.clone(),
-                    &self.import_resolver,
-                )
-            })
-            .transpose()?
+        // Fetch the per-test inline configuration and EIP-712 struct
+        // definitions extracted from the contract's source at construction.
+        let SuiteSourceData {
+            test_function_overrides: inline_overrides,
+            allow_internal_expect_revert,
+            eip712_types,
+        } = self
+            .suite_source_data
+            .get(artifact_id)
+            .cloned()
             .unwrap_or_default();
 
         let cheats_config = CheatsConfig::new(
@@ -677,19 +637,20 @@ fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
     filter.matches_path(&id.source) && filter.matches_contract(&id.name)
 }
 
-/// Builds the inline-config roots for every test contract whose source has a
+/// Builds the collection roots for every test contract whose source has a
 /// known on-disk path, deduplicated by source (a source declaring multiple test
-/// contracts is parsed once).
-fn inline_config_roots(
+/// contracts is parsed once), sorted by source so problems are reported in a
+/// deterministic order.
+fn test_source_roots(
     test_source_paths: &HashMap<PathBuf, PathBuf>,
     test_contracts: &TestContracts,
-) -> Vec<InlineConfigRoot> {
-    let mut roots_by_source = HashMap::new();
+) -> Vec<TestSourceRoot> {
+    let mut roots_by_source = BTreeMap::new();
     for artifact_id in test_contracts.keys() {
         if let Some(path) = test_source_paths.get(&artifact_id.source) {
             roots_by_source
                 .entry(artifact_id.source.clone())
-                .or_insert_with(|| InlineConfigRoot {
+                .or_insert_with(|| TestSourceRoot {
                     source: artifact_id.source.clone(),
                     path: path.clone(),
                     version: artifact_id.version.clone(),
@@ -697,4 +658,63 @@ fn inline_config_roots(
         }
     }
     roots_by_source.into_values().collect()
+}
+
+/// The data extracted from a test suite's source at runner construction: its
+/// inline configuration resolved against the contract's ABI, and the EIP-712
+/// struct definitions served to the `eip712HashType`/`eip712HashStruct`
+/// cheatcodes.
+#[derive(Clone, Debug, Default)]
+struct SuiteSourceData {
+    /// Per-test-function config overrides.
+    test_function_overrides: HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+    /// The test functions that opted into `allowInternalExpectRevert`.
+    allow_internal_expect_revert: HashSet<TestFunctionIdentifier>,
+    /// The EIP-712 struct definitions reachable from the suite's source.
+    eip712_types: Eip712TypeCollection,
+}
+
+impl SuiteSourceData {
+    /// Builds a suite's data by resolving its source's parsed function
+    /// overrides against the contract's ABI and attaching the source's
+    /// EIP-712 types.
+    ///
+    /// A contract that carries no inline configuration yields empty overrides.
+    /// Malformed directives never reach here: they are caught during
+    /// collection, which fails runner creation (see
+    /// [`MultiContractRunner::new`]).
+    fn new(source: &CollectedTestSource, artifact_id: &ArtifactId, abi: &JsonAbi) -> Self {
+        let parsed = source
+            .overrides
+            .get(&artifact_id.name)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+
+        let mut test_function_overrides = HashMap::new();
+        let mut allow_internal_expect_revert = HashSet::new();
+
+        for function_override in parsed {
+            let Some(function_selector) =
+                inline_config::resolve_selector(abi, &function_override.function_name)
+            else {
+                // Not part of the ABI (e.g. not externally callable), so it
+                // can't be run as a test; ignore it.
+                continue;
+            };
+            let identifier = TestFunctionIdentifier {
+                contract_artifact: artifact_id.clone(),
+                function_selector,
+            };
+            if function_override.config.allow_internal_expect_revert == Some(true) {
+                allow_internal_expect_revert.insert(identifier.clone());
+            }
+            test_function_overrides.insert(identifier, function_override.config.clone());
+        }
+
+        Self {
+            test_function_overrides,
+            allow_internal_expect_revert,
+            eip712_types: source.eip712_types.clone(),
+        }
+    }
 }
