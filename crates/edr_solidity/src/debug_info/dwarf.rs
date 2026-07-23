@@ -1040,18 +1040,15 @@ mod tests {
         serde_json::from_str(s).unwrap()
     }
 
-    fn load_scenarios_output() -> CompilerOutput<SolxBytecode> {
-        let s = include_str!("../../fixtures/solx_compiler_output_scenarios.json");
-        serde_json::from_str(s).unwrap()
-    }
-
     fn load_stack_trace_scenarios_output() -> CompilerOutput<SolxBytecode> {
         let s = include_str!("../../fixtures/solx_compiler_output_stack_trace_scenarios.json");
         serde_json::from_str(s).unwrap()
     }
 
-    /// `BuildModel` for `StackTraceScenarios.sol` — the fixture regenerated
-    /// with current solx, unlike `Scenarios.t.sol` (frozen on 0.1.4).
+    /// `BuildModel` for the stack-trace scenarios fixture, built via the
+    /// same AST walk production uses. Regenerate with `gen-solx-fixtures`
+    /// after editing the sources; line pins move with the sources, so
+    /// prefer appending.
     fn make_build_model_for_stack_trace_scenarios() -> SolxBuildModel {
         let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
             "../../fixtures/solx_compiler_input_stack_trace_scenarios.json"
@@ -1074,106 +1071,6 @@ mod tests {
             .expect("AST processor must accept the stack-trace-scenarios fixture")
     }
 
-    /// `BuildModel` for `Scenarios.t.sol`, built via the same AST walk
-    /// production uses. The compiled fixture is the sweep project's own
-    /// build output (see the sweep README's provenance section); the
-    /// spliced-in live source must keep the fixture's byte offsets valid —
-    /// see [`scenarios_source_is_append_only`].
-    fn make_build_model_for_scenarios() -> SolxBuildModel {
-        let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
-            "../../fixtures/solx_compiler_input_scenarios.json"
-        ))
-        .expect("solx_compiler_input_scenarios.json must parse");
-        input
-            .sources
-            .get_mut("project/contracts/Scenarios.t.sol")
-            .unwrap()
-            .content = include_str!("../../fixtures/sources/Scenarios.t.sol").to_string();
-
-        let output = load_scenarios_output();
-        SolxBuildModel::new(input, &output)
-            .expect("AST processor must accept the scenarios fixture")
-    }
-
-    /// `Scenarios.t.sol` is spliced into the committed scenarios fixture,
-    /// whose AST and DWARF reference byte offsets into the source as it
-    /// existed at generation time. Between regenerations the file may only
-    /// be APPENDED to (sweep-only scenarios); an edit inside the
-    /// generation-time prefix shifts offsets and desyncs every line
-    /// assertion on this fixture — in the worst case to
-    /// plausible-but-wrong locations rather than loud failures.
-    ///
-    /// The prefix length comes from the `SourceUnit` span in the fixture's
-    /// own AST, so a regeneration moves it automatically and forces the
-    /// hash below to be re-pinned to the value the failing assertion
-    /// prints.
-    #[test]
-    fn scenarios_source_is_append_only() {
-        const GENERATION_PREFIX_KECCAK256: &str =
-            "23d9edd08863d54481118d7fac8268fd1863f4a4e7ef3d0e1a3799158632545d";
-
-        let output = load_scenarios_output();
-        let span = output.sources["project/contracts/Scenarios.t.sol"].ast["src"]
-            .as_str()
-            .expect("the scenarios SourceUnit must carry a `src` span");
-        // `src` is `start:length:file`; the span's end is the length of the
-        // source as it was when the fixture was generated.
-        let mut span_fields = span.split(':').map(|field| {
-            field
-                .parse::<usize>()
-                .expect("`src` span fields are numeric")
-        });
-        let generation_prefix_len = span_fields.next().expect("`src` span has a start")
-            + span_fields.next().expect("`src` span has a length");
-
-        let source = include_str!("../../fixtures/sources/Scenarios.t.sol");
-        let prefix = source
-            .as_bytes()
-            .get(..generation_prefix_len)
-            .expect("Scenarios.t.sol shrank below its generation-time prefix");
-        assert_eq!(
-            hex::encode(edr_primitives::keccak256(prefix)),
-            GENERATION_PREFIX_KECCAK256,
-            "Scenarios.t.sol changed within the prefix the committed scenarios \
-             fixture was compiled from. Either append instead, or regenerate \
-             the fixture through the sweep's standard flow (see the sweep \
-             README), re-pin the tests that assert on it, and re-pin this \
-             hash to the computed value above."
-        );
-    }
-
-    /// The committed scenarios fixture must be sufficient for every consumer
-    /// in this crate — enforced by executing the most demanding one rather
-    /// than by describing what it reads. `extract_solx_contract_metadata`
-    /// resolves inherited functions through the base contracts' ASTs, so a
-    /// fixture over-filtered by the sweep's regen script (e.g. missing
-    /// forge-std sources) fails here, in the fixture's own crate, instead of
-    /// in downstream integration tests.
-    #[test]
-    fn scenarios_fixture_satisfies_contract_metadata_extraction() {
-        let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
-            "../../fixtures/solx_compiler_input_scenarios.json"
-        ))
-        .expect("solx_compiler_input_scenarios.json must parse");
-        input
-            .sources
-            .get_mut("project/contracts/Scenarios.t.sol")
-            .unwrap()
-            .content = include_str!("../../fixtures/sources/Scenarios.t.sol").to_string();
-
-        crate::artifacts::solx::extract_solx_contract_metadata(
-            "0.8.34".to_owned(),
-            input,
-            load_scenarios_output(),
-        )
-        .expect(
-            "contract metadata extraction must succeed on the committed \
-             scenarios fixture; a failure here usually means the fixture was \
-             regenerated with a filter that dropped sources the build model \
-             reads",
-        );
-    }
-
     fn decode_deployed_for(
         output: &CompilerOutput<SolxBytecode>,
         contract: &str,
@@ -1181,7 +1078,7 @@ mod tests {
     ) -> Vec<Instruction> {
         let bc = &output
             .contracts
-            .get("project/contracts/Scenarios.t.sol")
+            .get("project/contracts/StackTraceScenarios.sol")
             .unwrap()
             .get(contract)
             .unwrap()
@@ -1203,59 +1100,55 @@ mod tests {
         use super::*;
 
         /// Panic 0x12 (div by zero): pin the bottom location to the divide
-        /// expression (line 34), not the panic helper's contract-scope
+        /// expression (line 127), not the panic helper's contract-scope
         /// `call_line`.
         #[test]
         fn divide_by_zero_filters_out_panic_helper_decl_line() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let instructions = decode_deployed_for(&output, "DivisionByZeroTest", &model);
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let instructions = decode_deployed_for(&output, "DividesByZero", &model);
 
-            // PC 0xc81 is the panic-emitting REVERT for `0x12` (divide by zero).
+            // PC 0x26 is the panic-emitting REVERT for `0x12` (divide by zero).
             let inst = instructions
                 .iter()
-                .find(|i| i.pc == 0xc81)
-                .expect("PC 0xc81 should be present");
+                .find(|i| i.pc == 0x26)
+                .expect("PC 0x26 should be present");
             let line = inst
                 .location
                 .as_ref()
                 .and_then(|loc| loc.get_starting_line_number().ok())
-                .expect("PC 0xc81 must have a resolved location");
+                .expect("PC 0x26 must have a resolved location");
             assert_eq!(
-                line, 34,
-                "expected line 34 (the divide expression `c = a / b`), got {line}. \
-                 A regression to line 30 means the panic-helper bogus call_line \
+                line, 127,
+                "expected line 127 (the divide expression `c = a / b`), got {line}. \
+                 A regression to line 124 means the panic-helper bogus call_line \
                  is being picked again instead of the next-outer artificial entry."
             );
         }
 
-        /// Cross-contract leak guard: the test's INVALID opcode used to pick
-        /// up a line-program row pointing at a different contract's setUp;
-        /// the contract-match check must reject that.
+        /// Cross-contract leak guard: an INVALID opcode once picked up a
+        /// line-program row pointing into a *different* contract; the
+        /// contract-match check in `user_visible_location_for_pc` must pin
+        /// it to its own statement line instead.
         #[test]
-        fn invalid_opcode_does_not_leak_unrelated_contract_setup_line() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let instructions = decode_deployed_for(&output, "InvalidOpcodeTest", &model);
+        fn invalid_opcode_does_not_leak_unrelated_contract_line() {
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let instructions = decode_deployed_for(&output, "InvalidOpcode", &model);
 
-            // `testInvalidOpcode`'s `invalid()` is the only INVALID opcode
-            // with a resolvable location (the other is dispatch padding).
+            // `die`'s `invalid()` is the only INVALID opcode with a
+            // resolvable location (the other is dispatch padding).
             let line = instructions
                 .iter()
                 .filter(|i| i.opcode == OpCode::INVALID)
                 .find_map(|i| i.location.as_ref()?.get_starting_line_number().ok())
                 .expect("an INVALID opcode with a resolved location should be present");
-            assert_ne!(
-                line, 97,
-                "regression: line 97 is in ModifierRevertTest.setUp, a *different* \
-                 contract — the contract-match check in user_visible_location_for_pc \
-                 must reject it."
-            );
             assert_eq!(
-                line, 183,
-                "expected `invalid()`'s statement line (183), got {line}. A regression \
-                 to 182 means solx stopped emitting `.debug_line` rows for assembly \
-                 opcodes and the decl-line fall-back is back."
+                line, 322,
+                "expected `invalid()`'s statement line (322), got {line}. Another \
+                 contract's line means the contract-match check regressed; the \
+                 decl line (320) means solx stopped emitting `.debug_line` rows \
+                 for assembly opcodes."
             );
         }
 
@@ -1264,23 +1157,23 @@ mod tests {
         /// so the assembly `revert` maps to its statement line, matching solc.
         #[test]
         fn inline_assembly_revert_maps_to_statement_line() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let instructions = decode_deployed_for(&output, "InlineAssemblyRevertTest", &model);
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let instructions = decode_deployed_for(&output, "AssemblyReverts", &model);
 
             let inst = instructions
                 .iter()
-                .find(|i| i.pc == 0x3be)
-                .expect("PC 0x3be (the assembly REVERT) should be present");
+                .find(|i| i.pc == 0x36)
+                .expect("PC 0x36 (the assembly REVERT) should be present");
             let line = inst
                 .location
                 .as_ref()
                 .and_then(|loc| loc.get_starting_line_number().ok())
-                .expect("PC 0x3be must have a resolved location");
+                .expect("PC 0x36 must have a resolved location");
             assert_eq!(
-                line, 135,
-                "expected the `revert(...)` statement line (135), got {line}. A regression \
-                 to 129 means solx stopped emitting `.debug_line` rows for assembly opcodes \
+                line, 314,
+                "expected the `revert(...)` statement line (314), got {line}. A regression \
+                 to 308 means solx stopped emitting `.debug_line` rows for assembly opcodes \
                  and the function-decl-line fall-back is back."
             );
         }
@@ -1319,138 +1212,129 @@ mod tests {
         /// `require(false, "boom")` — bottom at the require statement.
         #[test]
         fn pin_direct_require() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "DirectRequireTest", &model);
-            assert!(first_inst_at_line(&insts, 12).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "DirectRequire", &model);
+            assert!(first_inst_at_line(&insts, 105).is_some());
         }
 
         /// `assert(false)` panic 0x01 — bottom at the assert statement.
         #[test]
         fn pin_assertion_failure() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "AssertionFailureTest", &model);
-            assert!(first_inst_at_line(&insts, 18).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "AssertFails", &model);
+            assert!(first_inst_at_line(&insts, 111).is_some());
         }
 
         /// Arithmetic overflow panic 0x11 — bottom at the `+` expression.
         #[test]
         fn pin_overflow() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "OverflowTest", &model);
-            assert!(first_inst_at_line(&insts, 26).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "Overflows", &model);
+            assert!(first_inst_at_line(&insts, 119).is_some());
         }
 
         /// Array OOB panic 0x32 — bottom at the indexing expression.
         #[test]
         fn pin_array_oob() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "ArrayOutOfBoundsTest", &model);
-            assert!(first_inst_at_line(&insts, 42).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "ArrayOutOfBounds", &model);
+            assert!(first_inst_at_line(&insts, 135).is_some());
         }
 
         /// `revert MyError(...)` — bottom at the revert statement.
         #[test]
         fn pin_custom_error() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "CustomErrorTest", &model);
-            assert!(first_inst_at_line(&insts, 51).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "ThrowsCustomError", &model);
+            assert!(first_inst_at_line(&insts, 166).is_some());
         }
 
         /// Constructor `require(false, ...)` — runs in CREATE bytecode.
         #[test]
         fn pin_constructor_revert() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
             let bc = &output
                 .contracts
-                .get("project/contracts/Scenarios.t.sol")
+                .get("project/contracts/StackTraceScenarios.sol")
                 .unwrap()
-                .get("ConstructorRevertContract")
+                .get("ConstructorReverts")
                 .unwrap()
                 .evm
                 .bytecode;
             let raw = hex::decode(&bc.object).unwrap();
             let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
-            assert!(first_inst_at_line(&insts, 57).is_some());
+            assert!(first_inst_at_line(&insts, 172).is_some());
         }
 
         /// Cross-contract recursion — pin the innermost `recurse(0)`. The
         /// multi-level chain is reconstructed by the trace renderer.
         #[test]
         fn pin_deep_recursion_bottom() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "DeepRecursionTarget", &model);
-            assert!(first_inst_at_line(&insts, 109).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "DeepRecursion", &model);
+            assert!(first_inst_at_line(&insts, 224).is_some());
         }
 
         /// Library-internal function reverts. solx emits the helper as a
         /// concrete subprogram; the require resolves directly.
         #[test]
         fn pin_library_revert() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "LibraryRevertTest", &model);
-            assert!(first_inst_at_line(&insts, 229).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "UsesInternalLib", &model);
+            assert!(first_inst_at_line(&insts, 260).is_some());
         }
 
         /// `fallback() { revert(...) }` on the target contract.
         #[test]
         fn pin_fallback_revert() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "FallbackRevertTarget", &model);
-            assert!(first_inst_at_line(&insts, 259).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "FallbackReverts", &model);
+            assert!(first_inst_at_line(&insts, 272).is_some());
         }
 
         /// `receive() { revert(...) }` on the target contract.
         #[test]
         fn pin_receive_revert() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "ReceiveRevertTarget", &model);
-            assert!(first_inst_at_line(&insts, 276).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "ReceiveReverts", &model);
+            assert!(first_inst_at_line(&insts, 278).is_some());
         }
 
         /// Two consecutive `require`s; the second fails.
         #[test]
         fn pin_multiple_requires() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "MultipleRequiresTest", &model);
-            assert!(first_inst_at_line(&insts, 340).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "MultipleRequires", &model);
+            assert!(first_inst_at_line(&insts, 190).is_some());
         }
 
-        /// Invalid enum cast panic 0x21 — anywhere inside the test body.
+        /// Invalid enum cast panic 0x21 — anywhere inside the function body.
         #[test]
         fn pin_invalid_enum_cast() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "InvalidEnumCastTest", &model);
-            assert!(first_inst_at_line(&insts, 169).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "InvalidEnumCast", &model);
+            assert!(first_inst_at_line(&insts, 149).is_some());
         }
 
         /// `arr.pop()` on empty array panics 0x31.
         #[test]
         fn pin_pop_empty_array() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "PopEmptyArrayTest", &model);
-            assert!(first_inst_at_line(&insts, 177).is_some());
-        }
-
-        /// Invariant test that always reverts — pin the require's line.
-        #[test]
-        fn pin_invariant_failure() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "InvariantFailureTest", &model);
-            assert!(first_inst_at_line(&insts, 361).is_some());
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "PopsEmptyArray", &model);
+            assert!(first_inst_at_line(&insts, 158).is_some());
         }
     }
 
@@ -1462,9 +1346,9 @@ mod tests {
         /// setIfPositive).
         #[test]
         fn modifier_revert_has_single_set_if_positive_inline_call_site() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let instructions = decode_deployed_for(&output, "ModifierTarget", &model);
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let instructions = decode_deployed_for(&output, "ModifierGuard", &model);
 
             // PC 0x87 is the modifier's `require(v > 0, ...)` revert.
             let inst = instructions
@@ -1478,10 +1362,10 @@ mod tests {
                 .collect();
             assert_eq!(
                 call_site_lines,
-                vec![91],
-                "expected exactly one non-artificial inline call site at line 91 \
+                vec![218],
+                "expected exactly one non-artificial inline call site at line 218 \
                  (setIfPositive), got {call_site_lines:?}. If this asserts \
-                 [91, 91] a duplicate function-entry frame has reappeared."
+                 [218, 218] a duplicate function-entry frame has reappeared."
             );
         }
 
@@ -1525,17 +1409,17 @@ mod tests {
         /// `inline_call_sites` at the require PC carries the caller line.
         #[test]
         fn pin_internal_helper_chain_carries_caller_line() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "InternalHelperChainContract", &model);
-            let inst = first_inst_at_line(&insts, 149)
-                .expect("expected `_checkPositive`'s require at line 149");
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "InternalHelperChain", &model);
+            let inst = first_inst_at_line(&insts, 254)
+                .expect("expected `_checkPositive`'s require at line 254");
             let lines: Vec<u32> = inst
                 .inline_call_sites
                 .iter()
                 .filter_map(|cs| cs.get_starting_line_number().ok())
                 .collect();
-            assert!(lines.contains(&144), "got {lines:?}");
+            assert!(lines.contains(&249), "got {lines:?}");
         }
 
         /// Since 0.1.6 solx emits `DW_AT_call_line 0` for inlined
@@ -1577,26 +1461,26 @@ mod tests {
         /// at the require PC carries the constructor's call site.
         #[test]
         fn pin_helper_reverting_constructor_carries_caller_line() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
             let bc = &output
                 .contracts
-                .get("project/contracts/Scenarios.t.sol")
+                .get("project/contracts/StackTraceScenarios.sol")
                 .unwrap()
-                .get("HelperRevertingConstructorContract")
+                .get("HelperRevertingConstructor")
                 .unwrap()
                 .evm
                 .bytecode;
             let raw = hex::decode(&bc.object).unwrap();
             let insts = decode_instructions(&raw, &bc.debug_info, &model, true).unwrap();
             let inst =
-                first_inst_at_line(&insts, 295).expect("expected `_check`'s require at line 295");
+                first_inst_at_line(&insts, 178).expect("expected `_check`'s require at line 178");
             let lines: Vec<u32> = inst
                 .inline_call_sites
                 .iter()
                 .filter_map(|cs| cs.get_starting_line_number().ok())
                 .collect();
-            assert!(lines.contains(&298), "got {lines:?}");
+            assert!(lines.contains(&182), "got {lines:?}");
         }
     }
 
@@ -1810,9 +1694,9 @@ mod tests {
         /// that at least one resolved instruction gets a non-zero span.
         #[test]
         fn solx_instructions_carry_nonzero_source_length() {
-            let output = load_scenarios_output();
-            let model = make_build_model_for_scenarios();
-            let insts = decode_deployed_for(&output, "DirectRequireTest", &model);
+            let output = load_stack_trace_scenarios_output();
+            let model = make_build_model_for_stack_trace_scenarios();
+            let insts = decode_deployed_for(&output, "DirectRequire", &model);
 
             let any_with_length = insts
                 .iter()
