@@ -42,6 +42,52 @@ use revm41::{
 pub type Bytecode38 = revm38::bytecode::Bytecode;
 pub type Bytecode41 = revm41::bytecode::Bytecode;
 
+pub type SpecId38 = revm38::primitives::hardfork::SpecId;
+pub type SpecId41 = revm41::primitives::hardfork::SpecId;
+
+/// revm@41 removed six hardfork variants that had no EVM-visible changes;
+/// they fold into their EVM-equivalent successor (that equivalence is why
+/// revm could drop them).
+pub fn spec_id_old_to_new(spec: SpecId38) -> SpecId41 {
+    match spec {
+        SpecId38::FRONTIER | SpecId38::FRONTIER_THAWING => SpecId41::FRONTIER,
+        SpecId38::HOMESTEAD | SpecId38::DAO_FORK => SpecId41::HOMESTEAD,
+        SpecId38::TANGERINE => SpecId41::TANGERINE,
+        SpecId38::SPURIOUS_DRAGON => SpecId41::SPURIOUS_DRAGON,
+        SpecId38::BYZANTIUM => SpecId41::BYZANTIUM,
+        SpecId38::CONSTANTINOPLE | SpecId38::PETERSBURG => SpecId41::PETERSBURG,
+        SpecId38::ISTANBUL | SpecId38::MUIR_GLACIER => SpecId41::ISTANBUL,
+        SpecId38::BERLIN => SpecId41::BERLIN,
+        SpecId38::LONDON | SpecId38::ARROW_GLACIER | SpecId38::GRAY_GLACIER => SpecId41::LONDON,
+        SpecId38::MERGE => SpecId41::MERGE,
+        SpecId38::SHANGHAI => SpecId41::SHANGHAI,
+        SpecId38::CANCUN => SpecId41::CANCUN,
+        SpecId38::PRAGUE => SpecId41::PRAGUE,
+        SpecId38::OSAKA => SpecId41::OSAKA,
+        SpecId38::AMSTERDAM => SpecId41::AMSTERDAM,
+    }
+}
+
+pub fn spec_id_new_to_old(spec: SpecId41) -> SpecId38 {
+    match spec {
+        SpecId41::FRONTIER => SpecId38::FRONTIER,
+        SpecId41::HOMESTEAD => SpecId38::HOMESTEAD,
+        SpecId41::TANGERINE => SpecId38::TANGERINE,
+        SpecId41::SPURIOUS_DRAGON => SpecId38::SPURIOUS_DRAGON,
+        SpecId41::BYZANTIUM => SpecId38::BYZANTIUM,
+        SpecId41::PETERSBURG => SpecId38::PETERSBURG,
+        SpecId41::ISTANBUL => SpecId38::ISTANBUL,
+        SpecId41::BERLIN => SpecId38::BERLIN,
+        SpecId41::LONDON => SpecId38::LONDON,
+        SpecId41::MERGE => SpecId38::MERGE,
+        SpecId41::SHANGHAI => SpecId38::SHANGHAI,
+        SpecId41::CANCUN => SpecId38::CANCUN,
+        SpecId41::PRAGUE => SpecId38::PRAGUE,
+        SpecId41::OSAKA => SpecId38::OSAKA,
+        SpecId41::AMSTERDAM => SpecId38::AMSTERDAM,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Inbound: revm@41 → revm@38
 // ---------------------------------------------------------------------------

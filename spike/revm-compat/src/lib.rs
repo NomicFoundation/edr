@@ -10,3 +10,4 @@
 pub mod convert;
 pub mod db_bridge;
 pub mod hardfork;
+pub mod inspector_bridge;
