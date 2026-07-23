@@ -9,13 +9,14 @@ use std::{collections::HashMap, path::Path};
 
 use semver::Version;
 
+use edr_solidity_parser_slang::ImportResolver;
+
 use super::{
     directives::{self, DirectiveTarget, LocatedDirectiveError},
     error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
     natspec,
     parse::{locate_contracts, LocatedContract, LocatedFunction},
     profiles::InlineConfigProfiles,
-    resolver::ImportResolver,
 };
 use crate::config::TestFunctionConfigOverride;
 

@@ -2,15 +2,15 @@
 
 use std::path::PathBuf;
 
-use slang_solidity_v2::utils::FromSemverError;
+use edr_solidity_parser_slang::UnsupportedSolcVersionError;
 
 /// Errors produced while collecting a source's inline configuration before the
 /// individual directives are parsed (see [`InlineConfigError`]).
-#[derive(Debug, thiserror::Error, PartialEq)]
+#[derive(Clone, Debug, thiserror::Error, PartialEq)]
 pub enum InlineConfigCollectError {
     /// The source's solc version has no supported Slang grammar.
     #[error(transparent)]
-    InvalidSolcVersion(#[from] FromSemverError),
+    InvalidSolcVersion(#[from] UnsupportedSolcVersionError),
     /// A test source's file was not found at the path it was declared at.
     #[error("could not read inline-config source '{path}': {reason}")]
     RootFileNotFound {
@@ -38,33 +38,6 @@ pub enum InlineConfigCollectError {
         /// that was being reported.
         reason: String,
     },
-}
-
-// TODO: `derive(Clone)` once `FromSemverError` implements `Clone`.
-impl Clone for InlineConfigCollectError {
-    fn clone(&self) -> Self {
-        match self {
-            Self::InvalidSolcVersion(FromSemverError::UnexpectedMetadata) => {
-                Self::InvalidSolcVersion(FromSemverError::UnexpectedMetadata)
-            }
-            Self::InvalidSolcVersion(FromSemverError::UnsupportedVersion) => {
-                Self::InvalidSolcVersion(FromSemverError::UnsupportedVersion)
-            }
-            Self::RootFileNotFound { path, reason } => Self::RootFileNotFound {
-                path: path.clone(),
-                reason: reason.clone(),
-            },
-            Self::DirectiveLocation {
-                contract,
-                function,
-                reason,
-            } => Self::DirectiveLocation {
-                contract: contract.clone(),
-                function: function.clone(),
-                reason: reason.clone(),
-            },
-        }
-    }
 }
 
 /// Errors produced while parsing or validating inline configuration.

@@ -22,6 +22,8 @@ use std::{
 use rayon::prelude::*;
 use semver::Version;
 
+use edr_solidity_parser_slang::ImportResolver;
+
 use super::{
     directives,
     error::{
@@ -29,7 +31,6 @@ use super::{
     },
     overrides::{collect_source, ContractInlineConfig, SourceCollection, SourceOverrides},
     profiles::InlineConfigProfiles,
-    resolver::ImportResolver,
 };
 
 /// A Solidity test source to collect inline configuration from.
