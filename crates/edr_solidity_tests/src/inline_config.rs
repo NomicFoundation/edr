@@ -26,9 +26,9 @@ mod natspec;
 mod overrides;
 mod parse;
 mod provider;
-mod resolver;
 
 use alloy_json_abi::JsonAbi;
+pub use edr_solidity_parser_slang::ImportResolver;
 
 pub use self::{
     error::{
@@ -37,7 +37,6 @@ pub use self::{
     },
     overrides::FunctionOverride,
     provider::{CachedInlineConfigProvider, InlineConfigRoot, SharedInlineConfigProvider},
-    resolver::ImportResolver,
 };
 
 /// Resolves the 4-byte selector (as a `0x`-prefixed hex string) of the first

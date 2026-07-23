@@ -2,7 +2,8 @@
 //! unit.
 //!
 //! We build a full [`CompilationUnit`] over the on-disk root file — resolving
-//! imports (see [`super::resolver`]) and reading them from disk — then walk the
+//! imports (see [`edr_solidity_parser_slang::ImportResolver`]) and reading
+//! them from disk — then walk the
 //! root file's resolved AST for contract and function positions. The NatSpec
 //! text itself is recovered from the raw source by
 //! [`super::natspec::collect_natspec`], which scans backwards from each
@@ -12,17 +13,11 @@
 
 use std::path::Path;
 
+use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver};
 use semver::Version;
-use slang_solidity_v2::{
-    ast::{ContractMember, SourceUnitMember},
-    compilation::CompilationBuilder,
-    utils::{FromSemverError, LanguageVersion},
-};
+use slang_solidity_v2::ast::{ContractMember, SourceUnitMember};
 
-use super::{
-    error::InlineConfigCollectError,
-    resolver::{ImportResolver, SourceProvider},
-};
+use super::error::InlineConfigCollectError;
 
 /// A function definition located in the source, with the offset needed to
 /// recover its leading NatSpec.
@@ -36,19 +31,6 @@ pub struct LocatedFunction {
     /// keyword). The leading NatSpec is recovered by scanning backwards from
     /// here.
     pub node_start: usize,
-}
-
-/// Maps a solc [`Version`] to a Slang [`LanguageVersion`]; clamping versions
-/// newer than Slang supports down to its latest grammar.
-fn to_language_version(solc_version: Version) -> Result<LanguageVersion, FromSemverError> {
-    // Fall back to the latest Slang grammar for any solc version newer than what
-    // Slang supports.
-    let latest: Version = LanguageVersion::LATEST.into();
-    if solc_version > latest {
-        Ok(LanguageVersion::LATEST)
-    } else {
-        LanguageVersion::try_from(solc_version)
-    }
 }
 
 /// Parses the file at `root_path` (with its imports resolved by
@@ -65,13 +47,8 @@ pub fn locate_functions(
     version: Version,
     import_resolver: &ImportResolver,
 ) -> Result<Vec<LocatedFunction>, InlineConfigCollectError> {
-    let mut builder = CompilationBuilder::create(
-        to_language_version(version)?,
-        SourceProvider::new(import_resolver),
-    );
+    let unit = build_compilation_unit(root_path, version, import_resolver)?;
     let file_id = root_path.to_string_lossy().into_owned();
-    builder.add_file(file_id.clone());
-    let unit = builder.build();
 
     let Some(file) = unit.file(&file_id) else {
         return Ok(Vec::new());

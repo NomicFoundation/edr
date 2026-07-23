@@ -3627,9 +3627,19 @@ dependencies = [
  "alloy-dyn-abi",
  "crossbeam-channel",
  "derive-where",
- "edr_common",
+ "edr_solidity_parser_slang",
  "edr_utils_sync",
  "rayon",
+ "semver 1.0.28",
+ "slang_solidity_v2",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "edr_solidity_parser_slang"
+version = "0.3.8"
+dependencies = [
+ "edr_common",
  "semver 1.0.28",
  "slang_solidity_v2",
  "thiserror 2.0.18",
@@ -3656,6 +3666,7 @@ dependencies = [
  "edr_primitives",
  "edr_solidity",
  "edr_solidity_collector_eip712",
+ "edr_solidity_parser_slang",
  "edr_test_utils",
  "eyre",
  "foundry-cheatcodes",

@@ -13,12 +13,13 @@ use std::{
 
 use semver::Version;
 
+use edr_solidity_parser_slang::ImportResolver;
+
 use super::{
     directives::{self, LocatedDirectiveError},
     error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
     natspec,
     parse::{locate_functions, LocatedFunction},
-    resolver::ImportResolver,
 };
 use crate::config::TestFunctionConfigOverride;
 
