@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Fix empty Solidity test stack traces when running with `CollectStackTraces::Always`.
+Fixed empty Solidity test stack trace on failure when running with `CollectStackTraces::Always`.
