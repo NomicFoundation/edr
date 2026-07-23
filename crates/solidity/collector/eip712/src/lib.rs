@@ -4,9 +4,8 @@
 pub mod collector;
 pub mod parse;
 pub mod provider;
-mod resolver;
 
-pub use crate::resolver::ImportResolver;
+pub use edr_solidity_parser_slang::ImportResolver;
 
 /// An EIP-712 type definition in canonical form, paired with its
 /// primary-type name.

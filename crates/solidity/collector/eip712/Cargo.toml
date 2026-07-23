@@ -7,7 +7,7 @@ edition.workspace = true
 alloy-dyn-abi = { workspace = true, features = ["eip712"] }
 crossbeam-channel.workspace = true
 derive-where.workspace = true
-edr_common.workspace = true
+edr_solidity_parser_slang.workspace = true
 edr_utils_sync.workspace = true
 rayon = "1"
 semver.workspace = true

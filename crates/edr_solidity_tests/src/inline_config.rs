@@ -61,7 +61,8 @@ mod overrides;
 mod parse;
 mod profiles;
 mod provider;
-mod resolver;
+
+pub use edr_solidity_parser_slang::ImportResolver;
 
 pub(crate) use self::directives::is_test_function;
 pub use self::{
@@ -72,5 +73,4 @@ pub use self::{
     overrides::{ContractInlineConfig, FunctionOverride},
     profiles::{InlineConfigProfiles, DEFAULT_PROFILE},
     provider::{CachedInlineConfigProvider, InlineConfigRoot, SharedInlineConfigProvider},
-    resolver::ImportResolver,
 };
