@@ -10,7 +10,7 @@ use edr_solidity::{config::IncludeTraces, solidity_stack_trace::StackTraceEntry}
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
     revm::context::{BlockEnv, TxEnv},
-    SolidityTestRunnerConfig,
+    CollectStackTraces, SolidityTestRunnerConfig,
 };
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 use foundry_evm::{
@@ -642,5 +642,59 @@ async fn issue_1482() {
             StackTraceEntry::CheatCodeError { message, .. } if message.contains("not supported")
         )),
         "expected an unsupported-cheatcode stack trace entry, got:\n{stack_trace:#?}"
+    );
+}
+
+// A failing test in `CollectStackTraces::Always` mode must produce a
+// source-level stack trace, not `HeuristicFailed`.
+#[tokio::test(flavor = "multi_thread")]
+async fn always_mode_produces_stack_trace_for_failing_test() {
+    let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
+    config.collect_stack_traces = CollectStackTraces::Always;
+
+    // Real decoder so the stack-trace inferrer runs (mirrors `issue_1482`).
+    let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
+    let runner = TEST_DATA_VIA_IR
+        .runner_with_contract_decoder(config, contract_decoder)
+        .await;
+    let filter = SolidityTestFilter::path(".*repros/StackTraceAlwaysMode.t.sol");
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceTest")
+        .expect("the AlwaysStackTrace suite should have run");
+
+    let result = suite
+        .test_results
+        .get("testRevertHasStackTrace()")
+        .expect("testRevertHasStackTrace should have run");
+
+    assert_eq!(result.status, TestStatus::Failure);
+
+    // Must be a decoded stack trace, not `HeuristicFailed`.
+    let stack_trace = match result
+        .stack_trace_result
+        .as_ref()
+        .expect("stack trace should be computed on failure")
+    {
+        SolidityTestStackTraceResult::Success(entries) => entries,
+        other => panic!("expected a stack trace in `Always` mode, got {other:?}"),
+    };
+
+    assert!(
+        !stack_trace.is_empty(),
+        "expected a non-empty stack trace, got:\n{stack_trace:#?}"
+    );
+    // Trace reaches the failing call's execution error (variant depends on the
+    // compilation mode).
+    assert!(
+        stack_trace.iter().any(|entry| matches!(
+            entry,
+            StackTraceEntry::RevertError { .. }
+                | StackTraceEntry::PanicError { .. }
+                | StackTraceEntry::CustomError { .. }
+                | StackTraceEntry::OtherExecutionError { .. }
+        )),
+        "expected an execution-error entry, got:\n{stack_trace:#?}"
     );
 }
