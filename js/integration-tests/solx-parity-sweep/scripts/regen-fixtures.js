@@ -71,17 +71,46 @@ for (const source of Object.values(input.sources)) {
   source.content = "";
 }
 
-// Keep only the section the Rust tests read; the forge-std artifacts are
-// ~40 MB they never touch. A missing section would otherwise be silently
-// dropped by JSON.stringify and committed as `{}`.
-const contracts = buildInfoOutput.output.contracts[scenariosSource];
-const sources = buildInfoOutput.output.sources[scenariosSource];
-if (contracts === undefined || sources === undefined) {
+// Keep only what the Rust tests read: the scenarios source plus its
+// inheritance closure. EDR's build model resolves inherited functions
+// (forge-std's Test/StdInvariant getters, etc.) through the BASE contracts'
+// ASTs via `linearizedBaseContracts`, so `sources` and `contracts` must
+// cover the same closure — leaf-only breaks edr_provider's solx_stack_trace
+// tests. What this drops (console/safeconsole/Vm ASTs, ~35 MB) is read by
+// nothing.
+const allSources = buildInfoOutput.output.sources;
+const allContracts = buildInfoOutput.output.contracts;
+if (
+  allSources[scenariosSource] === undefined ||
+  allContracts[scenariosSource] === undefined
+) {
   throw new Error(`compile output has no section for ${scenariosSource}`);
 }
+const baseContractIds = new Set(
+  allSources[scenariosSource].ast.nodes
+    .filter((node) => node.nodeType === "ContractDefinition")
+    .flatMap((node) => node.linearizedBaseContracts)
+);
+const keptFiles = new Set(
+  Object.entries(allSources)
+    .filter(
+      ([file, source]) =>
+        file === scenariosSource ||
+        source.ast.nodes?.some(
+          (node) =>
+            node.nodeType === "ContractDefinition" &&
+            baseContractIds.has(node.id)
+        )
+    )
+    .map(([file]) => file)
+);
+const pickKept = (map) =>
+  Object.fromEntries(
+    Object.entries(map).filter(([file]) => keptFiles.has(file))
+  );
 const output = {
-  contracts: { [scenariosSource]: contracts },
-  sources: { [scenariosSource]: sources },
+  contracts: pickKept(allContracts),
+  sources: pickKept(allSources),
 };
 
 for (const [name, data] of [
