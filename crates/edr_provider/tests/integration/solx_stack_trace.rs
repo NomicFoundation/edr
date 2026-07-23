@@ -54,34 +54,6 @@ fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<
     ))
 }
 
-fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
-    let mut input: CompilerInput = serde_json::from_str(include_str!(
-        "../../../edr_solidity/fixtures/solx_compiler_input_scenarios.json"
-    ))?;
-
-    input
-        .sources
-        .get_mut("project/contracts/Scenarios.t.sol")
-        .unwrap()
-        .content =
-        include_str!("../../../edr_solidity/fixtures/sources/Scenarios.t.sol").to_owned();
-
-    let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
-        "../../../edr_solidity/fixtures/solx_compiler_output_scenarios.json"
-    ))?;
-
-    let identified_contracts =
-        extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
-
-    Ok((
-        BuildInfoConfig {
-            identified_contracts,
-            ignore_contracts: None,
-        },
-        output,
-    ))
-}
-
 fn solx_stack_trace_scenarios_build_info(
 ) -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
     let mut input: CompilerInput = serde_json::from_str(include_str!(
@@ -94,6 +66,13 @@ fn solx_stack_trace_scenarios_build_info(
         .unwrap()
         .content =
         include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenarios.sol").to_owned();
+    input
+        .sources
+        .get_mut("project/contracts/StackTraceScenariosBase.sol")
+        .unwrap()
+        .content =
+        include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenariosBase.sol")
+            .to_owned();
 
     let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios.json"
@@ -373,26 +352,19 @@ async fn revert_error_variant_surfaces_for_counter() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// OverflowTest.testOverflow does `x = x + 1` with `x = uint256.max` →
-/// panic 0x11. Pin: stack trace surfaces a [`StackTraceEntry::PanicError`].
+/// Overflows.bump does `x = x + 1` with `x = uint256.max` → panic 0x11.
+/// Pin: stack trace surfaces a [`StackTraceEntry::PanicError`].
 /// Covers the `PanicError` axis.
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_error_variant_surfaces_for_overflow_scenario() -> anyhow::Result<()> {
-    let (build_info, output) = solx_scenarios_build_info()?;
-    let decoder = ContractDecoder::new(build_info);
-    let (provider, from) = make_provider(decoder)?;
-
-    let addr = deploy(
-        &provider,
-        from,
-        creation_bytes(&output, "project/contracts/Scenarios.t.sol", "OverflowTest")?,
-    )?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "Overflows")?;
 
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
         from,
         addr,
-        Bytes::from(selector("testOverflow()").as_slice().to_vec()),
+        Bytes::from(selector("bump()").as_slice().to_vec()),
     );
 
     assert!(
@@ -404,30 +376,19 @@ async fn panic_error_variant_surfaces_for_overflow_scenario() -> anyhow::Result<
     Ok(())
 }
 
-/// CustomErrorTest.testCustomError does `revert MyError(42, "...")`.
+/// ThrowsCustomError.throwIt does `revert MyError(42, "...")`.
 /// Pin: stack trace surfaces a [`StackTraceEntry::CustomError`].
 /// Covers the `CustomError` axis.
 #[tokio::test(flavor = "multi_thread")]
 async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Result<()> {
-    let (build_info, output) = solx_scenarios_build_info()?;
-    let decoder = ContractDecoder::new(build_info);
-    let (provider, from) = make_provider(decoder)?;
-
-    let addr = deploy(
-        &provider,
-        from,
-        creation_bytes(
-            &output,
-            "project/contracts/Scenarios.t.sol",
-            "CustomErrorTest",
-        )?,
-    )?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "ThrowsCustomError")?;
 
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
         from,
         addr,
-        Bytes::from(selector("testCustomError()").as_slice().to_vec()),
+        Bytes::from(selector("throwIt()").as_slice().to_vec()),
     );
 
     assert!(
@@ -439,34 +400,11 @@ async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Re
     Ok(())
 }
 
-// ---------- scenarios-fixture breadth tests ----------
+// ---------- scenario breadth tests ----------
 //
 // One test per DWARF-decoding axis the JS parity sweep can't pin at the
 // provider level. Assertions stay at "entry variant + source line": exact
 // frame-shape parity with solc remains the sweep's job.
-
-const SCENARIOS_SOURCE: &str = "project/contracts/Scenarios.t.sol";
-
-fn scenarios_provider(
-) -> anyhow::Result<(Provider<L1ChainSpec>, Address, CompilerOutput<SolxBytecode>)> {
-    let (build_info, output) = solx_scenarios_build_info()?;
-    let decoder = ContractDecoder::new(build_info);
-    let (provider, from) = make_provider(decoder)?;
-    Ok((provider, from, output))
-}
-
-fn deploy_scenario(
-    provider: &Provider<L1ChainSpec>,
-    from: Address,
-    output: &CompilerOutput<SolxBytecode>,
-    contract: &str,
-) -> anyhow::Result<Address> {
-    deploy(
-        provider,
-        from,
-        creation_bytes(output, SCENARIOS_SOURCE, contract)?,
-    )
-}
 
 fn contains_ascii(data: &[u8], needle: &str) -> bool {
     data.windows(needle.len()).any(|w| w == needle.as_bytes())
@@ -551,8 +489,8 @@ fn expect_scenario_revert(
     line: u32,
     reason: &str,
 ) -> anyhow::Result<Vec<StackTraceEntry>> {
-    let (provider, from, output) = scenarios_provider()?;
-    let addr = deploy_scenario(&provider, from, &output, contract)?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, contract)?;
     let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, calldata);
     assert_revert_at_line(&stack_trace, line, reason);
     Ok(stack_trace)
@@ -561,8 +499,8 @@ fn expect_scenario_revert(
 /// Deploys a scenario contract, triggers `signature`, and asserts the trace
 /// surfaces a `PanicError` with `code`.
 fn expect_scenario_panic(contract: &str, signature: &str, code: u64) -> anyhow::Result<()> {
-    let (provider, from, output) = scenarios_provider()?;
-    let addr = deploy_scenario(&provider, from, &output, contract)?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, contract)?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
         from,
@@ -592,27 +530,27 @@ fn expect_scenario_panic(contract: &str, signature: &str, code: u64) -> anyhow::
 
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_code_surfaces_for_assert_failure() -> anyhow::Result<()> {
-    expect_scenario_panic("AssertionFailureTest", "testAssertionFails()", 0x01)
+    expect_scenario_panic("AssertFails", "fail()", 0x01)
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_code_surfaces_for_division_by_zero() -> anyhow::Result<()> {
-    expect_scenario_panic("DivisionByZeroTest", "testDivisionByZero()", 0x12)
+    expect_scenario_panic("DividesByZero", "divide()", 0x12)
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_code_surfaces_for_invalid_enum_cast() -> anyhow::Result<()> {
-    expect_scenario_panic("InvalidEnumCastTest", "testInvalidEnumCast()", 0x21)
+    expect_scenario_panic("InvalidEnumCast", "cast()", 0x21)
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_code_surfaces_for_pop_on_empty_array() -> anyhow::Result<()> {
-    expect_scenario_panic("PopEmptyArrayTest", "testPopEmpty()", 0x31)
+    expect_scenario_panic("PopsEmptyArray", "popIt()", 0x31)
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_code_surfaces_for_array_out_of_bounds() -> anyhow::Result<()> {
-    expect_scenario_panic("ArrayOutOfBoundsTest", "testArrayOOB()", 0x32)
+    expect_scenario_panic("ArrayOutOfBounds", "read()", 0x32)
 }
 
 /// Two `require`s in one function; only the second fails. Pin: the
@@ -621,9 +559,9 @@ async fn panic_code_surfaces_for_array_out_of_bounds() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn revert_line_discriminates_between_requires() -> anyhow::Result<()> {
     expect_scenario_revert(
-        "MultipleRequiresTest",
-        Bytes::from(selector("testMultipleRequires()").as_slice().to_vec()),
-        340,
+        "MultipleRequires",
+        Bytes::from(selector("check()").as_slice().to_vec()),
+        190,
         "second",
     )?;
     Ok(())
@@ -634,13 +572,13 @@ async fn revert_line_discriminates_between_requires() -> anyhow::Result<()> {
 /// `evm.deployedBytecode.debugInfo`.
 #[tokio::test(flavor = "multi_thread")]
 async fn create_revert_surfaces_for_reverting_constructor() -> anyhow::Result<()> {
-    let (provider, from, output) = scenarios_provider()?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
     let stack_trace = expect_failed_deploy_stack_trace(
         &provider,
         from,
-        creation_bytes(&output, SCENARIOS_SOURCE, "ConstructorRevertContract")?,
+        creation_bytes(&output, STACK_TRACE_SCENARIOS_SOURCE, "ConstructorReverts")?,
     );
-    assert_revert_at_line(&stack_trace, 57, "constructor boom");
+    assert_revert_at_line(&stack_trace, 172, "constructor boom");
     Ok(())
 }
 
@@ -648,16 +586,16 @@ async fn create_revert_surfaces_for_reverting_constructor() -> anyhow::Result<()
 /// `_check(v)` which reverts.
 #[tokio::test(flavor = "multi_thread")]
 async fn create_revert_surfaces_through_constructor_helper() -> anyhow::Result<()> {
-    let (provider, from, output) = scenarios_provider()?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
     let mut creation = creation_bytes(
         &output,
-        SCENARIOS_SOURCE,
-        "HelperRevertingConstructorContract",
+        STACK_TRACE_SCENARIOS_SOURCE,
+        "HelperRevertingConstructor",
     )?
     .to_vec();
     creation.extend_from_slice(&[0u8; 32]); // constructor(uint256 v = 0)
     let stack_trace = expect_failed_deploy_stack_trace(&provider, from, Bytes::from(creation));
-    assert_revert_at_line(&stack_trace, 295, "constructor helper boom");
+    assert_revert_at_line(&stack_trace, 178, "constructor helper boom");
     Ok(())
 }
 
@@ -665,61 +603,35 @@ async fn create_revert_surfaces_through_constructor_helper() -> anyhow::Result<(
 #[tokio::test(flavor = "multi_thread")]
 async fn modifier_revert_points_at_modifier_require() -> anyhow::Result<()> {
     expect_scenario_revert(
-        "ModifierTarget",
+        "ModifierGuard",
         encode_call_u256("setIfPositive(uint256)", 0),
-        87,
+        214,
         "modifier must be positive",
     )?;
     Ok(())
 }
 
-/// Revert inside a multi-statement modifier body (`validates`, pre-`_`).
-///
-/// solx flattens the modifier into `bumpIfValid` and — in this fixture's
-/// pre-0.1.6 artifacts (not regenerable, see `solx_fixtures.rs`) — attributes
-/// the shared revert helper to the function declaration line (420);
-/// `SolxTraceStrategy::revert_source_reference` walks the executed steps
-/// back to the message-building code of the `require` that actually fired
-/// (line 415), matching solc. The same shape on current artifacts is
-/// pinned in `nested_modifier_revert_walks_back_from_line_zero_helper`.
-#[tokio::test(flavor = "multi_thread")]
-async fn nested_modifier_revert_points_at_failing_require() -> anyhow::Result<()> {
-    expect_scenario_revert(
-        "NestedModifierTarget",
-        encode_call_u256("bumpIfValid(uint256)", 13),
-        415,
-        "unlucky",
-    )?;
-    Ok(())
-}
-
-/// Cross-contract CALL chain: `CrossContractCallTest.testCrossContractCall`
-/// calls `Other.fail()`. Pin: the revert resolves inside `Other` and the
-/// trace keeps a callstack frame for the calling contract.
+/// Cross-contract CALL chain: `CallsOther.callFail` calls `Other.fail()`.
+/// Pin: the revert resolves inside `Other` and the trace keeps a callstack
+/// frame for the calling contract.
 #[tokio::test(flavor = "multi_thread")]
 async fn cross_contract_call_keeps_caller_frame() -> anyhow::Result<()> {
-    let (provider, from, output) = scenarios_provider()?;
-    let caller = deploy_scenario(&provider, from, &output, "CrossContractCallTest")?;
-    send_ok(
-        &provider,
-        from,
-        caller,
-        Bytes::from(selector("setUp()").as_slice().to_vec()),
-    )?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let caller = deploy_stack_trace_scenario(&provider, from, &output, "CallsOther")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
         from,
         caller,
-        Bytes::from(selector("testCrossContractCall()").as_slice().to_vec()),
+        Bytes::from(selector("callFail()").as_slice().to_vec()),
     );
-    assert_revert_at_line(&stack_trace, 69, "called fail");
+    assert_revert_at_line(&stack_trace, 196, "called fail");
     assert!(
         stack_trace.iter().any(|e| matches!(
             e,
             StackTraceEntry::CallstackEntry { source_reference, .. }
-                if source_reference.contract.as_deref() == Some("CrossContractCallTest")
+                if source_reference.contract.as_deref() == Some("CallsOther")
         )),
-        "expected a CallstackEntry for CrossContractCallTest, got:\n{}",
+        "expected a CallstackEntry for CallsOther, got:\n{}",
         brief_trace(&stack_trace)
     );
     // No separate `Other.fail` callstack frame: the bottom entry already
@@ -727,8 +639,8 @@ async fn cross_contract_call_keeps_caller_frame() -> anyhow::Result<()> {
     assert_trace_shape(
         &stack_trace,
         &[
-            "CallstackEntry project/contracts/Scenarios.t.sol:81 (CrossContractCallTest.testCrossContractCall)",
-            "RevertError project/contracts/Scenarios.t.sol:69 (Other.fail)",
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:208 (CallsOther.callFail)",
+            "RevertError project/contracts/StackTraceScenarios.sol:196 (Other.fail)",
         ],
     );
     Ok(())
@@ -739,15 +651,15 @@ async fn cross_contract_call_keeps_caller_frame() -> anyhow::Result<()> {
 /// revert.
 #[tokio::test(flavor = "multi_thread")]
 async fn external_recursion_keeps_one_frame_per_call() -> anyhow::Result<()> {
-    let (provider, from, output) = scenarios_provider()?;
-    let addr = deploy_scenario(&provider, from, &output, "DeepRecursionTarget")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "DeepRecursion")?;
     let stack_trace = expect_failed_call_stack_trace(
         &provider,
         from,
         addr,
         encode_call_u256("recurse(uint256)", 3),
     );
-    assert_revert_at_line(&stack_trace, 109, "bottomed out");
+    assert_revert_at_line(&stack_trace, 224, "bottomed out");
     let recursion_frames = stack_trace
         .iter()
         .filter(|e| {
@@ -766,10 +678,10 @@ async fn external_recursion_keeps_one_frame_per_call() -> anyhow::Result<()> {
     assert_trace_shape(
         &stack_trace,
         &[
-            "CallstackEntry project/contracts/Scenarios.t.sol:111 (DeepRecursionTarget.recurse)",
-            "CallstackEntry project/contracts/Scenarios.t.sol:111 (DeepRecursionTarget.recurse)",
-            "CallstackEntry project/contracts/Scenarios.t.sol:111 (DeepRecursionTarget.recurse)",
-            "RevertError project/contracts/Scenarios.t.sol:109 (DeepRecursionTarget.recurse)",
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:226 (DeepRecursion.recurse)",
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:226 (DeepRecursion.recurse)",
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:226 (DeepRecursion.recurse)",
+            "RevertError project/contracts/StackTraceScenarios.sol:224 (DeepRecursion.recurse)",
         ],
     );
     Ok(())
@@ -780,9 +692,9 @@ async fn external_recursion_keeps_one_frame_per_call() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn internal_recursion_pins_bottom_revert_line() -> anyhow::Result<()> {
     expect_scenario_revert(
-        "InternalRecurseTest",
-        Bytes::from(selector("testInternalRecurse()").as_slice().to_vec()),
-        348,
+        "InternalRecursion",
+        Bytes::from(selector("start()").as_slice().to_vec()),
+        234,
         "internal bottom",
     )?;
     Ok(())
@@ -792,21 +704,22 @@ async fn internal_recursion_pins_bottom_revert_line() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn internal_helper_revert_points_at_helper_require() -> anyhow::Result<()> {
     expect_scenario_revert(
-        "InternalHelperChainContract",
+        "InternalHelperChain",
         encode_call_u256("set(uint256)", 0),
-        149,
+        254,
         "must be positive",
     )?;
     Ok(())
 }
 
-/// Internal library function revert (`RevertingLib.alwaysReverts`, inlined).
+/// Internal library function revert (`InternalRevertingLib.alwaysReverts`,
+/// inlined).
 #[tokio::test(flavor = "multi_thread")]
 async fn internal_library_revert_points_into_library() -> anyhow::Result<()> {
     expect_scenario_revert(
-        "LibraryRevertTest",
-        Bytes::from(selector("testLibraryRevert()").as_slice().to_vec()),
-        229,
+        "UsesInternalLib",
+        Bytes::from(selector("go()").as_slice().to_vec()),
+        260,
         "lib boom",
     )?;
     Ok(())
@@ -816,9 +729,9 @@ async fn internal_library_revert_points_into_library() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn fallback_revert_points_at_fallback_body() -> anyhow::Result<()> {
     expect_scenario_revert(
-        "FallbackRevertTarget",
+        "FallbackReverts",
         Bytes::from(selector("nonExistent()").as_slice().to_vec()),
-        259,
+        272,
         "fallback boom",
     )?;
     Ok(())
@@ -827,7 +740,7 @@ async fn fallback_revert_points_at_fallback_body() -> anyhow::Result<()> {
 /// Revert inside `receive()`, reached via empty calldata.
 #[tokio::test(flavor = "multi_thread")]
 async fn receive_revert_points_at_receive_body() -> anyhow::Result<()> {
-    expect_scenario_revert("ReceiveRevertTarget", Bytes::new(), 276, "receive boom")?;
+    expect_scenario_revert("ReceiveReverts", Bytes::new(), 278, "receive boom")?;
     Ok(())
 }
 
@@ -836,9 +749,9 @@ async fn receive_revert_points_at_receive_body() -> anyhow::Result<()> {
 /// the dispatch points, so only the bottom revert line is pinned.
 #[tokio::test(flavor = "multi_thread")]
 async fn mutual_recursion_pins_bottom_revert_line() -> anyhow::Result<()> {
-    let (provider, from, output) = scenarios_provider()?;
-    let a = deploy_scenario(&provider, from, &output, "MutualA")?;
-    let b = deploy_scenario(&provider, from, &output, "MutualB")?;
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let a = deploy_stack_trace_scenario(&provider, from, &output, "MutualA")?;
+    let b = deploy_stack_trace_scenario(&provider, from, &output, "MutualB")?;
     send_ok(
         &provider,
         from,
@@ -853,7 +766,36 @@ async fn mutual_recursion_pins_bottom_revert_line() -> anyhow::Result<()> {
     )?;
     let stack_trace =
         expect_failed_call_stack_trace(&provider, from, a, encode_call_u256("pingA(uint256)", 2));
-    assert_revert_at_line(&stack_trace, 377, "mutual bottom");
+    assert_revert_at_line(&stack_trace, 290, "mutual bottom");
+    Ok(())
+}
+
+/// Inherited function defined in a different source file: the build model
+/// must resolve `inheritedFail` through the base contract's AST
+/// (`linearizedBaseContracts` across files) and the revert must point into
+/// the base's own source.
+#[tokio::test(flavor = "multi_thread")]
+async fn inherited_function_revert_points_into_the_base_source_file() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "InheritsBase")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        addr,
+        Bytes::from(selector("inheritedFail()").as_slice().to_vec()),
+    );
+    assert_revert_at_line(&stack_trace, 9, "inherited boom");
+    let source_reference = stack_trace
+        .iter()
+        .find_map(source_reference_of)
+        .expect("trace has a source reference");
+    assert!(
+        source_reference
+            .source_name
+            .ends_with("StackTraceScenariosBase.sol"),
+        "expected the revert to resolve into the base source file, got:\n{}",
+        brief_trace(&stack_trace)
+    );
     Ok(())
 }
 
