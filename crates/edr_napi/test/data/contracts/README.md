@@ -20,6 +20,9 @@ compiled artifacts (the tests point each entry into this directory).
 - `Eip712UnknownTest.t.sol` — references an undefined type to check that
   unresolvable lookups fail. Compiled to
   `../artifacts/default/Eip712UnknownTest.json`.
+- `Eip712SyntaxError.sol` — deliberately broken (never compiled); a test
+  points a suite's `testSourcePaths` entry at it to check that an unparseable
+  source rejects the run up front.
 
 ## Recompiling
 

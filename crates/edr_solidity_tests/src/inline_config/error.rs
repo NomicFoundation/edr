@@ -19,6 +19,16 @@ pub enum InlineConfigCollectError {
         /// Why reading it failed.
         reason: String,
     },
+    /// The test source has no `test_source_paths` entry, so it cannot be
+    /// located, read, and parsed.
+    #[error("no source path was provided for the test source")]
+    SourcePathNotProvided,
+    /// The test source's content could not be parsed to an AST.
+    #[error("the test source could not be parsed: {reason}")]
+    ParseError {
+        /// The parse error, located at its source line.
+        reason: String,
+    },
     /// A directive's offset could not be resolved to a line number: it lies
     /// outside the source text (or the line count overflows), meaning the
     /// parsing stages disagree about the source, so its directives cannot be

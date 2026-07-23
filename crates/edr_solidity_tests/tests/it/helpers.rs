@@ -824,6 +824,28 @@ impl<
         self.build_runner(config).await
     }
 
+    /// Like [`Self::forked_runner`], with source collection disabled for a
+    /// filter that selects a suite Slang has no grammar for.
+    pub async fn forked_runner_without_source_collection(
+        &self,
+        rpc: &str,
+    ) -> MultiContractRunner<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
+        TransactionT,
+    > {
+        let mut config = self.config_without_source_collection();
+
+        config.evm_opts.fork_url = Some(rpc.to_string());
+
+        self.build_runner(config).await
+    }
+
     async fn build_runner(
         &self,
         config: SolidityTestRunnerConfig<HardforkT>,
