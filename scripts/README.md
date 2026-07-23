@@ -37,7 +37,6 @@ A few JavaScript scripts remain outside these two directories. When you edit one
 Today that means:
 
 - `js/integration-tests/solx-parity-sweep/scripts/maybe-build.js` — check its `TODO` first; the script is due to be deleted once `@nomicfoundation/hardhat-solx` is published on npm, so converting it may be wasted work.
-- `js/integration-tests/solx-parity-sweep/scripts/regen-fixtures.js`
 
 `scripts/` and `.github/scripts/` are already free of JavaScript, and `scripts/script-language.test.ts` keeps them that way.
 
