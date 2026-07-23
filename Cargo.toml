@@ -56,6 +56,7 @@ members = [
     "crates/primitives",
     "crates/receipt/builder/api",
     "crates/solidity/collector/eip712",
+    "crates/solidity/parser/slang",
     "crates/state/api",
     "crates/state/fork",
     "crates/state/persistent_trie",
@@ -184,6 +185,7 @@ edr_scenarios = { path = "crates/edr_scenarios" }
 edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_collector_eip712 = { path = "crates/solidity/collector/eip712" }
+edr_solidity_parser_slang = { path = "crates/solidity/parser/slang" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_state_api = { path = "crates/state/api" }
 edr_state_fork = { path = "crates/state/fork" }

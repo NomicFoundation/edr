@@ -26,8 +26,7 @@ use crate::{
         collect_eip712_types_for_file, Eip712CollectError, Eip712CollectionLookupError,
         Eip712TypeCollection, Eip712TypeRejected,
     },
-    resolver::ImportResolver,
-    Eip712Type,
+    Eip712Type, ImportResolver,
 };
 
 /// A Solidity source file to collect EIP-712 canonical types from.

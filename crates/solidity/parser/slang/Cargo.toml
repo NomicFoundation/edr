@@ -1,0 +1,13 @@
+[package]
+name = "edr_solidity_parser_slang"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_common.workspace = true
+semver.workspace = true
+slang_solidity_v2.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
