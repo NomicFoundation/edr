@@ -1059,12 +1059,29 @@ export interface InlineConfigSourceFileNotFound {
   reason: string
 }
 
+/** The test source's content could not be parsed to an AST. */
+export interface InlineConfigSourceParseError {
+  /** Enum tag for JS. */
+  kind: "InlineConfigSourceParseError"
+  /** The parse error, located at its source line. */
+  reason: string
+}
+
+/**
+ * The test source has no `testSourcePaths` entry, so it could not be located,
+ * read, and parsed.
+ */
+export interface InlineConfigSourcePathNotProvided {
+  /** Enum tag for JS. */
+  kind: "InlineConfigSourcePathNotProvided"
+}
+
 /**
  * A source-level problem, as a discriminated union over its `kind` tag. These
  * cannot be pinned to a single directive line, so they carry no line.
  */
 export type InlineConfigSourceProblem =
-  InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound | InlineConfigDirectiveLocation
+  InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound | InlineConfigDirectiveLocation | InlineConfigSourcePathNotProvided | InlineConfigSourceParseError
 
 /** A profile other than `default` was used. */
 export interface InlineConfigUnsupportedProfile {
@@ -1746,8 +1763,13 @@ export interface SolidityTestRunnerConfigArgs {
    * The test sources are parsed to collect inline test configuration
    * (`forge-config:`/`hardhat-config:` NatSpec directives) and the EIP-712
    * struct definitions served to the `eip712HashType` and
-   * `eip712HashStruct` cheatcodes. A test source without an entry has no
-   * inline configuration and no EIP-712 struct definitions collected.
+   * `eip712HashStruct` cheatcodes.
+   *
+   * Omitting the map (or passing an empty one) disables collection. A
+   * non-empty map must cover every test suite whose source can be parsed
+   * (solc >= 0.8): a missing entry, an unreadable or unparseable source,
+   * or an unsupported solc version for a listed source rejects the run up
+   * front.
    */
   testSourcePaths?: Record<string, string>
   /**

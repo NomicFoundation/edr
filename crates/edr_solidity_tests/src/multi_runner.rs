@@ -18,6 +18,7 @@ use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReport
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
 use edr_solidity_collector_eip712::collector::Eip712TypeCollection;
+use edr_solidity_parser_slang::supports_solc_version;
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
@@ -42,7 +43,10 @@ use crate::{
     contracts::get_contract_name,
     error::TestRunnerError,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
-    inline_config::{self, InlineConfigErrors},
+    inline_config::{
+        self, InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors,
+        InlineConfigProblem,
+    },
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     test_sources::{collect_test_sources, CollectedTestSource, TestSourceRoot},
@@ -212,17 +216,19 @@ impl<
         // Read and parse the test sources up front, off the async runtime.
         // Each unique source is parsed once; both its inline test
         // configuration and its EIP-712 struct definitions are extracted from
-        // the same compilation unit. Any inline-config problem found —
-        // reported per test function, each located at its source line — fails
-        // here, aborting the whole run before any test executes.
-        let roots = test_source_roots(&test_source_paths, &test_contracts);
+        // the same compilation unit. Any problem found — a source that cannot
+        // be located, read, or parsed, or an ill-formed directive reported per
+        // test function at its source line — fails here, aborting the whole
+        // run before any test executes.
+        let (roots, mut source_errors) = test_source_roots(&test_source_paths, &test_contracts);
         let (collected_sources, inline_config_errors) =
             tokio::task::spawn_blocking(move || collect_test_sources(&roots, &import_resolver))
                 .await
                 .expect("Thread shouldn't panic");
-        if !inline_config_errors.is_empty() {
+        source_errors.extend(inline_config_errors);
+        if !source_errors.is_empty() {
             return Err(SolidityTestRunnerConfigError::InlineConfig(
-                InlineConfigErrors::new(inline_config_errors),
+                InlineConfigErrors::new(source_errors),
             ));
         }
 
@@ -643,11 +649,25 @@ fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
 /// known on-disk path, deduplicated by source (a source declaring multiple test
 /// contracts is parsed once), sorted by source so problems are reported in a
 /// deterministic order.
+///
+/// An empty `test_source_paths` disables collection entirely (for callers
+/// using neither inline configuration nor the EIP-712 cheatcodes). A
+/// *non-empty* map must cover every test source Slang can parse: a parseable
+/// (solc >= 0.8) source without an entry is reported as an error, aborting the
+/// run at creation rather than silently skipping the source. Sources whose
+/// solc version Slang has no grammar for are exempt — listing one aborts the
+/// run with an unsupported-version error instead, so an entry could never
+/// succeed.
 fn test_source_roots(
     test_source_paths: &HashMap<PathBuf, PathBuf>,
     test_contracts: &TestContracts,
-) -> Vec<TestSourceRoot> {
+) -> (Vec<TestSourceRoot>, Vec<InlineConfigErrorItem>) {
+    if test_source_paths.is_empty() {
+        return (Vec::new(), Vec::new());
+    }
+
     let mut roots_by_source = BTreeMap::new();
+    let mut errors_by_source = BTreeMap::new();
     for artifact_id in test_contracts.keys() {
         if let Some(path) = test_source_paths.get(&artifact_id.source) {
             roots_by_source
@@ -657,9 +677,21 @@ fn test_source_roots(
                     path: path.clone(),
                     version: artifact_id.version.clone(),
                 });
+        } else if supports_solc_version(&artifact_id.version) {
+            errors_by_source
+                .entry(artifact_id.source.clone())
+                .or_insert_with(|| InlineConfigErrorItem {
+                    source: artifact_id.source.clone(),
+                    problem: InlineConfigProblem::Source(
+                        InlineConfigCollectError::SourcePathNotProvided,
+                    ),
+                });
         }
     }
-    roots_by_source.into_values().collect()
+    (
+        roots_by_source.into_values().collect(),
+        errors_by_source.into_values().collect(),
+    )
 }
 
 /// The data extracted from a test suite's source at runner construction: its
@@ -766,5 +798,86 @@ impl SuiteSourceData {
             warnings,
             eip712_types: source.eip712_types.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use semver::Version;
+
+    use super::*;
+
+    fn test_contracts(entries: &[(&str, Version)]) -> TestContracts {
+        entries
+            .iter()
+            .map(|(source, version)| {
+                (
+                    ArtifactId {
+                        name: "Test".to_owned(),
+                        source: PathBuf::from(source),
+                        version: version.clone(),
+                    },
+                    TestContract {
+                        abi: JsonAbi::new(),
+                        bytecode: Bytes::new(),
+                    },
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn empty_source_paths_disable_collection() {
+        let contracts = test_contracts(&[("test/A.t.sol", Version::new(0, 8, 24))]);
+
+        let (roots, errors) = test_source_roots(&HashMap::new(), &contracts);
+
+        assert!(roots.is_empty());
+        assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn parseable_source_without_entry_is_an_error() {
+        let contracts = test_contracts(&[
+            ("test/A.t.sol", Version::new(0, 8, 24)),
+            ("test/B.t.sol", Version::new(0, 8, 24)),
+        ]);
+        let paths = [(
+            PathBuf::from("test/A.t.sol"),
+            PathBuf::from("/project/test/A.t.sol"),
+        )]
+        .into();
+
+        let (roots, errors) = test_source_roots(&paths, &contracts);
+
+        assert_eq!(roots.len(), 1);
+        assert_eq!(roots[0].source, PathBuf::from("test/A.t.sol"));
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].source, PathBuf::from("test/B.t.sol"));
+        assert!(matches!(
+            &errors[0].problem,
+            InlineConfigProblem::Source(InlineConfigCollectError::SourcePathNotProvided)
+        ));
+    }
+
+    #[test]
+    fn unparseable_solc_version_without_entry_is_exempt() {
+        // Slang has no grammar for solc < 0.8, so listing such a source could
+        // never succeed (it fails with an unsupported-version error instead);
+        // an unlisted one is skipped rather than reported as missing.
+        let contracts = test_contracts(&[
+            ("test/A.t.sol", Version::new(0, 8, 24)),
+            ("test/Legacy.t.sol", Version::new(0, 6, 12)),
+        ]);
+        let paths = [(
+            PathBuf::from("test/A.t.sol"),
+            PathBuf::from("/project/test/A.t.sol"),
+        )]
+        .into();
+
+        let (roots, errors) = test_source_roots(&paths, &contracts);
+
+        assert_eq!(roots.len(), 1);
+        assert!(errors.is_empty());
     }
 }

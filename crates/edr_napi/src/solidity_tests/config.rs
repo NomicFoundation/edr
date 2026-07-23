@@ -182,8 +182,13 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     /// The test sources are parsed to collect inline test configuration
     /// (`forge-config:`/`hardhat-config:` NatSpec directives) and the EIP-712
     /// struct definitions served to the `eip712HashType` and
-    /// `eip712HashStruct` cheatcodes. A test source without an entry has no
-    /// inline configuration and no EIP-712 struct definitions collected.
+    /// `eip712HashStruct` cheatcodes.
+    ///
+    /// Omitting the map (or passing an empty one) disables collection. A
+    /// non-empty map must cover every test suite whose source can be parsed
+    /// (solc >= 0.8): a missing entry, an unreadable or unparseable source,
+    /// or an unsupported solc version for a listed source rejects the run up
+    /// front.
     pub test_source_paths: Option<HashMap<String, String>>,
     /// Maps non-relative Solidity import paths (as written in `import`
     /// statements, e.g. `forge-std/src/Test.sol`) to absolute file paths on

@@ -260,6 +260,95 @@ describe("Solidity Tests", () => {
     }
   });
 
+  // A non-empty `testSourcePaths` must cover every test suite whose source
+  // can be parsed; problems reject the run up front, carrying the structured
+  // `inlineConfigErrors` array on the thrown error.
+  interface SourceErrorEntry {
+    kind: string;
+    sourceName: string;
+    problem: { kind: string };
+  }
+
+  async function expectSourceErrors(
+    run: Promise<unknown>
+  ): Promise<SourceErrorEntry[]> {
+    let caught: unknown = null;
+    try {
+      await run;
+    } catch (error) {
+      caught = error;
+    }
+    assert.isNotNull(caught, "expected the run to reject");
+    const { inlineConfigErrors } = caught as {
+      inlineConfigErrors?: SourceErrorEntry[];
+    };
+    assert.isArray(inlineConfigErrors);
+    return inlineConfigErrors!;
+  }
+
+  it("rejects when a test suite's source path is not provided", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/Eip712ResolveTest.json"),
+      loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const errors = await expectSourceErrors(
+      runAllSolidityTests(context, L1_CHAIN_TYPE, artifacts, testSuites, {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        // Non-empty, but missing the entry for Eip712UnknownTest.t.sol.
+        testSourcePaths: {
+          "data/contracts/Eip712ResolveTest.t.sol": path.join(
+            __dirname,
+            "data/contracts/Eip712ResolveTest.t.sol"
+          ),
+        },
+        importMappings: eip712ImportMappings,
+      })
+    );
+
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].kind, "source");
+    assert.equal(
+      errors[0].sourceName,
+      "data/contracts/Eip712UnknownTest.t.sol"
+    );
+    assert.equal(errors[0].problem.kind, "InlineConfigSourcePathNotProvided");
+  });
+
+  it("rejects when a test source cannot be parsed", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const errors = await expectSourceErrors(
+      runAllSolidityTests(context, L1_CHAIN_TYPE, artifacts, testSuites, {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        // Point the suite's source at a file that cannot be parsed to an
+        // AST, simulating an on-disk source that diverged from its compiled
+        // artifact.
+        testSourcePaths: {
+          "data/contracts/Eip712UnknownTest.t.sol": path.join(
+            __dirname,
+            "data/contracts/Eip712SyntaxError.sol"
+          ),
+        },
+      })
+    );
+
+    assert.isAbove(errors.length, 0);
+    for (const error of errors) {
+      assert.equal(error.kind, "source");
+      assert.equal(error.sourceName, "data/contracts/Eip712UnknownTest.t.sol");
+      assert.equal(error.problem.kind, "InlineConfigSourceParseError");
+    }
+  });
+
   it("filters tests according to pattern", async function () {
     const artifacts = [
       loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
