@@ -150,9 +150,9 @@ describe("Solidity Tests", () => {
   // paths supplied via `testSourcePaths` (keyed by the artifacts' solc source
   // names); mapped (non-relative) imports resolve through `importMappings`.
   const eip712TestSourcePaths = {
-    "data/contracts/Eip712LazyTest.t.sol": path.join(
+    "data/contracts/Eip712ResolveTest.t.sol": path.join(
       __dirname,
-      "data/contracts/Eip712LazyTest.t.sol"
+      "data/contracts/Eip712ResolveTest.t.sol"
     ),
     "data/contracts/Eip712UnknownTest.t.sol": path.join(
       __dirname,
@@ -166,9 +166,9 @@ describe("Solidity Tests", () => {
     ),
   };
 
-  it("resolves eip712 types from the test contract's sources", async function () {
+  it("resolves EIP-712 types from the test contract's sources", async function () {
     const artifacts = [
-      loadContract("./data/artifacts/default/Eip712LazyTest.json"),
+      loadContract("./data/artifacts/default/Eip712ResolveTest.json"),
     ];
     const testSuites = artifacts.map((artifact) => artifact.id);
 
@@ -198,7 +198,7 @@ describe("Solidity Tests", () => {
     }
   });
 
-  it("fails when an eip712 type cannot be resolved from sources", async function () {
+  it("fails when an EIP-712 type cannot be resolved from sources", async function () {
     const artifacts = [
       loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
     ];
@@ -223,11 +223,11 @@ describe("Solidity Tests", () => {
     assert.equal(suite.testResults[0].status, "Failure");
   });
 
-  it("resolves eip712 types across multiple suites in one run", async function () {
+  it("resolves EIP-712 types across multiple suites in one run", async function () {
     // Exercises collection over two different root sources within a single
     // test run (the sources are parsed in parallel at runner creation).
     const artifacts = [
-      loadContract("./data/artifacts/default/Eip712LazyTest.json"),
+      loadContract("./data/artifacts/default/Eip712ResolveTest.json"),
       loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
     ];
     const testSuites = artifacts.map((artifact) => artifact.id);
@@ -248,7 +248,7 @@ describe("Solidity Tests", () => {
 
     assert.equal(results.length, 2);
     for (const suite of results) {
-      if (suite.id.name.includes("Eip712LazyTest")) {
+      if (suite.id.name.includes("Eip712ResolveTest")) {
         for (const res of suite.testResults) {
           assert.equal(res.status, "Success", `${res.name} failed`);
         }
