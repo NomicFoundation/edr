@@ -19,10 +19,9 @@ use std::{
     sync::Arc,
 };
 
+use edr_solidity_parser_slang::ImportResolver;
 use rayon::prelude::*;
 use semver::Version;
-
-use edr_solidity_parser_slang::ImportResolver;
 
 use super::{
     directives,
