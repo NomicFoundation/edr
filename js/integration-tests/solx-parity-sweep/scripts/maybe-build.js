@@ -10,7 +10,6 @@
 // directly.
 
 import { execSync } from "node:child_process";
-import { copyFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 let hardhatSolxAvailable = false;
@@ -23,26 +22,12 @@ try {
 
 if (!hardhatSolxAvailable) {
   console.log(
-    "[solx-parity-sweep] hardhat-solx not installed; skipping pretest build.",
+    "[solx-parity-sweep] hardhat-solx not installed; skipping pretest build."
   );
   process.exit(0);
 }
 
 const sweepRoot = resolve(import.meta.dirname, "..");
 const repoRoot = resolve(sweepRoot, "..", "..", "..");
-
-// Hardhat 3 refuses files outside the project root, so we copy the
-// single-source-of-truth Scenarios.t.sol from `crates/edr_solidity/fixtures/`
-// into the sweep's `contracts/` at pretest time. The destination is gitignored.
-const fixturesDir = resolve(
-  repoRoot,
-  "crates/edr_solidity/fixtures/sources",
-);
-const contractsDir = resolve(sweepRoot, "contracts");
-mkdirSync(contractsDir, { recursive: true });
-copyFileSync(
-  resolve(fixturesDir, "Scenarios.t.sol"),
-  resolve(contractsDir, "Scenarios.t.sol"),
-);
 
 execSync("pnpm build:dev", { cwd: repoRoot, stdio: "inherit" });
