@@ -958,12 +958,7 @@ impl<
                                     .map(|arena| &arena.arena),
                             )
                             // Append the failing call's trace
-                            .chain(
-                                raw_call_result
-                                    .traces
-                                    .iter()
-                                    .map(|arena| &arena.arena),
-                            ),
+                            .chain(raw_call_result.traces.iter().map(|arena| &arena.arena)),
                         None,
                     )
                     .map_err(SolidityTestStackTraceError::from)
