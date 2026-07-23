@@ -72,12 +72,12 @@ for (const source of Object.values(input.sources)) {
 }
 
 // Keep only what the Rust tests read: the scenarios source plus its
-// inheritance closure. EDR's build model resolves inherited functions
-// (forge-std's Test/StdInvariant getters, etc.) through the BASE contracts'
-// ASTs via `linearizedBaseContracts`, so `sources` and `contracts` must
-// cover the same closure — leaf-only breaks edr_provider's solx_stack_trace
-// tests. What this drops (console/safeconsole/Vm ASTs, ~35 MB) is read by
-// nothing.
+// inheritance closure (the build model resolves inherited functions through
+// the BASE contracts' ASTs via `linearizedBaseContracts`). This filter is a
+// size optimization, not the correctness point — sufficiency is enforced in
+// `edr_solidity` by `scenarios_fixture_satisfies_contract_metadata_extraction`,
+// which runs metadata extraction over the committed fixture. What this drops
+// (console/safeconsole/Vm ASTs, ~35 MB) is read by nothing.
 const allSources = buildInfoOutput.output.sources;
 const allContracts = buildInfoOutput.output.contracts;
 if (

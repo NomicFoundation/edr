@@ -1094,6 +1094,38 @@ mod tests {
         );
     }
 
+    /// The committed scenarios fixture must be sufficient for every consumer
+    /// in this crate — enforced by executing the most demanding one rather
+    /// than by describing what it reads. `extract_solx_contract_metadata`
+    /// resolves inherited functions through the base contracts' ASTs, so a
+    /// fixture over-filtered by the sweep's regen script (e.g. missing
+    /// forge-std sources) fails here, in the fixture's own crate, instead of
+    /// in downstream integration tests.
+    #[test]
+    fn scenarios_fixture_satisfies_contract_metadata_extraction() {
+        let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
+            "../../fixtures/solx_compiler_input_scenarios.json"
+        ))
+        .expect("solx_compiler_input_scenarios.json must parse");
+        input
+            .sources
+            .get_mut("project/contracts/Scenarios.t.sol")
+            .unwrap()
+            .content = include_str!("../../fixtures/sources/Scenarios.t.sol").to_string();
+
+        crate::artifacts::solx::extract_solx_contract_metadata(
+            "0.8.34".to_owned(),
+            input,
+            load_scenarios_output(),
+        )
+        .expect(
+            "contract metadata extraction must succeed on the committed \
+             scenarios fixture; a failure here usually means the fixture was \
+             regenerated with a filter that dropped sources the build model \
+             reads",
+        );
+    }
+
     fn decode_deployed_for(
         output: &CompilerOutput<SolxBytecode>,
         contract: &str,
