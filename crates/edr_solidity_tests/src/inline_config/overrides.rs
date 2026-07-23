@@ -10,12 +10,13 @@ use std::{collections::HashMap, path::Path};
 use semver::Version;
 
 use edr_solidity_parser_slang::ImportResolver;
+use slang_solidity_v2::compilation::CompilationUnit;
 
 use super::{
     directives::{self, DirectiveTarget, LocatedDirectiveError},
     error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
     natspec,
-    parse::{locate_contracts, LocatedContract, LocatedFunction},
+    parse::{locate_contracts, locate_contracts_in_unit, LocatedContract, LocatedFunction},
 };
 use crate::config::TestFunctionConfigOverride;
 
@@ -51,18 +52,18 @@ impl ContractInlineConfig {
 /// that declares any, keyed by contract name. A contract with no directives is
 /// simply absent; a contract whose directives were all malformed is likewise
 /// absent (its problems live in [`SourceCollection::errors`]).
-pub(super) type SourceOverrides = HashMap<String, ContractInlineConfig>;
+pub(crate) type SourceOverrides = HashMap<String, ContractInlineConfig>;
 
 /// The outcome of collecting one source's inline configuration: the overrides
 /// that parsed successfully, plus every problem found (at most one per test
 /// function, plus at most one per contract's own directives). Problems are
 /// accumulated rather than short-circuited so the run can report them all
 /// together and abort up front.
-pub(super) struct SourceCollection {
+pub(crate) struct SourceCollection {
     /// The successfully-parsed overrides, keyed by contract name.
-    pub(super) overrides: SourceOverrides,
+    pub(crate) overrides: SourceOverrides,
     /// The problems found, in source order, each with its location.
-    pub(super) errors: Vec<InlineConfigErrorItem>,
+    pub(crate) errors: Vec<InlineConfigErrorItem>,
 }
 
 /// Parses the file at `root_path` (its `content`, compiled with `version`) into
@@ -93,9 +94,39 @@ pub(super) fn collect_source(
         }
     };
 
+    source_overrides(source, content, &contracts)
+}
+
+/// Like [`collect_source`], but extracts from an already-built compilation
+/// unit instead of reading and parsing the source itself. `file_id` is the id
+/// the root file was added to the unit under (its on-disk path).
+///
+/// Used by the combined test-source collection
+/// ([`crate::test_sources::collect_test_sources`]), which parses each source
+/// once and extracts both its inline configuration and its EIP-712 struct
+/// definitions from the same unit.
+pub(crate) fn collect_source_from_unit(
+    source: &Path,
+    content: &str,
+    unit: &CompilationUnit,
+    file_id: &str,
+) -> SourceCollection {
+    source_overrides(source, content, &locate_contracts_in_unit(unit, file_id))
+}
+
+/// Parses the inline configuration of every contract in `contracts` that
+/// declares a directive. Contracts with no directives are omitted from
+/// [`SourceCollection::overrides`] (a query for them returns an empty
+/// configuration); malformed directives are accumulated into
+/// [`SourceCollection::errors`] rather than failing the source.
+fn source_overrides(
+    source: &Path,
+    content: &str,
+    contracts: &[LocatedContract],
+) -> SourceCollection {
     let mut overrides = SourceOverrides::new();
     let mut errors = Vec::new();
-    for located in &contracts {
+    for located in contracts {
         let (contract, contract_errors) = contract_overrides(source, content, located);
         if !contract.is_empty() {
             overrides.insert(located.contract_name.clone(), contract);
