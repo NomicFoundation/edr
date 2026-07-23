@@ -140,37 +140,6 @@ describe("solx-vs-solc trace parity", { skip: !hardhatSolxAvailable }, () => {
   // both surface as golden mismatches; rejoin the parity check by removing
   // an entry once solx matches solc.
   const scenariosDivergingFromSolc = new Map<string, Block>([
-    // No `.debug_line` rows for assembly opcodes — bottom frame is the
-    // function decl line (129), not solc's statement line (135).
-    [
-      "InlineAssemblyRevertTest#testInlineAssemblyRevert",
-      {
-        contract: "InlineAssemblyRevertTest",
-        test: "testInlineAssemblyRevert",
-        reason: "asmbe",
-        frames: [
-          {
-            location: "InlineAssemblyRevertTest.testInlineAssemblyRevert",
-            file: "contracts/Scenarios.t.sol:129",
-          },
-        ],
-      },
-    ],
-    // Same as InlineAssemblyRevert, but for `invalid()`: 182 vs 183.
-    [
-      "InvalidOpcodeTest#testInvalidOpcode",
-      {
-        contract: "InvalidOpcodeTest",
-        test: "testInvalidOpcode",
-        reason: "EvmError: InvalidFEOpcode",
-        frames: [
-          {
-            location: "InvalidOpcodeTest.testInvalidOpcode",
-            file: "contracts/Scenarios.t.sol:182",
-          },
-        ],
-      },
-    ],
     // Optimizer unrolls 3-deep self-recursion; inlined frames collapse.
     [
       "InternalRecurseTest#testInternalRecurse",
@@ -186,26 +155,6 @@ describe("solx-vs-solc trace parity", { skip: !hardhatSolxAvailable }, () => {
           {
             location: "InternalRecurseTest.testInternalRecurse",
             file: "contracts/Scenarios.t.sol:354",
-          },
-        ],
-      },
-    ],
-    // A modifier's bare `revert()` compiles to a shared helper that is
-    // unmapped in the DWARF and returns no data, so every revert heuristic
-    // misses: the target contract's frames vanish and the trace collapses
-    // to the test's own call site with the raw EvmError. solc reports the
-    // `revert()` statement inside the modifier (line 442) with the full
-    // 3-frame stack.
-    [
-      "BareModifierRevertTest#testBareModifierRevert",
-      {
-        contract: "BareModifierRevertTest",
-        test: "testBareModifierRevert",
-        reason: "EvmError: Revert",
-        frames: [
-          {
-            location: "BareModifierRevertTest.testBareModifierRevert",
-            file: "contracts/Scenarios.t.sol:454",
           },
         ],
       },

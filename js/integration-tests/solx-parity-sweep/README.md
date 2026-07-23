@@ -12,16 +12,13 @@ Integration test that asserts EDR renders **the same Solidity stack trace** for 
 
 ## Pinned divergences
 
-A small set of scenarios diverge from solc today and are pinned to their current solx output via `scenariosDivergingFromSolc` in `test/sweep.ts`. A golden mismatch means solx changed: either remove the entry (improvement) or update the pinned shape (regression).
+A small set of scenarios diverge from solc today and are pinned to their current solx output via `scenariosDivergingFromSolc` in `test/sweep.ts`. A golden mismatch means solx changed: either remove the entry (improvement) or update the pinned shape (regression). The pin set tracks the solx version selected by `hardhat-solx`'s version map, currently solx 0.1.6.
 
 | Scenario | Why it diverges |
 | --- | --- |
-| `InlineAssemblyRevertTest` | solx omits `.debug_line` rows for assembly opcodes; bottom frame falls back to the function decl line. |
-| `InvalidOpcodeTest` | Same as inline-assembly: function decl line instead of statement line. |
 | `InternalRecurseTest` | solx's optimizer fully unrolls 3-deep self-recursion; inlined frames collapse. |
-| `BareModifierRevertTest` | A modifier's bare `revert()` is unmapped in the DWARF and returns no data; every revert heuristic misses and the trace collapses to the test's own call site. Fix queued in [#1552](https://github.com/NomicFoundation/edr/pull/1552). |
 
-`MutualRecursionTest` and `NestedModifierRevertTest` were previously pinned but reached full parity with the debug info emitted by the merged `hardhat-solx` plugin, so they run under the strict parity check.
+Previously pinned but since reached full parity, so they run under the strict parity check: `MutualRecursionTest` and `NestedModifierRevertTest` (debug info emitted by the merged `hardhat-solx` plugin), `InlineAssemblyRevertTest` and `InvalidOpcodeTest` (solx 0.1.6 maps assembly opcodes to statement lines, [solx#583](https://github.com/NomicFoundation/solx/pull/583)), and `BareModifierRevertTest` (bare-revert attribution recovered in [#1552](https://github.com/NomicFoundation/edr/pull/1552)).
 
 ## Current state
 
