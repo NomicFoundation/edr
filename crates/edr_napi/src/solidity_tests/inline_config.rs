@@ -6,7 +6,7 @@ use edr_solidity_tests::inline_config::{
     InlineConfigErrors, InlineConfigProblem as CoreInlineConfigProblem,
 };
 use napi::{
-    bindgen_prelude::{Either, Either3, Either6},
+    bindgen_prelude::{Either, Either5, Either6},
     Env, JsValue,
 };
 use napi_derive::napi;
@@ -116,13 +116,34 @@ pub struct InlineConfigDirectiveLocation {
     pub reason: String,
 }
 
+/// The test source has no `testSourcePaths` entry, so it could not be located,
+/// read, and parsed.
+#[napi(object)]
+pub struct InlineConfigSourcePathNotProvided {
+    /// Enum tag for JS.
+    #[napi(ts_type = "\"InlineConfigSourcePathNotProvided\"")]
+    pub kind: String,
+}
+
+/// The test source's content could not be parsed to an AST.
+#[napi(object)]
+pub struct InlineConfigSourceParseError {
+    /// Enum tag for JS.
+    #[napi(ts_type = "\"InlineConfigSourceParseError\"")]
+    pub kind: String,
+    /// The parse error, located at its source line.
+    pub reason: String,
+}
+
 /// A source-level problem, as a discriminated union over its `kind` tag. These
 /// cannot be pinned to a single directive line, so they carry no line.
 #[napi]
-pub type InlineConfigSourceProblem = Either3<
+pub type InlineConfigSourceProblem = Either5<
     InlineConfigInvalidSolcVersion,
     InlineConfigSourceFileNotFound,
     InlineConfigDirectiveLocation,
+    InlineConfigSourcePathNotProvided,
+    InlineConfigSourceParseError,
 >;
 
 /// The problem in a single inline-config directive, as a discriminated union
@@ -182,12 +203,12 @@ pub type InlineConfigError = Either<InlineConfigSourceError, InlineConfigDirecti
 fn to_source_problem(error: &InlineConfigCollectError) -> InlineConfigSourceProblem {
     match error {
         InlineConfigCollectError::InvalidSolcVersion(_) => {
-            Either3::A(InlineConfigInvalidSolcVersion {
+            Either5::A(InlineConfigInvalidSolcVersion {
                 kind: "InlineConfigInvalidSolcVersion".to_owned(),
             })
         }
         InlineConfigCollectError::RootFileNotFound { path, reason } => {
-            Either3::B(InlineConfigSourceFileNotFound {
+            Either5::B(InlineConfigSourceFileNotFound {
                 kind: "InlineConfigSourceFileNotFound".to_owned(),
                 path: path.clone(),
                 reason: reason.clone(),
@@ -197,12 +218,23 @@ fn to_source_problem(error: &InlineConfigCollectError) -> InlineConfigSourceProb
             contract,
             function,
             reason,
-        } => Either3::C(InlineConfigDirectiveLocation {
+        } => Either5::C(InlineConfigDirectiveLocation {
             kind: "InlineConfigDirectiveLocation".to_owned(),
             contract: contract.clone(),
             function: function.clone(),
             reason: reason.clone(),
         }),
+        InlineConfigCollectError::SourcePathNotProvided => {
+            Either5::D(InlineConfigSourcePathNotProvided {
+                kind: "InlineConfigSourcePathNotProvided".to_owned(),
+            })
+        }
+        InlineConfigCollectError::ParseError { reason } => {
+            Either5::E(InlineConfigSourceParseError {
+                kind: "InlineConfigSourceParseError".to_owned(),
+                reason: reason.clone(),
+            })
+        }
     }
 }
 

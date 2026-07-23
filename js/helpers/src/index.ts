@@ -91,7 +91,8 @@ export async function buildSolidityTestsInput(
   testSuiteIds: ArtifactId[];
   tracingConfig: TracingConfigWithBuffers;
   /** Maps each test suite's solc source name to its absolute path on disk.
-   * Used by EDR to parse inline test configuration from the sources. */
+   * Used by EDR to parse inline test configuration and EIP-712 struct
+   * definitions from the sources. */
   testSourcePaths: Record<string, string>;
 }> {
   let testRootPaths: string[];

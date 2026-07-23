@@ -15,10 +15,11 @@ use edr_solidity_collector_eip712::collector::{
 use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver};
 use rayon::prelude::*;
 use semver::Version;
+use slang_solidity_v2::diagnostics::{DiagnosticExtensions as _, DiagnosticKind};
 
 use crate::inline_config::{
-    collect_source_from_unit, InlineConfigCollectError, InlineConfigErrorItem,
-    InlineConfigProblem, SourceOverrides,
+    collect_source_from_unit, InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem,
+    SourceOverrides,
 };
 
 /// A Solidity test source to collect from.
@@ -116,6 +117,37 @@ fn collect_root(
     };
 
     let file_id = root.path.to_string_lossy();
+
+    // A root file that doesn't fully parse could silently miss structs and
+    // directives (Slang is error-tolerant and yields a partial AST), so its
+    // syntax errors abort the run. Other diagnostic kinds — unresolvable
+    // imports in particular, which are legitimately optional — keep degrading
+    // gracefully.
+    let parse_errors: Vec<InlineConfigErrorItem> = unit
+        .diagnostics()
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.file_id() == file_id
+                && matches!(diagnostic.kind(), DiagnosticKind::Syntax(_))
+        })
+        .map(|diagnostic| {
+            let line = line_of(&content, diagnostic.text_range().start);
+            InlineConfigErrorItem {
+                source: root.source.clone(),
+                problem: InlineConfigProblem::Source(InlineConfigCollectError::ParseError {
+                    reason: format!("{} (line {line})", diagnostic.message()),
+                }),
+            }
+        })
+        .collect();
+    if !parse_errors.is_empty() {
+        return (
+            root.source.clone(),
+            CollectedTestSource::default(),
+            parse_errors,
+        );
+    }
+
     let collection = collect_source_from_unit(&root.source, Arc::from(content), &unit, &file_id);
     let eip712_types = collect_eip712_types_from_compilation_unit(&unit);
 
@@ -127,6 +159,13 @@ fn collect_root(
         },
         collection.errors,
     )
+}
+
+/// The 1-based line of byte offset `offset` within `content`.
+fn line_of(content: &str, offset: usize) -> usize {
+    content.get(..offset).map_or(1, |prefix| {
+        prefix.bytes().filter(|b| *b == b'\n').count() + 1
+    })
 }
 
 #[cfg(test)]
@@ -168,8 +207,7 @@ contract C {
         );
         let root = root_for(&file, "project/C.t.sol", Version::new(0, 8, 24));
 
-        let (by_source, errors) =
-            collect_test_sources(&[root], &ImportResolver::default());
+        let (by_source, errors) = collect_test_sources(&[root], &ImportResolver::default());
 
         assert!(errors.is_empty(), "unexpected errors: {errors:?}");
         let collected = &by_source[&PathBuf::from("project/C.t.sol")];
@@ -201,8 +239,7 @@ contract C {
         );
         let root = root_for(&file, "project/C.t.sol", Version::new(0, 8, 24));
 
-        let (by_source, errors) =
-            collect_test_sources(&[root], &ImportResolver::default());
+        let (by_source, errors) = collect_test_sources(&[root], &ImportResolver::default());
 
         assert!(errors.is_empty(), "unexpected errors: {errors:?}");
         let collected = &by_source[&PathBuf::from("project/C.t.sol")];
@@ -215,8 +252,7 @@ contract C {
         let file = temp_source("contract C {}");
         let root = root_for(&file, "project/C.t.sol", Version::new(0, 7, 6));
 
-        let (by_source, errors) =
-            collect_test_sources(&[root], &ImportResolver::default());
+        let (by_source, errors) = collect_test_sources(&[root], &ImportResolver::default());
 
         assert_eq!(errors.len(), 1);
         assert!(matches!(
@@ -226,6 +262,35 @@ contract C {
         // The source still gets (empty) collections.
         let collected = &by_source[&PathBuf::from("project/C.t.sol")];
         assert!(collected.overrides.is_empty());
+    }
+
+    #[test]
+    fn root_file_parse_errors_are_source_errors() {
+        let file = temp_source(
+            "// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+struct Person { address wallet; string name; }
+
+contract C {
+    function testFoo() public { this is not solidity
+}
+",
+        );
+        let root = root_for(&file, "project/C.t.sol", Version::new(0, 8, 24));
+
+        let (by_source, errors) = collect_test_sources(&[root], &ImportResolver::default());
+
+        assert!(!errors.is_empty(), "expected parse errors");
+        assert!(errors.iter().all(|item| matches!(
+            &item.problem,
+            InlineConfigProblem::Source(InlineConfigCollectError::ParseError { .. })
+        )));
+        // Nothing is collected from a source that doesn't fully parse: a
+        // partial AST could silently miss structs and directives.
+        let collected = &by_source[&PathBuf::from("project/C.t.sol")];
+        assert!(collected.overrides.is_empty());
+        assert!(collected.eip712_types.get("Person").is_err());
     }
 
     #[test]
