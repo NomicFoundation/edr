@@ -266,7 +266,11 @@ primarily a CI gate.
 - **This is a first approach.** The end-state (EDR defining its own neutral type surface, with
   revm/op-revm as swappable backends) is deliberately out of scope. If revm↔op-revm skew keeps
   forcing this seam open every release, revisit whether `edr_chain_spec` should stop naming
-  concrete revm types in its trait signatures.
+  concrete revm types in its trait signatures. For the inspection slice of that end-state —
+  which also removes the need for an inspector bridge and gives OP full-fidelity native
+  inspection — see `docs/chain-owned-inspection-sketch.md`. **That refactor is a candidate to
+  land BEFORE Phase 1, on `main`, while the workspace is single-version** (no dual-revm
+  complexity); doing so shrinks Phase 2 to `DbBridge` + the `dry_run` value conversions.
 
 ## 5. Checklist
 
