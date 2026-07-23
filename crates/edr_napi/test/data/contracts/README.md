@@ -10,9 +10,9 @@ compiled artifacts (the tests point each entry into this directory).
 
 ## Files
 
-- `Eip712LazyTest.t.sol` — defines `Person`/`Mail`/`Point` locally, imports
+- `Eip712ResolveTest.t.sol` — defines `Person`/`Mail`/`Point` locally, imports
   `Asset` via a relative import and `Coupon` via a mapped (`@fixtures/...`)
-  import. Compiled to `../artifacts/default/Eip712LazyTest.json`.
+  import. Compiled to `../artifacts/default/Eip712ResolveTest.json`.
 - `Eip712Imported.sol` — `Asset`, reached via a relative import.
 - `external/Eip712External.sol` — `Coupon`, reached via a mapped import. The
   test maps `@fixtures/Eip712External.sol` to this file through the
@@ -27,7 +27,7 @@ The artifacts are committed pre-compiled (there is no build step in this
 package's test run). They were produced with **solc 0.8.24** using the standard
 JSON interface, with the remapping `@fixtures/=data/contracts/external/` and
 source keys equal to each file's path relative to `test/` (e.g.
-`data/contracts/Eip712LazyTest.t.sol`), so the artifact `sourceName` matches
+`data/contracts/Eip712ResolveTest.t.sol`), so the artifact `sourceName` matches
 the keys the tests use in `testSourcePaths`. After changing any `.sol` file here,
 recompile and refresh the corresponding artifact JSON in
 `../artifacts/default/`, keeping the `contractName`, `sourceName`, and
