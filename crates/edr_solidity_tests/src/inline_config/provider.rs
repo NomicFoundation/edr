@@ -22,13 +22,14 @@ use std::{
 use rayon::prelude::*;
 use semver::Version;
 
+use edr_solidity_parser_slang::ImportResolver;
+
 use super::{
     directives,
     error::{
         InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors, InlineConfigProblem,
     },
     overrides::{collect_source, ContractInlineConfig, SourceCollection, SourceOverrides},
-    resolver::ImportResolver,
 };
 
 /// A Solidity test source to collect inline configuration from.
