@@ -18,12 +18,6 @@
 //! is statement-attributed since solx 0.1.6, so only mode-3 artifacts
 //! still reach the inference's declaration-attributed and unmapped-revert
 //! compat paths.
-//!
-//! The `scenarios` fixture is NOT regenerable by this tool: its input also
-//! depends on forge-std sources whose contents are scrubbed from the
-//! committed JSON. It was generated from a hardhat project with
-//! `@nomicfoundation/hardhat-solx` configured; regenerate it there and
-//! re-scrub the non-fixture `content` fields.
 
 use std::{
     io::Write,
