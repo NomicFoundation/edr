@@ -35,7 +35,8 @@ mod natspec;
 mod overrides;
 mod parse;
 mod provider;
-mod resolver;
+
+pub use edr_solidity_parser_slang::ImportResolver;
 
 pub(crate) use self::directives::is_test_function;
 pub use self::{
@@ -45,5 +46,4 @@ pub use self::{
     },
     overrides::{ContractInlineConfig, FunctionOverride},
     provider::{CachedInlineConfigProvider, InlineConfigRoot, SharedInlineConfigProvider},
-    resolver::ImportResolver,
 };

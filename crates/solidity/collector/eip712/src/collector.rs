@@ -12,17 +12,14 @@ use std::{
     path::Path,
 };
 
+use edr_solidity_parser_slang::{build_compilation_unit, UnsupportedSolcVersionError};
 use semver::Version;
 use slang_solidity_v2::{
     ast::{Definition, Type},
-    compilation::{CompilationBuilder, CompilationUnit},
-    utils::{FromSemverError, LanguageVersion},
+    compilation::CompilationUnit,
 };
 
-use crate::{
-    resolver::{ImportResolver, SourceProvider},
-    Eip712Type,
-};
+use crate::{Eip712Type, ImportResolver};
 
 #[derive(Debug, thiserror::Error)]
 #[error(
@@ -144,11 +141,11 @@ impl Eip712TypeCollection {
 
 /// Errors that prevent collection from running at all (as opposed to per-type
 /// rejections, which are surfaced lazily via [`Eip712Collection::get`]).
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum Eip712CollectError {
     /// The provided solc version is invalid.
     #[error(transparent)]
-    InvalidSolcVersion(#[from] FromSemverError),
+    InvalidSolcVersion(#[from] UnsupportedSolcVersionError),
 
     /// The root source file could not be read.
     #[error("could not read EIP-712 root source {path}: {reason}")]
@@ -158,25 +155,6 @@ pub enum Eip712CollectError {
         /// Why it could not be read.
         reason: String,
     },
-}
-
-// TODO: `derive(Clone)` on CollectError once `FromSemverError` implements
-// `Clone`.
-impl Clone for Eip712CollectError {
-    fn clone(&self) -> Self {
-        match self {
-            Self::InvalidSolcVersion(FromSemverError::UnexpectedMetadata) => {
-                Self::InvalidSolcVersion(FromSemverError::UnexpectedMetadata)
-            }
-            Self::InvalidSolcVersion(FromSemverError::UnsupportedVersion) => {
-                Self::InvalidSolcVersion(FromSemverError::UnsupportedVersion)
-            }
-            Self::RootFileNotFound { path, reason } => Self::RootFileNotFound {
-                path: path.clone(),
-                reason: reason.clone(),
-            },
-        }
-    }
 }
 
 /// Collects EIP-712 canonical types reachable from `root_source`.
@@ -191,8 +169,6 @@ pub fn collect_eip712_types_for_file(
     solc_version: Version,
     import_resolver: &ImportResolver,
 ) -> Result<Eip712TypeCollection, Eip712CollectError> {
-    let language_version = to_language_version(solc_version)?;
-
     // Pre-check the root: a build over a missing root only yields a diagnostic
     // and an empty unit, which we would otherwise mistake for "no types".
     if let Err(error) = std::fs::metadata(root_source) {
@@ -202,11 +178,7 @@ pub fn collect_eip712_types_for_file(
         });
     }
 
-    let mut builder =
-        CompilationBuilder::create(language_version, SourceProvider::new(import_resolver));
-
-    builder.add_file(root_source.to_string_lossy().into_owned());
-    let unit = builder.build();
+    let unit = build_compilation_unit(root_source, solc_version, import_resolver)?;
 
     Ok(collect_eip712_types_from_compilation_unit(&unit))
 }
@@ -234,19 +206,6 @@ pub fn collect_eip712_types_from_compilation_unit(unit: &CompilationUnit) -> Eip
         .collect();
 
     Eip712TypeCollection { types, rejected }
-}
-
-/// Maps a solc [`Version`] to a Slang [`LanguageVersion`]; clamping versions
-/// newer than Slang supports down to its latest grammar.
-fn to_language_version(solc_version: Version) -> Result<LanguageVersion, FromSemverError> {
-    // Fall back to the latest Slang grammar for any solc version newer than what
-    // Slang supports.
-    let latest: Version = LanguageVersion::LATEST.into();
-    if solc_version > latest {
-        Ok(LanguageVersion::LATEST)
-    } else {
-        LanguageVersion::try_from(solc_version)
-    }
 }
 
 /// A struct definition collected from the AST, with each member's type already
@@ -571,7 +530,10 @@ fn struct_head(struct_def: &EncodableStruct) -> String {
 
 #[cfg(test)]
 mod tests {
-    use slang_solidity_v2::compilation::CompilationBuilderConfig;
+    use slang_solidity_v2::{
+        compilation::{CompilationBuilder, CompilationBuilderConfig},
+        utils::LanguageVersion,
+    };
 
     use super::*;
 
@@ -925,42 +887,5 @@ mod tests {
             collection.get("DoesNotExist"),
             Err(Eip712CollectionLookupError::NotFound { type_name }) if type_name == "DoesNotExist"
         ));
-    }
-
-    mod version_mapping {
-        use super::*;
-
-        #[test]
-        fn exact_supported_version() {
-            assert_eq!(
-                to_language_version(Version::new(0, 8, 24)).unwrap(),
-                LanguageVersion::V0_8_24
-            );
-        }
-
-        #[test]
-        fn clamps_newer_versions_to_latest() {
-            assert_eq!(
-                to_language_version(Version::new(0, 9, 0)).unwrap(),
-                LanguageVersion::LATEST
-            );
-        }
-
-        #[test]
-        fn rejects_versions_older_than_0_8_0() {
-            assert!(matches!(
-                to_language_version(Version::new(0, 7, 6)),
-                Err(FromSemverError::UnsupportedVersion)
-            ));
-        }
-
-        #[test]
-        fn rejects_versions_with_build_and_prerelease_metadata() {
-            let version = Version::parse("0.8.24+commit.abcdef").unwrap();
-            assert!(matches!(
-                to_language_version(version),
-                Err(FromSemverError::UnexpectedMetadata)
-            ));
-        }
     }
 }
