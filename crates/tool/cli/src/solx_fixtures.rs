@@ -49,10 +49,16 @@ const FIXTURES: &[Fixture] = &[
     Fixture {
         name: "stack_trace_scenarios",
         input: "solx_compiler_input_stack_trace_scenarios.json",
-        sources: &[(
-            "project/contracts/StackTraceScenarios.sol",
-            "StackTraceScenarios.sol",
-        )],
+        sources: &[
+            (
+                "project/contracts/StackTraceScenarios.sol",
+                "StackTraceScenarios.sol",
+            ),
+            (
+                "project/contracts/StackTraceScenariosBase.sol",
+                "StackTraceScenariosBase.sol",
+            ),
+        ],
         output: "solx_compiler_output_stack_trace_scenarios.json",
     },
 ];

@@ -3,6 +3,9 @@
  "sources": {
   "project/contracts/StackTraceScenarios.sol": {
    "content": ""
+  },
+  "project/contracts/StackTraceScenariosBase.sol": {
+   "content": ""
   }
  },
  "settings": {

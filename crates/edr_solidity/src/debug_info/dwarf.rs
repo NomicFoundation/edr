@@ -1062,6 +1062,12 @@ mod tests {
             .get_mut("project/contracts/StackTraceScenarios.sol")
             .unwrap()
             .content = include_str!("../../fixtures/sources/StackTraceScenarios.sol").to_string();
+        input
+            .sources
+            .get_mut("project/contracts/StackTraceScenariosBase.sol")
+            .unwrap()
+            .content =
+            include_str!("../../fixtures/sources/StackTraceScenariosBase.sol").to_string();
 
         let output = load_stack_trace_scenarios_output();
         SolxBuildModel::new(input, &output)

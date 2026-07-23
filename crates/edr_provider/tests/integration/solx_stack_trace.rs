@@ -94,6 +94,13 @@ fn solx_stack_trace_scenarios_build_info(
         .unwrap()
         .content =
         include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenarios.sol").to_owned();
+    input
+        .sources
+        .get_mut("project/contracts/StackTraceScenariosBase.sol")
+        .unwrap()
+        .content =
+        include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenariosBase.sol")
+            .to_owned();
 
     let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios.json"
