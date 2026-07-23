@@ -18,6 +18,8 @@ pub use config::{
 
 pub mod inline_config;
 
+mod test_sources;
+
 pub mod result;
 
 pub use foundry_evm::executors::stack_trace::SolidityTestStackTraceError;

@@ -15,7 +15,10 @@ use std::path::Path;
 
 use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver};
 use semver::Version;
-use slang_solidity_v2::ast::{ContractMember, SourceUnitMember};
+use slang_solidity_v2::{
+    ast::{ContractMember, SourceUnitMember},
+    compilation::CompilationUnit,
+};
 
 use super::error::InlineConfigCollectError;
 
@@ -64,8 +67,20 @@ pub fn locate_contracts(
     let unit = build_compilation_unit(root_path, version, import_resolver)?;
     let file_id = root_path.to_string_lossy().into_owned();
 
-    let Some(file) = unit.file(&file_id) else {
-        return Ok(Vec::new());
+    Ok(locate_contracts_in_unit(&unit, &file_id))
+}
+
+/// Walks the already-built `unit`'s file `file_id` (the id the root was added
+/// under) and returns every contract definition together with its functions
+/// and the offsets required to recover their leading NatSpec. A file id
+/// missing from the unit (e.g. the root file could not be read) yields no
+/// contracts.
+pub(crate) fn locate_contracts_in_unit(
+    unit: &CompilationUnit,
+    file_id: &str,
+) -> Vec<LocatedContract> {
+    let Some(file) = unit.file(file_id) else {
+        return Vec::new();
     };
 
     let mut contracts = Vec::new();
@@ -95,7 +110,7 @@ pub fn locate_contracts(
         });
     }
 
-    Ok(contracts)
+    contracts
 }
 
 #[cfg(test)]
