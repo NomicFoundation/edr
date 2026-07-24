@@ -188,11 +188,9 @@ impl TraceStrategy for SolxTraceStrategy {
         step_location: &SourceLocation,
         reference_location: &SourceLocation,
     ) -> bool {
-        // solx attributes compiler-generated helper code (calldata decoding,
-        // revert builders) to the enclosing function or contract
-        // *declaration*, whose range contains the statement — where solc
-        // leaves such code unmapped. Treat declaration-level padding as
-        // "still at the statement".
+        // solx maps compiler-generated helper code to the enclosing
+        // function or contract declaration, whose range contains the
+        // statement; that padding still counts as "at the statement".
         step_location == reference_location || step_location.contains(reference_location)
     }
 
@@ -273,17 +271,10 @@ impl TraceStrategy for SolxTraceStrategy {
         failing_function: &ContractFunction,
         step_pcs: &dyn Fn() -> Vec<u32>,
     ) -> Result<SourceReference, TraceStrategyError> {
-        // solx attributes shared revert helpers to the *declaration line* of
-        // the function they were flattened into (e.g. a modifier's `require`
-        // reverting at the modified function's signature line) or of the
-        // enclosing contract, or leaves them unmapped entirely (bare
-        // `revert()`). In all three cases, walk the executed steps backwards
-        // to the statement that actually led here — the code preceding the
-        // revert keeps its own line. Only statements of the failing function
-        // itself or of a modifier (flattened into its frame, possibly from
-        // another file) qualify; a statement of any other function marks the
-        // end of the flattened frame, and the declaration-line reference is
-        // kept.
+        // A shared revert helper carries no statement line of its own, so
+        // walk the executed steps back to the last statement that ran —
+        // that code keeps its line. Statements of another function mark the
+        // end of the flattened frame and stop the walk.
         let needs_walk_back = match inst_location {
             Some(location) => is_declaration_attributed(contract_meta, location, failing_function)?,
             None => true,
@@ -356,11 +347,9 @@ impl TraceStrategy for SolxTraceStrategy {
 
 /// Non-halt-reason-generic source-location resolver used by
 /// [`TraceStrategy`] impls and re-used from the error inferrer.
-/// Whether `location` is solx declaration-level padding relative to
-/// `failing_function`: on the function's or the enclosing contract's
-/// declaration line, in the same file. Bare line numbers don't identify a
-/// location across files, so file identity rides on
-/// [`SourceLocation::contains`].
+/// Whether `location` is declaration-level padding for `failing_function`:
+/// its own or the enclosing contract's declaration line, same file — line
+/// numbers alone don't identify a location, hence the containment checks.
 fn is_declaration_attributed(
     contract_meta: &ContractMetadata,
     location: &SourceLocation,
