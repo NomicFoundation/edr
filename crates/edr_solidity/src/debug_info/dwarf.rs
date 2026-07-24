@@ -1027,8 +1027,10 @@ mod tests {
     }
 
     /// `BuildModel` for `Scenarios.t.sol`, built via the same AST walk
-    /// production uses — so regenerating the fixture JSON is the only
-    /// step needed when scenarios are added or reordered.
+    /// production uses. The compiled fixture is the sweep project's own
+    /// build output (see the sweep README's provenance section); the
+    /// spliced-in live source must keep the fixture's byte offsets valid —
+    /// see [`scenarios_source_is_append_only`].
     fn make_build_model_for_scenarios() -> SolxBuildModel {
         let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
             "../../fixtures/solx_compiler_input_scenarios.json"
@@ -1043,6 +1045,85 @@ mod tests {
         let output = load_scenarios_output();
         SolxBuildModel::new(input, &output)
             .expect("AST processor must accept the scenarios fixture")
+    }
+
+    /// `Scenarios.t.sol` is spliced into the committed scenarios fixture,
+    /// whose AST and DWARF reference byte offsets into the source as it
+    /// existed at generation time. Between regenerations the file may only
+    /// be APPENDED to (sweep-only scenarios); an edit inside the
+    /// generation-time prefix shifts offsets and desyncs every line
+    /// assertion on this fixture — in the worst case to
+    /// plausible-but-wrong locations rather than loud failures.
+    ///
+    /// The prefix length comes from the `SourceUnit` span in the fixture's
+    /// own AST, so a regeneration moves it automatically and forces the
+    /// hash below to be re-pinned to the value the failing assertion
+    /// prints.
+    #[test]
+    fn scenarios_source_is_append_only() {
+        const GENERATION_PREFIX_KECCAK256: &str =
+            "23d9edd08863d54481118d7fac8268fd1863f4a4e7ef3d0e1a3799158632545d";
+
+        let output = load_scenarios_output();
+        let span = output.sources["project/contracts/Scenarios.t.sol"].ast["src"]
+            .as_str()
+            .expect("the scenarios SourceUnit must carry a `src` span");
+        // `src` is `start:length:file`; the span's end is the length of the
+        // source as it was when the fixture was generated.
+        let mut span_fields = span.split(':').map(|field| {
+            field
+                .parse::<usize>()
+                .expect("`src` span fields are numeric")
+        });
+        let generation_prefix_len = span_fields.next().expect("`src` span has a start")
+            + span_fields.next().expect("`src` span has a length");
+
+        let source = include_str!("../../fixtures/sources/Scenarios.t.sol");
+        let prefix = source
+            .as_bytes()
+            .get(..generation_prefix_len)
+            .expect("Scenarios.t.sol shrank below its generation-time prefix");
+        assert_eq!(
+            hex::encode(edr_primitives::keccak256(prefix)),
+            GENERATION_PREFIX_KECCAK256,
+            "Scenarios.t.sol changed within the prefix the committed scenarios \
+             fixture was compiled from. Either append instead, or regenerate \
+             the fixture through the sweep's standard flow (see the sweep \
+             README), re-pin the tests that assert on it, and re-pin this \
+             hash to the computed value above."
+        );
+    }
+
+    /// The committed scenarios fixture must be sufficient for every consumer
+    /// in this crate — enforced by executing the most demanding one rather
+    /// than by describing what it reads. `extract_solx_contract_metadata`
+    /// resolves inherited functions through the base contracts' ASTs, so a
+    /// fixture over-filtered by the sweep's regen script (e.g. missing
+    /// forge-std sources) fails here, in the fixture's own crate, instead of
+    /// in downstream integration tests.
+    #[test]
+    fn scenarios_fixture_satisfies_contract_metadata_extraction() {
+        let mut input: crate::artifacts::CompilerInput = serde_json::from_str(include_str!(
+            "../../fixtures/solx_compiler_input_scenarios.json"
+        ))
+        .expect("solx_compiler_input_scenarios.json must parse");
+        input
+            .sources
+            .get_mut("project/contracts/Scenarios.t.sol")
+            .unwrap()
+            .content = include_str!("../../fixtures/sources/Scenarios.t.sol").to_string();
+
+        crate::artifacts::solx::extract_solx_contract_metadata(
+            "0.8.34".to_owned(),
+            input,
+            load_scenarios_output(),
+        )
+        .expect(
+            "contract metadata extraction must succeed on the committed \
+             scenarios fixture; a failure here usually means the fixture was \
+             regenerated with a filter that dropped sources the build model \
+             reads",
+        );
     }
 
     fn decode_deployed_for(
@@ -1082,16 +1163,16 @@ mod tests {
             let model = make_build_model_for_scenarios();
             let instructions = decode_deployed_for(&output, "DivisionByZeroTest", &model);
 
-            // PC 0xd2c is the panic-emitting REVERT for `0x12` (divide by zero).
+            // PC 0xc81 is the panic-emitting REVERT for `0x12` (divide by zero).
             let inst = instructions
                 .iter()
-                .find(|i| i.pc == 0xd2c)
-                .expect("PC 0xd2c should be present");
+                .find(|i| i.pc == 0xc81)
+                .expect("PC 0xc81 should be present");
             let line = inst
                 .location
                 .as_ref()
                 .and_then(|loc| loc.get_starting_line_number().ok())
-                .expect("PC 0xd2c must have a resolved location");
+                .expect("PC 0xc81 must have a resolved location");
             assert_eq!(
                 line, 34,
                 "expected line 34 (the divide expression `c = a / b`), got {line}. \
@@ -1100,24 +1181,23 @@ mod tests {
             );
         }
 
-        /// Cross-contract leak guard: PC 0xcb7's line-program row points at a
-        /// different contract's setUp; the contract-match check must reject it
-        /// and fall back to the abstract origin's `decl_line`.
+        /// Cross-contract leak guard: the test's INVALID opcode used to pick
+        /// up a line-program row pointing at a different contract's setUp;
+        /// the contract-match check must reject that and fall back to the
+        /// abstract origin's `decl_line`.
         #[test]
         fn invalid_opcode_does_not_leak_unrelated_contract_setup_line() {
             let output = load_scenarios_output();
             let model = make_build_model_for_scenarios();
             let instructions = decode_deployed_for(&output, "InvalidOpcodeTest", &model);
 
-            let inst = instructions
+            // `testInvalidOpcode`'s `invalid()` is the only INVALID opcode
+            // with a resolvable location (the other is dispatch padding).
+            let line = instructions
                 .iter()
-                .find(|i| i.pc == 0xcb7)
-                .expect("PC 0xcb7 (the INVALID opcode) should be present");
-            let line = inst
-                .location
-                .as_ref()
-                .and_then(|loc| loc.get_starting_line_number().ok())
-                .expect("PC 0xcb7 must have a resolved location");
+                .filter(|i| i.opcode == OpCode::INVALID)
+                .find_map(|i| i.location.as_ref()?.get_starting_line_number().ok())
+                .expect("an INVALID opcode with a resolved location should be present");
             assert_ne!(
                 line, 97,
                 "regression: line 97 is in ModifierRevertTest.setUp, a *different* \
@@ -1141,13 +1221,13 @@ mod tests {
 
             let inst = instructions
                 .iter()
-                .find(|i| i.pc == 0x445)
-                .expect("PC 0x445 (the assembly REVERT) should be present");
+                .find(|i| i.pc == 0x3be)
+                .expect("PC 0x3be (the assembly REVERT) should be present");
             let line = inst
                 .location
                 .as_ref()
                 .and_then(|loc| loc.get_starting_line_number().ok())
-                .expect("PC 0x445 must have a resolved location");
+                .expect("PC 0x3be must have a resolved location");
             assert_eq!(
                 line, 129,
                 "expected fall-back to testInlineAssemblyRevert's decl line (129), got {line}. \
@@ -1337,11 +1417,11 @@ mod tests {
             let model = make_build_model_for_scenarios();
             let instructions = decode_deployed_for(&output, "ModifierTarget", &model);
 
-            // PC 0x73 is the modifier's `require(v > 0, ...)` revert.
+            // PC 0x87 is the modifier's `require(v > 0, ...)` revert.
             let inst = instructions
                 .iter()
-                .find(|i| i.pc == 0x73)
-                .expect("PC 0x73 should be present");
+                .find(|i| i.pc == 0x87)
+                .expect("PC 0x87 should be present");
             let call_site_lines: Vec<u32> = inst
                 .inline_call_sites
                 .iter()
