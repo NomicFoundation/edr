@@ -646,7 +646,8 @@ async fn issue_1482() {
 }
 
 // A failing test in `CollectStackTraces::Always` mode must produce a
-// source-level stack trace, not `HeuristicFailed`.
+// source-level stack trace, not `HeuristicFailed`. Covers the unit-test and
+// table-test paths.
 #[tokio::test(flavor = "multi_thread")]
 async fn always_mode_produces_stack_trace_for_failing_test() {
     let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
@@ -664,37 +665,39 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceTest")
         .expect("the AlwaysStackTrace suite should have run");
 
-    let result = suite
-        .test_results
-        .get("testRevertHasStackTrace()")
-        .expect("testRevertHasStackTrace should have run");
+    // Both the unit-test and table-test paths must produce a decoded stack
+    // trace for the failing call, not `HeuristicFailed`.
+    let assert_stack_trace = |test_name: &str| {
+        let result = suite
+            .test_results
+            .get(test_name)
+            .unwrap_or_else(|| panic!("{test_name} should have run"));
 
-    assert_eq!(result.status, TestStatus::Failure);
+        assert_eq!(result.status, TestStatus::Failure, "{test_name}");
 
-    // Must be a decoded stack trace, not `HeuristicFailed`.
-    let stack_trace = match result
-        .stack_trace_result
-        .as_ref()
-        .expect("stack trace should be computed on failure")
-    {
-        SolidityTestStackTraceResult::Success(entries) => entries,
-        other => panic!("expected a stack trace in `Always` mode, got {other:?}"),
+        let stack_trace = match result
+            .stack_trace_result
+            .as_ref()
+            .unwrap_or_else(|| panic!("{test_name}: stack trace should be computed"))
+        {
+            SolidityTestStackTraceResult::Success(entries) => entries,
+            other => panic!("{test_name}: expected a stack trace, got {other:?}"),
+        };
+
+        // A non-empty trace that reaches the failing call's execution error
+        // (exact variant depends on the compilation mode).
+        assert!(
+            stack_trace.iter().any(|entry| matches!(
+                entry,
+                StackTraceEntry::RevertError { .. }
+                    | StackTraceEntry::PanicError { .. }
+                    | StackTraceEntry::CustomError { .. }
+                    | StackTraceEntry::OtherExecutionError { .. }
+            )),
+            "{test_name}: expected an execution-error stack trace, got:\n{stack_trace:#?}"
+        );
     };
 
-    assert!(
-        !stack_trace.is_empty(),
-        "expected a non-empty stack trace, got:\n{stack_trace:#?}"
-    );
-    // Trace reaches the failing call's execution error (variant depends on the
-    // compilation mode).
-    assert!(
-        stack_trace.iter().any(|entry| matches!(
-            entry,
-            StackTraceEntry::RevertError { .. }
-                | StackTraceEntry::PanicError { .. }
-                | StackTraceEntry::CustomError { .. }
-                | StackTraceEntry::OtherExecutionError { .. }
-        )),
-        "expected an execution-error entry, got:\n{stack_trace:#?}"
-    );
+    assert_stack_trace("testRevertHasStackTrace()");
+    assert_stack_trace("tableRevertHasStackTrace(uint256)");
 }
