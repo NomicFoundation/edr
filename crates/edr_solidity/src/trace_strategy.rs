@@ -61,7 +61,7 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
     fn declaration_attributed_failing_function(
         &self,
         contract_meta: &ContractMetadata,
-        calldata: Option<&Bytes>,
+        calldata: &Bytes,
     ) -> Option<Arc<ContractFunction>>;
 
     /// Fallback frame when source-reference resolution returned `None` but
@@ -129,7 +129,7 @@ impl TraceStrategy for SolcTraceStrategy {
     fn declaration_attributed_failing_function(
         &self,
         _contract_meta: &ContractMetadata,
-        _calldata: Option<&Bytes>,
+        _calldata: &Bytes,
     ) -> Option<Arc<ContractFunction>> {
         None
     }
@@ -199,9 +199,9 @@ impl TraceStrategy for SolxTraceStrategy {
     fn declaration_attributed_failing_function(
         &self,
         contract_meta: &ContractMetadata,
-        calldata: Option<&Bytes>,
+        calldata: &Bytes,
     ) -> Option<Arc<ContractFunction>> {
-        let selector = calldata?.get(..4)?;
+        let selector = calldata.get(..4)?;
         let contract = contract_meta.contract.read();
         contract.get_function_from_selector(selector).cloned()
     }

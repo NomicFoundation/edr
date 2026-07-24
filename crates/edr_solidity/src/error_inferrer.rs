@@ -730,7 +730,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
     if failing_function.is_none()
         && last_instruction.opcode == OpCode::REVERT
         && let Some(function) = trace_strategy
-            .declaration_attributed_failing_function(contract_metadata.as_ref(), Some(calldata))
+            .declaration_attributed_failing_function(contract_metadata.as_ref(), calldata)
     {
         let abi = alloy_json_abi::Function::try_from(&*function)
             .map_err(|error| InferrerError::InvalidFunction(Arc::new(error)))?;
