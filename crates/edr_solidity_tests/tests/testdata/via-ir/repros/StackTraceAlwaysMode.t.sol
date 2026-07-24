@@ -3,9 +3,8 @@ pragma solidity ^0.8.18;
 
 import "ds-test/test.sol";
 
-// Fixtures for `always_mode_produces_stack_trace_for_failing_test`: failing
-// unit and table tests that revert inside a called contract, plus a `setUp`.
-contract AlwaysStackTraceTest is DSTest {
+// Fixture for `always_mode_produces_stack_trace_for_failing_test`: a failing
+// test that has a `setUp`, and reverts inside a called contract.
     Reverter reverter;
     uint256[] public fixtureAmount = [1];
 
