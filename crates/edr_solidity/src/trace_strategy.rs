@@ -394,11 +394,18 @@ pub(crate) fn source_location_to_source_reference(
         return Ok(None);
     };
 
+    let func_name = match func.r#type {
+        ContractFunctionType::Constructor => CONSTRUCTOR_FUNCTION_NAME.to_string(),
+        ContractFunctionType::Fallback => FALLBACK_FUNCTION_NAME.to_string(),
+        ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
+        _ => func.name.clone(),
+    };
+
     let func_location_file = func.location.file()?;
     let func_location_file = func_location_file.read();
 
     Ok(Some(SourceReference {
-        function: Some(function_display_name(&func)),
+        function: Some(func_name),
         contract: if func.r#type == ContractFunctionType::FreeFunction {
             None
         } else {
@@ -429,19 +436,11 @@ pub(crate) fn function_start_source_reference(
         source_name: file.source_name.clone(),
         source_content: file.content.clone(),
         contract: Some(contract.name.clone()),
-        function: Some(function_display_name(func)),
+        // Raw AST name (empty for constructor/fallback/receive): the
+        // hardhat-tests corpus pins this shape for function-start frames,
+        // so do not map the names like source_location_to_source_reference.
+        function: Some(func.name.clone()),
         line: location.get_starting_line_number()?,
         range: (location.offset, location.offset + location.length),
     })
-}
-
-/// Frame display name of a function: constructors, fallback, and receive
-/// render as their keyword — their AST `name` is the empty string.
-fn function_display_name(func: &ContractFunction) -> String {
-    match func.r#type {
-        ContractFunctionType::Constructor => CONSTRUCTOR_FUNCTION_NAME.to_string(),
-        ContractFunctionType::Fallback => FALLBACK_FUNCTION_NAME.to_string(),
-        ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
-        _ => func.name.clone(),
-    }
 }
