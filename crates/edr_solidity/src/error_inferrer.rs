@@ -715,9 +715,36 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
         return Ok(Heuristic::Hit(vec![frame]));
     }
 
-    if let Some(location) = &last_instruction.location
-        && let Some(failing_function) = location.get_containing_function()?
+    let mut failing_function = match &last_instruction.location {
+        Some(location) => location.get_containing_function()?,
+        None => None,
+    };
+
+    // Reverting instruction unmapped or attributed outside any function: the
+    // strategy may still resolve the called function (solx resolves it from
+    // the calldata selector; solc leaves the remaining heuristics in
+    // charge). Only when the calldata decodes for that function — a
+    // dispatch-level revert on undecodable calldata belongs to the
+    // InvalidParamsError classification below.
+    if failing_function.is_none()
+        && last_instruction.opcode == OpCode::REVERT
+        && let Some(function) = trace_strategy
+            .declaration_attributed_failing_function(contract_metadata.as_ref(), Some(calldata))
     {
+        let abi = alloy_json_abi::Function::try_from(&*function)
+            .map_err(|error| InferrerError::InvalidFunction(Arc::new(error)))?;
+        let accepts_calldata = match &function.param_types {
+            Some(_) => abi
+                .abi_decode_input(calldata.get(SELECTOR_LEN..).unwrap_or(&[]))
+                .is_ok(),
+            None => true,
+        };
+        if accepts_calldata {
+            failing_function = Some(function);
+        }
+    }
+
+    if let Some(failing_function) = failing_function {
         // Thunked so only strategies that need the walk pay for it.
         let step_pcs = || -> Vec<u32> {
             steps
@@ -730,7 +757,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
         };
         let revert_source_reference = trace_strategy.revert_source_reference(
             contract_metadata.as_ref(),
-            location,
+            last_instruction.location.as_ref(),
             &failing_function,
             &step_pcs,
         )?;
