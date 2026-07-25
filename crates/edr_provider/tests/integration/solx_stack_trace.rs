@@ -6,7 +6,7 @@
 //! provider-side surface and exercises a small slice of the
 //! [`StackTraceEntry`] variants we can hit from the existing solx fixtures.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
@@ -24,6 +24,7 @@ use edr_solidity::{
         SolxBytecode,
     },
     contract_decoder::ContractDecoder,
+    library_utils::link_hex_string_bytecode,
     solidity_stack_trace::{StackTraceCreationResult, StackTraceEntry},
 };
 use parking_lot::RwLock;
@@ -734,6 +735,26 @@ fn deploy_stack_trace_scenario(
     )
 }
 
+/// Substitutes the deployed library address at every `linkReferences`
+/// position, through the production `link_hex_string_bytecode` path.
+fn link_library(bytecode: &SolxBytecode, library: Address) -> anyhow::Result<String> {
+    let library_count: usize = bytecode.link_references.values().map(HashMap::len).sum();
+    anyhow::ensure!(
+        library_count == 1,
+        "bytecode references {library_count} libraries; link_library takes one address"
+    );
+    let mut linked = bytecode.object.clone();
+    for reference in bytecode
+        .link_references
+        .values()
+        .flat_map(HashMap::values)
+        .flatten()
+    {
+        linked = link_hex_string_bytecode(linked, &hex::encode(library), reference.start)?;
+    }
+    Ok(linked)
+}
+
 #[track_caller]
 fn assert_single_variant<'a>(
     stack_trace: &'a [StackTraceEntry],
@@ -753,6 +774,124 @@ fn assert_single_variant<'a>(
         brief_trace(stack_trace)
     );
     entry
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn function_not_payable_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "NotPayable")?;
+    let stack_trace = expect_failed_call_with_value_stack_trace(
+        &provider,
+        from,
+        addr,
+        encode_call_u256("store(uint256)", 1),
+        U256::from(1u64),
+    );
+    let entry = assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::FunctionNotPayableError { .. }),
+        "FunctionNotPayableError",
+    );
+    let source_reference = entry
+        .source_reference()
+        .expect("FunctionNotPayableError carries a source reference");
+    assert_eq!(source_reference.function.as_deref(), Some("store"));
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn unrecognized_function_without_fallback_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "NoFallback")?;
+    let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, call("nonExistent()"));
+    assert_single_variant(
+        &stack_trace,
+        |e| {
+            matches!(
+                e,
+                StackTraceEntry::UnrecognizedFunctionWithoutFallbackError { .. }
+            )
+        },
+        "UnrecognizedFunctionWithoutFallbackError",
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn missing_fallback_or_receive_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "NoFallback")?;
+    let stack_trace = expect_failed_call_with_value_stack_trace(
+        &provider,
+        from,
+        addr,
+        Bytes::new(),
+        U256::from(1u64),
+    );
+    assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::MissingFallbackOrReceiveError { .. }),
+        "MissingFallbackOrReceiveError",
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn fallback_not_payable_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "NonPayableFallback")?;
+    let stack_trace = expect_failed_call_with_value_stack_trace(
+        &provider,
+        from,
+        addr,
+        call("nonExistent()"),
+        U256::from(1u64),
+    );
+    assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::FallbackNotPayableError { .. }),
+        "FallbackNotPayableError",
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn fallback_not_payable_and_no_receive_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "NonPayableFallback")?;
+    let stack_trace = expect_failed_call_with_value_stack_trace(
+        &provider,
+        from,
+        addr,
+        Bytes::new(),
+        U256::from(1u64),
+    );
+    assert_single_variant(
+        &stack_trace,
+        |e| {
+            matches!(
+                e,
+                StackTraceEntry::FallbackNotPayableAndNoReceiveError { .. }
+            )
+        },
+        "FallbackNotPayableAndNoReceiveError",
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn invalid_params_error_surfaces_for_truncated_calldata() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "RequiresArgs")?;
+    let mut calldata = selector("needsBoth(uint256,uint256)").as_slice().to_vec();
+    calldata.extend_from_slice(&[0u8; 32]); // only one of the two words
+    let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, Bytes::from(calldata));
+    assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::InvalidParamsError { .. }),
+        "InvalidParamsError",
+    );
+    Ok(())
 }
 
 #[track_caller]
@@ -804,6 +943,50 @@ async fn noncontract_account_call_surfaces_as_returndata_size_error() -> anyhow:
         encode_call_address("callGet(address)", eoa),
     );
     assert_returndata_size_error_at_call_get(&stack_trace);
+    Ok(())
+}
+
+/// External (public) library function reached through a linked contract:
+/// exercises `linkReferences` placeholder substitution and DELEGATECALL
+/// frame decoding into the library's own debugInfo.
+#[tokio::test(flavor = "multi_thread")]
+async fn linked_external_library_revert_points_into_library() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let library = deploy_stack_trace_scenario(&provider, from, &output, "ExternalLib")?;
+
+    let unlinked = &output
+        .contracts
+        .get(STACK_TRACE_SCENARIOS_SOURCE)
+        .and_then(|m| m.get("UsesExternalLib"))
+        .context("fixture missing UsesExternalLib")?
+        .evm
+        .bytecode;
+    let linked = link_library(unlinked, library)?;
+    let user = deploy_contract(&provider, from, Bytes::from(hex::decode(&linked)?))?;
+
+    let stack_trace = expect_failed_call_stack_trace(&provider, from, user, call("go()"));
+    assert_revert_at_line(&stack_trace, 53, "external lib boom");
+    assert_trace_shape(
+        &stack_trace,
+        &[
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:59 (UsesExternalLib.go)",
+            "RevertError project/contracts/StackTraceScenarios.sol:53 (ExternalLib.fail)",
+        ],
+    );
+    Ok(())
+}
+
+/// Calling a deployed library's external function directly.
+#[tokio::test(flavor = "multi_thread")]
+async fn direct_library_call_error_surfaces() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let library = deploy_stack_trace_scenario(&provider, from, &output, "ExternalLib")?;
+    let stack_trace = expect_failed_call_stack_trace(&provider, from, library, call("fail()"));
+    assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::DirectLibraryCallError { .. }),
+        "DirectLibraryCallError",
+    );
     Ok(())
 }
 
