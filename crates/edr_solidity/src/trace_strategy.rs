@@ -242,19 +242,31 @@ impl TraceStrategy for SolxTraceStrategy {
     ) -> Result<SourceReference, TraceStrategyError> {
         // solx attributes shared revert helpers to the *declaration line* of
         // the function they were flattened into (e.g. a modifier's `require`
-        // reverting at the modified function's signature line). When the
-        // reverting instruction sits on the declaration line, walk the
-        // executed steps backwards to the statement that actually led here —
-        // the message-building code preceding the revert keeps its own line.
-        let declaration_line = failing_function.location.get_starting_line_number()?;
-        if inst_location.get_starting_line_number()? == declaration_line {
+        // reverting at the modified function's signature line) or of the
+        // enclosing contract. When the reverting instruction sits on such a
+        // declaration line, walk the executed steps backwards to the
+        // statement that actually led here — the message-building code
+        // preceding the revert keeps its own line. Only statements of the
+        // failing function itself or of a modifier (flattened into its
+        // frame, possibly from another file) qualify; a statement of any
+        // other function marks the end of the flattened frame, and the
+        // declaration-line reference is kept.
+        if is_declaration_attributed(contract_meta, inst_location, failing_function)? {
             for pc in step_pcs().iter().rev() {
                 let prev_inst = contract_meta.get_instruction(*pc)?;
                 let Some(prev_location) = &prev_inst.location else {
                     continue;
                 };
-                if prev_location.get_starting_line_number()? == declaration_line {
+                if is_declaration_attributed(contract_meta, prev_location, failing_function)? {
                     continue;
+                }
+                let Some(containing_function) = prev_location.get_containing_function()? else {
+                    continue;
+                };
+                if !failing_function.location.contains(prev_location)
+                    && containing_function.r#type != ContractFunctionType::Modifier
+                {
+                    break;
                 }
                 if let Some(source_reference) =
                     source_location_to_source_reference(contract_meta, Some(prev_location))?
@@ -300,6 +312,36 @@ impl TraceStrategy for SolxTraceStrategy {
 
 /// Non-halt-reason-generic source-location resolver used by
 /// [`TraceStrategy`] impls and re-used from the error inferrer.
+/// Whether `location` is solx declaration-level padding relative to
+/// `failing_function`: on the function's or the enclosing contract's
+/// declaration line, in the same file. Bare line numbers don't identify a
+/// location across files, so file identity rides on
+/// [`SourceLocation::contains`].
+fn is_declaration_attributed(
+    contract_meta: &ContractMetadata,
+    location: &SourceLocation,
+    failing_function: &ContractFunction,
+) -> Result<bool, TraceStrategyError> {
+    let line = location.get_starting_line_number()?;
+
+    let function_location = &failing_function.location;
+    if (function_location.contains(location) || location.contains(function_location))
+        && line == function_location.get_starting_line_number()?
+    {
+        return Ok(true);
+    }
+
+    let contract = contract_meta.contract.read();
+    let contract_location = &contract.location;
+    if (contract_location.contains(location) || location.contains(contract_location))
+        && line == contract_location.get_starting_line_number()?
+    {
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
 pub(crate) fn source_location_to_source_reference(
     contract_meta: &ContractMetadata,
     location: Option<&SourceLocation>,
