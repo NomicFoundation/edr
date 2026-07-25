@@ -13,7 +13,7 @@ use edr_chain_l1::{
     rpc::{receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_primitives::{hex, keccak256, Address, Bytes, Selector, B256};
+use edr_primitives::{hex, keccak256, Address, Bytes, Selector, B256, U256};
 use edr_provider::{
     test_utils::{create_test_config_with, MinimalProviderConfig},
     time::CurrentTime,
@@ -68,6 +68,35 @@ fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutpu
 
     let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
         "../../../edr_solidity/fixtures/solx_compiler_output_scenarios.json"
+    ))?;
+
+    let identified_contracts =
+        extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
+
+    Ok((
+        BuildInfoConfig {
+            identified_contracts,
+            ignore_contracts: None,
+        },
+        output,
+    ))
+}
+
+fn solx_stack_trace_scenarios_build_info(
+) -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
+    let mut input: CompilerInput = serde_json::from_str(include_str!(
+        "../../../edr_solidity/fixtures/solx_compiler_input_stack_trace_scenarios.json"
+    ))?;
+
+    input
+        .sources
+        .get_mut(STACK_TRACE_SCENARIOS_SOURCE)
+        .unwrap()
+        .content =
+        include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenarios.sol").to_owned();
+
+    let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
+        "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios.json"
     ))?;
 
     let identified_contracts =
@@ -181,6 +210,26 @@ fn expect_failed_call_stack_trace(
         },
         other => panic!("expected TransactionFailed, got: {other:?}"),
     }
+}
+
+/// No-argument calldata: just the 4-byte selector.
+fn call(signature: &str) -> Bytes {
+    Bytes::copy_from_slice(selector(signature).as_slice())
+}
+
+fn encode_call_u256(signature: &str, v: u64) -> Bytes {
+    let mut calldata = Vec::with_capacity(36);
+    calldata.extend_from_slice(selector(signature).as_slice());
+    calldata.extend_from_slice(&U256::from(v).to_be_bytes::<32>());
+    Bytes::from(calldata)
+}
+
+fn encode_call_address(signature: &str, addr: Address) -> Bytes {
+    let mut calldata = Vec::with_capacity(36);
+    calldata.extend_from_slice(selector(signature).as_slice());
+    calldata.extend_from_slice(&[0u8; 12]);
+    calldata.extend_from_slice(addr.as_slice());
+    Bytes::from(calldata)
 }
 
 fn source_reference_of(entry: &StackTraceEntry) -> Option<&SourceReference> {
@@ -333,6 +382,241 @@ async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Re
             .iter()
             .any(|e| matches!(e, StackTraceEntry::CustomError { .. })),
         "expected a CustomError entry, got: {stack_trace:#?}"
+    );
+    Ok(())
+}
+
+fn contains_ascii(data: &[u8], needle: &str) -> bool {
+    data.windows(needle.len()).any(|w| w == needle.as_bytes())
+}
+
+/// Omits the embedded `source_content`, which makes `{:#?}` dumps of
+/// [`SourceReference`] unreadable.
+fn brief_trace(stack_trace: &[StackTraceEntry]) -> String {
+    stack_trace
+        .iter()
+        .map(|entry| {
+            let debug = format!("{entry:?}");
+            let variant = debug.split_whitespace().next().unwrap_or("?").to_string();
+            match source_reference_of(entry) {
+                Some(source_reference) => format!(
+                    "{variant} {}:{} ({}.{})",
+                    source_reference.source_name,
+                    source_reference.line,
+                    source_reference.contract.as_deref().unwrap_or("?"),
+                    source_reference.function.as_deref().unwrap_or("?"),
+                ),
+                None => variant,
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[track_caller]
+fn assert_trace_shape(stack_trace: &[StackTraceEntry], expected: &[&str]) {
+    assert_eq!(
+        brief_trace(stack_trace),
+        expected.join("\n"),
+        "trace shape drifted — a gained frame may be a solx/inference \
+         improvement (update the pin), a lost frame is a regression"
+    );
+}
+
+#[track_caller]
+fn assert_revert_at_line(stack_trace: &[StackTraceEntry], line: u32, reason: &str) {
+    let mut revert_entries = stack_trace.iter().filter_map(|e| match e {
+        StackTraceEntry::RevertError {
+            return_data,
+            source_reference,
+            ..
+        } => Some((return_data, source_reference)),
+        _ => None,
+    });
+    let (return_data, source_reference) = revert_entries.next().unwrap_or_else(|| {
+        panic!(
+            "expected a RevertError entry, got:\n{}",
+            brief_trace(stack_trace)
+        )
+    });
+    assert!(
+        revert_entries.next().is_none(),
+        "expected a single RevertError entry, got:\n{}",
+        brief_trace(stack_trace)
+    );
+    assert!(
+        contains_ascii(return_data, reason),
+        "expected revert reason {reason:?} in return data, got: {return_data:?}"
+    );
+    assert_eq!(
+        source_reference.line,
+        line,
+        "expected RevertError at {}:{line}, got:\n{}",
+        source_reference.source_name,
+        brief_trace(stack_trace)
+    );
+}
+
+// ---------- StackTraceScenarios fixture tests ----------
+
+const STACK_TRACE_SCENARIOS_SOURCE: &str = "project/contracts/StackTraceScenarios.sol";
+
+fn stack_trace_scenarios_provider(
+) -> anyhow::Result<(Provider<L1ChainSpec>, Address, CompilerOutput<SolxBytecode>)> {
+    let (build_info, output) = solx_stack_trace_scenarios_build_info()?;
+    let decoder = ContractDecoder::new(build_info);
+    let (provider, from) = make_provider(decoder)?;
+    Ok((provider, from, output))
+}
+
+fn deploy_stack_trace_scenario(
+    provider: &Provider<L1ChainSpec>,
+    from: Address,
+    output: &CompilerOutput<SolxBytecode>,
+    contract: &str,
+) -> anyhow::Result<Address> {
+    deploy(
+        provider,
+        from,
+        creation_bytes(output, STACK_TRACE_SCENARIOS_SOURCE, contract)?,
+    )
+}
+
+#[track_caller]
+fn assert_single_variant<'a>(
+    stack_trace: &'a [StackTraceEntry],
+    matcher: impl Fn(&StackTraceEntry) -> bool,
+    variant: &str,
+) -> &'a StackTraceEntry {
+    let mut matches = stack_trace.iter().filter(|e| matcher(e));
+    let entry = matches.next().unwrap_or_else(|| {
+        panic!(
+            "expected a {variant} entry, got:\n{}",
+            brief_trace(stack_trace)
+        )
+    });
+    assert!(
+        matches.next().is_none(),
+        "expected a single {variant} entry, got:\n{}",
+        brief_trace(stack_trace)
+    );
+    entry
+}
+
+#[track_caller]
+fn assert_returndata_size_error_at_call_get(stack_trace: &[StackTraceEntry]) {
+    let entry = assert_single_variant(
+        stack_trace,
+        |e| matches!(e, StackTraceEntry::ReturndataSizeError { .. }),
+        "ReturndataSizeError",
+    );
+    let source_reference =
+        source_reference_of(entry).expect("ReturndataSizeError carries a source reference");
+    assert_eq!(source_reference.function.as_deref(), Some("callGet"));
+    assert_eq!(
+        source_reference.line,
+        47,
+        "expected the call-site line, got:\n{}",
+        brief_trace(stack_trace)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn returndata_size_error_surfaces_at_call_site() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let callee = deploy_stack_trace_scenario(&provider, from, &output, "ReturnsNothing")?;
+    let caller = deploy_stack_trace_scenario(&provider, from, &output, "ExpectsWord")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        caller,
+        encode_call_address("callGet(address)", callee),
+    );
+    assert_returndata_size_error_at_call_get(&stack_trace);
+    Ok(())
+}
+
+/// solc emits no EXTCODESIZE probe for returndata-expecting calls since
+/// 0.8.10, so a returndata failure — not `NoncontractAccountCalledError` —
+/// is the parity answer here.
+#[tokio::test(flavor = "multi_thread")]
+async fn noncontract_account_call_surfaces_as_returndata_size_error() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let caller = deploy_stack_trace_scenario(&provider, from, &output, "ExpectsWord")?;
+    let eoa = Address::repeat_byte(0x42);
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        caller,
+        encode_call_address("callGet(address)", eoa),
+    );
+    assert_returndata_size_error_at_call_get(&stack_trace);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn nested_modifier_revert_walks_back_from_line_zero_helper() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounter")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        addr,
+        encode_call_u256("bumpIfValid(uint256)", 13),
+    );
+    assert_revert_at_line(&stack_trace, 80, "unlucky");
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cross_contract_modifier_revert_keeps_called_function_frame() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounterCaller")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        addr,
+        encode_call_u256("callBump(uint256)", 13),
+    );
+    assert_revert_at_line(&stack_trace, 80, "unlucky");
+    let callee_frame = stack_trace.iter().any(|e| {
+        matches!(e, StackTraceEntry::CallstackEntry { source_reference, .. }
+            if source_reference.function.as_deref() == Some("bumpIfValid")
+                && source_reference.line == 86)
+    });
+    assert!(
+        callee_frame,
+        "expected a CallstackEntry for bumpIfValid at its declaration \
+         (line 86), got:\n{}",
+        brief_trace(&stack_trace)
+    );
+    assert_trace_shape(
+        &stack_trace,
+        &[
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:99 (ValidatedCounterCaller.callBump)",
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:86 (ValidatedCounter.bumpIfValid)",
+            "RevertError project/contracts/StackTraceScenarios.sol:80 (ValidatedCounter.validates)",
+        ],
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn bare_modifier_revert_attributes_to_the_revert_statement() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "GuardedBareRevert")?;
+    let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, call("fire()"));
+    let entry = assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::RevertError { .. }),
+        "RevertError",
+    );
+    let source_reference = source_reference_of(entry).expect("entry carries a source reference");
+    assert_eq!(
+        (source_reference.line, source_reference.function.as_deref()),
+        (68, Some("guarded")),
+        "expected the `revert()` statement line inside the modifier, got:\n{}",
+        brief_trace(&stack_trace)
     );
     Ok(())
 }
