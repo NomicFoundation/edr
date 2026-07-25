@@ -425,25 +425,19 @@ fn assert_trace_shape(stack_trace: &[StackTraceEntry], expected: &[&str]) {
 
 #[track_caller]
 fn assert_revert_at_line(stack_trace: &[StackTraceEntry], line: u32, reason: &str) {
-    let mut revert_entries = stack_trace.iter().filter_map(|e| match e {
-        StackTraceEntry::RevertError {
-            return_data,
-            source_reference,
-            ..
-        } => Some((return_data, source_reference)),
-        _ => None,
-    });
-    let (return_data, source_reference) = revert_entries.next().unwrap_or_else(|| {
-        panic!(
-            "expected a RevertError entry, got:\n{}",
-            brief_trace(stack_trace)
-        )
-    });
-    assert!(
-        revert_entries.next().is_none(),
-        "expected a single RevertError entry, got:\n{}",
-        brief_trace(stack_trace)
+    let entry = assert_single_variant(
+        stack_trace,
+        |e| matches!(e, StackTraceEntry::RevertError { .. }),
+        "RevertError",
     );
+    let StackTraceEntry::RevertError {
+        return_data,
+        source_reference,
+        ..
+    } = entry
+    else {
+        unreachable!("assert_single_variant matched a RevertError");
+    };
     assert!(
         contains_ascii(return_data, reason),
         "expected revert reason {reason:?} in return data, got: {return_data:?}"

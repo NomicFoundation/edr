@@ -281,9 +281,9 @@ impl TraceStrategy for SolxTraceStrategy {
             return Ok(source_reference);
         }
 
-        // Unmapped instructions and declaration-level padding can't be
-        // turned into a source reference themselves; anchor at the failing
-        // function's start instead.
+        // Last resorts: the location's own reference (for declaration
+        // padding, the declaration line), else the failing function's start
+        // (unmapped instructions have no location to resolve).
         if let Some(source_reference) =
             source_location_to_source_reference(contract_meta, inst_location)?
         {
@@ -318,11 +318,11 @@ impl TraceStrategy for SolxTraceStrategy {
 }
 
 /// Walks the executed steps backwards to the last statement-level location
-/// of `failing_function` (or of a modifier flattened into it) — a shared
-/// revert helper carries no statement line of its own, but the code just
-/// before it keeps one. A statement of any other function ends the
-/// flattened frame and the walk. Failure-path only: runs once per inferred
-/// revert and stops at the first statement it finds.
+/// of `failing_function` (or of any modifier executed in this frame) — a
+/// shared revert helper carries no statement line of its own, but the code
+/// just before it keeps one. A statement of any other non-modifier function
+/// ends the walk. Failure-path only: runs once per inferred revert and
+/// stops at the first statement it finds.
 fn walk_back_to_last_statement(
     contract_meta: &ContractMetadata,
     failing_function: &ContractFunction,
@@ -394,18 +394,11 @@ pub(crate) fn source_location_to_source_reference(
         return Ok(None);
     };
 
-    let func_name = match func.r#type {
-        ContractFunctionType::Constructor => CONSTRUCTOR_FUNCTION_NAME.to_string(),
-        ContractFunctionType::Fallback => FALLBACK_FUNCTION_NAME.to_string(),
-        ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
-        _ => func.name.clone(),
-    };
-
     let func_location_file = func.location.file()?;
     let func_location_file = func_location_file.read();
 
     Ok(Some(SourceReference {
-        function: Some(func_name),
+        function: Some(function_display_name(&func)),
         contract: if func.r#type == ContractFunctionType::FreeFunction {
             None
         } else {
@@ -436,8 +429,19 @@ pub(crate) fn function_start_source_reference(
         source_name: file.source_name.clone(),
         source_content: file.content.clone(),
         contract: Some(contract.name.clone()),
-        function: Some(func.name.clone()),
+        function: Some(function_display_name(func)),
         line: location.get_starting_line_number()?,
         range: (location.offset, location.offset + location.length),
     })
+}
+
+/// Frame display name of a function: constructors, fallback, and receive
+/// render as their keyword — their AST `name` is the empty string.
+fn function_display_name(func: &ContractFunction) -> String {
+    match func.r#type {
+        ContractFunctionType::Constructor => CONSTRUCTOR_FUNCTION_NAME.to_string(),
+        ContractFunctionType::Fallback => FALLBACK_FUNCTION_NAME.to_string(),
+        ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
+        _ => func.name.clone(),
+    }
 }

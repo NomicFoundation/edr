@@ -261,6 +261,17 @@ fn selector_from(calldata: &Bytes) -> &[u8] {
     calldata.get(..SELECTOR_LEN).unwrap_or(calldata)
 }
 
+/// EVM step PCs of `steps`, in execution order.
+fn evm_step_pcs<HaltReasonT: HaltReasonTrait>(steps: &[NestedTraceStep<HaltReasonT>]) -> Vec<u32> {
+    steps
+        .iter()
+        .filter_map(|step| match step {
+            NestedTraceStep::Evm(evm) => Some(evm.pc),
+            _ => None,
+        })
+        .collect()
+}
+
 /// Whether `calldata` decodes as arguments for `function`; unknown param
 /// types count as valid.
 fn calldata_decodes_for<HaltReasonT: HaltReasonTrait>(
@@ -509,8 +520,10 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
 
     if let Some(loc) = &last_instruction.location
         && loc.get_containing_function()?.is_some()
-        && let Some(bottom_source_reference) = bottom_entry.source_reference()
     {
+        let bottom_source_reference = bottom_entry
+            .source_reference()
+            .expect("CustomError always carries a source reference");
         stacktrace.extend(trace_strategy.intermediate_frames(
             &contract_metadata,
             last_instruction,
@@ -752,15 +765,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
 
     if let Some(failing_function) = failing_function {
         // Thunked so only strategies that need the walk pay for it.
-        let step_pcs = || -> Vec<u32> {
-            steps
-                .iter()
-                .filter_map(|step| match step {
-                    NestedTraceStep::Evm(evm) => Some(evm.pc),
-                    _ => None,
-                })
-                .collect()
-        };
+        let step_pcs = || evm_step_pcs(steps);
         let revert_source_reference = trace_strategy.revert_source_reference(
             contract_metadata.as_ref(),
             last_instruction.location.as_ref(),
@@ -1033,13 +1038,14 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
             let frame =
                 instruction_within_function_to_revert_stack_trace_entry(trace, last_instruction)?;
 
-            if let Some(bottom_source_reference) = frame.source_reference() {
-                inferred_stacktrace.extend(trace_strategy.intermediate_frames(
-                    contract_metadata.as_ref(),
-                    last_instruction,
-                    bottom_source_reference,
-                )?);
-            }
+            let bottom_source_reference = frame
+                .source_reference()
+                .expect("RevertError always carries a source reference");
+            inferred_stacktrace.extend(trace_strategy.intermediate_frames(
+                contract_metadata.as_ref(),
+                last_instruction,
+                bottom_source_reference,
+            )?);
 
             inferred_stacktrace.push(frame);
         } else {
@@ -1648,32 +1654,22 @@ fn instruction_within_function_to_panic_stack_trace_entry<HaltReasonT: HaltReaso
         source_location_to_source_reference(contract_metadata.as_ref(), inst.location.as_ref())?
             .or(last_source_reference);
 
-    let source_reference = match primary_ref {
-        Some(source_reference) => Some(source_reference),
-        None => {
-            // Thunked so only strategies that need the walk pay for it.
-            let step_pcs = || -> Vec<u32> {
-                trace
-                    .steps()
-                    .iter()
-                    .filter_map(|step| match step {
-                        NestedTraceStep::Evm(evm) => Some(evm.pc),
-                        _ => None,
-                    })
-                    .collect()
-            };
-            let calldata = match trace {
-                CreateOrCallMessageRef::Call(call) => Some(&call.calldata),
-                CreateOrCallMessageRef::Create(_) => None,
-            };
-            trace_strategy.panic_helper_source_reference(
-                contract_metadata.as_ref(),
-                PanicHelperContext {
-                    step_pcs: &step_pcs,
-                    calldata,
-                },
-            )?
-        }
+    let source_reference = if primary_ref.is_some() {
+        primary_ref
+    } else {
+        // Thunked so only strategies that need the walk pay for it.
+        let step_pcs = || evm_step_pcs(trace.steps());
+        let calldata = match trace {
+            CreateOrCallMessageRef::Call(call) => Some(&call.calldata),
+            CreateOrCallMessageRef::Create(_) => None,
+        };
+        trace_strategy.panic_helper_source_reference(
+            contract_metadata.as_ref(),
+            PanicHelperContext {
+                step_pcs: &step_pcs,
+                calldata,
+            },
+        )?
     };
 
     Ok(StackTraceEntry::PanicError {
