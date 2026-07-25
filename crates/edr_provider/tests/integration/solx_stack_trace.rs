@@ -9,15 +9,13 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use edr_chain_l1::{
-    rpc::{receipt::L1RpcTransactionReceipt, TransactionRequest},
-    L1ChainSpec,
-};
-use edr_primitives::{hex, keccak256, Address, Bytes, Selector, B256, U256};
+use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
+use edr_primitives::{hex, keccak256, Address, Bytes, Selector, U256};
 use edr_provider::{
-    test_utils::{create_test_config_with, MinimalProviderConfig},
+    test_utils::{create_test_config_with, deploy_contract, MinimalProviderConfig},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
+    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderErrorForChainSpec,
+    ProviderRequest,
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::{
@@ -26,21 +24,20 @@ use edr_solidity::{
         SolxBytecode,
     },
     contract_decoder::ContractDecoder,
-    solidity_stack_trace::{SourceReference, StackTraceCreationResult, StackTraceEntry},
+    solidity_stack_trace::{StackTraceCreationResult, StackTraceEntry},
 };
 use parking_lot::RwLock;
 use tokio::runtime;
 
-fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
-    let mut input: CompilerInput = serde_json::from_str(include_str!(
-        "../../../edr_solidity/fixtures/solx_compiler_input.json"
-    ))?;
-    input.sources.get_mut("Counter.sol").unwrap().content =
-        include_str!("../../../edr_solidity/fixtures/sources/Counter.sol").to_owned();
-
-    let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
-        "../../../edr_solidity/fixtures/solx_compiler_output.json"
-    ))?;
+/// The `include_str!` literals stay at the call sites — the macro needs a
+/// literal path.
+fn assemble_build_info(
+    mut input: CompilerInput,
+    source_key: &str,
+    source_content: &str,
+    output: CompilerOutput<SolxBytecode>,
+) -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
+    input.sources.get_mut(source_key).unwrap().content = source_content.to_owned();
 
     let identified_contracts =
         extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
@@ -54,59 +51,42 @@ fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<
     ))
 }
 
+fn solx_counter_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
+    assemble_build_info(
+        serde_json::from_str(include_str!(
+            "../../../edr_solidity/fixtures/solx_compiler_input.json"
+        ))?,
+        "Counter.sol",
+        include_str!("../../../edr_solidity/fixtures/sources/Counter.sol"),
+        serde_json::from_str(include_str!(
+            "../../../edr_solidity/fixtures/solx_compiler_output.json"
+        ))?,
+    )
+}
+
 fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
-    let mut input: CompilerInput = serde_json::from_str(include_str!(
-        "../../../edr_solidity/fixtures/solx_compiler_input_scenarios.json"
-    ))?;
-
-    input
-        .sources
-        .get_mut("project/contracts/Scenarios.t.sol")
-        .unwrap()
-        .content =
-        include_str!("../../../edr_solidity/fixtures/sources/Scenarios.t.sol").to_owned();
-
-    let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
-        "../../../edr_solidity/fixtures/solx_compiler_output_scenarios.json"
-    ))?;
-
-    let identified_contracts =
-        extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
-
-    Ok((
-        BuildInfoConfig {
-            identified_contracts,
-            ignore_contracts: None,
-        },
-        output,
-    ))
+    assemble_build_info(
+        serde_json::from_str(include_str!(
+            "../../../edr_solidity/fixtures/solx_compiler_input_scenarios.json"
+        ))?,
+        SCENARIOS_SOURCE,
+        include_str!("../../../edr_solidity/fixtures/sources/Scenarios.t.sol"),
+        serde_json::from_str(include_str!(
+            "../../../edr_solidity/fixtures/solx_compiler_output_scenarios.json"
+        ))?,
+    )
 }
 
 fn solx_stack_trace_scenarios_build_info(
     input_json: &str,
     output_json: &str,
 ) -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
-    let mut input: CompilerInput = serde_json::from_str(input_json)?;
-
-    input
-        .sources
-        .get_mut(STACK_TRACE_SCENARIOS_SOURCE)
-        .unwrap()
-        .content =
-        include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenarios.sol").to_owned();
-
-    let output: CompilerOutput<SolxBytecode> = serde_json::from_str(output_json)?;
-
-    let identified_contracts =
-        extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
-
-    Ok((
-        BuildInfoConfig {
-            identified_contracts,
-            ignore_contracts: None,
-        },
-        output,
-    ))
+    assemble_build_info(
+        serde_json::from_str(input_json)?,
+        STACK_TRACE_SCENARIOS_SOURCE,
+        include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenarios.sol"),
+        serde_json::from_str(output_json)?,
+    )
 }
 
 /// Builds a local provider seeded with `decoder`, with bail-on-failure set
@@ -159,48 +139,9 @@ fn selector(signature: &str) -> Selector {
     )
 }
 
-fn deploy(
-    provider: &Provider<L1ChainSpec>,
-    from: Address,
-    creation: Bytes,
-) -> anyhow::Result<Address> {
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
-            from,
-            data: Some(creation),
-            ..TransactionRequest::default()
-        }),
-    ))?;
-    let tx_hash: B256 = serde_json::from_value(response.result)?;
-    let receipt_response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetTransactionReceipt(tx_hash),
-    ))?;
-    let receipt: L1RpcTransactionReceipt = serde_json::from_value(receipt_response.result)?;
-    receipt
-        .contract_address
-        .context("deployment receipt must carry contract_address")
-}
-
-/// Sends a transaction and expects [`ProviderError::TransactionFailed`] to
-/// be returned — i.e. the call reverted under `bail_on_transaction_failure`.
 /// Pulls the stack trace out of the failure and returns it directly to
 /// avoid naming `TransactionFailureWithCallTraces` (its module is private).
-fn expect_failed_call_stack_trace(
-    provider: &Provider<L1ChainSpec>,
-    from: Address,
-    to: Address,
-    calldata: Bytes,
-) -> Vec<StackTraceEntry> {
-    let err = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(TransactionRequest {
-                from,
-                to: Some(to),
-                data: Some(calldata),
-                ..TransactionRequest::default()
-            }),
-        ))
-        .expect_err("call must revert and bail");
+fn stack_trace_from_failure(err: ProviderErrorForChainSpec<L1ChainSpec>) -> Vec<StackTraceEntry> {
     match err {
         ProviderError::TransactionFailed(boxed) => match &boxed.failure.stack_trace_result {
             StackTraceCreationResult::Success(v) => v.clone(),
@@ -208,6 +149,38 @@ fn expect_failed_call_stack_trace(
         },
         other => panic!("expected TransactionFailed, got: {other:?}"),
     }
+}
+
+/// Sends a transaction and expects [`ProviderError::TransactionFailed`] to
+/// be returned — i.e. the call reverted under `bail_on_transaction_failure`.
+fn expect_failed_call_stack_trace(
+    provider: &Provider<L1ChainSpec>,
+    from: Address,
+    to: Address,
+    calldata: Bytes,
+) -> Vec<StackTraceEntry> {
+    expect_failed_call_with_value_stack_trace(provider, from, to, calldata, U256::ZERO)
+}
+
+fn expect_failed_call_with_value_stack_trace(
+    provider: &Provider<L1ChainSpec>,
+    from: Address,
+    to: Address,
+    calldata: Bytes,
+    value: U256,
+) -> Vec<StackTraceEntry> {
+    let err = provider
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(TransactionRequest {
+                from,
+                to: Some(to),
+                data: Some(calldata),
+                value: Some(value),
+                ..TransactionRequest::default()
+            }),
+        ))
+        .expect_err("call must revert and bail");
+    stack_trace_from_failure(err)
 }
 
 /// No-argument calldata: just the 4-byte selector.
@@ -230,56 +203,6 @@ fn encode_call_address(signature: &str, addr: Address) -> Bytes {
     Bytes::from(calldata)
 }
 
-fn source_reference_of(entry: &StackTraceEntry) -> Option<&SourceReference> {
-    match entry {
-        StackTraceEntry::CallstackEntry {
-            source_reference, ..
-        }
-        | StackTraceEntry::RevertError {
-            source_reference, ..
-        }
-        | StackTraceEntry::CheatCodeError {
-            source_reference, ..
-        }
-        | StackTraceEntry::CustomError {
-            source_reference, ..
-        }
-        | StackTraceEntry::FunctionNotPayableError {
-            source_reference, ..
-        }
-        | StackTraceEntry::InvalidParamsError { source_reference }
-        | StackTraceEntry::FallbackNotPayableError {
-            source_reference, ..
-        }
-        | StackTraceEntry::FallbackNotPayableAndNoReceiveError {
-            source_reference, ..
-        }
-        | StackTraceEntry::UnrecognizedFunctionWithoutFallbackError { source_reference }
-        | StackTraceEntry::MissingFallbackOrReceiveError { source_reference }
-        | StackTraceEntry::ReturndataSizeError { source_reference }
-        | StackTraceEntry::NoncontractAccountCalledError { source_reference }
-        | StackTraceEntry::CallFailedError { source_reference }
-        | StackTraceEntry::DirectLibraryCallError { source_reference }
-        | StackTraceEntry::InternalFunctionCallstackEntry {
-            source_reference, ..
-        } => Some(source_reference),
-        StackTraceEntry::PanicError {
-            source_reference, ..
-        }
-        | StackTraceEntry::OtherExecutionError { source_reference }
-        | StackTraceEntry::UnmappedSolc0_6_3RevertError { source_reference }
-        | StackTraceEntry::ContractTooLargeError { source_reference }
-        | StackTraceEntry::ContractCallRunOutOfGasError { source_reference } => {
-            source_reference.as_ref()
-        }
-        StackTraceEntry::UnrecognizedCreateCallstackEntry
-        | StackTraceEntry::UnrecognizedContractCallstackEntry { .. }
-        | StackTraceEntry::PrecompileError { .. }
-        | StackTraceEntry::UnrecognizedCreateError { .. }
-        | StackTraceEntry::UnrecognizedContractError { .. } => None,
-    }
-}
-
 // ---------- variance-axis tests ----------
 
 /// Counter.set(0) reverts via `require(v > 0, "must be positive")`.
@@ -292,17 +215,18 @@ async fn revert_error_variant_surfaces_for_counter() -> anyhow::Result<()> {
     let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
 
-    let counter = deploy(
+    let counter = deploy_contract(
         &provider,
         from,
         creation_bytes(&output, "Counter.sol", "Counter")?,
     )?;
 
-    let mut calldata = Vec::with_capacity(36);
-    calldata.extend_from_slice(selector("set(uint256)").as_slice());
-    calldata.extend_from_slice(&[0u8; 32]);
-    let stack_trace =
-        expect_failed_call_stack_trace(&provider, from, counter, Bytes::from(calldata));
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        counter,
+        encode_call_u256("set(uint256)", 0),
+    );
 
     assert!(
         stack_trace
@@ -311,7 +235,8 @@ async fn revert_error_variant_surfaces_for_counter() -> anyhow::Result<()> {
         "expected a RevertError entry, got: {stack_trace:#?}"
     );
     assert!(
-        stack_trace.iter().any(|e| source_reference_of(e)
+        stack_trace.iter().any(|e| e
+            .source_reference()
             .is_some_and(|s| s.source_name.ends_with("Counter.sol"))),
         "expected an entry referencing Counter.sol, got: {stack_trace:#?}"
     );
@@ -327,18 +252,13 @@ async fn panic_error_variant_surfaces_for_overflow_scenario() -> anyhow::Result<
     let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
 
-    let addr = deploy(
+    let addr = deploy_contract(
         &provider,
         from,
         creation_bytes(&output, "project/contracts/Scenarios.t.sol", "OverflowTest")?,
     )?;
 
-    let stack_trace = expect_failed_call_stack_trace(
-        &provider,
-        from,
-        addr,
-        Bytes::from(selector("testOverflow()").as_slice().to_vec()),
-    );
+    let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, call("testOverflow()"));
 
     assert!(
         stack_trace
@@ -358,7 +278,7 @@ async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Re
     let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
 
-    let addr = deploy(
+    let addr = deploy_contract(
         &provider,
         from,
         creation_bytes(
@@ -368,12 +288,8 @@ async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Re
         )?,
     )?;
 
-    let stack_trace = expect_failed_call_stack_trace(
-        &provider,
-        from,
-        addr,
-        Bytes::from(selector("testCustomError()").as_slice().to_vec()),
-    );
+    let stack_trace =
+        expect_failed_call_stack_trace(&provider, from, addr, call("testCustomError()"));
 
     assert!(
         stack_trace
@@ -383,6 +299,8 @@ async fn custom_error_variant_surfaces_for_custom_error_scenario() -> anyhow::Re
     );
     Ok(())
 }
+
+const SCENARIOS_SOURCE: &str = "project/contracts/Scenarios.t.sol";
 
 fn contains_ascii(data: &[u8], needle: &str) -> bool {
     data.windows(needle.len()).any(|w| w == needle.as_bytes())
@@ -396,7 +314,7 @@ fn brief_trace(stack_trace: &[StackTraceEntry]) -> String {
         .map(|entry| {
             let debug = format!("{entry:?}");
             let variant = debug.split_whitespace().next().unwrap_or("?").to_string();
-            match source_reference_of(entry) {
+            match entry.source_reference() {
                 Some(source_reference) => format!(
                     "{variant} {}:{} ({}.{})",
                     source_reference.source_name,
@@ -492,7 +410,7 @@ fn deploy_stack_trace_scenario(
     output: &CompilerOutput<SolxBytecode>,
     contract: &str,
 ) -> anyhow::Result<Address> {
-    deploy(
+    deploy_contract(
         provider,
         from,
         creation_bytes(output, STACK_TRACE_SCENARIOS_SOURCE, contract)?,
@@ -527,8 +445,9 @@ fn assert_returndata_size_error_at_call_get(stack_trace: &[StackTraceEntry]) {
         |e| matches!(e, StackTraceEntry::ReturndataSizeError { .. }),
         "ReturndataSizeError",
     );
-    let source_reference =
-        source_reference_of(entry).expect("ReturndataSizeError carries a source reference");
+    let source_reference = entry
+        .source_reference()
+        .expect("ReturndataSizeError carries a source reference");
     assert_eq!(source_reference.function.as_deref(), Some("callGet"));
     assert_eq!(
         source_reference.line,
@@ -628,7 +547,9 @@ async fn bare_modifier_revert_attributes_to_the_revert_statement() -> anyhow::Re
         |e| matches!(e, StackTraceEntry::RevertError { .. }),
         "RevertError",
     );
-    let source_reference = source_reference_of(entry).expect("entry carries a source reference");
+    let source_reference = entry
+        .source_reference()
+        .expect("entry carries a source reference");
     assert_eq!(
         (source_reference.line, source_reference.function.as_deref()),
         (68, Some("guarded")),
@@ -690,7 +611,9 @@ async fn mode3_bare_modifier_revert_recovers_the_failing_function() -> anyhow::R
         |e| matches!(e, StackTraceEntry::RevertError { .. }),
         "RevertError",
     );
-    let source_reference = source_reference_of(entry).expect("entry carries a source reference");
+    let source_reference = entry
+        .source_reference()
+        .expect("entry carries a source reference");
     assert_eq!(
         (source_reference.line, source_reference.function.as_deref()),
         (67, Some("guarded")),
