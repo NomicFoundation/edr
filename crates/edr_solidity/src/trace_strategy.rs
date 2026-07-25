@@ -236,11 +236,8 @@ impl TraceStrategy for SolxTraceStrategy {
         last_instruction: &Instruction,
         bottom_source_reference: &SourceReference,
     ) -> Result<Vec<StackTraceEntry>, TraceStrategyError> {
-        // Dedup against the frame actually rendered below these, not the
-        // raw instruction location: under line-0 emission (solx ≥0.1.6) the
-        // instruction resolves to the flattened-into function's declaration
-        // while the bottom frame's revert walk-back may land in a modifier —
-        // the function frame between them is real, not a duplicate.
+        // Skip call sites repeating the function of the frame rendered
+        // below them.
         let mut prev_function_name = bottom_source_reference.function.clone();
         let mut kept_innermost_first: Vec<SourceReference> = Vec::new();
         for call_site in &last_instruction.inline_call_sites {
