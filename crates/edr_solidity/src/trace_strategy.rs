@@ -54,11 +54,11 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
         reference_location: &SourceLocation,
     ) -> bool;
 
-    /// Failing function to attribute a revert to when the reverting
-    /// instruction's location has no containing function (solx attributes
-    /// shared helpers to the contract declaration). `None` leaves the
-    /// generic fallback heuristics in charge.
-    fn declaration_attributed_failing_function(
+    /// Failing function for a revert whose instruction location resolves to
+    /// no containing function: solx recovers it from the calldata selector
+    /// (shared revert helpers are unmapped or declaration-attributed); solc
+    /// returns `None`, leaving the fallback heuristics in charge.
+    fn failing_function_from_calldata(
         &self,
         contract_meta: &ContractMetadata,
         calldata: &Bytes,
@@ -126,7 +126,7 @@ impl TraceStrategy for SolcTraceStrategy {
         step_location == reference_location
     }
 
-    fn declaration_attributed_failing_function(
+    fn failing_function_from_calldata(
         &self,
         _contract_meta: &ContractMetadata,
         _calldata: &Bytes,
@@ -194,7 +194,7 @@ impl TraceStrategy for SolxTraceStrategy {
         step_location == reference_location || step_location.contains(reference_location)
     }
 
-    fn declaration_attributed_failing_function(
+    fn failing_function_from_calldata(
         &self,
         contract_meta: &ContractMetadata,
         calldata: &Bytes,

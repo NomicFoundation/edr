@@ -261,6 +261,24 @@ fn selector_from(calldata: &Bytes) -> &[u8] {
     calldata.get(..SELECTOR_LEN).unwrap_or(calldata)
 }
 
+/// Whether `calldata` decodes as arguments for `function`; unknown param
+/// types count as valid.
+fn calldata_decodes_for<HaltReasonT: HaltReasonTrait>(
+    function: &ContractFunction,
+    calldata: &Bytes,
+) -> Result<bool, InferrerError<HaltReasonT>> {
+    if function.param_types.is_none() {
+        return Ok(true);
+    }
+
+    let abi = alloy_json_abi::Function::try_from(function)
+        .map_err(|error| InferrerError::InvalidFunction(Arc::new(error)))?;
+
+    Ok(abi
+        .abi_decode_input(calldata.get(SELECTOR_LEN..).unwrap_or(&[]))
+        .is_ok())
+}
+
 pub(crate) fn infer_before_tracing_call_message<HaltReasonT: HaltReasonTrait>(
     trace: &CallMessage<HaltReasonT>,
 ) -> Result<Option<Vec<StackTraceEntry>>, InferrerError<HaltReasonT>> {
@@ -721,28 +739,15 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
         None => None,
     };
 
-    // Reverting instruction unmapped or attributed outside any function: the
-    // strategy may still resolve the called function (solx resolves it from
-    // the calldata selector; solc leaves the remaining heuristics in
-    // charge). Only when the calldata decodes for that function — a
-    // dispatch-level revert on undecodable calldata belongs to the
-    // InvalidParamsError classification below.
+    // Undecodable calldata stays with the InvalidParamsError classification
+    // below.
     if failing_function.is_none()
         && last_instruction.opcode == OpCode::REVERT
-        && let Some(function) = trace_strategy
-            .declaration_attributed_failing_function(contract_metadata.as_ref(), calldata)
+        && let Some(function) =
+            trace_strategy.failing_function_from_calldata(contract_metadata.as_ref(), calldata)
+        && calldata_decodes_for(&function, calldata)?
     {
-        let abi = alloy_json_abi::Function::try_from(&*function)
-            .map_err(|error| InferrerError::InvalidFunction(Arc::new(error)))?;
-        let accepts_calldata = match &function.param_types {
-            Some(_) => abi
-                .abi_decode_input(calldata.get(SELECTOR_LEN..).unwrap_or(&[]))
-                .is_ok(),
-            None => true,
-        };
-        if accepts_calldata {
-            failing_function = Some(function);
-        }
+        failing_function = Some(function);
     }
 
     if let Some(failing_function) = failing_function {
@@ -779,31 +784,19 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
 
     let contract = contract_metadata.contract.read();
 
-    let selector = selector_from(calldata);
-    let calldata = &calldata.get(SELECTOR_LEN..).unwrap_or(&[]);
+    let called_function = contract.get_function_from_selector(selector_from(calldata));
 
-    let called_function = contract.get_function_from_selector(selector);
-
-    if let Some(called_function) = called_function {
-        let abi = alloy_json_abi::Function::try_from(&**called_function)
-            .map_err(|error| InferrerError::InvalidFunction(Arc::new(error)))?;
-
-        let is_valid_calldata = match &called_function.param_types {
-            Some(_) => abi.abi_decode_input(calldata).is_ok(),
-            // if we don't know the param types, we just assume that the call is valid
-            None => true,
+    if let Some(called_function) = called_function
+        && !calldata_decodes_for(called_function, calldata)?
+    {
+        let frame = StackTraceEntry::InvalidParamsError {
+            source_reference: get_function_start_source_reference(
+                CreateOrCallMessageRef::Call(trace),
+                called_function,
+            )?,
         };
 
-        if !is_valid_calldata {
-            let frame = StackTraceEntry::InvalidParamsError {
-                source_reference: get_function_start_source_reference(
-                    CreateOrCallMessageRef::Call(trace),
-                    called_function,
-                )?,
-            };
-
-            return Ok(Heuristic::Hit(vec![frame]));
-        }
+        return Ok(Heuristic::Hit(vec![frame]));
     }
 
     if solidity_0_6_3_maybe_unmapped_revert(CreateOrCallMessageRef::Call(trace))? {
