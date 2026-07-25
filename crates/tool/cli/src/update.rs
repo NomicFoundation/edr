@@ -16,17 +16,16 @@ pub enum Mode {
 
 #[allow(unused)]
 pub fn update(path: &Path, contents: &str, mode: Mode) -> anyhow::Result<()> {
+    let contents = contents.replace("\r\n", "\n");
     let old_contents = match fs::read_to_string(path) {
-        Ok(old_contents) => old_contents,
+        Ok(old_contents) => old_contents.replace("\r\n", "\n"),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound && mode == Mode::Overwrite => {
             eprintln!("creating {}", path.display());
-            fs::write(path, contents)?;
+            fs::write(path, &contents)?;
             return Ok(());
         }
         Err(error) => bail!("reading {}: {error}", path.display()),
     };
-    let old_contents = old_contents.replace("\r\n", "\n");
-    let contents = contents.replace("\r\n", "\n");
     if old_contents == contents {
         return Ok(());
     }
