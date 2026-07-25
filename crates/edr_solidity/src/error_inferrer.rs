@@ -1648,29 +1648,33 @@ fn instruction_within_function_to_panic_stack_trace_entry<HaltReasonT: HaltReaso
         source_location_to_source_reference(contract_metadata.as_ref(), inst.location.as_ref())?
             .or(last_source_reference);
 
-    // Thunked so only strategies that need the walk pay for it.
-    let step_pcs = || -> Vec<u32> {
-        trace
-            .steps()
-            .iter()
-            .filter_map(|step| match step {
-                NestedTraceStep::Evm(evm) => Some(evm.pc),
-                _ => None,
-            })
-            .collect()
+    let source_reference = match primary_ref {
+        Some(source_reference) => Some(source_reference),
+        None => {
+            // Thunked so only strategies that need the walk pay for it.
+            let step_pcs = || -> Vec<u32> {
+                trace
+                    .steps()
+                    .iter()
+                    .filter_map(|step| match step {
+                        NestedTraceStep::Evm(evm) => Some(evm.pc),
+                        _ => None,
+                    })
+                    .collect()
+            };
+            let calldata = match trace {
+                CreateOrCallMessageRef::Call(call) => Some(&call.calldata),
+                CreateOrCallMessageRef::Create(_) => None,
+            };
+            trace_strategy.panic_helper_source_reference(
+                contract_metadata.as_ref(),
+                PanicHelperContext {
+                    step_pcs: &step_pcs,
+                    calldata,
+                },
+            )?
+        }
     };
-    let calldata = match trace {
-        CreateOrCallMessageRef::Call(call) => Some(&call.calldata),
-        CreateOrCallMessageRef::Create(_) => None,
-    };
-    let source_reference = trace_strategy.panic_helper_source_reference(
-        primary_ref,
-        contract_metadata.as_ref(),
-        PanicHelperContext {
-            step_pcs: &step_pcs,
-            calldata,
-        },
-    )?;
 
     Ok(StackTraceEntry::PanicError {
         source_reference,
@@ -2015,7 +2019,7 @@ fn is_last_location<HaltReasonT: HaltReasonTrait>(
         let step_inst = contract_metadata.get_instruction(step.pc)?;
 
         if let Some(step_inst_location) = &step_inst.location
-            && !trace_strategy.locations_equivalent(step_inst_location, location)
+            && !trace_strategy.step_still_at_statement(step_inst_location, location)
         {
             return Ok(false);
         }
