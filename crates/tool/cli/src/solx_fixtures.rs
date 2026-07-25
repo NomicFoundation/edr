@@ -14,6 +14,10 @@
 //! shapes differ per mode) so a change to a default can't silently change
 //! what the fixtures test. The pinned "1" matches hardhat-solx's default,
 //! the pipeline these fixtures stand in for — not solx's own default "3".
+//! The `stack_trace_scenarios_mode3` variant exists because mode-1 DWARF
+//! is statement-attributed since solx 0.1.6, so only mode-3 artifacts
+//! still reach the inference's declaration-attributed and unmapped-revert
+//! compat paths.
 //!
 //! The `scenarios` fixture is NOT regenerable by this tool: its input also
 //! depends on forge-std sources whose contents are scrubbed from the
@@ -54,6 +58,15 @@ const FIXTURES: &[Fixture] = &[
             "StackTraceScenarios.sol",
         )],
         output: "solx_compiler_output_stack_trace_scenarios.json",
+    },
+    Fixture {
+        name: "stack_trace_scenarios_mode3",
+        input: "solx_compiler_input_stack_trace_scenarios_mode3.json",
+        sources: &[(
+            "project/contracts/StackTraceScenarios.sol",
+            "StackTraceScenarios.sol",
+        )],
+        output: "solx_compiler_output_stack_trace_scenarios_mode3.json",
     },
 ];
 
