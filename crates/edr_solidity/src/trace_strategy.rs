@@ -273,37 +273,15 @@ impl TraceStrategy for SolxTraceStrategy {
         failing_function: &ContractFunction,
         step_pcs: StepPcs<'_>,
     ) -> Result<SourceReference, TraceStrategyError> {
-        // A shared revert helper carries no statement line of its own, so
-        // walk the executed steps back to the last statement that ran —
-        // that code keeps its line. Statements of another function mark the
-        // end of the flattened frame and stop the walk.
         let needs_walk_back = match inst_location {
             Some(location) => is_declaration_attributed(contract_meta, location, failing_function)?,
             None => true,
         };
-        if needs_walk_back {
-            for pc in step_pcs().iter().rev() {
-                let prev_inst = contract_meta.get_instruction(*pc)?;
-                let Some(prev_location) = &prev_inst.location else {
-                    continue;
-                };
-                if is_declaration_attributed(contract_meta, prev_location, failing_function)? {
-                    continue;
-                }
-                let Some(containing_function) = prev_location.get_containing_function()? else {
-                    continue;
-                };
-                if !failing_function.location.contains(prev_location)
-                    && containing_function.r#type != ContractFunctionType::Modifier
-                {
-                    break;
-                }
-                if let Some(source_reference) =
-                    source_location_to_source_reference(contract_meta, Some(prev_location))?
-                {
-                    return Ok(source_reference);
-                }
-            }
+        if needs_walk_back
+            && let Some(source_reference) =
+                walk_back_to_last_statement(contract_meta, failing_function, step_pcs)?
+        {
+            return Ok(source_reference);
         }
 
         // Unmapped instructions and declaration-level padding can't be
@@ -338,8 +316,44 @@ impl TraceStrategy for SolxTraceStrategy {
         else {
             return Ok(None);
         };
-        Ok(function_start_source_reference(contract_meta, &called_function).ok())
+        function_start_source_reference(contract_meta, &called_function).map(Some)
     }
+}
+
+/// Walks the executed steps backwards to the last statement-level location
+/// of `failing_function` (or of a modifier flattened into it) — a shared
+/// revert helper carries no statement line of its own, but the code just
+/// before it keeps one. A statement of any other function ends the
+/// flattened frame and the walk. Failure-path only: runs once per inferred
+/// revert and stops at the first statement it finds.
+fn walk_back_to_last_statement(
+    contract_meta: &ContractMetadata,
+    failing_function: &ContractFunction,
+    step_pcs: StepPcs<'_>,
+) -> Result<Option<SourceReference>, TraceStrategyError> {
+    for pc in step_pcs().iter().rev() {
+        let prev_inst = contract_meta.get_instruction(*pc)?;
+        let Some(prev_location) = &prev_inst.location else {
+            continue;
+        };
+        if is_declaration_attributed(contract_meta, prev_location, failing_function)? {
+            continue;
+        }
+        let Some(containing_function) = prev_location.get_containing_function()? else {
+            continue;
+        };
+        if !failing_function.location.contains(prev_location)
+            && containing_function.r#type != ContractFunctionType::Modifier
+        {
+            break;
+        }
+        if let Some(source_reference) =
+            source_location_to_source_reference(contract_meta, Some(prev_location))?
+        {
+            return Ok(Some(source_reference));
+        }
+    }
+    Ok(None)
 }
 
 /// Whether `location` is declaration-level padding for `failing_function`:
