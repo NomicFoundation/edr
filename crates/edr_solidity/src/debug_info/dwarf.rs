@@ -1531,6 +1531,8 @@ mod tests {
             assert!(lines.contains(&144), "got {lines:?}");
         }
 
+        /// DWARF encodes "no source line" as line 0; solx ≥0.1.6 emits it
+        /// for compiler-generated call sites like the `__entry` dispatch.
         #[test]
         fn line_zero_call_site_falls_back_to_the_function_declaration() {
             let output = load_stack_trace_scenarios_output();
