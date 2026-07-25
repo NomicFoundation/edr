@@ -83,10 +83,10 @@ fn solx_scenarios_build_info() -> anyhow::Result<(BuildInfoConfig, CompilerOutpu
 }
 
 fn solx_stack_trace_scenarios_build_info(
+    input_json: &str,
+    output_json: &str,
 ) -> anyhow::Result<(BuildInfoConfig, CompilerOutput<SolxBytecode>)> {
-    let mut input: CompilerInput = serde_json::from_str(include_str!(
-        "../../../edr_solidity/fixtures/solx_compiler_input_stack_trace_scenarios.json"
-    ))?;
+    let mut input: CompilerInput = serde_json::from_str(input_json)?;
 
     input
         .sources
@@ -95,9 +95,7 @@ fn solx_stack_trace_scenarios_build_info(
         .content =
         include_str!("../../../edr_solidity/fixtures/sources/StackTraceScenarios.sol").to_owned();
 
-    let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
-        "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios.json"
-    ))?;
+    let output: CompilerOutput<SolxBytecode> = serde_json::from_str(output_json)?;
 
     let identified_contracts =
         extract_solx_contract_metadata("0.8.34".to_owned(), input, output.clone())?;
@@ -457,7 +455,32 @@ const STACK_TRACE_SCENARIOS_SOURCE: &str = "project/contracts/StackTraceScenario
 
 fn stack_trace_scenarios_provider(
 ) -> anyhow::Result<(Provider<L1ChainSpec>, Address, CompilerOutput<SolxBytecode>)> {
-    let (build_info, output) = solx_stack_trace_scenarios_build_info()?;
+    let (build_info, output) = solx_stack_trace_scenarios_build_info(
+        include_str!(
+            "../../../edr_solidity/fixtures/solx_compiler_input_stack_trace_scenarios.json"
+        ),
+        include_str!(
+            "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios.json"
+        ),
+    )?;
+    let decoder = ContractDecoder::new(build_info);
+    let (provider, from) = make_provider(decoder)?;
+    Ok((provider, from, output))
+}
+
+/// Same scenarios compiled at optimizer mode 3: mode-1 DWARF is
+/// statement-attributed since solx 0.1.6, so only these artifacts reach
+/// the declaration-attributed and unmapped-revert inference paths.
+fn stack_trace_scenarios_mode3_provider(
+) -> anyhow::Result<(Provider<L1ChainSpec>, Address, CompilerOutput<SolxBytecode>)> {
+    let (build_info, output) = solx_stack_trace_scenarios_build_info(
+        include_str!(
+            "../../../edr_solidity/fixtures/solx_compiler_input_stack_trace_scenarios_mode3.json"
+        ),
+        include_str!(
+            "../../../edr_solidity/fixtures/solx_compiler_output_stack_trace_scenarios_mode3.json"
+        ),
+    )?;
     let decoder = ContractDecoder::new(build_info);
     let (provider, from) = make_provider(decoder)?;
     Ok((provider, from, output))
@@ -549,7 +572,7 @@ async fn noncontract_account_call_surfaces_as_returndata_size_error() -> anyhow:
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn nested_modifier_revert_walks_back_from_line_zero_helper() -> anyhow::Result<()> {
+async fn nested_modifier_revert_points_at_the_failing_require() -> anyhow::Result<()> {
     let (provider, from, output) = stack_trace_scenarios_provider()?;
     let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounter")?;
     let stack_trace = expect_failed_call_stack_trace(
@@ -610,6 +633,68 @@ async fn bare_modifier_revert_attributes_to_the_revert_statement() -> anyhow::Re
         (source_reference.line, source_reference.function.as_deref()),
         (68, Some("guarded")),
         "expected the `revert()` statement line inside the modifier, got:\n{}",
+        brief_trace(&stack_trace)
+    );
+    Ok(())
+}
+
+// ---------- mode-3 twins: pin the compat inference paths ----------
+
+#[tokio::test(flavor = "multi_thread")]
+async fn mode3_nested_modifier_revert_walks_back_to_the_failing_require() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_mode3_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounter")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        addr,
+        encode_call_u256("bumpIfValid(uint256)", 13),
+    );
+    assert_revert_at_line(&stack_trace, 80, "unlucky");
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn mode3_cross_contract_modifier_revert_keeps_called_function_frame() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_mode3_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "ValidatedCounterCaller")?;
+    let stack_trace = expect_failed_call_stack_trace(
+        &provider,
+        from,
+        addr,
+        encode_call_u256("callBump(uint256)", 13),
+    );
+    assert_revert_at_line(&stack_trace, 80, "unlucky");
+    assert_trace_shape(
+        &stack_trace,
+        &[
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:99 (ValidatedCounterCaller.callBump)",
+            "CallstackEntry project/contracts/StackTraceScenarios.sol:86 (ValidatedCounter.bumpIfValid)",
+            "RevertError project/contracts/StackTraceScenarios.sol:80 (ValidatedCounter.validates)",
+        ],
+    );
+    Ok(())
+}
+
+/// Line 67 is the `if (armed)` guard, not the `revert()` at 68: mode-3
+/// DWARF gives the bare-revert entry path no statement line, so the
+/// walk-back lands on the last statement that executed. Becomes 68 once
+/// solx emits statement lines there.
+#[tokio::test(flavor = "multi_thread")]
+async fn mode3_bare_modifier_revert_recovers_the_failing_function() -> anyhow::Result<()> {
+    let (provider, from, output) = stack_trace_scenarios_mode3_provider()?;
+    let addr = deploy_stack_trace_scenario(&provider, from, &output, "GuardedBareRevert")?;
+    let stack_trace = expect_failed_call_stack_trace(&provider, from, addr, call("fire()"));
+    let entry = assert_single_variant(
+        &stack_trace,
+        |e| matches!(e, StackTraceEntry::RevertError { .. }),
+        "RevertError",
+    );
+    let source_reference = source_reference_of(entry).expect("entry carries a source reference");
+    assert_eq!(
+        (source_reference.line, source_reference.function.as_deref()),
+        (67, Some("guarded")),
+        "expected the guard line inside the modifier, got:\n{}",
         brief_trace(&stack_trace)
     );
     Ok(())
