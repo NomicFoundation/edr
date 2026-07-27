@@ -5,7 +5,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::bail;
+use anyhow::{bail, Context as _};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
@@ -24,7 +24,9 @@ pub fn update(path: &Path, contents: &str, mode: Mode) -> anyhow::Result<()> {
             fs::write(path, &contents)?;
             return Ok(());
         }
-        Err(error) => bail!("reading {}: {error}", path.display()),
+        Err(error) => {
+            return Err(error).with_context(|| format!("reading {}", path.display()));
+        }
     };
     if old_contents == contents {
         return Ok(());
