@@ -12,16 +12,11 @@ Integration test that asserts EDR renders **the same Solidity stack trace** for 
 
 ## Pinned divergences
 
-A small set of scenarios diverge from solc today and are pinned to their current solx output via `scenariosDivergingFromSolc` in `test/sweep.ts`. A golden mismatch means solx changed: either remove the entry (improvement) or update the pinned shape (regression).
+Scenarios that diverge from solc are pinned to solx's output via `scenariosDivergingFromSolc` in `test/sweep.ts`; every other scenario runs under the strict parity check. A golden mismatch means solx changed: either remove the entry (improvement) or update the pinned shape (regression). The pin set is specific to the solx release `hardhat-solx`'s version map selects.
 
 | Scenario | Why it diverges |
 | --- | --- |
-| `InlineAssemblyRevertTest` | solx omits `.debug_line` rows for assembly opcodes; bottom frame falls back to the function decl line. |
-| `InvalidOpcodeTest` | Same as inline-assembly: function decl line instead of statement line. |
 | `InternalRecurseTest` | solx's optimizer fully unrolls 3-deep self-recursion; inlined frames collapse. |
-| `BareModifierRevertTest` | A modifier's bare `revert()` is unmapped in the DWARF and returns no data; every revert heuristic misses and the trace collapses to the test's own call site. Fix queued in [#1552](https://github.com/NomicFoundation/edr/pull/1552). |
-
-`MutualRecursionTest` and `NestedModifierRevertTest` were previously pinned but reached full parity with the debug info emitted by the merged `hardhat-solx` plugin, so they run under the strict parity check.
 
 ## Current state
 
@@ -79,7 +74,7 @@ The script (`scripts/regen-fixtures.js`) wipes `artifacts/build-info`, compiles 
 
 Details, for when a regeneration surprises you:
 
-- What the compile produces depends on the toolchain of the day: hardhat-solx's compilation settings (e.g. its explicit `-O1` optimizer default) and the solx release its version map selects (`SOLIDITY_TO_SOLX_VERSION_MAP`; `0.8.34` → `0.1.4` today, with a bump to `0.1.6` planned). If the fixtures change when you didn't touch the corpus, one of those moved — check which solx actually compiled the output via the bytecode's trailing CBOR `solcx` stamp (a locally linked hardhat-solx build can silently bring a different map).
+- What the compile produces depends on the toolchain of the day: hardhat-solx's compilation settings (e.g. its explicit `-O1` optimizer default) and the solx release its version map selects (`SOLIDITY_TO_SOLX_VERSION_MAP`). If the fixtures change when you didn't touch the corpus, one of those moved — check which solx actually compiled the output via the bytecode's trailing CBOR `solcx` stamp (a locally linked hardhat-solx build can silently bring a different map).
 - Finding the new offsets for the PC-anchored dwarf tests: next to the failing test, temporarily iterate `decode_deployed_for(...)`, filter for the opcode you're after (`REVERT`, `INVALID`), and print each candidate's `pc`, resolved line and inline call sites; run with `cargo test -p edr_solidity -- --nocapture` (the harness hides passing tests' output) and pick the instruction whose line matches the test's intent. Appending scenarios never moves sibling contracts' PCs — each contract is its own compilation unit — so this is only needed when the toolchain changes codegen.
 - The **output** is filtered to `Scenarios.t.sol` **plus its inheritance closure** (the forge-std bases: `Test.sol`, `StdInvariant.sol`, …). EDR's build model resolves inherited functions through the base contracts' ASTs (`linearizedBaseContracts`), so `sources` and `contracts` must cover the same closure. The filter here is only a size optimization — sufficiency is enforced where the knowledge lives: `scenarios_fixture_satisfies_contract_metadata_extraction` in `edr_solidity` runs contract metadata extraction over the committed fixture, so an over-filtered regen fails `cargo test -p edr_solidity` directly. What is dropped (`console.sol`/`safeconsole.sol`/`Vm.sol` ASTs, ~35 MB) is read by nothing.
 - The **input** names every source of the compile and carries its settings, with `content` blank: `Scenarios.t.sol`'s text is spliced in at test time from `fixtures/sources/` (the same file this project compiles), and the forge-std text is never needed by the tests.

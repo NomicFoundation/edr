@@ -261,6 +261,35 @@ fn selector_from(calldata: &Bytes) -> &[u8] {
     calldata.get(..SELECTOR_LEN).unwrap_or(calldata)
 }
 
+/// EVM step PCs of `steps`, in execution order.
+fn evm_step_pcs<HaltReasonT: HaltReasonTrait>(steps: &[NestedTraceStep<HaltReasonT>]) -> Vec<u32> {
+    steps
+        .iter()
+        .filter_map(|step| match step {
+            NestedTraceStep::Evm(evm) => Some(evm.pc),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Whether `calldata` decodes as arguments for `function`; unknown param
+/// types count as valid.
+fn calldata_decodes_for<HaltReasonT: HaltReasonTrait>(
+    function: &ContractFunction,
+    calldata: &Bytes,
+) -> Result<bool, InferrerError<HaltReasonT>> {
+    if function.param_types.is_none() {
+        return Ok(true);
+    }
+
+    let abi = alloy_json_abi::Function::try_from(function)
+        .map_err(|error| InferrerError::InvalidFunction(Arc::new(error)))?;
+
+    Ok(abi
+        .abi_decode_input(calldata.get(SELECTOR_LEN..).unwrap_or(&[]))
+        .is_ok())
+}
+
 pub(crate) fn infer_before_tracing_call_message<HaltReasonT: HaltReasonTrait>(
     trace: &CallMessage<HaltReasonT>,
 ) -> Result<Option<Vec<StackTraceEntry>>, InferrerError<HaltReasonT>> {
@@ -483,23 +512,26 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
 
     let mut stacktrace = stacktrace;
 
+    let bottom_entry = instruction_within_function_to_custom_error_stack_trace_entry(
+        trace,
+        last_instruction,
+        error_message,
+    )?;
+
     if let Some(loc) = &last_instruction.location
-        && let Some(failing_function) = loc.get_containing_function()?
+        && loc.get_containing_function()?.is_some()
     {
+        let bottom_source_reference = bottom_entry.source_reference().ok_or_else(|| {
+            InferrerError::InvariantViolation("Expected source reference to be defined".to_string())
+        })?;
         stacktrace.extend(trace_strategy.intermediate_frames(
             &contract_metadata,
             last_instruction,
-            &failing_function,
+            bottom_source_reference,
         )?);
     }
 
-    stacktrace.push(
-        instruction_within_function_to_custom_error_stack_trace_entry(
-            trace,
-            last_instruction,
-            error_message,
-        )?,
-    );
+    stacktrace.push(bottom_entry);
 
     fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit)
 }
@@ -715,19 +747,36 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
         return Ok(Heuristic::Hit(vec![frame]));
     }
 
-    if let Some(location) = &last_instruction.location
-        && let Some(failing_function) = location.get_containing_function()?
+    let mut failing_function = match &last_instruction.location {
+        Some(location) => location.get_containing_function()?,
+        None => None,
+    };
+
+    // Undecodable calldata stays with the InvalidParamsError classification
+    // below.
+    if failing_function.is_none()
+        && last_instruction.opcode == OpCode::REVERT
+        && let Some(function) =
+            trace_strategy.failing_function_from_calldata(contract_metadata.as_ref(), calldata)
+        && calldata_decodes_for(&function, calldata)?
     {
+        failing_function = Some(function);
+    }
+
+    if let Some(failing_function) = failing_function {
+        // Thunked so only strategies that need the walk pay for it.
+        let step_pcs = || evm_step_pcs(steps);
         let revert_source_reference = trace_strategy.revert_source_reference(
             contract_metadata.as_ref(),
-            location,
+            last_instruction.location.as_ref(),
             &failing_function,
+            &step_pcs,
         )?;
 
         let mut frames = trace_strategy.intermediate_frames(
             contract_metadata.as_ref(),
             last_instruction,
-            &failing_function,
+            &revert_source_reference,
         )?;
         frames.push(StackTraceEntry::RevertError {
             source_reference: revert_source_reference,
@@ -740,31 +789,19 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
 
     let contract = contract_metadata.contract.read();
 
-    let selector = selector_from(calldata);
-    let calldata = &calldata.get(SELECTOR_LEN..).unwrap_or(&[]);
+    let called_function = contract.get_function_from_selector(selector_from(calldata));
 
-    let called_function = contract.get_function_from_selector(selector);
-
-    if let Some(called_function) = called_function {
-        let abi = alloy_json_abi::Function::try_from(&**called_function)
-            .map_err(|error| InferrerError::InvalidFunction(Arc::new(error)))?;
-
-        let is_valid_calldata = match &called_function.param_types {
-            Some(_) => abi.abi_decode_input(calldata).is_ok(),
-            // if we don't know the param types, we just assume that the call is valid
-            None => true,
+    if let Some(called_function) = called_function
+        && !calldata_decodes_for(called_function, calldata)?
+    {
+        let frame = StackTraceEntry::InvalidParamsError {
+            source_reference: get_function_start_source_reference(
+                CreateOrCallMessageRef::Call(trace),
+                called_function,
+            )?,
         };
 
-        if !is_valid_calldata {
-            let frame = StackTraceEntry::InvalidParamsError {
-                source_reference: get_function_start_source_reference(
-                    CreateOrCallMessageRef::Call(trace),
-                    called_function,
-                )?,
-            };
-
-            return Ok(Heuristic::Hit(vec![frame]));
-        }
+        return Ok(Heuristic::Hit(vec![frame]));
     }
 
     if solidity_0_6_3_maybe_unmapped_revert(CreateOrCallMessageRef::Call(trace))? {
@@ -997,15 +1034,20 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
     {
         let failing_function = location.get_containing_function()?;
 
-        if let Some(failing_function) = failing_function.as_deref() {
+        if failing_function.is_some() {
+            let frame =
+                instruction_within_function_to_revert_stack_trace_entry(trace, last_instruction)?;
+
+            let bottom_source_reference = frame.source_reference().ok_or_else(|| {
+                InferrerError::InvariantViolation(
+                    "Expected source reference to be defined".to_string(),
+                )
+            })?;
             inferred_stacktrace.extend(trace_strategy.intermediate_frames(
                 contract_metadata.as_ref(),
                 last_instruction,
-                failing_function,
+                bottom_source_reference,
             )?);
-
-            let frame =
-                instruction_within_function_to_revert_stack_trace_entry(trace, last_instruction)?;
 
             inferred_stacktrace.push(frame);
         } else {
@@ -1614,29 +1656,23 @@ fn instruction_within_function_to_panic_stack_trace_entry<HaltReasonT: HaltReaso
         source_location_to_source_reference(contract_metadata.as_ref(), inst.location.as_ref())?
             .or(last_source_reference);
 
-    // Thunked so only strategies that need the walk pay for it.
-    let step_pcs = || -> Vec<u32> {
-        trace
-            .steps()
-            .iter()
-            .filter_map(|step| match step {
-                NestedTraceStep::Evm(evm) => Some(evm.pc),
-                _ => None,
-            })
-            .collect()
+    let source_reference = if primary_ref.is_some() {
+        primary_ref
+    } else {
+        // Thunked so only strategies that need the walk pay for it.
+        let step_pcs = || evm_step_pcs(trace.steps());
+        let calldata = match trace {
+            CreateOrCallMessageRef::Call(call) => Some(&call.calldata),
+            CreateOrCallMessageRef::Create(_) => None,
+        };
+        trace_strategy.panic_helper_source_reference(
+            contract_metadata.as_ref(),
+            PanicHelperContext {
+                step_pcs: &step_pcs,
+                calldata,
+            },
+        )?
     };
-    let calldata = match trace {
-        CreateOrCallMessageRef::Call(call) => Some(&call.calldata),
-        CreateOrCallMessageRef::Create(_) => None,
-    };
-    let source_reference = trace_strategy.panic_helper_source_reference(
-        primary_ref,
-        contract_metadata.as_ref(),
-        PanicHelperContext {
-            step_pcs: &step_pcs,
-            calldata,
-        },
-    )?;
 
     Ok(StackTraceEntry::PanicError {
         source_reference,
@@ -1964,8 +2000,11 @@ fn is_last_location<HaltReasonT: HaltReasonTrait>(
     from_step: u32,
     location: &SourceLocation,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
-    let contract_meta = trace
-        .contract_meta()
+    let IdentifiedContract {
+        contract_metadata,
+        trace_strategy,
+    } = trace
+        .identified_contract()
         .ok_or(InferrerError::MissingContract)?;
     let steps = trace.steps();
 
@@ -1975,10 +2014,10 @@ fn is_last_location<HaltReasonT: HaltReasonTrait>(
             _ => return Ok(false),
         };
 
-        let step_inst = contract_meta.get_instruction(step.pc)?;
+        let step_inst = contract_metadata.get_instruction(step.pc)?;
 
         if let Some(step_inst_location) = &step_inst.location
-            && step_inst_location != location
+            && !trace_strategy.step_still_at_statement(step_inst_location, location)
         {
             return Ok(false);
         }

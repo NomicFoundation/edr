@@ -7,7 +7,9 @@ Don't edit the JSON files by hand — each pair is the output of a build flow. T
 | Fixture | What it is | How to regenerate |
 | --- | --- | --- |
 | `solx_compiler_{input,output}_scenarios.json` | solx compile of `sources/Scenarios.t.sol`, produced by the parity-sweep project | `pnpm regen-fixtures` in [`js/integration-tests/solx-parity-sweep`](../../../js/integration-tests/solx-parity-sweep/README.md) |
-| `solx_compiler_{input,output}.json` | solx compile of `sources/Counter.sol` | Manual: `solx --standard-json` with the committed input after filling the source back in |
+| `solx_compiler_{input,output}.json` | solx compile of `sources/Counter.sol` | `cargo run -p edr_tool_cli -- gen-solx-fixtures <path-to-solx>` (regenerates both `gen-solx-fixtures` rows) |
+| `solx_compiler_{input,output}_stack_trace_scenarios.json` | solx compile of `sources/StackTraceScenarios.sol`, the provider-path stack-trace scenarios | Same `gen-solx-fixtures` run |
+| `solx_compiler_{input,output}_stack_trace_scenarios_mode3.json` | The same source at optimizer mode 3 — the only committed artifacts that reach the inference's declaration-attributed/unmapped-revert compat paths | Same `gen-solx-fixtures` run |
 | `compiler_{input,output}.json` | Minimal solc pair (a single inline `literal.sol`) for the artifact-parsing unit tests | Hand-maintained (predates this index) |
 
 Conventions:
