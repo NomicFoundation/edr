@@ -521,9 +521,9 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
     if let Some(loc) = &last_instruction.location
         && loc.get_containing_function()?.is_some()
     {
-        let bottom_source_reference = bottom_entry
-            .source_reference()
-            .expect("CustomError always carries a source reference");
+        let bottom_source_reference = bottom_entry.source_reference().ok_or_else(|| {
+            InferrerError::InvariantViolation("Expected source reference to be defined".to_string())
+        })?;
         stacktrace.extend(trace_strategy.intermediate_frames(
             &contract_metadata,
             last_instruction,
@@ -1038,9 +1038,11 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
             let frame =
                 instruction_within_function_to_revert_stack_trace_entry(trace, last_instruction)?;
 
-            let bottom_source_reference = frame
-                .source_reference()
-                .expect("RevertError always carries a source reference");
+            let bottom_source_reference = frame.source_reference().ok_or_else(|| {
+                InferrerError::InvariantViolation(
+                    "Expected source reference to be defined".to_string(),
+                )
+            })?;
             inferred_stacktrace.extend(trace_strategy.intermediate_frames(
                 contract_metadata.as_ref(),
                 last_instruction,
