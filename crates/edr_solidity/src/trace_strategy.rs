@@ -31,12 +31,12 @@ pub enum TraceStrategyError {
 /// Lazily yields the trace's EVM step PCs in execution order. A thunk
 /// because trace steps are generic over the halt-reason type, which can't
 /// cross the object-safe trait boundary.
-pub type StepPcs<'a> = &'a dyn Fn() -> Vec<u32>;
+pub type StepPcs<'a> = dyn Fn() -> Vec<u32> + 'a;
 
 /// Trace-time inputs for [`TraceStrategy::panic_helper_source_reference`].
 pub struct PanicHelperContext<'a> {
     /// EVM step PCs of the trace.
-    pub step_pcs: StepPcs<'a>,
+    pub step_pcs: &'a StepPcs<'a>,
     /// Calldata of the current Call frame; `None` for Create frames.
     pub calldata: Option<&'a Bytes>,
 }
@@ -97,7 +97,7 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
         contract_meta: &ContractMetadata,
         inst_location: Option<&SourceLocation>,
         failing_function: &ContractFunction,
-        step_pcs: StepPcs<'_>,
+        step_pcs: &StepPcs<'_>,
     ) -> Result<SourceReference, TraceStrategyError>;
 
     /// Fallback source reference for a panic-helper PC when the primary
@@ -159,7 +159,7 @@ impl TraceStrategy for SolcTraceStrategy {
         contract_meta: &ContractMetadata,
         _inst_location: Option<&SourceLocation>,
         failing_function: &ContractFunction,
-        _step_pcs: StepPcs<'_>,
+        _step_pcs: &StepPcs<'_>,
     ) -> Result<SourceReference, TraceStrategyError> {
         function_start_source_reference(contract_meta, failing_function)
     }
@@ -268,7 +268,7 @@ impl TraceStrategy for SolxTraceStrategy {
         contract_meta: &ContractMetadata,
         inst_location: Option<&SourceLocation>,
         failing_function: &ContractFunction,
-        step_pcs: StepPcs<'_>,
+        step_pcs: &StepPcs<'_>,
     ) -> Result<SourceReference, TraceStrategyError> {
         let needs_walk_back = match inst_location {
             Some(location) => is_declaration_attributed(contract_meta, location, failing_function)?,
@@ -326,7 +326,7 @@ impl TraceStrategy for SolxTraceStrategy {
 fn walk_back_to_last_statement(
     contract_meta: &ContractMetadata,
     failing_function: &ContractFunction,
-    step_pcs: StepPcs<'_>,
+    step_pcs: &StepPcs<'_>,
 ) -> Result<Option<SourceReference>, TraceStrategyError> {
     for pc in step_pcs().iter().rev() {
         let prev_inst = contract_meta.get_instruction(*pc)?;
