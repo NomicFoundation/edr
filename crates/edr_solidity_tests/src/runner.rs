@@ -894,43 +894,6 @@ impl<
         }
     }
 
-    /// Builds a stack trace from the traces recorded during this run, for
-    /// `CollectStackTraces::Always` mode.
-    ///
-    /// `failing_call` is the in-flight failing call's trace. It must be passed
-    /// explicitly because it has not yet been appended to
-    /// `self.result.execution_traces` (that happens later, in `single_result` /
-    /// `fuzz_result`), and `get_stack_trace` only decodes the last trace it is
-    /// given. Without it the heuristic analyzes the `setUp` trace and fails.
-    /// Pass `None` when the failing call's trace is already in
-    /// `execution_traces` (e.g. the fuzz path, which appends it via
-    /// `fuzz_result` first).
-    ///
-    /// Taken as an associated function of explicit fields rather than `&self`
-    /// so it can be called from the fuzz path, where `self.executor` has
-    /// already been moved out.
-    fn always_stack_trace<'t>(
-        contract_decoder: &NestedTraceDecoderT,
-        setup: &'t TestSetup<HaltReasonT>,
-        execution_traces: &'t [SparsedTraceArena],
-        failing_call: Option<&'t SparsedTraceArena>,
-    ) -> SolidityTestStackTraceResult<HaltReasonT> {
-        get_stack_trace(
-            contract_decoder,
-            setup
-                .traces
-                .iter()
-                .map(|(_, arena)| &arena.arena)
-                .chain(execution_traces.iter().map(|arena| &arena.arena))
-                .chain(failing_call.map(|arena| &arena.arena)),
-            None,
-        )
-        .map_err(SolidityTestStackTraceError::from)
-        .transpose()
-        .expect("traces are not empty")
-        .into()
-    }
-
     /// Runs a single unit test.
     ///
     /// Applies before test txes (if any), runs current test and returns the
@@ -977,20 +940,21 @@ impl<
 
         let elapsed = start.elapsed();
 
-        // Exclude stack trace generation from test execution time for accurate
-        // reporting
+        // Indeterminism reasons are only relevant for stack trace generation
+        let indeterminism_reasons = raw_call_result.indeterminism_reasons.take();
+
+        self.result
+            .single_result(success, reason, raw_call_result, elapsed);
+
         self.result.stack_trace_result = if !success {
             let stack_trace_result: SolidityTestStackTraceResult<HaltReasonT> =
                 if self.executor.tracer_records_steps() {
-                    Self::always_stack_trace(
+                    collect_stack_trace(
                         &*self.cr.contract_decoder,
                         self.setup,
                         &self.result.execution_traces,
-                        raw_call_result.traces.as_ref(),
                     )
-                } else if let Some(indeterminism_reasons) =
-                    raw_call_result.indeterminism_reasons.take()
-                {
+                } else if let Some(indeterminism_reasons) = indeterminism_reasons {
                     indeterminism_reasons.into()
                 } else {
                     self.re_run_test_for_stack_traces(func, &[], self.setup.has_setup_method)
@@ -1000,9 +964,6 @@ impl<
         } else {
             None
         };
-
-        self.result
-            .single_result(success, reason, raw_call_result, elapsed);
 
         self.result
     }
@@ -1131,26 +1092,26 @@ impl<
                     )));
                 let elapsed = start.elapsed();
 
+                // Indeterminism reasons are only relevant for stack trace generation
+                let indeterminism_reasons = raw_call_result.indeterminism_reasons.take();
+
+                self.result
+                    .single_result(false, reason, raw_call_result, elapsed);
+
                 let stack_trace_result: SolidityTestStackTraceResult<HaltReasonT> =
                     if self.executor.tracer_records_steps() {
-                        Self::always_stack_trace(
+                        collect_stack_trace(
                             &*self.cr.contract_decoder,
                             self.setup,
                             &self.result.execution_traces,
-                            raw_call_result.traces.as_ref(),
                         )
-                    } else if let Some(indeterminism_reasons) =
-                        raw_call_result.indeterminism_reasons.take()
-                    {
+                    } else if let Some(indeterminism_reasons) = indeterminism_reasons {
                         indeterminism_reasons.into()
                     } else {
                         self.re_run_test_for_stack_traces(func, &args, self.setup.has_setup_method)
                             .into()
                     };
                 self.result.stack_trace_result = Some(stack_trace_result);
-
-                self.result
-                    .single_result(false, reason, raw_call_result, elapsed);
 
                 return self.result;
             }
@@ -1320,29 +1281,33 @@ impl<
             &self.setup.deployed_libs,
         ) {
             Ok(x) => x,
-            Err(e) => {
+            Err(error) => {
                 let elapsed = start.elapsed();
+
+                // Indeterminism reasons are only relevant for stack trace generation
+                let indeterminism_reasons = error.indetereminism_reasons();
+
+                self.result.invariant_setup_fail(error, elapsed);
 
                 let stack_trace_result: SolidityTestStackTraceResult<HaltReasonT> =
                     if self.executor.tracer_records_steps() {
-                        // Invariant-setup error: the failing call's trace is not
-                        // separately available here, so rely on the recorded
-                        // traces (best-effort, as before).
-                        Self::always_stack_trace(
+                        // The `InvariantFuzzTestResult` doesn't include the failing call's trace,
+                        // so rely on the recorded traces.
+                        //
+                        // TODO: We should be able to get the failing call's trace from
+                        // `invariant_fuzz` on failure
+                        collect_stack_trace(
                             &*self.cr.contract_decoder,
                             self.setup,
                             &self.result.execution_traces,
-                            None,
                         )
-                    } else if let Some(indeterminism_reasons) = e.indetereminism_reasons() {
+                    } else if let Some(indeterminism_reasons) = indeterminism_reasons {
                         indeterminism_reasons.into()
                     } else {
                         self.re_run_test_for_stack_traces(func, &[], self.setup.has_setup_method)
                             .into()
                     };
                 self.result.stack_trace_result = Some(stack_trace_result);
-
-                self.result.invariant_setup_fail(e, elapsed);
 
                 return self.result;
             }
@@ -1546,13 +1511,10 @@ impl<
         {
             let stack_trace_result: SolidityTestStackTraceResult<_> =
                 if fuzzed_executor.tracer_records_steps() {
-                    // The failing case's trace was already appended to
-                    // `execution_traces` by `fuzz_result` above.
-                    Self::always_stack_trace(
+                    collect_stack_trace(
                         &*self.cr.contract_decoder,
                         self.setup,
                         &self.result.execution_traces,
-                        None,
                     )
                 } else if let Some(indeterminism_reasons) =
                     counter_example.indeterminism_reasons.clone()
@@ -1693,6 +1655,34 @@ impl<
         .expect("traces are not empty")
         .map_err(SolidityTestStackTraceError::Creation)
     }
+}
+
+/// Builds a stack trace from the traces recorded during this run.
+///
+/// Taken as an associated function of explicit fields rather than `&self`
+/// so it can be called from the fuzz path, where `self.executor` has
+/// already been moved out.
+fn collect_stack_trace<
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<HaltReason>,
+    NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+>(
+    contract_decoder: &NestedTraceDecoderT,
+    setup: &TestSetup<HaltReasonT>,
+    execution_traces: &[SparsedTraceArena],
+) -> SolidityTestStackTraceResult<HaltReasonT> {
+    get_stack_trace(
+        contract_decoder,
+        setup
+            .traces
+            .iter()
+            .map(|(_, arena)| &arena.arena)
+            .chain(execution_traces.iter().map(|arena| &arena.arena)),
+        None,
+    )
+    .map_err(SolidityTestStackTraceError::from)
+    .transpose()
+    .expect("traces are not empty")
+    .into()
 }
 
 /// Re-run the deployment, setup and test execution with expensive EVM step
