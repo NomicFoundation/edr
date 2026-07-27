@@ -21,7 +21,7 @@ pub fn update(path: &Path, contents: &str, mode: Mode) -> anyhow::Result<()> {
         Ok(old_contents) => old_contents.replace("\r\n", "\n"),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound && mode == Mode::Overwrite => {
             eprintln!("creating {}", path.display());
-            fs::write(path, &contents)?;
+            fs::write(path, &contents).with_context(|| format!("creating {}", path.display()))?;
             return Ok(());
         }
         Err(error) => {
@@ -37,7 +37,7 @@ pub fn update(path: &Path, contents: &str, mode: Mode) -> anyhow::Result<()> {
         bail!("`{}` is not up-to-date:\n{}", path.display(), changes,);
     }
     eprintln!("updating {}", path.display());
-    fs::write(path, contents)?;
+    fs::write(path, contents).with_context(|| format!("writing {}", path.display()))?;
     Ok(())
 }
 

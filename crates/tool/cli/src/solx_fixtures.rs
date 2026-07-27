@@ -83,9 +83,10 @@ pub fn generate(solx: &Path) -> anyhow::Result<()> {
 
 fn generate_fixture(solx: &Path, fixtures_dir: &Path, fixture: &Fixture) -> anyhow::Result<()> {
     let input_path = fixtures_dir.join(fixture.input);
-    let mut compiler_input: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&input_path)?)
-            .with_context(|| format!("failed to parse {}", input_path.display()))?;
+    let input = std::fs::read_to_string(&input_path)
+        .with_context(|| format!("failed to read {}", input_path.display()))?;
+    let mut compiler_input: serde_json::Value = serde_json::from_str(&input)
+        .with_context(|| format!("failed to parse {}", input_path.display()))?;
 
     let sources = compiler_input
         .get_mut("sources")
@@ -155,6 +156,7 @@ fn generate_fixture(solx: &Path, fixtures_dir: &Path, fixture: &Fixture) -> anyh
         &compiler_output,
         Mode::Overwrite,
     )
+    .with_context(|| format!("{}: writing the compiler output", fixture.name))
 }
 
 fn run_solx(solx: &Path, args: &[&str], stdin: Option<&str>) -> anyhow::Result<String> {
