@@ -16,6 +16,7 @@
     "build": "pnpm run build:dev",
     "build:dev": "tsc --build --incremental .",
     "pretest": "node ./scripts/maybe-build.js",
+    "regen-fixtures": "node ./scripts/regen-fixtures.js",
     "test": "node --import tsx/esm --test \"test/*.ts\""
   },
   "type": "module"

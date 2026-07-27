@@ -140,37 +140,6 @@ describe("solx-vs-solc trace parity", { skip: !hardhatSolxAvailable }, () => {
   // both surface as golden mismatches; rejoin the parity check by removing
   // an entry once solx matches solc.
   const scenariosDivergingFromSolc = new Map<string, Block>([
-    // No `.debug_line` rows for assembly opcodes — bottom frame is the
-    // function decl line (129), not solc's statement line (135).
-    [
-      "InlineAssemblyRevertTest#testInlineAssemblyRevert",
-      {
-        contract: "InlineAssemblyRevertTest",
-        test: "testInlineAssemblyRevert",
-        reason: "asmbe",
-        frames: [
-          {
-            location: "InlineAssemblyRevertTest.testInlineAssemblyRevert",
-            file: "contracts/Scenarios.t.sol:129",
-          },
-        ],
-      },
-    ],
-    // Same as InlineAssemblyRevert, but for `invalid()`: 182 vs 183.
-    [
-      "InvalidOpcodeTest#testInvalidOpcode",
-      {
-        contract: "InvalidOpcodeTest",
-        test: "testInvalidOpcode",
-        reason: "EvmError: InvalidFEOpcode",
-        frames: [
-          {
-            location: "InvalidOpcodeTest.testInvalidOpcode",
-            file: "contracts/Scenarios.t.sol:182",
-          },
-        ],
-      },
-    ],
     // Optimizer unrolls 3-deep self-recursion; inlined frames collapse.
     [
       "InternalRecurseTest#testInternalRecurse",
