@@ -53,24 +53,26 @@ jobs:
             # that caching it isn't worth the size hit.
             cache_extra_paths: ~/.cargo/registry/src/
 
+          # Container images come from our GHCR mirror (mirror-docker-images.yml),
+          # not Docker Hub, whose anonymous per-IP pull limits made these jobs flaky.
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            docker: node:24-bullseye-slim
+            docker: ghcr.io/nomicfoundation/edr/mirror/node:24-bullseye-slim
             flavor: gnu
 
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            docker: node:24-bullseye-slim
+            docker: ghcr.io/nomicfoundation/edr/mirror/node:24-bullseye-slim
             flavor: gnu
 
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-musl
-            docker: node:24-alpine
+            docker: ghcr.io/nomicfoundation/edr/mirror/node:24-alpine
             flavor: musl
 
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
-            docker: node:24-alpine
+            docker: ghcr.io/nomicfoundation/edr/mirror/node:24-alpine
             flavor: musl
     outputs:
       commit_sha: ${{ steps.save-commit.outputs.commit_sha}}
@@ -285,7 +287,7 @@ jobs:
       - name: Test bindings
         # Setting CI=1 is important to make PNPM install non-interactive
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
-        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }} bash -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
@@ -319,7 +321,7 @@ jobs:
         run: ls -R .
         shell: bash
       - name: Test bindings
-        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
+        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
@@ -356,7 +358,7 @@ jobs:
       - name: Setup and run tests # zizmor: ignore[superfluous-actions] deliberate cross-arch (arm64) test runner
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         with:
-          image: node:${{ matrix.node }}
+          image: ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
             npm install -g pnpm@11.15.1
@@ -398,7 +400,7 @@ jobs:
       - name: Setup and run tests # zizmor: ignore[superfluous-actions] deliberate cross-arch (arm64/musl) test runner
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 # v3
         with:
-          image: node:${{ matrix.node }}-alpine
+          image: ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }}-alpine
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
             npm install -g pnpm@11.15.1
