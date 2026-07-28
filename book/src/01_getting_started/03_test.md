@@ -32,7 +32,7 @@ cd hardhat-tests &&
 pnpm test
 ```
 
-Similar to EDR, Hardhat can be configured to run remote tests. This can be accomplished by setting environment variables for the API URL (including token) of Alchemy or Infura, respectively: `ALCHEMY_URL` and `INFURA_URL`.
+Similar to EDR, Hardhat can be configured to run remote tests. This can be accomplished by setting the `ALCHEMY_URL` environment variable to an Alchemy API URL (including token).
 
 ### Filtering Tests
 
