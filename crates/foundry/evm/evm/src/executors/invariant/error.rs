@@ -14,6 +14,7 @@ use foundry_evm_fuzz::{
     invariant::{FuzzRunIdentifiedContracts, InvariantConfig},
     Reason,
 };
+use foundry_evm_traces::SparsedTraceArena;
 use proptest::test_runner::TestError;
 use revm::context::result::HaltReasonTr;
 
@@ -85,6 +86,14 @@ impl InvariantFuzzError {
         }
     }
 
+    /// Removes and returns the traces of the offending call, if recorded.
+    pub fn take_traces(&mut self) -> Option<SparsedTraceArena> {
+        match self {
+            Self::BrokenInvariant(case_data) | Self::Revert(case_data) => case_data.traces.take(),
+            Self::Abi(_) | Self::Other(_) | Self::MaxAssumeRejects(_) => None,
+        }
+    }
+
     pub fn revert_reason(&self) -> Option<String> {
         match self {
             Self::BrokenInvariant(case_data) | Self::Revert(case_data) => {
@@ -118,6 +127,8 @@ pub struct FailedInvariantCaseData {
     pub fail_on_revert: bool,
     /// Indeterminism from cheatcodes if any.
     pub indeterminism_reasons: Option<IndeterminismReasons>,
+    /// The traces of the offending call, if recorded.
+    pub traces: Option<SparsedTraceArena>,
 }
 
 impl FailedInvariantCaseData {
@@ -167,6 +178,7 @@ impl FailedInvariantCaseData {
             shrink_run_limit: invariant_config.shrink_run_limit,
             fail_on_revert: invariant_config.fail_on_revert,
             indeterminism_reasons: call_result.indeterminism_reasons,
+            traces: call_result.traces,
         }
     }
 }
