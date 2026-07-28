@@ -1291,11 +1291,6 @@ impl<
 
                 let stack_trace_result: SolidityTestStackTraceResult<HaltReasonT> =
                     if self.executor.tracer_records_steps() {
-                        // The `InvariantFuzzTestResult` doesn't include the failing call's trace,
-                        // so rely on the recorded traces.
-                        //
-                        // TODO: We should be able to get the failing call's trace from
-                        // `invariant_fuzz` on failure
                         collect_stack_trace(
                             &*self.cr.contract_decoder,
                             self.setup,
