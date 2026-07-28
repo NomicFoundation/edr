@@ -1,5 +1,19 @@
 # @nomicfoundation/edr
 
+## 0.15.0
+
+### Minor Changes
+
+- ae83f8f: Added support for Solidity stack traces from solx-compiled artifacts.
+
+### Patch Changes
+
+- b5e9399: Fixed empty Solidity test stack trace on failure when running with `CollectStackTraces::Always`.
+- 4822804: Fixed missing Solidity test stack trace when an invariant is already broken at the campaign's initial check and stack traces are collected with `CollectStackTraces::Always`.
+- 48af36f: Added experimental EIP-7843 support: blocks on Amsterdam+ now include the `slotNumber` header field, and the `SLOTNUM` (`0x4b`) opcode returns it. EDR has no consensus layer, so the value is simulated: increments by one per mined block, starting at 0 on local blockchains.
+- 440e770: Fixed solx stack traces misreporting returndata-size mismatches and calls to codeless accounts as generic reverts at the call site, dropping the called function's frame from cross-contract modifier reverts, and — under non-default optimizer modes — reporting modifier reverts at the function declaration line or collapsing bare modifier reverts to `OtherExecutionError` at the contract declaration.
+- 1822e8b: Fixed missing recursion frames in solx stack traces for external self-recursive calls.
+
 ## 0.14.2
 
 ### Patch Changes
