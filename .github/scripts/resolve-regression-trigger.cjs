@@ -20,7 +20,7 @@ const CI_POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
 // expensive compile ones to save CI time. Override per run via the workflow
 // inputs / `scenarios=`/`benchmarks=` comment args; pass `*` for the full suite.
 const DEFAULT_SCENARIO_FILTER = "*";
-const DEFAULT_BENCHMARK_FILTER = "test solidity,mocha test";
+const DEFAULT_BENCHMARK_FILTER = "test solidity,test mocha,test vitest";
 
 module.exports = async ({ github, context, core }) => {
   const { owner, repo } = context.repo;
