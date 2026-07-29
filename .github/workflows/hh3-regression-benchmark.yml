@@ -147,7 +147,11 @@ jobs:
 
       - name: Configure E2E clone directory
         # Use the runner's temp dir for the scenario clones.
-        run: echo "E2E_CLONE_DIR=$RUNNER_TEMP/edr-e2e-clones" >> "$GITHUB_ENV"
+        run: echo "E2E_CLONE_DIR=${RUNNER_TEMP:?}/edr-e2e-clones" >> "$GITHUB_ENV"
+
+      - name: Configure per-run bun cache
+        # Set the bun cache directory to a temp dir that is cleaned up at the end of the job.
+        run: echo "BUN_INSTALL_CACHE_DIR=${RUNNER_TEMP:?}/bun-install-cache" >> "$GITHUB_ENV"
 
       - name: Compute sentinel versions
         # Writes EDR_VER and HH_VER to $GITHUB_ENV
@@ -388,7 +392,7 @@ jobs:
         # Self-hosted runners don't automatically wipe RUNNER_TEMP between jobs, so we do
         # this manually to avoid polluting future runs.
         if: always()
-        run: rm -rf "$RUNNER_TEMP/edr-e2e-clones"
+        run: rm -rf "$E2E_CLONE_DIR" "$BUN_INSTALL_CACHE_DIR"
 
   report:
     name: Report result to PR
