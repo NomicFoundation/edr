@@ -2,6 +2,10 @@
 
 This directory documents EIPs and chain specifications that EDR does not support or only partially supports. Each entry links to a detailed document describing what the spec requires, how EDR deviates, and any available workarounds.
 
+## Relation to Hardhat Network
+
+Hardhat Network uses EDR as its execution substrate for local EVM simulation. Spec compliance gaps and EVM behavior issues documented here are owned by EDR; please open issues against this repository when the problem is about execution semantics or EIP/support status. Hardhat plugin and developer-experience issues (tasks, hooks, config, tooling) belong in [Hardhat](https://github.com/NomicFoundation/hardhat) instead.
+
 ## Status definitions
 
 | Status | Meaning |
