@@ -4,7 +4,7 @@
 // of OS threads we choose to spawn.
 use std::{
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
     thread,
     time::Instant,
@@ -20,16 +20,28 @@ fn read_all_files(dir: &str) -> Vec<PathBuf> {
     files
 }
 
-fn sequential(files: &[PathBuf]) -> usize {
+// Read as raw bytes (analog of Node's `readFile(f)` -> Buffer).
+fn read_bytes(p: &Path) -> usize {
+    fs::read(p).expect("read").len()
+}
+
+// Read and validate/decode as UTF-8 into a String (analog of Node's
+// `readFile(f, "utf-8")` -> string). Returns the byte length; for the ASCII
+// test data this matches Node's reported length.
+fn read_utf8(p: &Path) -> usize {
+    fs::read_to_string(p).expect("read utf-8").len()
+}
+
+fn sequential(files: &[PathBuf], read: fn(&Path) -> usize) -> usize {
     let mut bytes = 0usize;
     for f in files {
-        bytes += fs::read(f).expect("read").len();
+        bytes += read(f);
     }
     bytes
 }
 
 // Spawn `n` worker threads that pull files off a shared atomic cursor.
-fn threaded(files: &[PathBuf], n: usize) -> usize {
+fn threaded(files: &[PathBuf], n: usize, read: fn(&Path) -> usize) -> usize {
     let cursor = AtomicUsize::new(0);
     let total = AtomicUsize::new(0);
     thread::scope(|s| {
@@ -41,7 +53,7 @@ fn threaded(files: &[PathBuf], n: usize) -> usize {
                     if i >= files.len() {
                         break;
                     }
-                    local += fs::read(&files[i]).expect("read").len();
+                    local += read(&files[i]);
                 }
                 total.fetch_add(local, Ordering::Relaxed);
             });
@@ -74,7 +86,8 @@ fn main() {
     let dir = args.get(1).map(String::as_str).unwrap_or("../data");
     let iters: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(5);
     // Optional single-strategy mode. Used for cold-cache runs, where each file
-    // must be read exactly once per process: seq | t4 | tN | t64 | all
+    // must be read exactly once per process:
+    //   seq | t4 | tN | t64 | seq_utf8 | tN_utf8 | all
     let mode = args.get(3).map(String::as_str).unwrap_or("all");
 
     let files = read_all_files(dir);
@@ -89,17 +102,31 @@ fn main() {
     );
 
     if matches!(mode, "seq" | "all") {
-        bench("sequential", iters, || sequential(&files));
+        bench("sequential", iters, || sequential(&files, read_bytes));
     }
     if matches!(mode, "t4" | "all") {
-        bench("threaded (4 threads)", iters, || threaded(&files, 4));
+        bench("threaded (4 threads)", iters, || {
+            threaded(&files, 4, read_bytes)
+        });
     }
     if matches!(mode, "tN" | "all") {
         bench(&format!("threaded ({cpus} threads)"), iters, || {
-            threaded(&files, cpus)
+            threaded(&files, cpus, read_bytes)
         });
     }
     if matches!(mode, "t64" | "all") {
-        bench("threaded (64 threads)", iters, || threaded(&files, 64));
+        bench("threaded (64 threads)", iters, || {
+            threaded(&files, 64, read_bytes)
+        });
+    }
+    if matches!(mode, "seq_utf8" | "all") {
+        bench("sequential utf-8", iters, || {
+            sequential(&files, read_utf8)
+        });
+    }
+    if matches!(mode, "tN_utf8" | "all") {
+        bench(&format!("threaded ({cpus} threads) utf-8"), iters, || {
+            threaded(&files, cpus, read_utf8)
+        });
     }
 }
