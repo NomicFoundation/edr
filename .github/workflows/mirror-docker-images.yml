@@ -46,6 +46,7 @@ jobs:
 
       - name: Copy images to GHCR
         run: |
+          set -euo pipefail
           # Keep in sync with the node versions and container images in
           # edr-npm-release.yml; a tag missing here fails CI with "manifest
           # unknown" on the mirror pull.
