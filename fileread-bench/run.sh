@@ -9,6 +9,9 @@ SIZE=${2:-32768}
 ITERS=${3:-7}
 DATA="./data"
 
+# Portable logical-CPU count (Linux: nproc, macOS: sysctl).
+ncpu() { command -v nproc >/dev/null 2>&1 && nproc || sysctl -n hw.logicalcpu; }
+
 echo ">> generating $NUM files of $SIZE bytes"
 node generate.mjs "$DATA" "$NUM" "$SIZE"
 
@@ -28,7 +31,7 @@ node ts/bench.mjs "$DATA" "$ITERS"
 
 echo ""
 echo "################ NODE (UV_THREADPOOL_SIZE = nproc) ################"
-UV_THREADPOOL_SIZE="$(nproc)" node ts/bench.mjs "$DATA" "$ITERS"
+UV_THREADPOOL_SIZE="$(ncpu)" node ts/bench.mjs "$DATA" "$ITERS"
 
 echo ""
 echo "################ NODE (UV_THREADPOOL_SIZE = 64) ################"

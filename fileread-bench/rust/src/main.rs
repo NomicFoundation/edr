@@ -73,21 +73,33 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let dir = args.get(1).map(String::as_str).unwrap_or("../data");
     let iters: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(5);
+    // Optional single-strategy mode. Used for cold-cache runs, where each file
+    // must be read exactly once per process: seq | t4 | tN | t64 | all
+    let mode = args.get(3).map(String::as_str).unwrap_or("all");
 
     let files = read_all_files(dir);
     let cpus = thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
 
     println!(
-        "\n== Rust (std)  files={}  cpus={}  iters={} ==",
+        "\n== Rust (std)  files={}  cpus={}  iters={}  mode={} ==",
         files.len(),
         cpus,
-        iters
+        iters,
+        mode
     );
 
-    bench("sequential", iters, || sequential(&files));
-    bench("threaded (4 threads)", iters, || threaded(&files, 4));
-    bench(&format!("threaded ({cpus} threads)"), iters, || {
-        threaded(&files, cpus)
-    });
-    bench("threaded (64 threads)", iters, || threaded(&files, 64));
+    if matches!(mode, "seq" | "all") {
+        bench("sequential", iters, || sequential(&files));
+    }
+    if matches!(mode, "t4" | "all") {
+        bench("threaded (4 threads)", iters, || threaded(&files, 4));
+    }
+    if matches!(mode, "tN" | "all") {
+        bench(&format!("threaded ({cpus} threads)"), iters, || {
+            threaded(&files, cpus)
+        });
+    }
+    if matches!(mode, "t64" | "all") {
+        bench("threaded (64 threads)", iters, || threaded(&files, 64));
+    }
 }

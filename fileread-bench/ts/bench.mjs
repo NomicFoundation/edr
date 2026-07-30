@@ -7,6 +7,8 @@ import path from "node:path";
 
 const dir = process.argv[2] ?? "../data";
 const iters = Number(process.argv[3] ?? 5);
+// Optional single-strategy mode for cold-cache runs: seq | promiseall | utf8 | stat | all
+const mode = process.argv[4] ?? "all";
 
 const files = fs
   .readdirSync(dir)
@@ -71,10 +73,14 @@ async function statAll() {
 console.log(
   `\n== Node ${process.version}  files=${files.length}  UV_THREADPOOL_SIZE=${
     process.env.UV_THREADPOOL_SIZE ?? "(default 4)"
-  }  iters=${iters} ==`,
+  }  iters=${iters}  mode=${mode} ==`,
 );
 
-await run("sequential (await loop)", sequential);
-await run("Promise.all (concurrent)", promiseAll);
-await run("Promise.all utf-8", promiseAllUtf8);
-await run("Promise.all stat", statAll);
+if (mode === "seq" || mode === "all")
+  await run("sequential (await loop)", sequential);
+if (mode === "promiseall" || mode === "all")
+  await run("Promise.all (concurrent)", promiseAll);
+if (mode === "utf8" || mode === "all")
+  await run("Promise.all utf-8", promiseAllUtf8);
+if (mode === "stat" || mode === "all")
+  await run("Promise.all stat", statAll);
