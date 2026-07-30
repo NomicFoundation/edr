@@ -1362,6 +1362,9 @@ impl<
                                     output: Bytes::new(),
                                     gas: Gas::new(call.gas_limit),
                                 },
+                                // `false` matches upstream foundry. TODO: revisit
+                                // when fully implementing EIP-8037 before deciding
+                                // to diverge (candidate: copy from `call`).
                                 charged_new_account_state_gas: false,
                                 memory_offset: call.return_memory_offset.clone(),
                                 was_precompile_called: false,
@@ -1399,6 +1402,9 @@ impl<
                         memory_offset: call.return_memory_offset.clone(),
                         was_precompile_called: true,
                         precompile_call_logs: vec![],
+                        // `false` matches upstream foundry. TODO: revisit when
+                        // fully implementing EIP-8037 before deciding to diverge
+                        // (candidate: copy from `call`).
                         charged_new_account_state_gas: false,
                     });
                 }

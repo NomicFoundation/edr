@@ -900,6 +900,9 @@ impl<
                         memory_offset: call.return_memory_offset.clone(),
                         was_precompile_called: false,
                         precompile_call_logs: vec![],
+                        // `false` matches upstream foundry. TODO: revisit when
+                        // fully implementing EIP-8037 before deciding to diverge
+                        // (candidate: copy from `call`).
                         charged_new_account_state_gas: false,
                     });
                 }
@@ -921,6 +924,9 @@ impl<
                     memory_offset: call.return_memory_offset.clone(),
                     was_precompile_called: true,
                     precompile_call_logs: vec![],
+                    // `false` matches upstream foundry. TODO: revisit when fully
+                    // implementing EIP-8037 before deciding to diverge
+                    // (candidate: copy from `call`).
                     charged_new_account_state_gas: false,
                 }),
                 Err(err) => Some(CallOutcome {
@@ -932,6 +938,9 @@ impl<
                     memory_offset: call.return_memory_offset.clone(),
                     was_precompile_called: false,
                     precompile_call_logs: vec![],
+                    // `false` matches upstream foundry. TODO: revisit when fully
+                    // implementing EIP-8037 before deciding to diverge
+                    // (candidate: copy from `call`).
                     charged_new_account_state_gas: false,
                 }),
             };
@@ -1012,6 +1021,9 @@ impl<
                     memory_offset: call.return_memory_offset.clone(),
                     was_precompile_called: true,
                     precompile_call_logs: vec![],
+                    // `false` matches upstream foundry. TODO: revisit when fully
+                    // implementing EIP-8037 before deciding to diverge
+                    // (candidate: copy from `call`).
                     charged_new_account_state_gas: false,
                 });
             }
