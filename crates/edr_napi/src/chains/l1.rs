@@ -100,34 +100,22 @@ pub fn l1_provider_factory() -> ProviderFactory {
 pub enum SpecId {
     /// Frontier
     Frontier = 0,
-    /// Frontier Thawing
-    FrontierThawing = 1,
     /// Homestead
     Homestead = 2,
-    /// DAO Fork
-    DaoFork = 3,
     /// Tangerine
     Tangerine = 4,
     /// Spurious Dragon
     SpuriousDragon = 5,
     /// Byzantium
     Byzantium = 6,
-    /// Constantinople
-    Constantinople = 7,
     /// Petersburg
     Petersburg = 8,
     /// Istanbul
     Istanbul = 9,
-    /// Muir Glacier
-    MuirGlacier = 10,
     /// Berlin
     Berlin = 11,
     /// London
     London = 12,
-    /// Arrow Glacier
-    ArrowGlacier = 13,
-    /// Gray Glacier
-    GrayGlacier = 14,
     /// Merge
     Merge = 15,
     /// Shanghai
@@ -148,20 +136,14 @@ impl FromStr for SpecId {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             edr_chain_l1::chains::name::FRONTIER => Ok(SpecId::Frontier),
-            edr_chain_l1::chains::name::FRONTIER_THAWING => Ok(SpecId::FrontierThawing),
             edr_chain_l1::chains::name::HOMESTEAD => Ok(SpecId::Homestead),
-            edr_chain_l1::chains::name::DAO_FORK => Ok(SpecId::DaoFork),
             edr_chain_l1::chains::name::TANGERINE => Ok(SpecId::Tangerine),
             edr_chain_l1::chains::name::SPURIOUS_DRAGON => Ok(SpecId::SpuriousDragon),
             edr_chain_l1::chains::name::BYZANTIUM => Ok(SpecId::Byzantium),
-            edr_chain_l1::chains::name::CONSTANTINOPLE => Ok(SpecId::Constantinople),
             edr_chain_l1::chains::name::PETERSBURG => Ok(SpecId::Petersburg),
             edr_chain_l1::chains::name::ISTANBUL => Ok(SpecId::Istanbul),
-            edr_chain_l1::chains::name::MUIR_GLACIER => Ok(SpecId::MuirGlacier),
             edr_chain_l1::chains::name::BERLIN => Ok(SpecId::Berlin),
             edr_chain_l1::chains::name::LONDON => Ok(SpecId::London),
-            edr_chain_l1::chains::name::ARROW_GLACIER => Ok(SpecId::ArrowGlacier),
-            edr_chain_l1::chains::name::GRAY_GLACIER => Ok(SpecId::GrayGlacier),
             edr_chain_l1::chains::name::MERGE => Ok(SpecId::Merge),
             edr_chain_l1::chains::name::SHANGHAI => Ok(SpecId::Shanghai),
             edr_chain_l1::chains::name::CANCUN => Ok(SpecId::Cancun),
@@ -178,22 +160,16 @@ impl FromStr for SpecId {
 
 impl From<SpecId> for edr_chain_l1::Hardfork {
     fn from(value: SpecId) -> Self {
-        // revm removed the `SpecId` variants of hardforks that don't change
-        // EVM semantics (Frontier Thawing, DAO Fork, Constantinople, Muir
-        // Glacier, Arrow Glacier, and Gray Glacier), so those map to their
-        // EVM-equivalent predecessors.
         match value {
-            SpecId::Frontier | SpecId::FrontierThawing => edr_chain_l1::Hardfork::FRONTIER,
-            SpecId::Homestead | SpecId::DaoFork => edr_chain_l1::Hardfork::HOMESTEAD,
+            SpecId::Frontier => edr_chain_l1::Hardfork::FRONTIER,
+            SpecId::Homestead => edr_chain_l1::Hardfork::HOMESTEAD,
             SpecId::Tangerine => edr_chain_l1::Hardfork::TANGERINE,
             SpecId::SpuriousDragon => edr_chain_l1::Hardfork::SPURIOUS_DRAGON,
             SpecId::Byzantium => edr_chain_l1::Hardfork::BYZANTIUM,
-            SpecId::Constantinople | SpecId::Petersburg => edr_chain_l1::Hardfork::PETERSBURG,
-            SpecId::Istanbul | SpecId::MuirGlacier => edr_chain_l1::Hardfork::ISTANBUL,
+            SpecId::Petersburg => edr_chain_l1::Hardfork::PETERSBURG,
+            SpecId::Istanbul => edr_chain_l1::Hardfork::ISTANBUL,
             SpecId::Berlin => edr_chain_l1::Hardfork::BERLIN,
-            SpecId::London | SpecId::ArrowGlacier | SpecId::GrayGlacier => {
-                edr_chain_l1::Hardfork::LONDON
-            }
+            SpecId::London => edr_chain_l1::Hardfork::LONDON,
             SpecId::Merge => edr_chain_l1::Hardfork::MERGE,
             SpecId::Shanghai => edr_chain_l1::Hardfork::SHANGHAI,
             SpecId::Cancun => edr_chain_l1::Hardfork::CANCUN,
@@ -216,20 +192,14 @@ pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
 pub fn l1_hardfork_to_string(hardfork: SpecId) -> &'static str {
     match hardfork {
         SpecId::Frontier => edr_chain_l1::chains::name::FRONTIER,
-        SpecId::FrontierThawing => edr_chain_l1::chains::name::FRONTIER_THAWING,
         SpecId::Homestead => edr_chain_l1::chains::name::HOMESTEAD,
-        SpecId::DaoFork => edr_chain_l1::chains::name::DAO_FORK,
         SpecId::Tangerine => edr_chain_l1::chains::name::TANGERINE,
         SpecId::SpuriousDragon => edr_chain_l1::chains::name::SPURIOUS_DRAGON,
         SpecId::Byzantium => edr_chain_l1::chains::name::BYZANTIUM,
-        SpecId::Constantinople => edr_chain_l1::chains::name::CONSTANTINOPLE,
         SpecId::Petersburg => edr_chain_l1::chains::name::PETERSBURG,
         SpecId::Istanbul => edr_chain_l1::chains::name::ISTANBUL,
-        SpecId::MuirGlacier => edr_chain_l1::chains::name::MUIR_GLACIER,
         SpecId::Berlin => edr_chain_l1::chains::name::BERLIN,
         SpecId::London => edr_chain_l1::chains::name::LONDON,
-        SpecId::ArrowGlacier => edr_chain_l1::chains::name::ARROW_GLACIER,
-        SpecId::GrayGlacier => edr_chain_l1::chains::name::GRAY_GLACIER,
         SpecId::Merge => edr_chain_l1::chains::name::MERGE,
         SpecId::Shanghai => edr_chain_l1::chains::name::SHANGHAI,
         SpecId::Cancun => edr_chain_l1::chains::name::CANCUN,
@@ -258,20 +228,14 @@ macro_rules! export_spec_id {
 
 export_spec_id!(
     FRONTIER,
-    FRONTIER_THAWING,
     HOMESTEAD,
-    DAO_FORK,
     TANGERINE,
     SPURIOUS_DRAGON,
     BYZANTIUM,
-    CONSTANTINOPLE,
     PETERSBURG,
     ISTANBUL,
-    MUIR_GLACIER,
     BERLIN,
     LONDON,
-    ARROW_GLACIER,
-    GRAY_GLACIER,
     MERGE,
     SHANGHAI,
     CANCUN,

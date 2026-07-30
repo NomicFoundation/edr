@@ -5,26 +5,9 @@ use std::sync::OnceLock;
 use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation};
 use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::HashMap;
-/// Hardfork name constants.
-///
-/// Re-exports revm's names and re-adds the names of hardforks that revm
-/// removed from `SpecId` (they are EVM-equivalent to their predecessors),
-/// preserving EDR's string-based hardfork API.
+/// Hardfork name constants, re-exported from revm.
 pub mod name {
     pub use revm_primitives::hardfork::name::*;
-
-    /// Frontier Thawing hardfork name (EVM-equivalent to Frontier).
-    pub const FRONTIER_THAWING: &str = "Frontier Thawing";
-    /// DAO Fork hardfork name (EVM-equivalent to Homestead).
-    pub const DAO_FORK: &str = "DAO Fork";
-    /// Constantinople hardfork name (EVM-equivalent to Petersburg).
-    pub const CONSTANTINOPLE: &str = "Constantinople";
-    /// Muir Glacier hardfork name (EVM-equivalent to Istanbul).
-    pub const MUIR_GLACIER: &str = "MuirGlacier";
-    /// Arrow Glacier hardfork name (EVM-equivalent to London).
-    pub const ARROW_GLACIER: &str = "Arrow Glacier";
-    /// Gray Glacier hardfork name (EVM-equivalent to London).
-    pub const GRAY_GLACIER: &str = "Gray Glacier";
 }
 
 use crate::{Hardfork, L1_BASE_FEE_PARAMS};

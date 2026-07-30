@@ -62,6 +62,20 @@ pub fn l1_header_overrides_before_merge(
     }
 }
 
+/// Header overrides for replaying pre-merge L1 blocks from the glacier-fork
+/// eras (Muir/Arrow/Gray Glacier). revm removed those EVM-equivalent
+/// hardforks, so their difficulty-bomb delays are no longer representable and
+/// locally computed difficulty would use the predecessor fork's delay; replay
+/// the difficulty from the block being replayed instead.
+pub fn l1_header_overrides_glacier_eras(
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
+    HeaderOverrides {
+        difficulty: Some(replay_header.difficulty),
+        ..l1_header_overrides_before_merge(replay_header)
+    }
+}
+
 /// Default header overrides for replaying L1 blocks after Prague hardfork.
 pub fn prague_header_overrides(
     replay_header: &BlockHeader,

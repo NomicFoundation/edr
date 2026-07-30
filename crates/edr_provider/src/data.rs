@@ -4180,7 +4180,8 @@ mod tests {
 
         use super::*;
         use crate::test_utils::{
-            l1_base_header_overrides, l1_header_overrides_before_merge, prague_header_overrides,
+            l1_base_header_overrides, l1_header_overrides_before_merge,
+            l1_header_overrides_glacier_eras, prague_header_overrides,
         };
 
         #[test]
@@ -4363,7 +4364,7 @@ mod tests {
             mainnet_muir_glacier => L1ChainSpec {
                 block_number: 9_300_077,
                 url: json_rpc_url_provider::ethereum_mainnet(),
-                header_overrides_constructor: l1_header_overrides_before_merge,
+                header_overrides_constructor: l1_header_overrides_glacier_eras,
             },
             mainnet_shanghai => L1ChainSpec {
                 block_number: 17_050_001,

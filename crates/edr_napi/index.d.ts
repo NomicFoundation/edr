@@ -194,8 +194,6 @@ export declare function addStatementCoverageInstrumentation(sourceCode: string, 
 
 export const AMSTERDAM: string
 
-export const ARROW_GLACIER: string
-
 /** A compilation artifact. */
 export interface Artifact {
   /** The identifier of the artifact. */
@@ -440,8 +438,6 @@ export declare enum CollectStackTraces {
   OnFailure = 1
 }
 
-export const CONSTANTINOPLE: string
-
 export const CONSTRUCTOR_FUNCTION_NAME: string
 
 export interface ContractCallRunOutOfGasError {
@@ -515,8 +511,6 @@ export interface CustomErrorStackTraceEntry {
   message: string
   sourceReference: SourceReference
 }
-
-export const DAO_FORK: string
 
 export interface DebugTraceLogItem {
   /** Program Counter */
@@ -669,8 +663,6 @@ export interface ForkConfig {
 }
 
 export const FRONTIER: string
-
-export const FRONTIER_THAWING: string
 
 /** * Determines the level of file system access for the given path.
  *
@@ -853,8 +845,6 @@ export const GENERIC_CHAIN_TYPE: string
 export declare function genericChainProviderFactory(): ProviderFactory
 
 export const GRANITE: string
-
-export const GRAY_GLACIER: string
 
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
@@ -1186,8 +1176,6 @@ export interface MissingFallbackOrReceiveErrorStackTraceEntry {
   type: StackTraceEntryType.MISSING_FALLBACK_OR_RECEIVE_ERROR
   sourceReference: SourceReference
 }
-
-export const MUIR_GLACIER: string
 
 export interface NonContractAccountCalledErrorStackTraceEntry {
   type: StackTraceEntryType.NONCONTRACT_ACCOUNT_CALLED_ERROR
@@ -1651,34 +1639,22 @@ export interface SourceReference {
 export declare enum SpecId {
   /** Frontier */
   Frontier = 0,
-  /** Frontier Thawing */
-  FrontierThawing = 1,
   /** Homestead */
   Homestead = 2,
-  /** DAO Fork */
-  DaoFork = 3,
   /** Tangerine */
   Tangerine = 4,
   /** Spurious Dragon */
   SpuriousDragon = 5,
   /** Byzantium */
   Byzantium = 6,
-  /** Constantinople */
-  Constantinople = 7,
   /** Petersburg */
   Petersburg = 8,
   /** Istanbul */
   Istanbul = 9,
-  /** Muir Glacier */
-  MuirGlacier = 10,
   /** Berlin */
   Berlin = 11,
   /** London */
   London = 12,
-  /** Arrow Glacier */
-  ArrowGlacier = 13,
-  /** Gray Glacier */
-  GrayGlacier = 14,
   /** Merge */
   Merge = 15,
   /** Shanghai */

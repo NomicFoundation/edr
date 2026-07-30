@@ -2657,7 +2657,7 @@ describe("Hardhat module", function () {
           });
         });
 
-        for (const hardfork of ["london", "arrowGlacier"]) {
+        for (const hardfork of ["london"]) {
           describe(`When EIP-1559 is active (${hardfork})`, function () {
             useProvider({ hardfork });
 

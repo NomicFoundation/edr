@@ -1359,7 +1359,7 @@ contract C {
             });
           });
 
-          for (const hardfork of ["london", "arrowGlacier"]) {
+          for (const hardfork of ["london"]) {
             describe(`When running with EIP-1559 (${hardfork})`, function () {
               useProvider({ hardfork });
 

@@ -265,7 +265,7 @@ describe("Debug module", function () {
 
       const hardhatNetworkProvider = await createHardhatNetworkProvider(
         {
-          hardfork: "muirGlacier",
+          hardfork: "istanbul",
           chainId: 1,
           networkId: DEFAULT_NETWORK_ID,
           blockGasLimit: 13000000,

@@ -178,7 +178,7 @@ describe("Eth module - hardfork dependant tests", function () {
       });
 
       describe("In a hardfork with EIP-1559", function () {
-        for (const hardfork of ["london", "arrowGlacier"]) {
+        for (const hardfork of ["london"]) {
           useProviderAndCommon(hardfork);
 
           it(`Should validate the chain id if sent to eth_sendTransaction using eip-1559 fields when ${hardfork} is activated`, async function () {
@@ -241,7 +241,7 @@ describe("Eth module - hardfork dependant tests", function () {
       }
 
       function rejectsSendRawTransactionWithEIP1559Tx() {
-        for (const hardfork of ["london", "arrowGlacier"]) {
+        for (const hardfork of ["london"]) {
           it(`Should reject an eth_sendRawTransaction if the tx uses an EIP-1559 tx when ${hardfork} is activated`, async function () {
             const eip1559Common = this.common.copy();
             eip1559Common.setHardfork(hardfork);
@@ -285,7 +285,7 @@ describe("Eth module - hardfork dependant tests", function () {
       });
 
       describe("With EIP1559", function () {
-        for (const hardfork of ["london", "arrowGlacier"]) {
+        for (const hardfork of ["london"]) {
           useProviderAndCommon(hardfork);
 
           it(`Should accept an eth_sendRawTransaction with an EIP-1559 tx when ${hardfork} is activated`, async function () {
@@ -401,7 +401,7 @@ describe("Eth module - hardfork dependant tests", function () {
       });
 
       describe("Running a hardfork with EIP-1559", function () {
-        for (const hardfork of ["london", "arrowGlacier"]) {
+        for (const hardfork of ["london"]) {
           useProviderAndCommon(hardfork);
 
           it(`Should accept an eth_call with EIP-1559 fields when ${hardfork} is activated`, async function () {
@@ -432,7 +432,7 @@ describe("Eth module - hardfork dependant tests", function () {
 
   describe("Block formatting", function () {
     describe("When running EIP-1559", function () {
-      for (const hardfork of ["london", "arrowGlacier"]) {
+      for (const hardfork of ["london"]) {
         useProviderAndCommon(hardfork);
         it(`Should have a baseFeePerGas field when ${hardfork} is activated`, async function () {
           const block: RpcBlockOutput = await this.provider.send(
@@ -532,7 +532,7 @@ describe("Eth module - hardfork dependant tests", function () {
       });
 
       describe("After London", function () {
-        for (const hardfork of ["london", "arrowGlacier"]) {
+        for (const hardfork of ["london"]) {
           useProviderAndCommon(hardfork);
 
           describe(`EIP-1559 txs when ${hardfork} is activated`, function () {
@@ -666,7 +666,7 @@ describe("Eth module - hardfork dependant tests", function () {
       });
 
       describe("After london", function () {
-        for (const hardfork of ["london", "arrowGlacier"]) {
+        for (const hardfork of ["london"]) {
           useProviderAndCommon(hardfork);
 
           it(`should have an effectiveGasPrice field for EIP-1559 txs when ${hardfork} is activated`, async function () {
@@ -817,7 +817,7 @@ describe("Eth module - hardfork dependant tests", function () {
     });
 
     describe("London hardfork", function () {
-      for (const hardfork of ["london", "arrowGlacier"]) {
+      for (const hardfork of ["london"]) {
         useProviderAndCommon(hardfork);
 
         it(`should allow sending EIP-1559 txs from impersonated accounts when ${hardfork} is activated`, async function () {
@@ -1122,7 +1122,7 @@ describe("Eth module - hardfork dependant tests", function () {
     });
 
     describe("In a hardfork with EIP-1559", function () {
-      for (const hardfork of ["london", "arrowGlacier"]) {
+      for (const hardfork of ["london"]) {
         useProviderAndCommon(hardfork);
 
         it(`Should be enabled when ${hardfork} is activated`, async function () {
