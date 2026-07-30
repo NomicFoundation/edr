@@ -25,10 +25,10 @@ on:
         type: string
         default: "*"
       benchmark-filter:
-        description: "Glob(s) selecting which benchmarks to run within each project, by name — a command or step name, i.e. the part after `<project> /` in a report (e.g. `test solidity`, `cold compile`, `*compile*`). Comma-separated. Defaults to `test solidity,mocha test` (EDR affects test execution, not compilation); pass `*` to run the full suite. Forwarded to `bench:regression --benchmarks`."
+        description: "Glob(s) selecting which benchmarks to run within each project, by name — a command or step name, i.e. the part after `<project> /` in a report (e.g. `test solidity`, `cold compile`, `*compile*`). Comma-separated. Defaults to `test solidity,test mocha,test vitest` (EDR affects test execution, not compilation); pass `*` to run the full suite. Forwarded to `bench:regression --benchmarks`."
         required: false
         type: string
-        default: "test solidity,mocha test"
+        default: "test solidity,test mocha,test vitest"
   # ChatOps: comment `/bench` on a same-repo PR, optionally with
   # `hardhat-ref=<branch|sha|PR>`, `scenarios="<glob>[,<glob>...]"` and/or
   # `benchmarks="<glob>[,<glob>...]"` to select which projects/benchmarks run

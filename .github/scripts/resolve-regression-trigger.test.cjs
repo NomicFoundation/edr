@@ -91,7 +91,7 @@ test("push → baseline run against Hardhat main", async () => {
     // Baseline runs all projects (`*`), but only the default test-execution
     // benchmarks — EDR doesn't affect compilation, so compile ones are skipped.
     scenario_filter: "*",
-    benchmark_filter: "test solidity,mocha test",
+    benchmark_filter: "test solidity,test mocha,test vitest",
   });
 });
 
@@ -144,7 +144,7 @@ test("workflow_dispatch → forwards explicit filters; benchmark uses the defaul
   // No benchmark-filter given → default test-execution benchmarks.
   assert.equal(
     withoutFilter.captured.outputs.benchmark_filter,
-    "test solidity,mocha test"
+    "test solidity,test mocha,test vitest"
   );
 });
 
@@ -196,7 +196,10 @@ test("issue_comment → same-repo PR with green CI runs and parses hardhat-ref",
   assert.equal(captured.outputs.is_baseline, "false");
   assert.equal(captured.outputs.scenario_filter, "*"); // no scenarios= → all
   // default test-execution benchmarks (no benchmarks= in body)
-  assert.equal(captured.outputs.benchmark_filter, "test solidity,mocha test");
+  assert.equal(
+    captured.outputs.benchmark_filter,
+    "test solidity,test mocha,test vitest"
+  );
   assert.equal(captured.comments.length, 1);
   assert.match(captured.comments[0], /Starting regression benchmark/);
   // A `*` (all) scenario filter is not called out; the benchmark default is.
