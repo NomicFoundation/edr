@@ -1,0 +1,16 @@
+# Standalone crate: opt out of the surrounding EDR cargo workspace.
+[workspace]
+
+[package]
+name = "fileread-bench"
+version = "0.0.0"
+edition = "2021"
+
+[[bin]]
+name = "fileread-bench"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
