@@ -28,6 +28,20 @@ Run the TS side under a specific pool size:
 UV_THREADPOOL_SIZE=12 node ts/bench.mjs ./data 7
 ```
 
+### Cold cache (macOS)
+
+`run.sh` measures warm cache. To measure cold reads on a host Mac, use the
+purge-based runner, which repeats a purge + single cold read `repeats` times
+per strategy and reports median/min/max:
+
+```bash
+./run-cold-macos.sh 4000 32768 5    # numFiles, sizeBytes, repeats
+```
+
+Needs `purge` (Xcode Command Line Tools) and sudo. Only the first read after a
+purge is cold, so each strategy is measured single-shot and aggregated across
+repeats rather than looped in-process.
+
 ## Notes / caveats
 
 - **Warm cache only.** This container has a read-only `/proc`, so the page cache

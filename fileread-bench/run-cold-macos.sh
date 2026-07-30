@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 # COLD-cache Rust vs Node file-read benchmark for macOS.
 #
-# Only the FIRST read of a file after a cache purge is cold. So unlike run.sh
-# (which loops with a warm cache), this runs each strategy exactly once with
-# its own freshly-purged cache. Numbers are single-shot and therefore noisier;
-# run the whole script a few times and compare.
+# Only the FIRST read of a file after a cache purge is cold, so we can't loop
+# inside a single process (iters is pinned to 1). Instead we repeat the whole
+# purge -> single-cold-read cycle REPEATS times per strategy and report the
+# median/min/max across those single-shot runs, which denoises the result.
 #
 # Requires macOS `purge` (ships with the Xcode Command Line Tools) and sudo.
 #
-# Usage: ./run-cold-macos.sh [numFiles] [sizeBytes]
+# Usage: ./run-cold-macos.sh [numFiles] [sizeBytes] [repeats]
 set -euo pipefail
 cd "$(dirname "$0")"
 
 NUM=${1:-4000}
 SIZE=${2:-32768}
+REPEATS=${3:-5}
 DATA="./data"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -45,24 +46,43 @@ fi
 
 BIN=./rust/target/release/fileread-bench
 
-run_cold() { # $1 = label; rest = command to run once (cold)
+# Repeat a single-shot cold read REPEATS times and aggregate.
+# $1 = label; rest = command that prints one "median=<ms> ms" line (iters=1).
+run_cold() {
   local label="$1"; shift
-  purge_cache
-  echo ""
-  echo "#### COLD: $label ####"
-  "$@"
+  local vals=()
+  for ((r = 1; r <= REPEATS; r++)); do
+    purge_cache
+    local out ms
+    out="$("$@" 2>/dev/null)"
+    # With iters=1 the reader prints a single "median=<ms> ms" line; grab <ms>.
+    ms="$(printf '%s\n' "$out" | sed -nE 's/.*median=[[:space:]]*([0-9.]+).*/\1/p' | head -1)"
+    vals+=("${ms:-nan}")
+  done
+  # min / median / max across the REPEATS single-shot values.
+  printf '%s\n' "${vals[@]}" | sort -n | awk -v label="$label" -v n="$REPEATS" -v raw="${vals[*]}" '
+    { a[NR] = $1 }
+    END {
+      med = (NR % 2) ? a[int(NR/2) + 1] : (a[NR/2] + a[NR/2 + 1]) / 2
+      printf "COLD  %-30s median=%8.1f ms   min=%8.1f ms   max=%8.1f ms   (n=%d: %s)\n", \
+             label, med, a[1], a[NR], n, raw
+    }'
 }
 
+echo ""
+echo "==== COLD cache, $NUM files x $SIZE B, repeats=$REPEATS (each is one purge + one read) ===="
+echo ""
+
 # Rust: concurrent read wins big on cold cache because many disk ops overlap.
-run_cold "Rust threaded (nproc)"        "$BIN" "$DATA" 1 tN
-run_cold "Rust sequential"              "$BIN" "$DATA" 1 seq
+run_cold "Rust threaded (nproc)"         "$BIN" "$DATA" 1 tN
+run_cold "Rust sequential"               "$BIN" "$DATA" 1 seq
 
 # Node: this is where the libuv 4-worker cap is expected to matter — raising
 # the pool lets more cold disk reads be in flight at once.
-run_cold "Node Promise.all pool=4"      node ts/bench.mjs "$DATA" 1 promiseall
+run_cold "Node Promise.all pool=4"       node ts/bench.mjs "$DATA" 1 promiseall
 run_cold "Node Promise.all pool=$(ncpu)" env UV_THREADPOOL_SIZE="$(ncpu)" node ts/bench.mjs "$DATA" 1 promiseall
-run_cold "Node Promise.all pool=64"     env UV_THREADPOOL_SIZE=64 node ts/bench.mjs "$DATA" 1 promiseall
-run_cold "Node sequential"              node ts/bench.mjs "$DATA" 1 seq
+run_cold "Node Promise.all pool=64"      env UV_THREADPOOL_SIZE=64 node ts/bench.mjs "$DATA" 1 promiseall
+run_cold "Node sequential"               node ts/bench.mjs "$DATA" 1 seq
 
 echo ""
-echo ">> done. Re-run a few times; single-shot cold numbers vary."
+echo ">> done ($REPEATS purges x 6 strategies)."
