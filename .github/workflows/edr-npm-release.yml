@@ -55,9 +55,10 @@ jobs:
             cache_extra_paths: ~/.cargo/registry/src/
 
           # Container images come from our GHCR mirror (mirror-docker-images.yml),
-          # not Docker Hub, whose pull rate limits made these jobs flaky.
-          # The mirror packages are private, so every pull authenticates with
-          # GITHUB_TOKEN (registry inputs / docker login below).
+          # not Docker Hub, whose pull rate limits made these jobs flaky. New or
+          # changed tags must be added to the mirror workflow's tag list in the
+          # same PR. Release runs pull the official Docker Hub image directly
+          # (see the "Select image source" steps).
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             docker: ghcr.io/nomicfoundation/edr/mirror/node:24-bullseye-slim
@@ -152,11 +153,28 @@ jobs:
         run: ${{ matrix.settings.build }}
         shell: bash
 
+      # Release runs build on the official Docker Hub image so the mirror is
+      # never in the supply chain of published binaries; at 1-2 releases a week
+      # its rate limits don't bite there. Everything else uses the mirror.
+      - name: Select image source
+        id: select-image
+        if: ${{ matrix.settings.docker }}
+        shell: bash
+        env:
+          MIRROR_REF: ${{ matrix.settings.docker }}
+          RELEASE_TAG: ${{ needs.check_commit.outputs.tag }}
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            echo "ref=node:${MIRROR_REF##*:}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$MIRROR_REF" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build in docker (gnu)
         uses: NomicFoundation/docker-run-action@63f044457cfb71a5c63fa589218c89a418565d9c # Fork of v3 with updated Docker (https://github.com/addnab/docker-run-action/issues/62)
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
         with:
-          image: ${{ matrix.settings.docker }}
+          image: ${{ steps.select-image.outputs.ref }}
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -185,7 +203,7 @@ jobs:
         uses: NomicFoundation/docker-run-action@63f044457cfb71a5c63fa589218c89a418565d9c # Fork of v3 with updated Docker (https://github.com/addnab/docker-run-action/issues/62)
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
         with:
-          image: ${{ matrix.settings.docker }}
+          image: ${{ steps.select-image.outputs.ref }}
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -265,6 +283,7 @@ jobs:
     name: Test bindings on Linux-x64-gnu - node@${{ matrix.node }}
     needs:
       - build
+      - check_commit
     permissions:
       contents: read
       packages: read
@@ -303,11 +322,18 @@ jobs:
       - name: Test bindings
         # Setting CI=1 is important to make PNPM install non-interactive
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
-        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }} bash -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
+        env:
+          RELEASE_TAG: ${{ needs.check_commit.outputs.tag }}
+        run: |
+          # Releases pull Docker Hub directly; see the build job's "Select image source".
+          IMAGE="ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }}"
+          if [ -n "$RELEASE_TAG" ]; then IMAGE="node:${{ matrix.node }}"; fi
+          docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" bash -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+      - check_commit
     permissions:
       contents: read
       packages: read
@@ -344,11 +370,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Test bindings
-        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
+        env:
+          RELEASE_TAG: ${{ needs.check_commit.outputs.tag }}
+        run: |
+          # Releases pull Docker Hub directly; see the build job's "Select image source".
+          IMAGE="ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }}-alpine"
+          if [ -n "$RELEASE_TAG" ]; then IMAGE="node:${{ matrix.node }}-alpine"; fi
+          docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" sh -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
       - build
+      - check_commit
     permissions:
       contents: read
       packages: read
@@ -379,10 +412,21 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=glibc
+      - name: Select image source # releases pull Docker Hub directly; see the build job
+        id: select-image
+        env:
+          MIRROR_REF: ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }}
+          RELEASE_TAG: ${{ needs.check_commit.outputs.tag }}
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            echo "ref=node:${MIRROR_REF##*:}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$MIRROR_REF" >> "$GITHUB_OUTPUT"
+          fi
       - name: Setup and run tests # zizmor: ignore[superfluous-actions] deliberate cross-arch (arm64) test runner
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         with:
-          image: ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }}
+          image: ${{ steps.select-image.outputs.ref }}
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -396,6 +440,7 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+      - check_commit
     permissions:
       contents: read
       packages: read
@@ -425,10 +470,21 @@ jobs:
         shell: bash
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=musl
+      - name: Select image source # releases pull Docker Hub directly; see the build job
+        id: select-image
+        env:
+          MIRROR_REF: ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }}-alpine
+          RELEASE_TAG: ${{ needs.check_commit.outputs.tag }}
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            echo "ref=node:${MIRROR_REF##*:}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$MIRROR_REF" >> "$GITHUB_OUTPUT"
+          fi
       - name: Setup and run tests # zizmor: ignore[superfluous-actions] deliberate cross-arch (arm64/musl) test runner
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 # v3
         with:
-          image: ghcr.io/nomicfoundation/edr/mirror/node:${{ matrix.node }}-alpine
+          image: ${{ steps.select-image.outputs.ref }}
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
