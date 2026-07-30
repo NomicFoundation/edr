@@ -20,6 +20,7 @@
   - [`pnpm patch` a dependency](./02_development/07_pnpm_patch.md)
   - [Solidity test cheatcodes](./02_development/08_cheatcodes)
   - [Predeploys](./02_development/09_predeploys.md)
+  - [CI Docker image mirror](./02_development/11_ci_docker_mirror.md)
 
 - [Release](./03_release.md)
 

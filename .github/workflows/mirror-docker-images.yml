@@ -2,8 +2,8 @@ name: Mirror Docker images
 
 # Copies the Docker Hub images used by CI into GHCR
 # (ghcr.io/nomicfoundation/edr/mirror/*). CI pulls the mirror instead of
-# Docker Hub: anonymous Docker Hub pulls share per-IP rate limits across all
-# GitHub-hosted runners and fail intermittently, while GHCR sits on the same
+# Docker Hub: Docker Hub rate-limits pulls, which fail intermittently on
+# GitHub-hosted runners as a result, while GHCR sits on the same
 # infrastructure as the runners.
 #
 # The mirror packages stay private; consumers authenticate with GITHUB_TOKEN.

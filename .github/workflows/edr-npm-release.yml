@@ -55,7 +55,7 @@ jobs:
             cache_extra_paths: ~/.cargo/registry/src/
 
           # Container images come from our GHCR mirror (mirror-docker-images.yml),
-          # not Docker Hub, whose anonymous per-IP pull limits made these jobs flaky.
+          # not Docker Hub, whose pull rate limits made these jobs flaky.
           # The mirror packages are private, so every pull authenticates with
           # GITHUB_TOKEN (registry inputs / docker login below).
           - host: ubuntu-24.04
