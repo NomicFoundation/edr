@@ -178,22 +178,22 @@ impl FromStr for SpecId {
 
 impl From<SpecId> for edr_chain_l1::Hardfork {
     fn from(value: SpecId) -> Self {
+        // revm removed the `SpecId` variants of hardforks that don't change
+        // EVM semantics (Frontier Thawing, DAO Fork, Constantinople, Muir
+        // Glacier, Arrow Glacier, and Gray Glacier), so those map to their
+        // EVM-equivalent predecessors.
         match value {
-            SpecId::Frontier => edr_chain_l1::Hardfork::FRONTIER,
-            SpecId::FrontierThawing => edr_chain_l1::Hardfork::FRONTIER_THAWING,
-            SpecId::Homestead => edr_chain_l1::Hardfork::HOMESTEAD,
-            SpecId::DaoFork => edr_chain_l1::Hardfork::DAO_FORK,
+            SpecId::Frontier | SpecId::FrontierThawing => edr_chain_l1::Hardfork::FRONTIER,
+            SpecId::Homestead | SpecId::DaoFork => edr_chain_l1::Hardfork::HOMESTEAD,
             SpecId::Tangerine => edr_chain_l1::Hardfork::TANGERINE,
             SpecId::SpuriousDragon => edr_chain_l1::Hardfork::SPURIOUS_DRAGON,
             SpecId::Byzantium => edr_chain_l1::Hardfork::BYZANTIUM,
-            SpecId::Constantinople => edr_chain_l1::Hardfork::CONSTANTINOPLE,
-            SpecId::Petersburg => edr_chain_l1::Hardfork::PETERSBURG,
-            SpecId::Istanbul => edr_chain_l1::Hardfork::ISTANBUL,
-            SpecId::MuirGlacier => edr_chain_l1::Hardfork::MUIR_GLACIER,
+            SpecId::Constantinople | SpecId::Petersburg => edr_chain_l1::Hardfork::PETERSBURG,
+            SpecId::Istanbul | SpecId::MuirGlacier => edr_chain_l1::Hardfork::ISTANBUL,
             SpecId::Berlin => edr_chain_l1::Hardfork::BERLIN,
-            SpecId::London => edr_chain_l1::Hardfork::LONDON,
-            SpecId::ArrowGlacier => edr_chain_l1::Hardfork::ARROW_GLACIER,
-            SpecId::GrayGlacier => edr_chain_l1::Hardfork::GRAY_GLACIER,
+            SpecId::London | SpecId::ArrowGlacier | SpecId::GrayGlacier => {
+                edr_chain_l1::Hardfork::LONDON
+            }
             SpecId::Merge => edr_chain_l1::Hardfork::MERGE,
             SpecId::Shanghai => edr_chain_l1::Hardfork::SHANGHAI,
             SpecId::Cancun => edr_chain_l1::Hardfork::CANCUN,

@@ -3,7 +3,7 @@
 
 use std::marker::PhantomData;
 
-use edr_primitives::{Address, HashMap, HashSet};
+use edr_primitives::{Address, AddressSet, HashMap, HashSet};
 use revm_context_interface::{Cfg, ContextTr as ContextTrait, JournalTr as _, LocalContextTr as _};
 pub use revm_handler::{
     precompile_output_to_interpreter_result, EthPrecompiles, PrecompileProvider,
@@ -25,7 +25,7 @@ pub struct OverriddenPrecompileProvider<
     custom_precompiles: HashMap<Address, PrecompileFn>,
     // Cache of unique addresses to avoid reporting duplicates between `base` and
     // `custom_precompiles`. This speeds up the `warm_addresses` method.
-    unique_addresses: HashSet<Address>,
+    unique_addresses: AddressSet,
     phantom: PhantomData<ContextT>,
 }
 
@@ -46,8 +46,8 @@ impl<
     ) -> Self {
         let unique_addresses = custom_precompiles
             .keys()
-            .cloned()
-            .chain(base.warm_addresses())
+            .chain(base.warm_addresses().iter())
+            .copied()
             .collect();
 
         Self {
@@ -61,7 +61,7 @@ impl<
     /// Consumes the provider and returns the set of all unique precompile
     /// addresses.
     pub fn into_addresses(self) -> HashSet<Address> {
-        self.unique_addresses
+        self.unique_addresses.into_iter().collect()
     }
 
     /// Adds a custom precompile.
@@ -85,8 +85,8 @@ impl<
             self.unique_addresses = self
                 .custom_precompiles
                 .keys()
-                .cloned()
-                .chain(self.base.warm_addresses())
+                .chain(self.base.warm_addresses().iter())
+                .copied()
                 .collect();
         }
 
@@ -125,8 +125,8 @@ impl<
         Ok(Some(result))
     }
 
-    fn warm_addresses(&self) -> Box<impl Iterator<Item = Address>> {
-        Box::new(self.unique_addresses.iter().cloned())
+    fn warm_addresses(&self) -> &AddressSet {
+        &self.unique_addresses
     }
 
     fn contains(&self, address: &Address) -> bool {

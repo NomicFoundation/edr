@@ -518,7 +518,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_155_invalid_inputs() {
-        let eip155_spec = edr_chain_l1::Hardfork::MUIR_GLACIER;
+        let eip155_spec = edr_chain_l1::Hardfork::ISTANBUL;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),

@@ -193,6 +193,9 @@ fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTrait>(
         SuccessOrHalt::Internal(result) => match result {
             InternalResult::CreateInitCodeStartingEF00 => ExitCode::CreateInitCodeStartingEF00,
             InternalResult::InvalidExtDelegateCallTarget => ExitCode::InvalidExtDelegateCallTarget,
+            // `Suspend` is an in-progress interpreter state; it cannot appear
+            // as the final result of a completed frame.
+            InternalResult::Suspend => ExitCode::InternalContinue,
         },
     }
 }

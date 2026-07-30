@@ -67,7 +67,7 @@ use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
 use edr_state_api::{
     account::{Account, AccountInfo, AccountStatus},
     irregular::IrregularState,
-    AccountModifierFn, DynState, EvmState, EvmStorageSlot, StateDiff, StateOverride,
+    AccountModifierFn, DynState, EvmState, EvmStorageSlot, StateDiff, StateOverride, TransactionId,
 };
 use edr_transaction::{
     request::TransactionRequestAndSender, BlockDataForTransaction, IsEip4844, IsSupported as _,
@@ -982,7 +982,7 @@ where
         let mut modified_state = (*self.current_state()?).clone();
         let old_value = modified_state.set_account_storage_slot(address, index, value)?;
 
-        let slot = EvmStorageSlot::new_changed(old_value, value, 0);
+        let slot = EvmStorageSlot::new_changed(old_value, value, TransactionId::ZERO);
         let account_info = modified_state.basic(address).and_then(|mut account_info| {
             // Retrieve the code if it's not empty. This is needed for the irregular state.
             if let Some(account_info) = &mut account_info
@@ -2756,7 +2756,7 @@ where
         // a block
         let minimum_cost =
             transaction::calculate_initial_tx_gas_for_tx(&transaction, self.evm_spec_id())
-                .initial_total_gas;
+                .initial_total_gas();
 
         let custom_precompiles = self.precompile_overrides.clone();
         let observer_config =
@@ -2934,15 +2934,10 @@ fn create_forked_blockchain_and_state<
                     return Err(ForkedCreationError::StorageOverridesUnsupported);
                 }
 
-                let account = Account {
-                    original_info: Box::new(info.clone()),
-                    info,
-                    // TODO: Add support for overriding the storage
-                    // TODO: https://github.com/NomicFoundation/edr/issues/911
-                    storage: HashMap::default(),
-                    status: AccountStatus::Created | AccountStatus::Touched,
-                    transaction_id: 0,
-                };
+                let mut account = Account::from(info);
+                // TODO: Add support for overriding the storage
+                // TODO: https://github.com/NomicFoundation/edr/issues/911
+                account.status = AccountStatus::Created | AccountStatus::Touched;
 
                 Ok((*address, account))
             })
@@ -3062,16 +3057,12 @@ fn create_local_blockchain_and_state<
                 account_id: None,
             };
 
-            let account = Account {
-                original_info: Box::new(info.clone()),
-                info,
-                storage: account_override
-                    .storage
-                    .clone()
-                    .unwrap_or(HashMap::default()),
-                status: AccountStatus::Created | AccountStatus::Touched,
-                transaction_id: 0,
-            };
+            let mut account = Account::from(info);
+            account.storage = account_override
+                .storage
+                .clone()
+                .unwrap_or(HashMap::default());
+            account.status = AccountStatus::Created | AccountStatus::Touched;
 
             (*address, account)
         })

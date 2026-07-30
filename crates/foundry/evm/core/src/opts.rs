@@ -85,7 +85,7 @@ pub struct EvmOpts<HardforkT> {
 
 /// Resolves the effective [EIP-7825] transaction gas limit cap for the given
 /// hardfork and cap configuration, mirroring the resolution performed by
-/// [`configure_env`](crate::fork::configure_env) and revm's hardfork defaults.
+/// [`configure_env`] and revm's hardfork defaults.
 ///
 /// Returns `None` when no cap is enforced: either the cap is explicitly
 /// disabled, or the hardfork predates the cap (pre-Osaka) and no explicit cap

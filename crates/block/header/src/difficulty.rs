@@ -4,19 +4,20 @@ use edr_primitives::{KECCAK_RLP_EMPTY_ARRAY, U256};
 use crate::BlockHeader;
 
 fn bomb_delay(spec_id: EvmSpecId) -> u64 {
+    // Note: revm removed the EVM-equivalent `SpecId` variants (Frontier
+    // Thawing, DAO Fork, Constantinople, Muir Glacier, Arrow Glacier, and Gray
+    // Glacier), so the bomb delays that were introduced by the removed
+    // glacier hardforks (Muir Glacier: 9M, Arrow Glacier: 10.7M, Gray
+    // Glacier: 11.4M) can no longer be distinguished by `spec_id` alone.
     match spec_id {
         EvmSpecId::FRONTIER
-        | EvmSpecId::FRONTIER_THAWING
         | EvmSpecId::HOMESTEAD
-        | EvmSpecId::DAO_FORK
         | EvmSpecId::TANGERINE
         | EvmSpecId::SPURIOUS_DRAGON => 0,
         EvmSpecId::BYZANTIUM => 3000000,
-        EvmSpecId::CONSTANTINOPLE | EvmSpecId::PETERSBURG | EvmSpecId::ISTANBUL => 5000000,
-        EvmSpecId::MUIR_GLACIER | EvmSpecId::BERLIN | EvmSpecId::LONDON => 9000000,
+        EvmSpecId::PETERSBURG | EvmSpecId::ISTANBUL => 5000000,
+        EvmSpecId::BERLIN | EvmSpecId::LONDON => 9000000,
         // SpecId::LONDON => 9500000, // EIP-3554
-        EvmSpecId::ARROW_GLACIER => 10700000,
-        EvmSpecId::GRAY_GLACIER => 11400000,
         _ => {
             unreachable!("Post-merge hardforks don't have a bomb delay")
         }

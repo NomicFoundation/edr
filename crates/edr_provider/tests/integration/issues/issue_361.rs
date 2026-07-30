@@ -18,7 +18,7 @@ async fn issue_361() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with(MinimalProviderConfig::local_with_accounts());
-    config.hardfork = edr_chain_l1::Hardfork::MUIR_GLACIER;
+    config.hardfork = edr_chain_l1::Hardfork::ISTANBUL;
 
     let impersonated_account = Address::random();
     config.genesis_state.insert(

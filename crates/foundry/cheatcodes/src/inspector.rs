@@ -900,6 +900,7 @@ impl<
                         memory_offset: call.return_memory_offset.clone(),
                         was_precompile_called: false,
                         precompile_call_logs: vec![],
+                        charged_new_account_state_gas: false,
                     });
                 }
             };
@@ -920,6 +921,7 @@ impl<
                     memory_offset: call.return_memory_offset.clone(),
                     was_precompile_called: true,
                     precompile_call_logs: vec![],
+                    charged_new_account_state_gas: false,
                 }),
                 Err(err) => Some(CallOutcome {
                     result: InterpreterResult {
@@ -930,6 +932,7 @@ impl<
                     memory_offset: call.return_memory_offset.clone(),
                     was_precompile_called: false,
                     precompile_call_logs: vec![],
+                    charged_new_account_state_gas: false,
                 }),
             };
         }
@@ -1009,6 +1012,7 @@ impl<
                     memory_offset: call.return_memory_offset.clone(),
                     was_precompile_called: true,
                     precompile_call_logs: vec![],
+                    charged_new_account_state_gas: false,
                 });
             }
         }
@@ -2926,7 +2930,7 @@ fn apply_dispatch<
 fn will_exit(action: &InterpreterAction) -> bool {
     match action {
         InterpreterAction::Return(result) => {
-            result.result.is_ok_or_revert() || result.result.is_error()
+            result.result.is_ok_or_revert() || result.result.is_halt()
         }
         InterpreterAction::NewFrame(_) => false,
     }

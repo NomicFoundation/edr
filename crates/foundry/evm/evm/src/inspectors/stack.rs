@@ -30,11 +30,10 @@ use revm::{
     state::{AccountStatus, EvmState},
     DatabaseCommit, InspectEvm as _, Inspector, Journal, JournalEntry,
 };
-use revm_inspectors::edge_cov::EdgeCovInspector;
 
 use super::{
-    Cheatcodes, CheatsConfig, Fuzzer, LineCoverageCollector, LogCollector, RevertDiagnostic,
-    TracingInspector,
+    edge_cov::EdgeCovInspector, Cheatcodes, CheatsConfig, Fuzzer, LineCoverageCollector,
+    LogCollector, RevertDiagnostic, TracingInspector,
 };
 
 #[derive(Clone, Debug, Default)]
@@ -592,8 +591,7 @@ impl<
                 .unwrap_or_default(),
             traces,
             line_coverage: line_coverage.map(foundry_evm_coverage::LineCoverageCollector::finish),
-            edge_coverage: edge_coverage
-                .map(revm_inspectors::edge_cov::EdgeCovInspector::into_hitcount),
+            edge_coverage: edge_coverage.map(EdgeCovInspector::into_hitcount),
             cheatcodes,
             reverter,
         })
@@ -1364,6 +1362,7 @@ impl<
                                     output: Bytes::new(),
                                     gas: Gas::new(call.gas_limit),
                                 },
+                                charged_new_account_state_gas: false,
                                 memory_offset: call.return_memory_offset.clone(),
                                 was_precompile_called: false,
                                 precompile_call_logs: vec![],
@@ -1400,6 +1399,7 @@ impl<
                         memory_offset: call.return_memory_offset.clone(),
                         was_precompile_called: true,
                         precompile_call_logs: vec![],
+                        charged_new_account_state_gas: false,
                     });
                 }
                 // Mark accounts and storage cold before STATICCALLs

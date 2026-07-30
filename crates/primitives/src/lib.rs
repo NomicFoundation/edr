@@ -10,7 +10,7 @@ pub use revm_primitives::{
     eip3860::MAX_INITCODE_SIZE,
     eip7708,
     hardfork::UnknownHardfork,
-    hex, hex_literal, keccak256, Address, Bytes, B256, KECCAK_EMPTY, U256,
+    hex, hex_literal, keccak256, Address, AddressSet, Bytes, B256, KECCAK_EMPTY, U256,
 };
 
 /// The KECCAK of the RLP encoding of empty data.

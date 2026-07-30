@@ -5,7 +5,27 @@ use std::sync::OnceLock;
 use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation};
 use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::HashMap;
-pub use revm_primitives::hardfork::name;
+/// Hardfork name constants.
+///
+/// Re-exports revm's names and re-adds the names of hardforks that revm
+/// removed from `SpecId` (they are EVM-equivalent to their predecessors),
+/// preserving EDR's string-based hardfork API.
+pub mod name {
+    pub use revm_primitives::hardfork::name::*;
+
+    /// Frontier Thawing hardfork name (EVM-equivalent to Frontier).
+    pub const FRONTIER_THAWING: &str = "Frontier Thawing";
+    /// DAO Fork hardfork name (EVM-equivalent to Homestead).
+    pub const DAO_FORK: &str = "DAO Fork";
+    /// Constantinople hardfork name (EVM-equivalent to Petersburg).
+    pub const CONSTANTINOPLE: &str = "Constantinople";
+    /// Muir Glacier hardfork name (EVM-equivalent to Istanbul).
+    pub const MUIR_GLACIER: &str = "MuirGlacier";
+    /// Arrow Glacier hardfork name (EVM-equivalent to London).
+    pub const ARROW_GLACIER: &str = "Arrow Glacier";
+    /// Gray Glacier hardfork name (EVM-equivalent to London).
+    pub const GRAY_GLACIER: &str = "Gray Glacier";
+}
 
 use crate::{Hardfork, L1_BASE_FEE_PARAMS};
 
@@ -17,18 +37,15 @@ const MAINNET_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
         condition: ForkCondition::Block(0),
         hardfork: Hardfork::FRONTIER,
     },
-    HardforkActivation {
-        condition: ForkCondition::Block(200_000),
-        hardfork: Hardfork::FRONTIER_THAWING,
-    },
+    // Frontier Thawing (block 200_000) omitted: revm removed the EVM-equivalent
+    // `SpecId` variants (Frontier Thawing, DAO Fork, Constantinople, Muir
+    // Glacier, Arrow Glacier, and Gray Glacier), as they don't change EVM
+    // semantics relative to their predecessors.
     HardforkActivation {
         condition: ForkCondition::Block(1_150_000),
         hardfork: Hardfork::HOMESTEAD,
     },
-    HardforkActivation {
-        condition: ForkCondition::Block(1_920_000),
-        hardfork: Hardfork::DAO_FORK,
-    },
+    // DAO Fork (block 1_920_000) omitted
     HardforkActivation {
         condition: ForkCondition::Block(2_463_000),
         hardfork: Hardfork::TANGERINE,
@@ -41,10 +58,8 @@ const MAINNET_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
         condition: ForkCondition::Block(4_370_000),
         hardfork: Hardfork::BYZANTIUM,
     },
-    HardforkActivation {
-        condition: ForkCondition::Block(7_280_000),
-        hardfork: Hardfork::CONSTANTINOPLE,
-    },
+    // Constantinople (block 7_280_000) omitted; Petersburg activated at the
+    // same block
     HardforkActivation {
         condition: ForkCondition::Block(7_280_000),
         hardfork: Hardfork::PETERSBURG,
@@ -53,10 +68,7 @@ const MAINNET_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
         condition: ForkCondition::Block(9_069_000),
         hardfork: Hardfork::ISTANBUL,
     },
-    HardforkActivation {
-        condition: ForkCondition::Block(9_200_000),
-        hardfork: Hardfork::MUIR_GLACIER,
-    },
+    // Muir Glacier (block 9_200_000) omitted
     HardforkActivation {
         condition: ForkCondition::Block(12_244_000),
         hardfork: Hardfork::BERLIN,
@@ -65,14 +77,8 @@ const MAINNET_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
         condition: ForkCondition::Block(12_965_000),
         hardfork: Hardfork::LONDON,
     },
-    HardforkActivation {
-        condition: ForkCondition::Block(13_773_000),
-        hardfork: Hardfork::ARROW_GLACIER,
-    },
-    HardforkActivation {
-        condition: ForkCondition::Block(15_050_000),
-        hardfork: Hardfork::GRAY_GLACIER,
-    },
+    // Arrow Glacier (block 13_773_000) and Gray Glacier (block 15_050_000)
+    // omitted
     HardforkActivation {
         condition: ForkCondition::Block(15_537_394),
         hardfork: Hardfork::MERGE,
