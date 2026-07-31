@@ -40,6 +40,86 @@ index 991bcb9217f76c32af422acd493fa9610b1e4b3c..24858adbac67dbc65d1d2c078d69f0e4
          networkId: BigInt(networkConfig.networkId),
          observability: {
              codeCoverage: coverageConfig,
+diff --git a/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js b/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js
+index 26ad9bd84e7c1a0886226d184bc577975aaf6569..598c982d3740a0dac1c8a412382e5d24da26919b 100644
+--- a/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js
++++ b/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js
+@@ -1,4 +1,4 @@
+-import { GasReportExecutionStatus, MineOrdering, OpHardfork, SpecId, FRONTIER, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, OSAKA, BEDROCK, REGOLITH, CANYON, ECOTONE, FJORD, GRANITE, HOLOCENE, ISTHMUS, } from "@nomicfoundation/edr";
++import { GasReportExecutionStatus, MineOrdering, OpHardfork, SpecId, FRONTIER, HOMESTEAD, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, PETERSBURG, ISTANBUL, BERLIN, LONDON, MERGE, SHANGHAI, CANCUN, PRAGUE, OSAKA, BEDROCK, REGOLITH, CANYON, ECOTONE, FJORD, GRANITE, HOLOCENE, ISTHMUS, } from "@nomicfoundation/edr";
+ import { GENERIC_CHAIN_TYPE, L1_CHAIN_TYPE, OPTIMISM_CHAIN_TYPE, } from "../../../../constants.js";
+ import { FixedValueConfigurationVariable } from "../../../../core/configuration-variables.js";
+ import { derivePrivateKeys } from "../../accounts/derive-private-keys.js";
+@@ -9,34 +9,22 @@ export function edrL1HardforkToHardhatL1HardforkName(hardfork) {
+     switch (hardfork) {
+         case SpecId.Frontier:
+             return L1HardforkName.FRONTIER;
+-        case SpecId.FrontierThawing:
+-            return L1HardforkName.FRONTIER;
+         case SpecId.Homestead:
+             return L1HardforkName.HOMESTEAD;
+-        case SpecId.DaoFork:
+-            return L1HardforkName.DAO;
+         case SpecId.Tangerine:
+             return L1HardforkName.TANGERINE_WHISTLE;
+         case SpecId.SpuriousDragon:
+             return L1HardforkName.SPURIOUS_DRAGON;
+         case SpecId.Byzantium:
+             return L1HardforkName.BYZANTIUM;
+-        case SpecId.Constantinople:
+-            return L1HardforkName.CONSTANTINOPLE;
+         case SpecId.Petersburg:
+             return L1HardforkName.PETERSBURG;
+         case SpecId.Istanbul:
+             return L1HardforkName.ISTANBUL;
+-        case SpecId.MuirGlacier:
+-            return L1HardforkName.MUIR_GLACIER;
+         case SpecId.Berlin:
+             return L1HardforkName.BERLIN;
+         case SpecId.London:
+             return L1HardforkName.LONDON;
+-        case SpecId.ArrowGlacier:
+-            return L1HardforkName.ARROW_GLACIER;
+-        case SpecId.GrayGlacier:
+-            return L1HardforkName.GRAY_GLACIER;
+         case SpecId.Merge:
+             return L1HardforkName.MERGE;
+         case SpecId.Shanghai:
+@@ -121,7 +109,7 @@ function hardhatL1HardforkToEdrSpecId(hardfork) {
+         case L1HardforkName.HOMESTEAD:
+             return HOMESTEAD;
+         case L1HardforkName.DAO:
+-            return DAO_FORK;
++            return HOMESTEAD;
+         case L1HardforkName.TANGERINE_WHISTLE:
+             return TANGERINE;
+         case L1HardforkName.SPURIOUS_DRAGON:
+@@ -129,21 +117,21 @@ function hardhatL1HardforkToEdrSpecId(hardfork) {
+         case L1HardforkName.BYZANTIUM:
+             return BYZANTIUM;
+         case L1HardforkName.CONSTANTINOPLE:
+-            return CONSTANTINOPLE;
++            return PETERSBURG;
+         case L1HardforkName.PETERSBURG:
+             return PETERSBURG;
+         case L1HardforkName.ISTANBUL:
+             return ISTANBUL;
+         case L1HardforkName.MUIR_GLACIER:
+-            return MUIR_GLACIER;
++            return ISTANBUL;
+         case L1HardforkName.BERLIN:
+             return BERLIN;
+         case L1HardforkName.LONDON:
+             return LONDON;
+         case L1HardforkName.ARROW_GLACIER:
+-            return ARROW_GLACIER;
++            return LONDON;
+         case L1HardforkName.GRAY_GLACIER:
+-            return GRAY_GLACIER;
++            return LONDON;
+         case L1HardforkName.MERGE:
+             return MERGE;
+         case L1HardforkName.SHANGHAI:
 diff --git a/dist/src/internal/builtin-plugins/solidity-test/helpers.js b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
 index 2370cd07ecb5f7913c8325b01f15302c90170ee9..17bde110d70ea1a4d5c4973af7b23e379c52b624 100644
 --- a/dist/src/internal/builtin-plugins/solidity-test/helpers.js
@@ -68,7 +148,7 @@ index 2370cd07ecb5f7913c8325b01f15302c90170ee9..17bde110d70ea1a4d5c4973af7b23e37
          ethRpcUrl,
          forkBlockNumber,
 diff --git a/package.json b/package.json
-index 6a8b5dc220db7a3c595be286bea9ad5ef515deae..dfea18b5f4bde1ca4a0279cacec6578403eddb36 100644
+index 6a8b5dc220db7a3c595be286bea9ad5ef515deae..aa6b42d41a0e3a95965110c14124cff58c800612 100644
 --- a/package.json
 +++ b/package.json
 @@ -41,6 +41,9 @@
@@ -156,3 +236,99 @@ index 6a8b5dc220db7a3c595be286bea9ad5ef515deae..dfea18b5f4bde1ca4a0279cacec65784
 -    "clean": "rimraf dist ./test/fixture-projects/*-tmp-*-*-*-*-*"
    }
  }
+\ No newline at end of file
+diff --git a/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.ts b/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.ts
+index 9f859121cce30ef98afd2a90cd2d48e1fb68da8c..9c17f6496b98c4bb0ebf49e4fbb4a6ab79cae09a 100644
+--- a/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.ts
++++ b/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.ts
+@@ -23,18 +23,13 @@ import {
+   SpecId,
+   FRONTIER,
+   HOMESTEAD,
+-  DAO_FORK,
+   TANGERINE,
+   SPURIOUS_DRAGON,
+   BYZANTIUM,
+-  CONSTANTINOPLE,
+   PETERSBURG,
+   ISTANBUL,
+-  MUIR_GLACIER,
+   BERLIN,
+   LONDON,
+-  ARROW_GLACIER,
+-  GRAY_GLACIER,
+   MERGE,
+   SHANGHAI,
+   CANCUN,
+@@ -72,34 +67,22 @@ export function edrL1HardforkToHardhatL1HardforkName(
+   switch (hardfork) {
+     case SpecId.Frontier:
+       return L1HardforkName.FRONTIER;
+-    case SpecId.FrontierThawing:
+-      return L1HardforkName.FRONTIER;
+     case SpecId.Homestead:
+       return L1HardforkName.HOMESTEAD;
+-    case SpecId.DaoFork:
+-      return L1HardforkName.DAO;
+     case SpecId.Tangerine:
+       return L1HardforkName.TANGERINE_WHISTLE;
+     case SpecId.SpuriousDragon:
+       return L1HardforkName.SPURIOUS_DRAGON;
+     case SpecId.Byzantium:
+       return L1HardforkName.BYZANTIUM;
+-    case SpecId.Constantinople:
+-      return L1HardforkName.CONSTANTINOPLE;
+     case SpecId.Petersburg:
+       return L1HardforkName.PETERSBURG;
+     case SpecId.Istanbul:
+       return L1HardforkName.ISTANBUL;
+-    case SpecId.MuirGlacier:
+-      return L1HardforkName.MUIR_GLACIER;
+     case SpecId.Berlin:
+       return L1HardforkName.BERLIN;
+     case SpecId.London:
+       return L1HardforkName.LONDON;
+-    case SpecId.ArrowGlacier:
+-      return L1HardforkName.ARROW_GLACIER;
+-    case SpecId.GrayGlacier:
+-      return L1HardforkName.GRAY_GLACIER;
+     case SpecId.Merge:
+       return L1HardforkName.MERGE;
+     case SpecId.Shanghai:
+@@ -197,8 +180,9 @@ function hardhatL1HardforkToEdrSpecId(hardfork: string): string {
+       return FRONTIER;
+     case L1HardforkName.HOMESTEAD:
+       return HOMESTEAD;
++    // Hardforks that revm removed as EVM-equivalent map to their surviving fork.
+     case L1HardforkName.DAO:
+-      return DAO_FORK;
++      return HOMESTEAD;
+     case L1HardforkName.TANGERINE_WHISTLE:
+       return TANGERINE;
+     case L1HardforkName.SPURIOUS_DRAGON:
+@@ -206,21 +190,21 @@ function hardhatL1HardforkToEdrSpecId(hardfork: string): string {
+     case L1HardforkName.BYZANTIUM:
+       return BYZANTIUM;
+     case L1HardforkName.CONSTANTINOPLE:
+-      return CONSTANTINOPLE;
++      return PETERSBURG;
+     case L1HardforkName.PETERSBURG:
+       return PETERSBURG;
+     case L1HardforkName.ISTANBUL:
+       return ISTANBUL;
+     case L1HardforkName.MUIR_GLACIER:
+-      return MUIR_GLACIER;
++      return ISTANBUL;
+     case L1HardforkName.BERLIN:
+       return BERLIN;
+     case L1HardforkName.LONDON:
+       return LONDON;
+     case L1HardforkName.ARROW_GLACIER:
+-      return ARROW_GLACIER;
++      return LONDON;
+     case L1HardforkName.GRAY_GLACIER:
+-      return GRAY_GLACIER;
++      return LONDON;
+     case L1HardforkName.MERGE:
+       return MERGE;
+     case L1HardforkName.SHANGHAI:
