@@ -31,6 +31,7 @@ jobs:
     needs: check_commit
     permissions:
       contents: read
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -53,24 +54,28 @@ jobs:
             # that caching it isn't worth the size hit.
             cache_extra_paths: ~/.cargo/registry/src/
 
+          # docker_tag legs build in a node container resolved by the
+          # select-node-image action (GHCR mirror normally, Docker Hub on
+          # releases). New or changed tags must be added to the mirror
+          # workflow's tag list in the same PR.
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            docker: node:24-bullseye-slim
+            docker_tag: 24-bullseye-slim
             flavor: gnu
 
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            docker: node:24-bullseye-slim
+            docker_tag: 24-bullseye-slim
             flavor: gnu
 
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-musl
-            docker: node:24-alpine
+            docker_tag: 24-alpine
             flavor: musl
 
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
-            docker: node:24-alpine
+            docker_tag: 24-alpine
             flavor: musl
     outputs:
       commit_sha: ${{ steps.save-commit.outputs.commit_sha}}
@@ -103,14 +108,14 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # latest main commit (2025-11-17)
-        if: ${{ !matrix.settings.docker }}
+        if: ${{ !matrix.settings.docker_tag }}
         with:
           toolchain: stable
           targets: ${{ matrix.settings.target }}
           components: rust-src
 
       - name: Setup node and pnpm
-        if: ${{ !matrix.settings.docker }}
+        if: ${{ !matrix.settings.docker_tag }}
         uses: ./.github/actions/setup-node
         with:
           node-version: 24
@@ -133,25 +138,37 @@ jobs:
             ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-
 
       - name: Install dependencies (non-Windows)
-        if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
+        if: ${{ !matrix.settings.docker_tag && runner.os != 'Windows' }}
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
       # SFW doesn't install dependencies correctly on Windows
       # https://github.com/NomicFoundation/edr/issues/1199
       - name: Install dependencies (Windows)
-        if: ${{ !matrix.settings.docker && runner.os == 'Windows' }}
+        if: ${{ !matrix.settings.docker_tag && runner.os == 'Windows' }}
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build (non-docker)
-        if: ${{ !matrix.settings.docker }}
+        if: ${{ !matrix.settings.docker_tag }}
         run: ${{ matrix.settings.build }}
         shell: bash
 
+      - name: Select image source
+        id: select-image
+        if: ${{ matrix.settings.docker_tag }}
+        uses: ./.github/actions/select-node-image
+        with:
+          tag: ${{ matrix.settings.docker_tag }}
+          release-tag: ${{ needs.check_commit.outputs.tag }}
+
       - name: Build in docker (gnu)
         uses: NomicFoundation/docker-run-action@63f044457cfb71a5c63fa589218c89a418565d9c # Fork of v3 with updated Docker (https://github.com/addnab/docker-run-action/issues/62)
-        if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
+        if: ${{ matrix.settings.docker_tag && matrix.settings.flavor == 'gnu'}}
         with:
-          image: ${{ matrix.settings.docker }}
+          image: ${{ steps.select-image.outputs.ref }}
+          # GHCR auth for mirror pulls; unused when a release run selects the Docker Hub image.
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
           # /home/runner/.cargo matches where the host's `Cache cargo` step writes
           # (`~/.cargo` on GH-hosted Linux runners); docker -v doesn't expand `~` and
           # GHA has no `runner.home` context, so the path is hardcoded.
@@ -175,9 +192,13 @@ jobs:
       # https://github.com/NomicFoundation/edr/issues/1198
       - name: Build in docker (musl)
         uses: NomicFoundation/docker-run-action@63f044457cfb71a5c63fa589218c89a418565d9c # Fork of v3 with updated Docker (https://github.com/addnab/docker-run-action/issues/62)
-        if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
+        if: ${{ matrix.settings.docker_tag && matrix.settings.flavor == 'musl' }}
         with:
-          image: ${{ matrix.settings.docker }}
+          image: ${{ steps.select-image.outputs.ref }}
+          # GHCR auth for mirror pulls; unused when a release run selects the Docker Hub image.
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
           # See gnu step above for why /home/runner/.cargo is hardcoded.
           options: "--user 0:0 -v /home/runner/.cargo/git:/usr/local/cargo/git -v /home/runner/.cargo/registry:/usr/local/cargo/registry -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
@@ -254,8 +275,10 @@ jobs:
     name: Test bindings on Linux-x64-gnu - node@${{ matrix.node }}
     needs:
       - build
+      - check_commit
     permissions:
       contents: read
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -282,16 +305,32 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
+      - name: Log in to GHCR # for mirror pulls; unused when a release run selects the Docker Hub image
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Select image source
+        id: select-image
+        uses: ./.github/actions/select-node-image
+        with:
+          tag: ${{ matrix.node }}
+          release-tag: ${{ needs.check_commit.outputs.tag }}
       - name: Test bindings
         # Setting CI=1 is important to make PNPM install non-interactive
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
-        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
+        env:
+          IMAGE: ${{ steps.select-image.outputs.ref }}
+        run: docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" bash -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+      - check_commit
     permissions:
       contents: read
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -318,14 +357,30 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
+      - name: Log in to GHCR # for mirror pulls; unused when a release run selects the Docker Hub image
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Select image source
+        id: select-image
+        uses: ./.github/actions/select-node-image
+        with:
+          tag: ${{ matrix.node }}-alpine
+          release-tag: ${{ needs.check_commit.outputs.tag }}
       - name: Test bindings
-        run: docker run --rm  -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
+        env:
+          IMAGE: ${{ steps.select-image.outputs.ref }}
+        run: docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" sh -c "npm install -g pnpm@11.15.1; pnpm testNoBuild"
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
       - build
+      - check_commit
     permissions:
       contents: read
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -353,10 +408,20 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=glibc
+      - name: Select image source
+        id: select-image
+        uses: ./.github/actions/select-node-image
+        with:
+          tag: ${{ matrix.node }}
+          release-tag: ${{ needs.check_commit.outputs.tag }}
       - name: Setup and run tests # zizmor: ignore[superfluous-actions] deliberate cross-arch (arm64) test runner
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         with:
-          image: node:${{ matrix.node }}
+          image: ${{ steps.select-image.outputs.ref }}
+          # GHCR auth for mirror pulls; unused when a release run selects the Docker Hub image.
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
             npm install -g pnpm@11.15.1
@@ -367,8 +432,10 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+      - check_commit
     permissions:
       contents: read
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -395,10 +462,20 @@ jobs:
         shell: bash
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=musl
+      - name: Select image source
+        id: select-image
+        uses: ./.github/actions/select-node-image
+        with:
+          tag: ${{ matrix.node }}-alpine
+          release-tag: ${{ needs.check_commit.outputs.tag }}
       - name: Setup and run tests # zizmor: ignore[superfluous-actions] deliberate cross-arch (arm64/musl) test runner
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 # v3
         with:
-          image: node:${{ matrix.node }}-alpine
+          image: ${{ steps.select-image.outputs.ref }}
+          # GHCR auth for mirror pulls; unused when a release run selects the Docker Hub image.
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
             npm install -g pnpm@11.15.1
