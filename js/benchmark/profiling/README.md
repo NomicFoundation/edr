@@ -11,12 +11,11 @@ Everything here is a profiling tool, not part of the benchmark suite — `js/ben
 | `profile-uniswap.ts` | Phase-instrumented driver. Mirrors Hardhat's real `solidity-test/task-action.ts` phase for phase and times each one. |
 | `record.sh` | `perf record` wrapper. Encapsulates the four environment workarounds below. |
 | `analyze.py` | Attributes samples to components; drills into a thread's hot frames; sizes specific code paths; verifies the sample rate. |
-| `render.sh` | Renders a capture to an interactive HTML flamegraph (0x) and SVG flamegraphs (inferno). |
+| `render.sh` | Renders a capture to interactive SVG flamegraphs (inferno). |
 | `serve.sh` | Serves the rendered flamegraphs over HTTP, since there is no host `file://` path to them. |
-| `patches/0x-kernel-tracing.patch` | Fix for a `0x` bug that corrupts its own `perf.data` (see below). Only needed if you record with `0x` instead of `record.sh`. |
 | `results/` | Phase timings (JSON) and saved analysis output from the recorded runs. |
 
-Raw captures and renders are **not** checked in: a `perf script` dump of the `runs=1000` run is ~444 MB, its folded form ~109 MB, and the rendered HTML ~23 MB. None of it is portable — symbolization needs the exact binaries. Regenerate with `record.sh` and `render.sh`.
+Raw captures are **not** checked in: a `perf script` dump of the `runs=1000` run is ~444 MB and its folded form ~109 MB, and neither is portable — symbolization needs the exact binaries. The rendered SVGs are gitignored too. Regenerate with `record.sh` and `render.sh`.
 
 ## Prerequisites
 
@@ -73,20 +72,14 @@ python3 analyze.py rate       /tmp/prof/stacks-r1000.out
 ./serve.sh                                      # http://localhost:8080
 ```
 
-`render.sh` writes three things per capture:
+`render.sh` writes two SVGs per capture. They are interactive: click a frame to zoom, Ctrl-F to search.
 
 | Output | Notes |
 | --- | --- |
-| `flamegraph-<label>.html` | 0x's interactive page. JS-aware: collapsible frames, a search box, and tier filters (optimized / not-optimized / inlined / C++ / regexp). Best for reading the JS side and navigating a large tree. ~14–23 MB. |
-| `flamegraph-<label>.svg` | inferno. Also interactive in a browser — click a frame to zoom, Ctrl-F to search. Much smaller, and easy to post-process or diff. |
+| `flamegraph-<label>.svg` | Everything: the JS main thread, the native runner, the FFI subprocesses. |
 | `flamegraph-<label>-edr-only.svg` | Filtered to `tokio-rt-worker` frames. The full graph is dominated by the FFI subprocesses and the JS main thread, which buries the EDR internals. |
 
-Two things worth knowing:
-
-- **There is no host `file://` path.** In this devcontainer `/workspaces` is a Docker _named volume_ inside the Linux VM (`/dev/vda1[/docker/volumes/...]`, ext4), not a bind mount from the host, and `/tmp` is container-only. So opening the file directly from the host browser does not work — hence `serve.sh`, which serves the directory over HTTP for VS Code to forward. (VS Code's Simple Browser also works, but still needs the URL.)
-- **`render.sh` drives 0x through `--visualize-only`**, rendering from a capture that `record.sh` already made. This is deliberate: 0x's own recording mode runs the workload as root, which trips caveats 2 and 3 below — 5 FFI tests fail and `solidityTests:run` short-circuits to 144 ms, i.e. a beautifully rendered picture of nothing. Rendering from an existing capture keeps 0x's viewer without its recording bugs.
-
-0x discovers a capture by filename (`/^stacks\.(.*)\.out$/`), so a file named `stacks-r1000.out` is silently not found; `render.sh` stages a correctly-named copy. Large captures also need `NODE_OPTIONS=--max-old-space-size=12000`, which it sets.
+**There is no host `file://` path.** In this devcontainer `/workspaces` is a Docker _named volume_ inside the Linux VM (`/dev/vda1[/docker/volumes/...]`, ext4), not a bind mount from the host, and `/tmp` is container-only. So opening the file directly from the host browser does not work — hence `serve.sh`, which serves the directory over HTTP for VS Code to forward. (VS Code's Simple Browser also works, but still needs the URL.)
 
 ## Reading the numbers
 
@@ -109,21 +102,14 @@ Four things had to be worked around on this container (Docker Desktop, linuxkit 
 
 Also: perf needs no `-e` flag here. The default `cycles` event is unavailable on this kernel and perf falls back to `task-clock` on its own.
 
-### If you use `0x --kernel-tracing` instead
+### A warning about `0x --kernel-tracing`
 
-`0x` 6.0.0 corrupts its own capture. `platform/linux.js` runs `sed -i -e '/( __libc_start| LazyCompile |…|[unknown]|…)/d'` over the **binary** `perf.data`. In sed BRE, `[unknown]` is a _character class_ matching any of `u n k o w r s e d`, so it deletes nearly every newline-delimited chunk of the file and destroys the `PERF_RECORD_MMAP2` records — every native DSO then resolves as `/ (deleted)`. Apply `patches/0x-kernel-tracing.patch`, which makes that function a no-op (the filtering is purely cosmetic) and raises the hardcoded `-F 99` to `-F 999`:
+`book/src/01_getting_started/06_profiling.md` recommends `0x --kernel-tracing` for combined JS+native flamegraphs. It was tried here and abandoned in favour of driving `perf` and `inferno` directly. Reasons, in case you reach for it:
 
-```bash
-cd "$(npm root -g)/0x"
-cp platform/linux.js platform/linux.js.orig
-patch -p0 < <path>/patches/0x-kernel-tracing.patch
-```
+- **Its recording mode runs the workload as root.** `platform/linux.js` spawns `sudo -E perf record … -- <node> …`, and there is no hook to drop privileges for the child. That trips caveats 2 and 3 above: Hardhat falls back to `/root/.cache/hardhat-nodejs` (a 5.5 s build instead of ~0.3 s), 5 FFI tests fail, and `solidityTests:run` short-circuits from ~1250 ms to 144 ms. The result is a well-rendered profile of nothing. This is the decisive reason.
+- **The sample rate is hardcoded** at `-F 99`, which is too coarse for a 2 s run (~77 samples in a synthetic check). Changing it means editing the installed package.
+- **It does not solve the symbolization problem.** The `[unknown]` frames here come from caveat 4 (the overlayfs `node` binary), which you have to fix yourself either way — `0x` takes its node binary from the first token after `--`, so the copy slots in, but that is the fix doing the work, not `0x`.
 
-`0x` takes the node binary from the first token after `--`, so the symbolizable copy from caveat 4 drops straight in:
+None of this makes `0x` unusable: `0x --visualize-only <dir>` renders an interactive HTML flamegraph from a capture `record.sh` already made, sidestepping the recording path entirely. That was verified to work and to symbolize correctly. It just adds a dependency for a viewer that the SVGs already cover, so it is not carried here.
 
-```bash
-sudo env PATH="$PATH" 0x --kernel-tracing --output-dir out -- \
-  /tmp/prof/node-prof --import tsx profile-uniswap.ts --fuzz-runs 1000
-```
-
-Note this still runs the workload as root, so caveats 2 and 3 apply — which is why `record.sh` drives `perf` directly instead.
+One thing that is _not_ a reason, recorded because it was initially believed and written down: `platform/linux.js` also runs `sed -i -e '/( __libc_start| LazyCompile |…|[unknown]|…)/d'` over the **binary** `perf.data`, which looks alarming. It is inert. In sed BRE, `(`, `)` and `|` are literal characters, so the pattern is one long literal string with a single bracket expression (`[unknown]` = the class `{u,n,k,o,w}`) in the middle — a sequence that does not occur in a `perf.data`. Measured directly: running that exact expression over a 1701024-byte capture removes **0 bytes**. Upstream presumably meant ERE, and meant it to run over the text stacks rather than the binary. It is dead code, not a corrupter.

@@ -116,12 +116,11 @@ benchmark-output.json
 
 .pnpm-store/
 
-# Solidity-test profiling captures and renders (see js/benchmark/profiling/README.md).
-# Captures are hundreds of MB, renders tens of MB, and none of it is portable --
-# symbolization needs the exact binaries. Regenerate with record.sh / render.sh.
+# Solidity-test profiling captures (see js/benchmark/profiling/README.md).
+# Captures and their folded form are hundreds of MB and are not portable --
+# symbolization needs the exact binaries. Regenerate with record.sh.
+# The rendered flamegraph SVGs are deliberately NOT ignored.
 *.perf.data
 perf.data
 stacks-*.out
 *.folded
-flamegraph-*.html
-profiling-out/

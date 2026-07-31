@@ -33,7 +33,7 @@ DIR="$(cd "$DIR" && pwd)"
 echo "serving $DIR on http://localhost:$PORT"
 echo
 echo "contents:"
-find "$DIR" -maxdepth 1 -type f \( -name '*.html' -o -name '*.svg' \) -printf '  %-40f %8s bytes\n' 2>/dev/null \
+find "$DIR" -maxdepth 1 -type f -name '*.svg' -printf '  %-40f %8s bytes\n' 2>/dev/null \
   | sort || ls -la "$DIR"
 echo
 echo "VS Code should offer to forward port $PORT. If it does not, open the Ports"

@@ -135,28 +135,21 @@ python3 analyze.py pattern    /tmp/prof/stacks-r1000.out
 ./serve.sh                                  # http://localhost:8080
 ```
 
-See [`README.md`](README.md) for the harness, the statistical caveats on reading sample counts,
-and why `render.sh` drives `0x` via `--visualize-only` instead of letting it record.
+See [`README.md`](README.md) for the harness and the statistical caveats on reading sample counts.
 
-Recorded phase timings and analysis output for the runs in this document are in
-[`results/`](results/). Raw captures are not: the `runs=1000` `perf script` dump is ~444 MB and is
-not portable across builds.
+Recorded phase timings and analysis output for the runs in this document are in [`results/`](results/). Raw captures are not: the `runs=1000` `perf script` dump is ~444 MB and is not portable across builds.
 
-`render.sh` produces, per capture, an interactive `flamegraph-<label>.html` (0x — JS-aware, with
-search and tier filters) plus `flamegraph-<label>.svg` and `flamegraph-<label>-edr-only.svg`
-(inferno — also interactive in a browser, and much smaller). These total tens of MB and are
-gitignored; regenerate rather than commit them.
+`render.sh` produces, per capture, `flamegraph-<label>.svg` and `flamegraph-<label>-edr-only.svg` (the latter filtered to the native runner threads, since the full graph is dominated by the FFI subprocesses and the JS main thread). They are interactive in a browser — click a frame to zoom, Ctrl-F to search — and are gitignored; regenerate rather than commit them.
 
-Note there is no host `file://` path to them — `/workspaces` is a Docker named volume inside the
-VM, not a bind mount — so use `serve.sh` and let VS Code forward the port.
+Note there is no host `file://` path to them — `/workspaces` is a Docker named volume inside the VM, not a bind mount — so use `serve.sh` and let VS Code forward the port.
 
 ## 6. Environment caveats (not covered by `book/src/01_getting_started/06_profiling.md`)
 
-Four things had to be worked around; all four silently produce wrong or empty data rather than failing loudly.
+Four things bite here, and all four silently produce wrong or empty data rather than failing loudly. Three are worked around by `record.sh`; the second is why `0x` was abandoned in favour of driving `perf` and `inferno` directly.
 
 1. **`sudo` resets `PATH`.** `sudo perf record -- node …` fails with `Failed to collect 'task-clock' for the 'node' workload: No such file or directory`, which looks like a PMU problem but is just `node` not being found. Use `sudo env PATH="$PATH"`. (The doc mentions this for `0x`; it applies to bare `perf` too.)
 
-2. **`0x --kernel-tracing` corrupts its own capture.** `platform/linux.js` runs `sed -i -e '/( __libc_start| LazyCompile |…|[unknown]|…)/d'` over the _binary_ `perf.data`. In sed BRE `[unknown]` is a character class matching any of `u n k o w r s e d`, so it deletes nearly every newline-delimited chunk and destroys the `PERF_RECORD_MMAP2` records — every native DSO then resolves as `/ (deleted)`. Patched to a no-op locally (backup: `platform/linux.js.orig`). Also raised its hardcoded `-F 99` to `-F 999`.
+2. **`0x --kernel-tracing` records the workload as root.** `platform/linux.js` spawns `sudo -E perf record … -- <node> …` with no way to drop privileges for the child, so it walks straight into caveat 4: 5 FFI tests fail and `solidityTests:run` short-circuits from ~1250 ms to 144 ms. Its sample rate is also hardcoded at `-F 99`, too coarse for a 2 s run. `0x --visualize-only` avoids the recording path and works fine, but adds a dependency the SVGs do not need, so `0x` is not used here. (An earlier draft of this document blamed a `sed -i` that `0x` runs over the binary `perf.data`. That was wrong — in sed BRE the pattern is an inert literal; measured, it removes 0 bytes. The real symbolization problem is caveat 3.)
 
 3. **The `node` binary does not symbolize on this container.** Independently of 0x, files on certain overlay inodes — including `/usr/local/share/nvm/.../bin/node` — are recorded as `/ (deleted)`. Files under `/workspaces` (ext4) and `/tmp` resolve fine. Running a **copy** of the node binary from `/tmp` fixes it: unknown frames drop from **96% → 19%** and V8/node C++ symbols appear. A copy named `node` earlier in `PATH` does the same for the FFI subprocesses.
 
