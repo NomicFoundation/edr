@@ -1,9 +1,5 @@
 name: Select node image
-description:
-  Resolves the node Docker image for a job. Normal runs use the GHCR mirror
-  (see mirror-docker-images.yml); release runs pull the official Docker Hub
-  image directly, keeping the mirror out of the supply chain of published
-  binaries.
+description: Resolves the node Docker image for a job. Normal runs use the GHCR mirror (see mirror-docker-images.yml); release runs pull the official Docker Hub image directly, keeping the mirror out of the supply chain of published binaries.
 
 inputs:
   tag:
