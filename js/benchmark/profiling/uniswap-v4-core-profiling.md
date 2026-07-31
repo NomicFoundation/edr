@@ -63,7 +63,7 @@ If anything on the artifact path deserves laziness, it is this — and unlike pe
 
 ### 3.3 Inline-config collection is the largest fixed cost
 
-`getTestFunctionOverrides` (Slang parsing for `forge-config:` comments) costs **223–409 ms** and returns **1 entry**. At `runs=10` that is 14–19% of the entire run — more than solc, more than artifact loading and build-info loading combined. It is a constant cost, so it is invisible at `runs=1000` (4–5%) but dominates short runs, which is exactly the edit-test loop case.
+`getTestFunctionOverrides` costs **223–409 ms** and returns **1 entry**. At `runs=10` that is 14–19% of the entire run — more than solc, more than artifact loading and build-info loading combined. It is a constant cost, so it is invisible at `runs=1000` (4–5%) but dominates short runs, which is exactly the edit-test loop case.
 
 ### 3.4 Cheatcode inspector hooks are ~24% of native CPU
 
