@@ -165,6 +165,7 @@ jobs:
         if: ${{ matrix.settings.docker_tag && matrix.settings.flavor == 'gnu'}}
         with:
           image: ${{ steps.select-image.outputs.ref }}
+          # GHCR auth for mirror pulls; unused when a release run selects the Docker Hub image.
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -194,6 +195,7 @@ jobs:
         if: ${{ matrix.settings.docker_tag && matrix.settings.flavor == 'musl' }}
         with:
           image: ${{ steps.select-image.outputs.ref }}
+          # GHCR auth for mirror pulls; unused when a release run selects the Docker Hub image.
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -303,7 +305,7 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
-      - name: Log in to GHCR
+      - name: Log in to GHCR # for mirror pulls; unused when a release run selects the Docker Hub image
         uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ghcr.io
@@ -355,7 +357,7 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
-      - name: Log in to GHCR
+      - name: Log in to GHCR # for mirror pulls; unused when a release run selects the Docker Hub image
         uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ghcr.io
@@ -416,6 +418,7 @@ jobs:
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         with:
           image: ${{ steps.select-image.outputs.ref }}
+          # GHCR auth for mirror pulls; unused when a release run selects the Docker Hub image.
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -469,6 +472,7 @@ jobs:
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 # v3
         with:
           image: ${{ steps.select-image.outputs.ref }}
+          # GHCR auth for mirror pulls; unused when a release run selects the Docker Hub image.
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
