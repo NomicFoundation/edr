@@ -1,0 +1,50 @@
+{
+  "label": "perf-r10",
+  "repo": "/workspaces/migrations/uniswap-v4-core",
+  "fuzzRuns": 10,
+  "totalMs": 2344.526167,
+  "phases": [
+    {
+      "name": "hre:construct",
+      "ms": 22.41345899999999
+    },
+    {
+      "name": "build:all",
+      "ms": 319.69599999999997
+    },
+    {
+      "name": "artifacts:load",
+      "ms": 28.099334,
+      "note": "139 artifacts"
+    },
+    {
+      "name": "buildInfos:load",
+      "ms": 322.463708,
+      "note": "1 build infos, 61.8 MiB"
+    },
+    {
+      "name": "inlineConfig:collect",
+      "ms": 406.06600000000003,
+      "note": "1 entries"
+    },
+    {
+      "name": "runnerConfig:build",
+      "ms": 0.5029999999999291
+    },
+    {
+      "name": "edr:context",
+      "ms": 0.503582999999935
+    },
+    {
+      "name": "solidityTests:run",
+      "ms": 1231.568168,
+      "note": "39 suites"
+    }
+  ],
+  "tests": {
+    "pass": 598,
+    "fail": 0,
+    "skip": 0,
+    "suites": 39
+  }
+}

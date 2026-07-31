@@ -1,0 +1,107 @@
+################ r10 ################
+total samples: 4281  (999.0 Hz => ~4.29 CPU-seconds)
+
+=== CPU by component (process/thread role) ===
+  main-process (JS/hardhat + napi calls)        1582   36.95%    1.58s
+  FFI subprocess (node)                         1217   28.43%    1.22s
+  FFI subprocess (npm)                           664   15.51%    0.66s
+  EDR solidity-test runner (native)              614   14.34%    0.61s
+  node threadpool (file I/O)                     202    4.72%    0.20s
+  other (DelayedTaskSche)                          2    0.05%    0.00s
+
+=== hottest leaf frames: tokio-rt-worker (612 resolved samples) ===
+      60    9.80%  <...>::inspect_run
+      51    8.33%  <...>::insert_push_bytes_values
+      50    8.17%  <...>::step
+      48    7.84%  <...>::insert_full
+      34    5.56%  keccak::backends::aarch64_sha3::p1600_armv8_sha3
+      27    4.41%  <...>::step_end
+      21    3.43%  _mi_theap_realloc_zero
+      19    3.10%  foldhash::hash_bytes_long
+      15    2.45%  revm_interpreter::instructions::stack::push::<...>
+      12    1.96%  revm_bytecode::legacy::analysis::analyze_legacy
+      12    1.96%  <...>
+      12    1.96%  <...>
+
+=== hottest leaf frames: node-prof (1580 resolved samples) ===
+     121    7.66%  Builtins_CreateTypedArray
+      80    5.06%  __aarch64_ldadd8_relax
+      75    4.75%  void v8::internal::CopyChars<unsigned char, unsigned short>(unsigned short*, unsigned char const*, unsigned long)
+      73    4.62%  void v8::internal::Utf8DecoderBase<...>)
+      46    2.91%  heap::base::SlotCallbackResult v8::internal::Scavenger::ScavengeObject<...>)
+      45    2.85%  heap::base::SlotCallbackResult v8::internal::Scavenger::EvacuateInPlaceInternalizableString<...>, int, v8::internal::ObjectFields)
+      27    1.71%  v8::internal::HeapObject::SizeFromMap(v8::internal::Tagged<v8::internal::Map>) const
+      26    1.65%  void v8::internal::CopyChars<unsigned short, unsigned char>(unsigned char*, unsigned short const*, unsigned long)
+      26    1.65%  v8::internal::JsonParser<unsigned short>::ScanJsonString(bool)
+      21    1.33%  void v8::internal::Utf8DecoderBase<...>)
+
+=== inclusive share of samples containing pattern (4281 samples) ===
+  napi LinkingOutput::link (artifact deser + linking)       11    0.257%  0.011s
+  serde_json (JSON deser in native code)                     2    0.047%  0.002s
+  napi string/JS value conversion                            8    0.187%  0.008s
+  revm interpreter step                                    398    9.297%  0.398s
+  foundry cheatcodes                                       100    2.336%  0.100s
+
+samples          : 4281
+wall span        : 2.665s
+samples/wall-sec : 1606.2
+requested rate   : 999.0 Hz per thread
+=> implies ~1.61 threads on-CPU on average
+
+If samples/wall-sec is not ~= (threads x requested rate), the kernel throttled;
+cross-check with: sudo perf report -i <data> --stats | grep -iE 'THROTTLE|LOST'
+
+################ r1000 ################
+total samples: 22445  (999.0 Hz => ~22.47 CPU-seconds)
+
+=== CPU by component (process/thread role) ===
+  EDR solidity-test runner (native)            18830   83.89%   18.85s
+  FFI subprocess (node)                         1411    6.29%    1.41s
+  main-process (JS/hardhat + napi calls)        1315    5.86%    1.32s
+  FFI subprocess (npm)                           669    2.98%    0.67s
+  node threadpool (file I/O)                     218    0.97%    0.22s
+  FFI subprocess (sh)                              1    0.00%    0.00s
+  other (DelayedTaskSche)                          1    0.00%    0.00s
+
+=== hottest leaf frames: tokio-rt-worker (18826 resolved samples) ===
+    3642   19.35%  <...>::inspect_run
+    2985   15.86%  <...>::step
+    1379    7.32%  <...>::step_end
+     970    5.15%  keccak::backends::aarch64_sha3::p1600_armv8_sha3
+     529    2.81%  revm_interpreter::instructions::stack::push::<...>
+     488    2.59%  revm_interpreter::instructions::stack::push::<...>
+     345    1.83%  revm_interpreter::instructions::memory::mload::<...>
+     304    1.61%  revm_interpreter::instructions::control::jumpi::<...>
+     259    1.38%  revm_interpreter::instructions::memory::mstore::<...>
+     253    1.34%  alloy_primitives::utils::keccak256_impl
+     236    1.25%  revm_interpreter::instructions::control::jump::<...>
+     236    1.25%  revm_interpreter::instructions::stack::swap::<...>
+
+=== hottest leaf frames: node-prof (1313 resolved samples) ===
+      89    6.78%  __aarch64_ldadd8_relax
+      75    5.71%  void v8::internal::CopyChars<unsigned char, unsigned short>(unsigned short*, unsigned char const*, unsigned long)
+      58    4.42%  heap::base::SlotCallbackResult v8::internal::Scavenger::EvacuateInPlaceInternalizableString<...>, int, v8::internal::ObjectFields)
+      52    3.96%  Builtins_CreateTypedArray
+      43    3.27%  heap::base::SlotCallbackResult v8::internal::Scavenger::ScavengeObject<...>)
+      33    2.51%  void v8::internal::Utf8DecoderBase<...>)
+      31    2.36%  v8::internal::JsonParser<unsigned short>::ScanJsonString(bool)
+      29    2.21%  v8::internal::HeapObject::SizeFromMap(v8::internal::Tagged<v8::internal::Map>) const
+      22    1.68%  void v8::internal::CopyChars<unsigned short, unsigned char>(unsigned char*, unsigned short const*, unsigned long)
+      21    1.60%  v8::base::OS::Free(void*, unsigned long)
+
+=== inclusive share of samples containing pattern (22445 samples) ===
+  napi LinkingOutput::link (artifact deser + linking)        6    0.027%  0.006s
+  serde_json (JSON deser in native code)                     2    0.009%  0.002s
+  napi string/JS value conversion                            7    0.031%  0.007s
+  revm interpreter step                                  17855   79.550%  17.873s
+  foundry cheatcodes                                      4772   21.261%  4.777s
+
+samples          : 22445
+wall span        : 6.052s
+samples/wall-sec : 3708.7
+requested rate   : 999.0 Hz per thread
+=> implies ~3.71 threads on-CPU on average
+
+If samples/wall-sec is not ~= (threads x requested rate), the kernel throttled;
+cross-check with: sudo perf report -i <data> --stats | grep -iE 'THROTTLE|LOST'
+

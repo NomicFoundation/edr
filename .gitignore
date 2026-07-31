@@ -115,3 +115,13 @@ Brewfile.lock.json
 benchmark-output.json
 
 .pnpm-store/
+
+# Solidity-test profiling captures and renders (see js/benchmark/profiling/README.md).
+# Captures are hundreds of MB, renders tens of MB, and none of it is portable --
+# symbolization needs the exact binaries. Regenerate with record.sh / render.sh.
+*.perf.data
+perf.data
+stacks-*.out
+*.folded
+flamegraph-*.html
+profiling-out/
