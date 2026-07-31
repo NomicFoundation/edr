@@ -162,10 +162,18 @@ jobs:
         # Yarn classic: no override is needed. It doesn't have a persistent
         # metadata cache, and its tarball cache slug includes the tarball's
         # sha1.
+        #
+        # All caches live under PACKAGE_MANAGER_CACHES so the cleanup step can
+        # remove that single directory without being updated for every cache
+        # added here.
         run: |
           set -euo pipefail
-          echo "BUN_INSTALL_CACHE_DIR=${RUNNER_TEMP:?}/bun-install-cache" >> "$GITHUB_ENV"
-          echo "YARN_GLOBAL_FOLDER=${RUNNER_TEMP:?}/yarn-global" >> "$GITHUB_ENV"
+          PACKAGE_MANAGER_CACHES="${RUNNER_TEMP:?}/package-manager-caches"
+          {
+            echo "PACKAGE_MANAGER_CACHES=$PACKAGE_MANAGER_CACHES"
+            echo "BUN_INSTALL_CACHE_DIR=$PACKAGE_MANAGER_CACHES/bun-install"
+            echo "YARN_GLOBAL_FOLDER=$PACKAGE_MANAGER_CACHES/yarn-global"
+          } >> "$GITHUB_ENV"
 
       - name: Compute sentinel versions
         # Writes EDR_VER and HH_VER to $GITHUB_ENV
@@ -406,7 +414,7 @@ jobs:
         # Self-hosted runners don't automatically wipe RUNNER_TEMP between jobs, so we do
         # this manually to avoid polluting future runs.
         if: always()
-        run: rm -rf "$E2E_CLONE_DIR" "$BUN_INSTALL_CACHE_DIR" "$YARN_GLOBAL_FOLDER"
+        run: rm -rf "$E2E_CLONE_DIR" "$PACKAGE_MANAGER_CACHES"
 
   report:
     name: Report result to PR
