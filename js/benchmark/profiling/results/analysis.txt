@@ -9,6 +9,40 @@ total samples: 4281  (999.0 Hz => ~4.29 CPU-seconds)
   node threadpool (file I/O)                     202    4.72%    0.20s
   other (DelayedTaskSche)                          2    0.05%    0.00s
 
+=== native subsystems (exclusive): tokio-rt-worker ===
+614 samples, 612 with a resolved frame, ~0.61s CPU
+
+  EVM interpreter (opcodes)                131   21.41%    0.13s  ########
+  hashing + collections                     96   15.69%    0.10s  ######
+  cheatcode inspector                       93   15.20%    0.09s  ######
+  EVM handler / frame setup                 63   10.29%    0.06s  ####
+  other                                     61    9.97%    0.06s  ####
+  fuzzing (generation + dictionary)         53    8.66%    0.05s  ###
+  allocator (mimalloc)                      43    7.03%    0.04s  ###
+  keccak                                    42    6.86%    0.04s  ###
+  state / journal / database                10    1.63%    0.01s  #
+  core/std                                   9    1.47%    0.01s  #
+  suite dispatch / runner                    6    0.98%    0.01s  
+  ABI / primitives (alloy)                   4    0.65%    0.00s  
+  rayon scheduling                           1    0.16%    0.00s  
+
+  TOTAL                                    612  100.00%
+
+hottest symbol in each bucket:
+  EVM interpreter (opcodes)                15  revm_interpreter::instructions::stack::push::<...>
+  hashing + collections                    48  <...>::insert_full
+  cheatcode inspector                      50  <...>::step
+  EVM handler / frame setup                60  <...>::inspect_run
+  other                                    12  revm_bytecode::legacy::analysis::analyze_legacy
+  fuzzing (generation + dictionary)        51  <...>::insert_push_bytes_values
+  allocator (mimalloc)                     21  _mi_theap_realloc_zero
+  keccak                                   34  keccak::backends::aarch64_sha3::p1600_armv8_sha3
+  state / journal / database                4  <...>::sload_concrete_error
+  core/std                                  2  <...>
+  suite dispatch / runner                   2  <...>::run_test_suite
+  ABI / primitives (alloy)                  1  <...>::decode_sequence
+  rayon scheduling                          1  rayon::iter::plumbing::bridge_producer_consumer::helper::<...>
+
 === hottest leaf frames: tokio-rt-worker (612 resolved samples) ===
       60    9.80%  <...>::inspect_run
       51    8.33%  <...>::insert_push_bytes_values
@@ -62,6 +96,42 @@ total samples: 22445  (999.0 Hz => ~22.47 CPU-seconds)
   node threadpool (file I/O)                     218    0.97%    0.22s
   FFI subprocess (sh)                              1    0.00%    0.00s
   other (DelayedTaskSche)                          1    0.00%    0.00s
+
+=== native subsystems (exclusive): tokio-rt-worker ===
+18830 samples, 18826 with a resolved frame, ~18.84s CPU
+
+  EVM interpreter (opcodes)               6490   34.47%    6.50s  #############
+  cheatcode inspector                     4509   23.95%    4.51s  #########
+  EVM handler / frame setup               3747   19.90%    3.75s  ########
+  other                                   1317    7.00%    1.32s  ###
+  keccak                                  1268    6.74%    1.27s  ###
+  state / journal / database               342    1.82%    0.34s  #
+  core/std                                 335    1.78%    0.34s  #
+  allocator (mimalloc)                     295    1.57%    0.30s  #
+  hashing + collections                    215    1.14%    0.22s  
+  fuzzing (generation + dictionary)        127    0.67%    0.13s  
+  suite dispatch / runner                  106    0.56%    0.11s  
+  ABI / primitives (alloy)                  73    0.39%    0.07s  
+  napi boundary                              1    0.01%    0.00s  
+  rayon scheduling                           1    0.01%    0.00s  
+
+  TOTAL                                  18826  100.00%
+
+hottest symbol in each bucket:
+  EVM interpreter (opcodes)               529  revm_interpreter::instructions::stack::push::<...>
+  cheatcode inspector                    2985  <...>::step
+  EVM handler / frame setup              3642  <...>::inspect_run
+  other                                   221  <...>::inspect_frame_init
+  keccak                                  970  keccak::backends::aarch64_sha3::p1600_armv8_sha3
+  state / journal / database              125  <...>::sload_concrete_error
+  core/std                                118  <...>::generate_and_set
+  allocator (mimalloc)                     91  mi_free
+  hashing + collections                    47  <...>::insert_full
+  fuzzing (generation + dictionary)        38  <...>::insert_push_bytes_values
+  suite dispatch / runner                  53  foundry_evm::executors::convert_executed_result::<...>
+  ABI / primitives (alloy)                 24  <...>
+  napi boundary                             1  <edr_napi::context::EdrContext>::run_solidity_tests::{closure#0}
+  rayon scheduling                          1  rayon::iter::plumbing::bridge_producer_consumer::helper::<...>
 
 === hottest leaf frames: tokio-rt-worker (18826 resolved samples) ===
     3642   19.35%  <...>::inspect_run

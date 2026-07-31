@@ -341,6 +341,18 @@ async function main() {
     `\ntests: ${pass} passed, ${fail} failed, ${skip} skipped, ${results.length} suites\n`
   );
 
+  // ------------------------------------------- inside solidityTests:run
+  //
+  // `solidityTests:run` is a single wall-clock number covering the whole native
+  // run, and at fuzz.runs=1000 it is ~90% of the total -- so on its own it says
+  // nothing about *what* is slow. EDR already reports durationNs per suite and
+  // per test plus the test kind, so the interior can be broken down without any
+  // extra instrumentation.
+  const runPhaseMs =
+    phases.find((p) => p.name === "solidityTests:run")?.ms ?? NaN;
+  const breakdown = summariseRun(results as SuiteResult[], runPhaseMs);
+  printRunBreakdown(breakdown, runPhaseMs);
+
   if (ARGS.json !== undefined) {
     fs.writeFileSync(
       ARGS.json,
@@ -352,10 +364,160 @@ async function main() {
           totalMs,
           phases,
           tests: { pass, fail, skip, suites: results.length },
+          solidityTestsRun: breakdown,
         },
         null,
         2
       )
+    );
+  }
+}
+
+// ---------------------------------------------------------------- interior
+
+const NS_PER_MS = 1e6;
+
+type Kind = "standard" | "fuzz" | "invariant";
+
+/**
+ * Discriminate the test kind union. The three shapes are only distinguishable
+ * structurally: InvariantTestKind has `calls`, FuzzTestKind has `runs` but not
+ * `calls`, StandardTestKind has neither.
+ */
+function kindOf(kind: any): Kind {
+  if (kind === null || kind === undefined) return "standard";
+  if ("calls" in kind) return "invariant";
+  if ("runs" in kind) return "fuzz";
+  return "standard";
+}
+
+interface RunBreakdown {
+  suiteWallMs: number;
+  suiteDurationSumMs: number;
+  testDurationSumMs: number;
+  parallelism: number;
+  maxSuiteMs: number;
+  outsideLongestSuiteMs: number;
+  byKind: Record<
+    Kind,
+    { count: number; ms: number; share: number; runs: number }
+  >;
+  topSuites: Array<{ name: string; ms: number; tests: number }>;
+  topTests: Array<{ name: string; suite: string; ms: number; kind: Kind }>;
+}
+
+function summariseRun(
+  suites: SuiteResult[],
+  runPhaseMs: number
+): RunBreakdown {
+  const byKind: RunBreakdown["byKind"] = {
+    standard: { count: 0, ms: 0, share: 0, runs: 0 },
+    fuzz: { count: 0, ms: 0, share: 0, runs: 0 },
+    invariant: { count: 0, ms: 0, share: 0, runs: 0 },
+  };
+
+  let suiteDurationSumMs = 0;
+  let testDurationSumMs = 0;
+  const suiteRows: RunBreakdown["topSuites"] = [];
+  const testRows: RunBreakdown["topTests"] = [];
+
+  for (const suite of suites) {
+    const suiteMs = Number(suite.durationNs) / NS_PER_MS;
+    suiteDurationSumMs += suiteMs;
+    suiteRows.push({
+      name: suite.id.name,
+      ms: suiteMs,
+      tests: suite.testResults.length,
+    });
+
+    for (const t of suite.testResults) {
+      const ms = Number(t.durationNs) / NS_PER_MS;
+      const k = kindOf(t.kind);
+      testDurationSumMs += ms;
+      byKind[k].count += 1;
+      byKind[k].ms += ms;
+      // `runs` is the fuzz/invariant iteration count -- how much work the case
+      // actually did, which is what makes fuzz cases expensive.
+      const runs = (t.kind as any)?.runs;
+      if (runs !== undefined) byKind[k].runs += Number(runs);
+      testRows.push({ name: t.name, suite: suite.id.name, ms, kind: k });
+    }
+  }
+
+  for (const k of Object.keys(byKind) as Kind[]) {
+    byKind[k].share =
+      testDurationSumMs > 0 ? (100 * byKind[k].ms) / testDurationSumMs : 0;
+  }
+
+  suiteRows.sort((a, b) => b.ms - a.ms);
+  testRows.sort((a, b) => b.ms - a.ms);
+
+  return {
+    suiteWallMs: runPhaseMs,
+    suiteDurationSumMs,
+    testDurationSumMs,
+    // Suites run concurrently, so the summed suite time exceeds the wall clock.
+    parallelism: runPhaseMs > 0 ? suiteDurationSumMs / runPhaseMs : NaN,
+    // The longest single suite is the critical path: the run cannot finish
+    // sooner than this no matter how many cores are available.
+    maxSuiteMs: suiteRows.length > 0 ? suiteRows[0].ms : 0,
+    // Everything the wall clock spent outside that critical-path suite. This is
+    // a *mixture* -- one-shot native setup (artifact deserialization, library
+    // linking, revert-decoder construction, trace identification, gas report)
+    // plus scheduling and the tail of other suites -- so it is an upper bound on
+    // one-shot overhead, not a measurement of it. Use the perf capture
+    // (`analyze.py subsystems`) to separate those.
+    outsideLongestSuiteMs:
+      runPhaseMs - (suiteRows.length > 0 ? suiteRows[0].ms : 0),
+    byKind,
+    topSuites: suiteRows.slice(0, 10),
+    topTests: testRows.slice(0, 10),
+  };
+}
+
+function printRunBreakdown(b: RunBreakdown, runPhaseMs: number) {
+  const w = process.stderr.write.bind(process.stderr);
+  w(`\n=== inside solidityTests:run (${runPhaseMs.toFixed(1)} ms wall) ===\n`);
+  w(
+    `sum of suite durations      ${b.suiteDurationSumMs.toFixed(1).padStart(10)} ms   ` +
+      `=> ~${b.parallelism.toFixed(2)}x parallelism across suites\n`
+  );
+  w(
+    `sum of test durations       ${b.testDurationSumMs.toFixed(1).padStart(10)} ms   ` +
+      `(${(b.suiteDurationSumMs - b.testDurationSumMs).toFixed(1)} ms in suites but outside tests: deploy + setUp)\n`
+  );
+  w(
+    `longest single suite        ${b.maxSuiteMs.toFixed(1).padStart(10)} ms   ` +
+      `critical path -- the run cannot beat this\n`
+  );
+  w(
+    `outside the longest suite   ${b.outsideLongestSuiteMs.toFixed(1).padStart(10)} ms   ` +
+      `one-shot native setup + scheduling + other suites' tail (upper bound, not a measurement)\n`
+  );
+
+  w(`\nby test kind (share of summed test time):\n`);
+  for (const k of ["standard", "fuzz", "invariant"] as Kind[]) {
+    const v = b.byKind[k];
+    if (v.count === 0) continue;
+    const runs = v.runs > 0 ? `, ${v.runs} iterations` : "";
+    w(
+      `  ${k.padEnd(10)} ${String(v.count).padStart(4)} tests  ${v.ms
+        .toFixed(1)
+        .padStart(9)} ms  ${v.share.toFixed(1).padStart(5)}%${runs}\n`
+    );
+  }
+
+  w(`\nslowest suites:\n`);
+  for (const s of b.topSuites) {
+    w(
+      `  ${s.ms.toFixed(1).padStart(9)} ms  ${String(s.tests).padStart(3)} tests  ${s.name}\n`
+    );
+  }
+
+  w(`\nslowest individual tests:\n`);
+  for (const t of b.topTests) {
+    w(
+      `  ${t.ms.toFixed(1).padStart(9)} ms  ${t.kind.padEnd(9)} ${t.suite}::${t.name}\n`
     );
   }
 }

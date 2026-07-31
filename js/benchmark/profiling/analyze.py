@@ -55,6 +55,28 @@ DEFAULT_PATTERNS = {
     "foundry cheatcodes": ["18foundry_cheatcodes"],
 }
 
+# Subsystems inside the native solidity-test runner, matched against the
+# *demangled* leaf symbol. Order matters: the first matching rule wins, so more
+# specific subsystems come before the generic machinery they sit on top of.
+SUBSYSTEMS = [
+    ("cheatcode inspector", ("foundry_cheatcodes", "Cheatcodes")),
+    ("fuzzing (generation + dictionary)", ("foundry_evm_fuzz", "FuzzDictionary", "proptest")),
+    ("invariant engine", ("foundry_evm_invariant", "::invariant")),
+    ("trace decoding + identification", ("foundry_evm_traces", "TraceIdentifier")),
+    ("artifact deser + library linking", ("LinkingOutput", "linker::Linker", "get_linked_artifacts")),
+    ("suite dispatch / runner", ("edr_solidity_tests", "multi_runner", "foundry_evm::executors")),
+    ("keccak", ("keccak", "sha3")),
+    ("EVM interpreter (opcodes)", ("revm_interpreter",)),
+    ("EVM handler / frame setup", ("revm_handler", "MainnetHandler")),
+    ("state / journal / database", ("revm_database", "revm_state", "edr_state", "edr_block", "Journal")),
+    ("ABI / primitives (alloy)", ("alloy_",)),
+    ("hashing + collections", ("indexmap", "hashbrown", "foldhash", "core::hash")),
+    ("allocator (mimalloc)", ("_mi_", "mi_page", "mi_heap", "mi_malloc", "mi_free")),
+    ("rayon scheduling", ("rayon",)),
+    ("napi boundary", ("edr_napi", "napi::")),
+    ("core/std", ("core::", "alloc::", "std::")),
+]
+
 
 def role_of(comm):
     return ROLE.get(comm, f"other ({comm})")
@@ -157,6 +179,97 @@ def cmd_pattern(args):
         print(f"  {label:52s} {n:7d}  {100.0*n/total:7.3f}%  {n/args.hz:.3f}s")
 
 
+def defining_path(demangled):
+    """Strip generic arguments, leaving the path that actually defines the symbol.
+
+    Necessary because revm/foundry monomorphise into enormous generic parameter
+    lists that mention half the workspace. Matching the raw string misattributes
+    wholesale: `revm_handler::…::MainnetHandler<Evm<Context<…revm_interpreter…>>>
+    ::inspect_run` contains "revm_interpreter" only inside its type parameters,
+    and would otherwise be charged to the interpreter instead of the handler.
+    """
+    d = demangled
+    if d.startswith("<"):
+        depth = 0
+        inner, rest = d[1:], ""
+        for i, ch in enumerate(d):
+            if ch == "<":
+                depth += 1
+            elif ch == ">":
+                depth -= 1
+                if depth == 0:
+                    inner, rest = d[1:i], d[i + 1 :]
+                    break
+        # "A<..> as Trait<..>" -> the implementing type A
+        head = inner.split(" as ")[0].split("<")[0]
+        return head + rest.split("<")[0]
+    return d.split("<")[0]
+
+
+def classify_subsystem(demangled):
+    path = defining_path(demangled)
+    for label, needles in SUBSYSTEMS:
+        if any(n in path for n in needles):
+            return label
+    return "other"
+
+
+def cmd_subsystems(args):
+    """Exclusive CPU share per native subsystem: apportions, so it sums to 100%.
+
+    Each sample is charged to the subsystem of its deepest resolved frame -- i.e.
+    where the CPU actually was, not what it passed through on the way down. An
+    inclusive view is near-useless here: at fuzz.runs=1000 essentially every
+    stack runs through the fuzz executor and the interpreter, so both read ~99%.
+    """
+    stacks = parse(args.stacks)
+    sel = (
+        [st for c, st in stacks if c == args.thread]
+        if args.thread
+        else [st for _, st in stacks]
+    )
+    if not sel:
+        print(f"no samples for thread={args.thread}", file=sys.stderr)
+        return
+
+    leaf = Counter()
+    for st in sel:
+        for f, _ in st:
+            if f != "[unknown]":
+                leaf[f.split("+")[0]] += 1
+                break
+
+    resolved = sum(leaf.values())
+    if resolved == 0:
+        print("no resolved leaf frames", file=sys.stderr)
+        return
+
+    dm = demangle(list(leaf))
+    buckets = Counter()
+    examples = {}
+    for sym, n in leaf.items():
+        d = dm.get(sym, sym)
+        label = classify_subsystem(d)
+        buckets[label] += n
+        if n > examples.get(label, (0, ""))[0]:
+            examples[label] = (n, shorten(d))
+
+    scope = args.thread or "all threads"
+    print(
+        f"=== native subsystems (exclusive): {scope} ===\n"
+        f"{len(sel)} samples, {resolved} with a resolved frame, "
+        f"~{resolved/args.hz:.2f}s CPU\n"
+    )
+    for label, n in buckets.most_common():
+        bar = "#" * int(round(38 * n / resolved))
+        print(f"  {label:36s} {n:7d}  {100.0*n/resolved:6.2f}%  {n/args.hz:6.2f}s  {bar}")
+    print(f"\n  {'TOTAL':36s} {resolved:7d}  100.00%")
+    print("\nhottest symbol in each bucket:")
+    for label, _ in buckets.most_common():
+        n, ex = examples.get(label, (0, "-"))
+        print(f"  {label:36s} {n:6d}  {ex[:100]}")
+
+
 def cmd_rate(args):
     """Confirm perf actually sampled at the requested rate (no kernel throttling)."""
     ts = []
@@ -201,6 +314,15 @@ def main():
     p.add_argument("stacks")
     p.add_argument("--pat", default=None, help="single symbol substring instead of the defaults")
     p.set_defaults(fn=cmd_pattern)
+
+    p = sub.add_parser("subsystems")
+    p.add_argument("stacks")
+    p.add_argument(
+        "--thread",
+        default="tokio-rt-worker",
+        help="comm to scope to (default: the EDR runner threads); '' for all",
+    )
+    p.set_defaults(fn=cmd_subsystems)
 
     p = sub.add_parser("rate")
     p.add_argument("stacks")

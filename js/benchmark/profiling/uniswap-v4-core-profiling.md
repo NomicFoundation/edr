@@ -82,6 +82,24 @@ Hottest leaf frames inside the native runner at `runs=1000` (18830 samples, 1882
 
 At `runs=10` the mix shifts toward fuzzing setup. Note these four are within each other's error bars (~±1.2 pp at 1σ on 612 resolved samples), so read them as comparable rather than ranked: `inspect_run` 9.80%, `FuzzDictionary::insert_push_bytes_values` 8.33%, `Cheatcodes::step` 8.17%, `IndexMap::insert_full` 7.84% — i.e. building the fuzz dictionary becomes as expensive as execution itself.
 
+Rolled up by subsystem — each sample charged to the subsystem of its deepest resolved frame, so this apportions and sums to 100% (`analyze.py subsystems`):
+
+| Subsystem                             | `runs=1000` | `runs=10`  |
+| ------------------------------------- | ----------- | ---------- |
+| EVM interpreter (opcodes)             | 34.47%      | 21.41%     |
+| Cheatcode inspector                   | 23.95%      | 15.20%     |
+| EVM handler / frame setup             | 19.90%      | 10.29%     |
+| keccak                                | 6.74%       | 6.86%      |
+| hashing + collections                 | 1.14%       | **15.69%** |
+| allocator (mimalloc)                  | 1.57%       | 7.03%      |
+| fuzz generation + dictionary          | 0.67%       | 8.66%      |
+| state / journal / database            | 1.82%       | 1.63%      |
+| other / core / std / alloy / dispatch | 9.74%       | 12.23%     |
+
+The `runs=10` column is a different shape rather than noise: hashing+collections at 15.69% and fuzz-dictionary at 8.66% are the fuzz corpus being built, a fixed cost amortised away by 1000 runs. Small-sample caveat applies (612 resolved samples, ~±1.2 pp).
+
+One classification trap worth recording: an earlier version of this table charged `MainnetHandler::inspect_run` — 3642 samples, the hottest single frame — to the interpreter rather than the handler, because `revm_interpreter` appears inside its _generic parameters_. That put the interpreter at 55.52% and the handler at 0.70%. `analyze.py subsystems` now strips generic arguments before matching; `analyze.py pattern` matches raw mangled substrings and still has this weakness by design.
+
 ### 3.5 FFI costs ~2 CPU-seconds and is independent of fuzz runs
 
 `test/utils/JavascriptFfi.sol` does:
@@ -101,12 +119,55 @@ Every `vm.ffi` call spawns **`npm run`**, which then spawns node. Cost:
 
 The near-identical absolute cost confirms these tests are pinned by inline config regardless of the global `fuzz.runs`. Roughly a third of it (0.66–0.67 s) is **npm's own startup**, doing no useful work. Invoking `node ./test/js-scripts/dist/<script>.js` directly instead of `npm run` would remove that outright. This is a property of the port, not of EDR — but it is large enough to distort any benchmark of this repo, and worth knowing about.
 
+### 3.6 Inside `solidityTests:run`: fixtures are 30% of suite time, and parallelism is already exhausted
+
+`solidityTests:run` is a single number covering ~90% of the run, so on its own it says nothing about what is slow. EDR reports `durationNs` per suite and per test plus the test kind, so the interior decomposes with no extra instrumentation (`profile-uniswap.ts` does this automatically; raw data in [`results/phases-interior-*.json`](results/)).
+
+|  | `runs=10` | `runs=1000` |
+| --- | --- | --- |
+| `solidityTests:run` wall | 1147.0 ms | 4649.8 ms |
+| Sum of suite durations | 3138.7 ms | 33640.0 ms |
+| Effective parallelism across suites | 2.74× | 7.23× |
+| Sum of test durations | 2381.9 ms | 23665.3 ms |
+| **In suites but outside tests (deploy + `setUp`)** | **756.8 ms (24%)** | **9974.7 ms (30%)** |
+| Longest single suite (critical path) | 1133.5 ms | 4617.1 ms |
+| Outside the longest suite | 13.5 ms | 32.7 ms |
+
+Three things follow:
+
+**Parallelism is already exhausted.** At `runs=1000` the whole native call takes 4649.8 ms and the longest single suite takes 4617.1 ms — only 32.7 ms happens outside it. One-shot native setup is therefore negligible (consistent with §3.1's 11 ms for linking), and more cores buy nothing. The only way to shorten the run is to split the critical-path suites: `PoolTest` (4617 ms, 4 tests) and `ERC6909ClaimsTest` (4617 ms, 29 tests).
+
+**Roughly 30% of suite time is fixtures, not tests.** The gap between summed suite time and summed test time is contract deployment plus `setUp()`. `ERC6909ClaimsTest` spends 4617 ms across 29 tests; `PoolTest` spends the same across 4. This is a cost category not visible anywhere else in this document.
+
+**Fuzzing is nearly all of the test time at the project's real config.** 158 fuzz tests account for 22446.6 ms (94.9%) across 157010 iterations, against 440 standard tests at 1218.6 ms (5.1%). Two tests are 28% of all test time on their own:
+
+| Test | ms | kind |
+| --- | --- | --- |
+| `V3SwapTests::test_shouldSwapEqualMultipleLP` | 3886.0 | fuzz |
+| `CustomAccountingTest::test_fuzz_swap_beforeSwap_returnsDeltaSpecified` | 2782.9 | fuzz |
+| `ExtsloadTest::test_fuzz_extsload` | 2137.8 | fuzz |
+| `ExtsloadTest::test_fuzz_consecutiveExtsload` | 1651.4 | fuzz |
+| `ModifyLiquidityTest::test_ffi_fuzz_addLiquidity_defaultPool_…` | 1444.1 | fuzz |
+
+At `runs=10` the balance shifts to 63.4% fuzz / 36.6% standard, which is why the two regimes give different advice.
+
+Caveat on comparing these to §1: the interior figures come from a later pair of runs, on a quieter machine — `solidityTests:run` was 4649.8 ms here versus 4775–4888 ms in the §1 table. The proportions hold; do not compare the two sets to the decimal.
+
 ## 4. Recommendation ordering
 
-1. `Cheatcodes::step`/`step_end` — 23.18% of native CPU, the only large addressable EDR cost.
-2. `inlineConfig:collect` — 223–409 ms fixed, dominates short/iterative runs.
-3. `buildInfos:load` — 61.8 MiB of JSON parsed per invocation; skip when traces are off.
-4. Not artifact loading — measured at ~11 ms native, ~20 ms JS.
+**In EDR:**
+
+1. `Cheatcodes::step`/`step_end` — 23.18% of native CPU (§3.4), the largest addressable EDR cost. Per-opcode inspector callbacks paid whether or not a cheatcode is in play.
+2. `inlineConfig:collect` — 223–409 ms fixed (§3.3), dominates short/iterative runs. Half of it is UTF-8 decode and string widening over build-info JSON, which is the same work as item 3.
+3. `buildInfos:load` — 61.8 MiB of JSON parsed per invocation (§3.2); skip when traces are off. Items 2 and 3 are one problem: the build-info output is decoded twice per run.
+4. **Not** artifact loading — measured at ~11 ms native, ~20 ms JS (§3.1).
+5. **Not** scheduling or one-shot native setup — 32.7 ms of a 4649.8 ms native call happens outside the longest suite (§3.6).
+
+**In the project (not EDR, but larger than most of the above):**
+
+6. Deploy + `setUp()` is ~30% of all suite time (§3.6) — 9975 ms at `runs=1000`.
+7. Two fuzz tests are 28% of all test time (§3.6); `PoolTest` and `ERC6909ClaimsTest` are the critical path and cap what parallelism can do.
+8. Every `vm.ffi` call spawns `npm run` (§3.5) — ~2 CPU-seconds regardless of fuzz runs, a third of it npm startup doing nothing.
 
 ## 5. Reproducing
 
@@ -117,18 +178,20 @@ CARGO_PROFILE_NAPI_PUBLISH_DEBUG=1 pnpm run build:perf-js   # ~9.5 min
 
 cd /workspaces/edr/js/benchmark/profiling
 
-# 2. Phase timings only (no profiler) -- cheap and repeatable
-node --import tsx profile-uniswap.ts --fuzz-runs 1000 --label warm
-node --import tsx profile-uniswap.ts --fuzz-runs 10   --label warm
+# 2. Phase timings + the solidityTests:run interior breakdown (section 3.6).
+#    No profiler needed -- EDR reports per-suite/per-test durations itself.
+node --import tsx profile-uniswap.ts --fuzz-runs 1000 --label warm --json phases.json
+node --import tsx profile-uniswap.ts --fuzz-runs 10   --label warm --json phases-r10.json
 
 # 3. Under perf. record.sh handles all four environment caveats in section 6.
 ./record.sh 1000 /tmp/prof
 ./record.sh 10   /tmp/prof
 
 # 4. Attribute
-python3 analyze.py components /tmp/prof/stacks-r1000.out
-python3 analyze.py frames     /tmp/prof/stacks-r1000.out --thread tokio-rt-worker
-python3 analyze.py pattern    /tmp/prof/stacks-r1000.out
+python3 analyze.py components  /tmp/prof/stacks-r1000.out   # CPU by process/thread role
+python3 analyze.py subsystems  /tmp/prof/stacks-r1000.out   # exclusive CPU per native subsystem
+python3 analyze.py frames      /tmp/prof/stacks-r1000.out --thread tokio-rt-worker
+python3 analyze.py pattern     /tmp/prof/stacks-r1000.out
 
 # 5. Render interactive flamegraphs, then view them in a browser
 ./render.sh /tmp/prof/stacks-r1000.out
