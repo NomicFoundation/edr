@@ -149,9 +149,23 @@ jobs:
         # Use the runner's temp dir for the scenario clones.
         run: echo "E2E_CLONE_DIR=${RUNNER_TEMP:?}/edr-e2e-clones" >> "$GITHUB_ENV"
 
-      - name: Configure per-run bun cache
-        # Set the bun cache directory to a temp dir that is cleaned up at the end of the job.
-        run: echo "BUN_INSTALL_CACHE_DIR=${RUNNER_TEMP:?}/bun-install-cache" >> "$GITHUB_ENV"
+      - name: Configure per-run package-manager caches
+        # The benchmark republishes deterministic versions (e.g. hardhat@3.12.1)
+        # whose content changes each run (new @nomicfoundation/edr pin), so any
+        # package-manager cache that persists on the self-hosted runner can
+        # resolve a prior run's stale republish. Point these caches at temp dirs
+        # that are cleaned up at the end of the job (see "Clean up temp dir").
+        #
+        # Yarn berry: the global folder holds both the zip cache and the npm
+        # packument metadata cache. YARN_* env vars override any .yarnrc.yml.
+        #
+        # Yarn classic: no override is needed. It doesn't have a persistent
+        # metadata cache, and its tarball cache slug includes the tarball's
+        # sha1.
+        run: |
+          set -euo pipefail
+          echo "BUN_INSTALL_CACHE_DIR=${RUNNER_TEMP:?}/bun-install-cache" >> "$GITHUB_ENV"
+          echo "YARN_GLOBAL_FOLDER=${RUNNER_TEMP:?}/yarn-global" >> "$GITHUB_ENV"
 
       - name: Compute sentinel versions
         # Writes EDR_VER and HH_VER to $GITHUB_ENV
@@ -392,7 +406,7 @@ jobs:
         # Self-hosted runners don't automatically wipe RUNNER_TEMP between jobs, so we do
         # this manually to avoid polluting future runs.
         if: always()
-        run: rm -rf "$E2E_CLONE_DIR" "$BUN_INSTALL_CACHE_DIR"
+        run: rm -rf "$E2E_CLONE_DIR" "$BUN_INSTALL_CACHE_DIR" "$YARN_GLOBAL_FOLDER"
 
   report:
     name: Report result to PR
