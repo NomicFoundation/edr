@@ -1,5 +1,4 @@
 [alias]
-gen-execution-api       = "run --locked --bin edr_tool_cli -- gen-execution-api"
 scenario                = "run --locked --release --bin edr_tool_cli -- scenario"
 scenario-with-tracing   = "run --locked --release --features tracing --bin edr_tool_cli -- scenario"
 replay-block            = "run --locked --release --bin edr_tool_cli -- replay-block"

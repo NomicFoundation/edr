@@ -3816,7 +3816,6 @@ name = "edr_tool_cli"
 version = "0.3.8"
 dependencies = [
  "anyhow",
- "cfg-if",
  "clap",
  "derive-where",
  "difference",
@@ -3838,12 +3837,9 @@ dependencies = [
  "indicatif",
  "mimalloc",
  "napi",
- "reqwest 0.13.4",
  "serde",
  "serde_json",
- "tempfile",
  "tokio",
- "toml",
  "tracing",
  "tracing-flame",
  "tracing-subscriber 0.3.23",
