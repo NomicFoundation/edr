@@ -124,8 +124,8 @@ jobs:
       # Release commits build cold: napi codegen relies on proc-macro
       # expansion (napi-rs#1297), so warm-cache builds risk shipping
       # stale or empty index.js / index.d.ts. Don't enable for releases.
-      - name: Cache cargo # zizmor: ignore[cache-poisoning] release builds run cold (guarded below); PR/main caches never feed a publish
-        if: needs.check_commit.outputs.tag == ''
+      - name: Cache cargo # zizmor: ignore[cache-poisoning] release builds run cold (asserted below); PR/main caches never feed a publish
+        if: needs.check_commit.outputs.is_release != 'true'
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
@@ -137,6 +137,18 @@ jobs:
           key: ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-
+
+      # Proves the cold-build invariant at runtime instead of trusting the
+      # skipped cache step: a broken gate fails the release loudly rather
+      # than shipping binaries built from a warm, poisonable cache.
+      - name: Assert release builds run cold
+        if: needs.check_commit.outputs.is_release == 'true'
+        shell: bash
+        run: |
+          if [ -e "${GITHUB_WORKSPACE}/target" ]; then
+            echo "target/ exists on a release build: the cargo cache gate is broken" >&2
+            exit 1
+          fi
 
       - name: Install dependencies (non-Windows)
         if: ${{ !matrix.settings.docker_tag && runner.os != 'Windows' }}
@@ -159,7 +171,7 @@ jobs:
         uses: ./.github/actions/select-node-image
         with:
           tag: ${{ matrix.settings.docker_tag }}
-          release-tag: ${{ needs.check_commit.outputs.tag }}
+          is-release: ${{ needs.check_commit.outputs.is_release }}
 
       - name: Build in docker (gnu)
         uses: NomicFoundation/docker-run-action@63f044457cfb71a5c63fa589218c89a418565d9c # Fork of v3 with updated Docker (https://github.com/addnab/docker-run-action/issues/62)
@@ -318,7 +330,7 @@ jobs:
         uses: ./.github/actions/select-node-image
         with:
           tag: ${{ matrix.node }}
-          release-tag: ${{ needs.check_commit.outputs.tag }}
+          is-release: ${{ needs.check_commit.outputs.is_release }}
       - name: Test bindings
         # Setting CI=1 is important to make PNPM install non-interactive
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
@@ -371,7 +383,7 @@ jobs:
         uses: ./.github/actions/select-node-image
         with:
           tag: ${{ matrix.node }}-alpine
-          release-tag: ${{ needs.check_commit.outputs.tag }}
+          is-release: ${{ needs.check_commit.outputs.is_release }}
       - name: Test bindings
         env:
           IMAGE: ${{ steps.select-image.outputs.ref }}
@@ -417,7 +429,7 @@ jobs:
         uses: ./.github/actions/select-node-image
         with:
           tag: ${{ matrix.node }}
-          release-tag: ${{ needs.check_commit.outputs.tag }}
+          is-release: ${{ needs.check_commit.outputs.is_release }}
       - name: Setup and run tests # zizmor: ignore[superfluous-actions] deliberate cross-arch (arm64) test runner
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         with:
@@ -472,7 +484,7 @@ jobs:
         uses: ./.github/actions/select-node-image
         with:
           tag: ${{ matrix.node }}-alpine
-          release-tag: ${{ needs.check_commit.outputs.tag }}
+          is-release: ${{ needs.check_commit.outputs.is_release }}
       - name: Setup and run tests # zizmor: ignore[superfluous-actions] deliberate cross-arch (arm64/musl) test runner
         uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 # v3
         with:
@@ -519,8 +531,13 @@ jobs:
             fi
           fi
 
+    # Single authority for release/non-release gating: every release-only or
+    # non-release-only step and job keys off `is_release`, derived here from
+    # `tag` so the two can't diverge. `tag` itself is only for the npm
+    # dist-tag (next/latest) in `publish`.
     outputs:
       tag: ${{ steps.check_commit.outputs.tag }}
+      is_release: ${{ steps.check_commit.outputs.tag != '' }}
 
   prepare:
     name: Prepare release bundle
@@ -670,7 +687,7 @@ jobs:
     name: Cargo cooldown check
     runs-on: ubuntu-24.04
     needs: check_commit
-    if: ${{ needs.check_commit.outputs.tag != '' }}
+    if: ${{ needs.check_commit.outputs.is_release == 'true' }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -683,7 +700,7 @@ jobs:
     name: Notify pre-deploy to Slack
     runs-on: ubuntu-24.04
     needs: [check_commit, cooldown-check, prepare, review]
-    if: ${{ needs.check_commit.outputs.tag != '' }}
+    if: ${{ needs.check_commit.outputs.is_release == 'true' }}
     steps:
       - name: Notify pre-deploy
         uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
@@ -719,7 +736,7 @@ jobs:
       id-token: write # Needed for npm Trusted Publishing (OIDC)
     needs: [check_commit, notify-deploy, prepare, review]
     # Only run workflow if there is a tag defined
-    if: ${{ needs.check_commit.outputs.tag != '' }}
+    if: ${{ needs.check_commit.outputs.is_release == 'true' }}
     steps:
       - name: Notify deployment to Slack
         uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
