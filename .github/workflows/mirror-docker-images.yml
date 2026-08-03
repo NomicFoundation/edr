@@ -24,7 +24,7 @@ on:
       - .github/workflows/mirror-docker-images.yml
   # Same-repo PRs touching this file mirror immediately, so a PR that adds a
   # tag below (e.g. a new node version) can be tested before merge. The
-  # edr-npm-release.yml docker jobs wait for this run before pulling.
+  # edr-npm-build.yml docker jobs wait for this run before pulling.
   pull_request:
     paths:
       - .github/workflows/mirror-docker-images.yml
@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           # Keep in sync with the node versions and container images in
-          # edr-npm-release.yml; a tag missing here fails CI with "manifest
+          # edr-npm-build.yml; a tag missing here fails CI with "manifest
           # unknown" on the mirror pull.
           TAGS=(22 22-alpine 24 24-alpine 24-bullseye-slim 26 26-alpine)
 

@@ -6,7 +6,7 @@ inputs:
     description: node image tag, e.g. 24-bullseye-slim or 22-alpine
     required: true
   is-release:
-    description: check_commit's is_release output; 'true' marks a release run
+    description: edr-npm-build.yml's release input; 'true' marks a release run
     required: true
 
 outputs:
