@@ -32,6 +32,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: read # select-node-image lists mirror workflow runs
     strategy:
       fail-fast: false
       matrix:
@@ -279,6 +280,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: read # select-node-image lists mirror workflow runs
     strategy:
       fail-fast: false
       matrix:
@@ -331,6 +333,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: read # select-node-image lists mirror workflow runs
     strategy:
       fail-fast: false
       matrix:
@@ -381,6 +384,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: read # select-node-image lists mirror workflow runs
     strategy:
       fail-fast: false
       matrix:
@@ -436,6 +440,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: read # select-node-image lists mirror workflow runs
     strategy:
       fail-fast: false
       matrix:
