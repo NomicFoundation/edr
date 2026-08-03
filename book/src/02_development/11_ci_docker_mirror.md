@@ -2,13 +2,13 @@
 
 CI pulls its Docker images from a GHCR mirror (`ghcr.io/nomicfoundation/edr/mirror/*`) instead of Docker Hub: Docker Hub rate-limits pulls, which fail intermittently on GitHub-hosted runners as a result. The mirror is maintained by `.github/workflows/mirror-docker-images.yml`, which re-copies the images weekly, on pushes to `main` and same-repo PRs that change the workflow itself, and on demand via `workflow_dispatch`.
 
-Release runs are the exception: when `check_commit` marks the run as a release (its `is_release` output), the docker jobs pull the official image straight from Docker Hub (the "Select image source" steps), so the mirror is never in the supply chain of published binaries — a tampered mirror tag can at most affect PR/branch CI, which publishes nothing. At one or two releases a week, Docker Hub's rate limits are not a concern for those runs.
+Release runs are the exception: when `edr-npm-build.yml` runs in release mode (its `release` input — see the [release chapter](../03_release.md)), the docker jobs pull the official image straight from Docker Hub (the "Select image source" steps), so the mirror is never in the supply chain of published binaries — a tampered mirror tag can at most affect PR/branch CI, which publishes nothing. At one or two releases a week, Docker Hub's rate limits are not a concern for those runs.
 
 ## Adding a Node.js version (or any new tag)
 
-Add the tag to the `TAGS` list in `mirror-docker-images.yml` in the same PR that changes the matrix in `edr-npm-release.yml`. The mirror workflow runs on same-repo PRs that touch it, so the new tag is mirrored — and the release matrix testable against it — before merge. A tag referenced in CI but missing from the mirror fails loudly with `manifest unknown`.
+Add the tag to the `TAGS` list in `mirror-docker-images.yml` in the same PR that changes the matrix in `edr-npm-build.yml`. The mirror workflow runs on same-repo PRs that touch it, so the new tag is mirrored — and the release matrix testable against it — before merge. A tag referenced in CI but missing from the mirror fails loudly with `manifest unknown`.
 
-On such a PR the mirror job and the release-workflow docker jobs start in parallel; the docker jobs' "Select image source" step waits for the mirror run on the same commit before pulling, so the new tag is in place by the time it's needed. The wait is best-effort and never fails the job: if the mirror run failed the jobs proceed with a warning, a skipped run (fork PRs) is logged, and a genuinely missing tag still fails the pull with `manifest unknown`. If that happens, re-run the failed jobs once the mirror run is green.
+On such a PR the mirror job and the build-workflow docker jobs start in parallel; the docker jobs' "Select image source" step waits for the mirror run on the same commit before pulling, so the new tag is in place by the time it's needed. The wait is best-effort and never fails the job: if the mirror run failed the jobs proceed with a warning, a skipped run (fork PRs) is logged, and a genuinely missing tag still fails the pull with `manifest unknown`. If that happens, re-run the failed jobs once the mirror run is green.
 
 ## Access
 
