@@ -23,7 +23,9 @@ on:
     paths:
       - .github/workflows/mirror-docker-images.yml
   # Same-repo PRs touching this file mirror immediately, so a PR that adds a
-  # tag below (e.g. a new node version) can be tested before merge.
+  # tag below (e.g. a new node version) can be tested before merge. The
+  # edr-npm-release.yml docker jobs wait for this run before pulling (see the
+  # select-node-image action).
   pull_request:
     paths:
       - .github/workflows/mirror-docker-images.yml

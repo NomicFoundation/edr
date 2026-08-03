@@ -17,6 +17,50 @@ outputs:
 runs:
   using: composite
   steps:
+    # On PRs/pushes that touch mirror-docker-images.yml, the mirror run and
+    # this workflow's docker jobs start in parallel, so a pull can race ahead
+    # of the mirror and fail with "manifest unknown". Same technique as
+    # waitForEdrCi in scripts/resolve-regression-trigger.cjs, except "no run
+    # for this SHA" means nothing to wait for (the common case) rather than
+    # "not started yet". Callers need `actions: read` to list workflow runs.
+    - name: Wait for in-flight mirror run
+      if: inputs.release-tag == ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        # For pull_request events the mirror run is recorded against the PR
+        # head SHA, not the merge commit that github.sha points at.
+        HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: |
+        set -euo pipefail
+        DEADLINE=$(( $(date +%s) + 15 * 60 ))
+        while true; do
+          RUN=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/mirror-docker-images.yml/runs?head_sha=${HEAD_SHA}&per_page=1" \
+            --jq '.workflow_runs[0] // empty')
+          if [ -z "$RUN" ]; then
+            echo "No mirror run for ${HEAD_SHA}; not waiting."
+            exit 0
+          fi
+          STATUS=$(jq -r .status <<<"$RUN")
+          if [ "$STATUS" = "completed" ]; then
+            CONCLUSION=$(jq -r .conclusion <<<"$RUN")
+            URL=$(jq -r .html_url <<<"$RUN")
+            if [ "$CONCLUSION" = "success" ]; then
+              echo "Mirror run succeeded: $URL"
+              exit 0
+            fi
+            echo "Mirror run for ${HEAD_SHA} concluded '$CONCLUSION': $URL" >&2
+            exit 1
+          fi
+          if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+            echo "Timed out waiting for the mirror run for ${HEAD_SHA}" >&2
+            exit 1
+          fi
+          echo "Mirror run in progress (status: $STATUS); retrying in 30s..."
+          sleep 30
+        done
+
     - id: select
       shell: bash
       env:

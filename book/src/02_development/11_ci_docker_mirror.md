@@ -8,7 +8,7 @@ Release runs are the exception: when `check_commit` resolves a release tag, the 
 
 Add the tag to the `TAGS` list in `mirror-docker-images.yml` in the same PR that changes the matrix in `edr-npm-release.yml`. The mirror workflow runs on same-repo PRs that touch it, so the new tag is mirrored — and the release matrix testable against it — before merge. A tag referenced in CI but missing from the mirror fails loudly with `manifest unknown`.
 
-On such a PR the mirror job and the release-workflow jobs start in parallel, so on the first run the release jobs can race ahead and fail their pulls with `manifest unknown`. That's benign: re-run the failed jobs once the mirror job is green.
+On such a PR the mirror job and the release-workflow docker jobs start in parallel. The docker jobs' "Select image source" step waits (up to 15 minutes) for the mirror run on the same commit to finish before pulling, so the new tag is in place by the time it's needed. If the mirror run fails, the docker jobs fail with a link to it instead of a `manifest unknown` pull error. On PRs that don't touch the mirror workflow no mirror run exists and the step doesn't wait.
 
 ## Access
 
