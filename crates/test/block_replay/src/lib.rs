@@ -17,13 +17,16 @@ use edr_blockchain_fork::{
     eips::eip4788::{beacon_root_storage_slots, BeaconRootStorageSlots, BEACON_ROOTS_ADDRESS},
     ForkedBlockchain,
 };
-use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction, HardforkChainSpec};
+use edr_chain_spec::{
+    ChainSpec, EvmSpecId, ExecutableTransaction, HardforkChainSpec, ProtocolHardfork as _,
+    ProtocolParams as _,
+};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::config::EvmConfig;
 use edr_chain_spec_provider::SyncProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec, RpcEthBlock};
-use edr_eth::{block::miner_reward, BlockSpec, PreEip1898BlockSpec};
+use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{HashMap, B256};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait};
 use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec};
@@ -195,7 +198,7 @@ pub async fn run_full_block<
         let mut state = prior_blockchain
             .state_at_block_number(block_number - 1, prior_irregular_state.state_overrides())?;
 
-        if hardfork.into() >= EvmSpecId::CANCUN {
+        if hardfork.to_evm_spec_id() >= EvmSpecId::CANCUN {
             replicate_beacon_block_root_oracle_state(
                 block_number,
                 rpc_client,
@@ -228,7 +231,7 @@ pub async fn run_full_block<
 
     let rewards = vec![(
         replay_header.beneficiary,
-        miner_reward(hardfork.into()).unwrap_or(0),
+        hardfork.miner_reward().unwrap_or(0),
     )];
     let mined_block = builder.finalize_block(rewards)?;
 

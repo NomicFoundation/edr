@@ -7,53 +7,54 @@
 
 use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation, HardforkActivations};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use op_revm::OpSpecId;
+
+use crate::hardfork::OpHardfork;
 
 /// `Boba Mainnet` chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x120;
 
 /// `Boba Mainnet` chain configuration
-pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
+pub(super) fn mainnet_config() -> ChainConfig<OpHardfork> {
     ChainConfig {
         name: "Boba Mainnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
                 ConstantBaseFeeParams::new(50, 6),
             ),
             (
-                BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::CANYON),
                 ConstantBaseFeeParams::new(250, 6),
             ),
         ])),
         hardfork_activations: HardforkActivations::new(vec![
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::BEDROCK,
+                hardfork: OpHardfork::BEDROCK,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::REGOLITH,
+                hardfork: OpHardfork::REGOLITH,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1713302879),
-                hardfork: OpSpecId::CANYON,
+                hardfork: OpHardfork::CANYON,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1713302880),
-                hardfork: OpSpecId::ECOTONE,
+                hardfork: OpHardfork::ECOTONE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1725951600),
-                hardfork: OpSpecId::FJORD,
+                hardfork: OpHardfork::FJORD,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1729753200),
-                hardfork: OpSpecId::GRANITE,
+                hardfork: OpHardfork::GRANITE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1738785600),
-                hardfork: OpSpecId::HOLOCENE,
+                hardfork: OpHardfork::HOLOCENE,
             },
         ]),
         bpo_hardfork_schedule: None,
@@ -64,47 +65,47 @@ pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
 pub const SEPOLIA_CHAIN_ID: u64 = 0x70D2;
 
 /// `Boba Sepolia Testnet` chain configuration
-pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
+pub(super) fn sepolia_config() -> ChainConfig<OpHardfork> {
     ChainConfig {
         name: "Boba Sepolia Testnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
                 ConstantBaseFeeParams::new(50, 6),
             ),
             (
-                BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::CANYON),
                 ConstantBaseFeeParams::new(250, 6),
             ),
         ])),
         hardfork_activations: HardforkActivations::new(vec![
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::BEDROCK,
+                hardfork: OpHardfork::BEDROCK,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::REGOLITH,
+                hardfork: OpHardfork::REGOLITH,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1705600788),
-                hardfork: OpSpecId::CANYON,
+                hardfork: OpHardfork::CANYON,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1709078400),
-                hardfork: OpSpecId::ECOTONE,
+                hardfork: OpHardfork::ECOTONE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1722297600),
-                hardfork: OpSpecId::FJORD,
+                hardfork: OpHardfork::FJORD,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1726470000),
-                hardfork: OpSpecId::GRANITE,
+                hardfork: OpHardfork::GRANITE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1736150400),
-                hardfork: OpSpecId::HOLOCENE,
+                hardfork: OpHardfork::HOLOCENE,
             },
         ]),
         bpo_hardfork_schedule: None,

@@ -24,11 +24,22 @@ pub use crate::{interpreter::InterpreterResult, result::ExecutionResultAndState}
 pub type ContextForChainSpec<ChainSpecT, BlockEnvT, DatabaseT> = Context<
     BlockEnvT,
     <ChainSpecT as ChainSpec>::SignedTransaction,
-    CfgEnv<<ChainSpecT as HardforkChainSpec>::Hardfork>,
+    CfgEnv<<ChainSpecT as HardforkChainSpec>::EvmHardfork>,
     DatabaseT,
     Journal<DatabaseT>,
     <ChainSpecT as ContextChainSpec>::Context,
 >;
+
+/// Retypes a [`CfgEnv`] keyed on the chain's protocol-level hardfork into one
+/// keyed on its EVM-level hardfork, preserving all other fields.
+pub fn to_evm_cfg_env<ChainSpecT: HardforkChainSpec>(
+    cfg: CfgEnv<ChainSpecT::Hardfork>,
+) -> CfgEnv<ChainSpecT::EvmHardfork> {
+    let spec: ChainSpecT::EvmHardfork = cfg.spec.into();
+    // Pass the original gas params through to avoid recomputing them.
+    let gas_params = cfg.gas_params.clone();
+    cfg.with_spec_and_gas_params(spec, gas_params)
+}
 
 /// Trait for specifying the types for running a transaction in a chain's
 /// associated EVM.

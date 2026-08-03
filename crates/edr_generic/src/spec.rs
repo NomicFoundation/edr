@@ -14,13 +14,14 @@ use edr_chain_l1::{
 use edr_chain_spec::{
     BlobExcessGasAndPrice, BlockEnvChainSpec, BlockEnvConstructor, BlockEnvForHardfork,
     BlockEnvTrait, ChainSpec, ContextChainSpec, EvmSpecId, HardforkChainSpec,
-    TransactionValidation,
+    ProtocolHardfork as _, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
-    handler::EthInstructions, CfgEnv, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
-    ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, InterpreterResult,
-    Journal, JournalTrait as _, LocalContext, PrecompileProvider, TransactionError,
+    handler::EthInstructions, to_evm_cfg_env, CfgEnv, Context, ContextForChainSpec, Database, Evm,
+    EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector,
+    InterpreterResult, Journal, JournalTrait as _, LocalContext, PrecompileProvider,
+    TransactionError,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
@@ -42,17 +43,20 @@ use crate::{
     GenericChainSpec,
 };
 
-pub struct HeaderAndEvmSpecWithFallback<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> {
-    inner: HeaderAndEvmSpec<'header, BlockHeaderT, EvmSpecId>,
+pub struct HeaderAndEvmSpecWithFallback<
+    'header,
+    BlockHeaderT: BlockEnvForHardfork<edr_chain_l1::Hardfork>,
+> {
+    inner: HeaderAndEvmSpec<'header, BlockHeaderT, edr_chain_l1::Hardfork>,
 }
 
-impl<'env, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>>
-    BlockEnvConstructor<'env, EvmSpecId, &'env BlockHeaderT>
+impl<'env, BlockHeaderT: BlockEnvForHardfork<edr_chain_l1::Hardfork>>
+    BlockEnvConstructor<'env, edr_chain_l1::Hardfork, &'env BlockHeaderT>
     for HeaderAndEvmSpecWithFallback<'env, BlockHeaderT>
 {
     fn new_block_env(
         header: &'env BlockHeaderT,
-        hardfork: EvmSpecId,
+        hardfork: edr_chain_l1::Hardfork,
         scheduled_blob_params: Option<&'env ScheduledBlobParams>,
     ) -> Self {
         Self {
@@ -61,7 +65,7 @@ impl<'env, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>>
     }
 }
 
-impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
+impl<'header, BlockHeaderT: BlockEnvForHardfork<edr_chain_l1::Hardfork>> BlockEnvTrait
     for HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
 {
     fn number(&self) -> U256 {
@@ -107,7 +111,7 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
                     .try_into()
                     .expect("Timestamp must not exceed u64");
                 let blob_params = blob_params_for_hardfork(
-                    self.inner.hardfork,
+                    self.inner.hardfork.to_evm_spec_id(),
                     timestamp,
                     self.inner.scheduled_blob_params,
                 );
@@ -191,6 +195,7 @@ impl EvmChainSpec for GenericChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec;
         let context = Context {
             block,
@@ -233,6 +238,7 @@ impl EvmChainSpec for GenericChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec;
         let context = Context {
             block,
@@ -291,6 +297,8 @@ impl GenesisBlockFactory for GenericChainSpec {
 }
 
 impl HardforkChainSpec for GenericChainSpec {
+    type EvmHardfork = EvmSpecId;
+
     type Hardfork = edr_chain_l1::Hardfork;
 }
 

@@ -7,61 +7,62 @@
 
 use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation, HardforkActivations};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use op_revm::OpSpecId;
+
+use crate::hardfork::OpHardfork;
 
 /// `arena-z` chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x1ED9;
 
 /// `arena-z` chain configuration
-pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
+pub(super) fn mainnet_config() -> ChainConfig<OpHardfork> {
     ChainConfig {
         name: "arena-z".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
                 ConstantBaseFeeParams::new(2000, 20),
             ),
             (
-                BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::CANYON),
                 ConstantBaseFeeParams::new(2000, 20),
             ),
         ])),
         hardfork_activations: HardforkActivations::new(vec![
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::BEDROCK,
+                hardfork: OpHardfork::BEDROCK,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::REGOLITH,
+                hardfork: OpHardfork::REGOLITH,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::CANYON,
+                hardfork: OpHardfork::CANYON,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::ECOTONE,
+                hardfork: OpHardfork::ECOTONE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::FJORD,
+                hardfork: OpHardfork::FJORD,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::GRANITE,
+                hardfork: OpHardfork::GRANITE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1736445601),
-                hardfork: OpSpecId::HOLOCENE,
+                hardfork: OpHardfork::HOLOCENE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1746806401),
-                hardfork: OpSpecId::ISTHMUS,
+                hardfork: OpHardfork::ISTHMUS,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1764691201),
-                hardfork: OpSpecId::JOVIAN,
+                hardfork: OpHardfork::JOVIAN,
             },
         ]),
         bpo_hardfork_schedule: None,
@@ -72,55 +73,55 @@ pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
 pub const SEPOLIA_CHAIN_ID: u64 = 0x26AB;
 
 /// `arena-z-testnet` chain configuration
-pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
+pub(super) fn sepolia_config() -> ChainConfig<OpHardfork> {
     ChainConfig {
         name: "arena-z-testnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
                 ConstantBaseFeeParams::new(50, 6),
             ),
             (
-                BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::CANYON),
                 ConstantBaseFeeParams::new(250, 6),
             ),
         ])),
         hardfork_activations: HardforkActivations::new(vec![
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::BEDROCK,
+                hardfork: OpHardfork::BEDROCK,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::REGOLITH,
+                hardfork: OpHardfork::REGOLITH,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::CANYON,
+                hardfork: OpHardfork::CANYON,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::ECOTONE,
+                hardfork: OpHardfork::ECOTONE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::FJORD,
+                hardfork: OpHardfork::FJORD,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::GRANITE,
+                hardfork: OpHardfork::GRANITE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::HOLOCENE,
+                hardfork: OpHardfork::HOLOCENE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1747839600),
-                hardfork: OpSpecId::ISTHMUS,
+                hardfork: OpHardfork::ISTHMUS,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1763568001),
-                hardfork: OpSpecId::JOVIAN,
+                hardfork: OpHardfork::JOVIAN,
             },
         ]),
         bpo_hardfork_schedule: None,

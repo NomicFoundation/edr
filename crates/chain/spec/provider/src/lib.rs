@@ -17,7 +17,7 @@ use edr_transaction::{TransactionAndBlock, TransactionType};
 /// provider.
 pub trait ProviderChainSpec: BlockChainSpec<
         Block: 'static,
-        Hardfork: 'static + Debug + PartialOrd,
+        Hardfork: 'static + Debug,
         LocalBlock: 'static
                         + FetchBlockReceipts<Arc<<Self as ReceiptChainSpec>::Receipt>, Error: Debug>,
         Receipt: 'static + TryFrom<<Self as RpcChainSpec>::RpcReceipt, Error: Send + Sync>,

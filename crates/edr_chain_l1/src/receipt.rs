@@ -5,7 +5,7 @@ pub mod builder;
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
-use edr_chain_spec::{ContextChainSpec, EvmSpecId, HardforkChainSpec};
+use edr_chain_spec::{ContextChainSpec, EvmSpecId, HardforkChainSpec, ProtocolHardfork as _};
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
@@ -23,6 +23,29 @@ pub struct L1BlockReceipt<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> 
     pub block_hash: B256,
     /// Number of the block that this is part of
     pub block_number: u64,
+}
+
+impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> L1BlockReceipt<ExecutionReceiptT> {
+    /// Constructs a new instance from a transaction's receipt and the block it
+    /// was executed in.
+    pub fn new(
+        mut inner: TransactionReceipt<ExecutionReceiptT>,
+        evm_hardfork: EvmSpecId,
+        block_hash: B256,
+        block_number: u64,
+    ) -> Self {
+        // The JSON-RPC layer should not return the gas price as effective gas
+        // price for receipts in hardforks that predate EIP-1559 (London).
+        if evm_hardfork < EvmSpecId::LONDON {
+            inner.effective_gas_price = None;
+        }
+
+        Self {
+            inner,
+            block_hash,
+            block_number,
+        }
+    }
 }
 
 impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> AsExecutionReceipt
@@ -93,21 +116,16 @@ impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>, SignedTransactionT>
         _context: &Self::Context,
         hardfork: Self::Hardfork,
         _transaction: &SignedTransactionT,
-        mut transaction_receipt: TransactionReceipt<Self::ExecutionReceipt>,
+        transaction_receipt: TransactionReceipt<Self::ExecutionReceipt>,
         block_hash: &B256,
         block_number: u64,
     ) -> Self {
-        // The JSON-RPC layer should not return the gas price as effective gas price for
-        // receipts in pre-London hardforks.
-        if hardfork < EvmSpecId::LONDON {
-            transaction_receipt.effective_gas_price = None;
-        }
-
-        L1BlockReceipt {
-            inner: transaction_receipt,
-            block_hash: *block_hash,
+        L1BlockReceipt::new(
+            transaction_receipt,
+            hardfork.to_evm_spec_id(),
+            *block_hash,
             block_number,
-        }
+        )
     }
 }
 

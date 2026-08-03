@@ -3,7 +3,7 @@ use std::num::NonZeroU64;
 
 use edr_block_api::{Block, BlockReceipts, EmptyBlock, FetchBlockReceipts, LocalBlock};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
-use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork};
 use edr_primitives::{Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::StateDiff;
@@ -275,7 +275,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
 impl<
         BlockReceiptT: Clone + ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT>,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         SignedTransactionT: ExecutableTransaction,
     > ReservableSparseBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
@@ -366,7 +366,7 @@ impl<
                 );
 
                 let block = BlockT::empty(
-                    reservation.block_config.hardfork.clone(),
+                    reservation.block_config.hardfork,
                     PartialHeader::new(
                         &reservation.block_config,
                         HeaderOverrides {

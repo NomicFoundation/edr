@@ -3851,10 +3851,10 @@ version = "0.3.8"
 dependencies = [
  "anyhow",
  "clap",
+ "edr_op",
  "git2",
  "itertools 0.15.0",
  "log",
- "op-revm",
  "serde",
  "serde_json",
  "tempfile",

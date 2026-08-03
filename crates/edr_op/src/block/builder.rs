@@ -156,7 +156,7 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
                 state: state.as_ref(),
             });
 
-            op_revm::L1BlockInfo::try_fetch(&mut db, U256::from(l2_block_number), hardfork)
+            op_revm::L1BlockInfo::try_fetch(&mut db, U256::from(l2_block_number), hardfork.into())
                 .map_err(BlockBuilderCreationError::Database)?
         };
 

@@ -6,6 +6,7 @@ use alloy_eips::eip7840::BlobParams;
 use alloy_trie::root::ordered_trie_root;
 use edr_chain_spec::{
     BlobExcessGasAndPrice, BlockEnvConstructor, BlockEnvForHardfork, BlockEnvTrait, EvmSpecId,
+    ProtocolHardfork,
 };
 use edr_eip1559::BaseFeeParams;
 pub use edr_eip4844::BlobGas;
@@ -346,8 +347,9 @@ pub struct PartialHeader {
 
 impl PartialHeader {
     /// Constructs a new instance based on the provided [`HeaderOverrides`] and
-    /// parent [`BlockHeader`] for the given [`EvmSpecId`].
-    pub fn new<HardforkT: Clone + Into<EvmSpecId> + PartialOrd>(
+    /// parent [`BlockHeader`] for the chain's hardfork in the
+    /// [`BlockConfig`].
+    pub fn new<HardforkT: ProtocolHardfork>(
         block_config: &BlockConfig<HardforkT>,
         overrides: HeaderOverrides<HardforkT>,
         parent: Option<&BlockHeader>,
@@ -371,7 +373,7 @@ impl PartialHeader {
                 B256::ZERO
             }
         });
-        let evm_spec_id = hardfork.clone().into();
+        let evm_spec_id = hardfork.to_evm_spec_id();
 
         let base_fee = overrides.base_fee.or_else(|| {
             if evm_spec_id >= EvmSpecId::LONDON {
@@ -383,7 +385,7 @@ impl PartialHeader {
                             .base_fee_params
                             .as_ref()
                             .unwrap_or(base_fee_params),
-                        hardfork.clone(),
+                        *hardfork,
                     )
                 } else {
                     u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
@@ -405,7 +407,7 @@ impl PartialHeader {
                     U256::ZERO
                 } else if let Some(parent) = parent {
                     calculate_ethash_canonical_difficulty(
-                        evm_spec_id,
+                        *hardfork,
                         parent,
                         number,
                         timestamp,
@@ -1073,15 +1075,15 @@ mod tests {
     }
 
     fn partial_header_with_hardfork(
-        hardfork: EvmSpecId,
-        overrides: HeaderOverrides<EvmSpecId>,
+        hardfork: edr_chain_l1::Hardfork,
+        overrides: HeaderOverrides<edr_chain_l1::Hardfork>,
     ) -> PartialHeader {
         partial_header_with_parent(hardfork, overrides, None)
     }
 
     fn partial_header_with_parent(
-        hardfork: EvmSpecId,
-        overrides: HeaderOverrides<EvmSpecId>,
+        hardfork: edr_chain_l1::Hardfork,
+        overrides: HeaderOverrides<edr_chain_l1::Hardfork>,
         parent: Option<&BlockHeader>,
     ) -> PartialHeader {
         let block_config = BlockConfig {
@@ -1104,7 +1106,7 @@ mod tests {
         // An override on an earlier hardfork is ignored, so no spec-invalid header can
         // be built.
         let header = partial_header_with_hardfork(
-            EvmSpecId::PRAGUE,
+            edr_chain_l1::Hardfork::PRAGUE,
             HeaderOverrides {
                 block_access_list_hash: Some(B256::repeat_byte(1)),
                 ..HeaderOverrides::default()
@@ -1116,7 +1118,10 @@ mod tests {
 
     #[test]
     fn block_access_list_hash_defaults_to_empty_list_hash_on_amsterdam() {
-        let header = partial_header_with_hardfork(EvmSpecId::AMSTERDAM, HeaderOverrides::default());
+        let header = partial_header_with_hardfork(
+            edr_chain_l1::Hardfork::AMSTERDAM,
+            HeaderOverrides::default(),
+        );
 
         assert_eq!(header.block_access_list_hash, Some(KECCAK_RLP_EMPTY_ARRAY));
     }
@@ -1125,7 +1130,7 @@ mod tests {
     fn block_access_list_hash_honors_override_on_amsterdam() {
         let supplied = B256::repeat_byte(0xab);
         let header = partial_header_with_hardfork(
-            EvmSpecId::AMSTERDAM,
+            edr_chain_l1::Hardfork::AMSTERDAM,
             HeaderOverrides {
                 block_access_list_hash: Some(supplied),
                 ..HeaderOverrides::default()
@@ -1140,7 +1145,7 @@ mod tests {
         // An override on an earlier hardfork is ignored, so no spec-invalid header can
         // be built.
         let header = partial_header_with_hardfork(
-            EvmSpecId::PRAGUE,
+            edr_chain_l1::Hardfork::PRAGUE,
             HeaderOverrides {
                 slot_number: Some(1),
                 ..HeaderOverrides::default()
@@ -1159,7 +1164,7 @@ mod tests {
         };
 
         let header = partial_header_with_parent(
-            EvmSpecId::AMSTERDAM,
+            edr_chain_l1::Hardfork::AMSTERDAM,
             HeaderOverrides {
                 slot_number: Some(7843),
                 ..HeaderOverrides::default()
@@ -1178,7 +1183,7 @@ mod tests {
         };
 
         let header = partial_header_with_parent(
-            EvmSpecId::AMSTERDAM,
+            edr_chain_l1::Hardfork::AMSTERDAM,
             HeaderOverrides::default(),
             Some(&parent),
         );
@@ -1194,7 +1199,7 @@ mod tests {
         assert_eq!(parent.slot_number, None);
 
         let header = partial_header_with_parent(
-            EvmSpecId::AMSTERDAM,
+            edr_chain_l1::Hardfork::AMSTERDAM,
             HeaderOverrides::default(),
             Some(&parent),
         );
