@@ -2,7 +2,7 @@
 
 CI pulls its Docker images from a GHCR mirror (`ghcr.io/nomicfoundation/edr/mirror/*`) instead of Docker Hub: Docker Hub rate-limits pulls, which fail intermittently on GitHub-hosted runners as a result. The mirror is maintained by `.github/workflows/mirror-docker-images.yml`, which re-copies the images weekly, on pushes to `main` and same-repo PRs that change the workflow itself, and on demand via `workflow_dispatch`.
 
-Release runs are the exception: when `check_commit` resolves a release tag, the docker jobs in `edr-npm-release.yml` pull the official image straight from Docker Hub (the "Select image source" steps), so the mirror is never in the supply chain of published binaries — a tampered mirror tag can at most affect PR/branch CI, which publishes nothing. At one or two releases a week, Docker Hub's rate limits are not a concern for those runs.
+Release runs are the exception: when `check_commit` sets its `is_release` output — the single authority for all release/non-release gating in `edr-npm-release.yml` — the docker jobs pull the official image straight from Docker Hub (the "Select image source" steps), so the mirror is never in the supply chain of published binaries — a tampered mirror tag can at most affect PR/branch CI, which publishes nothing. At one or two releases a week, Docker Hub's rate limits are not a concern for those runs.
 
 ## Adding a Node.js version (or any new tag)
 
