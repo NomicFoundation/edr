@@ -7,6 +7,7 @@ mod coverage;
 mod fork;
 mod fs;
 mod fuzz;
+mod inline_config;
 mod invariant;
 mod repros;
 mod spec;

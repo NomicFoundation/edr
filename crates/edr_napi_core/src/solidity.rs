@@ -14,7 +14,7 @@ use edr_solidity_tests::{
     MultiContractRunner, TestFilterConfig,
 };
 
-pub use self::factory::SyncTestRunnerFactory;
+pub use self::factory::{CreateTestRunnerError, SyncTestRunnerFactory};
 
 pub trait SyncTestRunner: Send + Sync {
     fn run_tests(
