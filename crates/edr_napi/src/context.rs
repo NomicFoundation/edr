@@ -337,6 +337,17 @@ impl EdrContext {
                             napi::Status::Ok,
                             "Failed to call on_test_suite_completed_callback with status: {status}"
                         );
+
+                                // Return this suite's freed memory to the OS. Under
+                                // `CollectStackTraces::Always` (verbosity 3+) every test records
+                                // per-opcode step traces; those arenas are dropped above when the
+                                // Rust `SuiteResult` is consumed, but mimalloc retains the pages
+                                // by default, so RSS grows for the whole run. Purging per suite
+                                // keeps it flat without the per-free overhead of a zero purge
+                                // delay. Safe: `mi_collect` only reclaims already-freed memory.
+                                unsafe {
+                                    libmimalloc_sys::mi_collect(true);
+                                }
                             },
                         ),
                     )

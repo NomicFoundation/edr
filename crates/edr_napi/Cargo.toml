@@ -45,6 +45,11 @@ edr_utils_sync.workspace = true
 mimalloc = { version = "0.1.39", default-features = false, features = [
     "local_dynamic_tls",
 ] }
+# Direct FFI access to mimalloc's `mi_collect` (behind the `extended` feature),
+# used to return freed pages to the OS after each Solidity test suite (see
+# context.rs). mimalloc otherwise retains those pages, which balloons RSS under
+# `-vvv` step tracing.
+libmimalloc-sys = { version = "0.1", features = ["extended"] }
 # The `async` feature ensures that a tokio runtime is available.
 napi = { version = "3", default-features = false, features = [
     "async",
