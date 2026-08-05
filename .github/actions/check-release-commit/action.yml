@@ -1,0 +1,44 @@
+name: Check release commit
+description: >
+  Detects (pre-)release commits from the HEAD commit message. Single authority
+  for the release/non-release decision, shared by edr-npm-ci.yml (which skips
+  itself on release pushes) and edr-npm-release.yml (which only proceeds on
+  them). Requires the repository to be checked out.
+
+outputs:
+  tag:
+    description: npm dist-tag ('next' for pre-releases, 'latest' for releases, empty otherwise)
+    value: ${{ steps.check.outputs.tag }}
+  is-release:
+    description: "'true' when the HEAD commit triggers a (pre-)release"
+    value: ${{ steps.check.outputs.tag != '' }}
+
+runs:
+  using: composite
+  steps:
+    - id: check
+      shell: bash
+      run: |
+        # matches with pre-release commits: edr release name but ends with - and some postfix like beta
+        if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
+        then
+          if [ "$GITHUB_EVENT_NAME" = "push" ]
+          then
+            echo "pre-release commit: tag=next"
+            echo "tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "pre-release commit, but event is $GITHUB_EVENT_NAME, not push: not a release run"
+          fi
+        # matches with release commit
+        elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
+        then
+          if [ "$GITHUB_REF" = "refs/heads/main" ] || [ "$GITHUB_REF" = "refs/heads/hh2" ]
+          then
+            echo "release commit: tag=latest"
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "release commit, but $GITHUB_REF is not main or hh2: not a release run"
+          fi
+        else
+          echo "not a release commit: not a release run"
+        fi
