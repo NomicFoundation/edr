@@ -138,9 +138,8 @@ jobs:
           restore-keys: |
             ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-
 
-      # Proves the cold-build invariant at runtime instead of trusting the
-      # skipped cache step: a broken gate fails the release loudly rather
-      # than shipping binaries built from a warm, poisonable cache.
+      # Tripwire for future edits to the cache gate above: if it stops
+      # skipping release runs, fail before building from a warm cache.
       - name: Assert release builds run cold
         if: needs.check_commit.outputs.is_release == 'true'
         shell: bash
@@ -520,6 +519,8 @@ jobs:
             then
               echo "pre-release commit: tag=next"
               echo "tag=next" >> "$GITHUB_OUTPUT"
+            else
+              echo "pre-release commit, but event is ${{ github.event_name }}, not push: not a release run"
             fi
           # matches with release commit
           elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
@@ -528,13 +529,15 @@ jobs:
             then
               echo "release commit: tag=latest"
               echo "tag=latest" >> "$GITHUB_OUTPUT"
+            else
+              echo "release commit, but $GITHUB_REF is not main or hh2: not a release run"
             fi
+          else
+            echo "not a release commit: not a release run"
           fi
 
-    # Single authority for release/non-release gating: every release-only or
-    # non-release-only step and job keys off `is_release`, derived here from
-    # `tag` so the two can't diverge. `tag` itself is only for the npm
-    # dist-tag (next/latest) in `publish`.
+    # `is_release` is the single authority for release/non-release gating;
+    # `tag` is only the npm dist-tag (next/latest) for `publish`.
     outputs:
       tag: ${{ steps.check_commit.outputs.tag }}
       is_release: ${{ steps.check_commit.outputs.tag != '' }}
