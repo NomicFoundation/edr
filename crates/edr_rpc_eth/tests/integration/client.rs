@@ -67,6 +67,120 @@ async fn send_request_body_400_status() {
     mock.assert_async().await;
 }
 
+// This replaces live tests that probed a provider whose
+// block-range limits and future-`to_block` clamping vary by plan tier and
+// backend node.
+// see <https://www.alchemy.com/docs/chains/ethereum/ethereum-api-endpoints/eth-get-logs#supported-block-ranges>
+#[tokio::test]
+async fn get_logs_by_range_serializes_request_and_parses_response() {
+    use edr_eth::{filter::OneOrMore, BlockSpec};
+    use edr_primitives::Address;
+
+    const MAX_BLOCK_NUMBER: u64 = u64::MAX >> 1;
+
+    // Expected request parameters. EDR forwards `from_block`/`to_block` verbatim
+    // and does no clamping of its own; a "future" `to_block` such as
+    // `MAX_BLOCK_NUMBER` is left for the server to resolve.
+    let from_block = 10496585_u64;
+    let to_block = MAX_BLOCK_NUMBER;
+    let address = "0xffffffffffffffffffffffffffffffffffffffff";
+
+    // Expected fields of the single log in the response.
+    let block_number = 0xa74fde_u64;
+    let log_index = 0x653b_u64;
+    let transaction_index = 0x1f_u64;
+
+    let mut server = mockito::Server::new_async().await;
+
+    // `get_logs_by_range` runs through the caching layer, which fires
+    // `eth_chainId` (to build the cache path) and may fire `eth_blockNumber` (to
+    // decide whether the response is cacheable) around the actual `eth_getLogs`
+    // request. Register these as optional responders (we never assert them, so
+    // the test stays decoupled from the exact caching behavior) to keep those
+    // requests from falling through to an unmatched-request error.
+    let _chain_id_mock = server
+        .mock("POST", "/")
+        .match_body(mockito::Matcher::PartialJson(serde_json::json!({
+            "method": "eth_chainId"
+        })))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"jsonrpc": "2.0", "id": 0, "result": "0x1"}"#)
+        .create_async()
+        .await;
+
+    let _block_number_mock = server
+        .mock("POST", "/")
+        .match_body(mockito::Matcher::PartialJson(serde_json::json!({
+            "method": "eth_blockNumber"
+        })))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"jsonrpc": "2.0", "id": 0, "result": "0xffffff"}"#)
+        .create_async()
+        .await;
+
+    // The assertion that matters: EDR serializes the request with the expected
+    // `eth_getLogs` parameters, including the future `to_block` as `0x7fff…`.
+    let get_logs_mock = server
+        .mock("POST", "/")
+        .match_body(mockito::Matcher::PartialJson(serde_json::json!({
+            "method": "eth_getLogs",
+            "params": [{
+                "fromBlock": format!("{from_block:#x}"),
+                "toBlock": format!("{to_block:#x}"),
+                "address": address,
+            }],
+        })))
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 0,
+                "result": [{
+                    "address": "0x0000000000000000000000000000000000000011",
+                    "topics": [
+                        "0x000000000000000000000000000000000000000000000000000000000000dead",
+                        "0x000000000000000000000000000000000000000000000000000000000000beef"
+                    ],
+                    "data": "0x0100ff",
+                    "transactionHash": "0xc008e9f9bb92057dd0035496fbf4fb54f66b4b18b370928e46d6603933054d5a",
+                    "blockHash": "0x88fadbb673928c61b9ede3694ae0589ac77ae38ec90a24a6e12e83f42f18c7e8",
+                    "blockNumber": format!("{block_number:#x}"),
+                    "logIndex": format!("{log_index:#x}"),
+                    "transactionIndex": format!("{transaction_index:#x}"),
+                    "removed": false,
+                }],
+            })
+            .to_string(),
+        )
+        .create_async()
+        .await;
+
+    let logs = TestRpcClient::new(&server.url())
+        .get_logs_by_range(
+            BlockSpec::Number(from_block),
+            BlockSpec::Number(to_block),
+            Some(OneOrMore::One(
+                Address::from_str(address).expect("failed to parse address"),
+            )),
+            None,
+        )
+        .await
+        .expect("should have parsed the response");
+
+    // The request was serialized with the expected `eth_getLogs` parameters.
+    get_logs_mock.assert_async().await;
+
+    // The response was parsed into the expected log.
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].block_number, block_number);
+    assert_eq!(logs[0].log_index, log_index);
+    assert_eq!(logs[0].transaction_index, transaction_index);
+    assert!(!logs[0].removed);
+}
+
 #[cfg(feature = "test-remote")]
 mod alchemy {
     use std::{fs::File, path::PathBuf};
@@ -307,54 +421,6 @@ mod alchemy {
         assert_eq!(logs.len(), 12);
         // TODO: assert more things about the log(s)
         // TODO: consider asserting something about the logs bloom
-    }
-
-    #[tokio::test]
-    async fn get_logs_future_from_block() {
-        let provider_url = json_rpc_url_provider::ethereum_mainnet();
-        let result = TestRpcClient::new(&provider_url)
-            .get_logs_by_range(
-                BlockSpec::Number(MAX_BLOCK_NUMBER),
-                BlockSpec::Number(MAX_BLOCK_NUMBER),
-                Some(OneOrMore::One(
-                    Address::from_str("0xffffffffffffffffffffffffffffffffffffffff")
-                        .expect("failed to parse data"),
-                )),
-                None,
-            )
-            .await;
-
-        // TODO: https://github.com/NomicFoundation/edr/issues/903
-        // Alchemy enabled [EIP-4444](https://eips.ethereum.org/EIPS/eip-4444) for part of their clients. As a
-        // result, it's possible that we get the updated result `[]` instead of the old
-        // JSON-RPC error.
-        match result {
-            Ok(response) => {
-                assert!(response.is_empty());
-            }
-            Err(error) => {
-                assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn get_logs_future_to_block() {
-        let provider_url = json_rpc_url_provider::ethereum_mainnet();
-        let logs = TestRpcClient::new(&provider_url)
-            .get_logs_by_range(
-                BlockSpec::Number(10496585),
-                BlockSpec::Number(MAX_BLOCK_NUMBER),
-                Some(OneOrMore::One(
-                    Address::from_str("0xffffffffffffffffffffffffffffffffffffffff")
-                        .expect("failed to parse data"),
-                )),
-                None,
-            )
-            .await
-            .expect("should have succeeded");
-
-        assert_eq!(logs, []);
     }
 
     #[tokio::test]
