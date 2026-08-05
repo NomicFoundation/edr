@@ -12,7 +12,7 @@ use edr_block_api::{
     LocalBlock,
 };
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
-use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork};
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_primitives::{B256, KECCAK_EMPTY};
 use edr_receipt::{
@@ -167,7 +167,7 @@ pub enum LocalBlockCreationError {
 impl<
         BlockReceiptT: ReceiptTrait,
         FetchReceiptErrorT,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         SignedTransactionT: Debug + ExecutableTransaction,
     > EthLocalBlock<BlockReceiptT, FetchReceiptErrorT, HardforkT, SignedTransactionT>
 {
@@ -177,7 +177,7 @@ impl<
         block_config: &BlockConfig<HardforkT>,
         options: GenesisBlockOptions<HardforkT>,
     ) -> Result<Self, LocalBlockCreationError> {
-        let evm_spec_id = block_config.hardfork.clone().into();
+        let evm_spec_id = block_config.hardfork.to_evm_spec_id();
         if evm_spec_id >= EvmSpecId::MERGE && options.mix_hash.is_none() {
             return Err(LocalBlockCreationError::MissingPrevrandao);
         }
@@ -207,7 +207,7 @@ impl<
         } else {
             None
         };
-        let hardfork = block_config.hardfork.clone();
+        let hardfork = block_config.hardfork;
 
         let partial_header =
             PartialHeader::new(block_config, options, None, &ommers, withdrawals.as_ref());

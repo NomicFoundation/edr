@@ -16,7 +16,7 @@ use edr_block_header::{
 use edr_block_local::EthLocalBlock;
 use edr_chain_spec::{
     BlockEnvChainSpec, BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction,
-    HardforkChainSpec, TransactionValidation,
+    HardforkChainSpec, ProtocolHardfork as _, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
@@ -207,7 +207,7 @@ impl<
             }) = self.header.blob_gas.as_ref()
         {
             let blob_params = blob_params_for_hardfork(
-                self.config().spec.into(),
+                self.config().spec.to_evm_spec_id(),
                 self.header.timestamp,
                 self.block_config.scheduled_blob_params.as_ref(),
             );
@@ -297,7 +297,7 @@ impl<
 
         let hardfork = blockchain.hardfork();
 
-        let evm_spec_id = hardfork.into();
+        let evm_spec_id = hardfork.to_evm_spec_id();
         if evm_spec_id < EvmSpecId::BYZANTIUM {
             return Err(BlockBuilderCreationError::UnsupportedHardfork(hardfork));
         } else if evm_spec_id >= EvmSpecId::SHANGHAI && inputs.withdrawals.is_none() {
@@ -386,7 +386,7 @@ impl<
 
         let block_env = HeaderAndEvmSpec::new_block_env(
             &self.header,
-            self.cfg.spec.into(),
+            self.cfg.spec,
             self.block_config.scheduled_blob_params.as_ref(),
         );
 
@@ -538,7 +538,7 @@ fn transaction_block_gas_contribution<ChainSpecT: ChainSpec + HardforkChainSpec>
     hardfork: ChainSpecT::Hardfork,
     execution_result: &ExecutionResult<ChainSpecT::HaltReason>,
 ) -> u64 {
-    if hardfork.into() >= EvmSpecId::AMSTERDAM {
+    if hardfork.to_evm_spec_id() >= EvmSpecId::AMSTERDAM {
         let execution_gas = execution_result.gas();
         execution_gas
             .total_gas_spent()

@@ -107,9 +107,40 @@ pub trait ContextChainSpec {
 
 /// Trait for specifying the hardfork type of a chain.
 pub trait HardforkChainSpec {
-    /// The chain's hardfork type.
-    type Hardfork: Copy + Default + Into<EvmSpecId>;
+    /// The EVM-level hardfork type consumed by revm for this chain; e.g.
+    /// `SpecId` for L1, `OpSpecId` for OP.
+    ///
+    /// Unlike [`Self::Hardfork`], this models EVM behavior classes rather than
+    /// protocol upgrades.
+    type EvmHardfork: Copy + Into<EvmSpecId>;
+
+    /// The chain's protocol-level hardfork type.
+    type Hardfork: Default + Into<Self::EvmHardfork> + ProtocolHardfork;
 }
+
+/// Trait for protocol-level parameters that are determined by the hardfork but
+/// are not derivable from its EVM behavior class.
+pub trait ProtocolParams {
+    /// Returns the difficulty bomb delay for the hardfork, as introduced by
+    /// EIPs 649, 1234, 2384, 4345 and 5133. Only meaningful pre-merge.
+    fn bomb_delay(self) -> u64;
+
+    /// Returns the static block reward for the hardfork, or `None` post-merge.
+    fn miner_reward(self) -> Option<u128>;
+}
+
+/// Capabilities required of a chain's protocol-level hardfork type by code
+/// that creates blocks: conversion to the EVM behavior class, activation
+/// ordering, and protocol-level parameters.
+pub trait ProtocolHardfork: Copy + Into<EvmSpecId> + PartialOrd + ProtocolParams {
+    /// Converts the hardfork into the EVM specification identifier of its EVM
+    /// behavior class.
+    fn to_evm_spec_id(self) -> EvmSpecId {
+        self.into()
+    }
+}
+
+impl<T> ProtocolHardfork for T where T: Copy + Into<EvmSpecId> + PartialOrd + ProtocolParams {}
 
 /// Trait for chain specifications.
 pub trait ChainSpec {

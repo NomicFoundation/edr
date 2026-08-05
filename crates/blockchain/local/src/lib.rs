@@ -11,7 +11,7 @@ use edr_blockchain_api::{
     GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
     StateAtBlock, TotalDifficultyByBlockHash,
 };
-use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork};
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::{DynState, StateDiff, StateOverride};
@@ -92,7 +92,7 @@ impl<
 
 impl<
         BlockReceiptT: ReceiptTrait,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         SignedTransactionT: ExecutableTransaction,
     > LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
@@ -128,7 +128,7 @@ pub enum LocalBlockchainError {
 
 impl<
         BlockReceiptT: ReceiptTrait,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         SignedTransactionT: ExecutableTransaction,
     > BlockHashByNumber
@@ -184,7 +184,7 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 impl<
         BlockReceiptT: ReceiptTrait,
         BlockT: ?Sized,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT>
             + FetchBlockReceipts<Arc<BlockReceiptT>>
             + CastArcInto<BlockT>
@@ -257,7 +257,7 @@ impl<
 impl<
         BlockReceiptT: ReceiptTrait,
         BlockT: ?Sized,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT>
             + CastArcInto<BlockT>
             + EmptyBlock<HardforkT>
@@ -276,7 +276,7 @@ impl<
     ) -> Result<BlockAndTotalDifficulty<Arc<BlockT>, SignedTransactionT>, Self::Error> {
         let last_block = self.last_local_block()?;
 
-        validate_next_block(self.hardfork.clone(), &last_block, &block)?;
+        validate_next_block(self.hardfork, &last_block, &block)?;
 
         let previous_total_difficulty = self
             .total_difficulty_by_hash(last_block.block_hash())
@@ -315,7 +315,7 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 
 impl<
         BlockReceiptT: ReceiptTrait,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT>
             + BlockReceipts<Arc<BlockReceiptT>>
             + EmptyBlock<HardforkT>

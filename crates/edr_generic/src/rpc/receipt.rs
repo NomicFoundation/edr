@@ -97,7 +97,7 @@ impl RpcTypeFrom<L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>
         value: &L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
-        let transaction_type = if hardfork >= edr_chain_l1::Hardfork::BERLIN {
+        let transaction_type = if hardfork >= Self::Hardfork::BERLIN {
             Some(u8::from(value.inner.transaction_type()))
         } else {
             None

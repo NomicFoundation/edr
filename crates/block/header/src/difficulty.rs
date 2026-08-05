@@ -1,37 +1,18 @@
-use edr_chain_spec::EvmSpecId;
+use edr_chain_spec::{EvmSpecId, ProtocolHardfork};
 use edr_primitives::{KECCAK_RLP_EMPTY_ARRAY, U256};
 
 use crate::BlockHeader;
 
-fn bomb_delay(spec_id: EvmSpecId) -> u64 {
-    match spec_id {
-        EvmSpecId::FRONTIER
-        | EvmSpecId::FRONTIER_THAWING
-        | EvmSpecId::HOMESTEAD
-        | EvmSpecId::DAO_FORK
-        | EvmSpecId::TANGERINE
-        | EvmSpecId::SPURIOUS_DRAGON => 0,
-        EvmSpecId::BYZANTIUM => 3000000,
-        EvmSpecId::CONSTANTINOPLE | EvmSpecId::PETERSBURG | EvmSpecId::ISTANBUL => 5000000,
-        EvmSpecId::MUIR_GLACIER | EvmSpecId::BERLIN | EvmSpecId::LONDON => 9000000,
-        // SpecId::LONDON => 9500000, // EIP-3554
-        EvmSpecId::ARROW_GLACIER => 10700000,
-        EvmSpecId::GRAY_GLACIER => 11400000,
-        _ => {
-            unreachable!("Post-merge hardforks don't have a bomb delay")
-        }
-    }
-}
-
 /// Calculates the mining difficulty of a block.
-pub fn calculate_ethash_canonical_difficulty(
-    spec_id: EvmSpecId,
+pub fn calculate_ethash_canonical_difficulty<HardforkT: ProtocolHardfork>(
+    hardfork: HardforkT,
     parent: &BlockHeader,
     block_number: u64,
     block_timestamp: u64,
     min_ethash_difficulty: u64,
 ) -> U256 {
     // TODO: Create a custom config that prevents usage of older hardforks
+    let spec_id = hardfork.to_evm_spec_id();
     assert!(
         spec_id >= EvmSpecId::BYZANTIUM,
         "Hardforks older than Byzantium are not supported"
@@ -59,7 +40,7 @@ pub fn calculate_ethash_canonical_difficulty(
     };
 
     if let Some(exp) = block_number
-        .checked_sub(bomb_delay(spec_id))
+        .checked_sub(hardfork.bomb_delay())
         .and_then(|num| (num / 100000).checked_sub(2))
     {
         difficulty += U256::from(2u64).pow(U256::from(exp));

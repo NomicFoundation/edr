@@ -7,61 +7,62 @@
 
 use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation, HardforkActivations};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use op_revm::OpSpecId;
+
+use crate::hardfork::OpHardfork;
 
 /// `Creator Chain Testnet` chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x10469;
 
 /// `Creator Chain Testnet` chain configuration
-pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
+pub(super) fn sepolia_config() -> ChainConfig<OpHardfork> {
     ChainConfig {
         name: "Creator Chain Testnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
                 ConstantBaseFeeParams::new(50, 6),
             ),
             (
-                BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::CANYON),
                 ConstantBaseFeeParams::new(250, 6),
             ),
         ])),
         hardfork_activations: HardforkActivations::new(vec![
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::BEDROCK,
+                hardfork: OpHardfork::BEDROCK,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::REGOLITH,
+                hardfork: OpHardfork::REGOLITH,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::CANYON,
+                hardfork: OpHardfork::CANYON,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::ECOTONE,
+                hardfork: OpHardfork::ECOTONE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::FJORD,
+                hardfork: OpHardfork::FJORD,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1723478400),
-                hardfork: OpSpecId::GRANITE,
+                hardfork: OpHardfork::GRANITE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1732633200),
-                hardfork: OpSpecId::HOLOCENE,
+                hardfork: OpHardfork::HOLOCENE,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1744905600),
-                hardfork: OpSpecId::ISTHMUS,
+                hardfork: OpHardfork::ISTHMUS,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1763568001),
-                hardfork: OpSpecId::JOVIAN,
+                hardfork: OpHardfork::JOVIAN,
             },
         ]),
         bpo_hardfork_schedule: None,

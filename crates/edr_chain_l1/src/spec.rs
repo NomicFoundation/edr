@@ -9,16 +9,16 @@ use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
 use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
-    BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec, HardforkChainSpec,
-    TransactionValidation,
+    BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec, EvmSpecId,
+    HardforkChainSpec, ProtocolHardfork as _, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
     handler::{EthInstructions, EthPrecompiles},
     interpreter::InterpreterResult,
-    BlockEnvTrait, CfgEnv, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
-    ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, Journal, LocalContext,
-    PrecompileProvider, TransactionError,
+    to_evm_cfg_env, BlockEnvTrait, CfgEnv, Context, ContextForChainSpec, Database, Evm,
+    EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, Journal,
+    LocalContext, PrecompileProvider, TransactionError,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
@@ -91,7 +91,7 @@ impl EvmChainSpec for L1ChainSpec {
     fn new_precompile_provider<BlockEnvT: BlockEnvTrait, DatabaseT: Database>(
         hardfork: Self::Hardfork,
     ) -> Self::PrecompileProvider<BlockEnvT, DatabaseT> {
-        EthPrecompiles::new(hardfork)
+        EthPrecompiles::new(hardfork.to_evm_spec_id())
     }
 
     fn dry_run<
@@ -114,6 +114,7 @@ impl EvmChainSpec for L1ChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec;
         let context = Context {
             block,
@@ -156,6 +157,7 @@ impl EvmChainSpec for L1ChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec;
         let context = Context {
             block,
@@ -213,6 +215,8 @@ impl GenesisBlockFactory for L1ChainSpec {
 }
 
 impl HardforkChainSpec for L1ChainSpec {
+    type EvmHardfork = EvmSpecId;
+
     type Hardfork = Hardfork;
 }
 

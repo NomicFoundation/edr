@@ -16,9 +16,9 @@ use edr_chain_spec::{
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
-    handler::EthInstructions, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
-    ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, InterpreterResult, LocalContext,
-    PrecompileProvider, TransactionError,
+    handler::EthInstructions, to_evm_cfg_env, Context, ContextForChainSpec, Database, Evm,
+    EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, InterpreterResult,
+    LocalContext, PrecompileProvider, TransactionError,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
@@ -117,7 +117,7 @@ impl EvmChainSpec for OpChainSpec {
     fn new_precompile_provider<BlockT: revm_context::Block, DatabaseT: Database>(
         hardfork: Self::Hardfork,
     ) -> Self::PrecompileProvider<BlockT, DatabaseT> {
-        OpPrecompiles::new_with_spec(hardfork)
+        OpPrecompiles::new_with_spec(hardfork.into())
     }
 
     fn dry_run<
@@ -140,6 +140,7 @@ impl EvmChainSpec for OpChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec.into();
         let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)
             .map_err(TransactionError::Database)?;
@@ -185,6 +186,7 @@ impl EvmChainSpec for OpChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec.into();
         let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)
             .map_err(TransactionError::Database)?;
@@ -263,6 +265,8 @@ impl GenesisBlockFactory for OpChainSpec {
 }
 
 impl HardforkChainSpec for OpChainSpec {
+    type EvmHardfork = op_revm::OpSpecId;
+
     type Hardfork = Hardfork;
 }
 

@@ -2,6 +2,7 @@ use std::sync::OnceLock;
 
 use edr_block_api::Block;
 use edr_chain_l1::rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature};
+use edr_chain_spec::ProtocolHardfork as _;
 use edr_chain_spec_rpc::{RpcTransaction, RpcTypeFrom};
 use edr_primitives::B256;
 use edr_signer::Signature;
@@ -154,7 +155,7 @@ impl<BlockT: Block<OpSignedTransaction>>
             header,
             transaction_index,
             value.is_pending,
-            hardfork.into(),
+            hardfork.to_evm_spec_id(),
         );
 
         let signature = value.transaction.maybe_signature();

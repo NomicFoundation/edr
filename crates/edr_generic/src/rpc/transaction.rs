@@ -54,7 +54,7 @@ impl<BlockT: Block<SignedTransactionWithFallbackToPostEip155>>
             header,
             transaction_index,
             value.is_pending,
-            hardfork,
+            hardfork.into(),
         );
         let signature = value.transaction.signature();
 

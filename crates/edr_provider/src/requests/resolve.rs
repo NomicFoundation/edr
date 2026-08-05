@@ -35,7 +35,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT>
             max_fees_fn,
         } = context;
 
-        validate_call_request::<L1ChainSpec, TimerT>(data.evm_spec_id(), &value, block_spec)?;
+        validate_call_request::<L1ChainSpec, TimerT>(data.hardfork(), &value, block_spec)?;
 
         let L1CallRequest {
             from,
