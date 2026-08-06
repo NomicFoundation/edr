@@ -114,14 +114,6 @@ pub fn memory_report() -> String {
     String::from_utf8_lossy(&buffer).into_owned()
 }
 
-/// Resets `mimalloc`'s statistics, e.g. for per-phase measurements. OS
-/// process-level values such as the resident set size are unaffected.
-#[napi(catch_unwind)]
-pub fn reset_memory_stats() {
-    // SAFETY: `mi_stats_reset` has no preconditions and is thread-safe.
-    unsafe { libmimalloc_sys::mi_stats_reset() };
-}
-
 /// Output callback for `mi_stats_print_out` that appends the message to the
 /// `Vec<u8>` passed through `arg`.
 ///
@@ -164,8 +156,7 @@ mod tests {
 
         let stats = memory_stats().expect("memory statistics should be available");
 
-        // The peak RSS is an OS process-level measurement, so it is non-zero
-        // and unaffected by concurrent `reset_memory_stats` calls.
+        // The peak RSS is an OS process-level measurement, so it is non-zero.
         assert!(to_u64(stats.peak_rss).unwrap() > 0);
     }
 
@@ -174,13 +165,5 @@ mod tests {
         let report = memory_report();
 
         assert!(!report.is_empty());
-    }
-
-    #[test]
-    fn reset_memory_stats_keeps_reporting_working() {
-        reset_memory_stats();
-
-        let stats = memory_stats().expect("memory statistics should be available");
-        assert!(to_u64(stats.peak_rss).unwrap() > 0);
     }
 }
