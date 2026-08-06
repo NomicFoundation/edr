@@ -148,6 +148,21 @@ impl TryCast<U256> for BigInt {
     }
 }
 
+impl TryCast<BigInt> for usize {
+    type Error = napi::Error;
+
+    fn try_cast(self) -> std::result::Result<BigInt, Self::Error> {
+        let value = u64::try_from(self).map_err(|_error| {
+            napi::Error::new(
+                Status::GenericFailure,
+                "usize was expected to fit within 64 bits.".to_string(),
+            )
+        })?;
+
+        Ok(BigInt::from(value))
+    }
+}
+
 impl<T> TryCast<T> for T {
     type Error = napi::Error;
 
