@@ -95,8 +95,14 @@ pub fn memory_stats() -> napi::Result<MiMemoryStats> {
 /// Returns a human-readable report of `mimalloc`'s main statistics, i.e. the
 /// output of `mi_stats_print_out`.
 ///
-/// The level of detail depends on how `mimalloc` was compiled (`MI_STAT`);
-/// release builds report summary-level statistics.
+/// The level of detail is fixed at compile time (`MI_STAT`). In EDR's
+/// configuration `mimalloc` is compiled with `MI_STAT=0` ("only essential"),
+/// regardless of the cargo profile: the report contains arena-level
+/// accounting (reserved, committed, purged), page statistics, and process
+/// information, but the per-allocation breakdown (block totals and
+/// per-size-class bins) is compiled out. Reaching `MI_STAT=2` would require
+/// building `libmimalloc-sys` with its `debug` feature, which also enables
+/// internal assertions and is expensive.
 #[napi(catch_unwind)]
 pub fn memory_report() -> String {
     let mut buffer = Vec::<u8>::new();
