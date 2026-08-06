@@ -105,7 +105,14 @@ pub fn memory_stats() -> napi::Result<MiMemoryStats> {
 /// internal assertions and is expensive.
 #[napi(catch_unwind)]
 pub fn memory_report() -> String {
-    let mut buffer = Vec::<u8>::new();
+    // Pre-allocate so that `append_to_buffer` doesn't reallocate through the
+    // global allocator (mimalloc) while `mimalloc` is printing.
+    //
+    // 2 KiB covers the ~1.3 KiB report that `MI_STAT=0` builds produce.
+    //
+    // If `MI_STAT > 1`, a variable part is added, which is capped at `MI_BIN_HUGE +
+    // 1`; i.e. 74 bin lines. Extrapolating to all 74 bins gives ~7.7 KB.
+    let mut buffer = Vec::<u8>::with_capacity(2048);
 
     // SAFETY: `append_to_buffer` does not unwind and only accesses `arg` as
     // the `Vec<u8>` it points to. `buffer` outlives the call and is not
@@ -116,6 +123,8 @@ pub fn memory_report() -> String {
             ptr::from_mut(&mut buffer).cast::<c_void>(),
         );
     }
+
+    buffer.shrink_to_fit();
 
     String::from_utf8_lossy(&buffer).into_owned()
 }
