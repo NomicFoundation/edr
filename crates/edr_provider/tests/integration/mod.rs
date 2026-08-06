@@ -17,6 +17,7 @@ mod eth_get_proof;
 mod eth_max_priority_fee_per_gas;
 mod eth_request_serialization;
 mod hardhat_request_serialization;
+mod interval_mining;
 mod issues;
 mod rip7212;
 mod solx_stack_trace;

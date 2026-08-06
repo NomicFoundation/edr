@@ -12,6 +12,7 @@ use edr_provider::{
     ProviderSpec, SyncProviderSpec,
 };
 use edr_test_utils::env::json_rpc_url_provider;
+use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use serial_test::serial;
 
 use crate::integration::helpers::get_chain_fork_provider;
@@ -25,7 +26,11 @@ fn get_provider<
     ChainSpecT: SyncProviderSpec<
             CurrentTime,
             Hardfork = edr_chain_l1::Hardfork,
-            SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
+            PooledTransaction: IsEip155,
+            SignedTransaction: Default
+                                   + TransactionMut
+                                   + TransactionType<Type: IsEip4844>
+                                   + TransactionValidation<ValidationError: PartialEq>,
         > + ProviderSpec<CurrentTime>,
 >(
     hardfork: edr_chain_l1::Hardfork,
