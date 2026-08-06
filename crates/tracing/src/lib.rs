@@ -35,20 +35,28 @@ use revm_inspector::JournalExt;
 /// need the floor-accurate refund or gas used must read them from revm's
 /// [`ExecutionResult`].
 fn result_gas_from_spent(gas: &Gas) -> ResultGas {
+    // The per-frame state gas counter is signed and can be negative when
+    // 0→x→0 storage restoration refills more state gas than the frame
+    // charged; clamp to zero for the unsigned `ResultGas` representation.
+    // TODO: revisit when fully implementing EIP-8037 — faithful per-frame
+    // attribution needs the signed value (a negative means the frame
+    // net-refunded state gas) carried through to the trace surface.
     ResultGas::new_with_state_gas(
         gas.total_gas_spent(),
         gas.refunded() as u64,
         0,
-        gas.state_gas_spent(),
+        gas.state_gas_spent().max(0) as u64,
     )
 }
 
 /// Build a [`ResultGas`] from a [`Gas`] accumulator where the full limit was
 /// consumed (e.g. for a Halt outcome).
 ///
-/// `floor_gas` is `0` for the same reason as in [`result_gas_from_spent`].
+/// TODO: revisit when fully implementing EIP-8037
+/// `floor_gas` is `0` and state gas is clamped for the same reasons as in
+/// [`result_gas_from_spent`]
 fn result_gas_from_limit(gas: &Gas) -> ResultGas {
-    ResultGas::new_with_state_gas(gas.limit(), 0, 0, gas.state_gas_spent())
+    ResultGas::new_with_state_gas(gas.limit(), 0, 0, gas.state_gas_spent().max(0) as u64)
 }
 
 /// Stack tracing message

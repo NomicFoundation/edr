@@ -1771,7 +1771,7 @@ fn convert_executed_result<
         result,
         gas_used,
         gas_refunded,
-        stipend: gas.initial_total_gas,
+        stipend: gas.initial_total_gas(),
         logs,
         labels,
         traces,
