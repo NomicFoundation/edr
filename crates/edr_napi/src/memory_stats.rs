@@ -142,13 +142,6 @@ unsafe extern "C" fn append_to_buffer(msg: *const c_char, arg: *mut c_void) {
 mod tests {
     use super::*;
 
-    /// Helper function to convert a `BigInt` to a `u64` for testing purposes.
-    /// `TryCast::try_cast` cannot be used directly, as the error type cannot be
-    /// inferred in the test context.
-    fn to_u64(value: BigInt) -> napi::Result<u64> {
-        value.try_cast()
-    }
-
     #[test]
     fn memory_stats_reports_process_memory() {
         // Ensure the allocator has something to report.
@@ -156,8 +149,49 @@ mod tests {
 
         let stats = memory_stats().expect("memory statistics should be available");
 
+        let peak_rss: u64 = stats.peak_rss.try_cast().unwrap();
+        let current_commit: u64 = stats.current_commit.try_cast().unwrap();
+        let peak_commit: u64 = stats.peak_commit.try_cast().unwrap();
+
         // The peak RSS is an OS process-level measurement, so it is non-zero.
-        assert!(to_u64(stats.peak_rss).unwrap() > 0);
+        assert!(peak_rss > 0);
+
+        // Invariant that holds across all platforms and constrains the
+        // mapping of `mi_process_info`'s out-parameters to struct fields: the
+        // peak commit is the high-water mark of the current commit. Note that
+        // `peak_rss >= current_commit` does NOT hold in general: zeroed
+        // allocations commit pages without touching them, so the commit can
+        // exceed the RSS.
+        assert!(peak_commit >= current_commit);
+    }
+
+    #[test]
+    fn memory_stats_commit_tracks_allocation() {
+        fn current_commit() -> u64 {
+            memory_stats()
+                .expect("memory statistics should be available")
+                .current_commit
+                .try_cast()
+                .unwrap()
+        }
+
+        let before = current_commit();
+
+        // Non-zero contents, so that all pages are touched and the allocation
+        // drives the RSS in addition to the commit.
+        let big = vec![1u8; 256 * 1024 * 1024];
+        std::hint::black_box(&big);
+
+        let stats = memory_stats().expect("memory statistics should be available");
+        let after: u64 = stats.current_commit.try_cast().unwrap();
+        let peak_rss: u64 = stats.peak_rss.try_cast().unwrap();
+
+        // The live 256 MiB allocation must show up in the committed memory,
+        // with slack for concurrent deallocations by other tests.
+        assert!(after >= before + 200 * 1024 * 1024);
+        // The touched 256 MiB must have driven the OS peak RSS at least this
+        // high, pinning `peak_rss` to an RSS out-parameter.
+        assert!(peak_rss >= 200 * 1024 * 1024);
     }
 
     #[test]
