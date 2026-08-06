@@ -17,17 +17,25 @@ impl MockProvider {
 }
 
 impl SyncProvider for MockProvider {
-    fn handle_request(&self, _request: String) -> napi::Result<edr_napi_core::spec::Response> {
+    fn enqueue_request(
+        &self,
+        _request: String,
+        on_response: Box<dyn FnOnce(napi::Result<edr_napi_core::spec::Response>) + Send>,
+    ) {
+        // There is nothing to offload so construct the mocked response on the calling
+        // thread.
         let response = jsonrpc::ResponseData::Success {
             result: self.mocked_response.clone(),
         };
-        edr_napi_core::spec::marshal_response_data(response)
+        let response = edr_napi_core::spec::marshal_response_data(response)
             .map(|data| edr_napi_core::spec::Response {
                 data,
                 stack_trace_result: None,
                 call_trace_arenas: Vec::new(),
             })
-            .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))
+            .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()));
+
+        on_response(response);
     }
 
     fn set_call_override_callback(

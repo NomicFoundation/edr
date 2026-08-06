@@ -23,17 +23,21 @@ use crate::{
 pub(crate) type RequestResponse<ChainSpecT> =
     Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>>;
 
+/// A completion callback that receives the response to a
+/// [`BackendRequest::Request`].
+pub(crate) type OnResponse<ChainSpecT> = Box<dyn FnOnce(RequestResponse<ChainSpecT>) + Send>;
+
 /// A message processed by the provider's background thread.
 ///
 /// The thread owns the [`ProviderData`] outright; all access goes through these
 /// messages so that requests and interval mining are serialized on a single
 /// thread without any locking.
 pub(crate) enum BackendRequest<ChainSpecT: ProviderChainSpec> {
-    /// Handle a single or batched JSON-RPC request, returning the response on
-    /// `response_sender`.
+    /// Handle a single or batched JSON-RPC request, passing the response to
+    /// `on_response`.
     Request {
         request: ProviderRequest<ChainSpecT>,
-        response_sender: Sender<RequestResponse<ChainSpecT>>,
+        on_response: OnResponse<ChainSpecT>,
     },
     /// Set (or clear) the call-override callback.
     SetCallOverrideCallback {
@@ -103,13 +107,12 @@ pub(super) fn run<ChainSpecT, TimerT>(
                 interval_timer = next_interval_timer(data.interval_config());
             }
             recv(request_receiver) -> message => match message {
-                Ok(BackendRequest::Request { request, response_sender }) => {
+                Ok(BackendRequest::Request { request, on_response }) => {
                     let current_interval = data.interval_config().cloned();
 
-                    let response = handle_request(&mut data, request);
+                    let response = execute_request(&mut data, request);
 
-                    // Ignore the error: the caller may have stopped waiting.
-                    let _ = response_sender.send(response);
+                    on_response(response);
 
                     // `evm_setIntervalMining` may have changed the configuration.
                     if data.interval_config() != current_interval.as_ref() {
@@ -143,10 +146,20 @@ pub(super) fn run<ChainSpecT, TimerT>(
             }
         }
     }
+
+    // Settle any requests that were still queued when the loop exited;
+    // otherwise their callers would never receive a response (e.g. a pending
+    // JS promise would never settle). Ack-style messages are simply dropped:
+    // disconnecting their reply channel unblocks the caller.
+    while let Ok(message) = request_receiver.try_recv() {
+        if let BackendRequest::Request { on_response, .. } = message {
+            on_response(Err(ProviderError::UnexpectedTermination));
+        }
+    }
 }
 
-/// Handles a single or batched JSON-RPC request.
-fn handle_request<ChainSpecT, TimerT>(
+/// Executes a single or batched JSON-RPC request.
+fn execute_request<ChainSpecT, TimerT>(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: ProviderRequest<ChainSpecT>,
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>>
@@ -162,13 +175,13 @@ where
     TimerT: Clone + TimeSinceEpoch,
 {
     match request {
-        ProviderRequest::Single(request) => handle_single_request(data, *request),
-        ProviderRequest::Batch(requests) => handle_batch_request(data, requests),
+        ProviderRequest::Single(request) => execute_single_request(data, *request),
+        ProviderRequest::Batch(requests) => execute_batch_request(data, requests),
     }
 }
 
-/// Handles a batch of JSON requests for an execution provider.
-fn handle_batch_request<ChainSpecT, TimerT>(
+/// Executes a batch of JSON requests for an execution provider.
+fn execute_batch_request<ChainSpecT, TimerT>(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: Vec<MethodInvocation<ChainSpecT>>,
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>>
@@ -187,7 +200,7 @@ where
     let mut traces = Vec::new();
 
     for req in request {
-        let response = handle_single_request(data, req)?;
+        let response = execute_single_request(data, req)?;
         results.push(response.result);
         traces.extend(response.call_trace_arenas);
     }
@@ -199,7 +212,7 @@ where
     })
 }
 
-fn handle_single_request<ChainSpecT, TimerT>(
+fn execute_single_request<ChainSpecT, TimerT>(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     request: MethodInvocation<ChainSpecT>,
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>>

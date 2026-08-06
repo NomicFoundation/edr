@@ -12,7 +12,7 @@ use crate::{
     backend::{self, BackendRequest},
     config::ProviderConfig,
     data::ProviderData,
-    error::{CreationErrorForChainSpec, ProviderErrorForChainSpec},
+    error::{CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
     logger::SyncLogger,
     mock::SyncCallOverride,
     requests::ProviderRequest,
@@ -20,6 +20,8 @@ use crate::{
     time::{CurrentTime, TimeSinceEpoch},
     ResponseWithCallTraces, SyncSubscriberCallback,
 };
+
+const BACKEND_THREAD_TERMINATED: &str = "the provider background thread has terminated";
 
 /// A JSON-RPC provider for Ethereum.
 ///
@@ -48,12 +50,10 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     /// channel and must embed it in the [`BackendRequest`] it returns; the
     /// background thread sends the `ResponseT` back on that channel once it
     /// has processed the request.
-    fn send_request<ResponseT>(
+    fn send_request_and_wait<ResponseT>(
         &self,
         new_request_fn: impl FnOnce(Sender<ResponseT>) -> BackendRequest<ChainSpecT>,
     ) -> ResponseT {
-        const BACKEND_THREAD_TERMINATED: &str = "the provider background thread has terminated";
-
         let (response_sender, response_receiver) = bounded(1);
         self.request_sender
             .send(new_request_fn(response_sender))
@@ -68,7 +68,7 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         method_name: &str,
         error: ProviderErrorForChainSpec<ChainSpecT>,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-        self.send_request(|ack| BackendRequest::LogFailedDeserialization {
+        self.send_request_and_wait(|ack| BackendRequest::LogFailedDeserialization {
             method_name: method_name.to_string(),
             error: Box::new(error),
             ack,
@@ -135,27 +135,65 @@ impl<
         &self,
         call_override_callback: Option<Arc<dyn SyncCallOverride>>,
     ) {
-        self.send_request(|ack| BackendRequest::SetCallOverrideCallback {
+        self.send_request_and_wait(|ack| BackendRequest::SetCallOverrideCallback {
             callback: call_override_callback,
             ack,
         });
     }
 
     pub fn set_verbose_tracing(&self, enabled: bool) {
-        self.send_request(|ack| BackendRequest::SetVerboseTracing { enabled, ack });
+        self.send_request_and_wait(|ack| BackendRequest::SetVerboseTracing { enabled, ack });
     }
 
     /// Blocking method to handle a request.
     ///
-    /// The request is queued on the background thread and this method blocks
-    /// until the response is available.
+    /// The request is enqueued on the background thread — see
+    /// [`Self::enqueue_request`] — and this method blocks until the response
+    /// is available.
     pub fn handle_request(
         &self,
         request: ProviderRequest<ChainSpecT>,
     ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
-        self.send_request(|response_sender| BackendRequest::Request {
+        let (response_sender, response_receiver) = bounded(1);
+
+        self.enqueue_request(
             request,
-            response_sender,
-        })
+            Box::new(move |response| {
+                // Ignore the error: the caller may have stopped waiting.
+                let _ = response_sender.send(response);
+            }),
+        );
+
+        response_receiver.recv().expect(BACKEND_THREAD_TERMINATED)
+    }
+
+    /// Enqueues a request on the provider's background thread, which executes
+    /// it and invokes `on_response` — from that thread — once the response is
+    /// available.
+    ///
+    /// This method never executes the request on the calling thread and
+    /// returns immediately, without waiting for the request to be handled.
+    ///
+    /// If the background thread has terminated (e.g. because it panicked while
+    /// handling an earlier request), `on_response` is invoked on the calling
+    /// thread with a [`ProviderError::UnexpectedTermination`] error instead.
+    pub fn enqueue_request(
+        &self,
+        request: ProviderRequest<ChainSpecT>,
+        on_response: Box<
+            dyn FnOnce(Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>>)
+                + Send,
+        >,
+    ) {
+        if let Err(error) = self.request_sender.send(BackendRequest::Request {
+            request,
+            on_response,
+        }) {
+            let BackendRequest::Request { on_response, .. } = error.0 else {
+                unreachable!("the returned message is the one that failed to send")
+            };
+
+            on_response(Err(ProviderError::UnexpectedTermination));
+        }
     }
 }
