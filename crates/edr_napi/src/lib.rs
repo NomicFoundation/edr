@@ -28,6 +28,7 @@ pub mod instrument;
 pub mod log;
 /// Types for an RPC request logger.
 pub mod logger;
+pub mod memory_stats;
 /// Types for mocking provider behavior.
 #[cfg(feature = "test-mock")]
 pub mod mock;
