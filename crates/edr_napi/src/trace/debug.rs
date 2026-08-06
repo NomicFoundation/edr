@@ -39,9 +39,11 @@ fn print_stack_trace(trace: SolidityStackTrace) -> napi::Result<()> {
             Either25::E(entry @ RevertErrorStackTraceEntry { .. }) => {
                 use serde::de::Error;
 
-                let decoded_error_msg = ReturnData::new(entry.return_data.clone())
-                    .decode_error()
-                    .map_err(|e| {
+                let decoded_error_msg = ReturnData::new(
+                    napi::bindgen_prelude::Uint8Array::with_data_copied(&*entry.return_data),
+                )
+                .decode_error()
+                .map_err(|e| {
                     serde_json::Error::custom(format_args!("Error decoding return data: {e}"))
                 })?;
 

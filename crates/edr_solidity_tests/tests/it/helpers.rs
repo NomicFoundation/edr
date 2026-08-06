@@ -23,9 +23,10 @@ use alloy_primitives::{Bytes, U256};
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
-    artifacts::{BuildInfoConfig, BuildInfoWithOutput},
+    artifacts::{solc::parse_solc_compiler_metadata, BuildInfoConfig},
     config::IncludeTraces,
     contract_decoder::ContractDecoder,
+    contracts_identifier::IdentifiedContract,
     linker::{LinkOutput, Linker},
 };
 use edr_solidity_tests::{
@@ -899,7 +900,7 @@ impl<
 /// this decoder recognizes contracts from their bytecode and attaches contract
 /// metadata, so stack-trace generation runs the full error inferrer.
 pub fn contract_decoder(build_info_dir: &Path) -> ContractDecoder {
-    let build_infos: Vec<BuildInfoWithOutput> = std::fs::read_dir(build_info_dir)
+    let identified_contracts: Vec<IdentifiedContract> = std::fs::read_dir(build_info_dir)
         .unwrap_or_else(|err| {
             panic!(
                 "failed to read build-info dir {}: {err}",
@@ -909,7 +910,7 @@ pub fn contract_decoder(build_info_dir: &Path) -> ContractDecoder {
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
-        .map(|path| {
+        .flat_map(|path| {
             let bytes = std::fs::read(&path).expect("failed to read build-info file");
             let mut value: serde_json::Value =
                 serde_json::from_slice(&bytes).expect("failed to parse build-info json");
@@ -942,21 +943,23 @@ pub fn contract_decoder(build_info_dir: &Path) -> ContractDecoder {
                     }
                 }
             }
-            serde_json::from_value(value).expect("failed to parse patched build-info")
+
+            parse_solc_compiler_metadata(value).expect("failed to parse patched build-info")
         })
         .collect();
+
     assert!(
-        !build_infos.is_empty(),
+        !identified_contracts.is_empty(),
         "no build-info files found in {}",
         build_info_dir.display()
     );
 
     let config = BuildInfoConfig {
-        build_infos,
+        identified_contracts,
         ignore_contracts: None,
     };
 
-    ContractDecoder::new(&config).expect("failed to build contract decoder")
+    ContractDecoder::new(config)
 }
 
 fn get_compiled(project: &Project) -> ProjectCompileOutput {

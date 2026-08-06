@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-cfg-if = "1.0.0"
 clap.workspace = true
 derive-where.workspace = true
 difference = { version = "2.0.0", default-features = false }
@@ -26,12 +25,13 @@ edr_test_block_replay.workspace = true
 flate2 = "1.0.28"
 indicatif = { version = "0.18.4", features = ["rayon"] }
 mimalloc = { version = "0.1.39", default-features = false }
-reqwest = { version = "0.13.0", features = ["blocking"] }
+# This standalone binary links napi code (via edr_napi_core's napi::Error) but
+# runs with no Node host to supply the N-API symbols. `dyn-symbols` resolves them
+# at runtime instead of as link-time externs, so the binary links.
+napi = { version = "3", default-features = false, features = ["dyn-symbols"] }
 serde.workspace = true
 serde_json.workspace = true
-tempfile.workspace = true
 tokio = "1.33.0"
-toml = { workspace = true, features = ["preserve_order"] }
 tracing = { version = "0.1.44", features = ["attributes", "std"], optional = true }
 tracing-flame = { version = "0.2.0", default-features = false, features = ["smallvec"], optional = true }
 tracing-subscriber = { version = "0.3.18", default-features = false, features = ["ansi", "env-filter", "fmt", "parking_lot", "smallvec", "std"], optional = true }

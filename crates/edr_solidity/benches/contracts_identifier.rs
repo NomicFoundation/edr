@@ -17,7 +17,7 @@ use std::{fs, hint::black_box, path::PathBuf, time::Duration};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use edr_solidity::{
-    artifacts::{BuildInfoConfig, BuildInfoWithOutput},
+    artifacts::{solc::parse_solc_compiler_metadata, BuildInfoConfig},
     contract_decoder::ContractDecoder,
 };
 
@@ -32,20 +32,20 @@ fn load_build_info_config() -> anyhow::Result<Option<BuildInfoConfig>> {
     };
     let build_info_dir = PathBuf::from(&artifacts_dir).join("build-info");
 
-    let mut build_infos = Vec::new();
+    let mut combined_identified_contracts = Vec::new();
     for entry in fs::read_dir(build_info_dir)? {
         let entry = entry?;
         let path = entry.path();
 
         if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("json") {
             let contents = fs::read(&path)?;
-            let build_info = serde_json::from_slice::<BuildInfoWithOutput>(&contents)?;
-            build_infos.push(build_info);
+            let identified_contracts = parse_solc_compiler_metadata(contents.as_slice())?;
+            combined_identified_contracts.extend(identified_contracts);
         }
     }
 
     Ok(Some(BuildInfoConfig {
-        build_infos,
+        identified_contracts: combined_identified_contracts,
         ignore_contracts: None,
     }))
 }
@@ -55,18 +55,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         return;
     };
 
-    let contracts = &build_info_config
-        .build_infos
-        .first()
-        .expect("there is at least one build info")
-        .output
-        .contracts;
-
     // Sanity check
-    let total_contracts = contracts
-        .values()
-        .map(std::collections::HashMap::len)
-        .sum::<usize>();
+    let total_contracts = build_info_config.identified_contracts.len();
     let min_contracts = 70;
     assert!(
         total_contracts >= min_contracts,
@@ -74,7 +64,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     );
 
     c.bench_function("initialize_contracts_identifier", |b| {
-        b.iter(|| ContractDecoder::new(black_box(&build_info_config)).unwrap());
+        b.iter(|| ContractDecoder::new(black_box(build_info_config.clone())));
     });
 }
 

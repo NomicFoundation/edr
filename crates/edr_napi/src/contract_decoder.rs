@@ -31,13 +31,10 @@ impl ContractDecoder {
         .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
         let contract_decoder =
-            edr_solidity::contract_decoder::ContractDecoder::new(&build_info_config).map_or_else(
-                |error| Err(napi::Error::from_reason(error.to_string())),
-                |contract_decoder| Ok(Arc::new(RwLock::new(contract_decoder))),
-            )?;
+            edr_solidity::contract_decoder::ContractDecoder::new(build_info_config);
 
         Ok(Self {
-            inner: contract_decoder,
+            inner: Arc::new(RwLock::new(contract_decoder)),
         })
     }
 }

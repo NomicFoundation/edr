@@ -11,6 +11,10 @@ on:
       - "**"
   workflow_dispatch:
 
+# Read-only: even the coverage upload uses CODECOV_TOKEN, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: true
@@ -71,7 +75,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
 
       # Install pre-built binaries for cargo hack
-      - uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
+      - uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
         with:
           tool: cargo-hack@0.6.39
 
@@ -105,13 +109,10 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
-        with:
-          tool: cargo-llvm-cov@0.8.5
+      - uses: ./.github/actions/setup-llvm-cov
 
       - name: Restore EDR RPC cache
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
             **/edr-cache
@@ -138,7 +139,7 @@ jobs:
         run: cargo test --doc --workspace --features tracing --locked --no-fail-fast
 
       - name: Save EDR RPC cache
-        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
             **/edr-cache
@@ -188,13 +189,12 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
+      - uses: ./.github/actions/setup-llvm-cov
         with:
-          tool: cargo-llvm-cov@0.8.5
+          builds-napi-crate: "true"
 
       - name: Restore EDR RPC cache
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
             **/edr-cache
@@ -214,6 +214,7 @@ jobs:
           FORCE_COLOR: 3
         shell: bash
         run: |
+          # shellcheck disable=SC1090 # generated env from cargo-llvm-cov, not a static file
           source <(cargo llvm-cov show-env --sh)
           pnpm -C crates/edr_napi test
           # `--release` included to match `build:dev` compilation flags
@@ -228,7 +229,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Save EDR RPC cache
-        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
             **/edr-cache
@@ -286,6 +287,7 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: ./.github/actions/setup-rust
       - uses: ./.github/actions/setup-node
 
       - name: Test workflow scripts
@@ -297,6 +299,26 @@ jobs:
         run: pnpm run build:dev
       - name: Run lint script
         run: pnpm run lint
+
+  link-standalone-bins:
+    name: Link standalone binaries
+    runs-on: ubuntu-24.04
+    needs: check-edr
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-rust
+
+      # edr_tool_cli links napi but runs without a Node host, so it needs napi's
+      # `dyn-symbols`. Nothing else in CI links it standalone: check jobs don't
+      # link, and --all-targets builds hide a missing `dyn-symbols` by unifying it
+      # in from edr_napi_core's tests. This scoped build reproduces the standalone
+      # link the scheduled block-replay workflows depend on; --release matches how
+      # they build it.
+      - name: Build standalone binaries that link napi
+        run: cargo build --locked --release --bin edr_tool_cli
 
   edr-napi-typings-file:
     name: Check that edr_napi typings file is up to date
@@ -335,10 +357,9 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
+      - uses: ./.github/actions/setup-llvm-cov
         with:
-          tool: cargo-llvm-cov@0.8.5
+          builds-napi-crate: "true"
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -346,6 +367,7 @@ jobs:
       - name: Run integration tests
         shell: bash
         run: |
+          # shellcheck disable=SC1090 # generated env from cargo-llvm-cov, not a static file
           source <(cargo llvm-cov show-env --sh)
           pnpm run --recursive --filter './js/integration-tests/*' test
           # `--release` included to match `build:dev` compilation flags
@@ -368,11 +390,36 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
 
-      - name: Cache cooldown data
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: |
-            **/edr-cache/cargo-cooldown-check
-          key: cooldown-check-v1-${{ hashFiles('**/Cargo.lock') }}
+      - uses: NomicFoundation/cargo-cooldown-check@0e9231d9dc6084e8ed2e2eee2fa812f27776cab8 # v0.2.0
 
-      - uses: NomicFoundation/cargo-cooldown-check@ac40e701f9f1155741a761ac9039987fb892af4b
+  actionlint:
+    name: Lint GitHub Actions workflows
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      # Official image bundles shellcheck + pyflakes, so `run:` linting needs no runner deps.
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        env:
+          # Gate on shellcheck warnings/errors; info-level style nits are noise.
+          SHELLCHECK_OPTS: --severity=warning
+        with:
+          args: -color
+
+  zizmor:
+    name: Audit GitHub Actions security (zizmor)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
+        with:
+          tool: zizmor@1.26.1
+      # GH_TOKEN enables the online audits (known-vulnerabilities, tag->SHA resolution).
+      - name: Run zizmor
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: zizmor --format github .github

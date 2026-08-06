@@ -5,23 +5,14 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.5",
     "prettier": "^3.2.5",
-    "syncpack": "^12.4.0"
+    "syncpack": "^15.0.0"
   },
   "engines": {
-    "node": ">=20",
-    "pnpm": ">=10.28.2"
+    "node": ">=22.13.0",
+    "pnpm": ">=11"
   },
   "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
-  "packageManager": "pnpm@10.34.3",
-  "pnpm": {
-    "overrides": {
-      "hardhat>@nomicfoundation/edr": "workspace:*"
-    },
-    "patchedDependencies": {
-      "hardhat@2.28.4": "patches/hardhat@2.28.4.patch",
-      "hardhat@3.4.5": "patches/hardhat@3.4.5.patch"
-    }
-  },
+  "packageManager": "pnpm@11.17.0",
   "private": true,
   "scripts": {
     "build": "pnpm run --recursive build",

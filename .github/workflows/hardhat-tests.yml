@@ -9,6 +9,9 @@ on:
       - "**"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   run-hardhat-tests:
     name: Run Hardhat tests (${{ matrix.os }}, Node ${{ matrix.node }})
@@ -38,23 +41,22 @@ jobs:
         with:
           components: llvm-tools-preview
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@7a79fe8c3a13344501c80d99cae481c1c9085912 # v2.81.10
+      - uses: ./.github/actions/setup-llvm-cov
         with:
-          tool: cargo-llvm-cov@0.8.5
+          builds-napi-crate: "true"
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Cache network requests
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
             hardhat-tests/test/internal/hardhat-network/provider/.hardhat_node_test_cache
           key: hardhat-network-forking-tests-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Cache stack trace artifacts
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
             hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/artifacts
@@ -62,7 +64,6 @@ jobs:
 
       - name: Run tests
         env:
-          INFURA_URL: ${{ secrets.INFURA_URL }}
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
           DO_NOT_SET_THIS_ENV_VAR____IS_HARDHAT_CI: true
           FORCE_COLOR: 3
@@ -70,6 +71,7 @@ jobs:
           DEBUG: "hardhat:core:hardhat-network:*"
         shell: bash
         run: |
+          # shellcheck disable=SC1090 # generated env from cargo-llvm-cov, not a static file
           source <(cargo llvm-cov show-env --sh)
           pnpm -C hardhat-tests test
           # `--release` included to match `build:dev` compilation flags

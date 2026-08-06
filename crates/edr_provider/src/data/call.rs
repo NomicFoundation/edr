@@ -59,6 +59,10 @@ impl<BlockEnvT: BlockEnvTrait> BlockEnvTrait for BlockEnvWithZeroBaseFee<BlockEn
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
         self.inner.blob_excess_gas_and_price()
     }
+
+    fn slot_num(&self) -> u64 {
+        self.inner.slot_num()
+    }
 }
 
 /// Execute a transaction as a call. Returns the gas used and the output.

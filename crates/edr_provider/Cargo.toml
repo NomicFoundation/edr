@@ -58,7 +58,7 @@ edr_utils.workspace = true
 edr_utils_sync.workspace = true
 foundry-evm-traces.workspace = true
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
-itertools = { version = "0.14.0", default-features = false, features = [
+itertools = { version = "0.15.0", default-features = false, features = [
     "use_alloc",
 ] }
 k256 = { version = "0.13.1", default-features = false, features = [

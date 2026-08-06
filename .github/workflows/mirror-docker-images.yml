@@ -1,0 +1,77 @@
+name: Mirror Docker images
+
+# Copies the Docker Hub images used by CI into GHCR
+# (ghcr.io/nomicfoundation/edr/mirror/*). CI pulls the mirror instead of
+# Docker Hub: Docker Hub rate-limits pulls, which fail intermittently on
+# GitHub-hosted runners as a result, while GHCR sits on the same
+# infrastructure as the runners.
+#
+# The mirror packages stay private; consumers authenticate with GITHUB_TOKEN.
+# Publishing via GITHUB_TOKEN links the packages to this repo automatically,
+# which is what grants that access — don't seed them from a personal token.
+
+permissions: {}
+
+on:
+  schedule:
+    # Weekly: upstream refreshes these tags in place with security patches.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/mirror-docker-images.yml
+  # Same-repo PRs touching this file mirror immediately, so a PR that adds a
+  # tag below (e.g. a new node version) can be tested before merge.
+  pull_request:
+    paths:
+      - .github/workflows/mirror-docker-images.yml
+
+jobs:
+  mirror:
+    name: Mirror node images to GHCR
+    runs-on: ubuntu-24.04
+    # Fork PRs get a read-only GITHUB_TOKEN and can't push to GHCR.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      packages: write
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy images to GHCR
+        run: |
+          set -euo pipefail
+          # Keep in sync with the node versions and container images in
+          # edr-npm-release.yml; a tag missing here fails CI with "manifest
+          # unknown" on the mirror pull.
+          TAGS=(22 22-alpine 24 24-alpine 24-bullseye-slim 26 26-alpine)
+
+          OWNER=${GITHUB_REPOSITORY_OWNER,,} # ghcr.io requires lowercase
+          for tag in "${TAGS[@]}"; do
+            SOURCE="docker.io/library/node:${tag}"
+            DEST="ghcr.io/${OWNER}/edr/mirror/node:${tag}"
+            for attempt in 1 2 3; do
+              if docker buildx imagetools create --tag "$DEST" "$SOURCE"; then
+                break
+              fi
+              if [ "$attempt" = 3 ]; then
+                echo "Failed to mirror $SOURCE after 3 attempts" >&2
+                exit 1
+              fi
+              sleep $((attempt * 30))
+            done
+            # A faithful copy preserves the manifest digest; a mismatch means
+            # imagetools rewrote the manifest (or upstream moved the tag mid-copy).
+            SRC_DIGEST=$(docker buildx imagetools inspect --format '{{.Manifest.Digest}}' "$SOURCE")
+            DEST_DIGEST=$(docker buildx imagetools inspect --format '{{.Manifest.Digest}}' "$DEST")
+            if [ "$SRC_DIGEST" != "$DEST_DIGEST" ]; then
+              echo "Digest mismatch for $DEST: $SRC_DIGEST (source) != $DEST_DIGEST (mirror)" >&2
+              exit 1
+            fi
+          done

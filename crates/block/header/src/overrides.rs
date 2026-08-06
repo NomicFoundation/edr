@@ -49,4 +49,17 @@ pub struct HeaderOverrides<HardforkT> {
     ///
     /// [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
     pub requests_hash: Option<B256>,
+    /// The Keccak-256 hash of the RLP-encoded block access list ([EIP-7928]).
+    ///
+    /// EDR does not compute the real block access list, so this override lets
+    /// callers supply the expected value instead of the simulated one.
+    ///
+    /// [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
+    pub block_access_list_hash: Option<B256>,
+    /// The slot number corresponding to this block ([EIP-7843]).
+    ///
+    /// Lets callers supply the exact value instead of the simulated one.
+    ///
+    /// [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
+    pub slot_number: Option<u64>,
 }

@@ -4,7 +4,7 @@ import path from "path";
 // The tests under `hardhat-tests` assume that the EDR version used by
 // Hardhat is the one in the workspace, instead of the one installed
 // from npm. This test checks that this is the case.
-it("uses the workspace version of EDR", async function () {
+it("uses the workspace version of EDR", function () {
   const hardhatPath = require.resolve("hardhat");
 
   const edrPath = require.resolve("@nomicfoundation/edr", {

@@ -8,6 +8,7 @@ pub use revm_primitives::{
     },
     b256, bytes,
     eip3860::MAX_INITCODE_SIZE,
+    eip7708,
     hardfork::UnknownHardfork,
     hex, hex_literal, keccak256, Address, Bytes, B256, KECCAK_EMPTY, U256,
 };

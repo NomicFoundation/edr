@@ -19,8 +19,20 @@ on:
         required: false
         type: string
         default: "main"
-  # ChatOps: comment `/bench` (optionally `/bench hardhat-ref=<branch|sha|PR>`)
-  # on a same-repo PR. Authorization + gating happens in the `setup` job.
+      scenario-filter:
+        description: "Glob(s) selecting which projects/scenarios to run, by directory name (e.g. `1inch*`). Comma-separated. Defaults to `*` (all projects). Forwarded to `bench:regression --scenarios`."
+        required: false
+        type: string
+        default: "*"
+      benchmark-filter:
+        description: "Glob(s) selecting which benchmarks to run within each project, by name — a command or step name, i.e. the part after `<project> /` in a report (e.g. `test solidity`, `cold compile`, `*compile*`). Comma-separated. Defaults to `test solidity,test mocha,test vitest` (EDR affects test execution, not compilation); pass `*` to run the full suite. Forwarded to `bench:regression --benchmarks`."
+        required: false
+        type: string
+        default: "test solidity,test mocha,test vitest"
+  # ChatOps: comment `/bench` on a same-repo PR, optionally with
+  # `hardhat-ref=<branch|sha|PR>`, `scenarios="<glob>[,<glob>...]"` and/or
+  # `benchmarks="<glob>[,<glob>...]"` to select which projects/benchmarks run
+  # (quote values containing spaces). Authorization + gating happens in `setup`.
   issue_comment:
     types: [created]
 
@@ -58,12 +70,13 @@ jobs:
       github.event_name != 'issue_comment' || (github.event.issue.pull_request != null &&
        startsWith(github.event.comment.body, '/bench'))
 
-
     outputs:
       should_run: ${{ steps.resolve.outputs.should_run }}
       edr_ref: ${{ steps.resolve.outputs.edr_ref }}
       hardhat_ref: ${{ steps.resolve.outputs.hardhat_ref }}
       is_baseline: ${{ steps.resolve.outputs.is_baseline }}
+      scenario_filter: ${{ steps.resolve.outputs.scenario_filter }}
+      benchmark_filter: ${{ steps.resolve.outputs.benchmark_filter }}
     steps:
       # Sparse-checkout only the workflow scripts so the github-script step can
       # require the resolver module below.
@@ -88,6 +101,10 @@ jobs:
     # are comparable to Hardhat's own regression baselines.
     runs-on: hardhat-linux-amd64-self-hosted
     timeout-minutes: 180
+    permissions:
+      # Lets the short-lived GITHUB_TOKEN used on non-baseline runs read commit
+      # metadata via the REST API (see "Store benchmark result").
+      contents: read
     env:
       # Hardhat is checked out into ./hardhat; the EDR repo is the workspace root.
       HH: ${{ github.workspace }}/hardhat
@@ -122,13 +139,41 @@ jobs:
       - uses: ./.github/actions/setup-rust
 
       - name: Install system dependencies
+        # `time` is GNU /usr/bin/time — bench:regression wraps each benchmark in
+        # it to capture peak RSS (memory) alongside timing.
         run: |
           sudo apt-get update
-          sudo apt-get install -y hyperfine jq
+          sudo apt-get install -y hyperfine jq time
 
       - name: Configure E2E clone directory
         # Use the runner's temp dir for the scenario clones.
-        run: echo "E2E_CLONE_DIR=$RUNNER_TEMP/edr-e2e-clones" >> "$GITHUB_ENV"
+        run: echo "E2E_CLONE_DIR=${RUNNER_TEMP:?}/edr-e2e-clones" >> "$GITHUB_ENV"
+
+      - name: Configure per-run package-manager caches
+        # The benchmark republishes deterministic versions (e.g. hardhat@3.12.1)
+        # whose content changes each run (new @nomicfoundation/edr pin), so any
+        # package-manager cache that persists on the self-hosted runner can
+        # resolve a prior run's stale republish. Point these caches at temp dirs
+        # that are cleaned up at the end of the job (see "Clean up temp dir").
+        #
+        # Yarn berry: the global folder holds both the zip cache and the npm
+        # packument metadata cache. YARN_* env vars override any .yarnrc.yml.
+        #
+        # Yarn classic: no override is needed. It doesn't have a persistent
+        # metadata cache, and its tarball cache slug includes the tarball's
+        # sha1.
+        #
+        # All caches live under PACKAGE_MANAGER_CACHES so the cleanup step can
+        # remove that single directory without being updated for every cache
+        # added here.
+        run: |
+          set -euo pipefail
+          PACKAGE_MANAGER_CACHES="${RUNNER_TEMP:?}/package-manager-caches"
+          {
+            echo "PACKAGE_MANAGER_CACHES=$PACKAGE_MANAGER_CACHES"
+            echo "BUN_INSTALL_CACHE_DIR=$PACKAGE_MANAGER_CACHES/bun-install"
+            echo "YARN_GLOBAL_FOLDER=$PACKAGE_MANAGER_CACHES/yarn-global"
+          } >> "$GITHUB_ENV"
 
       - name: Compute sentinel versions
         # Writes EDR_VER and HH_VER to $GITHUB_ENV
@@ -209,17 +254,26 @@ jobs:
           # See "Start Verdaccio": bypass pnpm's frozen-lockfile deps check for
           # the repoint-desynced workspace.
           PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
+          # Scenario/benchmark glob filters, always set by the setup job (`*`
+          # matches all). Forwarded verbatim to bench:regression, which matches
+          # them against scenario directory / benchmark (command or step) names.
+          SCENARIO_FILTER: ${{ needs.setup.outputs.scenario_filter }}
+          BENCHMARK_FILTER: ${{ needs.setup.outputs.benchmark_filter }}
         # --force-publish: reuse our already-running Verdaccio (instead of
         #   erroring) and run the global sinceReleasePublish once up front.
         # --use-local: republish the (repointed) hardhat workspace packages and
         #   pin each scenario's hardhat/@nomicfoundation deps to Verdaccio.
+        # --scenarios / --benchmarks: always passed; `*` means "all".
         run: |
+          set -euo pipefail
           pnpm bench:regression \
             --use-local \
             --force-publish \
             --force-checkout \
             --e2e-clone-dir "$E2E_CLONE_DIR" \
-            --output regression-report.json
+            --output regression-report.json \
+            --scenarios "$SCENARIO_FILTER" \
+            --benchmarks "$BENCHMARK_FILTER"
 
       - name: Validate scenarios used the local EDR build
         working-directory: hardhat
@@ -330,7 +384,12 @@ jobs:
           gh-repository: github.com/nomic-foundation-automation/edr-benchmark-results
           gh-pages-branch: main
           benchmark-data-dir-path: hardhat3
-          github-token: ${{ secrets.BENCHMARK_GITHUB_TOKEN }}
+          # Baseline (main push) runs push to the external results repo, which
+          # needs the cross-repo PAT. Non-baseline runs (PR/dispatch and the
+          # `/bench` issue_comment path) never push — the token is only used to
+          # read commit metadata and to clone the (public) results repo for
+          # comparison — so use the short-lived GITHUB_TOKEN.
+          github-token: ${{ needs.setup.outputs.is_baseline == 'true' && secrets.BENCHMARK_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           # Only push a new baseline on main-branch pushes; PRs/dispatch only compare.
           auto-push: ${{ needs.setup.outputs.is_baseline == 'true' }}
           alert-threshold: "110%"
@@ -341,7 +400,7 @@ jobs:
       - name: Notify failures
         # Only ping Slack for failed baseline runs (pushes to main)
         if: ${{ failure() && needs.setup.outputs.is_baseline == 'true' }}
-        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
+        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
         with:
           webhook: ${{ secrets.GH_ACTION_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: webhook-trigger
@@ -355,7 +414,7 @@ jobs:
         # Self-hosted runners don't automatically wipe RUNNER_TEMP between jobs, so we do
         # this manually to avoid polluting future runs.
         if: always()
-        run: rm -rf "$RUNNER_TEMP/edr-e2e-clones"
+        run: rm -rf "$E2E_CLONE_DIR" "$PACKAGE_MANAGER_CACHES"
 
   report:
     name: Report result to PR
@@ -371,6 +430,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write # post the result comment on the PR
+      pull-requests: write # post status comments/reactions on the PR
     steps:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:

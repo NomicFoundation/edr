@@ -8,7 +8,7 @@ import {
   HardhatNetworkMempoolConfig,
   HardhatNetworkMiningConfig,
 } from "hardhat/types";
-import { ALCHEMY_URL, INFURA_URL } from "../../../setup";
+import { ALCHEMY_URL } from "../../../setup";
 
 import { useProvider, UseProviderOptions } from "./useProvider";
 
@@ -170,23 +170,6 @@ if (ALCHEMY_URL !== undefined) {
 
   FORKED_PROVIDERS.push({
     rpcProvider: "Alchemy",
-    jsonRpcUrl: url,
-    useProvider: (options: UseProviderOptions = {}) => {
-      useProvider({
-        useJsonRpc: false,
-        loggerEnabled: true,
-        forkConfig: { jsonRpcUrl: url, blockNumber: options.forkBlockNumber },
-        ...options,
-      });
-    },
-  });
-}
-
-if (INFURA_URL !== undefined) {
-  const url = INFURA_URL;
-
-  FORKED_PROVIDERS.push({
-    rpcProvider: "Infura",
     jsonRpcUrl: url,
     useProvider: (options: UseProviderOptions = {}) => {
       useProvider({

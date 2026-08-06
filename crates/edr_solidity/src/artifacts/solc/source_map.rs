@@ -1,9 +1,8 @@
 //! Utility functions for decoding the Solidity compiler source maps.
-use std::sync::Arc;
 
 use edr_primitives::bytecode::opcode::OpCode;
 
-use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
+use crate::build_model::{Instruction, JumpType};
 
 /// Errors that can occur during source map decoding.
 #[derive(Clone, Debug, thiserror::Error)]
@@ -50,7 +49,7 @@ fn jump_letter_to_jump_type(letter: &str) -> JumpType {
     }
 }
 
-fn uncompress_sourcemaps(compressed: &str) -> Result<Vec<SourceMap>, SourceMapError> {
+pub(super) fn uncompress_sourcemaps(compressed: &str) -> Result<Vec<SourceMap>, SourceMapError> {
     let mut mappings = Vec::new();
 
     let compressed_mappings = compressed.split(';');
@@ -160,7 +159,7 @@ fn uncompress_sourcemaps(compressed: &str) -> Result<Vec<SourceMap>, SourceMapEr
     Ok(mappings)
 }
 
-fn add_unmapped_instructions(
+pub(super) fn add_unmapped_instructions(
     instructions: &mut Vec<Instruction>,
     bytecode: &[u8],
 ) -> Result<(), SourceMapError> {
@@ -210,6 +209,7 @@ fn add_unmapped_instructions(
             jump_type,
             push_data,
             location: None,
+            inline_call_sites: Box::default(),
         };
 
         instructions.push(instruction);
@@ -218,100 +218,6 @@ fn add_unmapped_instructions(
     }
 
     Ok(())
-}
-
-/// Given the raw bytecode and the compressed source maps, decode the
-/// instructions.
-pub fn decode_instructions(
-    bytecode: &[u8],
-    compressed_sourcemaps: &str,
-    build_model: &Arc<BuildModel>,
-    is_deployment: bool,
-) -> Result<Vec<Instruction>, SourceMapError> {
-    let source_maps = uncompress_sourcemaps(compressed_sourcemaps)?;
-
-    let mut instructions = Vec::new();
-
-    let mut bytes_index = 0;
-
-    while instructions.len() < source_maps.len() {
-        let source_map = source_maps
-            .get(instructions.len())
-            .expect("instructions.len() should be within source_maps bounds");
-
-        let pc = bytes_index;
-        let opcode = if let Some(opcode) = OpCode::new(
-            *bytecode
-                .get(pc)
-                .expect("pc should be within bytecode bounds"),
-        ) {
-            opcode
-        } else {
-            log::debug!(
-                "Invalid opcode {} at pc: {}",
-                *bytecode
-                    .get(pc)
-                    .expect("pc should be within bytecode bounds"),
-                pc
-            );
-
-            // We assume this happens because the source maps point to the metadata region
-            // of the bytecode. That means that the actual instructions have
-            // already been decoded and we can stop here.
-            return Ok(instructions);
-        };
-
-        let push_data = if opcode.is_push() {
-            let push_data = bytecode
-                .get(bytes_index..)
-                .expect("bytes_index should be within bytecode bounds")
-                .get(..1 + opcode.info().immediate_size() as usize)
-                .expect("bytecode should have enough bytes for push data");
-
-            Some(push_data.to_vec())
-        } else {
-            None
-        };
-
-        let jump_type = match (opcode, source_map.jump_type) {
-            (OpCode::JUMP | OpCode::JUMPI, JumpType::NotJump) => JumpType::InternalJump,
-            _ => source_map.jump_type,
-        };
-
-        let location = if source_map.location.file == -1 {
-            None
-        } else {
-            build_model
-                .file_id_to_source_file
-                .get(&(source_map.location.file as u32))
-                .map(|_| {
-                    Arc::new(SourceLocation::new(
-                        build_model.file_id_to_source_file.clone(),
-                        source_map.location.file as u32,
-                        source_map.location.offset as u32,
-                        source_map.location.length as u32,
-                    ))
-                })
-        };
-
-        let instruction = Instruction {
-            pc: bytes_index as u32,
-            opcode,
-            jump_type,
-            push_data,
-            location,
-        };
-
-        instructions.push(instruction);
-
-        bytes_index += 1 + opcode.info().immediate_size() as usize;
-    }
-
-    if is_deployment {
-        add_unmapped_instructions(&mut instructions, bytecode)?;
-    }
-
-    Ok(instructions)
 }
 
 #[cfg(test)]
@@ -330,6 +236,7 @@ mod tests {
             jump_type: JumpType::NotJump,
             push_data: Some(vec![0xde, 0xad]),
             location: None,
+            inline_call_sites: Box::default(),
         }];
 
         // Make sure we start decoding from opcode::STOP rather than from inside

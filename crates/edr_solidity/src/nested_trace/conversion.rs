@@ -107,7 +107,7 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
         return Ok(NestedTrace::Create(CreateMessage {
             number_of_subtraces: node.children.len() as u32,
             steps,
-            contract_meta: None, // This will be populated by the nested trace decoder
+            identified_contract: None, // This will be populated by the nested trace decoder
             deployed_contract: Some(trace.output.clone()),
             code: address_to_creation_code
                 .get(&trace.address)
@@ -133,7 +133,7 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
     Ok(NestedTrace::Call(CallMessage {
         number_of_subtraces: node.children.len() as u32,
         steps,
-        contract_meta: None, // This will be populated by the nested trace decoder
+        identified_contract: None, // This will be populated by the nested trace decoder
         calldata: trace.data.clone(),
         address: trace.address,
         code_address: trace.address,

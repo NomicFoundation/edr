@@ -44,7 +44,7 @@ use foundry_evm::{
         invariant::{CallDetails, InvariantContract},
         CounterExample, FuzzFixtures,
     },
-    traces::{load_contracts, SetupTraceKind, TracingMode},
+    traces::{load_contracts, SetupTraceKind, SparsedTraceArena, TracingMode},
 };
 use itertools::Itertools;
 use proptest::test_runner::{FailurePersistence, RngAlgorithm, TestError, TestRng, TestRunner};
@@ -940,32 +940,21 @@ impl<
 
         let elapsed = start.elapsed();
 
-        // Exclude stack trace generation from test execution time for accurate
-        // reporting
+        // Indeterminism reasons are only relevant for stack trace generation
+        let indeterminism_reasons = raw_call_result.indeterminism_reasons.take();
+
+        self.result
+            .single_result(success, reason, raw_call_result, elapsed);
+
         self.result.stack_trace_result = if !success {
             let stack_trace_result: SolidityTestStackTraceResult<HaltReasonT> =
                 if self.executor.tracer_records_steps() {
-                    get_stack_trace(
+                    collect_stack_trace(
                         &*self.cr.contract_decoder,
-                        self.setup
-                            .traces
-                            .iter()
-                            .map(|(_, arena)| &arena.arena)
-                            .chain(
-                                self.result
-                                    .execution_traces
-                                    .iter()
-                                    .map(|arena| &arena.arena),
-                            ),
-                        None,
+                        self.setup,
+                        &self.result.execution_traces,
                     )
-                    .map_err(SolidityTestStackTraceError::from)
-                    .transpose()
-                    .expect("traces are not empty")
-                    .into()
-                } else if let Some(indeterminism_reasons) =
-                    raw_call_result.indeterminism_reasons.take()
-                {
+                } else if let Some(indeterminism_reasons) = indeterminism_reasons {
                     indeterminism_reasons.into()
                 } else {
                     self.re_run_test_for_stack_traces(func, &[], self.setup.has_setup_method)
@@ -975,9 +964,6 @@ impl<
         } else {
             None
         };
-
-        self.result
-            .single_result(success, reason, raw_call_result, elapsed);
 
         self.result
     }
@@ -1106,38 +1092,26 @@ impl<
                     )));
                 let elapsed = start.elapsed();
 
+                // Indeterminism reasons are only relevant for stack trace generation
+                let indeterminism_reasons = raw_call_result.indeterminism_reasons.take();
+
+                self.result
+                    .single_result(false, reason, raw_call_result, elapsed);
+
                 let stack_trace_result: SolidityTestStackTraceResult<HaltReasonT> =
                     if self.executor.tracer_records_steps() {
-                        get_stack_trace(
+                        collect_stack_trace(
                             &*self.cr.contract_decoder,
-                            self.setup
-                                .traces
-                                .iter()
-                                .map(|(_, arena)| &arena.arena)
-                                .chain(
-                                    self.result
-                                        .execution_traces
-                                        .iter()
-                                        .map(|arena| &arena.arena),
-                                ),
-                            None,
+                            self.setup,
+                            &self.result.execution_traces,
                         )
-                        .map_err(SolidityTestStackTraceError::from)
-                        .transpose()
-                        .expect("traces are not empty")
-                        .into()
-                    } else if let Some(indeterminism_reasons) =
-                        raw_call_result.indeterminism_reasons.take()
-                    {
+                    } else if let Some(indeterminism_reasons) = indeterminism_reasons {
                         indeterminism_reasons.into()
                     } else {
                         self.re_run_test_for_stack_traces(func, &args, self.setup.has_setup_method)
                             .into()
                     };
                 self.result.stack_trace_result = Some(stack_trace_result);
-
-                self.result
-                    .single_result(false, reason, raw_call_result, elapsed);
 
                 return self.result;
             }
@@ -1307,38 +1281,28 @@ impl<
             &self.setup.deployed_libs,
         ) {
             Ok(x) => x,
-            Err(e) => {
+            Err(error) => {
                 let elapsed = start.elapsed();
+
+                // Indeterminism reasons are only relevant for stack trace generation
+                let indeterminism_reasons = error.indetereminism_reasons();
+
+                self.result.invariant_setup_fail(error, elapsed);
 
                 let stack_trace_result: SolidityTestStackTraceResult<HaltReasonT> =
                     if self.executor.tracer_records_steps() {
-                        get_stack_trace(
+                        collect_stack_trace(
                             &*self.cr.contract_decoder,
-                            self.setup
-                                .traces
-                                .iter()
-                                .map(|(_, arena)| &arena.arena)
-                                .chain(
-                                    self.result
-                                        .execution_traces
-                                        .iter()
-                                        .map(|arena| &arena.arena),
-                                ),
-                            None,
+                            self.setup,
+                            &self.result.execution_traces,
                         )
-                        .map_err(SolidityTestStackTraceError::from)
-                        .transpose()
-                        .expect("traces are not empty")
-                        .into()
-                    } else if let Some(indeterminism_reasons) = e.indetereminism_reasons() {
+                    } else if let Some(indeterminism_reasons) = indeterminism_reasons {
                         indeterminism_reasons.into()
                     } else {
                         self.re_run_test_for_stack_traces(func, &[], self.setup.has_setup_method)
                             .into()
                     };
                 self.result.stack_trace_result = Some(stack_trace_result);
-
-                self.result.invariant_setup_fail(e, elapsed);
 
                 return self.result;
             }
@@ -1542,24 +1506,11 @@ impl<
         {
             let stack_trace_result: SolidityTestStackTraceResult<_> =
                 if fuzzed_executor.tracer_records_steps() {
-                    get_stack_trace(
+                    collect_stack_trace(
                         &*self.cr.contract_decoder,
-                        self.setup
-                            .traces
-                            .iter()
-                            .map(|(_, arena)| &arena.arena)
-                            .chain(
-                                self.result
-                                    .execution_traces
-                                    .iter()
-                                    .map(|arena| &arena.arena),
-                            ),
-                        None,
+                        self.setup,
+                        &self.result.execution_traces,
                     )
-                    .map_err(SolidityTestStackTraceError::from)
-                    .transpose()
-                    .expect("traces are not empty")
-                    .into()
                 } else if let Some(indeterminism_reasons) =
                     counter_example.indeterminism_reasons.clone()
                 {
@@ -1699,6 +1650,34 @@ impl<
         .expect("traces are not empty")
         .map_err(SolidityTestStackTraceError::Creation)
     }
+}
+
+/// Builds a stack trace from the traces recorded during this run.
+///
+/// Taken as an associated function of explicit fields rather than `&self`
+/// so it can be called from the fuzz path, where `self.executor` has
+/// already been moved out.
+fn collect_stack_trace<
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<HaltReason>,
+    NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+>(
+    contract_decoder: &NestedTraceDecoderT,
+    setup: &TestSetup<HaltReasonT>,
+    execution_traces: &[SparsedTraceArena],
+) -> SolidityTestStackTraceResult<HaltReasonT> {
+    get_stack_trace(
+        contract_decoder,
+        setup
+            .traces
+            .iter()
+            .map(|(_, arena)| &arena.arena)
+            .chain(execution_traces.iter().map(|arena| &arena.arena)),
+        None,
+    )
+    .map_err(SolidityTestStackTraceError::from)
+    .transpose()
+    .expect("traces are not empty")
+    .into()
 }
 
 /// Re-run the deployment, setup and test execution with expensive EVM step

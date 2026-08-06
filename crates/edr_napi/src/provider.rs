@@ -5,8 +5,14 @@ mod response;
 use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
-use edr_solidity::compiler::create_models_and_decode_bytecodes;
-use napi::{bindgen_prelude::ObjectFinalize, tokio::runtime, Env, JsFunction, JsObject, Status};
+use edr_solidity::artifacts::{
+    solc::extract_solc_contract_metadata, solx::extract_solx_contract_metadata, to_compiler_type,
+};
+use napi::{
+    bindgen_prelude::{FnArgs, Function, Object, ObjectFinalize, Promise, Uint8Array},
+    tokio::runtime,
+    Env, Status,
+};
 use napi_derive::napi;
 use parking_lot::RwLock;
 
@@ -66,25 +72,73 @@ impl Provider {
 
         self.runtime
             .spawn_blocking(move || {
+                #[derive(serde::Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct CompilerTypeAndRemainder {
+                    #[serde(default)]
+                    compiler_type: Option<String>,
+                    #[serde(flatten)]
+                    remainder: serde_json::Value,
+                }
+
                 let compiler_input = serde_json::from_value(compiler_input)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
-                let compiler_output = serde_json::from_value(compiler_output)
+                let peekable = serde_json::from_value(compiler_output)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
-                let contracts = match create_models_and_decode_bytecodes(
-                    solc_version,
-                    &compiler_input,
-                    &compiler_output,
-                ) {
-                    Ok(contracts) => contracts,
-                    Err(error) => {
-                        return Err(napi::Error::from_reason(format!("Contract decoder failed to be updated. Please report this to help us improve Hardhat.\n{error}")));
-                    }
-                };
+                let CompilerTypeAndRemainder {
+                    compiler_type,
+                    remainder,
+                } = peekable;
+
+                let identified_contracts = match to_compiler_type(compiler_type.as_deref()) {
+                    edr_solidity::artifacts::CompilerType::Solc => serde_json::from_value::<
+                        edr_solidity::artifacts::CompilerOutput<
+                            edr_solidity::artifacts::SolcBytecode,
+                        >,
+                    >(remainder)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    .and_then(|compiler_output| {
+                        extract_solc_contract_metadata(
+                            solc_version,
+                            compiler_input,
+                            compiler_output,
+                        )
+                        // Silently ignore unsupported solc versions
+                        .or_else(|error| {
+                            if matches!(error, edr_solidity::artifacts::ContractMetadataExtractionError::UnsupportedSolcVersion(_)) {
+                                Ok(Vec::new())
+                            } else {
+                                Err(error)
+                            }
+                        })
+                        .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    }),
+                    edr_solidity::artifacts::CompilerType::Solx => serde_json::from_value::<
+                        edr_solidity::artifacts::CompilerOutput<
+                            edr_solidity::artifacts::SolxBytecode,
+                        >,
+                    >(remainder)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    .and_then(|compiler_output| {
+                        extract_solx_contract_metadata(
+                            solc_version,
+                            compiler_input,
+                            compiler_output,
+                        )
+                        // Silently ignore unsupported solc versions
+                        .or_else(|error| if matches!(error, edr_solidity::artifacts::ContractMetadataExtractionError::UnsupportedSolcVersion(_)) {
+                            Ok(Vec::new())
+                        } else {
+                            Err(error)
+                        })
+                        .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    }),
+                }?;
 
                 let mut contract_decoder = contract_decoder.write();
-                for contract in contracts {
+                for contract in identified_contracts {
                     contract_decoder.add_contract_metadata(contract);
                 }
 
@@ -118,18 +172,36 @@ impl Provider {
     }
 
     #[napi(catch_unwind, ts_return_type = "Promise<void>")]
-    pub fn set_call_override_callback(
+    pub fn set_call_override_callback<'env>(
         &self,
-        env: Env,
+        env: &'env Env,
+        // TODO: https://github.com/NomicFoundation/edr/issues/1532
+        // `ts_arg_type` declares `ArrayBuffer` to match Hardhat 2's typings
+        // for this callback; the runtime value is actually a `Uint8Array`.
+        // Producing a real `ArrayBuffer` is not possible: napi-rs's
+        // `ArrayBuffer<'env>` carries a lifetime, while threadsafe-function
+        // arguments must be `'static`.
+        //
+        // Hardhat 2 reads the arguments with `Buffer.from(x)`, which accepts
+        // both shapes identically. Any new consumer should treat this
+        // argument as a typed-array view: `Buffer.from(x)` and
+        // `new Uint8Array(x)` work, while ArrayBuffer-specific operations
+        // (`new DataView(x)` with no offset, ArrayBuffer `.slice(start, end)`
+        // semantics) would silently behave like `Uint8Array`. The same caveat
+        // applies to `decodeConsoleLogInputsCallback` in `logger.rs`.
         #[napi(
             ts_arg_type = "(contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>"
         )]
-        call_override_callback: JsFunction,
-    ) -> napi::Result<JsObject> {
+        call_override_callback: Function<
+            'env,
+            FnArgs<(Uint8Array, Uint8Array)>,
+            Promise<Option<crate::call_override::CallOverrideResult>>,
+        >,
+    ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
         let call_override_callback =
-            match CallOverrideCallback::new(&env, call_override_callback, self.runtime.clone()) {
+            match CallOverrideCallback::new(call_override_callback, self.runtime.clone()) {
                 Ok(callback) => callback,
                 Err(error) => {
                     deferred.reject(error);

@@ -5,6 +5,9 @@ on:
     - cron: "0 */8 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test-recent-mainnet-block:
     name: Test recent mainnet block
@@ -17,7 +20,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
 
       - name: Cache EDR RPC cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
             **/edr-cache
@@ -27,7 +30,7 @@ jobs:
 
       - name: Notify failures
         if: failure()
-        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
+        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
         with:
           webhook: ${{ secrets.GH_ACTION_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: webhook-trigger

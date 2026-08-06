@@ -9,6 +9,7 @@ use edr_chain_l1::{
     L1ChainSpec,
 };
 use edr_chain_spec::TransactionValidation;
+use edr_eth::PreEip1898BlockSpec;
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -70,6 +71,21 @@ pub fn prague_header_overrides(
         // Prague is not implemented.
         requests_hash: replay_header.requests_hash,
         ..l1_base_header_overrides(replay_header)
+    }
+}
+
+/// Default header overrides for replaying L1 blocks after Amsterdam hardfork.
+pub fn amsterdam_header_overrides(
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
+    HeaderOverrides {
+        // EDR does not compute the real block access list (EIP-7928), only a simulated hash, so
+        // replay the value from the block being replayed.
+        block_access_list_hash: replay_header.block_access_list_hash,
+        // EDR only simulates the slot number (EIP-7843), so replay the value from the block being
+        // replayed.
+        slot_number: replay_header.slot_number,
+        ..prague_header_overrides(replay_header)
     }
 }
 
@@ -276,6 +292,31 @@ where
     Ok(contract_address)
 }
 
+/// Mines an empty block.
+pub fn mine_block<TimerT>(provider: &Provider<L1ChainSpec, TimerT>)
+where
+    TimerT: Clone + TimeSinceEpoch,
+{
+    provider
+        .handle_request(ProviderRequest::with_single(MethodInvocation::EvmMine(
+            None,
+        )))
+        .expect("evm_mine should succeed");
+}
+
+/// Returns the raw JSON of the latest block.
+pub fn get_latest_block<TimerT>(provider: &Provider<L1ChainSpec, TimerT>) -> serde_json::Value
+where
+    TimerT: Clone + TimeSinceEpoch,
+{
+    provider
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+        ))
+        .expect("eth_getBlockByNumber should succeed")
+        .result
+}
+
 /// Fixture for testing `ProviderData`.
 pub struct ProviderTestFixture<ChainSpecT: ProviderSpec<CurrentTime>> {
     _runtime: runtime::Runtime,
@@ -435,4 +476,38 @@ fn genesis_state_with_funded_owned_accounts(
             (address, account_override)
         })
         .collect()
+}
+
+pub fn transfer_value(
+    provider: &Provider<L1ChainSpec>,
+    from: Address,
+    to: Address,
+    value: U256,
+) -> L1RpcTransactionReceipt {
+    let request = TransactionRequest {
+        from,
+        to: Some(to),
+        value: Some(value),
+        ..TransactionRequest::default()
+    };
+
+    let response = provider
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(request),
+        ))
+        .expect("eth_sendTransaction should succeed");
+
+    let transaction_hash: B256 =
+        serde_json::from_value(response.result).expect("response should be a transaction hash");
+
+    let response = provider
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::GetTransactionReceipt(transaction_hash),
+        ))
+        .expect("eth_getTransactionReceipt should succeed");
+
+    let receipt: Option<L1RpcTransactionReceipt> =
+        serde_json::from_value(response.result).expect("response should be a receipt");
+
+    receipt.expect("receipt should exist")
 }

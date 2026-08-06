@@ -123,14 +123,10 @@ impl L1RpcTransaction {
             *transaction.gas_price()
         };
 
-        let chain_id = transaction.chain_id().and_then(|chain_id| {
+        let chain_id = transaction.chain_id().filter(|_| {
             // Following Hardhat in not returning `chain_id` for `PostEip155Legacy` legacy
             // transactions even though the chain id would be recoverable.
-            if transaction.is_legacy() {
-                None
-            } else {
-                Some(chain_id)
-            }
+            !transaction.is_legacy()
         });
 
         let show_transaction_type = hardfork >= EvmSpecId::BERLIN;

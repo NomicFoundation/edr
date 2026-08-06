@@ -16,7 +16,7 @@ use edr_evm::{ExecutionResultAndStateWithMetadata, ExecutionResultWithMetadata};
 use edr_gas_report::SyncOnCollectedGasReportCallback;
 use edr_inspector_bytecode::ExecutedBytecodeCollector;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
-use edr_receipt::ExecutionResult;
+use edr_receipt::{log::ExecutionLog, ExecutionResult};
 use edr_solidity::{
     config::IncludeTraces, contract_decoder::ContractDecoder, tracing::SolidityTracingInspector,
 };
@@ -163,7 +163,9 @@ impl EvmObserver {
         let tracing_config = if config.verbose_raw_tracing {
             TracingInspectorConfig::all()
         } else {
-            TracingInspectorConfig::default_parity().set_steps(true)
+            TracingInspectorConfig::default_parity()
+                .set_steps(true)
+                .set_record_logs(true)
         };
 
         Self {
@@ -330,6 +332,19 @@ impl<
 
     fn step(&mut self, interp: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
         self.tracing_inspector.step(interp, context);
+    }
+
+    fn log(&mut self, context: &mut ContextT, log: ExecutionLog) {
+        self.tracing_inspector.log(context, log);
+    }
+
+    fn log_full(
+        &mut self,
+        interp: &mut Interpreter<EthInterpreter>,
+        context: &mut ContextT,
+        log: ExecutionLog,
+    ) {
+        self.tracing_inspector.log_full(interp, context, log);
     }
 }
 

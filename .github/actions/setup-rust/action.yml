@@ -15,7 +15,7 @@ runs:
   using: composite
   steps:
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6 # v1.16.1
+      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
       with:
         # Empty string means rust-toolchain if it exists, otherwise stable
         toolchain: ${{ inputs.toolchain }}
@@ -45,7 +45,8 @@ runs:
     # itself before any later step appends instrumentation flags.
     - name: Augment RUSTFLAGS with platform target features
       shell: bash
-      run: |
+      run:
+        | # zizmor: ignore[github-env] static target-feature flag, not external input
         case "$RUNNER_OS" in
           Windows)
             echo "RUSTFLAGS=${RUSTFLAGS:-} -C target-feature=+crt-static" >> "$GITHUB_ENV"

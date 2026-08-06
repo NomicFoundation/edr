@@ -54,7 +54,12 @@ function makeDeps({ eventName, sha, payload = {}, ci, pr } = {}) {
     },
   };
 
-  const context = { repo: { owner: OWNER, repo: REPO }, eventName, sha, payload };
+  const context = {
+    repo: { owner: OWNER, repo: REPO },
+    eventName,
+    sha,
+    payload,
+  };
 
   return { github, context, core, captured };
 }
@@ -62,7 +67,12 @@ function makeDeps({ eventName, sha, payload = {}, ci, pr } = {}) {
 // A `/bench` comment on a same-repo PR, by an authorized author.
 function commentPayload(body, { assoc = "MEMBER", number = 7 } = {}) {
   return {
-    comment: { author_association: assoc, user: { login: "dev" }, id: 99, body },
+    comment: {
+      author_association: assoc,
+      user: { login: "dev" },
+      id: 99,
+      body,
+    },
     issue: { number },
   };
 }
@@ -78,6 +88,10 @@ test("push → baseline run against Hardhat main", async () => {
     edr_ref: "deadbeefcafe1234",
     hardhat_ref: "main",
     is_baseline: "true",
+    // Baseline runs all projects (`*`), but only the default test-execution
+    // benchmarks — EDR doesn't affect compilation, so compile ones are skipped.
+    scenario_filter: "*",
+    benchmark_filter: "test solidity,test mocha,test vitest",
   });
 });
 
@@ -101,6 +115,47 @@ test("workflow_dispatch → defaults hardhat-ref to main", async () => {
   });
   await resolve(deps);
   assert.equal(captured.outputs.hardhat_ref, "main");
+});
+
+test("workflow_dispatch → forwards explicit filters; benchmark uses the default when unset", async () => {
+  const withFilter = makeDeps({
+    eventName: "workflow_dispatch",
+    sha: "abc123",
+    payload: {
+      inputs: {
+        "scenario-filter": "1inch*",
+        "benchmark-filter": "cold compile",
+      },
+    },
+  });
+  await resolve(withFilter);
+  assert.equal(withFilter.captured.outputs.scenario_filter, "1inch*");
+  // Explicit override wins over the default.
+  assert.equal(withFilter.captured.outputs.benchmark_filter, "cold compile");
+
+  const withoutFilter = makeDeps({
+    eventName: "workflow_dispatch",
+    sha: "abc123",
+    payload: { inputs: {} },
+  });
+  await resolve(withoutFilter);
+  // No scenario-filter given → default `*` (all projects).
+  assert.equal(withoutFilter.captured.outputs.scenario_filter, "*");
+  // No benchmark-filter given → default test-execution benchmarks.
+  assert.equal(
+    withoutFilter.captured.outputs.benchmark_filter,
+    "test solidity,test mocha,test vitest"
+  );
+});
+
+test("workflow_dispatch → benchmark-filter=* runs the full suite", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "workflow_dispatch",
+    sha: "abc123",
+    payload: { inputs: { "benchmark-filter": "*" } },
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.benchmark_filter, "*");
 });
 
 test("issue_comment → unauthorized author does not run", async () => {
@@ -139,8 +194,68 @@ test("issue_comment → same-repo PR with green CI runs and parses hardhat-ref",
   assert.equal(captured.outputs.edr_ref, "1234567890ab");
   assert.equal(captured.outputs.hardhat_ref, "feature/x");
   assert.equal(captured.outputs.is_baseline, "false");
+  assert.equal(captured.outputs.scenario_filter, "*"); // no scenarios= → all
+  // default test-execution benchmarks (no benchmarks= in body)
+  assert.equal(
+    captured.outputs.benchmark_filter,
+    "test solidity,test mocha,test vitest"
+  );
   assert.equal(captured.comments.length, 1);
   assert.match(captured.comments[0], /Starting regression benchmark/);
+  // A `*` (all) scenario filter is not called out; the benchmark default is.
+  assert.doesNotMatch(captured.comments[0], /projects matching/);
+  assert.match(captured.comments[0], /benchmarks matching/);
+});
+
+test("issue_comment → parses the 1inch* / test solidity example against a hardhat ref", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "issue_comment",
+    payload: commentPayload(
+      '/bench hardhat-ref=edr-benchmark/command-step-filters scenarios=1inch* benchmarks="test solidity"'
+    ),
+    pr: { head: { repo: { full_name: FULL }, sha: "1234567890ab" } },
+    ci: { id: 1, status: "completed", conclusion: "success" },
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.should_run, "true");
+  assert.equal(
+    captured.outputs.hardhat_ref,
+    "edr-benchmark/command-step-filters"
+  );
+  assert.equal(captured.outputs.scenario_filter, "1inch*");
+  assert.equal(captured.outputs.benchmark_filter, "test solidity");
+  assert.match(captured.comments[0], /projects matching/);
+  assert.match(captured.comments[0], /benchmarks matching/);
+});
+
+test("issue_comment → parses a quoted benchmarks= glob (spaces + commas preserved)", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "issue_comment",
+    payload: commentPayload(
+      '/bench benchmarks="warm compile,test *" hardhat-ref=main'
+    ),
+    pr: { head: { repo: { full_name: FULL }, sha: "1234567890ab" } },
+    ci: { id: 1, status: "completed", conclusion: "success" },
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.should_run, "true");
+  assert.equal(captured.outputs.hardhat_ref, "main");
+  // Quoted values preserve spaces and internal commas.
+  assert.equal(captured.outputs.benchmark_filter, "warm compile,test *");
+  assert.match(captured.comments[0], /benchmarks matching/);
+});
+
+test("issue_comment → parses an unquoted single-token filter", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "issue_comment",
+    payload: commentPayload("/bench benchmarks=cold-compile"),
+    pr: { head: { repo: { full_name: FULL }, sha: "1234567890ab" } },
+    ci: { id: 1, status: "completed", conclusion: "success" },
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.benchmark_filter, "cold-compile");
+  // No scenarios= given → default `*` (all projects).
+  assert.equal(captured.outputs.scenario_filter, "*");
 });
 
 test("issue_comment → same-repo PR with failing CI does not run", async () => {

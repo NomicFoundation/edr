@@ -15,7 +15,6 @@ function getEnv(key: string): string | undefined {
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
-export const INFURA_URL = getEnv("INFURA_URL");
 export const ALCHEMY_URL = getEnv("ALCHEMY_URL");
 
 function printForkingLogicNotBeingTestedWarning(varName: string) {
@@ -24,10 +23,6 @@ function printForkingLogicNotBeingTestedWarning(varName: string) {
       `TEST RUN INCOMPLETE: You need to define the env variable ${varName}`
     )
   );
-}
-
-if (INFURA_URL === undefined) {
-  printForkingLogicNotBeingTestedWarning("INFURA_URL");
 }
 
 if (ALCHEMY_URL === undefined) {

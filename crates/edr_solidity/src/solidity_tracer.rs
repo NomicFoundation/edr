@@ -68,10 +68,10 @@ pub fn get_stack_trace<HaltReasonT: HaltReasonTrait>(
 
     match trace {
         NestedTrace::Precompile(precompile) => Ok(get_precompile_message_stack_trace(&precompile)?),
-        NestedTrace::Call(call) if call.contract_meta.is_some() => {
+        NestedTrace::Call(call) if call.identified_contract.is_some() => {
             Ok(get_call_message_stack_trace(call)?)
         }
-        NestedTrace::Create(create) if create.contract_meta.is_some() => {
+        NestedTrace::Create(create) if create.identified_contract.is_some() => {
             Ok(get_create_message_stack_trace(create)?)
         }
         // No bytecode is present
@@ -214,9 +214,10 @@ fn trace_evm_execution<HaltReasonT: HaltReasonTrait>(
 fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
 ) -> Result<Vec<StackTraceEntry>, SolidityTracerError<HaltReasonT>> {
-    let contract_meta = trace
-        .contract_meta()
+    let identified_contract = trace
+        .identified_contract()
         .ok_or(InferrerError::MissingContract)?;
+
     let steps = trace.steps();
     let number_of_subtraces = trace.number_of_subtraces();
 
@@ -234,7 +235,7 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
     let mut iter = steps.iter().enumerate().peekable();
     while let Some((step_index, step)) = iter.next() {
         if let NestedTraceStep::Evm(EvmStep { pc }) = step {
-            let inst = contract_meta.get_instruction(*pc)?;
+            let inst = identified_contract.contract_metadata.get_instruction(*pc)?;
 
             if inst.jump_type == JumpType::IntoFunction && iter.peek().is_some() {
                 let (_, next_step) = iter
@@ -243,11 +244,13 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
                 let NestedTraceStep::Evm(next_evm_step) = next_step else {
                     return Err(InferrerError::ExpectedEvmStep.into());
                 };
-                let next_inst = contract_meta.get_instruction(next_evm_step.pc)?;
+                let next_inst = identified_contract
+                    .contract_metadata
+                    .get_instruction(next_evm_step.pc)?;
 
                 if next_inst.opcode == OpCode::JUMPDEST {
                     let frame = error_inferrer::instruction_to_callstack_stack_trace_entry(
-                        &contract_meta,
+                        &identified_contract,
                         inst,
                     )?;
                     stacktrace.push(frame);
@@ -295,6 +298,9 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
         last_submessage_data,
     )?;
 
-    error_inferrer::filter_redundant_frames(stacktrace_with_inferred_error)
-        .map_err(SolidityTracerError::from)
+    error_inferrer::filter_redundant_frames(
+        stacktrace_with_inferred_error,
+        identified_contract.trace_strategy,
+    )
+    .map_err(SolidityTracerError::from)
 }

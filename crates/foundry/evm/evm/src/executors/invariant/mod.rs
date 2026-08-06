@@ -633,7 +633,7 @@ impl<
         // Throw an error to abort test run if the invariant function accepts input
         // params
         if !invariant_contract.invariant_function.inputs.is_empty() {
-            return Err(eyre!("Invariant test function should have no inputs"))?;
+            return Err(eyre!("Invariant test function should have no inputs").into());
         }
 
         let (invariant_test, mut corpus_manager) =
@@ -673,7 +673,7 @@ impl<
 
             // We stop the run immediately if we have reverted, and `fail_on_revert` is set.
             if self.config.fail_on_revert && invariant_test.reverts() > 0 {
-                return Err(eyre!("call reverted"))?;
+                return Err(eyre!("call reverted").into());
             }
 
             while current_run.depth < self.config.depth {
