@@ -18,7 +18,7 @@ use crate::cast::TryCast as _;
 /// Memory statistics for the process, as reported by `mimalloc`'s
 /// `mi_process_info`.
 #[napi(object)]
-pub struct MiMemoryStats {
+pub struct MemoryStats {
     /// Elapsed wall-clock time of the process, in milliseconds.
     pub elapsed_ms: BigInt,
     /// User time, in milliseconds, as the sum over all threads.
@@ -46,7 +46,7 @@ pub struct MiMemoryStats {
 /// Returns memory statistics for the process, as reported by `mimalloc`'s
 /// `mi_process_info`.
 #[napi(catch_unwind)]
-pub fn memory_stats() -> napi::Result<MiMemoryStats> {
+pub fn memory_stats() -> napi::Result<MemoryStats> {
     let mut elapsed_msecs = 0usize;
     let mut user_msecs = 0usize;
     let mut system_msecs = 0usize;
@@ -80,7 +80,7 @@ pub fn memory_stats() -> napi::Result<MiMemoryStats> {
     let peak_commit = peak_commit.try_cast()?;
     let page_faults = page_faults.try_cast()?;
 
-    Ok(MiMemoryStats {
+    Ok(MemoryStats {
         elapsed_ms,
         user_ms,
         system_ms,
