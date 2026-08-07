@@ -272,7 +272,10 @@ impl<
         let last_run_traces = if run_result.is_ok() {
             traces.pop()
         } else {
-            call.traces.clone()
+            // Nothing reads `BaseCounterExample::traces`, so the failing
+            // arena can move into `FuzzTestResult::traces` rather than be
+            // cloned for both.
+            call.traces
         };
 
         let mut result = FuzzTestResult {
@@ -322,7 +325,8 @@ impl<
                         Some(CounterExample::Single(BaseCounterExample::from_fuzz_call(
                             calldata,
                             &args,
-                            call.traces,
+                            // Nothing consumes counterexample arenas; see above.
+                            None,
                             call.indeterminism_reasons,
                         )));
                 }

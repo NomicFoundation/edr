@@ -42,7 +42,7 @@ use crate::{
     error::TestRunnerError,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inline_config::{self, InlineConfigRoot, SharedInlineConfigProvider},
-    result::SuiteResult,
+    result::{SuiteResult, SuiteRunOutcome, TestRunOutcome},
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
     TestFunctionConfigOverride,
@@ -447,22 +447,33 @@ impl<
                     invariant_config: &self.invariant_config,
                     test_function_overrides: &inline_overrides,
                     generate_gas_report: self.generate_gas_report,
+                    include_traces: self.include_traces,
                 },
                 span,
             );
-        let mut r = runner.run_tests(filter, handle)?;
+        let SuiteRunOutcome {
+            duration,
+            mut setup_traces,
+            test_outcomes,
+            warnings,
+        } = runner.run_tests(filter, handle)?;
 
         let mut gas_report = self
             .generate_gas_report
             .then(crate::gas_report::GasReport::default);
 
-        if self.include_traces != IncludeTraces::None {
+        let test_results = if self.include_traces == IncludeTraces::None {
+            test_outcomes
+                .into_iter()
+                .map(|(signature, outcome)| (signature, outcome.result))
+                .collect()
+        } else {
             let mut decoder = CallTraceDecoderBuilder::new().build();
             let mut trace_identifier = TraceIdentifiers::new().with_local(&self.known_contracts);
 
             // Setup traces are shared across all tests in the suite, so decode and analyze
             // them only once.
-            for (_, arena) in &mut r.setup_traces {
+            for (_, arena) in &mut setup_traces {
                 decoder.identify(arena, &mut trace_identifier);
                 tokio::task::block_in_place(|| {
                     handle.block_on(decode_trace_arena(arena, &decoder));
@@ -472,64 +483,76 @@ impl<
             if let Some(gas_report) = gas_report.as_mut() {
                 tokio::task::block_in_place(|| {
                     handle.block_on(
-                        gas_report.analyze(r.setup_traces.iter().map(|(_, a)| &a.arena), &decoder),
+                        gas_report.analyze(setup_traces.iter().map(|(_, a)| &a.arena), &decoder),
                     );
                 });
             }
 
-            for result in r.test_results.values_mut() {
-                if result.status.is_success() && self.include_traces != IncludeTraces::All {
-                    continue;
-                }
+            test_outcomes
+                .into_iter()
+                .map(|(signature, outcome)| {
+                    let TestRunOutcome {
+                        mut result,
+                        gas_report_samples,
+                    } = outcome;
 
-                decoder.clear_addresses();
-                decoder.labels.extend(
-                    result
-                        .labeled_addresses
-                        .iter()
-                        .map(|(k, v)| (*k, v.clone())),
-                );
-
-                // Re-execute setup traces to collect identities of deployed contracts.
-                for (_, arena) in &mut r.setup_traces {
-                    decoder.identify(arena, &mut trace_identifier);
-                }
-
-                for arena in &mut result.execution_traces {
-                    decoder.identify(arena, &mut trace_identifier);
-                    tokio::task::block_in_place(|| {
-                        handle.block_on(decode_trace_arena(arena, &decoder));
-                    });
-                }
-
-                if let Some(gas_report) = gas_report.as_mut() {
-                    tokio::task::block_in_place(|| {
-                        handle.block_on(gas_report.analyze(
-                            result.execution_traces.iter().map(|arena| &arena.arena),
-                            &decoder,
-                        ));
-                    });
-
-                    for trace in &result.gas_report_traces {
+                    if self
+                        .include_traces
+                        .should_include(|| result.status.is_failure())
+                    {
                         decoder.clear_addresses();
+                        decoder.labels.extend(
+                            result
+                                .labeled_addresses
+                                .iter()
+                                .map(|(k, v)| (*k, v.clone())),
+                        );
 
                         // Re-execute setup traces to collect identities of deployed contracts.
-                        for (_, arena) in &r.setup_traces {
+                        for (_, arena) in &setup_traces {
                             decoder.identify(arena, &mut trace_identifier);
                         }
 
-                        for arena in trace {
+                        for arena in &mut result.execution_traces {
                             decoder.identify(arena, &mut trace_identifier);
                             tokio::task::block_in_place(|| {
-                                handle.block_on(gas_report.analyze([arena], &decoder));
+                                handle.block_on(decode_trace_arena(arena, &decoder));
                             });
                         }
+
+                        if let Some(gas_report) = gas_report.as_mut() {
+                            tokio::task::block_in_place(|| {
+                                handle.block_on(gas_report.analyze(
+                                    result.execution_traces.iter().map(|arena| &arena.arena),
+                                    &decoder,
+                                ));
+                            });
+
+                            for trace in gas_report_samples.into_iter().flatten() {
+                                decoder.clear_addresses();
+
+                                // Re-execute setup traces to collect identities of deployed
+                                // contracts.
+                                for (_, arena) in &setup_traces {
+                                    decoder.identify(arena, &mut trace_identifier);
+                                }
+
+                                for arena in trace {
+                                    decoder.identify(&arena, &mut trace_identifier);
+                                    tokio::task::block_in_place(|| {
+                                        handle.block_on(gas_report.analyze([&arena], &decoder));
+                                    });
+                                }
+                            }
+                        }
                     }
-                }
-                // Clear memory.
-                result.gas_report_traces.clear();
-            }
-        }
+
+                    (signature, result)
+                })
+                .collect()
+        };
+
+        let r = SuiteResult::new(duration, setup_traces, test_results, warnings);
         debug!(duration=?r.duration, "executed all tests in contract");
 
         Ok((r, gas_report))

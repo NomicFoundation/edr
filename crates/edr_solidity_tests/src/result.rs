@@ -31,6 +31,7 @@ use crate::{
     decode::decode_console_logs,
     fuzz::{BaseCounterExample, FuzzTestResult, FuzzedCases},
     gas_report::GasReport,
+    trace_retention::{Retain, TraceRetentionPolicy},
 };
 
 /// The aggregated result of a test run.
@@ -380,7 +381,10 @@ pub struct TestResult<HaltReasonT> {
     /// expected to fail.
     pub reason: Option<String>,
 
-    /// Minimal reproduction test case for failing test
+    /// Minimal reproduction test case for failing test.
+    ///
+    /// Its trace arenas are freed once the test has finished — nothing
+    /// consumes them.
     pub counterexample: Option<CounterExample>,
 
     /// Any captured & parsed as strings logs along the test's execution which
@@ -401,12 +405,12 @@ pub struct TestResult<HaltReasonT> {
     /// that arena off; it walks the earlier ones only for the contracts they
     /// deployed. Can be empty even for a failing test — see
     /// [`Self::stack_trace_result`].
+    ///
+    /// Emptied by `Self::free_unconsumed_traces` once the test has
+    /// finished, unless trace decoding, the gas report or the napi conversion
+    /// will still consume them.
     #[serde(skip)]
     pub execution_traces: Vec<SparsedTraceArena>,
-
-    /// Additional traces to use for gas report.
-    #[serde(skip)]
-    pub gas_report_traces: Vec<Vec<CallTraceArena>>,
 
     /// Raw coverage info
     #[serde(skip)]
@@ -439,7 +443,109 @@ pub struct TestResult<HaltReasonT> {
     pub deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
 }
 
+/// A finished test's result together with the trace arenas sampled for the
+/// gas report.
+///
+/// The samples live beside the result instead of on it because they have
+/// exactly one consumer: the gas-report pass in
+/// `MultiContractRunner::run_test_suite` takes them by value. `TestResult`
+/// therefore never carries arenas that would need freeing after that pass.
+pub struct TestRunOutcome<HaltReasonT> {
+    /// The test's result, as surfaced to the caller.
+    pub result: TestResult<HaltReasonT>,
+    /// The trace arenas sampled for the gas report, one collection per
+    /// sampled run. `None` when no gas report was requested.
+    pub gas_report_samples: Option<Vec<Vec<CallTraceArena>>>,
+}
+
+/// A suite's run: the per-test outcomes plus everything else that goes into
+/// its [`SuiteResult`], which the caller assembles once it has consumed each
+/// outcome's gas-report samples. The samples stay on their outcome, so no
+/// bookkeeping beside the outcomes can orphan them.
+pub struct SuiteRunOutcome<HaltReasonT> {
+    /// Wall clock time it took to run the suite.
+    pub duration: Duration,
+    /// Traces from the suite's setup phase.
+    pub setup_traces: SetupTraces,
+    /// Each test's outcome: `test fn signature -> outcome`.
+    pub test_outcomes: BTreeMap<String, TestRunOutcome<HaltReasonT>>,
+    /// Generated warnings.
+    pub warnings: Vec<String>,
+}
+
+impl<HaltReasonT> TestRunOutcome<HaltReasonT> {
+    /// Frees every trace arena that no longer has a consumer, as decided by
+    /// `policy`.
+    pub(crate) fn free_unconsumed_traces(&mut self, policy: TraceRetentionPolicy) {
+        self.result.free_unconsumed_traces(policy);
+    }
+}
+
+impl<HaltReasonT: HaltReasonTrait> SuiteRunOutcome<HaltReasonT> {
+    /// Wraps a suite result whose tests produced no gas-report samples.
+    pub fn without_samples(suite_result: SuiteResult<HaltReasonT>) -> Self {
+        Self {
+            duration: suite_result.duration,
+            setup_traces: suite_result.setup_traces,
+            test_outcomes: suite_result
+                .test_results
+                .into_iter()
+                .map(|(signature, result)| (signature, TestRunOutcome::from(result)))
+                .collect(),
+            warnings: suite_result.warnings,
+        }
+    }
+}
+
+impl<HaltReasonT> From<TestResult<HaltReasonT>> for TestRunOutcome<HaltReasonT> {
+    /// Wraps a result that produced no gas-report samples.
+    fn from(result: TestResult<HaltReasonT>) -> Self {
+        Self {
+            result,
+            gas_report_samples: None,
+        }
+    }
+}
+
 impl<HaltReasonT> TestResult<HaltReasonT> {
+    /// Frees every trace arena that no longer has a consumer, as decided by
+    /// `policy`.
+    pub(crate) fn free_unconsumed_traces(&mut self, policy: TraceRetentionPolicy) {
+        let Self {
+            status,
+            reason: _,
+            counterexample,
+            logs: _,
+            decoded_logs: _,
+            kind: _,
+            execution_traces,
+            line_coverage: _,
+            labeled_addresses: _,
+            duration: _,
+            value_snapshots: _,
+            stack_trace_result: _,
+            deprecated_cheatcodes: _,
+        } = self;
+
+        match policy.retain_after(*status) {
+            Retain::Nothing => {
+                *execution_traces = Vec::new();
+            }
+            Retain::CallsOnly => {}
+        }
+
+        // Counterexample arenas have no consumer at all once the test has
+        // finished: they are neither decoded nor exposed over napi.
+        let counterexamples: &mut [BaseCounterExample] = match counterexample {
+            Some(CounterExample::Single(counterexample)) => std::slice::from_mut(counterexample),
+            Some(CounterExample::Sequence(_, counterexamples)) => counterexamples,
+            None => &mut [],
+        };
+        for counterexample in counterexamples {
+            counterexample.traces = None;
+        }
+    }
+
     pub fn map_halt_reason<
         ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
         NewHaltReasonT,
@@ -455,7 +561,6 @@ impl<HaltReasonT> TestResult<HaltReasonT> {
             decoded_logs: self.decoded_logs,
             kind: self.kind,
             execution_traces: self.execution_traces,
-            gas_report_traces: self.gas_report_traces,
             line_coverage: self.line_coverage,
             labeled_addresses: self.labeled_addresses,
             duration: self.duration,
@@ -604,7 +709,6 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         };
         self.reason = reason;
         self.duration = duration;
-        self.gas_report_traces = Vec::new();
 
         if let Some(cheatcodes) = raw_call_result.cheatcodes {
             self.value_snapshots = cheatcodes.gas_snapshots;
@@ -639,11 +743,6 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.reason = result.reason;
         self.counterexample = result.counterexample;
         self.duration = duration;
-        self.gas_report_traces = result
-            .gas_report_traces
-            .into_iter()
-            .map(|t| vec![t])
-            .collect();
         self.deprecated_cheatcodes = result.deprecated_cheatcodes;
     }
 
@@ -709,7 +808,6 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
     #[expect(clippy::too_many_arguments)]
     pub fn invariant_result(
         &mut self,
-        gas_report_traces: Vec<Vec<CallTraceArena>>,
         success: bool,
         reason: Option<String>,
         counterexample: Option<CounterExample>,
@@ -732,7 +830,6 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         };
         self.reason = reason;
         self.counterexample = counterexample;
-        self.gas_report_traces = gas_report_traces;
         self.duration = duration;
     }
 

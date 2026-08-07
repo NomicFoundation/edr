@@ -17,6 +17,7 @@ use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{
+    config::IncludeTraces,
     contract_decoder::SyncNestedTraceDecoder,
     solidity_stack_trace::{get_stack_trace, DeployedCode, StackTraceEntry},
 };
@@ -44,7 +45,9 @@ use foundry_evm::{
         invariant::{CallDetails, InvariantContract},
         CounterExample, FuzzFixtures,
     },
-    traces::{load_contracts, SetupTraceKind, SetupTraces, SparsedTraceArena, TracingMode},
+    traces::{
+        load_contracts, CallTraceArena, SetupTraceKind, SetupTraces, SparsedTraceArena, TracingMode,
+    },
 };
 use itertools::Itertools;
 use proptest::test_runner::{FailurePersistence, RngAlgorithm, TestError, TestRng, TestRunner};
@@ -56,8 +59,9 @@ use crate::{
     error::TestRunnerError,
     fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
     multi_runner::TestContract,
-    result::{SuiteResult, TestResult, TestSetup},
+    result::{SuiteResult, SuiteRunOutcome, TestResult, TestRunOutcome, TestSetup, TestStatus},
     revm::context::result::HaltReason,
+    trace_retention::TraceRetentionPolicy,
     TestFilter, TestFunctionConfigOverride,
 };
 
@@ -109,6 +113,8 @@ pub struct ContractRunner<
     /// Whether gas reports are being generated. When enabled, isolation cannot
     /// be disabled by function-level overrides.
     generate_gas_report: bool,
+    /// Which trace arenas to retain once a test has finished.
+    trace_retention: TraceRetentionPolicy,
 
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (EvmBuilderT, HaltReasonT, TransactionErrorT)>,
@@ -134,6 +140,8 @@ pub struct ContractRunnerOptions<'a> {
     /// Whether gas reports are being generated. When enabled, isolation cannot
     /// be disabled by function-level overrides.
     pub generate_gas_report: bool,
+    /// Which test results carry call traces to the caller.
+    pub include_traces: IncludeTraces,
 }
 
 /// Contract artifact related arguments to the contract runner.
@@ -197,6 +205,7 @@ impl<
             invariant_config,
             test_function_overrides,
             generate_gas_report,
+            include_traces,
         } = options;
 
         Self {
@@ -217,6 +226,7 @@ impl<
             span,
             test_function_overrides,
             generate_gas_report,
+            trace_retention: TraceRetentionPolicy::new(include_traces, generate_gas_report),
             _phantom: PhantomData,
         }
     }
@@ -517,7 +527,7 @@ impl<
         self,
         filter: &dyn TestFilter,
         tokio_handle: &tokio::runtime::Handle,
-    ) -> Result<SuiteResult<HaltReasonT>, TestRunnerError> {
+    ) -> Result<SuiteRunOutcome<HaltReasonT>, TestRunnerError> {
         // Forge doesn't include building the executor in the test time, so we're
         // excluding it as well.
         let mut executor = self.executor_builder.clone().build()?;
@@ -552,7 +562,7 @@ impl<
         // There are multiple setUp function, so we return a single test result for
         // `setUp`
         if setup_fns.len() > 1 {
-            return Ok(SuiteResult::new(
+            return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 start.elapsed(),
                 Vec::new(),
                 [(
@@ -561,7 +571,7 @@ impl<
                 )]
                 .into(),
                 warnings,
-            ));
+            )));
         }
 
         // Check if `afterInvariant` function with valid signature declared.
@@ -573,7 +583,7 @@ impl<
             .collect();
         if after_invariant_fns.len() > 1 {
             // Return a single test result failure if multiple functions declared.
-            return Ok(SuiteResult::new(
+            return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 start.elapsed(),
                 Vec::new(),
                 [(
@@ -582,7 +592,7 @@ impl<
                 )]
                 .into(),
                 warnings,
-            ));
+            )));
         }
         let call_after_invariant = after_invariant_fns.first().is_some_and(|after_invariant_fn| {
             let match_sig = after_invariant_fn.name == "afterInvariant";
@@ -614,12 +624,12 @@ impl<
 
         // Avoid set-up if there are no test functions to run
         if functions.is_empty() {
-            return Ok(SuiteResult::new(
+            return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 start.elapsed(),
                 Vec::new(),
                 BTreeMap::new(),
                 warnings,
-            ));
+            )));
         }
 
         // Invariant testing requires tracing to figure out what contracts were created.
@@ -673,12 +683,15 @@ impl<
             } else {
                 "constructor()".to_string()
             };
-            return Ok(SuiteResult::new(
+            // `setup_failure_result` does not read the traces, so move rather
+            // than clone them.
+            let setup_traces = std::mem::take(&mut setup.traces);
+            return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 elapsed,
-                setup.traces.clone(),
+                setup_traces,
                 [(fail_msg, TestResult::setup_failure_result(setup))].into(),
                 warnings,
-            ));
+            )));
         }
 
         let identified_contracts = has_invariants.then(|| {
@@ -698,15 +711,15 @@ impl<
             let test_results = test_fail_functions
                 .map(|func| (func.signature(), fail()))
                 .collect();
-            return Ok(SuiteResult::new(
+            return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 start.elapsed(),
                 setup.traces,
                 test_results,
                 warnings,
-            ));
+            )));
         }
 
-        let test_results = functions
+        let test_outcomes = functions
             .par_iter()
             .map(|&func| {
                 let _tokio_guard = tokio_handle.enter();
@@ -727,26 +740,38 @@ impl<
                 )
                 .entered();
 
-                let res = FunctionRunner::new(&self, &executor, &setup).run(
+                let mut outcome = FunctionRunner::new(&self, &executor, &setup).run(
                     func,
                     kind,
                     call_after_invariant,
                     identified_contracts.as_ref(),
                 );
 
-                (sig, res)
+                // Stack-trace generation has just run. Nothing reads the
+                // freed traces after it.
+                outcome.free_unconsumed_traces(self.trace_retention);
+
+                (sig, outcome)
             })
             .collect::<BTreeMap<_, _>>();
 
         let duration = start.elapsed();
-        let suite_result = SuiteResult::new(duration, setup.traces, test_results, warnings);
+        let passed = test_outcomes
+            .values()
+            .filter(|outcome| outcome.result.status == TestStatus::Success)
+            .count();
         info!(
-            duration=?suite_result.duration,
+            duration=?duration,
             "done. {}/{} successful",
-            suite_result.passed(),
-            suite_result.test_results.len()
+            passed,
+            test_outcomes.len()
         );
-        Ok(suite_result)
+        Ok(SuiteRunOutcome {
+            duration,
+            setup_traces: setup.traces,
+            test_outcomes,
+            warnings,
+        })
     }
 }
 
@@ -791,6 +816,9 @@ struct FunctionRunner<
     setup: &'a TestSetup<HaltReasonT>,
     /// The test result. Returned after running the test.
     result: TestResult<HaltReasonT>,
+    /// The trace arenas the test sampled for the gas report; `None` when no
+    /// gas report was requested. Returned beside the result.
+    gas_report_samples: Option<Vec<Vec<CallTraceArena>>>,
 }
 
 impl<
@@ -845,6 +873,15 @@ impl<
             cr,
             setup,
             result: TestResult::new(setup),
+            gas_report_samples: None,
+        }
+    }
+
+    /// Finishes the run, pairing the result with the gas-report samples.
+    fn outcome(self) -> TestRunOutcome<HaltReasonT> {
+        TestRunOutcome {
+            result: self.result,
+            gas_report_samples: self.gas_report_samples,
         }
     }
 
@@ -854,14 +891,14 @@ impl<
         kind: TestFunctionKind,
         call_after_invariant: bool,
         identified_contracts: Option<&ContractsByAddress>,
-    ) -> TestResult<HaltReasonT> {
+    ) -> TestRunOutcome<HaltReasonT> {
         // Apply executor config overrides.
         if let Err(err) = self
             .cr
             .apply_executor_overrides(func, self.executor.to_mut())
         {
             self.result.single_fail(Some(err), Instant::now().elapsed());
-            return self.result;
+            return self.outcome();
         }
 
         match kind {
@@ -891,12 +928,12 @@ impl<
     /// modified state). State modifications of before test txes and unit
     /// test function call are discarded after test ends, similar to
     /// `eth_call`.
-    fn run_unit_test(mut self, func: &Function) -> TestResult<HaltReasonT> {
+    fn run_unit_test(mut self, func: &Function) -> TestRunOutcome<HaltReasonT> {
         let start: Instant = Instant::now();
 
         // Prepare unit test execution.
         if self.prepare_test(func, start).is_err() {
-            return self.result;
+            return self.outcome();
         }
 
         // Run current unit test.
@@ -912,12 +949,12 @@ impl<
             Err(EvmError::Execution(err)) => (err.raw, Some(err.reason)),
             Err(EvmError::Skip(reason)) => {
                 self.result.single_skip(reason);
-                return self.result;
+                return self.outcome();
             }
             Err(err) => {
                 self.result
                     .single_fail(Some(err.to_string()), start.elapsed());
-                return self.result;
+                return self.outcome();
             }
         };
 
@@ -959,7 +996,7 @@ impl<
             None
         };
 
-        self.result
+        self.outcome()
     }
 
     /// Runs a table test.
@@ -970,7 +1007,7 @@ impl<
     /// - `uint256[] public fixtureAmount = [2, 5]`
     /// - `bool[] public fixtureSwap = [true, false]` The `table_test` is then
     ///   called with the pair of args `(2, true)` and `(5, false)`.
-    fn run_table_test(mut self, func: &Function) -> TestResult<HaltReasonT> {
+    fn run_table_test(mut self, func: &Function) -> TestRunOutcome<HaltReasonT> {
         let start = Instant::now();
 
         if !self.cr.enable_table_tests {
@@ -978,12 +1015,12 @@ impl<
                 Some("Table tests are not supported".into()),
                 start.elapsed(),
             );
-            return self.result;
+            return self.outcome();
         };
 
         // Prepare unit test execution.
         if self.prepare_test(func, start).is_err() {
-            return self.result;
+            return self.outcome();
         }
 
         // Extract and validate fixtures for the first table test parameter.
@@ -992,7 +1029,7 @@ impl<
                 Some("Table test should have at least one parameter".into()),
                 start.elapsed(),
             );
-            return self.result;
+            return self.outcome();
         };
 
         let Some(first_param_fixtures) =
@@ -1002,7 +1039,7 @@ impl<
                 Some("Table test should have fixtures defined".into()),
                 start.elapsed(),
             );
-            return self.result;
+            return self.outcome();
         };
 
         if first_param_fixtures.is_empty() {
@@ -1010,7 +1047,7 @@ impl<
                 Some("Table test should have at least one fixture".into()),
                 start.elapsed(),
             );
-            return self.result;
+            return self.outcome();
         }
 
         let fixtures_len = first_param_fixtures.len();
@@ -1024,7 +1061,7 @@ impl<
                     Some(format!("No fixture defined for param {param_name}")),
                     start.elapsed(),
                 );
-                return self.result;
+                return self.outcome();
             };
 
             if fixtures.len() != fixtures_len {
@@ -1036,7 +1073,7 @@ impl<
                     )),
                     start.elapsed(),
                 );
-                return self.result;
+                return self.outcome();
             }
 
             table_fixtures.push(&fixtures[..]);
@@ -1060,12 +1097,12 @@ impl<
                 Err(EvmError::Execution(err)) => (err.raw, Some(err.reason)),
                 Err(EvmError::Skip(reason)) => {
                     self.result.single_skip(reason);
-                    return self.result;
+                    return self.outcome();
                 }
                 Err(err) => {
                     self.result
                         .single_fail(Some(err.to_string()), start.elapsed());
-                    return self.result;
+                    return self.outcome();
                 }
             };
 
@@ -1081,7 +1118,9 @@ impl<
                                 .expect("args have valid abi encoding"),
                         ),
                         &args,
-                        raw_call_result.traces.clone(),
+                        // Counterexample arenas are never consumed; the
+                        // failing arena lives on in `execution_traces`.
+                        None,
                         raw_call_result.indeterminism_reasons.clone(),
                     )));
                 let elapsed = start.elapsed();
@@ -1114,7 +1153,7 @@ impl<
                     };
                 self.result.stack_trace_result = Some(stack_trace_result);
 
-                return self.result;
+                return self.outcome();
             }
 
             // If it's the last iteration and all other runs succeeded, then use last call
@@ -1122,11 +1161,11 @@ impl<
             if i == fixtures_len - 1 {
                 self.result
                     .single_result(true, None, raw_call_result, start.elapsed());
-                return self.result;
+                return self.outcome();
             }
         }
 
-        self.result
+        self.outcome()
     }
 
     fn run_invariant_test(
@@ -1135,7 +1174,7 @@ impl<
         call_after_invariant: bool,
         identified_contracts: &ContractsByAddress,
         test_bytecode: &Bytes,
-    ) -> TestResult<HaltReasonT> {
+    ) -> TestRunOutcome<HaltReasonT> {
         let start = Instant::now();
 
         // First, run the test normally to see if it needs to be skipped.
@@ -1148,7 +1187,7 @@ impl<
             Some(self.cr.revert_decoder),
         ) {
             self.result.invariant_skip(reason, start.elapsed());
-            return self.result;
+            return self.outcome();
         };
 
         let mut invariant_config = self.cr.invariant_config.clone();
@@ -1272,7 +1311,7 @@ impl<
                     stack_trace_result,
                     start.elapsed(),
                 );
-                return self.result;
+                return self.outcome();
             }
         }
 
@@ -1320,7 +1359,7 @@ impl<
                 };
                 self.result.stack_trace_result = stack_trace_result;
 
-                return self.result;
+                return self.outcome();
             }
         };
         // Merge coverage collected during invariant run with test setup coverage.
@@ -1435,8 +1474,12 @@ impl<
             }
         }
 
+        self.gas_report_samples = self
+            .cr
+            .trace_retention
+            .retains_gas_report_samples()
+            .then_some(invariant_result.gas_report_traces);
         self.result.invariant_result(
-            invariant_result.gas_report_traces,
             success,
             reason,
             counterexample,
@@ -1446,7 +1489,7 @@ impl<
             invariant_result.failed_corpus_replays,
             start.elapsed(),
         );
-        self.result
+        self.outcome()
     }
 
     /// Runs a fuzzed test.
@@ -1458,12 +1501,12 @@ impl<
     /// to the EVM database (therefore the fuzz test will use the modified
     /// state). State modifications of before test txes and fuzz test are
     /// discarded after test ends, similar to `eth_call`.
-    fn run_fuzz_test(mut self, func: &Function) -> TestResult<HaltReasonT> {
+    fn run_fuzz_test(mut self, func: &Function) -> TestRunOutcome<HaltReasonT> {
         let start = Instant::now();
 
         // Prepare fuzz test execution.
         if self.prepare_test(func, start).is_err() {
-            return self.result;
+            return self.outcome();
         }
 
         let mut fuzz_config = self.cr.fuzz_config.clone();
@@ -1508,13 +1551,23 @@ impl<
             self.cr.sender,
             fuzz_config,
         );
-        let result = fuzzed_executor.fuzz(
+        let mut result = fuzzed_executor.fuzz(
             func,
             &self.setup.fuzz_fixtures,
             &self.setup.deployed_libs,
             self.setup.address,
             self.cr.revert_decoder,
         );
+        self.gas_report_samples = self
+            .cr
+            .trace_retention
+            .retains_gas_report_samples()
+            .then(|| {
+                std::mem::take(&mut result.gas_report_traces)
+                    .into_iter()
+                    .map(|traces| vec![traces])
+                    .collect()
+            });
         self.result.fuzz_result(result, start.elapsed());
 
         self.result.stack_trace_result = if let Some(CounterExample::Single(counter_example)) =
@@ -1557,7 +1610,12 @@ impl<
             None
         };
 
-        self.result
+        // `Self::outcome` cannot consume `self` here: `self.executor` was
+        // moved into `fuzzed_executor` at the start of the run.
+        TestRunOutcome {
+            result: self.result,
+            gas_report_samples: self.gas_report_samples,
+        }
     }
 
     /// Prepares single unit test and fuzz test execution:

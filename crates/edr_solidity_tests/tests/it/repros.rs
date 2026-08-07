@@ -849,6 +849,70 @@ async fn on_failure_mode_produces_stack_trace_for_failing_setup() {
     assert_execution_error_stack_trace(suite, "setUp()");
 }
 
+// Once a failing test's stack trace has been computed, its arenas are freed
+// unless something will still consume them.
+#[tokio::test(flavor = "multi_thread")]
+async fn always_mode_frees_arenas_nothing_consumes() {
+    for (include_traces, expect_retained) in [
+        // Nothing surfaces call traces: the arenas go, the stack trace stays.
+        (IncludeTraces::None, false),
+        // The failing test's call traces are surfaced.
+        (IncludeTraces::Failing, true),
+    ] {
+        let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
+        config.collect_stack_traces = CollectStackTraces::Always;
+        config.include_traces = include_traces;
+
+        let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
+        let runner = TEST_DATA_VIA_IR
+            .runner_with_contract_decoder(config, contract_decoder)
+            .await;
+        let filter = SolidityTestFilter::new(
+            ".*",
+            "AlwaysStackTraceTest",
+            ".*repros/StackTraceAlwaysMode.t.sol",
+        );
+        let suite_results = runner.test_collect(filter).await.suite_results;
+        let suite = suite_results
+            .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceTest")
+            .expect("the AlwaysStackTrace suite should have run");
+
+        let result = assert_execution_error_stack_trace(suite, "testRevertHasStackTrace()");
+        assert_eq!(
+            !result.execution_traces.is_empty(),
+            expect_retained,
+            "arenas retained at {include_traces:?}"
+        );
+    }
+}
+
+// A passing test's arenas are recorded in `Always` mode too; they are freed
+// unless every result surfaces its call traces.
+#[tokio::test(flavor = "multi_thread")]
+async fn always_mode_frees_passing_tests_arenas_unless_all_are_included() {
+    for (include_traces, expect_retained) in
+        [(IncludeTraces::Failing, false), (IncludeTraces::All, true)]
+    {
+        let mut config = runner_config(None, &TEST_DATA_DEFAULT, false).await;
+        config.collect_stack_traces = CollectStackTraces::Always;
+        config.include_traces = include_traces;
+
+        let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+        let suite_results = runner.test_collect(repro_filter(3347)).await.suite_results;
+        let suite = suite_results
+            .get("default/repros/Issue3347.t.sol:Issue3347Test")
+            .expect("the Issue3347 suite should have run");
+
+        for (name, result) in &suite.test_results {
+            assert_eq!(result.status, TestStatus::Success, "{name}");
+            assert_eq!(
+                !result.execution_traces.is_empty(),
+                expect_retained,
+                "{name}: arenas retained at {include_traces:?}"
+            );
+        }
+    }
+}
 /// One 32-byte zero hash as a hex literal.
 const ZERO_HASH: &str = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
