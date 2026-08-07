@@ -256,7 +256,15 @@ pub(crate) fn can_continue<
 
     // Assert invariants if the call did not revert and the handlers did not fail.
     if !call_result.reverted && handlers_succeeded {
-        if let Some(traces) = call_result.traces {
+        // Run traces are only ever consumed as gas-report samples, and
+        // `InvariantTest::end_run` drops a finished run's traces unless the
+        // gas report still needs samples. That condition is constant for the
+        // duration of a run, so applying it here keeps exactly the same
+        // samples while avoiding the accumulation of up to `depth` arenas per
+        // run that nothing would read.
+        if let Some(traces) = call_result.traces
+            && invariant_test.needs_gas_report_samples(invariant_config.gas_report_samples as usize)
+        {
             invariant_run.run_traces.push(traces);
         }
 

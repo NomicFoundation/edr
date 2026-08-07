@@ -196,7 +196,7 @@ impl<
             project_root,
             cheats_config_options,
             fuzz,
-            invariant,
+            mut invariant,
             enable_fuzz_fixtures,
             enable_table_tests,
             local_predeploys,
@@ -234,6 +234,9 @@ impl<
             include_traces = IncludeTraces::All;
             // Enable EVM isolation for more accurate gas measurements
             evm_opts.isolate = true;
+        } else {
+            // Nothing consumes gas-report samples, so don't collect them.
+            invariant.gas_report_samples = 0;
         }
 
         Ok(Self {
