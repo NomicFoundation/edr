@@ -81,6 +81,17 @@ impl SuiteResult {
         suite_result: edr_solidity_tests::result::SuiteResult<String>,
         include_traces: IncludeTraces,
     ) -> Self {
+        // Setup traces are shared by every test result in the suite, so
+        // materialize the surfaced subset once instead of cloning it into
+        // each result. Deployment traces are internal (contract
+        // identification, stack traces) and never surfaced.
+        let setup_trace_arenas: Arc<[SparsedTraceArena]> = suite_result
+            .setup_traces
+            .into_iter()
+            .filter(|(kind, _)| *kind != traces::SetupTraceKind::Deployment)
+            .map(|(_, arena)| arena)
+            .collect();
+
         Self {
             id: id.into(),
             duration_ns: BigInt::from(suite_result.duration.as_nanos()),
@@ -88,12 +99,7 @@ impl SuiteResult {
                 .test_results
                 .into_iter()
                 .map(|(name, test_result)| {
-                    TestResult::new(
-                        name,
-                        test_result,
-                        &suite_result.setup_traces,
-                        include_traces,
-                    )
+                    TestResult::new(name, test_result, &setup_trace_arenas, include_traces)
                 })
                 .collect(),
             warnings: suite_result.warnings,
@@ -115,7 +121,12 @@ pub struct TestResult {
     value_snapshot_groups: Option<Vec<ValueSnapshotGroup>>,
 
     stack_trace_result: Option<Arc<SolidityTestStackTraceResult<String>>>,
-    call_trace_arenas: Vec<SparsedTraceArena>,
+    /// The suite's setup traces, shared between its test results. Empty when
+    /// traces for this test were not requested.
+    setup_trace_arenas: Arc<[SparsedTraceArena]>,
+    /// This test's own execution traces. Empty when traces for this test were
+    /// not requested.
+    execution_trace_arenas: Vec<SparsedTraceArena>,
 }
 
 /// The stack trace result
@@ -284,8 +295,9 @@ impl TestResult {
     /// (identified by the function name `setUp`).
     #[napi]
     pub fn call_traces(&self) -> Vec<CallTrace> {
-        self.call_trace_arenas
+        self.setup_trace_arenas
             .iter()
+            .chain(self.execution_trace_arenas.iter())
             .map(|arena| CallTrace::from_arena_node(&arena.resolve_arena(), 0))
             .collect()
     }
@@ -295,7 +307,7 @@ impl TestResult {
     fn new(
         name: String,
         test_result: edr_solidity_tests::result::TestResult<String>,
-        setup_traces: &edr_solidity_tests::traces::SetupTraces,
+        setup_trace_arenas: &Arc<[SparsedTraceArena]>,
         include_traces: IncludeTraces,
     ) -> Self {
         let include_trace = include_traces == IncludeTraces::All
@@ -383,13 +395,13 @@ impl TestResult {
                     .collect(),
             ),
             stack_trace_result: test_result.stack_trace_result.map(Arc::new),
-            call_trace_arenas: if include_trace {
-                setup_traces
-                    .iter()
-                    .filter(|(k, _)| *k != traces::SetupTraceKind::Deployment)
-                    .map(|(_, arena)| arena.clone())
-                    .chain(test_result.execution_traces)
-                    .collect()
+            setup_trace_arenas: if include_trace {
+                Arc::clone(setup_trace_arenas)
+            } else {
+                Arc::from([])
+            },
+            execution_trace_arenas: if include_trace {
+                test_result.execution_traces
             } else {
                 Vec::new()
             },
