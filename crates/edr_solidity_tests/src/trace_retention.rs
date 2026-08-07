@@ -120,7 +120,7 @@ mod tests {
             || BaseCounterExample::from_fuzz_call(Bytes::new(), &[], Some(arena()), None);
 
         let mut result = TestResult::<EvmHaltReason> {
-            execution_traces: vec![arena()],
+            execution_traces: [arena()].into_iter().collect(),
             counterexample: Some(CounterExample::Sequence(
                 2,
                 vec![counterexample(), counterexample()],

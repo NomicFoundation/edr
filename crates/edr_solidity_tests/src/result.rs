@@ -22,8 +22,8 @@ use foundry_evm::{
     },
     fuzz::{CounterExample, FuzzFixtures},
     traces::{
-        strip_arena_steps, CallTraceArena, CallTraceDecoder, SetupTraceKind, SetupTraces,
-        SparsedTraceArena,
+        push_setup_trace_stripping_prior_steps, strip_arena_steps, CallTraceArena,
+        CallTraceDecoder, ExecutionTraces, SetupTraceKind, SetupTraces,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -414,8 +414,11 @@ pub struct TestResult<HaltReasonT> {
     /// will still consume them. The arenas that are kept have their recorded
     /// EVM steps stripped: only the call tree, the logs and their ordering
     /// survive.
+    ///
+    /// While the test runs, at most the last arena carries recorded steps —
+    /// see [`ExecutionTraces`].
     #[serde(skip)]
-    pub execution_traces: Vec<SparsedTraceArena>,
+    pub execution_traces: ExecutionTraces,
 
     /// Raw coverage info
     #[serde(skip)]
@@ -540,12 +543,10 @@ impl<HaltReasonT> TestResult<HaltReasonT> {
 
         match policy.retain_after(*status) {
             Retain::Nothing => {
-                *execution_traces = Vec::new();
+                *execution_traces = ExecutionTraces::default();
             }
             Retain::CallsOnly => {
-                for arena in execution_traces.iter_mut() {
-                    arena.strip_steps();
-                }
+                execution_traces.strip_steps();
             }
         }
 
@@ -715,7 +716,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(raw_call_result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(raw_call_result.labels);
-        self.execution_traces.extend(raw_call_result.traces);
+        if let Some(arena) = raw_call_result.traces {
+            self.execution_traces.push(arena);
+        }
         self.merge_coverages(raw_call_result.line_coverage);
 
         self.status = match success {
@@ -745,7 +748,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(result.labeled_addresses);
-        self.execution_traces.extend(result.traces);
+        if let Some(arena) = result.traces {
+            self.execution_traces.push(arena);
+        }
         self.merge_coverages(result.line_coverage);
 
         self.status = if result.skipped {
@@ -811,7 +816,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
             metrics: HashMap::default(),
             failed_corpus_replays: 0,
         };
-        self.execution_traces.extend(e.take_traces());
+        if let Some(arena) = e.take_traces() {
+            self.execution_traces.push(arena);
+        }
         self.status = TestStatus::Failure;
         self.reason = Some(format!(
             "failed to set up invariant testing environment: {e}"
@@ -881,7 +888,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(call_result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(call_result.labels);
-        self.execution_traces.extend(call_result.traces);
+        if let Some(arena) = call_result.traces {
+            self.execution_traces.push(arena);
+        }
         self.merge_coverages(call_result.line_coverage);
     }
 
@@ -1028,7 +1037,8 @@ pub struct TestSetup<HaltReasonT> {
     pub logs: Vec<Log>,
     /// Addresses labeled during setup.
     pub labels: AddressHashMap<String>,
-    /// Call traces of the setup.
+    /// Call traces of the setup. Only the last arena carries recorded EVM
+    /// steps — append through [`push_setup_trace_stripping_prior_steps`].
     pub traces: SetupTraces,
     /// Coverage info during setup.
     pub coverage: Option<HitMaps>,
@@ -1092,8 +1102,12 @@ impl<HaltReasonT: HaltReasonTrait> TestSetup<HaltReasonT> {
     ) {
         self.logs.extend(raw.logs);
         self.labels.extend(raw.labels);
-        self.traces
-            .extend(raw.traces.map(|traces| (trace_kind, traces)));
+        if let Some(traces) = raw.traces {
+            // Only the last setup arena can be named as the failing trace (by
+            // `get_setup_stack_trace`), so a step-recorded setup re-run keeps
+            // one step-laden arena instead of one per setup call.
+            push_setup_trace_stripping_prior_steps(&mut self.traces, trace_kind, traces);
+        }
         if let Some(indeterminism_reasons) = self.indeterminism_reasons.as_mut() {
             indeterminism_reasons.merge(raw.indeterminism_reasons);
         } else {

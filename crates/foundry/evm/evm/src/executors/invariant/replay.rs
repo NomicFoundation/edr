@@ -21,7 +21,7 @@ use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, InvariantContract},
     BaseCounterExample,
 };
-use foundry_evm_traces::{load_contracts, SetupTraces, SparsedTraceArena, TracingMode};
+use foundry_evm_traces::{load_contracts, ExecutionTraces, SetupTraces, TracingMode};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
 use revm::{
@@ -51,7 +51,7 @@ pub struct ReplayRunArgs<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub execution_traces: &'a mut Vec<SparsedTraceArena>,
+    pub execution_traces: &'a mut ExecutionTraces,
     pub executor: Executor<
         BlockT,
         TxT,
@@ -140,14 +140,13 @@ pub fn replay_run<
 
     // Replay each call from the sequence, collect logs, traces and coverage.
     for tx in inputs.iter() {
-        let call_result = executor.transact_raw(
+        let mut call_result = executor.transact_raw(
             tx.sender,
             tx.call_details.target,
             tx.call_details.calldata.clone(),
             U256::ZERO,
         )?;
         logs.extend(call_result.logs);
-        execution_traces.push(call_result.traces.clone().expect("enabled tracing"));
         HitMaps::merge_opt(coverage, call_result.line_coverage);
 
         // Identify newly generated contracts, if they exist.
@@ -156,13 +155,17 @@ pub fn replay_run<
             known_contracts,
         ));
 
+        execution_traces.push(call_result.traces.take().expect("enabled tracing"));
+
         // Create counter example to be used in failed case.
         counterexample_sequence.push(BaseCounterExample::from_invariant_call(
             tx.sender,
             tx.call_details.target,
             &tx.call_details.calldata,
             &ided_contracts,
-            call_result.traces,
+            // Counterexample arenas are never consumed; the failing arena
+            // lives on in `execution_traces`.
+            None,
             /* indeterminism_reason */ None,
         ));
 
@@ -203,6 +206,12 @@ pub fn replay_run<
                 revert_reason,
             });
         }
+
+        // This call is not the failing one, so its arena can only ever serve
+        // as a code source: strip it now rather than when the next push
+        // displaces it, so no arena in the collection is step-laden while the
+        // next call runs.
+        execution_traces.strip_last_steps();
     }
 
     // Replay invariant to collect logs and traces.
@@ -237,7 +246,7 @@ pub fn replay_run<
             call_result: after_invariant_result,
             success: _,
         } = call_after_invariant_function(&executor, invariant_contract.address)?;
-        execution_traces.push(after_invariant_result.traces.clone().unwrap());
+        execution_traces.push(after_invariant_result.traces.expect("tracing is on"));
         logs.extend(after_invariant_result.logs);
     }
 
@@ -249,9 +258,14 @@ pub fn replay_run<
                     .map(SolidityTestStackTraceResult::from)
                     .or_else(|| {
                         contract_decoder.map(|decoder| {
+                            // The failing call is always the last one
+                            // replayed — `afterInvariant()` when it ran,
+                            // otherwise `invariant()` — so its arena is the
+                            // one just pushed, and the only one still
+                            // carrying steps.
                             let (failing_trace, prior_traces) = execution_traces
                                 .split_last()
-                                .expect("the invariant call arena was pushed above");
+                                .expect("the invariant or afterInvariant arena was pushed above");
 
                             get_stack_trace(
                                 decoder,
@@ -293,7 +307,7 @@ pub struct ReplayErrorArgs<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub execution_traces: &'a mut Vec<SparsedTraceArena>,
+    pub execution_traces: &'a mut ExecutionTraces,
     pub executor: Executor<
         BlockT,
         TxT,

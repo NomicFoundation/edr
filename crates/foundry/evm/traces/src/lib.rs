@@ -39,10 +39,13 @@ pub use decoder::{CallTraceDecoder, CallTraceDecoderBuilder};
 use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 
 /// A suite's setup-phase trace arenas, including deployments and `setUp()`,
-/// in execution order. When setup failed, the last arena is the failing call;
-/// the setup stack-trace computation relies on that.
+/// in execution order — appended through
+/// [`push_setup_trace_stripping_prior_steps`], so only the last one carries
+/// recorded EVM steps. When setup failed, that last arena is the failing
+/// call; the setup stack-trace computation relies on both properties.
 pub type SetupTraces = Vec<SetupTrace>;
 
+/// A setup trace arena paired with the kind of setup call that recorded it.
 pub type SetupTrace = (SetupTraceKind, SparsedTraceArena);
 
 /// Trace arena keeping track of ignored trace items.
@@ -97,6 +100,111 @@ impl SparsedTraceArena {
         self.resolve_in_place();
         strip_arena_steps(&mut self.arena);
     }
+}
+
+/// The arenas a test's execution has recorded so far, in execution order.
+///
+/// Only the last arena carries recorded EVM steps, because [`push`](Self::push)
+/// — the only way to grow the collection — strips them from the arena it
+/// displaces; that bounds the peak while a test is still running, not just
+/// between tests. Only that last arena may therefore be named as the failing
+/// trace of a stack-trace computation; every earlier arena may only serve as a
+/// code source, which is walked for its CREATE nodes alone. The collection
+/// derefs to a slice for reading; mutable access —
+/// [`iter_mut`](Self::iter_mut), iterating `&mut`, and the step-stripping
+/// methods — hands out the arenas one by one, so it cannot reorder them, and
+/// callers use it only to decode and label them in place.
+#[derive(Clone, Debug, Default)]
+pub struct ExecutionTraces(Vec<SparsedTraceArena>);
+
+impl ExecutionTraces {
+    /// Appends `arena`, stripping the recorded EVM steps from the arena that
+    /// was previously last (see [`SparsedTraceArena::strip_steps`]).
+    ///
+    /// The strip is unconditional: an arena is stripped when displaced even if
+    /// the whole collection is freed once the test finishes — the in-test peak
+    /// is worth the walk.
+    pub fn push(&mut self, arena: SparsedTraceArena) {
+        self.strip_last_steps();
+        self.0.push(arena);
+    }
+
+    /// Returns an iterator over the arenas, for decoding and labelling them in
+    /// place — mutations that cannot reintroduce recorded steps.
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, SparsedTraceArena> {
+        self.0.iter_mut()
+    }
+
+    /// Strips the recorded EVM steps from the last arena, if any — the strip
+    /// [`push`](Self::push) would otherwise do when that arena is displaced.
+    pub fn strip_last_steps(&mut self) {
+        if let Some(last) = self.0.last_mut() {
+            last.strip_steps();
+        }
+    }
+
+    /// Strips the recorded EVM steps from every arena, including the last.
+    ///
+    /// Must only be called once a stack trace can no longer be requested for
+    /// any of them.
+    pub fn strip_steps(&mut self) {
+        for arena in &mut self.0 {
+            arena.strip_steps();
+        }
+    }
+}
+
+impl Deref for ExecutionTraces {
+    type Target = [SparsedTraceArena];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl IntoIterator for ExecutionTraces {
+    type Item = SparsedTraceArena;
+    type IntoIter = std::vec::IntoIter<SparsedTraceArena>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut ExecutionTraces {
+    type Item = &'a mut SparsedTraceArena;
+    type IntoIter = std::slice::IterMut<'a, SparsedTraceArena>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
+    }
+}
+
+impl FromIterator<SparsedTraceArena> for ExecutionTraces {
+    /// Collects through [`push`](Self::push), so every arena but the last is
+    /// stripped of its steps.
+    fn from_iter<I: IntoIterator<Item = SparsedTraceArena>>(iter: I) -> Self {
+        let mut traces = Self::default();
+        for arena in iter {
+            traces.push(arena);
+        }
+        traces
+    }
+}
+
+/// Appends a setup trace to `traces`, stripping the recorded EVM steps from
+/// the arena that was previously last — the [`SetupTraces`] counterpart of
+/// [`ExecutionTraces::push`], with the same contract: only the last setup
+/// arena may be named as the failing trace.
+pub fn push_setup_trace_stripping_prior_steps(
+    traces: &mut SetupTraces,
+    kind: SetupTraceKind,
+    arena: SparsedTraceArena,
+) {
+    if let Some((_, previous)) = traces.last_mut() {
+        previous.strip_steps();
+    }
+    traces.push((kind, arena));
 }
 
 impl Deref for SparsedTraceArena {
@@ -391,6 +499,19 @@ mod tests {
         ignored.insert((1, 0), (3, 0));
 
         SparsedTraceArena { arena, ignored }
+    }
+
+    #[test]
+    fn push_strips_steps_of_the_displaced_arena_only() {
+        let mut traces = ExecutionTraces::default();
+
+        traces.push(paused_arena());
+        assert!(!traces[0].nodes()[0].trace.steps.is_empty());
+
+        traces.push(paused_arena());
+        assert!(traces[0].nodes()[0].trace.steps.is_empty());
+        assert!(traces[0].ignored.is_empty());
+        assert!(!traces[1].nodes()[0].trace.steps.is_empty());
     }
 
     #[test]
