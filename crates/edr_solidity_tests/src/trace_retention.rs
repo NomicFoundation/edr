@@ -55,6 +55,12 @@ impl TraceRetentionPolicy {
         }
     }
 
+    /// Whether the arenas of a test with the given failure status are
+    /// consumed at all after it finishes.
+    pub fn retains(&self, is_failure: bool) -> bool {
+        self.retain_after(is_failure) != Retain::Nothing
+    }
+
     /// Applies the policy to a finished test result, freeing every arena (or
     /// part of one) that no longer has a consumer.
     ///

@@ -1258,6 +1258,7 @@ impl<
                     contract_decoder: Some(&*self.cr.contract_decoder),
                     revert_decoder: self.cr.revert_decoder,
                     fail_on_revert: self.cr.invariant_config.fail_on_revert,
+                    retain_traces: self.cr.trace_retention.retains(/* is_failure */ true),
                 })
                 .map_or(None, |result| result.stack_trace_result);
                 self.result.invariant_replay_fail(
@@ -1334,6 +1335,7 @@ impl<
                         generate_stack_trace: true,
                         contract_decoder: Some(&*self.cr.contract_decoder),
                         revert_decoder: self.cr.revert_decoder,
+                        retain_traces: self.cr.trace_retention.retains(/* is_failure */ true),
                     }) {
                         Ok(ReplayResult {
                             counterexample_sequence,
@@ -1409,6 +1411,9 @@ impl<
                     contract_decoder: Some(&*self.cr.contract_decoder),
                     revert_decoder: self.cr.revert_decoder,
                     fail_on_revert: self.cr.invariant_config.fail_on_revert,
+                    // The campaign passed, so these arenas are only consumed
+                    // if passing tests surface call traces.
+                    retain_traces: self.cr.trace_retention.retains(/* is_failure */ false),
                 }) {
                     error!(%err, "Failed to replay last invariant run");
                 }
