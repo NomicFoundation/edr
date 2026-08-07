@@ -28,7 +28,7 @@ describe("Call traces - IncludeTraces.All", () => {
       isCheatcode: false,
       gasUsed: trace[0].gasUsed, // avoid coupling test to specific gas costs
       value: 0n,
-      address: '0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496',
+      address: "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
       contract: "CallTraces",
       inputs: {
         name: "testNoChildren",
@@ -164,7 +164,7 @@ describe("Call traces - IncludeTraces.All", () => {
     assert.equal(child.kind, CallKind.Call);
     assert.deepEqual(child.inputs, {
       arguments: ["0xdeadbeef"],
-      name: "fallback"
+      name: "fallback",
     });
   });
 
@@ -398,6 +398,31 @@ describe("Call traces - IncludeTraces.Failing", () => {
   });
 });
 
+describe("Call traces - IncludeTraces.Failing with setUp", () => {
+  let testCallTraces: Map<string, CallTrace[]>;
+
+  before(async () => {
+    const testContext = await TestContext.setup();
+    const runResult = await testContext.runTestsWithStats(
+      "CallTracesFailingOnlySetup",
+      { includeTraces: IncludeTraces.Failing }
+    );
+    testCallTraces = runResult.callTraces;
+  });
+
+  it("should not capture setUp traces for successful tests", async function () {
+    const trace = testCallTraces.get("testSuccessfulTest()");
+    assert.deepEqual(trace, []);
+  });
+
+  it("should capture setUp and test traces for failing tests", async function () {
+    const trace = testCallTraces.get("testIntentionallyFailingTest()");
+    assert.equal(trace?.length, 2);
+    assert.deepEqual(trace[0].inputs, { name: "setUp", arguments: [] });
+    assert.equal(trace[1].success, false);
+  });
+});
+
 describe("Call traces - CallTracesSetup", () => {
   let testCallTraces: Map<string, CallTrace[]>;
 
@@ -427,6 +452,24 @@ describe("Call traces - CallTracesSetup", () => {
       name: "testAfterSetup",
       arguments: [],
     });
+  });
+
+  it("should include setUp function in the traces of every test", async function () {
+    for (const testName of ["testAfterSetup()", "testAlsoAfterSetup()"]) {
+      const trace = testCallTraces.get(testName);
+      assert.equal(trace?.length, 2, testName);
+      assert.deepEqual(trace[0].inputs, { name: "setUp", arguments: [] });
+      assert.deepEqual(trace[1].inputs, {
+        name: testName.slice(0, -2),
+        arguments: [],
+      });
+    }
+
+    // Every test's setUp trace is the same trace, resolved the same way.
+    assert.deepEqual(
+      testCallTraces.get("testAfterSetup()")?.[0],
+      testCallTraces.get("testAlsoAfterSetup()")?.[0]
+    );
   });
 });
 

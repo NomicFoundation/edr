@@ -7,7 +7,7 @@ use std::{
 use edr_solidity_tests::{
     constants::CHEATCODE_ADDRESS,
     executors::stack_trace::SolidityTestStackTraceResult,
-    traces::{self, CallTraceArena, SparsedTraceArena},
+    traces::{self, CallTraceArena, ExecutionTraces, SparsedTraceArena},
 };
 use napi::{
     bindgen_prelude::{BigInt, Either3, Either4, Uint8Array},
@@ -81,22 +81,45 @@ impl SuiteResult {
         suite_result: edr_solidity_tests::result::SuiteResult<String>,
         include_traces: IncludeTraces,
     ) -> Self {
+        let edr_solidity_tests::result::SuiteResult {
+            duration,
+            setup_traces,
+            test_results,
+            warnings,
+        } = suite_result;
+
+        // Every included test result surfaces the same setup traces, so
+        // materialize them once per suite instead of cloning them into each
+        // result. Deployment traces are internal — contract identification,
+        // stack traces, the gas report — and are never surfaced.
+        let setup_trace_arenas: Arc<[SparsedTraceArena]> =
+            if matches!(include_traces, IncludeTraces::None) {
+                // No result will surface them.
+                Arc::default()
+            } else {
+                setup_traces
+                    .into_iter()
+                    .filter(|(kind, _)| !kind.is_deployment())
+                    .map(|(_, mut arena)| {
+                        // Resolve `pauseTracing`/`resumeTracing` ranges once
+                        // here; otherwise `call_traces` clones the shared
+                        // arena for every test result.
+                        arena.resolve_in_place();
+                        arena
+                    })
+                    .collect()
+            };
+
         Self {
             id: id.into(),
-            duration_ns: BigInt::from(suite_result.duration.as_nanos()),
-            test_results: suite_result
-                .test_results
+            duration_ns: BigInt::from(duration.as_nanos()),
+            test_results: test_results
                 .into_iter()
                 .map(|(name, test_result)| {
-                    TestResult::new(
-                        name,
-                        test_result,
-                        &suite_result.setup_traces,
-                        include_traces,
-                    )
+                    TestResult::new(name, test_result, &setup_trace_arenas, include_traces)
                 })
                 .collect(),
-            warnings: suite_result.warnings,
+            warnings,
         }
     }
 }
@@ -115,7 +138,15 @@ pub struct TestResult {
     value_snapshot_groups: Option<Vec<ValueSnapshotGroup>>,
 
     stack_trace_result: Option<Arc<SolidityTestStackTraceResult<String>>>,
-    call_trace_arenas: Vec<SparsedTraceArena>,
+    /// The suite's surfaced setup trace arenas — deployment traces excluded —
+    /// shared between its test results. Their `pauseTracing`/`resumeTracing`
+    /// ranges are resolved up front, so `call_traces` never clones them.
+    /// Empty when traces for this test were not requested, or when the suite
+    /// has no traced `setUp()`.
+    setup_trace_arenas: Arc<[SparsedTraceArena]>,
+    /// This test's own execution trace arenas. Empty when traces for this
+    /// test were not requested.
+    execution_trace_arenas: ExecutionTraces,
 }
 
 /// The stack trace result
@@ -279,16 +310,17 @@ impl TestResult {
         })
     }
 
-    /// Constructs the execution traces for the test. Returns an empty array if
+    /// Constructs the call traces for the test. Returns an empty array if
     /// traces for this test were not requested according to
-    /// [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
-    /// an array of the root calls of the trace, which always includes the test
-    /// call itself and may also include the setup call if there is one
-    /// (identified by the function name `setUp`).
+    /// [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`].
+    /// Otherwise, returns an array of the root calls of the trace, which
+    /// always includes the test call itself and may also include the suite's
+    /// setup call if there is one (identified by the function name `setUp`).
     #[napi]
     pub fn call_traces(&self) -> Vec<CallTrace> {
-        self.call_trace_arenas
+        self.setup_trace_arenas
             .iter()
+            .chain(self.execution_trace_arenas.iter())
             .map(|arena| CallTrace::from_arena_node(&arena.resolve_arena(), 0))
             .collect()
     }
@@ -298,11 +330,18 @@ impl TestResult {
     fn new(
         name: String,
         test_result: edr_solidity_tests::result::TestResult<String>,
-        setup_traces: &edr_solidity_tests::traces::SetupTraces,
+        setup_trace_arenas: &Arc<[SparsedTraceArena]>,
         include_traces: IncludeTraces,
     ) -> Self {
         let include_trace = edr_solidity::config::IncludeTraces::from(include_traces)
             .should_include(|| test_result.status.is_failure());
+        // Bound together so the two halves of `call_traces` cannot diverge.
+        // `Arc::<[_]>::default()` avoids allocating an empty slice per result.
+        let (setup_trace_arenas, execution_trace_arenas) = if include_trace {
+            (Arc::clone(setup_trace_arenas), test_result.execution_traces)
+        } else {
+            Default::default()
+        };
 
         Self {
             name,
@@ -386,16 +425,8 @@ impl TestResult {
                     .collect(),
             ),
             stack_trace_result: test_result.stack_trace_result.map(Arc::new),
-            call_trace_arenas: if include_trace {
-                setup_traces
-                    .iter()
-                    .filter(|(k, _)| *k != traces::SetupTraceKind::Deployment)
-                    .map(|(_, arena)| arena.clone())
-                    .chain(test_result.execution_traces)
-                    .collect()
-            } else {
-                Vec::new()
-            },
+            setup_trace_arenas,
+            execution_trace_arenas,
         }
     }
 }

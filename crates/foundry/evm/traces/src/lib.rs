@@ -73,9 +73,10 @@ impl SparsedTraceArena {
         }
     }
 
-    /// Removes the ignored trace items from the arena itself, so that it no
-    /// longer needs resolving.
-    fn resolve_in_place(&mut self) {
+    /// Removes the ignored trace items from the arena itself, so that
+    /// [`resolve_arena`](Self::resolve_arena) no longer needs to clone it.
+    /// The arena is no longer sparse afterwards; a no-op when it never was.
+    pub fn resolve_in_place(&mut self) {
         if !self.ignored.is_empty() {
             clear_node(self.arena.nodes_mut(), 0, &self.ignored, &mut None);
             self.ignored = HashMap::default();

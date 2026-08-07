@@ -16,6 +16,13 @@ contract CallTracesSetup is Test {
         emit TestEvent("test after setup", initialValue);
     }
 
+    // A second test, so that the suite's setup traces are shared between
+    // several test results.
+    function testAlsoAfterSetup() public {
+        require(initialValue == 42, "Setup not called properly");
+        emit TestEvent("second test after setup", initialValue);
+    }
+
     event SetupEvent(string message, uint256 value);
     event TestEvent(string message, uint256 value);
 }
