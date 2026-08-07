@@ -25,6 +25,8 @@ import {
   runForgeTests,
   setupRepo,
   REPOS,
+  runSolidityTestsMemoryBenchmark,
+  MEMORY_VERBOSITIES,
 } from "./solidity-tests.js";
 
 const {
@@ -42,6 +44,7 @@ interface ParsedArguments {
     | "report-provider-benchmark"
     | "solidity-tests-benchmark"
     | "solidity-tests"
+    | "solidity-tests-memory"
     | "compare-forge"
     | "report-forge";
   grep?: string;
@@ -55,6 +58,7 @@ interface ParsedArguments {
   csv_input?: string;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   forge_path?: string;
+  verbosity?: number;
 }
 
 interface BenchmarkScenarioResult {
@@ -94,6 +98,7 @@ async function main(): Promise<boolean> {
       "report-provider-benchmark",
       "solidity-tests-benchmark",
       "solidity-tests",
+      "solidity-tests-memory",
       "compare-forge",
       "report-forge",
     ],
@@ -128,6 +133,10 @@ async function main(): Promise<boolean> {
   parser.add_argument("--forge-path", {
     type: "str",
     help: "Path to forge executable (default: 'forge')",
+  });
+  parser.add_argument("--verbosity", {
+    type: "int",
+    help: "Hardhat verbosity level for the solidity-tests-memory command. Repeat the command for each level, or omit to measure all of them.",
   });
   const args: ParsedArguments = parser.parse_args();
 
@@ -179,6 +188,18 @@ async function main(): Promise<boolean> {
       console.error("Error: --repo is required for solidity-tests command");
       return false;
     }
+  } else if (args.command === "solidity-tests-memory") {
+    const repos =
+      args.repo !== undefined
+        ? args.repo.split(",")
+        : ["solady", "uniswap-v4-core", "morpho-blue"];
+    const verbosities =
+      args.verbosity !== undefined ? [args.verbosity] : MEMORY_VERBOSITIES;
+    await runSolidityTestsMemoryBenchmark(
+      repos,
+      verbosities,
+      benchmarkOutputPath
+    );
   } else if (args.command === "compare-forge") {
     if (args.csv_output === undefined) {
       console.error(
