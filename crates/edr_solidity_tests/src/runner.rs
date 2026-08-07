@@ -1302,6 +1302,9 @@ impl<
                     contract_decoder: Some(&*self.cr.contract_decoder),
                     revert_decoder: self.cr.revert_decoder,
                     fail_on_revert: self.cr.invariant_config.fail_on_revert,
+                    // Inert here: `generate_stack_trace` is true, and
+                    // stack-trace generation keeps the arenas either way.
+                    retain_traces: self.cr.trace_retention.retains(TestStatus::Failure),
                 })
                 .map_or(None, |result| result.stack_trace_result);
                 self.result.invariant_replay_fail(
@@ -1393,6 +1396,9 @@ impl<
                         generate_stack_trace: true,
                         contract_decoder: Some(&*self.cr.contract_decoder),
                         revert_decoder: self.cr.revert_decoder,
+                        // Inert here: `generate_stack_trace` is true, and
+                        // stack-trace generation keeps the arenas either way.
+                        retain_traces: self.cr.trace_retention.retains(TestStatus::Failure),
                     }) {
                         Ok(ReplayResult {
                             counterexample_sequence,
@@ -1468,6 +1474,10 @@ impl<
                     contract_decoder: Some(&*self.cr.contract_decoder),
                     revert_decoder: self.cr.revert_decoder,
                     fail_on_revert: self.cr.invariant_config.fail_on_revert,
+                    // The campaign passed, so these arenas are only consumed
+                    // if a passing test's are — as call traces or by the gas
+                    // report.
+                    retain_traces: self.cr.trace_retention.retains(TestStatus::Success),
                 }) {
                     error!(%err, "Failed to replay last invariant run");
                 }

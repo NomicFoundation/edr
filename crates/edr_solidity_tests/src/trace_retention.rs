@@ -62,6 +62,22 @@ impl TraceRetentionPolicy {
         }
     }
 
+    /// Whether a finished test with the given status still has a consumer for
+    /// its arenas — i.e. whether
+    /// [`TestResult::free_unconsumed_traces`](crate::result::TestResult::free_unconsumed_traces)
+    /// would keep them.
+    ///
+    /// Lets producers skip accumulating arenas that would only be freed
+    /// again. Callers must pass the status the finished result will have, or
+    /// a result could lose call traces it should have carried.
+    #[must_use]
+    pub(crate) fn retains(self, status: TestStatus) -> bool {
+        match self.retain_after(status) {
+            Retain::Nothing => false,
+            Retain::CallsOnly => true,
+        }
+    }
+
     /// Returns whether the gas-report samples a test produced still have a
     /// consumer: the gas-report pass in `MultiContractRunner::run_test_suite`.
     pub(crate) fn retains_gas_report_samples(self) -> bool {
@@ -96,7 +112,7 @@ mod tests {
         for (include_traces, status, retained) in cases {
             let policy = TraceRetentionPolicy::new(include_traces, false);
             assert_eq!(
-                matches!(policy.retain_after(status), Retain::CallsOnly),
+                policy.retains(status),
                 retained,
                 "{include_traces:?} {status:?}"
             );
@@ -104,7 +120,7 @@ mod tests {
             // A gas report consumes every test's call traces.
             let policy = TraceRetentionPolicy::new(include_traces, true);
             assert!(
-                matches!(policy.retain_after(status), Retain::CallsOnly),
+                policy.retains(status),
                 "{include_traces:?} {status:?} with a gas report"
             );
         }
