@@ -155,12 +155,19 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     /// If an invariant config setting is not set, but a corresponding fuzz
     /// config value is set, then the fuzz config value will be used.
     pub invariant: Option<InvariantConfigArgs>,
-    /// Whether to collect stack traces.
+    /// Controls when a source-level stack trace is computed for a failing
+    /// test. Defaults to `CollectStackTraces.OnFailure`.
     pub collect_stack_traces: Option<CollectStackTraces>,
-    /// Controls which test results should include execution traces. Defaults to
-    /// None.
-    pub include_traces: Option<IncludeTraces>,
-    /// The configuration for the Solidity test runner's observability
+    /// Controls which test results carry call traces, retrievable with
+    /// `TestResult.callTraces()`. Stack traces are controlled separately by
+    /// `collectStackTraces`. Not to be confused with
+    /// `ObservabilityConfig.includeCallTraces`, which applies to provider
+    /// transaction execution and is ignored here.
+    ///
+    /// Defaults to `IncludeCallTraces.None`.
+    pub include_call_traces: Option<IncludeCallTraces>,
+    /// The configuration for the Solidity test runner's observability. Only
+    /// its coverage configuration is used; its `includeCallTraces` is ignored.
     #[debug(skip)]
     #[serde(skip)]
     pub observability: Option<ObservabilityConfig<'env>>,
@@ -172,8 +179,8 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     /// after `test_pattern`.
     pub exclude_test_pattern: Option<String>,
     /// Controls whether to generate a gas report after running the tests.
-    /// Enabling this also enables collection of all traces and EVM isolation
-    /// mode.
+    /// Enabling this forces `includeCallTraces` to `IncludeCallTraces.All` and
+    /// enables EVM isolation mode.
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
     /// A list of EIP-712 canonical type definitions that can be referenced by
@@ -266,7 +273,7 @@ impl SolidityTestRunnerConfigArgs<'_> {
             fuzz,
             invariant,
             collect_stack_traces,
-            include_traces,
+            include_call_traces,
             observability,
             test_pattern,
             exclude_test_pattern,
@@ -382,7 +389,7 @@ impl SolidityTestRunnerConfigArgs<'_> {
 
         let config = edr_napi_core::solidity::config::TestRunnerConfig {
             project_root: project_root.into(),
-            include_traces: include_traces.unwrap_or_default().into(),
+            include_call_traces: include_call_traces.unwrap_or_default().into(),
             isolate,
             ffi,
             sender: sender.map(TryCast::try_cast).transpose()?,
@@ -907,40 +914,33 @@ impl From<CollectStackTraces> for edr_solidity_tests::CollectStackTraces {
     }
 }
 
-/// Configuration that controls whether execution traces are decoded and
-/// included in results.
+/// Which results carry call traces — the tree of calls recorded during an
+/// execution.
 ///
 /// This can either be for Solidity test results or provider transaction
-/// execution results.
+/// execution results. It says nothing about stack traces: whether a failing
+/// Solidity test also gets a source-level stack trace is controlled by
+/// `CollectStackTraces`.
 #[napi]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Serialize)]
-pub enum IncludeTraces {
-    /// No traces will be included at all.
+pub enum IncludeCallTraces {
+    /// No call traces will be included at all.
     #[default]
     None,
-    /// Traces will be included only on the results of failed tests or
-    /// execution.
+    /// Call traces will be included only on the results of failed tests or
+    /// executions.
     Failing,
-    /// Traces will be included for all test results or executed transactions.
+    /// Call traces will be included for all test results and executed
+    /// transactions.
     All,
 }
 
-impl From<IncludeTraces> for edr_solidity::config::IncludeTraces {
-    fn from(value: IncludeTraces) -> Self {
+impl From<IncludeCallTraces> for edr_solidity::config::IncludeCallTraces {
+    fn from(value: IncludeCallTraces) -> Self {
         match value {
-            IncludeTraces::None => edr_solidity::config::IncludeTraces::None,
-            IncludeTraces::Failing => edr_solidity::config::IncludeTraces::Failing,
-            IncludeTraces::All => edr_solidity::config::IncludeTraces::All,
-        }
-    }
-}
-
-impl From<edr_solidity::config::IncludeTraces> for IncludeTraces {
-    fn from(value: edr_solidity::config::IncludeTraces) -> Self {
-        match value {
-            edr_solidity::config::IncludeTraces::None => IncludeTraces::None,
-            edr_solidity::config::IncludeTraces::Failing => IncludeTraces::Failing,
-            edr_solidity::config::IncludeTraces::All => IncludeTraces::All,
+            IncludeCallTraces::None => edr_solidity::config::IncludeCallTraces::None,
+            IncludeCallTraces::Failing => edr_solidity::config::IncludeCallTraces::Failing,
+            IncludeCallTraces::All => edr_solidity::config::IncludeCallTraces::All,
         }
     }
 }

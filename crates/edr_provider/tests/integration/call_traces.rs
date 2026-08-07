@@ -10,7 +10,7 @@ use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_signer::public_key_to_address;
-use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
+use edr_solidity::{config::IncludeCallTraces, contract_decoder::ContractDecoder};
 use foundry_evm_traces::TraceMemberOrder;
 use parking_lot::RwLock;
 use tokio::runtime;
@@ -36,7 +36,7 @@ const LOG_TOPIC: B256 = B256::new({
 // https://github.com/NomicFoundation/edr/issues/1542
 async fn transaction_call_trace_includes_logs(verbose_raw_tracing: bool) -> anyhow::Result<()> {
     let mut config = create_test_config();
-    config.observability.include_call_traces = IncludeTraces::All;
+    config.observability.include_call_traces = IncludeCallTraces::All;
     config.observability.verbose_raw_tracing = verbose_raw_tracing;
 
     let from = public_key_to_address(

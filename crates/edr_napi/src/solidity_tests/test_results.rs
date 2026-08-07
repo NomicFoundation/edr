@@ -4,6 +4,7 @@ use std::{
     sync::Arc,
 };
 
+use edr_solidity::config::IncludeCallTraces;
 use edr_solidity_tests::{
     constants::CHEATCODE_ADDRESS,
     executors::stack_trace::SolidityTestStackTraceResult,
@@ -17,7 +18,7 @@ use napi_derive::napi;
 
 use crate::{
     gas_report::GasReport,
-    solidity_tests::{artifact::ArtifactId, config::IncludeTraces},
+    solidity_tests::artifact::ArtifactId,
     trace::{
         solidity_stack_trace::{
             solidity_stack_trace_error_to_napi, solidity_stack_trace_heuristic_failed_to_napi,
@@ -79,7 +80,7 @@ impl SuiteResult {
     pub fn new(
         id: edr_artifact::ArtifactId,
         suite_result: edr_solidity_tests::result::SuiteResult<String>,
-        include_traces: IncludeTraces,
+        include_call_traces: IncludeCallTraces,
     ) -> Self {
         let edr_solidity_tests::result::SuiteResult {
             duration,
@@ -93,7 +94,7 @@ impl SuiteResult {
         // result. Deployment traces are internal — contract identification,
         // stack traces, the gas report — and are never surfaced.
         let setup_trace_arenas: Arc<[SparsedTraceArena]> =
-            if matches!(include_traces, IncludeTraces::None) {
+            if include_call_traces == IncludeCallTraces::None {
                 // No result will surface them.
                 Arc::default()
             } else {
@@ -116,7 +117,7 @@ impl SuiteResult {
             test_results: test_results
                 .into_iter()
                 .map(|(name, test_result)| {
-                    TestResult::new(name, test_result, &setup_trace_arenas, include_traces)
+                    TestResult::new(name, test_result, &setup_trace_arenas, include_call_traces)
                 })
                 .collect(),
             warnings,
@@ -141,10 +142,10 @@ pub struct TestResult {
     /// The suite's surfaced setup trace arenas — deployment traces excluded —
     /// shared between its test results. Their `pauseTracing`/`resumeTracing`
     /// ranges are resolved up front, so `call_traces` never clones them.
-    /// Empty when traces for this test were not requested, or when the suite
-    /// has no traced `setUp()`.
+    /// Empty when call traces for this test were not requested, or when the
+    /// suite has no traced `setUp()`.
     setup_trace_arenas: Arc<[SparsedTraceArena]>,
-    /// This test's own execution trace arenas. Empty when traces for this
+    /// This test's own call trace arenas. Empty when call traces for this
     /// test were not requested.
     execution_trace_arenas: ExecutionTraces,
 }
@@ -310,12 +311,12 @@ impl TestResult {
         })
     }
 
-    /// Constructs the call traces for the test. Returns an empty array if
+    /// Constructs the call traces for the test. Returns an empty array if call
     /// traces for this test were not requested according to
-    /// [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`].
-    /// Otherwise, returns an array of the root calls of the trace, which
-    /// always includes the test call itself and may also include the suite's
-    /// setup call if there is one (identified by the function name `setUp`).
+    /// `SolidityTestRunnerConfigArgs.includeCallTraces`. Otherwise, returns an
+    /// array of the root calls of the trace, which always includes the test
+    /// call itself and may also include the suite's setup call if there is one
+    /// (identified by the function name `setUp`).
     #[napi]
     pub fn call_traces(&self) -> Vec<CallTrace> {
         self.setup_trace_arenas
@@ -331,13 +332,13 @@ impl TestResult {
         name: String,
         test_result: edr_solidity_tests::result::TestResult<String>,
         setup_trace_arenas: &Arc<[SparsedTraceArena]>,
-        include_traces: IncludeTraces,
+        include_call_traces: IncludeCallTraces,
     ) -> Self {
-        let include_trace = edr_solidity::config::IncludeTraces::from(include_traces)
-            .should_include(|| test_result.status.is_failure());
+        let should_include_call_traces =
+            include_call_traces.should_include(|| test_result.status.is_failure());
         // Bound together so the two halves of `call_traces` cannot diverge.
         // `Arc::<[_]>::default()` avoids allocating an empty slice per result.
-        let (setup_trace_arenas, execution_trace_arenas) = if include_trace {
+        let (setup_trace_arenas, execution_trace_arenas) = if should_include_call_traces {
             (Arc::clone(setup_trace_arenas), test_result.execution_traces)
         } else {
             Default::default()

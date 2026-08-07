@@ -62,7 +62,7 @@ use edr_runtime::{
 use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
-use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
+use edr_solidity::{config::IncludeCallTraces, contract_decoder::ContractDecoder};
 use edr_state_api::{
     account::{Account, AccountInfo, AccountStatus},
     irregular::IrregularState,
@@ -142,9 +142,12 @@ pub struct CallResultWithMetadata<HaltReasonT: HaltReasonTrait> {
 
 impl<HaltReasonT: HaltReasonTrait> CallResultWithMetadata<HaltReasonT> {
     /// Converts into a [`CallResult`], discarding metadata.
-    pub fn into_call_result(self, include_traces: IncludeTraces) -> CallResult<HaltReasonT> {
+    pub fn into_call_result(
+        self,
+        include_call_traces: IncludeCallTraces,
+    ) -> CallResult<HaltReasonT> {
         CallResult {
-            call_trace_arena: include_traces
+            call_trace_arena: include_call_traces
                 .should_include(|| !self.execution_result.is_success())
                 .then_some(self.call_trace_arena),
             execution_result: self.execution_result,
@@ -152,8 +155,11 @@ impl<HaltReasonT: HaltReasonTrait> CallResultWithMetadata<HaltReasonT> {
     }
 
     /// Returns the call traces if they should be included, consuming `self`.
-    pub fn into_call_traces(self, include_traces: IncludeTraces) -> Option<CallTraceArena> {
-        include_traces
+    pub fn into_call_traces(
+        self,
+        include_call_traces: IncludeCallTraces,
+    ) -> Option<CallTraceArena> {
+        include_call_traces
             .should_include(|| !self.execution_result.is_success())
             .then_some(self.call_trace_arena)
     }
@@ -192,7 +198,7 @@ impl<BlockT, HaltReasonT: HaltReasonTrait, SignedTransactionT>
 {
     pub fn into_hash_and_call_traces(
         self,
-        include_call_traces: IncludeTraces,
+        include_call_traces: IncludeCallTraces,
     ) -> (B256, Vec<CallTraceArena>) {
         let Self {
             transaction_hash,
@@ -378,7 +384,7 @@ where
         self.impersonated_accounts.insert(address);
     }
 
-    pub fn include_call_traces(&self) -> IncludeTraces {
+    pub fn include_call_traces(&self) -> IncludeCallTraces {
         self.observability.include_call_traces
     }
 

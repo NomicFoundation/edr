@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_primitives::{Address, B256, U256};
-use edr_solidity::config::IncludeTraces;
+use edr_solidity::config::IncludeCallTraces;
 use foundry_evm::{
     backend::Predeploy,
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
@@ -38,11 +38,12 @@ pub enum SolidityTestRunnerConfigError {
 pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// Project root directory.
     pub project_root: PathBuf,
-    /// Whether to collect stack traces.
+    /// When a source-level stack trace is computed for a failing test.
     pub collect_stack_traces: CollectStackTraces,
-    /// Whether to enable trace mode and which traces to include in test
-    /// results.
-    pub include_traces: IncludeTraces,
+    /// Which test results carry call traces. Together with
+    /// `collect_stack_traces`, this also decides whether — and how much —
+    /// tracing is enabled during execution.
+    pub include_call_traces: IncludeCallTraces,
     /// Whether to collect coverage info
     pub coverage: bool,
     /// Whether to enable solidity fuzz fixtures support

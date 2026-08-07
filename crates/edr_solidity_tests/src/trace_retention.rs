@@ -4,14 +4,14 @@
 //! Arenas are recorded according to
 //! [`TracingMode`](foundry_evm::traces::TracingMode) and consumed by
 //! stack-trace generation while the test runs. Whether anything consumes them
-//! *after* the test has finished depends on `include_traces` — which results
-//! carry call traces to the caller — and `generate_gas_report`. Even a
+//! *after* the test has finished depends on `include_call_traces` — which
+//! results carry call traces to the caller — and `generate_gas_report`. Even a
 //! retained arena only needs its call tree, never the recorded EVM steps.
 //! Without this policy the unconsumed arenas would stay resident until the
 //! whole suite completes, which with step recording enabled is the difference
 //! between megabytes and gigabytes.
 
-use edr_solidity::config::IncludeTraces;
+use edr_solidity::config::IncludeCallTraces;
 
 use crate::result::TestStatus;
 
@@ -30,12 +30,12 @@ pub(crate) enum Retain {
 /// stack trace (if any) has been computed, and whether a suite's setup
 /// arenas outlive its tests.
 ///
-/// Derived from the test runner's `include_traces` and `generate_gas_report`
-/// settings in `MultiContractRunner::run_test_suite`.
+/// Derived from the test runner's `include_call_traces` and
+/// `generate_gas_report` settings in `MultiContractRunner::run_test_suite`.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct TraceRetentionPolicy {
     /// Which results carry call traces to the caller.
-    include_traces: IncludeTraces,
+    include_call_traces: IncludeCallTraces,
     /// Whether a gas report is being generated, which consumes every test's
     /// call traces.
     generate_gas_report: bool,
@@ -43,9 +43,9 @@ pub(crate) struct TraceRetentionPolicy {
 
 impl TraceRetentionPolicy {
     /// Creates a policy from the test runner's trace-related settings.
-    pub(crate) fn new(include_traces: IncludeTraces, generate_gas_report: bool) -> Self {
+    pub(crate) fn new(include_call_traces: IncludeCallTraces, generate_gas_report: bool) -> Self {
         Self {
-            include_traces,
+            include_call_traces,
             generate_gas_report,
         }
     }
@@ -54,10 +54,14 @@ impl TraceRetentionPolicy {
     /// still needed for.
     pub(crate) fn retain_after(self, status: TestStatus) -> Retain {
         // The gas report consumes every test's call traces.
-        // `MultiContractRunner::new` already forces `include_traces` to `All`
+        // `MultiContractRunner::new` already forces `include_call_traces` to `All`
         // when one is requested; checking here keeps the policy right on its
         // own.
-        if self.generate_gas_report || self.include_traces.should_include(|| status.is_failure()) {
+        if self.generate_gas_report
+            || self
+                .include_call_traces
+                .should_include(|| status.is_failure())
+        {
             Retain::CallsOnly
         } else {
             Retain::Nothing
@@ -117,36 +121,36 @@ mod tests {
     #[test]
     fn retains_arenas_only_for_results_that_surface_call_traces() {
         let cases = [
-            (IncludeTraces::None, TestStatus::Failure, false),
-            (IncludeTraces::None, TestStatus::Success, false),
-            (IncludeTraces::Failing, TestStatus::Failure, true),
-            (IncludeTraces::Failing, TestStatus::Success, false),
+            (IncludeCallTraces::None, TestStatus::Failure, false),
+            (IncludeCallTraces::None, TestStatus::Success, false),
+            (IncludeCallTraces::Failing, TestStatus::Failure, true),
+            (IncludeCallTraces::Failing, TestStatus::Success, false),
             // Skipped tests follow the same rule as passing ones.
-            (IncludeTraces::Failing, TestStatus::Skipped, false),
-            (IncludeTraces::All, TestStatus::Success, true),
-            (IncludeTraces::All, TestStatus::Skipped, true),
+            (IncludeCallTraces::Failing, TestStatus::Skipped, false),
+            (IncludeCallTraces::All, TestStatus::Success, true),
+            (IncludeCallTraces::All, TestStatus::Skipped, true),
         ];
-        for (include_traces, status, retained) in cases {
-            let policy = TraceRetentionPolicy::new(include_traces, false);
+        for (include_call_traces, status, retained) in cases {
+            let policy = TraceRetentionPolicy::new(include_call_traces, false);
             assert_eq!(
                 policy.retains(status),
                 retained,
-                "{include_traces:?} {status:?}"
+                "{include_call_traces:?} {status:?}"
             );
             // Setup arenas follow the same rule, keyed on whether any test
             // failed.
             assert_eq!(
                 policy.retains_setup(status.is_failure()),
                 retained,
-                "{include_traces:?} setup arenas, any failed: {}",
+                "{include_call_traces:?} setup arenas, any failed: {}",
                 status.is_failure()
             );
 
             // A gas report consumes every test's call traces.
-            let policy = TraceRetentionPolicy::new(include_traces, true);
+            let policy = TraceRetentionPolicy::new(include_call_traces, true);
             assert!(
                 policy.retains(status),
-                "{include_traces:?} {status:?} with a gas report"
+                "{include_call_traces:?} {status:?} with a gas report"
             );
         }
     }
@@ -163,7 +167,7 @@ mod tests {
             execution_traces: [arena()].into_iter().collect(),
             ..TestResult::default()
         };
-        kept.free_unconsumed_traces(TraceRetentionPolicy::new(IncludeTraces::All, false));
+        kept.free_unconsumed_traces(TraceRetentionPolicy::new(IncludeCallTraces::All, false));
         assert_eq!(kept.execution_traces.len(), 1);
 
         // `Failing` frees a passing test's call traces.
@@ -172,7 +176,7 @@ mod tests {
             execution_traces: [arena()].into_iter().collect(),
             ..TestResult::default()
         };
-        freed.free_unconsumed_traces(TraceRetentionPolicy::new(IncludeTraces::Failing, false));
+        freed.free_unconsumed_traces(TraceRetentionPolicy::new(IncludeCallTraces::Failing, false));
         assert!(freed.execution_traces.is_empty());
     }
 }

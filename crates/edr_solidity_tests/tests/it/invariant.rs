@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use alloy_primitives::U256;
 use edr_gas_report::GasReportExecutionStatus;
-use edr_solidity::config::IncludeTraces;
+use edr_solidity::config::IncludeCallTraces;
 use edr_solidity_tests::{fuzz::CounterExample, result::TestKind};
 
 use crate::helpers::{
@@ -963,19 +963,19 @@ async fn test_invariant_after_invariant() {
 }
 
 /// Gating the replay's arena pushes must not lose the call traces that
-/// `IncludeTraces::All` surfaces for a passing invariant test; at the other
+/// `IncludeCallTraces::All` surfaces for a passing invariant test; at the other
 /// settings the policy frees them either way.
 #[tokio::test(flavor = "multi_thread")]
-async fn test_passing_invariant_replay_traces_follow_include_traces() {
+async fn test_passing_invariant_replay_traces_follow_include_call_traces() {
     const DEPTH: u32 = 5;
 
-    for (include_traces, expect_traces) in [
-        (IncludeTraces::All, true),
-        (IncludeTraces::Failing, false),
-        (IncludeTraces::None, false),
+    for (include_call_traces, expect_traces) in [
+        (IncludeCallTraces::All, true),
+        (IncludeCallTraces::Failing, false),
+        (IncludeCallTraces::None, false),
     ] {
         let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-        config.include_traces = include_traces;
+        config.include_call_traces = include_call_traces;
         config.invariant = TestInvariantConfig {
             runs: 1,
             depth: DEPTH,
@@ -995,7 +995,7 @@ async fn test_passing_invariant_replay_traces_follow_include_traces() {
             .flat_map(|suite| suite.test_results.values())
             .next()
             .expect("`invariant_success()` should have run");
-        assert!(result.status.is_success(), "{include_traces:?}");
+        assert!(result.status.is_success(), "{include_call_traces:?}");
 
         let expected_len = if expect_traces {
             // One arena per replayed call, plus `invariant()` and
@@ -1007,7 +1007,7 @@ async fn test_passing_invariant_replay_traces_follow_include_traces() {
         assert_eq!(
             result.execution_traces.len(),
             expected_len,
-            "{include_traces:?}"
+            "{include_call_traces:?}"
         );
     }
 }

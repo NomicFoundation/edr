@@ -1,30 +1,35 @@
 //! Configuration types for EDR's Solidity-related functionality.
 
-/// Configuration that controls whether execution traces are decoded and
-/// included in results.
+/// Which results carry call traces — the tree of calls recorded during an
+/// execution.
 ///
 /// This can either be for Solidity test results or provider transaction
-/// execution results.
+/// execution results. It says nothing about stack traces: whether a failing
+/// Solidity test also gets a source-level stack trace is controlled by
+/// `CollectStackTraces`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum IncludeTraces {
-    /// No traces will be included at all.
+pub enum IncludeCallTraces {
+    /// No call traces will be included at all.
     #[default]
     None,
-    /// Traces will be included only on the results of failed tests or
-    /// execution.
+    /// Call traces will be included only on the results of failed tests or
+    /// executions.
     Failing,
-    /// Traces will be included for all test results or executed transactions.
+    /// Call traces will be included for all test results and executed
+    /// transactions.
     All,
 }
 
-impl IncludeTraces {
-    /// Whether traces should be included based on this configuration and the
-    /// provided function that indicates whether the execution was a failure.
-    pub fn should_include(&self, was_failure_fn: impl FnOnce() -> bool) -> bool {
+impl IncludeCallTraces {
+    /// Whether a result should carry call traces, given a predicate reporting
+    /// whether the execution failed. The predicate is only evaluated for
+    /// [`Failing`](Self::Failing).
+    #[must_use]
+    pub fn should_include(self, was_failure_fn: impl FnOnce() -> bool) -> bool {
         match self {
-            IncludeTraces::None => false,
-            IncludeTraces::Failing => was_failure_fn(),
-            IncludeTraces::All => true,
+            IncludeCallTraces::None => false,
+            IncludeCallTraces::Failing => was_failure_fn(),
+            IncludeCallTraces::All => true,
         }
     }
 }

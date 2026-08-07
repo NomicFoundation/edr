@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use edr_chain_spec::{EvmHardforkChainSpec, ProtocolHardforkChainSpec};
 use edr_primitives::{Address, UnknownHardfork, U256};
-use edr_solidity::config::IncludeTraces;
+use edr_solidity::config::IncludeCallTraces;
 use edr_solidity_tests::{
     backend::Predeploy,
     evm_context::HardforkTr,
@@ -181,12 +181,15 @@ pub struct TestRunnerConfig {
     /// If an invariant config setting is not set, but a corresponding fuzz
     /// config value is set, then the fuzz config value will be used.
     pub invariant: InvariantConfig,
-    /// Whether to collect stack traces.
+    /// When a source-level stack trace is computed for a failing test.
     pub collect_stack_traces: CollectStackTraces,
-    /// Whether to enable trace mode and which traces to include in test
-    /// results.
-    pub include_traces: IncludeTraces,
-    /// The configuration for the Solidity test runner's observability
+    /// Which test results carry call traces. Together with
+    /// `collect_stack_traces`, this also decides whether — and how much —
+    /// tracing is enabled during execution.
+    pub include_call_traces: IncludeCallTraces,
+    /// Callback invoked with the coverage collected during the test run — the
+    /// only part of the caller's observability configuration that the test
+    /// runner uses.
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
@@ -259,7 +262,7 @@ impl TestRunnerConfig {
             fuzz,
             invariant,
             collect_stack_traces,
-            include_traces,
+            include_call_traces,
             on_collected_coverage_fn,
             test_pattern: _,
             generate_gas_report,
@@ -368,7 +371,7 @@ impl TestRunnerConfig {
         Ok(SolidityTestRunnerConfig {
             project_root,
             collect_stack_traces,
-            include_traces,
+            include_call_traces,
             // TODO
             coverage: false,
             cheats_config_options,
@@ -420,7 +423,7 @@ mod tests {
             fuzz: FuzzConfig::default(),
             invariant: InvariantConfig::default(),
             collect_stack_traces: CollectStackTraces::OnFailure,
-            include_traces: IncludeTraces::default(),
+            include_call_traces: IncludeCallTraces::default(),
             on_collected_coverage_fn: None,
             test_pattern: TestFilterConfig {
                 test_pattern: None,
