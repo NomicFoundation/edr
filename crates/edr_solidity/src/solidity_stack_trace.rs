@@ -259,35 +259,52 @@ impl<HaltReasonT> StackTraceCreationError<HaltReasonT> {
     }
 }
 
-/// Compute stack trace based on execution traces.
+/// Code known to live at an address, used to seed stack-trace decoding when
+/// the provided trace arenas do not contain the corresponding CREATE nodes.
 ///
-/// Assumes last trace is the error one. This is important for invariant tests
-/// where there might be multiple errors traces. Returns `None` if `traces` is
-/// empty.
+/// Entries are seeded *before* the arenas are walked, so a CREATE recorded in
+/// an arena overrides a seeded entry for the same address.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ExecutedCode<'a> {
+    /// Mapping from contract address to creation (init) code.
+    pub creation: Option<&'a HashMap<Address, Bytes>>,
+    /// Mapping from contract address to runtime (deployed) code.
+    pub runtime: Option<&'a HashMap<Address, Bytes>>,
+}
+
+/// Compute the stack trace of `failing_trace`.
 ///
-/// A mapping from contract address to executed code can be provided to help
-/// with decoding.
+/// Decoding requires knowing the creation and runtime code of every contract
+/// involved. That knowledge comes from three places, applied in order (later
+/// entries override earlier ones for the same address):
+/// 1. `executed_code`: pre-computed mappings,
+/// 2. `code_sources`: arenas that are walked *only* for their CREATE nodes —
+///    they are never converted, so they don't need recorded EVM steps,
+/// 3. `failing_trace` itself, since execution may deploy a contract and then
+///    fail inside it.
 pub fn get_stack_trace<
     'arena,
     HaltReasonT: HaltReasonTrait,
     NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
 >(
     contract_decoder: &NestedTraceDecoderT,
-    traces: impl IntoIterator<Item = &'arena CallTraceArena>,
-    address_to_executed_code: Option<&'arena HashMap<Address, Bytes>>,
-) -> Result<Option<Vec<StackTraceEntry>>, StackTraceCreationError<HaltReasonT>> {
-    let mut address_to_creation_code = HashMap::default();
-    let mut address_to_runtime_code =
-        if let Some(address_to_executed_code) = address_to_executed_code {
-            address_to_executed_code
-                .iter()
-                .map(|(k, v)| (*k, v))
-                .collect()
-        } else {
-            HashMap::default()
-        };
+    failing_trace: &'arena CallTraceArena,
+    code_sources: impl IntoIterator<Item = &'arena CallTraceArena>,
+    executed_code: ExecutedCode<'arena>,
+) -> Result<Vec<StackTraceEntry>, StackTraceCreationError<HaltReasonT>> {
+    let mut address_to_creation_code: HashMap<Address, &Bytes> = executed_code
+        .creation
+        .map(|map| map.iter().map(|(k, v)| (*k, v)).collect())
+        .unwrap_or_default();
+    let mut address_to_runtime_code: HashMap<Address, &Bytes> = executed_code
+        .runtime
+        .map(|map| map.iter().map(|(k, v)| (*k, v)).collect())
+        .unwrap_or_default();
 
-    let last_trace = traces.into_iter().fold(None, |_, trace| {
+    for trace in code_sources
+        .into_iter()
+        .chain(std::iter::once(failing_trace))
+    {
         for node in trace.nodes() {
             let address = node.trace.address;
             if node.trace.kind.is_any_create() {
@@ -295,21 +312,16 @@ pub fn get_stack_trace<
                 address_to_runtime_code.insert(address, &node.trace.output);
             }
         }
-        Some(trace)
-    });
-
-    if let Some(last_trace) = last_trace {
-        let trace = NestedTrace::from_call_trace_arena(
-            &address_to_creation_code,
-            &address_to_runtime_code,
-            last_trace,
-        )?;
-        let trace = contract_decoder.try_to_decode_nested_trace(trace)?;
-        let stack_trace = solidity_tracer::get_stack_trace(trace)?;
-        Ok(Some(stack_trace))
-    } else {
-        Ok(None)
     }
+
+    let trace = NestedTrace::from_call_trace_arena(
+        &address_to_creation_code,
+        &address_to_runtime_code,
+        failing_trace,
+    )?;
+    let trace = contract_decoder.try_to_decode_nested_trace(trace)?;
+    let stack_trace = solidity_tracer::get_stack_trace(trace)?;
+    Ok(stack_trace)
 }
 
 /// The possible outcomes from computing stack traces.

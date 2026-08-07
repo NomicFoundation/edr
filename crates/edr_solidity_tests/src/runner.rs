@@ -18,7 +18,7 @@ use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{
     contract_decoder::SyncNestedTraceDecoder,
-    solidity_stack_trace::{get_stack_trace, StackTraceEntry},
+    solidity_stack_trace::{get_stack_trace, ExecutedCode, StackTraceEntry},
 };
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
@@ -44,7 +44,7 @@ use foundry_evm::{
         invariant::{CallDetails, InvariantContract},
         CounterExample, FuzzFixtures,
     },
-    traces::{load_contracts, SetupTraceKind, SparsedTraceArena, TracingMode},
+    traces::{load_contracts, SetupTraceKind, SetupTraces, SparsedTraceArena, TracingMode},
 };
 use itertools::Itertools;
 use proptest::test_runner::{FailurePersistence, RngAlgorithm, TestError, TestRng, TestRunner};
@@ -649,14 +649,7 @@ impl<
 
             setup.stack_trace_result = if executor.tracer_records_steps() {
                 // We collected steps during setup, so we can generate the stack trace
-                get_stack_trace(
-                    &*self.contract_decoder,
-                    setup.traces.iter().map(|(_, arena)| &arena.arena),
-                    None,
-                )
-                .map_err(SolidityTestStackTraceError::from)
-                .transpose()
-                .map(SolidityTestStackTraceResult::from)
+                get_setup_stack_trace(&*self.contract_decoder, &setup.traces)
             } else if let Some(indeterminism_reasons) = setup.indeterminism_reasons.as_ref() {
                 // We cannot re-run the setup due to indeterminism, so we return the
                 // indeterminism reasons
@@ -667,17 +660,7 @@ impl<
                 executor.set_tracing(TracingMode::WithSteps);
                 let setup_for_stack_traces = self.setup(&mut executor, call_setup);
 
-                get_stack_trace(
-                    &*self.contract_decoder,
-                    setup_for_stack_traces
-                        .traces
-                        .iter()
-                        .map(|(_, arena)| &arena.arena),
-                    None,
-                )
-                .map_err(SolidityTestStackTraceError::from)
-                .transpose()
-                .map(SolidityTestStackTraceResult::from)
+                get_setup_stack_trace(&*self.contract_decoder, &setup_for_stack_traces.traces)
             };
 
             // The setup failed, so we return a single test result for `setUp`
@@ -1639,17 +1622,34 @@ impl<
 
         get_stack_trace(
             &*self.cr.contract_decoder,
-            setup
-                .traces
-                .iter()
-                .map(|(_, arena)| &arena.arena)
-                .chain(std::iter::once(&new_trace_arena.arena)),
-            None,
+            &new_trace_arena.arena,
+            setup.traces.iter().map(|(_, arena)| &arena.arena),
+            ExecutedCode::default(),
         )
-        .transpose()
-        .expect("traces are not empty")
         .map_err(SolidityTestStackTraceError::Creation)
     }
+}
+
+/// Builds the stack trace of a failed `setUp()` (or constructor) from the
+/// recorded setup traces. Returns `None` if no traces were recorded.
+fn get_setup_stack_trace<
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<HaltReason>,
+    NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+>(
+    contract_decoder: &NestedTraceDecoderT,
+    setup_traces: &SetupTraces,
+) -> Option<SolidityTestStackTraceResult<HaltReasonT>> {
+    let ((_, failing_trace), code_sources) = setup_traces.split_last()?;
+    Some(
+        get_stack_trace(
+            contract_decoder,
+            &failing_trace.arena,
+            code_sources.iter().map(|(_, arena)| &arena.arena),
+            ExecutedCode::default(),
+        )
+        .map_err(SolidityTestStackTraceError::from)
+        .into(),
+    )
 }
 
 /// Builds a stack trace from the traces recorded during this run.
@@ -1665,18 +1665,25 @@ fn collect_stack_trace<
     setup: &TestSetup<HaltReasonT>,
     execution_traces: &[SparsedTraceArena],
 ) -> SolidityTestStackTraceResult<HaltReasonT> {
-    get_stack_trace(
-        contract_decoder,
-        setup
-            .traces
-            .iter()
-            .map(|(_, arena)| &arena.arena)
-            .chain(execution_traces.iter().map(|arena| &arena.arena)),
-        None,
-    )
+    let setup_arenas = setup.traces.iter().map(|(_, arena)| &arena.arena);
+    if let Some((failing_trace, prior_traces)) = execution_traces.split_last() {
+        get_stack_trace(
+            contract_decoder,
+            &failing_trace.arena,
+            setup_arenas.chain(prior_traces.iter().map(|arena| &arena.arena)),
+            ExecutedCode::default(),
+        )
+    } else {
+        let ((_, failing_trace), code_sources) =
+            setup.traces.split_last().expect("traces are not empty");
+        get_stack_trace(
+            contract_decoder,
+            &failing_trace.arena,
+            code_sources.iter().map(|(_, arena)| &arena.arena),
+            ExecutedCode::default(),
+        )
+    }
     .map_err(SolidityTestStackTraceError::from)
-    .transpose()
-    .expect("traces are not empty")
     .into()
 }
 
@@ -1743,15 +1750,10 @@ fn re_run_fuzz_counterexample_for_stack_traces<
 
     get_stack_trace(
         &*contract_runner.contract_decoder,
-        setup
-            .traces
-            .iter()
-            .map(|(_, arena)| &arena.arena)
-            .chain(std::iter::once(&new_trace_arena.arena)),
-        None,
+        &new_trace_arena.arena,
+        setup.traces.iter().map(|(_, arena)| &arena.arena),
+        ExecutedCode::default(),
     )
-    .transpose()
-    .expect("traces are not empty")
     .map_err(SolidityTestStackTraceError::Creation)
 }
 
