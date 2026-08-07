@@ -65,7 +65,13 @@ impl TraceRetentionPolicy {
             Retain::Nothing => {
                 result.execution_traces = Vec::new();
             }
-            Retain::CallsOnly => {}
+            Retain::CallsOnly => {
+                // The call tree is still consumed downstream, but the
+                // recorded EVM steps are not; drop them.
+                for arena in &mut result.execution_traces {
+                    arena.strip_steps();
+                }
+            }
         }
 
         // Counterexample arenas have no consumer at all once the test has

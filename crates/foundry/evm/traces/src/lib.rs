@@ -162,6 +162,29 @@ impl SparsedTraceArena {
             Cow::Owned(arena)
         }
     }
+
+    /// Discards the recorded EVM steps, keeping only the call tree, logs and
+    /// their ordering. With step recording enabled, the steps are by far the
+    /// largest part of an arena (one entry per executed opcode), while their
+    /// only consumer is stack-trace generation — call this once a stack trace
+    /// can no longer be requested for this arena.
+    ///
+    /// Ignored ranges (from the pause/resume tracing cheatcodes) are resolved
+    /// first, because their bookkeeping refers to step indices that stop
+    /// existing.
+    pub fn strip_steps(&mut self) {
+        if !self.ignored.is_empty() {
+            let resolved = self.resolve_arena().into_owned();
+            self.arena = resolved;
+            self.ignored.clear();
+        }
+
+        for node in self.arena.nodes_mut() {
+            node.trace.steps = Vec::new();
+            node.ordering
+                .retain(|item| !matches!(item, TraceMemberOrder::Step(_)));
+        }
+    }
 }
 
 impl Deref for SparsedTraceArena {
