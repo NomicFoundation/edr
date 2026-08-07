@@ -328,6 +328,16 @@ impl<
         }
     }
 
+    /// Whether the gas report still needs samples, i.e. whether a run's traces
+    /// are worth collecting, given the configured `gas_report_samples` budget.
+    ///
+    /// [`InvariantTestData::gas_report_traces`] only grows in
+    /// [`end_run`](Self::end_run), so the answer is constant for the duration
+    /// of a run.
+    pub(crate) fn needs_gas_report_samples(&self, gas_samples: usize) -> bool {
+        self.execution_data.borrow().gas_report_traces.len() < gas_samples
+    }
+
     /// End invariant test run by collecting results, cleaning collected
     /// artifacts and reverting created fuzz state.
     pub fn end_run(
@@ -347,8 +357,12 @@ impl<
         self.targeted_contracts
             .clear_created_contracts(run.created_contracts);
 
+        // `needs_gas_report_samples` borrows `execution_data` itself, so it
+        // cannot run while the mutable borrow below is held.
+        let needs_gas_report_samples = self.needs_gas_report_samples(gas_samples);
+
         let mut invariant_data = self.execution_data.borrow_mut();
-        if invariant_data.gas_report_traces.len() < gas_samples {
+        if needs_gas_report_samples {
             invariant_data.gas_report_traces.push(
                 run.run_traces
                     .into_iter()
@@ -391,7 +405,8 @@ pub struct InvariantTestRun<
     pub fuzz_runs: Vec<FuzzCase>,
     // Contracts created during current invariant run.
     pub created_contracts: Vec<Address>,
-    // Traces of each call of the invariant run call sequence.
+    // Traces of each call of the invariant run call sequence, collected only
+    // while the gas report still needs samples.
     pub run_traces: Vec<SparsedTraceArena>,
     // Current depth of invariant run.
     pub depth: u32,
