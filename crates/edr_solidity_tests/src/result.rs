@@ -21,7 +21,10 @@ use foundry_evm::{
         invariant::InvariantFuzzError, stack_trace::SolidityTestStackTraceResult, RawCallResult,
     },
     fuzz::{CounterExample, FuzzFixtures},
-    traces::{CallTraceArena, CallTraceDecoder, SetupTraceKind, SetupTraces, SparsedTraceArena},
+    traces::{
+        push_trace_rolling, CallTraceArena, CallTraceDecoder, SetupTraceKind, SetupTraces,
+        SparsedTraceArena,
+    },
 };
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
@@ -585,7 +588,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(raw_call_result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(raw_call_result.labels);
-        self.execution_traces.extend(raw_call_result.traces);
+        for arena in raw_call_result.traces {
+            push_trace_rolling(&mut self.execution_traces, arena);
+        }
         self.merge_coverages(raw_call_result.line_coverage);
 
         self.status = match success {
@@ -616,7 +621,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(result.labeled_addresses);
-        self.execution_traces.extend(result.traces);
+        for arena in result.traces {
+            push_trace_rolling(&mut self.execution_traces, arena);
+        }
         self.merge_coverages(result.line_coverage);
 
         self.status = if result.skipped {
@@ -687,7 +694,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
             metrics: HashMap::default(),
             failed_corpus_replays: 0,
         };
-        self.execution_traces.extend(e.take_traces());
+        for arena in e.take_traces() {
+            push_trace_rolling(&mut self.execution_traces, arena);
+        }
         self.status = TestStatus::Failure;
         self.reason = Some(format!(
             "failed to set up invariant testing environment: {e}"
@@ -759,7 +768,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(call_result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(call_result.labels);
-        self.execution_traces.extend(call_result.traces);
+        for arena in call_result.traces {
+            push_trace_rolling(&mut self.execution_traces, arena);
+        }
         self.merge_coverages(call_result.line_coverage);
     }
 

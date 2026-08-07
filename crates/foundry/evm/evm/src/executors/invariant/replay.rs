@@ -21,7 +21,9 @@ use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, InvariantContract},
     BaseCounterExample,
 };
-use foundry_evm_traces::{load_contracts, SetupTraces, SparsedTraceArena, TracingMode};
+use foundry_evm_traces::{
+    load_contracts, push_trace_rolling, SetupTraces, SparsedTraceArena, TracingMode,
+};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
 use revm::{
@@ -147,7 +149,10 @@ pub fn replay_run<
             U256::ZERO,
         )?;
         logs.extend(call_result.logs);
-        execution_traces.push(call_result.traces.clone().expect("enabled tracing"));
+        push_trace_rolling(
+            execution_traces,
+            call_result.traces.clone().expect("enabled tracing"),
+        );
         HitMaps::merge_opt(coverage, call_result.line_coverage);
 
         // Identify newly generated contracts, if they exist.
@@ -221,7 +226,10 @@ pub fn replay_run<
             .into(),
     )?;
 
-    execution_traces.push(invariant_result.traces.expect("tracing is on"));
+    push_trace_rolling(
+        execution_traces,
+        invariant_result.traces.expect("tracing is on"),
+    );
     logs.extend(invariant_result.logs);
     deprecated_cheatcodes.extend(
         invariant_result
@@ -236,7 +244,10 @@ pub fn replay_run<
             call_result: after_invariant_result,
             success: _,
         } = call_after_invariant_function(&executor, invariant_contract.address)?;
-        execution_traces.push(after_invariant_result.traces.clone().unwrap());
+        push_trace_rolling(
+            execution_traces,
+            after_invariant_result.traces.clone().unwrap(),
+        );
         logs.extend(after_invariant_result.logs);
     }
 

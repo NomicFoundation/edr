@@ -187,6 +187,20 @@ impl SparsedTraceArena {
     }
 }
 
+/// Appends `arena` to `traces`, stripping the recorded EVM steps of the arena
+/// it displaces as the most recent one.
+///
+/// Only the most recent arena can still be named as the failing trace of a
+/// stack-trace computation; every earlier arena is only walked for its CREATE
+/// nodes, which don't involve steps. Rolling the steps off as arenas
+/// accumulate keeps at most one step-laden arena alive per collection.
+pub fn push_trace_rolling(traces: &mut Vec<SparsedTraceArena>, arena: SparsedTraceArena) {
+    if let Some(previous) = traces.last_mut() {
+        previous.strip_steps();
+    }
+    traces.push(arena);
+}
+
 impl Deref for SparsedTraceArena {
     type Target = CallTraceArena;
 
