@@ -21,9 +21,7 @@ use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, InvariantContract},
     BaseCounterExample,
 };
-use foundry_evm_traces::{
-    load_contracts, push_trace_rolling, SetupTraces, SparsedTraceArena, TracingMode,
-};
+use foundry_evm_traces::{load_contracts, push_trace_rolling, SparsedTraceArena, TracingMode};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
 use revm::{
@@ -67,7 +65,8 @@ pub struct ReplayRunArgs<
     pub known_contracts: &'a ContractsByArtifact,
     pub ided_contracts: ContractsByAddress,
     pub logs: &'a mut Vec<Log>,
-    pub setup_traces: &'a SetupTraces,
+    /// The code of contracts deployed during setup, for stack-trace decoding.
+    pub executed_code: ExecutedCode<'a>,
     pub line_coverage: &'a mut Option<HitMaps>,
     pub deprecated_cheatcodes: &'a mut HashMap<&'static str, Option<&'static str>>,
     pub inputs: &'a [BasicTxDetails],
@@ -125,7 +124,7 @@ pub fn replay_run<
         known_contracts,
         mut ided_contracts,
         logs,
-        setup_traces,
+        executed_code,
         line_coverage: coverage,
         deprecated_cheatcodes,
         inputs,
@@ -205,11 +204,8 @@ pub fn replay_run<
                     get_stack_trace(
                         decoder,
                         &failing_trace.arena,
-                        setup_traces
-                            .iter()
-                            .map(|(_, arena)| &arena.arena)
-                            .chain(prior_traces.iter().map(|arena| &arena.arena)),
-                        ExecutedCode::default(),
+                        prior_traces.iter().map(|arena| &arena.arena),
+                        executed_code,
                     )
                     .map_err(SolidityTestStackTraceError::from)
                     .into()
@@ -285,11 +281,8 @@ pub fn replay_run<
                             get_stack_trace(
                                 decoder,
                                 &failing_trace.arena,
-                                setup_traces
-                                    .iter()
-                                    .map(|(_, arena)| &arena.arena)
-                                    .chain(prior_traces.iter().map(|arena| &arena.arena)),
-                                ExecutedCode::default(),
+                                prior_traces.iter().map(|arena| &arena.arena),
+                                executed_code,
                             )
                             .map_err(SolidityTestStackTraceError::from)
                             .into()
@@ -337,7 +330,8 @@ pub struct ReplayErrorArgs<
     pub known_contracts: &'a ContractsByArtifact,
     pub ided_contracts: ContractsByAddress,
     pub logs: &'a mut Vec<Log>,
-    pub setup_traces: &'a SetupTraces,
+    /// The code of contracts deployed during setup, for stack-trace decoding.
+    pub executed_code: ExecutedCode<'a>,
     pub coverage: &'a mut Option<HitMaps>,
     pub deprecated_cheatcodes: &'a mut HashMap<&'static str, Option<&'static str>>,
     pub generate_stack_trace: bool,
@@ -381,7 +375,7 @@ pub fn replay_error<
         known_contracts,
         ided_contracts,
         logs,
-        setup_traces,
+        executed_code,
         coverage,
         deprecated_cheatcodes,
         generate_stack_trace,
@@ -413,7 +407,7 @@ pub fn replay_error<
                 known_contracts,
                 ided_contracts,
                 logs,
-                setup_traces,
+                executed_code,
                 line_coverage: coverage,
                 deprecated_cheatcodes,
                 inputs: &calls,

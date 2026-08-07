@@ -272,6 +272,42 @@ pub struct ExecutedCode<'a> {
     pub runtime: Option<&'a HashMap<Address, Bytes>>,
 }
 
+/// Owned counterpart of [`ExecutedCode`]: the creation and runtime code of
+/// contracts deployed during traced execution.
+///
+/// Building this once from arenas that are repeatedly used as code sources
+/// (e.g. a test suite's setup traces) lets those arenas be dropped while
+/// stack traces can still be decoded.
+#[derive(Clone, Debug, Default)]
+pub struct ExecutedCodeMaps {
+    /// Mapping from contract address to creation (init) code.
+    pub creation: HashMap<Address, Bytes>,
+    /// Mapping from contract address to runtime (deployed) code.
+    pub runtime: HashMap<Address, Bytes>,
+}
+
+impl ExecutedCodeMaps {
+    /// Records the code of every contract created in the arena.
+    pub fn record_arena(&mut self, arena: &CallTraceArena) {
+        for node in arena.nodes() {
+            if node.trace.kind.is_any_create() {
+                self.creation
+                    .insert(node.trace.address, node.trace.data.clone());
+                self.runtime
+                    .insert(node.trace.address, node.trace.output.clone());
+            }
+        }
+    }
+
+    /// Borrows the maps in the form [`get_stack_trace`] takes.
+    pub fn as_executed_code(&self) -> ExecutedCode<'_> {
+        ExecutedCode {
+            creation: Some(&self.creation),
+            runtime: Some(&self.runtime),
+        }
+    }
+}
+
 /// Compute the stack trace of `failing_trace`.
 ///
 /// Decoding requires knowing the creation and runtime code of every contract

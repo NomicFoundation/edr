@@ -10,6 +10,7 @@ use alloy_primitives::{map::AddressHashMap, Address, Log};
 use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
 use edr_decoder_revert::cheatcodes::skip::SkipReason;
+use edr_solidity::solidity_stack_trace::ExecutedCodeMaps;
 pub use foundry_evm::executors::invariant::InvariantMetrics;
 use foundry_evm::{
     coverage::HitMaps,
@@ -919,6 +920,11 @@ pub struct TestSetup<HaltReasonT> {
     pub labels: AddressHashMap<String>,
     /// Call traces of the setup.
     pub traces: SetupTraces,
+    /// The creation and runtime code of every contract deployed during
+    /// setup, derived from [`traces`](Self::traces) once setup completes.
+    /// Lets stack traces be decoded without walking (or retaining) the setup
+    /// arenas themselves.
+    pub executed_code: ExecutedCodeMaps,
     /// Coverage info during setup.
     pub coverage: Option<HitMaps>,
     /// Addresses of external libraries deployed during setup.
@@ -980,8 +986,10 @@ impl<HaltReasonT: HaltReasonTrait> TestSetup<HaltReasonT> {
     ) {
         self.logs.extend(raw.logs);
         self.labels.extend(raw.labels);
-        self.traces
-            .extend(raw.traces.map(|traces| (trace_kind, traces)));
+        if let Some(traces) = raw.traces {
+            self.executed_code.record_arena(&traces.arena);
+            self.traces.push((trace_kind, traces));
+        }
         if let Some(indeterminism_reasons) = self.indeterminism_reasons.as_mut() {
             indeterminism_reasons.merge(raw.indeterminism_reasons);
         } else {

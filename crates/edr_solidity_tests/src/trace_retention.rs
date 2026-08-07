@@ -61,6 +61,14 @@ impl TraceRetentionPolicy {
         self.retain_after(is_failure) != Retain::Nothing
     }
 
+    /// Whether a suite's setup arenas are consumed after its tests have
+    /// finished. Contract identification and stack-trace code maps are
+    /// derived from them *during* the run; afterwards they are only consumed
+    /// by trace decoding, the gas report and the napi conversion.
+    pub fn retains_setup(&self) -> bool {
+        self.include_traces != IncludeTraces::None
+    }
+
     /// Applies the policy to a finished test result, freeing every arena (or
     /// part of one) that no longer has a consumer.
     ///

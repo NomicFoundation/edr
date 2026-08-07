@@ -766,3 +766,39 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         invariant_initial_result.reason
     );
 }
+
+// A failing test in `CollectStackTraces::OnFailure` mode with
+// `IncludeTraces::None` (Hardhat's default verbosity) must produce a
+// source-level stack trace via the re-execution path. In this mode nothing is
+// traced during the original run - not even setup - so the re-run has to
+// rebuild the deployed-code mapping itself.
+#[tokio::test(flavor = "multi_thread")]
+async fn on_failure_mode_produces_stack_trace_without_traced_setup() {
+    let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
+    config.collect_stack_traces = CollectStackTraces::OnFailure;
+    config.include_traces = IncludeTraces::None;
+
+    // Real decoder so the stack-trace inferrer runs (mirrors `issue_1482`).
+    let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
+    let runner = TEST_DATA_VIA_IR
+        .runner_with_contract_decoder(config, contract_decoder)
+        .await;
+    let filter = SolidityTestFilter::new(
+        ".*",
+        "AlwaysStackTraceTest",
+        ".*repros/StackTraceAlwaysMode.t.sol",
+    );
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceTest")
+        .expect("the AlwaysStackTrace suite should have run");
+
+    let unit_result = assert_execution_error_stack_trace(suite, "testRevertHasStackTrace()");
+    assert!(
+        unit_result.execution_traces.is_empty(),
+        "no call traces should be retained at IncludeTraces::None"
+    );
+    assert_execution_error_stack_trace(suite, "tableRevertHasStackTrace(uint256)");
+    assert_execution_error_stack_trace(suite, "testFuzzRevertHasStackTrace(uint256)");
+}
