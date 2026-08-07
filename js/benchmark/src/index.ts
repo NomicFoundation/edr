@@ -25,6 +25,11 @@ import {
   runForgeTests,
   setupRepo,
   REPOS,
+  runSolidityTestsMemoryBenchmark,
+  runSolidityTestsMemoryChild,
+  compileSolidityTestsInput,
+  printMemoryResult,
+  MEMORY_VERBOSITIES,
 } from "./solidity-tests.js";
 
 const {
@@ -42,6 +47,7 @@ interface ParsedArguments {
     | "report-provider-benchmark"
     | "solidity-tests-benchmark"
     | "solidity-tests"
+    | "solidity-tests-memory"
     | "compare-forge"
     | "report-forge";
   grep?: string;
@@ -55,6 +61,13 @@ interface ParsedArguments {
   csv_input?: string;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   forge_path?: string;
+  verbosity?: number;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  memory_child: boolean;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  compile_only: boolean;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  repo_path?: string;
 }
 
 interface BenchmarkScenarioResult {
@@ -94,6 +107,7 @@ async function main(): Promise<boolean> {
       "report-provider-benchmark",
       "solidity-tests-benchmark",
       "solidity-tests",
+      "solidity-tests-memory",
       "compare-forge",
       "report-forge",
     ],
@@ -128,6 +142,22 @@ async function main(): Promise<boolean> {
   parser.add_argument("--forge-path", {
     type: "str",
     help: "Path to forge executable (default: 'forge')",
+  });
+  parser.add_argument("--verbosity", {
+    type: "int",
+    help: "Hardhat verbosity level for the solidity-tests-memory command. Repeat the command for each level, or omit to measure all of them.",
+  });
+  parser.add_argument("--memory-child", {
+    action: "store_true",
+    help: "Internal: run a single solidity-tests-memory measurement in this process and print the result",
+  });
+  parser.add_argument("--compile-only", {
+    action: "store_true",
+    help: "Internal: with --memory-child, only compile the repo and exit",
+  });
+  parser.add_argument("--repo-path", {
+    type: "str",
+    help: "Internal: pre-prepared repo path for --memory-child",
   });
   const args: ParsedArguments = parser.parse_args();
 
@@ -178,6 +208,49 @@ async function main(): Promise<boolean> {
     } else {
       console.error("Error: --repo is required for solidity-tests command");
       return false;
+    }
+  } else if (args.command === "solidity-tests-memory") {
+    if (args.memory_child) {
+      // Internal single-measurement mode, spawned by the driver below.
+      if (
+        args.repo === undefined ||
+        args.repo_path === undefined ||
+        args.verbosity === undefined
+      ) {
+        console.error(
+          "Error: --repo, --repo-path and --verbosity are required with --memory-child"
+        );
+        return false;
+      }
+      if (args.compile_only) {
+        await compileSolidityTestsInput(args.repo_path);
+        return true;
+      }
+      const context = new EdrContext();
+      await context.registerSolidityTestRunnerFactory(
+        L1_CHAIN_TYPE,
+        l1SolidityTestRunnerFactory()
+      );
+      const result = await runSolidityTestsMemoryChild(
+        context,
+        L1_CHAIN_TYPE,
+        args.repo,
+        args.repo_path,
+        args.verbosity
+      );
+      printMemoryResult(result);
+    } else {
+      const repos =
+        args.repo !== undefined
+          ? args.repo.split(",")
+          : ["solady", "uniswap-v4-core", "morpho-blue"];
+      const verbosities =
+        args.verbosity !== undefined ? [args.verbosity] : MEMORY_VERBOSITIES;
+      await runSolidityTestsMemoryBenchmark(
+        repos,
+        verbosities,
+        benchmarkOutputPath
+      );
     }
   } else if (args.command === "compare-forge") {
     if (args.csv_output === undefined) {
