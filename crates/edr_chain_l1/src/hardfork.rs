@@ -73,21 +73,21 @@ pub enum L1Hardfork {
 impl From<L1Hardfork> for EvmSpecId {
     fn from(hardfork: L1Hardfork) -> Self {
         match hardfork {
-            L1Hardfork::FRONTIER => EvmSpecId::FRONTIER,
-            L1Hardfork::FRONTIER_THAWING => EvmSpecId::FRONTIER_THAWING,
-            L1Hardfork::HOMESTEAD => EvmSpecId::HOMESTEAD,
-            L1Hardfork::DAO_FORK => EvmSpecId::DAO_FORK,
+            // revm only models EVM behavior classes; hardforks without EVM
+            // changes map to their EVM-equivalent predecessor.
+            L1Hardfork::FRONTIER | L1Hardfork::FRONTIER_THAWING => EvmSpecId::FRONTIER,
+            L1Hardfork::HOMESTEAD | L1Hardfork::DAO_FORK => EvmSpecId::HOMESTEAD,
             L1Hardfork::TANGERINE => EvmSpecId::TANGERINE,
             L1Hardfork::SPURIOUS_DRAGON => EvmSpecId::SPURIOUS_DRAGON,
             L1Hardfork::BYZANTIUM => EvmSpecId::BYZANTIUM,
-            L1Hardfork::CONSTANTINOPLE => EvmSpecId::CONSTANTINOPLE,
-            L1Hardfork::PETERSBURG => EvmSpecId::PETERSBURG,
-            L1Hardfork::ISTANBUL => EvmSpecId::ISTANBUL,
-            L1Hardfork::MUIR_GLACIER => EvmSpecId::MUIR_GLACIER,
+            // Constantinople never went live on mainnet on its own: Petersburg
+            // (Constantinople minus EIP-1283) activated at the same block.
+            L1Hardfork::CONSTANTINOPLE | L1Hardfork::PETERSBURG => EvmSpecId::PETERSBURG,
+            L1Hardfork::ISTANBUL | L1Hardfork::MUIR_GLACIER => EvmSpecId::ISTANBUL,
             L1Hardfork::BERLIN => EvmSpecId::BERLIN,
-            L1Hardfork::LONDON => EvmSpecId::LONDON,
-            L1Hardfork::ARROW_GLACIER => EvmSpecId::ARROW_GLACIER,
-            L1Hardfork::GRAY_GLACIER => EvmSpecId::GRAY_GLACIER,
+            L1Hardfork::LONDON | L1Hardfork::ARROW_GLACIER | L1Hardfork::GRAY_GLACIER => {
+                EvmSpecId::LONDON
+            }
             L1Hardfork::MERGE => EvmSpecId::MERGE,
             L1Hardfork::SHANGHAI => EvmSpecId::SHANGHAI,
             L1Hardfork::CANCUN => EvmSpecId::CANCUN,
@@ -351,49 +351,15 @@ mod tests {
         assert_eq!(L1Hardfork::MERGE.miner_reward(), None);
     }
 
-    /// Parity tests against revm's `SpecId`, which still models every L1
-    /// protocol upgrade at the currently pinned revm version. They guarantee
-    /// that the owned enum is a lossless 1:1 mirror of revm during the
-    /// transition; DELETE THIS MODULE when a revm upgrade removes variants
-    /// from `SpecId`.
-    mod revm_parity {
-        use super::*;
-
-        #[test]
-        fn discriminants() {
-            for hardfork in VARIANTS {
-                assert_eq!(
-                    hardfork as u8,
-                    EvmSpecId::from(hardfork) as u8,
-                    "{hardfork}"
-                );
-            }
+    #[test]
+    fn evm_spec_id_conversion_is_monotonic() {
+        for window in VARIANTS.windows(2) {
+            assert!(EvmSpecId::from(window[0]) <= EvmSpecId::from(window[1]));
         }
+    }
 
-        #[test]
-        fn names_and_from_str() {
-            for hardfork in VARIANTS {
-                let name: &'static str = hardfork.into();
-                let evm_name: &'static str = EvmSpecId::from(hardfork).into();
-                assert_eq!(name, evm_name);
-                assert_eq!(hardfork.to_string(), EvmSpecId::from(hardfork).to_string());
-                assert_eq!(EvmSpecId::from_str(name), Ok(EvmSpecId::from(hardfork)));
-            }
-        }
-
-        #[test]
-        fn serde_tokens() {
-            for hardfork in VARIANTS {
-                let json = serde_json::to_string(&hardfork).expect("serialization succeeds");
-                let evm_json = serde_json::to_string(&EvmSpecId::from(hardfork))
-                    .expect("serialization succeeds");
-                assert_eq!(json, evm_json);
-            }
-        }
-
-        #[test]
-        fn defaults() {
-            assert_eq!(EvmSpecId::from(L1Hardfork::default()), EvmSpecId::default());
-        }
+    #[test]
+    fn defaults() {
+        assert_eq!(EvmSpecId::from(L1Hardfork::default()), EvmSpecId::default());
     }
 }

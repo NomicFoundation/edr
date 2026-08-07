@@ -252,57 +252,11 @@ mod tests {
         }
     }
 
-    /// Parity tests against op-revm's `OpSpecId`, which still models every OP
-    /// protocol upgrade at the currently pinned op-revm version. They
-    /// guarantee that the owned enum matches op-revm for every variant it
-    /// defines during the transition; DELETE THIS MODULE when an op-revm
-    /// upgrade removes variants from `OpSpecId`.
-    mod revm_parity {
-        use op_revm::OpSpecId;
-
-        use super::*;
-
-        #[test]
-        fn discriminants() {
-            for hardfork in VARIANTS {
-                assert_eq!(hardfork as u8, OpSpecId::from(hardfork) as u8, "{hardfork}");
-            }
-        }
-
-        #[test]
-        fn eth_spec_mapping() {
-            for hardfork in VARIANTS {
-                assert_eq!(
-                    EvmSpecId::from(hardfork),
-                    OpSpecId::from(hardfork).into_eth_spec(),
-                    "{hardfork}"
-                );
-            }
-        }
-
-        #[test]
-        fn names_and_from_str() {
-            for hardfork in VARIANTS {
-                let name: &'static str = hardfork.into();
-                let op_name: &'static str = OpSpecId::from(hardfork).into();
-                assert_eq!(name, op_name);
-                assert_eq!(OpSpecId::from_str(name), Ok(OpSpecId::from(hardfork)));
-            }
-        }
-
-        #[test]
-        fn serde_tokens() {
-            for hardfork in VARIANTS {
-                let json = serde_json::to_string(&hardfork).expect("serialization succeeds");
-                let op_json = serde_json::to_string(&OpSpecId::from(hardfork))
-                    .expect("serialization succeeds");
-                assert_eq!(json, op_json);
-            }
-        }
-
-        #[test]
-        fn defaults() {
-            assert_eq!(OpSpecId::from(OpHardfork::default()), OpSpecId::default());
-        }
+    #[test]
+    fn defaults() {
+        assert_eq!(
+            op_revm::OpSpecId::from(OpHardfork::default()),
+            op_revm::OpSpecId::default()
+        );
     }
 }
