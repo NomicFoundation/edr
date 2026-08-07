@@ -1,13 +1,14 @@
-//! Policy for freeing the trace arenas a finished test no longer needs.
+//! Policy for freeing the trace data a finished test no longer needs.
 //!
 //! Arenas are recorded according to
 //! [`TracingMode`](foundry_evm::traces::TracingMode) and consumed by
 //! stack-trace generation while the test runs. Whether anything consumes them
 //! *after* the test has finished depends on `include_traces` — which results
-//! carry call traces to the caller — and `generate_gas_report`. Without this
-//! policy the unconsumed arenas would stay resident until the whole suite
-//! completes, which with EVM step recording enabled is the difference between
-//! megabytes and gigabytes.
+//! carry call traces to the caller — and `generate_gas_report`. Even a
+//! retained arena only needs its call tree, never the recorded EVM steps.
+//! Without this policy the unconsumed arenas would stay resident until the
+//! whole suite completes, which with step recording enabled is the difference
+//! between megabytes and gigabytes.
 
 use edr_solidity::config::IncludeTraces;
 
@@ -18,8 +19,9 @@ use crate::result::TestStatus;
 pub(crate) enum Retain {
     /// Nothing consumes the arenas: free them.
     Nothing,
-    /// The call traces are still consumed — by trace decoding, the gas
-    /// report and the napi conversion — so the arenas must be kept.
+    /// Only the call tree is still consumed — by trace decoding, the gas
+    /// report and the napi conversion — so the arenas are kept, but their
+    /// recorded EVM steps are dropped.
     CallsOnly,
 }
 

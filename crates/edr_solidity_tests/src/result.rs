@@ -21,7 +21,10 @@ use foundry_evm::{
         invariant::InvariantFuzzError, stack_trace::SolidityTestStackTraceResult, RawCallResult,
     },
     fuzz::{CounterExample, FuzzFixtures},
-    traces::{CallTraceArena, CallTraceDecoder, SetupTraceKind, SetupTraces, SparsedTraceArena},
+    traces::{
+        strip_arena_steps, CallTraceArena, CallTraceDecoder, SetupTraceKind, SetupTraces,
+        SparsedTraceArena,
+    },
 };
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
@@ -408,7 +411,9 @@ pub struct TestResult<HaltReasonT> {
     ///
     /// Emptied by `Self::free_unconsumed_traces` once the test has
     /// finished, unless trace decoding, the gas report or the napi conversion
-    /// will still consume them.
+    /// will still consume them. The arenas that are kept have their recorded
+    /// EVM steps stripped: only the call tree, the logs and their ordering
+    /// survive.
     #[serde(skip)]
     pub execution_traces: Vec<SparsedTraceArena>,
 
@@ -475,9 +480,15 @@ pub struct SuiteRunOutcome<HaltReasonT> {
 
 impl<HaltReasonT> TestRunOutcome<HaltReasonT> {
     /// Frees every trace arena that no longer has a consumer, as decided by
-    /// `policy`.
+    /// `policy`, and strips the recorded EVM steps from the arenas it keeps.
     pub(crate) fn free_unconsumed_traces(&mut self, policy: TraceRetentionPolicy) {
         self.result.free_unconsumed_traces(policy);
+
+        // The gas report reads the call tree only; without one the samples
+        // are `None`.
+        for arena in self.gas_report_samples.iter_mut().flatten().flatten() {
+            strip_arena_steps(arena);
+        }
     }
 }
 
@@ -509,7 +520,7 @@ impl<HaltReasonT> From<TestResult<HaltReasonT>> for TestRunOutcome<HaltReasonT> 
 
 impl<HaltReasonT> TestResult<HaltReasonT> {
     /// Frees every trace arena that no longer has a consumer, as decided by
-    /// `policy`.
+    /// `policy`, and strips the recorded EVM steps from the arenas it keeps.
     pub(crate) fn free_unconsumed_traces(&mut self, policy: TraceRetentionPolicy) {
         let Self {
             status,
@@ -531,7 +542,11 @@ impl<HaltReasonT> TestResult<HaltReasonT> {
             Retain::Nothing => {
                 *execution_traces = Vec::new();
             }
-            Retain::CallsOnly => {}
+            Retain::CallsOnly => {
+                for arena in execution_traces.iter_mut() {
+                    arena.strip_steps();
+                }
+            }
         }
 
         // Counterexample arenas have no consumer at all once the test has

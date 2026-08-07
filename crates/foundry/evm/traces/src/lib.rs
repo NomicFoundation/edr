@@ -64,106 +64,38 @@ impl SparsedTraceArena {
         if self.ignored.is_empty() {
             Cow::Borrowed(&self.arena)
         } else {
-            fn clear_node(
-                nodes: &mut [CallTraceNode],
-                node_idx: usize,
-                ignored: &HashMap<(usize, usize), (usize, usize)>,
-                cur_ignore_end: &mut Option<(usize, usize)>,
-            ) {
-                // Prepend an additional None item to the ordering to handle the beginning of
-                // the trace.
-                let node = nodes
-                    .get(node_idx)
-                    .expect("node_idx should be within nodes bounds");
-                let items = std::iter::once(None)
-                    .chain(node.ordering.clone().into_iter().map(Some))
-                    .enumerate();
-
-                let mut internal_calls = Vec::new();
-                let mut items_to_remove = BTreeSet::new();
-                for (item_idx, item) in items {
-                    if let Some(end_node) = ignored.get(&(node_idx, item_idx)) {
-                        *cur_ignore_end = Some(*end_node);
-                    }
-
-                    let mut remove = cur_ignore_end.is_some() & item.is_some();
-
-                    match item {
-                        // we only remove calls if they did not start/pause tracing
-                        Some(TraceMemberOrder::Call(child_idx)) => {
-                            let node = nodes
-                                .get(node_idx)
-                                .expect("node_idx should be within nodes bounds");
-                            let &child_node_idx = node
-                                .children
-                                .get(child_idx)
-                                .expect("child_idx should be within children bounds");
-                            clear_node(nodes, child_node_idx, ignored, cur_ignore_end);
-                            remove &= cur_ignore_end.is_some();
-                        }
-                        // we only remove decoded internal calls if they did not start/pause tracing
-                        Some(TraceMemberOrder::Step(step_idx)) => {
-                            // If this is an internal call beginning, track it in `internal_calls`
-                            let node = nodes
-                                .get(node_idx)
-                                .expect("node_idx should be within nodes bounds");
-                            let step = node
-                                .trace
-                                .steps
-                                .get(step_idx)
-                                .expect("step_idx should be within steps bounds");
-                            if let Some(decoded) = &step.decoded
-                                && let DecodedTraceStep::InternalCall(_, end_step_idx) = &**decoded
-                            {
-                                internal_calls.push((item_idx, remove, *end_step_idx));
-                                // we decide if we should remove it later
-                                remove = false;
-                            }
-                            // Handle ends of internal calls
-                            internal_calls.retain(|(start_item_idx, remove_start, end_idx)| {
-                                if *end_idx != step_idx {
-                                    return true;
-                                }
-                                // only remove start if end should be removed as well
-                                if *remove_start && remove {
-                                    items_to_remove.insert(*start_item_idx);
-                                } else {
-                                    remove = false;
-                                }
-
-                                false
-                            });
-                        }
-                        _ => {}
-                    }
-
-                    if remove {
-                        items_to_remove.insert(item_idx);
-                    }
-
-                    if let Some((end_node, end_step_idx)) = cur_ignore_end
-                        && node_idx == *end_node
-                        && item_idx == *end_step_idx
-                    {
-                        *cur_ignore_end = None;
-                    }
-                }
-
-                for (offset, item_idx) in items_to_remove.into_iter().enumerate() {
-                    let ordering = &mut nodes
-                        .get_mut(node_idx)
-                        .expect("node_idx should be within nodes bounds")
-                        .ordering;
-                    ordering.remove(item_idx - offset - 1);
-                }
-            }
-
             let mut arena = self.arena.clone();
-
             clear_node(arena.nodes_mut(), 0, &self.ignored, &mut None);
-
             Cow::Owned(arena)
         }
+    }
+
+    /// Removes the ignored trace items from the arena itself, so that it no
+    /// longer needs resolving.
+    fn resolve_in_place(&mut self) {
+        if !self.ignored.is_empty() {
+            clear_node(self.arena.nodes_mut(), 0, &self.ignored, &mut None);
+            self.ignored = HashMap::default();
+        }
+    }
+
+    /// Discards the recorded EVM steps, keeping the rest of the call tree:
+    /// its nodes, their logs and their ordering. With step recording enabled
+    /// the steps are by far the largest part of an arena — one entry per
+    /// executed opcode — while in the Solidity test runner their only
+    /// consumer is stack-trace generation.
+    ///
+    /// Must only be called once a stack trace can no longer be requested for
+    /// this arena.
+    ///
+    /// Ignored ranges (from the `pauseTracing`/`resumeTracing` cheatcodes) are
+    /// resolved first: they are keyed by position in each node's `ordering`,
+    /// which dropping the step entries would shift. Afterwards the arena is
+    /// no longer sparse and [`resolve_arena`](Self::resolve_arena) borrows it
+    /// as is.
+    pub fn strip_steps(&mut self) {
+        self.resolve_in_place();
+        strip_arena_steps(&mut self.arena);
     }
 }
 
@@ -212,6 +144,129 @@ impl TracingMode {
             record_logs: true,
             record_immediate_bytes: false,
         })
+    }
+}
+
+/// Removes the trace items covered by `ignored` from the sub-tree rooted at
+/// `node_idx`, recursing into the children it visits. `cur_ignore_end` carries
+/// the end of the range currently being skipped across that recursion, so a
+/// range may start in one node and end in another.
+fn clear_node(
+    nodes: &mut [CallTraceNode],
+    node_idx: usize,
+    ignored: &HashMap<(usize, usize), (usize, usize)>,
+    cur_ignore_end: &mut Option<(usize, usize)>,
+) {
+    // Take the ordering out for the duration rather than cloning it: with step
+    // recording enabled it holds one entry per executed opcode. The loop reads
+    // this node's `children` and `steps` through `nodes` but never its
+    // `ordering`, and only recurses into children — distinct indices — so
+    // nothing observes the gap.
+    let mut ordering = std::mem::take(
+        &mut nodes
+            .get_mut(node_idx)
+            .expect("node_idx should be within nodes bounds")
+            .ordering,
+    );
+    // Prepend an additional None item to the ordering to handle the beginning of
+    // the trace.
+    let items = std::iter::once(None)
+        .chain(ordering.iter().copied().map(Some))
+        .enumerate();
+
+    let mut internal_calls = Vec::new();
+    let mut items_to_remove = BTreeSet::new();
+    for (item_idx, item) in items {
+        if let Some(end_node) = ignored.get(&(node_idx, item_idx)) {
+            *cur_ignore_end = Some(*end_node);
+        }
+
+        let mut remove = cur_ignore_end.is_some() & item.is_some();
+
+        match item {
+            // we only remove calls if they did not start/pause tracing
+            Some(TraceMemberOrder::Call(child_idx)) => {
+                let node = nodes
+                    .get(node_idx)
+                    .expect("node_idx should be within nodes bounds");
+                let &child_node_idx = node
+                    .children
+                    .get(child_idx)
+                    .expect("child_idx should be within children bounds");
+                clear_node(nodes, child_node_idx, ignored, cur_ignore_end);
+                remove &= cur_ignore_end.is_some();
+            }
+            // we only remove decoded internal calls if they did not start/pause tracing
+            Some(TraceMemberOrder::Step(step_idx)) => {
+                // If this is an internal call beginning, track it in `internal_calls`
+                let node = nodes
+                    .get(node_idx)
+                    .expect("node_idx should be within nodes bounds");
+                let step = node
+                    .trace
+                    .steps
+                    .get(step_idx)
+                    .expect("step_idx should be within steps bounds");
+                if let Some(decoded) = &step.decoded
+                    && let DecodedTraceStep::InternalCall(_, end_step_idx) = &**decoded
+                {
+                    internal_calls.push((item_idx, remove, *end_step_idx));
+                    // we decide if we should remove it later
+                    remove = false;
+                }
+                // Handle ends of internal calls
+                internal_calls.retain(|(start_item_idx, remove_start, end_idx)| {
+                    if *end_idx != step_idx {
+                        return true;
+                    }
+                    // only remove start if end should be removed as well
+                    if *remove_start && remove {
+                        items_to_remove.insert(*start_item_idx);
+                    } else {
+                        remove = false;
+                    }
+
+                    false
+                });
+            }
+            _ => {}
+        }
+
+        if remove {
+            items_to_remove.insert(item_idx);
+        }
+
+        if let Some((end_node, end_step_idx)) = cur_ignore_end
+            && node_idx == *end_node
+            && item_idx == *end_step_idx
+        {
+            *cur_ignore_end = None;
+        }
+    }
+
+    for (offset, item_idx) in items_to_remove.into_iter().enumerate() {
+        ordering.remove(item_idx - offset - 1);
+    }
+    nodes
+        .get_mut(node_idx)
+        .expect("node_idx should be within nodes bounds")
+        .ordering = ordering;
+}
+
+/// Discards the recorded EVM steps of every node in `arena`, keeping the rest
+/// of the call tree: its nodes, their logs and their ordering. See
+/// [`SparsedTraceArena::strip_steps`] for when this is safe.
+///
+/// Must not be applied to the arena of a still-sparse [`SparsedTraceArena`]:
+/// its ignored ranges are keyed by position in `ordering`, which this shifts.
+/// Use [`SparsedTraceArena::strip_steps`] there instead.
+pub fn strip_arena_steps(arena: &mut CallTraceArena) {
+    for node in arena.nodes_mut() {
+        node.trace.steps = Vec::new();
+        node.ordering
+            .retain(|item| !matches!(item, TraceMemberOrder::Step(_)));
+        // `retain` keeps the capacity, which grew with one entry per step.
+        node.ordering.shrink_to_fit();
     }
 }
 
@@ -271,4 +326,97 @@ pub fn load_contracts<'a>(
         }
     }
     contracts
+}
+
+#[cfg(test)]
+mod tests {
+    use revm::bytecode::opcode::OpCode;
+
+    use super::*;
+
+    /// Returns a minimal recorded step; only its presence in a node matters.
+    fn step() -> CallTraceStep {
+        CallTraceStep {
+            pc: 0,
+            op: OpCode::STOP,
+            stack: None,
+            push_stack: None,
+            memory: None,
+            returndata: alloy_primitives::Bytes::default(),
+            gas_remaining: 0,
+            gas_refund_counter: 0,
+            gas_used: 0,
+            gas_cost: 0,
+            storage_change: None,
+            status: None,
+            immediate_bytes: None,
+            decoded: None,
+        }
+    }
+
+    /// Root node with a `pauseTracing` child (node 1), a `resumeTracing` child
+    /// (node 3) and a call in between (node 2) that should be ignored, with
+    /// steps interleaved the way the tracing inspector records them.
+    fn paused_arena() -> SparsedTraceArena {
+        use TraceMemberOrder::{Call, Log, Step};
+
+        let mut arena = CallTraceArena::default();
+        let nodes = arena.nodes_mut();
+        nodes[0].children = vec![1, 2, 3];
+        nodes[0].logs = vec![CallLog::default(), CallLog::default()];
+        nodes[0].trace.steps = (0..5).map(|_| step()).collect();
+        nodes[0].ordering = vec![
+            Step(0),
+            Log(0),
+            Step(1),
+            Call(0),
+            Step(2),
+            Call(1),
+            Log(1),
+            Step(3),
+            Call(2),
+            Step(4),
+        ];
+        for idx in 1..=3 {
+            nodes.push(CallTraceNode {
+                parent: Some(0),
+                idx,
+                ..CallTraceNode::default()
+            });
+        }
+
+        // Recorded by the cheatcodes as the position in the cheatcode call's
+        // own (still empty) ordering.
+        let mut ignored = HashMap::default();
+        ignored.insert((1, 0), (3, 0));
+
+        SparsedTraceArena { arena, ignored }
+    }
+
+    #[test]
+    fn strip_steps_matches_resolving_then_dropping_steps() {
+        let mut arena = paused_arena();
+
+        let expected: Vec<Vec<TraceMemberOrder>> = arena
+            .resolve_arena()
+            .nodes()
+            .iter()
+            .map(|node| {
+                node.ordering
+                    .iter()
+                    .filter(|item| !matches!(item, TraceMemberOrder::Step(_)))
+                    .copied()
+                    .collect()
+            })
+            .collect();
+
+        arena.strip_steps();
+
+        assert!(arena.ignored.is_empty());
+        assert!(matches!(arena.resolve_arena(), Cow::Borrowed(_)));
+        for (node, expected) in arena.nodes().iter().zip(expected) {
+            assert!(node.trace.steps.is_empty());
+            assert_eq!(node.ordering, expected);
+        }
+    }
 }

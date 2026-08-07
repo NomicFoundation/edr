@@ -21,7 +21,7 @@ use foundry_evm::{
         TransactionErrorTrait,
     },
     executors::stack_trace::SolidityTestStackTraceResult,
-    traces::{CallKind, CallTraceDecoder, DecodedCallData},
+    traces::{CallKind, CallTraceDecoder, DecodedCallData, SparsedTraceArena, TraceMemberOrder},
 };
 
 use crate::helpers::{
@@ -883,7 +883,25 @@ async fn always_mode_frees_arenas_nothing_consumes() {
             expect_retained,
             "arenas retained at {include_traces:?}"
         );
+        if expect_retained {
+            assert!(
+                result.execution_traces.iter().all(steps_stripped),
+                "steps stripped from the retained arenas at {include_traces:?}"
+            );
+        }
     }
+}
+
+/// Whether `arena` keeps its call tree but none of the recorded EVM steps —
+/// neither the step records nor their entries in each node's ordering.
+fn steps_stripped(arena: &SparsedTraceArena) -> bool {
+    arena.nodes().iter().all(|node| {
+        node.trace.steps.is_empty()
+            && !node
+                .ordering
+                .iter()
+                .any(|item| matches!(item, TraceMemberOrder::Step(_)))
+    })
 }
 
 // A passing test's arenas are recorded in `Always` mode too; they are freed
@@ -909,6 +927,11 @@ async fn always_mode_frees_passing_tests_arenas_unless_all_are_included() {
                 !result.execution_traces.is_empty(),
                 expect_retained,
                 "{name}: arenas retained at {include_traces:?}"
+            );
+            // Retained arenas keep their call tree but not the recorded steps.
+            assert!(
+                result.execution_traces.iter().all(steps_stripped),
+                "{name}: steps stripped from retained arenas"
             );
         }
     }
