@@ -4,7 +4,10 @@ use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::Log;
 use derive_where::derive_where;
 use edr_decoder_revert::RevertDecoder;
-use edr_solidity::{contract_decoder::NestedTraceDecoder, solidity_stack_trace::get_stack_trace};
+use edr_solidity::{
+    contract_decoder::NestedTraceDecoder,
+    solidity_stack_trace::{get_stack_trace, DeployedCode},
+};
 use eyre::Result;
 use foundry_evm_core::{
     contracts::{ContractsByAddress, ContractsByArtifact},
@@ -174,20 +177,23 @@ pub fn replay_run<
                 if let Some(indeterminism_reasons) = call_result.indeterminism_reasons {
                     Some(indeterminism_reasons.into())
                 } else {
-                    contract_decoder
-                        .and_then(|decoder| {
-                            get_stack_trace(
-                                decoder,
-                                setup_traces
-                                    .iter()
-                                    .map(|(_, arena)| &arena.arena)
-                                    .chain(execution_traces.iter().map(|arena| &arena.arena)),
-                                None,
-                            )
-                            .map_err(SolidityTestStackTraceError::from)
-                            .transpose()
-                        })
-                        .map(SolidityTestStackTraceResult::from)
+                    contract_decoder.map(|decoder| {
+                        let (failing_trace, prior_traces) = execution_traces
+                            .split_last()
+                            .expect("an arena was pushed for this call above");
+
+                        get_stack_trace(
+                            decoder,
+                            &failing_trace.arena,
+                            setup_traces
+                                .iter()
+                                .map(|(_, arena)| &arena.arena)
+                                .chain(prior_traces.iter().map(|arena| &arena.arena)),
+                            DeployedCode::default(),
+                        )
+                        .map_err(SolidityTestStackTraceError::from)
+                        .into()
+                    })
                 };
             let revert_reason =
                 revert_decoder.maybe_decode(call_result.result.as_ref(), call_result.exit_reason);
@@ -242,18 +248,22 @@ pub fn replay_run<
                     .indeterminism_reasons
                     .map(SolidityTestStackTraceResult::from)
                     .or_else(|| {
-                        contract_decoder.and_then(|decoder| {
+                        contract_decoder.map(|decoder| {
+                            let (failing_trace, prior_traces) = execution_traces
+                                .split_last()
+                                .expect("the invariant call arena was pushed above");
+
                             get_stack_trace(
                                 decoder,
+                                &failing_trace.arena,
                                 setup_traces
                                     .iter()
                                     .map(|(_, arena)| &arena.arena)
-                                    .chain(execution_traces.iter().map(|arena| &arena.arena)),
-                                None,
+                                    .chain(prior_traces.iter().map(|arena| &arena.arena)),
+                                DeployedCode::default(),
                             )
                             .map_err(SolidityTestStackTraceError::from)
-                            .transpose()
-                            .map(SolidityTestStackTraceResult::from)
+                            .into()
                         })
                     })
             })
