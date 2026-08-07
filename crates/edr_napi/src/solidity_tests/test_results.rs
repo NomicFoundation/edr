@@ -17,7 +17,7 @@ use napi_derive::napi;
 
 use crate::{
     gas_report::GasReport,
-    solidity_tests::{artifact::ArtifactId, config::IncludeTraces},
+    solidity_tests::{artifact::ArtifactId, config::IncludeCallTraces},
     trace::{
         solidity_stack_trace::{
             solidity_stack_trace_error_to_napi, solidity_stack_trace_heuristic_failed_to_napi,
@@ -79,7 +79,7 @@ impl SuiteResult {
     pub fn new(
         id: edr_artifact::ArtifactId,
         suite_result: edr_solidity_tests::result::SuiteResult<String>,
-        include_traces: IncludeTraces,
+        include_call_traces: IncludeCallTraces,
     ) -> Self {
         // Setup traces are shared by every test result in the suite, so
         // materialize the surfaced subset once instead of cloning it into
@@ -99,7 +99,7 @@ impl SuiteResult {
                 .test_results
                 .into_iter()
                 .map(|(name, test_result)| {
-                    TestResult::new(name, test_result, &setup_trace_arenas, include_traces)
+                    TestResult::new(name, test_result, &setup_trace_arenas, include_call_traces)
                 })
                 .collect(),
             warnings: suite_result.warnings,
@@ -289,7 +289,7 @@ impl TestResult {
 
     /// Constructs the execution traces for the test. Returns an empty array if
     /// traces for this test were not requested according to
-    /// [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+    /// [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_call_traces`]. Otherwise, returns
     /// an array of the root calls of the trace, which always includes the test
     /// call itself and may also include the setup call if there is one
     /// (identified by the function name `setUp`).
@@ -308,10 +308,10 @@ impl TestResult {
         name: String,
         test_result: edr_solidity_tests::result::TestResult<String>,
         setup_trace_arenas: &Arc<[SparsedTraceArena]>,
-        include_traces: IncludeTraces,
+        include_call_traces: IncludeCallTraces,
     ) -> Self {
-        let include_trace = include_traces == IncludeTraces::All
-            || (include_traces == IncludeTraces::Failing && test_result.status.is_failure());
+        let include_trace = include_call_traces == IncludeCallTraces::All
+            || (include_call_traces == IncludeCallTraces::Failing && test_result.status.is_failure());
 
         Self {
             name,

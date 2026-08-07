@@ -3,14 +3,14 @@
 //!
 //! Trace arenas are recorded during execution according to
 //! [`TracingMode`](foundry_evm::traces::TracingMode), but which of them are
-//! ever *consumed* afterwards depends on `include_traces` (which test results
+//! ever *consumed* afterwards depends on `include_call_traces` (which test results
 //! carry call traces to the caller) and `generate_gas_report`. Everything else
 //! is dead weight that would otherwise stay resident until the whole test
 //! suite completes — with EVM step recording enabled this is the difference
 //! between megabytes and gigabytes.
 
 use edr_chain_spec::HaltReasonTrait;
-use edr_solidity::config::IncludeTraces;
+use edr_solidity::config::IncludeCallTraces;
 
 use crate::result::TestResult;
 
@@ -29,18 +29,18 @@ pub(crate) enum Retain {
 /// Decides which trace arenas to retain once a test has finished and its
 /// stack trace (if any) has been computed.
 ///
-/// Derived from the test runner's `include_traces` and `generate_gas_report`
+/// Derived from the test runner's `include_call_traces` and `generate_gas_report`
 /// settings in `MultiContractRunner::run_test_suite`.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct TraceRetentionPolicy {
-    include_traces: IncludeTraces,
+    include_call_traces: IncludeCallTraces,
     generate_gas_report: bool,
 }
 
 impl TraceRetentionPolicy {
-    pub fn new(include_traces: IncludeTraces, generate_gas_report: bool) -> Self {
+    pub fn new(include_call_traces: IncludeCallTraces, generate_gas_report: bool) -> Self {
         Self {
-            include_traces,
+            include_call_traces,
             generate_gas_report,
         }
     }
@@ -48,7 +48,7 @@ impl TraceRetentionPolicy {
     /// What the arenas of a finished test with the given failure status are
     /// still needed for.
     fn retain_after(&self, is_failure: bool) -> Retain {
-        if self.include_traces.should_include(|| is_failure) {
+        if self.include_call_traces.should_include(|| is_failure) {
             Retain::CallsOnly
         } else {
             Retain::Nothing
@@ -66,7 +66,7 @@ impl TraceRetentionPolicy {
     /// derived from them *during* the run; afterwards they are only consumed
     /// by trace decoding, the gas report and the napi conversion.
     pub fn retains_setup(&self) -> bool {
-        self.include_traces != IncludeTraces::None
+        self.include_call_traces != IncludeCallTraces::None
     }
 
     /// Applies the policy to a finished test result, freeing every arena (or

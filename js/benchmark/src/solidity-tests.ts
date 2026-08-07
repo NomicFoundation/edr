@@ -679,7 +679,7 @@ async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
 
   const { artifacts, testSuiteIds, tracingConfig } =
     await buildSolidityTestsInput(hre);
-  // `verbosity` is what Hardhat maps to `includeTraces`/`collectStackTraces`,
+  // `verbosity` is what Hardhat maps to `includeCallTraces`/`collectStackTraces`,
   // so passing it through is enough to exercise every trace-retention mode.
   const solidityTestsConfig =
     await solidityTestConfigToSolidityTestRunnerConfigArgs({
@@ -691,6 +691,16 @@ async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
       testPattern: undefined,
       generateGasReport: false,
     });
+  // TODO: remove once Hardhat emits `includeCallTraces` (renamed from
+  // `includeTraces`); until then map the old property so verbosity still
+  // controls trace collection.
+  const legacyIncludeTraces = (solidityTestsConfig as any).includeTraces;
+  if (
+    legacyIncludeTraces !== undefined &&
+    solidityTestsConfig.includeCallTraces === undefined
+  ) {
+    solidityTestsConfig.includeCallTraces = legacyIncludeTraces;
+  }
   // TODO: move to solidityTestConfigToSolidityTestRunnerConfigArgs after it's updated in Hardhat
   solidityTestsConfig.hardfork = l1HardforkToString(l1HardforkLatest());
   // Temporary workaround for `testFuzz_AssumeNotPrecompile` in forge-std which assumes no predeploys on mainnet.
@@ -735,11 +745,11 @@ function assertNoFailures(results: SuiteResult[]) {
 // Memory benchmark
 //
 // Call-trace arena retention is a function of Hardhat's verbosity, which maps
-// to `includeTraces`/`collectStackTraces`:
+// to `includeCallTraces`/`collectStackTraces`:
 //
-//   verbosity <= 2  ->  IncludeTraces.None    + CollectStackTraces.OnFailure
-//   verbosity == 3  ->  IncludeTraces.Failing + CollectStackTraces.Always
-//   verbosity >= 4  ->  IncludeTraces.All     + CollectStackTraces.Always
+//   verbosity <= 2  ->  IncludeCallTraces.None    + CollectStackTraces.OnFailure
+//   verbosity == 3  ->  IncludeCallTraces.Failing + CollectStackTraces.Always
+//   verbosity >= 4  ->  IncludeCallTraces.All     + CollectStackTraces.Always
 //
 // Peak RSS is the metric because the arenas live in Rust while the napi
 // `TestResult` objects that reference them are held by JS.

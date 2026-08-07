@@ -6,7 +6,7 @@ use alloy_json_abi::Event;
 use alloy_primitives::address;
 use alloy_primitives::{b256, Address, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
-use edr_solidity::{config::IncludeTraces, solidity_stack_trace::StackTraceEntry};
+use edr_solidity::{config::IncludeCallTraces, solidity_stack_trace::StackTraceEntry};
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
     revm::context::{BlockEnv, TxEnv},
@@ -124,7 +124,7 @@ async fn runner_config<
         config.evm_opts.sender = sender;
     }
 
-    config.include_traces = IncludeTraces::All;
+    config.include_call_traces = IncludeCallTraces::All;
 
     config
 }
@@ -768,7 +768,7 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
 }
 
 // A failing test in `CollectStackTraces::OnFailure` mode with
-// `IncludeTraces::None` (Hardhat's default verbosity) must produce a
+// `IncludeCallTraces::None` (Hardhat's default verbosity) must produce a
 // source-level stack trace via the re-execution path. In this mode nothing is
 // traced during the original run - not even setup - so the re-run has to
 // rebuild the deployed-code mapping itself.
@@ -776,7 +776,7 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
 async fn on_failure_mode_produces_stack_trace_without_traced_setup() {
     let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
     config.collect_stack_traces = CollectStackTraces::OnFailure;
-    config.include_traces = IncludeTraces::None;
+    config.include_call_traces = IncludeCallTraces::None;
 
     // Real decoder so the stack-trace inferrer runs (mirrors `issue_1482`).
     let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
@@ -797,7 +797,7 @@ async fn on_failure_mode_produces_stack_trace_without_traced_setup() {
     let unit_result = assert_execution_error_stack_trace(suite, "testRevertHasStackTrace()");
     assert!(
         unit_result.execution_traces.is_empty(),
-        "no call traces should be retained at IncludeTraces::None"
+        "no call traces should be retained at IncludeCallTraces::None"
     );
     assert_execution_error_stack_trace(suite, "tableRevertHasStackTrace(uint256)");
     assert_execution_error_stack_trace(suite, "testFuzzRevertHasStackTrace(uint256)");

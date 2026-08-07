@@ -721,7 +721,7 @@ impl<
 
         // After this point the setup arenas' remaining consumers are trace
         // decoding, the gas report and the napi conversion — all keyed on
-        // `include_traces`. Everything the tests themselves need from them
+        // `include_call_traces`. Everything the tests themselves need from them
         // has been derived: `identified_contracts` above and
         // `setup.executed_code` for stack-trace decoding. (`setup.traces`
         // stays alive through the tests for the rare fallback where a

@@ -24,7 +24,7 @@ use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
     artifacts::{solc::parse_solc_compiler_metadata, BuildInfoConfig},
-    config::IncludeTraces,
+    config::IncludeCallTraces,
     contract_decoder::ContractDecoder,
     contracts_identifier::IdentifiedContract,
     linker::{LinkOutput, Linker},
@@ -178,7 +178,7 @@ impl ForgeTestProfile {
     ) -> SolidityTestRunnerConfig<HardforkT> {
         SolidityTestRunnerConfig {
             collect_stack_traces: CollectStackTraces::OnFailure,
-            include_traces: IncludeTraces::All,
+            include_call_traces: IncludeCallTraces::All,
             evm_opts: Self::evm_opts(hardfork),
             project_root: PROJECT_ROOT.clone(),
             cheats_config_options: CheatsConfigOptions {
@@ -765,7 +765,7 @@ impl<
         TransactionT,
     > {
         let mut config = self.config_with_mock_rpc();
-        config.include_traces = IncludeTraces::All;
+        config.include_call_traces = IncludeCallTraces::All;
         self.build_runner(config).await
     }
 
