@@ -22,7 +22,7 @@ use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, InvariantContract},
     BaseCounterExample,
 };
-use foundry_evm_traces::{load_contracts, SetupTraces, SparsedTraceArena, TracingMode};
+use foundry_evm_traces::{load_contracts, ExecutionTraces, SetupTraces, TracingMode};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
 use revm::{
@@ -37,7 +37,7 @@ use super::{
 };
 use crate::executors::{
     stack_trace::{SolidityTestStackTraceError, SolidityTestStackTraceResult},
-    Executor,
+    Executor, RawCallResult,
 };
 
 /// Arguments to `replay_run`.
@@ -52,7 +52,7 @@ pub struct ReplayRunArgs<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub execution_traces: &'a mut Vec<SparsedTraceArena>,
+    pub execution_traces: &'a mut ExecutionTraces,
     pub executor: Executor<
         BlockT,
         TxT,
@@ -148,26 +148,41 @@ pub fn replay_run<
 
     // Replay each call from the sequence, collect logs, traces and coverage.
     for tx in inputs.iter() {
-        let call_result = executor.transact_raw(
+        let RawCallResult {
+            exit_reason,
+            reverted,
+            has_state_snapshot_failure: _,
+            result,
+            gas_used: _,
+            gas_refunded: _,
+            stipend: _,
+            logs: call_logs,
+            labels: _,
+            call_trace_arena,
+            line_coverage,
+            edge_coverage: _,
+            state_changeset: _,
+            env: _,
+            cheatcodes: _,
+            out: _,
+            reverter: _,
+            indeterminism_reasons,
+        } = executor.transact_raw(
             tx.sender,
             tx.call_details.target,
             tx.call_details.calldata.clone(),
             U256::ZERO,
         )?;
-        logs.extend(call_result.logs);
-        execution_traces.push(
-            call_result
-                .call_trace_arena
-                .clone()
-                .expect("enabled tracing"),
-        );
-        HitMaps::merge_opt(coverage, call_result.line_coverage);
+        logs.extend(call_logs);
+        HitMaps::merge_opt(coverage, line_coverage);
 
         // Identify newly generated contracts, if they exist.
         ided_contracts.extend(load_contracts(
-            call_result.call_trace_arena.iter().map(|a| &a.arena),
+            call_trace_arena.iter().map(|a| &a.arena),
             known_contracts,
         ));
+
+        execution_traces.push(call_trace_arena.expect("enabled tracing"));
 
         // Create counter example to be used in failed case.
         counterexample_sequence.push(BaseCounterExample::from_invariant_call(
@@ -175,47 +190,49 @@ pub fn replay_run<
             tx.call_details.target,
             &tx.call_details.calldata,
             &ided_contracts,
-            call_result.call_trace_arena,
+            // Counterexample arenas are never consumed; the failing arena
+            // lives on in `execution_traces`.
+            None,
             /* indeterminism_reason */ None,
         ));
 
         // If this call failed, but didn't revert, this is terminal for sure.
         // If this call reverted, only exit if `fail_on_revert` is true.
-        if !call_result
-            .exit_reason
-            .is_some_and(InstructionResult::is_ok)
-            && (fail_on_revert || !call_result.reverted)
-        {
-            let stack_trace_result =
-                if let Some(indeterminism_reasons) = call_result.indeterminism_reasons {
-                    Some(indeterminism_reasons.into())
-                } else {
-                    contract_decoder.map(|decoder| {
-                        let (failing_trace, prior_traces) = execution_traces
-                            .split_last()
-                            .expect("an arena was pushed for this call above");
+        if !exit_reason.is_some_and(InstructionResult::is_ok) && (fail_on_revert || !reverted) {
+            let stack_trace_result = if let Some(indeterminism_reasons) = indeterminism_reasons {
+                Some(indeterminism_reasons.into())
+            } else {
+                contract_decoder.map(|decoder| {
+                    let (failing_trace, prior_traces) = execution_traces
+                        .split_last()
+                        .expect("an arena was pushed for this call above");
 
-                        get_stack_trace(
-                            decoder,
-                            &failing_trace.arena,
-                            setup_traces
-                                .iter()
-                                .map(|(_, arena)| &arena.arena)
-                                .chain(prior_traces.iter().map(|arena| &arena.arena)),
-                            DeployedCode::default(),
-                        )
-                        .map_err(SolidityTestStackTraceError::from)
-                        .into()
-                    })
-                };
-            let revert_reason =
-                revert_decoder.maybe_decode(call_result.result.as_ref(), call_result.exit_reason);
+                    get_stack_trace(
+                        decoder,
+                        &failing_trace.arena,
+                        setup_traces
+                            .iter()
+                            .map(|(_, arena)| &arena.arena)
+                            .chain(prior_traces.iter().map(|arena| &arena.arena)),
+                        DeployedCode::default(),
+                    )
+                    .map_err(SolidityTestStackTraceError::from)
+                    .into()
+                })
+            };
+            let revert_reason = revert_decoder.maybe_decode(result.as_ref(), exit_reason);
             return Ok(ReplayResult {
                 counterexample_sequence,
                 stack_trace_result,
                 revert_reason,
             });
         }
+
+        // This call is not the failing one, so its arena can only ever serve
+        // as a code source. Strip it now rather than when the next push
+        // displaces it. Then no arena in the collection is step-laden while
+        // the next call runs.
+        execution_traces.strip_last_steps();
     }
 
     // Replay invariant to collect logs and traces.
@@ -254,7 +271,11 @@ pub fn replay_run<
             call_result: after_invariant_result,
             success: after_invariant_success,
         } = call_after_invariant_function(&executor, invariant_contract.address)?;
-        execution_traces.push(after_invariant_result.call_trace_arena.clone().unwrap());
+        execution_traces.push(
+            after_invariant_result
+                .call_trace_arena
+                .expect("tracing is on"),
+        );
         after_invariant_indeterminism = after_invariant_result.indeterminism_reasons;
         if !after_invariant_success {
             after_invariant_failure = Some(Failure {
@@ -297,9 +318,9 @@ pub fn replay_run<
                     .map(SolidityTestStackTraceResult::from)
                     .or_else(|| {
                         contract_decoder.map(|decoder| {
-                            let (failing_trace, prior_traces) = execution_traces
-                                .split_last()
-                                .expect("the invariant call arena was pushed above");
+                            let (failing_trace, prior_traces) = execution_traces.split_last().expect(
+                                "the failing call's arena was pushed above: afterInvariant() when it ran, otherwise invariant()",
+                            );
 
                             get_stack_trace(
                                 decoder,
@@ -338,7 +359,7 @@ pub struct ReplayErrorArgs<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub execution_traces: &'a mut Vec<SparsedTraceArena>,
+    pub execution_traces: &'a mut ExecutionTraces,
     pub executor: Executor<
         BlockT,
         TxT,

@@ -22,8 +22,8 @@ use foundry_evm::{
     },
     fuzz::{CounterExample, FuzzFixtures},
     traces::{
-        strip_arena_steps, CallTraceArena, CallTraceDecoder, SetupTraceKind, SetupTraces,
-        SparsedTraceArena,
+        strip_arena_steps, CallTraceArena, CallTraceDecoder, ExecutionTraces, SetupTraceKind,
+        SetupTraces,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -415,7 +415,7 @@ pub struct TestResult<HaltReasonT> {
     /// EVM steps stripped: only the call tree, the logs and their ordering
     /// survive.
     #[serde(skip)]
-    pub execution_traces: Vec<SparsedTraceArena>,
+    pub execution_traces: ExecutionTraces,
 
     /// Raw coverage info
     #[serde(skip)]
@@ -538,12 +538,10 @@ impl<HaltReasonT> TestResult<HaltReasonT> {
 
         match policy.retain_after(*status) {
             Retain::Nothing => {
-                *execution_traces = Vec::new();
+                *execution_traces = ExecutionTraces::default();
             }
             Retain::CallsOnly => {
-                for arena in execution_traces.iter_mut() {
-                    arena.strip_steps();
-                }
+                execution_traces.strip_steps();
             }
         }
 
@@ -713,8 +711,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(raw_call_result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(raw_call_result.labels);
-        self.execution_traces
-            .extend(raw_call_result.call_trace_arena);
+        if let Some(arena) = raw_call_result.call_trace_arena {
+            self.execution_traces.push(arena);
+        }
         self.merge_coverages(raw_call_result.line_coverage);
 
         self.status = match success {
@@ -744,7 +743,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(result.labeled_addresses);
-        self.execution_traces.extend(result.call_trace_arena);
+        if let Some(arena) = result.call_trace_arena {
+            self.execution_traces.push(arena);
+        }
         self.merge_coverages(result.line_coverage);
 
         self.status = if result.skipped {
@@ -810,7 +811,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
             metrics: HashMap::default(),
             failed_corpus_replays: 0,
         };
-        self.execution_traces.extend(e.take_call_trace_arena());
+        if let Some(arena) = e.take_call_trace_arena() {
+            self.execution_traces.push(arena);
+        }
         self.status = TestStatus::Failure;
         self.reason = Some(format!(
             "failed to set up invariant testing environment: {e}"
@@ -880,7 +883,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(call_result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(call_result.labels);
-        self.execution_traces.extend(call_result.call_trace_arena);
+        if let Some(arena) = call_result.call_trace_arena {
+            self.execution_traces.push(arena);
+        }
         self.merge_coverages(call_result.line_coverage);
     }
 
@@ -1091,8 +1096,9 @@ impl<HaltReasonT: HaltReasonTrait> TestSetup<HaltReasonT> {
     ) {
         self.logs.extend(raw.logs);
         self.labels.extend(raw.labels);
-        self.traces
-            .extend(raw.call_trace_arena.map(|traces| (trace_kind, traces)));
+        if let Some(arena) = raw.call_trace_arena {
+            self.traces.push((trace_kind, arena));
+        }
         if let Some(indeterminism_reasons) = self.indeterminism_reasons.as_mut() {
             indeterminism_reasons.merge(raw.indeterminism_reasons);
         } else {

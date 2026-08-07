@@ -564,7 +564,7 @@ impl<
         if setup_fns.len() > 1 {
             return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 start.elapsed(),
-                Vec::new(),
+                SetupTraces::default(),
                 [(
                     "setUp()".to_string(),
                     TestResult::fail("multiple setUp functions".to_string()),
@@ -585,7 +585,7 @@ impl<
             // Return a single test result failure if multiple functions declared.
             return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 start.elapsed(),
-                Vec::new(),
+                SetupTraces::default(),
                 [(
                     "afterInvariant()".to_string(),
                     TestResult::fail("multiple afterInvariant functions".to_string()),
@@ -626,7 +626,7 @@ impl<
         if functions.is_empty() {
             return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 start.elapsed(),
-                Vec::new(),
+                SetupTraces::default(),
                 BTreeMap::new(),
                 warnings,
             )));

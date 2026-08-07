@@ -4513,6 +4513,7 @@ dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
  "alloy-sol-types",
+ "derive-where",
  "edr_artifact",
  "edr_common",
  "edr_decoder_revert",

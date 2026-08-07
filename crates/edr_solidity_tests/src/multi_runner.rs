@@ -30,9 +30,7 @@ use foundry_evm::{
     fork::CreateFork,
     inspectors::{cheatcodes::CheatsConfigOptions, CheatsConfig},
     opts::EvmOpts,
-    traces::{
-        decode_trace_arena, identifier::TraceIdentifiers, CallTraceDecoderBuilder, TracingMode,
-    },
+    traces::{identifier::TraceIdentifiers, CallTraceDecoderBuilder, TracingMode},
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -537,12 +535,11 @@ impl<
 
             // Setup traces are shared across all tests in the suite, so decode and analyze
             // them only once.
-            for (_, arena) in &mut setup_traces {
-                decoder.identify(arena, &mut trace_identifier);
-                tokio::task::block_in_place(|| {
-                    handle.block_on(decode_trace_arena(arena, &decoder));
-                });
-            }
+            tokio::task::block_in_place(|| {
+                handle.block_on(
+                    setup_traces.identify_and_decode(&mut decoder, &mut trace_identifier),
+                );
+            });
 
             if let Some(gas_report) = gas_report.as_mut() {
                 tokio::task::block_in_place(|| {
@@ -577,12 +574,13 @@ impl<
                             decoder.identify(arena, &mut trace_identifier);
                         }
 
-                        for arena in &mut result.execution_traces {
-                            decoder.identify(arena, &mut trace_identifier);
-                            tokio::task::block_in_place(|| {
-                                handle.block_on(decode_trace_arena(arena, &decoder));
-                            });
-                        }
+                        tokio::task::block_in_place(|| {
+                            handle.block_on(
+                                result
+                                    .execution_traces
+                                    .identify_and_decode(&mut decoder, &mut trace_identifier),
+                            );
+                        });
 
                         if let Some(gas_report) = gas_report.as_mut() {
                             tokio::task::block_in_place(|| {
