@@ -43,6 +43,7 @@ use crate::{
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
+    trace_retention::TraceRetentionPolicy,
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
     TestFunctionConfigOverride,
 };
@@ -382,6 +383,10 @@ impl<
                     invariant_config: &self.invariant_config,
                     test_function_overrides: &self.test_function_overrides,
                     generate_gas_report: self.generate_gas_report,
+                    trace_retention: TraceRetentionPolicy::new(
+                        self.include_traces,
+                        self.generate_gas_report,
+                    ),
                 },
                 span,
             );

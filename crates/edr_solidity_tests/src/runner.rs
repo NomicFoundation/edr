@@ -58,6 +58,7 @@ use crate::{
     multi_runner::TestContract,
     result::{SuiteResult, TestResult, TestSetup},
     revm::context::result::HaltReason,
+    trace_retention::TraceRetentionPolicy,
     TestFilter, TestFunctionConfigOverride,
 };
 
@@ -109,6 +110,8 @@ pub struct ContractRunner<
     /// Whether gas reports are being generated. When enabled, isolation cannot
     /// be disabled by function-level overrides.
     generate_gas_report: bool,
+    /// Which trace arenas to retain once a test has finished.
+    trace_retention: TraceRetentionPolicy,
 
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (EvmBuilderT, HaltReasonT, TransactionErrorT)>,
@@ -134,6 +137,8 @@ pub struct ContractRunnerOptions<'a> {
     /// Whether gas reports are being generated. When enabled, isolation cannot
     /// be disabled by function-level overrides.
     pub generate_gas_report: bool,
+    /// Which trace arenas to retain once a test has finished.
+    pub(crate) trace_retention: TraceRetentionPolicy,
 }
 
 /// Contract artifact related arguments to the contract runner.
@@ -197,6 +202,7 @@ impl<
             invariant_config,
             test_function_overrides,
             generate_gas_report,
+            trace_retention,
         } = options;
 
         Self {
@@ -217,6 +223,7 @@ impl<
             span,
             test_function_overrides,
             generate_gas_report,
+            trace_retention,
             _phantom: PhantomData,
         }
     }
@@ -723,12 +730,18 @@ impl<
                 )
                 .entered();
 
-                let res = FunctionRunner::new(&self, &executor, &setup).run(
+                let mut res = FunctionRunner::new(&self, &executor, &setup).run(
                     func,
                     kind,
                     call_after_invariant,
                     identified_contracts.as_ref(),
                 );
+
+                // The test is done and its stack trace (if any) has been
+                // computed, so free every trace arena that has no consumer.
+                // Retaining them until the whole suite completes is what
+                // makes high-verbosity runs run out of memory.
+                self.trace_retention.apply(&mut res);
 
                 (sig, res)
             })
