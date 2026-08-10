@@ -18,7 +18,7 @@ use edr_blockchain_fork::{
     ForkedBlockchain,
 };
 use edr_chain_spec::{
-    ChainSpec, EvmSpecId, ExecutableTransaction, HardforkChainSpec, ProtocolHardfork as _,
+    ChainSpec, EvmSpecId, ExecutableTransaction, ProtocolHardfork as _, ProtocolHardforkChainSpec,
     ProtocolParams as _,
 };
 use edr_chain_spec_block::BlockChainSpec;
@@ -38,7 +38,7 @@ type ForkedStateAndBlockchainForChainSpec<ChainSpecT> = ForkedStateAndBlockchain
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as BlockChainSpec>::Block,
     <ChainSpecT as BlockChainSpec>::FetchReceiptError,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     ChainSpecT,
     <ChainSpecT as RpcChainSpec>::RpcReceipt,
@@ -173,7 +173,9 @@ pub async fn run_full_block<
     runtime: tokio::runtime::Handle,
     rpc_client: EthRpcClientForChainSpec<ChainSpecT>,
     block_number: u64,
-    header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
+    header_overrides_constructor: impl FnOnce(
+        &BlockHeader,
+    ) -> HeaderOverrides<ChainSpecT::ProtocolHardfork>,
 ) -> anyhow::Result<()> {
     let rpc_client = Arc::new(rpc_client);
     let ForkedStateAndBlockchain {
@@ -457,7 +459,9 @@ pub async fn assert_replay_header<
     runtime: tokio::runtime::Handle,
     url: String,
     block_number: u64,
-    header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
+    header_overrides_constructor: impl FnOnce(
+        &BlockHeader,
+    ) -> HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     header_validation: impl FnOnce(&BlockHeader, &PartialHeader) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
     let rpc_client = Arc::new(EthRpcClientForChainSpec::<ChainSpecT>::new(

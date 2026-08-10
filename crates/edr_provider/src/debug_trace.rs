@@ -28,7 +28,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
     blockchain: &dyn BlockHashByNumber<Error = DynBlockchainError>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn DynState>,
-    evm_config: CfgEnv<ChainSpecT::Hardfork>,
+    evm_config: CfgEnv<ChainSpecT::ProtocolHardfork>,
     tracing_options: GethDebugTracingOptions,
     block: ChainSpecT::BlockEnv<'header, BlockHeader>,
     transactions: Vec<ChainSpecT::SignedTransaction>,

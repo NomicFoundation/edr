@@ -22,7 +22,7 @@ pub use self::{
 };
 
 /// Ethereum L1 EVM-level hardfork; see
-/// [`HardforkChainSpec::EvmHardfork`](edr_chain_spec::HardforkChainSpec::EvmHardfork).
+/// [`EvmHardforkChainSpec::EvmHardfork`](edr_chain_spec::EvmHardforkChainSpec::EvmHardfork).
 pub type EvmHardfork = edr_chain_spec::EvmSpecId;
 
 /// Ethereum L1 halt reason.

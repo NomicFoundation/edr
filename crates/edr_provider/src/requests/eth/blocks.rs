@@ -180,7 +180,7 @@ fn block_by_number<
 }
 
 fn block_to_rpc_output<ChainSpecT: ProviderChainSpec>(
-    hardfork: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::ProtocolHardfork,
     block: Arc<ChainSpecT::Block>,
     is_pending: bool,
     total_difficulty: Option<U256>,

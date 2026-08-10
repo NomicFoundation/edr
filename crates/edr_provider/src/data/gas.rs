@@ -6,7 +6,7 @@ use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{
     BlockEnvChainSpec, BlockEnvConstructor as _, ChainSpec, ExecutableTransaction as _,
-    HaltReasonTrait, HardforkChainSpec,
+    HaltReasonTrait, ProtocolHardforkChainSpec,
 };
 use edr_chain_spec_evm::{
     interpreter::InstructionResult,
@@ -44,9 +44,9 @@ pub struct EstimateGasResult {
 }
 
 /// Shared EVM execution context passed to all gas estimation functions.
-pub(super) struct GasCallContext<'a, ChainSpecT: ChainSpec + HardforkChainSpec> {
+pub(super) struct GasCallContext<'a, ChainSpecT: ChainSpec + ProtocolHardforkChainSpec> {
     pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
-    pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
+    pub cfg_env: CfgEnv<ChainSpecT::ProtocolHardfork>,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
     pub header: &'a BlockHeader,
     pub scheduled_blob_params: Option<&'a ScheduledBlobParams>,
@@ -118,7 +118,7 @@ fn has_internal_oog(arena: &CallTraceArena) -> bool {
     })
 }
 
-impl<'a, ChainSpecT: ChainSpec + HardforkChainSpec + BlockEnvChainSpec>
+impl<'a, ChainSpecT: ChainSpec + ProtocolHardforkChainSpec + BlockEnvChainSpec>
     GasCallContext<'a, ChainSpecT>
 {
     fn new_block_env(&self) -> ChainSpecT::BlockEnv<'_, BlockHeader> {

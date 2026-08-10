@@ -320,14 +320,14 @@ where
 /// Fixture for testing `ProviderData`.
 pub struct ProviderTestFixture<ChainSpecT: ProviderSpec<CurrentTime>> {
     _runtime: runtime::Runtime,
-    pub config: ProviderConfig<ChainSpecT::Hardfork>,
+    pub config: ProviderConfig<ChainSpecT::ProtocolHardfork>,
     pub provider_data: ProviderData<ChainSpecT, CurrentTime>,
     pub impersonated_account: Address,
 }
 
 impl<ChainSpecT> ProviderTestFixture<ChainSpecT>
 where
-    ChainSpecT: Debug + SyncProviderSpec<CurrentTime, Hardfork: Default>,
+    ChainSpecT: Debug + SyncProviderSpec<CurrentTime, ProtocolHardfork: Default>,
 {
     /// Creates a new `ProviderTestFixture` with a local provider.
     pub fn new_local() -> anyhow::Result<Self> {
@@ -347,7 +347,9 @@ where
         }))
     }
 
-    fn with_config(config: MinimalProviderConfig<ChainSpecT::Hardfork>) -> anyhow::Result<Self> {
+    fn with_config(
+        config: MinimalProviderConfig<ChainSpecT::ProtocolHardfork>,
+    ) -> anyhow::Result<Self> {
         let config = create_test_config_with(config);
 
         let runtime = runtime::Builder::new_multi_thread()
@@ -361,7 +363,7 @@ where
 
     pub fn new(
         runtime: tokio::runtime::Runtime,
-        mut config: ProviderConfig<ChainSpecT::Hardfork>,
+        mut config: ProviderConfig<ChainSpecT::ProtocolHardfork>,
     ) -> anyhow::Result<Self> {
         let logger = Box::<NoopLogger<ChainSpecT, CurrentTime>>::default();
         let subscription_callback_noop = Box::new(|_| ());

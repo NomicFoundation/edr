@@ -53,7 +53,9 @@ pub async fn replay_chain_specific_block<ChainSpecT>(
     runtime: tokio::runtime::Handle,
     chain_type: &str,
     url: String,
-    header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
+    header_overrides_constructor: impl FnOnce(
+        &BlockHeader,
+    ) -> HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     block_number: Option<u64>,
 ) -> anyhow::Result<()>
 where

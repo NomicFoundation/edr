@@ -11,7 +11,7 @@ use edr_block_api::{sync::SyncBlock, BlockAndTotalDifficulty, EmptyBlock as _};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_block_local::EthLocalBlock;
 use edr_chain_l1::{receipt::builder::L1ExecutionReceiptBuilder, L1ChainSpec};
-use edr_chain_spec::{ChainSpec, ExecutableTransaction as _, HardforkChainSpec};
+use edr_chain_spec::{ChainSpec, ExecutableTransaction as _, ProtocolHardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::result::{ExecutionResult, Output, ResultGas, SuccessReason};
 use edr_chain_spec_provider::ProviderChainSpec as _;
@@ -42,7 +42,7 @@ pub type DynSyncBlock<ChainSpecT> = dyn SyncBlock<
 pub type EthLocalBlockForChainSpec<ChainSpecT> = EthLocalBlock<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as BlockChainSpec>::FetchReceiptError,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;
 

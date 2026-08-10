@@ -16,7 +16,7 @@ use edr_block_header::{
 use edr_block_local::EthLocalBlock;
 use edr_chain_spec::{
     BlockEnvChainSpec, BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction,
-    HardforkChainSpec, ProtocolHardfork as _, TransactionValidation,
+    ProtocolHardfork as _, ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
@@ -52,7 +52,7 @@ pub struct EthBlockBuilder<
     EvmChainSpecT: EvmChainSpec,
     ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
         EvmChainSpecT::HaltReason,
-        EvmChainSpecT::Hardfork,
+        EvmChainSpecT::ProtocolHardfork,
         EvmChainSpecT::SignedTransaction,
         Receipt = ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>,
     >,
@@ -63,12 +63,12 @@ pub struct EthBlockBuilder<
         BlockReceiptT,
         BlockT,
         BlockchainErrorT,
-        EvmChainSpecT::Hardfork,
+        EvmChainSpecT::ProtocolHardfork,
         LocalBlockT,
         EvmChainSpecT::SignedTransaction,
     >,
-    block_config: &'builder BlockConfig<EvmChainSpecT::Hardfork>,
-    cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    block_config: &'builder BlockConfig<EvmChainSpecT::ProtocolHardfork>,
+    cfg: CfgEnv<EvmChainSpecT::ProtocolHardfork>,
     context: EvmChainSpecT::Context,
     header: PartialHeader,
     parent_gas_limit: Option<u64>,
@@ -95,7 +95,7 @@ impl<
         EvmChainSpecT: EvmChainSpec<SignedTransaction: ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             EvmChainSpecT::HaltReason,
-            EvmChainSpecT::Hardfork,
+            EvmChainSpecT::ProtocolHardfork,
             EvmChainSpecT::SignedTransaction,
             Receipt = ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>,
         >,
@@ -120,7 +120,7 @@ impl<
         BlockReceiptT,
         BlockT,
         BlockchainErrorT,
-        EvmChainSpecT::Hardfork,
+        EvmChainSpecT::ProtocolHardfork,
         LocalBlockT,
         EvmChainSpecT::SignedTransaction,
     > {
@@ -128,7 +128,7 @@ impl<
     }
 
     /// Retrieves the config of the block builder.
-    pub fn config(&self) -> &CfgEnv<EvmChainSpecT::Hardfork> {
+    pub fn config(&self) -> &CfgEnv<EvmChainSpecT::ProtocolHardfork> {
         &self.cfg
     }
 
@@ -160,7 +160,7 @@ impl<
         EvmChainSpecT: EvmChainSpec<SignedTransaction: ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             EvmChainSpecT::HaltReason,
-            EvmChainSpecT::Hardfork,
+            EvmChainSpecT::ProtocolHardfork,
             EvmChainSpecT::SignedTransaction,
             Receipt = ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>,
         >,
@@ -227,14 +227,17 @@ impl<
                 ChainSpecT::SignedTransaction,
                 Context = ChainSpecT::Context,
                 ExecutionReceipt = ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
-                Hardfork = ChainSpecT::Hardfork,
+                Hardfork = ChainSpecT::ProtocolHardfork,
             > + ReceiptTrait,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
         BlockchainErrorT: Debug + 'static + std::error::Error + Send + Sync,
-        ChainSpecT: BlockChainSpec<Hardfork: PartialOrd, SignedTransaction: Clone + ExecutableTransaction>,
+        ChainSpecT: BlockChainSpec<
+            ProtocolHardfork: PartialOrd,
+            SignedTransaction: Clone + ExecutableTransaction,
+        >,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,
-            ChainSpecT::Hardfork,
+            ChainSpecT::ProtocolHardfork,
             ChainSpecT::SignedTransaction,
             Receipt = ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>,
         >,
@@ -249,7 +252,7 @@ impl<
             EthLocalBlock<
                 BlockReceiptT,
                 ChainSpecT::FetchReceiptError,
-                ChainSpecT::Hardfork,
+                ChainSpecT::ProtocolHardfork,
                 ChainSpecT::SignedTransaction,
             >,
         >,
@@ -274,21 +277,21 @@ impl<
             BlockReceiptT,
             BlockT,
             BlockchainErrorT,
-            ChainSpecT::Hardfork,
+            ChainSpecT::ProtocolHardfork,
             LocalBlockT,
             ChainSpecT::SignedTransaction,
         >,
-        block_config: &'builder BlockConfig<ChainSpecT::Hardfork>,
+        block_config: &'builder BlockConfig<ChainSpecT::ProtocolHardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,
-        mut overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        mut overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
         BlockBuilderCreationError<
             DatabaseComponentError<BlockchainErrorT, StateError>,
-            ChainSpecT::Hardfork,
+            ChainSpecT::ProtocolHardfork,
         >,
     > {
         let parent_block = blockchain.last_block().map_err(|error| {
@@ -328,14 +331,14 @@ impl<
                 _,
                 ContextForChainSpec<
                     ChainSpecT,
-                    HeaderAndEvmSpec<'builder, PartialHeader, ChainSpecT::Hardfork>,
+                    HeaderAndEvmSpec<'builder, PartialHeader, ChainSpecT::ProtocolHardfork>,
                     WrapDatabaseRef<
                         DatabaseComponents<
                             &'builder dyn Blockchain<
                                 BlockReceiptT,
                                 BlockT,
                                 BlockchainErrorT,
-                                ChainSpecT::Hardfork,
+                                ChainSpecT::ProtocolHardfork,
                                 LocalBlockT,
                                 ChainSpecT::SignedTransaction,
                             >,
@@ -440,7 +443,7 @@ impl<
                             BlockReceiptT,
                             BlockT,
                             BlockchainErrorT,
-                            ChainSpecT::Hardfork,
+                            ChainSpecT::ProtocolHardfork,
                             LocalBlockT,
                             ChainSpecT::SignedTransaction,
                         >,
@@ -534,8 +537,8 @@ impl<
 
 /// Gas a transaction contributes to the block's `gas_used`: from Amsterdam
 /// (EIP-7778) the gross gas before refunds, otherwise its net gas used.
-fn transaction_block_gas_contribution<ChainSpecT: ChainSpec + HardforkChainSpec>(
-    hardfork: ChainSpecT::Hardfork,
+fn transaction_block_gas_contribution<ChainSpecT: ChainSpec + ProtocolHardforkChainSpec>(
+    hardfork: ChainSpecT::ProtocolHardfork,
     execution_result: &ExecutionResult<ChainSpecT::HaltReason>,
 ) -> u64 {
     if hardfork.to_evm_spec_id() >= EvmSpecId::AMSTERDAM {
@@ -554,18 +557,18 @@ impl<
                 ChainSpecT::SignedTransaction,
                 Context = ChainSpecT::Context,
                 ExecutionReceipt = ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
-                Hardfork = ChainSpecT::Hardfork,
+                Hardfork = ChainSpecT::ProtocolHardfork,
             > + ReceiptTrait
             + alloy_rlp::Encodable,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
         BlockchainErrorT: Debug + 'static + std::error::Error + Send + Sync,
         ChainSpecT: BlockChainSpec<
-            Hardfork: PartialOrd,
+            ProtocolHardfork: PartialOrd,
             SignedTransaction: Clone + ExecutableTransaction + alloy_rlp::Encodable,
         >,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,
-            ChainSpecT::Hardfork,
+            ChainSpecT::ProtocolHardfork,
             ChainSpecT::SignedTransaction,
             Receipt = ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>,
         >,
@@ -580,7 +583,7 @@ impl<
             EthLocalBlock<
                 BlockReceiptT,
                 ChainSpecT::FetchReceiptError,
-                ChainSpecT::Hardfork,
+                ChainSpecT::ProtocolHardfork,
                 ChainSpecT::SignedTransaction,
             >,
         >,
@@ -694,7 +697,7 @@ impl<
                 ChainSpecT::SignedTransaction,
                 Context = ChainSpecT::Context,
                 ExecutionReceipt = ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
-                Hardfork = ChainSpecT::Hardfork,
+                Hardfork = ChainSpecT::ProtocolHardfork,
             > + ReceiptTrait
             + alloy_rlp::Encodable,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
@@ -703,12 +706,12 @@ impl<
             + BlockEnvChainSpec
             + EvmChainSpec<
                 Context: Default,
-                Hardfork: PartialOrd,
+                ProtocolHardfork: PartialOrd,
                 SignedTransaction: Clone + ExecutableTransaction + alloy_rlp::Encodable,
             >,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,
-            ChainSpecT::Hardfork,
+            ChainSpecT::ProtocolHardfork,
             ChainSpecT::SignedTransaction,
             Receipt = ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>,
         >,
@@ -723,7 +726,7 @@ impl<
             EthLocalBlock<
                 BlockReceiptT,
                 ChainSpecT::FetchReceiptError,
-                ChainSpecT::Hardfork,
+                ChainSpecT::ProtocolHardfork,
                 ChainSpecT::SignedTransaction,
             >,
         >,
@@ -748,21 +751,21 @@ impl<
             BlockReceiptT,
             BlockT,
             Self::BlockchainError,
-            ChainSpecT::Hardfork,
+            ChainSpecT::ProtocolHardfork,
             LocalBlockT,
             ChainSpecT::SignedTransaction,
         >,
-        block_config: &'builder BlockConfig<ChainSpecT::Hardfork>,
+        block_config: &'builder BlockConfig<ChainSpecT::ProtocolHardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,
-        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
         BlockBuilderCreationError<
             DatabaseComponentError<Self::BlockchainError, StateError>,
-            ChainSpecT::Hardfork,
+            ChainSpecT::ProtocolHardfork,
         >,
     > {
         Self::new(
@@ -820,7 +823,7 @@ impl<
                             BlockReceiptT,
                             BlockT,
                             Self::BlockchainError,
-                            ChainSpecT::Hardfork,
+                            ChainSpecT::ProtocolHardfork,
                             LocalBlockT,
                             ChainSpecT::SignedTransaction,
                         >,

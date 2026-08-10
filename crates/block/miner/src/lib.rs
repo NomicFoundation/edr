@@ -11,7 +11,7 @@ use edr_block_header::{
 };
 use edr_chain_spec::{
     ChainSpec, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
-    HardforkChainSpec, TransactionValidation,
+    ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
@@ -42,7 +42,7 @@ pub type MineBlockErrorForChainSpec<
 > = MineBlockError<
     BlockchainErrorT,
     CollectInspectorDataErrorT,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     StateErrorT,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;
@@ -194,15 +194,15 @@ pub fn mine_block<ChainSpecT, BlockchainErrorT, InspectorT>(
         ChainSpecT::Receipt,
         ChainSpecT::Block,
         BlockchainErrorT,
-        ChainSpecT::Hardfork,
+        ChainSpecT::ProtocolHardfork,
         ChainSpecT::LocalBlock,
         ChainSpecT::SignedTransaction,
     >,
-    block_config: &BlockConfig<ChainSpecT::Hardfork>,
+    block_config: &BlockConfig<ChainSpecT::ProtocolHardfork>,
     state: Box<dyn DynState>,
     mem_pool: &MemPool<ChainSpecT::SignedTransaction>,
     evm_config: &EvmConfig,
-    overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+    overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
@@ -235,7 +235,7 @@ where
                             ChainSpecT::Receipt,
                             ChainSpecT::Block,
                             BlockchainErrorT,
-                            ChainSpecT::Hardfork,
+                            ChainSpecT::ProtocolHardfork,
                             ChainSpecT::LocalBlock,
                             ChainSpecT::SignedTransaction,
                         >,
@@ -335,7 +335,7 @@ where
 /// Helper type for a chain-specific [`MineTransactionError`].
 pub type MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT> = MineTransactionError<
     BlockchainErrorT,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;
 
@@ -468,15 +468,15 @@ pub fn mine_block_with_single_transaction<
         ChainSpecT::Receipt,
         ChainSpecT::Block,
         BlockchainErrorT,
-        ChainSpecT::Hardfork,
+        ChainSpecT::ProtocolHardfork,
         ChainSpecT::LocalBlock,
         ChainSpecT::SignedTransaction,
     >,
-    block_config: &BlockConfig<ChainSpecT::Hardfork>,
+    block_config: &BlockConfig<ChainSpecT::ProtocolHardfork>,
     state: Box<dyn DynState>,
     transaction: ChainSpecT::SignedTransaction,
     evm_config: &EvmConfig,
-    overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+    overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     min_gas_price: u128,
     reward: u128,
     inspector: Option<&mut InspectorT>,
@@ -496,7 +496,7 @@ where
                         ChainSpecT::Receipt,
                         ChainSpecT::Block,
                         BlockchainErrorT,
-                        ChainSpecT::Hardfork,
+                        ChainSpecT::ProtocolHardfork,
                         ChainSpecT::LocalBlock,
                         ChainSpecT::SignedTransaction,
                     >,

@@ -9,8 +9,8 @@ use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
 use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
-    BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec, EvmSpecId,
-    HardforkChainSpec, ProtocolHardfork as _, TransactionValidation,
+    BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec, EvmHardforkChainSpec,
+    EvmSpecId, ProtocolHardfork as _, ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
@@ -71,9 +71,9 @@ impl BlockChainSpec for L1ChainSpec {
 
 impl BlockEnvChainSpec for L1ChainSpec {
     type BlockEnv<'header, BlockHeaderT>
-        = HeaderAndEvmSpec<'header, BlockHeaderT, Self::Hardfork>
+        = HeaderAndEvmSpec<'header, BlockHeaderT, Self::ProtocolHardfork>
     where
-        BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
+        BlockHeaderT: 'header + BlockEnvForHardfork<Self::ProtocolHardfork>;
 }
 
 impl ChainSpec for L1ChainSpec {
@@ -89,7 +89,7 @@ impl EvmChainSpec for L1ChainSpec {
     type PrecompileProvider<BlockEnvT: BlockEnvTrait, DatabaseT: Database> = EthPrecompiles;
 
     fn new_precompile_provider<BlockEnvT: BlockEnvTrait, DatabaseT: Database>(
-        hardfork: Self::Hardfork,
+        hardfork: Self::ProtocolHardfork,
     ) -> Self::PrecompileProvider<BlockEnvT, DatabaseT> {
         EthPrecompiles::new(hardfork.to_evm_spec_id())
     }
@@ -103,7 +103,7 @@ impl EvmChainSpec for L1ChainSpec {
         >,
     >(
         block: BlockEnvT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -145,7 +145,7 @@ impl EvmChainSpec for L1ChainSpec {
         >,
     >(
         block: BlockEnvT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -194,14 +194,14 @@ impl GenesisBlockFactory for L1ChainSpec {
     type LocalBlock = EthLocalBlock<
         <Self as ReceiptChainSpec>::Receipt,
         <Self as BlockChainSpec>::FetchReceiptError,
-        Self::Hardfork,
+        Self::ProtocolHardfork,
         <Self as ChainSpec>::SignedTransaction,
     >;
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: &BlockConfig<Self::Hardfork>,
-        mut options: GenesisBlockOptions<Self::Hardfork>,
+        block_config: &BlockConfig<Self::ProtocolHardfork>,
+        mut options: GenesisBlockOptions<Self::ProtocolHardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
         options.extra_data = Some(
@@ -214,27 +214,29 @@ impl GenesisBlockFactory for L1ChainSpec {
     }
 }
 
-impl HardforkChainSpec for L1ChainSpec {
+impl EvmHardforkChainSpec for L1ChainSpec {
     type EvmHardfork = EvmSpecId;
+}
 
-    type Hardfork = Hardfork;
+impl ProtocolHardforkChainSpec for L1ChainSpec {
+    type ProtocolHardfork = Hardfork;
 }
 
 impl ProviderChainSpec for L1ChainSpec {
     const MIN_ETHASH_DIFFICULTY: u64 = L1_MIN_ETHASH_DIFFICULTY;
 
-    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>> {
+    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>> {
         l1_chain_configs()
     }
 
-    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork> {
         &L1_BASE_FEE_PARAMS
     }
 
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        hardfork: Self::Hardfork,
-        default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        hardfork: Self::ProtocolHardfork,
+        default_base_fee_params: &BaseFeeParams<Self::ProtocolHardfork>,
     ) -> u128 {
         calculate_next_base_fee_per_gas(
             header,

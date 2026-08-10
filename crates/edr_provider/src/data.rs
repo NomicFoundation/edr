@@ -261,7 +261,7 @@ pub struct ProviderData<
     bail_on_transaction_failure: bool,
     beneficiary: Address,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
-    block_config: BlockConfig<ChainSpecT::Hardfork>,
+    block_config: BlockConfig<ChainSpecT::ProtocolHardfork>,
     default_transaction_gas_limit: NonZeroU64,
     gas_estimation_mode: GasEstimationMode,
     is_auto_mining: bool,
@@ -281,7 +281,7 @@ pub struct ProviderData<
     rpc_client: Option<Arc<EthRpcClientForChainSpec<ChainSpecT>>>,
     instance_id: B256,
     next_block_base_fee_per_gas: Option<u128>,
-    base_fee_params: Option<BaseFeeParams<ChainSpecT::Hardfork>>,
+    base_fee_params: Option<BaseFeeParams<ChainSpecT::ProtocolHardfork>>,
     next_block_timestamp: Option<u64>,
     next_snapshot_id: u64,
     snapshots: BTreeMap<u64, Snapshot<ChainSpecT::SignedTransaction>>,
@@ -552,7 +552,7 @@ where
     fn header_overrides_with_timestamp(
         &self,
         timestamp: u64,
-    ) -> HeaderOverrides<ChainSpecT::Hardfork> {
+    ) -> HeaderOverrides<ChainSpecT::ProtocolHardfork> {
         HeaderOverrides {
             timestamp: Some(timestamp),
             base_fee_params: self.base_fee_params.clone(),
@@ -560,7 +560,7 @@ where
         }
     }
 
-    fn header_overrides(&self) -> HeaderOverrides<ChainSpecT::Hardfork> {
+    fn header_overrides(&self) -> HeaderOverrides<ChainSpecT::ProtocolHardfork> {
         HeaderOverrides {
             base_fee_params: self.base_fee_params.clone(),
             ..HeaderOverrides::default()
@@ -682,7 +682,7 @@ where
         subscriber_callback: Box<
             dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
         >,
-        config: ProviderConfig<ChainSpecT::Hardfork>,
+        config: ProviderConfig<ChainSpecT::ProtocolHardfork>,
         contract_decoder: Arc<RwLock<ContractDecoder>>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
@@ -1361,7 +1361,7 @@ where
     pub fn create_evm_config_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<CfgEnv<ChainSpecT::Hardfork>, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<CfgEnv<ChainSpecT::ProtocolHardfork>, ProviderErrorForChainSpec<ChainSpecT>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         if let Some(block_number) = block_number {
@@ -1393,7 +1393,7 @@ where
     pub fn hardfork_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<ChainSpecT::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<ChainSpecT::ProtocolHardfork, ProviderErrorForChainSpec<ChainSpecT>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         if let Some(block_number) = block_number {
@@ -1449,7 +1449,7 @@ where
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
             &EvmConfig,
-            HeaderOverrides<ChainSpecT::Hardfork>,
+            HeaderOverrides<ChainSpecT::ProtocolHardfork>,
             &mut EvmObserver,
         ) -> Result<
             MineBlockResultAndStateWithMetadata<
@@ -1459,7 +1459,7 @@ where
             >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
-        mut options: HeaderOverrides<ChainSpecT::Hardfork>,
+        mut options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     ) -> Result<
         MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -1516,7 +1516,7 @@ where
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
             &EvmConfig,
-            HeaderOverrides<ChainSpecT::Hardfork>,
+            HeaderOverrides<ChainSpecT::ProtocolHardfork>,
             &mut EvmObserver,
         ) -> Result<
             MineBlockResultAndStateWithMetadata<
@@ -1526,7 +1526,7 @@ where
             >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
-        mut options: HeaderOverrides<ChainSpecT::Hardfork>,
+        mut options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     ) -> Result<
         MineBlockResultAndStateWithMetadata<
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
@@ -1733,7 +1733,7 @@ where
     }
 
     /// Returns the local hardfork.
-    pub fn hardfork(&self) -> ChainSpecT::Hardfork {
+    pub fn hardfork(&self) -> ChainSpecT::ProtocolHardfork {
         self.blockchain.hardfork()
     }
 
@@ -2143,7 +2143,7 @@ where
     /// mempool, and commits it to the blockchain.
     pub fn mine_and_commit_block(
         &mut self,
-        options: HeaderOverrides<ChainSpecT::Hardfork>,
+        options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     ) -> Result<
         MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2448,7 +2448,7 @@ where
     fn mine_block_with_mem_pool(
         &mut self,
         evm_config: &EvmConfig,
-        options: HeaderOverrides<ChainSpecT::Hardfork>,
+        options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         evm_observer: &mut EvmObserver,
     ) -> Result<
         MineBlockResultAndStateWithMetadata<
@@ -2482,7 +2482,7 @@ where
     fn mine_block_with_single_transaction(
         &mut self,
         evm_config: &EvmConfig,
-        options: HeaderOverrides<ChainSpecT::Hardfork>,
+        options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         transaction: ChainSpecT::SignedTransaction,
         evm_observer: &mut EvmObserver,
     ) -> Result<
@@ -2800,7 +2800,7 @@ impl StateId {
 
 struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
-    block_config: BlockConfig<ChainSpecT::Hardfork>,
+    block_config: BlockConfig<ChainSpecT::ProtocolHardfork>,
     fork_metadata: Option<ForkMetadata>,
     rpc_client: Option<Arc<EthRpcClientForChainSpec<ChainSpecT>>>,
     state: Box<dyn DynState>,
@@ -2815,9 +2815,9 @@ fn create_forked_blockchain_and_state<
     TimerT: Clone + TimeSinceEpoch,
 >(
     runtime: runtime::Handle,
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
+    config: &ProviderConfig<ChainSpecT::ProtocolHardfork>,
     timer: &TimerT,
-    fork_config: &ForkConfig<ChainSpecT::Hardfork>,
+    fork_config: &ForkConfig<ChainSpecT::ProtocolHardfork>,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
@@ -2878,8 +2878,8 @@ fn create_forked_blockchain_and_state<
         scheduled_blob_params,
     };
 
-    let (blockchain, mut irregular_state) =
-        tokio::task::block_in_place(|| -> Result<_, ForkedCreationError<ChainSpecT::Hardfork>> {
+    let (blockchain, mut irregular_state) = tokio::task::block_in_place(
+        || -> Result<_, ForkedCreationError<ChainSpecT::ProtocolHardfork>> {
             let mut irregular_state = IrregularState::default();
             let blockchain = runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
                 block_config.hardfork,
@@ -2893,7 +2893,8 @@ fn create_forked_blockchain_and_state<
             ))?;
 
             Ok((blockchain, irregular_state))
-        })?;
+        },
+    )?;
 
     let fork_block_number = blockchain.last_block_number();
 
@@ -3033,7 +3034,7 @@ fn create_local_blockchain_and_state<
     ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
+    config: &ProviderConfig<ChainSpecT::ProtocolHardfork>,
     timer: &TimerT,
     local_config: &LocalConfig,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
@@ -3166,7 +3167,7 @@ fn create_blockchain_and_state<
     TimerT: Clone + TimeSinceEpoch,
 >(
     runtime: runtime::Handle,
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
+    config: &ProviderConfig<ChainSpecT::ProtocolHardfork>,
     timer: &TimerT,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     match &config.network {
