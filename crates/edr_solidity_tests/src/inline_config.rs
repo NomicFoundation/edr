@@ -26,7 +26,6 @@
 //!   - natspec    scan the NatSpec comment blocks above each definition
 //!   - directives parse a block's lines into a config
 //!   - overrides  compose the above into a source's per-contract overrides
-//!   - provider   cache the overrides and serve them
 //! ```
 //!
 //! The test runner drives extraction through
@@ -36,23 +35,15 @@
 //! compilation unit.
 
 mod directives;
-mod error;
+pub mod error;
 mod natspec;
 mod overrides;
 mod parse;
-mod provider;
 
 pub use edr_solidity_parser_slang::ImportResolver;
 
+pub use self::overrides::{ContractInlineConfig, FunctionOverride};
 pub(crate) use self::{
     directives::is_test_function,
-    overrides::{collect_source_from_unit, SourceOverrides},
-};
-pub use self::{
-    error::{
-        InlineConfigCollectError, InlineConfigError, InlineConfigErrorItem, InlineConfigErrors,
-        InlineConfigProblem,
-    },
-    overrides::{ContractInlineConfig, FunctionOverride},
-    provider::{CachedInlineConfigProvider, InlineConfigRoot, SharedInlineConfigProvider},
+    overrides::{collect_source_overrides_from_unit, SourceOverrides},
 };
