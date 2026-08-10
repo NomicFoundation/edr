@@ -11,18 +11,18 @@ use std::{
     sync::Arc,
 };
 
-use semver::Version;
-
-use edr_solidity_parser_slang::ImportResolver;
 use slang_solidity_v2::compilation::CompilationUnit;
 
 use super::{
     directives::{self, LocatedDirectiveError},
-    error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
+    error::InlineConfigCollectError,
     natspec,
-    parse::{locate_functions, locate_functions_in_unit, LocatedFunction},
+    parse::{locate_functions_in_unit, LocatedFunction},
 };
-use crate::config::TestFunctionConfigOverride;
+use crate::{
+    config::TestFunctionConfigOverride,
+    inline_config::error::{InlineConfigDirectiveError, InlineConfigErrorItem},
+};
 
 /// The inline configuration parsed for a single test function.
 #[derive(Clone, Debug)]
@@ -39,53 +39,6 @@ pub struct FunctionOverride {
 /// absent (its problems live in [`SourceCollection::errors`]).
 pub(crate) type SourceOverrides = HashMap<String, Vec<FunctionOverride>>;
 
-/// The outcome of collecting one source's inline configuration: the overrides
-/// that parsed successfully, plus every problem found (at most one per test
-/// function). Problems are accumulated rather than short-circuited so the run
-/// can report them all together and abort up front.
-pub(crate) struct SourceCollection {
-    /// The successfully-parsed overrides, keyed by contract name.
-    pub(crate) overrides: SourceOverrides,
-    /// The problems found, in source order, each with its location.
-    pub(crate) errors: Vec<InlineConfigErrorItem>,
-}
-
-/// Parses the file at `root_path` (its `content`, compiled with `version`) into
-/// the inline configuration of every contract it declares. Its imports are
-/// resolved by `import_resolver` and read from disk. `source` names the file
-/// in error reports (the solc source name the caller queries by).
-///
-/// A failure to locate the source's functions (an unsupported solc version)
-/// becomes the collection's single (source-level) error; otherwise every
-/// contract is parsed and its per-function problems accumulated.
-pub(super) fn collect_source(
-    source: &Path,
-    root_path: &Path,
-    content: Arc<str>,
-    version: Version,
-    import_resolver: &ImportResolver,
-) -> SourceCollection {
-    let functions = match locate_functions(root_path, version, import_resolver) {
-        Ok(functions) => functions,
-        Err(error) => {
-            return SourceCollection {
-                overrides: SourceOverrides::new(),
-                errors: vec![InlineConfigErrorItem {
-                    source: source.to_path_buf(),
-                    problem: InlineConfigProblem::Source(error),
-                }],
-            };
-        }
-    };
-    source_overrides(
-        source,
-        &SourceAst {
-            source: content,
-            functions,
-        },
-    )
-}
-
 /// Like [`collect_source`], but extracts from an already-built compilation
 /// unit instead of reading and parsing the source itself. `file_id` is the id
 /// the root file was added to the unit under (its on-disk path).
@@ -94,12 +47,12 @@ pub(super) fn collect_source(
 /// ([`crate::test_sources::collect_test_sources`]), which parses each source
 /// once and extracts both its inline configuration and its EIP-712 struct
 /// definitions from the same unit.
-pub(crate) fn collect_source_from_unit(
+pub(crate) fn collect_source_overrides_from_unit(
     source: &Path,
     content: Arc<str>,
     unit: &CompilationUnit,
     file_id: &str,
-) -> SourceCollection {
+) -> Result<SourceOverrides, Vec<InlineConfigErrorItem>> {
     let functions = locate_functions_in_unit(unit, file_id);
     source_overrides(
         source,
@@ -123,7 +76,10 @@ struct SourceAst {
 /// [`SourceCollection::overrides`] (a query for them returns an empty vector);
 /// malformed directives are accumulated into [`SourceCollection::errors`]
 /// rather than failing the source.
-fn source_overrides(source: &Path, ast: &SourceAst) -> SourceCollection {
+fn source_overrides(
+    source: &Path,
+    ast: &SourceAst,
+) -> Result<SourceOverrides, Vec<InlineConfigErrorItem>> {
     let mut overrides = SourceOverrides::new();
     let mut errors = Vec::new();
     let mut seen = HashSet::new();
@@ -139,7 +95,11 @@ fn source_overrides(source: &Path, ast: &SourceAst) -> SourceCollection {
         errors.extend(contract_errors);
     }
 
-    SourceCollection { overrides, errors }
+    if errors.is_empty() {
+        Ok(overrides)
+    } else {
+        Err(errors)
+    }
 }
 
 /// Parses the inline configuration of every test function in `contract_name`
@@ -182,22 +142,22 @@ fn contract_overrides(
                 // as a source-level problem — carrying the directive problem
                 // in its message — rather than fabricating a line number.
                 let problem = match line_of(&ast.source, offset) {
-                    Ok(line) => InlineConfigProblem::Directive {
+                    Ok(line) => InlineConfigDirectiveError {
                         contract: contract_name.to_owned(),
                         function: function.function_name.clone(),
                         line,
                         error,
-                    },
-                    Err(line_error) => {
-                        InlineConfigProblem::Source(InlineConfigCollectError::DirectiveLocation {
-                            contract: contract_name.to_owned(),
-                            function: function.function_name.clone(),
-                            reason: format!("{line_error} (while reporting: {error})"),
-                        })
                     }
+                    .into(),
+                    Err(line_error) => InlineConfigCollectError::DirectiveLocation {
+                        contract: contract_name.to_owned(),
+                        function: function.function_name.clone(),
+                        reason: format!("{line_error} (while reporting: {error})"),
+                    }
+                    .into(),
                 };
                 errors.push(InlineConfigErrorItem {
-                    source: source.to_path_buf(),
+                    source_path: source.to_path_buf(),
                     problem,
                 });
             }

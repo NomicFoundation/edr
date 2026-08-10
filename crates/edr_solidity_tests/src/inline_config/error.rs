@@ -46,7 +46,7 @@ pub enum InlineConfigCollectError {
 }
 
 /// Errors produced while parsing or validating inline configuration.
-#[derive(Clone, Debug, thiserror::Error, PartialEq)]
+#[derive(Clone, Debug, thiserror::Error, PartialEq, Eq)]
 pub enum InlineConfigError {
     /// A directive was missing the `=` separator.
     #[error("missing '=' in `{line}`")]
@@ -93,14 +93,28 @@ pub enum InlineConfigError {
     },
 }
 
+#[derive(Clone, Debug, thiserror::Error)]
+#[error(":{line}: {contract}.{function}: {error}")]
+pub struct InlineConfigDirectiveError {
+    /// The contract the offending directive belongs to.
+    pub contract: String,
+    /// The test function the offending directive belongs to.
+    pub function: String,
+    /// The 1-based line of the offending directive within the source.
+    pub line: u32,
+    /// The problem itself.
+    pub error: InlineConfigError,
+}
+
 /// A single inline-config problem together with enough location to point the
 /// user at it — modeled on the stack-trace `SourceReference` surfaced to
 /// consumers.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, thiserror::Error)]
+#[error("{source_path}: {problem}")]
 pub struct InlineConfigErrorItem {
     /// The solc source name the problem was found in (e.g.
     /// `project/test/Foo.t.sol`).
-    pub source: PathBuf,
+    pub source_path: PathBuf,
     /// The problem, together with whatever location detail applies to it.
     pub problem: InlineConfigProblem,
 }
@@ -112,39 +126,17 @@ pub struct InlineConfigErrorItem {
 /// source file, or a directive whose location could not be resolved) carries
 /// no contract/function/line — there is no directive line to point at. A
 /// directive-level problem always carries all three.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum InlineConfigProblem {
     /// A problem found while collecting the source, before its directives could
     /// be parsed. Kept structured so consumers can map it onto their own error
     /// types; render it with `to_string()` for a human.
-    Source(InlineConfigCollectError),
+    #[error(transparent)]
+    Source(#[from] InlineConfigCollectError),
     /// A problem in a specific directive. Kept structured so consumers can map
     /// it onto their own error types; render it with `to_string()` for a human.
-    Directive {
-        /// The contract the offending directive belongs to.
-        contract: String,
-        /// The test function the offending directive belongs to.
-        function: String,
-        /// The 1-based line of the offending directive within the source.
-        line: u32,
-        /// The problem itself.
-        error: InlineConfigError,
-    },
-}
-
-impl std::fmt::Display for InlineConfigErrorItem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.source.display())?;
-        match &self.problem {
-            InlineConfigProblem::Source(error) => write!(f, ": {error}"),
-            InlineConfigProblem::Directive {
-                contract,
-                function,
-                line,
-                error,
-            } => write!(f, ":{line}: {contract}.{function}: {error}"),
-        }
-    }
+    #[error(transparent)]
+    Directive(#[from] InlineConfigDirectiveError),
 }
 
 /// Every inline-config problem found while collecting the test sources.
@@ -153,22 +145,20 @@ impl std::fmt::Display for InlineConfigErrorItem {
 /// test run is aborted before any suite executes. At most one problem is
 /// reported per test function (the first one encountered while parsing it),
 /// across every source.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct InlineConfigErrors {
     items: Vec<InlineConfigErrorItem>,
 }
 
 impl InlineConfigErrors {
-    pub(crate) fn new(items: Vec<InlineConfigErrorItem>) -> Self {
-        Self { items }
-    }
-
     /// The individual problems, each with its location, for structured
     /// reporting to consumers.
     pub fn items(&self) -> &[InlineConfigErrorItem] {
         &self.items
     }
 }
+
+impl std::error::Error for InlineConfigErrors {}
 
 impl std::fmt::Display for InlineConfigErrors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -182,4 +172,8 @@ impl std::fmt::Display for InlineConfigErrors {
     }
 }
 
-impl std::error::Error for InlineConfigErrors {}
+impl From<Vec<InlineConfigErrorItem>> for InlineConfigErrors {
+    fn from(items: Vec<InlineConfigErrorItem>) -> Self {
+        Self { items }
+    }
+}

@@ -44,8 +44,11 @@ use crate::{
     error::TestRunnerError,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inline_config::{
-        self, InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors,
-        InlineConfigProblem,
+        error::{
+            InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors,
+            InlineConfigProblem,
+        },
+        resolve_selector,
     },
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
@@ -89,6 +92,12 @@ pub struct SolidityTestsRunResult<HaltReasonT> {
     pub suite_results: BTreeMap<String, SuiteResult<HaltReasonT>>,
 }
 
+#[derive(Clone, Debug)]
+struct TestContractWithSource {
+    contract: TestContract,
+    source: SuiteSourceData,
+}
+
 /// A multi contract runner receives a set of contracts deployed in an EVM
 /// instance and proceeds to run all test functions in these contracts.
 #[derive_where(Clone; BlockT, HardforkT, NestedTraceDecoderT, TransactionT)]
@@ -105,8 +114,10 @@ pub struct MultiContractRunner<
 > {
     /// The project root directory.
     project_root: PathBuf,
-    /// Test contracts to deploy
-    test_contracts: TestContracts,
+    /// Test contracts to deploy incl. the data extracted from its test source
+    /// at construction: resolved inline-config overrides and EIP-712 struct
+    /// definitions.
+    test_contracts: BTreeMap<ArtifactId, TestContractWithSource>,
     /// Known contracts by artifact id
     known_contracts: Arc<ContractsByArtifact>,
     /// Libraries to deploy.
@@ -143,9 +154,6 @@ pub struct MultiContractRunner<
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running the tests.
     generate_gas_report: bool,
-    /// Per suite, the data extracted from its test source at construction:
-    /// resolved inline-config overrides and EIP-712 struct definitions.
-    suite_source_data: BTreeMap<ArtifactId, SuiteSourceData>,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
@@ -221,28 +229,26 @@ impl<
         // test function at its source line — fails here, aborting the whole
         // run before any test executes.
         let (roots, mut source_errors) = test_source_roots(&test_source_paths, &test_contracts);
-        let (collected_sources, inline_config_errors) =
+        let collected_sources =
             tokio::task::spawn_blocking(move || collect_test_sources(&roots, &import_resolver))
                 .await
-                .expect("Thread shouldn't panic");
-        source_errors.extend(inline_config_errors);
-        if !source_errors.is_empty() {
-            return Err(SolidityTestRunnerConfigError::InlineConfig(
-                InlineConfigErrors::new(source_errors),
-            ));
-        }
+                .expect("Thread shouldn't panic")
+                .map_err(|inline_config_errors| {
+                    source_errors.extend(inline_config_errors);
+
+                    InlineConfigErrors::from(source_errors)
+                })?;
 
         // Attach to each suite the data extracted from its source. Suites
         // whose source wasn't collected (no `test_source_paths` entry) get
         // empty data.
-        let suite_source_data = test_contracts
-            .iter()
-            .map(|(artifact_id, contract)| {
-                let data = collected_sources
-                    .get(&artifact_id.source)
-                    .map(|source| SuiteSourceData::new(source, artifact_id, &contract.abi))
-                    .unwrap_or_default();
-                (artifact_id.clone(), data)
+        let test_contracts = test_contracts
+            .into_iter()
+            .zip(collected_sources)
+            .map(|((artifact_id, contract), collected_source)| {
+                let source = SuiteSourceData::new(&collected_source, &artifact_id, &contract.abi);
+
+                (artifact_id, TestContractWithSource { contract, source })
             })
             .collect();
 
@@ -284,7 +290,6 @@ impl<
             on_collected_coverage_fn,
             _phantom: PhantomData,
             generate_gas_report,
-            suite_source_data,
         })
     }
 
@@ -297,7 +302,7 @@ impl<
     fn matching_contracts<'a>(
         &'a self,
         filter: &'a dyn TestFilter,
-    ) -> impl Iterator<Item = (&'a ArtifactId, &'a TestContract)> {
+    ) -> impl Iterator<Item = (&'a ArtifactId, &'a TestContractWithSource)> {
         self.test_contracts
             .iter()
             .filter(|&(id, _)| matches_contract(id, filter))
@@ -336,7 +341,7 @@ impl<
     fn run_test_suite(
         &self,
         artifact_id: &ArtifactId,
-        contract: &TestContract,
+        contract: &TestContractWithSource,
         fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
         filter: &dyn TestFilter,
         handle: &tokio::runtime::Handle,
@@ -359,17 +364,15 @@ impl<
 
         debug!("start executing all tests in contract");
 
-        // Fetch the per-test inline configuration and EIP-712 struct
-        // definitions extracted from the contract's source at construction.
-        let SuiteSourceData {
-            test_function_overrides: inline_overrides,
-            allow_internal_expect_revert,
-            eip712_types,
-        } = self
-            .suite_source_data
-            .get(artifact_id)
-            .cloned()
-            .unwrap_or_default();
+        let TestContractWithSource {
+            contract,
+            source:
+                SuiteSourceData {
+                    test_function_overrides,
+                    allow_internal_expect_revert,
+                    eip712_types,
+                },
+        } = contract;
 
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
@@ -377,8 +380,8 @@ impl<
             self.evm_opts.clone(),
             self.known_contracts.clone(),
             artifact_id.clone(),
-            allow_internal_expect_revert,
-            eip712_types,
+            allow_internal_expect_revert.clone(),
+            eip712_types.clone(),
         );
 
         let tracing_mode = match self.collect_stack_traces {
@@ -436,7 +439,7 @@ impl<
                     enable_table_tests: self.enable_table_tests,
                     fuzz_config: &self.fuzz_config,
                     invariant_config: &self.invariant_config,
-                    test_function_overrides: &inline_overrides,
+                    test_function_overrides,
                     generate_gas_report: self.generate_gas_report,
                 },
                 span,
@@ -679,7 +682,7 @@ fn test_source_roots(
             errors_by_source
                 .entry(artifact_id.source.clone())
                 .or_insert_with(|| InlineConfigErrorItem {
-                    source: artifact_id.source.clone(),
+                    source_path: artifact_id.source.clone(),
                     problem: InlineConfigProblem::Source(
                         InlineConfigCollectError::SourcePathNotProvided,
                     ),
@@ -726,8 +729,7 @@ impl SuiteSourceData {
         let mut allow_internal_expect_revert = HashSet::new();
 
         for function_override in parsed {
-            let Some(function_selector) =
-                inline_config::resolve_selector(abi, &function_override.function_name)
+            let Some(function_selector) = resolve_selector(abi, &function_override.function_name)
             else {
                 // Not part of the ABI (e.g. not externally callable), so it
                 // can't be run as a test; ignore it.
@@ -803,7 +805,7 @@ mod tests {
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].source, PathBuf::from("test/A.t.sol"));
         assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].source, PathBuf::from("test/B.t.sol"));
+        assert_eq!(errors[0].source_path, PathBuf::from("test/B.t.sol"));
         assert!(matches!(
             &errors[0].problem,
             InlineConfigProblem::Source(InlineConfigCollectError::SourcePathNotProvided)

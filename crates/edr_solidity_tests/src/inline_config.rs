@@ -27,24 +27,16 @@
 //! compilation unit.
 
 mod directives;
-mod error;
+pub mod error;
 mod natspec;
 mod overrides;
 mod parse;
-mod provider;
 
 use alloy_json_abi::JsonAbi;
 pub use edr_solidity_parser_slang::ImportResolver;
 
-pub(crate) use self::overrides::{collect_source_from_unit, SourceOverrides};
-pub use self::{
-    error::{
-        InlineConfigCollectError, InlineConfigError, InlineConfigErrorItem, InlineConfigErrors,
-        InlineConfigProblem,
-    },
-    overrides::FunctionOverride,
-    provider::{CachedInlineConfigProvider, InlineConfigRoot, SharedInlineConfigProvider},
-};
+pub use self::overrides::FunctionOverride;
+pub(crate) use self::overrides::{collect_source_overrides_from_unit, SourceOverrides};
 
 /// Resolves the 4-byte selector (as a `0x`-prefixed hex string) of the first
 /// function in `abi` named `function_name`. Returns `None` if no such function

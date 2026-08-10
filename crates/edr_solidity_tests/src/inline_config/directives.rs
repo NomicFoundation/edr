@@ -33,12 +33,6 @@ pub(super) struct LocatedDirectiveError {
     pub(super) error: InlineConfigError,
 }
 
-/// Returns `true` if `source` contains an inline-config directive prefix. Used
-/// to skip the (expensive) parse of sources that carry no directive.
-pub(super) fn contains_inline_config_directive(source: &str) -> bool {
-    source.contains(FORGE_CONFIG_PREFIX) || source.contains(HARDHAT_CONFIG_PREFIX)
-}
-
 /// Top-level inline-config key categories. A leading dot-segment that is not
 /// one of these is interpreted as a (profile) prefix.
 const TOP_LEVEL_KEYS: [&str; 5] = [

@@ -11,16 +11,10 @@
 //!
 //! [`CompilationUnit`]: slang_solidity_v2::compilation::CompilationUnit
 
-use std::path::Path;
-
-use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver};
-use semver::Version;
 use slang_solidity_v2::{
     ast::{ContractMember, SourceUnitMember},
     compilation::CompilationUnit,
 };
-
-use super::error::InlineConfigCollectError;
 
 /// A function definition located in the source, with the offset needed to
 /// recover its leading NatSpec.
@@ -34,26 +28,6 @@ pub struct LocatedFunction {
     /// keyword). The leading NatSpec is recovered by scanning backwards from
     /// here.
     pub node_start: usize,
-}
-
-/// Parses the file at `root_path` (with its imports resolved by
-/// `import_resolver` and read from disk) and returns every function definition
-/// together with the offset required to recover its leading NatSpec.
-///
-/// Builds a full compilation unit — resolving imports and running IR and
-/// semantic analysis — then reads the root file's AST. Unresolvable imports
-/// degrade gracefully: the root file's functions are still recovered.
-///
-/// Fails if `version` maps to no supported Slang grammar.
-pub fn locate_functions(
-    root_path: &Path,
-    version: Version,
-    import_resolver: &ImportResolver,
-) -> Result<Vec<LocatedFunction>, InlineConfigCollectError> {
-    let unit = build_compilation_unit(root_path, version, import_resolver)?;
-    let file_id = root_path.to_string_lossy().into_owned();
-
-    Ok(locate_functions_in_unit(&unit, &file_id))
 }
 
 /// Walks the already-built `unit`'s file `file_id` (the id the root was added
@@ -95,9 +69,34 @@ pub(crate) fn locate_functions_in_unit(
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write as _;
+    use std::{io::Write as _, path::Path};
+
+    use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver};
+    use semver::Version;
 
     use super::*;
+    use crate::inline_config::error::InlineConfigCollectError;
+
+    /// Parses the file at `root_path` (with its imports resolved by
+    /// `import_resolver` and read from disk) and returns every function
+    /// definition together with the offset required to recover its leading
+    /// NatSpec.
+    ///
+    /// Builds a full compilation unit — resolving imports and running IR and
+    /// semantic analysis — then reads the root file's AST. Unresolvable imports
+    /// degrade gracefully: the root file's functions are still recovered.
+    ///
+    /// Fails if `version` maps to no supported Slang grammar.
+    pub fn locate_functions(
+        root_path: &Path,
+        version: Version,
+        import_resolver: &ImportResolver,
+    ) -> Result<Vec<LocatedFunction>, InlineConfigCollectError> {
+        let unit = build_compilation_unit(root_path, version, import_resolver)?;
+        let file_id = root_path.to_string_lossy().into_owned();
+
+        Ok(locate_functions_in_unit(&unit, &file_id))
+    }
 
     #[test]
     fn locates_functions_with_offsets() {
