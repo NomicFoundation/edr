@@ -16,6 +16,7 @@ mod estimate_gas;
 mod eth_get_proof;
 mod eth_max_priority_fee_per_gas;
 mod eth_request_serialization;
+mod fork_blob_schedule;
 mod hardhat_request_serialization;
 mod issues;
 mod rip7212;
