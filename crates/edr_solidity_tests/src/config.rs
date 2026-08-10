@@ -12,7 +12,7 @@ use foundry_evm::{
 
 use crate::{
     fork::CreateFork,
-    inline_config::{ImportResolver, InlineConfigErrors},
+    inline_config::{error::InlineConfigErrors, ImportResolver},
     opts::{effective_transaction_gas_cap, Env as EvmEnv, EvmOpts},
 };
 
@@ -30,7 +30,7 @@ pub enum SolidityTestRunnerConfigError {
     /// One or more test sources carry invalid inline configuration. Carries
     /// every problem found, each located at its source line.
     #[error("Found invalid inline configuration in test sources:\n{0}")]
-    InlineConfig(InlineConfigErrors),
+    InlineConfig(#[from] InlineConfigErrors),
 }
 
 /// Solidity tests configuration
