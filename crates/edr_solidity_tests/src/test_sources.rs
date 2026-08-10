@@ -18,7 +18,8 @@ use semver::Version;
 use slang_solidity_v2::diagnostics::{DiagnosticExtensions as _, DiagnosticKind};
 
 use crate::inline_config::{
-    collect_source_from_unit, InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem,
+    collect_source_overrides_from_unit,
+    error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
     SourceOverrides,
 };
 
@@ -36,45 +37,52 @@ pub(crate) struct TestSourceRoot {
 }
 
 /// Everything collected from one test source's single parse.
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct CollectedTestSource {
-    /// The successfully-parsed inline configuration, keyed by contract name.
-    pub overrides: SourceOverrides,
     /// The EIP-712 struct definitions reachable from the source.
     pub eip712_types: Eip712TypeCollection,
+    /// The successfully-parsed inline configuration, keyed by contract name.
+    pub overrides: SourceOverrides,
 }
 
 /// Reads and parses every root in parallel, extracting both collections from
-/// each root's single compilation unit.
+/// each root's single compilation unit, keyed by the root's source name.
 ///
-/// Problems (an unreadable root file, an unsupported solc version, or a
-/// malformed directive) are accumulated — in root order, each located at its
-/// source — rather than short-circuited, so every problem across every source
-/// is reported together; callers abort the run if any were found. A root that
-/// failed to read or parse contributes empty collections.
+/// The roots are parsed in parallel on rayon's global pool. Collection runs
+/// synchronously and completes before any test suite is dispatched, so it
+/// never contends with suite execution.
+///
+/// All errors are accumulated and reported together rather than
+/// short-circuited, so every problem across every source surfaces in one
+/// report.
 pub(crate) fn collect_test_sources(
     roots: &[TestSourceRoot],
     import_resolver: &ImportResolver,
-) -> (
-    HashMap<PathBuf, CollectedTestSource>,
-    Vec<InlineConfigErrorItem>,
-) {
-    // The roots are parsed in parallel on rayon's global pool. Collection runs
-    // synchronously and completes before any test suite is dispatched, so it
-    // never contends with suite execution.
-    let collected: Vec<_> = roots
+) -> Result<HashMap<PathBuf, CollectedTestSource>, Vec<InlineConfigErrorItem>> {
+    let results: Vec<_> = roots
         .par_iter()
-        .map(|root| collect_root(root, import_resolver))
+        .map(|root| (root.source.clone(), collect_root(root, import_resolver)))
         .collect();
 
-    let mut by_source = HashMap::with_capacity(collected.len());
-    let mut errors = Vec::new();
-    for (source, collected_source, source_errors) in collected {
-        errors.extend(source_errors);
-        by_source.insert(source, collected_source);
-    }
+    let (collected, errors) = results.into_iter().fold(
+        (HashMap::new(), Vec::new()),
+        |(mut collected, mut errors), (source, result)| {
+            match result {
+                Ok(collected_source) => {
+                    collected.insert(source, collected_source);
+                }
+                Err(source_errors) => errors.extend(source_errors),
+            }
 
-    (by_source, errors)
+            (collected, errors)
+        },
+    );
+
+    if errors.is_empty() {
+        Ok(collected)
+    } else {
+        Err(errors)
+    }
 }
 
 /// Collects one root: read the file, build its compilation unit, and run both
@@ -86,16 +94,12 @@ pub(crate) fn collect_test_sources(
 fn collect_root(
     root: &TestSourceRoot,
     import_resolver: &ImportResolver,
-) -> (PathBuf, CollectedTestSource, Vec<InlineConfigErrorItem>) {
+) -> Result<CollectedTestSource, Vec<InlineConfigErrorItem>> {
     let source_error = |error: InlineConfigCollectError| {
-        (
-            root.source.clone(),
-            CollectedTestSource::default(),
-            vec![InlineConfigErrorItem {
-                source: root.source.clone(),
-                problem: InlineConfigProblem::Source(error),
-            }],
-        )
+        Err(vec![InlineConfigErrorItem {
+            source_path: root.source.clone(),
+            problem: InlineConfigProblem::Source(error),
+        }])
     };
 
     // Read the content up front: the NatSpec directives are recovered from the
@@ -133,32 +137,25 @@ fn collect_root(
         .map(|diagnostic| {
             let line = line_of(&content, diagnostic.text_range().start);
             InlineConfigErrorItem {
-                source: root.source.clone(),
+                source_path: root.source.clone(),
                 problem: InlineConfigProblem::Source(InlineConfigCollectError::ParseError {
                     reason: format!("{} (line {line})", diagnostic.message()),
                 }),
             }
         })
         .collect();
+
     if !parse_errors.is_empty() {
-        return (
-            root.source.clone(),
-            CollectedTestSource::default(),
-            parse_errors,
-        );
+        return Err(parse_errors);
     }
 
-    let collection = collect_source_from_unit(&root.source, &content, &unit, &file_id);
+    let overrides = collect_source_overrides_from_unit(&root.source, &content, &unit, &file_id)?;
     let eip712_types = collect_eip712_types_from_compilation_unit(&unit);
 
-    (
-        root.source.clone(),
-        CollectedTestSource {
-            overrides: collection.overrides,
-            eip712_types,
-        },
-        collection.errors,
-    )
+    Ok(CollectedTestSource {
+        eip712_types,
+        overrides,
+    })
 }
 
 /// The 1-based line of byte offset `offset` within `content`.
@@ -207,10 +204,8 @@ contract C {
         );
         let root = root_for(&file, "project/C.t.sol", Version::new(0, 8, 24));
 
-        let (by_source, errors) = collect_test_sources(&[root], &ImportResolver::default());
-
-        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
-        let collected = &by_source[&PathBuf::from("project/C.t.sol")];
+        let collected = collect_root(&root, &ImportResolver::default())
+            .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"));
 
         let overrides = collected.overrides.get("C").expect("C has overrides");
         assert_eq!(overrides.functions.len(), 1);
@@ -239,12 +234,11 @@ contract C {
         );
         let root = root_for(&file, "project/C.t.sol", Version::new(0, 8, 24));
 
-        let (by_source, errors) = collect_test_sources(&[root], &ImportResolver::default());
+        let collected = collect_root(&root, &ImportResolver::default())
+            .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"));
 
-        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
-        let collected = &by_source[&PathBuf::from("project/C.t.sol")];
         assert!(collected.overrides.is_empty());
-        assert!(collected.eip712_types.get("Person").is_err());
+        assert!(collected.eip712_types.is_empty());
     }
 
     #[test]
@@ -252,16 +246,15 @@ contract C {
         let file = temp_source("contract C {}");
         let root = root_for(&file, "project/C.t.sol", Version::new(0, 7, 6));
 
-        let (by_source, errors) = collect_test_sources(&[root], &ImportResolver::default());
+        let errors = collect_root(&root, &ImportResolver::default()).expect_err("expected errors");
 
         assert_eq!(errors.len(), 1);
+        let error = errors.first().expect("should contain an error");
+
         assert!(matches!(
-            &errors[0].problem,
+            &error.problem,
             InlineConfigProblem::Source(InlineConfigCollectError::InvalidSolcVersion(_))
         ));
-        // The source still gets (empty) collections.
-        let collected = &by_source[&PathBuf::from("project/C.t.sol")];
-        assert!(collected.overrides.is_empty());
     }
 
     #[test]
@@ -279,18 +272,14 @@ contract C {
         );
         let root = root_for(&file, "project/C.t.sol", Version::new(0, 8, 24));
 
-        let (by_source, errors) = collect_test_sources(&[root], &ImportResolver::default());
+        let errors =
+            collect_test_sources(&[root], &ImportResolver::default()).expect_err("expected errors");
 
         assert!(!errors.is_empty(), "expected parse errors");
         assert!(errors.iter().all(|item| matches!(
             &item.problem,
             InlineConfigProblem::Source(InlineConfigCollectError::ParseError { .. })
         )));
-        // Nothing is collected from a source that doesn't fully parse: a
-        // partial AST could silently miss structs and directives.
-        let collected = &by_source[&PathBuf::from("project/C.t.sol")];
-        assert!(collected.overrides.is_empty());
-        assert!(collected.eip712_types.get("Person").is_err());
     }
 
     #[test]
@@ -301,11 +290,14 @@ contract C {
             version: Version::new(0, 8, 24),
         };
 
-        let (_, errors) = collect_test_sources(&[root], &ImportResolver::default());
+        let errors =
+            collect_test_sources(&[root], &ImportResolver::default()).expect_err("expected errors");
 
         assert_eq!(errors.len(), 1);
+
+        let error = errors.first().expect("should contain an error");
         assert!(matches!(
-            &errors[0].problem,
+            &error.problem,
             InlineConfigProblem::Source(InlineConfigCollectError::RootFileNotFound { .. })
         ));
     }

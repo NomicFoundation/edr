@@ -7,18 +7,17 @@
 
 use std::{collections::HashMap, path::Path};
 
-use semver::Version;
-
-use edr_solidity_parser_slang::ImportResolver;
 use slang_solidity_v2::compilation::CompilationUnit;
 
 use super::{
     directives::{self, DirectiveTarget, LocatedDirectiveError},
-    error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
+    error::{
+        InlineConfigCollectError, InlineConfigDirectiveError, InlineConfigErrorItem,
+        InlineConfigProblem,
+    },
     natspec,
-    parse::{locate_contracts, locate_contracts_in_unit, LocatedContract, LocatedFunction},
+    parse::{locate_contracts_in_unit, LocatedContract, LocatedFunction},
 };
-use crate::config::TestFunctionConfigOverride;
 
 /// The inline configuration parsed for a single test function.
 #[derive(Clone, Debug)]
@@ -51,79 +50,39 @@ impl ContractInlineConfig {
 /// The successfully-parsed inline configuration of every contract in one source
 /// that declares any, keyed by contract name. A contract with no directives is
 /// simply absent; a contract whose directives were all malformed is likewise
-/// absent (its problems live in [`SourceCollection::errors`]).
+/// absent — the whole collection fails with those problems instead.
 pub(crate) type SourceOverrides = HashMap<String, ContractInlineConfig>;
 
-/// The outcome of collecting one source's inline configuration: the overrides
-/// that parsed successfully, plus every problem found (at most one per test
-/// function, plus at most one per contract's own directives). Problems are
-/// accumulated rather than short-circuited so the run can report them all
-/// together and abort up front.
-pub(crate) struct SourceCollection {
-    /// The successfully-parsed overrides, keyed by contract name.
-    pub(crate) overrides: SourceOverrides,
-    /// The problems found, in source order, each with its location.
-    pub(crate) errors: Vec<InlineConfigErrorItem>,
-}
-
-/// Parses the file at `root_path` (its `content`, compiled with `version`) into
-/// the inline configuration of every contract it declares. Its imports are
-/// resolved by `import_resolver` and read from disk. `source` names the file
-/// in error reports (the solc source name the caller queries by).
+/// Extracts the inline configuration of every contract in the already-built
+/// `unit`'s file `file_id` (the id the root file was added under). `content`
+/// is that file's text, which the NatSpec is recovered from; `source` names
+/// the file in error reports (the solc source name the caller queries by).
 ///
-/// A failure to locate the source's contracts (an unsupported solc version)
-/// becomes the collection's single (source-level) error; otherwise every
-/// contract is parsed and its per-function problems accumulated.
-pub(super) fn collect_source(
-    source: &Path,
-    root_path: &Path,
-    content: &str,
-    version: Version,
-    import_resolver: &ImportResolver,
-) -> SourceCollection {
-    let contracts = match locate_contracts(root_path, version, import_resolver) {
-        Ok(contracts) => contracts,
-        Err(error) => {
-            return SourceCollection {
-                overrides: SourceOverrides::new(),
-                errors: vec![InlineConfigErrorItem {
-                    source: source.to_path_buf(),
-                    problem: InlineConfigProblem::Source(error),
-                }],
-            };
-        }
-    };
-
-    source_overrides(source, content, &contracts)
-}
-
-/// Like [`collect_source`], but extracts from an already-built compilation
-/// unit instead of reading and parsing the source itself. `file_id` is the id
-/// the root file was added to the unit under (its on-disk path).
+/// Every problem found is accumulated — at most one per test function, plus at
+/// most one per contract's own directives — rather than short-circuited, so the
+/// run can report them all together and abort up front.
 ///
 /// Used by the combined test-source collection
 /// ([`crate::test_sources::collect_test_sources`]), which parses each source
 /// once and extracts both its inline configuration and its EIP-712 struct
 /// definitions from the same unit.
-pub(crate) fn collect_source_from_unit(
+pub(crate) fn collect_source_overrides_from_unit(
     source: &Path,
     content: &str,
     unit: &CompilationUnit,
     file_id: &str,
-) -> SourceCollection {
+) -> Result<SourceOverrides, Vec<InlineConfigErrorItem>> {
     source_overrides(source, content, &locate_contracts_in_unit(unit, file_id))
 }
 
 /// Parses the inline configuration of every contract in `contracts` that
-/// declares a directive. Contracts with no directives are omitted from
-/// [`SourceCollection::overrides`] (a query for them returns an empty
-/// configuration); malformed directives are accumulated into
-/// [`SourceCollection::errors`] rather than failing the source.
+/// declares a directive. Contracts with no directives are omitted from the
+/// result (a query for them returns an empty configuration).
 fn source_overrides(
     source: &Path,
     content: &str,
     contracts: &[LocatedContract],
-) -> SourceCollection {
+) -> Result<SourceOverrides, Vec<InlineConfigErrorItem>> {
     let mut overrides = SourceOverrides::new();
     let mut errors = Vec::new();
     for located in contracts {
@@ -134,7 +93,11 @@ fn source_overrides(
         errors.extend(contract_errors);
     }
 
-    SourceCollection { overrides, errors }
+    if errors.is_empty() {
+        Ok(overrides)
+    } else {
+        Err(errors)
+    }
 }
 
 /// Parses the inline configuration of `contract` — the contract-level
@@ -223,22 +186,22 @@ fn located_problem(
     LocatedDirectiveError { offset, error }: LocatedDirectiveError,
 ) -> InlineConfigErrorItem {
     let problem = match line_of(source_text, offset) {
-        Ok(line) => InlineConfigProblem::Directive {
+        Ok(line) => InlineConfigDirectiveError {
             contract: contract.contract_name.clone(),
             function: function.map(str::to_owned),
             line,
             error,
-        },
-        Err(line_error) => {
-            InlineConfigProblem::Source(InlineConfigCollectError::DirectiveLocation {
-                contract: contract.contract_name.clone(),
-                function: function.map(str::to_owned),
-                reason: format!("{line_error} (while reporting: {error})"),
-            })
         }
+        .into(),
+        Err(line_error) => InlineConfigCollectError::DirectiveLocation {
+            contract: contract.contract_name.clone(),
+            function: function.map(str::to_owned),
+            reason: format!("{line_error} (while reporting: {error})"),
+        }
+        .into(),
     };
     InlineConfigErrorItem {
-        source: source.to_path_buf(),
+        source_path: source.to_path_buf(),
         problem,
     }
 }

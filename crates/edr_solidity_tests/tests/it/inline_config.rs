@@ -3,7 +3,9 @@
 use std::io::Write as _;
 
 use edr_solidity_tests::{
-    inline_config::InlineConfigProblem, result::TestKind, SolidityTestRunnerConfigError,
+    inline_config::error::{InlineConfigDirectiveError, InlineConfigProblem},
+    result::TestKind,
+    SolidityTestRunnerConfigError,
 };
 
 use crate::helpers::{SolidityTestFilter, TEST_DATA_DEFAULT};
@@ -70,12 +72,15 @@ async fn malformed_inline_config_aborts_whole_run() {
         .find(|item| {
             matches!(
                 &item.problem,
-                InlineConfigProblem::Directive { function, .. } if function.as_deref() == Some("testFuzzBad")
+                InlineConfigProblem::Directive(InlineConfigDirectiveError { function, .. })
+                    if function.as_deref() == Some("testFuzzBad")
             )
         })
         .expect("testFuzzBad reported");
-    assert_eq!(fuzz.source, source);
-    let InlineConfigProblem::Directive { contract, line, .. } = &fuzz.problem else {
+    assert_eq!(fuzz.source_path, source);
+    let InlineConfigProblem::Directive(InlineConfigDirectiveError { contract, line, .. }) =
+        &fuzz.problem
+    else {
         unreachable!("filtered to a testFuzzBad directive above");
     };
     assert_eq!(contract, "BadInlineConfig");
@@ -86,11 +91,13 @@ async fn malformed_inline_config_aborts_whole_run() {
         .find(|item| {
             matches!(
                 &item.problem,
-                InlineConfigProblem::Directive { function, .. } if function.as_deref() == Some("testOtherBad")
+                InlineConfigProblem::Directive(InlineConfigDirectiveError { function, .. })
+                    if function.as_deref() == Some("testOtherBad")
             )
         })
         .expect("testOtherBad reported");
-    let InlineConfigProblem::Directive { line, .. } = &other.problem else {
+    let InlineConfigProblem::Directive(InlineConfigDirectiveError { line, .. }) = &other.problem
+    else {
         unreachable!("filtered to a testOtherBad directive above");
     };
     assert_eq!(*line, 8);
