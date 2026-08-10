@@ -137,6 +137,10 @@ impl Eip712TypeCollection {
             })
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.rejected.is_empty() && self.types.is_empty()
+    }
 }
 
 /// Errors that prevent collection from running at all (as opposed to per-type
