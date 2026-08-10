@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 pub use edr_blockchain_api::Blockchain;
 use edr_chain_spec::{
-    BlockEnvChainSpec, ChainSpec, EvmSpecId, HaltReasonTrait, HardforkChainSpec,
+    BlockEnvChainSpec, ChainSpec, EvmSpecId, HaltReasonTrait, ProtocolHardforkChainSpec,
     TransactionValidation,
 };
 use edr_chain_spec_evm::{config::EvmConfig, ContextForChainSpec, EvmChainSpec};
@@ -19,7 +19,10 @@ pub use revm_precompile::PrecompileFn;
 
 /// Helper type for a chain-specific [`BlockBuilderCreationError`].
 pub type BlockBuilderCreationErrorForChainSpec<ChainSpecT, DatabaseErrorT> =
-    BlockBuilderCreationError<DatabaseErrorT, <ChainSpecT as HardforkChainSpec>::Hardfork>;
+    BlockBuilderCreationError<
+        DatabaseErrorT,
+        <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
+    >;
 
 /// An error caused during construction of a block builder.
 #[derive(Debug, thiserror::Error)]
@@ -146,15 +149,15 @@ pub trait BlockBuilder<
             BlockReceiptT,
             BlockT,
             Self::BlockchainError,
-            ChainSpecT::Hardfork,
+            ChainSpecT::ProtocolHardfork,
             Self::LocalBlock,
             ChainSpecT::SignedTransaction,
         >,
-        block_config: &'builder BlockConfig<ChainSpecT::Hardfork>,
+        block_config: &'builder BlockConfig<ChainSpecT::ProtocolHardfork>,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,
-        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
@@ -205,7 +208,7 @@ pub trait BlockBuilder<
                             BlockReceiptT,
                             BlockT,
                             Self::BlockchainError,
-                            ChainSpecT::Hardfork,
+                            ChainSpecT::ProtocolHardfork,
                             Self::LocalBlock,
                             ChainSpecT::SignedTransaction,
                         >,

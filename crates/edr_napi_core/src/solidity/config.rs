@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
-use edr_chain_spec::HardforkChainSpec;
+use edr_chain_spec::{EvmHardforkChainSpec, ProtocolHardforkChainSpec};
 use edr_primitives::{Address, UnknownHardfork, U256};
 use edr_solidity::config::IncludeTraces;
 use edr_solidity_tests::{
@@ -221,8 +221,8 @@ impl TestRunnerConfig {
         self,
     ) -> napi::Result<SolidityTestRunnerConfig<ChainSpecT::EvmHardfork>>
     where
-        ChainSpecT:
-            HardforkChainSpec<Hardfork: FromStr<Err = UnknownHardfork>, EvmHardfork: HardforkTr>,
+        ChainSpecT: EvmHardforkChainSpec<EvmHardfork: HardforkTr>
+            + ProtocolHardforkChainSpec<ProtocolHardfork: FromStr<Err = UnknownHardfork>>,
     {
         let TestRunnerConfig {
             project_root,
@@ -261,7 +261,7 @@ impl TestRunnerConfig {
 
         let mut evm_opts = SolidityTestRunnerConfig::default_evm_opts();
 
-        evm_opts.spec = parse_hardfork::<ChainSpecT::Hardfork>(hardfork)?.into();
+        evm_opts.spec = parse_hardfork::<ChainSpecT::ProtocolHardfork>(hardfork)?.into();
 
         if let Some(disable_block_gas_limit) = disable_block_gas_limit {
             evm_opts.disable_block_gas_limit = disable_block_gas_limit;

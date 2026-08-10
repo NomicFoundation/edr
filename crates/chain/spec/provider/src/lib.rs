@@ -17,16 +17,16 @@ use edr_transaction::{TransactionAndBlock, TransactionType};
 /// provider.
 pub trait ProviderChainSpec: BlockChainSpec<
         Block: 'static,
-        Hardfork: 'static + Debug,
+        ProtocolHardfork: 'static + Debug,
         LocalBlock: 'static
                         + FetchBlockReceipts<Arc<<Self as ReceiptChainSpec>::Receipt>, Error: Debug>,
         Receipt: 'static + TryFrom<<Self as RpcChainSpec>::RpcReceipt, Error: Send + Sync>,
         RpcBlock<B256>: RpcEthBlock,
-        RpcReceipt: RpcTypeFrom<Self::Receipt, Hardfork = Self::Hardfork>,
+        RpcReceipt: RpcTypeFrom<Self::Receipt, Hardfork = Self::ProtocolHardfork>,
         RpcTransaction: RpcTransaction
                             + RpcTypeFrom<
             TransactionAndBlock<Arc<Self::Block>, Self::SignedTransaction>,
-            Hardfork = Self::Hardfork,
+            Hardfork = Self::ProtocolHardfork,
         >,
         SignedTransaction: 'static
                                + Clone
@@ -45,10 +45,10 @@ pub trait ProviderChainSpec: BlockChainSpec<
     const MIN_ETHASH_DIFFICULTY: u64;
 
     /// Returns the chain configurations for this chain type.
-    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>>;
+    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>>;
 
     /// Returns the default base fee params to fallback to for the given spec
-    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork>;
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork>;
 
     /// Returns the default scheduled blob params to fallback to for the given
     /// spec
@@ -57,8 +57,8 @@ pub trait ProviderChainSpec: BlockChainSpec<
     /// Returns the `base_fee_per_gas` for the next block.
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        hardfork: Self::Hardfork,
-        default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        hardfork: Self::ProtocolHardfork,
+        default_base_fee_params: &BaseFeeParams<Self::ProtocolHardfork>,
     ) -> u128;
 }
 

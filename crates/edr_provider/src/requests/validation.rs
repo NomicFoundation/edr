@@ -183,7 +183,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 }
 
 fn validate_transaction_spec<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
-    hardfork: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::ProtocolHardfork,
     value: &impl HardforkValidationData,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     let spec_id = hardfork.to_evm_spec_id();
@@ -276,7 +276,7 @@ fn validate_transaction_spec<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + T
 
 /// Validates a `L1CallRequest` and `BlockSpec` against the provided hardfork.
 pub fn validate_call_request<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
-    hardfork: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::ProtocolHardfork,
     call_request: &L1CallRequest,
     block_spec: &BlockSpec,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
@@ -305,7 +305,7 @@ pub(crate) fn validate_transaction_and_call_request<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    hardfork: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::ProtocolHardfork,
     validation_data: &impl HardforkValidationData,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     validate_transaction_spec::<ChainSpecT, TimerT>(hardfork, validation_data).map_err(|err| {
@@ -328,7 +328,7 @@ pub(crate) fn validate_eip3860_max_initcode_size<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    hardfork: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::ProtocolHardfork,
     allow_unlimited_contract_code_size: bool,
     to: Option<&Address>,
     data: &Bytes,
@@ -386,7 +386,7 @@ pub(crate) fn validate_post_merge_block_tags<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    hardfork: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::ProtocolHardfork,
     block_spec: impl Into<ValidationBlockSpec<'a>>,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec: ValidationBlockSpec<'a> = block_spec.into();

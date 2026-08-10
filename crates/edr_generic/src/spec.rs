@@ -13,8 +13,8 @@ use edr_chain_l1::{
 };
 use edr_chain_spec::{
     BlobExcessGasAndPrice, BlockEnvChainSpec, BlockEnvConstructor, BlockEnvForHardfork,
-    BlockEnvTrait, ChainSpec, ContextChainSpec, EvmSpecId, HardforkChainSpec,
-    ProtocolHardfork as _, TransactionValidation,
+    BlockEnvTrait, ChainSpec, ContextChainSpec, EvmHardforkChainSpec, EvmSpecId,
+    ProtocolHardfork as _, ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
@@ -153,7 +153,7 @@ impl BlockEnvChainSpec for GenericChainSpec {
     type BlockEnv<'header, BlockHeaderT>
         = HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
     where
-        BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
+        BlockHeaderT: 'header + BlockEnvForHardfork<Self::ProtocolHardfork>;
 }
 
 impl ChainSpec for GenericChainSpec {
@@ -170,7 +170,7 @@ impl EvmChainSpec for GenericChainSpec {
         <L1ChainSpec as EvmChainSpec>::PrecompileProvider<BlockT, DatabaseT>;
 
     fn new_precompile_provider<BlockT: BlockEnvTrait, DatabaseT: Database>(
-        hardfork: Self::Hardfork,
+        hardfork: Self::ProtocolHardfork,
     ) -> Self::PrecompileProvider<BlockT, DatabaseT> {
         <L1ChainSpec as EvmChainSpec>::new_precompile_provider::<BlockT, DatabaseT>(hardfork)
     }
@@ -184,7 +184,7 @@ impl EvmChainSpec for GenericChainSpec {
         >,
     >(
         block: BlockT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -226,7 +226,7 @@ impl EvmChainSpec for GenericChainSpec {
         >,
     >(
         block: BlockT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -276,14 +276,14 @@ impl GenesisBlockFactory for GenericChainSpec {
     type LocalBlock = EthLocalBlock<
         <Self as ReceiptChainSpec>::Receipt,
         <Self as BlockChainSpec>::FetchReceiptError,
-        Self::Hardfork,
+        Self::ProtocolHardfork,
         <Self as ChainSpec>::SignedTransaction,
     >;
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: &BlockConfig<Self::Hardfork>,
-        mut options: GenesisBlockOptions<Self::Hardfork>,
+        block_config: &BlockConfig<Self::ProtocolHardfork>,
+        mut options: GenesisBlockOptions<Self::ProtocolHardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
         options.extra_data = Some(
@@ -296,27 +296,29 @@ impl GenesisBlockFactory for GenericChainSpec {
     }
 }
 
-impl HardforkChainSpec for GenericChainSpec {
+impl EvmHardforkChainSpec for GenericChainSpec {
     type EvmHardfork = EvmSpecId;
+}
 
-    type Hardfork = edr_chain_l1::Hardfork;
+impl ProtocolHardforkChainSpec for GenericChainSpec {
+    type ProtocolHardfork = edr_chain_l1::Hardfork;
 }
 
 impl ProviderChainSpec for GenericChainSpec {
     const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
 
-    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>> {
+    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>> {
         L1ChainSpec::chain_configs()
     }
 
-    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork> {
         L1ChainSpec::default_base_fee_params()
     }
 
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        hardfork: Self::Hardfork,
-        default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        hardfork: Self::ProtocolHardfork,
+        default_base_fee_params: &BaseFeeParams<Self::ProtocolHardfork>,
     ) -> u128 {
         L1ChainSpec::next_base_fee_per_gas(header, hardfork, default_base_fee_params)
     }

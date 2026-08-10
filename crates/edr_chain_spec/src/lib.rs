@@ -25,13 +25,13 @@ pub type EvmSpecId = revm_primitives::hardfork::SpecId;
 pub type EvmTransactionValidationError = revm_context_interface::result::InvalidTransaction;
 
 /// Trait for specifying the types representing a chain's block environment.
-pub trait BlockEnvChainSpec: HardforkChainSpec {
+pub trait BlockEnvChainSpec: ProtocolHardforkChainSpec {
     /// Type representing a block environment; i.e. the header of the block
     /// (being mined) and its hardfork.
-    type BlockEnv<'env, BlockHeaderT>: BlockEnvConstructor<'env, Self::Hardfork, &'env BlockHeaderT>
+    type BlockEnv<'env, BlockHeaderT>: BlockEnvConstructor<'env, Self::ProtocolHardfork, &'env BlockHeaderT>
         + BlockEnvTrait
     where
-        BlockHeaderT: 'env + BlockEnvForHardfork<Self::Hardfork>;
+        BlockHeaderT: 'env + BlockEnvForHardfork<Self::ProtocolHardfork>;
 }
 
 /// A trait for constructing a (partial) block header into an EVM block.
@@ -105,17 +105,20 @@ pub trait ContextChainSpec {
     type Context;
 }
 
-/// Trait for specifying the hardfork type of a chain.
-pub trait HardforkChainSpec {
+/// Trait for specifying the EVM-level hardfork type of a chain.
+pub trait EvmHardforkChainSpec {
     /// The EVM-level hardfork type consumed by revm for this chain; e.g.
     /// `SpecId` for L1, `OpSpecId` for OP.
     ///
-    /// Unlike [`Self::Hardfork`], this models EVM behavior classes rather than
-    /// protocol upgrades.
+    /// Unlike [`ProtocolHardforkChainSpec::ProtocolHardfork`], this models EVM
+    /// behavior classes rather than protocol upgrades.
     type EvmHardfork: Copy + Into<EvmSpecId>;
+}
 
+/// Trait for specifying the protocol-level hardfork type of a chain.
+pub trait ProtocolHardforkChainSpec: EvmHardforkChainSpec {
     /// The chain's protocol-level hardfork type.
-    type Hardfork: Default + Into<Self::EvmHardfork> + ProtocolHardfork;
+    type ProtocolHardfork: Default + Into<Self::EvmHardfork> + ProtocolHardfork;
 }
 
 /// Trait for protocol-level parameters that are determined by the hardfork but
