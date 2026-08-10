@@ -48,7 +48,6 @@
 //!   - natspec    scan the NatSpec comment blocks above each definition
 //!   - directives parse a block's lines into a config
 //!   - overrides  compose the above into a source's per-contract overrides
-//!   - provider   cache the overrides and serve them
 //! ```
 //!
 //! `profiles` carries the run's selected and declared profiles through that
@@ -61,25 +60,19 @@
 //! compilation unit.
 
 mod directives;
-mod error;
+pub mod error;
 mod natspec;
 mod overrides;
 mod parse;
 mod profiles;
-mod provider;
 
 pub use edr_solidity_parser_slang::ImportResolver;
 
 pub(crate) use self::{
     directives::is_test_function,
-    overrides::{collect_source_from_unit, SourceOverrides},
+    overrides::{collect_source_overrides_from_unit, SourceOverrides},
 };
 pub use self::{
-    error::{
-        InlineConfigCollectError, InlineConfigError, InlineConfigErrorItem, InlineConfigErrors,
-        InlineConfigProblem, InlineConfigProfilesError,
-    },
     overrides::{ContractInlineConfig, FunctionOverride},
     profiles::{InlineConfigProfiles, DEFAULT_PROFILE},
-    provider::{CachedInlineConfigProvider, InlineConfigRoot, SharedInlineConfigProvider},
 };

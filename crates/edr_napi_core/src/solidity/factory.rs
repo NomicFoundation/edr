@@ -4,7 +4,8 @@ use edr_artifact::ArtifactId;
 use edr_decoder_revert::RevertDecoder;
 use edr_primitives::Bytes;
 use edr_solidity_tests::{
-    contracts::ContractsByArtifact, inline_config::InlineConfigErrors, multi_runner::TestContract,
+    contracts::ContractsByArtifact, inline_config::error::InlineConfigErrors,
+    multi_runner::TestContract,
 };
 use napi::tokio;
 

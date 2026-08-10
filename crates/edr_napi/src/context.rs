@@ -38,7 +38,7 @@ use crate::{
 /// completed run.
 enum RunOutcome {
     Completed(edr_solidity_tests::multi_runner::SolidityTestResult),
-    InvalidInlineConfig(edr_solidity_tests::inline_config::InlineConfigErrors),
+    InvalidInlineConfig(edr_solidity_tests::inline_config::error::InlineConfigErrors),
 }
 
 /// Unwraps `$expr`, or rejects `$deferred` with the error and returns
