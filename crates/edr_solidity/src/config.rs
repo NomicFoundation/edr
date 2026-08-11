@@ -6,7 +6,7 @@
 /// This can either be for Solidity test results or provider transaction
 /// execution results.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum IncludeTraces {
+pub enum IncludeCallTraces {
     /// No traces will be included at all.
     #[default]
     None,
@@ -17,14 +17,14 @@ pub enum IncludeTraces {
     All,
 }
 
-impl IncludeTraces {
+impl IncludeCallTraces {
     /// Whether traces should be included based on this configuration and the
     /// provided function that indicates whether the execution was a failure.
     pub fn should_include(&self, was_failure_fn: impl FnOnce() -> bool) -> bool {
         match self {
-            IncludeTraces::None => false,
-            IncludeTraces::Failing => was_failure_fn(),
-            IncludeTraces::All => true,
+            IncludeCallTraces::None => false,
+            IncludeCallTraces::Failing => was_failure_fn(),
+            IncludeCallTraces::All => true,
         }
     }
 }

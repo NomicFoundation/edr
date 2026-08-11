@@ -7,7 +7,7 @@ use edr_primitives::B256;
 use edr_provider::{
     observability::ObservabilityConfig, MethodInvocation, Provider, ProviderError, ProviderRequest,
 };
-use edr_solidity::config::IncludeTraces;
+use edr_solidity::config::IncludeCallTraces;
 use edr_test_utils::env::json_rpc_url_provider;
 use serial_test::serial;
 
@@ -34,7 +34,7 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
         chain_override,
         url,
         Some(ObservabilityConfig {
-            include_call_traces: IncludeTraces::All,
+            include_call_traces: IncludeCallTraces::All,
             ..ObservabilityConfig::default()
         }),
     )

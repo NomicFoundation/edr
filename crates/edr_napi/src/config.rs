@@ -28,7 +28,7 @@ use crate::{
     logger::LoggerConfig,
     napi_error,
     precompile::Precompile,
-    solidity_tests::config::IncludeTraces,
+    solidity_tests::config::IncludeCallTraces,
     subscription::{SubscriptionConfig, SubscriptionTsfn},
 };
 
@@ -264,8 +264,8 @@ pub struct ObservabilityConfig<'env> {
     /// Controls when to include call traces in the results of transaction
     /// execution.
     ///
-    /// Defaults to `IncludeTraces.None`.
-    pub include_call_traces: Option<IncludeTraces>,
+    /// Defaults to `IncludeCallTraces.None`.
+    pub include_call_traces: Option<IncludeCallTraces>,
 }
 
 /// Configuration for a provider.
@@ -645,7 +645,7 @@ impl ObservabilityConfig<'_> {
             call_override: default_config.call_override,
             include_call_traces: self.include_call_traces.map_or(
                 default_config.include_call_traces,
-                edr_solidity::config::IncludeTraces::from,
+                edr_solidity::config::IncludeCallTraces::from,
             ),
             on_collected_coverage_fn,
             on_collected_gas_report_fn,

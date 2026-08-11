@@ -18,7 +18,7 @@ use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{
     contract_decoder::SyncNestedTraceDecoder,
-    solidity_stack_trace::{get_stack_trace, StackTraceEntry},
+    solidity_stack_trace::{get_stack_trace, ExecutedCode, ExecutedCodeMaps, StackTraceEntry},
 };
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
@@ -44,7 +44,7 @@ use foundry_evm::{
         invariant::{CallDetails, InvariantContract},
         CounterExample, FuzzFixtures,
     },
-    traces::{load_contracts, SetupTraceKind, SparsedTraceArena, TracingMode},
+    traces::{load_contracts, SetupTraceKind, SetupTraces, SparsedTraceArena, TracingMode},
 };
 use itertools::Itertools;
 use proptest::test_runner::{FailurePersistence, RngAlgorithm, TestError, TestRng, TestRunner};
@@ -58,6 +58,7 @@ use crate::{
     multi_runner::TestContract,
     result::{SuiteResult, TestResult, TestSetup},
     revm::context::result::HaltReason,
+    trace_retention::TraceRetentionPolicy,
     TestFilter, TestFunctionConfigOverride,
 };
 
@@ -109,6 +110,8 @@ pub struct ContractRunner<
     /// Whether gas reports are being generated. When enabled, isolation cannot
     /// be disabled by function-level overrides.
     generate_gas_report: bool,
+    /// Which trace arenas to retain once a test has finished.
+    trace_retention: TraceRetentionPolicy,
 
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (EvmBuilderT, HaltReasonT, TransactionErrorT)>,
@@ -134,6 +137,8 @@ pub struct ContractRunnerOptions<'a> {
     /// Whether gas reports are being generated. When enabled, isolation cannot
     /// be disabled by function-level overrides.
     pub generate_gas_report: bool,
+    /// Which trace arenas to retain once a test has finished.
+    pub(crate) trace_retention: TraceRetentionPolicy,
 }
 
 /// Contract artifact related arguments to the contract runner.
@@ -197,6 +202,7 @@ impl<
             invariant_config,
             test_function_overrides,
             generate_gas_report,
+            trace_retention,
         } = options;
 
         Self {
@@ -217,6 +223,7 @@ impl<
             span,
             test_function_overrides,
             generate_gas_report,
+            trace_retention,
             _phantom: PhantomData,
         }
     }
@@ -649,14 +656,7 @@ impl<
 
             setup.stack_trace_result = if executor.tracer_records_steps() {
                 // We collected steps during setup, so we can generate the stack trace
-                get_stack_trace(
-                    &*self.contract_decoder,
-                    setup.traces.iter().map(|(_, arena)| &arena.arena),
-                    None,
-                )
-                .map_err(SolidityTestStackTraceError::from)
-                .transpose()
-                .map(SolidityTestStackTraceResult::from)
+                get_setup_stack_trace(&*self.contract_decoder, &setup.traces)
             } else if let Some(indeterminism_reasons) = setup.indeterminism_reasons.as_ref() {
                 // We cannot re-run the setup due to indeterminism, so we return the
                 // indeterminism reasons
@@ -667,17 +667,7 @@ impl<
                 executor.set_tracing(TracingMode::WithSteps);
                 let setup_for_stack_traces = self.setup(&mut executor, call_setup);
 
-                get_stack_trace(
-                    &*self.contract_decoder,
-                    setup_for_stack_traces
-                        .traces
-                        .iter()
-                        .map(|(_, arena)| &arena.arena),
-                    None,
-                )
-                .map_err(SolidityTestStackTraceError::from)
-                .transpose()
-                .map(SolidityTestStackTraceResult::from)
+                get_setup_stack_trace(&*self.contract_decoder, &setup_for_stack_traces.traces)
             };
 
             // The setup failed, so we return a single test result for `setUp`
@@ -686,9 +676,14 @@ impl<
             } else {
                 "constructor()".to_string()
             };
+            let setup_traces = if self.trace_retention.retains_setup() {
+                setup.traces.clone()
+            } else {
+                Vec::new()
+            };
             return Ok(SuiteResult::new(
                 elapsed,
-                setup.traces.clone(),
+                setup_traces,
                 [(fail_msg, TestResult::setup_failure_result(setup))].into(),
                 warnings,
             ));
@@ -711,14 +706,26 @@ impl<
             let test_results = test_fail_functions
                 .map(|func| (func.signature(), fail()))
                 .collect();
+            let setup_traces = if self.trace_retention.retains_setup() {
+                setup.traces
+            } else {
+                Vec::new()
+            };
             return Ok(SuiteResult::new(
                 start.elapsed(),
-                setup.traces,
+                setup_traces,
                 test_results,
                 warnings,
             ));
         }
 
+        // After this point the setup arenas' remaining consumers are trace
+        // decoding, the gas report and the napi conversion — all keyed on
+        // `include_call_traces`. Everything the tests themselves need from them
+        // has been derived: `identified_contracts` above and
+        // `setup.executed_code` for stack-trace decoding. (`setup.traces`
+        // stays alive through the tests for the rare fallback where a
+        // failure records no execution traces.)
         let test_results = functions
             .par_iter()
             .map(|&func| {
@@ -740,19 +747,30 @@ impl<
                 )
                 .entered();
 
-                let res = FunctionRunner::new(&self, &executor, &setup).run(
+                let mut res = FunctionRunner::new(&self, &executor, &setup).run(
                     func,
                     kind,
                     call_after_invariant,
                     identified_contracts.as_ref(),
                 );
 
+                // The test is done and its stack trace (if any) has been
+                // computed, so free every trace arena that has no consumer.
+                // Retaining them until the whole suite completes is what
+                // makes high-verbosity runs run out of memory.
+                self.trace_retention.apply(&mut res);
+
                 (sig, res)
             })
             .collect::<BTreeMap<_, _>>();
 
         let duration = start.elapsed();
-        let suite_result = SuiteResult::new(duration, setup.traces, test_results, warnings);
+        let setup_traces = if self.trace_retention.retains_setup() {
+            setup.traces
+        } else {
+            Vec::new()
+        };
+        let suite_result = SuiteResult::new(duration, setup_traces, test_results, warnings);
         info!(
             duration=?suite_result.duration,
             "done. {}/{} successful",
@@ -1254,7 +1272,7 @@ impl<
                     known_contracts: self.cr.known_contracts,
                     ided_contracts: identified_contracts.clone(),
                     logs: &mut self.result.logs,
-                    setup_traces: &self.setup.traces,
+                    executed_code: self.setup.executed_code.as_executed_code(),
                     line_coverage: &mut self.result.line_coverage,
                     deprecated_cheatcodes: &mut self.result.deprecated_cheatcodes,
                     inputs: &txes,
@@ -1262,6 +1280,7 @@ impl<
                     contract_decoder: Some(&*self.cr.contract_decoder),
                     revert_decoder: self.cr.revert_decoder,
                     fail_on_revert: self.cr.invariant_config.fail_on_revert,
+                    retain_traces: self.cr.trace_retention.retains(/* is_failure */ true),
                 })
                 .map_or(None, |result| result.stack_trace_result);
                 self.result.invariant_replay_fail(
@@ -1332,12 +1351,13 @@ impl<
                         known_contracts: self.cr.known_contracts,
                         ided_contracts: identified_contracts.clone(),
                         logs: &mut self.result.logs,
-                        setup_traces: &self.setup.traces,
+                        executed_code: self.setup.executed_code.as_executed_code(),
                         coverage: &mut None,
                         deprecated_cheatcodes: &mut self.result.deprecated_cheatcodes,
                         generate_stack_trace: true,
                         contract_decoder: Some(&*self.cr.contract_decoder),
                         revert_decoder: self.cr.revert_decoder,
+                        retain_traces: self.cr.trace_retention.retains(/* is_failure */ true),
                     }) {
                         Ok(ReplayResult {
                             counterexample_sequence,
@@ -1405,7 +1425,7 @@ impl<
                     known_contracts: self.cr.known_contracts,
                     ided_contracts: identified_contracts.clone(),
                     logs: &mut self.result.logs,
-                    setup_traces: &self.setup.traces,
+                    executed_code: self.setup.executed_code.as_executed_code(),
                     line_coverage: &mut self.result.line_coverage,
                     deprecated_cheatcodes: &mut self.result.deprecated_cheatcodes,
                     inputs: &invariant_result.last_run_inputs,
@@ -1413,6 +1433,9 @@ impl<
                     contract_decoder: Some(&*self.cr.contract_decoder),
                     revert_decoder: self.cr.revert_decoder,
                     fail_on_revert: self.cr.invariant_config.fail_on_revert,
+                    // The campaign passed, so these arenas are only consumed
+                    // if passing tests surface call traces.
+                    retain_traces: self.cr.trace_retention.retains(/* is_failure */ false),
                 }) {
                     error!(%err, "Failed to replay last invariant run");
                 }
@@ -1522,6 +1545,7 @@ impl<
                         self.setup.address,
                         counter_example,
                         self.setup.has_setup_method,
+                        (!self.setup.traces.is_empty()).then_some(&self.setup.executed_code),
                     )
                     .into()
                 };
@@ -1609,11 +1633,19 @@ impl<
         // Error is ignored since overrides were already validated in run().
         let _ = self.cr.apply_executor_overrides(func, &mut executor);
 
-        // We only need light-weight tracing for setup to be able to match contract
-        // codes to contact addresses.
-        executor.inspector_mut().tracing(TracingMode::WithoutSteps);
-        let setup = self.cr.setup(&mut executor, needs_setup);
-        if let Some(reason) = setup.reason {
+        // Setup only needs to be re-executed for its state: if the original
+        // setup was traced, the code of the contracts it deployed is already
+        // known (the fresh executor replays the same deployments to the same
+        // addresses). Only when the original setup ran untraced does the
+        // re-run need light-weight tracing to rebuild that mapping.
+        let setup_was_traced = !self.setup.traces.is_empty();
+        executor.inspector_mut().tracing(if setup_was_traced {
+            TracingMode::None
+        } else {
+            TracingMode::WithoutSteps
+        });
+        let re_run_setup = self.cr.setup(&mut executor, needs_setup);
+        if let Some(reason) = re_run_setup.reason {
             // If this function was called, the setup succeeded during test execution, so
             // this is an unexpected failure.
             return Err(SolidityTestStackTraceError::FailingSetup(reason));
@@ -1625,7 +1657,7 @@ impl<
         // Run unit test
         let new_trace_arena = match executor.call(
             self.cr.sender,
-            setup.address,
+            re_run_setup.address,
             func,
             args,
             U256::ZERO,
@@ -1637,19 +1669,41 @@ impl<
         }
         .expect("enabled tracing");
 
+        let executed_code = if setup_was_traced {
+            &self.setup.executed_code
+        } else {
+            &re_run_setup.executed_code
+        };
         get_stack_trace(
             &*self.cr.contract_decoder,
-            setup
-                .traces
-                .iter()
-                .map(|(_, arena)| &arena.arena)
-                .chain(std::iter::once(&new_trace_arena.arena)),
-            None,
+            &new_trace_arena.arena,
+            std::iter::empty(),
+            executed_code.as_executed_code(),
         )
-        .transpose()
-        .expect("traces are not empty")
         .map_err(SolidityTestStackTraceError::Creation)
     }
+}
+
+/// Builds the stack trace of a failed `setUp()` (or constructor) from the
+/// recorded setup traces. Returns `None` if no traces were recorded.
+fn get_setup_stack_trace<
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<HaltReason>,
+    NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+>(
+    contract_decoder: &NestedTraceDecoderT,
+    setup_traces: &SetupTraces,
+) -> Option<SolidityTestStackTraceResult<HaltReasonT>> {
+    let ((_, failing_trace), code_sources) = setup_traces.split_last()?;
+    Some(
+        get_stack_trace(
+            contract_decoder,
+            &failing_trace.arena,
+            code_sources.iter().map(|(_, arena)| &arena.arena),
+            ExecutedCode::default(),
+        )
+        .map_err(SolidityTestStackTraceError::from)
+        .into(),
+    )
 }
 
 /// Builds a stack trace from the traces recorded during this run.
@@ -1665,18 +1719,26 @@ fn collect_stack_trace<
     setup: &TestSetup<HaltReasonT>,
     execution_traces: &[SparsedTraceArena],
 ) -> SolidityTestStackTraceResult<HaltReasonT> {
-    get_stack_trace(
-        contract_decoder,
-        setup
-            .traces
-            .iter()
-            .map(|(_, arena)| &arena.arena)
-            .chain(execution_traces.iter().map(|arena| &arena.arena)),
-        None,
-    )
+    if let Some((failing_trace, prior_traces)) = execution_traces.split_last() {
+        get_stack_trace(
+            contract_decoder,
+            &failing_trace.arena,
+            prior_traces.iter().map(|arena| &arena.arena),
+            setup.executed_code.as_executed_code(),
+        )
+    } else {
+        // No execution traces were recorded (e.g. an invariant setup failure
+        // without traces); fall back to the last setup arena.
+        let ((_, failing_trace), code_sources) =
+            setup.traces.split_last().expect("traces are not empty");
+        get_stack_trace(
+            contract_decoder,
+            &failing_trace.arena,
+            code_sources.iter().map(|(_, arena)| &arena.arena),
+            ExecutedCode::default(),
+        )
+    }
     .map_err(SolidityTestStackTraceError::from)
-    .transpose()
-    .expect("traces are not empty")
     .into()
 }
 
@@ -1709,6 +1771,8 @@ fn re_run_fuzz_counterexample_for_stack_traces<
     address: Address,
     counter_example: &BaseCounterExample,
     needs_setup: bool,
+    // The suite setup's deployed-code map, if the setup was traced.
+    setup_executed_code: Option<&ExecutedCodeMaps>,
 ) -> Result<Vec<StackTraceEntry>, SolidityTestStackTraceError<HaltReasonT>> {
     let mut executor = contract_runner.executor_builder.clone().build()?;
 
@@ -1716,11 +1780,18 @@ fn re_run_fuzz_counterexample_for_stack_traces<
     // Error is ignored since overrides were already validated in run().
     let _ = contract_runner.apply_executor_overrides(func, &mut executor);
 
-    // We only need light-weight tracing for setup to be able to match contract
-    // codes to contact addresses.
-    executor.inspector_mut().tracing(TracingMode::WithoutSteps);
-    let setup = contract_runner.setup(&mut executor, needs_setup);
-    if let Some(reason) = setup.reason {
+    // Setup only needs to be re-executed for its state: if the original setup
+    // was traced, the code of the contracts it deployed is already known (the
+    // fresh executor replays the same deployments to the same addresses).
+    // Only when the original setup ran untraced does the re-run need
+    // light-weight tracing to rebuild that mapping.
+    executor.inspector_mut().tracing(if setup_executed_code.is_some() {
+        TracingMode::None
+    } else {
+        TracingMode::WithoutSteps
+    });
+    let re_run_setup = contract_runner.setup(&mut executor, needs_setup);
+    if let Some(reason) = re_run_setup.reason {
         // If this function was called, the setup succeeded during test execution, so
         // this is an unexpected failure.
         return Err(SolidityTestStackTraceError::FailingSetup(reason));
@@ -1741,17 +1812,13 @@ fn re_run_fuzz_counterexample_for_stack_traces<
 
     let new_trace_arena = call.traces.expect("tracing is on");
 
+    let executed_code = setup_executed_code.unwrap_or(&re_run_setup.executed_code);
     get_stack_trace(
         &*contract_runner.contract_decoder,
-        setup
-            .traces
-            .iter()
-            .map(|(_, arena)| &arena.arena)
-            .chain(std::iter::once(&new_trace_arena.arena)),
-        None,
+        &new_trace_arena.arena,
+        std::iter::empty(),
+        executed_code.as_executed_code(),
     )
-    .transpose()
-    .expect("traces are not empty")
     .map_err(SolidityTestStackTraceError::Creation)
 }
 

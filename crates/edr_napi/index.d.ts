@@ -47,12 +47,29 @@ export declare class EdrContext {
    *   with the results of each test suite as soon as it finished executing.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (arg: SuiteResult) => void): Promise<SolidityTestResult>
+  /**
+   * Creates a mock provider, which always returns the given response.
+   * For testing purposes.
+   */
+  createMockProvider(mockedResponse: any): Provider
+  /**
+   * Creates a provider with a mock timer.
+   * For testing purposes.
+   */
+  createProviderWithMockTimer(providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder, time: MockTime): Promise<Provider>
 }
 
 export declare class Exit {
   get kind(): ExitCode
   isError(): boolean
   getReason(): string
+}
+
+export declare class MockTime {
+  /** Creates a new instance of `MockTime` with the current time. */
+  static now(): MockTime
+  /** Adds the specified number of seconds to the current time. */
+  addSeconds(seconds: bigint): void
 }
 
 export declare class Precompile {
@@ -98,7 +115,7 @@ export declare class Response {
   /**
    * Constructs the execution traces for the request. Returns an empty array
    * if traces are not enabled for this provider according to
-   * [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+   * [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_call_traces`]. Otherwise, returns
    * an array of the root calls of the trace, which always includes the
    * request's call itself.
    */
@@ -153,7 +170,7 @@ export declare class TestResult {
   /**
    * Constructs the execution traces for the test. Returns an empty array if
    * traces for this test were not requested according to
-   * [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+   * [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_call_traces`]. Otherwise, returns
    * an array of the root calls of the trace, which always includes the test
    * call itself and may also include the setup call if there is one
    * (identified by the function name `setUp`).
@@ -912,7 +929,7 @@ export interface HttpHeader {
  * This can either be for Solidity test results or provider transaction
  * execution results.
  */
-export declare enum IncludeTraces {
+export declare enum IncludeCallTraces {
   /** No traces will be included at all. */
   None = 0,
   /**
@@ -1204,9 +1221,9 @@ export interface ObservabilityConfig {
    * Controls when to include call traces in the results of transaction
    * execution.
    *
-   * Defaults to `IncludeTraces.None`.
+   * Defaults to `IncludeCallTraces.None`.
    */
-  includeCallTraces?: IncludeTraces
+  includeCallTraces?: IncludeCallTraces
 }
 
 export const OP_CHAIN_TYPE: string
@@ -1576,7 +1593,7 @@ export interface SolidityTestRunnerConfigArgs {
    * Controls which test results should include execution traces. Defaults to
    * None.
    */
-  includeTraces?: IncludeTraces
+  includeCallTraces?: IncludeCallTraces
   /** The configuration for the Solidity test runner's observability */
   observability?: ObservabilityConfig
   /**
