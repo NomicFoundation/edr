@@ -3,21 +3,20 @@
 # Publish a locally-built EDR NAPI package to a (Verdaccio) registry.
 #
 # It stages the prebuilt native binary into its platform package, compiles the
-# bundled TypeScript helpers, pins both the main and platform packages to the
-# requested version, wires the main package's dependency on the platform
-# package, and publishes both (platform package first).
+# bundled TypeScript helpers, pins the packages to the requested version, wires
+# the platform packages as optionalDependencies — the same package shape as a
+# real release — and publishes the main package and this platform's package
+# (platform package first).
 #
-# It deliberately does NOT run scripts/prepublish.sh: that injects all 7 platform
-# packages as hard dependencies, but a local build only produces (and publishes)
-# the current platform. We wire the single platform dependency instead — which is
-# all `crates/edr_napi/index.js` needs to load the binding on this platform.
+# Only the current platform's package exists in the local registry; npm and
+# pnpm skip optionalDependencies they can't resolve, so installs still work.
 #
 # The native binary must already be built (e.g. `pnpm build` in crates/edr_napi)
 # and EDR's dependencies installed (the TypeScript compile needs the local `tsc`).
 #
 # NOTE: This mutates tracked files in crates/edr_napi (package.json versions, the
-# wired dependency, the staged .node binary, coverage.sol and dist/). Reset them
-# with `git checkout -- crates/edr_napi` afterwards.
+# injected optionalDependencies, the staged .node binary, coverage.sol and
+# dist/). Reset them with `git checkout -- crates/edr_napi` afterwards.
 #
 # Usage:
 #   scripts/publish_to_verdaccio.sh --version <ver> [options]
@@ -96,11 +95,12 @@ echo ">> Compiling bundled TypeScript helpers"
 cp "$REPO_ROOT/data/contracts/coverage.sol" "$NAPI_DIR/coverage.sol"
 ( cd "$NAPI_DIR" && pnpm exec tsc )
 
-echo ">> Pinning versions and wiring the platform dependency"
+echo ">> Pinning versions and wiring the platform packages"
 ( cd "$NAPI_DIR"
   npm pkg set version="$VERSION"
-  npm pkg set version="$VERSION" --prefix "npm/$PLATFORM"
-  npm pkg set "dependencies.@nomicfoundation/edr-$PLATFORM=$VERSION"
+  # Syncs the platform packages' versions and wires them as optionalDependencies,
+  # mirroring the release workflow.
+  "$SCRIPT_DIR/prepublish.sh"
 )
 
 if [ -n "$NPMRC" ]; then
