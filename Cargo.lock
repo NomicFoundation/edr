@@ -2899,6 +2899,7 @@ dependencies = [
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_chain_spec_evm",
+ "edr_chain_spec_provider",
  "edr_chain_spec_receipt",
  "edr_defaults",
  "edr_evm",

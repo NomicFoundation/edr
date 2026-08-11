@@ -25,7 +25,7 @@ use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
-use edr_primitives::{Bytes, HashMap};
+use edr_primitives::{Bytes, HashMap, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_state_api::StateDiff;
 use revm_context_interface::JournalTr as _;
@@ -34,6 +34,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::{
     block::EthBlockBuilder,
     chains::l1_chain_configs,
+    difficulty::{calculate_ethash_canonical_difficulty, PreMergeL1Hardfork},
     receipt::{builder::L1ExecutionReceiptBuilder, L1BlockReceipt},
     rpc::{
         block::L1RpcBlock,
@@ -223,14 +224,33 @@ impl ProtocolHardforkChainSpec for L1ChainSpec {
 }
 
 impl ProviderChainSpec for L1ChainSpec {
-    const MIN_ETHASH_DIFFICULTY: u64 = L1_MIN_ETHASH_DIFFICULTY;
-
     fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>> {
         l1_chain_configs()
     }
 
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork> {
         &L1_BASE_FEE_PARAMS
+    }
+
+    fn default_block_difficulty(
+        hardfork: Self::ProtocolHardfork,
+        parent: Option<&BlockHeader>,
+        block_number: u64,
+        block_timestamp: u64,
+    ) -> U256 {
+        match (PreMergeL1Hardfork::try_from(hardfork), parent) {
+            (Ok(hardfork), Some(parent)) => calculate_ethash_canonical_difficulty(
+                hardfork,
+                parent,
+                block_number,
+                block_timestamp,
+                L1_MIN_ETHASH_DIFFICULTY,
+            ),
+            // A pre-merge genesis block has no parent to derive a difficulty from.
+            (Ok(_hardfork), None) => U256::from(1),
+            // Post-merge blocks have no difficulty.
+            (Err(_hardfork), _) => U256::ZERO,
+        }
     }
 
     fn next_base_fee_per_gas(
@@ -269,4 +289,111 @@ impl RpcChainSpec for L1ChainSpec {
     type RpcReceipt = L1RpcTransactionReceipt;
     type RpcTransaction = L1RpcTransactionWithSignature;
     type RpcTransactionRequest = L1RpcTransactionRequest;
+}
+
+#[cfg(test)]
+mod tests {
+    use edr_primitives::KECCAK_RLP_EMPTY_ARRAY;
+
+    use super::*;
+
+    /// A parent whose difficulty is an exact multiple of the bound divisor
+    /// (2048), so the adjustment term is a round number.
+    fn parent_header() -> BlockHeader {
+        BlockHeader {
+            difficulty: U256::from(2_048_000u64),
+            // No ommers, so the uncle addend is 1.
+            ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
+            timestamp: 0,
+            ..BlockHeader::default()
+        }
+    }
+
+    #[test]
+    fn pre_merge_with_parent_uses_ethash() {
+        // A 9 second gap with no ommers cancels the adjustment out entirely,
+        // leaving the parent's difficulty. The block number is far below the
+        // Byzantium bomb delay, so the bomb does not contribute either.
+        let difficulty = L1ChainSpec::default_block_difficulty(
+            Hardfork::BYZANTIUM,
+            Some(&parent_header()),
+            1_000,
+            9,
+        );
+
+        assert_eq!(difficulty, U256::from(2_048_000u64));
+    }
+
+    #[test]
+    fn pre_merge_applies_the_difficulty_bomb() {
+        // 300,000 blocks past Byzantium's 3,000,000 bomb delay is period 3,
+        // so the bomb adds 2^(3 - 2).
+        let difficulty = L1ChainSpec::default_block_difficulty(
+            Hardfork::BYZANTIUM,
+            Some(&parent_header()),
+            3_300_000,
+            9,
+        );
+
+        assert_eq!(difficulty, U256::from(2_048_002u64));
+    }
+
+    #[test]
+    fn pre_merge_bomb_delay_varies_per_hardfork() {
+        // The same block number is past Byzantium's bomb delay but not past
+        // Gray Glacier's, which is the only difference between the two.
+        let byzantium = L1ChainSpec::default_block_difficulty(
+            Hardfork::BYZANTIUM,
+            Some(&parent_header()),
+            3_300_000,
+            9,
+        );
+        let gray_glacier = L1ChainSpec::default_block_difficulty(
+            Hardfork::GRAY_GLACIER,
+            Some(&parent_header()),
+            3_300_000,
+            9,
+        );
+
+        assert_eq!(byzantium, U256::from(2_048_002u64));
+        assert_eq!(gray_glacier, U256::from(2_048_000u64));
+    }
+
+    #[test]
+    fn pre_merge_clamps_to_the_minimum_ethash_difficulty() {
+        let parent = BlockHeader {
+            difficulty: U256::from(1u64),
+            ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
+            timestamp: 0,
+            ..BlockHeader::default()
+        };
+
+        let difficulty =
+            L1ChainSpec::default_block_difficulty(Hardfork::BYZANTIUM, Some(&parent), 1_000, 9);
+
+        assert_eq!(difficulty, U256::from(L1_MIN_ETHASH_DIFFICULTY));
+    }
+
+    #[test]
+    fn pre_merge_genesis_block_has_difficulty_one() {
+        let difficulty = L1ChainSpec::default_block_difficulty(Hardfork::BYZANTIUM, None, 0, 0);
+
+        assert_eq!(difficulty, U256::from(1u64));
+    }
+
+    #[test]
+    fn post_merge_has_no_difficulty() {
+        for hardfork in [Hardfork::MERGE, Hardfork::CANCUN, Hardfork::OSAKA] {
+            assert_eq!(
+                L1ChainSpec::default_block_difficulty(hardfork, Some(&parent_header()), 1_000, 9),
+                U256::ZERO,
+                "{hardfork}"
+            );
+            assert_eq!(
+                L1ChainSpec::default_block_difficulty(hardfork, None, 0, 0),
+                U256::ZERO,
+                "{hardfork}"
+            );
+        }
+    }
 }

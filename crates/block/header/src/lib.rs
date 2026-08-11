@@ -1,4 +1,3 @@
-mod difficulty;
 mod overrides;
 
 pub use alloy_eips::eip4895::Withdrawal;
@@ -17,7 +16,6 @@ use edr_primitives::{
 };
 
 pub use self::overrides::HeaderOverrides;
-use crate::difficulty::calculate_ethash_canonical_difficulty;
 
 /// ethereum block header
 #[derive(
@@ -358,8 +356,8 @@ impl PartialHeader {
     ) -> Self {
         let BlockConfig {
             base_fee_params,
+            default_difficulty_fn,
             hardfork,
-            min_ethash_difficulty,
             scheduled_blob_params,
         } = block_config;
 
@@ -402,21 +400,9 @@ impl PartialHeader {
             state_root: overrides.state_root.unwrap_or(KECCAK_NULL_RLP),
             receipts_root: KECCAK_NULL_RLP,
             logs_bloom: Bloom::default(),
-            difficulty: overrides.difficulty.unwrap_or_else(|| {
-                if evm_spec_id >= EvmSpecId::MERGE {
-                    U256::ZERO
-                } else if let Some(parent) = parent {
-                    calculate_ethash_canonical_difficulty(
-                        *hardfork,
-                        parent,
-                        number,
-                        timestamp,
-                        *min_ethash_difficulty,
-                    )
-                } else {
-                    U256::from(1)
-                }
-            }),
+            difficulty: overrides
+                .difficulty
+                .unwrap_or_else(|| default_difficulty_fn(*hardfork, parent, number, timestamp)),
             number,
             gas_limit: overrides.gas_limit.unwrap_or(1_000_000),
             gas_used: 0,
@@ -628,12 +614,26 @@ impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for PartialHeade
 pub struct BlockConfig<HardforkT> {
     /// Associated base fee params
     pub base_fee_params: BaseFeeParams<HardforkT>,
+    /// Computes a block's difficulty when it is not overridden, given the
+    /// chain's hardfork, the parent header (absent for a genesis block), and
+    /// the new block's number and timestamp.
+    // TODO(1610): use tagged numbers for the block number and timestamp to avoid accidental mixups
+    pub default_difficulty_fn: fn(HardforkT, Option<&BlockHeader>, u64, u64) -> U256,
     /// Associated hardfork
     pub hardfork: HardforkT,
-    /// Associated minimum ethash difficulty
-    pub min_ethash_difficulty: u64,
     /// Scheduled blob parameter only hardfork parameters
     pub scheduled_blob_params: Option<ScheduledBlobParams>,
+}
+
+/// Difficulty function for chains that are always post-merge, and therefore
+/// have no difficulty. Suitable for [`BlockConfig::default_difficulty_fn`].
+pub fn zero_difficulty<HardforkT>(
+    _hardfork: HardforkT,
+    _parent: Option<&BlockHeader>,
+    _block_number: u64,
+    _block_timestamp: u64,
+) -> U256 {
+    U256::ZERO
 }
 
 /// Determines the block number based on the provided parent header and
@@ -1091,8 +1091,8 @@ mod tests {
                 max_change_denominator: 8,
                 elasticity_multiplier: 2,
             }),
+            default_difficulty_fn: zero_difficulty,
             hardfork,
-            min_ethash_difficulty: 0,
             scheduled_blob_params: None,
         };
 

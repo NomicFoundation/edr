@@ -2873,8 +2873,8 @@ fn create_forked_blockchain_and_state<
 
     let block_config = BlockConfig {
         base_fee_params,
+        default_difficulty_fn: ChainSpecT::default_block_difficulty,
         hardfork: config.hardfork,
-        min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params,
     };
 
@@ -3091,8 +3091,8 @@ fn create_local_blockchain_and_state<
 
     let block_config = BlockConfig {
         base_fee_params: base_fee_params.clone(),
+        default_difficulty_fn: ChainSpecT::default_block_difficulty,
         hardfork: config.hardfork,
-        min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params,
     };
 

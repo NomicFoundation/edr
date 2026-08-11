@@ -420,6 +420,7 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 mod tests {
     use edr_block_api::{GenesisBlockFactory as _, GenesisBlockOptions};
     use edr_chain_l1::{chains::l1_chain_config, L1ChainSpec};
+    use edr_chain_spec_provider::ProviderChainSpec as _;
     use edr_primitives::HashMap;
     use edr_state_api::{
         account::{Account, AccountInfo, AccountStatus},
@@ -462,8 +463,8 @@ mod tests {
 
         let block_config = BlockConfig {
             base_fee_params: chain_config.base_fee_params.clone(),
+            default_difficulty_fn: L1ChainSpec::default_block_difficulty,
             hardfork: edr_chain_l1::Hardfork::SHANGHAI,
-            min_ethash_difficulty: edr_chain_l1::L1_MIN_ETHASH_DIFFICULTY,
             scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),
         };
 
