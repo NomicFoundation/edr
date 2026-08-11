@@ -14,30 +14,6 @@ pub const L1_MAINNET_CHAIN_ID: u64 = 0x1;
 
 const MAINNET_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
     HardforkActivation {
-        condition: ForkCondition::Block(0),
-        hardfork: Hardfork::Frontier,
-    },
-    HardforkActivation {
-        condition: ForkCondition::Block(200_000),
-        hardfork: Hardfork::FrontierThawing,
-    },
-    HardforkActivation {
-        condition: ForkCondition::Block(1_150_000),
-        hardfork: Hardfork::Homestead,
-    },
-    HardforkActivation {
-        condition: ForkCondition::Block(1_920_000),
-        hardfork: Hardfork::DaoFork,
-    },
-    HardforkActivation {
-        condition: ForkCondition::Block(2_463_000),
-        hardfork: Hardfork::Tangerine,
-    },
-    HardforkActivation {
-        condition: ForkCondition::Block(2_675_000),
-        hardfork: Hardfork::SpuriousDragon,
-    },
-    HardforkActivation {
         condition: ForkCondition::Block(4_370_000),
         hardfork: Hardfork::Byzantium,
     },

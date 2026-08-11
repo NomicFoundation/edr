@@ -516,8 +516,6 @@ export interface CustomErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
-export const DAO_FORK: string
-
 export interface DebugTraceLogItem {
   /** Program Counter */
   pc: bigint
@@ -667,10 +665,6 @@ export interface ForkConfig {
   /** The URL of the JSON-RPC endpoint to fork from */
   url: string
 }
-
-export const FRONTIER: string
-
-export const FRONTIER_THAWING: string
 
 /** * Determines the level of file system access for the given path.
  *
@@ -879,8 +873,6 @@ export interface HeuristicFailed {
 }
 
 export const HOLOCENE: string
-
-export const HOMESTEAD: string
 
 export interface HttpHeader {
   name: string
@@ -1792,18 +1784,6 @@ export interface SourceReference {
 
 /** Identifier for the Ethereum spec. */
 export declare enum SpecId {
-  /** Frontier */
-  Frontier = 0,
-  /** Frontier Thawing */
-  FrontierThawing = 1,
-  /** Homestead */
-  Homestead = 2,
-  /** DAO Fork */
-  DaoFork = 3,
-  /** Tangerine */
-  Tangerine = 4,
-  /** Spurious Dragon */
-  SpuriousDragon = 5,
   /** Byzantium */
   Byzantium = 6,
   /** Constantinople */
@@ -1835,8 +1815,6 @@ export declare enum SpecId {
   /** Amsterdam */
   Amsterdam = 20
 }
-
-export const SPURIOUS_DRAGON: string
 
 /** The stack trace result */
 export interface StackTrace {
@@ -1965,8 +1943,6 @@ export interface SuiteResult {
   /** See [`edr_solidity_tests::result::SuiteResult::warnings`]. */
   warnings: Array<string>
 }
-
-export const TANGERINE: string
 
 /** The result of a test execution. */
 export declare enum TestStatus {
