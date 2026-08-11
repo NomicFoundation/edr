@@ -25,20 +25,8 @@ use edr_primitives::UnknownHardfork;
     serde::Deserialize,
 )]
 pub enum L1Hardfork {
-    /// Frontier hardfork
-    FRONTIER = 0,
-    /// Frontier Thawing hardfork
-    FRONTIER_THAWING,
-    /// Homestead hardfork
-    HOMESTEAD,
-    /// DAO Fork hardfork
-    DAO_FORK,
-    /// Tangerine Whistle hardfork
-    TANGERINE,
-    /// Spurious Dragon hardfork
-    SPURIOUS_DRAGON,
     /// Byzantium hardfork
-    BYZANTIUM,
+    BYZANTIUM = 6,
     /// Constantinople hardfork
     CONSTANTINOPLE,
     /// Petersburg hardfork
@@ -73,12 +61,6 @@ pub enum L1Hardfork {
 impl From<L1Hardfork> for EvmSpecId {
     fn from(hardfork: L1Hardfork) -> Self {
         match hardfork {
-            L1Hardfork::FRONTIER => EvmSpecId::FRONTIER,
-            L1Hardfork::FRONTIER_THAWING => EvmSpecId::FRONTIER_THAWING,
-            L1Hardfork::HOMESTEAD => EvmSpecId::HOMESTEAD,
-            L1Hardfork::DAO_FORK => EvmSpecId::DAO_FORK,
-            L1Hardfork::TANGERINE => EvmSpecId::TANGERINE,
-            L1Hardfork::SPURIOUS_DRAGON => EvmSpecId::SPURIOUS_DRAGON,
             L1Hardfork::BYZANTIUM => EvmSpecId::BYZANTIUM,
             L1Hardfork::CONSTANTINOPLE => EvmSpecId::CONSTANTINOPLE,
             L1Hardfork::PETERSBURG => EvmSpecId::PETERSBURG,
@@ -100,18 +82,6 @@ impl From<L1Hardfork> for EvmSpecId {
 
 /// String identifiers for L1 hardforks.
 pub mod name {
-    /// String identifier for the Frontier hardfork
-    pub const FRONTIER: &str = "Frontier";
-    /// String identifier for the Frontier Thawing hardfork
-    pub const FRONTIER_THAWING: &str = "Frontier Thawing";
-    /// String identifier for the Homestead hardfork
-    pub const HOMESTEAD: &str = "Homestead";
-    /// String identifier for the DAO Fork hardfork
-    pub const DAO_FORK: &str = "DAO Fork";
-    /// String identifier for the Tangerine Whistle hardfork
-    pub const TANGERINE: &str = "Tangerine";
-    /// String identifier for the Spurious Dragon hardfork
-    pub const SPURIOUS_DRAGON: &str = "Spurious";
     /// String identifier for the Byzantium hardfork
     pub const BYZANTIUM: &str = "Byzantium";
     /// String identifier for the Constantinople hardfork
@@ -151,12 +121,6 @@ impl FromStr for L1Hardfork {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            name::FRONTIER => Ok(Self::FRONTIER),
-            name::FRONTIER_THAWING => Ok(Self::FRONTIER_THAWING),
-            name::HOMESTEAD => Ok(Self::HOMESTEAD),
-            name::DAO_FORK => Ok(Self::DAO_FORK),
-            name::TANGERINE => Ok(Self::TANGERINE),
-            name::SPURIOUS_DRAGON => Ok(Self::SPURIOUS_DRAGON),
             name::BYZANTIUM => Ok(Self::BYZANTIUM),
             name::CONSTANTINOPLE => Ok(Self::CONSTANTINOPLE),
             name::PETERSBURG => Ok(Self::PETERSBURG),
@@ -180,12 +144,6 @@ impl FromStr for L1Hardfork {
 impl From<L1Hardfork> for &'static str {
     fn from(hardfork: L1Hardfork) -> Self {
         match hardfork {
-            L1Hardfork::FRONTIER => name::FRONTIER,
-            L1Hardfork::FRONTIER_THAWING => name::FRONTIER_THAWING,
-            L1Hardfork::HOMESTEAD => name::HOMESTEAD,
-            L1Hardfork::DAO_FORK => name::DAO_FORK,
-            L1Hardfork::TANGERINE => name::TANGERINE,
-            L1Hardfork::SPURIOUS_DRAGON => name::SPURIOUS_DRAGON,
             L1Hardfork::BYZANTIUM => name::BYZANTIUM,
             L1Hardfork::CONSTANTINOPLE => name::CONSTANTINOPLE,
             L1Hardfork::PETERSBURG => name::PETERSBURG,
@@ -208,12 +166,6 @@ impl From<L1Hardfork> for &'static str {
 impl ProtocolParams for L1Hardfork {
     fn bomb_delay(self) -> u64 {
         match self {
-            L1Hardfork::FRONTIER
-            | L1Hardfork::FRONTIER_THAWING
-            | L1Hardfork::HOMESTEAD
-            | L1Hardfork::DAO_FORK
-            | L1Hardfork::TANGERINE
-            | L1Hardfork::SPURIOUS_DRAGON => 0,
             L1Hardfork::BYZANTIUM => 3000000,
             L1Hardfork::CONSTANTINOPLE | L1Hardfork::PETERSBURG | L1Hardfork::ISTANBUL => 5000000,
             L1Hardfork::MUIR_GLACIER | L1Hardfork::BERLIN | L1Hardfork::LONDON => 9000000,
@@ -228,12 +180,6 @@ impl ProtocolParams for L1Hardfork {
 
     fn miner_reward(self) -> Option<u128> {
         match self {
-            L1Hardfork::FRONTIER
-            | L1Hardfork::FRONTIER_THAWING
-            | L1Hardfork::HOMESTEAD
-            | L1Hardfork::DAO_FORK
-            | L1Hardfork::TANGERINE
-            | L1Hardfork::SPURIOUS_DRAGON => Some(5_000_000_000_000_000_000u128),
             L1Hardfork::BYZANTIUM => Some(3_000_000_000_000_000_000u128),
             L1Hardfork::CONSTANTINOPLE
             | L1Hardfork::PETERSBURG
@@ -258,13 +204,7 @@ impl core::fmt::Display for L1Hardfork {
 mod tests {
     use super::*;
 
-    const VARIANTS: [L1Hardfork; 21] = [
-        L1Hardfork::FRONTIER,
-        L1Hardfork::FRONTIER_THAWING,
-        L1Hardfork::HOMESTEAD,
-        L1Hardfork::DAO_FORK,
-        L1Hardfork::TANGERINE,
-        L1Hardfork::SPURIOUS_DRAGON,
+    const VARIANTS: [L1Hardfork; 15] = [
         L1Hardfork::BYZANTIUM,
         L1Hardfork::CONSTANTINOPLE,
         L1Hardfork::PETERSBURG,
@@ -318,7 +258,6 @@ mod tests {
 
     #[test]
     fn bomb_delays() {
-        assert_eq!(L1Hardfork::SPURIOUS_DRAGON.bomb_delay(), 0);
         assert_eq!(L1Hardfork::BYZANTIUM.bomb_delay(), 3_000_000);
         assert_eq!(L1Hardfork::CONSTANTINOPLE.bomb_delay(), 5_000_000);
         assert_eq!(L1Hardfork::PETERSBURG.bomb_delay(), 5_000_000);
@@ -332,10 +271,6 @@ mod tests {
 
     #[test]
     fn miner_rewards() {
-        assert_eq!(
-            L1Hardfork::HOMESTEAD.miner_reward(),
-            Some(5_000_000_000_000_000_000)
-        );
         assert_eq!(
             L1Hardfork::BYZANTIUM.miner_reward(),
             Some(3_000_000_000_000_000_000)

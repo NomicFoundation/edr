@@ -151,7 +151,7 @@ mod tests {
     fn base_fee_params_constant_at_condition_returns_constant_value() {
         let base_fee_params = BaseFeeParams::Constant(LONDON_PARAMS);
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::FRONTIER, 0),
+            base_fee_params.at_condition(Hardfork::BYZANTIUM, 0),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
@@ -173,8 +173,8 @@ mod tests {
         let base_fee_params = BaseFeeParams::Dynamic(variable_base_fee_params.clone());
 
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::FRONTIER, 0),
-            variable_base_fee_params.at_condition(Hardfork::FRONTIER, 0)
+            base_fee_params.at_condition(Hardfork::BYZANTIUM, 0),
+            variable_base_fee_params.at_condition(Hardfork::BYZANTIUM, 0)
         );
         assert_eq!(
             base_fee_params.at_condition(Hardfork::LONDON, LONDON_ACTIVATION),

@@ -98,18 +98,6 @@ pub fn l1_provider_factory() -> ProviderFactory {
 #[napi]
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum SpecId {
-    /// Frontier
-    Frontier = 0,
-    /// Frontier Thawing
-    FrontierThawing = 1,
-    /// Homestead
-    Homestead = 2,
-    /// DAO Fork
-    DaoFork = 3,
-    /// Tangerine
-    Tangerine = 4,
-    /// Spurious Dragon
-    SpuriousDragon = 5,
     /// Byzantium
     Byzantium = 6,
     /// Constantinople
@@ -147,12 +135,6 @@ impl FromStr for SpecId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            edr_chain_l1::chains::name::FRONTIER => Ok(SpecId::Frontier),
-            edr_chain_l1::chains::name::FRONTIER_THAWING => Ok(SpecId::FrontierThawing),
-            edr_chain_l1::chains::name::HOMESTEAD => Ok(SpecId::Homestead),
-            edr_chain_l1::chains::name::DAO_FORK => Ok(SpecId::DaoFork),
-            edr_chain_l1::chains::name::TANGERINE => Ok(SpecId::Tangerine),
-            edr_chain_l1::chains::name::SPURIOUS_DRAGON => Ok(SpecId::SpuriousDragon),
             edr_chain_l1::chains::name::BYZANTIUM => Ok(SpecId::Byzantium),
             edr_chain_l1::chains::name::CONSTANTINOPLE => Ok(SpecId::Constantinople),
             edr_chain_l1::chains::name::PETERSBURG => Ok(SpecId::Petersburg),
@@ -179,12 +161,6 @@ impl FromStr for SpecId {
 impl From<SpecId> for edr_chain_l1::Hardfork {
     fn from(value: SpecId) -> Self {
         match value {
-            SpecId::Frontier => edr_chain_l1::Hardfork::FRONTIER,
-            SpecId::FrontierThawing => edr_chain_l1::Hardfork::FRONTIER_THAWING,
-            SpecId::Homestead => edr_chain_l1::Hardfork::HOMESTEAD,
-            SpecId::DaoFork => edr_chain_l1::Hardfork::DAO_FORK,
-            SpecId::Tangerine => edr_chain_l1::Hardfork::TANGERINE,
-            SpecId::SpuriousDragon => edr_chain_l1::Hardfork::SPURIOUS_DRAGON,
             SpecId::Byzantium => edr_chain_l1::Hardfork::BYZANTIUM,
             SpecId::Constantinople => edr_chain_l1::Hardfork::CONSTANTINOPLE,
             SpecId::Petersburg => edr_chain_l1::Hardfork::PETERSBURG,
@@ -215,12 +191,6 @@ pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
 #[napi(catch_unwind)]
 pub fn l1_hardfork_to_string(hardfork: SpecId) -> &'static str {
     match hardfork {
-        SpecId::Frontier => edr_chain_l1::chains::name::FRONTIER,
-        SpecId::FrontierThawing => edr_chain_l1::chains::name::FRONTIER_THAWING,
-        SpecId::Homestead => edr_chain_l1::chains::name::HOMESTEAD,
-        SpecId::DaoFork => edr_chain_l1::chains::name::DAO_FORK,
-        SpecId::Tangerine => edr_chain_l1::chains::name::TANGERINE,
-        SpecId::SpuriousDragon => edr_chain_l1::chains::name::SPURIOUS_DRAGON,
         SpecId::Byzantium => edr_chain_l1::chains::name::BYZANTIUM,
         SpecId::Constantinople => edr_chain_l1::chains::name::CONSTANTINOPLE,
         SpecId::Petersburg => edr_chain_l1::chains::name::PETERSBURG,
@@ -257,12 +227,6 @@ macro_rules! export_spec_id {
 }
 
 export_spec_id!(
-    FRONTIER,
-    FRONTIER_THAWING,
-    HOMESTEAD,
-    DAO_FORK,
-    TANGERINE,
-    SPURIOUS_DRAGON,
     BYZANTIUM,
     CONSTANTINOPLE,
     PETERSBURG,
