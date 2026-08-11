@@ -27,23 +27,8 @@ use edr_primitives::UnknownHardfork;
 )]
 #[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum L1Hardfork {
-    /// Frontier hardfork
-    Frontier = 0,
-    /// Frontier Thawing hardfork
-    #[strum(serialize = "Frontier Thawing")]
-    FrontierThawing,
-    /// Homestead hardfork
-    Homestead,
-    /// DAO Fork hardfork
-    #[strum(serialize = "DAO Fork")]
-    DaoFork,
-    /// Tangerine Whistle hardfork
-    Tangerine,
-    /// Spurious Dragon hardfork
-    #[strum(serialize = "Spurious")]
-    SpuriousDragon,
     /// Byzantium hardfork
-    Byzantium,
+    Byzantium = 6,
     /// Constantinople hardfork
     Constantinople,
     /// Petersburg hardfork
@@ -84,12 +69,6 @@ fn unknown_hardfork(_name: &str) -> UnknownHardfork {
 impl From<L1Hardfork> for EvmSpecId {
     fn from(hardfork: L1Hardfork) -> Self {
         match hardfork {
-            // revm only models EVM behavior classes; hardforks without EVM
-            // changes map to their EVM-equivalent predecessor.
-            L1Hardfork::Frontier | L1Hardfork::FrontierThawing => EvmSpecId::FRONTIER,
-            L1Hardfork::Homestead | L1Hardfork::DaoFork => EvmSpecId::HOMESTEAD,
-            L1Hardfork::Tangerine => EvmSpecId::TANGERINE,
-            L1Hardfork::SpuriousDragon => EvmSpecId::SPURIOUS_DRAGON,
             L1Hardfork::Byzantium => EvmSpecId::BYZANTIUM,
             // Constantinople never went live on mainnet on its own: Petersburg
             // (Constantinople minus EIP-1283) activated at the same block.
@@ -111,18 +90,6 @@ impl From<L1Hardfork> for EvmSpecId {
 
 /// String identifiers for L1 hardforks.
 pub mod name {
-    /// String identifier for the Frontier hardfork
-    pub const FRONTIER: &str = "Frontier";
-    /// String identifier for the Frontier Thawing hardfork
-    pub const FRONTIER_THAWING: &str = "Frontier Thawing";
-    /// String identifier for the Homestead hardfork
-    pub const HOMESTEAD: &str = "Homestead";
-    /// String identifier for the DAO Fork hardfork
-    pub const DAO_FORK: &str = "DAO Fork";
-    /// String identifier for the Tangerine Whistle hardfork
-    pub const TANGERINE: &str = "Tangerine";
-    /// String identifier for the Spurious Dragon hardfork
-    pub const SPURIOUS_DRAGON: &str = "Spurious";
     /// String identifier for the Byzantium hardfork
     pub const BYZANTIUM: &str = "Byzantium";
     /// String identifier for the Constantinople hardfork
@@ -163,13 +130,7 @@ mod tests {
 
     use super::*;
 
-    const VARIANTS: [L1Hardfork; 21] = [
-        L1Hardfork::Frontier,
-        L1Hardfork::FrontierThawing,
-        L1Hardfork::Homestead,
-        L1Hardfork::DaoFork,
-        L1Hardfork::Tangerine,
-        L1Hardfork::SpuriousDragon,
+    const VARIANTS: [L1Hardfork; 15] = [
         L1Hardfork::Byzantium,
         L1Hardfork::Constantinople,
         L1Hardfork::Petersburg,
@@ -196,13 +157,7 @@ mod tests {
 
     /// The strings the `strum` derives emit/parse must stay in sync with the
     /// [`name`] module constants, which are re-exported as public API.
-    const NAMES: [&str; 21] = [
-        name::FRONTIER,
-        name::FRONTIER_THAWING,
-        name::HOMESTEAD,
-        name::DAO_FORK,
-        name::TANGERINE,
-        name::SPURIOUS_DRAGON,
+    const NAMES: [&str; 15] = [
         name::BYZANTIUM,
         name::CONSTANTINOPLE,
         name::PETERSBURG,
