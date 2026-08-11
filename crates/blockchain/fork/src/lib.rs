@@ -24,7 +24,7 @@ use edr_blockchain_api::{
 };
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
 use edr_chain_config::{ChainConfig, HardforkActivations};
-use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
@@ -446,7 +446,7 @@ impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
         BlockT: ?Sized + Block<SignedTransactionT>,
         FetchReceiptErrorT,
-        HardforkT: ProtocolHardfork,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
@@ -604,7 +604,7 @@ impl<
                 >,
             >,
         FetchReceiptErrorT,
-        HardforkT: ProtocolHardfork,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
@@ -797,7 +797,7 @@ impl<
                 >,
             >,
         FetchReceiptErrorT,
-        HardforkT: Debug + ProtocolHardfork,
+        HardforkT: Clone + Debug + Into<EvmSpecId> + PartialOrd,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock
@@ -923,7 +923,7 @@ impl<
                 >,
             >,
         FetchReceiptErrorT,
-        HardforkT: ProtocolHardfork,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
@@ -1051,7 +1051,7 @@ impl<
                 >,
             >,
         FetchReceiptErrorT,
-        HardforkT: ProtocolHardfork,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: 'static
             + RpcBlockChainSpec<

@@ -164,20 +164,6 @@ impl From<L1Hardfork> for &'static str {
 }
 
 impl ProtocolParams for L1Hardfork {
-    fn bomb_delay(self) -> u64 {
-        match self {
-            L1Hardfork::BYZANTIUM => 3000000,
-            L1Hardfork::CONSTANTINOPLE | L1Hardfork::PETERSBURG | L1Hardfork::ISTANBUL => 5000000,
-            L1Hardfork::MUIR_GLACIER | L1Hardfork::BERLIN | L1Hardfork::LONDON => 9000000,
-            // L1Hardfork::LONDON => 9500000, // EIP-3554
-            L1Hardfork::ARROW_GLACIER => 10700000,
-            L1Hardfork::GRAY_GLACIER => 11400000,
-            _ => {
-                unreachable!("Post-merge hardforks don't have a bomb delay")
-            }
-        }
-    }
-
     fn miner_reward(self) -> Option<u128> {
         match self {
             L1Hardfork::BYZANTIUM => Some(3_000_000_000_000_000_000u128),
@@ -254,19 +240,6 @@ mod tests {
     #[test]
     fn default_hardfork() {
         assert_eq!(L1Hardfork::default(), L1Hardfork::OSAKA);
-    }
-
-    #[test]
-    fn bomb_delays() {
-        assert_eq!(L1Hardfork::BYZANTIUM.bomb_delay(), 3_000_000);
-        assert_eq!(L1Hardfork::CONSTANTINOPLE.bomb_delay(), 5_000_000);
-        assert_eq!(L1Hardfork::PETERSBURG.bomb_delay(), 5_000_000);
-        assert_eq!(L1Hardfork::ISTANBUL.bomb_delay(), 5_000_000);
-        assert_eq!(L1Hardfork::MUIR_GLACIER.bomb_delay(), 9_000_000);
-        assert_eq!(L1Hardfork::BERLIN.bomb_delay(), 9_000_000);
-        assert_eq!(L1Hardfork::LONDON.bomb_delay(), 9_000_000);
-        assert_eq!(L1Hardfork::ARROW_GLACIER.bomb_delay(), 10_700_000);
-        assert_eq!(L1Hardfork::GRAY_GLACIER.bomb_delay(), 11_400_000);
     }
 
     #[test]

@@ -124,10 +124,6 @@ pub trait ProtocolHardforkChainSpec: EvmHardforkChainSpec {
 /// Trait for protocol-level parameters that are determined by the hardfork but
 /// are not derivable from its EVM behavior class.
 pub trait ProtocolParams {
-    /// Returns the difficulty bomb delay for the hardfork, as introduced by
-    /// EIPs 649, 1234, 2384, 4345 and 5133. Only meaningful pre-merge.
-    fn bomb_delay(self) -> u64;
-
     /// Returns the static block reward for the hardfork, or `None` post-merge.
     fn miner_reward(self) -> Option<u128>;
 }

@@ -148,10 +148,6 @@ impl From<OpHardfork> for &'static str {
 }
 
 impl ProtocolParams for OpHardfork {
-    fn bomb_delay(self) -> u64 {
-        unreachable!("OP chains are post-merge, so they don't have a bomb delay")
-    }
-
     fn miner_reward(self) -> Option<u128> {
         None
     }
@@ -257,6 +253,15 @@ mod tests {
     fn miner_rewards() {
         for hardfork in VARIANTS {
             assert_eq!(hardfork.miner_reward(), None);
+        }
+    }
+
+    /// `OpChainSpec::default_block_difficulty` reports zero for every
+    /// hardfork, which is only correct because none of them precede the merge.
+    #[test]
+    fn every_hardfork_is_post_merge() {
+        for hardfork in VARIANTS {
+            assert!(EvmSpecId::from(hardfork) >= EvmSpecId::MERGE, "{hardfork}");
         }
     }
 

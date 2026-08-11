@@ -4,7 +4,7 @@ use std::sync::Arc;
 use alloy_rlp::RlpEncodable;
 use edr_block_api::{sync::SyncBlock, GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::{
-    calculate_next_base_fee_per_gas, BlockConfig, BlockHeader, HeaderAndEvmSpec,
+    calculate_next_base_fee_per_gas, zero_difficulty, BlockConfig, BlockHeader, HeaderAndEvmSpec,
 };
 use edr_block_local::LocalBlockCreationError;
 use edr_block_remote::FetchRemoteReceiptError;
@@ -29,7 +29,7 @@ use edr_napi_core::{
     napi,
     spec::{cast_provider_result_to_response, SyncNapiSpec},
 };
-use edr_primitives::HashMap;
+use edr_primitives::{HashMap, U256};
 use edr_provider::{
     time::TimeSinceEpoch, ProviderErrorForChainSpec, ProviderSpec, ResponseWithCallTraces,
     TransactionFailureReason,
@@ -330,14 +330,22 @@ pub(crate) fn op_next_base_fee(
 }
 
 impl ProviderChainSpec for OpChainSpec {
-    const MIN_ETHASH_DIFFICULTY: u64 = 0;
-
     fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>> {
         op_chain_configs()
     }
 
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork> {
         op_default_base_fee_params()
+    }
+
+    fn default_block_difficulty(
+        hardfork: Self::ProtocolHardfork,
+        parent: Option<&BlockHeader>,
+        block_number: u64,
+        block_timestamp: u64,
+    ) -> U256 {
+        // OP chains are post-merge, so they have no difficulty.
+        zero_difficulty(hardfork, parent, block_number, block_timestamp)
     }
 
     fn next_base_fee_per_gas(

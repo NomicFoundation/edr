@@ -2,6 +2,7 @@
 
 pub mod block;
 pub mod chains;
+pub mod difficulty;
 mod eip2718;
 pub mod hardfork;
 pub mod pooled;

@@ -10,7 +10,7 @@ use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcChainSpec, RpcEthBlock, RpcTransaction, RpcTypeFrom};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
-use edr_primitives::{HashMap, B256};
+use edr_primitives::{HashMap, B256, U256};
 use edr_transaction::{TransactionAndBlock, TransactionType};
 
 /// Trait for specifying the types needed to implement a chain-specific JSON-RPC
@@ -41,14 +41,21 @@ pub trait ProviderChainSpec: BlockChainSpec<
         >,
     >
 {
-    /// The minimum difficulty for the Ethash proof-of-work algorithm.
-    const MIN_ETHASH_DIFFICULTY: u64;
-
     /// Returns the chain configurations for this chain type.
     fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>>;
 
     /// Returns the default base fee params to fallback to for the given spec
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork>;
+
+    /// Returns the difficulty of a block when it is not overridden.
+    ///
+    /// `parent` is absent for a genesis block.
+    fn default_block_difficulty(
+        hardfork: Self::ProtocolHardfork,
+        parent: Option<&BlockHeader>,
+        block_number: u64,
+        block_timestamp: u64,
+    ) -> U256;
 
     /// Returns the default scheduled blob params to fallback to for the given
     /// spec

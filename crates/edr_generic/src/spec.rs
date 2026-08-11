@@ -305,14 +305,21 @@ impl ProtocolHardforkChainSpec for GenericChainSpec {
 }
 
 impl ProviderChainSpec for GenericChainSpec {
-    const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
-
     fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>> {
         L1ChainSpec::chain_configs()
     }
 
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork> {
         L1ChainSpec::default_base_fee_params()
+    }
+
+    fn default_block_difficulty(
+        hardfork: Self::ProtocolHardfork,
+        parent: Option<&BlockHeader>,
+        block_number: u64,
+        block_timestamp: u64,
+    ) -> U256 {
+        L1ChainSpec::default_block_difficulty(hardfork, parent, block_number, block_timestamp)
     }
 
     fn next_base_fee_per_gas(
