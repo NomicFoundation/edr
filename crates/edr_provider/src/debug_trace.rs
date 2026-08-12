@@ -4,9 +4,7 @@ use alloy_rpc_types_trace::geth::{GethDebugTracingOptions, GethTrace};
 use edr_block_builder_api::{DatabaseComponents, WrapDatabaseRef};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
-use edr_chain_spec::{
-    ChainSpec, EvmSpecId, ExecutableTransaction as _, ProtocolHardfork as _, TransactionValidation,
-};
+use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction as _, TransactionValidation};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{BlockEnvTrait as _, CfgEnv, DatabaseComponentError, TransactionError};
 use edr_evm::{dry_run_with_inspector, run};
@@ -35,7 +33,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
     transaction_hash: &B256,
     observer_config: EvmObserverConfig,
 ) -> Result<DebugTraceResultWithCallTraces, DebugTraceErrorForChainSpec<ChainSpecT>> {
-    let evm_spec_id = evm_config.spec.to_evm_spec_id();
+    let evm_spec_id = evm_config.spec.into();
     if evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
         return Err(DebugTraceError::InvalidSpecId {

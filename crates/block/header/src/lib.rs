@@ -371,7 +371,7 @@ impl PartialHeader {
                 B256::ZERO
             }
         });
-        let evm_spec_id = hardfork.to_evm_spec_id();
+        let evm_spec_id: EvmSpecId = (*hardfork).into();
 
         let base_fee = overrides.base_fee.or_else(|| {
             if evm_spec_id >= EvmSpecId::LONDON {

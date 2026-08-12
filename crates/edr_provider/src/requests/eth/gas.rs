@@ -1,5 +1,5 @@
 use edr_block_api::Block as _;
-use edr_chain_spec::{EvmSpecId, ProtocolHardfork as _, TransactionValidation};
+use edr_chain_spec::{EvmSpecId, TransactionValidation};
 use edr_eth::{fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, BlockSpec};
 use edr_primitives::{U256, U64};
 use edr_runtime::{overrides::StateOverrides, transaction};
@@ -175,7 +175,7 @@ fn resolve_estimate_gas_request<
 
     let hardfork = data.hardfork_at_block_spec(block_spec)?;
     let transaction_gas_cap = data.transaction_gas_cap().unwrap_or(u64::MAX);
-    transaction::validate(transaction, hardfork.to_evm_spec_id(), transaction_gas_cap)
+    transaction::validate(transaction, hardfork.into(), transaction_gas_cap)
         .map_err(ProviderError::TransactionCreationError)
 }
 

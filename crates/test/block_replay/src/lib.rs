@@ -17,9 +17,7 @@ use edr_blockchain_fork::{
     eips::eip4788::{beacon_root_storage_slots, BeaconRootStorageSlots, BEACON_ROOTS_ADDRESS},
     ForkedBlockchain,
 };
-use edr_chain_spec::{
-    ChainSpec, EvmSpecId, ExecutableTransaction, ProtocolHardfork as _, ProtocolHardforkChainSpec,
-};
+use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction, ProtocolHardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::config::EvmConfig;
 use edr_chain_spec_provider::SyncProviderChainSpec;
@@ -199,7 +197,9 @@ pub async fn run_full_block<
         let mut state = prior_blockchain
             .state_at_block_number(block_number - 1, prior_irregular_state.state_overrides())?;
 
-        if hardfork.to_evm_spec_id() >= EvmSpecId::CANCUN {
+        let evm_spec_id: EvmSpecId = hardfork.into();
+
+        if evm_spec_id >= EvmSpecId::CANCUN {
             replicate_beacon_block_root_oracle_state(
                 block_number,
                 rpc_client,

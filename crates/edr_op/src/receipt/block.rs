@@ -1,7 +1,7 @@
 //! Types for OP block receipts.
 
 use edr_chain_l1::receipt::L1BlockReceipt;
-use edr_chain_spec::{ContextChainSpec, ProtocolHardfork as _};
+use edr_chain_spec::ContextChainSpec;
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
@@ -85,7 +85,7 @@ impl ReceiptConstructor<OpSignedTransaction> for OpBlockReceipt {
 
         let eth = L1BlockReceipt::new(
             transaction_receipt,
-            hardfork.to_evm_spec_id(),
+            hardfork.into(),
             *block_hash,
             block_number,
         );

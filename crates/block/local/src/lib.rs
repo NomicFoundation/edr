@@ -177,7 +177,7 @@ impl<
         block_config: &BlockConfig<HardforkT>,
         options: GenesisBlockOptions<HardforkT>,
     ) -> Result<Self, LocalBlockCreationError> {
-        let evm_spec_id = block_config.hardfork.to_evm_spec_id();
+        let evm_spec_id: EvmSpecId = block_config.hardfork.into();
         if evm_spec_id >= EvmSpecId::MERGE && options.mix_hash.is_none() {
             return Err(LocalBlockCreationError::MissingPrevrandao);
         }

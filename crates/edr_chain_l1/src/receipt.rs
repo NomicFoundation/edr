@@ -5,9 +5,7 @@ pub mod builder;
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
-use edr_chain_spec::{
-    ContextChainSpec, EvmSpecId, ProtocolHardfork as _, ProtocolHardforkChainSpec,
-};
+use edr_chain_spec::{ContextChainSpec, EvmSpecId, ProtocolHardforkChainSpec};
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
@@ -124,7 +122,7 @@ impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>, SignedTransactionT>
     ) -> Self {
         L1BlockReceipt::new(
             transaction_receipt,
-            hardfork.to_evm_spec_id(),
+            hardfork.into(),
             *block_hash,
             block_number,
         )

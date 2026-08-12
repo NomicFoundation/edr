@@ -118,19 +118,21 @@ pub trait EvmHardforkChainSpec {
 /// Trait for specifying the protocol-level hardfork type of a chain.
 pub trait ProtocolHardforkChainSpec: EvmHardforkChainSpec {
     /// The chain's protocol-level hardfork type.
+    ///
+    /// Note the two conversions: [`Self::EvmHardfork`] is the chain's own EVM
+    /// behavior class, whereas [`EvmSpecId`] is L1's. They coincide for L1 but
+    /// not for a chain with its own EVM hardfork type, so `.into()` on this
+    /// type needs its target named in generic code.
     type ProtocolHardfork: Default + Into<Self::EvmHardfork> + ProtocolHardfork;
 }
 
 /// Capabilities required of a chain's protocol-level hardfork type by code
 /// that creates blocks: conversion to the EVM behavior class and activation
 /// ordering.
-pub trait ProtocolHardfork: Copy + Into<EvmSpecId> + PartialOrd {
-    /// Converts the hardfork into the EVM specification identifier of its EVM
-    /// behavior class.
-    fn to_evm_spec_id(self) -> EvmSpecId {
-        self.into()
-    }
-}
+///
+/// Blanket-implemented alias for its bounds; use it to bound hardfork-generic
+/// code that has no chain spec in scope.
+pub trait ProtocolHardfork: Copy + Into<EvmSpecId> + PartialOrd {}
 
 impl<T> ProtocolHardfork for T where T: Copy + Into<EvmSpecId> + PartialOrd {}
 

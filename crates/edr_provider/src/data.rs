@@ -33,7 +33,7 @@ use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait,
-    ProtocolHardfork as _, TransactionValidation,
+    TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
@@ -1101,7 +1101,8 @@ where
         base_fee_per_gas: u128,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         let hardfork = self.hardfork();
-        if hardfork.to_evm_spec_id() < EvmSpecId::LONDON {
+        let evm_spec_id: EvmSpecId = hardfork.into();
+        if evm_spec_id < EvmSpecId::LONDON {
             return Err(ProviderError::SetNextBlockBaseFeePerGasUnsupported { hardfork });
         }
 
@@ -1141,7 +1142,8 @@ where
         prev_randao: B256,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         let hardfork = self.hardfork();
-        if hardfork.to_evm_spec_id() < EvmSpecId::MERGE {
+        let evm_spec_id: EvmSpecId = hardfork.into();
+        if evm_spec_id < EvmSpecId::MERGE {
             return Err(ProviderError::SetNextPrevRandaoUnsupported { hardfork });
         }
 
@@ -1543,7 +1545,7 @@ where
 
         let evm_config = self.create_evm_config(self.blockchain.chain_id());
 
-        let evm_spec_id = self.blockchain.hardfork().to_evm_spec_id();
+        let evm_spec_id: EvmSpecId = self.blockchain.hardfork().into();
         if options.mix_hash.is_none() && evm_spec_id >= EvmSpecId::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
         }
@@ -1729,7 +1731,7 @@ where
 
     /// Returns the local EVM's [`EvmSpecId`].
     pub fn evm_spec_id(&self) -> EvmSpecId {
-        self.hardfork().to_evm_spec_id()
+        self.hardfork().into()
     }
 
     /// Returns the local hardfork.
@@ -2985,7 +2987,8 @@ fn create_forked_blockchain_and_state<
             .expect("Elapsed time since fork block must be representable as i64")
     };
 
-    let next_block_base_fee_per_gas = if config.hardfork.to_evm_spec_id() >= EvmSpecId::LONDON {
+    let evm_spec_id: EvmSpecId = config.hardfork.into();
+    let next_block_base_fee_per_gas = if evm_spec_id >= EvmSpecId::LONDON {
         if let Some(base_fee) = config.initial_base_fee_per_gas {
             Some(base_fee)
         } else {
@@ -3035,7 +3038,8 @@ fn create_local_blockchain_and_state<
     local_config: &LocalConfig,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
-    let mix_hash = if config.hardfork.to_evm_spec_id() >= EvmSpecId::MERGE {
+    let evm_spec_id: EvmSpecId = config.hardfork.into();
+    let mix_hash = if evm_spec_id >= EvmSpecId::MERGE {
         Some(prev_randao_generator.generate_next())
     } else {
         None

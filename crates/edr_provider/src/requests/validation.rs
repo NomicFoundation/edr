@@ -1,5 +1,5 @@
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
-use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork as _};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eth::{Blob, BlockSpec, BlockTag, PreEip1898BlockSpec};
 use edr_primitives::{Address, Bytes, B256, MAX_INITCODE_SIZE};
 
@@ -186,7 +186,7 @@ fn validate_transaction_spec<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + T
     hardfork: ChainSpecT::ProtocolHardfork,
     value: &impl HardforkValidationData,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    let spec_id = hardfork.to_evm_spec_id();
+    let spec_id = hardfork.into();
     if spec_id < EvmSpecId::BERLIN && value.access_list().is_some() {
         return Err(ProviderError::UnsupportedAccessListParameter {
             current_hardfork: spec_id,
@@ -333,10 +333,9 @@ pub(crate) fn validate_eip3860_max_initcode_size<
     to: Option<&Address>,
     data: &Bytes,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    if hardfork.to_evm_spec_id() < EvmSpecId::SHANGHAI
-        || to.is_some()
-        || allow_unlimited_contract_code_size
-    {
+    let evm_spec_id: EvmSpecId = hardfork.into();
+
+    if evm_spec_id < EvmSpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
         return Ok(());
     }
 
@@ -391,7 +390,9 @@ pub(crate) fn validate_post_merge_block_tags<
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec: ValidationBlockSpec<'a> = block_spec.into();
 
-    if hardfork.to_evm_spec_id() < EvmSpecId::MERGE {
+    let evm_spec_id: EvmSpecId = hardfork.into();
+
+    if evm_spec_id < EvmSpecId::MERGE {
         match block_spec {
             ValidationBlockSpec::PreEip1898(PreEip1898BlockSpec::Tag(
                 tag @ (BlockTag::Safe | BlockTag::Finalized),
