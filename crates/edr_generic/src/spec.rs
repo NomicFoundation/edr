@@ -14,7 +14,7 @@ use edr_chain_l1::{
 use edr_chain_spec::{
     BlobExcessGasAndPrice, BlockEnvChainSpec, BlockEnvConstructor, BlockEnvForHardfork,
     BlockEnvTrait, ChainSpec, ContextChainSpec, EvmHardforkChainSpec, EvmSpecId,
-    ProtocolHardfork as _, ProtocolHardforkChainSpec, TransactionValidation,
+    ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
@@ -111,7 +111,7 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<edr_chain_l1::Hardfork>> BlockEn
                     .try_into()
                     .expect("Timestamp must not exceed u64");
                 let blob_params = blob_params_for_hardfork(
-                    self.inner.hardfork.to_evm_spec_id(),
+                    self.inner.hardfork.into(),
                     timestamp,
                     self.inner.scheduled_blob_params,
                 );

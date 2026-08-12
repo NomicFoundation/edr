@@ -1,4 +1,4 @@
-use edr_chain_spec::{ProtocolHardfork as _, TransactionValidation};
+use edr_chain_spec::TransactionValidation;
 use edr_eth::BlockSpec;
 use edr_primitives::Bytes;
 use edr_rpc_eth::StateOverrideOptions;
@@ -78,6 +78,6 @@ pub(crate) fn resolve_call_request<
 
     let hardfork = data.hardfork_at_block_spec(block_spec)?;
     let transaction_gas_cap = data.transaction_gas_cap().unwrap_or(u64::MAX);
-    transaction::validate(transaction, hardfork.to_evm_spec_id(), transaction_gas_cap)
+    transaction::validate(transaction, hardfork.into(), transaction_gas_cap)
         .map_err(ProviderError::TransactionCreationError)
 }

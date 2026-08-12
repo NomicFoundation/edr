@@ -10,7 +10,7 @@ use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec, EvmHardforkChainSpec,
-    EvmSpecId, ProtocolHardfork as _, ProtocolHardforkChainSpec, TransactionValidation,
+    EvmSpecId, ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
@@ -92,7 +92,7 @@ impl EvmChainSpec for L1ChainSpec {
     fn new_precompile_provider<BlockEnvT: BlockEnvTrait, DatabaseT: Database>(
         hardfork: Self::ProtocolHardfork,
     ) -> Self::PrecompileProvider<BlockEnvT, DatabaseT> {
-        EthPrecompiles::new(hardfork.to_evm_spec_id())
+        EthPrecompiles::new(hardfork.into())
     }
 
     fn dry_run<
