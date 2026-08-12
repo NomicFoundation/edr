@@ -1,5 +1,5 @@
 name: EDR Benchmarks
-
+# Test
 on:
   # Deliberately do not run on merge_group
   push:
