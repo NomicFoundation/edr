@@ -37,13 +37,15 @@ use edr_receipt::{
 use edr_receipt_builder_api::ExecutionReceiptBuilder;
 use edr_state_api::{AccountModifierFn, DynState, StateDiff, StateError};
 
+use crate::{reward::miner_reward, Hardfork};
+
 const MAX_BLOCK_SIZE: usize = 10_485_760; // 10 MiB
 const SAFETY_MARGIN: usize = 2_097_152; // 2 MiB
 
 /// EIP-7934 max RLP block size
 pub const MAX_RLP_BLOCK_SIZE: usize = MAX_BLOCK_SIZE - SAFETY_MARGIN;
 
-/// A builder for constructing Ethereum blocks.
+/// A chain-agnostic builder for constructing Ethereum blocks.
 pub struct EthBlockBuilder<
     'builder,
     BlockReceiptT,
@@ -140,6 +142,11 @@ impl<
     /// Retrieves the amount of gas used in the block, so far.
     pub fn gas_used(&self) -> u64 {
         self.header.gas_used
+    }
+
+    /// Retrieves the set of precompile addresses available during execution.
+    pub fn precompile_addresses(&self) -> &HashSet<Address> {
+        &self.precompile_addresses
     }
 
     /// Retrieves the amount of gas left in the block.
@@ -599,29 +606,36 @@ impl<
         LocalBlockT,
     >
 {
-    pub fn finalize(
-        mut self,
-        rewards: Vec<(Address, u128)>,
-    ) -> Result<
-        BuiltBlockAndStateWithMetadata<LocalBlockT, ChainSpecT::HaltReason>,
-        BlockFinalizeError<StateError>,
-    > {
+    /// Credits the provided rewards to the block's state.
+    ///
+    /// Must be called before [`Self::finalize`], which computes the state root
+    /// and the block access list hash from the resulting state.
+    pub fn apply_rewards(
+        &mut self,
+        rewards: impl IntoIterator<Item = (Address, u128)>,
+    ) -> Result<(), StateError> {
         for (address, reward) in rewards {
             if reward > 0 {
-                let account_info = self
-                    .state
-                    .modify_account(
-                        address,
-                        AccountModifierFn::new(Box::new(move |balance, _nonce, _code| {
-                            *balance += U256::from(reward);
-                        })),
-                    )
-                    .map_err(BlockFinalizeError::State)?;
+                let account_info = self.state.modify_account(
+                    address,
+                    AccountModifierFn::new(Box::new(move |balance, _nonce, _code| {
+                        *balance += U256::from(reward);
+                    })),
+                )?;
 
                 self.state_diff.apply_account_change(address, account_info);
             }
         }
 
+        Ok(())
+    }
+
+    pub fn finalize(
+        mut self,
+    ) -> Result<
+        BuiltBlockAndStateWithMetadata<LocalBlockT, ChainSpecT::HaltReason>,
+        BlockFinalizeError<StateError>,
+    > {
         if let Some(gas_limit) = self.parent_gas_limit {
             self.header.gas_limit = gas_limit;
         }
@@ -652,8 +666,8 @@ impl<
                 .as_secs();
         }
 
-        // Must run after the reward loop and state-root computation above, so
-        // `state_diff` is final.
+        // Must run after the state-root computation above, and after any
+        // `apply_rewards` call, so `state_diff` is final.
         self.header.block_access_list_hash = block_access_list_hash(
             self.header.block_access_list_hash,
             &self.state_diff,
@@ -691,27 +705,59 @@ impl<
     }
 }
 
+/// A builder for constructing Ethereum L1 blocks.
+///
+/// Wraps the chain-agnostic [`EthBlockBuilder`], adding the static block reward
+/// that L1 pays to a pre-merge block's beneficiary.
+pub struct L1BlockBuilder<
+    'builder,
+    BlockReceiptT,
+    BlockT: ?Sized,
+    BlockchainErrorT: Debug + Send + Sync + 'static,
+    EvmChainSpecT: EvmChainSpec,
+    ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
+        EvmChainSpecT::HaltReason,
+        EvmChainSpecT::ProtocolHardfork,
+        EvmChainSpecT::SignedTransaction,
+        Receipt = ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>,
+    >,
+    ExecutionReceiptChainSpecT: ExecutionReceiptChainSpec,
+    LocalBlockT,
+> {
+    eth: EthBlockBuilder<
+        'builder,
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        EvmChainSpecT,
+        ExecutionReceiptBuilderT,
+        ExecutionReceiptChainSpecT,
+        LocalBlockT,
+    >,
+}
+
 impl<
         'builder,
         BlockReceiptT: ReceiptConstructor<
                 ChainSpecT::SignedTransaction,
                 Context = ChainSpecT::Context,
                 ExecutionReceipt = ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
-                Hardfork = ChainSpecT::ProtocolHardfork,
+                Hardfork = Hardfork,
             > + ReceiptTrait
             + alloy_rlp::Encodable,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
         BlockchainErrorT: Debug + 'static + std::error::Error + Send + Sync,
-        ChainSpecT: BlockChainSpec
+        // The reward is L1-specific, so this builder is pinned to L1's hardfork
+        // type. `GenericChainSpec` shares it, as it reuses `L1Hardfork`.
+        ChainSpecT: BlockChainSpec<ProtocolHardfork = Hardfork>
             + BlockEnvChainSpec
             + EvmChainSpec<
                 Context: Default,
-                ProtocolHardfork: PartialOrd,
                 SignedTransaction: Clone + ExecutableTransaction + alloy_rlp::Encodable,
             >,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,
-            ChainSpecT::ProtocolHardfork,
+            Hardfork,
             ChainSpecT::SignedTransaction,
             Receipt = ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>,
         >,
@@ -726,12 +772,12 @@ impl<
             EthLocalBlock<
                 BlockReceiptT,
                 ChainSpecT::FetchReceiptError,
-                ChainSpecT::ProtocolHardfork,
+                Hardfork,
                 ChainSpecT::SignedTransaction,
             >,
         >,
     > BlockBuilder<'builder, ChainSpecT, BlockReceiptT, BlockT>
-    for EthBlockBuilder<
+    for L1BlockBuilder<
         'builder,
         BlockReceiptT,
         BlockT,
@@ -768,7 +814,7 @@ impl<
             ChainSpecT::ProtocolHardfork,
         >,
     > {
-        Self::new(
+        EthBlockBuilder::new(
             ChainSpecT::Context::default(),
             blockchain,
             block_config,
@@ -778,14 +824,15 @@ impl<
             overrides,
             custom_precompiles,
         )
+        .map(|eth| Self { eth })
     }
 
     fn header(&self) -> &PartialHeader {
-        self.header()
+        self.eth.header()
     }
 
     fn precompile_addresses(&self) -> &HashSet<Address> {
-        &self.precompile_addresses
+        self.eth.precompile_addresses()
     }
 
     fn add_transaction(
@@ -798,7 +845,7 @@ impl<
             <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
-        Self::add_transaction(self, transaction)
+        self.eth.add_transaction(transaction)
     }
 
     fn add_transaction_with_inspector<InspectorT>(
@@ -833,17 +880,25 @@ impl<
             >,
         >,
     {
-        Self::add_transaction_with_inspector(self, transaction, inspector)
+        self.eth
+            .add_transaction_with_inspector(transaction, inspector)
     }
 
     fn finalize_block(
-        self,
-        rewards: Vec<(Address, u128)>,
+        mut self,
     ) -> Result<
         BuiltBlockAndStateWithMetadata<LocalBlockT, ChainSpecT::HaltReason>,
         BlockFinalizeError<StateError>,
     > {
-        self.finalize(rewards)
+        if let Some(reward) = miner_reward(self.eth.config().spec) {
+            let beneficiary = self.eth.header().beneficiary;
+
+            self.eth
+                .apply_rewards([(beneficiary, reward)])
+                .map_err(BlockFinalizeError::State)?;
+        }
+
+        self.eth.finalize()
     }
 }
 

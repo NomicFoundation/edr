@@ -2,7 +2,7 @@ use core::num::NonZeroU64;
 use std::str::FromStr;
 
 use edr_chain_config::{ChainOverride, HardforkActivation, HardforkActivations};
-use edr_chain_spec::ProtocolHardfork;
+use edr_chain_spec::EvmSpecId;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
 use edr_eip7825::transaction_gas_cap_for_hardfork;
 use edr_precompile::PrecompileFn;
@@ -78,7 +78,7 @@ where
 
 impl<HardforkT> TryFrom<Config> for edr_provider::config::Provider<HardforkT>
 where
-    HardforkT: Default + FromStr<Err = UnknownHardfork> + ProtocolHardfork,
+    HardforkT: Clone + Default + FromStr<Err = UnknownHardfork> + Into<EvmSpecId> + PartialOrd,
 {
     type Error = napi::Error;
 
@@ -158,7 +158,7 @@ where
         let hardfork = parse_hardfork::<HardforkT>(value.hardfork)?;
         let transaction_gas_cap = match value.transaction_gas_cap {
             ConfigOption::Custom(transaction_gas_cap) => Some(transaction_gas_cap),
-            ConfigOption::Default => transaction_gas_cap_for_hardfork(hardfork),
+            ConfigOption::Default => transaction_gas_cap_for_hardfork(hardfork.clone()),
             ConfigOption::Disable => None,
         };
 

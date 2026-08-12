@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use edr_chain_config::ChainConfig;
-use edr_chain_spec::{EvmSpecId, ProtocolParams};
+use edr_chain_spec::EvmSpecId;
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{HashMap, UnknownHardfork};
 
@@ -130,12 +130,6 @@ pub mod name {
     pub const OSAKA: &str = "Osaka";
 }
 
-impl ProtocolParams for OpHardfork {
-    fn miner_reward(self) -> Option<u128> {
-        None
-    }
-}
-
 /// Returns the chain configurations for OP chains.
 pub fn op_chain_configs() -> &'static HashMap<u64, ChainConfig<Hardfork>> {
     static CONFIGS: LazyLock<HashMap<u64, ChainConfig<Hardfork>>> = LazyLock::new(|| {
@@ -246,15 +240,9 @@ mod tests {
         assert_eq!(OpHardfork::default(), OpHardfork::JOVIAN);
     }
 
-    #[test]
-    fn miner_rewards() {
-        for hardfork in VARIANTS {
-            assert_eq!(hardfork.miner_reward(), None);
-        }
-    }
-
-    /// `OpChainSpec::default_block_difficulty` reports zero for every
-    /// hardfork, which is only correct because none of them precede the merge.
+    /// `OpChainSpec::default_block_difficulty` reports zero for every hardfork,
+    /// and `OpBlockBuilder` pays no block reward. Both are only correct because
+    /// none of these hardforks precede the merge.
     #[test]
     fn every_hardfork_is_post_merge() {
         for hardfork in VARIANTS {

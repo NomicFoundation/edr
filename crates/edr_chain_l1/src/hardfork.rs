@@ -1,6 +1,6 @@
 //! Ethereum L1 hardfork type, owned by EDR.
 
-use edr_chain_spec::{EvmSpecId, ProtocolParams};
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::UnknownHardfork;
 
 /// Ethereum L1 hardfork.
@@ -176,29 +176,6 @@ pub mod name {
     pub const LATEST: &str = "Latest";
 }
 
-impl ProtocolParams for L1Hardfork {
-    fn miner_reward(self) -> Option<u128> {
-        match self {
-            L1Hardfork::FRONTIER
-            | L1Hardfork::FRONTIER_THAWING
-            | L1Hardfork::HOMESTEAD
-            | L1Hardfork::DAO_FORK
-            | L1Hardfork::TANGERINE
-            | L1Hardfork::SPURIOUS_DRAGON => Some(5_000_000_000_000_000_000u128),
-            L1Hardfork::BYZANTIUM => Some(3_000_000_000_000_000_000u128),
-            L1Hardfork::CONSTANTINOPLE
-            | L1Hardfork::PETERSBURG
-            | L1Hardfork::ISTANBUL
-            | L1Hardfork::MUIR_GLACIER
-            | L1Hardfork::BERLIN
-            | L1Hardfork::LONDON
-            | L1Hardfork::ARROW_GLACIER
-            | L1Hardfork::GRAY_GLACIER => Some(2_000_000_000_000_000_000u128),
-            _ => None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use core::str::FromStr;
@@ -289,27 +266,6 @@ mod tests {
     #[test]
     fn default_hardfork() {
         assert_eq!(L1Hardfork::default(), L1Hardfork::OSAKA);
-    }
-
-    #[test]
-    fn miner_rewards() {
-        assert_eq!(
-            L1Hardfork::HOMESTEAD.miner_reward(),
-            Some(5_000_000_000_000_000_000)
-        );
-        assert_eq!(
-            L1Hardfork::BYZANTIUM.miner_reward(),
-            Some(3_000_000_000_000_000_000)
-        );
-        assert_eq!(
-            L1Hardfork::CONSTANTINOPLE.miner_reward(),
-            Some(2_000_000_000_000_000_000)
-        );
-        assert_eq!(
-            L1Hardfork::GRAY_GLACIER.miner_reward(),
-            Some(2_000_000_000_000_000_000)
-        );
-        assert_eq!(L1Hardfork::MERGE.miner_reward(), None);
     }
 
     /// Parity tests against revm's `SpecId`, which still models every L1

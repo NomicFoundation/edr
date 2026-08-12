@@ -32,7 +32,7 @@ use revm_context_interface::JournalTr as _;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    block::EthBlockBuilder,
+    block::L1BlockBuilder,
     chains::l1_chain_configs,
     difficulty::{calculate_ethash_canonical_difficulty, PreMergeL1Hardfork},
     receipt::{builder::L1ExecutionReceiptBuilder, L1BlockReceipt},
@@ -55,7 +55,7 @@ impl BlockChainSpec for L1ChainSpec {
         dyn SyncBlock<Arc<Self::Receipt>, Self::SignedTransaction, Error = Self::FetchReceiptError>;
 
     type BlockBuilder<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync> =
-        EthBlockBuilder<
+        L1BlockBuilder<
             'builder,
             Self::Receipt,
             Self::Block,

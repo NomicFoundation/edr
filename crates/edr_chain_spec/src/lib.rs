@@ -121,17 +121,10 @@ pub trait ProtocolHardforkChainSpec: EvmHardforkChainSpec {
     type ProtocolHardfork: Default + Into<Self::EvmHardfork> + ProtocolHardfork;
 }
 
-/// Trait for protocol-level parameters that are determined by the hardfork but
-/// are not derivable from its EVM behavior class.
-pub trait ProtocolParams {
-    /// Returns the static block reward for the hardfork, or `None` post-merge.
-    fn miner_reward(self) -> Option<u128>;
-}
-
 /// Capabilities required of a chain's protocol-level hardfork type by code
-/// that creates blocks: conversion to the EVM behavior class, activation
-/// ordering, and protocol-level parameters.
-pub trait ProtocolHardfork: Copy + Into<EvmSpecId> + PartialOrd + ProtocolParams {
+/// that creates blocks: conversion to the EVM behavior class and activation
+/// ordering.
+pub trait ProtocolHardfork: Copy + Into<EvmSpecId> + PartialOrd {
     /// Converts the hardfork into the EVM specification identifier of its EVM
     /// behavior class.
     fn to_evm_spec_id(self) -> EvmSpecId {
@@ -139,7 +132,7 @@ pub trait ProtocolHardfork: Copy + Into<EvmSpecId> + PartialOrd + ProtocolParams
     }
 }
 
-impl<T> ProtocolHardfork for T where T: Copy + Into<EvmSpecId> + PartialOrd + ProtocolParams {}
+impl<T> ProtocolHardfork for T where T: Copy + Into<EvmSpecId> + PartialOrd {}
 
 /// Trait for chain specifications.
 pub trait ChainSpec {
