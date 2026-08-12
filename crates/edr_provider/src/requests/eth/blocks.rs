@@ -210,7 +210,10 @@ fn block_to_rpc_output<ChainSpecT: ProviderChainSpec>(
                         Arc<ChainSpecT::Block>,
                         ChainSpecT::SignedTransaction,
                     >| {
-                        ChainSpecT::RpcTransaction::rpc_type_from(&transaction_and_block, hardfork)
+                        ChainSpecT::RpcTransaction::rpc_type_from(
+                            &transaction_and_block,
+                            hardfork.clone(),
+                        )
                     },
                 )
                 .map(HashOrTransaction::Transaction)

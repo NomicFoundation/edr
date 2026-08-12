@@ -246,44 +246,46 @@ impl<'env, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
     }
 }
 
-impl<HardforkT: Copy + Into<EvmSpecId>, BlockHeaderT: BlockEnvForHardfork<HardforkT>> BlockEnvTrait
+impl<HardforkT: Clone + Into<EvmSpecId>, BlockHeaderT: BlockEnvForHardfork<HardforkT>> BlockEnvTrait
     for HeaderAndEvmSpec<'_, BlockHeaderT, HardforkT>
 {
     fn number(&self) -> U256 {
-        self.header.number_for_hardfork(self.hardfork)
+        self.header.number_for_hardfork(self.hardfork.clone())
     }
 
     fn beneficiary(&self) -> Address {
-        self.header.beneficiary_for_hardfork(self.hardfork)
+        self.header.beneficiary_for_hardfork(self.hardfork.clone())
     }
 
     fn timestamp(&self) -> U256 {
-        self.header.timestamp_for_hardfork(self.hardfork)
+        self.header.timestamp_for_hardfork(self.hardfork.clone())
     }
 
     fn gas_limit(&self) -> u64 {
-        self.header.gas_limit_for_hardfork(self.hardfork)
+        self.header.gas_limit_for_hardfork(self.hardfork.clone())
     }
 
     fn basefee(&self) -> u64 {
-        self.header.basefee_for_hardfork(self.hardfork)
+        self.header.basefee_for_hardfork(self.hardfork.clone())
     }
 
     fn difficulty(&self) -> U256 {
-        self.header.difficulty_for_hardfork(self.hardfork)
+        self.header.difficulty_for_hardfork(self.hardfork.clone())
     }
 
     fn prevrandao(&self) -> Option<B256> {
-        self.header.prevrandao_for_hardfork(self.hardfork)
+        self.header.prevrandao_for_hardfork(self.hardfork.clone())
     }
 
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
-        self.header
-            .blob_excess_gas_and_price_for_hardfork(self.hardfork, self.scheduled_blob_params)
+        self.header.blob_excess_gas_and_price_for_hardfork(
+            self.hardfork.clone(),
+            self.scheduled_blob_params,
+        )
     }
 
     fn slot_num(&self) -> u64 {
-        self.header.slot_number_for_hardfork(self.hardfork)
+        self.header.slot_number_for_hardfork(self.hardfork.clone())
     }
 }
 

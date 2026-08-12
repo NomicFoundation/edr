@@ -112,7 +112,10 @@ pub trait EvmHardforkChainSpec {
     ///
     /// Unlike [`ProtocolHardforkChainSpec::ProtocolHardfork`], this models EVM
     /// behavior classes rather than protocol upgrades.
-    type EvmHardfork: Copy + Into<EvmSpecId>;
+    ///
+    /// `Clone + Into<EvmSpecId>` is exactly what revm asks of a spec type; see
+    /// `revm_context_interface::Cfg::Spec` and `impl Cfg for CfgEnv<SPEC>`.
+    type EvmHardfork: Clone + Into<EvmSpecId>;
 }
 
 /// Trait for specifying the protocol-level hardfork type of a chain.
@@ -123,7 +126,7 @@ pub trait ProtocolHardforkChainSpec: EvmHardforkChainSpec {
     /// behavior class, whereas [`EvmSpecId`] is L1's. They coincide for L1 but
     /// not for a chain with its own EVM hardfork type, so `.into()` on this type
     /// needs its target named in generic code.
-    type ProtocolHardfork: Copy + Default + Into<Self::EvmHardfork> + Into<EvmSpecId> + PartialOrd;
+    type ProtocolHardfork: Clone + Default + Into<Self::EvmHardfork> + Into<EvmSpecId> + PartialOrd;
 }
 
 /// Trait for chain specifications.

@@ -214,7 +214,7 @@ impl<
             }) = self.header.blob_gas.as_ref()
         {
             let blob_params = blob_params_for_hardfork(
-                self.config().spec.into(),
+                self.config().spec.clone().into(),
                 self.header.timestamp,
                 self.block_config.scheduled_blob_params.as_ref(),
             );
@@ -307,7 +307,7 @@ impl<
 
         let hardfork = blockchain.hardfork();
 
-        let evm_spec_id: EvmSpecId = hardfork.into();
+        let evm_spec_id: EvmSpecId = hardfork.clone().into();
         if evm_spec_id < EvmSpecId::BYZANTIUM {
             return Err(BlockBuilderCreationError::UnsupportedHardfork(hardfork));
         } else if evm_spec_id >= EvmSpecId::SHANGHAI && inputs.withdrawals.is_none() {
@@ -323,7 +323,7 @@ impl<
 
         overrides.parent_hash = Some(*parent_block.block_hash());
 
-        let cfg = evm_config.to_cfg_env(hardfork);
+        let cfg = evm_config.to_cfg_env(hardfork.clone());
         let header = PartialHeader::new(
             block_config,
             overrides,
@@ -354,7 +354,7 @@ impl<
                     >,
                 >,
             > = OverriddenPrecompileProvider::with_precompiles(
-                ChainSpecT::new_precompile_provider(hardfork),
+                ChainSpecT::new_precompile_provider(hardfork.clone()),
                 custom_precompiles.clone(),
             );
             precompile_provider.into_addresses()
@@ -396,7 +396,7 @@ impl<
 
         let block_env = HeaderAndEvmSpec::new_block_env(
             &self.header,
-            self.cfg.spec,
+            self.cfg.spec.clone(),
             self.block_config.scheduled_blob_params.as_ref(),
         );
 
@@ -464,7 +464,7 @@ impl<
 
         let block_env = ChainSpecT::BlockEnv::new_block_env(
             &self.header,
-            self.cfg.spec,
+            self.cfg.spec.clone(),
             self.block_config.scheduled_blob_params.as_ref(),
         );
 
@@ -512,8 +512,10 @@ impl<
         self.state.commit(state_diff);
 
         self.cumulative_gas_used += transaction_result.tx_gas_used();
-        self.header.gas_used +=
-            transaction_block_gas_contribution::<ChainSpecT>(self.cfg.spec, &transaction_result);
+        self.header.gas_used += transaction_block_gas_contribution::<ChainSpecT>(
+            self.cfg.spec.clone(),
+            &transaction_result,
+        );
 
         if let Some(BlobGas { gas_used, .. }) = self.header.blob_gas.as_mut() {
             let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();
@@ -523,7 +525,7 @@ impl<
         let receipt = receipt_builder.build_receipt(
             &transaction,
             &transaction_result,
-            self.cfg.spec,
+            self.cfg.spec.clone(),
             self.cumulative_gas_used,
             self.header.state_root,
         );
@@ -533,7 +535,7 @@ impl<
             &transaction_result,
             self.transactions.len() as u64,
             self.header.base_fee.unwrap_or(0),
-            self.cfg.spec,
+            self.cfg.spec.clone(),
         );
         self.receipts.push(receipt);
 
@@ -679,7 +681,7 @@ impl<
         // TODO: handle ommers
         let block = EthLocalBlock::new::<ExecutionReceiptChainSpecT>(
             &self.context,
-            self.cfg.spec,
+            self.cfg.spec.clone(),
             self.header,
             self.transactions,
             self.receipts,

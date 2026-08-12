@@ -94,7 +94,7 @@ pub fn dry_run<
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
     let mut precompile_provider = OverriddenPrecompileProvider::with_precompiles(
-        EvmChainSpecT::new_precompile_provider(cfg.spec),
+        EvmChainSpecT::new_precompile_provider(cfg.spec.clone()),
         custom_precompiles.clone(),
     );
 
@@ -147,7 +147,7 @@ pub fn dry_run_with_inspector<
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
     let mut precompile_provider = OverriddenPrecompileProvider::with_precompiles(
-        EvmChainSpecT::new_precompile_provider(cfg.spec),
+        EvmChainSpecT::new_precompile_provider(cfg.spec.clone()),
         custom_precompiles.clone(),
     );
 
