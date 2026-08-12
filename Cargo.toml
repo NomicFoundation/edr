@@ -215,9 +215,10 @@ foundry-compilers = { version = "0.18.0", default-features = false, features = [
 
 ## revm
 # No op-revm release supports revm 41 (op-revm 20.0.0 on crates.io pins revm
-# ^38), so a instead we rely on ethereum-optimism monorepo commit matching
-# the op-reth v2.4.1 release.
-op-revm = { git = "https://github.com/ethereum-optimism/optimism", rev = "a9a8dad3f1500a4cc2e4077edb480848bfdef29a", default-features = false, features = [
+# ^38), so a shallow mirror of the ethereum-optimism monorepo commit matching
+# the op-reth v2.4.1 release (workspace pins revm 41.0.0, the revm version at
+# tag v113) is used instead. See the mirror's PROVENANCE.md.
+op-revm = { git = "https://github.com/anaPerezGhiglia/op-revm", tag = "op-reth-v2.4.1-a9a8dad", default-features = false, features = [
     "c-kzg",
     "dev",
     "serde",

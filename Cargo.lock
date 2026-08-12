@@ -6017,26 +6017,8 @@ dependencies = [
  "alloy-serde",
  "bytes",
  "derive_more 2.1.1",
- "reth-codecs 0.3.0",
- "serde",
- "thiserror 2.0.19",
-]
-
-[[package]]
-name = "op-alloy-consensus"
-version = "2.0.0"
-source = "git+https://github.com/ethereum-optimism/optimism?rev=a9a8dad3f1500a4cc2e4077edb480848bfdef29a#a9a8dad3f1500a4cc2e4077edb480848bfdef29a"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-rpc-types-eth",
- "alloy-serde",
- "bytes",
- "derive_more 2.1.1",
- "reth-codecs 0.5.2",
- "reth-zstd-compressors 0.5.2",
+ "reth-codecs",
+ "reth-zstd-compressors",
  "serde",
  "serde_with",
  "thiserror 2.0.19",
@@ -6055,7 +6037,7 @@ dependencies = [
  "alloy-rpc-types-eth",
  "alloy-serde",
  "derive_more 2.1.1",
- "op-alloy-consensus 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "op-alloy-consensus",
  "serde",
  "serde_json",
  "thiserror 2.0.19",
@@ -6064,10 +6046,10 @@ dependencies = [
 [[package]]
 name = "op-revm"
 version = "20.0.0"
-source = "git+https://github.com/ethereum-optimism/optimism?rev=a9a8dad3f1500a4cc2e4077edb480848bfdef29a#a9a8dad3f1500a4cc2e4077edb480848bfdef29a"
+source = "git+https://github.com/anaPerezGhiglia/op-revm?tag=op-reth-v2.4.1-a9a8dad#45cbdfca60f0f6a0593daf1e438cfef30b306ede"
 dependencies = [
  "auto_impl",
- "op-alloy-consensus 2.0.0 (git+https://github.com/ethereum-optimism/optimism?rev=a9a8dad3f1500a4cc2e4077edb480848bfdef29a)",
+ "op-alloy-consensus",
  "revm",
  "serde",
 ]
@@ -6923,27 +6905,9 @@ dependencies = [
  "alloy-trie",
  "bytes",
  "modular-bitfield",
- "reth-codecs-derive 0.3.0",
- "reth-zstd-compressors 0.3.0",
- "serde",
-]
-
-[[package]]
-name = "reth-codecs"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb43f4858fef4e3b42b80954d2edf1ff67c8ad7498347083cdc7d0f6eff2f081"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "alloy-genesis",
- "alloy-primitives",
- "alloy-trie",
- "bytes",
- "modular-bitfield",
  "parity-scale-codec",
- "reth-codecs-derive 0.5.2",
- "reth-zstd-compressors 0.5.2",
+ "reth-codecs-derive",
+ "reth-zstd-compressors",
  "serde",
 ]
 
@@ -6959,30 +6923,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "reth-codecs-derive"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5798ae4d6b264764bc0d742468bd32c7fb515e774645d4930f95ff6311f3ae14"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "reth-zstd-compressors"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82fa54c341d926ec9b0f7fc0c87f831aa4959de699e69caab1a0bfd914326c09"
-dependencies = [
- "zstd",
-]
-
-[[package]]
-name = "reth-zstd-compressors"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1bd4ae4f54a2ba813eef082910bc646bd31cab8ed134308fa71f1068331fb84"
 dependencies = [
  "zstd",
 ]
