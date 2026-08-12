@@ -6,7 +6,7 @@ use edr_block_local::EthLocalBlock;
 use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
 use edr_chain_l1::{
-    block::EthBlockBuilder,
+    block::L1BlockBuilder,
     receipt::L1BlockReceipt,
     rpc::{call::L1CallRequest, transaction::L1RpcTransactionRequest},
     L1ChainSpec, L1_GENESIS_BLOCK_EXTRA_DATA,
@@ -134,7 +134,7 @@ impl BlockChainSpec for GenericChainSpec {
         dyn SyncBlock<Arc<Self::Receipt>, Self::SignedTransaction, Error = Self::FetchReceiptError>;
 
     type BlockBuilder<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync> =
-        EthBlockBuilder<
+        L1BlockBuilder<
             'builder,
             Self::Receipt,
             Self::Block,

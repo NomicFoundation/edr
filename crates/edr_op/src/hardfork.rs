@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::LazyLock};
 
 use edr_chain_config::ChainConfig;
-use edr_chain_spec::{EvmSpecId, ProtocolParams};
+use edr_chain_spec::EvmSpecId;
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{HashMap, UnknownHardfork};
 
@@ -147,12 +147,6 @@ impl From<OpHardfork> for &'static str {
     }
 }
 
-impl ProtocolParams for OpHardfork {
-    fn miner_reward(self) -> Option<u128> {
-        None
-    }
-}
-
 impl core::fmt::Display for OpHardfork {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", <&'static str>::from(*self))
@@ -249,15 +243,9 @@ mod tests {
         assert_eq!(OpHardfork::default(), OpHardfork::JOVIAN);
     }
 
-    #[test]
-    fn miner_rewards() {
-        for hardfork in VARIANTS {
-            assert_eq!(hardfork.miner_reward(), None);
-        }
-    }
-
-    /// `OpChainSpec::default_block_difficulty` reports zero for every
-    /// hardfork, which is only correct because none of them precede the merge.
+    /// `OpChainSpec::default_block_difficulty` reports zero for every hardfork,
+    /// and `OpBlockBuilder` pays no block reward. Both are only correct because
+    /// none of these hardforks precede the merge.
     #[test]
     fn every_hardfork_is_post_merge() {
         for hardfork in VARIANTS {

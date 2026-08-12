@@ -236,12 +236,11 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
 
     fn finalize_block(
         self,
-        rewards: Vec<(Address, u128)>,
     ) -> Result<
         BuiltBlockAndStateWithMetadata<Self::LocalBlock, HaltReason>,
         BlockFinalizeError<StateError>,
     > {
-        self.eth.finalize(rewards)
+        self.eth.finalize()
     }
 }
 

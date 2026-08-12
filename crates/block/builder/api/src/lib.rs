@@ -218,10 +218,9 @@ pub trait BlockBuilder<
             >,
         >;
 
-    /// Finalizes the block, applying rewards to the state.
+    /// Finalizes the block.
     fn finalize_block(
         self,
-        rewards: Vec<(Address, u128)>,
     ) -> Result<
         BuiltBlockAndStateWithMetadata<Self::LocalBlock, ChainSpecT::HaltReason>,
         BlockFinalizeError<StateError>,

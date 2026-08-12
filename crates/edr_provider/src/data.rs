@@ -33,7 +33,7 @@ use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait,
-    ProtocolHardfork as _, ProtocolParams as _, TransactionValidation,
+    ProtocolHardfork as _, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
@@ -2458,7 +2458,6 @@ where
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
-        let reward = self.blockchain.hardfork().miner_reward().unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
 
         let result = mine_block::<ChainSpecT, _, _>(
@@ -2470,7 +2469,6 @@ where
             options,
             self.min_gas_price,
             self.mining_order,
-            reward,
             Some(evm_observer),
             &self.precompile_overrides,
         )?;
@@ -2493,7 +2491,6 @@ where
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
-        let reward = self.blockchain.hardfork().miner_reward().unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
 
         let result = mine_block_with_single_transaction::<ChainSpecT, _, _>(
@@ -2504,7 +2501,6 @@ where
             evm_config,
             options,
             self.min_gas_price,
-            reward,
             Some(evm_observer),
             &self.precompile_overrides,
         )?;

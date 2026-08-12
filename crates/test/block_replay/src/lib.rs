@@ -19,7 +19,6 @@ use edr_blockchain_fork::{
 };
 use edr_chain_spec::{
     ChainSpec, EvmSpecId, ExecutableTransaction, ProtocolHardfork as _, ProtocolHardforkChainSpec,
-    ProtocolParams as _,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::config::EvmConfig;
@@ -231,11 +230,7 @@ pub async fn run_full_block<
         builder.add_transaction(transaction.clone())?;
     }
 
-    let rewards = vec![(
-        replay_header.beneficiary,
-        hardfork.miner_reward().unwrap_or(0),
-    )];
-    let mined_block = builder.finalize_block(rewards)?;
+    let mined_block = builder.finalize_block()?;
 
     let mined_header = mined_block.block_and_state.block.block_header();
 

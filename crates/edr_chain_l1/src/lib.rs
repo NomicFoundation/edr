@@ -8,6 +8,7 @@ pub mod hardfork;
 pub mod pooled;
 pub mod receipt;
 pub mod request;
+pub mod reward;
 pub mod rpc;
 pub mod signed;
 mod spec;
