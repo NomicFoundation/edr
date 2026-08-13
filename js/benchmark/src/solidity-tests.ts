@@ -654,7 +654,7 @@ export async function setupRepo(
 
   try {
     await execAsync("npm install", { cwd: repoPath });
-  } catch (e) {
+  } catch {
     console.error(
       `npm install failed for ${repoPath}, retrying with --ignore-scripts`
     );
@@ -939,7 +939,7 @@ export async function runSolidityTestsMemoryBenchmark(
         verbosity,
         useGnuTime
       );
-      if (result.oom) {
+      if (result.oom === true) {
         console.error(`  OOM: killed at >= ${displayMiB(result.peakRssBytes)}`);
       } else {
         console.error(
@@ -1112,7 +1112,7 @@ export function formatMemoryTable(results: MemoryRunResult[]): string {
       // Prefer the externally observed peak; it also covers allocations made
       // after the in-process read.
       const peak = result.peakRssBytesExternal ?? result.peakRssBytes;
-      if (result.oom) {
+      if (result.oom === true) {
         return peak > 0 ? `OOM (>= ${displayMiB(peak)})` : "OOM";
       }
       return `${displayMiB(peak)} / ${displayDuration(result.elapsedMs)}`;
