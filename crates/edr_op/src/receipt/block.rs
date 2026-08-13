@@ -74,7 +74,7 @@ impl ReceiptConstructor<OpSignedTransaction> for OpBlockReceipt {
 
     fn new_receipt(
         context: &Self::Context,
-        hardfork: Self::Hardfork,
+        hardfork: Hardfork,
         transaction: &OpSignedTransaction,
         transaction_receipt: edr_receipt::TransactionReceipt<Self::ExecutionReceipt>,
         block_hash: &B256,
