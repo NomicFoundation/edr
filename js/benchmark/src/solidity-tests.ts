@@ -890,9 +890,7 @@ function isOomError(
   // When the child is wrapped in GNU time, the kill hits the grandchild:
   // GNU time itself then exits with 128 + 9 and reports the signal on
   // stderr.
-  return (
-    code === 128 + 9 || /Command terminated by signal 9\b/.test(stderr)
-  );
+  return code === 128 + 9 || /Command terminated by signal 9\b/.test(stderr);
 }
 
 /**
