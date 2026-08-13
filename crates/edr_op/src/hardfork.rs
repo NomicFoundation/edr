@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::LazyLock};
+use std::sync::LazyLock;
 
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{EvmSpecId, ProtocolParams};
@@ -17,6 +17,9 @@ pub mod op;
 ///
 /// Models protocol upgrades, including ones without EVM-semantics changes,
 /// unlike [`op_revm::OpSpecId`] which models EVM behavior classes.
+///
+/// The `strum(serialize = …)` strings must stay identical to the [`name`]
+/// module constants.
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[derive(
@@ -31,31 +34,50 @@ pub mod op;
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    strum::Display,
+    strum::EnumString,
+    strum::IntoStaticStr,
 )]
+#[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum OpHardfork {
     /// Bedrock hardfork
+    #[strum(serialize = "Bedrock")]
     BEDROCK = 100,
     /// Regolith hardfork
+    #[strum(serialize = "Regolith")]
     REGOLITH,
     /// Canyon hardfork
+    #[strum(serialize = "Canyon")]
     CANYON,
     /// Ecotone hardfork
+    #[strum(serialize = "Ecotone")]
     ECOTONE,
     /// Fjord hardfork
+    #[strum(serialize = "Fjord")]
     FJORD,
     /// Granite hardfork
+    #[strum(serialize = "Granite")]
     GRANITE,
     /// Holocene hardfork
+    #[strum(serialize = "Holocene")]
     HOLOCENE,
     /// Isthmus hardfork
+    #[strum(serialize = "Isthmus")]
     ISTHMUS,
     /// Jovian hardfork
     #[default]
+    #[strum(serialize = "Jovian")]
     JOVIAN,
     /// Interop hardfork
+    #[strum(serialize = "Interop")]
     INTEROP,
     /// Osaka hardfork
+    #[strum(serialize = "Osaka")]
     OSAKA,
+}
+
+fn unknown_hardfork(_name: &str) -> UnknownHardfork {
+    UnknownHardfork
 }
 
 impl From<OpHardfork> for op_revm::OpSpecId {
@@ -108,45 +130,6 @@ pub mod name {
     pub const OSAKA: &str = "Osaka";
 }
 
-impl FromStr for OpHardfork {
-    type Err = UnknownHardfork;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            name::BEDROCK => Ok(Self::BEDROCK),
-            name::REGOLITH => Ok(Self::REGOLITH),
-            name::CANYON => Ok(Self::CANYON),
-            name::ECOTONE => Ok(Self::ECOTONE),
-            name::FJORD => Ok(Self::FJORD),
-            name::GRANITE => Ok(Self::GRANITE),
-            name::HOLOCENE => Ok(Self::HOLOCENE),
-            name::ISTHMUS => Ok(Self::ISTHMUS),
-            name::JOVIAN => Ok(Self::JOVIAN),
-            name::INTEROP => Ok(Self::INTEROP),
-            name::OSAKA => Ok(Self::OSAKA),
-            _ => Err(UnknownHardfork),
-        }
-    }
-}
-
-impl From<OpHardfork> for &'static str {
-    fn from(hardfork: OpHardfork) -> Self {
-        match hardfork {
-            OpHardfork::BEDROCK => name::BEDROCK,
-            OpHardfork::REGOLITH => name::REGOLITH,
-            OpHardfork::CANYON => name::CANYON,
-            OpHardfork::ECOTONE => name::ECOTONE,
-            OpHardfork::FJORD => name::FJORD,
-            OpHardfork::GRANITE => name::GRANITE,
-            OpHardfork::HOLOCENE => name::HOLOCENE,
-            OpHardfork::ISTHMUS => name::ISTHMUS,
-            OpHardfork::JOVIAN => name::JOVIAN,
-            OpHardfork::INTEROP => name::INTEROP,
-            OpHardfork::OSAKA => name::OSAKA,
-        }
-    }
-}
-
 impl ProtocolParams for OpHardfork {
     fn bomb_delay(self) -> u64 {
         unreachable!("OP chains are post-merge, so they don't have a bomb delay")
@@ -154,12 +137,6 @@ impl ProtocolParams for OpHardfork {
 
     fn miner_reward(self) -> Option<u128> {
         None
-    }
-}
-
-impl core::fmt::Display for OpHardfork {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", <&'static str>::from(*self))
     }
 }
 
@@ -204,6 +181,8 @@ pub fn op_default_base_fee_params() -> &'static BaseFeeParams<Hardfork> {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
 
     const VARIANTS: [OpHardfork; 11] = [
@@ -227,15 +206,33 @@ mod tests {
         }
     }
 
+    /// The strings the `strum` derives emit/parse must stay in sync with the
+    /// [`name`] module constants, which are re-exported as public API.
+    const NAMES: [&str; 11] = [
+        name::BEDROCK,
+        name::REGOLITH,
+        name::CANYON,
+        name::ECOTONE,
+        name::FJORD,
+        name::GRANITE,
+        name::HOLOCENE,
+        name::ISTHMUS,
+        name::JOVIAN,
+        name::INTEROP,
+        name::OSAKA,
+    ];
+
     #[test]
     fn name_round_trip() {
-        for hardfork in VARIANTS {
-            let name: &'static str = hardfork.into();
+        for (hardfork, name) in VARIANTS.into_iter().zip(NAMES) {
             assert_eq!(hardfork.to_string(), name);
+            assert_eq!(<&'static str>::from(hardfork), name);
             assert_eq!(OpHardfork::from_str(name), Ok(hardfork));
         }
 
         assert_eq!(OpHardfork::from_str("NotAHardfork"), Err(UnknownHardfork));
+        // strum must not fall back to parsing variant identifiers.
+        assert_eq!(OpHardfork::from_str("BEDROCK"), Err(UnknownHardfork));
     }
 
     #[test]
