@@ -874,6 +874,25 @@ function parseGnuTimeMaxRss(stderr: string): number | undefined {
   return match === null ? undefined : Number(match[1]) * 1024;
 }
 
+/** Whether a child process exited because it ran out of memory. */
+function isOomError(
+  code: number | null,
+  signal: NodeJS.Signals | null,
+  stderr: string
+): boolean {
+  // The Linux OOM killer terminates processes with SIGKILL.
+  if (signal === "SIGKILL") {
+    return true;
+  }
+
+  // When the child is wrapped in GNU time, the kill hits the grandchild:
+  // GNU time itself then exits with 128 + 9 and reports the signal on
+  // stderr.
+  return (
+    code === 128 + 9 || /Command terminated by signal 9\b/.test(stderr)
+  );
+}
+
 /**
  * Driver: run every (repo, verbosity) pair in a fresh child process and collect
  * peak RSS.
@@ -914,38 +933,20 @@ export async function runSolidityTestsMemoryBenchmark(
   for (const repoName of repoNames) {
     for (const verbosity of verbosities) {
       console.error(`measuring ${repoName} at verbosity ${verbosity}...`);
-      let result: MemoryRunResult;
-      try {
-        result = await runMemoryChildProcess(
-          repoName,
-          repoPaths.get(repoName)!,
-          verbosity,
-          useGnuTime
-        );
+      const result = await runMemoryChildProcess(
+        repoName,
+        repoPaths.get(repoName)!,
+        verbosity,
+        useGnuTime
+      );
+      if (result.oom) {
+        console.error(`  OOM: killed at >= ${displayMiB(result.peakRssBytes)}`);
+      } else {
         console.error(
           `  peak RSS ${displayMiB(result.peakRssBytes)}, ` +
-            `${result.elapsedMs}ms, ${result.testCount} tests ` +
+            `${displayDuration(result.elapsedMs)}, ${result.testCount} tests ` +
             `(${result.failureCount} failing)`
         );
-      } catch (e) {
-        // A killed child (usually the OOM killer) is a result, not a harness
-        // failure: it means this configuration doesn't fit in memory.
-        const stderr = e instanceof Error ? e.message : String(e);
-        const lastSeenRss = parseGnuTimeMaxRss(stderr) ?? 0;
-        console.error(
-          `  OOM: killed at >= ${displayMiB(lastSeenRss)}\n` +
-            stderr.split("\n").slice(0, 3).join("\n")
-        );
-        result = {
-          repo: repoName,
-          verbosity,
-          peakRssBytes: lastSeenRss,
-          elapsedMs: 0,
-          suiteCount: 0,
-          testCount: 0,
-          failureCount: 0,
-          oom: true,
-        };
       }
       results.push(result);
     }
@@ -1032,7 +1033,21 @@ function runMemoryChildProcess(
     child.stderr.on("data", (chunk) => (stderr += chunk));
 
     child.on("error", reject);
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
+      if (isOomError(code, signal, stderr)) {
+        resolve({
+          repo: repoName,
+          verbosity,
+          peakRssBytes: parseGnuTimeMaxRss(stderr) ?? 0,
+          elapsedMs: 0,
+          suiteCount: 0,
+          testCount: 0,
+          failureCount: 0,
+          oom: true,
+        });
+        return;
+      }
+
       if (code !== 0) {
         reject(
           new Error(
@@ -1069,6 +1084,14 @@ function displayMiB(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
+/** Sub-second durations in milliseconds, longer ones in seconds. */
+function displayDuration(elapsedMs: number): string {
+  if (elapsedMs < 1000) {
+    return `${elapsedMs}ms`;
+  }
+  return `${(elapsedMs / 1000).toFixed(1)}s`;
+}
+
 /** Render results as a markdown table: rows are repos, columns are verbosities. */
 export function formatMemoryTable(results: MemoryRunResult[]): string {
   const verbosities = Array.from(new Set(results.map((r) => r.verbosity))).sort(
@@ -1092,7 +1115,7 @@ export function formatMemoryTable(results: MemoryRunResult[]): string {
       if (result.oom) {
         return peak > 0 ? `OOM (>= ${displayMiB(peak)})` : "OOM";
       }
-      return `${displayMiB(peak)} / ${result.elapsedMs}ms`;
+      return `${displayMiB(peak)} / ${displayDuration(result.elapsedMs)}`;
     }),
   ]);
 
