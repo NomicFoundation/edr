@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Update supported compiler types to include slangSolx.
+Changed `solx` compiler type string to `slangSolx`.
