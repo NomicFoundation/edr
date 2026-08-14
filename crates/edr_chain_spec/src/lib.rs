@@ -118,11 +118,6 @@ pub trait EvmHardforkChainSpec {
 /// Trait for specifying the protocol-level hardfork type of a chain.
 pub trait ProtocolHardforkChainSpec: EvmHardforkChainSpec {
     /// The chain's protocol-level hardfork type.
-    ///
-    /// Note the two conversions: [`Self::EvmHardfork`] is the chain's own EVM
-    /// behavior class, whereas [`EvmSpecId`] is L1's. They coincide for L1 but
-    /// not for a chain with its own EVM hardfork type, so `.into()` on this
-    /// type needs its target named in generic code.
     type ProtocolHardfork: Default + Into<Self::EvmHardfork> + ProtocolHardfork;
 }
 
