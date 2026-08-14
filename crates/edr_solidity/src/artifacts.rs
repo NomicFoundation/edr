@@ -151,7 +151,9 @@ pub enum CompilerType {
     #[default]
     Solc,
     /// solx compiler; uses `evm.{deployed,}Bytecode.debugInfo`.
-    Solx,
+    /// Serializes as `slangSolx`, the compiler type in the `hardhat-slang-solx`
+    /// plugin's build-infos.
+    SlangSolx,
 }
 
 /// Configuration for the [`crate::contract_decoder::ContractDecoder`].
@@ -237,7 +239,7 @@ impl BuildInfoBuffers<'_> {
 
                     match to_compiler_type(peek.compiler_type) {
                         CompilerType::Solc => parse_solc_compiler_metadata(*item),
-                        CompilerType::Solx => parse_solx_compiler_metadata(*item),
+                        CompilerType::SlangSolx => parse_solx_compiler_metadata(*item),
                     }
                     // Silently ignore unsupported solc versions
                     .or_else(|error| {
@@ -259,7 +261,7 @@ impl BuildInfoBuffers<'_> {
                         CompilerType::Solc => {
                             parse_split_solc_compiler_metadata(item.build_info, item.output)
                         }
-                        CompilerType::Solx => {
+                        CompilerType::SlangSolx => {
                             parse_split_solx_compiler_metadata(item.build_info, item.output)
                         }
                     }
@@ -573,5 +575,17 @@ mod tests {
             .starts_with("7f454c46"));
         assert!(contract.evm.bytecode.debug_info.len() >= 200);
         assert!(contract.evm.deployed_bytecode.debug_info.len() >= 200);
+    }
+
+    #[test]
+    fn to_compiler_type_reads_the_build_info_sentinel() {
+        assert_eq!(CompilerType::Solc.to_string(), "solc");
+        assert_eq!(CompilerType::SlangSolx.to_string(), "slangSolx");
+
+        assert_eq!(to_compiler_type(Some("solc")), CompilerType::Solc);
+        assert_eq!(to_compiler_type(Some("slangSolx")), CompilerType::SlangSolx);
+
+        assert_eq!(to_compiler_type(None), CompilerType::Solc);
+        assert_eq!(to_compiler_type(Some("not-a-compiler")), CompilerType::Solc);
     }
 }
