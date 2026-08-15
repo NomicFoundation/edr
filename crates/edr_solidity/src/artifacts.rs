@@ -581,10 +581,19 @@ mod tests {
         const SLANG_SOLX_COMPILER_TYPE: &str = "slangSolx";
 
         assert_eq!(CompilerType::Solc.to_string(), SOLC_COMPILER_TYPE);
-        assert_eq!(CompilerType::SlangSolx.to_string(), SLANG_SOLX_COMPILER_TYPE);
+        assert_eq!(
+            CompilerType::SlangSolx.to_string(),
+            SLANG_SOLX_COMPILER_TYPE
+        );
 
-        assert_eq!(to_compiler_type(Some(SOLC_COMPILER_TYPE)), CompilerType::Solc);
-        assert_eq!(to_compiler_type(Some(SLANG_SOLX_COMPILER_TYPE)), CompilerType::SlangSolx);
+        assert_eq!(
+            to_compiler_type(Some(SOLC_COMPILER_TYPE)),
+            CompilerType::Solc
+        );
+        assert_eq!(
+            to_compiler_type(Some(SLANG_SOLX_COMPILER_TYPE)),
+            CompilerType::SlangSolx
+        );
 
         assert_eq!(to_compiler_type(None), CompilerType::Solc);
         assert_eq!(to_compiler_type(Some("not-a-compiler")), CompilerType::Solc);
