@@ -917,8 +917,11 @@ export interface InlineConfigDirectiveError {
   sourceName: string
   /** The contract the offending directive belongs to. */
   contract: string
-  /** The test function the offending directive belongs to. */
-  function: string
+  /**
+   * The test function the offending directive belongs to; absent for a
+   * contract-level directive.
+   */
+  function?: string
   /** The 1-based line of the offending directive within the source. */
   line: number
   /** The problem itself; discriminate on its `kind` tag. */
@@ -935,8 +938,11 @@ export interface InlineConfigDirectiveLocation {
   kind: "InlineConfigDirectiveLocation"
   /** The contract the directive belongs to. */
   contract: string
-  /** The test function the directive belongs to. */
-  function: string
+  /**
+   * The test function the directive belongs to; absent for a contract-level
+   * directive.
+   */
+  function?: string
   /**
    * Why resolving the location failed, including the directive problem
    * that was being reported.
