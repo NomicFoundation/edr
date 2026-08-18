@@ -23,12 +23,16 @@ pub enum InlineConfigCollectError {
     /// outside the source text (or the line count overflows), meaning the
     /// parsing stages disagree about the source, so its directives cannot be
     /// trusted.
-    #[error("could not locate a directive of `{contract}.{function}`: {reason}")]
+    #[error(
+        "could not locate a directive of `{contract}{}`: {reason}",
+        function.as_deref().map(|function| format!(".{function}")).unwrap_or_default()
+    )]
     DirectiveLocation {
         /// The contract the directive belongs to.
         contract: String,
-        /// The test function the directive belongs to.
-        function: String,
+        /// The test function the directive belongs to, or `None` for a
+        /// contract-level directive.
+        function: Option<String>,
         /// Why resolving the location failed, including the directive problem
         /// that was being reported.
         reason: String,
@@ -102,7 +106,8 @@ pub enum InlineConfigError {
         /// A description of the expected value type.
         expected: &'static str,
     },
-    /// The same key was specified more than once for a function.
+    /// The same key was specified more than once for the same function or
+    /// contract.
     #[error("duplicate key `{key}`")]
     DuplicateKey {
         /// The duplicated (raw) key.
@@ -128,7 +133,8 @@ pub struct InlineConfigErrorItem {
 /// A source-level problem (e.g. an unsupported solc version, an unreadable
 /// source file, or a directive whose location could not be resolved) carries
 /// no contract/function/line — there is no directive line to point at. A
-/// directive-level problem always carries all three.
+/// directive-level problem always carries the contract and line; the function
+/// is absent for a contract-level directive.
 #[derive(Clone, Debug, PartialEq)]
 pub enum InlineConfigProblem {
     /// A problem found while collecting the source, before its directives could
@@ -140,8 +146,9 @@ pub enum InlineConfigProblem {
     Directive {
         /// The contract the offending directive belongs to.
         contract: String,
-        /// The test function the offending directive belongs to.
-        function: String,
+        /// The test function the offending directive belongs to, or `None` for
+        /// a contract-level directive.
+        function: Option<String>,
         /// The 1-based line of the offending directive within the source.
         line: u32,
         /// The problem itself.
@@ -159,7 +166,10 @@ impl std::fmt::Display for InlineConfigErrorItem {
                 function,
                 line,
                 error,
-            } => write!(f, ":{line}: {contract}.{function}: {error}"),
+            } => match function {
+                Some(function) => write!(f, ":{line}: {contract}.{function}: {error}"),
+                None => write!(f, ":{line}: {contract}: {error}"),
+            },
         }
     }
 }

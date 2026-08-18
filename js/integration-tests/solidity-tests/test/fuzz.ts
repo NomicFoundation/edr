@@ -536,6 +536,39 @@ describe("Fuzz and invariant testing", function () {
     }
   });
 
+  it("ContractLevelInlineConfig", async function () {
+    const GLOBAL_RUNS = 100;
+    const CONTRACT_LEVEL_RUNS = 15;
+    const FUNCTION_LEVEL_RUNS = 20;
+
+    // The contract-level `hardhat-config:` directive in
+    // `ContractLevelInlineConfig.t.sol` applies to every test in the contract;
+    // function-level directives take per-key precedence.
+    const result = await testContext.runTestsWithStats(
+      "ContractLevelInlineConfigTest",
+      {
+        fuzz: { runs: GLOBAL_RUNS },
+      }
+    );
+
+    assert.equal(result.failedTests, 0);
+    assert.equal(result.totalTests, 2);
+
+    const suiteResult = result.suiteResults[0];
+    for (const testResult of suiteResult.testResults) {
+      const fuzzKind = testResult.kind as FuzzTestKind;
+      if (testResult.name === "testFuzz_ContractLevelRuns(uint256)") {
+        assert.equal(fuzzKind.runs, BigInt(CONTRACT_LEVEL_RUNS)); // Contract-level override
+      } else if (
+        testResult.name === "testFuzz_FunctionOverridesContract(uint256)"
+      ) {
+        assert.equal(fuzzKind.runs, BigInt(FUNCTION_LEVEL_RUNS)); // Function level wins
+      } else {
+        throw new Error(`unexpected test: ${testResult.name}`);
+      }
+    }
+  });
+
   it("InvariantFunctionOverrides", async function () {
     const GLOBAL_RUNS = 2;
     const GLOBAL_DEPTH = 10;
