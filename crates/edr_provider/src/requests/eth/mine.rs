@@ -1,23 +1,17 @@
-use std::sync::Arc;
-
-use tokio::{runtime, sync::Mutex};
-
 use crate::{
-    config::IntervalConfig, data::ProviderData, error::ProviderErrorForChainSpec,
-    interval::IntervalMiner, requests, spec::SyncProviderSpec, time::TimeSinceEpoch,
+    config::IntervalConfig, data::ProviderData, error::ProviderErrorForChainSpec, requests,
+    spec::SyncProviderSpec, time::TimeSinceEpoch,
 };
 
 pub fn handle_set_interval_mining<
     ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: Default>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    data: Arc<Mutex<ProviderData<ChainSpecT, TimerT>>>,
-    interval_miner: &mut Option<IntervalMiner<ChainSpecT, TimerT>>,
-    runtime: runtime::Handle,
+    data: &mut ProviderData<ChainSpecT, TimerT>,
     config: requests::IntervalConfig,
 ) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     let config: Option<IntervalConfig> = config.try_into()?;
-    *interval_miner = config.map(|config| IntervalMiner::new(runtime, config, data.clone()));
+    data.set_interval_config(config);
 
     Ok(true)
 }

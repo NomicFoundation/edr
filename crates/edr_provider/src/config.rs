@@ -115,7 +115,7 @@ pub struct LocalConfig {
 }
 
 /// Configuration for interval mining.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all_fields = "camelCase")]
 pub enum IntervalConfig {
     Fixed(NonZeroU64),
