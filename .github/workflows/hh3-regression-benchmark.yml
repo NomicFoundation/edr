@@ -80,7 +80,7 @@ jobs:
     steps:
       # Sparse-checkout only the workflow scripts so the github-script step can
       # require the resolver module below.
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           sparse-checkout: .github/scripts
           persist-credentials: false
@@ -110,13 +110,13 @@ jobs:
       HH: ${{ github.workspace }}/hardhat
     steps:
       - name: Checkout EDR
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: ${{ needs.setup.outputs.edr_ref }}
           persist-credentials: false
 
       - name: Checkout Hardhat
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: NomicFoundation/hardhat
           ref: ${{ needs.setup.outputs.hardhat_ref }}

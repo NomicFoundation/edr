@@ -4,7 +4,13 @@
     "url": "https://github.com/NomicFoundation/edr.git",
     "type": "git"
   },
-  "version": "0.15.0",
+  "version": "0.17.0",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "edr.linux-x64-musl.node",
   "files": [
     "edr.linux-x64-musl.node"
@@ -12,5 +18,8 @@
   "license": "MIT",
   "engines": {
     "node": ">= 22"
-  }
+  },
+  "libc": [
+    "musl"
+  ]
 }

@@ -12,5 +12,3 @@ set -o pipefail
 #   --skip-optional-publish  — don't run `npm publish` for the platform pkgs.
 #   --no-gh-release          — don't try to create a GitHub release.
 pnpm napi pre-publish -t npm --skip-optional-publish --no-gh-release
-
-jq 'with_entries(if .key == "optionalDependencies" then .key = "dependencies" else . end)' package.json | sponge package.json
