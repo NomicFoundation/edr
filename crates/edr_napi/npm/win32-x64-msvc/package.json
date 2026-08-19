@@ -5,6 +5,12 @@
     "type": "git"
   },
   "version": "0.16.0",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "edr.win32-x64-msvc.node",
   "files": [
     "edr.win32-x64-msvc.node"

@@ -5,6 +5,12 @@
     "type": "git"
   },
   "version": "0.16.0",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "edr.linux-x64-gnu.node",
   "files": [
     "edr.linux-x64-gnu.node"
@@ -12,5 +18,8 @@
   "license": "MIT",
   "engines": {
     "node": ">= 22"
-  }
+  },
+  "libc": [
+    "glibc"
+  ]
 }
