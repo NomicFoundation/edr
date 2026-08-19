@@ -5,11 +5,11 @@
 ### Minor Changes
 
 - 4613af6: Changed the platform-specific `@nomicfoundation/edr-*` packages from `dependencies` to `optionalDependencies`, so installs only download the build for the current platform instead of all of them. Note: npm < 11.3.0 may skip the platform package when reusing a lockfile created on a different platform (npm/cli#4828); if affected, upgrade with `npm install -g npm@11`.
+- 60c6e29: - Added support for compilation artifacts with `slangSolx` compiler type string.
+  - BREAKING CHANGE: Removed support for compilation arifacts with `solx` compiler type string. Instead, use the `slangSolx` compiler type string.
 
 ### Patch Changes
 
-- 60c6e29: - Added support for compilation artifacts with `slangSolx` compiler type string.
-  - BREAKING CHANGE: Removed support for compilation arifacts with `solx` compiler type string. Instead, use the `slangSolx` compiler type string.
 - ca75f51: Fixed missing Solidity test stack trace when `setUp()` fails and stack traces are collected with `CollectStackTraces::Always`.
 
 ## 0.15.0
