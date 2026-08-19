@@ -404,14 +404,13 @@ impl ParsedDwarf {
             let mut abstract_meta: HashMap<gimli::UnitOffset, AbstractOriginMeta> = HashMap::new();
             {
                 let mut entries = unit.entries();
-                while let Some((_, die)) = entries.next_dfs()? {
+                while let Some(die) = entries.next_dfs()? {
                     if die.tag() != gimli::DW_TAG_subprogram {
                         continue;
                     }
                     let mut is_inline = false;
                     let mut meta = AbstractOriginMeta::default();
-                    let mut attrs = die.attrs();
-                    while let Some(attr) = attrs.next()? {
+                    for attr in die.attrs() {
                         match attr.name() {
                             gimli::DW_AT_inline => {
                                 if let gimli::AttributeValue::Inline(v) = attr.value() {
@@ -419,9 +418,9 @@ impl ParsedDwarf {
                                     is_inline = v.0 == 1 || v.0 == 3;
                                 }
                             }
-                            gimli::DW_AT_artificial => meta.is_artificial |= attr_flag_true(&attr),
-                            gimli::DW_AT_decl_file => meta.decl_file = attr_file_index(&attr),
-                            gimli::DW_AT_decl_line => meta.decl_line = attr_udata(&attr),
+                            gimli::DW_AT_artificial => meta.is_artificial |= attr_flag_true(attr),
+                            gimli::DW_AT_decl_file => meta.decl_file = attr_file_index(attr),
+                            gimli::DW_AT_decl_line => meta.decl_line = attr_udata(attr),
                             _ => {}
                         }
                     }
@@ -435,17 +434,14 @@ impl ParsedDwarf {
             // `die_ranges` handles both the contiguous (`low_pc/high_pc`)
             // and the `DW_AT_ranges` list form.
             let mut entries = unit.entries();
-            let mut depth: isize = 0;
-            while let Some((delta, die)) = entries.next_dfs()? {
-                depth += delta;
-
+            while let Some(die) = entries.next_dfs()? {
                 // Two subprogram-like DIEs feed this: DW_TAG_inlined_subroutine
                 // (with abstract origin) and concrete DW_TAG_subprogram (low_pc,
                 // no DW_AT_inline) — typically self-recursive functions.
                 let is_inlined = die.tag() == gimli::DW_TAG_inlined_subroutine;
                 let is_subprogram_with_pc = die.tag() == gimli::DW_TAG_subprogram
-                    && die.attr(gimli::DW_AT_low_pc)?.is_some()
-                    && die.attr(gimli::DW_AT_inline)?.is_none();
+                    && die.has_attr(gimli::DW_AT_low_pc)
+                    && !die.has_attr(gimli::DW_AT_inline);
                 if !is_inlined && !is_subprogram_with_pc {
                     continue;
                 }
@@ -458,20 +454,19 @@ impl ParsedDwarf {
                 let mut self_decl_file: Option<u64> = None;
                 let mut self_decl_line: Option<u64> = None;
                 let mut self_artificial = false;
-                let mut attrs = die.attrs();
-                while let Some(attr) = attrs.next()? {
+                for attr in die.attrs() {
                     match attr.name() {
-                        gimli::DW_AT_call_file => call_file = attr_file_index(&attr),
-                        gimli::DW_AT_call_line => call_line = attr_udata(&attr),
-                        gimli::DW_AT_call_column => call_column = attr_udata(&attr),
+                        gimli::DW_AT_call_file => call_file = attr_file_index(attr),
+                        gimli::DW_AT_call_line => call_line = attr_udata(attr),
+                        gimli::DW_AT_call_column => call_column = attr_udata(attr),
                         gimli::DW_AT_abstract_origin => {
                             if let gimli::AttributeValue::UnitRef(off) = attr.value() {
                                 abstract_origin = Some(off);
                             }
                         }
-                        gimli::DW_AT_decl_file => self_decl_file = attr_file_index(&attr),
-                        gimli::DW_AT_decl_line => self_decl_line = attr_udata(&attr),
-                        gimli::DW_AT_artificial => self_artificial |= attr_flag_true(&attr),
+                        gimli::DW_AT_decl_file => self_decl_file = attr_file_index(attr),
+                        gimli::DW_AT_decl_line => self_decl_line = attr_udata(attr),
+                        gimli::DW_AT_artificial => self_artificial |= attr_flag_true(attr),
                         _ => {}
                     }
                 }
@@ -492,7 +487,7 @@ impl ParsedDwarf {
                         decl_line: self_decl_line,
                     }
                 };
-                let depth_u32 = u32::try_from(depth.max(0)).unwrap_or(u32::MAX);
+                let depth_u32 = u32::try_from(die.depth().max(0)).unwrap_or(u32::MAX);
                 let mut ranges = unit_ref.die_ranges(die)?;
                 while let Some(range) = ranges.next()? {
                     if range.end > range.begin {
