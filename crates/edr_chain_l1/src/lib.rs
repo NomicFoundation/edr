@@ -2,11 +2,13 @@
 
 pub mod block;
 pub mod chains;
+pub mod difficulty;
 mod eip2718;
 pub mod hardfork;
 pub mod pooled;
 pub mod receipt;
 pub mod request;
+pub mod reward;
 pub mod rpc;
 pub mod signed;
 mod spec;
@@ -22,7 +24,7 @@ pub use self::{
 };
 
 /// Ethereum L1 EVM-level hardfork; see
-/// [`HardforkChainSpec::EvmHardfork`](edr_chain_spec::HardforkChainSpec::EvmHardfork).
+/// [`EvmHardforkChainSpec::EvmHardfork`](edr_chain_spec::EvmHardforkChainSpec::EvmHardfork).
 pub type EvmHardfork = edr_chain_spec::EvmSpecId;
 
 /// Ethereum L1 halt reason.

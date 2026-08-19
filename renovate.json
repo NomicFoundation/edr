@@ -2,7 +2,9 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "timezone": "UTC",
-  "schedule": ["before 9am on Monday"],
+  "schedule": ["every weekend"],
+  "rebaseWhen": "conflicted",
+  "reviewers": ["team:edrextended"],
   "minimumReleaseAge": "7 days",
   "internalChecksFilter": "strict",
   "stopUpdatingLabel": "renovate:no-rebase",
@@ -81,7 +83,12 @@
     },
     {
       "description": "napi-rs: Rust crates and @napi-rs/cli are ABI-tied; must move in lockstep with edr_napi.",
-      "matchPackageNames": ["napi", "napi-derive", "napi-build", "@napi-rs/cli"],
+      "matchPackageNames": [
+        "napi",
+        "napi-derive",
+        "napi-build",
+        "@napi-rs/cli"
+      ],
       "groupName": "napi-rs"
     },
     {
@@ -99,7 +106,11 @@
     {
       "description": "External foundry-rs crates from crates.io. Need alloy + revm bump coordination.",
       "matchManagers": ["cargo"],
-      "matchPackageNames": ["foundry-block-explorers", "foundry-compilers", "foundry-fork-db"],
+      "matchPackageNames": [
+        "foundry-block-explorers",
+        "foundry-compilers",
+        "foundry-fork-db"
+      ],
       "groupName": "foundry",
       "enabled": false
     },
@@ -160,7 +171,11 @@
     {
       "description": "Hardhat ecosystem (hardhat, hardhat2 alias, @nomicfoundation/hardhat-*): exact-pinned, pnpm-patched, partly on pre-release tracks. Bumps invalidate patches and break the v2/v3 benchmark setup; coordinated manually with edr↔hardhat releases.",
       "matchManagers": ["npm"],
-      "matchPackageNames": ["hardhat", "hardhat2", "/^@nomicfoundation\\/hardhat-/"],
+      "matchPackageNames": [
+        "hardhat",
+        "hardhat2",
+        "/^@nomicfoundation\\/hardhat-/"
+      ],
       "enabled": false
     }
   ],
@@ -168,7 +183,11 @@
     {
       "customType": "regex",
       "description": "pnpm version pinned in `pnpm@X.Y.Z` strings: workflow shell commands (`npm i -g pnpm@X.Y.Z` inside containers that bypass corepack/packageManager) and package.json's `packageManager` field. Renovate's npm manager doesn't reliably bump `packageManager` in non-security flows (see PR #1413), so we cover it here too to keep all the pins in lockstep.",
-      "managerFilePatterns": [".github/workflows/*.yml", ".github/workflows/*.yaml", "package.json"],
+      "managerFilePatterns": [
+        ".github/workflows/*.yml",
+        ".github/workflows/*.yaml",
+        "package.json"
+      ],
       "matchStrings": ["pnpm@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "pnpm",
       "datasourceTemplate": "npm",

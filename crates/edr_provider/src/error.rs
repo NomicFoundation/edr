@@ -12,7 +12,8 @@ use edr_blockchain_api::r#dyn::DynBlockchainError;
 use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_blockchain_local::InvalidGenesisBlock;
 use edr_chain_spec::{
-    ChainSpec, EvmSpecId, HaltReasonTrait, HardforkChainSpec, OutOfGasError, TransactionValidation,
+    ChainSpec, EvmSpecId, HaltReasonTrait, OutOfGasError, ProtocolHardforkChainSpec,
+    TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{result::ExecutionResult, DatabaseComponentError, TransactionError};
@@ -77,7 +78,7 @@ impl<
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
     <ChainSpecT as GenesisBlockFactory>::GenesisBlockCreationError,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
 >;
 
 #[derive(Debug, thiserror::Error)]
@@ -116,7 +117,7 @@ pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
     <ChainSpecT as BlockChainSpec>::FetchReceiptError,
     <ChainSpecT as GenesisBlockFactory>::GenesisBlockCreationError,
     <ChainSpecT as ChainSpec>::HaltReason,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;
 

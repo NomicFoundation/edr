@@ -8,7 +8,7 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
 };
-use edr_chain_spec::{ChainSpec, ExecutableTransaction, HardforkChainSpec};
+use edr_chain_spec::{ChainSpec, ExecutableTransaction, ProtocolHardforkChainSpec};
 use edr_chain_spec_block::{BlockChainSpec, SyncBlockChainSpec};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
@@ -38,7 +38,7 @@ pub trait BlockchainForChainSpec<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as BlockChainSpec>::Block,
     BlockchainErrorT,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >
@@ -51,7 +51,7 @@ impl<
             <ChainSpecT as ReceiptChainSpec>::Receipt,
             <ChainSpecT as BlockChainSpec>::Block,
             BlockchainErrorT,
-            <ChainSpecT as HardforkChainSpec>::Hardfork,
+            <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
             <ChainSpecT as ChainSpec>::SignedTransaction,
         >,
@@ -67,7 +67,7 @@ pub trait SyncBlockchainForChainSpec<ChainSpecT: SyncBlockChainSpec>:
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as BlockChainSpec>::Block,
     DynBlockchainError,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >
@@ -79,7 +79,7 @@ impl<
             <ChainSpecT as ReceiptChainSpec>::Receipt,
             <ChainSpecT as BlockChainSpec>::Block,
             DynBlockchainError,
-            <ChainSpecT as HardforkChainSpec>::Hardfork,
+            <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
             <ChainSpecT as ChainSpec>::SignedTransaction,
         >,
@@ -93,7 +93,7 @@ pub type ForkedBlockchainForChainSpec<ChainSpecT> = ForkedBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as BlockChainSpec>::Block,
     <ChainSpecT as BlockChainSpec>::FetchReceiptError,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     ChainSpecT,
     <ChainSpecT as RpcChainSpec>::RpcReceipt,
@@ -104,7 +104,7 @@ pub type ForkedBlockchainForChainSpec<ChainSpecT> = ForkedBlockchain<
 /// Helper type for a chain-specific [`LocalBlockchain`].
 pub type LocalBlockchainForChainSpec<ChainSpecT> = LocalBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;

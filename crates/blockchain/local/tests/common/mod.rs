@@ -20,8 +20,8 @@ pub fn create_dummy_local_blockchain() -> LocalBlockchainForChainSpec<L1ChainSpe
 
     let block_config = BlockConfig {
         base_fee_params: chain_config.base_fee_params.clone(),
+        default_difficulty_fn: L1ChainSpec::default_block_difficulty,
         hardfork: edr_chain_l1::Hardfork::default(),
-        min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),
     };
 

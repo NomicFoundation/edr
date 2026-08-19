@@ -668,16 +668,20 @@ fn assert_execution_error_stack_trace<'suite, HaltReasonT: HaltReasonTrait>(
     };
 
     // A non-empty trace that reaches the failing call's execution error
-    // (exact variant depends on the compilation mode).
+    // (exact variant depends on the compilation mode). The entry must be
+    // source-mapped: a trace inferred from step-less arenas degrades to a
+    // bare `OtherExecutionError { source_reference: None }` (issue #1605).
     assert!(
-        stack_trace.iter().any(|entry| matches!(
-            entry,
-            StackTraceEntry::RevertError { .. }
-                | StackTraceEntry::PanicError { .. }
-                | StackTraceEntry::CustomError { .. }
-                | StackTraceEntry::OtherExecutionError { .. }
-        )),
-        "{test_name}: expected an execution-error stack trace, got:\n{stack_trace:#?}"
+        stack_trace.iter().any(|entry| {
+            matches!(
+                entry,
+                StackTraceEntry::RevertError { .. }
+                    | StackTraceEntry::PanicError { .. }
+                    | StackTraceEntry::CustomError { .. }
+                    | StackTraceEntry::OtherExecutionError { .. }
+            ) && entry.source_reference().is_some()
+        }),
+        "{test_name}: expected a source-mapped execution-error stack trace, got:\n{stack_trace:#?}"
     );
 
     result
@@ -717,6 +721,11 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         "expected a fuzz test kind, got {:?}",
         fuzz_result.kind
     );
+
+    let failing_setup_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceFailingSetupTest")
+        .expect("the AlwaysStackTraceFailingSetup suite should have run");
+    assert_execution_error_stack_trace(failing_setup_suite, "setUp()");
 
     let invariant_suite = suite_results
         .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceInvariantTest")
@@ -765,4 +774,30 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         "expected an invariant setup failure, got {:?}",
         invariant_initial_result.reason
     );
+}
+
+// A failing `setUp()` must produce a stack trace via the re-execution
+// fallback in the default `CollectStackTraces::OnFailure` mode too, matching
+// the `Always` mode behavior.
+#[tokio::test(flavor = "multi_thread")]
+async fn on_failure_mode_produces_stack_trace_for_failing_setup() {
+    let config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
+    assert_eq!(
+        config.collect_stack_traces,
+        CollectStackTraces::OnFailure,
+        "this test relies on the default mode being `OnFailure`"
+    );
+
+    let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
+    let runner = TEST_DATA_VIA_IR
+        .runner_with_contract_decoder(config, contract_decoder)
+        .await;
+    let filter = SolidityTestFilter::contract("AlwaysStackTraceFailingSetupTest");
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceFailingSetupTest")
+        .expect("the AlwaysStackTraceFailingSetup suite should have run");
+
+    assert_execution_error_stack_trace(suite, "setUp()");
 }

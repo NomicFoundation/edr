@@ -11,7 +11,7 @@ use edr_block_header::{
 };
 use edr_chain_spec::{
     ChainSpec, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
-    HardforkChainSpec, TransactionValidation,
+    ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
@@ -42,7 +42,7 @@ pub type MineBlockErrorForChainSpec<
 > = MineBlockError<
     BlockchainErrorT,
     CollectInspectorDataErrorT,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     StateErrorT,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;
@@ -194,18 +194,17 @@ pub fn mine_block<ChainSpecT, BlockchainErrorT, InspectorT>(
         ChainSpecT::Receipt,
         ChainSpecT::Block,
         BlockchainErrorT,
-        ChainSpecT::Hardfork,
+        ChainSpecT::ProtocolHardfork,
         ChainSpecT::LocalBlock,
         ChainSpecT::SignedTransaction,
     >,
-    block_config: &BlockConfig<ChainSpecT::Hardfork>,
+    block_config: &BlockConfig<ChainSpecT::ProtocolHardfork>,
     state: Box<dyn DynState>,
     mem_pool: &MemPool<ChainSpecT::SignedTransaction>,
     evm_config: &EvmConfig,
-    overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+    overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     min_gas_price: u128,
     mine_ordering: MineOrdering,
-    reward: u128,
     mut inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
@@ -235,7 +234,7 @@ where
                             ChainSpecT::Receipt,
                             ChainSpecT::Block,
                             BlockchainErrorT,
-                            ChainSpecT::Hardfork,
+                            ChainSpecT::ProtocolHardfork,
                             ChainSpecT::LocalBlock,
                             ChainSpecT::SignedTransaction,
                         >,
@@ -319,11 +318,8 @@ where
         }
     }
 
-    let beneficiary = block_builder.header().beneficiary;
-    let rewards = vec![(beneficiary, reward)];
-
     let block_and_state = block_builder
-        .finalize_block(rewards)
+        .finalize_block()
         .map_err(MineBlockError::BlockFinalize)?;
 
     Ok(MineBlockResultAndStateWithMetadata::new(
@@ -335,7 +331,7 @@ where
 /// Helper type for a chain-specific [`MineTransactionError`].
 pub type MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT> = MineTransactionError<
     BlockchainErrorT,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;
 
@@ -468,17 +464,16 @@ pub fn mine_block_with_single_transaction<
         ChainSpecT::Receipt,
         ChainSpecT::Block,
         BlockchainErrorT,
-        ChainSpecT::Hardfork,
+        ChainSpecT::ProtocolHardfork,
         ChainSpecT::LocalBlock,
         ChainSpecT::SignedTransaction,
     >,
-    block_config: &BlockConfig<ChainSpecT::Hardfork>,
+    block_config: &BlockConfig<ChainSpecT::ProtocolHardfork>,
     state: Box<dyn DynState>,
     transaction: ChainSpecT::SignedTransaction,
     evm_config: &EvmConfig,
-    overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+    overrides: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     min_gas_price: u128,
-    reward: u128,
     inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
@@ -496,7 +491,7 @@ where
                         ChainSpecT::Receipt,
                         ChainSpecT::Block,
                         BlockchainErrorT,
-                        ChainSpecT::Hardfork,
+                        ChainSpecT::ProtocolHardfork,
                         ChainSpecT::LocalBlock,
                         ChainSpecT::SignedTransaction,
                     >,
@@ -545,7 +540,7 @@ where
     if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
         let base_fee_per_blob_gas = calculate_next_base_fee_per_blob_gas(
             parent_block.block_header(),
-            hardfork,
+            hardfork.clone(),
             block_config.scheduled_blob_params.as_ref(),
         );
         if *max_fee_per_blob_gas < base_fee_per_blob_gas {
@@ -588,9 +583,6 @@ where
         custom_precompiles,
     )?;
 
-    let beneficiary = block_builder.header().beneficiary;
-    let rewards = vec![(beneficiary, reward)];
-
     if let Some(inspector) = inspector {
         block_builder.add_transaction_with_inspector(transaction, inspector)?;
     } else {
@@ -598,7 +590,7 @@ where
     }
 
     block_builder
-        .finalize_block(rewards)
+        .finalize_block()
         .map_err(MineTransactionError::Finalize)
 }
 
