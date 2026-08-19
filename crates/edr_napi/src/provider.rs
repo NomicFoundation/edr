@@ -30,6 +30,7 @@ pub struct Provider {
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
     dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+    dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
 }
@@ -41,6 +42,7 @@ impl Provider {
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
         dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+        dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
@@ -50,6 +52,7 @@ impl Provider {
             provider,
             runtime,
             dropped_provider_sender,
+            dropped_response_sender,
             #[cfg(feature = "scenarios")]
             scenario_file,
         }
@@ -158,6 +161,7 @@ impl Provider {
     #[napi(catch_unwind)]
     pub async fn handle_request(&self, request: String) -> napi::Result<Response> {
         let provider = self.provider.clone();
+        let dropped_response_sender = self.dropped_response_sender.clone();
 
         #[cfg(feature = "scenarios")]
         if let Some(scenario_file) = &self.scenario_file {
@@ -168,7 +172,7 @@ impl Provider {
             .spawn_blocking(move || provider.handle_request(request))
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?
-            .map(Response::from)
+            .map(|response| Response::new(response, dropped_response_sender))
     }
 
     #[napi(catch_unwind, ts_return_type = "Promise<void>")]
