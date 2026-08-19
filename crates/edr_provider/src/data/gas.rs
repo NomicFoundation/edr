@@ -124,7 +124,7 @@ impl<'a, ChainSpecT: ChainSpec + ProtocolHardforkChainSpec + BlockEnvChainSpec>
     fn new_block_env(&self) -> ChainSpecT::BlockEnv<'_, BlockHeader> {
         ChainSpecT::BlockEnv::new_block_env(
             self.header,
-            self.cfg_env.spec,
+            self.cfg_env.spec.clone(),
             self.scheduled_blob_params,
         )
     }

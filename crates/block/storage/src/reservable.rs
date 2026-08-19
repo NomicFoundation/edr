@@ -366,7 +366,7 @@ impl<
                 );
 
                 let block = BlockT::empty(
-                    reservation.block_config.hardfork,
+                    reservation.block_config.hardfork.clone(),
                     PartialHeader::new(
                         &reservation.block_config,
                         HeaderOverrides {

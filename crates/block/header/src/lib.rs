@@ -247,44 +247,46 @@ impl<'env, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
     }
 }
 
-impl<HardforkT: Copy + Into<EvmSpecId>, BlockHeaderT: BlockEnvForHardfork<HardforkT>> BlockEnvTrait
+impl<HardforkT: Clone + Into<EvmSpecId>, BlockHeaderT: BlockEnvForHardfork<HardforkT>> BlockEnvTrait
     for HeaderAndEvmSpec<'_, BlockHeaderT, HardforkT>
 {
     fn number(&self) -> U256 {
-        self.header.number_for_hardfork(self.hardfork)
+        self.header.number_for_hardfork(self.hardfork.clone())
     }
 
     fn beneficiary(&self) -> Address {
-        self.header.beneficiary_for_hardfork(self.hardfork)
+        self.header.beneficiary_for_hardfork(self.hardfork.clone())
     }
 
     fn timestamp(&self) -> U256 {
-        self.header.timestamp_for_hardfork(self.hardfork)
+        self.header.timestamp_for_hardfork(self.hardfork.clone())
     }
 
     fn gas_limit(&self) -> u64 {
-        self.header.gas_limit_for_hardfork(self.hardfork)
+        self.header.gas_limit_for_hardfork(self.hardfork.clone())
     }
 
     fn basefee(&self) -> u64 {
-        self.header.basefee_for_hardfork(self.hardfork)
+        self.header.basefee_for_hardfork(self.hardfork.clone())
     }
 
     fn difficulty(&self) -> U256 {
-        self.header.difficulty_for_hardfork(self.hardfork)
+        self.header.difficulty_for_hardfork(self.hardfork.clone())
     }
 
     fn prevrandao(&self) -> Option<B256> {
-        self.header.prevrandao_for_hardfork(self.hardfork)
+        self.header.prevrandao_for_hardfork(self.hardfork.clone())
     }
 
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
-        self.header
-            .blob_excess_gas_and_price_for_hardfork(self.hardfork, self.scheduled_blob_params)
+        self.header.blob_excess_gas_and_price_for_hardfork(
+            self.hardfork.clone(),
+            self.scheduled_blob_params,
+        )
     }
 
     fn slot_num(&self) -> u64 {
-        self.header.slot_number_for_hardfork(self.hardfork)
+        self.header.slot_number_for_hardfork(self.hardfork.clone())
     }
 }
 
@@ -371,7 +373,7 @@ impl PartialHeader {
                 B256::ZERO
             }
         });
-        let evm_spec_id: EvmSpecId = (*hardfork).into();
+        let evm_spec_id: EvmSpecId = hardfork.clone().into();
 
         let base_fee = overrides.base_fee.or_else(|| {
             if evm_spec_id >= EvmSpecId::LONDON {
@@ -383,7 +385,7 @@ impl PartialHeader {
                             .base_fee_params
                             .as_ref()
                             .unwrap_or(base_fee_params),
-                        *hardfork,
+                        hardfork.clone(),
                     )
                 } else {
                     u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
@@ -400,9 +402,9 @@ impl PartialHeader {
             state_root: overrides.state_root.unwrap_or(KECCAK_NULL_RLP),
             receipts_root: KECCAK_NULL_RLP,
             logs_bloom: Bloom::default(),
-            difficulty: overrides
-                .difficulty
-                .unwrap_or_else(|| default_difficulty_fn(*hardfork, parent, number, timestamp)),
+            difficulty: overrides.difficulty.unwrap_or_else(|| {
+                default_difficulty_fn(hardfork.clone(), parent, number, timestamp)
+            }),
             number,
             gas_limit: overrides.gas_limit.unwrap_or(1_000_000),
             gas_used: 0,

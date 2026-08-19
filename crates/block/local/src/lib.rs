@@ -177,7 +177,7 @@ impl<
         block_config: &BlockConfig<HardforkT>,
         options: GenesisBlockOptions<HardforkT>,
     ) -> Result<Self, LocalBlockCreationError> {
-        let evm_spec_id: EvmSpecId = block_config.hardfork.into();
+        let evm_spec_id: EvmSpecId = block_config.hardfork.clone().into();
         if evm_spec_id >= EvmSpecId::MERGE && options.mix_hash.is_none() {
             return Err(LocalBlockCreationError::MissingPrevrandao);
         }
@@ -207,7 +207,7 @@ impl<
         } else {
             None
         };
-        let hardfork = block_config.hardfork;
+        let hardfork = block_config.hardfork.clone();
 
         let partial_header =
             PartialHeader::new(block_config, options, None, &ommers, withdrawals.as_ref());

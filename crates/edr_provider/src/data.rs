@@ -1101,7 +1101,7 @@ where
         base_fee_per_gas: u128,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         let hardfork = self.hardfork();
-        let evm_spec_id: EvmSpecId = hardfork.into();
+        let evm_spec_id: EvmSpecId = hardfork.clone().into();
         if evm_spec_id < EvmSpecId::LONDON {
             return Err(ProviderError::SetNextBlockBaseFeePerGasUnsupported { hardfork });
         }
@@ -1142,7 +1142,7 @@ where
         prev_randao: B256,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         let hardfork = self.hardfork();
-        let evm_spec_id: EvmSpecId = hardfork.into();
+        let evm_spec_id: EvmSpecId = hardfork.clone().into();
         if evm_spec_id < EvmSpecId::MERGE {
             return Err(ProviderError::SetNextPrevRandaoUnsupported { hardfork });
         }
@@ -1874,7 +1874,7 @@ where
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
             let block_env = BlockEnvWithZeroBaseFee::new(ChainSpecT::BlockEnv::new_block_env(
                 block.block_header(),
-                cfg_env.spec,
+                cfg_env.spec.clone(),
                 scheduled_blob_params.as_ref(),
             ));
 
@@ -2370,7 +2370,7 @@ where
             let observed_execution = observe_execution(&observer_config, |observer|  {
                 let block_env = ChainSpecT::BlockEnv::new_block_env(
                     block.block_header(),
-                    cfg_env.spec,
+                    cfg_env.spec.clone(),
                     scheduled_blob_params.as_ref(),
                 );
                 call::run_call::<ChainSpecT, _, _, _>(
@@ -2679,7 +2679,7 @@ where
             |blockchain, _prev_block, state| {
                 let block_env = ChainSpecT::BlockEnv::new_block_env(
                     header,
-                    cfg_env.spec,
+                    cfg_env.spec.clone(),
                     scheduled_blob_params.as_ref(),
                 );
 
@@ -2872,7 +2872,7 @@ fn create_forked_blockchain_and_state<
     let block_config = BlockConfig {
         base_fee_params,
         default_difficulty_fn: ChainSpecT::default_block_difficulty,
-        hardfork: config.hardfork,
+        hardfork: config.hardfork.clone(),
         scheduled_blob_params,
     };
 
@@ -2880,7 +2880,7 @@ fn create_forked_blockchain_and_state<
         || -> Result<_, ForkedCreationError<ChainSpecT::ProtocolHardfork>> {
             let mut irregular_state = IrregularState::default();
             let blockchain = runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
-                block_config.hardfork,
+                block_config.hardfork.clone(),
                 runtime.clone(),
                 rpc_client.clone(),
                 &mut irregular_state,
@@ -2987,7 +2987,7 @@ fn create_forked_blockchain_and_state<
             .expect("Elapsed time since fork block must be representable as i64")
     };
 
-    let evm_spec_id: EvmSpecId = config.hardfork.into();
+    let evm_spec_id: EvmSpecId = config.hardfork.clone().into();
     let next_block_base_fee_per_gas = if evm_spec_id >= EvmSpecId::LONDON {
         if let Some(base_fee) = config.initial_base_fee_per_gas {
             Some(base_fee)
@@ -3038,7 +3038,7 @@ fn create_local_blockchain_and_state<
     local_config: &LocalConfig,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
-    let evm_spec_id: EvmSpecId = config.hardfork.into();
+    let evm_spec_id: EvmSpecId = config.hardfork.clone().into();
     let mix_hash = if evm_spec_id >= EvmSpecId::MERGE {
         Some(prev_randao_generator.generate_next())
     } else {
@@ -3092,7 +3092,7 @@ fn create_local_blockchain_and_state<
     let block_config = BlockConfig {
         base_fee_params: base_fee_params.clone(),
         default_difficulty_fn: ChainSpecT::default_block_difficulty,
-        hardfork: config.hardfork,
+        hardfork: config.hardfork.clone(),
         scheduled_blob_params,
     };
 
@@ -3128,7 +3128,7 @@ fn create_local_blockchain_and_state<
         genesis_block,
         genesis_diff,
         config.chain_id,
-        block_config.hardfork,
+        block_config.hardfork.clone(),
     )
     .map_err(CreationError::InvalidGenesisBlock)?;
 

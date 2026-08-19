@@ -35,7 +35,7 @@ pub type ContextForChainSpec<ChainSpecT, BlockEnvT, DatabaseT> = Context<
 pub fn to_evm_cfg_env<ChainSpecT: ProtocolHardforkChainSpec>(
     cfg: CfgEnv<ChainSpecT::ProtocolHardfork>,
 ) -> CfgEnv<ChainSpecT::EvmHardfork> {
-    let spec: ChainSpecT::EvmHardfork = cfg.spec.into();
+    let spec: ChainSpecT::EvmHardfork = cfg.spec.clone().into();
     // Pass the original gas params through to avoid recomputing them.
     let gas_params = cfg.gas_params.clone();
     cfg.with_spec_and_gas_params(spec, gas_params)

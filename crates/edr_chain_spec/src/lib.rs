@@ -127,9 +127,9 @@ pub trait ProtocolHardforkChainSpec: EvmHardforkChainSpec {
 ///
 /// Blanket-implemented alias for its bounds; use it to bound hardfork-generic
 /// code that has no chain spec in scope.
-pub trait ProtocolHardfork: Copy + Into<EvmSpecId> + PartialOrd {}
+pub trait ProtocolHardfork: Clone + Into<EvmSpecId> + PartialOrd {}
 
-impl<T> ProtocolHardfork for T where T: Copy + Into<EvmSpecId> + PartialOrd {}
+impl<T> ProtocolHardfork for T where T: Clone + Into<EvmSpecId> + PartialOrd {}
 
 /// Trait for chain specifications.
 pub trait ChainSpec {

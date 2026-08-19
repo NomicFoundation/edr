@@ -280,7 +280,7 @@ pub fn validate_call_request<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + T
     call_request: &L1CallRequest,
     block_spec: &BlockSpec,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, block_spec)?;
+    validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork.clone(), block_spec)?;
 
     if call_request.blobs.is_some() | call_request.blob_hashes.is_some() {
         return Err(ProviderError::Eip4844CallRequestUnsupported);
@@ -390,7 +390,7 @@ pub(crate) fn validate_post_merge_block_tags<
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec: ValidationBlockSpec<'a> = block_spec.into();
 
-    let evm_spec_id: EvmSpecId = hardfork.into();
+    let evm_spec_id: EvmSpecId = hardfork.clone().into();
 
     if evm_spec_id < EvmSpecId::MERGE {
         match block_spec {
