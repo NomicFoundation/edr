@@ -10,7 +10,7 @@ mod async_deallocator;
 mod block;
 /// Types for overriding a call.
 pub mod call_override;
-/// Types for casting N-API types to Rust types.
+/// Types for casting between N-API types and Rust types.
 pub mod cast;
 /// Supported chain types.
 pub mod chains;
@@ -28,6 +28,7 @@ pub mod instrument;
 pub mod log;
 /// Types for an RPC request logger.
 pub mod logger;
+pub mod memory_stats;
 /// Types for mocking provider behavior.
 #[cfg(feature = "test-mock")]
 pub mod mock;

@@ -42,6 +42,7 @@ edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_tracing.workspace = true
 edr_utils_sync.workspace = true
+libmimalloc-sys = { version = "0.1.49", features = ["extended"], optional = true }
 mimalloc = { version = "0.1.39", default-features = false, features = [
     "local_dynamic_tls",
 ] }
@@ -99,6 +100,7 @@ napi-build = "2.3"
 napi = { version = "3", default-features = false, features = ["dyn-symbols"] }
 
 [features]
+memory-stats = ["dep:libmimalloc-sys"]
 op = ["dep:edr_op"]
 scenarios = ["dep:edr_scenarios", "dep:rand"]
 test-mock = ["edr_provider/test-utils"]
