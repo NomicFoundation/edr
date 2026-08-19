@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.17.0
+
+### Minor Changes
+
+- 1d9452c: Added the `os`, `cpu` and `libc` fields to the platform-specific `@nomicfoundation/edr-*` packages, so package managers install only the build matching the host. Without them, the `optionalDependencies` introduced in 0.16.0 still resolved to every platform.
+
 ## 0.16.0
 
 ### Minor Changes
