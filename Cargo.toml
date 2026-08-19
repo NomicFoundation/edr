@@ -218,7 +218,7 @@ foundry-compilers = { version = "0.18.0", default-features = false, features = [
 # ^38), so a shallow mirror of the ethereum-optimism monorepo commit matching
 # the op-reth v2.4.1 release (workspace pins revm 41.0.0, the revm version at
 # tag v113) is used instead. See the mirror's PROVENANCE.md.
-op-revm = { git = "https://github.com/anaPerezGhiglia/op-revm", tag = "op-reth-v2.4.1-a9a8dad", default-features = false, features = [
+op-revm = { git = "https://github.com/NomicFoundation/op-revm", tag = "op-reth-v2.4.1-a9a8dad", default-features = false, features = [
     "c-kzg",
     "dev",
     "serde",

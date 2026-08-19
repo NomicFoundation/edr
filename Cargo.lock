@@ -6046,7 +6046,7 @@ dependencies = [
 [[package]]
 name = "op-revm"
 version = "20.0.0"
-source = "git+https://github.com/anaPerezGhiglia/op-revm?tag=op-reth-v2.4.1-a9a8dad#45cbdfca60f0f6a0593daf1e438cfef30b306ede"
+source = "git+https://github.com/NomicFoundation/op-revm?tag=op-reth-v2.4.1-a9a8dad#45cbdfca60f0f6a0593daf1e438cfef30b306ede"
 dependencies = [
  "auto_impl",
  "op-alloy-consensus",
