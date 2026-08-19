@@ -62,6 +62,12 @@
       "groupName": "github-actions"
     },
     {
+      "description": "addr2line + gimli: edr_solidity hands gimli's EndianRcSlice into addr2line's Context<R> generic, so our direct gimli dep must be the same version addr2line re-exports. Bumping either alone puts two gimli majors in the graph and edr_solidity stops compiling — see PR #1626.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["addr2line", "gimli"],
+      "groupName": "addr2line + gimli"
+    },
+    {
       "description": "alloy + revm (incl. op-* variants): tightly coupled across the EVM execution stack — revm builds on alloy types, op-* carries the upstream crates transitively, perf-sensitive. Bundle into one PR; in practice we want them moving in lockstep even when only one side has a release.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["/^(op-)?alloy(-|$)/", "/^(op-)?revm(-|$)/"],
