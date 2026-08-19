@@ -640,6 +640,10 @@ impl<
         let mut setup: TestSetup<HaltReasonT> = self.setup(&mut executor, call_setup);
         debug!("finished setting up in {:?}", setup_time.elapsed());
 
+        // Whether steps were actually recorded while `setUp()` ran; must be
+        // captured before the original tracer (whose mode may differ) is
+        // restored.
+        let setup_recorded_steps = executor.tracer_records_steps();
         executor.inspector_mut().tracer = prev_tracer;
 
         if setup.reason.is_some() {
@@ -647,7 +651,7 @@ impl<
             // these numbers to reason about the performance of their code.
             let elapsed = start.elapsed();
 
-            setup.stack_trace_result = if executor.tracer_records_steps() {
+            setup.stack_trace_result = if setup_recorded_steps {
                 // We collected steps during setup, so we can generate the stack trace
                 get_stack_trace(
                     &*self.contract_decoder,

@@ -23,8 +23,8 @@ fn local_blockchain(
 
     let block_config = BlockConfig {
         base_fee_params: L1ChainSpec::default_base_fee_params().clone(),
+        default_difficulty_fn: L1ChainSpec::default_block_difficulty,
         hardfork: edr_chain_l1::Hardfork::PRAGUE,
-        min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: None,
     };
 

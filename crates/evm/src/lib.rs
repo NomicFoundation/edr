@@ -80,7 +80,7 @@ pub fn dry_run<
 >(
     blockchain: BlockchainT,
     state: StateT,
-    cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    cfg: CfgEnv<EvmChainSpecT::ProtocolHardfork>,
     transaction: EvmChainSpecT::SignedTransaction,
     block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
@@ -94,7 +94,7 @@ pub fn dry_run<
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
     let mut precompile_provider = OverriddenPrecompileProvider::with_precompiles(
-        EvmChainSpecT::new_precompile_provider(cfg.spec),
+        EvmChainSpecT::new_precompile_provider(cfg.spec.clone()),
         custom_precompiles.clone(),
     );
 
@@ -132,7 +132,7 @@ pub fn dry_run_with_inspector<
 >(
     blockchain: BlockchainT,
     state: StateT,
-    cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    cfg: CfgEnv<EvmChainSpecT::ProtocolHardfork>,
     transaction: EvmChainSpecT::SignedTransaction,
     block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
@@ -147,7 +147,7 @@ pub fn dry_run_with_inspector<
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
     let mut precompile_provider = OverriddenPrecompileProvider::with_precompiles(
-        EvmChainSpecT::new_precompile_provider(cfg.spec),
+        EvmChainSpecT::new_precompile_provider(cfg.spec.clone()),
         custom_precompiles.clone(),
     );
 
@@ -184,7 +184,7 @@ pub fn guaranteed_dry_run<
 >(
     blockchain: BlockchainT,
     state: StateT,
-    mut cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    mut cfg: CfgEnv<EvmChainSpecT::ProtocolHardfork>,
     transaction: EvmChainSpecT::SignedTransaction,
     block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
@@ -233,7 +233,7 @@ pub fn guaranteed_dry_run_with_inspector<
 >(
     blockchain: BlockchainT,
     state: StateT,
-    mut cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    mut cfg: CfgEnv<EvmChainSpecT::ProtocolHardfork>,
     transaction: EvmChainSpecT::SignedTransaction,
     block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
@@ -275,7 +275,7 @@ pub fn run<
 >(
     blockchain: BlockchainT,
     mut state: StateT,
-    cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    cfg: CfgEnv<EvmChainSpecT::ProtocolHardfork>,
     transaction: EvmChainSpecT::SignedTransaction,
     block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,

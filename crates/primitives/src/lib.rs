@@ -8,10 +8,13 @@ pub use revm_primitives::{
     },
     b256, bytes,
     eip3860::MAX_INITCODE_SIZE,
-    eip7708,
-    hardfork::UnknownHardfork,
-    hex, hex_literal, keccak256, Address, Bytes, B256, KECCAK_EMPTY, U256,
+    eip7708, hex, hex_literal, keccak256, Address, Bytes, B256, KECCAK_EMPTY, U256,
 };
+
+/// Error type for unknown hardfork names, returned when parsing hardfork
+/// strings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct UnknownHardfork;
 
 /// The KECCAK of the RLP encoding of empty data.
 pub const KECCAK_NULL_RLP: B256 = B256::new([

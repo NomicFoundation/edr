@@ -36,7 +36,7 @@ impl<BlockT: Block<SignedTransactionWithFallbackToPostEip155>>
 
     fn rpc_type_from(
         value: &TransactionAndBlock<BlockT, SignedTransactionWithFallbackToPostEip155>,
-        hardfork: Self::Hardfork,
+        hardfork: edr_chain_l1::Hardfork,
     ) -> Self {
         let (header, transaction_index) = value
             .block_data

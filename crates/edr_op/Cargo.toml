@@ -45,6 +45,7 @@ revm-context.workspace = true
 revm-context-interface.workspace = true
 serde = { workspace = true, features = ["derive", "std"] }
 serde_json.workspace = true
+strum = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 

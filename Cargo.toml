@@ -322,7 +322,7 @@ arrayvec = "0.7"
 auto_impl = { version = "1.2", default-features = false }
 dunce = "1"
 dyn-clone = { version = "1.0.13", default-features = false }
-base64 = "0.22"
+base64 = "0.23"
 chrono = { version = "0.4", default-features = false, features = [
     "clock",
     "std",

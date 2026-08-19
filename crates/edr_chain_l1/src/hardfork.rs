@@ -1,14 +1,15 @@
 //! Ethereum L1 hardfork type, owned by EDR.
 
-use core::str::FromStr;
-
-use edr_chain_spec::{EvmSpecId, ProtocolParams};
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::UnknownHardfork;
 
 /// Ethereum L1 hardfork.
 ///
 /// Models protocol upgrades, including ones without EVM-semantics changes,
 /// unlike [`EvmSpecId`] which models EVM behavior classes.
+///
+/// The `strum(serialize = …)` strings must stay identical to the [`name`]
+/// module constants.
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 #[derive(
@@ -23,51 +24,80 @@ use edr_primitives::UnknownHardfork;
     Hash,
     serde::Serialize,
     serde::Deserialize,
+    strum::Display,
+    strum::EnumString,
+    strum::IntoStaticStr,
 )]
+#[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum L1Hardfork {
     /// Frontier hardfork
+    #[strum(serialize = "Frontier")]
     FRONTIER = 0,
     /// Frontier Thawing hardfork
+    #[strum(serialize = "Frontier Thawing")]
     FRONTIER_THAWING,
     /// Homestead hardfork
+    #[strum(serialize = "Homestead")]
     HOMESTEAD,
     /// DAO Fork hardfork
+    #[strum(serialize = "DAO Fork")]
     DAO_FORK,
     /// Tangerine Whistle hardfork
+    #[strum(serialize = "Tangerine")]
     TANGERINE,
     /// Spurious Dragon hardfork
+    #[strum(serialize = "Spurious")]
     SPURIOUS_DRAGON,
     /// Byzantium hardfork
+    #[strum(serialize = "Byzantium")]
     BYZANTIUM,
     /// Constantinople hardfork
+    #[strum(serialize = "Constantinople")]
     CONSTANTINOPLE,
     /// Petersburg hardfork
+    #[strum(serialize = "Petersburg")]
     PETERSBURG,
     /// Istanbul hardfork
+    #[strum(serialize = "Istanbul")]
     ISTANBUL,
     /// Muir Glacier hardfork
+    #[strum(serialize = "MuirGlacier")]
     MUIR_GLACIER,
     /// Berlin hardfork
+    #[strum(serialize = "Berlin")]
     BERLIN,
     /// London hardfork
+    #[strum(serialize = "London")]
     LONDON,
     /// Arrow Glacier hardfork
+    #[strum(serialize = "Arrow Glacier")]
     ARROW_GLACIER,
     /// Gray Glacier hardfork
+    #[strum(serialize = "Gray Glacier")]
     GRAY_GLACIER,
     /// Paris/Merge hardfork
+    #[strum(serialize = "Merge")]
     MERGE,
     /// Shanghai hardfork
+    #[strum(serialize = "Shanghai")]
     SHANGHAI,
     /// Cancun hardfork
+    #[strum(serialize = "Cancun")]
     CANCUN,
     /// Prague hardfork
+    #[strum(serialize = "Prague")]
     PRAGUE,
     /// Osaka hardfork
     #[default]
+    #[strum(serialize = "Osaka")]
     OSAKA,
     /// Amsterdam hardfork
+    #[strum(serialize = "Amsterdam")]
     AMSTERDAM,
+}
+
+fn unknown_hardfork(_name: &str) -> UnknownHardfork {
+    UnknownHardfork
 }
 
 impl From<L1Hardfork> for EvmSpecId {
@@ -146,116 +176,10 @@ pub mod name {
     pub const LATEST: &str = "Latest";
 }
 
-impl FromStr for L1Hardfork {
-    type Err = UnknownHardfork;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            name::FRONTIER => Ok(Self::FRONTIER),
-            name::FRONTIER_THAWING => Ok(Self::FRONTIER_THAWING),
-            name::HOMESTEAD => Ok(Self::HOMESTEAD),
-            name::DAO_FORK => Ok(Self::DAO_FORK),
-            name::TANGERINE => Ok(Self::TANGERINE),
-            name::SPURIOUS_DRAGON => Ok(Self::SPURIOUS_DRAGON),
-            name::BYZANTIUM => Ok(Self::BYZANTIUM),
-            name::CONSTANTINOPLE => Ok(Self::CONSTANTINOPLE),
-            name::PETERSBURG => Ok(Self::PETERSBURG),
-            name::ISTANBUL => Ok(Self::ISTANBUL),
-            name::MUIR_GLACIER => Ok(Self::MUIR_GLACIER),
-            name::BERLIN => Ok(Self::BERLIN),
-            name::LONDON => Ok(Self::LONDON),
-            name::ARROW_GLACIER => Ok(Self::ARROW_GLACIER),
-            name::GRAY_GLACIER => Ok(Self::GRAY_GLACIER),
-            name::MERGE => Ok(Self::MERGE),
-            name::SHANGHAI => Ok(Self::SHANGHAI),
-            name::CANCUN => Ok(Self::CANCUN),
-            name::PRAGUE => Ok(Self::PRAGUE),
-            name::OSAKA => Ok(Self::OSAKA),
-            name::AMSTERDAM => Ok(Self::AMSTERDAM),
-            _ => Err(UnknownHardfork),
-        }
-    }
-}
-
-impl From<L1Hardfork> for &'static str {
-    fn from(hardfork: L1Hardfork) -> Self {
-        match hardfork {
-            L1Hardfork::FRONTIER => name::FRONTIER,
-            L1Hardfork::FRONTIER_THAWING => name::FRONTIER_THAWING,
-            L1Hardfork::HOMESTEAD => name::HOMESTEAD,
-            L1Hardfork::DAO_FORK => name::DAO_FORK,
-            L1Hardfork::TANGERINE => name::TANGERINE,
-            L1Hardfork::SPURIOUS_DRAGON => name::SPURIOUS_DRAGON,
-            L1Hardfork::BYZANTIUM => name::BYZANTIUM,
-            L1Hardfork::CONSTANTINOPLE => name::CONSTANTINOPLE,
-            L1Hardfork::PETERSBURG => name::PETERSBURG,
-            L1Hardfork::ISTANBUL => name::ISTANBUL,
-            L1Hardfork::MUIR_GLACIER => name::MUIR_GLACIER,
-            L1Hardfork::BERLIN => name::BERLIN,
-            L1Hardfork::LONDON => name::LONDON,
-            L1Hardfork::ARROW_GLACIER => name::ARROW_GLACIER,
-            L1Hardfork::GRAY_GLACIER => name::GRAY_GLACIER,
-            L1Hardfork::MERGE => name::MERGE,
-            L1Hardfork::SHANGHAI => name::SHANGHAI,
-            L1Hardfork::CANCUN => name::CANCUN,
-            L1Hardfork::PRAGUE => name::PRAGUE,
-            L1Hardfork::OSAKA => name::OSAKA,
-            L1Hardfork::AMSTERDAM => name::AMSTERDAM,
-        }
-    }
-}
-
-impl ProtocolParams for L1Hardfork {
-    fn bomb_delay(self) -> u64 {
-        match self {
-            L1Hardfork::FRONTIER
-            | L1Hardfork::FRONTIER_THAWING
-            | L1Hardfork::HOMESTEAD
-            | L1Hardfork::DAO_FORK
-            | L1Hardfork::TANGERINE
-            | L1Hardfork::SPURIOUS_DRAGON => 0,
-            L1Hardfork::BYZANTIUM => 3000000,
-            L1Hardfork::CONSTANTINOPLE | L1Hardfork::PETERSBURG | L1Hardfork::ISTANBUL => 5000000,
-            L1Hardfork::MUIR_GLACIER | L1Hardfork::BERLIN | L1Hardfork::LONDON => 9000000,
-            // L1Hardfork::LONDON => 9500000, // EIP-3554
-            L1Hardfork::ARROW_GLACIER => 10700000,
-            L1Hardfork::GRAY_GLACIER => 11400000,
-            _ => {
-                unreachable!("Post-merge hardforks don't have a bomb delay")
-            }
-        }
-    }
-
-    fn miner_reward(self) -> Option<u128> {
-        match self {
-            L1Hardfork::FRONTIER
-            | L1Hardfork::FRONTIER_THAWING
-            | L1Hardfork::HOMESTEAD
-            | L1Hardfork::DAO_FORK
-            | L1Hardfork::TANGERINE
-            | L1Hardfork::SPURIOUS_DRAGON => Some(5_000_000_000_000_000_000u128),
-            L1Hardfork::BYZANTIUM => Some(3_000_000_000_000_000_000u128),
-            L1Hardfork::CONSTANTINOPLE
-            | L1Hardfork::PETERSBURG
-            | L1Hardfork::ISTANBUL
-            | L1Hardfork::MUIR_GLACIER
-            | L1Hardfork::BERLIN
-            | L1Hardfork::LONDON
-            | L1Hardfork::ARROW_GLACIER
-            | L1Hardfork::GRAY_GLACIER => Some(2_000_000_000_000_000_000u128),
-            _ => None,
-        }
-    }
-}
-
-impl core::fmt::Display for L1Hardfork {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", <&'static str>::from(*self))
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use core::str::FromStr;
+
     use super::*;
 
     const VARIANTS: [L1Hardfork; 21] = [
@@ -289,16 +213,44 @@ mod tests {
         }
     }
 
+    /// The strings the `strum` derives emit/parse must stay in sync with the
+    /// [`name`] module constants, which are re-exported as public API.
+    const NAMES: [&str; 21] = [
+        name::FRONTIER,
+        name::FRONTIER_THAWING,
+        name::HOMESTEAD,
+        name::DAO_FORK,
+        name::TANGERINE,
+        name::SPURIOUS_DRAGON,
+        name::BYZANTIUM,
+        name::CONSTANTINOPLE,
+        name::PETERSBURG,
+        name::ISTANBUL,
+        name::MUIR_GLACIER,
+        name::BERLIN,
+        name::LONDON,
+        name::ARROW_GLACIER,
+        name::GRAY_GLACIER,
+        name::MERGE,
+        name::SHANGHAI,
+        name::CANCUN,
+        name::PRAGUE,
+        name::OSAKA,
+        name::AMSTERDAM,
+    ];
+
     #[test]
     fn name_round_trip() {
-        for hardfork in VARIANTS {
-            let name: &'static str = hardfork.into();
+        for (hardfork, name) in VARIANTS.into_iter().zip(NAMES) {
             assert_eq!(hardfork.to_string(), name);
+            assert_eq!(<&'static str>::from(hardfork), name);
             assert_eq!(L1Hardfork::from_str(name), Ok(hardfork));
         }
 
         assert_eq!(L1Hardfork::from_str("Latest"), Err(UnknownHardfork));
         assert_eq!(L1Hardfork::from_str("NotAHardfork"), Err(UnknownHardfork));
+        // strum must not fall back to parsing variant identifiers.
+        assert_eq!(L1Hardfork::from_str("MUIR_GLACIER"), Err(UnknownHardfork));
     }
 
     #[test]
@@ -314,41 +266,6 @@ mod tests {
     #[test]
     fn default_hardfork() {
         assert_eq!(L1Hardfork::default(), L1Hardfork::OSAKA);
-    }
-
-    #[test]
-    fn bomb_delays() {
-        assert_eq!(L1Hardfork::SPURIOUS_DRAGON.bomb_delay(), 0);
-        assert_eq!(L1Hardfork::BYZANTIUM.bomb_delay(), 3_000_000);
-        assert_eq!(L1Hardfork::CONSTANTINOPLE.bomb_delay(), 5_000_000);
-        assert_eq!(L1Hardfork::PETERSBURG.bomb_delay(), 5_000_000);
-        assert_eq!(L1Hardfork::ISTANBUL.bomb_delay(), 5_000_000);
-        assert_eq!(L1Hardfork::MUIR_GLACIER.bomb_delay(), 9_000_000);
-        assert_eq!(L1Hardfork::BERLIN.bomb_delay(), 9_000_000);
-        assert_eq!(L1Hardfork::LONDON.bomb_delay(), 9_000_000);
-        assert_eq!(L1Hardfork::ARROW_GLACIER.bomb_delay(), 10_700_000);
-        assert_eq!(L1Hardfork::GRAY_GLACIER.bomb_delay(), 11_400_000);
-    }
-
-    #[test]
-    fn miner_rewards() {
-        assert_eq!(
-            L1Hardfork::HOMESTEAD.miner_reward(),
-            Some(5_000_000_000_000_000_000)
-        );
-        assert_eq!(
-            L1Hardfork::BYZANTIUM.miner_reward(),
-            Some(3_000_000_000_000_000_000)
-        );
-        assert_eq!(
-            L1Hardfork::CONSTANTINOPLE.miner_reward(),
-            Some(2_000_000_000_000_000_000)
-        );
-        assert_eq!(
-            L1Hardfork::GRAY_GLACIER.miner_reward(),
-            Some(2_000_000_000_000_000_000)
-        );
-        assert_eq!(L1Hardfork::MERGE.miner_reward(), None);
     }
 
     #[test]
