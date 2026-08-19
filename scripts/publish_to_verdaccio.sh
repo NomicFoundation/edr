@@ -4,12 +4,15 @@
 #
 # It stages the prebuilt native binary into its platform package, compiles the
 # bundled TypeScript helpers, pins the packages to the requested version, wires
-# the platform packages as optionalDependencies — the same package shape as a
-# real release — and publishes the main package and this platform's package
-# (platform package first).
+# this host's platform package in as an optionalDependency — mirroring a real
+# release's package shape — and publishes the main package and this platform's
+# package (platform package first).
 #
-# Only the current platform's package exists in the local registry; npm and
-# pnpm skip optionalDependencies they can't resolve, so installs still work.
+# A real release lists all platform packages; a local build only produces one,
+# so the other platforms are pruned from `optionalDependencies`. npm, pnpm and
+# bun skip `optionalDependencies` they can't resolve, but Yarn Classic
+# ("Couldn't find any versions") and Yarn Berry (YN0082) both treat an
+# unresolvable version as a fatal error.
 #
 # The native binary must already be built (e.g. `pnpm build` in crates/edr_napi)
 # and EDR's dependencies installed (the TypeScript compile needs the local `tsc`).
@@ -101,6 +104,16 @@ echo ">> Pinning versions and wiring the platform packages"
   # Syncs the platform packages' versions and wires them as optionalDependencies,
   # mirroring the release workflow.
   "$SCRIPT_DIR/prepublish.sh"
+
+  # Drop the platform packages this run won't publish. Uses `npm/*/` rather
+  # than the napi targets so a newly added platform is covered without
+  # touching this script.
+  for dir in npm/*/; do
+    platform="$(basename "$dir")"
+    if [ "$platform" != "$PLATFORM" ]; then
+      npm pkg delete "optionalDependencies.@nomicfoundation/edr-$platform"
+    fi
+  done
 )
 
 if [ -n "$NPMRC" ]; then
