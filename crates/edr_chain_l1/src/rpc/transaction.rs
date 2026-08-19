@@ -5,7 +5,7 @@ use std::{ops::Deref, sync::OnceLock};
 
 use edr_block_api::Block;
 use edr_block_header::BlockHeader;
-use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork as _};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_chain_spec_rpc::{RpcTransaction, RpcTypeFrom};
 use edr_primitives::{Address, Bytes, B256, U256};
 use edr_signer::{
@@ -320,7 +320,7 @@ impl<BlockT: Block<L1SignedTransaction>>
 
     fn rpc_type_from(
         value: &TransactionAndBlock<BlockT, L1SignedTransaction>,
-        hardfork: Self::Hardfork,
+        hardfork: Hardfork,
     ) -> Self {
         let (header, transaction_index) = value
             .block_data
@@ -338,7 +338,7 @@ impl<BlockT: Block<L1SignedTransaction>>
             header,
             transaction_index,
             value.is_pending,
-            hardfork.to_evm_spec_id(),
+            hardfork.into(),
         );
         let signature = value.transaction.signature();
 

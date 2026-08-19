@@ -33,7 +33,7 @@ use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait,
-    ProtocolHardfork as _, ProtocolParams as _, TransactionValidation,
+    TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
@@ -261,7 +261,7 @@ pub struct ProviderData<
     bail_on_transaction_failure: bool,
     beneficiary: Address,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
-    block_config: BlockConfig<ChainSpecT::Hardfork>,
+    block_config: BlockConfig<ChainSpecT::ProtocolHardfork>,
     default_transaction_gas_limit: NonZeroU64,
     gas_estimation_mode: GasEstimationMode,
     is_auto_mining: bool,
@@ -281,7 +281,7 @@ pub struct ProviderData<
     rpc_client: Option<Arc<EthRpcClientForChainSpec<ChainSpecT>>>,
     instance_id: B256,
     next_block_base_fee_per_gas: Option<u128>,
-    base_fee_params: Option<BaseFeeParams<ChainSpecT::Hardfork>>,
+    base_fee_params: Option<BaseFeeParams<ChainSpecT::ProtocolHardfork>>,
     next_block_timestamp: Option<u64>,
     next_snapshot_id: u64,
     snapshots: BTreeMap<u64, Snapshot<ChainSpecT::SignedTransaction>>,
@@ -552,7 +552,7 @@ where
     fn header_overrides_with_timestamp(
         &self,
         timestamp: u64,
-    ) -> HeaderOverrides<ChainSpecT::Hardfork> {
+    ) -> HeaderOverrides<ChainSpecT::ProtocolHardfork> {
         HeaderOverrides {
             timestamp: Some(timestamp),
             base_fee_params: self.base_fee_params.clone(),
@@ -560,7 +560,7 @@ where
         }
     }
 
-    fn header_overrides(&self) -> HeaderOverrides<ChainSpecT::Hardfork> {
+    fn header_overrides(&self) -> HeaderOverrides<ChainSpecT::ProtocolHardfork> {
         HeaderOverrides {
             base_fee_params: self.base_fee_params.clone(),
             ..HeaderOverrides::default()
@@ -682,7 +682,7 @@ where
         subscriber_callback: Box<
             dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
         >,
-        config: ProviderConfig<ChainSpecT::Hardfork>,
+        config: ProviderConfig<ChainSpecT::ProtocolHardfork>,
         contract_decoder: Arc<RwLock<ContractDecoder>>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
@@ -1101,7 +1101,8 @@ where
         base_fee_per_gas: u128,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         let hardfork = self.hardfork();
-        if hardfork.to_evm_spec_id() < EvmSpecId::LONDON {
+        let evm_spec_id: EvmSpecId = hardfork.clone().into();
+        if evm_spec_id < EvmSpecId::LONDON {
             return Err(ProviderError::SetNextBlockBaseFeePerGasUnsupported { hardfork });
         }
 
@@ -1141,7 +1142,8 @@ where
         prev_randao: B256,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         let hardfork = self.hardfork();
-        if hardfork.to_evm_spec_id() < EvmSpecId::MERGE {
+        let evm_spec_id: EvmSpecId = hardfork.clone().into();
+        if evm_spec_id < EvmSpecId::MERGE {
             return Err(ProviderError::SetNextPrevRandaoUnsupported { hardfork });
         }
 
@@ -1361,7 +1363,7 @@ where
     pub fn create_evm_config_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<CfgEnv<ChainSpecT::Hardfork>, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<CfgEnv<ChainSpecT::ProtocolHardfork>, ProviderErrorForChainSpec<ChainSpecT>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         if let Some(block_number) = block_number {
@@ -1393,7 +1395,7 @@ where
     pub fn hardfork_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<ChainSpecT::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<ChainSpecT::ProtocolHardfork, ProviderErrorForChainSpec<ChainSpecT>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         if let Some(block_number) = block_number {
@@ -1449,7 +1451,7 @@ where
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
             &EvmConfig,
-            HeaderOverrides<ChainSpecT::Hardfork>,
+            HeaderOverrides<ChainSpecT::ProtocolHardfork>,
             &mut EvmObserver,
         ) -> Result<
             MineBlockResultAndStateWithMetadata<
@@ -1459,7 +1461,7 @@ where
             >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
-        mut options: HeaderOverrides<ChainSpecT::Hardfork>,
+        mut options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     ) -> Result<
         MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -1516,7 +1518,7 @@ where
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
             &EvmConfig,
-            HeaderOverrides<ChainSpecT::Hardfork>,
+            HeaderOverrides<ChainSpecT::ProtocolHardfork>,
             &mut EvmObserver,
         ) -> Result<
             MineBlockResultAndStateWithMetadata<
@@ -1526,7 +1528,7 @@ where
             >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
-        mut options: HeaderOverrides<ChainSpecT::Hardfork>,
+        mut options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     ) -> Result<
         MineBlockResultAndStateWithMetadata<
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
@@ -1543,7 +1545,7 @@ where
 
         let evm_config = self.create_evm_config(self.blockchain.chain_id());
 
-        let evm_spec_id = self.blockchain.hardfork().to_evm_spec_id();
+        let evm_spec_id: EvmSpecId = self.blockchain.hardfork().into();
         if options.mix_hash.is_none() && evm_spec_id >= EvmSpecId::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
         }
@@ -1729,11 +1731,11 @@ where
 
     /// Returns the local EVM's [`EvmSpecId`].
     pub fn evm_spec_id(&self) -> EvmSpecId {
-        self.hardfork().to_evm_spec_id()
+        self.hardfork().into()
     }
 
     /// Returns the local hardfork.
-    pub fn hardfork(&self) -> ChainSpecT::Hardfork {
+    pub fn hardfork(&self) -> ChainSpecT::ProtocolHardfork {
         self.blockchain.hardfork()
     }
 
@@ -1872,7 +1874,7 @@ where
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
             let block_env = BlockEnvWithZeroBaseFee::new(ChainSpecT::BlockEnv::new_block_env(
                 block.block_header(),
-                cfg_env.spec,
+                cfg_env.spec.clone(),
                 scheduled_blob_params.as_ref(),
             ));
 
@@ -2143,7 +2145,7 @@ where
     /// mempool, and commits it to the blockchain.
     pub fn mine_and_commit_block(
         &mut self,
-        options: HeaderOverrides<ChainSpecT::Hardfork>,
+        options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     ) -> Result<
         MineBlockResultWithMetadataForChainSpec<ChainSpecT, EvmObservedData>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2368,7 +2370,7 @@ where
             let observed_execution = observe_execution(&observer_config, |observer|  {
                 let block_env = ChainSpecT::BlockEnv::new_block_env(
                     block.block_header(),
-                    cfg_env.spec,
+                    cfg_env.spec.clone(),
                     scheduled_blob_params.as_ref(),
                 );
                 call::run_call::<ChainSpecT, _, _, _>(
@@ -2448,7 +2450,7 @@ where
     fn mine_block_with_mem_pool(
         &mut self,
         evm_config: &EvmConfig,
-        options: HeaderOverrides<ChainSpecT::Hardfork>,
+        options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         evm_observer: &mut EvmObserver,
     ) -> Result<
         MineBlockResultAndStateWithMetadata<
@@ -2458,7 +2460,6 @@ where
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
-        let reward = self.blockchain.hardfork().miner_reward().unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
 
         let result = mine_block::<ChainSpecT, _, _>(
@@ -2470,7 +2471,6 @@ where
             options,
             self.min_gas_price,
             self.mining_order,
-            reward,
             Some(evm_observer),
             &self.precompile_overrides,
         )?;
@@ -2482,7 +2482,7 @@ where
     fn mine_block_with_single_transaction(
         &mut self,
         evm_config: &EvmConfig,
-        options: HeaderOverrides<ChainSpecT::Hardfork>,
+        options: HeaderOverrides<ChainSpecT::ProtocolHardfork>,
         transaction: ChainSpecT::SignedTransaction,
         evm_observer: &mut EvmObserver,
     ) -> Result<
@@ -2493,7 +2493,6 @@ where
         >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
-        let reward = self.blockchain.hardfork().miner_reward().unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
 
         let result = mine_block_with_single_transaction::<ChainSpecT, _, _>(
@@ -2504,7 +2503,6 @@ where
             evm_config,
             options,
             self.min_gas_price,
-            reward,
             Some(evm_observer),
             &self.precompile_overrides,
         )?;
@@ -2681,7 +2679,7 @@ where
             |blockchain, _prev_block, state| {
                 let block_env = ChainSpecT::BlockEnv::new_block_env(
                     header,
-                    cfg_env.spec,
+                    cfg_env.spec.clone(),
                     scheduled_blob_params.as_ref(),
                 );
 
@@ -2800,7 +2798,7 @@ impl StateId {
 
 struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
-    block_config: BlockConfig<ChainSpecT::Hardfork>,
+    block_config: BlockConfig<ChainSpecT::ProtocolHardfork>,
     fork_metadata: Option<ForkMetadata>,
     rpc_client: Option<Arc<EthRpcClientForChainSpec<ChainSpecT>>>,
     state: Box<dyn DynState>,
@@ -2815,9 +2813,9 @@ fn create_forked_blockchain_and_state<
     TimerT: Clone + TimeSinceEpoch,
 >(
     runtime: runtime::Handle,
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
+    config: &ProviderConfig<ChainSpecT::ProtocolHardfork>,
     timer: &TimerT,
-    fork_config: &ForkConfig<ChainSpecT::Hardfork>,
+    fork_config: &ForkConfig<ChainSpecT::ProtocolHardfork>,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
@@ -2873,16 +2871,16 @@ fn create_forked_blockchain_and_state<
 
     let block_config = BlockConfig {
         base_fee_params,
-        hardfork: config.hardfork,
-        min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+        default_difficulty_fn: ChainSpecT::default_block_difficulty,
+        hardfork: config.hardfork.clone(),
         scheduled_blob_params,
     };
 
-    let (blockchain, mut irregular_state) =
-        tokio::task::block_in_place(|| -> Result<_, ForkedCreationError<ChainSpecT::Hardfork>> {
+    let (blockchain, mut irregular_state) = tokio::task::block_in_place(
+        || -> Result<_, ForkedCreationError<ChainSpecT::ProtocolHardfork>> {
             let mut irregular_state = IrregularState::default();
             let blockchain = runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
-                block_config.hardfork,
+                block_config.hardfork.clone(),
                 runtime.clone(),
                 rpc_client.clone(),
                 &mut irregular_state,
@@ -2893,7 +2891,8 @@ fn create_forked_blockchain_and_state<
             ))?;
 
             Ok((blockchain, irregular_state))
-        })?;
+        },
+    )?;
 
     let fork_block_number = blockchain.last_block_number();
 
@@ -2988,7 +2987,8 @@ fn create_forked_blockchain_and_state<
             .expect("Elapsed time since fork block must be representable as i64")
     };
 
-    let next_block_base_fee_per_gas = if config.hardfork.to_evm_spec_id() >= EvmSpecId::LONDON {
+    let evm_spec_id: EvmSpecId = config.hardfork.clone().into();
+    let next_block_base_fee_per_gas = if evm_spec_id >= EvmSpecId::LONDON {
         if let Some(base_fee) = config.initial_base_fee_per_gas {
             Some(base_fee)
         } else {
@@ -3033,12 +3033,13 @@ fn create_local_blockchain_and_state<
     ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
+    config: &ProviderConfig<ChainSpecT::ProtocolHardfork>,
     timer: &TimerT,
     local_config: &LocalConfig,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
-    let mix_hash = if config.hardfork.to_evm_spec_id() >= EvmSpecId::MERGE {
+    let evm_spec_id: EvmSpecId = config.hardfork.clone().into();
+    let mix_hash = if evm_spec_id >= EvmSpecId::MERGE {
         Some(prev_randao_generator.generate_next())
     } else {
         None
@@ -3090,8 +3091,8 @@ fn create_local_blockchain_and_state<
 
     let block_config = BlockConfig {
         base_fee_params: base_fee_params.clone(),
-        hardfork: config.hardfork,
-        min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+        default_difficulty_fn: ChainSpecT::default_block_difficulty,
+        hardfork: config.hardfork.clone(),
         scheduled_blob_params,
     };
 
@@ -3127,7 +3128,7 @@ fn create_local_blockchain_and_state<
         genesis_block,
         genesis_diff,
         config.chain_id,
-        block_config.hardfork,
+        block_config.hardfork.clone(),
     )
     .map_err(CreationError::InvalidGenesisBlock)?;
 
@@ -3166,7 +3167,7 @@ fn create_blockchain_and_state<
     TimerT: Clone + TimeSinceEpoch,
 >(
     runtime: runtime::Handle,
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
+    config: &ProviderConfig<ChainSpecT::ProtocolHardfork>,
     timer: &TimerT,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     match &config.network {

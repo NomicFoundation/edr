@@ -19,7 +19,7 @@ pub trait BlockChainSpec:
         LocalBlock: Block<Self::SignedTransaction>
                         + BlockReceipts<Arc<Self::Receipt>>
                         + FetchBlockReceipts<Arc<Self::Receipt>>
-                        + EmptyBlock<Self::Hardfork>
+                        + EmptyBlock<Self::ProtocolHardfork>
                         + LocalBlock<Arc<Self::Receipt>>,
     > + ReceiptChainSpec
 {
@@ -66,7 +66,7 @@ pub trait SyncBlockChainSpec:
     FetchReceiptError: Send + Sync,
     GenesisBlockCreationError: Send + Sync,
     HaltReason: Send,
-    Hardfork: Send + Sync,
+    ProtocolHardfork: Send + Sync,
     LocalBlock: Send + Sync,
     Receipt: Send + Sync,
     SignedTransaction: Send + Sync + TransactionValidation<ValidationError: Send + Sync>,
@@ -80,7 +80,7 @@ impl<
             FetchReceiptError: Send + Sync,
             GenesisBlockCreationError: Send + Sync,
             HaltReason: Send,
-            Hardfork: Send + Sync,
+            ProtocolHardfork: Send + Sync,
             LocalBlock: Send + Sync,
             Receipt: Send + Sync,
             SignedTransaction: Send + Sync + TransactionValidation<ValidationError: Send + Sync>,

@@ -17,10 +17,7 @@ use edr_blockchain_fork::{
     eips::eip4788::{beacon_root_storage_slots, BeaconRootStorageSlots, BEACON_ROOTS_ADDRESS},
     ForkedBlockchain,
 };
-use edr_chain_spec::{
-    ChainSpec, EvmSpecId, ExecutableTransaction, HardforkChainSpec, ProtocolHardfork as _,
-    ProtocolParams as _,
-};
+use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction, ProtocolHardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::config::EvmConfig;
 use edr_chain_spec_provider::SyncProviderChainSpec;
@@ -38,7 +35,7 @@ type ForkedStateAndBlockchainForChainSpec<ChainSpecT> = ForkedStateAndBlockchain
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as BlockChainSpec>::Block,
     <ChainSpecT as BlockChainSpec>::FetchReceiptError,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     ChainSpecT,
     <ChainSpecT as RpcChainSpec>::RpcReceipt,
@@ -132,13 +129,13 @@ async fn get_fork_state<
 
     let block_config = BlockConfig {
         base_fee_params: base_fee_params.clone(),
+        default_difficulty_fn: ChainSpecT::default_block_difficulty,
         hardfork,
-        min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params,
     };
 
     let blockchain = ForkedBlockchain::new(
-        block_config.hardfork,
+        block_config.hardfork.clone(),
         runtime.clone(),
         rpc_client,
         &mut irregular_state,
@@ -173,7 +170,9 @@ pub async fn run_full_block<
     runtime: tokio::runtime::Handle,
     rpc_client: EthRpcClientForChainSpec<ChainSpecT>,
     block_number: u64,
-    header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
+    header_overrides_constructor: impl FnOnce(
+        &BlockHeader,
+    ) -> HeaderOverrides<ChainSpecT::ProtocolHardfork>,
 ) -> anyhow::Result<()> {
     let rpc_client = Arc::new(rpc_client);
     let ForkedStateAndBlockchain {
@@ -198,7 +197,9 @@ pub async fn run_full_block<
         let mut state = prior_blockchain
             .state_at_block_number(block_number - 1, prior_irregular_state.state_overrides())?;
 
-        if hardfork.to_evm_spec_id() >= EvmSpecId::CANCUN {
+        let evm_spec_id: EvmSpecId = hardfork.into();
+
+        if evm_spec_id >= EvmSpecId::CANCUN {
             replicate_beacon_block_root_oracle_state(
                 block_number,
                 rpc_client,
@@ -229,11 +230,7 @@ pub async fn run_full_block<
         builder.add_transaction(transaction.clone())?;
     }
 
-    let rewards = vec![(
-        replay_header.beneficiary,
-        hardfork.miner_reward().unwrap_or(0),
-    )];
-    let mined_block = builder.finalize_block(rewards)?;
+    let mined_block = builder.finalize_block()?;
 
     let mined_header = mined_block.block_and_state.block.block_header();
 
@@ -457,7 +454,9 @@ pub async fn assert_replay_header<
     runtime: tokio::runtime::Handle,
     url: String,
     block_number: u64,
-    header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
+    header_overrides_constructor: impl FnOnce(
+        &BlockHeader,
+    ) -> HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     header_validation: impl FnOnce(&BlockHeader, &PartialHeader) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
     let rpc_client = Arc::new(EthRpcClientForChainSpec::<ChainSpecT>::new(

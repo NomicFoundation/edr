@@ -236,12 +236,11 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
 
     fn finalize_block(
         self,
-        rewards: Vec<(Address, u128)>,
     ) -> Result<
         BuiltBlockAndStateWithMetadata<Self::LocalBlock, HaltReason>,
         BlockFinalizeError<StateError>,
     > {
-        self.eth.finalize(rewards)
+        self.eth.finalize()
     }
 }
 
@@ -332,9 +331,9 @@ mod tests {
         hardfork: Hardfork,
     ) -> anyhow::Result<LocalBlockchainForChainSpec<OpChainSpec>> {
         let block_config = BlockConfig {
-            hardfork,
             base_fee_params: op::MAINNET_BASE_FEE_PARAMS.clone(),
-            min_ethash_difficulty: OpChainSpec::MIN_ETHASH_DIFFICULTY,
+            default_difficulty_fn: OpChainSpec::default_block_difficulty,
+            hardfork,
             scheduled_blob_params: None,
         };
         let genesis_block = OpChainSpec::genesis_block(

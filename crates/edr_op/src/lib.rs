@@ -36,7 +36,7 @@ pub use self::{hardfork::OpHardfork, spec::OpChainSpec};
 pub const CHAIN_TYPE: &str = "op";
 
 /// OP Stack EVM-level hardfork; see
-/// [`HardforkChainSpec::EvmHardfork`](edr_chain_spec::HardforkChainSpec::EvmHardfork).
+/// [`EvmHardforkChainSpec::EvmHardfork`](edr_chain_spec::EvmHardforkChainSpec::EvmHardfork).
 pub type EvmHardfork = op_revm::OpSpecId;
 
 /// OP Stack halt reason.
