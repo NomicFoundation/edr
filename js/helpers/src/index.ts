@@ -90,6 +90,9 @@ export async function buildSolidityTestsInput(
   artifacts: Artifact[];
   testSuiteIds: ArtifactId[];
   tracingConfig: TracingConfigWithBuffers;
+  /** Maps each test suite's solc source name to its absolute path on disk.
+   * Used by EDR to parse inline test configuration from the sources. */
+  testSourcePaths: Record<string, string>;
 }> {
   let testRootPaths: string[];
 
@@ -168,14 +171,22 @@ export async function buildSolidityTestsInput(
     }
   });
 
-  const testSuiteIds = edrArtifacts
+  const testSuites = edrArtifacts
     .filter(({ userSourceName }) =>
       testRootPaths.includes(
         resolveFromRoot(hre.config.paths.root, userSourceName)
       )
     )
-    .filter(({ edrArtifact }) => isTestSuiteArtifact(edrArtifact))
-    .map(({ edrArtifact }) => edrArtifact.id);
+    .filter(({ edrArtifact }) => isTestSuiteArtifact(edrArtifact));
+
+  const testSuiteIds = testSuites.map(({ edrArtifact }) => edrArtifact.id);
+
+  const testSourcePaths = Object.fromEntries(
+    testSuites.map(({ userSourceName, edrArtifact }) => [
+      edrArtifact.id.source,
+      resolveFromRoot(hre.config.paths.root, userSourceName),
+    ])
+  );
 
   const artifacts = edrArtifacts.map(({ edrArtifact }) => edrArtifact);
 
@@ -184,7 +195,7 @@ export async function buildSolidityTestsInput(
     ignoreContracts: false,
   };
 
-  return { artifacts, testSuiteIds, tracingConfig };
+  return { artifacts, testSuiteIds, tracingConfig, testSourcePaths };
 }
 
 /* Get the directory name of the current file based on the `import.meta.url`*/

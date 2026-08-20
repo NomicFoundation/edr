@@ -3,7 +3,7 @@
 mod config;
 mod tracing;
 
-pub use config::{assert_multiple, make_test_identifier, TestConfig};
+pub use config::{assert_multiple, TestConfig};
 use edr_decoder_revert::RevertDecoder;
 use parking_lot::RwLock;
 mod integration_test_config;
@@ -31,10 +31,11 @@ use edr_solidity::{
 };
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
+    inline_config::ImportResolver,
     multi_runner::{TestContract, TestContracts},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
-    MAX_TEST_TRANSACTION_GAS_LIMIT,
+    SolidityTestRunnerConfigError, MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
 use edr_test_utils::{env::json_rpc_url_provider, new_fd_lock};
 use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpointUrl, RpcEndpoints};
@@ -194,7 +195,11 @@ impl ForgeTestProfile {
             local_predeploys: Vec::default(),
             on_collected_coverage_fn: None,
             generate_gas_report: false,
-            test_function_overrides: HashMap::default(),
+            // The test data's source paths are injected by `config_with_*_rpc`,
+            // which have access to `ForgeTestData`; testdata needs no import
+            // mappings (relative imports resolve, others degrade gracefully).
+            test_source_paths: HashMap::new(),
+            import_resolver: ImportResolver::default(),
         }
     }
 
@@ -447,6 +452,7 @@ pub struct ForgeTestData<
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
+    test_source_paths: HashMap<PathBuf, PathBuf>,
     fuzz_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     invariant_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     hardfork: HardforkT,
@@ -574,12 +580,24 @@ impl<
 
         let known_contracts = ContractsByArtifact::new(linked_contracts);
 
+        // The runner parses inline configuration from the test sources on
+        // disk; the testdata source names are real paths relative to the
+        // project root, so joining them onto the root yields the absolute path
+        // (production callers provide these paths explicitly instead). Imports
+        // to e.g. forge-std have no import mapping and simply stay unresolved,
+        // which still recovers the root file's functions.
+        let test_source_paths: HashMap<PathBuf, PathBuf> = test_contracts
+            .keys()
+            .map(|id| (id.source.clone(), root.join(&id.source)))
+            .collect();
+
         Ok(Self {
             project,
             test_contracts,
             known_contracts,
             libs_to_deploy,
             revert_decoder,
+            test_source_paths,
             fuzz_failure_dirs: Mutex::default(),
             invariant_failure_dirs: Mutex::default(),
             hardfork,
@@ -597,6 +615,7 @@ impl<
             self.new_invariant_failure_dir(),
         );
         config.cheats_config_options.rpc_endpoints = mock_rpc_endpoints();
+        config.test_source_paths = self.test_source_paths.clone();
 
         config
     }
@@ -615,6 +634,7 @@ impl<
         //`**/edr-cache` is cached in CI
         config.cheats_config_options.rpc_cache_path =
             Some(self.project.root().join("edr-cache/solidity-tests/rpc"));
+        config.test_source_paths = self.test_source_paths.clone();
         config
     }
 
@@ -804,6 +824,30 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
+        self.try_build_runner(config)
+            .await
+            .expect("Config should be ok")
+    }
+
+    /// Builds a non-tracing runner with the given config, returning the
+    /// creation error instead of panicking. Used to exercise configs that fail
+    /// runner creation, e.g. malformed inline configuration.
+    pub async fn try_build_runner(
+        &self,
+        config: SolidityTestRunnerConfig<HardforkT>,
+    ) -> Result<
+        MultiContractRunner<
+            BlockT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            NoOpContractDecoder<HaltReasonT>,
+            TransactionErrorT,
+            TransactionT,
+        >,
+        SolidityTestRunnerConfigError,
+    > {
         MultiContractRunner::<
             BlockT,
             ChainContextT,
@@ -822,7 +866,6 @@ impl<
             self.revert_decoder.clone(),
         )
         .await
-        .expect("Config should be ok")
     }
 
     /// Path to the project's build-info files

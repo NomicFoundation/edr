@@ -7,12 +7,12 @@ use edr_solidity_tests::{
     backend::Predeploy,
     evm_context::HardforkTr,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
+    inline_config::ImportResolver,
     inspectors::cheatcodes::CheatsConfigOptions,
     opts::effective_transaction_gas_cap,
     CollectStackTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
-    TestFilterConfig, TestFunctionConfigOverride, MAX_TEST_TRANSACTION_GAS_LIMIT,
+    TestFilterConfig, MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
-use foundry_cheatcodes::TestFunctionIdentifier;
 use napi::{bindgen_prelude::Uint8Array, Either};
 /// Hardhat V3 build info where the compiler output is not part of the build
 /// info file.
@@ -194,10 +194,17 @@ pub struct TestRunnerConfig {
     /// Whether to generate a gas report after running the tests.
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
-    /// Test function level config overrides.
-    /// Defaults to None.
-    pub test_function_overrides:
-        Option<HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>>,
+    /// Maps the solc source names of the test-suite sources to their absolute
+    /// paths on disk. Used to parse inline test configuration
+    /// (`forge-config:`/`hardhat-config:` NatSpec directives) from the sources.
+    /// A test source without an entry has no inline configuration collected.
+    pub test_source_paths: HashMap<PathBuf, PathBuf>,
+    /// Maps non-relative Solidity import paths (as written in `import`
+    /// statements, e.g. `forge-std/src/Test.sol`) to absolute file paths on
+    /// disk, for parsing inline test configuration. Relative import paths
+    /// (`./`, `../`) are resolved against the importing file and need no entry
+    /// here.
+    pub import_mappings: HashMap<String, PathBuf>,
 }
 
 fn parse_hardfork<HardforkT>(hardfork: String) -> napi::Result<HardforkT>
@@ -256,7 +263,8 @@ impl TestRunnerConfig {
             on_collected_coverage_fn,
             test_pattern: _,
             generate_gas_report,
-            test_function_overrides,
+            test_source_paths,
+            import_mappings,
         } = self;
 
         let mut evm_opts = SolidityTestRunnerConfig::default_evm_opts();
@@ -355,7 +363,7 @@ impl TestRunnerConfig {
 
         let generate_gas_report = generate_gas_report.unwrap_or(false);
 
-        let test_function_overrides = test_function_overrides.unwrap_or(HashMap::new());
+        let import_resolver = ImportResolver::new(import_mappings);
 
         Ok(SolidityTestRunnerConfig {
             project_root,
@@ -373,7 +381,8 @@ impl TestRunnerConfig {
             enable_fuzz_fixtures: false,
             enable_table_tests: false,
             generate_gas_report,
-            test_function_overrides,
+            test_source_paths,
+            import_resolver,
         })
     }
 }
@@ -418,7 +427,8 @@ mod tests {
                 exclude_test_pattern: None,
             },
             generate_gas_report: None,
-            test_function_overrides: None,
+            test_source_paths: HashMap::new(),
+            import_mappings: HashMap::new(),
         }
     }
 

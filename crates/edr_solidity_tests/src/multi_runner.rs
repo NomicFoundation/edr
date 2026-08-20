@@ -1,7 +1,7 @@
 //! Forge test runner for multiple contracts.
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     path::PathBuf,
     sync::Arc,
@@ -41,6 +41,7 @@ use crate::{
     contracts::get_contract_name,
     error::TestRunnerError,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
+    inline_config::{self, InlineConfigRoot, SharedInlineConfigProvider},
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
@@ -136,8 +137,8 @@ pub struct MultiContractRunner<
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running the tests.
     generate_gas_report: bool,
-    /// Test function level config overrides.
-    test_function_overrides: HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+    /// Collects and serves the inline configuration parsed from test sources.
+    inline_config_provider: SharedInlineConfigProvider,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
@@ -201,8 +202,23 @@ impl<
             local_predeploys,
             on_collected_coverage_fn,
             generate_gas_report,
-            test_function_overrides,
+            test_source_paths,
+            import_resolver,
         } = config;
+
+        // Collect the test sources' inline configuration up front, off the async
+        // runtime (it reads and parses files). Any problem found — reported per
+        // test function, each located at its source line — fails here, aborting
+        // the whole run before any test executes.
+        let roots = inline_config_roots(&test_source_paths, &test_contracts);
+        let inline_config_provider = tokio::task::spawn_blocking(move || {
+            SharedInlineConfigProvider::collect(roots, import_resolver)
+        })
+        .await
+        .expect("Thread shouldn't panic");
+        inline_config_provider
+            .validate()
+            .map_err(SolidityTestRunnerConfigError::InlineConfig)?;
 
         // Do canonicalization in blocking context.
         // Canonicalization can touch the file system, hence the blocking thread
@@ -242,7 +258,7 @@ impl<
             on_collected_coverage_fn,
             _phantom: PhantomData,
             generate_gas_report,
-            test_function_overrides,
+            inline_config_provider,
         })
     }
 
@@ -291,6 +307,50 @@ impl<
         TransactionT,
     >
 {
+    /// Parses the inline configuration of the given test contract from its
+    /// source, returning the per-function overrides and the set of functions
+    /// that opted into `allowInternalExpectRevert`.
+    ///
+    /// Returns empty collections when the contract's source isn't available or
+    /// carries no inline configuration. Malformed directives never reach here:
+    /// they are caught up front by [`SharedInlineConfigProvider::validate`],
+    /// which fails runner creation (see [`Self::new`]).
+    fn inline_config_overrides(
+        &self,
+        artifact_id: &ArtifactId,
+        contract: &TestContract,
+    ) -> (
+        HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+        HashSet<TestFunctionIdentifier>,
+    ) {
+        let parsed = self
+            .inline_config_provider
+            .get(&artifact_id.source, &artifact_id.name);
+
+        let mut overrides = HashMap::new();
+        let mut allow_internal_expect_revert = HashSet::new();
+
+        for function_override in parsed {
+            let Some(function_selector) =
+                inline_config::resolve_selector(&contract.abi, &function_override.function_name)
+            else {
+                // Not part of the ABI (e.g. not externally callable), so it
+                // can't be run as a test; ignore it.
+                continue;
+            };
+            let identifier = TestFunctionIdentifier {
+                contract_artifact: artifact_id.clone(),
+                function_selector,
+            };
+            if function_override.config.allow_internal_expect_revert == Some(true) {
+                allow_internal_expect_revert.insert(identifier.clone());
+            }
+            overrides.insert(identifier, function_override.config);
+        }
+
+        (overrides, allow_internal_expect_revert)
+    }
+
     fn run_test_suite(
         &self,
         artifact_id: &ArtifactId,
@@ -317,12 +377,17 @@ impl<
 
         debug!("start executing all tests in contract");
 
+        // Extract per-test inline configuration from the contract's source.
+        let (inline_overrides, allow_internal_expect_revert) =
+            self.inline_config_overrides(artifact_id, contract);
+
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
             (*self.cheats_config_options).clone(),
             self.evm_opts.clone(),
             self.known_contracts.clone(),
             Some(artifact_id.clone()),
+            allow_internal_expect_revert,
         );
 
         let tracing_mode = match self.collect_stack_traces {
@@ -380,7 +445,7 @@ impl<
                     enable_table_tests: self.enable_table_tests,
                     fuzz_config: &self.fuzz_config,
                     invariant_config: &self.invariant_config,
-                    test_function_overrides: &self.test_function_overrides,
+                    test_function_overrides: &inline_overrides,
                     generate_gas_report: self.generate_gas_report,
                 },
                 span,
@@ -585,4 +650,26 @@ impl<
 
 fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
     filter.matches_path(&id.source) && filter.matches_contract(&id.name)
+}
+
+/// Builds the inline-config roots for every test contract whose source has a
+/// known on-disk path, deduplicated by source (a source declaring multiple test
+/// contracts is parsed once).
+fn inline_config_roots(
+    test_source_paths: &HashMap<PathBuf, PathBuf>,
+    test_contracts: &TestContracts,
+) -> Vec<InlineConfigRoot> {
+    let mut roots_by_source = HashMap::new();
+    for artifact_id in test_contracts.keys() {
+        if let Some(path) = test_source_paths.get(&artifact_id.source) {
+            roots_by_source
+                .entry(artifact_id.source.clone())
+                .or_insert_with(|| InlineConfigRoot {
+                    source: artifact_id.source.clone(),
+                    path: path.clone(),
+                    version: artifact_id.version.clone(),
+                });
+        }
+    }
+    roots_by_source.into_values().collect()
 }
