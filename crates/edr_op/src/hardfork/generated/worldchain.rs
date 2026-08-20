@@ -19,46 +19,46 @@ pub(super) fn mainnet_config() -> ChainConfig<OpHardfork> {
         name: "World Chain".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
                 ConstantBaseFeeParams::new(50, 10),
             ),
             (
-                BaseFeeActivation::Hardfork(OpHardfork::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::Canyon),
                 ConstantBaseFeeParams::new(250, 10),
             ),
         ])),
         hardfork_activations: HardforkActivations::new(vec![
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::BEDROCK,
+                hardfork: OpHardfork::Bedrock,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::REGOLITH,
+                hardfork: OpHardfork::Regolith,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::CANYON,
+                hardfork: OpHardfork::Canyon,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::ECOTONE,
+                hardfork: OpHardfork::Ecotone,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1721826000),
-                hardfork: OpHardfork::FJORD,
+                hardfork: OpHardfork::Fjord,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1727780400),
-                hardfork: OpHardfork::GRANITE,
+                hardfork: OpHardfork::Granite,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1738238400),
-                hardfork: OpHardfork::HOLOCENE,
+                hardfork: OpHardfork::Holocene,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1764072000),
-                hardfork: OpHardfork::ISTHMUS,
+                hardfork: OpHardfork::Isthmus,
             },
         ]),
         bpo_hardfork_schedule: None,
@@ -74,46 +74,46 @@ pub(super) fn sepolia_config() -> ChainConfig<OpHardfork> {
         name: "World Chain Sepolia Testnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
                 ConstantBaseFeeParams::new(50, 10),
             ),
             (
-                BaseFeeActivation::Hardfork(OpHardfork::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::Canyon),
                 ConstantBaseFeeParams::new(250, 10),
             ),
         ])),
         hardfork_activations: HardforkActivations::new(vec![
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::BEDROCK,
+                hardfork: OpHardfork::Bedrock,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::REGOLITH,
+                hardfork: OpHardfork::Regolith,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::CANYON,
+                hardfork: OpHardfork::Canyon,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::ECOTONE,
+                hardfork: OpHardfork::Ecotone,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1721739600),
-                hardfork: OpHardfork::FJORD,
+                hardfork: OpHardfork::Fjord,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1726570800),
-                hardfork: OpHardfork::GRANITE,
+                hardfork: OpHardfork::Granite,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1737633600),
-                hardfork: OpHardfork::HOLOCENE,
+                hardfork: OpHardfork::Holocene,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1761825600),
-                hardfork: OpHardfork::ISTHMUS,
+                hardfork: OpHardfork::Isthmus,
             },
         ]),
         bpo_hardfork_schedule: None,

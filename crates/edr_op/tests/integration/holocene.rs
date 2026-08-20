@@ -15,7 +15,7 @@ async fn holocene_genesis_block() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config();
-    config.hardfork = edr_op::Hardfork::HOLOCENE;
+    config.hardfork = edr_op::Hardfork::Holocene;
 
     let provider = Provider::new(
         runtime::Handle::current(),

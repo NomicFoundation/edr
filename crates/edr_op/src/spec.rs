@@ -232,7 +232,7 @@ impl GenesisBlockFactory for OpChainSpec {
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         let genesis_state = PersistentStateTrie::from(genesis_diff);
 
-        if block_config.hardfork >= Hardfork::HOLOCENE {
+        if block_config.hardfork >= Hardfork::Holocene {
             let config_base_fee_params = options.base_fee_params.as_ref();
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
@@ -242,7 +242,7 @@ impl GenesisBlockFactory for OpChainSpec {
                     .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
-                let encoded_extra_data = if block_config.hardfork >= Hardfork::JOVIAN {
+                let encoded_extra_data = if block_config.hardfork >= Hardfork::Jovian {
                     // TODO: once EDR fully supports Jovian, should allow user to configure
                     // min_base_fee?
                     encode_dynamic_base_fee_params_jovian(base_fee_params, 0)
@@ -253,7 +253,7 @@ impl GenesisBlockFactory for OpChainSpec {
             });
         }
 
-        if block_config.hardfork >= Hardfork::ISTHMUS {
+        if block_config.hardfork >= Hardfork::Isthmus {
             let withdrawals_root = options.withdrawals_root.map_or_else(
                 || genesis_state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS),
                 |value| Ok(Some(value)),
@@ -279,7 +279,7 @@ pub(crate) fn op_base_fee_params_for_block(
 ) -> Option<BaseFeeParams<Hardfork>> {
     // For post-Holocene blocks, use the parent header extra_data to determine the
     // base fee parameters
-    if parent_hardfork >= Hardfork::HOLOCENE {
+    if parent_hardfork >= Hardfork::Holocene {
         Some(BaseFeeParams::Constant(decode_base_params(
             &parent_header.extra_data,
         )))
@@ -305,7 +305,7 @@ pub(crate) fn op_next_base_fee(
     hardfork: Hardfork,
     base_fee_params: &BaseFeeParams<Hardfork>,
 ) -> u128 {
-    if hardfork >= Hardfork::JOVIAN {
+    if hardfork >= Hardfork::Jovian {
         let parent_blob_gas_used = parent_header
             .blob_gas
             .as_ref()
@@ -463,7 +463,7 @@ mod tests {
 
         let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
-            Hardfork::ECOTONE,
+            Hardfork::Ecotone,
             None,
         );
         assert_eq!(block.blob_excess_gas_and_price(), None);
@@ -475,7 +475,7 @@ mod tests {
 
         let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
-            Hardfork::CANYON,
+            Hardfork::Canyon,
             None,
         );
         assert_eq!(block.blob_excess_gas_and_price(), None);
@@ -487,7 +487,7 @@ mod tests {
 
         let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
-            Hardfork::ISTHMUS,
+            Hardfork::Isthmus,
             None,
         );
         assert_eq!(block.blob_excess_gas_and_price(), None);
@@ -504,7 +504,7 @@ mod tests {
 
         let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
-            Hardfork::ECOTONE,
+            Hardfork::Ecotone,
             None,
         );
 
@@ -553,7 +553,7 @@ mod tests {
 
             let result = op_next_base_fee(
                 &parent,
-                Hardfork::HOLOCENE,
+                Hardfork::Holocene,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -569,7 +569,7 @@ mod tests {
 
             let result = op_next_base_fee(
                 &parent,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -584,7 +584,7 @@ mod tests {
             let equivalent_parent = parent_with(2 * GAS_TARGET, None, extra_data);
             let equivalent_result = op_next_base_fee(
                 &equivalent_parent,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
             assert_eq!(result, equivalent_result);
@@ -598,7 +598,7 @@ mod tests {
 
             let jovian_result = op_next_base_fee(
                 &parent,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -606,7 +606,7 @@ mod tests {
             let pre_jovian_parent = parent_with(2 * GAS_TARGET, Some(1_000), Bytes::default());
             let pre_jovian_result = op_next_base_fee(
                 &pre_jovian_parent,
-                Hardfork::HOLOCENE,
+                Hardfork::Holocene,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
             assert_eq!(jovian_result, pre_jovian_result);
@@ -620,12 +620,12 @@ mod tests {
 
             let result_with_blob_zero = op_next_base_fee(
                 &with_blob_zero,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
             let result_without_blob = op_next_base_fee(
                 &without_blob,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -644,7 +644,7 @@ mod tests {
 
             let result = op_next_base_fee(
                 &parent,
-                Hardfork::HOLOCENE,
+                Hardfork::Holocene,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -652,7 +652,7 @@ mod tests {
                 &parent,
                 u128::from(parent.gas_used),
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
-                Hardfork::HOLOCENE,
+                Hardfork::Holocene,
             );
             assert_eq!(result, expected);
             assert!(
@@ -670,7 +670,7 @@ mod tests {
 
             let result = op_next_base_fee(
                 &parent,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -679,7 +679,7 @@ mod tests {
                 &parent,
                 u128::from(parent.gas_used),
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
             );
             assert!(unclamped < min_base_fee);
             assert_eq!(result, min_base_fee);
@@ -693,7 +693,7 @@ mod tests {
 
             let result = op_next_base_fee(
                 &parent,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -701,7 +701,7 @@ mod tests {
                 &parent,
                 u128::from(parent.gas_used),
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
             );
             assert_eq!(result, expected);
             assert!(result > min_base_fee);

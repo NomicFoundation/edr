@@ -18,7 +18,7 @@ const OPERATOR_FEE_STORAGE_INDEX: u64 = 8;
 fn create_isthmus_provider() -> anyhow::Result<Provider<OpChainSpec>> {
     let config = {
         let mut config = create_test_config::<edr_op::Hardfork>();
-        config.hardfork = edr_op::Hardfork::ISTHMUS;
+        config.hardfork = edr_op::Hardfork::Isthmus;
         config
     };
     let logger = Box::new(NoopLogger::<OpChainSpec>::default());

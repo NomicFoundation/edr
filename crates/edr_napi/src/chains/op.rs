@@ -73,14 +73,14 @@ pub enum OpHardfork {
 impl From<OpHardfork> for edr_op::Hardfork {
     fn from(hardfork: OpHardfork) -> Self {
         match hardfork {
-            OpHardfork::Bedrock => edr_op::Hardfork::BEDROCK,
-            OpHardfork::Regolith => edr_op::Hardfork::REGOLITH,
-            OpHardfork::Canyon => edr_op::Hardfork::CANYON,
-            OpHardfork::Ecotone => edr_op::Hardfork::ECOTONE,
-            OpHardfork::Fjord => edr_op::Hardfork::FJORD,
-            OpHardfork::Granite => edr_op::Hardfork::GRANITE,
-            OpHardfork::Holocene => edr_op::Hardfork::HOLOCENE,
-            OpHardfork::Isthmus => edr_op::Hardfork::ISTHMUS,
+            OpHardfork::Bedrock => edr_op::Hardfork::Bedrock,
+            OpHardfork::Regolith => edr_op::Hardfork::Regolith,
+            OpHardfork::Canyon => edr_op::Hardfork::Canyon,
+            OpHardfork::Ecotone => edr_op::Hardfork::Ecotone,
+            OpHardfork::Fjord => edr_op::Hardfork::Fjord,
+            OpHardfork::Granite => edr_op::Hardfork::Granite,
+            OpHardfork::Holocene => edr_op::Hardfork::Holocene,
+            OpHardfork::Isthmus => edr_op::Hardfork::Isthmus,
         }
     }
 }
@@ -289,9 +289,9 @@ pub fn op_provider_factory() -> ProviderFactory {
 }
 
 fn gas_price_oracle_override(hardfork: edr_op::Hardfork) -> AccountOverride {
-    if hardfork >= edr_op::Hardfork::ISTHMUS {
+    if hardfork >= edr_op::Hardfork::Isthmus {
         gas_price_oracle_isthmus()
-    } else if hardfork >= edr_op::Hardfork::FJORD {
+    } else if hardfork >= edr_op::Hardfork::Fjord {
         gas_price_oracle_fjord()
     } else {
         gas_price_oracle_ecotone()
@@ -408,7 +408,7 @@ fn l1_block_storage(hardfork: edr_op::Hardfork) -> Vec<StorageSlot> {
             value: BigInt::from(0x00000002540be400_u64),
         },
     ];
-    if hardfork >= edr_op::Hardfork::ISTHMUS {
+    if hardfork >= edr_op::Hardfork::Isthmus {
         base_storage.push(StorageSlot {
             // Operator fee parameters
             index: BigInt::from(8u64),
@@ -419,9 +419,9 @@ fn l1_block_storage(hardfork: edr_op::Hardfork) -> Vec<StorageSlot> {
 }
 
 fn l1_block_code(hardfork: edr_op::Hardfork) -> Uint8Array {
-    if hardfork >= edr_op::Hardfork::ISTHMUS {
+    if hardfork >= edr_op::Hardfork::Isthmus {
         l1_block_code_isthmus().into()
-    } else if hardfork >= edr_op::Hardfork::ECOTONE {
+    } else if hardfork >= edr_op::Hardfork::Ecotone {
         l1_block_code_ecotone().into()
     } else {
         l1_block_code_bedrock().into()

@@ -430,7 +430,7 @@ fn generate_hardfork_activations_for(
     // Superchain registry lists hardforks starting from Canyon, but there are two
     // previous OpSpec hardforks before: bedrock and regolith. We are adding
     // those hardforks to make sure that the blockchain hardfork list is complete.
-    let previous_hardforks = [(OpHardfork::BEDROCK, 0), (OpHardfork::REGOLITH, 0)];
+    let previous_hardforks = [(OpHardfork::Bedrock, 0), (OpHardfork::Regolith, 0)];
     let activations_str: String = previous_hardforks
         .into_iter()
         .chain(superchain_activations)
@@ -476,11 +476,11 @@ fn generate_base_fee_params(params: OpHardforkBaseFeeParams) -> String {
     format!(
         "BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
         (
-            BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
+            BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
             ConstantBaseFeeParams::new({original_denominator}, {elasticity}),
         ),
         (
-            BaseFeeActivation::Hardfork(OpHardfork::CANYON),
+            BaseFeeActivation::Hardfork(OpHardfork::Canyon),
             ConstantBaseFeeParams::new({canyon_denominator}, {elasticity}),
         )
 ]))"
