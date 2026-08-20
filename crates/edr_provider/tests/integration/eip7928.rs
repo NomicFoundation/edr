@@ -45,7 +45,7 @@ fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1C
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_header_includes_block_access_list_hash_on_amsterdam() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
     mine_block(&provider);
     let block_json = get_latest_block(&provider);
@@ -61,7 +61,7 @@ async fn block_header_includes_block_access_list_hash_on_amsterdam() -> anyhow::
 // A block that modified state must carry a non-empty block access list hash.
 #[tokio::test(flavor = "multi_thread")]
 async fn block_access_list_hash_is_non_empty_for_block_with_transactions() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
     transfer_value(&provider, SENDER, RECIPIENT, U256::from(1000));
     let block_json = get_latest_block(&provider);
@@ -81,7 +81,7 @@ async fn block_access_list_hash_is_non_empty_for_block_with_transactions() -> an
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_header_omits_block_access_list_hash_before_amsterdam() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::OSAKA)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
 
     mine_block(&provider);
     let block_json = get_latest_block(&provider);
@@ -136,7 +136,7 @@ mod fork {
                 http_headers: None,
                 url: json_rpc_url_provider::ethereum_mainnet(),
             }));
-        config.hardfork = edr_chain_l1::Hardfork::AMSTERDAM;
+        config.hardfork = edr_chain_l1::Hardfork::Amsterdam;
 
         let provider = Provider::new(
             runtime::Handle::current(),

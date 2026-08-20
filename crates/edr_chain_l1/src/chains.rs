@@ -15,83 +15,83 @@ pub const L1_MAINNET_CHAIN_ID: u64 = 0x1;
 const MAINNET_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
     HardforkActivation {
         condition: ForkCondition::Block(0),
-        hardfork: Hardfork::FRONTIER,
+        hardfork: Hardfork::Frontier,
     },
     HardforkActivation {
         condition: ForkCondition::Block(200_000),
-        hardfork: Hardfork::FRONTIER_THAWING,
+        hardfork: Hardfork::FrontierThawing,
     },
     HardforkActivation {
         condition: ForkCondition::Block(1_150_000),
-        hardfork: Hardfork::HOMESTEAD,
+        hardfork: Hardfork::Homestead,
     },
     HardforkActivation {
         condition: ForkCondition::Block(1_920_000),
-        hardfork: Hardfork::DAO_FORK,
+        hardfork: Hardfork::DaoFork,
     },
     HardforkActivation {
         condition: ForkCondition::Block(2_463_000),
-        hardfork: Hardfork::TANGERINE,
+        hardfork: Hardfork::Tangerine,
     },
     HardforkActivation {
         condition: ForkCondition::Block(2_675_000),
-        hardfork: Hardfork::SPURIOUS_DRAGON,
+        hardfork: Hardfork::SpuriousDragon,
     },
     HardforkActivation {
         condition: ForkCondition::Block(4_370_000),
-        hardfork: Hardfork::BYZANTIUM,
+        hardfork: Hardfork::Byzantium,
     },
     HardforkActivation {
         condition: ForkCondition::Block(7_280_000),
-        hardfork: Hardfork::CONSTANTINOPLE,
+        hardfork: Hardfork::Constantinople,
     },
     HardforkActivation {
         condition: ForkCondition::Block(7_280_000),
-        hardfork: Hardfork::PETERSBURG,
+        hardfork: Hardfork::Petersburg,
     },
     HardforkActivation {
         condition: ForkCondition::Block(9_069_000),
-        hardfork: Hardfork::ISTANBUL,
+        hardfork: Hardfork::Istanbul,
     },
     HardforkActivation {
         condition: ForkCondition::Block(9_200_000),
-        hardfork: Hardfork::MUIR_GLACIER,
+        hardfork: Hardfork::MuirGlacier,
     },
     HardforkActivation {
         condition: ForkCondition::Block(12_244_000),
-        hardfork: Hardfork::BERLIN,
+        hardfork: Hardfork::Berlin,
     },
     HardforkActivation {
         condition: ForkCondition::Block(12_965_000),
-        hardfork: Hardfork::LONDON,
+        hardfork: Hardfork::London,
     },
     HardforkActivation {
         condition: ForkCondition::Block(13_773_000),
-        hardfork: Hardfork::ARROW_GLACIER,
+        hardfork: Hardfork::ArrowGlacier,
     },
     HardforkActivation {
         condition: ForkCondition::Block(15_050_000),
-        hardfork: Hardfork::GRAY_GLACIER,
+        hardfork: Hardfork::GrayGlacier,
     },
     HardforkActivation {
         condition: ForkCondition::Block(15_537_394),
-        hardfork: Hardfork::MERGE,
+        hardfork: Hardfork::Merge,
     },
     HardforkActivation {
         condition: ForkCondition::Block(17_034_870),
-        hardfork: Hardfork::SHANGHAI,
+        hardfork: Hardfork::Shanghai,
     },
     HardforkActivation {
         condition: ForkCondition::Block(19_426_589),
-        hardfork: Hardfork::CANCUN,
+        hardfork: Hardfork::Cancun,
     },
     HardforkActivation {
         condition: ForkCondition::Timestamp(1_746_612_311),
-        hardfork: Hardfork::PRAGUE,
+        hardfork: Hardfork::Prague,
     },
     HardforkActivation {
         condition: ForkCondition::Timestamp(1_764_798_551),
-        hardfork: Hardfork::OSAKA,
+        hardfork: Hardfork::Osaka,
     },
 ];
 
@@ -116,23 +116,23 @@ pub const HOLESKY_CHAIN_ID: u64 = 0x4268;
 const HOLESKY_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
     HardforkActivation {
         condition: ForkCondition::Block(0),
-        hardfork: Hardfork::MERGE,
+        hardfork: Hardfork::Merge,
     },
     HardforkActivation {
         condition: ForkCondition::Block(6_698),
-        hardfork: Hardfork::SHANGHAI,
+        hardfork: Hardfork::Shanghai,
     },
     HardforkActivation {
         condition: ForkCondition::Block(894_733),
-        hardfork: Hardfork::CANCUN,
+        hardfork: Hardfork::Cancun,
     },
     HardforkActivation {
         condition: ForkCondition::Timestamp(1_740_434_112),
-        hardfork: Hardfork::PRAGUE,
+        hardfork: Hardfork::Prague,
     },
     HardforkActivation {
         condition: ForkCondition::Timestamp(1_759_308_480),
-        hardfork: Hardfork::OSAKA,
+        hardfork: Hardfork::Osaka,
     },
 ];
 
@@ -157,15 +157,15 @@ pub const HOODI_CHAIN_ID: u64 = 0x88bb0;
 const HOODI_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
     HardforkActivation {
         condition: ForkCondition::Block(0),
-        hardfork: Hardfork::CANCUN,
+        hardfork: Hardfork::Cancun,
     },
     HardforkActivation {
         condition: ForkCondition::Timestamp(1_742_999_832),
-        hardfork: Hardfork::PRAGUE,
+        hardfork: Hardfork::Prague,
     },
     HardforkActivation {
         condition: ForkCondition::Timestamp(1_761_677_592),
-        hardfork: Hardfork::OSAKA,
+        hardfork: Hardfork::Osaka,
     },
 ];
 
@@ -190,27 +190,27 @@ pub const SEPOLIA_CHAIN_ID: u64 = 0xaa36a7;
 const SEPOLIA_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
     HardforkActivation {
         condition: ForkCondition::Block(0),
-        hardfork: Hardfork::LONDON,
+        hardfork: Hardfork::London,
     },
     HardforkActivation {
         condition: ForkCondition::Block(1_450_409),
-        hardfork: Hardfork::MERGE,
+        hardfork: Hardfork::Merge,
     },
     HardforkActivation {
         condition: ForkCondition::Block(2_990_908),
-        hardfork: Hardfork::SHANGHAI,
+        hardfork: Hardfork::Shanghai,
     },
     HardforkActivation {
         condition: ForkCondition::Block(5_187_023),
-        hardfork: Hardfork::CANCUN,
+        hardfork: Hardfork::Cancun,
     },
     HardforkActivation {
         condition: ForkCondition::Timestamp(1_741_159_776),
-        hardfork: Hardfork::PRAGUE,
+        hardfork: Hardfork::Prague,
     },
     HardforkActivation {
         condition: ForkCondition::Timestamp(1_760_427_360),
-        hardfork: Hardfork::OSAKA,
+        hardfork: Hardfork::Osaka,
     },
 ];
 

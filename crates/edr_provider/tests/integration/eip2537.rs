@@ -58,7 +58,7 @@ macro_rules! impl_precompile_activated_in_prague_test {
             paste::item! {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<$name _inactive_before_prague>]() -> anyhow::Result<()> {
-                    let provider = new_provider(edr_chain_l1::Hardfork::CANCUN)?;
+                    let provider = new_provider(edr_chain_l1::Hardfork::Cancun)?;
 
                     let output = send_call(&provider, $call_request)?;
                     assert_eq!(output, Bytes::new());
@@ -68,7 +68,7 @@ macro_rules! impl_precompile_activated_in_prague_test {
 
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<$name _active_after_prague>]() -> anyhow::Result<()> {
-                    let provider = new_provider(edr_chain_l1::Hardfork::PRAGUE)?;
+                    let provider = new_provider(edr_chain_l1::Hardfork::Prague)?;
 
                     let output = send_call(&provider, $call_request)?;
                     assert_eq!(output, $expected_output);

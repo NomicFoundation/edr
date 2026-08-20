@@ -3846,7 +3846,7 @@ mod tests {
     fn mine_and_commit_block_rewards_miner() -> anyhow::Result<()> {
         let default_config = create_test_config();
         let config = ProviderConfig {
-            hardfork: edr_chain_l1::Hardfork::BERLIN,
+            hardfork: edr_chain_l1::Hardfork::Berlin,
             ..default_config
         };
 
@@ -4249,7 +4249,7 @@ mod tests {
                 default_transaction_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
                 chain_id: 1,
                 coinbase: Address::ZERO,
-                hardfork: edr_chain_l1::Hardfork::LONDON,
+                hardfork: edr_chain_l1::Hardfork::London,
                 network_id: 1,
                 ..default_config
             };

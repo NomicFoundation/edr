@@ -1033,27 +1033,27 @@ fn get_compiled(project: &Project) -> ProjectCompileOutput {
 
 /// Default data for the tests group.
 pub static TEST_DATA_DEFAULT: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::Default, edr_chain_l1::Hardfork::PRAGUE)
+    ForgeTestData::new(ForgeTestProfile::Default, edr_chain_l1::Hardfork::Prague)
         .expect("linking ok")
 });
 
 /// Data for tests requiring Paris support on Solc and EVM level.
 pub static TEST_DATA_PARIS: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::Paris, edr_chain_l1::Hardfork::MERGE).expect("linking ok")
+    ForgeTestData::new(ForgeTestProfile::Paris, edr_chain_l1::Hardfork::Merge).expect("linking ok")
 });
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
 pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
     ForgeTestData::new(
         ForgeTestProfile::MultiVersion,
-        edr_chain_l1::Hardfork::PRAGUE,
+        edr_chain_l1::Hardfork::Prague,
     )
     .expect("linking ok")
 });
 
 /// Data for tests that need the sources compiled with `via_ir = true`.
 pub static TEST_DATA_VIA_IR: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::ViaIr, edr_chain_l1::Hardfork::PRAGUE).expect("linking ok")
+    ForgeTestData::new(ForgeTestProfile::ViaIr, edr_chain_l1::Hardfork::Prague).expect("linking ok")
 });
 
 fn mock_rpc_endpoints() -> RpcEndpoints {

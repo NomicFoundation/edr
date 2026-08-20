@@ -36,15 +36,15 @@ impl TryFrom<L1Hardfork> for PreMergeL1Hardfork {
 
     fn try_from(hardfork: L1Hardfork) -> Result<Self, Self::Error> {
         match hardfork {
-            L1Hardfork::BYZANTIUM => Ok(Self::Byzantium),
-            L1Hardfork::CONSTANTINOPLE => Ok(Self::Constantinople),
-            L1Hardfork::PETERSBURG => Ok(Self::Petersburg),
-            L1Hardfork::ISTANBUL => Ok(Self::Istanbul),
-            L1Hardfork::MUIR_GLACIER => Ok(Self::MuirGlacier),
-            L1Hardfork::BERLIN => Ok(Self::Berlin),
-            L1Hardfork::LONDON => Ok(Self::London),
-            L1Hardfork::ARROW_GLACIER => Ok(Self::ArrowGlacier),
-            L1Hardfork::GRAY_GLACIER => Ok(Self::GrayGlacier),
+            L1Hardfork::Byzantium => Ok(Self::Byzantium),
+            L1Hardfork::Constantinople => Ok(Self::Constantinople),
+            L1Hardfork::Petersburg => Ok(Self::Petersburg),
+            L1Hardfork::Istanbul => Ok(Self::Istanbul),
+            L1Hardfork::MuirGlacier => Ok(Self::MuirGlacier),
+            L1Hardfork::Berlin => Ok(Self::Berlin),
+            L1Hardfork::London => Ok(Self::London),
+            L1Hardfork::ArrowGlacier => Ok(Self::ArrowGlacier),
+            L1Hardfork::GrayGlacier => Ok(Self::GrayGlacier),
             hardfork => Err(hardfork),
         }
     }
@@ -127,18 +127,18 @@ mod tests {
     #[test]
     fn try_from_accepts_every_pre_merge_hardfork() {
         const PRE_MERGE: [(L1Hardfork, PreMergeL1Hardfork); 9] = [
-            (L1Hardfork::BYZANTIUM, PreMergeL1Hardfork::Byzantium),
+            (L1Hardfork::Byzantium, PreMergeL1Hardfork::Byzantium),
             (
-                L1Hardfork::CONSTANTINOPLE,
+                L1Hardfork::Constantinople,
                 PreMergeL1Hardfork::Constantinople,
             ),
-            (L1Hardfork::PETERSBURG, PreMergeL1Hardfork::Petersburg),
-            (L1Hardfork::ISTANBUL, PreMergeL1Hardfork::Istanbul),
-            (L1Hardfork::MUIR_GLACIER, PreMergeL1Hardfork::MuirGlacier),
-            (L1Hardfork::BERLIN, PreMergeL1Hardfork::Berlin),
-            (L1Hardfork::LONDON, PreMergeL1Hardfork::London),
-            (L1Hardfork::ARROW_GLACIER, PreMergeL1Hardfork::ArrowGlacier),
-            (L1Hardfork::GRAY_GLACIER, PreMergeL1Hardfork::GrayGlacier),
+            (L1Hardfork::Petersburg, PreMergeL1Hardfork::Petersburg),
+            (L1Hardfork::Istanbul, PreMergeL1Hardfork::Istanbul),
+            (L1Hardfork::MuirGlacier, PreMergeL1Hardfork::MuirGlacier),
+            (L1Hardfork::Berlin, PreMergeL1Hardfork::Berlin),
+            (L1Hardfork::London, PreMergeL1Hardfork::London),
+            (L1Hardfork::ArrowGlacier, PreMergeL1Hardfork::ArrowGlacier),
+            (L1Hardfork::GrayGlacier, PreMergeL1Hardfork::GrayGlacier),
         ];
 
         for (hardfork, expected) in PRE_MERGE {
@@ -149,12 +149,12 @@ mod tests {
     #[test]
     fn try_from_rejects_post_merge_hardforks() {
         const POST_MERGE: [L1Hardfork; 6] = [
-            L1Hardfork::MERGE,
-            L1Hardfork::SHANGHAI,
-            L1Hardfork::CANCUN,
-            L1Hardfork::PRAGUE,
-            L1Hardfork::OSAKA,
-            L1Hardfork::AMSTERDAM,
+            L1Hardfork::Merge,
+            L1Hardfork::Shanghai,
+            L1Hardfork::Cancun,
+            L1Hardfork::Prague,
+            L1Hardfork::Osaka,
+            L1Hardfork::Amsterdam,
         ];
 
         for hardfork in POST_MERGE {

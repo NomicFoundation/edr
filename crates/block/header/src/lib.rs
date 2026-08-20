@@ -1108,7 +1108,7 @@ mod tests {
         // An override on an earlier hardfork is ignored, so no spec-invalid header can
         // be built.
         let header = partial_header_with_hardfork(
-            edr_chain_l1::Hardfork::PRAGUE,
+            edr_chain_l1::Hardfork::Prague,
             HeaderOverrides {
                 block_access_list_hash: Some(B256::repeat_byte(1)),
                 ..HeaderOverrides::default()
@@ -1121,7 +1121,7 @@ mod tests {
     #[test]
     fn block_access_list_hash_defaults_to_empty_list_hash_on_amsterdam() {
         let header = partial_header_with_hardfork(
-            edr_chain_l1::Hardfork::AMSTERDAM,
+            edr_chain_l1::Hardfork::Amsterdam,
             HeaderOverrides::default(),
         );
 
@@ -1132,7 +1132,7 @@ mod tests {
     fn block_access_list_hash_honors_override_on_amsterdam() {
         let supplied = B256::repeat_byte(0xab);
         let header = partial_header_with_hardfork(
-            edr_chain_l1::Hardfork::AMSTERDAM,
+            edr_chain_l1::Hardfork::Amsterdam,
             HeaderOverrides {
                 block_access_list_hash: Some(supplied),
                 ..HeaderOverrides::default()
@@ -1147,7 +1147,7 @@ mod tests {
         // An override on an earlier hardfork is ignored, so no spec-invalid header can
         // be built.
         let header = partial_header_with_hardfork(
-            edr_chain_l1::Hardfork::PRAGUE,
+            edr_chain_l1::Hardfork::Prague,
             HeaderOverrides {
                 slot_number: Some(1),
                 ..HeaderOverrides::default()
@@ -1166,7 +1166,7 @@ mod tests {
         };
 
         let header = partial_header_with_parent(
-            edr_chain_l1::Hardfork::AMSTERDAM,
+            edr_chain_l1::Hardfork::Amsterdam,
             HeaderOverrides {
                 slot_number: Some(7843),
                 ..HeaderOverrides::default()
@@ -1185,7 +1185,7 @@ mod tests {
         };
 
         let header = partial_header_with_parent(
-            edr_chain_l1::Hardfork::AMSTERDAM,
+            edr_chain_l1::Hardfork::Amsterdam,
             HeaderOverrides::default(),
             Some(&parent),
         );
@@ -1201,7 +1201,7 @@ mod tests {
         assert_eq!(parent.slot_number, None);
 
         let header = partial_header_with_parent(
-            edr_chain_l1::Hardfork::AMSTERDAM,
+            edr_chain_l1::Hardfork::Amsterdam,
             HeaderOverrides::default(),
             Some(&parent),
         );

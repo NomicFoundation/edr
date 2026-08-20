@@ -27,7 +27,7 @@ fn new_provider(
     transaction_gas_cap: Option<u64>,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
     let mut config = create_test_config();
-    config.hardfork = edr_chain_l1::Hardfork::OSAKA;
+    config.hardfork = edr_chain_l1::Hardfork::Osaka;
     config.transaction_gas_cap = transaction_gas_cap;
     config.mining.auto_mine = auto_mine;
 

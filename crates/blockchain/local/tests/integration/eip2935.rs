@@ -24,7 +24,7 @@ fn local_blockchain(
     let block_config = BlockConfig {
         base_fee_params: L1ChainSpec::default_base_fee_params().clone(),
         default_difficulty_fn: L1ChainSpec::default_block_difficulty,
-        hardfork: edr_chain_l1::Hardfork::PRAGUE,
+        hardfork: edr_chain_l1::Hardfork::Prague,
         scheduled_blob_params: None,
     };
 

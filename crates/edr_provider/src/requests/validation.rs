@@ -523,7 +523,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_155_invalid_inputs() {
-        let eip155_spec = edr_chain_l1::Hardfork::MUIR_GLACIER;
+        let eip155_spec = edr_chain_l1::Hardfork::MuirGlacier;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
@@ -553,7 +553,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_2930_invalid_inputs() {
-        let eip2930_spec = edr_chain_l1::Hardfork::BERLIN;
+        let eip2930_spec = edr_chain_l1::Hardfork::Berlin;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
@@ -574,7 +574,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_1559_invalid_inputs() {
-        let eip1559_spec = edr_chain_l1::Hardfork::LONDON;
+        let eip1559_spec = edr_chain_l1::Hardfork::London;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             max_fee_per_gas: Some(0),
@@ -596,7 +596,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_4844_invalid_inputs() {
-        let eip4844_spec = edr_chain_l1::Hardfork::CANCUN;
+        let eip4844_spec = edr_chain_l1::Hardfork::Cancun;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),
@@ -672,7 +672,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_7702_invalid_inputs() {
-        let eip7702_spec = edr_chain_l1::Hardfork::PRAGUE;
+        let eip7702_spec = edr_chain_l1::Hardfork::Prague;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),

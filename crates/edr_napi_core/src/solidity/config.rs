@@ -401,7 +401,7 @@ mod tests {
             initial_balance: None,
             block_number: None,
             chain_id: None,
-            hardfork: edr_chain_l1::Hardfork::LONDON.to_string(),
+            hardfork: edr_chain_l1::Hardfork::London.to_string(),
             gas_limit: None,
             gas_price: None,
             block_base_fee_per_gas: None,
@@ -494,7 +494,7 @@ mod tests {
     #[test]
     fn test_osaka_default_transaction_gas_cap_lowers_default_gas_limit() {
         let config = TestRunnerConfig {
-            hardfork: edr_chain_l1::Hardfork::OSAKA.to_string(),
+            hardfork: edr_chain_l1::Hardfork::Osaka.to_string(),
             transaction_gas_cap: None,
             disable_transaction_gas_cap: Some(false),
             ..default_config()
@@ -505,7 +505,7 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         let expected_cap =
-            edr_eip7825::transaction_gas_cap_for_hardfork(edr_chain_l1::Hardfork::OSAKA)
+            edr_eip7825::transaction_gas_cap_for_hardfork(edr_chain_l1::Hardfork::Osaka)
                 .expect("Osaka activates the EIP-7825 transaction gas cap");
 
         assert_eq!(

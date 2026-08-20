@@ -9,7 +9,7 @@ use super::{assert_code_at, sign_authorization, CHAIN_ID};
 fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<L1ChainSpec>> {
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::Prague;
 
     super::new_provider(config, vec![sender_secret_key])
 }

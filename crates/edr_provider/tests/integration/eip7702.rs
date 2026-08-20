@@ -91,7 +91,7 @@ async fn trace_transaction() -> anyhow::Result<()> {
 
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::Prague;
 
     let provider = new_provider(config, vec![secret_key])?;
 
@@ -135,7 +135,7 @@ async fn get_transaction() -> anyhow::Result<()> {
 
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::Prague;
 
     let provider = new_provider(config, vec![secret_key])?;
 

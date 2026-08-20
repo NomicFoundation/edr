@@ -104,7 +104,7 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<edr_chain_l1::Hardfork>> BlockEn
         self.inner.blob_excess_gas_and_price().or_else(|| {
             // If the hardfork requires it, set ExcessGasAndPrice default value
             // see https://github.com/NomicFoundation/edr/issues/947
-            if self.inner.hardfork >= edr_chain_l1::Hardfork::CANCUN {
+            if self.inner.hardfork >= edr_chain_l1::Hardfork::Cancun {
                 let timestamp: u64 = self
                     .inner
                     .timestamp()
@@ -403,7 +403,7 @@ mod tests {
     #[test]
     fn generic_block_constructor_should_default_excess_blob_gas_for_cancun() {
         let header = build_block_header(None); // No blob gas information
-        let spec_id = edr_chain_l1::Hardfork::CANCUN;
+        let spec_id = edr_chain_l1::Hardfork::Cancun;
 
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header, spec_id, None,
@@ -423,7 +423,7 @@ mod tests {
     #[test]
     fn generic_block_constructor_should_default_excess_blob_gas_for_prague() {
         let header = build_block_header(None); // No blob gas information
-        let spec_id = edr_chain_l1::Hardfork::PRAGUE;
+        let spec_id = edr_chain_l1::Hardfork::Prague;
 
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header, spec_id, None,
@@ -443,7 +443,7 @@ mod tests {
     #[test]
     fn generic_block_constructor_should_default_excess_blob_gas_for_osaka() {
         let header = build_block_header(None); // No blob gas information
-        let spec_id = edr_chain_l1::Hardfork::OSAKA;
+        let spec_id = edr_chain_l1::Hardfork::Osaka;
 
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header, spec_id, None,
@@ -466,7 +466,7 @@ mod tests {
 
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
-            edr_chain_l1::Hardfork::SHANGHAI,
+            edr_chain_l1::Hardfork::Shanghai,
             None,
         );
         assert_eq!(block.blob_excess_gas_and_price(), None);
@@ -480,7 +480,7 @@ mod tests {
             gas_used: 0x80000u64,
         };
         let header = build_block_header(Some(blob_gas)); // blob gas present
-        let spec_id = edr_chain_l1::Hardfork::CANCUN;
+        let spec_id = edr_chain_l1::Hardfork::Cancun;
 
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header, spec_id, None,
