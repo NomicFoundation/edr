@@ -109,8 +109,9 @@ pub struct InlineConfigDirectiveLocation {
     pub kind: String,
     /// The contract the directive belongs to.
     pub contract: String,
-    /// The test function the directive belongs to.
-    pub function: String,
+    /// The test function the directive belongs to; absent for a contract-level
+    /// directive.
+    pub function: Option<String>,
     /// Why resolving the location failed, including the directive problem
     /// that was being reported.
     pub reason: String,
@@ -163,8 +164,9 @@ pub struct InlineConfigDirectiveError {
     pub source_name: String,
     /// The contract the offending directive belongs to.
     pub contract: String,
-    /// The test function the offending directive belongs to.
-    pub function: String,
+    /// The test function the offending directive belongs to; absent for a
+    /// contract-level directive.
+    pub function: Option<String>,
     /// The 1-based line of the offending directive within the source.
     pub line: u32,
     /// The problem itself; discriminate on its `kind` tag.

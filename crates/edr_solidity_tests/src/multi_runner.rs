@@ -311,6 +311,11 @@ impl<
     /// source, returning the per-function overrides and the set of functions
     /// that opted into `allowInternalExpectRevert`.
     ///
+    /// A contract-level configuration (NatSpec above the contract definition)
+    /// applies to every test function in the contract's ABI — including
+    /// inherited ones — with function-level directives taking per-key
+    /// precedence.
+    ///
     /// Returns empty collections when the contract's source isn't available or
     /// carries no inline configuration. Malformed directives never reach here:
     /// they are caught up front by [`SharedInlineConfigProvider::validate`],
@@ -327,12 +332,33 @@ impl<
             .inline_config_provider
             .get(&artifact_id.source, &artifact_id.name);
 
+        let mut by_name: HashMap<String, TestFunctionConfigOverride> = parsed
+            .functions
+            .into_iter()
+            .map(|function_override| (function_override.function_name, function_override.config))
+            .collect();
+
+        // Apply the contract-level configuration underneath every test
+        // function's own overrides. Walking the ABI (rather than the source)
+        // covers inherited test functions too.
+        if let Some(contract_config) = &parsed.contract {
+            for function in contract.abi.functions() {
+                if !inline_config::is_test_function(&function.name) {
+                    continue;
+                }
+                by_name
+                    .entry(function.name.clone())
+                    .or_default()
+                    .fill_from(contract_config);
+            }
+        }
+
         let mut overrides = HashMap::new();
         let mut allow_internal_expect_revert = HashSet::new();
 
-        for function_override in parsed {
+        for (function_name, config) in by_name {
             let Some(function_selector) =
-                inline_config::resolve_selector(&contract.abi, &function_override.function_name)
+                inline_config::resolve_selector(&contract.abi, &function_name)
             else {
                 // Not part of the ABI (e.g. not externally callable), so it
                 // can't be run as a test; ignore it.
@@ -342,10 +368,10 @@ impl<
                 contract_artifact: artifact_id.clone(),
                 function_selector,
             };
-            if function_override.config.allow_internal_expect_revert == Some(true) {
+            if config.allow_internal_expect_revert == Some(true) {
                 allow_internal_expect_revert.insert(identifier.clone());
             }
-            overrides.insert(identifier, function_override.config);
+            overrides.insert(identifier, config);
         }
 
         (overrides, allow_internal_expect_revert)
