@@ -21,7 +21,6 @@ pub mod op;
 /// The `strum(serialize = …)` strings must stay identical to the [`name`]
 /// module constants.
 #[repr(u8)]
-#[allow(non_camel_case_types)]
 #[derive(
     Clone,
     Copy,
@@ -41,35 +40,25 @@ pub mod op;
 #[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum OpHardfork {
     /// Bedrock hardfork
-    #[strum(serialize = "Bedrock")]
     Bedrock = 100,
     /// Regolith hardfork
-    #[strum(serialize = "Regolith")]
     Regolith,
     /// Canyon hardfork
-    #[strum(serialize = "Canyon")]
     Canyon,
     /// Ecotone hardfork
-    #[strum(serialize = "Ecotone")]
     Ecotone,
     /// Fjord hardfork
-    #[strum(serialize = "Fjord")]
     Fjord,
     /// Granite hardfork
-    #[strum(serialize = "Granite")]
     Granite,
     /// Holocene hardfork
-    #[strum(serialize = "Holocene")]
     Holocene,
     /// Isthmus hardfork
-    #[strum(serialize = "Isthmus")]
     Isthmus,
     /// Jovian hardfork
     #[default]
-    #[strum(serialize = "Jovian")]
     Jovian,
     /// Interop hardfork
-    #[strum(serialize = "Interop")]
     Interop,
 }
 

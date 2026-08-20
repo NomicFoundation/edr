@@ -30,43 +30,33 @@ use edr_primitives::UnknownHardfork;
 #[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum L1Hardfork {
     /// Frontier hardfork
-    #[strum(serialize = "Frontier")]
     Frontier = 0,
     /// Frontier Thawing hardfork
     #[strum(serialize = "Frontier Thawing")]
     FrontierThawing,
     /// Homestead hardfork
-    #[strum(serialize = "Homestead")]
     Homestead,
     /// DAO Fork hardfork
     #[strum(serialize = "DAO Fork")]
     DaoFork,
     /// Tangerine Whistle hardfork
-    #[strum(serialize = "Tangerine")]
     Tangerine,
     /// Spurious Dragon hardfork
     #[strum(serialize = "Spurious")]
     SpuriousDragon,
     /// Byzantium hardfork
-    #[strum(serialize = "Byzantium")]
     Byzantium,
     /// Constantinople hardfork
-    #[strum(serialize = "Constantinople")]
     Constantinople,
     /// Petersburg hardfork
-    #[strum(serialize = "Petersburg")]
     Petersburg,
     /// Istanbul hardfork
-    #[strum(serialize = "Istanbul")]
     Istanbul,
     /// Muir Glacier hardfork
-    #[strum(serialize = "MuirGlacier")]
     MuirGlacier,
     /// Berlin hardfork
-    #[strum(serialize = "Berlin")]
     Berlin,
     /// London hardfork
-    #[strum(serialize = "London")]
     London,
     /// Arrow Glacier hardfork
     #[strum(serialize = "Arrow Glacier")]
@@ -75,23 +65,17 @@ pub enum L1Hardfork {
     #[strum(serialize = "Gray Glacier")]
     GrayGlacier,
     /// Paris/Merge hardfork
-    #[strum(serialize = "Merge")]
     Merge,
     /// Shanghai hardfork
-    #[strum(serialize = "Shanghai")]
     Shanghai,
     /// Cancun hardfork
-    #[strum(serialize = "Cancun")]
     Cancun,
     /// Prague hardfork
-    #[strum(serialize = "Prague")]
     Prague,
     /// Osaka hardfork
     #[default]
-    #[strum(serialize = "Osaka")]
     Osaka,
     /// Amsterdam hardfork
-    #[strum(serialize = "Amsterdam")]
     Amsterdam,
 }
 
