@@ -71,9 +71,6 @@ pub enum OpHardfork {
     /// Interop hardfork
     #[strum(serialize = "Interop")]
     INTEROP,
-    /// Osaka hardfork
-    #[strum(serialize = "Osaka")]
-    OSAKA,
 }
 
 fn unknown_hardfork(_name: &str) -> UnknownHardfork {
@@ -93,7 +90,6 @@ impl From<OpHardfork> for op_revm::OpSpecId {
             OpHardfork::ISTHMUS => op_revm::OpSpecId::ISTHMUS,
             OpHardfork::JOVIAN => op_revm::OpSpecId::JOVIAN,
             OpHardfork::INTEROP => op_revm::OpSpecId::INTEROP,
-            OpHardfork::OSAKA => op_revm::OpSpecId::OSAKA,
         }
     }
 }
@@ -126,8 +122,6 @@ pub mod name {
     pub const JOVIAN: &str = "Jovian";
     /// String identifier for the Interop hardfork
     pub const INTEROP: &str = "Interop";
-    /// String identifier for the Osaka hardfork, borrowed from L1.
-    pub const OSAKA: &str = "Osaka";
 }
 
 /// Returns the chain configurations for OP chains.
@@ -175,7 +169,7 @@ mod tests {
 
     use super::*;
 
-    const VARIANTS: [OpHardfork; 11] = [
+    const VARIANTS: [OpHardfork; 10] = [
         OpHardfork::BEDROCK,
         OpHardfork::REGOLITH,
         OpHardfork::CANYON,
@@ -186,7 +180,6 @@ mod tests {
         OpHardfork::ISTHMUS,
         OpHardfork::JOVIAN,
         OpHardfork::INTEROP,
-        OpHardfork::OSAKA,
     ];
 
     #[test]
@@ -198,7 +191,7 @@ mod tests {
 
     /// The strings the `strum` derives emit/parse must stay in sync with the
     /// [`name`] module constants, which are re-exported as public API.
-    const NAMES: [&str; 11] = [
+    const NAMES: [&str; 10] = [
         name::BEDROCK,
         name::REGOLITH,
         name::CANYON,
@@ -209,7 +202,6 @@ mod tests {
         name::ISTHMUS,
         name::JOVIAN,
         name::INTEROP,
-        name::OSAKA,
     ];
 
     #[test]
@@ -252,9 +244,9 @@ mod tests {
 
     /// Parity tests against op-revm's `OpSpecId`, which still models every OP
     /// protocol upgrade at the currently pinned op-revm version. They
-    /// guarantee that the owned enum is a lossless 1:1 mirror of op-revm
-    /// during the transition; DELETE THIS MODULE when an op-revm upgrade
-    /// removes variants from `OpSpecId`.
+    /// guarantee that the owned enum matches op-revm for every variant it
+    /// defines during the transition; DELETE THIS MODULE when an op-revm
+    /// upgrade removes variants from `OpSpecId`.
     mod revm_parity {
         use op_revm::OpSpecId;
 
