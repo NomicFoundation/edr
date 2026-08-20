@@ -31,8 +31,6 @@ pub mod op;
     PartialOrd,
     Ord,
     Hash,
-    serde::Serialize,
-    serde::Deserialize,
     strum::Display,
     strum::EnumString,
     strum::IntoStaticStr,
@@ -204,16 +202,6 @@ mod tests {
         assert_eq!(OpHardfork::from_str("NotAHardfork"), Err(UnknownHardfork));
         // strum must not fall back to parsing variant identifiers.
         assert_eq!(OpHardfork::from_str("BEDROCK"), Err(UnknownHardfork));
-    }
-
-    #[test]
-    fn serde_round_trip() {
-        for hardfork in VARIANTS {
-            let json = serde_json::to_string(&hardfork).expect("serialization succeeds");
-            let roundtrip: OpHardfork =
-                serde_json::from_str(&json).expect("deserialization succeeds");
-            assert_eq!(roundtrip, hardfork);
-        }
     }
 
     #[test]

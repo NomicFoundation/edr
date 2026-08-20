@@ -21,8 +21,6 @@ use edr_primitives::UnknownHardfork;
     PartialOrd,
     Ord,
     Hash,
-    serde::Serialize,
-    serde::Deserialize,
     strum::Display,
     strum::EnumString,
     strum::IntoStaticStr,
@@ -234,16 +232,6 @@ mod tests {
         assert_eq!(L1Hardfork::from_str("NotAHardfork"), Err(UnknownHardfork));
         // strum must not fall back to parsing variant identifiers.
         assert_eq!(L1Hardfork::from_str("MUIR_GLACIER"), Err(UnknownHardfork));
-    }
-
-    #[test]
-    fn serde_round_trip() {
-        for hardfork in VARIANTS {
-            let json = serde_json::to_string(&hardfork).expect("serialization succeeds");
-            let roundtrip: L1Hardfork =
-                serde_json::from_str(&json).expect("deserialization succeeds");
-            assert_eq!(roundtrip, hardfork);
-        }
     }
 
     #[test]
