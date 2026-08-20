@@ -1,6 +1,9 @@
 //! Per-compiler stack-trace behaviour dispatched through the [`TraceStrategy`]
 //! trait.
 
+use std::sync::Arc;
+
+use edr_defaults::SELECTOR_LEN;
 use edr_primitives::Bytes;
 
 use crate::{
@@ -25,12 +28,15 @@ pub enum TraceStrategyError {
     ContractMetadata(#[from] ContractMetadataError),
 }
 
+/// Lazily yields the trace's EVM step PCs in execution order. A thunk
+/// because trace steps are generic over the halt-reason type, which can't
+/// cross the object-safe trait boundary.
+pub type StepPcs<'a> = dyn Fn() -> Vec<u32> + 'a;
+
 /// Trace-time inputs for [`TraceStrategy::panic_helper_source_reference`].
 pub struct PanicHelperContext<'a> {
-    /// Lazily yields the trace's EVM step PCs in execution order. A thunk
-    /// because trace steps are generic over the halt-reason type, which
-    /// can't cross the object-safe trait boundary.
-    pub step_pcs: &'a dyn Fn() -> Vec<u32>,
+    /// EVM step PCs of the trace.
+    pub step_pcs: &'a StepPcs<'a>,
     /// Calldata of the current Call frame; `None` for Create frames.
     pub calldata: Option<&'a Bytes>,
 }
@@ -43,6 +49,25 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
     /// than an entry point (solc).
     fn recursion_start_idx(&self) -> usize;
 
+    /// Whether a step at `step_location` counts as still executing the
+    /// statement at `statement_location`, when deciding that a statement
+    /// was the last user code to run (`is_last_location`-style checks).
+    fn step_still_at_statement(
+        &self,
+        step_location: &SourceLocation,
+        statement_location: &SourceLocation,
+    ) -> bool;
+
+    /// Failing function for a revert whose instruction location resolves to
+    /// no containing function: solx recovers it from the calldata selector
+    /// (shared revert helpers are unmapped or declaration-attributed); solc
+    /// returns `None`, leaving the fallback heuristics in charge.
+    fn failing_function_from_calldata(
+        &self,
+        contract_meta: &ContractMetadata,
+        calldata: &Bytes,
+    ) -> Option<Arc<ContractFunction>>;
+
     /// Fallback frame when source-reference resolution returned `None` but
     /// the enclosing function is known.
     fn unresolved_callstack_entry(
@@ -52,27 +77,33 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
     ) -> Result<StackTraceEntry, TraceStrategyError>;
 
     /// Extra frames inserted before the final revert / panic / custom frame.
+    /// `bottom_source_reference` is that final frame's already-resolved
+    /// source reference — the dedup anchor, so an intermediate frame naming
+    /// the same function as the rendered bottom frame is dropped.
     fn intermediate_frames(
         &self,
         contract_meta: &ContractMetadata,
         last_instruction: &Instruction,
-        failing_function: &ContractFunction,
+        bottom_source_reference: &SourceReference,
     ) -> Result<Vec<StackTraceEntry>, TraceStrategyError>;
 
-    /// Source anchor for a revert that happened at a specific instruction
-    /// inside a known function.
+    /// Source anchor for a revert that happened inside a known function;
+    /// `inst_location` is `None` when the reverting instruction is unmapped
+    /// (solx shared bare-revert helpers). `step_pcs` lazily yields the
+    /// trace's EVM step PCs in execution order, for strategies that need to
+    /// walk back from the reverting instruction.
     fn revert_source_reference(
         &self,
         contract_meta: &ContractMetadata,
-        inst_location: &SourceLocation,
+        inst_location: Option<&SourceLocation>,
         failing_function: &ContractFunction,
+        step_pcs: &StepPcs<'_>,
     ) -> Result<SourceReference, TraceStrategyError>;
 
     /// Fallback source reference for a panic-helper PC when the primary
     /// resolution paths both returned `None`.
     fn panic_helper_source_reference(
         &self,
-        primary_ref: Option<SourceReference>,
         contract_meta: &ContractMetadata,
         context: PanicHelperContext<'_>,
     ) -> Result<Option<SourceReference>, TraceStrategyError>;
@@ -90,6 +121,22 @@ impl TraceStrategy for SolcTraceStrategy {
         1
     }
 
+    fn step_still_at_statement(
+        &self,
+        step_location: &SourceLocation,
+        statement_location: &SourceLocation,
+    ) -> bool {
+        step_location == statement_location
+    }
+
+    fn failing_function_from_calldata(
+        &self,
+        _contract_meta: &ContractMetadata,
+        _calldata: &Bytes,
+    ) -> Option<Arc<ContractFunction>> {
+        None
+    }
+
     fn unresolved_callstack_entry(
         &self,
         _contract_name: &str,
@@ -102,7 +149,7 @@ impl TraceStrategy for SolcTraceStrategy {
         &self,
         _contract_meta: &ContractMetadata,
         _last_instruction: &Instruction,
-        _failing_function: &ContractFunction,
+        _bottom_source_reference: &SourceReference,
     ) -> Result<Vec<StackTraceEntry>, TraceStrategyError> {
         Ok(Vec::new())
     }
@@ -110,32 +157,53 @@ impl TraceStrategy for SolcTraceStrategy {
     fn revert_source_reference(
         &self,
         contract_meta: &ContractMetadata,
-        _inst_location: &SourceLocation,
+        _inst_location: Option<&SourceLocation>,
         failing_function: &ContractFunction,
+        _step_pcs: &StepPcs<'_>,
     ) -> Result<SourceReference, TraceStrategyError> {
         function_start_source_reference(contract_meta, failing_function)
     }
 
     fn panic_helper_source_reference(
         &self,
-        primary_ref: Option<SourceReference>,
         _contract_meta: &ContractMetadata,
         _context: PanicHelperContext<'_>,
     ) -> Result<Option<SourceReference>, TraceStrategyError> {
-        Ok(primary_ref)
+        Ok(None)
     }
 }
-
-/// Global instance of [`SolxTraceStrategy`] used by the error inferrer.
-pub static SOLX_TRACE_STRATEGY: SolxTraceStrategy = SolxTraceStrategy;
 
 /// Solx (DWARF) trace-strategy impl.
 #[derive(Debug)]
 pub struct SolxTraceStrategy;
 
+/// Global instance of [`SolxTraceStrategy`] used by the error inferrer.
+pub static SOLX_TRACE_STRATEGY: SolxTraceStrategy = SolxTraceStrategy;
+
 impl TraceStrategy for SolxTraceStrategy {
     fn recursion_start_idx(&self) -> usize {
         0
+    }
+
+    fn step_still_at_statement(
+        &self,
+        step_location: &SourceLocation,
+        statement_location: &SourceLocation,
+    ) -> bool {
+        // solx maps compiler-generated helper code to the enclosing
+        // function or contract declaration, whose range contains the
+        // statement; that padding still counts as "at the statement".
+        step_location == statement_location || step_location.contains(statement_location)
+    }
+
+    fn failing_function_from_calldata(
+        &self,
+        contract_meta: &ContractMetadata,
+        calldata: &Bytes,
+    ) -> Option<Arc<ContractFunction>> {
+        let selector = calldata.get(..SELECTOR_LEN)?;
+        let contract = contract_meta.contract.read();
+        contract.get_function_from_selector(selector).cloned()
     }
 
     fn unresolved_callstack_entry(
@@ -166,15 +234,11 @@ impl TraceStrategy for SolxTraceStrategy {
         &self,
         contract_meta: &ContractMetadata,
         last_instruction: &Instruction,
-        failing_function: &ContractFunction,
+        bottom_source_reference: &SourceReference,
     ) -> Result<Vec<StackTraceEntry>, TraceStrategyError> {
-        let bottom_func_name = match failing_function.r#type {
-            ContractFunctionType::Constructor => Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
-            ContractFunctionType::Fallback => Some(FALLBACK_FUNCTION_NAME.to_string()),
-            ContractFunctionType::Receive => Some(RECEIVE_FUNCTION_NAME.to_string()),
-            _ => Some(failing_function.name.clone()),
-        };
-        let mut prev_function_name = bottom_func_name;
+        // Skip call sites repeating the function of the frame rendered
+        // below them.
+        let mut prev_function_name = bottom_source_reference.function.clone();
         let mut kept_innermost_first: Vec<SourceReference> = Vec::new();
         for call_site in &last_instruction.inline_call_sites {
             let Some(call_site_ref) =
@@ -189,35 +253,50 @@ impl TraceStrategy for SolxTraceStrategy {
             kept_innermost_first.push(call_site_ref);
         }
 
-        let mut frames: Vec<StackTraceEntry> = Vec::with_capacity(kept_innermost_first.len());
-        for source_reference in kept_innermost_first.iter().rev().cloned() {
-            frames.push(StackTraceEntry::CallstackEntry {
+        Ok(kept_innermost_first
+            .into_iter()
+            .rev()
+            .map(|source_reference| StackTraceEntry::CallstackEntry {
                 source_reference,
                 function_type: ContractFunctionType::Function,
-            });
-        }
-        Ok(frames)
+            })
+            .collect())
     }
 
     fn revert_source_reference(
         &self,
         contract_meta: &ContractMetadata,
-        inst_location: &SourceLocation,
-        _failing_function: &ContractFunction,
+        inst_location: Option<&SourceLocation>,
+        failing_function: &ContractFunction,
+        step_pcs: &StepPcs<'_>,
     ) -> Result<SourceReference, TraceStrategyError> {
-        source_location_to_source_reference(contract_meta, Some(inst_location))?
-            .ok_or(TraceStrategyError::MissingSourceReference)
+        let needs_walk_back = match inst_location {
+            Some(location) => is_declaration_attributed(contract_meta, location, failing_function)?,
+            None => true,
+        };
+        if needs_walk_back
+            && let Some(source_reference) =
+                walk_back_to_last_statement(contract_meta, failing_function, step_pcs)?
+        {
+            return Ok(source_reference);
+        }
+
+        // Last resorts: the location's own reference (for declaration
+        // padding, the declaration line), else the failing function's start
+        // (unmapped instructions have no location to resolve).
+        if let Some(source_reference) =
+            source_location_to_source_reference(contract_meta, inst_location)?
+        {
+            return Ok(source_reference);
+        }
+        function_start_source_reference(contract_meta, failing_function)
     }
 
     fn panic_helper_source_reference(
         &self,
-        primary_ref: Option<SourceReference>,
         contract_meta: &ContractMetadata,
         context: PanicHelperContext<'_>,
     ) -> Result<Option<SourceReference>, TraceStrategyError> {
-        if let Some(r) = primary_ref {
-            return Ok(Some(r));
-        }
         for pc in (context.step_pcs)().iter().rev() {
             let prev_inst = contract_meta.get_instruction(*pc)?;
             let Some(loc) = &prev_inst.location else {
@@ -228,15 +307,78 @@ impl TraceStrategy for SolxTraceStrategy {
             }
         }
         // Fall back to the start of the calldata-selector function.
-        let Some(selector) = context.calldata.and_then(|calldata| calldata.get(..4)) else {
+        let Some(called_function) = context
+            .calldata
+            .and_then(|calldata| self.failing_function_from_calldata(contract_meta, calldata))
+        else {
             return Ok(None);
         };
-        let contract = contract_meta.contract.read();
-        let Some(called_function) = contract.get_function_from_selector(selector) else {
-            return Ok(None);
-        };
-        Ok(function_start_source_reference(contract_meta, called_function).ok())
+        function_start_source_reference(contract_meta, &called_function).map(Some)
     }
+}
+
+/// Walks the executed steps backwards to the last statement-level location
+/// of `failing_function` (or of any modifier executed in this frame) — a
+/// shared revert helper carries no statement line of its own, but the code
+/// just before it keeps one. A statement of any other non-modifier function
+/// ends the walk. Failure-path only: runs once per inferred revert and
+/// stops at the first statement it finds.
+fn walk_back_to_last_statement(
+    contract_meta: &ContractMetadata,
+    failing_function: &ContractFunction,
+    step_pcs: &StepPcs<'_>,
+) -> Result<Option<SourceReference>, TraceStrategyError> {
+    for pc in step_pcs().iter().rev() {
+        let prev_inst = contract_meta.get_instruction(*pc)?;
+        let Some(prev_location) = &prev_inst.location else {
+            continue;
+        };
+        if is_declaration_attributed(contract_meta, prev_location, failing_function)? {
+            continue;
+        }
+        let Some(containing_function) = prev_location.get_containing_function()? else {
+            continue;
+        };
+        if !failing_function.location.contains(prev_location)
+            && containing_function.r#type != ContractFunctionType::Modifier
+        {
+            break;
+        }
+        if let Some(source_reference) =
+            source_location_to_source_reference(contract_meta, Some(prev_location))?
+        {
+            return Ok(Some(source_reference));
+        }
+    }
+    Ok(None)
+}
+
+/// Whether `location` is declaration-level padding for `failing_function`:
+/// its own or the enclosing contract's declaration line, same file — line
+/// numbers alone don't identify a location, hence the containment checks.
+fn is_declaration_attributed(
+    contract_meta: &ContractMetadata,
+    location: &SourceLocation,
+    failing_function: &ContractFunction,
+) -> Result<bool, TraceStrategyError> {
+    let line = location.get_starting_line_number()?;
+
+    let function_location = &failing_function.location;
+    if (function_location.contains(location) || location.contains(function_location))
+        && line == function_location.get_starting_line_number()?
+    {
+        return Ok(true);
+    }
+
+    let contract = contract_meta.contract.read();
+    let contract_location = &contract.location;
+    if (contract_location.contains(location) || location.contains(contract_location))
+        && line == contract_location.get_starting_line_number()?
+    {
+        return Ok(true);
+    }
+
+    Ok(false)
 }
 
 /// Non-halt-reason-generic source-location resolver used by
@@ -294,6 +436,9 @@ pub(crate) fn function_start_source_reference(
         source_name: file.source_name.clone(),
         source_content: file.content.clone(),
         contract: Some(contract.name.clone()),
+        // Raw AST name (empty for constructor/fallback/receive): the
+        // hardhat-tests corpus pins this shape for function-start frames,
+        // so do not map the names like source_location_to_source_reference.
         function: Some(func.name.clone()),
         line: location.get_starting_line_number()?,
         range: (location.offset, location.offset + location.length),

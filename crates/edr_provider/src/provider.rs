@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_chain_spec::{HardforkChainSpec, TransactionValidation};
+use edr_chain_spec::{ProtocolHardforkChainSpec, TransactionValidation};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use parking_lot::{Mutex, RwLock};
@@ -95,7 +95,7 @@ impl<
         subscriber_callback: Box<
             dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
         >,
-        config: ProviderConfig<<ChainSpecT as HardforkChainSpec>::Hardfork>,
+        config: ProviderConfig<<ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork>,
         contract_decoder: Arc<RwLock<ContractDecoder>>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {

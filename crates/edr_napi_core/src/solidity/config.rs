@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
-use edr_chain_spec::EvmSpecId;
+use edr_chain_spec::{EvmHardforkChainSpec, ProtocolHardforkChainSpec};
 use edr_primitives::{Address, UnknownHardfork, U256};
 use edr_solidity::config::IncludeTraces;
 use edr_solidity_tests::{
@@ -209,7 +209,7 @@ pub struct TestRunnerConfig {
 
 fn parse_hardfork<HardforkT>(hardfork: String) -> napi::Result<HardforkT>
 where
-    HardforkT: FromStr<Err = UnknownHardfork> + Into<EvmSpecId>,
+    HardforkT: FromStr<Err = UnknownHardfork>,
 {
     hardfork.parse().map_err(|UnknownHardfork| {
         napi::Error::new(
@@ -219,13 +219,18 @@ where
     })
 }
 
-impl<HardforkT> TryFrom<TestRunnerConfig> for SolidityTestRunnerConfig<HardforkT>
-where
-    HardforkT: HardforkTr + FromStr<Err = UnknownHardfork> + Into<EvmSpecId>,
-{
-    type Error = napi::Error;
-
-    fn try_from(value: TestRunnerConfig) -> Result<Self, Self::Error> {
+impl TestRunnerConfig {
+    /// Converts into a [`SolidityTestRunnerConfig`] for the given chain,
+    /// parsing the hardfork with the chain's protocol-level hardfork type
+    /// before converting it into the chain's EVM-level hardfork type, which
+    /// the test runner uses.
+    pub fn try_into_runner_config<ChainSpecT>(
+        self,
+    ) -> napi::Result<SolidityTestRunnerConfig<ChainSpecT::EvmHardfork>>
+    where
+        ChainSpecT: EvmHardforkChainSpec<EvmHardfork: HardforkTr>
+            + ProtocolHardforkChainSpec<ProtocolHardfork: FromStr<Err = UnknownHardfork>>,
+    {
         let TestRunnerConfig {
             project_root,
             isolate,
@@ -260,11 +265,11 @@ where
             generate_gas_report,
             test_source_paths,
             import_mappings,
-        } = value;
+        } = self;
 
         let mut evm_opts = SolidityTestRunnerConfig::default_evm_opts();
 
-        evm_opts.spec = parse_hardfork(hardfork)?;
+        evm_opts.spec = parse_hardfork::<ChainSpecT::ProtocolHardfork>(hardfork)?.into();
 
         if let Some(disable_block_gas_limit) = disable_block_gas_limit {
             evm_opts.disable_block_gas_limit = disable_block_gas_limit;
@@ -436,7 +441,8 @@ mod tests {
             ..default_config()
         };
 
-        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
@@ -455,7 +461,8 @@ mod tests {
             ..default_config()
         };
 
-        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
@@ -473,7 +480,8 @@ mod tests {
             ..default_config()
         };
 
-        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
@@ -492,7 +500,8 @@ mod tests {
             ..default_config()
         };
 
-        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         let expected_cap =
@@ -514,7 +523,8 @@ mod tests {
             ..default_config()
         };
 
-        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
@@ -532,7 +542,8 @@ mod tests {
             ..default_config()
         };
 
-        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
@@ -551,7 +562,8 @@ mod tests {
             ..default_config()
         };
 
-        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
@@ -575,7 +587,8 @@ mod tests {
             ..default_config()
         };
 
-        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
@@ -599,7 +612,8 @@ mod tests {
             ..default_config()
         };
 
-        let solidity_config = SolidityTestRunnerConfig::<edr_chain_l1::Hardfork>::try_from(config)
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(

@@ -1,0 +1,30 @@
+name: Select node image
+description: Resolves the node Docker image for a job. Normal runs use the GHCR mirror (see mirror-docker-images.yml); release runs pull the official Docker Hub image directly, keeping the mirror out of the supply chain of published binaries.
+
+inputs:
+  tag:
+    description: node image tag, e.g. 24-bullseye-slim or 22-alpine
+    required: true
+  release-tag:
+    description: check_commit's release tag; non-empty marks a release run
+    required: true
+
+outputs:
+  ref:
+    description: Image reference to pull
+    value: ${{ steps.select.outputs.ref }}
+
+runs:
+  using: composite
+  steps:
+    - id: select
+      shell: bash
+      env:
+        TAG: ${{ inputs.tag }}
+        RELEASE_TAG: ${{ inputs.release-tag }}
+      run: |
+        if [ -n "$RELEASE_TAG" ]; then
+          echo "ref=node:${TAG}" >> "$GITHUB_OUTPUT"
+        else
+          echo "ref=ghcr.io/nomicfoundation/edr/mirror/node:${TAG}" >> "$GITHUB_OUTPUT"
+        fi

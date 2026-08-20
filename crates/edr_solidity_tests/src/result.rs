@@ -679,7 +679,7 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
     }
 
     /// Returns the fail result for invariant test setup.
-    pub fn invariant_setup_fail(&mut self, e: InvariantFuzzError, duration: Duration) {
+    pub fn invariant_setup_fail(&mut self, mut e: InvariantFuzzError, duration: Duration) {
         self.kind = TestKind::Invariant {
             runs: 0,
             calls: 0,
@@ -687,6 +687,7 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
             metrics: HashMap::default(),
             failed_corpus_replays: 0,
         };
+        self.execution_traces.extend(e.take_traces());
         self.status = TestStatus::Failure;
         self.reason = Some(format!(
             "failed to set up invariant testing environment: {e}"

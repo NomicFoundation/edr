@@ -1,9 +1,9 @@
 use std::sync::LazyLock;
 
 use edr_chain_config::ChainConfig;
+use edr_chain_spec::EvmSpecId;
 use edr_eip1559::BaseFeeParams;
-use edr_primitives::HashMap;
-pub use op_revm::name;
+use edr_primitives::{HashMap, UnknownHardfork};
 
 use crate::Hardfork;
 
@@ -12,6 +12,117 @@ pub mod base;
 pub mod generated;
 /// OP chain configs
 pub mod op;
+
+/// OP Stack hardfork.
+///
+/// Models protocol upgrades, including ones without EVM-semantics changes,
+/// unlike [`op_revm::OpSpecId`] which models EVM behavior classes.
+///
+/// The `strum(serialize = …)` strings must stay identical to the [`name`]
+/// module constants.
+#[repr(u8)]
+#[allow(non_camel_case_types)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    strum::Display,
+    strum::EnumString,
+    strum::IntoStaticStr,
+)]
+#[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
+pub enum OpHardfork {
+    /// Bedrock hardfork
+    #[strum(serialize = "Bedrock")]
+    BEDROCK = 100,
+    /// Regolith hardfork
+    #[strum(serialize = "Regolith")]
+    REGOLITH,
+    /// Canyon hardfork
+    #[strum(serialize = "Canyon")]
+    CANYON,
+    /// Ecotone hardfork
+    #[strum(serialize = "Ecotone")]
+    ECOTONE,
+    /// Fjord hardfork
+    #[strum(serialize = "Fjord")]
+    FJORD,
+    /// Granite hardfork
+    #[strum(serialize = "Granite")]
+    GRANITE,
+    /// Holocene hardfork
+    #[strum(serialize = "Holocene")]
+    HOLOCENE,
+    /// Isthmus hardfork
+    #[strum(serialize = "Isthmus")]
+    ISTHMUS,
+    /// Jovian hardfork
+    #[default]
+    #[strum(serialize = "Jovian")]
+    JOVIAN,
+    /// Interop hardfork
+    #[strum(serialize = "Interop")]
+    INTEROP,
+}
+
+fn unknown_hardfork(_name: &str) -> UnknownHardfork {
+    UnknownHardfork
+}
+
+impl From<OpHardfork> for op_revm::OpSpecId {
+    fn from(hardfork: OpHardfork) -> Self {
+        match hardfork {
+            OpHardfork::BEDROCK => op_revm::OpSpecId::BEDROCK,
+            OpHardfork::REGOLITH => op_revm::OpSpecId::REGOLITH,
+            OpHardfork::CANYON => op_revm::OpSpecId::CANYON,
+            OpHardfork::ECOTONE => op_revm::OpSpecId::ECOTONE,
+            OpHardfork::FJORD => op_revm::OpSpecId::FJORD,
+            OpHardfork::GRANITE => op_revm::OpSpecId::GRANITE,
+            OpHardfork::HOLOCENE => op_revm::OpSpecId::HOLOCENE,
+            OpHardfork::ISTHMUS => op_revm::OpSpecId::ISTHMUS,
+            OpHardfork::JOVIAN => op_revm::OpSpecId::JOVIAN,
+            OpHardfork::INTEROP => op_revm::OpSpecId::INTEROP,
+        }
+    }
+}
+
+impl From<OpHardfork> for EvmSpecId {
+    fn from(hardfork: OpHardfork) -> Self {
+        op_revm::OpSpecId::from(hardfork).into_eth_spec()
+    }
+}
+
+/// String identifiers for OP hardforks.
+pub mod name {
+    /// String identifier for the Bedrock hardfork
+    pub const BEDROCK: &str = "Bedrock";
+    /// String identifier for the Regolith hardfork
+    pub const REGOLITH: &str = "Regolith";
+    /// String identifier for the Canyon hardfork
+    pub const CANYON: &str = "Canyon";
+    /// String identifier for the Ecotone hardfork
+    pub const ECOTONE: &str = "Ecotone";
+    /// String identifier for the Fjord hardfork
+    pub const FJORD: &str = "Fjord";
+    /// String identifier for the Granite hardfork
+    pub const GRANITE: &str = "Granite";
+    /// String identifier for the Holocene hardfork
+    pub const HOLOCENE: &str = "Holocene";
+    /// String identifier for the Isthmus hardfork
+    pub const ISTHMUS: &str = "Isthmus";
+    /// String identifier for the Jovian hardfork
+    pub const JOVIAN: &str = "Jovian";
+    /// String identifier for the Interop hardfork
+    pub const INTEROP: &str = "Interop";
+}
 
 /// Returns the chain configurations for OP chains.
 pub fn op_chain_configs() -> &'static HashMap<u64, ChainConfig<Hardfork>> {
@@ -50,4 +161,92 @@ pub fn op_chain_config(chain_id: u64) -> Option<&'static ChainConfig<Hardfork>> 
 /// Returns the default base fee params to fallback to
 pub fn op_default_base_fee_params() -> &'static BaseFeeParams<Hardfork> {
     &op::MAINNET_BASE_FEE_PARAMS
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::*;
+
+    const VARIANTS: [OpHardfork; 10] = [
+        OpHardfork::BEDROCK,
+        OpHardfork::REGOLITH,
+        OpHardfork::CANYON,
+        OpHardfork::ECOTONE,
+        OpHardfork::FJORD,
+        OpHardfork::GRANITE,
+        OpHardfork::HOLOCENE,
+        OpHardfork::ISTHMUS,
+        OpHardfork::JOVIAN,
+        OpHardfork::INTEROP,
+    ];
+
+    #[test]
+    fn ordering_matches_activation_order() {
+        for window in VARIANTS.windows(2) {
+            assert!(window[0] < window[1]);
+        }
+    }
+
+    /// The strings the `strum` derives emit/parse must stay in sync with the
+    /// [`name`] module constants, which are re-exported as public API.
+    const NAMES: [&str; 10] = [
+        name::BEDROCK,
+        name::REGOLITH,
+        name::CANYON,
+        name::ECOTONE,
+        name::FJORD,
+        name::GRANITE,
+        name::HOLOCENE,
+        name::ISTHMUS,
+        name::JOVIAN,
+        name::INTEROP,
+    ];
+
+    #[test]
+    fn name_round_trip() {
+        for (hardfork, name) in VARIANTS.into_iter().zip(NAMES) {
+            assert_eq!(hardfork.to_string(), name);
+            assert_eq!(<&'static str>::from(hardfork), name);
+            assert_eq!(OpHardfork::from_str(name), Ok(hardfork));
+        }
+
+        assert_eq!(OpHardfork::from_str("NotAHardfork"), Err(UnknownHardfork));
+        // strum must not fall back to parsing variant identifiers.
+        assert_eq!(OpHardfork::from_str("BEDROCK"), Err(UnknownHardfork));
+    }
+
+    #[test]
+    fn serde_round_trip() {
+        for hardfork in VARIANTS {
+            let json = serde_json::to_string(&hardfork).expect("serialization succeeds");
+            let roundtrip: OpHardfork =
+                serde_json::from_str(&json).expect("deserialization succeeds");
+            assert_eq!(roundtrip, hardfork);
+        }
+    }
+
+    #[test]
+    fn default_hardfork() {
+        assert_eq!(OpHardfork::default(), OpHardfork::JOVIAN);
+    }
+
+    /// `OpChainSpec::default_block_difficulty` reports zero for every hardfork,
+    /// and `OpBlockBuilder` pays no block reward. Both are only correct because
+    /// none of these hardforks precede the merge.
+    #[test]
+    fn every_hardfork_is_post_merge() {
+        for hardfork in VARIANTS {
+            assert!(EvmSpecId::from(hardfork) >= EvmSpecId::MERGE, "{hardfork}");
+        }
+    }
+
+    #[test]
+    fn defaults() {
+        assert_eq!(
+            op_revm::OpSpecId::from(OpHardfork::default()),
+            op_revm::OpSpecId::default()
+        );
+    }
 }

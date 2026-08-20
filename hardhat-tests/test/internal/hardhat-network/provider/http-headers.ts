@@ -21,11 +21,6 @@ describe("Forking with HTTP headers", function () {
       setCWD();
 
       this.beforeAll(function () {
-        // Skip infura because it doesn't support an API key-based bearer token
-        if (rpcProvider === "Infura") {
-          this.skip();
-        }
-
         // Skip invalid URLs
         if (url === undefined || bearerToken === undefined) {
           this.skip();

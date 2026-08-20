@@ -25,13 +25,13 @@ pub type EvmSpecId = revm_primitives::hardfork::SpecId;
 pub type EvmTransactionValidationError = revm_context_interface::result::InvalidTransaction;
 
 /// Trait for specifying the types representing a chain's block environment.
-pub trait BlockEnvChainSpec: HardforkChainSpec {
+pub trait BlockEnvChainSpec: ProtocolHardforkChainSpec {
     /// Type representing a block environment; i.e. the header of the block
     /// (being mined) and its hardfork.
-    type BlockEnv<'env, BlockHeaderT>: BlockEnvConstructor<'env, Self::Hardfork, &'env BlockHeaderT>
+    type BlockEnv<'env, BlockHeaderT>: BlockEnvConstructor<'env, Self::ProtocolHardfork, &'env BlockHeaderT>
         + BlockEnvTrait
     where
-        BlockHeaderT: 'env + BlockEnvForHardfork<Self::Hardfork>;
+        BlockHeaderT: 'env + BlockEnvForHardfork<Self::ProtocolHardfork>;
 }
 
 /// A trait for constructing a (partial) block header into an EVM block.
@@ -91,6 +91,12 @@ pub trait BlockEnvForHardfork<HardforkT> {
         hardfork: HardforkT,
         scheduled_blob_params: Option<&ScheduledBlobParams>,
     ) -> Option<BlobExcessGasAndPrice>;
+
+    /// The slot number of the block, added in the Amsterdam upgrade with
+    /// [EIP-7843]. Zero on hardforks that predate it.
+    ///
+    /// [EIP-7843]: https://eips.ethereum.org/EIPS/eip-7843
+    fn slot_number_for_hardfork(&self, hardfork: HardforkT) -> u64;
 }
 
 /// Trait for specifying the contextual information type of a chain.
@@ -99,11 +105,31 @@ pub trait ContextChainSpec {
     type Context;
 }
 
-/// Trait for specifying the hardfork type of a chain.
-pub trait HardforkChainSpec {
-    /// The chain's hardfork type.
-    type Hardfork: Copy + Default + Into<EvmSpecId>;
+/// Trait for specifying the EVM-level hardfork type of a chain.
+pub trait EvmHardforkChainSpec {
+    /// The EVM-level hardfork type consumed by revm for this chain; e.g.
+    /// `SpecId` for L1, `OpSpecId` for OP.
+    ///
+    /// Unlike [`ProtocolHardforkChainSpec::ProtocolHardfork`], this models EVM
+    /// behavior classes rather than protocol upgrades.
+    type EvmHardfork: Copy + Into<EvmSpecId>;
 }
+
+/// Trait for specifying the protocol-level hardfork type of a chain.
+pub trait ProtocolHardforkChainSpec: EvmHardforkChainSpec {
+    /// The chain's protocol-level hardfork type.
+    type ProtocolHardfork: Default + Into<Self::EvmHardfork> + ProtocolHardfork;
+}
+
+/// Capabilities required of a chain's protocol-level hardfork type by code
+/// that creates blocks: conversion to the EVM behavior class and activation
+/// ordering.
+///
+/// Blanket-implemented alias for its bounds; use it to bound hardfork-generic
+/// code that has no chain spec in scope.
+pub trait ProtocolHardfork: Clone + Into<EvmSpecId> + PartialOrd {}
+
+impl<T> ProtocolHardfork for T where T: Clone + Into<EvmSpecId> + PartialOrd {}
 
 /// Trait for chain specifications.
 pub trait ChainSpec {

@@ -6,7 +6,6 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     InvalidTransaction, L1ChainSpec,
 };
-use edr_chain_spec::EvmSpecId;
 use edr_chain_spec_evm::TransactionError;
 use edr_defaults::SECRET_KEYS;
 use edr_mem_pool::MemPoolAddTransactionError;
@@ -28,7 +27,7 @@ fn new_provider(
     transaction_gas_cap: Option<u64>,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
     let mut config = create_test_config();
-    config.hardfork = EvmSpecId::OSAKA;
+    config.hardfork = edr_chain_l1::Hardfork::OSAKA;
     config.transaction_gas_cap = transaction_gas_cap;
     config.mining.auto_mine = auto_mine;
 

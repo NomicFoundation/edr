@@ -136,7 +136,7 @@ impl<BlockT: Block<OpSignedTransaction>>
 
     fn rpc_type_from(
         value: &TransactionAndBlock<BlockT, OpSignedTransaction>,
-        hardfork: Self::Hardfork,
+        hardfork: Hardfork,
     ) -> Self {
         let (header, transaction_index) = value
             .block_data

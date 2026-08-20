@@ -23,14 +23,10 @@ pub(super) fn insert_predeploys(
     let changes = predeploys
         .into_iter()
         .map(|predeploy| {
-            let account = Account {
-                info: predeploy.account_info.clone(),
-                original_info: Box::new(predeploy.account_info),
-                storage: predeploy.storage,
-                // Need touched and created to be committed.
-                status: AccountStatus::Created | AccountStatus::Touched,
-                transaction_id: 0,
-            };
+            let mut account = Account::from(predeploy.account_info);
+            account.storage = predeploy.storage;
+            // Need touched and created to be committed.
+            account.status = AccountStatus::Created | AccountStatus::Touched;
             (predeploy.address, account)
         })
         .collect();

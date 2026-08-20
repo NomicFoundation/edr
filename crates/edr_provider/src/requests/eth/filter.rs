@@ -47,7 +47,7 @@ pub fn handle_get_logs_request<
     let hardfork = data.hardfork();
     // Hardhat integration tests expect validation in this order.
     if let Some(from_block) = &filter_options.from_block {
-        validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, from_block)?;
+        validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork.clone(), from_block)?;
     }
     if let Some(to_block) = &filter_options.to_block {
         validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, to_block)?;

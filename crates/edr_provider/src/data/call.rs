@@ -59,6 +59,10 @@ impl<BlockEnvT: BlockEnvTrait> BlockEnvTrait for BlockEnvWithZeroBaseFee<BlockEn
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
         self.inner.blob_excess_gas_and_price()
     }
+
+    fn slot_num(&self) -> u64 {
+        self.inner.slot_num()
+    }
 }
 
 /// Execute a transaction as a call. Returns the gas used and the output.
@@ -66,7 +70,7 @@ pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
     blockchain: BlockchainT,
     block_env: ChainSpecT::BlockEnv<'call, BlockHeader>,
     state: StateT,
-    cfg_env: CfgEnv<ChainSpecT::Hardfork>,
+    cfg_env: CfgEnv<ChainSpecT::ProtocolHardfork>,
     transaction: ChainSpecT::SignedTransaction,
     custom_precompiles: &'call HashMap<Address, PrecompileFn>,
     inspector: &'call mut InspectorT,

@@ -432,7 +432,7 @@ pub type L1ForgeTestData = ForgeTestData<
     (),
     L1EvmBuilder,
     edr_chain_l1::HaltReason,
-    edr_chain_l1::Hardfork,
+    edr_chain_l1::EvmHardfork,
     edr_chain_l1::InvalidTransaction,
     TxEnv,
 >;
@@ -498,7 +498,8 @@ impl<
     /// Builds [`ForgeTestData`] for the given [`ForgeTestProfile`].
     ///
     /// Uses [`get_compiled`] to lazily compile the project.
-    pub fn new(profile: ForgeTestProfile, hardfork: HardforkT) -> eyre::Result<Self> {
+    pub fn new(profile: ForgeTestProfile, hardfork: impl Into<HardforkT>) -> eyre::Result<Self> {
+        let hardfork = hardfork.into();
         let project = profile.project();
         let output = get_compiled(&project);
 

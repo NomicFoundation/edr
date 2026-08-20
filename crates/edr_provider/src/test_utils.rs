@@ -9,6 +9,7 @@ use edr_chain_l1::{
     L1ChainSpec,
 };
 use edr_chain_spec::TransactionValidation;
+use edr_eth::PreEip1898BlockSpec;
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -43,7 +44,7 @@ pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
 /// Default base header overrides for replaying L1 blocks.
 pub fn l1_base_header_overrides(
     replay_header: &BlockHeader,
-) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
+) -> HeaderOverrides<edr_chain_l1::Hardfork> {
     HeaderOverrides {
         // Extra_data field in L1 has arbitrary additional data
         extra_data: Some(replay_header.extra_data.clone()),
@@ -54,7 +55,7 @@ pub fn l1_base_header_overrides(
 /// Default header overrides for replaying L1 blocks before The Merge
 pub fn l1_header_overrides_before_merge(
     replay_header: &BlockHeader,
-) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
+) -> HeaderOverrides<edr_chain_l1::Hardfork> {
     HeaderOverrides {
         nonce: Some(replay_header.nonce),
         ..l1_base_header_overrides(replay_header)
@@ -64,7 +65,7 @@ pub fn l1_header_overrides_before_merge(
 /// Default header overrides for replaying L1 blocks after Prague hardfork.
 pub fn prague_header_overrides(
     replay_header: &BlockHeader,
-) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
+) -> HeaderOverrides<edr_chain_l1::Hardfork> {
     HeaderOverrides {
         // EDR does not compute the `requests_hash`, as full support for EIP-7685 introduced in
         // Prague is not implemented.
@@ -76,11 +77,14 @@ pub fn prague_header_overrides(
 /// Default header overrides for replaying L1 blocks after Amsterdam hardfork.
 pub fn amsterdam_header_overrides(
     replay_header: &BlockHeader,
-) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
+) -> HeaderOverrides<edr_chain_l1::Hardfork> {
     HeaderOverrides {
         // EDR does not compute the real block access list (EIP-7928), only a simulated hash, so
         // replay the value from the block being replayed.
         block_access_list_hash: replay_header.block_access_list_hash,
+        // EDR only simulates the slot number (EIP-7843), so replay the value from the block being
+        // replayed.
+        slot_number: replay_header.slot_number,
         ..prague_header_overrides(replay_header)
     }
 }
@@ -288,17 +292,42 @@ where
     Ok(contract_address)
 }
 
+/// Mines an empty block.
+pub fn mine_block<TimerT>(provider: &Provider<L1ChainSpec, TimerT>)
+where
+    TimerT: Clone + TimeSinceEpoch,
+{
+    provider
+        .handle_request(ProviderRequest::with_single(MethodInvocation::EvmMine(
+            None,
+        )))
+        .expect("evm_mine should succeed");
+}
+
+/// Returns the raw JSON of the latest block.
+pub fn get_latest_block<TimerT>(provider: &Provider<L1ChainSpec, TimerT>) -> serde_json::Value
+where
+    TimerT: Clone + TimeSinceEpoch,
+{
+    provider
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
+        ))
+        .expect("eth_getBlockByNumber should succeed")
+        .result
+}
+
 /// Fixture for testing `ProviderData`.
 pub struct ProviderTestFixture<ChainSpecT: ProviderSpec<CurrentTime>> {
     _runtime: runtime::Runtime,
-    pub config: ProviderConfig<ChainSpecT::Hardfork>,
+    pub config: ProviderConfig<ChainSpecT::ProtocolHardfork>,
     pub provider_data: ProviderData<ChainSpecT, CurrentTime>,
     pub impersonated_account: Address,
 }
 
 impl<ChainSpecT> ProviderTestFixture<ChainSpecT>
 where
-    ChainSpecT: Debug + SyncProviderSpec<CurrentTime, Hardfork: Default>,
+    ChainSpecT: Debug + SyncProviderSpec<CurrentTime, ProtocolHardfork: Default>,
 {
     /// Creates a new `ProviderTestFixture` with a local provider.
     pub fn new_local() -> anyhow::Result<Self> {
@@ -318,7 +347,9 @@ where
         }))
     }
 
-    fn with_config(config: MinimalProviderConfig<ChainSpecT::Hardfork>) -> anyhow::Result<Self> {
+    fn with_config(
+        config: MinimalProviderConfig<ChainSpecT::ProtocolHardfork>,
+    ) -> anyhow::Result<Self> {
         let config = create_test_config_with(config);
 
         let runtime = runtime::Builder::new_multi_thread()
@@ -332,7 +363,7 @@ where
 
     pub fn new(
         runtime: tokio::runtime::Runtime,
-        mut config: ProviderConfig<ChainSpecT::Hardfork>,
+        mut config: ProviderConfig<ChainSpecT::ProtocolHardfork>,
     ) -> anyhow::Result<Self> {
         let logger = Box::<NoopLogger<ChainSpecT, CurrentTime>>::default();
         let subscription_callback_noop = Box::new(|_| ());

@@ -25,10 +25,10 @@ on:
         type: string
         default: "*"
       benchmark-filter:
-        description: "Glob(s) selecting which benchmarks to run within each project, by name — a command or step name, i.e. the part after `<project> /` in a report (e.g. `test solidity`, `cold compile`, `*compile*`). Comma-separated. Defaults to `test solidity,mocha test` (EDR affects test execution, not compilation); pass `*` to run the full suite. Forwarded to `bench:regression --benchmarks`."
+        description: "Glob(s) selecting which benchmarks to run within each project, by name — a command or step name, i.e. the part after `<project> /` in a report (e.g. `test solidity`, `cold compile`, `*compile*`). Comma-separated. Defaults to `test solidity,test mocha,test vitest` (EDR affects test execution, not compilation); pass `*` to run the full suite. Forwarded to `bench:regression --benchmarks`."
         required: false
         type: string
-        default: "test solidity,mocha test"
+        default: "test solidity,test mocha,test vitest"
   # ChatOps: comment `/bench` on a same-repo PR, optionally with
   # `hardhat-ref=<branch|sha|PR>`, `scenarios="<glob>[,<glob>...]"` and/or
   # `benchmarks="<glob>[,<glob>...]"` to select which projects/benchmarks run
@@ -80,7 +80,7 @@ jobs:
     steps:
       # Sparse-checkout only the workflow scripts so the github-script step can
       # require the resolver module below.
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           sparse-checkout: .github/scripts
           persist-credentials: false
@@ -110,13 +110,13 @@ jobs:
       HH: ${{ github.workspace }}/hardhat
     steps:
       - name: Checkout EDR
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: ${{ needs.setup.outputs.edr_ref }}
           persist-credentials: false
 
       - name: Checkout Hardhat
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: NomicFoundation/hardhat
           ref: ${{ needs.setup.outputs.hardhat_ref }}
@@ -147,7 +147,33 @@ jobs:
 
       - name: Configure E2E clone directory
         # Use the runner's temp dir for the scenario clones.
-        run: echo "E2E_CLONE_DIR=$RUNNER_TEMP/edr-e2e-clones" >> "$GITHUB_ENV"
+        run: echo "E2E_CLONE_DIR=${RUNNER_TEMP:?}/edr-e2e-clones" >> "$GITHUB_ENV"
+
+      - name: Configure per-run package-manager caches
+        # The benchmark republishes deterministic versions (e.g. hardhat@3.12.1)
+        # whose content changes each run (new @nomicfoundation/edr pin), so any
+        # package-manager cache that persists on the self-hosted runner can
+        # resolve a prior run's stale republish. Point these caches at temp dirs
+        # that are cleaned up at the end of the job (see "Clean up temp dir").
+        #
+        # Yarn berry: the global folder holds both the zip cache and the npm
+        # packument metadata cache. YARN_* env vars override any .yarnrc.yml.
+        #
+        # Yarn classic: no override is needed. It doesn't have a persistent
+        # metadata cache, and its tarball cache slug includes the tarball's
+        # sha1.
+        #
+        # All caches live under PACKAGE_MANAGER_CACHES so the cleanup step can
+        # remove that single directory without being updated for every cache
+        # added here.
+        run: |
+          set -euo pipefail
+          PACKAGE_MANAGER_CACHES="${RUNNER_TEMP:?}/package-manager-caches"
+          {
+            echo "PACKAGE_MANAGER_CACHES=$PACKAGE_MANAGER_CACHES"
+            echo "BUN_INSTALL_CACHE_DIR=$PACKAGE_MANAGER_CACHES/bun-install"
+            echo "YARN_GLOBAL_FOLDER=$PACKAGE_MANAGER_CACHES/yarn-global"
+          } >> "$GITHUB_ENV"
 
       - name: Compute sentinel versions
         # Writes EDR_VER and HH_VER to $GITHUB_ENV
@@ -388,7 +414,7 @@ jobs:
         # Self-hosted runners don't automatically wipe RUNNER_TEMP between jobs, so we do
         # this manually to avoid polluting future runs.
         if: always()
-        run: rm -rf "$RUNNER_TEMP/edr-e2e-clones"
+        run: rm -rf "$E2E_CLONE_DIR" "$PACKAGE_MANAGER_CACHES"
 
   report:
     name: Report result to PR
