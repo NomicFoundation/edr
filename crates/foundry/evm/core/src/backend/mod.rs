@@ -10,7 +10,11 @@ use std::{
 
 use alloy_genesis::GenesisAccount;
 use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
-use alloy_primitives::{address, keccak256, map::U256Map, uint, Address, TxKind, B256, U256};
+use alloy_primitives::{
+    address, keccak256,
+    map::{AddressSet, U256Map},
+    uint, Address, TxKind, B256, U256,
+};
 use alloy_rpc_types::{BlockNumberOrTag, Transaction as RpcTransaction};
 use derive_where::derive_where;
 use eyre::Context;
@@ -25,7 +29,7 @@ use revm::{
     inspector::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{hardfork::SpecId, Log, KECCAK_EMPTY},
-    state::{AccountInfo, EvmState, EvmStorageSlot},
+    state::{AccountInfo, EvmState, EvmStorageSlot, TransactionId},
     Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
 };
 use serde::{Deserialize, Serialize};
@@ -1849,7 +1853,7 @@ impl<
                                 .map(|s| s.present_value)
                                 .unwrap_or_default(),
                             U256::from_be_bytes(value.0),
-                            0,
+                            TransactionId::ZERO,
                         ),
                     );
                 }
@@ -2355,9 +2359,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
             journal_inner.set_spec_id(self.spec_id.into());
             journal_inner
         };
+        let precompile_addresses: AddressSet = self.precompiles().addresses().copied().collect();
         journal
             .warm_addresses
-            .set_precompile_addresses(self.precompiles().addresses().copied().collect());
+            .set_precompile_addresses(&precompile_addresses);
         journal
     }
 }

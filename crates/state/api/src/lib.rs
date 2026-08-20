@@ -14,7 +14,7 @@ use alloy_trie::root::{state_root_ref_unhashed, storage_root_unhashed};
 use auto_impl::auto_impl;
 use edr_primitives::{Address, Bytecode, HashMap, StorageKey, B256, U256};
 pub use revm_database_interface::DatabaseCommit as StateCommit;
-pub use revm_state::{EvmState, EvmStorage, EvmStorageSlot};
+pub use revm_state::{EvmState, EvmStorage, EvmStorageSlot, TransactionId};
 
 pub use self::{diff::StateDiff, error::StateError, r#dyn::DynState, r#override::StateOverride};
 use crate::account::{AccountInfo, BasicAccount};

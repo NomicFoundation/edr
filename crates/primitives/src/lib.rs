@@ -2,7 +2,7 @@ pub use revm_bytecode::{self as bytecode, Bytecode};
 pub use revm_primitives::{
     address,
     alloy_primitives::{
-        map::{hash_map, hash_set, HashMap, HashSet},
+        map::{hash_map, hash_set, AddressSet, HashMap, HashSet},
         Bloom, BloomInput, ChainId, Selector, StorageKey, StorageValue, B512, B64, U128, U160, U64,
         U8,
     },

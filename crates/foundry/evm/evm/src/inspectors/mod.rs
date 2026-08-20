@@ -8,6 +8,9 @@ pub use foundry_evm_traces::{
 };
 pub use revm_inspectors::access_list::AccessListInspector;
 
+mod edge_cov;
+pub use edge_cov::EdgeCovInspector;
+
 mod error_ext;
 
 mod logs;
