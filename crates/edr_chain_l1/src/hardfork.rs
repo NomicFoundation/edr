@@ -8,8 +8,8 @@ use edr_primitives::UnknownHardfork;
 /// Models protocol upgrades, including ones without EVM-semantics changes,
 /// unlike [`EvmSpecId`] which models EVM behavior classes.
 ///
-/// The `strum(serialize = …)` strings must stay identical to the [`name`]
-/// module constants.
+/// The strum-derived names (`serialize_all = "camelCase"`) must stay identical
+/// to the [`name`] module constants.
 #[repr(u8)]
 #[derive(
     Clone,
@@ -25,7 +25,7 @@ use edr_primitives::UnknownHardfork;
     strum::EnumString,
     strum::IntoStaticStr,
 )]
-#[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
+#[strum(serialize_all = "camelCase", parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum L1Hardfork {
     /// Byzantium hardfork
     Byzantium = 6,
@@ -42,10 +42,8 @@ pub enum L1Hardfork {
     /// London hardfork
     London,
     /// Arrow Glacier hardfork
-    #[strum(serialize = "Arrow Glacier")]
     ArrowGlacier,
     /// Gray Glacier hardfork
-    #[strum(serialize = "Gray Glacier")]
     GrayGlacier,
     /// Paris/Merge hardfork
     Merge,
@@ -91,37 +89,37 @@ impl From<L1Hardfork> for EvmSpecId {
 /// String identifiers for L1 hardforks.
 pub mod name {
     /// String identifier for the Byzantium hardfork
-    pub const BYZANTIUM: &str = "Byzantium";
+    pub const BYZANTIUM: &str = "byzantium";
     /// String identifier for the Constantinople hardfork
-    pub const CONSTANTINOPLE: &str = "Constantinople";
+    pub const CONSTANTINOPLE: &str = "constantinople";
     /// String identifier for the Petersburg hardfork
-    pub const PETERSBURG: &str = "Petersburg";
+    pub const PETERSBURG: &str = "petersburg";
     /// String identifier for the Istanbul hardfork
-    pub const ISTANBUL: &str = "Istanbul";
+    pub const ISTANBUL: &str = "istanbul";
     /// String identifier for the Muir Glacier hardfork
-    pub const MUIR_GLACIER: &str = "MuirGlacier";
+    pub const MUIR_GLACIER: &str = "muirGlacier";
     /// String identifier for the Berlin hardfork
-    pub const BERLIN: &str = "Berlin";
+    pub const BERLIN: &str = "berlin";
     /// String identifier for the London hardfork
-    pub const LONDON: &str = "London";
+    pub const LONDON: &str = "london";
     /// String identifier for the Arrow Glacier hardfork
-    pub const ARROW_GLACIER: &str = "Arrow Glacier";
+    pub const ARROW_GLACIER: &str = "arrowGlacier";
     /// String identifier for the Gray Glacier hardfork
-    pub const GRAY_GLACIER: &str = "Gray Glacier";
+    pub const GRAY_GLACIER: &str = "grayGlacier";
     /// String identifier for the Paris/Merge hardfork
-    pub const MERGE: &str = "Merge";
+    pub const MERGE: &str = "merge";
     /// String identifier for the Shanghai hardfork
-    pub const SHANGHAI: &str = "Shanghai";
+    pub const SHANGHAI: &str = "shanghai";
     /// String identifier for the Cancun hardfork
-    pub const CANCUN: &str = "Cancun";
+    pub const CANCUN: &str = "cancun";
     /// String identifier for the Prague hardfork
-    pub const PRAGUE: &str = "Prague";
+    pub const PRAGUE: &str = "prague";
     /// String identifier for the Osaka hardfork
-    pub const OSAKA: &str = "Osaka";
+    pub const OSAKA: &str = "osaka";
     /// String identifier for the Amsterdam hardfork
-    pub const AMSTERDAM: &str = "Amsterdam";
+    pub const AMSTERDAM: &str = "amsterdam";
     /// String identifier for the latest hardfork
-    pub const LATEST: &str = "Latest";
+    pub const LATEST: &str = "latest";
 }
 
 #[cfg(test)]
@@ -183,10 +181,12 @@ mod tests {
             assert_eq!(L1Hardfork::from_str(name), Ok(hardfork));
         }
 
-        assert_eq!(L1Hardfork::from_str("Latest"), Err(UnknownHardfork));
+        assert_eq!(L1Hardfork::from_str("latest"), Err(UnknownHardfork));
         assert_eq!(L1Hardfork::from_str("NotAHardfork"), Err(UnknownHardfork));
         // strum must not fall back to parsing variant identifiers.
         assert_eq!(L1Hardfork::from_str("MUIR_GLACIER"), Err(UnknownHardfork));
+        // The pre-Hardhat-alignment names must no longer parse.
+        assert_eq!(L1Hardfork::from_str("MuirGlacier"), Err(UnknownHardfork));
     }
 
     #[test]
