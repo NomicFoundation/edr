@@ -17,8 +17,8 @@ pub mod op;
 /// Models protocol upgrades, including ones without EVM-semantics changes,
 /// unlike [`op_revm::OpSpecId`] which models EVM behavior classes.
 ///
-/// The `strum(serialize = …)` strings must stay identical to the [`name`]
-/// module constants.
+/// The strum-derived names (`serialize_all = "camelCase"`) must stay identical
+/// to the [`name`] module constants.
 #[repr(u8)]
 #[derive(
     Clone,
@@ -34,7 +34,7 @@ pub mod op;
     strum::EnumString,
     strum::IntoStaticStr,
 )]
-#[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
+#[strum(serialize_all = "camelCase", parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum OpHardfork {
     /// Bedrock hardfork
     Bedrock = 100,
@@ -89,25 +89,25 @@ impl From<OpHardfork> for EvmSpecId {
 /// String identifiers for OP hardforks.
 pub mod name {
     /// String identifier for the Bedrock hardfork
-    pub const BEDROCK: &str = "Bedrock";
+    pub const BEDROCK: &str = "bedrock";
     /// String identifier for the Regolith hardfork
-    pub const REGOLITH: &str = "Regolith";
+    pub const REGOLITH: &str = "regolith";
     /// String identifier for the Canyon hardfork
-    pub const CANYON: &str = "Canyon";
+    pub const CANYON: &str = "canyon";
     /// String identifier for the Ecotone hardfork
-    pub const ECOTONE: &str = "Ecotone";
+    pub const ECOTONE: &str = "ecotone";
     /// String identifier for the Fjord hardfork
-    pub const FJORD: &str = "Fjord";
+    pub const FJORD: &str = "fjord";
     /// String identifier for the Granite hardfork
-    pub const GRANITE: &str = "Granite";
+    pub const GRANITE: &str = "granite";
     /// String identifier for the Holocene hardfork
-    pub const HOLOCENE: &str = "Holocene";
+    pub const HOLOCENE: &str = "holocene";
     /// String identifier for the Isthmus hardfork
-    pub const ISTHMUS: &str = "Isthmus";
+    pub const ISTHMUS: &str = "isthmus";
     /// String identifier for the Jovian hardfork
-    pub const JOVIAN: &str = "Jovian";
+    pub const JOVIAN: &str = "jovian";
     /// String identifier for the Interop hardfork
-    pub const INTEROP: &str = "Interop";
+    pub const INTEROP: &str = "interop";
 }
 
 /// Returns the chain configurations for OP chains.
@@ -193,6 +193,8 @@ mod tests {
         assert_eq!(OpHardfork::from_str("NotAHardfork"), Err(UnknownHardfork));
         // strum must not fall back to parsing variant identifiers.
         assert_eq!(OpHardfork::from_str("BEDROCK"), Err(UnknownHardfork));
+        // The pre-Hardhat-alignment names must no longer parse.
+        assert_eq!(OpHardfork::from_str("Bedrock"), Err(UnknownHardfork));
     }
 
     #[test]
