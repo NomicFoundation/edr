@@ -144,7 +144,7 @@ async fn repro_config(
     (),
     L1EvmBuilder,
     edr_chain_l1::HaltReason,
-    edr_chain_l1::Hardfork,
+    edr_chain_l1::EvmHardfork,
     edr_chain_l1::InvalidTransaction,
     TxEnv,
 > {

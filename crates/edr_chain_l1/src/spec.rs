@@ -9,31 +9,32 @@ use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
 use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
-    BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec, HardforkChainSpec,
-    TransactionValidation,
+    BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec, EvmHardforkChainSpec,
+    EvmSpecId, ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
     handler::{EthInstructions, EthPrecompiles},
     interpreter::InterpreterResult,
-    BlockEnvTrait, CfgEnv, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
-    ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, Journal, LocalContext,
-    PrecompileProvider, TransactionError,
+    to_evm_cfg_env, BlockEnvTrait, CfgEnv, Context, ContextForChainSpec, Database, Evm,
+    EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, Journal,
+    LocalContext, PrecompileProvider, TransactionError,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
-use edr_primitives::{Bytes, HashMap};
+use edr_primitives::{Bytes, HashMap, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_state_api::StateDiff;
 use revm_context_interface::JournalTr as _;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    block::EthBlockBuilder,
+    block::L1BlockBuilder,
     chains::l1_chain_configs,
+    difficulty::{calculate_ethash_canonical_difficulty, PreMergeL1Hardfork},
     receipt::{builder::L1ExecutionReceiptBuilder, L1BlockReceipt},
     rpc::{
         block::L1RpcBlock,
@@ -54,7 +55,7 @@ impl BlockChainSpec for L1ChainSpec {
         dyn SyncBlock<Arc<Self::Receipt>, Self::SignedTransaction, Error = Self::FetchReceiptError>;
 
     type BlockBuilder<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync> =
-        EthBlockBuilder<
+        L1BlockBuilder<
             'builder,
             Self::Receipt,
             Self::Block,
@@ -71,9 +72,9 @@ impl BlockChainSpec for L1ChainSpec {
 
 impl BlockEnvChainSpec for L1ChainSpec {
     type BlockEnv<'header, BlockHeaderT>
-        = HeaderAndEvmSpec<'header, BlockHeaderT, Self::Hardfork>
+        = HeaderAndEvmSpec<'header, BlockHeaderT, Self::ProtocolHardfork>
     where
-        BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
+        BlockHeaderT: 'header + BlockEnvForHardfork<Self::ProtocolHardfork>;
 }
 
 impl ChainSpec for L1ChainSpec {
@@ -89,9 +90,9 @@ impl EvmChainSpec for L1ChainSpec {
     type PrecompileProvider<BlockEnvT: BlockEnvTrait, DatabaseT: Database> = EthPrecompiles;
 
     fn new_precompile_provider<BlockEnvT: BlockEnvTrait, DatabaseT: Database>(
-        hardfork: Self::Hardfork,
+        hardfork: Self::ProtocolHardfork,
     ) -> Self::PrecompileProvider<BlockEnvT, DatabaseT> {
-        EthPrecompiles::new(hardfork)
+        EthPrecompiles::new(hardfork.into())
     }
 
     fn dry_run<
@@ -103,7 +104,7 @@ impl EvmChainSpec for L1ChainSpec {
         >,
     >(
         block: BlockEnvT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -114,6 +115,7 @@ impl EvmChainSpec for L1ChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec;
         let context = Context {
             block,
@@ -144,7 +146,7 @@ impl EvmChainSpec for L1ChainSpec {
         >,
     >(
         block: BlockEnvT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -156,6 +158,7 @@ impl EvmChainSpec for L1ChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec;
         let context = Context {
             block,
@@ -192,14 +195,14 @@ impl GenesisBlockFactory for L1ChainSpec {
     type LocalBlock = EthLocalBlock<
         <Self as ReceiptChainSpec>::Receipt,
         <Self as BlockChainSpec>::FetchReceiptError,
-        Self::Hardfork,
+        Self::ProtocolHardfork,
         <Self as ChainSpec>::SignedTransaction,
     >;
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: &BlockConfig<Self::Hardfork>,
-        mut options: GenesisBlockOptions<Self::Hardfork>,
+        block_config: &BlockConfig<Self::ProtocolHardfork>,
+        mut options: GenesisBlockOptions<Self::ProtocolHardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
         options.extra_data = Some(
@@ -212,25 +215,48 @@ impl GenesisBlockFactory for L1ChainSpec {
     }
 }
 
-impl HardforkChainSpec for L1ChainSpec {
-    type Hardfork = Hardfork;
+impl EvmHardforkChainSpec for L1ChainSpec {
+    type EvmHardfork = EvmSpecId;
+}
+
+impl ProtocolHardforkChainSpec for L1ChainSpec {
+    type ProtocolHardfork = Hardfork;
 }
 
 impl ProviderChainSpec for L1ChainSpec {
-    const MIN_ETHASH_DIFFICULTY: u64 = L1_MIN_ETHASH_DIFFICULTY;
-
-    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>> {
+    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>> {
         l1_chain_configs()
     }
 
-    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork> {
         &L1_BASE_FEE_PARAMS
+    }
+
+    fn default_block_difficulty(
+        hardfork: Self::ProtocolHardfork,
+        parent: Option<&BlockHeader>,
+        block_number: u64,
+        block_timestamp: u64,
+    ) -> U256 {
+        match (PreMergeL1Hardfork::try_from(hardfork), parent) {
+            (Ok(hardfork), Some(parent)) => calculate_ethash_canonical_difficulty(
+                hardfork,
+                parent,
+                block_number,
+                block_timestamp,
+                L1_MIN_ETHASH_DIFFICULTY,
+            ),
+            // A pre-merge genesis block has no parent to derive a difficulty from.
+            (Ok(_hardfork), None) => U256::from(1),
+            // Post-merge blocks have no difficulty.
+            (Err(_hardfork), _) => U256::ZERO,
+        }
     }
 
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        hardfork: Self::Hardfork,
-        default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        hardfork: Self::ProtocolHardfork,
+        default_base_fee_params: &BaseFeeParams<Self::ProtocolHardfork>,
     ) -> u128 {
         calculate_next_base_fee_per_gas(
             header,
@@ -263,4 +289,111 @@ impl RpcChainSpec for L1ChainSpec {
     type RpcReceipt = L1RpcTransactionReceipt;
     type RpcTransaction = L1RpcTransactionWithSignature;
     type RpcTransactionRequest = L1RpcTransactionRequest;
+}
+
+#[cfg(test)]
+mod tests {
+    use edr_primitives::KECCAK_RLP_EMPTY_ARRAY;
+
+    use super::*;
+
+    /// A parent whose difficulty is an exact multiple of the bound divisor
+    /// (2048), so the adjustment term is a round number.
+    fn parent_header() -> BlockHeader {
+        BlockHeader {
+            difficulty: U256::from(2_048_000u64),
+            // No ommers, so the uncle addend is 1.
+            ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
+            timestamp: 0,
+            ..BlockHeader::default()
+        }
+    }
+
+    #[test]
+    fn pre_merge_with_parent_uses_ethash() {
+        // A 9 second gap with no ommers cancels the adjustment out entirely,
+        // leaving the parent's difficulty. The block number is far below the
+        // Byzantium bomb delay, so the bomb does not contribute either.
+        let difficulty = L1ChainSpec::default_block_difficulty(
+            Hardfork::BYZANTIUM,
+            Some(&parent_header()),
+            1_000,
+            9,
+        );
+
+        assert_eq!(difficulty, U256::from(2_048_000u64));
+    }
+
+    #[test]
+    fn pre_merge_applies_the_difficulty_bomb() {
+        // 300,000 blocks past Byzantium's 3,000,000 bomb delay is period 3,
+        // so the bomb adds 2^(3 - 2).
+        let difficulty = L1ChainSpec::default_block_difficulty(
+            Hardfork::BYZANTIUM,
+            Some(&parent_header()),
+            3_300_000,
+            9,
+        );
+
+        assert_eq!(difficulty, U256::from(2_048_002u64));
+    }
+
+    #[test]
+    fn pre_merge_bomb_delay_varies_per_hardfork() {
+        // The same block number is past Byzantium's bomb delay but not past
+        // Gray Glacier's, which is the only difference between the two.
+        let byzantium = L1ChainSpec::default_block_difficulty(
+            Hardfork::BYZANTIUM,
+            Some(&parent_header()),
+            3_300_000,
+            9,
+        );
+        let gray_glacier = L1ChainSpec::default_block_difficulty(
+            Hardfork::GRAY_GLACIER,
+            Some(&parent_header()),
+            3_300_000,
+            9,
+        );
+
+        assert_eq!(byzantium, U256::from(2_048_002u64));
+        assert_eq!(gray_glacier, U256::from(2_048_000u64));
+    }
+
+    #[test]
+    fn pre_merge_clamps_to_the_minimum_ethash_difficulty() {
+        let parent = BlockHeader {
+            difficulty: U256::from(1u64),
+            ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
+            timestamp: 0,
+            ..BlockHeader::default()
+        };
+
+        let difficulty =
+            L1ChainSpec::default_block_difficulty(Hardfork::BYZANTIUM, Some(&parent), 1_000, 9);
+
+        assert_eq!(difficulty, U256::from(L1_MIN_ETHASH_DIFFICULTY));
+    }
+
+    #[test]
+    fn pre_merge_genesis_block_has_difficulty_one() {
+        let difficulty = L1ChainSpec::default_block_difficulty(Hardfork::BYZANTIUM, None, 0, 0);
+
+        assert_eq!(difficulty, U256::from(1u64));
+    }
+
+    #[test]
+    fn post_merge_has_no_difficulty() {
+        for hardfork in [Hardfork::MERGE, Hardfork::CANCUN, Hardfork::OSAKA] {
+            assert_eq!(
+                L1ChainSpec::default_block_difficulty(hardfork, Some(&parent_header()), 1_000, 9),
+                U256::ZERO,
+                "{hardfork}"
+            );
+            assert_eq!(
+                L1ChainSpec::default_block_difficulty(hardfork, None, 0, 0),
+                U256::ZERO,
+                "{hardfork}"
+            );
+        }
+    }
 }

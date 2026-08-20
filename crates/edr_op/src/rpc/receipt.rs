@@ -13,7 +13,7 @@ use crate::{
 impl RpcTypeFrom<OpBlockReceipt> for OpRpcBlockReceipt {
     type Hardfork = Hardfork;
 
-    fn rpc_type_from(value: &OpBlockReceipt, _hardfork: Self::Hardfork) -> Self {
+    fn rpc_type_from(value: &OpBlockReceipt, _hardfork: Hardfork) -> Self {
         let transaction_type = u8::from(value.eth.inner.transaction_type());
 
         Self {

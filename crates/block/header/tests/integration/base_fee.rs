@@ -1,11 +1,9 @@
 use alloy_eips::eip1559::INITIAL_BASE_FEE;
 use edr_block_header::{
-    calculate_next_base_fee_per_gas, BlockConfig, BlockHeader, HeaderOverrides, PartialHeader,
+    calculate_next_base_fee_per_gas, zero_difficulty, BlockConfig, BlockHeader, HeaderOverrides,
+    PartialHeader,
 };
-use edr_chain_l1::{
-    chains::{l1_chain_config, L1_MAINNET_CHAIN_ID},
-    L1_MIN_ETHASH_DIFFICULTY,
-};
+use edr_chain_l1::chains::{l1_chain_config, L1_MAINNET_CHAIN_ID};
 use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams};
 
 const DEFAULT_INITIAL_BASE_FEE: u128 = INITIAL_BASE_FEE as u128;
@@ -23,9 +21,9 @@ fn test_partial_header_uses_base_fee_override() {
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("L1 Mainnet config should exist");
 
     let block_config = BlockConfig {
+        default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
         hardfork: edr_chain_l1::Hardfork::LONDON,
-        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: None,
     };
     let partial_header =
@@ -52,9 +50,9 @@ fn test_partial_header_base_fee_override_takes_precedence_over_base_fee_params_o
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("L1 Mainnet config should exist");
 
     let block_config = BlockConfig {
+        default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
         hardfork: edr_chain_l1::Hardfork::LONDON,
-        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: None,
     };
     let partial_header =
@@ -78,9 +76,9 @@ fn test_partial_header_ignores_base_fee_params_if_before_london() {
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("L1 Mainnet config should exist");
 
     let block_config = BlockConfig {
+        default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
         hardfork: edr_chain_l1::Hardfork::BERLIN,
-        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: None,
     };
     let partial_header =
@@ -98,9 +96,9 @@ fn test_partial_header_defaults_base_fee_if_no_override_after_london() {
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("L1 Mainnet config should exist");
 
     let block_config = BlockConfig {
+        default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
         hardfork: edr_chain_l1::Hardfork::LONDON,
-        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: None,
     };
 
@@ -125,9 +123,9 @@ fn test_partial_header_defaults_base_fee_if_no_parent_after_london() {
         l1_chain_config(L1_MAINNET_CHAIN_ID).expect("L1 Mainnet config should exist");
 
     let block_config = BlockConfig {
+        default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
         hardfork: edr_chain_l1::Hardfork::LONDON,
-        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: None,
     };
     let partial_header =
@@ -158,9 +156,9 @@ fn test_partial_header_uses_override_with_parent_after_london() {
         ..BlockHeader::default()
     };
     let block_config = BlockConfig {
+        default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
         hardfork: edr_chain_l1::Hardfork::LONDON,
-        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params: None,
     };
     let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(

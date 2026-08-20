@@ -1,4 +1,4 @@
-use edr_chain_l1::{receipt::L1BlockReceipt, rpc::receipt::L1RpcTransactionReceipt};
+use edr_chain_l1::{receipt::L1BlockReceipt, rpc::receipt::L1RpcTransactionReceipt, Hardfork};
 use edr_chain_spec_rpc::RpcTypeFrom;
 use edr_receipt::{log::FilterLog, AsExecutionReceipt as _};
 use serde::{Deserialize, Serialize};
@@ -95,9 +95,9 @@ impl RpcTypeFrom<L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>
 
     fn rpc_type_from(
         value: &L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>,
-        hardfork: Self::Hardfork,
+        hardfork: Hardfork,
     ) -> Self {
-        let transaction_type = if hardfork >= edr_chain_l1::Hardfork::BERLIN {
+        let transaction_type = if hardfork >= Hardfork::BERLIN {
             Some(u8::from(value.inner.transaction_type()))
         } else {
             None

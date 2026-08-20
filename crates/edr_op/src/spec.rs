@@ -4,21 +4,21 @@ use std::sync::Arc;
 use alloy_rlp::RlpEncodable;
 use edr_block_api::{sync::SyncBlock, GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::{
-    calculate_next_base_fee_per_gas, BlockConfig, BlockHeader, HeaderAndEvmSpec,
+    calculate_next_base_fee_per_gas, zero_difficulty, BlockConfig, BlockHeader, HeaderAndEvmSpec,
 };
 use edr_block_local::LocalBlockCreationError;
 use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_chain_spec::{
-    BlockEnvChainSpec, ChainSpec, ContextChainSpec, EvmHaltReason, EvmTransactionValidationError,
-    HardforkChainSpec, TransactionValidation,
+    BlockEnvChainSpec, ChainSpec, ContextChainSpec, EvmHaltReason, EvmHardforkChainSpec,
+    EvmTransactionValidationError, ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
-    handler::EthInstructions, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
-    ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, InterpreterResult, LocalContext,
-    PrecompileProvider, TransactionError,
+    handler::EthInstructions, to_evm_cfg_env, Context, ContextForChainSpec, Database, Evm,
+    EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, InterpreterResult,
+    LocalContext, PrecompileProvider, TransactionError,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
@@ -29,7 +29,7 @@ use edr_napi_core::{
     napi,
     spec::{cast_provider_result_to_response, SyncNapiSpec},
 };
-use edr_primitives::HashMap;
+use edr_primitives::{HashMap, U256};
 use edr_provider::{
     time::TimeSinceEpoch, ProviderErrorForChainSpec, ProviderSpec, ResponseWithCallTraces,
     TransactionFailureReason,
@@ -97,9 +97,9 @@ impl BlockChainSpec for OpChainSpec {
 
 impl BlockEnvChainSpec for OpChainSpec {
     type BlockEnv<'header, BlockHeaderT>
-        = HeaderAndEvmSpec<'header, BlockHeaderT, Self::Hardfork>
+        = HeaderAndEvmSpec<'header, BlockHeaderT, Self::ProtocolHardfork>
     where
-        BlockHeaderT: 'header + edr_chain_spec::BlockEnvForHardfork<Self::Hardfork>;
+        BlockHeaderT: 'header + edr_chain_spec::BlockEnvForHardfork<Self::ProtocolHardfork>;
 }
 
 impl ChainSpec for OpChainSpec {
@@ -115,9 +115,9 @@ impl EvmChainSpec for OpChainSpec {
     type PrecompileProvider<BlockT: revm_context::Block, DatabaseT: Database> = OpPrecompiles;
 
     fn new_precompile_provider<BlockT: revm_context::Block, DatabaseT: Database>(
-        hardfork: Self::Hardfork,
+        hardfork: Self::ProtocolHardfork,
     ) -> Self::PrecompileProvider<BlockT, DatabaseT> {
-        OpPrecompiles::new_with_spec(hardfork)
+        OpPrecompiles::new_with_spec(hardfork.into())
     }
 
     fn dry_run<
@@ -129,7 +129,7 @@ impl EvmChainSpec for OpChainSpec {
         >,
     >(
         block: BlockT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         mut database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -140,6 +140,7 @@ impl EvmChainSpec for OpChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec.into();
         let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)
             .map_err(TransactionError::Database)?;
@@ -173,7 +174,7 @@ impl EvmChainSpec for OpChainSpec {
         >,
     >(
         block: BlockT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         mut database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -185,6 +186,7 @@ impl EvmChainSpec for OpChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec.into();
         let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)
             .map_err(TransactionError::Database)?;
@@ -225,8 +227,8 @@ impl GenesisBlockFactory for OpChainSpec {
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: &BlockConfig<Self::Hardfork>,
-        mut options: GenesisBlockOptions<Self::Hardfork>,
+        block_config: &BlockConfig<Self::ProtocolHardfork>,
+        mut options: GenesisBlockOptions<Self::ProtocolHardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         let genesis_state = PersistentStateTrie::from(genesis_diff);
 
@@ -262,8 +264,12 @@ impl GenesisBlockFactory for OpChainSpec {
     }
 }
 
-impl HardforkChainSpec for OpChainSpec {
-    type Hardfork = Hardfork;
+impl EvmHardforkChainSpec for OpChainSpec {
+    type EvmHardfork = op_revm::OpSpecId;
+}
+
+impl ProtocolHardforkChainSpec for OpChainSpec {
+    type ProtocolHardfork = Hardfork;
 }
 
 /// Returns the base fee parameters to be used for the current block.
@@ -324,20 +330,28 @@ pub(crate) fn op_next_base_fee(
 }
 
 impl ProviderChainSpec for OpChainSpec {
-    const MIN_ETHASH_DIFFICULTY: u64 = 0;
-
-    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>> {
+    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>> {
         op_chain_configs()
     }
 
-    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork> {
         op_default_base_fee_params()
+    }
+
+    fn default_block_difficulty(
+        hardfork: Self::ProtocolHardfork,
+        parent: Option<&BlockHeader>,
+        block_number: u64,
+        block_timestamp: u64,
+    ) -> U256 {
+        // OP chains are post-merge, so they have no difficulty.
+        zero_difficulty(hardfork, parent, block_number, block_timestamp)
     }
 
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        hardfork: Self::Hardfork,
-        default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        hardfork: Self::ProtocolHardfork,
+        default_base_fee_params: &BaseFeeParams<Self::ProtocolHardfork>,
     ) -> u128 {
         let block_base_fee_params = op_base_fee_params_for_block(header, hardfork);
 

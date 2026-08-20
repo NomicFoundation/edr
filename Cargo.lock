@@ -2784,6 +2784,7 @@ dependencies = [
  "revm-primitives",
  "serde",
  "serde_json",
+ "strum 0.28.0",
  "thiserror 2.0.20",
  "tracing",
 ]
@@ -2904,6 +2905,7 @@ dependencies = [
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_chain_spec_evm",
+ "edr_chain_spec_provider",
  "edr_chain_spec_receipt",
  "edr_defaults",
  "edr_evm",
@@ -3283,6 +3285,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
+ "strum 0.28.0",
  "thiserror 2.0.20",
  "tokio",
 ]
@@ -3857,10 +3860,10 @@ version = "0.3.8"
 dependencies = [
  "anyhow",
  "clap",
+ "edr_op",
  "git2",
  "itertools 0.15.0",
  "log",
- "op-revm",
  "serde",
  "serde_json",
  "tempfile",

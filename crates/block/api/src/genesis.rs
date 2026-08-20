@@ -1,5 +1,5 @@
 use edr_block_header::{BlobGas, BlockConfig, HeaderOverrides};
-use edr_chain_spec::HardforkChainSpec;
+use edr_chain_spec::ProtocolHardforkChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Bytes, B256};
 use edr_state_api::StateDiff;
@@ -53,7 +53,7 @@ impl<HardforkT> From<GenesisBlockOptions<HardforkT>> for HeaderOverrides<Hardfor
 }
 
 /// Trait for constructing a chain-specific genesis block.
-pub trait GenesisBlockFactory: HardforkChainSpec {
+pub trait GenesisBlockFactory: ProtocolHardforkChainSpec {
     /// The error type for genesis block creation.
     type GenesisBlockCreationError: std::error::Error;
 
@@ -63,8 +63,8 @@ pub trait GenesisBlockFactory: HardforkChainSpec {
     /// Constructs a genesis block for the given chain spec.
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: &BlockConfig<Self::Hardfork>,
-        options: GenesisBlockOptions<Self::Hardfork>,
+        block_config: &BlockConfig<Self::ProtocolHardfork>,
+        options: GenesisBlockOptions<Self::ProtocolHardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError>;
 }
 

@@ -24,7 +24,7 @@ const CANCUN_BLOCK_NUMBER: u64 = 361_518_399;
 fn get_provider<
     ChainSpecT: SyncProviderSpec<
             CurrentTime,
-            Hardfork = edr_chain_l1::Hardfork,
+            ProtocolHardfork = edr_chain_l1::Hardfork,
             SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
         > + ProviderSpec<CurrentTime>,
 >(
