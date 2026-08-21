@@ -3,7 +3,7 @@
 // generated. To make changes, update the generator script instead in
 // `crates/tool/op_chain_config_generator/src/op_chain_config.rs`.
 //
-// source: https://github.com/ethereum-optimism/superchain-registry/tree/0b03f5387c86c018343dc758c7b8913429a60c6b/superchain/configs
+// source: https://github.com/ethereum-optimism/superchain-registry/tree/bb104b09fcd60fc01c8f8daf0f534aee88ff26de/superchain/configs
 
 use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation, HardforkActivations};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
@@ -43,6 +43,18 @@ pub(super) fn mainnet_config() -> ChainConfig<OpHardfork> {
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
                 hardfork: OpHardfork::Ecotone,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1767754800),
+                hardfork: OpHardfork::Fjord,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1767841200),
+                hardfork: OpHardfork::Granite,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1767927600),
+                hardfork: OpHardfork::Holocene,
             },
         ]),
         bpo_hardfork_schedule: None,
