@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation, HardforkActivations};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
 
 use super::OpHardfork;
@@ -53,6 +54,59 @@ pub(crate) static MAINNET_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpHardfork>> =
         ]))
     });
 
+/// `Base` chain configuration.
+///
+/// Base was removed from the superchain registry
+/// (<https://github.com/ethereum-optimism/superchain-registry/pull/1212>), so
+/// its configuration is maintained manually here. Hardfork activations are
+/// pinned from the last registry version that included them; new hardforks
+/// must be added by hand.
+pub(super) fn mainnet_config() -> ChainConfig<OpHardfork> {
+    ChainConfig {
+        name: "Base".into(),
+        base_fee_params: MAINNET_BASE_FEE_PARAMS.clone(),
+        hardfork_activations: HardforkActivations::new(vec![
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(0),
+                hardfork: OpHardfork::Bedrock,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(0),
+                hardfork: OpHardfork::Regolith,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1704992401),
+                hardfork: OpHardfork::Canyon,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1710374401),
+                hardfork: OpHardfork::Ecotone,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1720627201),
+                hardfork: OpHardfork::Fjord,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1726070401),
+                hardfork: OpHardfork::Granite,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1736445601),
+                hardfork: OpHardfork::Holocene,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1746806401),
+                hardfork: OpHardfork::Isthmus,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1764691201),
+                hardfork: OpHardfork::Jovian,
+            },
+        ]),
+        bpo_hardfork_schedule: None,
+    }
+}
+
 /// Base Sepolia chain ID
 pub const SEPOLIA_CHAIN_ID: u64 = 84532;
 
@@ -77,3 +131,52 @@ pub(crate) static SEPOLIA_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpHardfork>> =
             ),
         ]))
     });
+
+/// `Base Sepolia Testnet` chain configuration.
+///
+/// Maintained manually — see [`mainnet_config`].
+pub(super) fn sepolia_config() -> ChainConfig<OpHardfork> {
+    ChainConfig {
+        name: "Base Sepolia Testnet".into(),
+        base_fee_params: SEPOLIA_BASE_FEE_PARAMS.clone(),
+        hardfork_activations: HardforkActivations::new(vec![
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(0),
+                hardfork: OpHardfork::Bedrock,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(0),
+                hardfork: OpHardfork::Regolith,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1699981200),
+                hardfork: OpHardfork::Canyon,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1708534800),
+                hardfork: OpHardfork::Ecotone,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1716998400),
+                hardfork: OpHardfork::Fjord,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1723478400),
+                hardfork: OpHardfork::Granite,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1732633200),
+                hardfork: OpHardfork::Holocene,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1744905600),
+                hardfork: OpHardfork::Isthmus,
+            },
+            HardforkActivation {
+                condition: ForkCondition::Timestamp(1763568001),
+                hardfork: OpHardfork::Jovian,
+            },
+        ]),
+        bpo_hardfork_schedule: None,
+    }
+}
