@@ -8,8 +8,8 @@ use edr_primitives::UnknownHardfork;
 /// Models protocol upgrades, including ones without EVM-semantics changes,
 /// unlike [`EvmSpecId`] which models EVM behavior classes.
 ///
-/// The strum-derived names (`serialize_all = "camelCase"`) must stay identical
-/// to the [`name`] module constants.
+/// The strum-derived names (`serialize_all = "camelCase"`) are public API;
+/// the expected strings are pinned in this module's tests.
 #[repr(u8)]
 #[derive(
     Clone,
@@ -86,42 +86,6 @@ impl From<L1Hardfork> for EvmSpecId {
     }
 }
 
-/// String identifiers for L1 hardforks.
-pub mod name {
-    /// String identifier for the Byzantium hardfork
-    pub const BYZANTIUM: &str = "byzantium";
-    /// String identifier for the Constantinople hardfork
-    pub const CONSTANTINOPLE: &str = "constantinople";
-    /// String identifier for the Petersburg hardfork
-    pub const PETERSBURG: &str = "petersburg";
-    /// String identifier for the Istanbul hardfork
-    pub const ISTANBUL: &str = "istanbul";
-    /// String identifier for the Muir Glacier hardfork
-    pub const MUIR_GLACIER: &str = "muirGlacier";
-    /// String identifier for the Berlin hardfork
-    pub const BERLIN: &str = "berlin";
-    /// String identifier for the London hardfork
-    pub const LONDON: &str = "london";
-    /// String identifier for the Arrow Glacier hardfork
-    pub const ARROW_GLACIER: &str = "arrowGlacier";
-    /// String identifier for the Gray Glacier hardfork
-    pub const GRAY_GLACIER: &str = "grayGlacier";
-    /// String identifier for the Paris/Merge hardfork
-    pub const MERGE: &str = "merge";
-    /// String identifier for the Shanghai hardfork
-    pub const SHANGHAI: &str = "shanghai";
-    /// String identifier for the Cancun hardfork
-    pub const CANCUN: &str = "cancun";
-    /// String identifier for the Prague hardfork
-    pub const PRAGUE: &str = "prague";
-    /// String identifier for the Osaka hardfork
-    pub const OSAKA: &str = "osaka";
-    /// String identifier for the Amsterdam hardfork
-    pub const AMSTERDAM: &str = "amsterdam";
-    /// String identifier for the latest hardfork
-    pub const LATEST: &str = "latest";
-}
-
 #[cfg(test)]
 mod tests {
     use core::str::FromStr;
@@ -153,24 +117,24 @@ mod tests {
         }
     }
 
-    /// The strings the `strum` derives emit/parse must stay in sync with the
-    /// [`name`] module constants, which are re-exported as public API.
+    /// The public hardfork name strings. Changing one is a breaking change
+    /// for consumers.
     const NAMES: [&str; 15] = [
-        name::BYZANTIUM,
-        name::CONSTANTINOPLE,
-        name::PETERSBURG,
-        name::ISTANBUL,
-        name::MUIR_GLACIER,
-        name::BERLIN,
-        name::LONDON,
-        name::ARROW_GLACIER,
-        name::GRAY_GLACIER,
-        name::MERGE,
-        name::SHANGHAI,
-        name::CANCUN,
-        name::PRAGUE,
-        name::OSAKA,
-        name::AMSTERDAM,
+        "byzantium",
+        "constantinople",
+        "petersburg",
+        "istanbul",
+        "muirGlacier",
+        "berlin",
+        "london",
+        "arrowGlacier",
+        "grayGlacier",
+        "merge",
+        "shanghai",
+        "cancun",
+        "prague",
+        "osaka",
+        "amsterdam",
     ];
 
     #[test]
@@ -185,7 +149,7 @@ mod tests {
         assert_eq!(L1Hardfork::from_str("NotAHardfork"), Err(UnknownHardfork));
         // strum must not fall back to parsing variant identifiers.
         assert_eq!(L1Hardfork::from_str("MUIR_GLACIER"), Err(UnknownHardfork));
-        // The pre-Hardhat-alignment names must no longer parse.
+        // Former (PascalCase) names must no longer parse.
         assert_eq!(L1Hardfork::from_str("MuirGlacier"), Err(UnknownHardfork));
     }
 

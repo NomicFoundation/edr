@@ -192,10 +192,6 @@ export interface AddressLabel {
  */
 export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
 
-export const AMSTERDAM: string
-
-export const ARROW_GLACIER: string
-
 /** A compilation artifact. */
 export interface Artifact {
   /** The identifier of the artifact. */
@@ -247,10 +243,6 @@ export interface BaseFeeParamActivation {
   elasticityMultiplier: bigint
 }
 
-export const BEDROCK: string
-
-export const BERLIN: string
-
 /** Information about the blob gas used in a block. */
 export interface BlobGas {
   /**
@@ -277,8 +269,6 @@ export interface BuildInfoAndOutput {
   /** The build info output file */
   output: Uint8Array
 }
-
-export const BYZANTIUM: string
 
 /** What chains to cache */
 export declare enum CachedChains {
@@ -375,10 +365,6 @@ export interface CallTrace {
   children: Array<CallTrace | LogTrace>
 }
 
-export const CANCUN: string
-
-export const CANYON: string
-
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
   /** The chain ID */
@@ -439,8 +425,6 @@ export declare enum CollectStackTraces {
    */
   OnFailure = 1
 }
-
-export const CONSTANTINOPLE: string
 
 export const CONSTRUCTOR_FUNCTION_NAME: string
 
@@ -570,8 +554,6 @@ export interface DirectLibraryCallErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
-export const ECOTONE: string
-
 /**
  * Indicates that the EVM has experienced an exceptional halt. This causes
  * execution to immediately end with all gas being consumed.
@@ -646,8 +628,6 @@ export interface FallbackNotPayableErrorStackTraceEntry {
   value: bigint
   sourceReference: SourceReference
 }
-
-export const FJORD: string
 
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
@@ -828,10 +808,6 @@ export const GENERIC_CHAIN_TYPE: string
 
 export declare function genericChainProviderFactory(): ProviderFactory
 
-export const GRANITE: string
-
-export const GRAY_GLACIER: string
-
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
   /** The exceptional halt that occurred */
@@ -871,8 +847,6 @@ export interface HeuristicFailed {
   /** Enum tag for JS. */
   kind: "HeuristicFailed"
 }
-
-export const HOLOCENE: string
 
 export interface HttpHeader {
   name: string
@@ -1183,10 +1157,6 @@ export interface InvariantTestKind {
   readonly failedCorpusReplays: bigint
 }
 
-export const ISTANBUL: string
-
-export const ISTHMUS: string
-
 export const L1_CHAIN_TYPE: string
 
 export declare function l1GenesisState(hardfork: SpecId): Array<AccountOverride>
@@ -1263,14 +1233,10 @@ export interface LogTrace {
   parameters: DecodedTraceParameters | Array<Uint8Array>
 }
 
-export const LONDON: string
-
 /** Configuration for the provider's mempool. */
 export interface MemPoolConfig {
   order: MineOrdering
 }
-
-export const MERGE: string
 
 /** The type of ordering to use when selecting blocks to mine. */
 export declare enum MineOrdering {
@@ -1299,8 +1265,6 @@ export interface MissingFallbackOrReceiveErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
-export const MUIR_GLACIER: string
-
 export interface NonContractAccountCalledErrorStackTraceEntry {
   type: StackTraceEntryType.NONCONTRACT_ACCOUNT_CALLED_ERROR
   sourceReference: SourceReference
@@ -1325,7 +1289,7 @@ export const OP_CHAIN_TYPE: string
 
 export declare function opGenesisState(hardfork: OpHardfork): Array<AccountOverride>
 
-/** Enumeration of supported OP hardforks. */
+/** Identifier for the OP hardfork. */
 export declare enum OpHardfork {
   Bedrock = 100,
   Regolith = 101,
@@ -1359,8 +1323,6 @@ export declare function opProviderFactory(): ProviderFactory
 
 export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory
 
-export const OSAKA: string
-
 export interface OtherExecutionErrorStackTraceEntry {
   type: StackTraceEntryType.OTHER_EXECUTION_ERROR
   sourceReference?: SourceReference
@@ -1379,10 +1341,6 @@ export interface PathPermission {
   /** The targeted path guarded by the permission */
   path: string
 }
-
-export const PETERSBURG: string
-
-export const PRAGUE: string
 
 export const PRECOMPILE_FUNCTION_NAME: string
 
@@ -1481,8 +1439,6 @@ export interface ProviderConfig {
 
 export const RECEIVE_FUNCTION_NAME: string
 
-export const REGOLITH: string
-
 export interface ReturndataSizeErrorStackTraceEntry {
   type: StackTraceEntryType.RETURNDATA_SIZE_ERROR
   sourceReference: SourceReference
@@ -1504,8 +1460,6 @@ export interface RevertResult {
   /** The transaction output */
   output: Uint8Array
 }
-
-export const SHANGHAI: string
 
 export type SolidityStackTrace =
   Array<SolidityStackTraceEntry>

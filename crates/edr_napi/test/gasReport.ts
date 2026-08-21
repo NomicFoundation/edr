@@ -10,9 +10,10 @@ import {
   genericChainProviderFactory,
   l1GenesisState,
   l1HardforkFromString,
+  l1HardforkToString,
   MineOrdering,
   Provider,
-  SHANGHAI,
+  SpecId,
   SubscriptionEvent,
   TracingConfigWithBuffers,
 } from "..";
@@ -65,7 +66,7 @@ const providerConfig = {
   ),
   defaultTransactionGasLimit: 6_000_000n,
   genesisState,
-  hardfork: SHANGHAI,
+  hardfork: l1HardforkToString(SpecId.Shanghai),
   initialParentBeaconBlockRoot: Uint8Array.from(
     Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",

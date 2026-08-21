@@ -6,7 +6,6 @@ use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation};
 use edr_eip7892::ScheduledBlobParams;
 use edr_primitives::HashMap;
 
-pub use crate::hardfork::name;
 use crate::{Hardfork, L1_BASE_FEE_PARAMS};
 
 /// Mainnet chain ID

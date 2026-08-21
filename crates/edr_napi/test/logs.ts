@@ -6,11 +6,12 @@ import {
   ContractDecoder,
   l1GenesisState,
   l1HardforkFromString,
+  l1HardforkToString,
   MineOrdering,
   // @ts-ignore MockTime is absent in the testNoBuild (no test-mock) build
   MockTime,
   Provider,
-  SHANGHAI,
+  SpecId,
   SubscriptionEvent,
 } from "..";
 import {
@@ -226,7 +227,7 @@ const providerConfig = {
   ),
   defaultTransactionGasLimit: 6_000_000n,
   genesisState,
-  hardfork: SHANGHAI,
+  hardfork: l1HardforkToString(SpecId.Shanghai),
   initialParentBeaconBlockRoot: new Uint8Array(
     Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",
