@@ -14,10 +14,23 @@ const FULL = `${OWNER}/${REPO}`;
 
 // Build a mocked { github, context, core } plus a `captured` record of the
 // side effects the module produced (outputs, logs, comments, reactions).
-function makeDeps({ eventName, sha, payload = {}, ci, pr } = {}) {
+//
+// `pinFile` is the raw content of .github/hardhat-compat-pin.json (absent →
+// repos.getContent 404s, i.e. no pin). `hardhatPr` is the Hardhat PR that a
+// valid pin's pulls.get resolves to.
+function makeDeps({
+  eventName,
+  sha,
+  payload = {},
+  ci,
+  pr,
+  pinFile,
+  hardhatPr,
+} = {}) {
   const captured = {
     outputs: {},
     infos: [],
+    notices: [],
     warnings: [],
     comments: [],
     reactions: [],
@@ -28,6 +41,7 @@ function makeDeps({ eventName, sha, payload = {}, ci, pr } = {}) {
       captured.outputs[k] = v;
     },
     info: (m) => captured.infos.push(m),
+    notice: (m) => captured.notices.push(m),
     warning: (m) => captured.warnings.push(m),
   };
 
@@ -39,9 +53,26 @@ function makeDeps({ eventName, sha, payload = {}, ci, pr } = {}) {
         }),
       },
       pulls: {
-        get: async () => {
+        get: async ({ repo: pullRepo }) => {
+          if (pullRepo === "hardhat") {
+            if (hardhatPr === undefined)
+              throw new Error("hardhat pulls.get not expected");
+            return { data: hardhatPr };
+          }
           if (pr === undefined) throw new Error("pulls.get not expected");
           return { data: pr };
+        },
+      },
+      repos: {
+        getContent: async () => {
+          if (pinFile === undefined) {
+            const e = new Error("Not Found");
+            e.status = 404;
+            throw e;
+          }
+          return {
+            data: { content: Buffer.from(pinFile).toString("base64") },
+          };
         },
       },
       issues: {
@@ -256,6 +287,147 @@ test("issue_comment → parses an unquoted single-token filter", async () => {
   assert.equal(captured.outputs.benchmark_filter, "cold-compile");
   // No scenarios= given → default `*` (all projects).
   assert.equal(captured.outputs.scenario_filter, "*");
+});
+
+// ---------------------------------------------------------------------------
+// Hardhat compat pin (.github/hardhat-compat-pin.json)
+// ---------------------------------------------------------------------------
+
+const PIN_SHA = "a".repeat(40);
+const PIN_FILE = JSON.stringify({
+  pr: 5678,
+  sha: PIN_SHA,
+  reason: "needs hardhat counterpart",
+});
+
+test("push → open pin PR pins the Hardhat ref", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "push",
+    sha: "deadbeefcafe1234",
+    pinFile: PIN_FILE,
+    hardhatPr: { state: "open", merged: false },
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.should_run, "true");
+  assert.equal(captured.outputs.hardhat_ref, PIN_SHA);
+  assert.equal(captured.outputs.is_baseline, "true");
+});
+
+test("push → merged pin PR reverts to main and suggests removing the pin", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "push",
+    sha: "deadbeefcafe1234",
+    pinFile: PIN_FILE,
+    hardhatPr: { state: "closed", merged: true },
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.hardhat_ref, "main");
+  assert.equal(captured.notices.length, 1);
+  assert.match(captured.notices[0], /can now be removed/);
+});
+
+test("push → pin PR closed without merging reverts to main with a warning", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "push",
+    sha: "deadbeefcafe1234",
+    pinFile: PIN_FILE,
+    hardhatPr: { state: "closed", merged: false },
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.hardhat_ref, "main");
+  assert.equal(captured.warnings.length, 1);
+  assert.match(captured.warnings[0], /closed without merging/);
+});
+
+test("push → malformed pin fails the run loudly", async () => {
+  for (const pinFile of [
+    "not json",
+    JSON.stringify({ pr: 5678 }), // missing sha
+    JSON.stringify({ pr: 5678, sha: "abc123" }), // short sha
+    JSON.stringify({ pr: "5678", sha: PIN_SHA }), // pr not a number
+  ]) {
+    const { captured, ...deps } = makeDeps({
+      eventName: "push",
+      sha: "deadbeefcafe1234",
+      pinFile,
+    });
+    await assert.rejects(resolve(deps), /hardhat-compat-pin\.json/);
+  }
+});
+
+test("workflow_dispatch → empty hardhat-ref uses an open pin", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "workflow_dispatch",
+    sha: "abc123",
+    payload: { inputs: {} },
+    pinFile: PIN_FILE,
+    hardhatPr: { state: "open", merged: false },
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.hardhat_ref, PIN_SHA);
+  assert.equal(captured.outputs.is_baseline, "false");
+});
+
+test("workflow_dispatch → explicit hardhat-ref wins over the pin", async () => {
+  // No `hardhatPr` in the mock: resolving the pin would throw, proving the
+  // pin file isn't even consulted when an explicit ref is given.
+  const { captured, ...deps } = makeDeps({
+    eventName: "workflow_dispatch",
+    sha: "abc123",
+    payload: { inputs: { "hardhat-ref": "v-next" } },
+    pinFile: PIN_FILE,
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.hardhat_ref, "v-next");
+});
+
+test("issue_comment → `/bench` without hardhat-ref uses an open pin and says so", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "issue_comment",
+    payload: commentPayload("/bench"),
+    pr: { head: { repo: { full_name: FULL }, sha: "1234567890ab" } },
+    ci: { id: 1, status: "completed", conclusion: "success" },
+    pinFile: PIN_FILE,
+    hardhatPr: { state: "open", merged: false },
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.should_run, "true");
+  assert.equal(captured.outputs.hardhat_ref, PIN_SHA);
+  assert.match(
+    captured.comments[0],
+    /compat pin for NomicFoundation\/hardhat#5678/
+  );
+});
+
+test("issue_comment → explicit hardhat-ref= wins over the pin", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "issue_comment",
+    payload: commentPayload("/bench hardhat-ref=feature/x"),
+    pr: { head: { repo: { full_name: FULL }, sha: "1234567890ab" } },
+    ci: { id: 1, status: "completed", conclusion: "success" },
+    pinFile: PIN_FILE,
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.should_run, "true");
+  assert.equal(captured.outputs.hardhat_ref, "feature/x");
+  assert.doesNotMatch(captured.comments[0], /compat pin/);
+});
+
+test("issue_comment → malformed pin posts an error comment and skips the run", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "issue_comment",
+    payload: commentPayload("/bench"),
+    pr: { head: { repo: { full_name: FULL }, sha: "1234567890ab" } },
+    ci: { id: 1, status: "completed", conclusion: "success" },
+    pinFile: "not json",
+  });
+  await resolve(deps);
+  assert.equal(captured.outputs.should_run, "false");
+  assert.equal(captured.comments.length, 1);
+  assert.match(
+    captured.comments[0],
+    /Could not resolve the Hardhat compat pin/
+  );
 });
 
 test("issue_comment → same-repo PR with failing CI does not run", async () => {
