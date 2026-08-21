@@ -440,10 +440,9 @@ fn generate_hardfork_activations_for(
             format!(
                 "
             HardforkActivation {{
-                condition: ForkCondition::Timestamp({}),
-                hardfork: OpHardfork::{},
-            }},",
-                activation, hardfork_str
+                condition: ForkCondition::Timestamp({activation}),
+                hardfork: OpHardfork::{hardfork_str},
+            }},"
             )
         })
         .collect();
