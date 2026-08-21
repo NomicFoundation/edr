@@ -13,7 +13,7 @@ import {
   l1HardforkToString,
   MineOrdering,
   Provider,
-  SpecId,
+  L1Hardfork,
   SubscriptionEvent,
   TracingConfigWithBuffers,
 } from "..";
@@ -66,7 +66,7 @@ const providerConfig = {
   ),
   defaultTransactionGasLimit: 6_000_000n,
   genesisState,
-  hardfork: l1HardforkToString(SpecId.Shanghai),
+  hardfork: l1HardforkToString(L1Hardfork.Shanghai),
   initialParentBeaconBlockRoot: Uint8Array.from(
     Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",

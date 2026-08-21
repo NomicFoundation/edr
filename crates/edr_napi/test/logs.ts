@@ -11,7 +11,7 @@ import {
   // @ts-ignore MockTime is absent in the testNoBuild (no test-mock) build
   MockTime,
   Provider,
-  SpecId,
+  L1Hardfork,
   SubscriptionEvent,
 } from "..";
 import {
@@ -227,7 +227,7 @@ const providerConfig = {
   ),
   defaultTransactionGasLimit: 6_000_000n,
   genesisState,
-  hardfork: l1HardforkToString(SpecId.Shanghai),
+  hardfork: l1HardforkToString(L1Hardfork.Shanghai),
   initialParentBeaconBlockRoot: new Uint8Array(
     Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000000",

@@ -56,7 +56,7 @@ impl SyncProviderFactory for L1ProviderFactory {
 pub const L1_CHAIN_TYPE: &str = edr_chain_l1::CHAIN_TYPE;
 
 #[napi(catch_unwind)]
-pub fn l1_genesis_state(hardfork: SpecId) -> Vec<AccountOverride> {
+pub fn l1_genesis_state(hardfork: L1Hardfork) -> Vec<AccountOverride> {
     // Use closures for lazy execution
     let beacon_roots_account_constructor = || AccountOverride {
         address: Uint8Array::with_data_copied(BEACON_ROOTS_ADDRESS),
@@ -76,9 +76,9 @@ pub fn l1_genesis_state(hardfork: SpecId) -> Vec<AccountOverride> {
         storage: Some(Vec::new()),
     };
 
-    if hardfork < SpecId::Cancun {
+    if hardfork < L1Hardfork::Cancun {
         Vec::new()
-    } else if hardfork < SpecId::Prague {
+    } else if hardfork < L1Hardfork::Prague {
         vec![beacon_roots_account_constructor()]
     } else {
         vec![
@@ -100,7 +100,7 @@ pub fn l1_provider_factory() -> ProviderFactory {
 // generate the TS enum; string conversions delegate to the domain type.
 #[napi]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum SpecId {
+pub enum L1Hardfork {
     /// Byzantium
     Byzantium = 6,
     /// Constantinople
@@ -133,12 +133,12 @@ pub enum SpecId {
     Amsterdam = 20,
 }
 
-impl FromStr for SpecId {
+impl FromStr for L1Hardfork {
     type Err = napi::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         s.parse::<edr_chain_l1::Hardfork>()
-            .map(SpecId::from)
+            .map(L1Hardfork::from)
             .map_err(|edr_primitives::UnknownHardfork| {
                 napi::Error::new(
                     napi::Status::InvalidArg,
@@ -148,97 +148,97 @@ impl FromStr for SpecId {
     }
 }
 
-impl From<SpecId> for &'static str {
-    fn from(value: SpecId) -> Self {
+impl From<L1Hardfork> for &'static str {
+    fn from(value: L1Hardfork) -> Self {
         edr_chain_l1::Hardfork::from(value).into()
     }
 }
 
-impl From<edr_chain_l1::Hardfork> for SpecId {
+impl From<edr_chain_l1::Hardfork> for L1Hardfork {
     fn from(value: edr_chain_l1::Hardfork) -> Self {
         match value {
-            edr_chain_l1::Hardfork::Byzantium => SpecId::Byzantium,
-            edr_chain_l1::Hardfork::Constantinople => SpecId::Constantinople,
-            edr_chain_l1::Hardfork::Petersburg => SpecId::Petersburg,
-            edr_chain_l1::Hardfork::Istanbul => SpecId::Istanbul,
-            edr_chain_l1::Hardfork::MuirGlacier => SpecId::MuirGlacier,
-            edr_chain_l1::Hardfork::Berlin => SpecId::Berlin,
-            edr_chain_l1::Hardfork::London => SpecId::London,
-            edr_chain_l1::Hardfork::ArrowGlacier => SpecId::ArrowGlacier,
-            edr_chain_l1::Hardfork::GrayGlacier => SpecId::GrayGlacier,
-            edr_chain_l1::Hardfork::Merge => SpecId::Merge,
-            edr_chain_l1::Hardfork::Shanghai => SpecId::Shanghai,
-            edr_chain_l1::Hardfork::Cancun => SpecId::Cancun,
-            edr_chain_l1::Hardfork::Prague => SpecId::Prague,
-            edr_chain_l1::Hardfork::Osaka => SpecId::Osaka,
-            edr_chain_l1::Hardfork::Amsterdam => SpecId::Amsterdam,
+            edr_chain_l1::Hardfork::Byzantium => L1Hardfork::Byzantium,
+            edr_chain_l1::Hardfork::Constantinople => L1Hardfork::Constantinople,
+            edr_chain_l1::Hardfork::Petersburg => L1Hardfork::Petersburg,
+            edr_chain_l1::Hardfork::Istanbul => L1Hardfork::Istanbul,
+            edr_chain_l1::Hardfork::MuirGlacier => L1Hardfork::MuirGlacier,
+            edr_chain_l1::Hardfork::Berlin => L1Hardfork::Berlin,
+            edr_chain_l1::Hardfork::London => L1Hardfork::London,
+            edr_chain_l1::Hardfork::ArrowGlacier => L1Hardfork::ArrowGlacier,
+            edr_chain_l1::Hardfork::GrayGlacier => L1Hardfork::GrayGlacier,
+            edr_chain_l1::Hardfork::Merge => L1Hardfork::Merge,
+            edr_chain_l1::Hardfork::Shanghai => L1Hardfork::Shanghai,
+            edr_chain_l1::Hardfork::Cancun => L1Hardfork::Cancun,
+            edr_chain_l1::Hardfork::Prague => L1Hardfork::Prague,
+            edr_chain_l1::Hardfork::Osaka => L1Hardfork::Osaka,
+            edr_chain_l1::Hardfork::Amsterdam => L1Hardfork::Amsterdam,
         }
     }
 }
 
-impl From<SpecId> for edr_chain_l1::Hardfork {
-    fn from(value: SpecId) -> Self {
+impl From<L1Hardfork> for edr_chain_l1::Hardfork {
+    fn from(value: L1Hardfork) -> Self {
         match value {
-            SpecId::Byzantium => edr_chain_l1::Hardfork::Byzantium,
-            SpecId::Constantinople => edr_chain_l1::Hardfork::Constantinople,
-            SpecId::Petersburg => edr_chain_l1::Hardfork::Petersburg,
-            SpecId::Istanbul => edr_chain_l1::Hardfork::Istanbul,
-            SpecId::MuirGlacier => edr_chain_l1::Hardfork::MuirGlacier,
-            SpecId::Berlin => edr_chain_l1::Hardfork::Berlin,
-            SpecId::London => edr_chain_l1::Hardfork::London,
-            SpecId::ArrowGlacier => edr_chain_l1::Hardfork::ArrowGlacier,
-            SpecId::GrayGlacier => edr_chain_l1::Hardfork::GrayGlacier,
-            SpecId::Merge => edr_chain_l1::Hardfork::Merge,
-            SpecId::Shanghai => edr_chain_l1::Hardfork::Shanghai,
-            SpecId::Cancun => edr_chain_l1::Hardfork::Cancun,
-            SpecId::Prague => edr_chain_l1::Hardfork::Prague,
-            SpecId::Osaka => edr_chain_l1::Hardfork::Osaka,
-            SpecId::Amsterdam => edr_chain_l1::Hardfork::Amsterdam,
+            L1Hardfork::Byzantium => edr_chain_l1::Hardfork::Byzantium,
+            L1Hardfork::Constantinople => edr_chain_l1::Hardfork::Constantinople,
+            L1Hardfork::Petersburg => edr_chain_l1::Hardfork::Petersburg,
+            L1Hardfork::Istanbul => edr_chain_l1::Hardfork::Istanbul,
+            L1Hardfork::MuirGlacier => edr_chain_l1::Hardfork::MuirGlacier,
+            L1Hardfork::Berlin => edr_chain_l1::Hardfork::Berlin,
+            L1Hardfork::London => edr_chain_l1::Hardfork::London,
+            L1Hardfork::ArrowGlacier => edr_chain_l1::Hardfork::ArrowGlacier,
+            L1Hardfork::GrayGlacier => edr_chain_l1::Hardfork::GrayGlacier,
+            L1Hardfork::Merge => edr_chain_l1::Hardfork::Merge,
+            L1Hardfork::Shanghai => edr_chain_l1::Hardfork::Shanghai,
+            L1Hardfork::Cancun => edr_chain_l1::Hardfork::Cancun,
+            L1Hardfork::Prague => edr_chain_l1::Hardfork::Prague,
+            L1Hardfork::Osaka => edr_chain_l1::Hardfork::Osaka,
+            L1Hardfork::Amsterdam => edr_chain_l1::Hardfork::Amsterdam,
         }
     }
 }
 
-/// Tries to parse the provided string to create a [`SpecId`] instance.
+/// Tries to parse the provided string to create an [`L1Hardfork`] instance.
 ///
 /// Returns an error if the string does not match any known hardfork.
 #[napi(catch_unwind)]
-pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
+pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<L1Hardfork> {
     hardfork.parse()
 }
 
 #[napi(catch_unwind)]
-pub fn l1_hardfork_to_string(hardfork: SpecId) -> &'static str {
+pub fn l1_hardfork_to_string(hardfork: L1Hardfork) -> &'static str {
     hardfork.into()
 }
 
-/// Returns the latest supported OP hardfork.
+/// Returns the latest supported L1 hardfork.
 ///
 /// The returned value will be updated after each network upgrade.
 #[napi]
-pub fn l1_hardfork_latest() -> SpecId {
-    SpecId::Osaka
+pub fn l1_hardfork_latest() -> L1Hardfork {
+    L1Hardfork::Osaka
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const VARIANTS: [SpecId; 15] = [
-        SpecId::Byzantium,
-        SpecId::Constantinople,
-        SpecId::Petersburg,
-        SpecId::Istanbul,
-        SpecId::MuirGlacier,
-        SpecId::Berlin,
-        SpecId::London,
-        SpecId::ArrowGlacier,
-        SpecId::GrayGlacier,
-        SpecId::Merge,
-        SpecId::Shanghai,
-        SpecId::Cancun,
-        SpecId::Prague,
-        SpecId::Osaka,
-        SpecId::Amsterdam,
+    const VARIANTS: [L1Hardfork; 15] = [
+        L1Hardfork::Byzantium,
+        L1Hardfork::Constantinople,
+        L1Hardfork::Petersburg,
+        L1Hardfork::Istanbul,
+        L1Hardfork::MuirGlacier,
+        L1Hardfork::Berlin,
+        L1Hardfork::London,
+        L1Hardfork::ArrowGlacier,
+        L1Hardfork::GrayGlacier,
+        L1Hardfork::Merge,
+        L1Hardfork::Shanghai,
+        L1Hardfork::Cancun,
+        L1Hardfork::Prague,
+        L1Hardfork::Osaka,
+        L1Hardfork::Amsterdam,
     ];
 
     /// The two hand-written `From` conversion tables must be inverses of
@@ -249,7 +249,7 @@ mod tests {
             let name = l1_hardfork_to_string(spec_id);
             let hardfork: edr_chain_l1::Hardfork = name.parse().unwrap();
             assert_eq!(edr_chain_l1::Hardfork::from(spec_id), hardfork);
-            assert_eq!(SpecId::from_str(name).unwrap(), spec_id);
+            assert_eq!(L1Hardfork::from_str(name).unwrap(), spec_id);
         }
     }
 }
