@@ -311,18 +311,19 @@ index c2bd27290c8ceab5d014a86bd50a891aa24ab07c..623ba6268d5cfaad3ebf463b73880be2
 +{"version":3,"file":"provider.js","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":"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"}
 \ No newline at end of file
 diff --git a/internal/hardhat-network/provider/utils/convertToEdr.d.ts b/internal/hardhat-network/provider/utils/convertToEdr.d.ts
-index 69eebf11f2d8a5847ea74db738007391dde986b7..e91c521e4e420e13520f2114f1595cf0625510ba 100644
+index 69eebf11f2d8a5847ea74db738007391dde986b7..498b0c31286157833577cff91b07917f0a7a6007 100644
 --- a/internal/hardhat-network/provider/utils/convertToEdr.d.ts
 +++ b/internal/hardhat-network/provider/utils/convertToEdr.d.ts
 @@ -1,13 +1,11 @@
 -import type { SpecId, MineOrdering, IntervalRange, DebugTraceResult, TracingMessage, TracingMessageResult, TracingStep, HttpHeader } from "@nomicfoundation/edr";
-+import type { SpecId, MineOrdering, IntervalRange, TracingMessage, TracingMessageResult, TracingStep, HttpHeader } from "@nomicfoundation/edr";
++import type { L1Hardfork, MineOrdering, IntervalRange, TracingMessage, TracingMessageResult, TracingStep, HttpHeader } from "@nomicfoundation/edr";
  import { HardforkName } from "../../../util/hardforks";
  import { IntervalMiningConfig, MempoolOrder } from "../node-types";
 -import { RpcDebugTraceOutput } from "../output";
  import { MinimalEVMResult, MinimalInterpreterStep, MinimalMessage } from "../vm/types";
  export declare function ethereumsjsHardforkToEdrSpecId(hardfork: HardforkName): string;
- export declare function edrSpecIdToEthereumHardfork(specId: SpecId): HardforkName;
+-export declare function edrSpecIdToEthereumHardfork(specId: SpecId): HardforkName;
++export declare function edrSpecIdToEthereumHardfork(specId: L1Hardfork): HardforkName;
  export declare function ethereumjsIntervalMiningConfigToEdr(config: IntervalMiningConfig): bigint | IntervalRange | undefined;
  export declare function ethereumjsMempoolOrderToEdrMineOrdering(mempoolOrder: MempoolOrder): MineOrdering;
 -export declare function edrRpcDebugTraceToHardhat(rpcDebugTrace: DebugTraceResult): RpcDebugTraceOutput;
@@ -339,18 +340,119 @@ index 23b0715c04680d560c779a40890217d96f60916f..11771582b3e38226fac624b9e10a7849
 +{"version":3,"file":"convertToEdr.d.ts","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/convertToEdr.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EACV,MAAM,EACN,YAAY,EACZ,aAAa,EAEb,cAAc,EACd,oBAAoB,EACpB,WAAW,EACX,UAAU,EACX,MAAM,sBAAsB,CAAC;AAyB9B,OAAO,EAAE,YAAY,EAAE,MAAM,yBAAyB,CAAC;AACvD,OAAO,EAAE,oBAAoB,EAAE,YAAY,EAAE,MAAM,eAAe,CAAC;AAEnE,OAAO,EACL,gBAAgB,EAChB,sBAAsB,EACtB,cAAc,EACf,MAAM,aAAa,CAAC;AAIrB,wBAAgB,8BAA8B,CAAC,QAAQ,EAAE,YAAY,GAAG,MAAM,CA8C7E;AAED,wBAAgB,2BAA2B,CAAC,MAAM,EAAE,MAAM,GAAG,YAAY,CAgDxE;AAED,wBAAgB,mCAAmC,CACjD,MAAM,EAAE,oBAAoB,GAC3B,MAAM,GAAG,aAAa,GAAG,SAAS,CAcpC;AAED,wBAAgB,uCAAuC,CACrD,YAAY,EAAE,YAAY,GACzB,YAAY,CAWd;AAED,wBAAgB,sCAAsC,CACpD,IAAI,EAAE,WAAW,GAChB,sBAAsB,CAexB;AAED,wBAAgB,yCAAyC,CACvD,oBAAoB,EAAE,oBAAoB,GACzC,gBAAgB,CA+BlB;AAED,wBAAgB,iCAAiC,CAC/C,OAAO,EAAE,cAAc,GACtB,cAAc,CAahB;AAED,wBAAgB,gBAAgB,CAAC,KAAK,CAAC,EAAE;IACvC,CAAC,IAAI,EAAE,MAAM,GAAG,MAAM,CAAC;CACxB,GAAG,UAAU,EAAE,GAAG,SAAS,CAc3B"}
 \ No newline at end of file
 diff --git a/internal/hardhat-network/provider/utils/convertToEdr.js b/internal/hardhat-network/provider/utils/convertToEdr.js
-index 9f306964d32309a3a72626fd5d522d2066758821..607ded63b8d569231d32202a368f1f6852708ba0 100644
+index 9f306964d32309a3a72626fd5d522d2066758821..53b7bcd1328b2bcf7ca82e2596ef0bc639553010 100644
 --- a/internal/hardhat-network/provider/utils/convertToEdr.js
 +++ b/internal/hardhat-network/provider/utils/convertToEdr.js
-@@ -1,6 +1,6 @@
+@@ -1,101 +1,20 @@
  "use strict";
  Object.defineProperty(exports, "__esModule", { value: true });
 -exports.httpHeadersToEdr = exports.edrTracingMessageToMinimalMessage = exports.edrTracingMessageResultToMinimalEVMResult = exports.edrTracingStepToMinimalInterpreterStep = exports.edrRpcDebugTraceToHardhat = exports.ethereumjsMempoolOrderToEdrMineOrdering = exports.ethereumjsIntervalMiningConfigToEdr = exports.edrSpecIdToEthereumHardfork = exports.ethereumsjsHardforkToEdrSpecId = void 0;
+-const edr_1 = require("@nomicfoundation/edr");
 +exports.httpHeadersToEdr = exports.edrTracingMessageToMinimalMessage = exports.edrTracingMessageResultToMinimalEVMResult = exports.edrTracingStepToMinimalInterpreterStep = exports.ethereumjsMempoolOrderToEdrMineOrdering = exports.ethereumjsIntervalMiningConfigToEdr = exports.edrSpecIdToEthereumHardfork = exports.ethereumsjsHardforkToEdrSpecId = void 0;
- const edr_1 = require("@nomicfoundation/edr");
  const util_1 = require("@ethereumjs/util");
  const napi_rs_1 = require("../../../../common/napi-rs");
-@@ -126,50 +126,6 @@ function ethereumjsMempoolOrderToEdrMineOrdering(mempoolOrder) {
+ const hardforks_1 = require("../../../util/hardforks");
+ /* eslint-disable @nomicfoundation/hardhat-internal-rules/only-hardhat-error */
+ function ethereumsjsHardforkToEdrSpecId(hardfork) {
+-    switch (hardfork) {
+-        case hardforks_1.HardforkName.FRONTIER:
+-            return edr_1.FRONTIER;
+-        case hardforks_1.HardforkName.HOMESTEAD:
+-            return edr_1.HOMESTEAD;
+-        case hardforks_1.HardforkName.DAO:
+-            return edr_1.DAO_FORK;
+-        case hardforks_1.HardforkName.TANGERINE_WHISTLE:
+-            return edr_1.TANGERINE;
+-        case hardforks_1.HardforkName.SPURIOUS_DRAGON:
+-            return edr_1.SPURIOUS_DRAGON;
+-        case hardforks_1.HardforkName.BYZANTIUM:
+-            return edr_1.BYZANTIUM;
+-        case hardforks_1.HardforkName.CONSTANTINOPLE:
+-            return edr_1.CONSTANTINOPLE;
+-        case hardforks_1.HardforkName.PETERSBURG:
+-            return edr_1.PETERSBURG;
+-        case hardforks_1.HardforkName.ISTANBUL:
+-            return edr_1.ISTANBUL;
+-        case hardforks_1.HardforkName.MUIR_GLACIER:
+-            return edr_1.MUIR_GLACIER;
+-        case hardforks_1.HardforkName.BERLIN:
+-            return edr_1.BERLIN;
+-        case hardforks_1.HardforkName.LONDON:
+-            return edr_1.LONDON;
+-        case hardforks_1.HardforkName.ARROW_GLACIER:
+-            return edr_1.ARROW_GLACIER;
+-        case hardforks_1.HardforkName.GRAY_GLACIER:
+-            return edr_1.GRAY_GLACIER;
+-        case hardforks_1.HardforkName.MERGE:
+-            return edr_1.MERGE;
+-        case hardforks_1.HardforkName.SHANGHAI:
+-            return edr_1.SHANGHAI;
+-        case hardforks_1.HardforkName.CANCUN:
+-            return edr_1.CANCUN;
+-        case hardforks_1.HardforkName.PRAGUE:
+-            return edr_1.PRAGUE;
+-        case hardforks_1.HardforkName.OSAKA:
+-            return edr_1.OSAKA;
+-        default:
+-            const _exhaustiveCheck = hardfork;
+-            throw new Error(`Unknown hardfork name '${hardfork}', this shouldn't happen`);
+-    }
++    // EDR's hardfork names match Hardhat's, so no conversion is needed. Names
++    // EDR does not support (e.g. pre-Byzantium) are rejected by EDR itself.
++    return hardfork;
+ }
+ exports.ethereumsjsHardforkToEdrSpecId = ethereumsjsHardforkToEdrSpecId;
+ function edrSpecIdToEthereumHardfork(specId) {
+-    const { SpecId } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
+-    switch (specId) {
+-        case SpecId.Frontier:
+-            return hardforks_1.HardforkName.FRONTIER;
+-        case SpecId.Homestead:
+-            return hardforks_1.HardforkName.HOMESTEAD;
+-        case SpecId.DaoFork:
+-            return hardforks_1.HardforkName.DAO;
+-        case SpecId.Tangerine:
+-            return hardforks_1.HardforkName.TANGERINE_WHISTLE;
+-        case SpecId.SpuriousDragon:
+-            return hardforks_1.HardforkName.SPURIOUS_DRAGON;
+-        case SpecId.Byzantium:
+-            return hardforks_1.HardforkName.BYZANTIUM;
+-        case SpecId.Constantinople:
+-            return hardforks_1.HardforkName.CONSTANTINOPLE;
+-        case SpecId.Petersburg:
+-            return hardforks_1.HardforkName.PETERSBURG;
+-        case SpecId.Istanbul:
+-            return hardforks_1.HardforkName.ISTANBUL;
+-        case SpecId.MuirGlacier:
+-            return hardforks_1.HardforkName.MUIR_GLACIER;
+-        case SpecId.Berlin:
+-            return hardforks_1.HardforkName.BERLIN;
+-        case SpecId.London:
+-            return hardforks_1.HardforkName.LONDON;
+-        case SpecId.ArrowGlacier:
+-            return hardforks_1.HardforkName.ARROW_GLACIER;
+-        case SpecId.GrayGlacier:
+-            return hardforks_1.HardforkName.GRAY_GLACIER;
+-        case SpecId.Merge:
+-            return hardforks_1.HardforkName.MERGE;
+-        case SpecId.Shanghai:
+-            return hardforks_1.HardforkName.SHANGHAI;
+-        case SpecId.Cancun:
+-            return hardforks_1.HardforkName.CANCUN;
+-        case SpecId.Prague:
+-            return hardforks_1.HardforkName.PRAGUE;
+-        case SpecId.Osaka:
+-            return hardforks_1.HardforkName.OSAKA;
+-        default:
+-            throw new Error(`Unknown spec id '${specId}', this shouldn't happen`);
+-    }
++    const { l1HardforkToString } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++    // EDR's hardfork names match Hardhat's, so no conversion is needed.
++    return l1HardforkToString(specId);
+ }
+ exports.edrSpecIdToEthereumHardfork = edrSpecIdToEthereumHardfork;
+ function ethereumjsIntervalMiningConfigToEdr(config) {
+@@ -126,50 +45,6 @@ function ethereumjsMempoolOrderToEdrMineOrdering(mempoolOrder) {
      }
  }
  exports.ethereumjsMempoolOrderToEdrMineOrdering = ethereumjsMempoolOrderToEdrMineOrdering;
@@ -737,10 +839,154 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..4636477ae060c71beadf065749aaa938
  
      const context = await getGlobalEdrContext();
 diff --git a/src/internal/hardhat-network/provider/utils/convertToEdr.ts b/src/internal/hardhat-network/provider/utils/convertToEdr.ts
-index 7fc17b29c0483c4f72ec471f8be60ce7d563add8..4dc5ebf3db263a281623ac2b161b7b5bb24a96a6 100644
+index 7fc17b29c0483c4f72ec471f8be60ce7d563add8..6e29625e68e2b6d45f91042bd10fbbabfe70f518 100644
 --- a/src/internal/hardhat-network/provider/utils/convertToEdr.ts
 +++ b/src/internal/hardhat-network/provider/utils/convertToEdr.ts
-@@ -174,62 +174,6 @@ export function ethereumjsMempoolOrderToEdrMineOrdering(
+@@ -1,5 +1,5 @@
+ import type {
+-  SpecId,
++  L1Hardfork,
+   MineOrdering,
+   IntervalRange,
+   DebugTraceResult,
+@@ -8,27 +8,6 @@ import type {
+   TracingStep,
+   HttpHeader,
+ } from "@nomicfoundation/edr";
+-import {
+-  FRONTIER,
+-  HOMESTEAD,
+-  DAO_FORK,
+-  TANGERINE,
+-  SPURIOUS_DRAGON,
+-  BYZANTIUM,
+-  CONSTANTINOPLE,
+-  PETERSBURG,
+-  ISTANBUL,
+-  MUIR_GLACIER,
+-  BERLIN,
+-  LONDON,
+-  ARROW_GLACIER,
+-  GRAY_GLACIER,
+-  MERGE,
+-  SHANGHAI,
+-  CANCUN,
+-  PRAGUE,
+-  OSAKA,
+-} from "@nomicfoundation/edr";
+ import { Address } from "@ethereumjs/util";
+ 
+ import { requireNapiRsModule } from "../../../../common/napi-rs";
+@@ -44,101 +23,18 @@ import {
+ /* eslint-disable @nomicfoundation/hardhat-internal-rules/only-hardhat-error */
+ 
+ export function ethereumsjsHardforkToEdrSpecId(hardfork: HardforkName): string {
+-  switch (hardfork) {
+-    case HardforkName.FRONTIER:
+-      return FRONTIER;
+-    case HardforkName.HOMESTEAD:
+-      return HOMESTEAD;
+-    case HardforkName.DAO:
+-      return DAO_FORK;
+-    case HardforkName.TANGERINE_WHISTLE:
+-      return TANGERINE;
+-    case HardforkName.SPURIOUS_DRAGON:
+-      return SPURIOUS_DRAGON;
+-    case HardforkName.BYZANTIUM:
+-      return BYZANTIUM;
+-    case HardforkName.CONSTANTINOPLE:
+-      return CONSTANTINOPLE;
+-    case HardforkName.PETERSBURG:
+-      return PETERSBURG;
+-    case HardforkName.ISTANBUL:
+-      return ISTANBUL;
+-    case HardforkName.MUIR_GLACIER:
+-      return MUIR_GLACIER;
+-    case HardforkName.BERLIN:
+-      return BERLIN;
+-    case HardforkName.LONDON:
+-      return LONDON;
+-    case HardforkName.ARROW_GLACIER:
+-      return ARROW_GLACIER;
+-    case HardforkName.GRAY_GLACIER:
+-      return GRAY_GLACIER;
+-    case HardforkName.MERGE:
+-      return MERGE;
+-    case HardforkName.SHANGHAI:
+-      return SHANGHAI;
+-    case HardforkName.CANCUN:
+-      return CANCUN;
+-    case HardforkName.PRAGUE:
+-      return PRAGUE;
+-    case HardforkName.OSAKA:
+-      return OSAKA;
+-    default:
+-      const _exhaustiveCheck: never = hardfork;
+-      throw new Error(
+-        `Unknown hardfork name '${hardfork as string}', this shouldn't happen`
+-      );
+-  }
++  // EDR's hardfork names match Hardhat's, so no conversion is needed. Names
++  // EDR does not support (e.g. pre-Byzantium) are rejected by EDR itself.
++  return hardfork;
+ }
+ 
+-export function edrSpecIdToEthereumHardfork(specId: SpecId): HardforkName {
+-  const { SpecId } = requireNapiRsModule(
++export function edrSpecIdToEthereumHardfork(specId: L1Hardfork): HardforkName {
++  const { l1HardforkToString } = requireNapiRsModule(
+     "@nomicfoundation/edr"
+   ) as typeof import("@nomicfoundation/edr");
+ 
+-  switch (specId) {
+-    case SpecId.Frontier:
+-      return HardforkName.FRONTIER;
+-    case SpecId.Homestead:
+-      return HardforkName.HOMESTEAD;
+-    case SpecId.DaoFork:
+-      return HardforkName.DAO;
+-    case SpecId.Tangerine:
+-      return HardforkName.TANGERINE_WHISTLE;
+-    case SpecId.SpuriousDragon:
+-      return HardforkName.SPURIOUS_DRAGON;
+-    case SpecId.Byzantium:
+-      return HardforkName.BYZANTIUM;
+-    case SpecId.Constantinople:
+-      return HardforkName.CONSTANTINOPLE;
+-    case SpecId.Petersburg:
+-      return HardforkName.PETERSBURG;
+-    case SpecId.Istanbul:
+-      return HardforkName.ISTANBUL;
+-    case SpecId.MuirGlacier:
+-      return HardforkName.MUIR_GLACIER;
+-    case SpecId.Berlin:
+-      return HardforkName.BERLIN;
+-    case SpecId.London:
+-      return HardforkName.LONDON;
+-    case SpecId.ArrowGlacier:
+-      return HardforkName.ARROW_GLACIER;
+-    case SpecId.GrayGlacier:
+-      return HardforkName.GRAY_GLACIER;
+-    case SpecId.Merge:
+-      return HardforkName.MERGE;
+-    case SpecId.Shanghai:
+-      return HardforkName.SHANGHAI;
+-    case SpecId.Cancun:
+-      return HardforkName.CANCUN;
+-    case SpecId.Prague:
+-      return HardforkName.PRAGUE;
+-    case SpecId.Osaka:
+-      return HardforkName.OSAKA;
+-
+-    default:
+-      throw new Error(`Unknown spec id '${specId}', this shouldn't happen`);
+-  }
++  // EDR's hardfork names match Hardhat's, so no conversion is needed.
++  return l1HardforkToString(specId) as HardforkName;
+ }
+ 
+ export function ethereumjsIntervalMiningConfigToEdr(
+@@ -174,62 +70,6 @@ export function ethereumjsMempoolOrderToEdrMineOrdering(
    }
  }
  
