@@ -485,6 +485,26 @@ fn test_serde_log_output() {
         transaction_hash: Some(B256::from(U256::from(1))),
         block_hash: Some(B256::from(U256::from(2))),
         block_number: Some(0),
+        block_timestamp: Some(1_700_000_000),
+        address: Address::from(U160::from(1)),
+        data: Bytes::from_static(b"whatever"),
+        topics: vec![B256::from(U256::from(3)), B256::from(U256::from(3))],
+    });
+}
+
+#[test]
+fn test_serde_log_output_without_block_timestamp() {
+    // The field is optional in the spec, and a log from a node predating
+    // execution-apis#639 arrives without it, so absence must round-trip rather
+    // than becoming a fabricated value.
+    help_test_serde_value(LogOutput {
+        removed: false,
+        log_index: Some(0),
+        transaction_index: Some(99),
+        transaction_hash: Some(B256::from(U256::from(1))),
+        block_hash: Some(B256::from(U256::from(2))),
+        block_number: Some(0),
+        block_timestamp: None,
         address: Address::from(U160::from(1)),
         data: Bytes::from_static(b"whatever"),
         topics: vec![B256::from(U256::from(3)), B256::from(U256::from(3))],
