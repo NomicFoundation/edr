@@ -40,6 +40,203 @@ index 991bcb9217f76c32af422acd493fa9610b1e4b3c..24858adbac67dbc65d1d2c078d69f0e4
          networkId: BigInt(networkConfig.networkId),
          observability: {
              codeCoverage: coverageConfig,
+diff --git a/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.d.ts b/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.d.ts
+index f481140b7212d2e72f4623d828776567c35f8701..3306f4e5db9eae8d8cccf0effe69570fb7d7b7b1 100644
+--- a/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.d.ts
++++ b/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.d.ts
+@@ -2,9 +2,9 @@ import type { EdrNetworkAccountConfig, EdrNetworkAccountsConfig, ChainDescriptor
+ import type { ChainType } from "../../../../../types/network.js";
+ import type { GasMeasurement } from "../../../gas-analytics/types.js";
+ import type { IntervalRange, ChainOverride, ForkConfig, GasReport } from "@nomicfoundation/edr";
+-import { MineOrdering, OpHardfork, SpecId } from "@nomicfoundation/edr";
++import { MineOrdering, OpHardfork, L1Hardfork } from "@nomicfoundation/edr";
+ import { L1HardforkName, OpHardforkName } from "../types/hardfork.js";
+-export declare function edrL1HardforkToHardhatL1HardforkName(hardfork: SpecId): L1HardforkName;
++export declare function edrL1HardforkToHardhatL1HardforkName(hardfork: L1Hardfork): L1HardforkName;
+ export declare function edrOpHardforkToHardhatOpHardforkName(hardfork: OpHardfork): OpHardforkName;
+ export declare function hardhatHardforkToEdrSpecId(hardfork: string, chainType: ChainType): string;
+ export declare function hardhatMiningIntervalToEdrMiningInterval(config: EdrNetworkMiningConfig["interval"]): bigint | IntervalRange | undefined;
+diff --git a/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js b/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js
+index 26ad9bd84e7c1a0886226d184bc577975aaf6569..68477e297c0c045a97035d6a2b6e645c8e704c6d 100644
+--- a/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js
++++ b/dist/src/internal/builtin-plugins/network-manager/edr/utils/convert-to-edr.js
+@@ -1,4 +1,4 @@
+-import { GasReportExecutionStatus, MineOrdering, OpHardfork, SpecId, FRONTIER, HOMESTEAD, DAO_FORK, TANGERINE, SPURIOUS_DRAGON, BYZANTIUM, CONSTANTINOPLE, PETERSBURG, ISTANBUL, MUIR_GLACIER, BERLIN, LONDON, ARROW_GLACIER, GRAY_GLACIER, MERGE, SHANGHAI, CANCUN, PRAGUE, OSAKA, BEDROCK, REGOLITH, CANYON, ECOTONE, FJORD, GRANITE, HOLOCENE, ISTHMUS, } from "@nomicfoundation/edr";
++import { GasReportExecutionStatus, l1HardforkToString, MineOrdering, opHardforkToString, } from "@nomicfoundation/edr";
+ import { GENERIC_CHAIN_TYPE, L1_CHAIN_TYPE, OPTIMISM_CHAIN_TYPE, } from "../../../../constants.js";
+ import { FixedValueConfigurationVariable } from "../../../../core/configuration-variables.js";
+ import { derivePrivateKeys } from "../../accounts/derive-private-keys.js";
+@@ -6,80 +6,12 @@ import { DEFAULT_EDR_NETWORK_BALANCE, EDR_NETWORK_DEFAULT_PRIVATE_KEYS, isDefaul
+ import { L1HardforkName, OpHardforkName } from "../types/hardfork.js";
+ import { getL1HardforkName, getOpHardforkName } from "./hardfork.js";
+ export function edrL1HardforkToHardhatL1HardforkName(hardfork) {
+-    switch (hardfork) {
+-        case SpecId.Frontier:
+-            return L1HardforkName.FRONTIER;
+-        case SpecId.FrontierThawing:
+-            return L1HardforkName.FRONTIER;
+-        case SpecId.Homestead:
+-            return L1HardforkName.HOMESTEAD;
+-        case SpecId.DaoFork:
+-            return L1HardforkName.DAO;
+-        case SpecId.Tangerine:
+-            return L1HardforkName.TANGERINE_WHISTLE;
+-        case SpecId.SpuriousDragon:
+-            return L1HardforkName.SPURIOUS_DRAGON;
+-        case SpecId.Byzantium:
+-            return L1HardforkName.BYZANTIUM;
+-        case SpecId.Constantinople:
+-            return L1HardforkName.CONSTANTINOPLE;
+-        case SpecId.Petersburg:
+-            return L1HardforkName.PETERSBURG;
+-        case SpecId.Istanbul:
+-            return L1HardforkName.ISTANBUL;
+-        case SpecId.MuirGlacier:
+-            return L1HardforkName.MUIR_GLACIER;
+-        case SpecId.Berlin:
+-            return L1HardforkName.BERLIN;
+-        case SpecId.London:
+-            return L1HardforkName.LONDON;
+-        case SpecId.ArrowGlacier:
+-            return L1HardforkName.ARROW_GLACIER;
+-        case SpecId.GrayGlacier:
+-            return L1HardforkName.GRAY_GLACIER;
+-        case SpecId.Merge:
+-            return L1HardforkName.MERGE;
+-        case SpecId.Shanghai:
+-            return L1HardforkName.SHANGHAI;
+-        case SpecId.Cancun:
+-            return L1HardforkName.CANCUN;
+-        case SpecId.Prague:
+-            return L1HardforkName.PRAGUE;
+-        case SpecId.Osaka:
+-            return L1HardforkName.OSAKA;
+-        // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- trust but verify
+-        default:
+-            const _exhaustiveCheck = hardfork;
+-            throw new Error(
+-            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- we want to print the fork
+-            `Unknown L1 hardfork '${hardfork}', this shouldn't happen`);
+-    }
++    // EDR's hardfork names match Hardhat's, so no conversion is needed.
++    return l1HardforkToString(hardfork);
+ }
+ export function edrOpHardforkToHardhatOpHardforkName(hardfork) {
+-    switch (hardfork) {
+-        case OpHardfork.Bedrock:
+-            return OpHardforkName.BEDROCK;
+-        case OpHardfork.Regolith:
+-            return OpHardforkName.REGOLITH;
+-        case OpHardfork.Canyon:
+-            return OpHardforkName.CANYON;
+-        case OpHardfork.Ecotone:
+-            return OpHardforkName.ECOTONE;
+-        case OpHardfork.Fjord:
+-            return OpHardforkName.FJORD;
+-        case OpHardfork.Granite:
+-            return OpHardforkName.GRANITE;
+-        case OpHardfork.Holocene:
+-            return OpHardforkName.HOLOCENE;
+-        case OpHardfork.Isthmus:
+-            return OpHardforkName.ISTHMUS;
+-        // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- trust but verify
+-        default:
+-            const _exhaustiveCheck = hardfork;
+-            throw new Error(
+-            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- we want to print the fork
+-            `Unknown OP hardfork '${hardfork}', this shouldn't happen`);
+-    }
++    // EDR's hardfork names match Hardhat's, so no conversion is needed.
++    return opHardforkToString(hardfork);
+ }
+ export function hardhatHardforkToEdrSpecId(hardfork, chainType) {
+     return chainType === OPTIMISM_CHAIN_TYPE
+@@ -87,80 +19,13 @@ export function hardhatHardforkToEdrSpecId(hardfork, chainType) {
+         : hardhatL1HardforkToEdrSpecId(hardfork);
+ }
+ function hardhatOpHardforkToEdrSpecId(hardfork) {
+-    const hardforkName = getOpHardforkName(hardfork);
+-    switch (hardforkName) {
+-        case OpHardforkName.BEDROCK:
+-            return BEDROCK;
+-        case OpHardforkName.REGOLITH:
+-            return REGOLITH;
+-        case OpHardforkName.CANYON:
+-            return CANYON;
+-        case OpHardforkName.ECOTONE:
+-            return ECOTONE;
+-        case OpHardforkName.FJORD:
+-            return FJORD;
+-        case OpHardforkName.GRANITE:
+-            return GRANITE;
+-        case OpHardforkName.HOLOCENE:
+-            return HOLOCENE;
+-        case OpHardforkName.ISTHMUS:
+-            return ISTHMUS;
+-        // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- trust but verify
+-        default:
+-            const _exhaustiveCheck = hardforkName;
+-            throw new Error(
+-            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- we want to print the fork
+-            `Unknown hardfork name '${hardforkName}', this shouldn't happen`);
+-    }
++    // EDR's hardfork names match Hardhat's, so no conversion is needed.
++    return getOpHardforkName(hardfork);
+ }
+ function hardhatL1HardforkToEdrSpecId(hardfork) {
+-    const hardforkName = getL1HardforkName(hardfork);
+-    switch (hardforkName) {
+-        case L1HardforkName.FRONTIER:
+-            return FRONTIER;
+-        case L1HardforkName.HOMESTEAD:
+-            return HOMESTEAD;
+-        case L1HardforkName.DAO:
+-            return DAO_FORK;
+-        case L1HardforkName.TANGERINE_WHISTLE:
+-            return TANGERINE;
+-        case L1HardforkName.SPURIOUS_DRAGON:
+-            return SPURIOUS_DRAGON;
+-        case L1HardforkName.BYZANTIUM:
+-            return BYZANTIUM;
+-        case L1HardforkName.CONSTANTINOPLE:
+-            return CONSTANTINOPLE;
+-        case L1HardforkName.PETERSBURG:
+-            return PETERSBURG;
+-        case L1HardforkName.ISTANBUL:
+-            return ISTANBUL;
+-        case L1HardforkName.MUIR_GLACIER:
+-            return MUIR_GLACIER;
+-        case L1HardforkName.BERLIN:
+-            return BERLIN;
+-        case L1HardforkName.LONDON:
+-            return LONDON;
+-        case L1HardforkName.ARROW_GLACIER:
+-            return ARROW_GLACIER;
+-        case L1HardforkName.GRAY_GLACIER:
+-            return GRAY_GLACIER;
+-        case L1HardforkName.MERGE:
+-            return MERGE;
+-        case L1HardforkName.SHANGHAI:
+-            return SHANGHAI;
+-        case L1HardforkName.CANCUN:
+-            return CANCUN;
+-        case L1HardforkName.PRAGUE:
+-            return PRAGUE;
+-        case L1HardforkName.OSAKA:
+-            return OSAKA;
+-        // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- we want to print the fork
+-        default:
+-            const _exhaustiveCheck = hardforkName;
+-            throw new Error(
+-            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- an enum can be safely cast to a string
+-            `Unknown hardfork name '${hardfork}', this shouldn't happen`);
+-    }
++    // EDR's hardfork names match Hardhat's, so no conversion is needed. Names
++    // EDR does not support (e.g. pre-Byzantium) are rejected by EDR itself.
++    return getL1HardforkName(hardfork);
+ }
+ export function hardhatMiningIntervalToEdrMiningInterval(config) {
+     if (typeof config === "number") {
 diff --git a/dist/src/internal/builtin-plugins/solidity-test/helpers.js b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
 index 2370cd07ecb5f7913c8325b01f15302c90170ee9..17bde110d70ea1a4d5c4973af7b23e379c52b624 100644
 --- a/dist/src/internal/builtin-plugins/solidity-test/helpers.js
@@ -68,7 +265,7 @@ index 2370cd07ecb5f7913c8325b01f15302c90170ee9..17bde110d70ea1a4d5c4973af7b23e37
          ethRpcUrl,
          forkBlockNumber,
 diff --git a/package.json b/package.json
-index 6a8b5dc220db7a3c595be286bea9ad5ef515deae..dfea18b5f4bde1ca4a0279cacec6578403eddb36 100644
+index 6a8b5dc220db7a3c595be286bea9ad5ef515deae..aa6b42d41a0e3a95965110c14124cff58c800612 100644
 --- a/package.json
 +++ b/package.json
 @@ -41,6 +41,9 @@
