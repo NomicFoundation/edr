@@ -56,9 +56,13 @@ impl SyncProviderFactory for OpProviderFactory {
     }
 }
 
-/// Enumeration of supported OP hardforks.
+/// Identifier for the OP hardfork.
+//
+// N-API projection of [`edr_op::Hardfork`], which only exists to generate
+// the TS enum; string conversions delegate to the domain type. Excludes
+// hardforks that are not exposed over N-API yet (Jovian, Interop).
 #[napi]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OpHardfork {
     Bedrock = 100,
     Regolith = 101,
@@ -85,23 +89,37 @@ impl From<OpHardfork> for edr_op::Hardfork {
     }
 }
 
+impl From<OpHardfork> for &'static str {
+    fn from(value: OpHardfork) -> Self {
+        edr_op::Hardfork::from(value).into()
+    }
+}
+
 impl FromStr for OpHardfork {
     type Err = napi::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            edr_op::hardfork::name::BEDROCK => Ok(OpHardfork::Bedrock),
-            edr_op::hardfork::name::REGOLITH => Ok(OpHardfork::Regolith),
-            edr_op::hardfork::name::CANYON => Ok(OpHardfork::Canyon),
-            edr_op::hardfork::name::ECOTONE => Ok(OpHardfork::Ecotone),
-            edr_op::hardfork::name::FJORD => Ok(OpHardfork::Fjord),
-            edr_op::hardfork::name::GRANITE => Ok(OpHardfork::Granite),
-            edr_op::hardfork::name::HOLOCENE => Ok(OpHardfork::Holocene),
-            edr_op::hardfork::name::ISTHMUS => Ok(OpHardfork::Isthmus),
-            _ => Err(napi::Error::new(
+        let unsupported = || {
+            napi::Error::new(
                 napi::Status::InvalidArg,
                 format!("The provided OP hardfork `{s}` is not supported."),
-            )),
+            )
+        };
+
+        match s
+            .parse::<edr_op::Hardfork>()
+            .map_err(|edr_primitives::UnknownHardfork| unsupported())?
+        {
+            edr_op::Hardfork::Bedrock => Ok(OpHardfork::Bedrock),
+            edr_op::Hardfork::Regolith => Ok(OpHardfork::Regolith),
+            edr_op::Hardfork::Canyon => Ok(OpHardfork::Canyon),
+            edr_op::Hardfork::Ecotone => Ok(OpHardfork::Ecotone),
+            edr_op::Hardfork::Fjord => Ok(OpHardfork::Fjord),
+            edr_op::Hardfork::Granite => Ok(OpHardfork::Granite),
+            edr_op::Hardfork::Holocene => Ok(OpHardfork::Holocene),
+            edr_op::Hardfork::Isthmus => Ok(OpHardfork::Isthmus),
+            // Not exposed over N-API yet.
+            edr_op::Hardfork::Jovian | edr_op::Hardfork::Interop => Err(unsupported()),
         }
     }
 }
@@ -118,16 +136,7 @@ pub fn op_hardfork_from_string(hardfork: String) -> napi::Result<OpHardfork> {
 /// Returns the string representation of the provided OP hardfork.
 #[napi(catch_unwind)]
 pub fn op_hardfork_to_string(hardfork: OpHardfork) -> &'static str {
-    match hardfork {
-        OpHardfork::Bedrock => edr_op::hardfork::name::BEDROCK,
-        OpHardfork::Regolith => edr_op::hardfork::name::REGOLITH,
-        OpHardfork::Canyon => edr_op::hardfork::name::CANYON,
-        OpHardfork::Ecotone => edr_op::hardfork::name::ECOTONE,
-        OpHardfork::Fjord => edr_op::hardfork::name::FJORD,
-        OpHardfork::Granite => edr_op::hardfork::name::GRANITE,
-        OpHardfork::Holocene => edr_op::hardfork::name::HOLOCENE,
-        OpHardfork::Isthmus => edr_op::hardfork::name::ISTHMUS,
-    }
+    hardfork.into()
 }
 
 /// Returns the latest supported OP hardfork.
@@ -428,22 +437,30 @@ fn l1_block_code(hardfork: edr_op::Hardfork) -> Uint8Array {
     }
 }
 
-macro_rules! export_spec_id {
-    ($($variant:ident,)*) => {
-        $(
-            #[napi]
-            pub const $variant: &str = edr_op::hardfork::name::$variant;
-        )*
-    };
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-export_spec_id! {
-    BEDROCK,
-    REGOLITH,
-    CANYON,
-    ECOTONE,
-    FJORD,
-    GRANITE,
-    HOLOCENE,
-    ISTHMUS,
+    const VARIANTS: [OpHardfork; 8] = [
+        OpHardfork::Bedrock,
+        OpHardfork::Regolith,
+        OpHardfork::Canyon,
+        OpHardfork::Ecotone,
+        OpHardfork::Fjord,
+        OpHardfork::Granite,
+        OpHardfork::Holocene,
+        OpHardfork::Isthmus,
+    ];
+
+    /// The `From` conversion table and the parse filter must be inverses of
+    /// each other on the exposed subset.
+    #[test]
+    fn napi_names_parse_as_domain_hardforks() {
+        for napi_hardfork in VARIANTS {
+            let name = op_hardfork_to_string(napi_hardfork);
+            let hardfork: edr_op::Hardfork = name.parse().unwrap();
+            assert_eq!(edr_op::Hardfork::from(napi_hardfork), hardfork);
+            assert_eq!(OpHardfork::from_str(name).unwrap(), napi_hardfork);
+        }
+    }
 }

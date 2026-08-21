@@ -2,7 +2,6 @@ import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
 
 import {
-  AMSTERDAM,
   l1HardforkFromString,
   l1HardforkLatest,
   l1HardforkToString,
@@ -34,13 +33,13 @@ describe("Hardforks", () => {
 
   describe("Amsterdam", () => {
     it("is recognized as a valid hardfork", () => {
-      assert.equal(l1HardforkFromString(AMSTERDAM), SpecId.Amsterdam);
-      assert.equal(l1HardforkToString(SpecId.Amsterdam), AMSTERDAM);
+      assert.equal(l1HardforkFromString("amsterdam"), SpecId.Amsterdam);
+      assert.equal(l1HardforkToString(SpecId.Amsterdam), "amsterdam");
     });
 
     it("can be used to configure a provider", async () => {
       await assert.isFulfilled(
-        createGenericProvider(context, { hardfork: AMSTERDAM })
+        createGenericProvider(context, { hardfork: "amsterdam" })
       );
     });
   });

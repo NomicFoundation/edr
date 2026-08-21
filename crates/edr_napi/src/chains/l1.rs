@@ -95,8 +95,11 @@ pub fn l1_provider_factory() -> ProviderFactory {
 }
 
 /// Identifier for the Ethereum spec.
+//
+// N-API projection of [`edr_chain_l1::Hardfork`], which only exists to
+// generate the TS enum; string conversions delegate to the domain type.
 #[napi]
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SpecId {
     /// Byzantium
     Byzantium = 6,
@@ -134,26 +137,41 @@ impl FromStr for SpecId {
     type Err = napi::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            edr_chain_l1::chains::name::BYZANTIUM => Ok(SpecId::Byzantium),
-            edr_chain_l1::chains::name::CONSTANTINOPLE => Ok(SpecId::Constantinople),
-            edr_chain_l1::chains::name::PETERSBURG => Ok(SpecId::Petersburg),
-            edr_chain_l1::chains::name::ISTANBUL => Ok(SpecId::Istanbul),
-            edr_chain_l1::chains::name::MUIR_GLACIER => Ok(SpecId::MuirGlacier),
-            edr_chain_l1::chains::name::BERLIN => Ok(SpecId::Berlin),
-            edr_chain_l1::chains::name::LONDON => Ok(SpecId::London),
-            edr_chain_l1::chains::name::ARROW_GLACIER => Ok(SpecId::ArrowGlacier),
-            edr_chain_l1::chains::name::GRAY_GLACIER => Ok(SpecId::GrayGlacier),
-            edr_chain_l1::chains::name::MERGE => Ok(SpecId::Merge),
-            edr_chain_l1::chains::name::SHANGHAI => Ok(SpecId::Shanghai),
-            edr_chain_l1::chains::name::CANCUN => Ok(SpecId::Cancun),
-            edr_chain_l1::chains::name::PRAGUE => Ok(SpecId::Prague),
-            edr_chain_l1::chains::name::OSAKA => Ok(SpecId::Osaka),
-            edr_chain_l1::chains::name::AMSTERDAM => Ok(SpecId::Amsterdam),
-            _ => Err(napi::Error::new(
-                napi::Status::InvalidArg,
-                format!("The provided hardfork `{s}` is not supported."),
-            )),
+        s.parse::<edr_chain_l1::Hardfork>()
+            .map(SpecId::from)
+            .map_err(|edr_primitives::UnknownHardfork| {
+                napi::Error::new(
+                    napi::Status::InvalidArg,
+                    format!("The provided hardfork `{s}` is not supported."),
+                )
+            })
+    }
+}
+
+impl From<SpecId> for &'static str {
+    fn from(value: SpecId) -> Self {
+        edr_chain_l1::Hardfork::from(value).into()
+    }
+}
+
+impl From<edr_chain_l1::Hardfork> for SpecId {
+    fn from(value: edr_chain_l1::Hardfork) -> Self {
+        match value {
+            edr_chain_l1::Hardfork::Byzantium => SpecId::Byzantium,
+            edr_chain_l1::Hardfork::Constantinople => SpecId::Constantinople,
+            edr_chain_l1::Hardfork::Petersburg => SpecId::Petersburg,
+            edr_chain_l1::Hardfork::Istanbul => SpecId::Istanbul,
+            edr_chain_l1::Hardfork::MuirGlacier => SpecId::MuirGlacier,
+            edr_chain_l1::Hardfork::Berlin => SpecId::Berlin,
+            edr_chain_l1::Hardfork::London => SpecId::London,
+            edr_chain_l1::Hardfork::ArrowGlacier => SpecId::ArrowGlacier,
+            edr_chain_l1::Hardfork::GrayGlacier => SpecId::GrayGlacier,
+            edr_chain_l1::Hardfork::Merge => SpecId::Merge,
+            edr_chain_l1::Hardfork::Shanghai => SpecId::Shanghai,
+            edr_chain_l1::Hardfork::Cancun => SpecId::Cancun,
+            edr_chain_l1::Hardfork::Prague => SpecId::Prague,
+            edr_chain_l1::Hardfork::Osaka => SpecId::Osaka,
+            edr_chain_l1::Hardfork::Amsterdam => SpecId::Amsterdam,
         }
     }
 }
@@ -190,23 +208,7 @@ pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
 
 #[napi(catch_unwind)]
 pub fn l1_hardfork_to_string(hardfork: SpecId) -> &'static str {
-    match hardfork {
-        SpecId::Byzantium => edr_chain_l1::chains::name::BYZANTIUM,
-        SpecId::Constantinople => edr_chain_l1::chains::name::CONSTANTINOPLE,
-        SpecId::Petersburg => edr_chain_l1::chains::name::PETERSBURG,
-        SpecId::Istanbul => edr_chain_l1::chains::name::ISTANBUL,
-        SpecId::MuirGlacier => edr_chain_l1::chains::name::MUIR_GLACIER,
-        SpecId::Berlin => edr_chain_l1::chains::name::BERLIN,
-        SpecId::London => edr_chain_l1::chains::name::LONDON,
-        SpecId::ArrowGlacier => edr_chain_l1::chains::name::ARROW_GLACIER,
-        SpecId::GrayGlacier => edr_chain_l1::chains::name::GRAY_GLACIER,
-        SpecId::Merge => edr_chain_l1::chains::name::MERGE,
-        SpecId::Shanghai => edr_chain_l1::chains::name::SHANGHAI,
-        SpecId::Cancun => edr_chain_l1::chains::name::CANCUN,
-        SpecId::Prague => edr_chain_l1::chains::name::PRAGUE,
-        SpecId::Osaka => edr_chain_l1::chains::name::OSAKA,
-        SpecId::Amsterdam => edr_chain_l1::chains::name::AMSTERDAM,
-    }
+    hardfork.into()
 }
 
 /// Returns the latest supported OP hardfork.
@@ -217,29 +219,37 @@ pub fn l1_hardfork_latest() -> SpecId {
     SpecId::Osaka
 }
 
-macro_rules! export_spec_id {
-    ($($variant:ident),*) => {
-        $(
-            #[napi]
-            pub const $variant: &str = edr_chain_l1::chains::name::$variant;
-        )*
-    };
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-export_spec_id!(
-    BYZANTIUM,
-    CONSTANTINOPLE,
-    PETERSBURG,
-    ISTANBUL,
-    MUIR_GLACIER,
-    BERLIN,
-    LONDON,
-    ARROW_GLACIER,
-    GRAY_GLACIER,
-    MERGE,
-    SHANGHAI,
-    CANCUN,
-    PRAGUE,
-    OSAKA,
-    AMSTERDAM
-);
+    const VARIANTS: [SpecId; 15] = [
+        SpecId::Byzantium,
+        SpecId::Constantinople,
+        SpecId::Petersburg,
+        SpecId::Istanbul,
+        SpecId::MuirGlacier,
+        SpecId::Berlin,
+        SpecId::London,
+        SpecId::ArrowGlacier,
+        SpecId::GrayGlacier,
+        SpecId::Merge,
+        SpecId::Shanghai,
+        SpecId::Cancun,
+        SpecId::Prague,
+        SpecId::Osaka,
+        SpecId::Amsterdam,
+    ];
+
+    /// The two hand-written `From` conversion tables must be inverses of
+    /// each other.
+    #[test]
+    fn napi_names_parse_as_domain_hardforks() {
+        for spec_id in VARIANTS {
+            let name = l1_hardfork_to_string(spec_id);
+            let hardfork: edr_chain_l1::Hardfork = name.parse().unwrap();
+            assert_eq!(edr_chain_l1::Hardfork::from(spec_id), hardfork);
+            assert_eq!(SpecId::from_str(name).unwrap(), spec_id);
+        }
+    }
+}
