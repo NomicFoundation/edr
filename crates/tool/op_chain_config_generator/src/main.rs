@@ -443,8 +443,7 @@ fn generate_hardfork_activations_for(
                 condition: ForkCondition::Timestamp({}),
                 hardfork: OpHardfork::{},
             }},",
-                activation,
-                hardfork_str.to_uppercase()
+                activation, hardfork_str
             )
         })
         .collect();
