@@ -1159,23 +1159,57 @@ export interface InvariantTestKind {
 
 export const L1_CHAIN_TYPE: string
 
-export declare function l1GenesisState(hardfork: SpecId): Array<AccountOverride>
+export declare function l1GenesisState(hardfork: L1Hardfork): Array<AccountOverride>
+
+/** Identifier for the Ethereum spec. */
+export declare enum L1Hardfork {
+  /** Byzantium */
+  Byzantium = 6,
+  /** Constantinople */
+  Constantinople = 7,
+  /** Petersburg */
+  Petersburg = 8,
+  /** Istanbul */
+  Istanbul = 9,
+  /** Muir Glacier */
+  MuirGlacier = 10,
+  /** Berlin */
+  Berlin = 11,
+  /** London */
+  London = 12,
+  /** Arrow Glacier */
+  ArrowGlacier = 13,
+  /** Gray Glacier */
+  GrayGlacier = 14,
+  /** Merge */
+  Merge = 15,
+  /** Shanghai */
+  Shanghai = 16,
+  /** Cancun */
+  Cancun = 17,
+  /** Prague */
+  Prague = 18,
+  /** Osaka */
+  Osaka = 19,
+  /** Amsterdam */
+  Amsterdam = 20
+}
 
 /**
- * Tries to parse the provided string to create a [`SpecId`] instance.
+ * Tries to parse the provided string to create an [`L1Hardfork`] instance.
  *
  * Returns an error if the string does not match any known hardfork.
  */
-export declare function l1HardforkFromString(hardfork: string): SpecId
+export declare function l1HardforkFromString(hardfork: string): L1Hardfork
 
 /**
- * Returns the latest supported OP hardfork.
+ * Returns the latest supported L1 hardfork.
  *
  * The returned value will be updated after each network upgrade.
  */
-export declare function l1HardforkLatest(): SpecId
+export declare function l1HardforkLatest(): L1Hardfork
 
-export declare function l1HardforkToString(hardfork: SpecId): string
+export declare function l1HardforkToString(hardfork: L1Hardfork): string
 
 export declare function l1ProviderFactory(): ProviderFactory
 
@@ -1725,40 +1759,6 @@ export interface SourceReference {
   function?: string
   line: number
   range: Array<number>
-}
-
-/** Identifier for the Ethereum spec. */
-export declare enum SpecId {
-  /** Byzantium */
-  Byzantium = 6,
-  /** Constantinople */
-  Constantinople = 7,
-  /** Petersburg */
-  Petersburg = 8,
-  /** Istanbul */
-  Istanbul = 9,
-  /** Muir Glacier */
-  MuirGlacier = 10,
-  /** Berlin */
-  Berlin = 11,
-  /** London */
-  London = 12,
-  /** Arrow Glacier */
-  ArrowGlacier = 13,
-  /** Gray Glacier */
-  GrayGlacier = 14,
-  /** Merge */
-  Merge = 15,
-  /** Shanghai */
-  Shanghai = 16,
-  /** Cancun */
-  Cancun = 17,
-  /** Prague */
-  Prague = 18,
-  /** Osaka */
-  Osaka = 19,
-  /** Amsterdam */
-  Amsterdam = 20
 }
 
 /** The stack trace result */
