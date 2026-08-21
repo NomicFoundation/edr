@@ -113,7 +113,7 @@ mod tests {
             elasticity_multiplier: 3,
         };
         let base_fee_params = DynamicBaseFeeParams::<Hardfork>::new(vec![
-            (BaseFeeActivation::Hardfork(Hardfork::LONDON), LONDON_PARAMS),
+            (BaseFeeActivation::Hardfork(Hardfork::London), LONDON_PARAMS),
             (
                 BaseFeeActivation::BlockNumber(PRAGUE_ACTIVATION),
                 prague_params,
@@ -121,15 +121,15 @@ mod tests {
         ]);
 
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::LONDON, LONDON_ACTIVATION + 1),
+            base_fee_params.at_condition(Hardfork::London, LONDON_ACTIVATION + 1),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::SHANGHAI, SHANGHAI_ACTIVATION + 1),
+            base_fee_params.at_condition(Hardfork::Shanghai, SHANGHAI_ACTIVATION + 1),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::LONDON, PRAGUE_ACTIVATION + 1),
+            base_fee_params.at_condition(Hardfork::London, PRAGUE_ACTIVATION + 1),
             Some(&prague_params)
         );
     }
@@ -137,12 +137,12 @@ mod tests {
     #[test]
     fn test_variable_base_params_at_condition_returns_none_on_missing_config() {
         let base_fee_params = DynamicBaseFeeParams::<Hardfork>::new(vec![(
-            BaseFeeActivation::Hardfork(Hardfork::LONDON),
+            BaseFeeActivation::Hardfork(Hardfork::London),
             LONDON_PARAMS,
         )]);
 
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::BERLIN, BERLIN_ACTIVATION),
+            base_fee_params.at_condition(Hardfork::Berlin, BERLIN_ACTIVATION),
             None
         );
     }
@@ -151,15 +151,15 @@ mod tests {
     fn base_fee_params_constant_at_condition_returns_constant_value() {
         let base_fee_params = BaseFeeParams::Constant(LONDON_PARAMS);
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::FRONTIER, 0),
+            base_fee_params.at_condition(Hardfork::Frontier, 0),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::LONDON, LONDON_ACTIVATION),
+            base_fee_params.at_condition(Hardfork::London, LONDON_ACTIVATION),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::PRAGUE, PRAGUE_ACTIVATION),
+            base_fee_params.at_condition(Hardfork::Prague, PRAGUE_ACTIVATION),
             Some(&LONDON_PARAMS)
         );
     }
@@ -167,22 +167,22 @@ mod tests {
     #[test]
     fn base_fee_params_variable_at_condition_returns_variable_behavior() {
         let variable_base_fee_params = DynamicBaseFeeParams::new(vec![(
-            BaseFeeActivation::Hardfork(Hardfork::LONDON),
+            BaseFeeActivation::Hardfork(Hardfork::London),
             LONDON_PARAMS,
         )]);
         let base_fee_params = BaseFeeParams::Dynamic(variable_base_fee_params.clone());
 
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::FRONTIER, 0),
-            variable_base_fee_params.at_condition(Hardfork::FRONTIER, 0)
+            base_fee_params.at_condition(Hardfork::Frontier, 0),
+            variable_base_fee_params.at_condition(Hardfork::Frontier, 0)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::LONDON, LONDON_ACTIVATION),
-            variable_base_fee_params.at_condition(Hardfork::LONDON, LONDON_ACTIVATION)
+            base_fee_params.at_condition(Hardfork::London, LONDON_ACTIVATION),
+            variable_base_fee_params.at_condition(Hardfork::London, LONDON_ACTIVATION)
         );
         assert_eq!(
-            base_fee_params.at_condition(Hardfork::PRAGUE, PRAGUE_ACTIVATION),
-            variable_base_fee_params.at_condition(Hardfork::PRAGUE, PRAGUE_ACTIVATION)
+            base_fee_params.at_condition(Hardfork::Prague, PRAGUE_ACTIVATION),
+            variable_base_fee_params.at_condition(Hardfork::Prague, PRAGUE_ACTIVATION)
         );
     }
 }

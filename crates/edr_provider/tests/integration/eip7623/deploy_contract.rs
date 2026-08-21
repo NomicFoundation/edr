@@ -24,13 +24,13 @@ fn transaction_request() -> TransactionRequest {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn estimate_gas() -> anyhow::Result<()> {
-    let cancun_provider = new_provider(edr_chain_l1::Hardfork::CANCUN)?;
+    let cancun_provider = new_provider(edr_chain_l1::Hardfork::Cancun)?;
     assert_eq!(
         super::estimate_gas(&cancun_provider, call_request()),
         53_409
     );
 
-    let prague_provider = new_provider(edr_chain_l1::Hardfork::PRAGUE)?;
+    let prague_provider = new_provider(edr_chain_l1::Hardfork::Prague)?;
     assert_eq!(
         super::estimate_gas(&prague_provider, call_request()),
         53_409
@@ -41,10 +41,10 @@ async fn estimate_gas() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn send_transaction() -> anyhow::Result<()> {
-    let cancun_provider = new_provider(edr_chain_l1::Hardfork::CANCUN)?;
+    let cancun_provider = new_provider(edr_chain_l1::Hardfork::Cancun)?;
     assert_transaction_gas_usage(&cancun_provider, transaction_request(), 53_409);
 
-    let prague_provider = new_provider(edr_chain_l1::Hardfork::PRAGUE)?;
+    let prague_provider = new_provider(edr_chain_l1::Hardfork::Prague)?;
     assert_transaction_gas_usage(&prague_provider, transaction_request(), 53_409);
 
     Ok(())

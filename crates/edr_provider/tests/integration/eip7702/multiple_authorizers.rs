@@ -15,7 +15,7 @@ static EXPECTED_CODE2: Bytes = bytes!("ef010011112222333344445555666677778888999
 fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<L1ChainSpec>> {
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::Prague;
 
     super::new_provider(config, vec![sender_secret_key])
 }

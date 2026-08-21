@@ -11,7 +11,6 @@ use edr_primitives::UnknownHardfork;
 /// The `strum(serialize = …)` strings must stay identical to the [`name`]
 /// module constants.
 #[repr(u8)]
-#[allow(non_camel_case_types)]
 #[derive(
     Clone,
     Copy,
@@ -22,8 +21,6 @@ use edr_primitives::UnknownHardfork;
     PartialOrd,
     Ord,
     Hash,
-    serde::Serialize,
-    serde::Deserialize,
     strum::Display,
     strum::EnumString,
     strum::IntoStaticStr,
@@ -31,69 +28,53 @@ use edr_primitives::UnknownHardfork;
 #[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum L1Hardfork {
     /// Frontier hardfork
-    #[strum(serialize = "Frontier")]
-    FRONTIER = 0,
+    Frontier = 0,
     /// Frontier Thawing hardfork
     #[strum(serialize = "Frontier Thawing")]
-    FRONTIER_THAWING,
+    FrontierThawing,
     /// Homestead hardfork
-    #[strum(serialize = "Homestead")]
-    HOMESTEAD,
+    Homestead,
     /// DAO Fork hardfork
     #[strum(serialize = "DAO Fork")]
-    DAO_FORK,
+    DaoFork,
     /// Tangerine Whistle hardfork
-    #[strum(serialize = "Tangerine")]
-    TANGERINE,
+    Tangerine,
     /// Spurious Dragon hardfork
     #[strum(serialize = "Spurious")]
-    SPURIOUS_DRAGON,
+    SpuriousDragon,
     /// Byzantium hardfork
-    #[strum(serialize = "Byzantium")]
-    BYZANTIUM,
+    Byzantium,
     /// Constantinople hardfork
-    #[strum(serialize = "Constantinople")]
-    CONSTANTINOPLE,
+    Constantinople,
     /// Petersburg hardfork
-    #[strum(serialize = "Petersburg")]
-    PETERSBURG,
+    Petersburg,
     /// Istanbul hardfork
-    #[strum(serialize = "Istanbul")]
-    ISTANBUL,
+    Istanbul,
     /// Muir Glacier hardfork
-    #[strum(serialize = "MuirGlacier")]
-    MUIR_GLACIER,
+    MuirGlacier,
     /// Berlin hardfork
-    #[strum(serialize = "Berlin")]
-    BERLIN,
+    Berlin,
     /// London hardfork
-    #[strum(serialize = "London")]
-    LONDON,
+    London,
     /// Arrow Glacier hardfork
     #[strum(serialize = "Arrow Glacier")]
-    ARROW_GLACIER,
+    ArrowGlacier,
     /// Gray Glacier hardfork
     #[strum(serialize = "Gray Glacier")]
-    GRAY_GLACIER,
+    GrayGlacier,
     /// Paris/Merge hardfork
-    #[strum(serialize = "Merge")]
-    MERGE,
+    Merge,
     /// Shanghai hardfork
-    #[strum(serialize = "Shanghai")]
-    SHANGHAI,
+    Shanghai,
     /// Cancun hardfork
-    #[strum(serialize = "Cancun")]
-    CANCUN,
+    Cancun,
     /// Prague hardfork
-    #[strum(serialize = "Prague")]
-    PRAGUE,
+    Prague,
     /// Osaka hardfork
     #[default]
-    #[strum(serialize = "Osaka")]
-    OSAKA,
+    Osaka,
     /// Amsterdam hardfork
-    #[strum(serialize = "Amsterdam")]
-    AMSTERDAM,
+    Amsterdam,
 }
 
 fn unknown_hardfork(_name: &str) -> UnknownHardfork {
@@ -105,25 +86,25 @@ impl From<L1Hardfork> for EvmSpecId {
         match hardfork {
             // revm only models EVM behavior classes; hardforks without EVM
             // changes map to their EVM-equivalent predecessor.
-            L1Hardfork::FRONTIER | L1Hardfork::FRONTIER_THAWING => EvmSpecId::FRONTIER,
-            L1Hardfork::HOMESTEAD | L1Hardfork::DAO_FORK => EvmSpecId::HOMESTEAD,
-            L1Hardfork::TANGERINE => EvmSpecId::TANGERINE,
-            L1Hardfork::SPURIOUS_DRAGON => EvmSpecId::SPURIOUS_DRAGON,
-            L1Hardfork::BYZANTIUM => EvmSpecId::BYZANTIUM,
+            L1Hardfork::Frontier | L1Hardfork::FrontierThawing => EvmSpecId::FRONTIER,
+            L1Hardfork::Homestead | L1Hardfork::DaoFork => EvmSpecId::HOMESTEAD,
+            L1Hardfork::Tangerine => EvmSpecId::TANGERINE,
+            L1Hardfork::SpuriousDragon => EvmSpecId::SPURIOUS_DRAGON,
+            L1Hardfork::Byzantium => EvmSpecId::BYZANTIUM,
             // Constantinople never went live on mainnet on its own: Petersburg
             // (Constantinople minus EIP-1283) activated at the same block.
-            L1Hardfork::CONSTANTINOPLE | L1Hardfork::PETERSBURG => EvmSpecId::PETERSBURG,
-            L1Hardfork::ISTANBUL | L1Hardfork::MUIR_GLACIER => EvmSpecId::ISTANBUL,
-            L1Hardfork::BERLIN => EvmSpecId::BERLIN,
-            L1Hardfork::LONDON | L1Hardfork::ARROW_GLACIER | L1Hardfork::GRAY_GLACIER => {
+            L1Hardfork::Constantinople | L1Hardfork::Petersburg => EvmSpecId::PETERSBURG,
+            L1Hardfork::Istanbul | L1Hardfork::MuirGlacier => EvmSpecId::ISTANBUL,
+            L1Hardfork::Berlin => EvmSpecId::BERLIN,
+            L1Hardfork::London | L1Hardfork::ArrowGlacier | L1Hardfork::GrayGlacier => {
                 EvmSpecId::LONDON
             }
-            L1Hardfork::MERGE => EvmSpecId::MERGE,
-            L1Hardfork::SHANGHAI => EvmSpecId::SHANGHAI,
-            L1Hardfork::CANCUN => EvmSpecId::CANCUN,
-            L1Hardfork::PRAGUE => EvmSpecId::PRAGUE,
-            L1Hardfork::OSAKA => EvmSpecId::OSAKA,
-            L1Hardfork::AMSTERDAM => EvmSpecId::AMSTERDAM,
+            L1Hardfork::Merge => EvmSpecId::MERGE,
+            L1Hardfork::Shanghai => EvmSpecId::SHANGHAI,
+            L1Hardfork::Cancun => EvmSpecId::CANCUN,
+            L1Hardfork::Prague => EvmSpecId::PRAGUE,
+            L1Hardfork::Osaka => EvmSpecId::OSAKA,
+            L1Hardfork::Amsterdam => EvmSpecId::AMSTERDAM,
         }
     }
 }
@@ -183,27 +164,27 @@ mod tests {
     use super::*;
 
     const VARIANTS: [L1Hardfork; 21] = [
-        L1Hardfork::FRONTIER,
-        L1Hardfork::FRONTIER_THAWING,
-        L1Hardfork::HOMESTEAD,
-        L1Hardfork::DAO_FORK,
-        L1Hardfork::TANGERINE,
-        L1Hardfork::SPURIOUS_DRAGON,
-        L1Hardfork::BYZANTIUM,
-        L1Hardfork::CONSTANTINOPLE,
-        L1Hardfork::PETERSBURG,
-        L1Hardfork::ISTANBUL,
-        L1Hardfork::MUIR_GLACIER,
-        L1Hardfork::BERLIN,
-        L1Hardfork::LONDON,
-        L1Hardfork::ARROW_GLACIER,
-        L1Hardfork::GRAY_GLACIER,
-        L1Hardfork::MERGE,
-        L1Hardfork::SHANGHAI,
-        L1Hardfork::CANCUN,
-        L1Hardfork::PRAGUE,
-        L1Hardfork::OSAKA,
-        L1Hardfork::AMSTERDAM,
+        L1Hardfork::Frontier,
+        L1Hardfork::FrontierThawing,
+        L1Hardfork::Homestead,
+        L1Hardfork::DaoFork,
+        L1Hardfork::Tangerine,
+        L1Hardfork::SpuriousDragon,
+        L1Hardfork::Byzantium,
+        L1Hardfork::Constantinople,
+        L1Hardfork::Petersburg,
+        L1Hardfork::Istanbul,
+        L1Hardfork::MuirGlacier,
+        L1Hardfork::Berlin,
+        L1Hardfork::London,
+        L1Hardfork::ArrowGlacier,
+        L1Hardfork::GrayGlacier,
+        L1Hardfork::Merge,
+        L1Hardfork::Shanghai,
+        L1Hardfork::Cancun,
+        L1Hardfork::Prague,
+        L1Hardfork::Osaka,
+        L1Hardfork::Amsterdam,
     ];
 
     #[test]
@@ -254,18 +235,8 @@ mod tests {
     }
 
     #[test]
-    fn serde_round_trip() {
-        for hardfork in VARIANTS {
-            let json = serde_json::to_string(&hardfork).expect("serialization succeeds");
-            let roundtrip: L1Hardfork =
-                serde_json::from_str(&json).expect("deserialization succeeds");
-            assert_eq!(roundtrip, hardfork);
-        }
-    }
-
-    #[test]
     fn default_hardfork() {
-        assert_eq!(L1Hardfork::default(), L1Hardfork::OSAKA);
+        assert_eq!(L1Hardfork::default(), L1Hardfork::Osaka);
     }
 
     #[test]

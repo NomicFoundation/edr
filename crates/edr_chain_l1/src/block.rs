@@ -1047,7 +1047,7 @@ mod tests {
             // Net gas: total - refund = 40_000, above the (30_000) floor.
             let result = execution_result(50_000, 10_000, 30_000);
             assert_eq!(
-                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::OSAKA, &result),
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Osaka, &result),
                 40_000
             );
         }
@@ -1057,7 +1057,7 @@ mod tests {
             // EIP-7778: the refund is not subtracted from the block gas.
             let result = execution_result(50_000, 10_000, 0);
             assert_eq!(
-                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::AMSTERDAM, &result),
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Amsterdam, &result),
                 50_000
             );
         }
@@ -1067,7 +1067,7 @@ mod tests {
             // The EIP-7623 floor still applies when it exceeds the gas spent.
             let result = execution_result(20_000, 0, 25_000);
             assert_eq!(
-                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::AMSTERDAM, &result),
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Amsterdam, &result),
                 25_000
             );
         }
@@ -1077,7 +1077,7 @@ mod tests {
             // Net gas is floored too: max(total - refund, floor).
             let result = execution_result(50_000, 10_000, 45_000);
             assert_eq!(
-                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::OSAKA, &result),
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Osaka, &result),
                 45_000
             );
         }

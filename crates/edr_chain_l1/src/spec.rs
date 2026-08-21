@@ -315,7 +315,7 @@ mod tests {
         // leaving the parent's difficulty. The block number is far below the
         // Byzantium bomb delay, so the bomb does not contribute either.
         let difficulty = L1ChainSpec::default_block_difficulty(
-            Hardfork::BYZANTIUM,
+            Hardfork::Byzantium,
             Some(&parent_header()),
             1_000,
             9,
@@ -329,7 +329,7 @@ mod tests {
         // 300,000 blocks past Byzantium's 3,000,000 bomb delay is period 3,
         // so the bomb adds 2^(3 - 2).
         let difficulty = L1ChainSpec::default_block_difficulty(
-            Hardfork::BYZANTIUM,
+            Hardfork::Byzantium,
             Some(&parent_header()),
             3_300_000,
             9,
@@ -343,13 +343,13 @@ mod tests {
         // The same block number is past Byzantium's bomb delay but not past
         // Gray Glacier's, which is the only difference between the two.
         let byzantium = L1ChainSpec::default_block_difficulty(
-            Hardfork::BYZANTIUM,
+            Hardfork::Byzantium,
             Some(&parent_header()),
             3_300_000,
             9,
         );
         let gray_glacier = L1ChainSpec::default_block_difficulty(
-            Hardfork::GRAY_GLACIER,
+            Hardfork::GrayGlacier,
             Some(&parent_header()),
             3_300_000,
             9,
@@ -369,21 +369,21 @@ mod tests {
         };
 
         let difficulty =
-            L1ChainSpec::default_block_difficulty(Hardfork::BYZANTIUM, Some(&parent), 1_000, 9);
+            L1ChainSpec::default_block_difficulty(Hardfork::Byzantium, Some(&parent), 1_000, 9);
 
         assert_eq!(difficulty, U256::from(L1_MIN_ETHASH_DIFFICULTY));
     }
 
     #[test]
     fn pre_merge_genesis_block_has_difficulty_one() {
-        let difficulty = L1ChainSpec::default_block_difficulty(Hardfork::BYZANTIUM, None, 0, 0);
+        let difficulty = L1ChainSpec::default_block_difficulty(Hardfork::Byzantium, None, 0, 0);
 
         assert_eq!(difficulty, U256::from(1u64));
     }
 
     #[test]
     fn post_merge_has_no_difficulty() {
-        for hardfork in [Hardfork::MERGE, Hardfork::CANCUN, Hardfork::OSAKA] {
+        for hardfork in [Hardfork::Merge, Hardfork::Cancun, Hardfork::Osaka] {
             assert_eq!(
                 L1ChainSpec::default_block_difficulty(hardfork, Some(&parent_header()), 1_000, 9),
                 U256::ZERO,

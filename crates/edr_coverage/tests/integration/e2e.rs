@@ -145,7 +145,7 @@ fn record_hits() -> anyhow::Result<()> {
     let block_config = BlockConfig {
         base_fee_params: L1_BASE_FEE_PARAMS.clone(),
         default_difficulty_fn: L1ChainSpec::default_block_difficulty,
-        hardfork: edr_chain_l1::Hardfork::CANCUN,
+        hardfork: edr_chain_l1::Hardfork::Cancun,
         scheduled_blob_params: None,
     };
 

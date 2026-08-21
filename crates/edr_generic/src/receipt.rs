@@ -36,7 +36,7 @@ impl
         let logs = result.logs().to_vec();
         let logs_bloom = logs_to_bloom(&logs);
 
-        let receipt = if hardfork >= edr_chain_l1::Hardfork::BYZANTIUM {
+        let receipt = if hardfork >= edr_chain_l1::Hardfork::Byzantium {
             edr_receipt::execution::Eip658 {
                 status: result.is_success(),
                 cumulative_gas_used,

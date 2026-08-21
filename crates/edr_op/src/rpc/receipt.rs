@@ -174,7 +174,7 @@ mod tests {
 
     impl_execution_receipt_serde_tests! {
         OpChainSpec => {
-            eip658_legacy, Hardfork::FJORD => TypedEnvelope::Legacy(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
+            eip658_legacy, Hardfork::Fjord => TypedEnvelope::Legacy(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -183,7 +183,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip2930, Hardfork::FJORD => TypedEnvelope::Eip2930(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
+            eip658_eip2930, Hardfork::Fjord => TypedEnvelope::Eip2930(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -192,7 +192,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip1559, Hardfork::FJORD => TypedEnvelope::Eip2930(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
+            eip658_eip1559, Hardfork::Fjord => TypedEnvelope::Eip2930(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -201,7 +201,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip4844, Hardfork::FJORD => TypedEnvelope::Eip4844(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
+            eip658_eip4844, Hardfork::Fjord => TypedEnvelope::Eip4844(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -210,7 +210,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            deposit, Hardfork::FJORD => TypedEnvelope::Deposit(OpExecutionReceipt::Deposit(receipt::execution::Deposit {
+            deposit, Hardfork::Fjord => TypedEnvelope::Deposit(OpExecutionReceipt::Deposit(receipt::execution::Deposit {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),

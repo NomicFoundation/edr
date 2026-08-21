@@ -151,7 +151,7 @@ fn to_rpc_l1_block_info(
         let mut l1_block_info = l1_block_info.clone();
         let l1_fee = l1_block_info.calculate_tx_l1_cost(enveloped_tx, hardfork.into());
 
-        let (l1_fee_scalar, l1_base_fee_scalar) = if hardfork < Hardfork::ECOTONE {
+        let (l1_fee_scalar, l1_base_fee_scalar) = if hardfork < Hardfork::Ecotone {
             let l1_fee_scalar: f64 = l1_block_info.l1_base_fee_scalar.into();
 
             (Some(l1_fee_scalar / 1_000_000f64), None)

@@ -21,7 +21,6 @@ pub mod op;
 /// The `strum(serialize = …)` strings must stay identical to the [`name`]
 /// module constants.
 #[repr(u8)]
-#[allow(non_camel_case_types)]
 #[derive(
     Clone,
     Copy,
@@ -32,8 +31,6 @@ pub mod op;
     PartialOrd,
     Ord,
     Hash,
-    serde::Serialize,
-    serde::Deserialize,
     strum::Display,
     strum::EnumString,
     strum::IntoStaticStr,
@@ -41,36 +38,26 @@ pub mod op;
 #[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum OpHardfork {
     /// Bedrock hardfork
-    #[strum(serialize = "Bedrock")]
-    BEDROCK = 100,
+    Bedrock = 100,
     /// Regolith hardfork
-    #[strum(serialize = "Regolith")]
-    REGOLITH,
+    Regolith,
     /// Canyon hardfork
-    #[strum(serialize = "Canyon")]
-    CANYON,
+    Canyon,
     /// Ecotone hardfork
-    #[strum(serialize = "Ecotone")]
-    ECOTONE,
+    Ecotone,
     /// Fjord hardfork
-    #[strum(serialize = "Fjord")]
-    FJORD,
+    Fjord,
     /// Granite hardfork
-    #[strum(serialize = "Granite")]
-    GRANITE,
+    Granite,
     /// Holocene hardfork
-    #[strum(serialize = "Holocene")]
-    HOLOCENE,
+    Holocene,
     /// Isthmus hardfork
-    #[strum(serialize = "Isthmus")]
-    ISTHMUS,
+    Isthmus,
     /// Jovian hardfork
     #[default]
-    #[strum(serialize = "Jovian")]
-    JOVIAN,
+    Jovian,
     /// Interop hardfork
-    #[strum(serialize = "Interop")]
-    INTEROP,
+    Interop,
 }
 
 fn unknown_hardfork(_name: &str) -> UnknownHardfork {
@@ -80,16 +67,16 @@ fn unknown_hardfork(_name: &str) -> UnknownHardfork {
 impl From<OpHardfork> for op_revm::OpSpecId {
     fn from(hardfork: OpHardfork) -> Self {
         match hardfork {
-            OpHardfork::BEDROCK => op_revm::OpSpecId::BEDROCK,
-            OpHardfork::REGOLITH => op_revm::OpSpecId::REGOLITH,
-            OpHardfork::CANYON => op_revm::OpSpecId::CANYON,
-            OpHardfork::ECOTONE => op_revm::OpSpecId::ECOTONE,
-            OpHardfork::FJORD => op_revm::OpSpecId::FJORD,
-            OpHardfork::GRANITE => op_revm::OpSpecId::GRANITE,
-            OpHardfork::HOLOCENE => op_revm::OpSpecId::HOLOCENE,
-            OpHardfork::ISTHMUS => op_revm::OpSpecId::ISTHMUS,
-            OpHardfork::JOVIAN => op_revm::OpSpecId::JOVIAN,
-            OpHardfork::INTEROP => op_revm::OpSpecId::INTEROP,
+            OpHardfork::Bedrock => op_revm::OpSpecId::BEDROCK,
+            OpHardfork::Regolith => op_revm::OpSpecId::REGOLITH,
+            OpHardfork::Canyon => op_revm::OpSpecId::CANYON,
+            OpHardfork::Ecotone => op_revm::OpSpecId::ECOTONE,
+            OpHardfork::Fjord => op_revm::OpSpecId::FJORD,
+            OpHardfork::Granite => op_revm::OpSpecId::GRANITE,
+            OpHardfork::Holocene => op_revm::OpSpecId::HOLOCENE,
+            OpHardfork::Isthmus => op_revm::OpSpecId::ISTHMUS,
+            OpHardfork::Jovian => op_revm::OpSpecId::JOVIAN,
+            OpHardfork::Interop => op_revm::OpSpecId::INTEROP,
         }
     }
 }
@@ -170,16 +157,16 @@ mod tests {
     use super::*;
 
     const VARIANTS: [OpHardfork; 10] = [
-        OpHardfork::BEDROCK,
-        OpHardfork::REGOLITH,
-        OpHardfork::CANYON,
-        OpHardfork::ECOTONE,
-        OpHardfork::FJORD,
-        OpHardfork::GRANITE,
-        OpHardfork::HOLOCENE,
-        OpHardfork::ISTHMUS,
-        OpHardfork::JOVIAN,
-        OpHardfork::INTEROP,
+        OpHardfork::Bedrock,
+        OpHardfork::Regolith,
+        OpHardfork::Canyon,
+        OpHardfork::Ecotone,
+        OpHardfork::Fjord,
+        OpHardfork::Granite,
+        OpHardfork::Holocene,
+        OpHardfork::Isthmus,
+        OpHardfork::Jovian,
+        OpHardfork::Interop,
     ];
 
     #[test]
@@ -218,18 +205,8 @@ mod tests {
     }
 
     #[test]
-    fn serde_round_trip() {
-        for hardfork in VARIANTS {
-            let json = serde_json::to_string(&hardfork).expect("serialization succeeds");
-            let roundtrip: OpHardfork =
-                serde_json::from_str(&json).expect("deserialization succeeds");
-            assert_eq!(roundtrip, hardfork);
-        }
-    }
-
-    #[test]
     fn default_hardfork() {
-        assert_eq!(OpHardfork::default(), OpHardfork::JOVIAN);
+        assert_eq!(OpHardfork::default(), OpHardfork::Jovian);
     }
 
     /// `OpChainSpec::default_block_difficulty` reports zero for every hardfork,

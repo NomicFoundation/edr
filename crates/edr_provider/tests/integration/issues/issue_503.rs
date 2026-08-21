@@ -27,7 +27,7 @@ async fn issue_503() -> anyhow::Result<()> {
             http_headers: None,
             url: json_rpc_url_provider::ethereum_mainnet(),
         }));
-    config.hardfork = edr_chain_l1::Hardfork::CANCUN;
+    config.hardfork = edr_chain_l1::Hardfork::Cancun;
 
     let provider = Provider::new(
         runtime::Handle::current(),

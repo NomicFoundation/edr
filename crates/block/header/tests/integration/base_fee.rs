@@ -23,7 +23,7 @@ fn test_partial_header_uses_base_fee_override() {
     let block_config = BlockConfig {
         default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
-        hardfork: edr_chain_l1::Hardfork::LONDON,
+        hardfork: edr_chain_l1::Hardfork::London,
         scheduled_blob_params: None,
     };
     let partial_header =
@@ -52,7 +52,7 @@ fn test_partial_header_base_fee_override_takes_precedence_over_base_fee_params_o
     let block_config = BlockConfig {
         default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
-        hardfork: edr_chain_l1::Hardfork::LONDON,
+        hardfork: edr_chain_l1::Hardfork::London,
         scheduled_blob_params: None,
     };
     let partial_header =
@@ -78,7 +78,7 @@ fn test_partial_header_ignores_base_fee_params_if_before_london() {
     let block_config = BlockConfig {
         default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
-        hardfork: edr_chain_l1::Hardfork::BERLIN,
+        hardfork: edr_chain_l1::Hardfork::Berlin,
         scheduled_blob_params: None,
     };
     let partial_header =
@@ -98,7 +98,7 @@ fn test_partial_header_defaults_base_fee_if_no_override_after_london() {
     let block_config = BlockConfig {
         default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
-        hardfork: edr_chain_l1::Hardfork::LONDON,
+        hardfork: edr_chain_l1::Hardfork::London,
         scheduled_blob_params: None,
     };
 
@@ -125,7 +125,7 @@ fn test_partial_header_defaults_base_fee_if_no_parent_after_london() {
     let block_config = BlockConfig {
         default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
-        hardfork: edr_chain_l1::Hardfork::LONDON,
+        hardfork: edr_chain_l1::Hardfork::London,
         scheduled_blob_params: None,
     };
     let partial_header =
@@ -158,7 +158,7 @@ fn test_partial_header_uses_override_with_parent_after_london() {
     let block_config = BlockConfig {
         default_difficulty_fn: zero_difficulty,
         base_fee_params: chain_config.base_fee_params.clone(),
-        hardfork: edr_chain_l1::Hardfork::LONDON,
+        hardfork: edr_chain_l1::Hardfork::London,
         scheduled_blob_params: None,
     };
     let partial_header = PartialHeader::new::<edr_chain_l1::Hardfork>(
@@ -175,7 +175,7 @@ fn test_partial_header_uses_override_with_parent_after_london() {
             &parent_header,
             u128::from(parent_header.gas_used),
             &base_fee_params,
-            edr_chain_l1::Hardfork::LONDON
+            edr_chain_l1::Hardfork::London
         ))
     );
 }

@@ -458,7 +458,7 @@ mod tests {
         let block_config = BlockConfig {
             base_fee_params: chain_config.base_fee_params.clone(),
             default_difficulty_fn: L1ChainSpec::default_block_difficulty,
-            hardfork: edr_chain_l1::Hardfork::SHANGHAI,
+            hardfork: edr_chain_l1::Hardfork::Shanghai,
             scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),
         };
 

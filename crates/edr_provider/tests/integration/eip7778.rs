@@ -144,7 +144,7 @@ fn send_refund_transaction(provider: &Provider<L1ChainSpec>) -> anyhow::Result<(
 /// to zero: both track gas after refunds.
 #[tokio::test(flavor = "multi_thread")]
 async fn block_gas_used_matches_last_tx_cumulative_before_amsterdam() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::OSAKA)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
 
     send_refund_transaction(&provider)?;
 
@@ -169,7 +169,7 @@ async fn block_gas_used_matches_last_tx_cumulative_before_amsterdam() -> anyhow:
 /// `gas_used` is greater than the last receipt's `cumulative_gas_used`.
 #[tokio::test(flavor = "multi_thread")]
 async fn block_gas_used_excludes_refunds_on_amsterdam() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
     send_refund_transaction(&provider)?;
 

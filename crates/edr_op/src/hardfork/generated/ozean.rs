@@ -19,34 +19,34 @@ pub(super) fn sepolia_config() -> ChainConfig<OpHardfork> {
         name: "Ozean Poseidon Testnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
                 ConstantBaseFeeParams::new(250, 6),
             ),
             (
-                BaseFeeActivation::Hardfork(OpHardfork::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::Canyon),
                 ConstantBaseFeeParams::new(250, 6),
             ),
         ])),
         hardfork_activations: HardforkActivations::new(vec![
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::BEDROCK,
+                hardfork: OpHardfork::Bedrock,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::REGOLITH,
+                hardfork: OpHardfork::Regolith,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::CANYON,
+                hardfork: OpHardfork::Canyon,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::ECOTONE,
+                hardfork: OpHardfork::Ecotone,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpHardfork::FJORD,
+                hardfork: OpHardfork::Fjord,
             },
         ]),
         bpo_hardfork_schedule: None,

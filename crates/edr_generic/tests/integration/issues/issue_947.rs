@@ -57,7 +57,7 @@ fn get_provider<
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_947_generic_evm_should_default_excess_gas() -> anyhow::Result<()> {
     let provider =
-        get_provider::<GenericChainSpec>(edr_chain_l1::Hardfork::CANCUN, CANCUN_BLOCK_NUMBER)?;
+        get_provider::<GenericChainSpec>(edr_chain_l1::Hardfork::Cancun, CANCUN_BLOCK_NUMBER)?;
 
     let transaction_hash =
         B256::from_str("0x9fccb755176d48b3e5e576aff003bb5dc4aeefa8b0b22e082555bdc705276278")?;
@@ -81,7 +81,7 @@ async fn issue_947_generic_evm_should_default_excess_gas() -> anyhow::Result<()>
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_947_should_fail_with_missing_blob_gas_on_l1_after_cancun() -> anyhow::Result<()> {
     let provider =
-        get_provider::<L1ChainSpec>(edr_chain_l1::Hardfork::CANCUN, CANCUN_BLOCK_NUMBER)?;
+        get_provider::<L1ChainSpec>(edr_chain_l1::Hardfork::Cancun, CANCUN_BLOCK_NUMBER)?;
 
     let transaction_hash =
         B256::from_str("0x9fccb755176d48b3e5e576aff003bb5dc4aeefa8b0b22e082555bdc705276278")?;
@@ -113,7 +113,7 @@ async fn issue_947_should_succeed_on_generic_before_cancun() -> anyhow::Result<(
     // Arbitrum block after shanghai activation
     let shanghai_arbitrum_block = 184_097_481;
     let provider = get_provider::<GenericChainSpec>(
-        edr_chain_l1::Hardfork::SHANGHAI,
+        edr_chain_l1::Hardfork::Shanghai,
         shanghai_arbitrum_block,
     )?;
 

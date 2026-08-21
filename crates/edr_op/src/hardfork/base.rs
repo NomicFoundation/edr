@@ -11,11 +11,11 @@ pub(crate) static MAINNET_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpHardfork>> =
     LazyLock::new(|| {
         BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
                 ConstantBaseFeeParams::new(50, 6),
             ),
             (
-                BaseFeeActivation::Hardfork(OpHardfork::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::Canyon),
                 ConstantBaseFeeParams::new(250, 6),
             ),
             (
@@ -60,11 +60,11 @@ pub(crate) static SEPOLIA_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpHardfork>> =
     LazyLock::new(|| {
         BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpHardfork::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
                 ConstantBaseFeeParams::new(50, 10),
             ),
             (
-                BaseFeeActivation::Hardfork(OpHardfork::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::Canyon),
                 ConstantBaseFeeParams::new(250, 10),
             ),
             (

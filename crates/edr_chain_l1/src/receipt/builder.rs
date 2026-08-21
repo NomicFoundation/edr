@@ -37,7 +37,7 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, L1SignedTransaction>
         let logs = result.logs().to_vec();
         let logs_bloom = logs_to_bloom(&logs);
 
-        let receipt = if hardfork >= Hardfork::BYZANTIUM {
+        let receipt = if hardfork >= Hardfork::Byzantium {
             edr_receipt::execution::Eip658 {
                 status: result.is_success(),
                 cumulative_gas_used,

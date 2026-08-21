@@ -27,7 +27,7 @@ async fn block_header() -> anyhow::Result<()> {
     config.chain_id = fake_transaction()
         .chain_id()
         .expect("Blob transaction has chain ID");
-    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::Prague;
 
     let provider = Provider::new(
         runtime::Handle::current(),
