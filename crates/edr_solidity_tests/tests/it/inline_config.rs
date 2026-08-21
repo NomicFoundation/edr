@@ -32,14 +32,19 @@ async fn malformed_inline_config_aborts_whole_run() {
         .expect("write source");
 
     // Point one of the test sources at the malformed file on disk; collection
-    // parses it under that source's name.
+    // parses it under that source's name. The source must be picked
+    // deterministically and be compiled with a solc version Slang supports:
+    // collection parses each source with the grammar of the version its
+    // artifact was compiled with, so redirecting e.g. the 0.5.17
+    // `FuzzPreBytecodeHash.t.sol` would report a source-level
+    // `InvalidSolcVersion` error instead of the directive errors.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let source = config
         .test_source_paths
         .keys()
-        .next()
+        .find(|source| source.ends_with("default/fuzz/Fuzz.t.sol"))
         .cloned()
-        .expect("test data has test sources");
+        .expect("test data contains the fuzz test source");
     config
         .test_source_paths
         .insert(source.clone(), file.path().to_path_buf());
