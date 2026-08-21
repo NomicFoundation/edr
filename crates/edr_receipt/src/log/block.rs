@@ -28,15 +28,13 @@ pub struct FullBlockLog {
     /// block number
     #[serde(with = "alloy_serde::quantity")]
     pub block_number: u64,
-    /// Timestamp of the block this log is in.
+    /// Timestamp of the block this log is in, added to the `Log` schema by
+    /// <https://github.com/ethereum/execution-apis/pull/639>.
     ///
-    /// Added to the `Log` schema by <https://github.com/ethereum/execution-apis/pull/639>
-    /// so that consumers reading logs by range do not need a second
-    /// `eth_getBlockByHash` round-trip per block just to timestamp them.
-    ///
-    /// `Option` because the field is optional in the spec and because a remote
-    /// node we fork from may predate it: deserializing a log without it must not
-    /// fail. Blocks produced locally always have it.
+    /// `Option` because the field is optional in that schema and a remote node
+    /// we fork from may predate it, so deserializing a log without it must not
+    /// fail and re-serializing must not invent a value. Blocks produced locally
+    /// always have it.
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
