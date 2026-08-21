@@ -68,6 +68,21 @@ pub struct LogOutput {
     /// its pending log.
     #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity::opt"))]
     pub block_number: Option<u64>,
+    /// the timestamp of the block this log was in. None when its pending log,
+    /// or when the log came from a node that does not provide it. See
+    /// [`edr_receipt::log::FullBlockLog::block_timestamp`].
+    // Skipped rather than serialized as null, unlike the fields above: absence
+    // is meaningful here, because a null would claim the node answered and had
+    // nothing, rather than that it never spoke the field at all.
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            with = "alloy_serde::quantity::opt"
+        )
+    )]
+    pub block_timestamp: Option<u64>,
     /// address from which this log originated.
     pub address: Address,
     /// contains one or more 32 Bytes non-indexed arguments of the log.
@@ -88,6 +103,7 @@ impl From<&FilterLog> for LogOutput {
             transaction_hash: Some(value.inner.transaction_hash),
             block_hash: Some(value.block_hash),
             block_number: Some(value.inner.block_number),
+            block_timestamp: value.inner.block_timestamp,
             address: value.inner.address,
             data: value.inner.data.data.clone(),
             topics: value.inner.data.topics().to_vec(),

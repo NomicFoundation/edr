@@ -8,7 +8,7 @@ use edr_chain_spec_provider::SyncProviderChainSpec;
 use edr_chain_spec_rpc::RpcChainSpec;
 use edr_op::{test_utils::jovian_header_overrides, OpChainSpec};
 use edr_provider::test_utils::prague_header_overrides;
-use edr_receipt::{log::FilterLog, AsExecutionReceipt};
+use edr_receipt::{log::FilterLog, AsExecutionReceipt, MapReceiptLogs};
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_test_block_replay::run_full_block;
 
@@ -61,13 +61,17 @@ pub async fn replay_chain_specific_block<ChainSpecT>(
 where
     ChainSpecT: 'static
         + SyncProviderChainSpec<
-            ExecutionReceipt<FilterLog>: Debug + PartialEq,
+            ExecutionReceipt<FilterLog>: Clone + Debug + PartialEq,
             Receipt: AsExecutionReceipt<ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>>,
             RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<
                 EthBlockData<ChainSpecT::SignedTransaction>,
                 Error: 'static,
             >,
         >,
+    // mirrors `run_full_block`, which compares receipts with the block timestamp
+    // stripped from the logs and so needs to clone and re-map them
+    ChainSpecT::ExecutionReceipt<FilterLog>:
+        MapReceiptLogs<FilterLog, FilterLog, ChainSpecT::ExecutionReceipt<FilterLog>>,
 {
     let rpc_client =
         EthRpcClientForChainSpec::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
