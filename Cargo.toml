@@ -338,7 +338,7 @@ flate2 = "1.1"
 hex = { package = "const-hex", version = "1.6", features = ["hex"] }
 itertools = "0.15"
 jsonpath_lib = "0.3"
-k256 = "0.13"
+k256 = "0.14"
 log = { version = "0.4.17", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false }
 paste = { version = "1.0.14", default-features = false }
