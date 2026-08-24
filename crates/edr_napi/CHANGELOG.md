@@ -1,5 +1,35 @@
 # @nomicfoundation/edr
 
+## 0.18.0
+
+### Minor Changes
+
+- d5f8a73: Added native inline configuration parsing in Solidity tests. Ill-formed inline configuration rejects the whole run up front, reporting one problem per affected test function; the rejected `runSolidityTests` promise carries the structured, located problems as the `inlineConfigErrors` array on the thrown error.
+
+  Removed inline config associated types from NAPI: `TestFunctionOverride`, `TestFunctionIdentifier`, `TestFunctionConfigOverride`, `FuzzConfigOverride`, `InvariantConfigOverride`, and `TimeoutConfig`. Removed the `testFunctionOverrides` field of `SolidityTestRunnerConfigArgs`.
+
+### Patch Changes
+
+- 3fa7eb4: Upgraded revm to v41.0.0 (tag v113)
+
+## 0.17.0
+
+### Minor Changes
+
+- 1d9452c: Added the `os`, `cpu` and `libc` fields to the platform-specific `@nomicfoundation/edr-*` packages, so package managers install only the build matching the host. Without them, the `optionalDependencies` introduced in 0.16.0 still resolved to every platform.
+
+## 0.16.0
+
+### Minor Changes
+
+- 4613af6: Changed the platform-specific `@nomicfoundation/edr-*` packages from `dependencies` to `optionalDependencies`, so installs only download the build for the current platform instead of all of them. Note: npm < 11.3.0 may skip the platform package when reusing a lockfile created on a different platform (npm/cli#4828); if affected, upgrade with `npm install -g npm@11`.
+- 60c6e29: - Added support for compilation artifacts with `slangSolx` compiler type string.
+  - BREAKING CHANGE: Removed support for compilation arifacts with `solx` compiler type string. Instead, use the `slangSolx` compiler type string.
+
+### Patch Changes
+
+- ca75f51: Fixed missing Solidity test stack trace when `setUp()` fails and stack traces are collected with `CollectStackTraces::Always`.
+
 ## 0.15.0
 
 ### Minor Changes

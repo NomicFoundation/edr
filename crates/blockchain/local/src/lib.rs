@@ -11,7 +11,7 @@ use edr_blockchain_api::{
     GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
     StateAtBlock, TotalDifficultyByBlockHash,
 };
-use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork};
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::{DynState, StateDiff, StateOverride};
@@ -92,7 +92,7 @@ impl<
 
 impl<
         BlockReceiptT: ReceiptTrait,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         SignedTransactionT: ExecutableTransaction,
     > LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
@@ -128,7 +128,7 @@ pub enum LocalBlockchainError {
 
 impl<
         BlockReceiptT: ReceiptTrait,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         SignedTransactionT: ExecutableTransaction,
     > BlockHashByNumber
@@ -184,7 +184,7 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 impl<
         BlockReceiptT: ReceiptTrait,
         BlockT: ?Sized,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT>
             + FetchBlockReceipts<Arc<BlockReceiptT>>
             + CastArcInto<BlockT>
@@ -257,7 +257,7 @@ impl<
 impl<
         BlockReceiptT: ReceiptTrait,
         BlockT: ?Sized,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT>
             + CastArcInto<BlockT>
             + EmptyBlock<HardforkT>
@@ -315,7 +315,7 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 
 impl<
         BlockReceiptT: ReceiptTrait,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT>
             + BlockReceipts<Arc<BlockReceiptT>>
             + EmptyBlock<HardforkT>
@@ -420,7 +420,7 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 mod tests {
     use edr_block_api::{GenesisBlockFactory as _, GenesisBlockOptions};
     use edr_chain_l1::{chains::l1_chain_config, L1ChainSpec};
-    use edr_primitives::HashMap;
+    use edr_chain_spec_provider::ProviderChainSpec as _;
     use edr_state_api::{
         account::{Account, AccountInfo, AccountStatus},
         irregular::IrregularState,
@@ -443,16 +443,11 @@ mod tests {
         let genesis_diff: StateDiff = accounts
             .iter()
             .map(|(address, info)| {
-                (
-                    *address,
-                    Account {
-                        info: info.clone(),
-                        original_info: Box::new(info.clone()),
-                        storage: HashMap::default(),
-                        status: AccountStatus::Created | AccountStatus::Touched,
-                        transaction_id: 0,
-                    },
-                )
+                (*address, {
+                    let mut account = Account::from(info.clone());
+                    account.status = AccountStatus::Created | AccountStatus::Touched;
+                    account
+                })
             })
             .collect::<EvmState>()
             .into();
@@ -462,8 +457,8 @@ mod tests {
 
         let block_config = BlockConfig {
             base_fee_params: chain_config.base_fee_params.clone(),
-            hardfork: edr_chain_l1::Hardfork::SHANGHAI,
-            min_ethash_difficulty: edr_chain_l1::L1_MIN_ETHASH_DIFFICULTY,
+            default_difficulty_fn: L1ChainSpec::default_block_difficulty,
+            hardfork: edr_chain_l1::Hardfork::Shanghai,
             scheduled_blob_params: chain_config.bpo_hardfork_schedule.clone(),
         };
 

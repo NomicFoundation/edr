@@ -34,7 +34,7 @@ fn p256verify_precompile(
 #[tokio::test(flavor = "multi_thread")]
 async fn rip7212_disabled() -> anyhow::Result<()> {
     let mut config = create_test_config();
-    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::Prague;
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
@@ -66,7 +66,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn rip7212_enabled() -> anyhow::Result<()> {
     let mut config = create_test_config();
-    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::Prague;
     config.observability.include_call_traces = IncludeTraces::All;
     config.precompile_overrides = [(
         *secp256r1::P256VERIFY.address(),
@@ -121,7 +121,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
     let mut config = create_test_config();
-    config.hardfork = edr_chain_l1::Hardfork::OSAKA;
+    config.hardfork = edr_chain_l1::Hardfork::Osaka;
     config.observability.include_call_traces = IncludeTraces::All;
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());

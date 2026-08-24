@@ -151,7 +151,7 @@ mod base_fee_params {
         #[tokio::test(flavor = "multi_thread")]
         async fn custom_base_fee_params() -> anyhow::Result<()> {
             let mut config = create_test_config();
-            config.hardfork = Hardfork::HOLOCENE;
+            config.hardfork = Hardfork::Holocene;
             config.base_fee_params =
                 Some(BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![(
                     BaseFeeActivation::BlockNumber(0),
@@ -177,7 +177,7 @@ mod base_fee_params {
         #[tokio::test(flavor = "multi_thread")]
         async fn multiple_custom_base_fee_params() -> anyhow::Result<()> {
             let mut config = create_test_config();
-            config.hardfork = Hardfork::HOLOCENE;
+            config.hardfork = Hardfork::Holocene;
             config.base_fee_params = Some(BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
                 (
                     BaseFeeActivation::BlockNumber(0),
@@ -224,7 +224,7 @@ mod base_fee_params {
         #[tokio::test(flavor = "multi_thread")]
         async fn provider_uses_chain_default_base_fee_params() -> anyhow::Result<()> {
             let mut config = create_test_config();
-            config.hardfork = Hardfork::ISTHMUS;
+            config.hardfork = Hardfork::Isthmus;
             config.chain_id = edr_op::hardfork::op::MAINNET_CHAIN_ID;
 
             let provider = create_op_provider(config)?;
@@ -259,7 +259,7 @@ mod base_fee_params {
                     http_headers: None,
                     url: json_rpc_url_provider::op_mainnet(),
                 }));
-            config.hardfork = Hardfork::ISTHMUS;
+            config.hardfork = Hardfork::Isthmus;
             config.base_fee_params =
                 Some(BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![(
                     BaseFeeActivation::BlockNumber(0),
@@ -295,7 +295,7 @@ mod base_fee_params {
                     http_headers: None,
                     url: json_rpc_url_provider::op_mainnet(),
                 }));
-            config.hardfork = Hardfork::ISTHMUS;
+            config.hardfork = Hardfork::Isthmus;
             config.base_fee_params = Some(BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
                 (
                     BaseFeeActivation::BlockNumber(fork_block_number),
@@ -350,7 +350,7 @@ mod base_fee_params {
                     http_headers: None,
                     url: json_rpc_url_provider::op_mainnet(),
                 }));
-            config.hardfork = Hardfork::HOLOCENE;
+            config.hardfork = Hardfork::Holocene;
             config.chain_id = edr_op::hardfork::op::MAINNET_CHAIN_ID;
 
             let provider = create_op_provider(config)?;

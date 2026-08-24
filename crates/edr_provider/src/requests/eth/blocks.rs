@@ -180,7 +180,7 @@ fn block_by_number<
 }
 
 fn block_to_rpc_output<ChainSpecT: ProviderChainSpec>(
-    hardfork: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::ProtocolHardfork,
     block: Arc<ChainSpecT::Block>,
     is_pending: bool,
     total_difficulty: Option<U256>,
@@ -210,7 +210,10 @@ fn block_to_rpc_output<ChainSpecT: ProviderChainSpec>(
                         Arc<ChainSpecT::Block>,
                         ChainSpecT::SignedTransaction,
                     >| {
-                        ChainSpecT::RpcTransaction::rpc_type_from(&transaction_and_block, hardfork)
+                        ChainSpecT::RpcTransaction::rpc_type_from(
+                            &transaction_and_block,
+                            hardfork.clone(),
+                        )
                     },
                 )
                 .map(HashOrTransaction::Transaction)

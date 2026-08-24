@@ -7,49 +7,50 @@
 
 use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation, HardforkActivations};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use op_revm::OpSpecId;
+
+use crate::hardfork::OpHardfork;
 
 /// `Shape` chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x168;
 
 /// `Shape` chain configuration
-pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
+pub(super) fn mainnet_config() -> ChainConfig<OpHardfork> {
     ChainConfig {
         name: "Shape".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
                 ConstantBaseFeeParams::new(50, 6),
             ),
             (
-                BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::Canyon),
                 ConstantBaseFeeParams::new(250, 6),
             ),
         ])),
         hardfork_activations: HardforkActivations::new(vec![
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::BEDROCK,
+                hardfork: OpHardfork::Bedrock,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::REGOLITH,
+                hardfork: OpHardfork::Regolith,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::CANYON,
+                hardfork: OpHardfork::Canyon,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::ECOTONE,
+                hardfork: OpHardfork::Ecotone,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::FJORD,
+                hardfork: OpHardfork::Fjord,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1727370000),
-                hardfork: OpSpecId::GRANITE,
+                hardfork: OpHardfork::Granite,
             },
         ]),
         bpo_hardfork_schedule: None,
@@ -60,43 +61,43 @@ pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
 pub const SEPOLIA_CHAIN_ID: u64 = 0x2B03;
 
 /// `Shape Sepolia Testnet` chain configuration
-pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
+pub(super) fn sepolia_config() -> ChainConfig<OpHardfork> {
     ChainConfig {
         name: "Shape Sepolia Testnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
                 ConstantBaseFeeParams::new(50, 6),
             ),
             (
-                BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::Canyon),
                 ConstantBaseFeeParams::new(250, 6),
             ),
         ])),
         hardfork_activations: HardforkActivations::new(vec![
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::BEDROCK,
+                hardfork: OpHardfork::Bedrock,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::REGOLITH,
+                hardfork: OpHardfork::Regolith,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::CANYON,
+                hardfork: OpHardfork::Canyon,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
-                hardfork: OpSpecId::ECOTONE,
+                hardfork: OpHardfork::Ecotone,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1721732400),
-                hardfork: OpSpecId::FJORD,
+                hardfork: OpHardfork::Fjord,
             },
             HardforkActivation {
                 condition: ForkCondition::Timestamp(1727197200),
-                hardfork: OpSpecId::GRANITE,
+                hardfork: OpHardfork::Granite,
             },
         ]),
         bpo_hardfork_schedule: None,

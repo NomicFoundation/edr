@@ -47,15 +47,18 @@ export class TestContext {
   readonly artifacts: Artifact[];
   readonly testSuiteIds: ArtifactId[];
   readonly tracingConfig: TracingConfigWithBuffers;
+  readonly testSourcePaths: Record<string, string>;
 
   private constructor(
     artifacts: Artifact[],
     testSuiteIds: ArtifactId[],
-    tracingConfig: TracingConfigWithBuffers
+    tracingConfig: TracingConfigWithBuffers,
+    testSourcePaths: Record<string, string>
   ) {
     this.artifacts = artifacts;
     this.testSuiteIds = testSuiteIds;
     this.tracingConfig = tracingConfig;
+    this.testSourcePaths = testSourcePaths;
   }
 
   static async setup(): Promise<TestContext> {
@@ -63,7 +66,8 @@ export class TestContext {
     const context = new TestContext(
       results.artifacts,
       results.testSuiteIds,
-      results.tracingConfig
+      results.tracingConfig,
+      results.testSourcePaths
     );
 
     await context.edrContext.registerSolidityTestRunnerFactory(
@@ -91,6 +95,7 @@ export class TestContext {
     return {
       disableTransactionGasCap: true,
       projectRoot: hre.config.paths.root,
+      testSourcePaths: this.testSourcePaths,
       rpcCachePath: this.rpcCachePath,
       localPredeploys: localPredeploys,
       hardfork:

@@ -64,7 +64,7 @@ async fn forked_blockchain_pre_prague_activation_with_cancun() -> anyhow::Result
     let pre_prague = forked_blockchain(
         &mut irregular_state,
         PRE_PRAGUE_BLOCK_NUMBER,
-        edr_chain_l1::Hardfork::CANCUN,
+        edr_chain_l1::Hardfork::Cancun,
     )
     .await?;
 
@@ -95,7 +95,7 @@ async fn forked_blockchain_pre_prague_activation_with_prague() -> anyhow::Result
     let pre_prague = forked_blockchain(
         &mut irregular_state,
         PRE_PRAGUE_BLOCK_NUMBER,
-        edr_chain_l1::Hardfork::PRAGUE,
+        edr_chain_l1::Hardfork::Prague,
     )
     .await?;
 
@@ -126,7 +126,7 @@ async fn forked_blockchain_post_eip2935_deployment_with_cancun() -> anyhow::Resu
     let post_prague = forked_blockchain(
         &mut irregular_state,
         POST_DEPLOYMENT_BLOCK_NUMBER,
-        edr_chain_l1::Hardfork::CANCUN,
+        edr_chain_l1::Hardfork::Cancun,
     )
     .await?;
 
@@ -163,7 +163,7 @@ async fn forked_blockchain_post_prague() -> anyhow::Result<()> {
     let post_prague = forked_blockchain(
         &mut irregular_state,
         POST_PRAGUE_BLOCK_NUMBER,
-        edr_chain_l1::Hardfork::PRAGUE,
+        edr_chain_l1::Hardfork::Prague,
     )
     .await?;
 

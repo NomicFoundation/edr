@@ -26,14 +26,14 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec<SignedTransac
     blockchain: &dyn BlockHashByNumber<Error = DynBlockchainError>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn DynState>,
-    evm_config: CfgEnv<ChainSpecT::Hardfork>,
+    evm_config: CfgEnv<ChainSpecT::ProtocolHardfork>,
     tracing_options: GethDebugTracingOptions,
     block: ChainSpecT::BlockEnv<'header, BlockHeader>,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
     observer_config: EvmObserverConfig,
 ) -> Result<DebugTraceResultWithCallTraces, DebugTraceErrorForChainSpec<ChainSpecT>> {
-    let evm_spec_id = evm_config.spec.into();
+    let evm_spec_id: EvmSpecId = evm_config.spec.clone().into();
     if evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
         return Err(DebugTraceError::InvalidSpecId {
