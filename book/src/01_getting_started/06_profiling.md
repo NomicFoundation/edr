@@ -32,7 +32,7 @@ Recorded scenario files live in `js/benchmark/scenarios/`. See [Tools](../02_dev
 
 Linux `perf` samples every process and thread, producing call stacks that span JavaScript, the napi boundary, EDR's Rust code and subprocesses in one profile. Two preparations make the stacks readable:
 
-1. **EDR must be built with frame pointers and symbols.** The dedicated build profile does both (frame pointers let perf unwind through the JIT; the `line-tables-only` debug info provides Rust function names — expect a ~160 MB artifact instead of ~60 MB):
+1. **EDR must be built with frame pointers and symbols.** The dedicated build profile does both (frame pointers let perf walk EDR's native frames and join them onto the JavaScript frames that called them; the `line-tables-only` debug info gives those frames Rust function names — expect a ~160 MB artifact instead of ~60 MB):
 
    ```bash
    cd crates/edr_napi
