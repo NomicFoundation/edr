@@ -28,25 +28,17 @@ const CI_POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
 const DEFAULT_SCENARIO_FILTER = "*";
 const DEFAULT_BENCHMARK_FILTER = "test solidity,test mocha,test vitest";
 
-// The Hardhat repository the benchmark runs against.
-const HARDHAT_OWNER = "NomicFoundation";
-const HARDHAT_REPO = "hardhat";
-
-// Optional Hardhat compatibility pin, checked into the EDR repo while a
-// breaking EDR change needs a not-yet-merged Hardhat counterpart. Format:
-//
-//   {
-//     "pr": <Hardhat PR number>,
-//     "sha": "<full 40-hex commit sha on that PR>",
-//     "reason": "<optional free-form note>"
-//   }
-//
-// While the Hardhat PR is open, runs that don't name an explicit hardhat-ref
-// benchmark against the pinned sha; once it's merged (or closed) they revert
-// to `main` automatically. Delete the file after the Hardhat PR merges.
-// The pinned PR must live in NomicFoundation/hardhat (not a fork), so the
-// benchmark job can check the sha out directly.
-const HARDHAT_PIN_PATH = ".github/hardhat-compat-pin.json";
+// Optional Hardhat compatibility pin (see hardhat-compat-pin.cjs for the file
+// format). While the pinned Hardhat PR is open, runs that don't name an
+// explicit hardhat-ref benchmark against the pinned sha; once it's merged (or
+// closed) they revert to `main` automatically. Delete the file after the
+// Hardhat PR merges.
+const {
+  HARDHAT_OWNER,
+  HARDHAT_REPO,
+  HARDHAT_PIN_PATH,
+  parseHardhatPin,
+} = require("./hardhat-compat-pin.cjs");
 
 module.exports = async ({ github, context, core }) => {
   const { owner, repo } = context.repo;
@@ -113,23 +105,7 @@ module.exports = async ({ github, context, core }) => {
       throw e;
     }
 
-    let pin;
-    try {
-      pin = JSON.parse(raw);
-    } catch (e) {
-      throw new Error(`${HARDHAT_PIN_PATH} is not valid JSON: ${e.message}`);
-    }
-    if (
-      !Number.isInteger(pin.pr) ||
-      pin.pr <= 0 ||
-      typeof pin.sha !== "string" ||
-      !/^[0-9a-f]{40}$/i.test(pin.sha)
-    ) {
-      throw new Error(
-        `${HARDHAT_PIN_PATH} must contain {"pr": <Hardhat PR number>, ` +
-          `"sha": "<full 40-hex commit sha>"}; got: ${raw.trim()}`
-      );
-    }
+    const pin = parseHardhatPin(raw);
 
     const { data: hardhatPr } = await github.rest.pulls.get({
       owner: HARDHAT_OWNER,
@@ -152,7 +128,7 @@ module.exports = async ({ github, context, core }) => {
       return { ref: "main" };
     }
     core.info(`Hardhat compat pin active: ${prName} @ ${pin.sha}`);
-    return { ref: pin.sha.toLowerCase(), pin };
+    return { ref: pin.sha, pin };
   }
 
   // Cosmetic side effects (reactions, status comments) must never fail the job:

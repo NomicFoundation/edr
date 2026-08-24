@@ -18,7 +18,8 @@ name: Hardhat 3 Regression Benchmark
 # dispatch/`/bench` runs without an explicit hardhat-ref) then benchmark
 # against the pinned sha while the Hardhat PR is open, and revert to `main`
 # automatically once it's merged. Delete the pin file after the merge. See
-# `.github/scripts/resolve-regression-trigger.cjs` for details.
+# `.github/scripts/resolve-regression-trigger.cjs` for details. PRs that touch
+# the pin file get it validated by `validate-hardhat-compat-pin.yml`.
 
 on:
   # Records baselines for main.
