@@ -101,9 +101,30 @@ cp "$REPO_ROOT/data/contracts/coverage.sol" "$NAPI_DIR/coverage.sol"
 echo ">> Pinning versions and wiring the platform packages"
 ( cd "$NAPI_DIR"
   npm pkg set version="$VERSION"
+
+  # @napi-rs/cli >= 3.8 validates during pre-publish that every configured
+  # target's package contains its .node binary, but only this host's binary
+  # is real. Stage empty placeholders for the other platforms so validation
+  # passes; they are removed again right below and are never published
+  # (prepublish.sh passes --skip-optional-publish, and this script only
+  # publishes the host's platform package).
+  PLACEHOLDERS=()
+  for dir in npm/*/; do
+    binary="edr.$(basename "$dir").node"
+    if [ ! -f "$dir$binary" ]; then
+      : > "$dir$binary"
+      PLACEHOLDERS+=("$dir$binary")
+    fi
+  done
+
   # Syncs the platform packages' versions and wires them as optionalDependencies,
   # mirroring the release workflow.
   "$SCRIPT_DIR/prepublish.sh"
+
+  # `set -u` + empty array expansion errors on bash < 4.4 (e.g. macOS), so guard.
+  if [ "${#PLACEHOLDERS[@]}" -gt 0 ]; then
+    rm -f "${PLACEHOLDERS[@]}"
+  fi
 
   # Drop the platform packages this run won't publish. Uses `npm/*/` rather
   # than the napi targets so a newly added platform is covered without
