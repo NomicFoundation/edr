@@ -244,16 +244,14 @@ module.exports = async ({ github, context, core }) => {
           }
         }
 
-        // Gate on EDR CI being green for the PR head before spending
-        // ~3h on the self-hosted runner.
-        const green =
-          pinError === undefined && (await waitForEdrCi(pr.head.sha));
         if (pinError !== undefined) {
           await postComment(
             `⚠️ Could not resolve the Hardhat compat pin, so the regression ` +
               `benchmark was not started: ${pinError}`
           );
-        } else if (green) {
+          // Gate on EDR CI being green for the PR head before spending
+          // ~3h on the self-hosted runner.
+        } else if (await waitForEdrCi(pr.head.sha)) {
           shouldRun = true;
           // Only mention a filter that actually narrows the run (`*` = all).
           const filterNotes = [

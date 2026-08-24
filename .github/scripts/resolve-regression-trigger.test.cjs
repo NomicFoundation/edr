@@ -55,11 +55,20 @@ function makeDeps({
       pulls: {
         get: async ({ repo: pullRepo }) => {
           if (pullRepo === "hardhat") {
-            if (hardhatPr === undefined)
-              throw new Error("hardhat pulls.get not expected");
+            if (hardhatPr === undefined) {
+              throw new Error(
+                "unexpected pulls.get for the Hardhat repo: this test did " +
+                  "not provide a `hardhatPr` fixture"
+              );
+            }
             return { data: hardhatPr };
           }
-          if (pr === undefined) throw new Error("pulls.get not expected");
+          if (pr === undefined) {
+            throw new Error(
+              "unexpected pulls.get for the EDR repo: this test did not " +
+                "provide a `pr` fixture"
+            );
+          }
           return { data: pr };
         },
       },
