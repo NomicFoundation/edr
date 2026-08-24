@@ -8,7 +8,6 @@ use edr_primitives::{HashMap, UnknownHardfork};
 use crate::Hardfork;
 
 /// Base chain configs
-pub mod base;
 pub mod generated;
 /// OP chain configs
 pub mod op;
@@ -125,10 +124,6 @@ pub fn op_chain_configs() -> &'static HashMap<u64, ChainConfig<Hardfork>> {
             .entry(op::SEPOLIA_CHAIN_ID)
             .and_modify(|entry| entry.base_fee_params = op::SEPOLIA_BASE_FEE_PARAMS.clone());
 
-        // `base` blockchains were removed from the superchain registry, so
-        // their configs are maintained manually instead of being generated
-        configs.insert(base::MAINNET_CHAIN_ID, base::mainnet_config());
-        configs.insert(base::SEPOLIA_CHAIN_ID, base::sepolia_config());
         configs
     });
 

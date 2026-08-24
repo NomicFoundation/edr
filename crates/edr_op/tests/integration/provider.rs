@@ -101,8 +101,6 @@ macro_rules! impl_test_chain_id {
 impl_test_chain_id! {
     op_mainnet: json_rpc_url_provider::op_mainnet() => edr_op::hardfork::op::MAINNET_CHAIN_ID,
     op_sepolia: json_rpc_url_provider::op_sepolia() => edr_op::hardfork::op::SEPOLIA_CHAIN_ID,
-    base_mainnet: json_rpc_url_provider::base_mainnet() => edr_op::hardfork::base::MAINNET_CHAIN_ID,
-    base_sepolia: json_rpc_url_provider::base_sepolia() => edr_op::hardfork::base::SEPOLIA_CHAIN_ID,
 }
 
 mod base_fee_params {
