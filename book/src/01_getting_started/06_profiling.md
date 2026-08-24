@@ -42,6 +42,8 @@ Linux `perf` samples every process and thread, producing call stacks that span J
 2. **The Hardhat project must load that build.** Either point the napi loader at the artifact directly — no reinstall needed:
 
    ```bash
+   # the artifact is named after the platform it was built for — adjust the
+   # suffix to your machine, e.g. edr.linux-arm64-gnu.node, edr.darwin-arm64.node
    export NAPI_RS_NATIVE_LIBRARY_PATH=/path/to/edr/crates/edr_napi/edr.linux-x64-gnu.node
    ```
 
