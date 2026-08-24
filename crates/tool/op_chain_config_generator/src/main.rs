@@ -163,12 +163,14 @@ fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
 
     if check {
         // Checks whether there were any changes aside from changes triggered due to
-        // different superchain registry commit SHA included in the documentation.
-        // `-I` makes `git diff` ignore changed lines that match the regex, so a
-        // diff consisting only of `// source: <sha>` lines counts as up to date.
+        // different superchain registry commit SHA included in the documentation:
+        // a diff consisting only of `// source: <sha>` lines counts as up to date.
         let significant_diff = Command::new("git")
             .arg("diff")
-            .arg("-I^// source: https://github\\.com/ethereum-optimism/superchain-registry/tree/")
+            .arg(
+                "--ignore-matching-lines=^// source: \
+                 https://github\\.com/ethereum-optimism/superchain-registry/tree/",
+            )
             .arg("--exit-code")
             .arg("--")
             .arg(modules_dir)
