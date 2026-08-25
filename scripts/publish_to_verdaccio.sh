@@ -9,7 +9,7 @@
 # package (platform package first).
 #
 # A real release lists all platform packages; a local build only produces one,
-# so the other platforms are pruned from `optionalDependencies`. npm, pnpm and
+# so only this host's is wired into `optionalDependencies`. npm, pnpm and
 # bun skip `optionalDependencies` they can't resolve, but Yarn Classic
 # ("Couldn't find any versions") and Yarn Berry (YN0082) both treat an
 # unresolvable version as a fatal error.
@@ -98,43 +98,33 @@ echo ">> Compiling bundled TypeScript helpers"
 cp "$REPO_ROOT/data/contracts/coverage.sol" "$NAPI_DIR/coverage.sol"
 ( cd "$NAPI_DIR" && pnpm exec tsc )
 
-echo ">> Pinning versions and wiring the platform packages"
+# @napi-rs/cli >= 3.8 validates during pre-publish that every target in
+# `napi.targets` has its .node binary staged, and `--skip-optional-publish` does
+# not exempt them — but only this host's binary was built. There is no flag to
+# skip that validation, so hand `napi pre-publish` a config listing just this
+# host's target: it then validates, versions and wires exactly the one platform
+# package this script publishes, and never looks at the others.
+#
+# napi *merges* this file over package.json's `napi` field, so `binaryName`
+# ("edr") is preserved and only `targets` is overridden. Its warning that the
+# config file "will be used" reads as a replacement, but it is not one.
+NAPI_CONFIG="$(mktemp)"
+trap 'rm -f "$NAPI_CONFIG"' EXIT
+
+node "$SCRIPT_DIR/write_napi_host_config.ts" "$NAPI_DIR" "$PLATFORM" "$NAPI_CONFIG"
+
+if [ ! -s "$NAPI_CONFIG" ]; then
+  echo "error: write_napi_host_config.ts produced no config" >&2
+  exit 1
+fi
+
+echo ">> Pinning versions and wiring the platform package"
 ( cd "$NAPI_DIR"
   npm pkg set version="$VERSION"
 
-  # @napi-rs/cli >= 3.8 validates during pre-publish that every configured
-  # target's package contains its .node binary, but only this host's binary
-  # is real. Stage empty placeholders for the other platforms so validation
-  # passes; they are removed again right below and are never published
-  # (prepublish.sh passes --skip-optional-publish, and this script only
-  # publishes the host's platform package).
-  PLACEHOLDERS=()
-  for dir in npm/*/; do
-    binary="edr.$(basename "$dir").node"
-    if [ ! -f "$dir$binary" ]; then
-      : > "$dir$binary"
-      PLACEHOLDERS+=("$dir$binary")
-    fi
-  done
-
-  # Syncs the platform packages' versions and wires them as optionalDependencies,
+  # Syncs the platform package's version and wires it as an optionalDependency,
   # mirroring the release workflow.
-  "$SCRIPT_DIR/prepublish.sh"
-
-  # `set -u` + empty array expansion errors on bash < 4.4 (e.g. macOS), so guard.
-  if [ "${#PLACEHOLDERS[@]}" -gt 0 ]; then
-    rm -f "${PLACEHOLDERS[@]}"
-  fi
-
-  # Drop the platform packages this run won't publish. Uses `npm/*/` rather
-  # than the napi targets so a newly added platform is covered without
-  # touching this script.
-  for dir in npm/*/; do
-    platform="$(basename "$dir")"
-    if [ "$platform" != "$PLATFORM" ]; then
-      npm pkg delete "optionalDependencies.@nomicfoundation/edr-$platform"
-    fi
-  done
+  "$SCRIPT_DIR/prepublish.sh" --config-path "$NAPI_CONFIG"
 )
 
 if [ -n "$NPMRC" ]; then

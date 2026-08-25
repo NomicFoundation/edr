@@ -1,0 +1,5 @@
+{
+  "//": "Marks scripts/ as ESM so `node scripts/*.ts` runs without the MODULE_TYPELESS_PACKAGE_JSON warning. Not a workspace package (see pnpm-workspace.yaml); the repo root cannot be `type: module` because config/eslint/eslintrc.js and .syncpackrc.js are CommonJS.",
+  "type": "module",
+  "private": true
+}
