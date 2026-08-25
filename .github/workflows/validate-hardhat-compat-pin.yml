@@ -1,0 +1,45 @@
+# Validates the Hardhat compat pin (`.github/hardhat-compat-pin.json`) on
+# every PR that touches it: JSON shape (same parser the regression-benchmark
+# resolver uses), the referenced Hardhat PR exists, and the pinned sha is a
+# commit on that PR. This catches a broken pin at review time — the pin is
+# otherwise only exercised when the benchmark actually runs, which may never
+# happen on the PR that adds it (e.g. if `/bench` was not commented there).
+#
+# See `.github/scripts/validate-hardhat-compat-pin.cjs` for the exact rules.
+
+name: Validate Hardhat compat pin
+
+on:
+  pull_request:
+    paths:
+      - .github/hardhat-compat-pin.json
+      - .github/scripts/hardhat-compat-pin.cjs
+      - .github/scripts/validate-hardhat-compat-pin.cjs
+      - .github/workflows/validate-hardhat-compat-pin.yml
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Hardhat compat pin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read # checkout + (public) Hardhat repo reads
+    steps:
+      # Sparse-checkout only what the validation needs: the pin file itself
+      # and the scripts. For pull_request events this is the PR's merge
+      # commit, i.e. the pin as it would land on main.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: .github
+          persist-credentials: false
+
+      - name: Validate pin file
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const validate = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/validate-hardhat-compat-pin.cjs`);
+            await validate({ github, core });
