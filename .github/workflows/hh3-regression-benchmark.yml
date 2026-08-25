@@ -392,7 +392,15 @@ jobs:
             || echo "(no regression-report.json produced)"
 
       - name: Store benchmark result
+        id: benchmark
         uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        # On baseline runs the alert fires *after* the new data point is pushed,
+        # so absorbing the failure here keeps main green while still recording
+        # the baseline; the step's `outcome` drives the Slack regression alert
+        # below. Side effect: a genuine failure of this step on main (e.g. a
+        # push error) also surfaces as that regression ping instead of the
+        # generic failure one.
+        continue-on-error: ${{ needs.setup.outputs.is_baseline == 'true' }}
         with:
           tool: customSmallerIsBetter
           output-file-path: hardhat/regression-report.json
@@ -408,9 +416,27 @@ jobs:
           # Only push a new baseline on main-branch pushes; PRs/dispatch only compare.
           auto-push: ${{ needs.setup.outputs.is_baseline == 'true' }}
           alert-threshold: "110%"
-          # Fail the run on a regression for comparisons; never break main.
-          fail-on-alert: ${{ needs.setup.outputs.is_baseline != 'true' }}
+          # Fail the step on a regression. For comparisons (PR `/bench`,
+          # dispatch) this fails the run; for baseline runs `continue-on-error`
+          # above keeps main green and the failed outcome only triggers the
+          # Slack notification below.
+          fail-on-alert: "true"
           summary-always: true
+
+      - name: Notify perf regression on main
+        # Baseline runs record the new (regressed) data point as the baseline
+        # and stay green, so ping Slack explicitly when the store step raised
+        # a regression alert.
+        if: ${{ needs.setup.outputs.is_baseline == 'true' && steps.benchmark.outcome == 'failure' }}
+        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        with:
+          webhook: ${{ secrets.GH_ACTION_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+          payload: |
+            {
+              "workflow_name": "${{ github.workflow }} — perf regression on main (baseline was updated)",
+              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
 
       - name: Notify failures
         # Only ping Slack for failed baseline runs (pushes to main)
