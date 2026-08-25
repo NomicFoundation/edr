@@ -68,7 +68,7 @@ pub struct LogOutput {
     /// its pending log.
     #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity::opt"))]
     pub block_number: Option<u64>,
-    /// the timestamp of the block this log was in. None when its pending log,
+    /// the timestamp of the block this log was in. None when it's a pending log,
     /// or when the log came from a node that does not provide it. See
     /// [`edr_receipt::log::FullBlockLog::block_timestamp`].
     // Skipped rather than serialized as null, unlike the fields above: absence
