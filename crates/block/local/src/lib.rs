@@ -404,7 +404,6 @@ fn map_transaction_receipt_logs<
                         },
                         block_hash,
                         block_number,
-                        // A locally produced block always knows its own timestamp.
                         block_timestamp: Some(block_timestamp),
                         log_index: {
                             let index = log_index;

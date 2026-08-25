@@ -31,10 +31,9 @@ pub struct FullBlockLog {
     /// Timestamp of the block this log is in, added to the `Log` schema by
     /// <https://github.com/ethereum/execution-apis/pull/639>.
     ///
-    /// `Option` because the field is optional in that schema and a remote node
-    /// we fork from may predate it, so deserializing a log without it must not
-    /// fail and re-serializing must not invent a value. Blocks produced locally
-    /// always have it.
+    /// `None` when it's a pending log; or when the log came from a JSON-RPC
+    /// provider that does not provide it. Blocks produced locally always have
+    /// it.
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

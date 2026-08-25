@@ -2,7 +2,6 @@
 
 //! `blockTimestamp` on logs.
 //! see <https://github.com/ethereum/execution-apis/pull/639>
-//
 //!
 //! The value has to be the timestamp of the block the log is actually in, not
 //! the latest block, so these tests assert it against `eth_getBlockByNumber`
@@ -28,7 +27,7 @@ use tokio::runtime;
 
 /// Deployment code for a contract whose fallback emits one anonymous log:
 /// `MSTORE(0, 1); LOG0(0, 32)`.
-const LOG_EMITTER_DEPLOYMENT_BYTECODE: &str = "0x600a600c600039600a6000f3600160005260206000a000";
+const LOG_EMITTER_DEPLOYMENT_BYTECODE: &str = "0x600b600c600039600b6000f3600160005260206000a000";
 
 fn new_provider() -> anyhow::Result<(Provider<L1ChainSpec, CurrentTime>, Address)> {
     let config = create_test_config();
