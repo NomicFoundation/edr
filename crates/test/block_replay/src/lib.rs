@@ -162,12 +162,17 @@ async fn get_fork_state<
 /// The field is optional in the `Log` schema (execution-apis#639), so a remote
 /// node may omit it where a locally mined receipt always has it. Comparing the
 /// two is only meaningful once both sides agree to leave it out.
-fn without_log_block_timestamps<ChainSpecT: ExecutionReceiptChainSpec>(
+fn without_log_block_timestamps<ChainSpecT>(
     receipt: ChainSpecT::ExecutionReceipt<FilterLog>,
 ) -> ChainSpecT::ExecutionReceipt<FilterLog>
 where
-    ChainSpecT::ExecutionReceipt<FilterLog>:
-        MapReceiptLogs<FilterLog, FilterLog, ChainSpecT::ExecutionReceipt<FilterLog>>,
+    ChainSpecT: ExecutionReceiptChainSpec<
+        ExecutionReceipt<FilterLog>: MapReceiptLogs<
+            FilterLog,
+            FilterLog,
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+        >,
+    >,
 {
     receipt.map_logs(|mut log| {
         log.inner.block_timestamp = None;
@@ -180,7 +185,14 @@ where
 pub async fn run_full_block<
     ChainSpecT: 'static
         + SyncProviderChainSpec<
-            ExecutionReceipt<FilterLog>: Clone + Debug + PartialEq,
+            ExecutionReceipt<FilterLog>: Clone
+                                             + Debug
+                                             + PartialEq
+                                             + MapReceiptLogs<
+                FilterLog,
+                FilterLog,
+                ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
             Receipt: AsExecutionReceipt<ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>>,
             RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<
                 EthBlockData<ChainSpecT::SignedTransaction>,
@@ -194,11 +206,7 @@ pub async fn run_full_block<
     header_overrides_constructor: impl FnOnce(
         &BlockHeader,
     ) -> HeaderOverrides<ChainSpecT::ProtocolHardfork>,
-) -> anyhow::Result<()>
-where
-    ChainSpecT::ExecutionReceipt<FilterLog>:
-        MapReceiptLogs<FilterLog, FilterLog, ChainSpecT::ExecutionReceipt<FilterLog>>,
-{
+) -> anyhow::Result<()> {
     let rpc_client = Arc::new(rpc_client);
     let ForkedStateAndBlockchain {
         block_config,

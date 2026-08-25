@@ -61,17 +61,20 @@ pub async fn replay_chain_specific_block<ChainSpecT>(
 where
     ChainSpecT: 'static
         + SyncProviderChainSpec<
-            ExecutionReceipt<FilterLog>: Clone + Debug + PartialEq,
+            ExecutionReceipt<FilterLog>: Clone
+                                             + Debug
+                                             + PartialEq
+                                             + MapReceiptLogs<
+                FilterLog,
+                FilterLog,
+                ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
             Receipt: AsExecutionReceipt<ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>>,
             RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<
                 EthBlockData<ChainSpecT::SignedTransaction>,
                 Error: 'static,
             >,
         >,
-    // mirrors `run_full_block`, which compares receipts with the block timestamp
-    // stripped from the logs and so needs to clone and re-map them
-    ChainSpecT::ExecutionReceipt<FilterLog>:
-        MapReceiptLogs<FilterLog, FilterLog, ChainSpecT::ExecutionReceipt<FilterLog>>,
 {
     let rpc_client =
         EthRpcClientForChainSpec::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
