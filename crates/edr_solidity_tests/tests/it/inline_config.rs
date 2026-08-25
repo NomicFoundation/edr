@@ -143,6 +143,18 @@ async fn contract_level_inline_config_applies_to_all_tests() {
     // A function-level directive wins over the contract level.
     assert_eq!(fuzz_runs("testFuzz_FunctionOverridesContract(uint256)"), 20);
 
+    // Overloaded test functions are distinct tests; each overload gets the
+    // contract-level configuration.
+    assert_eq!(fuzz_runs("testFuzz_Overloaded(uint256)"), 15);
+    assert_eq!(fuzz_runs("testFuzz_Overloaded(uint256,uint256)"), 15);
+    // A function-level directive identifies its function by name only, so it
+    // applies to every overload of that name.
+    assert_eq!(fuzz_runs("testFuzz_OverloadedWithDirective(uint256)"), 25);
+    assert_eq!(
+        fuzz_runs("testFuzz_OverloadedWithDirective(uint256,uint256)"),
+        25
+    );
+
     // The contract-level invariant section applies to the invariant test.
     let invariant = suite
         .test_results

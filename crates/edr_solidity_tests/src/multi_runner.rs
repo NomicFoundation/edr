@@ -332,11 +332,24 @@ impl<
             .inline_config_provider
             .get(&artifact_id.source, &artifact_id.name);
 
-        let mut by_name: HashMap<String, TestFunctionConfigOverride> = parsed
-            .functions
-            .into_iter()
-            .map(|function_override| (function_override.function_name, function_override.config))
-            .collect();
+        // Key the merged overrides by function selector so that overloaded
+        // test functions each get their own  entry: every overload is a distinct test
+        // with a distinct selector.
+        let mut by_selector: HashMap<String, TestFunctionConfigOverride> = HashMap::new();
+        for function_override in parsed.functions {
+            // A name matching no ABI function (e.g. not externally callable)
+            // can't be run as a test; its override is never inserted.
+            for function in contract
+                .abi
+                .functions()
+                .filter(|function| function.name == function_override.function_name)
+            {
+                by_selector.insert(
+                    function.selector().to_string(),
+                    function_override.config.clone(),
+                );
+            }
+        }
 
         // Apply the contract-level configuration underneath every test
         // function's own overrides. Walking the ABI (rather than the source)
@@ -346,8 +359,8 @@ impl<
                 if !inline_config::is_test_function(&function.name) {
                     continue;
                 }
-                by_name
-                    .entry(function.name.clone())
+                by_selector
+                    .entry(function.selector().to_string())
                     .or_default()
                     .fill_from(contract_config);
             }
@@ -356,14 +369,7 @@ impl<
         let mut overrides = HashMap::new();
         let mut allow_internal_expect_revert = HashSet::new();
 
-        for (function_name, config) in by_name {
-            let Some(function_selector) =
-                inline_config::resolve_selector(&contract.abi, &function_name)
-            else {
-                // Not part of the ABI (e.g. not externally callable), so it
-                // can't be run as a test; ignore it.
-                continue;
-            };
+        for (function_selector, config) in by_selector {
             let identifier = TestFunctionIdentifier {
                 contract_artifact: artifact_id.clone(),
                 function_selector,

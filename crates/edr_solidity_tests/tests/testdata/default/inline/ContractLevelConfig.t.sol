@@ -41,6 +41,29 @@ contract ContractLevelConfigTest is ContractLevelConfigBase {
         assertEq(a, a);
     }
 
+    // Overloads are distinct tests (distinct selectors); each one runs with
+    // the contract-level fuzz.runs = 15.
+    function testFuzz_Overloaded(uint256 a) public {
+        assertEq(a, a);
+    }
+
+    function testFuzz_Overloaded(uint256 a, uint256 b) public {
+        assertEq(a, a);
+        assertEq(b, b);
+    }
+
+    // A function-level directive identifies its function by name only, so it
+    // applies to every overload of that name.
+    /// forge-config: default.fuzz.runs = 25
+    function testFuzz_OverloadedWithDirective(uint256 a) public {
+        assertEq(a, a);
+    }
+
+    function testFuzz_OverloadedWithDirective(uint256 a, uint256 b) public {
+        assertEq(a, a);
+        assertEq(b, b);
+    }
+
     // Runs with the contract-level invariant.runs = 2 and depth = 3.
     function invariant_ContractLevelRuns() public {
         assertTrue(address(counter) != address(0));
