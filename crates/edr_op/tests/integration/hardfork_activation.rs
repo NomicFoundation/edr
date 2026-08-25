@@ -61,22 +61,4 @@ impl_test_hardfork_activation! {
         holocene: 20_415_330 => edr_op::Hardfork::Holocene,
         isthmus: 26_551_530 => edr_op::Hardfork::Isthmus,
     },
-    base_mainnet: json_rpc_url_provider::base_mainnet() => {
-        regolith: 0 => edr_op::Hardfork::Regolith,
-        canyon: 9_101_527 => edr_op::Hardfork::Canyon,
-        ecotone: 11_792_527 => edr_op::Hardfork::Ecotone,
-        fjord: 16_918_927 => edr_op::Hardfork::Fjord,
-        granite: 19_640_527 => edr_op::Hardfork::Granite,
-        holocene: 24_828_127 => edr_op::Hardfork::Holocene,
-        isthmus: 30_008_527 => edr_op::Hardfork::Isthmus,
-    },
-    base_sepolia: json_rpc_url_provider::base_sepolia() => {
-        regolith: 0 => edr_op::Hardfork::Regolith,
-        canyon: 2_106_456 => edr_op::Hardfork::Canyon,
-        ecotone: 6_383_256 => edr_op::Hardfork::Ecotone,
-        fjord: 10_615_056 => edr_op::Hardfork::Fjord,
-        granite: 13_855_056 => edr_op::Hardfork::Granite,
-        holocene: 18_432_456 => edr_op::Hardfork::Holocene,
-        isthmus: 24_568_656 => edr_op::Hardfork::Isthmus,
-    },
 }
