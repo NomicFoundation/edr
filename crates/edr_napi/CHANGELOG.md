@@ -1,5 +1,16 @@
 # @nomicfoundation/edr
 
+## 0.19.0
+
+### Minor Changes
+
+- df14790: Removed the built-in chain configurations for Base Mainnet and Base Sepolia, as well as for the other chains dropped from the superchain registry (Arena-Z, Swell, Creator Chain testnet, Ethernity Sepolia).
+
+### Patch Changes
+
+- 475519d: - Added support for compilation artifacts with `slang-solx` compiler type string.
+  - BREAKING CHANGE: Removed support for compilation artifacts with `slangSolx` compiler type string. Instead, use the `slang-solx` compiler type string.
+
 ## 0.18.0
 
 ### Minor Changes
