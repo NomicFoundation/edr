@@ -295,6 +295,8 @@ jobs:
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Test repo scripts
+        run: pnpm run test:scripts
       - name: Run build script
         run: pnpm run build:dev
       - name: Run lint script

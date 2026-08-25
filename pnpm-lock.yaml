@@ -18,12 +18,18 @@ importers:
       '@changesets/cli':
         specifier: ^2.29.5
         version: 2.31.1(@types/node@22.20.1)
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
       prettier:
         specifier: ^3.2.5
         version: 3.9.6
       syncpack:
         specifier: ^15.0.0
         version: 15.3.3
+      typescript:
+        specifier: ~5.8.2
+        version: 5.8.3
 
   crates/edr_napi:
     devDependencies:
