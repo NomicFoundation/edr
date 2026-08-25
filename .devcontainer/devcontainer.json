@@ -2,8 +2,9 @@
   "name": "EDR",
   "image": "mcr.microsoft.com/devcontainers/base:trixie",
   "capAdd": [
-    // Enable for profiling with `perf`
-    // "SYS_ADMIN"
+    // Enable for profiling with `perf` (see the book's Profiling chapter for
+    // a capability-free alternative via a custom seccomp profile)
+    // "PERFMON"
   ],
   "features": {
     "ghcr.io/devcontainers/features/node:1": {

@@ -6,6 +6,7 @@
     "sourceMap": true,
     "noEmitOnError": true,
     "skipDefaultLibCheck": true,
+    "types": ["node", "mocha"],
     "outDir": "./dist",
     "composite": true
   },
