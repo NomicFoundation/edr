@@ -2024,15 +2024,6 @@ export interface TestSuiteReference {
   name: string
 }
 
-/**
- * Timeout configuration.
- * Note: This wrapper is needed to avoid ambiguity with NAPI conversion.
- */
-export interface TimeoutConfig {
-  /** Optional timeout (in seconds). */
-  time?: number
-}
-
 /** Tracing config for Solidity stack trace generation. */
 export interface TracingConfigWithBuffers {
   /**
