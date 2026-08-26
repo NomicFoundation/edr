@@ -116,11 +116,11 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-rs-rpc-cache-v1-${{ matrix.os }}
+          key: edr-rs-rpc-cache-v2-${{ matrix.os }}
           # Save key includes a hashFiles suffix; restore via the
           # OS-scoped prefix to pick up the most recent matching entry.
           restore-keys: |
-            edr-rs-rpc-cache-v1-${{ matrix.os }}-
+            edr-rs-rpc-cache-v2-${{ matrix.os }}-
 
       - name: Run cargo tests (with coverage)
         env:
@@ -143,7 +143,7 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-rs-rpc-cache-v1-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
+          key: edr-rs-rpc-cache-v2-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
 
       # disable until:
       # 1) https://github.com/napi-rs/napi-rs/issues/1405 is resolved (Windows-only)
@@ -198,11 +198,11 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-ts-rpc-cache-v1-${{ matrix.os }}
+          key: edr-ts-rpc-cache-v2-${{ matrix.os }}
           # Save key includes a hashFiles suffix; restore via the
           # OS-scoped prefix to pick up the most recent matching entry.
           restore-keys: |
-            edr-ts-rpc-cache-v1-${{ matrix.os }}-
+            edr-ts-rpc-cache-v2-${{ matrix.os }}-
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -233,7 +233,7 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-ts-rpc-cache-v1-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
+          key: edr-ts-rpc-cache-v2-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
 
   edr-style:
     name: Check EDR Style
@@ -295,6 +295,8 @@ jobs:
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Test repo scripts
+        run: pnpm run test:scripts
       - name: Run build script
         run: pnpm run build:dev
       - name: Run lint script

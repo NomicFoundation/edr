@@ -75,6 +75,7 @@ mod tests {
                 )
                 .unwrap(),
                 block_number: 0xa74fde,
+                block_timestamp: Some(0x66e2_1f00),
                 log_index: 0x653b,
                 transaction_index: 0x1f,
             },

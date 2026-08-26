@@ -151,6 +151,7 @@ pub enum CompilerType {
     #[default]
     Solc,
     /// Slang solx compiler
+    #[strum(serialize = "slang-solx")]
     SlangSolx,
 }
 
@@ -578,7 +579,7 @@ mod tests {
     #[test]
     fn to_compiler_type_reads_the_build_info_sentinel() {
         const SOLC_COMPILER_TYPE: &str = "solc";
-        const SLANG_SOLX_COMPILER_TYPE: &str = "slangSolx";
+        const SLANG_SOLX_COMPILER_TYPE: &str = "slang-solx";
 
         assert_eq!(CompilerType::Solc.to_string(), SOLC_COMPILER_TYPE);
         assert_eq!(

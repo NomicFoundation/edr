@@ -113,7 +113,7 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-rs-rpc-cache-v1
+          key: edr-rs-rpc-cache-v2
 
       - name: Install packages
         run: sfw pnpm install --frozen-lockfile --prefer-offline

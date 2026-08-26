@@ -24,7 +24,7 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: test-recent-mainnet-block-rpc-cache-v1
+          key: test-recent-mainnet-block-rpc-cache-v2
 
       - run: cargo replay-block -u ${{ secrets.ALCHEMY_URL }} -c l1
 

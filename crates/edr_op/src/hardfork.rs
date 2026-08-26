@@ -8,7 +8,6 @@ use edr_primitives::{HashMap, UnknownHardfork};
 use crate::Hardfork;
 
 /// Base chain configs
-pub mod base;
 pub mod generated;
 /// OP chain configs
 pub mod op;
@@ -125,14 +124,6 @@ pub fn op_chain_configs() -> &'static HashMap<u64, ChainConfig<Hardfork>> {
             .entry(op::SEPOLIA_CHAIN_ID)
             .and_modify(|entry| entry.base_fee_params = op::SEPOLIA_BASE_FEE_PARAMS.clone());
 
-        // Override `base_fee_params` for `base` blockchains
-        // TODO: remove this override once https://github.com/NomicFoundation/edr/issues/1072 is implemented
-        configs
-            .entry(base::MAINNET_CHAIN_ID)
-            .and_modify(|entry| entry.base_fee_params = base::MAINNET_BASE_FEE_PARAMS.clone());
-        configs
-            .entry(base::SEPOLIA_CHAIN_ID)
-            .and_modify(|entry| entry.base_fee_params = base::SEPOLIA_BASE_FEE_PARAMS.clone());
         configs
     });
 
