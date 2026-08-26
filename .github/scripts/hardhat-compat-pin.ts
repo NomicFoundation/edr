@@ -9,48 +9,57 @@
 //     "reason": "<optional free-form note>"
 //   }
 //
-// Consumed by:
-//   - resolve-regression-trigger.cjs: while the Hardhat PR is open, regression
-//     benchmark runs that don't name an explicit hardhat-ref use the pinned
-//     sha instead of `main`.
-//   - validate-hardhat-compat-pin.cjs: CI check that validates the file on
-//     PRs that touch it, before the pin is ever consumed.
+// See README.md for the conventions these scripts follow.
 
 // The Hardhat repository the pin (and the benchmark) refers to. The pinned PR
 // must live here (not in a fork), so the benchmark job can check the sha out
 // directly.
-const HARDHAT_OWNER = "NomicFoundation";
-const HARDHAT_REPO = "hardhat";
+export const HARDHAT_OWNER = "NomicFoundation";
+export const HARDHAT_REPO = "hardhat";
 
 // Where the pin lives in the EDR repo.
-const HARDHAT_PIN_PATH = ".github/hardhat-compat-pin.json";
+export const HARDHAT_PIN_PATH = ".github/hardhat-compat-pin.json";
+
+export interface HardhatPin {
+  pr: number;
+  sha: string;
+  // Free-form and never validated, so it is whatever the file contained.
+  reason?: unknown;
+}
+
+function isHardhatPin(value: unknown): value is HardhatPin {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const { pr, sha } = value as { pr?: unknown; sha?: unknown };
+
+  return (
+    typeof pr === "number" &&
+    Number.isInteger(pr) &&
+    pr > 0 &&
+    typeof sha === "string" &&
+    /^[0-9a-f]{40}$/i.test(sha)
+  );
+}
 
 // Parse and validate the raw file contents. Returns the pin with a lowercased
 // sha; throws a descriptive error on invalid JSON or a malformed shape.
-function parseHardhatPin(raw) {
-  let pin;
+export function parseHardhatPin(raw: string): HardhatPin {
+  let pin: unknown;
   try {
     pin = JSON.parse(raw);
   } catch (e) {
-    throw new Error(`${HARDHAT_PIN_PATH} is not valid JSON: ${e.message}`);
+    const message = e instanceof Error ? e.message : String(e);
+    throw new Error(`${HARDHAT_PIN_PATH} is not valid JSON: ${message}`);
   }
-  if (
-    !Number.isInteger(pin.pr) ||
-    pin.pr <= 0 ||
-    typeof pin.sha !== "string" ||
-    !/^[0-9a-f]{40}$/i.test(pin.sha)
-  ) {
+
+  if (!isHardhatPin(pin)) {
     throw new Error(
       `${HARDHAT_PIN_PATH} must contain {"pr": <Hardhat PR number>, ` +
         `"sha": "<full 40-hex commit sha>"}; got: ${raw.trim()}`
     );
   }
+
   return { ...pin, sha: pin.sha.toLowerCase() };
 }
-
-module.exports = {
-  HARDHAT_OWNER,
-  HARDHAT_REPO,
-  HARDHAT_PIN_PATH,
-  parseHardhatPin,
-};

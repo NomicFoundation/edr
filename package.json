@@ -19,12 +19,13 @@
   "scripts": {
     "build": "pnpm run --recursive build",
     "build:dev": "pnpm run --recursive build:dev",
-    "lint": "syncpack lint && pnpm run prettier && pnpm run tsc:scripts && pnpm run --recursive lint",
+    "lint": "syncpack lint && pnpm run prettier && pnpm run tsc:scripts && pnpm run tsc:workflows && pnpm run --recursive lint",
     "lint:fix": "syncpack format && pnpm run prettier:fix && pnpm run --recursive lint:fix",
-    "prettier": "prettier --check \".github/**/*.{yml,ts,js}\" \"scripts/**/*.{ts,json}\" \"**/*.md\"",
+    "prettier": "prettier --check \".github/**/*.{yml,ts,js,json}\" \"scripts/**/*.{ts,json}\" \"**/*.md\"",
     "prettier:fix": "pnpm run prettier --write",
-    "test:scripts": "node --test \"scripts/**/*.test.ts\"",
-    "test:workflows": "node --test \".github/scripts/*.test.cjs\"",
-    "tsc:scripts": "tsc --noEmit -p scripts/tsconfig.json"
+    "test:scripts": "cd scripts && node --test",
+    "test:workflows": "cd .github/scripts && node --test",
+    "tsc:scripts": "tsc --noEmit -p scripts/tsconfig.json",
+    "tsc:workflows": "tsc --noEmit -p .github/scripts/tsconfig.json"
   }
 }

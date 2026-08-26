@@ -1,0 +1,19 @@
+// Deliberately duplicates scripts/tsconfig.json rather than extending it:
+// this directory is sparse-checked-out on its own by the regression
+// benchmark, so an `extends` path outside .github/ would dangle there.
+{
+  "compilerOptions": {
+    "target": "es2024",
+    "lib": ["es2024"],
+    "module": "nodenext",
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"]
+}

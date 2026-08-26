@@ -25,3 +25,7 @@ For a list of EIPs and chain specifications that EDR does not fully support, inc
 
 - [Hardhat 3](https://hardhat.org/)
 - [Hardhat 2](https://hardhat.org/hardhat2)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). If you are adding or editing a build, release or CI script, [`scripts/README.md`](scripts/README.md) covers the conventions those follow.
