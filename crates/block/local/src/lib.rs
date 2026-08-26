@@ -86,6 +86,7 @@ impl<
         let transaction_receipts = map_transaction_receipt_logs::<ExecutionReceiptChainSpecT>(
             hash,
             header.number,
+            header.timestamp,
             transaction_receipts,
         )
         .zip(transactions.iter())
@@ -382,6 +383,7 @@ fn map_transaction_receipt_logs<
 >(
     block_hash: B256,
     block_number: u64,
+    block_timestamp: u64,
     receipts: Vec<TransactionReceipt<ExecutionReceiptT::ExecutionReceipt<ExecutionLog>>>,
 ) -> impl Iterator<Item = TransactionReceipt<ExecutionReceiptT::ExecutionReceipt<FilterLog>>> {
     let mut log_index = 0;
@@ -402,6 +404,7 @@ fn map_transaction_receipt_logs<
                         },
                         block_hash,
                         block_number,
+                        block_timestamp: Some(block_timestamp),
                         log_index: {
                             let index = log_index;
                             log_index += 1;

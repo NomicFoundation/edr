@@ -37,6 +37,23 @@ use crate::{
 
 const RPC_CACHE_DIR: &str = "rpc_cache";
 const TMP_DIR: &str = "tmp";
+/// Version of the on-disk cache layout, used as a path segment so that entries
+/// written by an older layout are never read again.
+///
+/// A response is cached as the deserialized Rust value re-serialized, not as
+/// the bytes the node sent (see [`RpcClient::write_response_to_cache`]), so an
+/// entry only ever holds the fields its types knew about when it was written.
+/// The cache key is the method and its parameters alone, so adding a field to a
+/// cached type does not make existing entries grow it: they keep answering
+/// without it, indefinitely and invisibly, even against a node that now serves
+/// it.
+///
+/// Bump this whenever the serialization of anything reachable from a cached
+/// response changes. The cost is one cold re-fetch; the cost of not bumping it
+/// is a cache that silently contradicts the node.
+///
+/// - `v2`: logs gained `blockTimestamp` (ethereum/execution-apis#639).
+const CACHE_LAYOUT_VERSION: &str = "v2";
 // Retry parameters for rate limited requests.
 const EXPONENT_BASE: u32 = 2;
 const MIN_RETRY_INTERVAL: Duration = Duration::from_secs(1);
@@ -192,7 +209,7 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
             .with(RetryTransientMiddleware::new_with_policy(retry_policy))
             .build();
 
-        let rpc_cache_dir = cache_dir.join(RPC_CACHE_DIR);
+        let rpc_cache_dir = cache_dir.join(RPC_CACHE_DIR).join(CACHE_LAYOUT_VERSION);
         // We aren't using the system temporary directories as they may be on a
         // different a file system which would cause the rename call later to
         // fail.
@@ -204,7 +221,7 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
             cached_block_number: RwLock::new(None),
             client,
             next_id: AtomicU64::new(0),
-            rpc_cache_dir: cache_dir.join(RPC_CACHE_DIR),
+            rpc_cache_dir,
             tmp_dir,
             _phantom: PhantomData,
         })
@@ -837,6 +854,34 @@ mod tests {
                 Self::NetVersion(_) => "net_version",
             }
         }
+    }
+
+    #[test]
+    fn cache_entries_are_kept_under_a_layout_version() {
+        // An entry holds only the fields its types knew about when it was
+        // written, so entries from an older layout must never be read back.
+        // The version path segment is the whole of that guarantee: without it,
+        // adding a field to a cached type leaves stale entries answering
+        // without it forever, since the cache key is method and params alone.
+        let cache_dir = tempfile::TempDir::new().expect("can create a temporary directory");
+
+        let client = RpcClient::<TestMethod>::new(
+            "https://example.invalid",
+            cache_dir.path().to_path_buf(),
+            None,
+        )
+        .expect("url is valid");
+
+        assert_eq!(
+            client.rpc_cache_dir,
+            cache_dir
+                .path()
+                .join(RPC_CACHE_DIR)
+                .join(CACHE_LAYOUT_VERSION)
+        );
+        // Staging has to sit inside the versioned directory too, so that the
+        // rename into place stays on one filesystem.
+        assert!(client.tmp_dir.starts_with(&client.rpc_cache_dir));
     }
 
     #[cfg(feature = "test-remote")]

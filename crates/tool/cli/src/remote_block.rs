@@ -8,7 +8,7 @@ use edr_chain_spec_provider::SyncProviderChainSpec;
 use edr_chain_spec_rpc::RpcChainSpec;
 use edr_op::{test_utils::jovian_header_overrides, OpChainSpec};
 use edr_provider::test_utils::prague_header_overrides;
-use edr_receipt::{log::FilterLog, AsExecutionReceipt};
+use edr_receipt::{log::FilterLog, AsExecutionReceipt, MapReceiptLogs};
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_test_block_replay::run_full_block;
 
@@ -61,7 +61,14 @@ pub async fn replay_chain_specific_block<ChainSpecT>(
 where
     ChainSpecT: 'static
         + SyncProviderChainSpec<
-            ExecutionReceipt<FilterLog>: Debug + PartialEq,
+            ExecutionReceipt<FilterLog>: Clone
+                                             + Debug
+                                             + PartialEq
+                                             + MapReceiptLogs<
+                FilterLog,
+                FilterLog,
+                ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
             Receipt: AsExecutionReceipt<ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>>,
             RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<
                 EthBlockData<ChainSpecT::SignedTransaction>,

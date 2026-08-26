@@ -1,3 +1,4 @@
+mod block_timestamp_in_logs;
 mod call_traces;
 mod coverage;
 mod disable_balance_check;
