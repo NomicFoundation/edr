@@ -1200,8 +1200,7 @@ export const ISTHMUS: string
  *
  * This is Ethereum's pre-standard Keccak-256, whose padding differs from the
  * standardized SHA3-256, so it can't be substituted by a platform SHA3
- * implementation. It is exposed so that JavaScript consumers can replace their
- * pure-JS implementations with EDR's native one.
+ * implementation.
  */
 export declare function keccak256(data: Uint8Array): Uint8Array
 
