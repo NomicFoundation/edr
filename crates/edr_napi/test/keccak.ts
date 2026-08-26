@@ -33,7 +33,7 @@ describe("keccak256", function () {
   // A mismatch with the JS implementation would be consensus-breaking, so this
   // covers every length up to two keccak blocks, the block boundaries
   // themselves, and inputs large enough to need many permutations.
-  it("matches the JS implementation", function () {
+  it("fuzz: matches the JS implementation for random inputs", function () {
     const inputs: Uint8Array[] = [];
 
     for (let length = 0; length <= 300; length++) {
