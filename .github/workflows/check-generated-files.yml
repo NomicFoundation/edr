@@ -29,10 +29,7 @@ jobs:
           toolchain: nightly
           components: rustfmt
 
-      - name: Run op-chain-config command that updates chains config
-        run: cargo op-chain-config
-
-      - name: Check that there are no uncommitted changes
+      - name: Check that the generated chain configs are up to date
         run: cargo op-chain-config -- --check
 
       - name: Notify failure
