@@ -749,6 +749,7 @@ module.exports.HOMESTEAD = nativeBinding.HOMESTEAD
 module.exports.IncludeTraces = nativeBinding.IncludeTraces
 module.exports.ISTANBUL = nativeBinding.ISTANBUL
 module.exports.ISTHMUS = nativeBinding.ISTHMUS
+module.exports.keccak256 = nativeBinding.keccak256
 module.exports.L1_CHAIN_TYPE = nativeBinding.L1_CHAIN_TYPE
 module.exports.l1GenesisState = nativeBinding.l1GenesisState
 module.exports.l1HardforkFromString = nativeBinding.l1HardforkFromString
