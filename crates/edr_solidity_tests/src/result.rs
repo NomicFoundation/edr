@@ -10,6 +10,7 @@ use alloy_primitives::{map::AddressHashMap, Address, Log};
 use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
 use edr_decoder_revert::cheatcodes::skip::SkipReason;
+use edr_solidity::solidity_stack_trace::DeployedCodeMaps;
 pub use foundry_evm::executors::invariant::InvariantMetrics;
 use foundry_evm::{
     coverage::HitMaps,
@@ -174,7 +175,8 @@ pub struct SuiteResult<HaltReasonT> {
     pub duration: Duration,
     /// Traces from the setup phase of the test suite. These are shared across
     /// all tests in the suite and should be printed alongside each test's
-    /// individual traces.
+    /// individual traces. Empty when setup ran untraced, or when no test
+    /// result surfaces its traces and no gas report was requested.
     pub setup_traces: SetupTraces,
     /// Individual test results: `test fn signature -> TestResult`.
     pub test_results: BTreeMap<String, TestResult<HaltReasonT>>,
@@ -1040,6 +1042,11 @@ pub struct TestSetup<HaltReasonT> {
     /// Call traces of the setup. Only the last arena carries recorded EVM
     /// steps — append through [`push_setup_trace_stripping_prior_steps`].
     pub traces: SetupTraces,
+    /// The creation and runtime code of every contract deployed during
+    /// setup, recorded from each traced setup call as it is merged in. Lets
+    /// stack traces be decoded without walking — or retaining — the setup
+    /// arenas themselves. Empty when setup ran untraced.
+    pub deployed_code: DeployedCodeMaps,
     /// Coverage info during setup.
     pub coverage: Option<HitMaps>,
     /// Addresses of external libraries deployed during setup.
@@ -1103,6 +1110,7 @@ impl<HaltReasonT: HaltReasonTrait> TestSetup<HaltReasonT> {
         self.logs.extend(raw.logs);
         self.labels.extend(raw.labels);
         if let Some(traces) = raw.traces {
+            self.deployed_code.record_arena(&traces.arena);
             // Only the last setup arena can be named as the failing trace (by
             // `get_setup_stack_trace`), so a step-recorded setup re-run keeps
             // one step-laden arena instead of one per setup call.

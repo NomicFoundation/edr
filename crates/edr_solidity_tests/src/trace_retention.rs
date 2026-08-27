@@ -1,4 +1,5 @@
-//! Policy for freeing the trace data a finished test no longer needs.
+//! Policy for freeing the trace data a finished test — or a finished
+//! suite — no longer needs.
 //!
 //! Arenas are recorded according to
 //! [`TracingMode`](foundry_evm::traces::TracingMode) and consumed by
@@ -26,7 +27,8 @@ pub(crate) enum Retain {
 }
 
 /// Decides which trace arenas to retain once a test has finished and its
-/// stack trace (if any) has been computed.
+/// stack trace (if any) has been computed, and whether a suite's setup
+/// arenas outlive its tests.
 ///
 /// Derived from the test runner's `include_traces` and `generate_gas_report`
 /// settings in `MultiContractRunner::run_test_suite`.
@@ -78,6 +80,24 @@ impl TraceRetentionPolicy {
         }
     }
 
+    /// Whether a suite's setup arenas still have a consumer once its tests
+    /// have finished, given whether any of the tests failed. Contract
+    /// identification and the deployed-code map used for stack traces are
+    /// derived from the arenas before the tests start; afterwards they are
+    /// only read by trace decoding and the napi conversion — which surface
+    /// them alongside a test result's own traces — and by the gas report,
+    /// which analyses them for gas. That is the same set of consumers a
+    /// test's own arenas have, so the setup arenas follow the rule for a
+    /// failing test if any test failed and for a passing one otherwise.
+    #[must_use]
+    pub(crate) fn retains_setup(self, any_failed: bool) -> bool {
+        self.retains(if any_failed {
+            TestStatus::Failure
+        } else {
+            TestStatus::Success
+        })
+    }
+
     /// Returns whether the gas-report samples a test produced still have a
     /// consumer: the gas-report pass in `MultiContractRunner::run_test_suite`.
     pub(crate) fn retains_gas_report_samples(self) -> bool {
@@ -115,6 +135,14 @@ mod tests {
                 policy.retains(status),
                 retained,
                 "{include_traces:?} {status:?}"
+            );
+            // Setup arenas follow the same rule, keyed on whether any test
+            // failed.
+            assert_eq!(
+                policy.retains_setup(status.is_failure()),
+                retained,
+                "{include_traces:?} setup arenas, any failed: {}",
+                status.is_failure()
             );
 
             // A gas report consumes every test's call traces.
