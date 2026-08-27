@@ -3,8 +3,9 @@ name: Hardhat 3 Regression Benchmark
 # Benchmarks the *local* EDR build under test against Hardhat's E2E regression
 # scenarios. Unlike Hardhat's own regression-benchmark (which uses whatever EDR
 # is pinned on npm), this workflow builds EDR locally, publishes it to a local
-# Verdaccio registry, repoints Hardhat's `@nomicfoundation/edr` dependency at it,
-# and then runs Hardhat's `pnpm bench:regression --use-local`.
+# Verdaccio registry, repoints Hardhat's `@nomicfoundation/edr` dependency at
+# it, builds Hardhat against that local EDR, and then runs Hardhat's
+# `pnpm bench:regression --use-local`.
 #
 # Hardhat compat pin: when an EDR change breaks compatibility with current
 # Hardhat main (so the baseline benchmark would fail until the matching
@@ -207,51 +208,19 @@ jobs:
         working-directory: hardhat
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Build Hardhat
-        working-directory: hardhat
-        run: |
-          pnpm build
-          # pnpm 11 skips creating bin symlinks whose target isn't built at
-          # install time; relink now that build output exists. See pnpm/pnpm#10524.
-          pnpm rebuild -r
-
-      - name: Repoint Hardhat at the local EDR build
-        working-directory: hardhat
-        # Repoint the EDR dependency, and bump the hardhat package's own version
-        # so `decidePublishAction` returns "publish" (not "skip") and
-        # `--use-local` republishes hardhat carrying our EDR dependency, even
-        # right after a Hardhat release.
-        run: |
-          set -euo pipefail
-          npm pkg set "dependencies.@nomicfoundation/edr=$EDR_VER" --prefix packages/hardhat
-          npm pkg set version="$HH_VER" --prefix packages/hardhat
-
       - name: Start Verdaccio
+        # Needs the preceding install: `verdaccio` is a devDependency of the
+        # Hardhat workspace.
         working-directory: hardhat
-        # The preceding repoint desyncs packages/hardhat/package.json from
-        # pnpm-lock.yaml (the `-local.<sha>` sentinel only exists in Verdaccio,
-        # published later), so disable pnpm's pre-run frozen-lockfile deps check
-        # for this `pnpm <bin>` invocation — it would otherwise abort with
-        # ERR_PNPM_OUTDATED_LOCKFILE. Scoped to this step so the earlier
-        # `pnpm build`/`rebuild` steps keep their verification.
-        env:
-          PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
         run: pnpm verdaccio start --background
 
-      - name: Publish local EDR to Verdaccio
-        # Reuses Hardhat's pre-seeded Verdaccio auth.
-        run: |
-          bash ./scripts/publish_to_verdaccio.sh \
-            --version "$EDR_VER" \
-            --registry http://127.0.0.1:4873/ \
-            --npmrc "$HH/.verdaccio/.npmrc"
-
       - name: Clear stale pnpm metadata cache
-        # The self-hosted runner reuses ~/.cache/pnpm across runs. The benchmark
-        # republishes deterministic versions (e.g. hardhat@3.9.1) whose content
-        # changes each run (new @nomicfoundation/edr pin), so a prior run's cached
-        # packument makes `pnpm publish` skip ("already exists") and scenario
-        # installs resolve a stale EDR dependency.
+        # The self-hosted runner reuses ~/.cache/pnpm across runs. This job
+        # publishes deterministic versions whose content changes each run (the
+        # EDR sentinel, the benchmark's hardhat republishes). A stale packument
+        # makes `pnpm publish` skip ("already exists") and installs resolve a
+        # stale dependency. Run before anything publishes to or resolves from
+        # Verdaccio.
         #
         # pnpm 11 ignores `npm_config_cache_dir`, so the metadata cache can't be
         # relocated.
@@ -262,13 +231,68 @@ jobs:
         # preserves install speed.
         run: rm -rf "$HOME/.cache/pnpm"
 
+      - name: Publish local EDR to Verdaccio
+        # Reuses Hardhat's pre-seeded Verdaccio auth.
+        run: |
+          bash ./scripts/publish_to_verdaccio.sh \
+            --version "$EDR_VER" \
+            --registry http://127.0.0.1:4873/ \
+            --npmrc "$HH/.verdaccio/.npmrc"
+
+      - name: Repoint Hardhat at the local EDR build
+        working-directory: hardhat
+        # Repoint the EDR dependency and point the @nomicfoundation scope at
+        # Verdaccio, where the sentinel lives. Also bump hardhat's own version
+        # so `decidePublishAction` returns "publish" instead of "skip".
+        # Without the bump, `--use-local` would not republish hardhat right
+        # after a Hardhat release.
+        #
+        # The override is scoped: install-wide, pnpm's whole-lockfile
+        # `minimumReleaseAge` verification would route through Verdaccio's
+        # uplink. It is also persistent, so later pnpm invocations can still
+        # resolve the localhost-only sentinel.
+        run: |
+          set -euo pipefail
+          npm pkg set "dependencies.@nomicfoundation/edr=$EDR_VER" --prefix packages/hardhat
+          npm pkg set version="$HH_VER" --prefix packages/hardhat
+          echo "@nomicfoundation:registry=http://127.0.0.1:4873/" >> .npmrc
+
+      - name: Reinstall Hardhat dependencies against the local EDR build
+        working-directory: hardhat
+        # Re-sync the repoint-desynced lockfile; only the EDR packages move.
+        # The `pnpm build` below then compiles against the local EDR's
+        # typings. The checks fail fast on a broken install, which would
+        # otherwise surface as a confusing tsc error or as a napi load error
+        # deep in the benchmark.
+        #
+        # Not sfw-wrapped: a firewall proxy could intercept the loopback
+        # registry. The only new packages come from that registry, so there
+        # is nothing for Socket to scan anyway.
+        run: |
+          set -euo pipefail
+          pnpm install --no-frozen-lockfile
+          resolved=$(node -p 'require("./packages/hardhat/node_modules/@nomicfoundation/edr/package.json").version' 2>/dev/null || echo missing)
+          if [ "$resolved" != "$EDR_VER" ]; then
+            echo "::error::packages/hardhat resolves @nomicfoundation/edr@$resolved, expected $EDR_VER"
+            exit 1
+          fi
+          # The native binding is an optionalDependency; verify it loads.
+          (cd packages/hardhat && node -e 'require("@nomicfoundation/edr")')
+          # Surface any lockfile drift for post-hoc comparison.
+          git --no-pager diff -- pnpm-lock.yaml
+
+      - name: Build Hardhat
+        working-directory: hardhat
+        run: |
+          pnpm build
+          # pnpm 11 skips creating bin symlinks whose target isn't built at
+          # install time; relink now that build output exists. See pnpm/pnpm#10524.
+          pnpm rebuild -r
+
       - name: Run regression benchmark
         working-directory: hardhat
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
-          # See "Start Verdaccio": bypass pnpm's frozen-lockfile deps check for
-          # the repoint-desynced workspace.
-          PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
           # Scenario/benchmark glob filters, always set by the setup job (`*`
           # matches all). Forwarded verbatim to bench:regression, which matches
           # them against scenario directory / benchmark (command or step) names.
