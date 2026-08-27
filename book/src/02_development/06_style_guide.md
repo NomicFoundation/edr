@@ -82,12 +82,12 @@ Note that this will not capture panics in background threads.
 
 ## Defining traits
 
-When defining traits, try to keep traits composable by only defining the generic types, associated types and/or functions needed for a specific use case.
+Keep traits composable: give a trait only the generic types, associated types and functions that a single use case needs.
 
-Furthermore, avoid overconstraining traits by only requiring:
+Avoid overconstraining a trait. Require only:
 
-- sub-traits that the trait's definition requires
-- type bounds that are required for the trait's definition OR are always required at usage sites
+- sub-traits that the trait's own definition needs
+- type bounds that the definition needs, or that every usage site needs anyway
 
 For sub-traits, e.g. prefer:
 
