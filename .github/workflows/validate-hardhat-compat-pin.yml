@@ -14,6 +14,8 @@ on:
     paths:
       - .github/hardhat-compat-pin.json
       - .github/scripts/hardhat-compat-pin.ts
+      - .github/scripts/github-script.ts
+      - .github/scripts/package.json
       - .github/scripts/validate-hardhat-compat-pin.ts
       - .github/workflows/validate-hardhat-compat-pin.yml
 
