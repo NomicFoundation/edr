@@ -353,9 +353,8 @@ pub enum ProviderError<
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
-    /// The provider's background thread terminated unexpectedly, so the
-    /// request could not be handled.
-    #[error("The provider's background thread has terminated unexpectedly")]
+    /// The provider's thread terminated unexpectedly
+    #[error("The provider stopped unexpectedly and can no longer handle requests")]
     UnexpectedTermination,
     /// The request hasn't been implemented yet
     #[error("Unimplemented: {0}")]

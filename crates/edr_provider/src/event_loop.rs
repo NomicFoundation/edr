@@ -76,10 +76,6 @@ impl<ChainSpecT: ProviderChainSpec> Drop for OnResponse<ChainSpecT> {
 }
 
 /// A message processed by the provider's event loop.
-///
-/// The thread owns the [`ProviderData`] outright; all access goes through these
-/// messages so that requests and interval mining are serialized on a single
-/// thread without any locking.
 pub(crate) enum Message<ChainSpecT: ProviderChainSpec> {
     /// Handle a single or batched JSON-RPC request, passing the response to
     /// `on_response`.
@@ -92,9 +88,10 @@ pub(crate) enum Message<ChainSpecT: ProviderChainSpec> {
         callback: Option<Arc<dyn SyncCallOverride>>,
         ack: Sender<()>,
     },
-    /// Toggle whether traces include the full stack and memory.
+    /// Set whether traces include the full stack and memory.
     SetVerboseTracing { enabled: bool, ack: Sender<()> },
     /// Log a failed request deserialization through the provider's logger.
+    /// Not acknowledged, so a caller on the JS main thread is never blocked.
     LogFailedDeserialization {
         method_name: String,
         error: Box<ProviderErrorForChainSpec<ChainSpecT>>,

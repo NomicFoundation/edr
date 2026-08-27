@@ -16,9 +16,9 @@ use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
 use tokio::runtime;
 
-/// A short interval keeps the tests fast while remaining robust: assertions
-/// poll for up to [`POLL_TIMEOUT`] rather than relying on exact timing.
 const INTERVAL_MS: u64 = 50;
+/// Generous relative to [`INTERVAL_MS`], so the assertions do not depend on
+/// exact timing.
 const POLL_TIMEOUT: Duration = Duration::from_secs(5);
 
 fn provider_with_interval(
@@ -88,7 +88,6 @@ async fn interval_mining_mines_blocks() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn evm_set_interval_mining_enables_and_disables() -> anyhow::Result<()> {
-    // Interval mining is disabled initially: no blocks should be produced.
     let provider = provider_with_interval(None)?;
 
     let start = block_number(&provider)?;
@@ -99,7 +98,6 @@ async fn evm_set_interval_mining_enables_and_disables() -> anyhow::Result<()> {
         "no blocks should be mined while interval mining is disabled"
     );
 
-    // Enable interval mining at runtime and confirm blocks start appearing.
     set_interval_mining(
         &provider,
         IntervalConfigRequest::FixedOrDisabled(INTERVAL_MS),
@@ -109,8 +107,8 @@ async fn evm_set_interval_mining_enables_and_disables() -> anyhow::Result<()> {
         "enabling interval mining should produce a new block"
     );
 
-    // Disable interval mining again. The disable request is processed by the
-    // same thread that mines, so once it returns no further blocks are mined.
+    // The disable request is handled by the mining thread, so no block can be
+    // mined after it returns.
     set_interval_mining(&provider, IntervalConfigRequest::FixedOrDisabled(0))?;
     let after_disable = block_number(&provider)?;
     std::thread::sleep(Duration::from_millis(INTERVAL_MS * 4));
