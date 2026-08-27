@@ -41,8 +41,11 @@ impl SyncProvider for MockProvider {
     fn set_call_override_callback(
         &self,
         _call_override_callback: Arc<dyn edr_provider::SyncCallOverride>,
-    ) {
+    ) -> napi::Result<()> {
+        Ok(())
     }
 
-    fn set_verbose_tracing(&self, _enabled: bool) {}
+    fn set_verbose_tracing(&self, _enabled: bool) -> napi::Result<()> {
+        Ok(())
+    }
 }

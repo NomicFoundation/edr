@@ -241,9 +241,10 @@ impl Provider {
 
         let provider = self.provider.clone();
         self.runtime.spawn_blocking(move || {
-            provider.set_call_override_callback(call_override_callback);
-
-            deferred.resolve(|_env| Ok(()));
+            match provider.set_call_override_callback(call_override_callback) {
+                Ok(()) => deferred.resolve(|_env| Ok(())),
+                Err(error) => deferred.reject(error),
+            }
         });
 
         Ok(promise)
@@ -258,11 +259,9 @@ impl Provider {
         let provider = self.provider.clone();
 
         self.runtime
-            .spawn_blocking(move || {
-                provider.set_verbose_tracing(verbose_tracing);
-            })
+            .spawn_blocking(move || provider.set_verbose_tracing(verbose_tracing))
             .await
-            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?
     }
 }
 

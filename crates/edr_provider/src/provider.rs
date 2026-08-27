@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use crossbeam_channel::{bounded, unbounded, Sender};
+use crossbeam_channel::{bounded, unbounded, RecvError, Sender};
 use edr_chain_spec::{HardforkChainSpec, TransactionValidation};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
@@ -20,8 +20,6 @@ use crate::{
     time::{CurrentTime, TimeSinceEpoch},
     ResponseWithCallTraces, SyncSubscriberCallback,
 };
-
-const EVENT_LOOP_TERMINATED: &str = "the provider's event loop has terminated";
 
 /// A JSON-RPC provider for Ethereum.
 ///
@@ -43,20 +41,27 @@ pub struct Provider<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceE
 impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     Provider<ChainSpecT, TimerT>
 {
-    /// Sends a message to the event loop and blocks until it replies.
+    /// Creates a reply channel, lets `enqueue_fn` dispatch a message embedding
+    /// its sender, and blocks until the reply arrives.
     ///
-    /// `new_request_fn` must embed the provided reply sender in the [`Message`]
-    /// it returns.
-    fn send_request_and_wait<ResponseT>(
-        &self,
-        new_request_fn: impl FnOnce(Sender<ResponseT>) -> Message<ChainSpecT>,
-    ) -> ResponseT {
+    /// A disconnected reply channel means the event loop terminated without
+    /// replying.
+    fn wait_for_reply<ResponseT>(
+        enqueue_fn: impl FnOnce(Sender<ResponseT>),
+    ) -> Result<ResponseT, ProviderErrorForChainSpec<ChainSpecT>> {
         let (response_sender, response_receiver) = bounded(1);
-        self.request_sender
-            .send(new_request_fn(response_sender))
-            .expect(EVENT_LOOP_TERMINATED);
 
-        response_receiver.recv().expect(EVENT_LOOP_TERMINATED)
+        enqueue_fn(response_sender);
+
+        response_receiver
+            .recv()
+            .map_err(|RecvError| ProviderError::UnexpectedTermination)
+    }
+
+    /// Sends a message to the event loop, handing it back if the event loop has
+    /// terminated.
+    fn send_message(&self, message: Message<ChainSpecT>) -> Result<(), Message<ChainSpecT>> {
+        self.request_sender.send(message).map_err(|error| error.0)
     }
 
     /// Blocking method to log a failed deserialization.
@@ -65,10 +70,39 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         method_name: &str,
         error: ProviderErrorForChainSpec<ChainSpecT>,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-        self.send_request_and_wait(|ack| Message::LogFailedDeserialization {
-            method_name: method_name.to_string(),
-            error: Box::new(error),
-            ack,
+        Self::wait_for_reply(|ack| {
+            // Dropping the message disconnects `ack`.
+            let _ = self.send_message(Message::LogFailedDeserialization {
+                method_name: method_name.to_string(),
+                error: Box::new(error),
+                ack,
+            });
+        })?
+    }
+
+    /// Sets the call override callback, or clears it when passed `None`.
+    pub fn set_call_override_callback(
+        &self,
+        call_override_callback: Option<Arc<dyn SyncCallOverride>>,
+    ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
+        Self::wait_for_reply(|ack| {
+            let _ = self.send_message(Message::SetCallOverrideCallback {
+                callback: call_override_callback,
+                ack,
+            });
+        })
+    }
+
+    /// Set to `true` to make the traces returned with `eth_call`,
+    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
+    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
+    /// `false` to disable this.
+    pub fn set_verbose_tracing(
+        &self,
+        enabled: bool,
+    ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
+        Self::wait_for_reply(|ack| {
+            let _ = self.send_message(Message::SetVerboseTracing { enabled, ack });
         })
     }
 }
@@ -123,24 +157,6 @@ impl<
         })
     }
 
-    /// Set to `true` to make the traces returned with `eth_call`,
-    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
-    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
-    /// `false` to disable this.
-    pub fn set_call_override_callback(
-        &self,
-        call_override_callback: Option<Arc<dyn SyncCallOverride>>,
-    ) {
-        self.send_request_and_wait(|ack| Message::SetCallOverrideCallback {
-            callback: call_override_callback,
-            ack,
-        });
-    }
-
-    pub fn set_verbose_tracing(&self, enabled: bool) {
-        self.send_request_and_wait(|ack| Message::SetVerboseTracing { enabled, ack });
-    }
-
     /// Blocking method to handle a request.
     ///
     /// Enqueues the request with [`Self::enqueue_request`] and blocks until the
@@ -149,17 +165,15 @@ impl<
         &self,
         request: ProviderRequest<ChainSpecT>,
     ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
-        let (response_sender, response_receiver) = bounded(1);
-
-        self.enqueue_request(
-            request,
-            Box::new(move |response| {
-                // Ignore the error: the caller may have stopped waiting.
-                let _ = response_sender.send(response);
-            }),
-        );
-
-        response_receiver.recv().expect(EVENT_LOOP_TERMINATED)
+        Self::wait_for_reply(|response_sender| {
+            self.enqueue_request(
+                request,
+                Box::new(move |response| {
+                    // Ignore the error: the caller may have stopped waiting.
+                    let _ = response_sender.send(response);
+                }),
+            );
+        })?
     }
 
     /// Enqueues a request, invoking `on_response` from the provider's thread

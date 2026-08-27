@@ -23,14 +23,14 @@ pub trait SyncProvider: Send + Sync {
         on_response: Box<dyn FnOnce(napi::Result<Response>) + Send>,
     );
 
-    /// Set to `true` to make the traces returned with `eth_call`,
-    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
-    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
-    /// `false` to disable this.
-    fn set_call_override_callback(&self, call_override_callback: Arc<dyn SyncCallOverride>);
+    /// Sets the call override callback.
+    fn set_call_override_callback(
+        &self,
+        call_override_callback: Arc<dyn SyncCallOverride>,
+    ) -> napi::Result<()>;
 
     /// Set the verbose tracing flag to the provided value.
-    fn set_verbose_tracing(&self, enabled: bool);
+    fn set_verbose_tracing(&self, enabled: bool) -> napi::Result<()>;
 }
 
 impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvider
@@ -61,12 +61,17 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
         );
     }
 
-    fn set_call_override_callback(&self, call_override_callback: Arc<dyn SyncCallOverride>) {
-        self.set_call_override_callback(Some(call_override_callback));
+    fn set_call_override_callback(
+        &self,
+        call_override_callback: Arc<dyn SyncCallOverride>,
+    ) -> napi::Result<()> {
+        edr_provider::Provider::set_call_override_callback(self, Some(call_override_callback))
+            .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))
     }
 
-    fn set_verbose_tracing(&self, enabled: bool) {
-        self.set_verbose_tracing(enabled);
+    fn set_verbose_tracing(&self, enabled: bool) -> napi::Result<()> {
+        edr_provider::Provider::set_verbose_tracing(self, enabled)
+            .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))
     }
 }
 
