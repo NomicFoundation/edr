@@ -1195,6 +1195,15 @@ export const ISTANBUL: string
 
 export const ISTHMUS: string
 
+/**
+ * Computes the Keccak-256 hash of `data`, returning the 32-byte digest.
+ *
+ * This is Ethereum's pre-standard Keccak-256, whose padding differs from the
+ * standardized SHA3-256, so it can't be substituted by a platform SHA3
+ * implementation.
+ */
+export declare function keccak256(data: Uint8Array): Uint8Array
+
 export const L1_CHAIN_TYPE: string
 
 export declare function l1GenesisState(hardfork: SpecId): Array<AccountOverride>
