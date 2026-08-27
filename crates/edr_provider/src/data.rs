@@ -444,9 +444,8 @@ where
         self.observability.call_override = call_override;
     }
 
-    /// Sets the interval mining configuration. The provider's background thread
-    /// picks up the change after the current request and reschedules its timer
-    /// accordingly. Passing `None` disables interval mining.
+    /// Sets the interval mining configuration. `None` disables interval
+    /// mining.
     pub fn set_interval_config(&mut self, interval_config: Option<IntervalConfig>) {
         self.interval_config = interval_config;
     }
