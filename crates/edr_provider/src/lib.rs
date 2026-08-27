@@ -2,13 +2,13 @@
 // layout-computation recursion limit of 128.
 #![recursion_limit = "256"]
 
-mod backend;
 /// Types for configuring the provider.
 pub mod config;
 mod console_log;
 mod data;
 mod debug_trace;
 mod error;
+mod event_loop;
 mod filter;
 mod logger;
 mod mock;

@@ -1,3 +1,10 @@
+//! The provider's event loop and the messages that drive it.
+//!
+//! The loop's thread owns the [`ProviderData`] outright; all access goes
+//! through [`Message`]s, so no locking is needed. The loop also owns the
+//! interval-mining timer, re-arming it from
+//! [`ProviderData::interval_config`] whenever a message may have changed it.
+
 use std::{
     convert::Infallible,
     sync::Arc,
@@ -10,6 +17,7 @@ use edr_chain_spec_provider::ProviderChainSpec;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 
 use crate::{
+    config::IntervalConfig,
     data::ProviderData,
     error::{ProviderError, ProviderErrorForChainSpec},
     mock::SyncCallOverride,
@@ -19,20 +27,20 @@ use crate::{
     ResponseWithCallTraces,
 };
 
-/// The response to a [`BackendRequest::Request`].
+/// The response to a [`Message::Request`].
 pub(crate) type RequestResponse<ChainSpecT> =
     Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>>;
 
 /// A completion callback that receives the response to a
-/// [`BackendRequest::Request`].
+/// [`Message::Request`].
 pub(crate) type OnResponse<ChainSpecT> = Box<dyn FnOnce(RequestResponse<ChainSpecT>) + Send>;
 
-/// A message processed by the provider's background thread.
+/// A message processed by the provider's event loop.
 ///
 /// The thread owns the [`ProviderData`] outright; all access goes through these
 /// messages so that requests and interval mining are serialized on a single
 /// thread without any locking.
-pub(crate) enum BackendRequest<ChainSpecT: ProviderChainSpec> {
+pub(crate) enum Message<ChainSpecT: ProviderChainSpec> {
     /// Handle a single or batched JSON-RPC request, passing the response to
     /// `on_response`.
     Request {
@@ -54,12 +62,11 @@ pub(crate) enum BackendRequest<ChainSpecT: ProviderChainSpec> {
     },
 }
 
-/// Creates a channel that yields a message whenever the next interval-mined
-/// block is due, if interval mining is enabled. Otherwise, creates a channel
-/// that never yields.
-fn next_interval_timer(
-    interval_config: Option<&crate::config::IntervalConfig>,
-) -> Receiver<Instant> {
+/// Creates a channel that yields once the next interval-mined block is due.
+///
+/// Yields nothing if interval mining is disabled. The interval is measured
+/// from the end of the previous mine.
+fn next_interval_timer(interval_config: Option<&IntervalConfig>) -> Receiver<Instant> {
     if let Some(config) = interval_config {
         let duration = Duration::from_millis(config.generate_interval());
         crossbeam_channel::after(duration)
@@ -68,15 +75,13 @@ fn next_interval_timer(
     }
 }
 
-/// The event loop run by the provider's dedicated background thread.
+/// Processes messages, taking ownership of `data`, until shutdown.
 ///
-/// It processes incoming requests in order while giving interval mining
-/// precedence whenever a block is due. The loop owns `data` and runs until the
-/// `cancellation_receiver` is disconnected (by [`crate::Provider`]'s `Drop`
-/// dropping the matching sender), or all request senders are dropped.
-pub(super) fn run<ChainSpecT, TimerT>(
+/// Interval mining takes precedence over queued messages. Returns once all
+/// message senders are dropped, or `cancellation_receiver` disconnects.
+pub(crate) fn run<ChainSpecT, TimerT>(
     mut data: ProviderData<ChainSpecT, TimerT>,
-    request_receiver: Receiver<BackendRequest<ChainSpecT>>,
+    request_receiver: Receiver<Message<ChainSpecT>>,
     cancellation_receiver: Receiver<Infallible>,
 ) where
     ChainSpecT: SyncProviderSpec<
@@ -93,13 +98,10 @@ pub(super) fn run<ChainSpecT, TimerT>(
 
     loop {
         crossbeam_channel::select_biased! {
-            // Highest priority. The cancellation channel carries `Infallible`, so
-            // the only event it can ever yield is disconnection, signalled by
-            // `Provider::drop` (which runs off the JS thread via the N-API
-            // AsyncDeallocator).
+            // Checked first: shutdown must win over queued work.
             recv(cancellation_receiver) -> _ => break,
-            // Interval mining takes precedence over incoming requests. An overdue
-            // deadline yields a zero duration, so `after` is immediately ready.
+            // Checked before requests: a due block must not wait behind a long
+            // queue.
             recv(interval_timer) -> _ => {
                 if let Err(error) = data.interval_mine() {
                     log::error!("Unexpected error while performing interval mining: {error}");
@@ -107,7 +109,7 @@ pub(super) fn run<ChainSpecT, TimerT>(
                 interval_timer = next_interval_timer(data.interval_config());
             }
             recv(request_receiver) -> message => match message {
-                Ok(BackendRequest::Request { request, on_response }) => {
+                Ok(Message::Request { request, on_response }) => {
                     let current_interval = data.interval_config().cloned();
 
                     let response = requests::execute_request(&mut data, request);
@@ -119,19 +121,19 @@ pub(super) fn run<ChainSpecT, TimerT>(
                         interval_timer = next_interval_timer(data.interval_config());
                     }
                 }
-                Ok(BackendRequest::SetCallOverrideCallback { callback, ack }) => {
+                Ok(Message::SetCallOverrideCallback { callback, ack }) => {
                     data.set_call_override_callback(callback);
 
                     // Ignore the error: the caller may have stopped waiting.
                     let _ = ack.send(());
                 }
-                Ok(BackendRequest::SetVerboseTracing { enabled, ack }) => {
+                Ok(Message::SetVerboseTracing { enabled, ack }) => {
                     data.set_verbose_tracing(enabled);
 
                     // Ignore the error: the caller may have stopped waiting.
                     let _ = ack.send(());
                 }
-                Ok(BackendRequest::LogFailedDeserialization { method_name, error, ack }) => {
+                Ok(Message::LogFailedDeserialization { method_name, error, ack }) => {
                     let result = data
                         .logger_mut()
                         .print_method_logs(&method_name, Some(&error))
@@ -140,8 +142,7 @@ pub(super) fn run<ChainSpecT, TimerT>(
                     // Ignore the error: the caller may have stopped waiting.
                     let _ = ack.send(result);
                 }
-                // All request senders were dropped — backstop in case the
-                // shutdown signal is not used.
+                // All senders were dropped; nothing more can arrive.
                 Err(_) => break,
             }
         }
@@ -152,7 +153,7 @@ pub(super) fn run<ChainSpecT, TimerT>(
     // JS promise would never settle). Ack-style messages are simply dropped:
     // disconnecting their reply channel unblocks the caller.
     while let Ok(message) = request_receiver.try_recv() {
-        if let BackendRequest::Request { on_response, .. } = message {
+        if let Message::Request { on_response, .. } = message {
             on_response(Err(ProviderError::UnexpectedTermination));
         }
     }

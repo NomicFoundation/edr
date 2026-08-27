@@ -9,10 +9,10 @@ use parking_lot::RwLock;
 use tokio::runtime;
 
 use crate::{
-    backend::{self, BackendRequest},
     config::ProviderConfig,
     data::ProviderData,
     error::{CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
+    event_loop::{self, Message},
     logger::SyncLogger,
     mock::SyncCallOverride,
     requests::ProviderRequest,
@@ -21,22 +21,21 @@ use crate::{
     ResponseWithCallTraces, SyncSubscriberCallback,
 };
 
-const BACKEND_THREAD_TERMINATED: &str = "the provider background thread has terminated";
+const EVENT_LOOP_TERMINATED: &str = "the provider's event loop has terminated";
 
 /// A JSON-RPC provider for Ethereum.
 ///
-/// The provider owns a dedicated background thread that holds the
-/// [`ProviderData`] and processes requests one at a time. Requests are sent
-/// over a channel and queue up in order; interval mining (if enabled) is driven
-/// by the same thread and takes precedence whenever a block is due. The thread
-/// is shut down and joined when the `Provider` is dropped.
+/// Requests are queued on a dedicated thread that owns the [`ProviderData`]
+/// and handles them one at a time. Interval mining, if enabled, runs on that
+/// same thread and takes precedence over queued requests.
+///
+/// The thread is shut down and joined when the provider is dropped.
 ///
 /// This type can be shared (e.g. behind an `Arc`) and called from multiple
-/// threads concurrently; each call queues its request and blocks until the
-/// background thread replies.
+/// threads concurrently. Requests are handled in the order they are queued.
 pub struct Provider<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch = CurrentTime>
 {
-    request_sender: Sender<BackendRequest<ChainSpecT>>,
+    request_sender: Sender<Message<ChainSpecT>>,
     _thread: CancellableThread,
     _phantom: PhantomData<fn() -> TimerT>,
 }
@@ -44,22 +43,20 @@ pub struct Provider<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceE
 impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     Provider<ChainSpecT, TimerT>
 {
-    /// Sends a request to the background thread and blocks until it replies.
+    /// Sends a message to the event loop and blocks until it replies.
     ///
-    /// `new_request_fn` receives the sending end of a freshly created reply
-    /// channel and must embed it in the [`BackendRequest`] it returns; the
-    /// background thread sends the `ResponseT` back on that channel once it
-    /// has processed the request.
+    /// `new_request_fn` must embed the provided reply sender in the [`Message`]
+    /// it returns.
     fn send_request_and_wait<ResponseT>(
         &self,
-        new_request_fn: impl FnOnce(Sender<ResponseT>) -> BackendRequest<ChainSpecT>,
+        new_request_fn: impl FnOnce(Sender<ResponseT>) -> Message<ChainSpecT>,
     ) -> ResponseT {
         let (response_sender, response_receiver) = bounded(1);
         self.request_sender
             .send(new_request_fn(response_sender))
-            .expect(BACKEND_THREAD_TERMINATED);
+            .expect(EVENT_LOOP_TERMINATED);
 
-        response_receiver.recv().expect(BACKEND_THREAD_TERMINATED)
+        response_receiver.recv().expect(EVENT_LOOP_TERMINATED)
     }
 
     /// Blocking method to log a failed deserialization.
@@ -68,7 +65,7 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         method_name: &str,
         error: ProviderErrorForChainSpec<ChainSpecT>,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-        self.send_request_and_wait(|ack| BackendRequest::LogFailedDeserialization {
+        self.send_request_and_wait(|ack| Message::LogFailedDeserialization {
             method_name: method_name.to_string(),
             error: Box::new(error),
             ack,
@@ -90,9 +87,8 @@ impl<
 {
     /// Constructs a new instance.
     ///
-    /// This spawns the dedicated background thread that owns the provider's
-    /// state. Construction of the [`ProviderData`] happens on that thread and
-    /// any error is reported back before this method returns.
+    /// Spawns the dedicated thread that takes ownership of the provider's
+    /// state.
     pub fn new(
         runtime: runtime::Handle,
         logger: Box<dyn SyncLogger<ChainSpecT, TimerT>>,
@@ -116,9 +112,9 @@ impl<
 
         let thread =
             CancellableThread::spawn("edr-provider".to_owned(), move |cancellation_receiver| {
-                backend::run(data, request_receiver, cancellation_receiver);
+                event_loop::run(data, request_receiver, cancellation_receiver);
             })
-            .expect("failed to spawn the provider background thread");
+            .expect("failed to spawn the provider thread");
 
         Ok(Self {
             request_sender,
@@ -135,21 +131,20 @@ impl<
         &self,
         call_override_callback: Option<Arc<dyn SyncCallOverride>>,
     ) {
-        self.send_request_and_wait(|ack| BackendRequest::SetCallOverrideCallback {
+        self.send_request_and_wait(|ack| Message::SetCallOverrideCallback {
             callback: call_override_callback,
             ack,
         });
     }
 
     pub fn set_verbose_tracing(&self, enabled: bool) {
-        self.send_request_and_wait(|ack| BackendRequest::SetVerboseTracing { enabled, ack });
+        self.send_request_and_wait(|ack| Message::SetVerboseTracing { enabled, ack });
     }
 
     /// Blocking method to handle a request.
     ///
-    /// The request is enqueued on the background thread — see
-    /// [`Self::enqueue_request`] — and this method blocks until the response
-    /// is available.
+    /// Enqueues the request with [`Self::enqueue_request`] and blocks until the
+    /// response is available.
     pub fn handle_request(
         &self,
         request: ProviderRequest<ChainSpecT>,
@@ -164,19 +159,17 @@ impl<
             }),
         );
 
-        response_receiver.recv().expect(BACKEND_THREAD_TERMINATED)
+        response_receiver.recv().expect(EVENT_LOOP_TERMINATED)
     }
 
-    /// Enqueues a request on the provider's background thread, which executes
-    /// it and invokes `on_response` — from that thread — once the response is
-    /// available.
+    /// Enqueues a request, invoking `on_response` from the provider's thread
+    /// once the response is available.
     ///
     /// This method never executes the request on the calling thread and
     /// returns immediately, without waiting for the request to be handled.
     ///
-    /// If the background thread has terminated (e.g. because it panicked while
-    /// handling an earlier request), `on_response` is invoked on the calling
-    /// thread with a [`ProviderError::UnexpectedTermination`] error instead.
+    /// If the provider's thread has terminated, `on_response` is invoked on the
+    /// calling thread with [`ProviderError::UnexpectedTermination`].
     pub fn enqueue_request(
         &self,
         request: ProviderRequest<ChainSpecT>,
@@ -185,11 +178,11 @@ impl<
                 + Send,
         >,
     ) {
-        if let Err(error) = self.request_sender.send(BackendRequest::Request {
+        if let Err(error) = self.request_sender.send(Message::Request {
             request,
             on_response,
         }) {
-            let BackendRequest::Request { on_response, .. } = error.0 else {
+            let Message::Request { on_response, .. } = error.0 else {
                 unreachable!("the returned message is the one that failed to send")
             };
 
