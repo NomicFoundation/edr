@@ -91,7 +91,7 @@ Avoid overconstraining a trait. Require only:
 - sub-traits that the trait's own definition needs
 - type bounds that the definition needs, or that every usage site needs anyway
 
-For sub-traits, e.g. prefer:
+For sub-traits, prefer:
 
 ```rust
 /// Trait for specifying the contextual information type of a chain.
@@ -113,7 +113,7 @@ pub trait BlockEnvChainSpec: HardforkChainSpec {
 
 pub trait FullChainSpec: BlockEnvChainSpec + ContextChainSpec {}
 
-// Blanket implementation of `FullChainSpec` for any type that implements `BlockEnvChainSpec` and `ContextChainSpec`, making it an alias.
+// The blanket implementation makes the trait an alias for its sub-traits.
 impl<ChainSpecT: BlockEnvChainSpec + ContextChainSpec + ?Sized> FullChainSpec for ChainSpecT {}
 ```
 
@@ -130,12 +130,12 @@ pub trait EvmChainSpec: ContextChainSpec {
 }
 ```
 
-For type bounds, e.g. prefer:
+For type bounds, prefer:
 
 ```rust
 pub trait HardforkChainSpec {
-    // revm asks for `Clone + Into<EvmSpecId>` of a spec type and every chain
-    // needs a default hardfork, so every usage site requires these.
+    // revm asks for `Clone + Into<EvmSpecId>` and every chain needs a default
+    // hardfork. Every usage site requires these.
     type Hardfork: Clone + Default + Into<EvmSpecId>;
 }
 ```
@@ -150,16 +150,16 @@ pub trait HardforkChainSpec {
 }
 ```
 
-When unsure whether a bound is always required, leave it out. An unnecessary bound is invisible, whereas a missing one surfaces as a compile error at the first usage site that needs it—which is also where it belongs. Likewise, when a bound exists only to satisfy a downstream consumer, require exactly what that consumer asks for and no more; e.g. strengthening `Clone` to `Copy` above would constrain every chain for our own convenience.
+When unsure whether a bound is always required, leave it out. A needless bound goes unnoticed, whereas a missing one surfaces as a compile error at the first usage site that needs it—which is also where it belongs. Likewise, when a bound exists only to satisfy a downstream consumer, require exactly what that consumer asks for and no more; e.g. strengthening `Clone` to `Copy` above would constrain every chain for our own convenience.
 
 #### Associated types vs. generic type parameters
 
-Before deciding how to split a trait, decide which of its types belong in the trait's signature at all:
+Before splitting a trait, decide which of its types belong in its signature at all:
 
 - use an **associated type** when each implementer has exactly one choice; e.g. a chain has exactly one hardfork type
 - use a **generic type parameter** when a single type may implement the trait for many choices; e.g. `Into<EvmSpecId>`
 
-Using a generic type parameter where an associated type belongs forces every usage site to name — and therefore bound — a type it does not care about. This is a common source of the bound explosion that the rest of this section aims to avoid.
+Using a generic type parameter where an associated type belongs forces every usage site to name—and therefore bound—a type it does not care about. This is a common source of the bound explosion these rules aim to avoid.
 
 #### Umbrella traits
 
@@ -167,7 +167,7 @@ Using a generic type parameter where an associated type belongs forces every usa
 
 The blanket implementation is what makes it an alias; without it, every implementer would have to write an empty `impl`. Note the `?Sized`, without which the implicit `Sized` bound excludes unsized implementers for no reason. Adding a required member to the trait breaks the blanket implementation—and with it every implementer—so only use blanket implementations for umbrella traits.
 
-A downside of umbrella traits is that they can make diagnostics worse. E.g. a type that is missing only `HardforkChainSpec` is reported as not implementing `FullChainSpec`. Consider `#[diagnostic::on_unimplemented]` when the combination is widely used. E.g.:
+Another downside is worse diagnostics: a type that is missing only `HardforkChainSpec` is reported as not implementing `FullChainSpec`. Consider `#[diagnostic::on_unimplemented]` when the combination is widely used:
 
 ```rust
 #[diagnostic::on_unimplemented(
@@ -180,7 +180,7 @@ impl<ChainSpecT: BlockEnvChainSpec + ContextChainSpec + ?Sized> FullChainSpec fo
 
 ### Using trait bounds
 
-When using trait bounds, use the least constraints possible to satisfy the requirements of the function. E.g. prefer:
+Require only the bounds that the code actually uses. Prefer:
 
 ```rust
 fn foo<HardforkT: Into<EvmSpecId>>(hardfork: HardforkT) {
@@ -202,7 +202,7 @@ fn foo<HardforkT: Hardfork>(hardfork: HardforkT) {
 }
 ```
 
-Moreover, by default parameterize a type over the individual types that it uses, rather than over a trait that provides them as associated types. You can add a chain-specific type alias for convenience. E.g. prefer:
+By default, parameterize a type over the individual types it uses, rather than over a trait that supplies them as associated types. Add a chain-specific type alias for convenience. Prefer:
 
 ```rust
 pub trait ContextChainSpec {
@@ -229,18 +229,18 @@ pub struct Foo<ContextT, HardforkT> {
 over:
 
 ```rust
-pub trait FullChainSpec: ContextChainSpec + HardforkChainSpec {}
+pub trait FooChainSpec: ContextChainSpec + HardforkChainSpec {}
 
-impl<ChainSpecT: ContextChainSpec + HardforkChainSpec + ?Sized> FullChainSpec for ChainSpecT {}
+impl<ChainSpecT: ContextChainSpec + HardforkChainSpec + ?Sized> FooChainSpec for ChainSpecT {}
 
-pub struct Foo<ChainSpecT: FullChainSpec> {
+pub struct Foo<ChainSpecT: FooChainSpec> {
     context: ChainSpecT::Context,
     hardfork: ChainSpecT::Hardfork,
     other_field: u32,
 }
 ```
 
-This is a default rather than a rule, as decomposition is not always the least constraining option. E.g. when a member needs the chain spec itself—to call one of its associated functions—the type ends up carrying both the decomposed parameters and the chain spec, which is worse than either alone. In cases like that, it is acceptable to keep the chain spec parameter instead.
+Decomposition is not always the least constraining option, so this is a default rather than a rule. When a member needs the chain spec itself—to call one of its associated functions—the type ends up carrying both the decomposed parameters and the chain spec, which is worse than either alone. Keep the chain spec parameter in that case.
 
 ### Rationale
 
