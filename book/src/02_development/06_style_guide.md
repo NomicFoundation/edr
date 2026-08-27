@@ -7,7 +7,7 @@ This is a style guide for the EDR project.
 When deriving multiple traits, use the following rules to order them:
 
 1. Standard library traits before external crates
-2. Sub-traits before super-traits
+2. Supertraits before subtraits
 3. Alphabetical order
 
 For example:
@@ -16,7 +16,7 @@ For example:
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 ```
 
-Or, for sub- and super-traits:
+Or, for super- and subtraits:
 
 ```rust
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -88,10 +88,10 @@ Keep traits composable: give a trait only the generic types, associated types an
 
 Avoid overconstraining a trait. Require only:
 
-- sub-traits that the trait's own definition needs
+- supertraits whose items the trait's own definition names
 - type bounds that the definition needs, or that every usage site needs anyway
 
-For sub-traits, prefer:
+For supertraits, prefer:
 
 ```rust
 /// Trait for specifying the contextual information type of a chain.
@@ -113,7 +113,7 @@ pub trait BlockEnvChainSpec: HardforkChainSpec {
 
 pub trait FullChainSpec: BlockEnvChainSpec + ContextChainSpec {}
 
-// The blanket implementation makes the trait an alias for its sub-traits.
+// The blanket implementation makes the trait an alias for its supertraits.
 impl<ChainSpecT: BlockEnvChainSpec + ContextChainSpec + ?Sized> FullChainSpec for ChainSpecT {}
 ```
 
@@ -171,7 +171,7 @@ Another downside is worse diagnostics: a type that is missing only `HardforkChai
 
 ```rust
 #[diagnostic::on_unimplemented(
-    message = "The type `{Self}` does not implement `FullChainSpec`. It might be missing one of its sub-traits: `BlockEnvChainSpec` or `ContextChainSpec`."
+    message = "The type `{Self}` does not implement `FullChainSpec`. It might be missing one of its supertraits: `BlockEnvChainSpec` or `ContextChainSpec`."
 )]
 trait FullChainSpec: BlockEnvChainSpec + ContextChainSpec {}
 
