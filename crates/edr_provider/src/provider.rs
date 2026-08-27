@@ -12,7 +12,7 @@ use crate::{
     config::ProviderConfig,
     data::ProviderData,
     error::{CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
-    event_loop::{self, Message},
+    event_loop::{self, Message, OnResponse},
     logger::SyncLogger,
     mock::SyncCallOverride,
     requests::ProviderRequest,
@@ -192,15 +192,11 @@ impl<
                 + Send,
         >,
     ) {
-        if let Err(error) = self.request_sender.send(Message::Request {
+        // Dropping the message settles `on_response` with
+        // `UnexpectedTermination`.
+        let _ = self.send_message(Message::Request {
             request,
-            on_response,
-        }) {
-            let Message::Request { on_response, .. } = error.0 else {
-                unreachable!("the returned message is the one that failed to send")
-            };
-
-            on_response(Err(ProviderError::UnexpectedTermination));
-        }
+            on_response: OnResponse::new(on_response),
+        });
     }
 }

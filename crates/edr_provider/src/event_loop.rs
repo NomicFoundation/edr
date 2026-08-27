@@ -7,6 +7,7 @@
 
 use std::{
     convert::Infallible,
+    panic::{self, AssertUnwindSafe},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -33,7 +34,46 @@ pub(crate) type RequestResponse<ChainSpecT> =
 
 /// A completion callback that receives the response to a
 /// [`Message::Request`].
-pub(crate) type OnResponse<ChainSpecT> = Box<dyn FnOnce(RequestResponse<ChainSpecT>) + Send>;
+///
+/// Settles with [`ProviderError::UnexpectedTermination`] if it is dropped
+/// without being called, so a caller always receives exactly one response.
+pub(crate) struct OnResponse<ChainSpecT: ProviderChainSpec>(
+    Option<Box<dyn FnOnce(RequestResponse<ChainSpecT>) + Send>>,
+);
+
+impl<ChainSpecT: ProviderChainSpec> OnResponse<ChainSpecT> {
+    pub(crate) fn new(callback: Box<dyn FnOnce(RequestResponse<ChainSpecT>) + Send>) -> Self {
+        Self(Some(callback))
+    }
+
+    /// Invokes the callback with `response`.
+    pub(crate) fn call(mut self, response: RequestResponse<ChainSpecT>) {
+        let callback = self
+            .0
+            .take()
+            .expect("the callback is taken here or on drop, never both");
+
+        callback(response);
+    }
+}
+
+impl<ChainSpecT: ProviderChainSpec> Drop for OnResponse<ChainSpecT> {
+    fn drop(&mut self) {
+        let Some(callback) = self.0.take() else {
+            return;
+        };
+
+        // The callback may run while a panic unwinds, where a second panic
+        // aborts the process.
+        let result = panic::catch_unwind(AssertUnwindSafe(move || {
+            callback(Err(ProviderError::UnexpectedTermination));
+        }));
+
+        if result.is_err() {
+            log::error!("A provider response callback panicked while settling a request");
+        }
+    }
+}
 
 /// A message processed by the provider's event loop.
 ///
@@ -114,7 +154,7 @@ pub(crate) fn run<ChainSpecT, TimerT>(
 
                     let response = requests::execute_request(&mut data, request);
 
-                    on_response(response);
+                    on_response.call(response);
 
                     // `evm_setIntervalMining` may have changed the configuration.
                     if data.interval_config() != current_interval.as_ref() {
@@ -145,16 +185,6 @@ pub(crate) fn run<ChainSpecT, TimerT>(
                 // All senders were dropped; nothing more can arrive.
                 Err(_) => break,
             }
-        }
-    }
-
-    // Settle any requests that were still queued when the loop exited;
-    // otherwise their callers would never receive a response (e.g. a pending
-    // JS promise would never settle). Ack-style messages are simply dropped:
-    // disconnecting their reply channel unblocks the caller.
-    while let Ok(message) = request_receiver.try_recv() {
-        if let Message::Request { on_response, .. } = message {
-            on_response(Err(ProviderError::UnexpectedTermination));
         }
     }
 }
