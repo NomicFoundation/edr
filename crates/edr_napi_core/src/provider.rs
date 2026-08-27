@@ -11,12 +11,15 @@ use crate::spec::{Response, SyncNapiSpec};
 /// Trait for a synchronous N-API provider that can be used for dynamic trait
 /// objects.
 pub trait SyncProvider: Send + Sync {
-    /// Enqueues a request for execution, invoking `on_response` — potentially
-    /// from a different thread — with the response once it is available.
+    /// Enqueues a request for execution, invoking `on_response` with the
+    /// response once it is available.
     ///
-    /// Implementations should not execute the request on the calling thread,
-    /// returning immediately without waiting for the request to be handled, as
-    /// the caller may be the JS main thread.
+    /// `on_response` may run on any thread, including synchronously on the
+    /// calling thread. It must be invoked exactly once; dropping it uninvoked
+    /// leaves the caller without a response.
+    ///
+    /// Must not wait for the request to be handled. The caller may be the JS
+    /// main thread, which request handling calls back into.
     fn enqueue_request(
         &self,
         request: String,

@@ -22,8 +22,8 @@ impl SyncProvider for MockProvider {
         _request: String,
         on_response: Box<dyn FnOnce(napi::Result<edr_napi_core::spec::Response>) + Send>,
     ) {
-        // There is nothing to offload so construct the mocked response on the calling
-        // thread.
+        // Constructing the mocked response does not wait, so it happens on the
+        // calling thread.
         let response = jsonrpc::ResponseData::Success {
             result: self.mocked_response.clone(),
         };

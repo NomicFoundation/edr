@@ -179,8 +179,7 @@ impl<
     /// Enqueues a request, invoking `on_response` from the provider's thread
     /// once the response is available.
     ///
-    /// This method never executes the request on the calling thread and
-    /// returns immediately, without waiting for the request to be handled.
+    /// Does not wait for the request to be handled.
     ///
     /// If the provider's thread has terminated, `on_response` is invoked on the
     /// calling thread with [`ProviderError::UnexpectedTermination`].
