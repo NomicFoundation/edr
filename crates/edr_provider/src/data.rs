@@ -266,8 +266,6 @@ pub struct ProviderData<
     default_transaction_gas_limit: NonZeroU64,
     gas_estimation_mode: GasEstimationMode,
     is_auto_mining: bool,
-    /// Configuration for interval mining, if enabled. The provider's background
-    /// thread owns the interval timer and reads this field to (re)schedule it.
     interval_config: Option<IntervalConfig>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
@@ -392,8 +390,7 @@ where
         &self.instance_id
     }
 
-    /// Returns the interval mining configuration, if interval mining is
-    /// enabled.
+    /// Returns the interval mining configuration, if enabled.
     pub fn interval_config(&self) -> Option<&IntervalConfig> {
         self.interval_config.as_ref()
     }
