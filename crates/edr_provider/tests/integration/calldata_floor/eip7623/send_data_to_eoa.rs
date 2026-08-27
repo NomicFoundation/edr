@@ -1,7 +1,10 @@
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_primitives::{address, bytes};
 
-use crate::integration::calldata_floor::{self, assert_transaction_gas_usage, new_provider};
+use crate::{
+    common::provider::new_provider,
+    integration::calldata_floor::{self, assert_transaction_gas_usage},
+};
 
 fn call_request() -> L1CallRequest {
     let transaction_request = transaction_request();

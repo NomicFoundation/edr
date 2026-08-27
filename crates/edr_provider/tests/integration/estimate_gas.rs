@@ -1,6 +1,6 @@
 #![cfg(feature = "test-utils")]
 
-use std::{num::NonZeroU64, str::FromStr, sync::Arc};
+use std::{num::NonZeroU64, str::FromStr};
 
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
@@ -11,14 +11,12 @@ use edr_primitives::{bytes, Address, Bytes, U256, U64};
 use edr_provider::{
     config::{GasEstimationMode, ProviderConfig},
     test_utils::{create_test_config, deploy_contract},
-    time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderErrorForChainSpec,
-    ProviderRequest, TransactionFailureReason,
+    MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec, ProviderRequest,
+    TransactionFailureReason,
 };
 use edr_signer::public_key_to_address;
-use edr_solidity::contract_decoder::ContractDecoder;
-use parking_lot::RwLock;
-use tokio::runtime;
+
+use crate::common::provider::new_provider_from_config;
 
 const INTERNAL_OOG_BYTECODE: &str =
     include_str!("../../../../data/deployment_bytecode/InternalOOGContract.bin");
@@ -42,14 +40,7 @@ fn new_provider(
             .expect("config should have an account")
             .public_key(),
     );
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        Box::new(NoopLogger::<L1ChainSpec>::default()),
-        Box::new(|_event| {}),
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
+    let provider = new_provider_from_config(config)?;
     Ok((provider, from))
 }
 

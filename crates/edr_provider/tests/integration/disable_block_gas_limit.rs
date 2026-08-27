@@ -1,19 +1,18 @@
 #![cfg(feature = "test-utils")]
 
-use std::{num::NonZeroU64, sync::Arc};
+use std::num::NonZeroU64;
 
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_defaults::SECRET_KEYS;
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::address;
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderError, ProviderErrorForChainSpec, ProviderRequest, ResponseWithCallTraces,
+    MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec, ProviderRequest,
+    ResponseWithCallTraces,
 };
-use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
-use parking_lot::RwLock;
-use tokio::runtime;
+
+use crate::common::provider::new_provider_with_config;
 
 const BLOCK_GAS_LIMIT: u64 = 30_000_000;
 const EXCEEDS_BLOCK_GAS_LIMIT: u64 = BLOCK_GAS_LIMIT + 1;
@@ -22,22 +21,10 @@ fn new_provider(
     auto_mine: bool,
     block_gas_limit: Option<NonZeroU64>,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
-    let mut config = create_test_config();
-    config.mining.block_gas_limit = block_gas_limit;
-    config.mining.auto_mine = auto_mine;
-
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
-
-    Ok(provider)
+    new_provider_with_config(|config| {
+        config.mining.block_gas_limit = block_gas_limit;
+        config.mining.auto_mine = auto_mine;
+    })
 }
 
 fn send_transaction(
