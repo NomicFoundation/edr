@@ -98,7 +98,6 @@ pub(crate) enum Message<ChainSpecT: ProviderChainSpec> {
     LogFailedDeserialization {
         method_name: String,
         error: Box<ProviderErrorForChainSpec<ChainSpecT>>,
-        ack: Sender<Result<(), ProviderErrorForChainSpec<ChainSpecT>>>,
     },
 }
 
@@ -173,14 +172,13 @@ pub(crate) fn run<ChainSpecT, TimerT>(
                     // Ignore the error: the caller may have stopped waiting.
                     let _ = ack.send(());
                 }
-                Ok(Message::LogFailedDeserialization { method_name, error, ack }) => {
-                    let result = data
+                Ok(Message::LogFailedDeserialization { method_name, error }) => {
+                    if let Err(error) = data
                         .logger_mut()
                         .print_method_logs(&method_name, Some(&error))
-                        .map_err(ProviderError::Logger);
-
-                    // Ignore the error: the caller may have stopped waiting.
-                    let _ = ack.send(result);
+                    {
+                        log::error!("Unexpected error while logging a failed deserialization: {error}");
+                    }
                 }
                 // All senders were dropped; nothing more can arrive.
                 Err(_) => break,

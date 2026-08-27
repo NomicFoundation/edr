@@ -41,14 +41,10 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
         request: String,
         on_response: Box<dyn FnOnce(napi::Result<Response>) + Send>,
     ) {
-        // Deserialization of the JSON request typically only takes a few microseconds,
-        // so we allow it on the calling thread.
+        // Deserialization takes microseconds, so it stays on the calling thread.
         let request = match serde_json::from_str(&request) {
             Ok(request) => request,
             Err(error) => {
-                // NOTE: This blocks on a round trip to the provider's background thread when
-                // logging is enabled, but we allow this as it's not on the hot path of request
-                // handling.
                 on_response(handle_failed_deserialization(self, request, &error));
                 return;
             }
@@ -76,7 +72,9 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
 }
 
 /// Constructs the JSON-RPC error response for a request that failed to
-/// deserialize, logging the failure through the provider where relevant.
+/// deserialize.
+///
+/// Input-validation failures are also queued for logging through the provider.
 fn handle_failed_deserialization<ChainSpecT, TimerT>(
     provider: &edr_provider::Provider<ChainSpecT, TimerT>,
     request: String,
@@ -99,9 +97,7 @@ where
     // HACK: We need to log failed deserialization attempts when they concern input
     // validation.
     if let Some((method_name, provider_error)) = reason.provider_error::<ChainSpecT, TimerT>() {
-        // Ignore potential failure of logging, as returning the original error is more
-        // important
-        let _result = provider.log_failed_deserialization(method_name, provider_error);
+        provider.log_failed_deserialization(method_name, provider_error);
     }
 
     let response = jsonrpc::ResponseData::<()>::Error {

@@ -64,20 +64,20 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         self.request_sender.send(message).map_err(|error| error.0)
     }
 
-    /// Blocking method to log a failed deserialization.
+    /// Queues a failed deserialization to be logged.
+    ///
+    /// Does not wait for the log to be printed, so that a caller on the JS main
+    /// thread is not blocked behind the queued requests.
     pub fn log_failed_deserialization(
         &self,
         method_name: &str,
         error: ProviderErrorForChainSpec<ChainSpecT>,
-    ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-        Self::wait_for_reply(|ack| {
-            // Dropping the message disconnects `ack`.
-            let _ = self.send_message(Message::LogFailedDeserialization {
-                method_name: method_name.to_string(),
-                error: Box::new(error),
-                ack,
-            });
-        })?
+    ) {
+        // A terminated event loop cannot log; there is nothing to report to.
+        let _ = self.send_message(Message::LogFailedDeserialization {
+            method_name: method_name.to_string(),
+            error: Box::new(error),
+        });
     }
 
     /// Sets the call override callback, or clears it when passed `None`.
