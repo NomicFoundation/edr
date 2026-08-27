@@ -148,9 +148,7 @@ pub trait HardforkChainSpec {
 }
 ```
 
-When unsure whether a bound is always required, leave it out.
-An unnecessary bound is invisible, whereas a missing one surfaces as a compile error at the first usage site that needs it—which is also where it belongs.
-Likewise, when a bound exists only to satisfy a downstream consumer, require exactly what that consumer asks for and no more; e.g. strengthening `Clone` to `Copy` above would constrain every chain for our own convenience.
+When unsure whether a bound is always required, leave it out. An unnecessary bound is invisible, whereas a missing one surfaces as a compile error at the first usage site that needs it—which is also where it belongs. Likewise, when a bound exists only to satisfy a downstream consumer, require exactly what that consumer asks for and no more; e.g. strengthening `Clone` to `Copy` above would constrain every chain for our own convenience.
 
 ### Associated types vs. generic type parameters
 
@@ -159,20 +157,15 @@ Before deciding how to split a trait, decide which of its types belong in the tr
 - use an **associated type** when each implementer has exactly one choice; e.g. a chain has exactly one hardfork type
 - use a **generic type parameter** when a single type may implement the trait for many choices; e.g. `Into<EvmSpecId>`
 
-Using a generic type parameter where an associated type belongs forces every usage site to name — and therefore bound — a type it does not care about.
-This is a common source of the bound explosion that the rest of this section aims to avoid.
+Using a generic type parameter where an associated type belongs forces every usage site to name — and therefore bound — a type it does not care about. This is a common source of the bound explosion that the rest of this section aims to avoid.
 
 ### Umbrella traits
 
-`FullChainSpec` above is an *umbrella trait*: it has no members of its own and exists only to name a combination of other traits.
+`FullChainSpec` above is an _umbrella trait_: it has no members of its own and exists only to name a combination of other traits.
 
-The blanket implementation is what makes it an alias; without it, every implementer would have to write an empty `impl`.
-Note the `?Sized`, without which the implicit `Sized` bound excludes unsized implementers for no reason.
-Adding a required member to the trait breaks the blanket implementation—and with it every implementer—so only use blanket implementations for umbrella traits.
+The blanket implementation is what makes it an alias; without it, every implementer would have to write an empty `impl`. Note the `?Sized`, without which the implicit `Sized` bound excludes unsized implementers for no reason. Adding a required member to the trait breaks the blanket implementation—and with it every implementer—so only use blanket implementations for umbrella traits.
 
-A downside of umbrella traits is that they can make diagnostics worse.
-E.g. a type that is missing only `HardforkChainSpec` is reported as not implementing `FullChainSpec`. Consider `#[diagnostic::on_unimplemented]` when the combination is widely used.
-E.g.:
+A downside of umbrella traits is that they can make diagnostics worse. E.g. a type that is missing only `HardforkChainSpec` is reported as not implementing `FullChainSpec`. Consider `#[diagnostic::on_unimplemented]` when the combination is widely used. E.g.:
 
 ```rust
 #[diagnostic::on_unimplemented(
@@ -185,20 +178,15 @@ impl<ChainSpecT: BlockEnvChainSpec + ContextChainSpec + ?Sized> FullChainSpec fo
 
 ### Rationale
 
-When a user is implementing a trait for their type or requiring a trait bound on a generic type, they will have to implement or satisfy all the constraints of the trait.
-By splitting traits up into smaller traits, you can reduce the number of constraints that need to be satisfied at usage sites.
-This guarantees that the trait is maximally reusable and composable.
+When a user is implementing a trait for their type or requiring a trait bound on a generic type, they will have to implement or satisfy all the constraints of the trait. By splitting traits up into smaller traits, you can reduce the number of constraints that need to be satisfied at usage sites. This guarantees that the trait is maximally reusable and composable.
 
-Moreover, this limits the number of obligations the trait solver has to discharge and—because well-formedness obligations feed region inference—the number of lifetime constraints that come with them.
-Historically, we have run into problems where an unrelated trait bound resulted in an `outlives` requirement and the error blamed a lifetime that was in fact valid.
+Moreover, this limits the number of obligations the trait solver has to discharge and—because well-formedness obligations feed region inference—the number of lifetime constraints that come with them. Historically, we have run into problems where an unrelated trait bound resulted in an `outlives` requirement and the error blamed a lifetime that was in fact valid.
 
-This does mean that over time a trait may need to be split up into smaller traits, as new use cases with less constraints arise.
-This is a trade-off between reusability and maintainability that needs to be considered on a case-by-case basis.
+This does mean that over time a trait may need to be split up into smaller traits, as new use cases with less constraints arise. This is a trade-off between reusability and maintainability that needs to be considered on a case-by-case basis.
 
 ## Using trait bounds
 
-When using trait bounds, use the least constraints possible to satisfy the requirements of the function.
-E.g. prefer:
+When using trait bounds, use the least constraints possible to satisfy the requirements of the function. E.g. prefer:
 
 ```rust
 fn foo<HardforkT: Into<EvmSpecId>>(hardfork: HardforkT) {
@@ -220,9 +208,7 @@ fn foo<HardforkT: Hardfork>(hardfork: HardforkT) {
 }
 ```
 
-Moreover, by default parameterize a type over the individual types that it uses, rather than over a trait that provides them as associated types.
-You can add a chain-specific type alias for convenience.
-E.g. prefer:
+Moreover, by default parameterize a type over the individual types that it uses, rather than over a trait that provides them as associated types. You can add a chain-specific type alias for convenience. E.g. prefer:
 
 ```rust
 pub trait ContextChainSpec {
@@ -260,15 +246,10 @@ pub struct Foo<ChainSpecT: FullChainSpec> {
 }
 ```
 
-This is a default rather than a rule, as decomposition is not always the least constraining option.
-E.g. when a member needs the chain spec itself—to call one of its associated functions—the type ends up carrying both the decomposed parameters and the chain spec, which is worse than either alone.
-In cases like that, it is acceptable to keep the chain spec parameter instead.
+This is a default rather than a rule, as decomposition is not always the least constraining option. E.g. when a member needs the chain spec itself—to call one of its associated functions—the type ends up carrying both the decomposed parameters and the chain spec, which is worse than either alone. In cases like that, it is acceptable to keep the chain spec parameter instead.
 
 ### Rationale
 
-When a user is calling a function or using a type with trait bounds, they will have to satisfy all the constraints of the trait bounds.
-By using the least constraining option, you can reduce the number of constraints that need to be satisfied at usage sites; thus making the function more reusable and composable.
+When a user is calling a function or using a type with trait bounds, they will have to satisfy all the constraints of the trait bounds. By using the least constraining option, you can reduce the number of constraints that need to be satisfied at usage sites; thus making the function more reusable and composable.
 
-Moreover, this limits the number of obligations the trait solver has to discharge and—because well-formedness obligations feed region inference—the number of lifetime constraints that come with them.
-Historically, we have run into problems where an unrelated trait bound resulted in an `outlives` requirement and the error blamed a lifetime that was in fact valid.
-This has especially been a problem when using trait bounds with layers of associated types; commonly used in chain spec types in EDR.
+Moreover, this limits the number of obligations the trait solver has to discharge and—because well-formedness obligations feed region inference—the number of lifetime constraints that come with them. Historically, we have run into problems where an unrelated trait bound resulted in an `outlives` requirement and the error blamed a lifetime that was in fact valid. This has especially been a problem when using trait bounds with layers of associated types; commonly used in chain spec types in EDR.
