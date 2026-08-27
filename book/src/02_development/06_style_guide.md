@@ -80,7 +80,9 @@ Annotating with the `catch_unwind` macro attribute will turn the panic into a `n
 
 Note that this will not capture panics in background threads.
 
-## Defining traits
+## Traits
+
+### Defining traits
 
 Keep traits composable: give a trait only the generic types, associated types and functions that a single use case needs.
 
@@ -150,7 +152,7 @@ pub trait HardforkChainSpec {
 
 When unsure whether a bound is always required, leave it out. An unnecessary bound is invisible, whereas a missing one surfaces as a compile error at the first usage site that needs it—which is also where it belongs. Likewise, when a bound exists only to satisfy a downstream consumer, require exactly what that consumer asks for and no more; e.g. strengthening `Clone` to `Copy` above would constrain every chain for our own convenience.
 
-### Associated types vs. generic type parameters
+#### Associated types vs. generic type parameters
 
 Before deciding how to split a trait, decide which of its types belong in the trait's signature at all:
 
@@ -159,7 +161,7 @@ Before deciding how to split a trait, decide which of its types belong in the tr
 
 Using a generic type parameter where an associated type belongs forces every usage site to name — and therefore bound — a type it does not care about. This is a common source of the bound explosion that the rest of this section aims to avoid.
 
-### Umbrella traits
+#### Umbrella traits
 
 `FullChainSpec` above is an _umbrella trait_: it has no members of its own and exists only to name a combination of other traits.
 
@@ -176,15 +178,7 @@ trait FullChainSpec: BlockEnvChainSpec + ContextChainSpec {}
 impl<ChainSpecT: BlockEnvChainSpec + ContextChainSpec + ?Sized> FullChainSpec for ChainSpecT {}
 ```
 
-### Rationale
-
-When a user is implementing a trait for their type or requiring a trait bound on a generic type, they will have to implement or satisfy all the constraints of the trait. By splitting traits up into smaller traits, you can reduce the number of constraints that need to be satisfied at usage sites. This guarantees that the trait is maximally reusable and composable.
-
-Moreover, this limits the number of obligations the trait solver has to discharge and—because well-formedness obligations feed region inference—the number of lifetime constraints that come with them. Historically, we have run into problems where an unrelated trait bound resulted in an `outlives` requirement and the error blamed a lifetime that was in fact valid.
-
-This does mean that over time a trait may need to be split up into smaller traits, as new use cases with less constraints arise. This is a trade-off between reusability and maintainability that needs to be considered on a case-by-case basis.
-
-## Using trait bounds
+### Using trait bounds
 
 When using trait bounds, use the least constraints possible to satisfy the requirements of the function. E.g. prefer:
 
@@ -250,6 +244,8 @@ This is a default rather than a rule, as decomposition is not always the least c
 
 ### Rationale
 
-When a user is calling a function or using a type with trait bounds, they will have to satisfy all the constraints of the trait bounds. By using the least constraining option, you can reduce the number of constraints that need to be satisfied at usage sites; thus making the function more reusable and composable.
+Every constraint has to be paid for somewhere. An implementer has to provide everything a trait requires, and a usage site has to satisfy every bound it names. Requiring less leaves that cost with the code that actually needs it. That is what keeps traits, functions and types reusable and composable.
 
-Moreover, this limits the number of obligations the trait solver has to discharge and—because well-formedness obligations feed region inference—the number of lifetime constraints that come with them. Historically, we have run into problems where an unrelated trait bound resulted in an `outlives` requirement and the error blamed a lifetime that was in fact valid. This has especially been a problem when using trait bounds with layers of associated types; commonly used in chain spec types in EDR.
+A bound can also drag in requirements you never wrote, including requirements about lifetimes. We have seen an unrelated trait bound force one type to outlive another. The resulting error blamed a lifetime that was in fact valid. Layers of associated types make this more likely, and EDR's chain spec types are full of them.
+
+The cost is maintainability. As use cases with fewer constraints arise, a trait may need to be split up further. Weigh that on a case-by-case basis.
