@@ -513,9 +513,10 @@ impl ContractDecoder {
         // Skip the first address (we already have its name) and resolve the rest
         for &addr in proxy_chain.iter().skip(1) {
             let name = if let Some(code) = address_to_executed_code.get(&addr) {
-                if let Some(metadata) = self.contracts_identifier.get_bytecode_for_call(code, false)
+                if let Some(identified) =
+                    self.contracts_identifier.get_bytecode_for_call(code, false)
                 {
-                    metadata.contract.read().name.clone()
+                    identified.contract_metadata.contract.read().name.clone()
                 } else {
                     // Fallback to truncated address if contract not found
                     format!("{:#x}", addr)
