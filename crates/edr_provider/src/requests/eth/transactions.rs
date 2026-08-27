@@ -344,7 +344,7 @@ fn validate_send_raw_transaction_request<
     }
 
     validate_eip3860_max_initcode_size::<ChainSpecT, TimerT>(
-        data.evm_spec_id(),
+        data.hardfork(),
         data.allow_unlimited_initcode_size(),
         transaction.kind().to(),
         transaction.data(),

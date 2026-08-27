@@ -6,21 +6,22 @@ use edr_block_local::EthLocalBlock;
 use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
 use edr_chain_l1::{
-    block::EthBlockBuilder,
+    block::L1BlockBuilder,
     receipt::L1BlockReceipt,
     rpc::{call::L1CallRequest, transaction::L1RpcTransactionRequest},
     L1ChainSpec, L1_GENESIS_BLOCK_EXTRA_DATA,
 };
 use edr_chain_spec::{
     BlobExcessGasAndPrice, BlockEnvChainSpec, BlockEnvConstructor, BlockEnvForHardfork,
-    BlockEnvTrait, ChainSpec, ContextChainSpec, EvmSpecId, HardforkChainSpec,
-    TransactionValidation,
+    BlockEnvTrait, ChainSpec, ContextChainSpec, EvmHardforkChainSpec, EvmSpecId,
+    ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
-    handler::EthInstructions, CfgEnv, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
-    ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, InterpreterResult,
-    Journal, JournalTrait as _, LocalContext, PrecompileProvider, TransactionError,
+    handler::EthInstructions, to_evm_cfg_env, CfgEnv, Context, ContextForChainSpec, Database, Evm,
+    EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector,
+    InterpreterResult, Journal, JournalTrait as _, LocalContext, PrecompileProvider,
+    TransactionError,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
@@ -42,17 +43,20 @@ use crate::{
     GenericChainSpec,
 };
 
-pub struct HeaderAndEvmSpecWithFallback<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> {
-    inner: HeaderAndEvmSpec<'header, BlockHeaderT, EvmSpecId>,
+pub struct HeaderAndEvmSpecWithFallback<
+    'header,
+    BlockHeaderT: BlockEnvForHardfork<edr_chain_l1::Hardfork>,
+> {
+    inner: HeaderAndEvmSpec<'header, BlockHeaderT, edr_chain_l1::Hardfork>,
 }
 
-impl<'env, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>>
-    BlockEnvConstructor<'env, EvmSpecId, &'env BlockHeaderT>
+impl<'env, BlockHeaderT: BlockEnvForHardfork<edr_chain_l1::Hardfork>>
+    BlockEnvConstructor<'env, edr_chain_l1::Hardfork, &'env BlockHeaderT>
     for HeaderAndEvmSpecWithFallback<'env, BlockHeaderT>
 {
     fn new_block_env(
         header: &'env BlockHeaderT,
-        hardfork: EvmSpecId,
+        hardfork: edr_chain_l1::Hardfork,
         scheduled_blob_params: Option<&'env ScheduledBlobParams>,
     ) -> Self {
         Self {
@@ -61,7 +65,7 @@ impl<'env, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>>
     }
 }
 
-impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
+impl<'header, BlockHeaderT: BlockEnvForHardfork<edr_chain_l1::Hardfork>> BlockEnvTrait
     for HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
 {
     fn number(&self) -> U256 {
@@ -100,14 +104,14 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
         self.inner.blob_excess_gas_and_price().or_else(|| {
             // If the hardfork requires it, set ExcessGasAndPrice default value
             // see https://github.com/NomicFoundation/edr/issues/947
-            if self.inner.hardfork >= edr_chain_l1::Hardfork::CANCUN {
+            if self.inner.hardfork >= edr_chain_l1::Hardfork::Cancun {
                 let timestamp: u64 = self
                     .inner
                     .timestamp()
                     .try_into()
                     .expect("Timestamp must not exceed u64");
                 let blob_params = blob_params_for_hardfork(
-                    self.inner.hardfork,
+                    self.inner.hardfork.into(),
                     timestamp,
                     self.inner.scheduled_blob_params,
                 );
@@ -130,7 +134,7 @@ impl BlockChainSpec for GenericChainSpec {
         dyn SyncBlock<Arc<Self::Receipt>, Self::SignedTransaction, Error = Self::FetchReceiptError>;
 
     type BlockBuilder<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync> =
-        EthBlockBuilder<
+        L1BlockBuilder<
             'builder,
             Self::Receipt,
             Self::Block,
@@ -149,7 +153,7 @@ impl BlockEnvChainSpec for GenericChainSpec {
     type BlockEnv<'header, BlockHeaderT>
         = HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
     where
-        BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
+        BlockHeaderT: 'header + BlockEnvForHardfork<Self::ProtocolHardfork>;
 }
 
 impl ChainSpec for GenericChainSpec {
@@ -166,7 +170,7 @@ impl EvmChainSpec for GenericChainSpec {
         <L1ChainSpec as EvmChainSpec>::PrecompileProvider<BlockT, DatabaseT>;
 
     fn new_precompile_provider<BlockT: BlockEnvTrait, DatabaseT: Database>(
-        hardfork: Self::Hardfork,
+        hardfork: Self::ProtocolHardfork,
     ) -> Self::PrecompileProvider<BlockT, DatabaseT> {
         <L1ChainSpec as EvmChainSpec>::new_precompile_provider::<BlockT, DatabaseT>(hardfork)
     }
@@ -180,7 +184,7 @@ impl EvmChainSpec for GenericChainSpec {
         >,
     >(
         block: BlockT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -191,6 +195,7 @@ impl EvmChainSpec for GenericChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec;
         let context = Context {
             block,
@@ -221,7 +226,7 @@ impl EvmChainSpec for GenericChainSpec {
         >,
     >(
         block: BlockT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -233,6 +238,7 @@ impl EvmChainSpec for GenericChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec;
         let context = Context {
             block,
@@ -270,14 +276,14 @@ impl GenesisBlockFactory for GenericChainSpec {
     type LocalBlock = EthLocalBlock<
         <Self as ReceiptChainSpec>::Receipt,
         <Self as BlockChainSpec>::FetchReceiptError,
-        Self::Hardfork,
+        Self::ProtocolHardfork,
         <Self as ChainSpec>::SignedTransaction,
     >;
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: &BlockConfig<Self::Hardfork>,
-        mut options: GenesisBlockOptions<Self::Hardfork>,
+        block_config: &BlockConfig<Self::ProtocolHardfork>,
+        mut options: GenesisBlockOptions<Self::ProtocolHardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
         options.extra_data = Some(
@@ -290,25 +296,36 @@ impl GenesisBlockFactory for GenericChainSpec {
     }
 }
 
-impl HardforkChainSpec for GenericChainSpec {
-    type Hardfork = edr_chain_l1::Hardfork;
+impl EvmHardforkChainSpec for GenericChainSpec {
+    type EvmHardfork = EvmSpecId;
+}
+
+impl ProtocolHardforkChainSpec for GenericChainSpec {
+    type ProtocolHardfork = edr_chain_l1::Hardfork;
 }
 
 impl ProviderChainSpec for GenericChainSpec {
-    const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
-
-    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>> {
+    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>> {
         L1ChainSpec::chain_configs()
     }
 
-    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork> {
         L1ChainSpec::default_base_fee_params()
+    }
+
+    fn default_block_difficulty(
+        hardfork: Self::ProtocolHardfork,
+        parent: Option<&BlockHeader>,
+        block_number: u64,
+        block_timestamp: u64,
+    ) -> U256 {
+        L1ChainSpec::default_block_difficulty(hardfork, parent, block_number, block_timestamp)
     }
 
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        hardfork: Self::Hardfork,
-        default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        hardfork: Self::ProtocolHardfork,
+        default_base_fee_params: &BaseFeeParams<Self::ProtocolHardfork>,
     ) -> u128 {
         L1ChainSpec::next_base_fee_per_gas(header, hardfork, default_base_fee_params)
     }
@@ -386,7 +403,7 @@ mod tests {
     #[test]
     fn generic_block_constructor_should_default_excess_blob_gas_for_cancun() {
         let header = build_block_header(None); // No blob gas information
-        let spec_id = edr_chain_l1::Hardfork::CANCUN;
+        let spec_id = edr_chain_l1::Hardfork::Cancun;
 
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header, spec_id, None,
@@ -406,7 +423,7 @@ mod tests {
     #[test]
     fn generic_block_constructor_should_default_excess_blob_gas_for_prague() {
         let header = build_block_header(None); // No blob gas information
-        let spec_id = edr_chain_l1::Hardfork::PRAGUE;
+        let spec_id = edr_chain_l1::Hardfork::Prague;
 
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header, spec_id, None,
@@ -426,7 +443,7 @@ mod tests {
     #[test]
     fn generic_block_constructor_should_default_excess_blob_gas_for_osaka() {
         let header = build_block_header(None); // No blob gas information
-        let spec_id = edr_chain_l1::Hardfork::OSAKA;
+        let spec_id = edr_chain_l1::Hardfork::Osaka;
 
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header, spec_id, None,
@@ -449,7 +466,7 @@ mod tests {
 
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
-            edr_chain_l1::Hardfork::SHANGHAI,
+            edr_chain_l1::Hardfork::Shanghai,
             None,
         );
         assert_eq!(block.blob_excess_gas_and_price(), None);
@@ -463,7 +480,7 @@ mod tests {
             gas_used: 0x80000u64,
         };
         let header = build_block_header(Some(blob_gas)); // blob gas present
-        let spec_id = edr_chain_l1::Hardfork::CANCUN;
+        let spec_id = edr_chain_l1::Hardfork::Cancun;
 
         let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header, spec_id, None,

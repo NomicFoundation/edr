@@ -11,14 +11,14 @@ use std::{
 
 use anyhow::{anyhow, bail};
 use clap::Parser;
+use edr_op::OpHardfork;
 use git2::Repository;
 use itertools::Itertools;
 use log::{LevelFilter, Log, Metadata, Record};
-use op_revm::OpSpecId;
 use tempfile::tempdir;
 
-/// These hardforks are not included in `OpSpecId` since they only impacted the
-/// consensus layer.
+/// These hardforks are not included in `OpHardfork` since they only impacted
+/// the consensus layer.
 const KNOWN_IGNORED_HARDFORKS: [&str; 2] = ["delta", "pectra_blob_schedule"];
 const SUPERCHAIN_REGISTRY_REPO_URL: &str =
     "https://github.com/ethereum-optimism/superchain-registry.git";
@@ -118,6 +118,11 @@ fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
 
     let generated_module_path = generated_module_path()?;
     let modules_dir = Path::new(generated_module_path.as_str());
+    // Remove previously generated modules so that chains removed from the
+    // superchain registry don't leave stale files behind
+    if modules_dir.exists() {
+        fs::remove_dir_all(modules_dir)?;
+    }
     create_dir_all(modules_dir)?;
 
     let chains_to_generate =
@@ -158,11 +163,19 @@ fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
 
     if check {
         // Checks whether there were any changes aside from changes triggered due to
-        // different superchain registry commit SHA included in the documentation
+        // different superchain registry commit SHA included in the documentation:
+        // a diff consisting only of `// source: <sha>` lines counts as up to date.
         let significant_diff = Command::new("git")
             .arg("diff")
-            .arg("-G'^//// source: https:////github.com//ethereum-optimism//superchain-registry//tree//'")
-            .arg("--exit-code").output()?;
+            .arg(
+                "--ignore-matching-lines=^// source: \
+                 https://github\\.com/ethereum-optimism/superchain-registry/tree/",
+            )
+            .arg("--exit-code")
+            .arg("--")
+            .arg(modules_dir)
+            .arg(format!("{generated_module_path}.rs"))
+            .output()?;
 
         let result = if significant_diff.status.success() {
             log::info!("OP chain configs are up to date ✓");
@@ -170,13 +183,20 @@ fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
         } else {
             Err(anyhow!("Significant changes pending to be included"))
         };
-        // Rollback any modification done to generated/* files
-        let mut files_to_restore = modules_dir.to_path_buf();
-        files_to_restore.push("*");
+        // Rollback any modification done to the generated files: restore
+        // tracked files (including deleted ones) and remove newly generated
+        // files that aren't tracked yet
         Command::new("git")
             .arg("checkout")
             .arg("--")
-            .arg(files_to_restore)
+            .arg(modules_dir)
+            .arg(format!("{generated_module_path}.rs"))
+            .output()?;
+        Command::new("git")
+            .arg("clean")
+            .arg("--force")
+            .arg("--")
+            .arg(modules_dir)
             .output()?;
         result
     } else {
@@ -372,7 +392,7 @@ fn write_chain_module(
                 pub const {chain_id_const_name}: u64 = {chain_id_hex};
                 
                 /// `{chain_name}` chain configuration
-                pub(super) fn {chain_config_function} -> ChainConfig<OpSpecId>{{ ChainConfig {{
+                pub(super) fn {chain_config_function} -> ChainConfig<OpHardfork>{{ ChainConfig {{
                     name: \"{chain_name}\".into(),
                     base_fee_params: {chain_base_fee_params}, 
                     hardfork_activations: {chain_hardfork_activations},
@@ -404,7 +424,7 @@ fn write_chain_module(
         
         use edr_chain_config::{{ChainConfig, ForkCondition, HardforkActivation, HardforkActivations}};
         use edr_eip1559::{{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams}};
-        use op_revm::OpSpecId;
+        use crate::hardfork::OpHardfork;
 
         {networks_config}
         "
@@ -430,7 +450,7 @@ fn generate_hardfork_activations_for(
     // Superchain registry lists hardforks starting from Canyon, but there are two
     // previous OpSpec hardforks before: bedrock and regolith. We are adding
     // those hardforks to make sure that the blockchain hardfork list is complete.
-    let previous_hardforks = [(OpSpecId::BEDROCK, 0), (OpSpecId::REGOLITH, 0)];
+    let previous_hardforks = [(OpHardfork::Bedrock, 0), (OpHardfork::Regolith, 0)];
     let activations_str: String = previous_hardforks
         .into_iter()
         .chain(superchain_activations)
@@ -440,24 +460,22 @@ fn generate_hardfork_activations_for(
             format!(
                 "
             HardforkActivation {{
-                condition: ForkCondition::Timestamp({}),
-                hardfork: OpSpecId::{},
-            }},",
-                activation,
-                hardfork_str.to_uppercase()
+                condition: ForkCondition::Timestamp({activation}),
+                hardfork: OpHardfork::{hardfork_str},
+            }},"
             )
         })
         .collect();
     format!("HardforkActivations::new(vec![{activations_str}])")
 }
 
-fn get_op_hardfork_from(hardfork_str: &str) -> anyhow::Result<Option<OpSpecId>> {
+fn get_op_hardfork_from(hardfork_str: &str) -> anyhow::Result<Option<OpHardfork>> {
     let hardfork_name = hardfork_str
         .split_once("_time")
         .map(|(before_match, _)| before_match)
         .ok_or(anyhow!("activation is not time based: {hardfork_str}"))?;
 
-    match OpSpecId::from_str(&capitalize_first_letter(hardfork_name)) {
+    match OpHardfork::from_str(&capitalize_first_letter(hardfork_name)) {
         Err(_) => {
             if !KNOWN_IGNORED_HARDFORKS.contains(&hardfork_name) {
                 bail!("hardfork name is not supported: {hardfork_name}")
@@ -476,11 +494,11 @@ fn generate_base_fee_params(params: OpHardforkBaseFeeParams) -> String {
     format!(
         "BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
         (
-            BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+            BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
             ConstantBaseFeeParams::new({original_denominator}, {elasticity}),
         ),
         (
-            BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+            BaseFeeActivation::Hardfork(OpHardfork::Canyon),
             ConstantBaseFeeParams::new({canyon_denominator}, {elasticity}),
         )
 ]))"

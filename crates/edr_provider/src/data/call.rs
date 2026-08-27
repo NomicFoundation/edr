@@ -70,7 +70,7 @@ pub(super) fn run_call<'call, ChainSpecT, BlockchainT, InspectorT, StateT>(
     blockchain: BlockchainT,
     block_env: ChainSpecT::BlockEnv<'call, BlockHeader>,
     state: StateT,
-    cfg_env: CfgEnv<ChainSpecT::Hardfork>,
+    cfg_env: CfgEnv<ChainSpecT::ProtocolHardfork>,
     transaction: ChainSpecT::SignedTransaction,
     custom_precompiles: &'call HashMap<Address, PrecompileFn>,
     inspector: &'call mut InspectorT,

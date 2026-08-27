@@ -19,7 +19,7 @@ use tokio::runtime;
 pub(crate) fn get_chain_fork_provider<
     ChainSpecT: SyncProviderSpec<
             CurrentTime,
-            Hardfork = edr_chain_l1::Hardfork,
+            ProtocolHardfork = edr_chain_l1::Hardfork,
             SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
         > + ProviderSpec<CurrentTime>,
 >(

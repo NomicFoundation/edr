@@ -100,7 +100,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = edr_chain_l1::Hardfork::SHANGHAI;
+    config.hardfork = edr_chain_l1::Hardfork::Shanghai;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -132,7 +132,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = edr_chain_l1::Hardfork::SHANGHAI;
+    config.hardfork = edr_chain_l1::Hardfork::Shanghai;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -283,7 +283,7 @@ async fn block_header() -> anyhow::Result<()> {
     config.chain_id = fake_transaction()
         .chain_id()
         .expect("Blob transaction has chain ID");
-    config.hardfork = edr_chain_l1::Hardfork::CANCUN;
+    config.hardfork = edr_chain_l1::Hardfork::Cancun;
 
     config.genesis_state.insert(
         secret_key_to_address(SECRET_KEYS[0])?,

@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-use edr_chain_spec::{ChainSpec, ContextChainSpec, HardforkChainSpec};
+use edr_chain_spec::{ChainSpec, ContextChainSpec, ProtocolHardforkChainSpec};
 use edr_chain_spec_rpc::RpcChainSpec;
 use edr_primitives::B256;
 use edr_receipt::{
@@ -11,11 +11,11 @@ use edr_receipt_builder_api::ExecutionReceiptBuilder;
 
 /// Trait for a chain's transaction receipt specification.
 pub trait ReceiptChainSpec:
-    ContextChainSpec + ExecutionReceiptChainSpec + HardforkChainSpec + ChainSpec + RpcChainSpec
+    ContextChainSpec + ExecutionReceiptChainSpec + ProtocolHardforkChainSpec + ChainSpec + RpcChainSpec
 {
     type ExecutionReceiptBuilder: ExecutionReceiptBuilder<
         Self::HaltReason,
-        Self::Hardfork,
+        Self::ProtocolHardfork,
         Self::SignedTransaction,
         Receipt = Self::ExecutionReceipt<ExecutionLog>,
     >;
@@ -27,7 +27,7 @@ pub trait ReceiptChainSpec:
             Self::SignedTransaction,
             Context = Self::Context,
             ExecutionReceipt = Self::ExecutionReceipt<FilterLog>,
-            Hardfork = Self::Hardfork,
+            Hardfork = Self::ProtocolHardfork,
         > + ReceiptTrait
         + TryFrom<Self::RpcReceipt, Error: std::error::Error>;
 }

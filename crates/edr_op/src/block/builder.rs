@@ -82,7 +82,7 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
         // TODO: https://github.com/NomicFoundation/edr/issues/990
         // Replace this once we can detect chain-specific block inputs in the provider
         // and avoid passing them as input.
-        if hardfork >= Hardfork::CANYON {
+        if hardfork >= Hardfork::Canyon {
             // `EthBlockBuilder` expects `inputs.withdrawals.is_some()` despite OP not
             // supporting withdrawals.
             inputs.withdrawals = Some(Vec::new());
@@ -97,7 +97,7 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
             |value| Ok(Some(value)),
         )?;
 
-        if hardfork >= Hardfork::HOLOCENE {
+        if hardfork >= Hardfork::Holocene {
             // For post-Holocene blocks, store the encoded base fee parameters to be used in
             // the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
             overrides.extra_data = Some(overrides.extra_data.unwrap_or_else(|| {
@@ -115,7 +115,7 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
                     .expect("Chain spec must have base fee params for post-London hardforks");
                 // TODO: instead of decoding min_base_fee from parent extra data we should get
                 // the info from OP chain config analogously to base_fee_params?
-                if hardfork >= Hardfork::JOVIAN {
+                if hardfork >= Hardfork::Jovian {
                     let min_base_fee = decode_min_base_fee(&parent_header.extra_data).expect("min_base_fee should be present in header.extra_data field post Jovian activation");
                     encode_dynamic_base_fee_params_jovian(extra_data_base_fee_params, min_base_fee)
                 } else {
@@ -139,7 +139,7 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
             };
         }
 
-        if hardfork >= Hardfork::JOVIAN {
+        if hardfork >= Hardfork::Jovian {
             // Need to override `base_fee` field since from Jovian hardfork OP stack differs
             // from standard EVM calculation.
             overrides.base_fee = overrides.base_fee.or_else(|| {
@@ -156,7 +156,7 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
                 state: state.as_ref(),
             });
 
-            op_revm::L1BlockInfo::try_fetch(&mut db, U256::from(l2_block_number), hardfork)
+            op_revm::L1BlockInfo::try_fetch(&mut db, U256::from(l2_block_number), hardfork.into())
                 .map_err(BlockBuilderCreationError::Database)?
         };
 
@@ -236,12 +236,11 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
 
     fn finalize_block(
         self,
-        rewards: Vec<(Address, u128)>,
     ) -> Result<
         BuiltBlockAndStateWithMetadata<Self::LocalBlock, HaltReason>,
         BlockFinalizeError<StateError>,
     > {
-        self.eth.finalize(rewards)
+        self.eth.finalize()
     }
 }
 
@@ -256,9 +255,9 @@ fn define_op_withdrawals_root(
     hardfork: Hardfork,
     state: &dyn DynState,
 ) -> Result<Option<B256>, StateError> {
-    if hardfork < Hardfork::CANYON {
+    if hardfork < Hardfork::Canyon {
         Ok(None)
-    } else if hardfork < Hardfork::ISTHMUS {
+    } else if hardfork < Hardfork::Isthmus {
         Ok(Some(KECCAK_NULL_RLP))
     } else {
         state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)
@@ -332,9 +331,9 @@ mod tests {
         hardfork: Hardfork,
     ) -> anyhow::Result<LocalBlockchainForChainSpec<OpChainSpec>> {
         let block_config = BlockConfig {
-            hardfork,
             base_fee_params: op::MAINNET_BASE_FEE_PARAMS.clone(),
-            min_ethash_difficulty: OpChainSpec::MIN_ETHASH_DIFFICULTY,
+            default_difficulty_fn: OpChainSpec::default_block_difficulty,
+            hardfork,
             scheduled_blob_params: None,
         };
         let genesis_block = OpChainSpec::genesis_block(
@@ -356,7 +355,7 @@ mod tests {
 
     #[test]
     fn should_return_none_if_before_canyon() -> anyhow::Result<()> {
-        let hardfork = Hardfork::BEDROCK;
+        let hardfork = Hardfork::Bedrock;
         let blockchain = create_local_blockchain(hardfork)?;
         let state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
         let response = define_op_withdrawals_root(hardfork, &state);
@@ -365,7 +364,7 @@ mod tests {
     }
     #[test]
     fn should_return_keccak_zero_if_canyon() -> anyhow::Result<()> {
-        let hardfork = Hardfork::CANYON;
+        let hardfork = Hardfork::Canyon;
         let blockchain = create_local_blockchain(hardfork)?;
         let state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
         let response = define_op_withdrawals_root(hardfork, &state);
@@ -375,7 +374,7 @@ mod tests {
 
     #[test]
     fn should_return_l2l1passer_storage_root_if_isthmus() -> anyhow::Result<()> {
-        let hardfork = Hardfork::ISTHMUS;
+        let hardfork = Hardfork::Isthmus;
         let blockchain = create_local_blockchain(hardfork)?;
         let state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
         let response = define_op_withdrawals_root(hardfork, &state);

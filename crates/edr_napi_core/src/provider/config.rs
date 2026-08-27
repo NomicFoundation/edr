@@ -66,7 +66,7 @@ pub struct Config {
 
 fn parse_hardfork<HardforkT>(hardfork: String) -> napi::Result<HardforkT>
 where
-    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<EvmSpecId>,
+    HardforkT: FromStr<Err = UnknownHardfork>,
 {
     hardfork.parse().map_err(|UnknownHardfork| {
         napi::Error::new(
@@ -78,11 +78,7 @@ where
 
 impl<HardforkT> TryFrom<Config> for edr_provider::config::Provider<HardforkT>
 where
-    HardforkT: FromStr<Err = UnknownHardfork>
-        + Clone
-        + Default
-        + Into<edr_chain_spec::EvmSpecId>
-        + PartialOrd,
+    HardforkT: Clone + Default + FromStr<Err = UnknownHardfork> + Into<EvmSpecId> + PartialOrd,
 {
     type Error = napi::Error;
 

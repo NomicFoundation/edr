@@ -5,8 +5,8 @@ pub mod interpreter;
 pub mod result;
 
 use edr_chain_spec::{
-    ChainSpec, ContextChainSpec, EvmTransactionValidationError, HardforkChainSpec,
-    TransactionValidation,
+    ChainSpec, ContextChainSpec, EvmHardforkChainSpec, EvmTransactionValidationError,
+    ProtocolHardforkChainSpec, TransactionValidation,
 };
 pub use edr_database_components::DatabaseComponentError;
 pub use revm_context::{
@@ -24,11 +24,22 @@ pub use crate::{interpreter::InterpreterResult, result::ExecutionResultAndState}
 pub type ContextForChainSpec<ChainSpecT, BlockEnvT, DatabaseT> = Context<
     BlockEnvT,
     <ChainSpecT as ChainSpec>::SignedTransaction,
-    CfgEnv<<ChainSpecT as HardforkChainSpec>::Hardfork>,
+    CfgEnv<<ChainSpecT as EvmHardforkChainSpec>::EvmHardfork>,
     DatabaseT,
     Journal<DatabaseT>,
     <ChainSpecT as ContextChainSpec>::Context,
 >;
+
+/// Retypes a [`CfgEnv`] keyed on the chain's protocol-level hardfork into one
+/// keyed on its EVM-level hardfork, preserving all other fields.
+pub fn to_evm_cfg_env<ChainSpecT: ProtocolHardforkChainSpec>(
+    cfg: CfgEnv<ChainSpecT::ProtocolHardfork>,
+) -> CfgEnv<ChainSpecT::EvmHardfork> {
+    let spec: ChainSpecT::EvmHardfork = cfg.spec.clone().into();
+    // Pass the original gas params through to avoid recomputing them.
+    let gas_params = cfg.gas_params.clone();
+    cfg.with_spec_and_gas_params(spec, gas_params)
+}
 
 /// Trait for specifying the types for running a transaction in a chain's
 /// associated EVM.
@@ -38,7 +49,7 @@ pub trait EvmChainSpec:
             ValidationError: From<EvmTransactionValidationError>,
         >,
     > + ContextChainSpec
-    + HardforkChainSpec
+    + ProtocolHardforkChainSpec
 {
     /// Type representing a precompile provider.
     type PrecompileProvider<BlockT: BlockEnvTrait, DatabaseT: Database>: PrecompileProvider<
@@ -48,7 +59,7 @@ pub trait EvmChainSpec:
 
     /// Constructs the precompile provider for the given hardfork.
     fn new_precompile_provider<BlockT: BlockEnvTrait, DatabaseT: Database>(
-        hardfork: Self::Hardfork,
+        hardfork: Self::ProtocolHardfork,
     ) -> Self::PrecompileProvider<BlockT, DatabaseT>;
 
     /// Runs a transaction inside the chain's EVM without committing the
@@ -63,7 +74,7 @@ pub trait EvmChainSpec:
         >,
     >(
         block: BlockT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -97,7 +108,7 @@ pub trait EvmChainSpec:
         >,
     >(
         block: BlockT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,

@@ -27,6 +27,7 @@ macro_rules! impl_execution_receipt_serde_tests {
 
                     let block_hash = $crate::B256::random();
                     let block_number = 10u64;
+                    let block_timestamp = 1_700_000_000u64;
                     let transaction_hash = $crate::B256::random();
                     let transaction_index = 5u64;
 
@@ -41,6 +42,7 @@ macro_rules! impl_execution_receipt_serde_tests {
                             },
                             block_hash,
                             block_number,
+                            block_timestamp: Some(block_timestamp),
                             log_index: {
                                 let index = log_index;
                                 log_index += 1;

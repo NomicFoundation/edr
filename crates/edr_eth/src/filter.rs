@@ -68,6 +68,22 @@ pub struct LogOutput {
     /// its pending log.
     #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity::opt"))]
     pub block_number: Option<u64>,
+    /// Timestamp of the block this log is in, added to the `Log` schema by
+    /// <https://github.com/ethereum/execution-apis/pull/639>.
+    ///
+    /// `None` when it's a pending log; or when the log came from a JSON-RPC
+    /// provider that does not provide it.
+    // Skipped rather than serialized as null: absence is meaningful here,
+    // because a null would claim the node answered and had nothing.
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            with = "alloy_serde::quantity::opt"
+        )
+    )]
+    pub block_timestamp: Option<u64>,
     /// address from which this log originated.
     pub address: Address,
     /// contains one or more 32 Bytes non-indexed arguments of the log.
@@ -88,6 +104,7 @@ impl From<&FilterLog> for LogOutput {
             transaction_hash: Some(value.inner.transaction_hash),
             block_hash: Some(value.block_hash),
             block_number: Some(value.inner.block_number),
+            block_timestamp: value.inner.block_timestamp,
             address: value.inner.address,
             data: value.inner.data.data.clone(),
             topics: value.inner.data.topics().to_vec(),

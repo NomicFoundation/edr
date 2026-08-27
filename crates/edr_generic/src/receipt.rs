@@ -1,4 +1,3 @@
-use edr_chain_spec::EvmSpecId;
 use edr_chain_spec_evm::result::ExecutionResult;
 use edr_primitives::B256;
 use edr_receipt::log::{logs_to_bloom, ExecutionLog};
@@ -37,7 +36,7 @@ impl
         let logs = result.logs().to_vec();
         let logs_bloom = logs_to_bloom(&logs);
 
-        let receipt = if hardfork >= EvmSpecId::BYZANTIUM {
+        let receipt = if hardfork >= edr_chain_l1::Hardfork::Byzantium {
             edr_receipt::execution::Eip658 {
                 status: result.is_success(),
                 cumulative_gas_used,

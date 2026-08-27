@@ -63,6 +63,16 @@ contract Counter {
     }
 }
 
+// Covers the failing-`setUp()` stack-trace path (issue #1605). The suite
+// needs at least one test function, or `run_tests` skips setup entirely.
+contract AlwaysStackTraceFailingSetupTest is DSTest {
+    function setUp() public {
+        new Reverter().boom();
+    }
+
+    function testNeverRuns() public {}
+}
+
 // Covers the invariant setup-failure stack-trace path: the invariant is
 // already broken in the initial state, so the campaign fails during the
 // initial invariant check, before any fuzzed calls. `Counter` is deployed so

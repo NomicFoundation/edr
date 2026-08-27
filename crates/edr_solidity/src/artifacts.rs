@@ -147,11 +147,12 @@ pub enum ContractMetadataExtractionError {
 #[serde(rename_all = "camelCase")]
 #[strum(serialize_all = "camelCase")]
 pub enum CompilerType {
-    /// Reference Solidity compiler; uses `evm.{deployed,}Bytecode.sourceMap`.
+    /// Solc compiler
     #[default]
     Solc,
-    /// solx compiler; uses `evm.{deployed,}Bytecode.debugInfo`.
-    Solx,
+    /// Slang solx compiler
+    #[strum(serialize = "slang-solx")]
+    SlangSolx,
 }
 
 /// Configuration for the [`crate::contract_decoder::ContractDecoder`].
@@ -237,7 +238,7 @@ impl BuildInfoBuffers<'_> {
 
                     match to_compiler_type(peek.compiler_type) {
                         CompilerType::Solc => parse_solc_compiler_metadata(*item),
-                        CompilerType::Solx => parse_solx_compiler_metadata(*item),
+                        CompilerType::SlangSolx => parse_solx_compiler_metadata(*item),
                     }
                     // Silently ignore unsupported solc versions
                     .or_else(|error| {
@@ -259,7 +260,7 @@ impl BuildInfoBuffers<'_> {
                         CompilerType::Solc => {
                             parse_split_solc_compiler_metadata(item.build_info, item.output)
                         }
-                        CompilerType::Solx => {
+                        CompilerType::SlangSolx => {
                             parse_split_solx_compiler_metadata(item.build_info, item.output)
                         }
                     }
@@ -573,5 +574,29 @@ mod tests {
             .starts_with("7f454c46"));
         assert!(contract.evm.bytecode.debug_info.len() >= 200);
         assert!(contract.evm.deployed_bytecode.debug_info.len() >= 200);
+    }
+
+    #[test]
+    fn to_compiler_type_reads_the_build_info_sentinel() {
+        const SOLC_COMPILER_TYPE: &str = "solc";
+        const SLANG_SOLX_COMPILER_TYPE: &str = "slang-solx";
+
+        assert_eq!(CompilerType::Solc.to_string(), SOLC_COMPILER_TYPE);
+        assert_eq!(
+            CompilerType::SlangSolx.to_string(),
+            SLANG_SOLX_COMPILER_TYPE
+        );
+
+        assert_eq!(
+            to_compiler_type(Some(SOLC_COMPILER_TYPE)),
+            CompilerType::Solc
+        );
+        assert_eq!(
+            to_compiler_type(Some(SLANG_SOLX_COMPILER_TYPE)),
+            CompilerType::SlangSolx
+        );
+
+        assert_eq!(to_compiler_type(None), CompilerType::Solc);
+        assert_eq!(to_compiler_type(Some("not-a-compiler")), CompilerType::Solc);
     }
 }

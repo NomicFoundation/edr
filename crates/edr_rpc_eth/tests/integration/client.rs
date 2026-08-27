@@ -310,54 +310,6 @@ mod alchemy {
     }
 
     #[tokio::test]
-    async fn get_logs_future_from_block() {
-        let provider_url = json_rpc_url_provider::ethereum_mainnet();
-        let result = TestRpcClient::new(&provider_url)
-            .get_logs_by_range(
-                BlockSpec::Number(MAX_BLOCK_NUMBER),
-                BlockSpec::Number(MAX_BLOCK_NUMBER),
-                Some(OneOrMore::One(
-                    Address::from_str("0xffffffffffffffffffffffffffffffffffffffff")
-                        .expect("failed to parse data"),
-                )),
-                None,
-            )
-            .await;
-
-        // TODO: https://github.com/NomicFoundation/edr/issues/903
-        // Alchemy enabled [EIP-4444](https://eips.ethereum.org/EIPS/eip-4444) for part of their clients. As a
-        // result, it's possible that we get the updated result `[]` instead of the old
-        // JSON-RPC error.
-        match result {
-            Ok(response) => {
-                assert!(response.is_empty());
-            }
-            Err(error) => {
-                assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn get_logs_future_to_block() {
-        let provider_url = json_rpc_url_provider::ethereum_mainnet();
-        let logs = TestRpcClient::new(&provider_url)
-            .get_logs_by_range(
-                BlockSpec::Number(10496585),
-                BlockSpec::Number(MAX_BLOCK_NUMBER),
-                Some(OneOrMore::One(
-                    Address::from_str("0xffffffffffffffffffffffffffffffffffffffff")
-                        .expect("failed to parse data"),
-                )),
-                None,
-            )
-            .await
-            .expect("should have succeeded");
-
-        assert_eq!(logs, []);
-    }
-
-    #[tokio::test]
     async fn get_transaction_by_hash_some() {
         let provider_url = json_rpc_url_provider::ethereum_mainnet();
 

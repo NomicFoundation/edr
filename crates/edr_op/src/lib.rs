@@ -30,16 +30,20 @@ pub mod transaction;
 
 pub use op_revm::L1BlockInfo;
 
-pub use self::spec::OpChainSpec;
+pub use self::{hardfork::OpHardfork, spec::OpChainSpec};
 
 /// OP Stack chain type
 pub const CHAIN_TYPE: &str = "op";
 
+/// OP Stack EVM-level hardfork; see
+/// [`EvmHardforkChainSpec::EvmHardfork`](edr_chain_spec::EvmHardforkChainSpec::EvmHardfork).
+pub type EvmHardfork = op_revm::OpSpecId;
+
 /// OP Stack halt reason.
 pub type HaltReason = op_revm::OpHaltReason;
 
-/// OP Stack hardfork.
-pub type Hardfork = op_revm::OpSpecId;
+/// Convenience alias for the OP Stack hardfork.
+pub type Hardfork = OpHardfork;
 
 /// OP Stack invalid header error.
 pub type InvalidHeader = revm_context_interface::result::InvalidHeader;

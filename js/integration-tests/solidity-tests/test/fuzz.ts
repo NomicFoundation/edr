@@ -496,58 +496,18 @@ describe("Fuzz and invariant testing", function () {
   it("FuzzFunctionOverrides", async function () {
     const GLOBAL_RUNS = 100;
     const OVERRIDEN_RUNS = 10;
-    const artifact = testContext.matchingTest("FuzzConfigOverrideTest")[0];
 
     const fuzzConfig = {
       runs: GLOBAL_RUNS,
       maxTestRejects: 0,
     };
 
-    const testFunctionOverrides = [
-      {
-        identifier: {
-          contractArtifact: artifact,
-          functionSelector: "0x6d301800", // testFuzz_OverrideRuns(uint256)
-        },
-        config: {
-          fuzz: {
-            runs: OVERRIDEN_RUNS,
-          },
-        },
-      },
-      {
-        identifier: {
-          contractArtifact: artifact,
-          functionSelector: "0x1a2888a7", // testFuzz_OverrideTimeoutAndRejects(uint256)
-        },
-        config: {
-          fuzz: {
-            runs: 256,
-            maxTestRejects: 50000,
-            timeout: {
-              time: 1,
-            },
-          },
-        },
-      },
-      {
-        identifier: {
-          contractArtifact: artifact,
-          functionSelector: "0xff055599", // testFuzz_NoOverrideTimeout(uint256)
-        },
-        config: {
-          fuzz: {
-            maxTestRejects: 5000,
-          },
-        },
-      },
-    ];
-
+    // Per-function overrides come from inline `forge-config:` directives in
+    // `FuzzConfigOverride.t.sol`.
     const result = await testContext.runTestsWithStats(
       "FuzzConfigOverrideTest",
       {
         fuzz: fuzzConfig,
-        testFunctionOverrides: testFunctionOverrides,
       }
     );
 
@@ -582,10 +542,6 @@ describe("Fuzz and invariant testing", function () {
     const OVERRIDEN_RUNS = 1;
     const OVERRIDEN_DEPTH = 5;
 
-    const artifact = testContext.matchingTest(
-      "InvariantTestFunctionOverride"
-    )[0];
-
     const invariantConfig = {
       runs: GLOBAL_RUNS,
       depth: GLOBAL_DEPTH,
@@ -603,24 +559,12 @@ describe("Fuzz and invariant testing", function () {
     assert.equal(invariantKind.runs, BigInt(GLOBAL_RUNS));
     assert.equal(invariantKind.calls, BigInt(GLOBAL_RUNS * GLOBAL_DEPTH));
 
+    // `InvariantTestFunctionOverrideConfigured` overrides `runs`/`depth` via
+    // inline `forge-config:` directives.
     const result2 = await testContext.runTestsWithStats(
-      "InvariantTestFunctionOverride",
+      "InvariantTestFunctionOverrideConfigured",
       {
         invariant: invariantConfig,
-        testFunctionOverrides: [
-          {
-            identifier: {
-              contractArtifact: artifact,
-              functionSelector: "0xd6e738f5", // invariant_neverFalse()
-            },
-            config: {
-              invariant: {
-                runs: OVERRIDEN_RUNS,
-                depth: OVERRIDEN_DEPTH,
-              },
-            },
-          },
-        ],
       }
     );
     const test_result2 = result2.suiteResults[0].testResults[0];

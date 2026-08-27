@@ -21,7 +21,7 @@ async fn issue_326() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with(MinimalProviderConfig::local_with_accounts());
-    config.hardfork = edr_chain_l1::Hardfork::CANCUN;
+    config.hardfork = edr_chain_l1::Hardfork::Cancun;
     config.mining = MiningConfig {
         auto_mine: false,
         ..MiningConfig::default()

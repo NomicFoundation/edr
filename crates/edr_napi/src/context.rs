@@ -26,11 +26,20 @@ use crate::{
         artifact::{Artifact, ArtifactId},
         config::SolidityTestRunnerConfigArgs,
         factory::SolidityTestRunnerFactory,
+        inline_config,
         test_results::{SolidityTestResult, SuiteResult},
         LinkingOutput,
     },
     subscription::SubscriptionConfig,
 };
+
+/// The result of a Solidity test run, distinguishing an inline-config failure —
+/// which we surface as a structured JS error built on the JS thread — from a
+/// completed run.
+enum RunOutcome {
+    Completed(edr_solidity_tests::multi_runner::SolidityTestResult),
+    InvalidInlineConfig(edr_solidity_tests::inline_config::InlineConfigErrors),
+}
 
 /// Unwraps `$expr`, or rejects `$deferred` with the error and returns
 /// `Ok($promise)` from the enclosing function.
@@ -295,7 +304,7 @@ impl EdrContext {
             let include_traces = config.include_traces.into();
 
             let runtime_for_factory = runtime.clone();
-            let test_runner = try_or_reject_deferred!(runtime
+            let create_result = runtime
                 .clone()
                 .spawn_blocking(move || {
                     factory.create_test_runner(
@@ -309,42 +318,67 @@ impl EdrContext {
                     )
                 })
                 .await
-                .expect("Failed to join test runner factory thread"));
+                .expect("Failed to join test runner factory thread");
 
-            let runtime_for_runner = runtime.clone();
-            let test_result = try_or_reject_deferred!(runtime
-                .clone()
-                .spawn_blocking(move || {
-                    test_runner.run_tests(
-                        runtime_for_runner,
-                        test_filter,
-                        Arc::new(
-                            move |SuiteResultAndArtifactId {
-                                      artifact_id,
-                                      result,
-                                  }| {
-                                let suite_result =
-                                    SuiteResult::new(artifact_id, result, include_traces);
+            let outcome = match create_result {
+                // An inline-config failure carries structured, located problems
+                // that we surface on the rejected promise's error as
+                // `inlineConfigErrors`. Building that JS object requires the JS
+                // thread, so route it through the deferred's resolver (which
+                // runs there) rather than `deferred.reject`, which only carries
+                // a message.
+                Err(solidity::CreateTestRunnerError::InvalidInlineConfig(errors)) => {
+                    RunOutcome::InvalidInlineConfig(errors)
+                }
+                Err(solidity::CreateTestRunnerError::Failed(error)) => {
+                    deferred.reject(error);
+                    return;
+                }
+                Ok(test_runner) => {
+                    let runtime_for_runner = runtime.clone();
+                    let test_result = try_or_reject_deferred!(runtime
+                        .clone()
+                        .spawn_blocking(move || {
+                            test_runner.run_tests(
+                                runtime_for_runner,
+                                test_filter,
+                                Arc::new(
+                                    move |SuiteResultAndArtifactId {
+                                              artifact_id,
+                                              result,
+                                          }| {
+                                        let suite_result =
+                                            SuiteResult::new(artifact_id, result, include_traces);
 
-                                let status = on_test_suite_completed_callback
-                                    .call(suite_result, ThreadsafeFunctionCallMode::Blocking);
+                                        let status = on_test_suite_completed_callback.call(
+                                            suite_result,
+                                            ThreadsafeFunctionCallMode::Blocking,
+                                        );
 
-                                // This should always succeed since we're using an unbounded queue.
-                                // We add an assertion for
-                                // completeness.
-                                assert_eq!(
-                            status,
-                            napi::Status::Ok,
-                            "Failed to call on_test_suite_completed_callback with status: {status}"
-                        );
-                            },
-                        ),
-                    )
-                })
-                .await
-                .expect("Failed to join test runner thread"));
+                                        // This should always succeed since we're using an
+                                        // unbounded queue. We add an assertion for completeness.
+                                        assert_eq!(
+                                            status,
+                                            napi::Status::Ok,
+                                            "Failed to call on_test_suite_completed_callback with status: {status}"
+                                        );
+                                    },
+                                ),
+                            )
+                        })
+                        .await
+                        .expect("Failed to join test runner thread"));
 
-            deferred.resolve(move |_env| Ok(SolidityTestResult::from(test_result)));
+                    RunOutcome::Completed(test_result)
+                }
+            };
+
+            deferred.resolve(move |env| match outcome {
+                RunOutcome::Completed(test_result) => Ok(SolidityTestResult::from(test_result)),
+                RunOutcome::InvalidInlineConfig(errors) => {
+                    Err(inline_config::to_napi_error(&env, &errors))
+                }
+            });
         });
 
         Ok(promise)

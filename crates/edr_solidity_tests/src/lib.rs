@@ -16,6 +16,8 @@ pub use config::{
     TimeoutConfig, MAX_TEST_TRANSACTION_GAS_LIMIT,
 };
 
+pub mod inline_config;
+
 pub mod result;
 
 pub use foundry_evm::executors::stack_trace::SolidityTestStackTraceError;

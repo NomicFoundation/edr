@@ -153,7 +153,7 @@ pub fn validate_send_transaction_request<
 
     if let Some(request_data) = &request.data {
         validate_eip3860_max_initcode_size::<ChainSpecT, TimerT>(
-            data.evm_spec_id(),
+            data.hardfork(),
             data.allow_unlimited_initcode_size(),
             request.to.as_ref(),
             request_data,
@@ -183,9 +183,10 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 }
 
 fn validate_transaction_spec<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
-    spec_id: EvmSpecId,
+    hardfork: ChainSpecT::ProtocolHardfork,
     value: &impl HardforkValidationData,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
+    let spec_id = hardfork.into();
     if spec_id < EvmSpecId::BERLIN && value.access_list().is_some() {
         return Err(ProviderError::UnsupportedAccessListParameter {
             current_hardfork: spec_id,
@@ -275,11 +276,11 @@ fn validate_transaction_spec<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + T
 
 /// Validates a `L1CallRequest` and `BlockSpec` against the provided hardfork.
 pub fn validate_call_request<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
-    hardfork: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::ProtocolHardfork,
     call_request: &L1CallRequest,
     block_spec: &BlockSpec,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, block_spec)?;
+    validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork.clone(), block_spec)?;
 
     if call_request.blobs.is_some() | call_request.blob_hashes.is_some() {
         return Err(ProviderError::Eip4844CallRequestUnsupported);
@@ -304,11 +305,11 @@ pub(crate) fn validate_transaction_and_call_request<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    hardfork: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::ProtocolHardfork,
     validation_data: &impl HardforkValidationData,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_transaction_spec::<ChainSpecT, TimerT>(hardfork.into(), validation_data).map_err(
-        |err| match err {
+    validate_transaction_spec::<ChainSpecT, TimerT>(hardfork, validation_data).map_err(|err| {
+        match err {
             ProviderError::UnsupportedAccessListParameter {
                 minimum_hardfork, ..
             } => ProviderError::InvalidArgument(format!(
@@ -319,20 +320,22 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
         "
             )),
             err => err,
-        },
-    )
+        }
+    })
 }
 
 pub(crate) fn validate_eip3860_max_initcode_size<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    spec_id: EvmSpecId,
+    hardfork: ChainSpecT::ProtocolHardfork,
     allow_unlimited_contract_code_size: bool,
     to: Option<&Address>,
     data: &Bytes,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    if spec_id < EvmSpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
+    let evm_spec_id: EvmSpecId = hardfork.into();
+
+    if evm_spec_id < EvmSpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
         return Ok(());
     }
 
@@ -382,12 +385,14 @@ pub(crate) fn validate_post_merge_block_tags<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 >(
-    hardfork: ChainSpecT::Hardfork,
+    hardfork: ChainSpecT::ProtocolHardfork,
     block_spec: impl Into<ValidationBlockSpec<'a>>,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec: ValidationBlockSpec<'a> = block_spec.into();
 
-    if hardfork.into() < EvmSpecId::MERGE {
+    let evm_spec_id: EvmSpecId = hardfork.clone().into();
+
+    if evm_spec_id < EvmSpecId::MERGE {
         match block_spec {
             ValidationBlockSpec::PreEip1898(PreEip1898BlockSpec::Tag(
                 tag @ (BlockTag::Safe | BlockTag::Finalized),
@@ -518,7 +523,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_155_invalid_inputs() {
-        let eip155_spec = edr_chain_l1::Hardfork::MUIR_GLACIER;
+        let eip155_spec = edr_chain_l1::Hardfork::MuirGlacier;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
@@ -548,7 +553,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_2930_invalid_inputs() {
-        let eip2930_spec = edr_chain_l1::Hardfork::BERLIN;
+        let eip2930_spec = edr_chain_l1::Hardfork::Berlin;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
@@ -569,7 +574,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_1559_invalid_inputs() {
-        let eip1559_spec = edr_chain_l1::Hardfork::LONDON;
+        let eip1559_spec = edr_chain_l1::Hardfork::London;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             max_fee_per_gas: Some(0),
@@ -591,7 +596,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_4844_invalid_inputs() {
-        let eip4844_spec = edr_chain_l1::Hardfork::CANCUN;
+        let eip4844_spec = edr_chain_l1::Hardfork::Cancun;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),
@@ -667,7 +672,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_7702_invalid_inputs() {
-        let eip7702_spec = edr_chain_l1::Hardfork::PRAGUE;
+        let eip7702_spec = edr_chain_l1::Hardfork::Prague;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),

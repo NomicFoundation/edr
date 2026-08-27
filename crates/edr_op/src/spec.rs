@@ -4,21 +4,21 @@ use std::sync::Arc;
 use alloy_rlp::RlpEncodable;
 use edr_block_api::{sync::SyncBlock, GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::{
-    calculate_next_base_fee_per_gas, BlockConfig, BlockHeader, HeaderAndEvmSpec,
+    calculate_next_base_fee_per_gas, zero_difficulty, BlockConfig, BlockHeader, HeaderAndEvmSpec,
 };
 use edr_block_local::LocalBlockCreationError;
 use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_chain_spec::{
-    BlockEnvChainSpec, ChainSpec, ContextChainSpec, EvmHaltReason, EvmTransactionValidationError,
-    HardforkChainSpec, TransactionValidation,
+    BlockEnvChainSpec, ChainSpec, ContextChainSpec, EvmHaltReason, EvmHardforkChainSpec,
+    EvmTransactionValidationError, ProtocolHardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{
-    handler::EthInstructions, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
-    ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, InterpreterResult, LocalContext,
-    PrecompileProvider, TransactionError,
+    handler::EthInstructions, to_evm_cfg_env, Context, ContextForChainSpec, Database, Evm,
+    EvmChainSpec, ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, InterpreterResult,
+    LocalContext, PrecompileProvider, TransactionError,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
@@ -29,7 +29,7 @@ use edr_napi_core::{
     napi,
     spec::{cast_provider_result_to_response, SyncNapiSpec},
 };
-use edr_primitives::HashMap;
+use edr_primitives::{HashMap, U256};
 use edr_provider::{
     time::TimeSinceEpoch, ProviderErrorForChainSpec, ProviderSpec, ResponseWithCallTraces,
     TransactionFailureReason,
@@ -97,9 +97,9 @@ impl BlockChainSpec for OpChainSpec {
 
 impl BlockEnvChainSpec for OpChainSpec {
     type BlockEnv<'header, BlockHeaderT>
-        = HeaderAndEvmSpec<'header, BlockHeaderT, Self::Hardfork>
+        = HeaderAndEvmSpec<'header, BlockHeaderT, Self::ProtocolHardfork>
     where
-        BlockHeaderT: 'header + edr_chain_spec::BlockEnvForHardfork<Self::Hardfork>;
+        BlockHeaderT: 'header + edr_chain_spec::BlockEnvForHardfork<Self::ProtocolHardfork>;
 }
 
 impl ChainSpec for OpChainSpec {
@@ -115,9 +115,9 @@ impl EvmChainSpec for OpChainSpec {
     type PrecompileProvider<BlockT: revm_context::Block, DatabaseT: Database> = OpPrecompiles;
 
     fn new_precompile_provider<BlockT: revm_context::Block, DatabaseT: Database>(
-        hardfork: Self::Hardfork,
+        hardfork: Self::ProtocolHardfork,
     ) -> Self::PrecompileProvider<BlockT, DatabaseT> {
-        OpPrecompiles::new_with_spec(hardfork)
+        OpPrecompiles::new_with_spec(hardfork.into())
     }
 
     fn dry_run<
@@ -129,7 +129,7 @@ impl EvmChainSpec for OpChainSpec {
         >,
     >(
         block: BlockT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         mut database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -140,6 +140,7 @@ impl EvmChainSpec for OpChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec.into();
         let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)
             .map_err(TransactionError::Database)?;
@@ -173,7 +174,7 @@ impl EvmChainSpec for OpChainSpec {
         >,
     >(
         block: BlockT,
-        cfg: CfgEnv<Self::Hardfork>,
+        cfg: CfgEnv<Self::ProtocolHardfork>,
         transaction: Self::SignedTransaction,
         mut database: DatabaseT,
         precompile_provider: PrecompileProviderT,
@@ -185,6 +186,7 @@ impl EvmChainSpec for OpChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
+        let cfg = to_evm_cfg_env::<Self>(cfg);
         let hardfork = cfg.spec.into();
         let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)
             .map_err(TransactionError::Database)?;
@@ -225,12 +227,12 @@ impl GenesisBlockFactory for OpChainSpec {
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        block_config: &BlockConfig<Self::Hardfork>,
-        mut options: GenesisBlockOptions<Self::Hardfork>,
+        block_config: &BlockConfig<Self::ProtocolHardfork>,
+        mut options: GenesisBlockOptions<Self::ProtocolHardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         let genesis_state = PersistentStateTrie::from(genesis_diff);
 
-        if block_config.hardfork >= Hardfork::HOLOCENE {
+        if block_config.hardfork >= Hardfork::Holocene {
             let config_base_fee_params = options.base_fee_params.as_ref();
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
@@ -240,7 +242,7 @@ impl GenesisBlockFactory for OpChainSpec {
                     .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
-                let encoded_extra_data = if block_config.hardfork >= Hardfork::JOVIAN {
+                let encoded_extra_data = if block_config.hardfork >= Hardfork::Jovian {
                     // TODO: once EDR fully supports Jovian, should allow user to configure
                     // min_base_fee?
                     encode_dynamic_base_fee_params_jovian(base_fee_params, 0)
@@ -251,7 +253,7 @@ impl GenesisBlockFactory for OpChainSpec {
             });
         }
 
-        if block_config.hardfork >= Hardfork::ISTHMUS {
+        if block_config.hardfork >= Hardfork::Isthmus {
             let withdrawals_root = options.withdrawals_root.map_or_else(
                 || genesis_state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS),
                 |value| Ok(Some(value)),
@@ -262,8 +264,12 @@ impl GenesisBlockFactory for OpChainSpec {
     }
 }
 
-impl HardforkChainSpec for OpChainSpec {
-    type Hardfork = Hardfork;
+impl EvmHardforkChainSpec for OpChainSpec {
+    type EvmHardfork = op_revm::OpSpecId;
+}
+
+impl ProtocolHardforkChainSpec for OpChainSpec {
+    type ProtocolHardfork = Hardfork;
 }
 
 /// Returns the base fee parameters to be used for the current block.
@@ -273,7 +279,7 @@ pub(crate) fn op_base_fee_params_for_block(
 ) -> Option<BaseFeeParams<Hardfork>> {
     // For post-Holocene blocks, use the parent header extra_data to determine the
     // base fee parameters
-    if parent_hardfork >= Hardfork::HOLOCENE {
+    if parent_hardfork >= Hardfork::Holocene {
         Some(BaseFeeParams::Constant(decode_base_params(
             &parent_header.extra_data,
         )))
@@ -299,7 +305,7 @@ pub(crate) fn op_next_base_fee(
     hardfork: Hardfork,
     base_fee_params: &BaseFeeParams<Hardfork>,
 ) -> u128 {
-    if hardfork >= Hardfork::JOVIAN {
+    if hardfork >= Hardfork::Jovian {
         let parent_blob_gas_used = parent_header
             .blob_gas
             .as_ref()
@@ -324,20 +330,28 @@ pub(crate) fn op_next_base_fee(
 }
 
 impl ProviderChainSpec for OpChainSpec {
-    const MIN_ETHASH_DIFFICULTY: u64 = 0;
-
-    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>> {
+    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::ProtocolHardfork>> {
         op_chain_configs()
     }
 
-    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::ProtocolHardfork> {
         op_default_base_fee_params()
+    }
+
+    fn default_block_difficulty(
+        hardfork: Self::ProtocolHardfork,
+        parent: Option<&BlockHeader>,
+        block_number: u64,
+        block_timestamp: u64,
+    ) -> U256 {
+        // OP chains are post-merge, so they have no difficulty.
+        zero_difficulty(hardfork, parent, block_number, block_timestamp)
     }
 
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        hardfork: Self::Hardfork,
-        default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        hardfork: Self::ProtocolHardfork,
+        default_base_fee_params: &BaseFeeParams<Self::ProtocolHardfork>,
     ) -> u128 {
         let block_base_fee_params = op_base_fee_params_for_block(header, hardfork);
 
@@ -449,7 +463,7 @@ mod tests {
 
         let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
-            Hardfork::ECOTONE,
+            Hardfork::Ecotone,
             None,
         );
         assert_eq!(block.blob_excess_gas_and_price(), None);
@@ -461,7 +475,7 @@ mod tests {
 
         let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
-            Hardfork::CANYON,
+            Hardfork::Canyon,
             None,
         );
         assert_eq!(block.blob_excess_gas_and_price(), None);
@@ -473,7 +487,7 @@ mod tests {
 
         let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
-            Hardfork::ISTHMUS,
+            Hardfork::Isthmus,
             None,
         );
         assert_eq!(block.blob_excess_gas_and_price(), None);
@@ -490,7 +504,7 @@ mod tests {
 
         let block = <OpChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
             &header,
-            Hardfork::ECOTONE,
+            Hardfork::Ecotone,
             None,
         );
 
@@ -539,7 +553,7 @@ mod tests {
 
             let result = op_next_base_fee(
                 &parent,
-                Hardfork::HOLOCENE,
+                Hardfork::Holocene,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -555,7 +569,7 @@ mod tests {
 
             let result = op_next_base_fee(
                 &parent,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -570,7 +584,7 @@ mod tests {
             let equivalent_parent = parent_with(2 * GAS_TARGET, None, extra_data);
             let equivalent_result = op_next_base_fee(
                 &equivalent_parent,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
             assert_eq!(result, equivalent_result);
@@ -584,7 +598,7 @@ mod tests {
 
             let jovian_result = op_next_base_fee(
                 &parent,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -592,7 +606,7 @@ mod tests {
             let pre_jovian_parent = parent_with(2 * GAS_TARGET, Some(1_000), Bytes::default());
             let pre_jovian_result = op_next_base_fee(
                 &pre_jovian_parent,
-                Hardfork::HOLOCENE,
+                Hardfork::Holocene,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
             assert_eq!(jovian_result, pre_jovian_result);
@@ -606,12 +620,12 @@ mod tests {
 
             let result_with_blob_zero = op_next_base_fee(
                 &with_blob_zero,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
             let result_without_blob = op_next_base_fee(
                 &without_blob,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -630,7 +644,7 @@ mod tests {
 
             let result = op_next_base_fee(
                 &parent,
-                Hardfork::HOLOCENE,
+                Hardfork::Holocene,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -638,7 +652,7 @@ mod tests {
                 &parent,
                 u128::from(parent.gas_used),
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
-                Hardfork::HOLOCENE,
+                Hardfork::Holocene,
             );
             assert_eq!(result, expected);
             assert!(
@@ -656,7 +670,7 @@ mod tests {
 
             let result = op_next_base_fee(
                 &parent,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -665,7 +679,7 @@ mod tests {
                 &parent,
                 u128::from(parent.gas_used),
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
             );
             assert!(unclamped < min_base_fee);
             assert_eq!(result, min_base_fee);
@@ -679,7 +693,7 @@ mod tests {
 
             let result = op_next_base_fee(
                 &parent,
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
@@ -687,7 +701,7 @@ mod tests {
                 &parent,
                 u128::from(parent.gas_used),
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
-                Hardfork::JOVIAN,
+                Hardfork::Jovian,
             );
             assert_eq!(result, expected);
             assert!(result > min_base_fee);

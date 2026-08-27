@@ -11,6 +11,8 @@ set -o pipefail
 # on call-site ordering and env composition:
 #   --skip-optional-publish  — don't run `npm publish` for the platform pkgs.
 #   --no-gh-release          — don't try to create a GitHub release.
-pnpm napi pre-publish -t npm --skip-optional-publish --no-gh-release
-
-jq 'with_entries(if .key == "optionalDependencies" then .key = "dependencies" else . end)' package.json | sponge package.json
+#
+# Extra arguments are forwarded to `napi pre-publish`. The release workflow
+# passes none; scripts/publish_to_verdaccio.sh passes `--config-path` to narrow
+# `napi.targets` to the single platform it built.
+pnpm napi pre-publish -t npm --skip-optional-publish --no-gh-release "$@"
