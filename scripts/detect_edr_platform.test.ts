@@ -20,6 +20,15 @@ const NAPI_DIR = join(SCRIPTS_DIR, "..", "crates", "edr_napi");
 // subtest yet is reported but still exits 0.
 const knownSuffixes = knownPlatformPackageSuffixes();
 
+// Whether EDR publishes a package for the host running these tests. On a host
+// it does not, the CLI exits non-zero by design.
+const HOST_IS_SUPPORTED =
+  platformPackageSuffix(process.platform, process.arch, "gnu") !== undefined;
+
+const UNSUPPORTED_HOST = HOST_IS_SUPPORTED
+  ? false
+  : `EDR publishes no package for ${process.platform}-${process.arch}`;
+
 const platformSuffixes = readdirSync(join(NAPI_DIR, "npm"), {
   withFileTypes: true,
 })
@@ -90,15 +99,35 @@ describe("detectable platforms", () => {
 // and a package name, so anything else on stdout — or nothing at all — silently
 // corrupts the publish rather than failing it.
 describe("CLI", () => {
-  it("prints exactly one known suffix, unterminated", () => {
-    const result = spawnSync(process.execPath, [SCRIPT], { encoding: "utf8" });
+  it(
+    "prints exactly one known suffix, unterminated",
+    { skip: UNSUPPORTED_HOST },
+    () => {
+      const result = spawnSync(process.execPath, [SCRIPT], {
+        encoding: "utf8",
+      });
 
-    assert.equal(result.status, 0, result.stderr);
-    assert.ok(
-      knownSuffixes.includes(result.stdout),
-      `printed ${JSON.stringify(result.stdout)}, which is not one of: ${knownSuffixes.join(", ")}`
-    );
-  });
+      assert.equal(result.status, 0, result.stderr);
+      assert.ok(
+        knownSuffixes.includes(result.stdout),
+        `printed ${JSON.stringify(result.stdout)}, which is not one of: ${knownSuffixes.join(", ")}`
+      );
+    }
+  );
+
+  it(
+    "exits 1 without printing on a host EDR does not publish for",
+    { skip: HOST_IS_SUPPORTED ? "this host is supported" : false },
+    () => {
+      const result = spawnSync(process.execPath, [SCRIPT], {
+        encoding: "utf8",
+      });
+
+      assert.equal(result.status, 1);
+      assert.equal(result.stdout, "");
+      assert.match(result.stderr, /Unsupported platform/);
+    }
+  );
 });
 
 // parseLibc being right is useless if the entrypoint doesn't consult it, so
@@ -106,7 +135,7 @@ describe("CLI", () => {
 describe("libc detection", () => {
   it(
     "reports musl when ldd says musl",
-    { skip: process.platform !== "linux" },
+    { skip: process.platform !== "linux" ? "not Linux" : UNSUPPORTED_HOST },
     () => {
       const binDir = mkdtempSync(join(tmpdir(), "fake-ldd-"));
       writeFileSync(
