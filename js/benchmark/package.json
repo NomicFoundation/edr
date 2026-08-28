@@ -50,7 +50,9 @@
     "reportForge": "tsx src/index.ts report-forge",
     "reportProviderBenchmark": "tsx src/index.ts report-provider-benchmark",
     "soltests": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts solidity-tests",
+    "presoltestsMemory": "pnpm run preproviderBenchmark",
     "soltestsBenchmark": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts solidity-tests-benchmark",
+    "soltestsMemory": "node --import tsx src/index.ts solidity-tests-memory",
     "test": "node --import tsx/esm --test \"test/*.ts\"",
     "verifyProviderBenchmark": "tsx src/index.ts verify-provider-benchmark"
   },

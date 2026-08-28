@@ -18,7 +18,7 @@ forge test --fuzz-seed 0x1234567890123456789012345678901234567890 --match-contra
 import fs from "fs";
 import path from "path";
 import { simpleGit } from "simple-git";
-import { exec } from "child_process";
+import child_process, { exec } from "child_process";
 import { promisify } from "util";
 import { stringify } from "csv-stringify/sync";
 
@@ -621,6 +621,9 @@ export async function setupRepo(
   const git = simpleGit(repoPath);
   await git.fetch(["--depth", "1", "origin", repoData.commit]);
   await git.checkout(repoData.commit);
+  // The pinned commit may reference submodule states the initial shallow clone
+  // didn't fetch (e.g. morpho-blue's halmos-cheatcodes).
+  await git.raw(["submodule", "update", "--init", "--recursive", "--depth", "1"]);
 
   if (repoData.patchFile !== undefined) {
     const patchFile = path.join(
@@ -642,12 +645,22 @@ export async function setupRepo(
     }
   }
 
-  await execAsync("npm install", { cwd: repoPath });
+  try {
+    await execAsync("npm install", { cwd: repoPath });
+  } catch (e) {
+    // Some repos run tool-dependent lifecycle scripts on install (e.g.
+    // morpho-blue's `prepare` runs `forge install`, redundant here because the
+    // clone already checked out submodules). Retry without lifecycle scripts.
+    console.error(
+      `npm install failed for ${repoPath}, retrying with --ignore-scripts`
+    );
+    await execAsync("npm install --ignore-scripts", { cwd: repoPath });
+  }
 
   return repoPath;
 }
 
-async function createSolidityTestsInput(repoPath: string) {
+async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
   if (!path.isAbsolute(repoPath)) {
     // If repo path is not absolute, assume it's relative to the current working directory
     repoPath = path.join(process.cwd(), repoPath);
@@ -666,16 +679,28 @@ async function createSolidityTestsInput(repoPath: string) {
 
   const { artifacts, testSuiteIds, tracingConfig } =
     await buildSolidityTestsInput(hre);
+  // `verbosity` is what Hardhat maps to `includeCallTraces`/`collectStackTraces`,
+  // so passing it through is enough to exercise every trace-retention mode.
   const solidityTestsConfig =
     await solidityTestConfigToSolidityTestRunnerConfigArgs({
       chainType: "l1",
       projectRoot: repoPath,
       config: userConfig.solidityTest,
-      verbosity: 0,
+      verbosity,
       observability: undefined,
       testPattern: undefined,
       generateGasReport: false,
     });
+  // TODO: remove once Hardhat emits `includeCallTraces` (renamed from
+  // `includeTraces`); until then map the old property so verbosity still
+  // controls trace collection.
+  const legacyIncludeTraces = (solidityTestsConfig as any).includeTraces;
+  if (
+    legacyIncludeTraces !== undefined &&
+    solidityTestsConfig.includeCallTraces === undefined
+  ) {
+    solidityTestsConfig.includeCallTraces = legacyIncludeTraces;
+  }
   // TODO: move to solidityTestConfigToSolidityTestRunnerConfigArgs after it's updated in Hardhat
   solidityTestsConfig.hardfork = l1HardforkToString(l1HardforkLatest());
   // Temporary workaround for `testFuzz_AssumeNotPrecompile` in forge-std which assumes no predeploys on mainnet.
@@ -714,4 +739,365 @@ function assertNoFailures(results: SuiteResult[]) {
     console.error(failed);
     throw new Error(`Some tests failed`);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Memory benchmark
+//
+// Call-trace arena retention is a function of Hardhat's verbosity, which maps
+// to `includeCallTraces`/`collectStackTraces`:
+//
+//   verbosity <= 2  ->  IncludeCallTraces.None    + CollectStackTraces.OnFailure
+//   verbosity == 3  ->  IncludeCallTraces.Failing + CollectStackTraces.Always
+//   verbosity >= 4  ->  IncludeCallTraces.All     + CollectStackTraces.Always
+//
+// Peak RSS is the metric because the arenas live in Rust while the napi
+// `TestResult` objects that reference them are held by JS.
+// ---------------------------------------------------------------------------
+
+/** The verbosity levels that produce distinct trace-retention behaviour. */
+export const MEMORY_VERBOSITIES = [2, 3, 4];
+
+/**
+ * Rayon thread cap for measured children. Test suites (and tests within a
+ * suite) run in parallel, and each in-flight suite retains its trace arenas, so
+ * peak RSS scales with parallelism. An unbounded run OOMs a 16 GiB machine on
+ * the unoptimized baseline (solady at verbosity 3 exceeds 10 GiB), which would
+ * leave nothing to compare optimisations against; a fixed cap keeps every
+ * (build × repo × verbosity) cell measurable and comparable.
+ */
+const MEMORY_RAYON_THREADS = "4";
+
+export interface MemoryRunResult {
+  repo: string;
+  verbosity: number;
+  /** Peak resident set size of the whole process, in bytes. */
+  peakRssBytes: number;
+  /** Peak RSS as reported by `/usr/bin/time -v`, if it was available. */
+  peakRssBytesExternal?: number;
+  elapsedMs: number;
+  suiteCount: number;
+  testCount: number;
+  failureCount: number;
+  /**
+   * The run was killed (out of memory) before completing. `peakRssBytes` then
+   * holds the last externally observed RSS: the true requirement is higher.
+   */
+  oom?: boolean;
+}
+
+/**
+ * Child-process entry point: run one repo at one verbosity and report peak RSS
+ * on stdout as a single JSON line prefixed with `MEMORY_RESULT `.
+ *
+ * This must run in its own process: `maxRSS` is a high-water mark that never
+ * decreases, so a second measurement in the same process would inherit the
+ * first one's peak.
+ */
+export async function runSolidityTestsMemoryChild(
+  context: EdrContext,
+  chainType: string,
+  repoName: string,
+  repoPath: string,
+  verbosity: number
+): Promise<MemoryRunResult> {
+  const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
+    await createSolidityTestsInput(repoPath, verbosity);
+
+  const startNs = process.hrtime.bigint();
+  const [, results] = await runAllSolidityTests(
+    context,
+    chainType,
+    artifacts,
+    testSuiteIds,
+    tracingConfig,
+    solidityTestsConfig
+  );
+  const elapsedNs = process.hrtime.bigint() - startNs;
+
+  if (results.length === 0) {
+    throw new Error(`Didn't run any tests for ${repoName}`);
+  }
+
+  // Read the high-water mark *before* dropping the results, and keep `results`
+  // alive across the read so neither V8 nor Rust can reclaim the arenas early.
+  // `maxRSS` is in kilobytes on Linux.
+  const peakRssBytes = process.resourceUsage().maxRSS * 1024;
+
+  let testCount = 0;
+  let failureCount = 0;
+  for (const suite of results) {
+    for (const test of suite.testResults) {
+      testCount += 1;
+      if (test.status !== TestStatus.Success) {
+        failureCount += 1;
+      }
+    }
+  }
+
+  return {
+    repo: repoName,
+    verbosity,
+    peakRssBytes,
+    elapsedMs: Number(elapsedNs / 1_000_000n),
+    suiteCount: results.length,
+    testCount,
+    failureCount,
+  };
+}
+
+const MEMORY_RESULT_PREFIX = "MEMORY_RESULT ";
+
+/** Print a child result in the form the driver parses. */
+export function printMemoryResult(result: MemoryRunResult) {
+  console.log(MEMORY_RESULT_PREFIX + JSON.stringify(result));
+}
+
+function hasGnuTime(): boolean {
+  try {
+    child_process.execFileSync("/usr/bin/time", ["-v", "true"], {
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Extract `Maximum resident set size (kbytes): N` from `/usr/bin/time -v`. */
+function parseGnuTimeMaxRss(stderr: string): number | undefined {
+  const match = stderr.match(/Maximum resident set size \(kbytes\): (\d+)/);
+  return match === null ? undefined : Number(match[1]) * 1024;
+}
+
+/**
+ * Driver: run every (repo, verbosity) pair in a fresh child process and collect
+ * peak RSS. Repos are cloned and compiled once up front so the measured runs
+ * don't pay for the build.
+ */
+export async function runSolidityTestsMemoryBenchmark(
+  repoNames: string[],
+  verbosities: number[],
+  resultsPath: string
+): Promise<MemoryRunResult[]> {
+  for (const repoName of repoNames) {
+    if (REPOS[repoName] === undefined) {
+      throw new Error(
+        `Unknown repo '${repoName}'. Known repos: ${Object.keys(REPOS).join(", ")}`
+      );
+    }
+  }
+
+  const repoPaths = new Map<string, string>();
+  for (const repoName of repoNames) {
+    console.error(`setting up ${repoName}...`);
+    const repoPath = await setupRepo(REPOS[repoName], "hardhat");
+    repoPaths.set(repoName, repoPath);
+    // Compile in a throwaway child so the first measured run doesn't pay
+    // solc costs that later runs get from the artifact cache.
+    console.error(`compiling ${repoName}...`);
+    await runCompileOnlyChildProcess(repoName, repoPath);
+  }
+
+  const useGnuTime = hasGnuTime();
+  if (!useGnuTime) {
+    console.error(
+      "note: /usr/bin/time not available, relying on process.resourceUsage() alone"
+    );
+  }
+
+  const results: MemoryRunResult[] = [];
+  for (const repoName of repoNames) {
+    for (const verbosity of verbosities) {
+      console.error(`measuring ${repoName} at verbosity ${verbosity}...`);
+      let result: MemoryRunResult;
+      try {
+        result = await runMemoryChildProcess(
+          repoName,
+          repoPaths.get(repoName)!,
+          verbosity,
+          useGnuTime
+        );
+        console.error(
+          `  peak RSS ${displayMiB(result.peakRssBytes)}, ` +
+            `${result.elapsedMs}ms, ${result.testCount} tests ` +
+            `(${result.failureCount} failing)`
+        );
+      } catch (e) {
+        // A killed child (usually the OOM killer) is a result, not a harness
+        // failure: it means this configuration doesn't fit in memory.
+        const stderr = e instanceof Error ? e.message : String(e);
+        const lastSeenRss = parseGnuTimeMaxRss(stderr) ?? 0;
+        console.error(
+          `  OOM: killed at >= ${displayMiB(lastSeenRss)}\n` +
+            stderr.split("\n").slice(0, 3).join("\n")
+        );
+        result = {
+          repo: repoName,
+          verbosity,
+          peakRssBytes: lastSeenRss,
+          elapsedMs: 0,
+          suiteCount: 0,
+          testCount: 0,
+          failureCount: 0,
+          oom: true,
+        };
+      }
+      results.push(result);
+    }
+  }
+
+  fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2) + "\n");
+  console.error(`saved results to ${resultsPath}`);
+  console.log(formatMemoryTable(results));
+
+  return results;
+}
+
+/** Compile a repo's contracts + tests without running anything. */
+export async function compileSolidityTestsInput(repoPath: string) {
+  await createSolidityTestsInput(repoPath);
+}
+
+function runCompileOnlyChildProcess(
+  repoName: string,
+  repoPath: string
+): Promise<void> {
+  const scriptPath = process.argv[1];
+  return new Promise((resolve, reject) => {
+    const child = child_process.spawn(
+      process.execPath,
+      [
+        ...process.execArgv,
+        scriptPath,
+        "solidity-tests-memory",
+        "--memory-child",
+        "--compile-only",
+        "--repo",
+        repoName,
+        "--repo-path",
+        repoPath,
+        "--verbosity",
+        "0",
+      ],
+      { cwd: process.cwd(), stdio: ["ignore", "inherit", "inherit"] }
+    );
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`compile child for ${repoName} exited with ${code}`));
+      }
+    });
+  });
+}
+
+function runMemoryChildProcess(
+  repoName: string,
+  repoPath: string,
+  verbosity: number,
+  useGnuTime: boolean
+): Promise<MemoryRunResult> {
+  const scriptPath = process.argv[1];
+  const nodeArgs = [
+    ...process.execArgv,
+    scriptPath,
+    "solidity-tests-memory",
+    "--memory-child",
+    "--repo",
+    repoName,
+    "--repo-path",
+    repoPath,
+    "--verbosity",
+    String(verbosity),
+  ];
+
+  const [command, commandArgs] = useGnuTime
+    ? ["/usr/bin/time", ["-v", process.execPath, ...nodeArgs]]
+    : [process.execPath, nodeArgs];
+
+  return new Promise((resolve, reject) => {
+    const child = child_process.spawn(command, commandArgs, {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, RAYON_NUM_THREADS: MEMORY_RAYON_THREADS },
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => (stdout += chunk));
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(
+          new Error(
+            `memory child for ${repoName} v${verbosity} exited with ${code}\n${stderr}`
+          )
+        );
+        return;
+      }
+
+      const line = stdout
+        .split("\n")
+        .find((l) => l.startsWith(MEMORY_RESULT_PREFIX));
+      if (line === undefined) {
+        reject(
+          new Error(
+            `memory child for ${repoName} v${verbosity} produced no result\n${stdout}\n${stderr}`
+          )
+        );
+        return;
+      }
+
+      const result: MemoryRunResult = JSON.parse(
+        line.slice(MEMORY_RESULT_PREFIX.length)
+      );
+      if (useGnuTime) {
+        result.peakRssBytesExternal = parseGnuTimeMaxRss(stderr);
+      }
+      resolve(result);
+    });
+  });
+}
+
+function displayMiB(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+/** Render results as a markdown table: rows are repos, columns are verbosities. */
+export function formatMemoryTable(results: MemoryRunResult[]): string {
+  const verbosities = Array.from(
+    new Set(results.map((r) => r.verbosity))
+  ).sort((a, b) => a - b);
+  const repos = Array.from(new Set(results.map((r) => r.repo)));
+
+  const header = ["repo", ...verbosities.map((v) => `-${"v".repeat(v)}`)];
+  const rows = repos.map((repo) => [
+    repo,
+    ...verbosities.map((verbosity) => {
+      const result = results.find(
+        (r) => r.repo === repo && r.verbosity === verbosity
+      );
+      if (result === undefined) {
+        return "—";
+      }
+      // Prefer the externally observed peak; it also covers allocations made
+      // after the in-process read.
+      const peak = result.peakRssBytesExternal ?? result.peakRssBytes;
+      if (result.oom) {
+        return peak > 0 ? `OOM (>= ${displayMiB(peak)})` : "OOM";
+      }
+      return `${displayMiB(peak)} / ${result.elapsedMs}ms`;
+    }),
+  ]);
+
+  const lines = [
+    `| ${header.join(" | ")} |`,
+    `|${header.map(() => "---").join("|")}|`,
+    ...rows.map((row) => `| ${row.join(" | ")} |`),
+  ];
+  return lines.join("\n");
 }

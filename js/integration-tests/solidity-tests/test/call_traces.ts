@@ -2,19 +2,19 @@ import assert from "node:assert/strict";
 import test, { before, describe, it } from "node:test";
 import { TestContext } from "./testContext.js";
 import {
-  IncludeTraces,
+  IncludeCallTraces,
   CallKind,
   LogKind,
   CallTrace,
 } from "@nomicfoundation/edr";
 
-describe("Call traces - IncludeTraces.All", () => {
+describe("Call traces - IncludeCallTraces.All", () => {
   let testCallTraces: Map<string, CallTrace[]>;
 
   before(async () => {
     const testContext = await TestContext.setup();
     const runResult = await testContext.runTestsWithStats("CallTraces", {
-      includeTraces: IncludeTraces.All,
+      includeCallTraces: IncludeCallTraces.All,
     });
     testCallTraces = runResult.callTraces;
   });
@@ -374,14 +374,14 @@ describe("Call traces - IncludeTraces.All", () => {
   });
 });
 
-describe("Call traces - IncludeTraces.Failing", () => {
+describe("Call traces - IncludeCallTraces.Failing", () => {
   let testCallTraces: Map<string, CallTrace[]>;
 
   before(async () => {
     const testContext = await TestContext.setup();
     const runResult = await testContext.runTestsWithStats(
       "CallTracesFailingOnly",
-      { includeTraces: IncludeTraces.Failing }
+      { includeCallTraces: IncludeCallTraces.Failing }
     );
     testCallTraces = runResult.callTraces;
   });
@@ -404,7 +404,7 @@ describe("Call traces - CallTracesSetup", () => {
   before(async () => {
     const testContext = await TestContext.setup();
     const runResult = await testContext.runTestsWithStats("CallTracesSetup", {
-      includeTraces: IncludeTraces.All,
+      includeCallTraces: IncludeCallTraces.All,
     });
     testCallTraces = runResult.callTraces;
   });
@@ -436,7 +436,7 @@ describe("Pause and Resume Tracing", () => {
   before(async () => {
     const testContext = await TestContext.setup();
     const runResult = await testContext.runTestsWithStats("PauseTracingTest", {
-      includeTraces: IncludeTraces.All,
+      includeCallTraces: IncludeCallTraces.All,
       isolate: true,
     });
     testCallTraces = runResult.callTraces;

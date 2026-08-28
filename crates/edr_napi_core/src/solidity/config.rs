@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use edr_chain_spec::EvmSpecId;
 use edr_primitives::{Address, UnknownHardfork, U256};
-use edr_solidity::config::IncludeTraces;
+use edr_solidity::config::IncludeCallTraces;
 use edr_solidity_tests::{
     backend::Predeploy,
     evm_context::HardforkTr,
@@ -185,7 +185,7 @@ pub struct TestRunnerConfig {
     pub collect_stack_traces: CollectStackTraces,
     /// Whether to enable trace mode and which traces to include in test
     /// results.
-    pub include_traces: IncludeTraces,
+    pub include_call_traces: IncludeCallTraces,
     /// The configuration for the Solidity test runner's observability
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// A regex pattern to filter tests. If provided, only test methods that
@@ -247,7 +247,7 @@ where
             fuzz,
             invariant,
             collect_stack_traces,
-            include_traces,
+            include_call_traces,
             on_collected_coverage_fn,
             test_pattern: _,
             generate_gas_report,
@@ -355,7 +355,7 @@ where
         Ok(SolidityTestRunnerConfig {
             project_root,
             collect_stack_traces,
-            include_traces,
+            include_call_traces,
             // TODO
             coverage: false,
             cheats_config_options,
@@ -406,7 +406,7 @@ mod tests {
             fuzz: FuzzConfig::default(),
             invariant: InvariantConfig::default(),
             collect_stack_traces: CollectStackTraces::OnFailure,
-            include_traces: IncludeTraces::default(),
+            include_call_traces: IncludeCallTraces::default(),
             on_collected_coverage_fn: None,
             test_pattern: TestFilterConfig {
                 test_pattern: None,

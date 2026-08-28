@@ -162,6 +162,43 @@ impl SparsedTraceArena {
             Cow::Owned(arena)
         }
     }
+
+    /// Discards the recorded EVM steps, keeping only the call tree, logs and
+    /// their ordering. With step recording enabled, the steps are by far the
+    /// largest part of an arena (one entry per executed opcode), while their
+    /// only consumer is stack-trace generation — call this once a stack trace
+    /// can no longer be requested for this arena.
+    ///
+    /// Ignored ranges (from the pause/resume tracing cheatcodes) are resolved
+    /// first, because their bookkeeping refers to step indices that stop
+    /// existing.
+    pub fn strip_steps(&mut self) {
+        if !self.ignored.is_empty() {
+            let resolved = self.resolve_arena().into_owned();
+            self.arena = resolved;
+            self.ignored.clear();
+        }
+
+        for node in self.arena.nodes_mut() {
+            node.trace.steps = Vec::new();
+            node.ordering
+                .retain(|item| !matches!(item, TraceMemberOrder::Step(_)));
+        }
+    }
+}
+
+/// Appends `arena` to `traces`, stripping the recorded EVM steps of the arena
+/// it displaces as the most recent one.
+///
+/// Only the most recent arena can still be named as the failing trace of a
+/// stack-trace computation; every earlier arena is only walked for its CREATE
+/// nodes, which don't involve steps. Rolling the steps off as arenas
+/// accumulate keeps at most one step-laden arena alive per collection.
+pub fn push_trace_rolling(traces: &mut Vec<SparsedTraceArena>, arena: SparsedTraceArena) {
+    if let Some(previous) = traces.last_mut() {
+        previous.strip_steps();
+    }
+    traces.push(arena);
 }
 
 impl Deref for SparsedTraceArena {
