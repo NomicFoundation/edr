@@ -1024,6 +1024,50 @@ function memoryChildNodeArgs(params: MemoryChildParams): string[] {
   return [...process.execArgv, childEntry, JSON.stringify(params)];
 }
 
+/**
+ * A measured child that has run for this long is stuck (typically thrashing
+ * at the edge of memory instead of getting killed) and is terminated so the
+ * remaining cells still get measured.
+ */
+const MEMORY_CHILD_TIMEOUT_MS = 60 * 60 * 1000;
+
+/** Kills `child` together with everything in its process group. */
+function killChildGroup(child: child_process.ChildProcess) {
+  if (child.pid === undefined) {
+    return;
+  }
+  try {
+    process.kill(-child.pid, "SIGKILL");
+  } catch {
+    // Already gone.
+  }
+}
+
+/**
+ * Kills `child` if the driver is terminated while waiting on it. Children are
+ * spawned into their own process group: that is what lets us kill the whole
+ * `time` + `node` pair, but it also means a signal delivered to the driver (CI
+ * cancellation, `kill`, Ctrl-C) would otherwise leave the child — the process
+ * designed to consume many gigabytes — running on its own.
+ *
+ * Returns a function that uninstalls the handlers once the child has exited.
+ */
+function killChildOnTermination(child: child_process.ChildProcess): () => void {
+  const handlers = (["SIGINT", "SIGTERM"] as const).map((signal) => {
+    const handler = () => {
+      killChildGroup(child);
+      process.exit(128 + (signal === "SIGINT" ? 2 : 15));
+    };
+    process.once(signal, handler);
+    return [signal, handler] as const;
+  });
+  return () => {
+    for (const [signal, handler] of handlers) {
+      process.removeListener(signal, handler);
+    }
+  };
+}
+
 function runCompileOnlyChildProcess(
   repoName: string,
   repoPath: string
@@ -1038,13 +1082,20 @@ function runCompileOnlyChildProcess(
     const child = child_process.spawn(process.execPath, nodeArgs, {
       cwd: process.cwd(),
       stdio: ["ignore", "inherit", "inherit"],
+      detached: true,
     });
+    const stopKillingOnTermination = killChildOnTermination(child);
     child.on("error", reject);
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
+      stopKillingOnTermination();
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`compile child for ${repoName} exited with ${code}`));
+        reject(
+          new Error(
+            `compile child for ${repoName} exited with ${signal ?? code}`
+          )
+        );
       }
     });
   });
@@ -1073,7 +1124,18 @@ function runMemoryChildProcess(
       cwd: process.cwd(),
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, RAYON_NUM_THREADS: MEMORY_RAYON_THREADS },
+      detached: true,
     });
+    const stopKillingOnTermination = killChildOnTermination(child);
+
+    // Not spawn's `timeout` option: that kills only the direct child (GNU
+    // time when wrapped, orphaning node) and would be indistinguishable from
+    // an OOM kill below.
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killChildGroup(child);
+    }, MEMORY_CHILD_TIMEOUT_MS);
 
     let stdout = "";
     let stderr = "";
@@ -1082,6 +1144,18 @@ function runMemoryChildProcess(
 
     child.on("error", reject);
     child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      stopKillingOnTermination();
+
+      if (timedOut) {
+        reject(
+          new Error(
+            `memory child for ${repoName} v${verbosity} exceeded ${displayDuration(MEMORY_CHILD_TIMEOUT_MS)} and was killed`
+          )
+        );
+        return;
+      }
+
       if (isOomError(code, signal, stderr)) {
         resolve({
           kind: "oom",
