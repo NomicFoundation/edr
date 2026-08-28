@@ -1,12 +1,12 @@
 name: Select node image
-description: Resolves the node Docker image for a job. Normal runs use the GHCR mirror (see mirror-docker-images.yml); release runs pull the official Docker Hub image directly, keeping the mirror out of the supply chain of published binaries.
+description: Resolves the node Docker image for a job, waiting (up to 15 minutes) for any in-flight mirror run first. Normal runs use the GHCR mirror (see mirror-docker-images.yml); release runs pull the official Docker Hub image directly, keeping the mirror out of the supply chain of published binaries.
 
 inputs:
   tag:
     description: node image tag, e.g. 24-bullseye-slim or 22-alpine
     required: true
-  release-tag:
-    description: check_commit's release tag; non-empty marks a release run
+  is-release:
+    description: check_commit's is_release output; 'true' marks a release run
     required: true
 
 outputs:
@@ -17,13 +17,57 @@ outputs:
 runs:
   using: composite
   steps:
+    # On PRs/pushes that touch mirror-docker-images.yml, pulls can race ahead
+    # of the mirror run for the same SHA and fail with "manifest unknown"; no
+    # run means nothing to wait for. Best-effort: never fails the job — the
+    # pull itself is the authoritative failure for a genuinely missing tag.
+    - name: Wait for in-flight mirror run
+      if: inputs.is-release != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        # For pull_request events the mirror run is recorded against the PR
+        # head SHA, not the merge commit that github.sha points at.
+        HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: |
+        set -euo pipefail
+        DEADLINE=$(( $(date +%s) + 15 * 60 ))
+        while true; do
+          RUN=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/mirror-docker-images.yml/runs?head_sha=${HEAD_SHA}&per_page=1" \
+            --jq '.workflow_runs[0] // empty')
+          if [ -z "$RUN" ]; then
+            echo "No mirror run for ${HEAD_SHA}; not waiting."
+            exit 0
+          fi
+          STATUS=$(jq -r .status <<<"$RUN")
+          if [ "$STATUS" = "completed" ]; then
+            CONCLUSION=$(jq -r .conclusion <<<"$RUN")
+            URL=$(jq -r .html_url <<<"$RUN")
+            case "$CONCLUSION" in
+              success) echo "Mirror run succeeded: $URL" ;;
+              # The mirror job skips itself on fork PRs; the tags it would
+              # have re-copied already exist.
+              skipped) echo "Mirror run was skipped: $URL" ;;
+              *) echo "::warning::Mirror run for ${HEAD_SHA} concluded '$CONCLUSION' ($URL); proceeding anyway" ;;
+            esac
+            exit 0
+          fi
+          if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+            echo "::warning::Timed out waiting for the mirror run for ${HEAD_SHA}; proceeding anyway"
+            exit 0
+          fi
+          echo "Mirror run in progress (status: $STATUS); retrying in 30s..."
+          sleep 30
+        done
+
     - id: select
       shell: bash
       env:
         TAG: ${{ inputs.tag }}
-        RELEASE_TAG: ${{ inputs.release-tag }}
+        IS_RELEASE: ${{ inputs.is-release }}
       run: |
-        if [ -n "$RELEASE_TAG" ]; then
+        if [ "$IS_RELEASE" = "true" ]; then
           echo "ref=node:${TAG}" >> "$GITHUB_OUTPUT"
         else
           echo "ref=ghcr.io/nomicfoundation/edr/mirror/node:${TAG}" >> "$GITHUB_OUTPUT"

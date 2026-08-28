@@ -2,13 +2,13 @@
 
 CI pulls its Docker images from a GHCR mirror (`ghcr.io/nomicfoundation/edr/mirror/*`) instead of Docker Hub: Docker Hub rate-limits pulls, which fail intermittently on GitHub-hosted runners as a result. The mirror is maintained by `.github/workflows/mirror-docker-images.yml`, which re-copies the images weekly, on pushes to `main` and same-repo PRs that change the workflow itself, and on demand via `workflow_dispatch`.
 
-Release runs are the exception: when `check_commit` resolves a release tag, the docker jobs in `edr-npm-release.yml` pull the official image straight from Docker Hub (the "Select image source" steps), so the mirror is never in the supply chain of published binaries — a tampered mirror tag can at most affect PR/branch CI, which publishes nothing. At one or two releases a week, Docker Hub's rate limits are not a concern for those runs.
+Release runs are the exception: when `check_commit` sets its `is_release` output — the single authority for all release/non-release gating in `edr-npm-release.yml` — the docker jobs pull the official image straight from Docker Hub (the "Select image source" steps), so the mirror is never in the supply chain of published binaries — a tampered mirror tag can at most affect PR/branch CI, which publishes nothing. At one or two releases a week, Docker Hub's rate limits are not a concern for those runs.
 
 ## Adding a Node.js version (or any new tag)
 
 Add the tag to the `TAGS` list in `mirror-docker-images.yml` in the same PR that changes the matrix in `edr-npm-release.yml`. The mirror workflow runs on same-repo PRs that touch it, so the new tag is mirrored — and the release matrix testable against it — before merge. A tag referenced in CI but missing from the mirror fails loudly with `manifest unknown`.
 
-On such a PR the mirror job and the release-workflow jobs start in parallel, so on the first run the release jobs can race ahead and fail their pulls with `manifest unknown`. That's benign: re-run the failed jobs once the mirror job is green.
+On such a PR the mirror job and the release-workflow docker jobs start in parallel. The docker jobs' "Select image source" step waits (up to 15 minutes) for the mirror run on the same commit to finish before pulling, so the new tag is in place by the time it's needed. The wait is best-effort and never fails the job — if the mirror run failed or was skipped, the jobs proceed with a warning, and a genuinely missing tag still fails the pull itself with `manifest unknown`. On PRs that don't touch the mirror workflow no mirror run exists and the step doesn't wait.
 
 ## Access
 
