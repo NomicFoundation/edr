@@ -197,6 +197,15 @@ async function main(): Promise<boolean> {
             .map((repo) => repo.trim())
             .filter((repo) => repo.length > 0)
         : MEMORY_REPOS;
+    if (
+      args.verbosity !== undefined &&
+      (args.verbosity < 0 || args.verbosity > 5)
+    ) {
+      console.error(
+        `Error: --verbosity must be between 0 and 5 (like Hardhat's -v to -vvvvv), got ${args.verbosity}`
+      );
+      return false;
+    }
     const verbosities =
       args.verbosity !== undefined ? [args.verbosity] : MEMORY_VERBOSITIES;
     const memoryResults = await runSolidityTestsMemoryBenchmark(
