@@ -197,6 +197,10 @@ async function main(): Promise<boolean> {
             .map((repo) => repo.trim())
             .filter((repo) => repo.length > 0)
         : MEMORY_REPOS;
+    if (repos.length === 0) {
+      console.error("Error: --repo must name at least one repo");
+      return false;
+    }
     if (
       args.verbosity !== undefined &&
       (args.verbosity < 0 || args.verbosity > 5)
