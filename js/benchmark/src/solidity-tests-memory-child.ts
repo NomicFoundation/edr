@@ -3,8 +3,10 @@
  * `runSolidityTestsMemoryBenchmark` — one process per measurement, because
  * `maxRSS` is a per-process high-water mark that never decreases.
  *
- * Parameters arrive as a single JSON argument, and the result leaves as a
- * `MEMORY_RESULT`-prefixed JSON line on stdout.
+ * The driver uses `spawn` rather than `fork` so the child can be wrapped in
+ * `/usr/bin/time`; that leaves no IPC channel, so parameters arrive as a single
+ * JSON argument and the result leaves as a `MEMORY_RESULT`-prefixed JSON line
+ * on stdout.
  */
 
 import {

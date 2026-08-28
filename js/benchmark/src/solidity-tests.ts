@@ -765,9 +765,9 @@ export const MEMORY_REPOS = ["solady", "uniswap-v4-core", "morpho-blue"];
 /**
  * Rayon thread cap for measured children. Test suites (and tests within a
  * suite) run in parallel, and each in-flight suite retains its trace arenas, so
- * peak RSS scales with parallelism. An unbounded run OOMs a 16 GiB machine on
- * the unoptimized baseline (solady at verbosity 3 exceeds 10 GiB), which would
- * leave nothing to compare optimisations against; a fixed cap keeps every
+ * peak RSS scales with parallelism. An unbounded run passes 10 GiB on solady
+ * at verbosity 3 before the kernel kills it on a 16 GiB machine, which would
+ * leave nothing to compare optimizations against; a fixed cap keeps every
  * (build × repo × verbosity) cell measurable and comparable.
  */
 const MEMORY_RAYON_THREADS = "4";
@@ -802,9 +802,10 @@ export interface MemoryMeasurement extends MemoryMeasurementPayload {
 }
 
 /**
- * The child was killed (out of memory) before completing. Only the peak GNU
- * time observed from outside is known, and only when it was available; the
- * true requirement is higher either way.
+ * The child ran out of memory before completing — either killed by the kernel,
+ * or aborted by V8 or by Rust's allocator. Only the peak GNU time observed
+ * from outside is known, and only when it was available; the true requirement
+ * is higher either way.
  */
 export interface MemoryExhausted extends MemoryCell {
   kind: "oom";
@@ -890,7 +891,7 @@ export async function runSolidityTestsMemoryChild(
 
 const MEMORY_RESULT_PREFIX = "MEMORY_RESULT ";
 
-/** Print a child result in the form the driver parses. */
+/** Prints a child result in the form the driver parses. */
 export function printMemoryResult(result: MemoryMeasurementPayload) {
   console.log(MEMORY_RESULT_PREFIX + JSON.stringify(result));
 }

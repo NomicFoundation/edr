@@ -137,7 +137,7 @@ async function main(): Promise<boolean> {
   });
   parser.add_argument("--verbosity", {
     type: "int",
-    help: "Hardhat verbosity level for the solidity-tests-memory command. Repeat the command for each level, or omit to measure all of them.",
+    help: `Hardhat verbosity level (0-5, i.e. -v to -vvvvv) for the \`solidity-tests-memory\` command. Pass one level per run; omit to measure verbosities ${MEMORY_VERBOSITIES.join(", ")}, the ones with distinct trace-collection behaviour.`,
   });
   const args: ParsedArguments = parser.parse_args();
 
