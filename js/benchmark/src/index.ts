@@ -195,11 +195,20 @@ async function main(): Promise<boolean> {
         : ["solady", "uniswap-v4-core", "morpho-blue"];
     const verbosities =
       args.verbosity !== undefined ? [args.verbosity] : MEMORY_VERBOSITIES;
-    await runSolidityTestsMemoryBenchmark(
+    const memoryResults = await runSolidityTestsMemoryBenchmark(
       repos,
       verbosities,
       benchmarkOutputPath
     );
+    const failed = memoryResults.filter((result) => result.kind === "error");
+    if (failed.length > 0) {
+      console.error(
+        `Error: ${failed.length} measurement(s) failed: ${failed
+          .map((result) => `${result.repo} at verbosity ${result.verbosity}`)
+          .join(", ")}`
+      );
+      return false;
+    }
   } else if (args.command === "compare-forge") {
     if (args.csv_output === undefined) {
       console.error(

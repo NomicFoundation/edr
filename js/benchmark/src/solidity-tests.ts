@@ -762,23 +762,51 @@ export const MEMORY_VERBOSITIES = [2, 3, 4];
  */
 const MEMORY_RAYON_THREADS = "4";
 
-export interface MemoryRunResult {
+/** Identifies a (repo, verbosity) cell; common to every outcome. */
+export interface MemoryCell {
   repo: string;
   verbosity: number;
+}
+
+/** What the child prints: the measurement it can observe about itself. */
+export interface MemoryMeasurementPayload extends MemoryCell {
   /** Peak resident set size of the whole process, in bytes. */
   peakRssBytes: number;
-  /** Peak RSS as reported by `/usr/bin/time -v`, if it was available. */
-  peakRssBytesExternal?: number;
   elapsedMs: number;
   suiteCount: number;
   testCount: number;
   failureCount: number;
-  /**
-   * The run was killed (out of memory) before completing. `peakRssBytes` then
-   * holds the last externally observed RSS: the true requirement is higher.
-   */
-  oom?: boolean;
 }
+
+/** The child completed and reported its measurement. */
+export interface MemoryMeasurement extends MemoryMeasurementPayload {
+  kind: "measured";
+  /** Peak RSS as reported by `/usr/bin/time -v`, if it was available. */
+  peakRssBytesExternal?: number;
+}
+
+/**
+ * The child was killed (out of memory) before completing. Only the peak GNU
+ * time observed from outside is known, and only when it was available; the
+ * true requirement is higher either way.
+ */
+export interface MemoryExhausted extends MemoryCell {
+  kind: "oom";
+  peakRssBytesExternal?: number;
+}
+
+/**
+ * The child failed for a reason other than running out of memory. The other
+ * cells are still measured, but the benchmark exits unsuccessfully.
+ */
+export interface MemoryRunError extends MemoryCell {
+  kind: "error";
+  error: string;
+}
+
+/** The outcome of one (repo, verbosity) cell. */
+export type MemoryRunResult =
+  MemoryMeasurement | MemoryExhausted | MemoryRunError;
 
 /**
  * Child-process entry point: run one repo at one verbosity and report peak RSS
@@ -794,7 +822,7 @@ export async function runSolidityTestsMemoryChild(
   repoName: string,
   repoPath: string,
   verbosity: number
-): Promise<MemoryRunResult> {
+): Promise<MemoryMeasurementPayload> {
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
     await createSolidityTestsInput(repoPath, verbosity);
 
@@ -843,7 +871,7 @@ export async function runSolidityTestsMemoryChild(
 const MEMORY_RESULT_PREFIX = "MEMORY_RESULT ";
 
 /** Print a child result in the form the driver parses. */
-export function printMemoryResult(result: MemoryRunResult) {
+export function printMemoryResult(result: MemoryMeasurementPayload) {
   console.log(MEMORY_RESULT_PREFIX + JSON.stringify(result));
 }
 
@@ -940,20 +968,23 @@ export async function runSolidityTestsMemoryBenchmark(
   for (const repoName of repoNames) {
     for (const verbosity of verbosities) {
       console.error(`measuring ${repoName} at verbosity ${verbosity}...`);
-      const result = await runMemoryChildProcess(
-        repoName,
-        repoPaths.get(repoName)!,
-        verbosity,
-        useGnuTime
-      );
-      if (result.oom === true) {
-        console.error(`  OOM: killed at >= ${displayMiB(result.peakRssBytes)}`);
-      } else {
-        console.error(
-          `  peak RSS ${displayMiB(result.peakRssBytes)}, ` +
-            `${displayDuration(result.elapsedMs)}, ${result.testCount} tests ` +
-            `(${result.failureCount} failing)`
+      let result: MemoryRunResult;
+      try {
+        result = await runMemoryChildProcess(
+          repoName,
+          repoPaths.get(repoName)!,
+          verbosity,
+          useGnuTime
         );
+      } catch (e) {
+        // Record the failure and keep measuring the other cells; the caller
+        // reports the failed ones.
+        const error = e instanceof Error ? e.message : String(e);
+        console.error(`  error: ${error}`);
+        result = { kind: "error", repo: repoName, verbosity, error };
+      }
+      if (result.kind !== "error") {
+        logMemoryProgress(result);
       }
       results.push(result);
     }
@@ -1014,7 +1045,7 @@ function runMemoryChildProcess(
   repoPath: string,
   verbosity: number,
   useGnuTime: boolean
-): Promise<MemoryRunResult> {
+): Promise<MemoryMeasurement | MemoryExhausted> {
   const nodeArgs = memoryChildNodeArgs({
     repo: repoName,
     repoPath,
@@ -1043,14 +1074,10 @@ function runMemoryChildProcess(
     child.on("close", (code, signal) => {
       if (isOomError(code, signal, stderr)) {
         resolve({
+          kind: "oom",
           repo: repoName,
           verbosity,
-          peakRssBytes: parseGnuTimeMaxRss(stderr) ?? 0,
-          elapsedMs: 0,
-          suiteCount: 0,
-          testCount: 0,
-          failureCount: 0,
-          oom: true,
+          peakRssBytesExternal: parseGnuTimeMaxRss(stderr),
         });
         return;
       }
@@ -1076,15 +1103,56 @@ function runMemoryChildProcess(
         return;
       }
 
-      const result: MemoryRunResult = JSON.parse(
+      const measurement: MemoryMeasurementPayload = JSON.parse(
         line.slice(MEMORY_RESULT_PREFIX.length)
       );
-      if (useGnuTime) {
-        result.peakRssBytesExternal = parseGnuTimeMaxRss(stderr);
-      }
-      resolve(result);
+      resolve({
+        kind: "measured",
+        ...measurement,
+        peakRssBytesExternal: useGnuTime
+          ? parseGnuTimeMaxRss(stderr)
+          : undefined,
+      });
     });
   });
+}
+
+/**
+ * The peak RSS to report for a result, or `undefined` when nothing observed
+ * one: the externally observed peak where available, since it also covers
+ * allocations made after the in-process read.
+ */
+function reportedPeakRssBytes(
+  result: MemoryMeasurement | MemoryExhausted
+): number | undefined {
+  return result.kind === "measured"
+    ? (result.peakRssBytesExternal ?? result.peakRssBytes)
+    : result.peakRssBytesExternal;
+}
+
+/** Logs one measured or out-of-memory cell to the progress stream. */
+function logMemoryProgress(result: MemoryMeasurement | MemoryExhausted) {
+  const peak = reportedPeakRssBytes(result);
+  switch (result.kind) {
+    case "measured":
+      console.error(
+        `  peak RSS ${displayMiB(peak ?? result.peakRssBytes)}, ` +
+          `${displayDuration(result.elapsedMs)}, ${result.testCount} tests ` +
+          `(${result.failureCount} failing)`
+      );
+      break;
+    case "oom":
+      console.error(
+        peak !== undefined
+          ? `  out of memory at >= ${displayMiB(peak)}`
+          : "  out of memory (peak RSS unknown)"
+      );
+      break;
+    default: {
+      const _exhaustiveCheck: never = result;
+      throw new Error(`unrecognized memory result: ${JSON.stringify(result)}`);
+    }
+  }
 }
 
 function displayMiB(bytes: number): string {
@@ -1116,13 +1184,22 @@ export function formatMemoryTable(results: MemoryRunResult[]): string {
       if (result === undefined) {
         return "—";
       }
-      // Prefer the externally observed peak; it also covers allocations made
-      // after the in-process read.
-      const peak = result.peakRssBytesExternal ?? result.peakRssBytes;
-      if (result.oom === true) {
-        return peak > 0 ? `OOM (>= ${displayMiB(peak)})` : "OOM";
+      switch (result.kind) {
+        case "measured":
+          return `${displayMiB(reportedPeakRssBytes(result) ?? result.peakRssBytes)} / ${displayDuration(result.elapsedMs)}`;
+        case "oom": {
+          const peak = reportedPeakRssBytes(result);
+          return peak !== undefined ? `OOM (>= ${displayMiB(peak)})` : "OOM";
+        }
+        case "error":
+          return "error";
+        default: {
+          const _exhaustiveCheck: never = result;
+          throw new Error(
+            `unrecognized memory result: ${JSON.stringify(result)}`
+          );
+        }
       }
-      return `${displayMiB(peak)} / ${displayDuration(result.elapsedMs)}`;
     }),
   ]);
 
