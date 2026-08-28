@@ -13,7 +13,7 @@ use super::{
     directives::{self, DirectiveTarget, LocatedDirectiveError},
     error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
     natspec,
-    parse::{locate_contracts, LocatedContract},
+    parse::{locate_contracts, LocatedContract, LocatedFunction},
     resolver::ImportResolver,
 };
 use crate::config::TestFunctionConfigOverride;
@@ -120,70 +120,96 @@ fn contract_overrides(
     let mut config = ContractInlineConfig::default();
     let mut errors = Vec::new();
 
-    let mut located_problem =
-        |function: Option<&str>, LocatedDirectiveError { offset, error }: LocatedDirectiveError| {
-            // If the offending line itself cannot be located, report that as a
-            // source-level problem — carrying the directive problem in its
-            // message — rather than fabricating a line number.
-            let problem = match line_of(source_text, offset) {
-                Ok(line) => InlineConfigProblem::Directive {
-                    contract: contract.contract_name.clone(),
-                    function: function.map(str::to_owned),
-                    line,
-                    error,
-                },
-                Err(line_error) => {
-                    InlineConfigProblem::Source(InlineConfigCollectError::DirectiveLocation {
-                        contract: contract.contract_name.clone(),
-                        function: function.map(str::to_owned),
-                        reason: format!("{line_error} (while reporting: {error})"),
-                    })
-                }
-            };
-            errors.push(InlineConfigErrorItem {
-                source: source.to_path_buf(),
-                problem,
-            });
-        };
-
-    // Contract-level directives.
-    let blocks = natspec::collect_natspec(source_text, contract.node_start);
-    if !blocks.is_empty() {
-        match directives::parse_inline_config(&blocks, DirectiveTarget::Contract) {
-            Ok(parsed) => config.contract = parsed,
-            Err(error) => located_problem(None, error),
-        }
+    match collect_contract_level_directives(source_text, contract) {
+        Ok(parsed) => config.contract = parsed,
+        Err(error) => errors.push(located_problem(source, source_text, contract, None, error)),
     }
 
     for function in &contract.functions {
-        // Only test functions carry inline configuration. The recognized
-        // prefixes mirror the runner's test-function classification
-        // (`test*`, `invariant*`, `statefulFuzz*`).
-        if !directives::is_test_function(&function.function_name) {
-            continue;
-        }
-
-        let blocks = natspec::collect_natspec(source_text, function.node_start);
-        if blocks.is_empty() {
-            continue;
-        }
-
-        // Only the first problem in a given function is reported; parsing moves
-        // on to the next function so every function's problems surface.
-        match directives::parse_inline_config(
-            &blocks,
-            DirectiveTarget::Function(&function.function_name),
-        ) {
+        match collect_function_level_directives(source_text, function) {
             Ok(Some(parsed)) => config.functions.push(FunctionOverride {
                 function_name: function.function_name.clone(),
                 config: parsed,
             }),
             Ok(None) => {}
-            Err(error) => located_problem(Some(&function.function_name), error),
+            Err(error) => errors.push(located_problem(
+                source,
+                source_text,
+                contract,
+                Some(&function.function_name),
+                error,
+            )),
         }
     }
 
     (config, errors)
+}
+
+/// Parses the contract-level directives from the NatSpec above `contract`'s
+/// definition, returning the configuration if any directives are declared.
+fn collect_contract_level_directives(
+    source_text: &str,
+    contract: &LocatedContract,
+) -> Result<Option<TestFunctionConfigOverride>, LocatedDirectiveError> {
+    let blocks = natspec::collect_natspec(source_text, contract.node_start);
+    if blocks.is_empty() {
+        return Ok(None);
+    }
+    directives::parse_inline_config(&blocks, DirectiveTarget::Contract)
+}
+
+/// Parses the per-function directives from the NatSpec above `function`,
+/// returning its override if it is a test function that declares any. Only the
+/// first problem in a given function is reported.
+fn collect_function_level_directives(
+    source_text: &str,
+    function: &LocatedFunction,
+) -> Result<Option<TestFunctionConfigOverride>, LocatedDirectiveError> {
+    // Only test functions carry inline configuration. The recognized prefixes
+    // mirror the runner's test-function classification (`test*`, `invariant*`,
+    // `statefulFuzz*`).
+    if !directives::is_test_function(&function.function_name) {
+        return Ok(None);
+    }
+
+    let blocks = natspec::collect_natspec(source_text, function.node_start);
+    if blocks.is_empty() {
+        return Ok(None);
+    }
+
+    directives::parse_inline_config(&blocks, DirectiveTarget::Function(&function.function_name))
+}
+
+/// Locates a directive problem at its source line, in `contract` and (for a
+/// function-level directive) `function`. If the offending line itself cannot be
+/// located, reports that as a source-level problem — carrying the directive
+/// problem in its message — rather than fabricating a line number.
+fn located_problem(
+    source: &Path,
+    source_text: &str,
+    contract: &LocatedContract,
+    function: Option<&str>,
+    LocatedDirectiveError { offset, error }: LocatedDirectiveError,
+) -> InlineConfigErrorItem {
+    let problem = match line_of(source_text, offset) {
+        Ok(line) => InlineConfigProblem::Directive {
+            contract: contract.contract_name.clone(),
+            function: function.map(str::to_owned),
+            line,
+            error,
+        },
+        Err(line_error) => {
+            InlineConfigProblem::Source(InlineConfigCollectError::DirectiveLocation {
+                contract: contract.contract_name.clone(),
+                function: function.map(str::to_owned),
+                reason: format!("{line_error} (while reporting: {error})"),
+            })
+        }
+    };
+    InlineConfigErrorItem {
+        source: source.to_path_buf(),
+        problem,
+    }
 }
 
 /// Why [`line_of`] could not resolve an offset to a line number. Either way,
