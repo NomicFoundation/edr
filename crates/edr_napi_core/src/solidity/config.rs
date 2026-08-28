@@ -7,7 +7,7 @@ use edr_solidity_tests::{
     backend::Predeploy,
     evm_context::HardforkTr,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
-    inline_config::ImportResolver,
+    inline_config::{ImportResolver, InlineConfigProfiles},
     inspectors::cheatcodes::CheatsConfigOptions,
     opts::effective_transaction_gas_cap,
     CollectStackTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
@@ -205,6 +205,14 @@ pub struct TestRunnerConfig {
     /// (`./`, `../`) are resolved against the importing file and need no entry
     /// here.
     pub import_mappings: HashMap<String, PathBuf>,
+    /// The Solidity test profile the run was started with. Inline-config
+    /// directives prefixed with a profile name apply only when that profile is
+    /// the selected one.
+    pub test_profile: String,
+    /// Every Solidity test profile the project declares. A profile-prefixed
+    /// inline-config directive naming an undeclared profile is an error,
+    /// whichever profile is selected.
+    pub declared_test_profiles: Vec<String>,
 }
 
 fn parse_hardfork<HardforkT>(hardfork: String) -> napi::Result<HardforkT>
@@ -265,6 +273,8 @@ impl TestRunnerConfig {
             generate_gas_report,
             test_source_paths,
             import_mappings,
+            test_profile,
+            declared_test_profiles,
         } = self;
 
         let mut evm_opts = SolidityTestRunnerConfig::default_evm_opts();
@@ -365,6 +375,10 @@ impl TestRunnerConfig {
 
         let import_resolver = ImportResolver::new(import_mappings);
 
+        let inline_config_profiles =
+            InlineConfigProfiles::new(test_profile, declared_test_profiles)
+                .map_err(|error| napi::Error::new(napi::Status::InvalidArg, error.to_string()))?;
+
         Ok(SolidityTestRunnerConfig {
             project_root,
             collect_stack_traces,
@@ -383,12 +397,15 @@ impl TestRunnerConfig {
             generate_gas_report,
             test_source_paths,
             import_resolver,
+            inline_config_profiles,
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use edr_solidity_tests::inline_config::DEFAULT_PROFILE;
+
     use super::*;
 
     fn default_config() -> TestRunnerConfig {
@@ -429,6 +446,8 @@ mod tests {
             generate_gas_report: None,
             test_source_paths: HashMap::new(),
             import_mappings: HashMap::new(),
+            test_profile: DEFAULT_PROFILE.to_owned(),
+            declared_test_profiles: vec![DEFAULT_PROFILE.to_owned()],
         }
     }
 

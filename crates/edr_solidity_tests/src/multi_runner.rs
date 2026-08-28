@@ -204,6 +204,7 @@ impl<
             generate_gas_report,
             test_source_paths,
             import_resolver,
+            inline_config_profiles,
         } = config;
 
         // Collect the test sources' inline configuration up front, off the async
@@ -212,7 +213,7 @@ impl<
         // the whole run before any test executes.
         let roots = inline_config_roots(&test_source_paths, &test_contracts);
         let inline_config_provider = tokio::task::spawn_blocking(move || {
-            SharedInlineConfigProvider::collect(roots, import_resolver)
+            SharedInlineConfigProvider::collect(roots, import_resolver, inline_config_profiles)
         })
         .await
         .expect("Thread shouldn't panic");
