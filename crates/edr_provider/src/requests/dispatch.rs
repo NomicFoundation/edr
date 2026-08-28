@@ -34,10 +34,10 @@ where
     }
 }
 
-/// Executes a batch of JSON requests for an execution provider.
+/// Executes a batch of JSON-RPC method invocations.
 fn execute_batch_request<ChainSpecT, TimerT>(
     data: &mut ProviderData<ChainSpecT, TimerT>,
-    request: Vec<MethodInvocation<ChainSpecT>>,
+    requests: Vec<MethodInvocation<ChainSpecT>>,
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>>
 where
     ChainSpecT: SyncProviderSpec<
@@ -50,19 +50,19 @@ where
     >,
     TimerT: Clone + TimeSinceEpoch,
 {
-    let mut results = Vec::new();
-    let mut traces = Vec::new();
+    let mut results = Vec::with_capacity(requests.len());
+    let mut call_trace_arenas = Vec::new();
 
-    for req in request {
-        let response = execute_single_request(data, req)?;
+    for request in requests {
+        let response = execute_single_request(data, request)?;
+
         results.push(response.result);
-        traces.extend(response.call_trace_arenas);
+        call_trace_arenas.extend(response.call_trace_arenas);
     }
 
-    let result = serde_json::to_value(results).map_err(ProviderError::Serialization)?;
     Ok(ResponseWithCallTraces {
-        result,
-        call_trace_arenas: traces,
+        result: serde_json::Value::Array(results),
+        call_trace_arenas,
     })
 }
 
@@ -376,5 +376,62 @@ where
             hardhat::handle_stop_impersonating_account_request(data, *address)
                 .and_then(to_json::<_, ChainSpecT, TimerT>)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use edr_chain_l1::L1ChainSpec;
+    use edr_primitives::U256;
+
+    use super::*;
+    use crate::test_utils::ProviderTestFixture;
+
+    #[test]
+    fn execute_batch_request_preserves_order() -> anyhow::Result<()> {
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
+
+        let response = execute_request(
+            &mut fixture.provider_data,
+            ProviderRequest::Batch(vec![
+                MethodInvocation::ChainId(()),
+                MethodInvocation::BlockNumber(()),
+                MethodInvocation::NetVersion(()),
+            ]),
+        )?;
+
+        let serde_json::Value::Array(results) = &response.result else {
+            panic!("expected an array, got {:?}", response.result);
+        };
+        assert_eq!(results.len(), 3);
+
+        let chain_id: U256 = serde_json::from_value(results[0].clone())?;
+        assert_eq!(chain_id.to::<u64>(), fixture.config.chain_id);
+
+        let block_number: U256 = serde_json::from_value(results[1].clone())?;
+        assert_eq!(
+            block_number.to::<u64>(),
+            fixture.provider_data.last_block_number()
+        );
+
+        let network_id: String = serde_json::from_value(results[2].clone())?;
+        assert_eq!(network_id, fixture.config.network_id.to_string());
+
+        Ok(())
+    }
+
+    #[test]
+    fn execute_batch_request_is_empty_for_no_requests() -> anyhow::Result<()> {
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
+
+        let response = execute_request(
+            &mut fixture.provider_data,
+            ProviderRequest::Batch(Vec::new()),
+        )?;
+
+        assert_eq!(response.result, serde_json::Value::Array(Vec::new()));
+        assert!(response.call_trace_arenas.is_empty());
+
+        Ok(())
     }
 }
