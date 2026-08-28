@@ -55,14 +55,15 @@ fn block_number_request() -> ProviderRequest<L1ChainSpec> {
     ProviderRequest::with_single(MethodInvocation::BlockNumber(()))
 }
 
-/// Settles a request through [`Provider::enqueue_request`], failing if the
-/// callback is dropped instead of invoked.
+/// Settles a request through [`Provider::enqueue_request`], returning the
+/// response's error, or `None` if it succeeded. Fails if the callback is
+/// dropped instead of invoked.
 ///
 /// The channel is kept connected by a second sender, so a dropped callback
 /// blocks rather than reporting a disconnect. That distinguishes an invoked
 /// callback from a dropped one, which is the distinction that matters: an
 /// N-API `JsDeferred` does not settle its promise when dropped.
-fn enqueue_and_await_response(
+fn enqueue_and_await_error_response(
     provider: &Provider<L1ChainSpec>,
 ) -> anyhow::Result<Option<ProviderErrorForChainSpec<L1ChainSpec>>> {
     let (sender, receiver) = mpsc::channel();
@@ -85,7 +86,7 @@ fn enqueue_and_await_response(
 async fn request_in_flight_is_settled_when_the_event_loop_panics() -> anyhow::Result<()> {
     let provider = provider_with_logger(Box::new(PanickingLogger))?;
 
-    let error = enqueue_and_await_response(&provider)?
+    let error = enqueue_and_await_error_response(&provider)?
         .expect("the logger panics while the request is in flight");
 
     assert!(
@@ -105,8 +106,8 @@ async fn enqueued_request_is_settled_after_termination() -> anyhow::Result<()> {
     // Kills the event loop.
     let _ = provider.handle_request(block_number_request());
 
-    let error =
-        enqueue_and_await_response(&provider)?.expect("the enqueued request cannot be handled");
+    let error = enqueue_and_await_error_response(&provider)?
+        .expect("the enqueued request cannot be handled");
 
     assert!(
         matches!(error, ProviderError::UnexpectedTermination),
@@ -140,7 +141,7 @@ async fn healthy_provider_settles_requests() -> anyhow::Result<()> {
     let provider = provider_with_logger(Box::<NoopLogger<L1ChainSpec>>::default())?;
 
     assert!(
-        enqueue_and_await_response(&provider)?.is_none(),
+        enqueue_and_await_error_response(&provider)?.is_none(),
         "the request should succeed"
     );
     provider.handle_request(block_number_request())?;
