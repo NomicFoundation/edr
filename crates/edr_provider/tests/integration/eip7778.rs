@@ -8,8 +8,6 @@
 //! block header's `gas_used` no longer matches the last receipt's
 //! `cumulative_gas_used`: it is greater whenever the block contains refunds.
 
-use std::sync::Arc;
-
 use edr_chain_l1::{
     rpc::{block::L1RpcBlock, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
@@ -17,15 +15,13 @@ use edr_chain_l1::{
 use edr_eth::PreEip1898BlockSpec;
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes, B256, U256};
 use edr_provider::{
-    test_utils::{create_test_config, one_ether, set_genesis_state_with_owned_accounts},
-    time::CurrentTime,
-    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    test_utils::{one_ether, set_genesis_state_with_owned_accounts},
+    AccountOverride, MethodInvocation, Provider, ProviderRequest,
 };
-use edr_solidity::contract_decoder::ContractDecoder;
 use edr_state_api::{EvmStorage, EvmStorageSlot, TransactionId};
 use edr_test_utils::secret_key::secret_key_from_str;
-use parking_lot::RwLock;
-use tokio::runtime;
+
+use crate::common::provider::{new_provider_with_config, send_transaction};
 
 const CHAIN_ID: u64 = 0x7a69;
 
@@ -56,34 +52,21 @@ fn seeded_storage() -> EvmStorage {
 fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1ChainSpec>> {
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
 
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
+    new_provider_with_config(|config| {
+        set_genesis_state_with_owned_accounts(config, vec![secret_key], one_ether());
+        config.chain_id = CHAIN_ID;
+        config.hardfork = hardfork;
 
-    let mut config = create_test_config();
-    set_genesis_state_with_owned_accounts(&mut config, vec![secret_key], one_ether());
-    config.chain_id = CHAIN_ID;
-    config.hardfork = hardfork;
-
-    // Seed the storage-writer contract with a non-zero slot to clear.
-    config.genesis_state.insert(
-        CONTRACT,
-        AccountOverride {
-            code: Some(Bytecode::new_raw(STORAGE_WRITER_CODE)),
-            storage: Some(seeded_storage()),
-            ..AccountOverride::default()
-        },
-    );
-
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
-
-    Ok(provider)
+        // Seed the storage-writer contract with a non-zero slot to clear.
+        config.genesis_state.insert(
+            CONTRACT,
+            AccountOverride {
+                code: Some(Bytecode::new_raw(STORAGE_WRITER_CODE)),
+                storage: Some(seeded_storage()),
+                ..AccountOverride::default()
+            },
+        );
+    })
 }
 
 /// Transaction clearing [`SLOT`] to zero. The storage-writer contract takes
@@ -99,17 +82,6 @@ fn clear_slot() -> TransactionRequest {
         data: Some(data.into()),
         ..TransactionRequest::default()
     }
-}
-
-fn send_transaction(
-    provider: &Provider<L1ChainSpec>,
-    request: TransactionRequest,
-) -> anyhow::Result<B256> {
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(request),
-    ))?;
-
-    Ok(serde_json::from_value(response.result)?)
 }
 
 fn transaction_receipt(

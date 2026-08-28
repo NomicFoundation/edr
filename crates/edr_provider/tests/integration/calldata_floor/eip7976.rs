@@ -4,7 +4,9 @@
 use edr_chain_l1::rpc::TransactionRequest;
 use edr_primitives::{address, bytes};
 
-use crate::integration::calldata_floor::{assert_transaction_gas_usage, new_provider};
+use crate::{
+    common::provider::new_provider, integration::calldata_floor::assert_transaction_gas_usage,
+};
 
 /// A transfer to an EOA carrying 4 nonzero and 4 zero calldata bytes, so the
 /// floor exceeds the intrinsic gas and determines the transaction's gas usage.

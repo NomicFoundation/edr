@@ -7,7 +7,7 @@
 //! the latest block, so these tests assert it against `eth_getBlockByNumber`
 //! rather than merely asserting the field is present.
 
-use std::{str::FromStr as _, sync::Arc};
+use std::str::FromStr as _;
 
 use edr_chain_l1::{
     rpc::{block::L1RpcBlock, TransactionRequest},
@@ -18,12 +18,11 @@ use edr_primitives::{Address, Bytes, B256};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, Provider, ProviderRequest,
 };
 use edr_signer::public_key_to_address;
-use edr_solidity::contract_decoder::ContractDecoder;
-use parking_lot::RwLock;
-use tokio::runtime;
+
+use crate::common::provider::new_provider_from_config;
 
 /// Deployment code for a contract whose fallback emits one anonymous log:
 /// `MSTORE(0, 1); LOG0(0, 32)`.
@@ -40,14 +39,7 @@ fn new_provider() -> anyhow::Result<(Provider<L1ChainSpec, CurrentTime>, Address
             .public_key(),
     );
 
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        Box::new(NoopLogger::<L1ChainSpec>::default()),
-        Box::new(|_event| {}),
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
+    let provider = new_provider_from_config(config)?;
 
     Ok((provider, caller))
 }

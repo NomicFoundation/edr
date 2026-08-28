@@ -3,24 +3,14 @@
 mod eip7623;
 mod eip7976;
 
-use std::sync::Arc;
-
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
 use edr_primitives::{B256, U64};
-use edr_provider::{
-    test_utils::{create_test_config, one_ether, set_genesis_state_with_owned_accounts},
-    time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
-};
-use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::secret_key::secret_key_from_str;
-use parking_lot::RwLock;
-use tokio::runtime;
+use edr_provider::{MethodInvocation, Provider, ProviderRequest};
 
-const CHAIN_ID: u64 = 0x7a69;
+use crate::common::provider::send_transaction;
 
 fn assert_transaction_gas_usage(
     provider: &Provider<L1ChainSpec>,
@@ -33,6 +23,7 @@ fn assert_transaction_gas_usage(
     assert_eq!(gas_used, expected_gas_usage);
 }
 
+/// Estimates the request's gas usage via `eth_estimateGas`.
 fn estimate_gas(provider: &Provider<L1ChainSpec>, request: L1CallRequest) -> u64 {
     let response = provider
         .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
@@ -45,6 +36,7 @@ fn estimate_gas(provider: &Provider<L1ChainSpec>, request: L1CallRequest) -> u64
     gas.into_limbs()[0]
 }
 
+/// Returns the `gasUsed` from the transaction's receipt.
 fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
     let response = provider
         .handle_request(ProviderRequest::with_single(
@@ -58,42 +50,4 @@ fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
     let receipt = receipt.expect("receipt should exist");
 
     receipt.gas_used
-}
-
-fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1ChainSpec>> {
-    let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
-
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-
-    let mut config = create_test_config();
-    set_genesis_state_with_owned_accounts(&mut config, vec![secret_key], one_ether());
-    config.chain_id = CHAIN_ID;
-    config.hardfork = hardfork;
-
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
-
-    Ok(provider)
-}
-
-fn send_transaction(
-    provider: &Provider<L1ChainSpec>,
-    request: TransactionRequest,
-) -> anyhow::Result<B256> {
-    let response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(request),
-        ))
-        .expect("eth_sendTransaction should succeed");
-
-    let transaction_hash: B256 = serde_json::from_value(response.result)?;
-
-    Ok(transaction_hash)
 }

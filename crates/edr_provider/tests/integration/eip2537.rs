@@ -1,36 +1,18 @@
 #![cfg(feature = "test-utils")]
 
 use core::str::FromStr as _;
-use std::sync::Arc;
 
 use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_primitives::{address, Bytes};
-use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
-};
-use edr_solidity::contract_decoder::ContractDecoder;
-use parking_lot::RwLock;
-use tokio::runtime;
+use edr_provider::{MethodInvocation, Provider, ProviderRequest};
+
+use crate::common::provider::new_provider_with_config;
 
 fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1ChainSpec>> {
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-
-    let mut config = create_test_config();
-    config.chain_id = 0x7a69;
-    config.hardfork = hardfork;
-
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
-
-    Ok(provider)
+    new_provider_with_config(|config| {
+        config.chain_id = 0x7a69;
+        config.hardfork = hardfork;
+    })
 }
 
 fn send_call(
