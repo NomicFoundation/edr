@@ -1,7 +1,7 @@
 #![cfg(feature = "test-utils")]
 
-mod deploy_contract;
-mod send_data_to_eoa;
+mod eip7623;
+mod eip7976;
 
 use std::sync::Arc;
 
