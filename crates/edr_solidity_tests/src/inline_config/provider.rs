@@ -97,7 +97,7 @@ impl CachedInlineConfigProvider {
             let collection = collect_source(
                 &root.source,
                 &root.path,
-                Arc::from(content),
+                &content,
                 root.version.clone(),
                 import_resolver,
             );

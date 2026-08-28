@@ -5,7 +5,7 @@
 //! ([`super::natspec`]), parses the directives within
 //! ([`super::directives`]), and groups the results per contract.
 
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{collections::HashMap, path::Path};
 
 use semver::Version;
 
@@ -76,7 +76,7 @@ pub(super) struct SourceCollection {
 pub(super) fn collect_source(
     source: &Path,
     root_path: &Path,
-    content: Arc<str>,
+    content: &str,
     version: Version,
     import_resolver: &ImportResolver,
 ) -> SourceCollection {
@@ -96,7 +96,7 @@ pub(super) fn collect_source(
     let mut overrides = SourceOverrides::new();
     let mut errors = Vec::new();
     for located in &contracts {
-        let (contract, contract_errors) = contract_overrides(source, &content, located);
+        let (contract, contract_errors) = contract_overrides(source, content, located);
         if !contract.is_empty() {
             overrides.insert(located.contract_name.clone(), contract);
         }
