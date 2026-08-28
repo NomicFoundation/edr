@@ -27,7 +27,14 @@ if (rawParams === undefined) {
       "solidity-tests-memory benchmark driver and is not meant to be run directly."
   );
 }
-const params: MemoryChildParams = JSON.parse(rawParams);
+const params = JSON.parse(rawParams) as Partial<MemoryChildParams>;
+if (
+  typeof params.repo !== "string" ||
+  typeof params.repoPath !== "string" ||
+  typeof params.verbosity !== "number"
+) {
+  throw new Error(`malformed memory-benchmark parameters: ${rawParams}`);
+}
 
 if (params.compileOnly === true) {
   await compileSolidityTestsInput(params.repoPath);

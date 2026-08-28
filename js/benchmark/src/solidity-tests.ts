@@ -886,6 +886,58 @@ export function printMemoryResult(result: MemoryMeasurementPayload) {
 }
 
 /**
+ * Extracts the child's measurement from its stdout, or `undefined` if it isn't
+ * there or doesn't have the expected shape. Tolerates other output around it,
+ * and rebuilds the payload from the known fields rather than trusting it: the
+ * driver and child may be built from different revisions while bisecting.
+ */
+function parseMemoryMeasurement(
+  stdout: string
+): MemoryMeasurementPayload | undefined {
+  const start = stdout.lastIndexOf(MEMORY_RESULT_PREFIX);
+  if (start === -1) {
+    return undefined;
+  }
+  const json = stdout
+    .slice(start + MEMORY_RESULT_PREFIX.length)
+    .split("\n", 1)[0];
+
+  let value: unknown;
+  try {
+    value = JSON.parse(json);
+  } catch {
+    return undefined;
+  }
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  const candidate = value as Record<string, unknown>;
+  const numbers = [
+    "verbosity",
+    "peakRssBytes",
+    "elapsedMs",
+    "suiteCount",
+    "testCount",
+    "failureCount",
+  ] as const;
+  if (
+    typeof candidate.repo !== "string" ||
+    !numbers.every((key) => typeof candidate[key] === "number")
+  ) {
+    return undefined;
+  }
+  return {
+    repo: candidate.repo,
+    verbosity: candidate.verbosity as number,
+    peakRssBytes: candidate.peakRssBytes as number,
+    elapsedMs: candidate.elapsedMs as number,
+    suiteCount: candidate.suiteCount as number,
+    testCount: candidate.testCount as number,
+    failureCount: candidate.failureCount as number,
+  };
+}
+
+/**
  * Parameters the driver passes to `solidity-tests-memory-child.ts`, as a
  * single JSON argument.
  */
@@ -1160,8 +1212,12 @@ function runMemoryChildProcess(
 
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (chunk) => (stdout += chunk));
-    child.stderr.on("data", (chunk) => (stderr += chunk));
+    // Decode as streams, not per chunk: a chunk boundary inside a multi-byte
+    // character would otherwise corrupt the text.
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => (stdout += chunk));
+    child.stderr.on("data", (chunk: string) => (stderr += chunk));
 
     child.on("error", reject);
     child.on("close", (code, signal) => {
@@ -1197,10 +1253,8 @@ function runMemoryChildProcess(
         return;
       }
 
-      const line = stdout
-        .split("\n")
-        .find((l) => l.startsWith(MEMORY_RESULT_PREFIX));
-      if (line === undefined) {
+      const measurement = parseMemoryMeasurement(stdout);
+      if (measurement === undefined) {
         reject(
           new Error(
             `memory child for ${repoName} v${verbosity} produced no result\n${stdout}\n${stderr}`
@@ -1208,10 +1262,6 @@ function runMemoryChildProcess(
         );
         return;
       }
-
-      const measurement: MemoryMeasurementPayload = JSON.parse(
-        line.slice(MEMORY_RESULT_PREFIX.length)
-      );
       resolve({
         kind: "measured",
         ...measurement,
