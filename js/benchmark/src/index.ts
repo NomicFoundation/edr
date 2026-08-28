@@ -26,6 +26,7 @@ import {
   setupRepo,
   REPOS,
   runSolidityTestsMemoryBenchmark,
+  MEMORY_REPOS,
   MEMORY_VERBOSITIES,
 } from "./solidity-tests.js";
 
@@ -189,10 +190,7 @@ async function main(): Promise<boolean> {
       return false;
     }
   } else if (args.command === "solidity-tests-memory") {
-    const repos =
-      args.repo !== undefined
-        ? args.repo.split(",")
-        : ["solady", "uniswap-v4-core", "morpho-blue"];
+    const repos = args.repo !== undefined ? args.repo.split(",") : MEMORY_REPOS;
     const verbosities =
       args.verbosity !== undefined ? [args.verbosity] : MEMORY_VERBOSITIES;
     const memoryResults = await runSolidityTestsMemoryBenchmark(

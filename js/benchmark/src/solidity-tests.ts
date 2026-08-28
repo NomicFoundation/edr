@@ -756,6 +756,13 @@ function assertNoFailures(results: SuiteResult[]) {
 export const MEMORY_VERBOSITIES = [2, 3, 4];
 
 /**
+ * The repos measured by default, chosen to cover the different execution
+ * paths: solady is large and fuzz-heavy, uniswap-v4-core has many tests per
+ * suite, and morpho-blue exercises invariant testing.
+ */
+export const MEMORY_REPOS = ["solady", "uniswap-v4-core", "morpho-blue"];
+
+/**
  * Rayon thread cap for measured children. Test suites (and tests within a
  * suite) run in parallel, and each in-flight suite retains its trace arenas, so
  * peak RSS scales with parallelism. An unbounded run OOMs a 16 GiB machine on
