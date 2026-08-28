@@ -24,8 +24,9 @@ pub enum InlineConfigCollectError {
     /// parsing stages disagree about the source, so its directives cannot be
     /// trusted.
     #[error(
-        "could not locate a directive of `{contract}{}`: {reason}",
-        function.as_deref().map(|function| format!(".{function}")).unwrap_or_default()
+        "could not locate a directive of `{contract}{}{}`: {reason}",
+        if function.is_some() { "." } else { "" },
+        function.as_deref().unwrap_or_default()
     )]
     DirectiveLocation {
         /// The contract the directive belongs to.
