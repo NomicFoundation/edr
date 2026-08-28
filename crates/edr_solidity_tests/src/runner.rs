@@ -1143,9 +1143,6 @@ impl<
                                 .expect("args have valid abi encoding"),
                         ),
                         &args,
-                        // Counterexample arenas are never consumed; the
-                        // failing arena lives on in `execution_traces`.
-                        None,
                         raw_call_result.indeterminism_reasons.clone(),
                     )));
                 let elapsed = start.elapsed();

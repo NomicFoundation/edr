@@ -180,10 +180,7 @@ pub fn replay_run<
             tx.call_details.target,
             &tx.call_details.calldata,
             &ided_contracts,
-            // Counterexample arenas are never consumed; the failing arena
-            // lives on in `execution_traces`.
-            None,
-            /* indeterminism_reason */ None,
+            /* indeterminism_reasons */ None,
         ));
 
         // If this call failed, but didn't revert, this is terminal for sure.

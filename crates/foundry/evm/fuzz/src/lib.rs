@@ -63,9 +63,6 @@ pub struct BaseCounterExample {
     pub args: Option<String>,
     /// Unformatted args used to call the function.
     pub raw_args: Option<String>,
-    /// Counter example traces.
-    #[serde(skip)]
-    pub traces: Option<SparsedTraceArena>,
     /// If re-executing the counter example is not guaranteed to yield the same
     /// results, this field contains the reason why.
     pub indeterminism_reasons: Option<IndeterminismReasons>,
@@ -79,7 +76,6 @@ impl BaseCounterExample {
         addr: Address,
         bytes: &Bytes,
         contracts: &ContractsByAddress,
-        traces: Option<SparsedTraceArena>,
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
         if let Some((name, abi)) = &contracts.get(&addr) {
@@ -109,7 +105,6 @@ impl BaseCounterExample {
                                 .format(", ")
                                 .to_string(),
                         ),
-                        traces,
                         indeterminism_reasons,
                     };
                 }
@@ -125,7 +120,6 @@ impl BaseCounterExample {
             signature: None,
             args: None,
             raw_args: None,
-            traces,
             indeterminism_reasons,
         }
     }
@@ -134,7 +128,6 @@ impl BaseCounterExample {
     pub fn from_fuzz_call(
         bytes: Bytes,
         args: &[DynSolValue],
-        traces: Option<SparsedTraceArena>,
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
         Self {
@@ -154,7 +147,6 @@ impl BaseCounterExample {
                     .format(", ")
                     .to_string(),
             ),
-            traces,
             indeterminism_reasons,
         }
     }
