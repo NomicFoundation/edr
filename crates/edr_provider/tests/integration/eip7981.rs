@@ -4,7 +4,7 @@
 //! see <https://eips.ethereum.org/EIPS/eip-7981>
 //!
 //! From Amsterdam onward, access-list data is charged at 64 gas per byte as a
-//! flat surcharge on top of both the intrinsic gas and the gas floor, 
+//! flat surcharge on top of both the intrinsic gas and the gas floor,
 //! so access lists can no longer bypass the floor pricing.
 
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
