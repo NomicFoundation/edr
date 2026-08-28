@@ -1,8 +1,8 @@
 //! Parsing and validation of inline-config directives.
 //!
-//! Directives live in NatSpec comments above test functions — or above the
-//! test contract itself, applying to every test it runs — and use either the
-//! `forge-config:` or `hardhat-config:` prefix, e.g.:
+//! Directives live in NatSpec comments above a test function or above the test
+//! contract itself, and use either the `forge-config:` or `hardhat-config:`
+//! prefix, e.g.:
 //!
 //! ```text
 //! forge-config: default.fuzz.runs = 100
@@ -66,10 +66,9 @@ pub(crate) fn is_test_function(name: &str) -> bool {
     name.starts_with("test") || is_invariant_function(name)
 }
 
-/// What a directive block is attached to. Determines which keys are valid:
-/// a function only accepts the keys matching its test kind, while a contract —
-/// whose configuration applies to every test it runs — accepts both fuzz and
-/// invariant keys.
+/// What a directive block is attached to. Determines which keys are valid: a
+/// function accepts only the keys of its test kind, a contract accepts both
+/// fuzz and invariant keys.
 #[derive(Clone, Copy)]
 pub(super) enum DirectiveTarget<'a> {
     /// The directives sit above a contract definition.
@@ -78,8 +77,8 @@ pub(super) enum DirectiveTarget<'a> {
     Function(&'a str),
 }
 
-/// The kind of test a key applies to. A key is rejected when it appears on a
-/// test of a different kind; [`KeyCategory::Any`] keys are valid on both.
+/// The kind of test a key applies to. On a function, a key of a different kind
+/// is rejected; [`KeyCategory::Any`] keys are valid on both.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum KeyCategory {
     /// Valid on any test (e.g. `isolate`, `evmVersion`).
@@ -404,10 +403,9 @@ pub(super) fn parse_inline_config(
             }));
         };
 
-        // On a function, the key must match the test kind (top-level keys are
-        // valid on both). On a contract — whose configuration applies to every
-        // test it runs — both fuzz and invariant keys are valid; each section
-        // simply only affects the tests of its kind.
+        // On a function the key must match the test kind; top-level keys are
+        // valid on both. A contract accepts both sections; each affects only
+        // the tests of its kind.
         if let DirectiveTarget::Function(function) = target {
             let is_fuzz_test = function.starts_with("test");
             let valid_for_kind = match key.category() {
@@ -423,9 +421,8 @@ pub(super) fn parse_inline_config(
             }
         }
 
-        // Reject duplicate keys for the same target. The same key appearing at
-        // both the contract and the function level is fine — the two are parsed
-        // separately and the function's value wins when merged.
+        // Reject duplicate keys within one target. The same key at contract
+        // and function level is not a duplicate; the function's value wins.
         if seen.contains(&key) {
             return Err(located(InlineConfigError::DuplicateKey {
                 key: raw.raw_key.clone(),

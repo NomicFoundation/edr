@@ -50,7 +50,7 @@ pub struct InlineConfigRoot {
 ///
 /// [`collect`](Self::collect) does all the work — read each source and its
 /// imports from disk, parse them with Slang, and extract every contract's
-/// per-function overrides — once. Only sources that carry a directive are
+/// inline configuration — once. Only sources that carry a directive are
 /// parsed. Problems (a malformed directive, an unreadable root file, or an
 /// unsupported solc version) are accumulated (see
 /// [`validate`](Self::validate)) rather than short-circuiting, so every

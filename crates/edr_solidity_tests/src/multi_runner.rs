@@ -322,9 +322,9 @@ impl<
     >
 {
     /// Parses the inline configuration of the given test contract from its
-    /// source, returning the per-function overrides, the set of functions
-    /// that opted into `allowInternalExpectRevert`, and warnings for
-    /// directives that cannot take effect.
+    /// source, returning the overrides keyed by test function selector, the
+    /// set of tests that opted into `allowInternalExpectRevert`, and warnings
+    /// for directives that cannot take effect.
     ///
     /// A contract-level configuration (NatSpec above the contract definition)
     /// applies to every test function in the contract's ABI — including
@@ -346,8 +346,7 @@ impl<
 
         let mut warnings = Vec::new();
 
-        // Key the merged overrides by function selector so that overloaded
-        // test functions each get their own entry: every overload is a distinct test
+        // Key the overrides by selector: every overload is a distinct test
         // with a distinct selector.
         let mut by_selector: HashMap<String, TestFunctionConfigOverride> = HashMap::new();
         for function_override in parsed.functions {

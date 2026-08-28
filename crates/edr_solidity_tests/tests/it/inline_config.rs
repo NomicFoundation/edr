@@ -198,7 +198,7 @@ async fn contract_level_inline_config_applies_to_all_tests() {
                 ..
             }
         ),
-        "expected 2 runs of depth 3, got {:?}",
+        "expected 2 runs of depth 3 (6 calls), got {:?}",
         invariant.kind
     );
 }

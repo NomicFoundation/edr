@@ -182,7 +182,8 @@ pub enum CollectStackTraces {
     OnFailure,
 }
 
-/// Test function level config override.
+/// Config override for a single test. Also used as a contract-level default
+/// (see [`Self::fill_unset_from`]).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TestFunctionConfigOverride {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth

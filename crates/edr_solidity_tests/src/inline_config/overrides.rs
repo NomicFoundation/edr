@@ -27,13 +27,12 @@ pub struct FunctionOverride {
     pub config: TestFunctionConfigOverride,
 }
 
-/// The inline configuration parsed for a single contract: the contract-level
-/// configuration (from NatSpec above the contract definition, applying to every
-/// test the contract runs) and the per-function overrides (from NatSpec above
-/// each test function, taking per-key precedence over the contract level).
+/// The inline configuration parsed for a single contract: the directives above
+/// the contract definition, and those above each of its test functions.
 #[derive(Clone, Debug, Default)]
 pub struct ContractInlineConfig {
-    /// The contract-level configuration, if the contract declares any.
+    /// The contract-level configuration, if the contract declares any. Applies
+    /// to every test the contract runs; function-level overrides win per key.
     pub contract: Option<TestFunctionConfigOverride>,
     /// The per-function overrides, in source order.
     pub functions: Vec<FunctionOverride>,

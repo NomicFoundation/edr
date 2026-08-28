@@ -89,7 +89,7 @@ pub enum InlineConfigError {
         key: String,
     },
     /// A key was used on a test of the wrong kind (e.g. `fuzz.*` on an
-    /// invariant test).
+    /// invariant test). Only function-level directives can produce this.
     #[error("key `{key}` is not valid for {test_type} tests")]
     InvalidKeyForTestType {
         /// The offending (raw) key.
@@ -179,8 +179,8 @@ impl std::fmt::Display for InlineConfigErrorItem {
 ///
 /// When collection surfaces any problem, runner creation fails and the whole
 /// test run is aborted before any suite executes. At most one problem is
-/// reported per test function (the first one encountered while parsing it),
-/// across every source.
+/// reported per directive target — each test function, plus each contract's
+/// own directives — across every source.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InlineConfigErrors {
     items: Vec<InlineConfigErrorItem>,
