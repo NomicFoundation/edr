@@ -115,49 +115,145 @@ pub struct LocalConfig {
 }
 
 /// Configuration for interval mining.
+///
+/// Every representable value yields a non-zero interval.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all_fields = "camelCase")]
 pub enum IntervalConfig {
+    /// Mine a block every `n` milliseconds.
     Fixed(NonZeroU64),
-    Range { min: u64, max: u64 },
+    /// Mine a block every `n` milliseconds, where `n` is drawn from the range
+    /// anew before each block.
+    Range(IntervalRangeConfig),
 }
 
 impl IntervalConfig {
-    /// Generates a (random) interval based on the configuration.
-    pub fn generate_interval(&self) -> u64 {
+    /// Generates a (random) interval in milliseconds, based on the
+    /// configuration.
+    pub fn generate_interval(&self) -> NonZeroU64 {
         match self {
-            IntervalConfig::Fixed(interval) => interval.get(),
-            IntervalConfig::Range { min, max } => rand::rng().random_range(*min..=*max),
+            IntervalConfig::Fixed(interval) => *interval,
+            IntervalConfig::Range(range) => range.generate_interval(),
         }
     }
 }
 
-/// An error that occurs when trying to convert [`IntervalConfigRequest`] to an
-/// `Option<IntervalConfig>`.
+impl From<NonZeroU64> for IntervalConfig {
+    fn from(value: NonZeroU64) -> Self {
+        Self::Fixed(value)
+    }
+}
+
+impl From<IntervalRangeConfig> for IntervalConfig {
+    fn from(value: IntervalRangeConfig) -> Self {
+        Self::Range(value)
+    }
+}
+
+/// An inclusive range of interval-mining intervals, in milliseconds.
+///
+/// Non-empty and free of zeroes by construction, so
+/// [`IntervalRangeConfig::generate_interval`] can neither panic nor return
+/// zero. Deserialization is validated through [`UncheckedIntervalRange`].
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(try_from = "UncheckedIntervalRange")]
+pub struct IntervalRangeConfig {
+    min: NonZeroU64,
+    max: NonZeroU64,
+}
+
+impl IntervalRangeConfig {
+    /// Constructs a new instance from inclusive bounds in milliseconds.
+    ///
+    /// Fails if `min` exceeds `max`.
+    pub const fn new(
+        min: NonZeroU64,
+        max: NonZeroU64,
+    ) -> Result<Self, IntervalConfigConversionError> {
+        if min.get() > max.get() {
+            Err(IntervalConfigConversionError::MinGreaterThanMax)
+        } else {
+            Ok(Self { min, max })
+        }
+    }
+
+    /// Returns the inclusive lower bound, in milliseconds.
+    pub const fn min(&self) -> NonZeroU64 {
+        self.min
+    }
+
+    /// Returns the inclusive upper bound, in milliseconds.
+    pub const fn max(&self) -> NonZeroU64 {
+        self.max
+    }
+
+    /// Draws an interval uniformly from the range, in milliseconds. Both
+    /// bounds are inclusive.
+    pub fn generate_interval(&self) -> NonZeroU64 {
+        // `min <= max` is an invariant of the type, so the subtraction cannot
+        // underflow and `0..=span` is never empty.
+        let span = self.max.get() - self.min.get();
+        let offset = rand::rng().random_range(0..=span);
+
+        self.min
+            .checked_add(offset)
+            .expect("`min + offset` is at most `max`")
+    }
+}
+
+impl TryFrom<[u64; 2]> for IntervalRangeConfig {
+    type Error = IntervalConfigConversionError;
+
+    fn try_from([min, max]: [u64; 2]) -> Result<Self, Self::Error> {
+        let min = NonZeroU64::new(min).ok_or(IntervalConfigConversionError::MinIsZero)?;
+
+        // `min` is non-zero, so a zero `max` is smaller than `min`.
+        let max = NonZeroU64::new(max).ok_or(IntervalConfigConversionError::MinGreaterThanMax)?;
+
+        Self::new(min, max)
+    }
+}
+
+/// The unvalidated wire representation of [`IntervalRangeConfig`].
+///
+/// Deserializing through this type prevents a scenario file from bypassing the
+/// range's invariants.
+#[derive(Deserialize)]
+struct UncheckedIntervalRange {
+    min: u64,
+    max: u64,
+}
+
+impl TryFrom<UncheckedIntervalRange> for IntervalRangeConfig {
+    type Error = IntervalConfigConversionError;
+
+    fn try_from(value: UncheckedIntervalRange) -> Result<Self, Self::Error> {
+        Self::try_from([value.min, value.max])
+    }
+}
+
+/// An error that occurs when an interval-mining configuration is invalid.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum IntervalConfigConversionError {
+    /// The minimum value in the range is zero.
+    #[error("Minimum value in range must be greater than zero")]
+    MinIsZero,
     /// The minimum value in the range is greater than the maximum value.
     #[error("Minimum value in range is greater than maximum value")]
     MinGreaterThanMax,
 }
 
-impl TryInto<Option<IntervalConfig>> for IntervalConfigRequest {
+impl TryFrom<IntervalConfigRequest> for Option<IntervalConfig> {
     type Error = IntervalConfigConversionError;
 
-    fn try_into(self) -> Result<Option<IntervalConfig>, Self::Error> {
-        match self {
-            Self::FixedOrDisabled(0) => Ok(None),
-            Self::FixedOrDisabled(value) => {
+    fn try_from(value: IntervalConfigRequest) -> Result<Self, Self::Error> {
+        match value {
+            IntervalConfigRequest::FixedOrDisabled(interval) => {
                 // Zero implies disabled
-                Ok(NonZeroU64::new(value).map(IntervalConfig::Fixed))
+                Ok(NonZeroU64::new(interval).map(IntervalConfig::Fixed))
             }
-            Self::Range([min, max]) => {
-                if max >= min {
-                    Ok(Some(IntervalConfig::Range { min, max }))
-                } else {
-                    Err(IntervalConfigConversionError::MinGreaterThanMax)
-                }
-            }
+            IntervalConfigRequest::Range(bounds) => IntervalRangeConfig::try_from(bounds)
+                .map(|range| Some(IntervalConfig::Range(range))),
         }
     }
 }
@@ -247,6 +343,235 @@ impl Default for MiningConfig {
             block_gas_limit: Some(unsafe { NonZeroU64::new_unchecked(60_000_000u64) }),
             interval: None,
             mem_pool: MemPoolConfig::default(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn non_zero(value: u64) -> NonZeroU64 {
+        NonZeroU64::new(value).expect("non-zero")
+    }
+
+    fn range(min: u64, max: u64) -> IntervalRangeConfig {
+        IntervalRangeConfig::try_from([min, max]).expect("valid range")
+    }
+
+    #[test]
+    fn interval_range_rejects_zero_minimum() {
+        for bounds in [[0, 0], [0, 5]] {
+            assert!(matches!(
+                IntervalRangeConfig::try_from(bounds),
+                Err(IntervalConfigConversionError::MinIsZero)
+            ));
+        }
+    }
+
+    #[test]
+    fn interval_range_rejects_zero_maximum() {
+        assert!(matches!(
+            IntervalRangeConfig::try_from([1, 0]),
+            Err(IntervalConfigConversionError::MinGreaterThanMax)
+        ));
+    }
+
+    #[test]
+    fn interval_range_rejects_min_greater_than_max() {
+        for bounds in [[5, 1], [u64::MAX, 1]] {
+            assert!(matches!(
+                IntervalRangeConfig::try_from(bounds),
+                Err(IntervalConfigConversionError::MinGreaterThanMax)
+            ));
+        }
+    }
+
+    #[test]
+    fn interval_range_accepts_equal_bounds() {
+        let range = range(5, 5);
+
+        assert_eq!(range.min(), non_zero(5));
+        assert_eq!(range.max(), non_zero(5));
+    }
+
+    #[test]
+    fn interval_range_accepts_ascending_bounds() {
+        let range = range(1, u64::MAX);
+
+        assert_eq!(range.min(), non_zero(1));
+        assert_eq!(range.max(), non_zero(u64::MAX));
+    }
+
+    /// A range whose bounds coincide is not collapsed into
+    /// [`IntervalConfig::Fixed`], so that a configuration round-trips to the
+    /// representation it was written as.
+    #[test]
+    fn interval_range_is_not_normalized_to_fixed() {
+        assert_ne!(
+            IntervalConfig::from(range(5, 5)),
+            IntervalConfig::Fixed(non_zero(5))
+        );
+    }
+
+    #[test]
+    fn fixed_generates_the_configured_interval() {
+        let config = IntervalConfig::Fixed(non_zero(7));
+
+        assert_eq!(config.generate_interval(), non_zero(7));
+    }
+
+    #[test]
+    fn interval_range_with_equal_bounds_is_deterministic() {
+        let range = range(5, 5);
+
+        for _ in 0..100 {
+            assert_eq!(range.generate_interval(), non_zero(5));
+        }
+    }
+
+    #[test]
+    fn interval_range_generates_values_within_bounds() {
+        let range = range(2, 4);
+
+        for _ in 0..1_000 {
+            let interval = range.generate_interval().get();
+            assert!((2..=4).contains(&interval), "{interval} is out of bounds");
+        }
+    }
+
+    /// Pins that both bounds are inclusive. Hardhat draws from a max-exclusive
+    /// range; EDR does not.
+    #[test]
+    fn interval_range_includes_both_bounds() {
+        let range = range(1, 2);
+
+        let mut seen_min = false;
+        let mut seen_max = false;
+        for _ in 0..1_000 {
+            match range.generate_interval().get() {
+                1 => seen_min = true,
+                2 => seen_max = true,
+                other => panic!("{other} is out of bounds"),
+            }
+        }
+
+        assert!(seen_min && seen_max);
+    }
+
+    /// Recorded scenario files carry a serialized [`MiningConfig`], so this
+    /// representation cannot change without invalidating them.
+    #[test]
+    fn interval_config_serializes_to_externally_tagged_json() -> anyhow::Result<()> {
+        let fixed = IntervalConfig::Fixed(non_zero(1000));
+        assert_eq!(serde_json::to_value(&fixed)?, json!({ "Fixed": 1000 }));
+        assert_eq!(
+            serde_json::from_value::<IntervalConfig>(json!({ "Fixed": 1000 }))?,
+            fixed
+        );
+
+        let ranged = IntervalConfig::from(range(1000, 5000));
+        let ranged_json = json!({ "Range": { "min": 1000, "max": 5000 } });
+        assert_eq!(serde_json::to_value(&ranged)?, ranged_json);
+        assert_eq!(
+            serde_json::from_value::<IntervalConfig>(ranged_json)?,
+            ranged
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn mining_config_round_trips_an_interval_range() -> anyhow::Result<()> {
+        let config = MiningConfig {
+            auto_mine: true,
+            block_gas_limit: None,
+            interval: Some(IntervalConfig::from(range(1000, 5000))),
+            mem_pool: MemPoolConfig {
+                order: MineOrdering::Priority,
+            },
+        };
+
+        assert_eq!(
+            serde_json::to_value(&config)?,
+            json!({
+                "autoMine": true,
+                "blockGasLimit": null,
+                "interval": { "Range": { "min": 1000, "max": 5000 } },
+                "memPool": { "order": "Priority" },
+            })
+        );
+
+        let deserialized: MiningConfig = serde_json::from_value(serde_json::to_value(&config)?)?;
+        assert_eq!(deserialized.interval, config.interval);
+
+        Ok(())
+    }
+
+    #[test]
+    fn deserializing_an_invalid_interval_range_fails() {
+        for bounds in [json!({ "min": 0, "max": 5 }), json!({ "min": 5, "max": 1 })] {
+            let error = serde_json::from_value::<IntervalConfig>(json!({ "Range": bounds }))
+                .expect_err("the range is invalid");
+
+            assert!(
+                error.to_string().contains("Minimum value in range"),
+                "unexpected error: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn deserializing_a_zero_fixed_interval_fails() {
+        assert!(serde_json::from_value::<IntervalConfig>(json!({ "Fixed": 0 })).is_err());
+    }
+
+    /// Scenario files are deserialized as a whole [`MiningConfig`], which is
+    /// the path that must reject an invalid range.
+    #[test]
+    fn deserializing_a_mining_config_with_an_invalid_range_fails() {
+        let json = json!({
+            "autoMine": true,
+            "blockGasLimit": null,
+            "interval": { "Range": { "min": 0, "max": 0 } },
+            "memPool": { "order": "Priority" },
+        });
+
+        assert!(serde_json::from_value::<MiningConfig>(json).is_err());
+    }
+
+    #[test]
+    fn a_zero_request_interval_disables_interval_mining() -> anyhow::Result<()> {
+        let config: Option<IntervalConfig> =
+            IntervalConfigRequest::FixedOrDisabled(0).try_into()?;
+
+        assert_eq!(config, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn a_request_interval_is_converted() -> anyhow::Result<()> {
+        let fixed: Option<IntervalConfig> =
+            IntervalConfigRequest::FixedOrDisabled(1000).try_into()?;
+        assert_eq!(fixed, Some(IntervalConfig::Fixed(non_zero(1000))));
+
+        let ranged: Option<IntervalConfig> =
+            IntervalConfigRequest::Range([1000, 5000]).try_into()?;
+        assert_eq!(ranged, Some(IntervalConfig::from(range(1000, 5000))));
+
+        Ok(())
+    }
+
+    #[test]
+    fn an_invalid_request_range_is_rejected() {
+        for bounds in [[0, 0], [0, 5000], [5000, 1000]] {
+            let result: Result<Option<IntervalConfig>, _> =
+                IntervalConfigRequest::Range(bounds).try_into();
+
+            assert!(result.is_err(), "{bounds:?} should be rejected");
         }
     }
 }
