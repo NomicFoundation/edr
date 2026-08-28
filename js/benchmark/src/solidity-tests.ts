@@ -897,10 +897,17 @@ export interface MemoryChildParams {
   compileOnly?: boolean;
 }
 
+/**
+ * Environment for processes whose GNU time report we parse: its messages are
+ * translatable, so pin the locale.
+ */
+const GNU_TIME_ENV = { LC_ALL: "C" };
+
 function hasGnuTime(): boolean {
   try {
     child_process.execFileSync("/usr/bin/time", ["-v", "true"], {
       stdio: "ignore",
+      env: { ...process.env, ...GNU_TIME_ENV },
     });
     return true;
   } catch {
@@ -914,7 +921,11 @@ function parseGnuTimeMaxRss(stderr: string): number | undefined {
   return match === null ? undefined : Number(match[1]) * 1024;
 }
 
-/** Whether a child process exited because it ran out of memory. */
+/**
+ * Whether a child process that exited abnormally did so because it ran out of
+ * memory. Only meaningful for abnormal exits: the stderr checks would otherwise
+ * mistake a successful run that merely printed one of these messages.
+ */
 function isOomError(
   code: number | null,
   signal: NodeJS.Signals | null,
@@ -932,10 +943,14 @@ function isOomError(
     return true;
   }
 
-  // V8 aborts the process when its own heap limit is exhausted. Match the
-  // fatal-error message rather than the SIGABRT it dies with, which has
-  // other causes too.
-  return /JavaScript heap out of memory/.test(stderr);
+  // V8 aborts the process when its own heap limit is exhausted, and Rust's
+  // allocator aborts when an allocation fails. Match their fatal-error
+  // messages rather than the SIGABRT both die with, which has other causes
+  // too.
+  return (
+    /JavaScript heap out of memory/.test(stderr) ||
+    /memory allocation of \d+ bytes failed/.test(stderr)
+  );
 }
 
 /**
@@ -1125,7 +1140,11 @@ function runMemoryChildProcess(
     const child = child_process.spawn(command, commandArgs, {
       cwd: process.cwd(),
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, RAYON_NUM_THREADS: MEMORY_RAYON_THREADS },
+      env: {
+        ...process.env,
+        ...GNU_TIME_ENV,
+        RAYON_NUM_THREADS: MEMORY_RAYON_THREADS,
+      },
       detached: true,
     });
     const stopKillingOnTermination = killChildOnTermination(child);
@@ -1158,7 +1177,8 @@ function runMemoryChildProcess(
         return;
       }
 
-      if (isOomError(code, signal, stderr)) {
+      const abnormalExit = code !== 0 || signal !== null;
+      if (abnormalExit && isOomError(code, signal, stderr)) {
         resolve({
           kind: "oom",
           repo: repoName,
