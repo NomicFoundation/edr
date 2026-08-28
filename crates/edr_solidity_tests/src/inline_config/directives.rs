@@ -62,7 +62,7 @@ pub(super) fn is_invariant_function(name: &str) -> bool {
 
 /// Whether `name` is a function the runner treats as a test, and which may
 /// therefore carry inline configuration.
-pub fn is_test_function(name: &str) -> bool {
+pub(crate) fn is_test_function(name: &str) -> bool {
     name.starts_with("test") || is_invariant_function(name)
 }
 

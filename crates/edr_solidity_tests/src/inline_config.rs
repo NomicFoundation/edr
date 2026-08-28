@@ -37,8 +37,8 @@ mod parse;
 mod provider;
 mod resolver;
 
+pub(crate) use self::directives::is_test_function;
 pub use self::{
-    directives::is_test_function,
     error::{
         InlineConfigCollectError, InlineConfigError, InlineConfigErrorItem, InlineConfigErrors,
         InlineConfigProblem,
