@@ -333,7 +333,7 @@ impl<
             .get(&artifact_id.source, &artifact_id.name);
 
         // Key the merged overrides by function selector so that overloaded
-        // test functions each get their own  entry: every overload is a distinct test
+        // test functions each get their own entry: every overload is a distinct test
         // with a distinct selector.
         let mut by_selector: HashMap<String, TestFunctionConfigOverride> = HashMap::new();
         for function_override in parsed.functions {
@@ -362,7 +362,7 @@ impl<
                 by_selector
                     .entry(function.selector().to_string())
                     .or_default()
-                    .fill_from(contract_config);
+                    .fill_unset_from(contract_config);
             }
         }
 
