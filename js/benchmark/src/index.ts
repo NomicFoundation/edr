@@ -116,7 +116,7 @@ async function main(): Promise<boolean> {
   });
   parser.add_argument("-r", "--repo", {
     type: "str",
-    help: "Path to a repo to execute for Solidity tests. For the `solidity-tests` command, defaults to `forge-std` that is checked out automatically. For the `compare-forge` command defaults to all supported repos.",
+    help: `Which repo(s) to run. For the \`solidity-tests\` command: the path to a repo. For the \`compare-forge\` command: a repo name (defaults to all supported repos). For the \`solidity-tests-memory\` command: a comma-separated list of repo names (defaults to ${MEMORY_REPOS.join(", ")}).`,
   });
   parser.add_argument("-c", "--count", {
     type: "int",
