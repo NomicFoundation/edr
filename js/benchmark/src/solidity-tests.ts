@@ -997,10 +997,12 @@ export async function runSolidityTestsMemoryBenchmark(
         logMemoryProgress(result);
       }
       results.push(result);
+      // Persist after every cell: a full matrix takes a long time and an
+      // interrupted run should keep what it measured.
+      fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2) + "\n");
     }
   }
 
-  fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2) + "\n");
   console.error(`saved results to ${resultsPath}`);
   console.log(formatMemoryTable(results));
 
