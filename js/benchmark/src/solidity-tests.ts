@@ -1150,7 +1150,9 @@ function runCompileOnlyChildProcess(
   return new Promise((resolve, reject) => {
     const child = child_process.spawn(process.execPath, nodeArgs, {
       cwd: process.cwd(),
-      stdio: ["ignore", "inherit", "inherit"],
+      // Compiler output belongs with the progress messages on stderr, not
+      // on stdout, which carries only the results table.
+      stdio: ["ignore", process.stderr, process.stderr],
       detached: true,
     });
     const stopKillingOnTermination = killChildOnTermination(child);
