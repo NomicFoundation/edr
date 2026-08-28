@@ -654,9 +654,12 @@ export async function setupRepo(
 
   try {
     await execAsync("npm install", { cwd: repoPath });
-  } catch {
+  } catch (e) {
+    // Logged so that a repository left in a bad state by the fallback can be
+    // traced back to the script that failed.
     console.error(
-      `npm install failed for ${repoPath}, retrying with --ignore-scripts`
+      `npm install failed for ${repoPath}, retrying with --ignore-scripts. Error:\n` +
+        (e instanceof Error ? e.message : String(e))
     );
     await execAsync("npm install --ignore-scripts", { cwd: repoPath });
   }
