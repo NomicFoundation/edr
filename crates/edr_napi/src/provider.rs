@@ -177,8 +177,8 @@ impl Provider {
 
         #[cfg(feature = "scenarios")]
         if let Some(scenario_file) = &self.scenario_file {
-            // Write to the scenario file before enqueuing, so that the recorded order
-            // matches the execution order.
+            // Recorded before the request is enqueued. Concurrent calls race for
+            // the file, so the recorded order is not the call order.
             let provider = self.provider.clone();
             let scenario_file = Arc::clone(scenario_file);
 
