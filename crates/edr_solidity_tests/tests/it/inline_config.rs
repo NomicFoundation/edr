@@ -111,6 +111,35 @@ async fn malformed_inline_config_aborts_whole_run() {
     );
 }
 
+/// A directive on a test-named function that matches nothing in the contract
+/// ABI (e.g. not externally callable) cannot take effect: the function never
+/// runs as a test. The suite reports a warning instead of silently ignoring
+/// the directive.
+#[tokio::test(flavor = "multi_thread")]
+async fn unmatched_function_directive_warns() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*inline/UnmatchedInlineConfig.t.sol");
+    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let suite = results
+        .get("default/inline/UnmatchedInlineConfig.t.sol:UnmatchedInlineConfigTest")
+        .expect("suite ran");
+    assert!(
+        suite.test_results.contains_key("test_Runs()"),
+        "{:#?}",
+        suite.test_results.keys()
+    );
+
+    assert_eq!(suite.warnings.len(), 1, "{:#?}", suite.warnings);
+    let warning = &suite.warnings[0];
+    assert!(
+        warning.contains("testFuzz_NotExternallyCallable")
+            && warning.contains("UnmatchedInlineConfigTest"),
+        "{warning}"
+    );
+}
+
 /// A contract-level directive (NatSpec above the contract definition) applies
 /// to every test the contract runs — including inherited ones — with
 /// function-level directives taking per-key precedence.
