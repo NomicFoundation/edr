@@ -973,7 +973,7 @@ export async function compileSolidityTestsInput(repoPath: string) {
 
 /**
  * Node arguments invoking the internal child entry point with the given
- * parameters. `process.execArgv` carries the tsx loader over.
+ * parameters. `process.execArgv` carries the driver's node flags over.
  */
 function memoryChildNodeArgs(params: MemoryChildParams): string[] {
   const childEntry = path.join(
