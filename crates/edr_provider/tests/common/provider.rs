@@ -3,7 +3,10 @@
 
 use std::sync::Arc;
 
-use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
+use edr_chain_l1::{
+    rpc::{receipt::L1RpcTransactionReceipt, TransactionRequest},
+    L1ChainSpec,
+};
 use edr_primitives::B256;
 use edr_provider::{
     config::ProviderConfig, test_utils::create_test_config, time::CurrentTime, MethodInvocation,
@@ -44,6 +47,22 @@ pub fn new_provider_from_config(
     )?;
 
     Ok(provider)
+}
+
+/// Returns the `gasUsed` from the transaction's receipt.
+pub fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
+    let response = provider
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::GetTransactionReceipt(transaction_hash),
+        ))
+        .expect("eth_getTransactionReceipt should succeed");
+
+    let receipt: Option<L1RpcTransactionReceipt> =
+        serde_json::from_value(response.result).expect("response should be Receipt");
+
+    let receipt = receipt.expect("receipt should exist");
+
+    receipt.gas_used
 }
 
 /// Sends the transaction via `eth_sendTransaction`, returning its hash.
