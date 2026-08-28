@@ -1,6 +1,5 @@
 //! Ethereum L1 receipt builder
 
-use edr_chain_spec::EvmSpecId;
 use edr_primitives::B256;
 use edr_receipt::{
     log::{logs_to_bloom, ExecutionLog},
@@ -38,7 +37,7 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, L1SignedTransaction>
         let logs = result.logs().to_vec();
         let logs_bloom = logs_to_bloom(&logs);
 
-        let receipt = if hardfork >= EvmSpecId::BYZANTIUM {
+        let receipt = if hardfork >= Hardfork::Byzantium {
             edr_receipt::execution::Eip658 {
                 status: result.is_success(),
                 cumulative_gas_used,

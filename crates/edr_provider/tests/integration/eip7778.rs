@@ -22,7 +22,7 @@ use edr_provider::{
     AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_state_api::{EvmStorage, EvmStorageSlot};
+use edr_state_api::{EvmStorage, EvmStorageSlot, TransactionId};
 use edr_test_utils::secret_key::secret_key_from_str;
 use parking_lot::RwLock;
 use tokio::runtime;
@@ -46,7 +46,11 @@ const SLOT: u64 = 1;
 /// Genesis storage for [`CONTRACT`]: [`SLOT`] set to a non-zero value, so that
 /// clearing it to zero qualifies for a refund.
 fn seeded_storage() -> EvmStorage {
-    std::iter::once((U256::from(SLOT), EvmStorageSlot::new(U256::from(1), 0))).collect()
+    std::iter::once((
+        U256::from(SLOT),
+        EvmStorageSlot::new(U256::from(1), TransactionId::ZERO),
+    ))
+    .collect()
 }
 
 fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1ChainSpec>> {
@@ -140,7 +144,7 @@ fn send_refund_transaction(provider: &Provider<L1ChainSpec>) -> anyhow::Result<(
 /// to zero: both track gas after refunds.
 #[tokio::test(flavor = "multi_thread")]
 async fn block_gas_used_matches_last_tx_cumulative_before_amsterdam() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::OSAKA)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
 
     send_refund_transaction(&provider)?;
 
@@ -165,7 +169,7 @@ async fn block_gas_used_matches_last_tx_cumulative_before_amsterdam() -> anyhow:
 /// `gas_used` is greater than the last receipt's `cumulative_gas_used`.
 #[tokio::test(flavor = "multi_thread")]
 async fn block_gas_used_excludes_refunds_on_amsterdam() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
     send_refund_transaction(&provider)?;
 

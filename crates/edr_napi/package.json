@@ -1,6 +1,6 @@
 {
   "name": "@nomicfoundation/edr",
-  "version": "0.15.0",
+  "version": "0.19.0",
   "devDependencies": {
     "@napi-rs/cli": "^3.7.0",
     "@nomicfoundation/ethereumjs-util": "^9.0.4",
@@ -9,8 +9,8 @@
     "@types/chai-as-promised": "^7.1.8",
     "@types/mocha": ">=9.1.0",
     "@types/node": "^22.0.0",
-    "@typescript-eslint/eslint-plugin": "8.65.0",
-    "@typescript-eslint/parser": "8.65.0",
+    "@typescript-eslint/eslint-plugin": "8.67.0",
+    "@typescript-eslint/parser": "8.67.0",
     "chai": "^4.3.6",
     "chai-as-promised": "^7.1.1",
     "chalk": "^2.4.2",
@@ -59,7 +59,7 @@
     "build": "pnpm run build:publish",
     "build:debug": "bash ../../scripts/build_edr_napi.sh --features op",
     "build:dev": "bash ../../scripts/build_edr_napi.sh --release --features op",
-    "build:perf-js": "RUSTFLAGS='-Cforce-frame-pointers=yes' bash ../../scripts/build_edr_napi.sh --profile napi-publish --features op",
+    "build:perf-js": "RUSTFLAGS='-Cforce-frame-pointers=yes' CARGO_PROFILE_NAPI_PUBLISH_DEBUG=line-tables-only bash ../../scripts/build_edr_napi.sh --profile napi-publish --features op",
     "build:publish": "bash ../../scripts/build_edr_napi.sh --profile napi-publish --features op",
     "build:scenarios": "bash ../../scripts/build_edr_napi.sh --release --features op,scenarios",
     "build:test": "bash ../../scripts/build_edr_napi.sh --release --features op,test-mock",

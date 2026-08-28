@@ -32,7 +32,7 @@ jobs:
       matrix:
         os: ["ubuntu-24.04", "macos-15"]
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
       - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
@@ -51,7 +51,7 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
@@ -68,14 +68,14 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-rust
 
       # Install pre-built binaries for cargo hack
-      - uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
+      - uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2.86.1
         with:
           tool: cargo-hack@0.6.39
 
@@ -101,7 +101,7 @@ jobs:
       matrix:
         os: ["ubuntu-24.04", "macos-15", "windows-2025"]
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
@@ -116,11 +116,11 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-rs-rpc-cache-v1-${{ matrix.os }}
+          key: edr-rs-rpc-cache-v2-${{ matrix.os }}
           # Save key includes a hashFiles suffix; restore via the
           # OS-scoped prefix to pick up the most recent matching entry.
           restore-keys: |
-            edr-rs-rpc-cache-v1-${{ matrix.os }}-
+            edr-rs-rpc-cache-v2-${{ matrix.os }}-
 
       - name: Run cargo tests (with coverage)
         env:
@@ -143,7 +143,7 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-rs-rpc-cache-v1-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
+          key: edr-rs-rpc-cache-v2-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
 
       # disable until:
       # 1) https://github.com/napi-rs/napi-rs/issues/1405 is resolved (Windows-only)
@@ -177,7 +177,7 @@ jobs:
         node: [24]
         os: [ubuntu-24.04, macos-15, windows-2025]
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
@@ -198,11 +198,11 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-ts-rpc-cache-v1-${{ matrix.os }}
+          key: edr-ts-rpc-cache-v2-${{ matrix.os }}
           # Save key includes a hashFiles suffix; restore via the
           # OS-scoped prefix to pick up the most recent matching entry.
           restore-keys: |
-            edr-ts-rpc-cache-v1-${{ matrix.os }}-
+            edr-ts-rpc-cache-v2-${{ matrix.os }}-
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -233,14 +233,14 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-ts-rpc-cache-v1-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
+          key: edr-ts-rpc-cache-v2-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
 
   edr-style:
     name: Check EDR Style
     runs-on: ubuntu-24.04
     needs: check-edr
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
@@ -266,7 +266,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
@@ -283,7 +283,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr-safety
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
@@ -295,6 +295,8 @@ jobs:
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Test repo scripts
+        run: pnpm run test:scripts
       - name: Run build script
         run: pnpm run build:dev
       - name: Run lint script
@@ -305,7 +307,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
@@ -325,7 +327,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr-safety
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
@@ -347,7 +349,7 @@ jobs:
       RUSTFLAGS: -Dwarnings
       RUSTDOCFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
@@ -385,7 +387,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
@@ -396,7 +398,7 @@ jobs:
     name: Lint GitHub Actions workflows
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
       # Official image bundles shellcheck + pyflakes, so `run:` linting needs no runner deps.
@@ -412,10 +414,10 @@ jobs:
     name: Audit GitHub Actions security (zizmor)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
+      - uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2.86.1
         with:
           tool: zizmor@1.26.1
       # GH_TOKEN enables the online audits (known-vulnerabilities, tag->SHA resolution).

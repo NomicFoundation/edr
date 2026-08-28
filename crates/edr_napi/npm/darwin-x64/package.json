@@ -4,7 +4,13 @@
     "url": "https://github.com/NomicFoundation/edr.git",
     "type": "git"
   },
-  "version": "0.15.0",
+  "version": "0.19.0",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "edr.darwin-x64.node",
   "files": [
     "edr.darwin-x64.node"

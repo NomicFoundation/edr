@@ -17,15 +17,18 @@ use edr_blockchain_fork::{
     eips::eip4788::{beacon_root_storage_slots, BeaconRootStorageSlots, BEACON_ROOTS_ADDRESS},
     ForkedBlockchain,
 };
-use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction, HardforkChainSpec};
+use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction, ProtocolHardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::config::EvmConfig;
 use edr_chain_spec_provider::SyncProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec, RpcEthBlock};
-use edr_eth::{block::miner_reward, BlockSpec, PreEip1898BlockSpec};
+use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{HashMap, B256};
-use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait};
+use edr_receipt::{
+    log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ExecutionReceiptChainSpec,
+    MapReceiptLogs, ReceiptTrait,
+};
 use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec};
 use edr_state_api::{irregular::IrregularState, DynState};
 use edr_utils::random::RandomHashGenerator;
@@ -35,7 +38,7 @@ type ForkedStateAndBlockchainForChainSpec<ChainSpecT> = ForkedStateAndBlockchain
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as BlockChainSpec>::Block,
     <ChainSpecT as BlockChainSpec>::FetchReceiptError,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     ChainSpecT,
     <ChainSpecT as RpcChainSpec>::RpcReceipt,
@@ -129,13 +132,13 @@ async fn get_fork_state<
 
     let block_config = BlockConfig {
         base_fee_params: base_fee_params.clone(),
+        default_difficulty_fn: ChainSpecT::default_block_difficulty,
         hardfork,
-        min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
         scheduled_blob_params,
     };
 
     let blockchain = ForkedBlockchain::new(
-        block_config.hardfork,
+        block_config.hardfork.clone(),
         runtime.clone(),
         rpc_client,
         &mut irregular_state,
@@ -154,12 +157,42 @@ async fn get_fork_state<
     })
 }
 
+/// Clears `blockTimestamp` on every log of an execution receipt.
+///
+/// The field is optional in the `Log` schema (execution-apis#639), so a remote
+/// node may omit it where a locally mined receipt always has it. Comparing the
+/// two is only meaningful once both sides agree to leave it out.
+fn without_log_block_timestamps<ChainSpecT>(
+    receipt: ChainSpecT::ExecutionReceipt<FilterLog>,
+) -> ChainSpecT::ExecutionReceipt<FilterLog>
+where
+    ChainSpecT: ExecutionReceiptChainSpec<
+        ExecutionReceipt<FilterLog>: MapReceiptLogs<
+            FilterLog,
+            FilterLog,
+            ChainSpecT::ExecutionReceipt<FilterLog>,
+        >,
+    >,
+{
+    receipt.map_logs(|mut log| {
+        log.inner.block_timestamp = None;
+        log
+    })
+}
+
 /// Runs a full remote block, asserting that the mined block matches the remote
 /// block.
 pub async fn run_full_block<
     ChainSpecT: 'static
         + SyncProviderChainSpec<
-            ExecutionReceipt<FilterLog>: Debug + PartialEq,
+            ExecutionReceipt<FilterLog>: Clone
+                                             + Debug
+                                             + PartialEq
+                                             + MapReceiptLogs<
+                FilterLog,
+                FilterLog,
+                ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
             Receipt: AsExecutionReceipt<ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>>,
             RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<
                 EthBlockData<ChainSpecT::SignedTransaction>,
@@ -170,7 +203,9 @@ pub async fn run_full_block<
     runtime: tokio::runtime::Handle,
     rpc_client: EthRpcClientForChainSpec<ChainSpecT>,
     block_number: u64,
-    header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
+    header_overrides_constructor: impl FnOnce(
+        &BlockHeader,
+    ) -> HeaderOverrides<ChainSpecT::ProtocolHardfork>,
 ) -> anyhow::Result<()> {
     let rpc_client = Arc::new(rpc_client);
     let ForkedStateAndBlockchain {
@@ -195,7 +230,9 @@ pub async fn run_full_block<
         let mut state = prior_blockchain
             .state_at_block_number(block_number - 1, prior_irregular_state.state_overrides())?;
 
-        if hardfork.into() >= EvmSpecId::CANCUN {
+        let evm_spec_id: EvmSpecId = hardfork.into();
+
+        if evm_spec_id >= EvmSpecId::CANCUN {
             replicate_beacon_block_root_oracle_state(
                 block_number,
                 rpc_client,
@@ -226,11 +263,7 @@ pub async fn run_full_block<
         builder.add_transaction(transaction.clone())?;
     }
 
-    let rewards = vec![(
-        replay_header.beneficiary,
-        miner_reward(hardfork.into()).unwrap_or(0),
-    )];
-    let mined_block = builder.finalize_block(rewards)?;
+    let mined_block = builder.finalize_block()?;
 
     let mined_header = mined_block.block_and_state.block.block_header();
 
@@ -374,9 +407,25 @@ pub async fn run_full_block<
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
         );
+        // A locally mined log always carries the timestamp of the block it is
+        // in, so check that against the header we replayed.
+        for log in actual.transaction_logs() {
+            debug_assert_eq!(log.block_timestamp, Some(replay_header.timestamp));
+        }
+        // The remote log only carries one if the node serves the field, which is
+        // optional (execution-apis#639) and absent from responses cached before
+        // it existed. Compare it when it is there, and drop it either way before
+        // the whole-receipt comparison below, which would otherwise read a
+        // remote omission as a mismatch.
+        for log in expected.transaction_logs() {
+            if let Some(block_timestamp) = log.block_timestamp {
+                debug_assert_eq!(block_timestamp, replay_header.timestamp);
+            }
+        }
+
         debug_assert_eq!(
-            expected.as_execution_receipt(),
-            actual.as_execution_receipt(),
+            without_log_block_timestamps::<ChainSpecT>(expected.as_execution_receipt().clone()),
+            without_log_block_timestamps::<ChainSpecT>(actual.as_execution_receipt().clone()),
             "{:?}",
             expected_block
                 .transactions()
@@ -454,7 +503,9 @@ pub async fn assert_replay_header<
     runtime: tokio::runtime::Handle,
     url: String,
     block_number: u64,
-    header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
+    header_overrides_constructor: impl FnOnce(
+        &BlockHeader,
+    ) -> HeaderOverrides<ChainSpecT::ProtocolHardfork>,
     header_validation: impl FnOnce(&BlockHeader, &PartialHeader) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
     let rpc_client = Arc::new(EthRpcClientForChainSpec::<ChainSpecT>::new(

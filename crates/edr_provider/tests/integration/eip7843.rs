@@ -63,7 +63,7 @@ fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1C
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_header_includes_slot_number_on_amsterdam() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
     mine_block(&provider);
     let block_json = get_latest_block(&provider);
@@ -78,7 +78,7 @@ async fn block_header_includes_slot_number_on_amsterdam() -> anyhow::Result<()> 
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_header_omits_slot_number_before_amsterdam() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::OSAKA)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
 
     mine_block(&provider);
     let block_json = get_latest_block(&provider);
@@ -103,7 +103,7 @@ async fn block_header_omits_slot_number_before_amsterdam() -> anyhow::Result<()>
 async fn slot_number_increments_per_block() -> anyhow::Result<()> {
     const MINED_BLOCKS: u64 = 5;
 
-    let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
     // Before mining anything, the latest block is the genesis block.
     let genesis: L1RpcBlock<B256> = serde_json::from_value(get_latest_block(&provider))?;
@@ -133,7 +133,7 @@ async fn slot_number_increments_per_block() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn slot_number_continues_after_reserved_blocks() -> anyhow::Result<()> {
     const FORWARDED_BLOCKS: u64 = 10;
-    let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
     // Mine a couple of blocks, then record the last block before reserving.
     mine_block(&provider);
@@ -170,7 +170,7 @@ async fn slot_number_continues_after_reserved_blocks() -> anyhow::Result<()> {
 // The SLOTNUM opcode (0x4b) must return the executing block's slot number.
 #[tokio::test(flavor = "multi_thread")]
 async fn slotnum_opcode_returns_block_slot_number() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
     let contract_address = deploy_contract(&provider, SENDER, SLOT_NUMBER_CONTRACT.clone())?;
 
@@ -215,7 +215,7 @@ async fn slotnum_opcode_unavailable_before_amsterdam() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config();
-    config.hardfork = edr_chain_l1::Hardfork::OSAKA;
+    config.hardfork = edr_chain_l1::Hardfork::Osaka;
     // Surface the resulting halt as an error instead of empty output.
     config.bail_on_call_failure = true;
 

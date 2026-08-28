@@ -12,7 +12,7 @@ use edr_block_api::{
     LocalBlock,
 };
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
-use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork};
 use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_primitives::{B256, KECCAK_EMPTY};
 use edr_receipt::{
@@ -86,6 +86,7 @@ impl<
         let transaction_receipts = map_transaction_receipt_logs::<ExecutionReceiptChainSpecT>(
             hash,
             header.number,
+            header.timestamp,
             transaction_receipts,
         )
         .zip(transactions.iter())
@@ -167,7 +168,7 @@ pub enum LocalBlockCreationError {
 impl<
         BlockReceiptT: ReceiptTrait,
         FetchReceiptErrorT,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         SignedTransactionT: Debug + ExecutableTransaction,
     > EthLocalBlock<BlockReceiptT, FetchReceiptErrorT, HardforkT, SignedTransactionT>
 {
@@ -177,7 +178,7 @@ impl<
         block_config: &BlockConfig<HardforkT>,
         options: GenesisBlockOptions<HardforkT>,
     ) -> Result<Self, LocalBlockCreationError> {
-        let evm_spec_id = block_config.hardfork.clone().into();
+        let evm_spec_id: EvmSpecId = block_config.hardfork.clone().into();
         if evm_spec_id >= EvmSpecId::MERGE && options.mix_hash.is_none() {
             return Err(LocalBlockCreationError::MissingPrevrandao);
         }
@@ -382,6 +383,7 @@ fn map_transaction_receipt_logs<
 >(
     block_hash: B256,
     block_number: u64,
+    block_timestamp: u64,
     receipts: Vec<TransactionReceipt<ExecutionReceiptT::ExecutionReceipt<ExecutionLog>>>,
 ) -> impl Iterator<Item = TransactionReceipt<ExecutionReceiptT::ExecutionReceipt<FilterLog>>> {
     let mut log_index = 0;
@@ -402,6 +404,7 @@ fn map_transaction_receipt_logs<
                         },
                         block_hash,
                         block_number,
+                        block_timestamp: Some(block_timestamp),
                         log_index: {
                             let index = log_index;
                             log_index += 1;

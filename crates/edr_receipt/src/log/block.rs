@@ -28,6 +28,18 @@ pub struct FullBlockLog {
     /// block number
     #[serde(with = "alloy_serde::quantity")]
     pub block_number: u64,
+    /// Timestamp of the block this log is in, added to the `Log` schema by
+    /// <https://github.com/ethereum/execution-apis/pull/639>.
+    ///
+    /// `None` when it's a pending log; or when the log came from a JSON-RPC
+    /// provider that does not provide it. Blocks produced locally always have
+    /// it.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub block_timestamp: Option<u64>,
     /// Index of the log within the block
     #[serde(with = "alloy_serde::quantity")]
     pub log_index: u64,
@@ -103,6 +115,7 @@ mod tests {
                 "0x88fadbb673928c61b9ede3694ae0589ac77ae38ec90a24a6e12e83f42f18c7e8",
             )?,
             block_number: 0xa74fde,
+            block_timestamp: Some(0x66e2_1f00),
             log_index: 0x653b,
             transaction_index: 0x1f,
         });
@@ -111,6 +124,60 @@ mod tests {
         let deserialized: BlockLog = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(log, deserialized);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_block_log_serializes_block_timestamp_as_a_quantity() -> anyhow::Result<()> {
+        let log = FullBlockLog {
+            inner: ReceiptLog {
+                inner: ExecutionLog::new_unchecked(
+                    Address::from_str("0000000000000000000000000000000000000011")?,
+                    vec![],
+                    Bytes::new(),
+                ),
+                transaction_hash: B256::from_str(
+                    "0xc008e9f9bb92057dd0035496fbf4fb54f66b4b18b370928e46d6603933054d5a",
+                )?,
+            },
+            block_hash: B256::from_str(
+                "0x88fadbb673928c61b9ede3694ae0589ac77ae38ec90a24a6e12e83f42f18c7e8",
+            )?,
+            block_number: 0xa74fde,
+            block_timestamp: Some(0x11),
+            log_index: 0x653b,
+            transaction_index: 0x1f,
+        };
+
+        let serialized = serde_json::to_value(&log)?;
+        // hex QUANTITY, matching the spec's example and every other node
+        assert_eq!(serialized["blockTimestamp"], serde_json::json!("0x11"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_block_log_without_block_timestamp_round_trips() -> anyhow::Result<()> {
+        // A node we fork from may predate execution-apis#639, so a log arriving
+        // without the field must deserialize rather than error, and must not be
+        // re-serialized with a fabricated value.
+        let json = serde_json::json!({
+            "address": "0x0000000000000000000000000000000000000011",
+            "topics": [],
+            "data": "0x",
+            "transactionHash": "0xc008e9f9bb92057dd0035496fbf4fb54f66b4b18b370928e46d6603933054d5a",
+            "blockHash": "0x88fadbb673928c61b9ede3694ae0589ac77ae38ec90a24a6e12e83f42f18c7e8",
+            "blockNumber": "0xa74fde",
+            "logIndex": "0x653b",
+            "transactionIndex": "0x1f",
+        });
+
+        let log: FullBlockLog = serde_json::from_value(json)?;
+        assert_eq!(log.block_timestamp, None);
+
+        let serialized = serde_json::to_value(&log)?;
+        assert!(serialized.get("blockTimestamp").is_none());
 
         Ok(())
     }

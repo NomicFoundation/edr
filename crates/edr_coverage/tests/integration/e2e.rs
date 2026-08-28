@@ -4,12 +4,13 @@ use edr_block_api::{GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::BlockConfig;
 use edr_blockchain_api::{BlockchainMetadata as _, StateAtBlock as _};
 use edr_blockchain_local::LocalBlockchain;
-use edr_chain_l1::{L1ChainSpec, L1_BASE_FEE_PARAMS, L1_MIN_ETHASH_DIFFICULTY};
-use edr_chain_spec::{ChainSpec, HardforkChainSpec};
+use edr_chain_l1::{L1ChainSpec, L1_BASE_FEE_PARAMS};
+use edr_chain_spec::{ChainSpec, ProtocolHardforkChainSpec};
 use edr_chain_spec_evm::{
     config::EvmConfig,
     result::{ExecutionResult, Output},
 };
+use edr_chain_spec_provider::ProviderChainSpec as _;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_coverage::CoverageHitCollector;
 use edr_evm::{dry_run_with_inspector, run};
@@ -27,7 +28,7 @@ const INCREMENT_DEPLOYMENT_BYTECODE: &str =
 
 type LocalBlockchainForChainSpec<ChainSpecT> = LocalBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
-    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as ProtocolHardforkChainSpec>::ProtocolHardfork,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;
@@ -143,8 +144,8 @@ fn call_inc_by(
 fn record_hits() -> anyhow::Result<()> {
     let block_config = BlockConfig {
         base_fee_params: L1_BASE_FEE_PARAMS.clone(),
-        hardfork: edr_chain_l1::Hardfork::CANCUN,
-        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+        default_difficulty_fn: L1ChainSpec::default_block_difficulty,
+        hardfork: edr_chain_l1::Hardfork::Cancun,
         scheduled_blob_params: None,
     };
 

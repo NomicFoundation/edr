@@ -664,7 +664,7 @@ async function createSolidityTestsInput(repoPath: string) {
     repoPath
   );
 
-  const { artifacts, testSuiteIds, tracingConfig } =
+  const { artifacts, testSuiteIds, tracingConfig, testSourcePaths } =
     await buildSolidityTestsInput(hre);
   const solidityTestsConfig =
     await solidityTestConfigToSolidityTestRunnerConfigArgs({
@@ -683,6 +683,8 @@ async function createSolidityTestsInput(repoPath: string) {
 
   solidityTestsConfig.projectRoot = repoPath;
   solidityTestsConfig.rpcCachePath = RPC_CACHE_PATH;
+  // Absolute paths of the test sources, for inline-config parsing.
+  solidityTestsConfig.testSourcePaths = testSourcePaths;
   const rootPermission = {
     path: repoPath,
     access: FsAccessPermission.DangerouslyReadWriteDirectory,

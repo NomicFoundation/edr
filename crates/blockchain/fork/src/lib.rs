@@ -24,7 +24,7 @@ use edr_blockchain_api::{
 };
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
 use edr_chain_config::{ChainConfig, HardforkActivations};
-use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction, ProtocolHardfork};
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
@@ -335,26 +335,16 @@ impl<
                         let history_storage_account = history_storage_contract();
 
                         let accounts: EvmState = [
-                            (
-                                BEACON_ROOTS_ADDRESS,
-                                Account {
-                                    info: beacon_root_account.clone(),
-                                    original_info: Box::new(beacon_root_account),
-                                    status: AccountStatus::Created | AccountStatus::Touched,
-                                    storage: HashMap::default(),
-                                    transaction_id: 0,
-                                },
-                            ),
-                            (
-                                HISTORY_STORAGE_ADDRESS,
-                                Account {
-                                    info: history_storage_account.clone(),
-                                    original_info: Box::new(history_storage_account),
-                                    status: AccountStatus::Created | AccountStatus::Touched,
-                                    storage: HashMap::default(),
-                                    transaction_id: 0,
-                                },
-                            ),
+                            (BEACON_ROOTS_ADDRESS, {
+                                let mut account = Account::from(beacon_root_account);
+                                account.status = AccountStatus::Created | AccountStatus::Touched;
+                                account
+                            }),
+                            (HISTORY_STORAGE_ADDRESS, {
+                                let mut account = Account::from(history_storage_account);
+                                account.status = AccountStatus::Created | AccountStatus::Touched;
+                                account
+                            }),
                         ]
                         .into_iter()
                         .collect();
@@ -376,16 +366,11 @@ impl<
                     })
                     .or_insert_with(|| {
                         let beacon_root_account = beacon_roots_contract();
-                        let accounts: EvmState = [(
-                            BEACON_ROOTS_ADDRESS,
-                            Account {
-                                info: beacon_root_account.clone(),
-                                original_info: Box::new(beacon_root_account),
-                                status: AccountStatus::Created | AccountStatus::Touched,
-                                storage: HashMap::default(),
-                                transaction_id: 0,
-                            },
-                        )]
+                        let accounts: EvmState = [(BEACON_ROOTS_ADDRESS, {
+                            let mut account = Account::from(beacon_root_account);
+                            account.status = AccountStatus::Created | AccountStatus::Touched;
+                            account
+                        })]
                         .into_iter()
                         .collect();
 
@@ -449,7 +434,7 @@ impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
         BlockT: ?Sized + Block<SignedTransactionT>,
         FetchReceiptErrorT,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
@@ -607,7 +592,7 @@ impl<
                 >,
             >,
         FetchReceiptErrorT,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
@@ -800,7 +785,7 @@ impl<
                 >,
             >,
         FetchReceiptErrorT,
-        HardforkT: Clone + Debug + Into<EvmSpecId> + PartialOrd,
+        HardforkT: Debug + ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock
@@ -926,7 +911,7 @@ impl<
                 >,
             >,
         FetchReceiptErrorT,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
@@ -1054,7 +1039,7 @@ impl<
                 >,
             >,
         FetchReceiptErrorT,
-        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        HardforkT: ProtocolHardfork,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: 'static
             + RpcBlockChainSpec<

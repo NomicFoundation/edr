@@ -35,7 +35,7 @@ async fn issue_324() -> anyhow::Result<()> {
             http_headers: None,
             url: json_rpc_url_provider::ethereum_sepolia(),
         }));
-    config.hardfork = edr_chain_l1::Hardfork::CANCUN;
+    config.hardfork = edr_chain_l1::Hardfork::Cancun;
 
     let provider = Provider::new(
         runtime::Handle::current(),

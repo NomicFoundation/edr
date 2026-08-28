@@ -43,7 +43,7 @@ fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1C
 
 #[tokio::test(flavor = "multi_thread")]
 async fn emits_transfer_log_on_amsterdam_provider() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::AMSTERDAM)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
     let value = U256::from(1000);
     let receipt = transfer_value(&provider, SENDER, RECIPIENT, value);
@@ -70,7 +70,7 @@ async fn emits_transfer_log_on_amsterdam_provider() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn does_not_emit_transfer_log_before_amsterdam() -> anyhow::Result<()> {
-    let provider = new_provider(edr_chain_l1::Hardfork::OSAKA)?;
+    let provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
 
     let receipt = transfer_value(&provider, SENDER, RECIPIENT, U256::from(1000));
 

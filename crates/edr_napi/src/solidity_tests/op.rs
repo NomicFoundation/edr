@@ -4,7 +4,7 @@ use edr_artifact::ArtifactId;
 use edr_decoder_revert::RevertDecoder;
 use edr_napi_core::solidity::{
     config::{TestRunnerConfig, TracingConfigWithBuffers},
-    SyncTestRunner, SyncTestRunnerFactory,
+    CreateTestRunnerError, SyncTestRunner, SyncTestRunnerFactory,
 };
 use edr_op::{solidity_tests::OpEvmBuilder, transaction::OpTxEnv};
 use edr_primitives::Bytes;
@@ -12,7 +12,7 @@ use edr_solidity_tests::{
     contracts::ContractsByArtifact,
     multi_runner::TestContract,
     revm::context::{BlockEnv, TxEnv},
-    MultiContractRunner,
+    MultiContractRunner, SolidityTestRunnerConfigError,
 };
 use napi::tokio;
 use napi_derive::napi;
@@ -31,7 +31,7 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
         libs_to_deploy: Vec<Bytes>,
         revert_decoder: RevertDecoder,
         tracing_config: TracingConfigWithBuffers,
-    ) -> napi::Result<Box<dyn SyncTestRunner>> {
+    ) -> Result<Box<dyn SyncTestRunner>, CreateTestRunnerError> {
         let contract_decoder = LazyContractDecoder::new(tracing_config);
 
         let runner = tokio::task::block_in_place(|| {
@@ -41,23 +41,28 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
                     _,
                     OpEvmBuilder,
                     edr_op::HaltReason,
-                    edr_op::Hardfork,
+                    edr_op::EvmHardfork,
                     _,
                     edr_op::InvalidTransaction,
                     OpTxEnv<TxEnv>,
                 >::new(
-                    config.try_into()?,
+                    config.try_into_runner_config::<edr_op::OpChainSpec>()?,
                     contracts,
                     known_contracts,
                     libs_to_deploy,
                     contract_decoder,
                     revert_decoder,
                 ))
-                .map_err(|err| {
-                    napi::Error::new(
+                .map_err(|err| match err {
+                    // Preserve the structured inline-config problems so the
+                    // caller can surface their locations to the user.
+                    SolidityTestRunnerConfigError::InlineConfig(errors) => {
+                        CreateTestRunnerError::InvalidInlineConfig(errors)
+                    }
+                    err => CreateTestRunnerError::Failed(napi::Error::new(
                         napi::Status::GenericFailure,
                         format!("Failed to create multi contract runner: {err}"),
-                    )
+                    )),
                 })
         })?;
 

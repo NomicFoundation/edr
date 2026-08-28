@@ -115,7 +115,7 @@ impl Provider {
                         })
                         .map_err(|error| napi::Error::from_reason(error.to_string()))
                     }),
-                    edr_solidity::artifacts::CompilerType::Solx => serde_json::from_value::<
+                    edr_solidity::artifacts::CompilerType::SlangSolx => serde_json::from_value::<
                         edr_solidity::artifacts::CompilerOutput<
                             edr_solidity::artifacts::SolxBytecode,
                         >,

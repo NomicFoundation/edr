@@ -132,7 +132,7 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, OpSignedTransaction>
                 logs_bloom,
                 logs,
                 deposit_nonce: self.deposit_nonce,
-                deposit_receipt_version: if hardfork >= Hardfork::CANYON {
+                deposit_receipt_version: if hardfork >= Hardfork::Canyon {
                     Some(1)
                 } else {
                     None

@@ -3,7 +3,6 @@ use std::{collections::HashMap, path::PathBuf};
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_primitives::{Address, B256, U256};
 use edr_solidity::config::IncludeTraces;
-use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
     backend::Predeploy,
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
@@ -13,6 +12,7 @@ use foundry_evm::{
 
 use crate::{
     fork::CreateFork,
+    inline_config::{ImportResolver, InlineConfigErrors},
     opts::{effective_transaction_gas_cap, Env as EvmEnv, EvmOpts},
 };
 
@@ -27,6 +27,10 @@ pub enum SolidityTestRunnerConfigError {
     /// Failed to normalize project root
     #[error("Failed to normalize project root with error: {0}")]
     InvalidProjectRoot(std::io::Error),
+    /// One or more test sources carry invalid inline configuration. Carries
+    /// every problem found, each located at its source line.
+    #[error("Found invalid inline configuration in test sources:\n{0}")]
+    InlineConfig(InlineConfigErrors),
 }
 
 /// Solidity tests configuration
@@ -61,8 +65,13 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// Whether to generate a gas report after running tests
     pub generate_gas_report: bool,
-    /// Test function level config overrides.
-    pub test_function_overrides: HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+    /// Maps each test source's solc source name to its absolute path on disk,
+    /// used to read and parse the source for inline configuration. A source
+    /// without an entry has no inline configuration collected.
+    pub test_source_paths: HashMap<PathBuf, PathBuf>,
+    /// Resolves the imports of test sources when parsing their inline
+    /// configuration (`forge-config:`/`hardhat-config:` NatSpec directives).
+    pub import_resolver: ImportResolver,
 }
 
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
@@ -174,7 +183,7 @@ pub enum CollectStackTraces {
 }
 
 /// Test function level config override.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TestFunctionConfigOverride {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
     /// as the test.
@@ -196,14 +205,14 @@ pub struct TestFunctionConfigOverride {
 }
 
 /// Timeout configuration.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TimeoutConfig {
     /// Optional timeout (in seconds)
     pub time: Option<u32>,
 }
 
 /// Test function or test contract level fuzz config override.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FuzzConfigOverride {
     /// The number of test cases that must execute for each property test
     pub runs: Option<u32>,
@@ -220,7 +229,7 @@ pub struct FuzzConfigOverride {
 }
 
 /// Test function or test contract level invariant config override.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct InvariantConfigOverride {
     /// The number of runs that must execute for each invariant test group.
     pub runs: Option<u32>,

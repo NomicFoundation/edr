@@ -1,20 +1,21 @@
 use std::sync::LazyLock;
 
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use op_revm::OpSpecId;
+
+use super::OpHardfork;
 
 /// OP Mainnet chain ID
 pub const MAINNET_CHAIN_ID: u64 = 0xa;
 
-pub(crate) static MAINNET_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpSpecId>> =
+pub(crate) static MAINNET_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpHardfork>> =
     LazyLock::new(|| {
         BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
                 ConstantBaseFeeParams::new(50, 6),
             ),
             (
-                BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::Canyon),
                 ConstantBaseFeeParams::new(250, 6),
             ),
             (
@@ -31,15 +32,15 @@ pub(crate) static MAINNET_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpSpecId>> =
 /// OP Sepolia chain ID
 pub const SEPOLIA_CHAIN_ID: u64 = 0xaa37dc;
 
-pub(crate) static SEPOLIA_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpSpecId>> =
+pub(crate) static SEPOLIA_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpHardfork>> =
     LazyLock::new(|| {
         BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
-                BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+                BaseFeeActivation::Hardfork(OpHardfork::Bedrock),
                 ConstantBaseFeeParams::new(50, 6),
             ),
             (
-                BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+                BaseFeeActivation::Hardfork(OpHardfork::Canyon),
                 ConstantBaseFeeParams::new(250, 6),
             ),
             (

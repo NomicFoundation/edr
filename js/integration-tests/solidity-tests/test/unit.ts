@@ -8,6 +8,8 @@ import {
 import {
   CheatcodeErrorCode,
   CollectStackTraces,
+  InlineConfigDirectiveError,
+  InlineConfigError,
   L1_CHAIN_TYPE,
   OP_CHAIN_TYPE,
   SuiteResult,
@@ -33,6 +35,68 @@ describe("Unit tests", () => {
 
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 2);
+  });
+
+  it("InvalidInlineConfig", async function () {
+    // Ill-formed inline configuration rejects the whole run up front, carrying
+    // the structured, located problems on the error so Hardhat can point the
+    // user at each one.
+    await assert.rejects(
+      testContext.runTestsWithStats("InlineConfigInvalidTest"),
+      (error: Error & { inlineConfigErrors?: InlineConfigError[] }) => {
+        const errors = error.inlineConfigErrors;
+        if (!Array.isArray(errors)) {
+          throw new Error(
+            "expected structured `inlineConfigErrors` on the thrown error"
+          );
+        }
+
+        // One entry per malformed function, each a directive-level problem
+        // located at its offending directive.
+        assert.equal(errors.length, 2);
+        const byFunction = new Map(
+          errors
+            .filter(
+              (entry): entry is InlineConfigDirectiveError =>
+                entry.kind === "directive"
+            )
+            .map((entry) => [entry.function, entry])
+        );
+        assert.equal(byFunction.size, 2);
+
+        const invalidRuns = byFunction.get("testFuzz_InvalidRuns");
+        if (invalidRuns === undefined) {
+          throw new Error("expected testFuzz_InvalidRuns to be reported");
+        }
+        assert.equal(invalidRuns.contract, "InlineConfigInvalidTest");
+        assert.match(invalidRuns.sourceName, /InlineConfigInvalid\.t\.sol$/);
+        assert.equal(invalidRuns.line, 10);
+        // The problem is a discriminated union carrying the structured data of
+        // the offending directive.
+        if (invalidRuns.problem.kind !== "InlineConfigInvalidValue") {
+          throw new Error(
+            `expected InlineConfigInvalidValue, got ${invalidRuns.problem.kind}`
+          );
+        }
+        assert.equal(invalidRuns.problem.key, "default.fuzz.runs");
+        assert.equal(invalidRuns.problem.value, "-1");
+        assert.equal(invalidRuns.problem.expected, "non-negative integer");
+
+        const invalidKey = byFunction.get("testFuzz_InvalidKey");
+        if (invalidKey === undefined) {
+          throw new Error("expected testFuzz_InvalidKey to be reported");
+        }
+        assert.equal(invalidKey.contract, "InlineConfigInvalidTest");
+        assert.equal(invalidKey.line, 15);
+        if (invalidKey.problem.kind !== "InlineConfigInvalidKey") {
+          throw new Error(
+            `expected InlineConfigInvalidKey, got ${invalidKey.problem.kind}`
+          );
+        }
+        assert.equal(invalidKey.problem.key, "default.fuzz.bogusKey");
+        return true;
+      }
+    );
   });
 
   it("Latest global fork stack trace", async function (t) {
@@ -672,24 +736,10 @@ describe("Unit tests", () => {
 
   describe("FunctionLevelConfigOverride", function () {
     it("AllowInternalExepectRevert", async function () {
-      const artifact = testContext.matchingTest("InternalRevertingTest")[0];
-      const testFunctionOverrides = [
-        {
-          identifier: {
-            contractArtifact: artifact,
-            functionSelector: "0x3a1da94e", // testInternalRevert()
-          },
-          config: {
-            allowInternalExpectRevert: true,
-          },
-        },
-      ];
-
+      // `allowInternalExpectRevert` comes from an inline `forge-config:`
+      // directive on `testInternalRevert()` in `InternalRevert.t.sol`.
       const result = await testContext.runTestsWithStats(
-        "InternalRevertingTest",
-        {
-          testFunctionOverrides,
-        }
+        "InternalRevertingTest"
       );
 
       assert.equal(result.totalTests, 1);

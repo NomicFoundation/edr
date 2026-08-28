@@ -10,12 +10,8 @@ use edr_primitives::HashMap;
 
 use crate::Hardfork;
 
-/// Chain configuration module for `arena_z`
-pub mod arena_z;
 /// Chain configuration module for `automata`
 pub mod automata;
-/// Chain configuration module for `base`
-pub mod base;
 /// Chain configuration module for `bob`
 pub mod bob;
 /// Chain configuration module for `boba`
@@ -24,8 +20,8 @@ pub mod boba;
 pub mod camp;
 /// Chain configuration module for `celo`
 pub mod celo;
-/// Chain configuration module for `creator_chain_testnet`
-pub mod creator_chain_testnet;
+/// Chain configuration module for `celo_sep`
+pub mod celo_sep;
 /// Chain configuration module for `cyber`
 pub mod cyber;
 /// Chain configuration module for `ethernity`
@@ -80,8 +76,6 @@ pub mod soneium_minato;
 pub mod sseed;
 /// Chain configuration module for `swan`
 pub mod swan;
-/// Chain configuration module for `swell`
-pub mod swell;
 /// Chain configuration module for `tbn`
 pub mod tbn;
 /// Chain configuration module for `unichain`
@@ -95,24 +89,16 @@ pub mod zora;
 
 pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
     [
-        (arena_z::MAINNET_CHAIN_ID, arena_z::mainnet_config()),
-        (arena_z::SEPOLIA_CHAIN_ID, arena_z::sepolia_config()),
         (automata::MAINNET_CHAIN_ID, automata::mainnet_config()),
-        (base::MAINNET_CHAIN_ID, base::mainnet_config()),
-        (base::SEPOLIA_CHAIN_ID, base::sepolia_config()),
         (bob::MAINNET_CHAIN_ID, bob::mainnet_config()),
         (boba::MAINNET_CHAIN_ID, boba::mainnet_config()),
         (boba::SEPOLIA_CHAIN_ID, boba::sepolia_config()),
         (camp::SEPOLIA_CHAIN_ID, camp::sepolia_config()),
         (celo::MAINNET_CHAIN_ID, celo::mainnet_config()),
-        (
-            creator_chain_testnet::SEPOLIA_CHAIN_ID,
-            creator_chain_testnet::sepolia_config(),
-        ),
+        (celo_sep::SEPOLIA_CHAIN_ID, celo_sep::sepolia_config()),
         (cyber::MAINNET_CHAIN_ID, cyber::mainnet_config()),
         (cyber::SEPOLIA_CHAIN_ID, cyber::sepolia_config()),
         (ethernity::MAINNET_CHAIN_ID, ethernity::mainnet_config()),
-        (ethernity::SEPOLIA_CHAIN_ID, ethernity::sepolia_config()),
         (fraxtal::MAINNET_CHAIN_ID, fraxtal::mainnet_config()),
         (funki::MAINNET_CHAIN_ID, funki::mainnet_config()),
         (funki::SEPOLIA_CHAIN_ID, funki::sepolia_config()),
@@ -164,7 +150,6 @@ pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
         ),
         (sseed::MAINNET_CHAIN_ID, sseed::mainnet_config()),
         (swan::MAINNET_CHAIN_ID, swan::mainnet_config()),
-        (swell::MAINNET_CHAIN_ID, swell::mainnet_config()),
         (tbn::MAINNET_CHAIN_ID, tbn::mainnet_config()),
         (tbn::SEPOLIA_CHAIN_ID, tbn::sepolia_config()),
         (unichain::MAINNET_CHAIN_ID, unichain::mainnet_config()),

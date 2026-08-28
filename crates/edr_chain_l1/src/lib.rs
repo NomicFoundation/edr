@@ -2,29 +2,36 @@
 
 pub mod block;
 pub mod chains;
+pub mod difficulty;
 mod eip2718;
+pub mod hardfork;
 pub mod pooled;
 pub mod receipt;
 pub mod request;
+pub mod reward;
 pub mod rpc;
 pub mod signed;
 mod spec;
 pub mod r#type;
 
-use edr_chain_spec::EvmSpecId;
 use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams};
 pub use revm_context_interface::result::OutOfGasError;
 
 pub use self::{
-    eip2718::TypedEnvelope, pooled::L1PooledTransaction, r#type::L1TransactionType,
-    request::L1TransactionRequest, signed::L1SignedTransaction, spec::L1ChainSpec,
+    eip2718::TypedEnvelope, hardfork::L1Hardfork, pooled::L1PooledTransaction,
+    r#type::L1TransactionType, request::L1TransactionRequest, signed::L1SignedTransaction,
+    spec::L1ChainSpec,
 };
+
+/// Ethereum L1 EVM-level hardfork; see
+/// [`EvmHardforkChainSpec::EvmHardfork`](edr_chain_spec::EvmHardforkChainSpec::EvmHardfork).
+pub type EvmHardfork = edr_chain_spec::EvmSpecId;
 
 /// Ethereum L1 halt reason.
 pub type HaltReason = revm_context_interface::result::HaltReason;
 
-/// Ethereum L1 hardfork.
-pub type Hardfork = EvmSpecId;
+/// Convenience alias for the Ethereum L1 hardfork.
+pub type Hardfork = L1Hardfork;
 
 /// Ethereum L1 invalid header error.
 pub type InvalidHeader = revm_context_interface::result::InvalidHeader;
