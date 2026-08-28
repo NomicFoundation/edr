@@ -190,7 +190,13 @@ async function main(): Promise<boolean> {
       return false;
     }
   } else if (args.command === "solidity-tests-memory") {
-    const repos = args.repo !== undefined ? args.repo.split(",") : MEMORY_REPOS;
+    const repos =
+      args.repo !== undefined
+        ? args.repo
+            .split(",")
+            .map((repo) => repo.trim())
+            .filter((repo) => repo.length > 0)
+        : MEMORY_REPOS;
     const verbosities =
       args.verbosity !== undefined ? [args.verbosity] : MEMORY_VERBOSITIES;
     const memoryResults = await runSolidityTestsMemoryBenchmark(
