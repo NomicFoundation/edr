@@ -217,20 +217,28 @@ impl TestFunctionConfigOverride {
     /// configuration underneath a function-level one: values set on the
     /// function win, everything else falls back to the contract's.
     pub fn fill_from(&mut self, fallback: &Self) {
+        let Self {
+            allow_internal_expect_revert,
+            isolate,
+            evm_version,
+            fuzz,
+            invariant,
+        } = fallback;
+
         fill(
             &mut self.allow_internal_expect_revert,
-            &fallback.allow_internal_expect_revert,
+            allow_internal_expect_revert,
         );
-        fill(&mut self.isolate, &fallback.isolate);
-        fill(&mut self.evm_version, &fallback.evm_version);
+        fill(&mut self.isolate, isolate);
+        fill(&mut self.evm_version, evm_version);
 
-        if let Some(fallback_fuzz) = &fallback.fuzz {
+        if let Some(fallback_fuzz) = fuzz {
             match &mut self.fuzz {
                 Some(fuzz) => fuzz.fill_from(fallback_fuzz),
                 None => self.fuzz = Some(fallback_fuzz.clone()),
             }
         }
-        if let Some(fallback_invariant) = &fallback.invariant {
+        if let Some(fallback_invariant) = invariant {
             match &mut self.invariant {
                 Some(invariant) => invariant.fill_from(fallback_invariant),
                 None => self.invariant = Some(fallback_invariant.clone()),
@@ -243,10 +251,17 @@ impl FuzzConfigOverride {
     /// Fills every unset value from `fallback` (see
     /// [`TestFunctionConfigOverride::fill_from`]).
     fn fill_from(&mut self, fallback: &Self) {
-        fill(&mut self.runs, &fallback.runs);
-        fill(&mut self.max_test_rejects, &fallback.max_test_rejects);
-        fill(&mut self.show_logs, &fallback.show_logs);
-        fill(&mut self.timeout, &fallback.timeout);
+        let Self {
+            runs,
+            max_test_rejects,
+            show_logs,
+            timeout,
+        } = fallback;
+
+        fill(&mut self.runs, runs);
+        fill(&mut self.max_test_rejects, max_test_rejects);
+        fill(&mut self.show_logs, show_logs);
+        fill(&mut self.timeout, timeout);
     }
 }
 
@@ -254,11 +269,19 @@ impl InvariantConfigOverride {
     /// Fills every unset value from `fallback` (see
     /// [`TestFunctionConfigOverride::fill_from`]).
     fn fill_from(&mut self, fallback: &Self) {
-        fill(&mut self.runs, &fallback.runs);
-        fill(&mut self.depth, &fallback.depth);
-        fill(&mut self.fail_on_revert, &fallback.fail_on_revert);
-        fill(&mut self.call_override, &fallback.call_override);
-        fill(&mut self.timeout, &fallback.timeout);
+        let Self {
+            runs,
+            depth,
+            fail_on_revert,
+            call_override,
+            timeout,
+        } = fallback;
+
+        fill(&mut self.runs, runs);
+        fill(&mut self.depth, depth);
+        fill(&mut self.fail_on_revert, fail_on_revert);
+        fill(&mut self.call_override, call_override);
+        fill(&mut self.timeout, timeout);
     }
 }
 
