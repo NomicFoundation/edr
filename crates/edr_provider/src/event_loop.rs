@@ -2,8 +2,8 @@
 //!
 //! The loop's thread owns the [`ProviderData`] outright; all access goes
 //! through [`Message`]s, so no locking is needed. The loop also owns the
-//! interval-mining timer, re-arming it from
-//! [`ProviderData::interval_config`] whenever a message may have changed it.
+//! interval-mining timer, restarting it whenever a request reconfigured it —
+//! including to the interval already set, as Hardhat does.
 
 use std::{
     convert::Infallible,
@@ -152,16 +152,16 @@ pub(crate) fn run<ChainSpecT, TimerT>(
             }
             recv(request_receiver) -> message => match message {
                 Ok(Message::Request { request, on_response }) => {
-                    let current_interval = data.interval_config().cloned();
-
                     let response = requests::execute_request(&mut data, request);
 
-                    on_response.call(response);
-
-                    // `evm_setIntervalMining` may have changed the configuration.
-                    if data.interval_config() != current_interval.as_ref() {
+                    // Armed before the response is handed back, because
+                    // `on_response` serializes it on this thread and that is not
+                    // part of the interval.
+                    if data.take_interval_reconfigured() {
                         interval_timer = next_interval_timer(data.interval_config());
                     }
+
+                    on_response.call(response);
                 }
                 Ok(Message::SetCallOverrideCallback { callback, ack }) => {
                     data.set_call_override_callback(callback);

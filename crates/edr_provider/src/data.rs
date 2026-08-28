@@ -266,6 +266,8 @@ pub struct ProviderData<
     gas_estimation_mode: GasEstimationMode,
     is_auto_mining: bool,
     interval_config: Option<IntervalConfig>,
+    /// Signals the event loop to restart the interval-mining timer.
+    interval_reconfigured: bool,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     mining_order: MineOrdering,
@@ -445,8 +447,14 @@ where
 
     /// Sets the interval mining configuration. `None` disables interval
     /// mining.
+    ///
+    /// Always signals a restart of the interval-mining timer, including for the
+    /// configuration that is already set. Equality of two configurations does
+    /// not imply an equal schedule, because a range is drawn anew before each
+    /// block, so it must not be used to decide whether to restart.
     pub fn set_interval_config(&mut self, interval_config: Option<IntervalConfig>) {
         self.interval_config = interval_config;
+        self.interval_reconfigured = true;
     }
 
     /// Sets the coinbase.
@@ -460,6 +468,12 @@ where
 
     pub fn stop_impersonating_account(&mut self, address: Address) -> bool {
         self.impersonated_accounts.remove(&address)
+    }
+
+    /// Returns whether [`Self::set_interval_config`] was called since this was
+    /// last called, clearing the signal.
+    pub fn take_interval_reconfigured(&mut self) -> bool {
+        std::mem::take(&mut self.interval_reconfigured)
     }
 
     /// Returns the transaction gas cap, if set.
@@ -785,6 +799,7 @@ where
             gas_estimation_mode,
             is_auto_mining,
             interval_config,
+            interval_reconfigured: false,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
             mining_order,
@@ -3220,6 +3235,35 @@ mod tests {
         console_log::tests::{deploy_console_log_contract, ConsoleLogTransaction},
         test_utils::{create_test_config, one_ether, ProviderTestFixture},
     };
+
+    /// Hardhat restarts its mining timer on every `evm_setIntervalMining`,
+    /// including for the block time it already has. It deliberately dropped the
+    /// same-value short-circuit from `MiningTimer.setBlockTime` in commit
+    /// `1929c977c`.
+    #[test]
+    fn set_interval_config_always_signals_a_restart() -> anyhow::Result<()> {
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
+        let data = &mut fixture.provider_data;
+
+        assert!(!data.take_interval_reconfigured());
+
+        let interval = IntervalConfig::Fixed(NonZeroU64::new(100).expect("non-zero"));
+
+        data.set_interval_config(Some(interval.clone()));
+        assert!(data.take_interval_reconfigured());
+        assert!(
+            !data.take_interval_reconfigured(),
+            "the signal is taken once"
+        );
+
+        data.set_interval_config(Some(interval));
+        assert!(data.take_interval_reconfigured());
+
+        data.set_interval_config(None);
+        assert!(data.take_interval_reconfigured());
+
+        Ok(())
+    }
 
     #[test]
     fn test_local_account_balance() -> anyhow::Result<()> {
