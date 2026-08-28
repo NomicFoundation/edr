@@ -782,6 +782,12 @@ export interface MemoryCell {
 export interface MemoryMeasurementPayload extends MemoryCell {
   /** Peak resident set size of the whole process, in bytes. */
   peakRssBytes: number;
+  /**
+   * Peak RSS after the repo's artifacts were loaded but before any test ran,
+   * in bytes. This part of `peakRssBytes` is a constant offset that has
+   * nothing to do with trace retention.
+   */
+  baselineRssBytes?: number;
   elapsedMs: number;
   suiteCount: number;
   testCount: number;
@@ -835,6 +841,8 @@ export async function runSolidityTestsMemoryChild(
 ): Promise<MemoryMeasurementPayload> {
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
     await createSolidityTestsInput(repoPath, verbosity);
+  // `maxRSS` is in kilobytes on Linux.
+  const baselineRssBytes = process.resourceUsage().maxRSS * 1024;
 
   const startNs = process.hrtime.bigint();
   const [, results] = await runAllSolidityTests(
@@ -851,9 +859,10 @@ export async function runSolidityTestsMemoryChild(
     throw new Error(`Didn't run any tests for ${repoName}`);
   }
 
-  // Read the high-water mark *before* dropping the results, and keep `results`
-  // alive across the read so neither V8 nor Rust can reclaim the arenas early.
-  // `maxRSS` is in kilobytes on Linux.
+  // `runAllSolidityTests` holds every `SuiteResult` — and with it every
+  // `TestResult`'s trace arenas — alive for the whole run, so the high-water
+  // mark reflects full retention. `maxRSS` never decreases, so where it is
+  // read does not matter.
   const peakRssBytes = process.resourceUsage().maxRSS * 1024;
 
   let testCount = 0;
@@ -871,6 +880,7 @@ export async function runSolidityTestsMemoryChild(
     repo: repoName,
     verbosity,
     peakRssBytes,
+    baselineRssBytes,
     elapsedMs: Number(elapsedNs / 1_000_000n),
     suiteCount: results.length,
     testCount,
@@ -922,7 +932,9 @@ function parseMemoryMeasurement(
   ] as const;
   if (
     typeof candidate.repo !== "string" ||
-    !numbers.every((key) => typeof candidate[key] === "number")
+    !numbers.every((key) => typeof candidate[key] === "number") ||
+    (candidate.baselineRssBytes !== undefined &&
+      typeof candidate.baselineRssBytes !== "number")
   ) {
     return undefined;
   }
@@ -930,6 +942,7 @@ function parseMemoryMeasurement(
     repo: candidate.repo,
     verbosity: candidate.verbosity as number,
     peakRssBytes: candidate.peakRssBytes as number,
+    baselineRssBytes: candidate.baselineRssBytes,
     elapsedMs: candidate.elapsedMs as number,
     suiteCount: candidate.suiteCount as number,
     testCount: candidate.testCount as number,
@@ -1292,13 +1305,18 @@ function reportedPeakRssBytes(
 function logMemoryProgress(result: MemoryMeasurement | MemoryExhausted) {
   const peak = reportedPeakRssBytes(result);
   switch (result.kind) {
-    case "measured":
+    case "measured": {
+      const baseline =
+        result.baselineRssBytes !== undefined
+          ? ` (${displayMiB(result.baselineRssBytes)} before tests ran)`
+          : "";
       console.error(
-        `  peak RSS ${displayMiB(peak ?? result.peakRssBytes)}, ` +
+        `  peak RSS ${displayMiB(peak ?? result.peakRssBytes)}${baseline}, ` +
           `${displayDuration(result.elapsedMs)}, ${result.testCount} tests ` +
           `(${result.failureCount} failing)`
       );
       break;
+    }
     case "oom":
       console.error(
         peak !== undefined
