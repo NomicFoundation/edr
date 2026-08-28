@@ -1,8 +1,6 @@
 /// Test utilities for blob transactions.
 #[allow(dead_code)]
 pub mod blob;
-/// Test utilities for constructing an L1 provider and issuing common requests.
-#[cfg(feature = "test-utils")]
 pub mod provider;
 
 pub fn help_test_method_invocation_serde<MethodInvocation>(call: MethodInvocation)

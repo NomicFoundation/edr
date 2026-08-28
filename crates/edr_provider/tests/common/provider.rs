@@ -1,4 +1,5 @@
 //! Helpers for constructing an L1 test provider and issuing common requests.
+#![cfg(feature = "test-utils")]
 
 use std::sync::Arc;
 
