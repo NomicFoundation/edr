@@ -9,19 +9,31 @@ export declare class BytecodeWrapper {}
 
 export declare class ContractDecoder {
   /** Creates an empty instance. */
-  constructor()
+  constructor();
   /** Creates a new instance with the provided configuration. */
-  static withContracts(config: TracingConfigWithBuffers): ContractDecoder
+  static withContracts(config: TracingConfigWithBuffers): ContractDecoder;
 }
 
 export declare class EdrContext {
   /** Creates a new [`EdrContext`] instance. Should only be called once! */
-  constructor()
+  constructor();
   /** Constructs a new provider with the provided configuration. */
-  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder): Promise<Provider>
+  createProvider(
+    chainType: string,
+    providerConfig: ProviderConfig,
+    loggerConfig: LoggerConfig,
+    subscriptionConfig: SubscriptionConfig,
+    contractDecoder: ContractDecoder
+  ): Promise<Provider>;
   /** Registers a new provider factory for the provided chain type. */
-  registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
-  registerSolidityTestRunnerFactory(chainType: string, factory: SolidityTestRunnerFactory): Promise<void>
+  registerProviderFactory(
+    chainType: string,
+    factory: ProviderFactory
+  ): Promise<void>;
+  registerSolidityTestRunnerFactory(
+    chainType: string,
+    factory: SolidityTestRunnerFactory
+  ): Promise<void>;
   /**
    * Executes Solidity tests
    *
@@ -45,18 +57,25 @@ export declare class EdrContext {
    * - `onTestSuiteCompletedCallback`: The progress callback will be called
    *   with the results of each test suite as soon as it finished executing.
    */
-  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (arg: SuiteResult) => void): Promise<SolidityTestResult>
+  runSolidityTests(
+    chainType: string,
+    artifacts: Array<Artifact>,
+    testSuites: Array<ArtifactId>,
+    configArgs: SolidityTestRunnerConfigArgs,
+    tracingConfig: TracingConfigWithBuffers,
+    onTestSuiteCompletedCallback: (arg: SuiteResult) => void
+  ): Promise<SolidityTestResult>;
 }
 
 export declare class Exit {
-  get kind(): ExitCode
-  isError(): boolean
-  getReason(): string
+  get kind(): ExitCode;
+  isError(): boolean;
+  getReason(): string;
 }
 
 export declare class Precompile {
   /** Returns the address of the precompile. */
-  get address(): Uint8Array
+  get address(): Uint8Array;
 }
 
 /** A JSON-RPC provider for Ethereum. */
@@ -66,32 +85,41 @@ export declare class Provider {
    *
    * For internal use only. Support for this method may be removed in the future.
    */
-  addCompilationResult(solcVersion: string, compilerInput: any, compilerOutput: any): Promise<void>
+  addCompilationResult(
+    solcVersion: string,
+    compilerInput: any,
+    compilerOutput: any
+  ): Promise<void>;
   /** Retrieves the instance's contract decoder. */
-  contractDecoder(): ContractDecoder
+  contractDecoder(): ContractDecoder;
   /** Handles a JSON-RPC request and returns a JSON-RPC response. */
-  handleRequest(request: string): Promise<Response>
-  setCallOverrideCallback(callOverrideCallback: (contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>): Promise<void>
+  handleRequest(request: string): Promise<Response>;
+  setCallOverrideCallback(
+    callOverrideCallback: (
+      contract_address: ArrayBuffer,
+      data: ArrayBuffer
+    ) => Promise<CallOverrideResult | undefined>
+  ): Promise<void>;
   /**
    * Set to `true` to make the traces returned with `eth_call`,
    * `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
    * `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
    * `false` to disable this.
    */
-  setVerboseTracing(verboseTracing: boolean): Promise<void>
+  setVerboseTracing(verboseTracing: boolean): Promise<void>;
 }
 
 export declare class ProviderFactory {}
 
 export declare class RawTrace {
-  get trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
+  get trace(): Array<TracingMessage | TracingStep | TracingMessageResult>;
 }
 
 export declare class Response {
   /** Returns the response data as a JSON string or a JSON object. */
-  get data(): string | any
+  get data(): string | any;
   /** Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace. */
-  stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | null
+  stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | null;
   /**
    * Constructs the execution traces for the request. Returns an empty array
    * if traces are not enabled for this provider according to
@@ -99,17 +127,17 @@ export declare class Response {
    * an array of the root calls of the trace, which always includes the
    * request's call itself.
    */
-  callTraces(): Array<CallTrace>
+  callTraces(): Array<CallTrace>;
 }
 
 export declare class ReturnData {
-  readonly value: Uint8Array
-  constructor(value: Uint8Array)
-  isEmpty(): boolean
-  isErrorReturnData(): boolean
-  isPanicReturnData(): boolean
-  decodeError(): string
-  decodePanic(): bigint
+  readonly value: Uint8Array;
+  constructor(value: Uint8Array);
+  isEmpty(): boolean;
+  isErrorReturnData(): boolean;
+  isPanicReturnData(): boolean;
+  decodeError(): string;
+  decodePanic(): bigint;
 }
 
 export declare class SolidityTestRunnerFactory {}
@@ -117,26 +145,26 @@ export declare class SolidityTestRunnerFactory {}
 /** See [`edr_solidity_tests::result::TestResult`] */
 export declare class TestResult {
   /** The name of the test. */
-  get name(): string
+  get name(): string;
   /** See [`edr_solidity_tests::result::TestResult::status`] */
-  get status(): TestStatus
+  get status(): TestStatus;
   /** See [`edr_solidity_tests::result::TestResult::reason`] */
-  get reason(): string | undefined
+  get reason(): string | undefined;
   /** See [`edr_solidity_tests::result::TestResult::counterexample`] */
-  get counterexample(): BaseCounterExample | CounterExampleSequence | undefined
+  get counterexample(): BaseCounterExample | CounterExampleSequence | undefined;
   /** See [`edr_solidity_tests::result::TestResult::decoded_logs`] */
-  get decodedLogs(): Array<string>
+  get decodedLogs(): Array<string>;
   /** See [`edr_solidity_tests::result::TestResult::kind`] */
-  get kind(): StandardTestKind | FuzzTestKind | InvariantTestKind
+  get kind(): StandardTestKind | FuzzTestKind | InvariantTestKind;
   /** See [`edr_solidity_tests::result::TestResult::duration`] */
-  get durationNs(): bigint
+  get durationNs(): bigint;
   /**
    * Groups of value snapshot entries (incl. gas).
    *
    * Only present if the test runner collected scoped snapshots. Currently,
    * this is always the case.
    */
-  get valueSnapshotGroups(): Array<ValueSnapshotGroup> | undefined
+  get valueSnapshotGroups(): Array<ValueSnapshotGroup> | undefined;
   /**
    * Compute the error stack trace.
    * The result is either the stack trace or the reason why we couldn't
@@ -147,7 +175,8 @@ export declare class TestResult {
    * field then explains the failure.
    * Cannot throw.
    */
-  stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null
+  stackTrace():
+    StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null;
   /**
    * Constructs the execution traces for the test. Returns an empty array if
    * traces for this test were not requested according to
@@ -156,89 +185,93 @@ export declare class TestResult {
    * call itself and may also include the setup call if there is one
    * (identified by the function name `setUp`).
    */
-  callTraces(): Array<CallTrace>
+  callTraces(): Array<CallTrace>;
 }
 
 /** Specification of overrides for an account and its storage. */
 export interface AccountOverride {
   /** The account's address */
-  address: Uint8Array
+  address: Uint8Array;
   /** If present, the overwriting balance. */
-  balance?: bigint
+  balance?: bigint;
   /** If present, the overwriting nonce. */
-  nonce?: bigint
+  nonce?: bigint;
   /** If present, the overwriting code. */
-  code?: Uint8Array
+  code?: Uint8Array;
   /**
    * BEWARE: This field is not supported yet. See <https://github.com/NomicFoundation/edr/issues/911>
    *
    * If present, the overwriting storage.
    */
-  storage?: Array<StorageSlot>
+  storage?: Array<StorageSlot>;
 }
 
 export interface AddressLabel {
   /** The address to label */
-  address: Uint8Array
+  address: Uint8Array;
   /** The label to assign to the address */
-  label: string
+  label: string;
 }
 
 /**
  * Adds per-statement coverage instrumentation to the given Solidity source
  * code.
  */
-export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
+export declare function addStatementCoverageInstrumentation(
+  sourceCode: string,
+  sourceId: string,
+  solidityVersion: string
+): InstrumentationResult;
 
 /** A compilation artifact. */
 export interface Artifact {
   /** The identifier of the artifact. */
-  id: ArtifactId
+  id: ArtifactId;
   /** The test contract. */
-  contract: ContractData
+  contract: ContractData;
 }
 
 /** The identifier of a Solidity contract. */
 export interface ArtifactId {
   /** The name of the contract. */
-  name: string
+  name: string;
   /** Original source file path. */
-  source: string
+  source: string;
   /** The solc semver string. */
-  solcVersion: string
+  solcVersion: string;
 }
 
 /** See [`edr_solidity_tests::fuzz::BaseCounterExample`] */
 export interface BaseCounterExample {
   /** See [`edr_solidity_tests::fuzz::BaseCounterExample::sender`] */
-  readonly sender?: Uint8Array
+  readonly sender?: Uint8Array;
   /** See [`edr_solidity_tests::fuzz::BaseCounterExample::addr`] */
-  readonly address?: Uint8Array
+  readonly address?: Uint8Array;
   /** See [`edr_solidity_tests::fuzz::BaseCounterExample::calldata`] */
-  readonly calldata: Uint8Array
+  readonly calldata: Uint8Array;
   /** See [`edr_solidity_tests::fuzz::BaseCounterExample::contract_name`] */
-  readonly contractName?: string
+  readonly contractName?: string;
   /** See [`edr_solidity_tests::fuzz::BaseCounterExample::signature`] */
-  readonly signature?: string
+  readonly signature?: string;
   /** See [`edr_solidity_tests::fuzz::BaseCounterExample::args`] */
-  readonly args?: string
+  readonly args?: string;
 }
 
 export interface BaseFeeActivationByBlockNumber {
   /** The block number at which the `base_fee_params` is activated */
-  blockNumber: bigint
+  blockNumber: bigint;
 }
 
 export interface BaseFeeActivationByHardfork {
   /** The hardfork at which the `base_fee_params` is activated */
-  hardfork: string
+  hardfork: string;
 }
 
 /** Configuration for EIP-1559 parameters */
 export interface BaseFeeParamActivation {
-  activation: BaseFeeActivationByBlockNumber | BaseFeeActivationByHardfork
-  maxChangeDenominator: bigint
-  elasticityMultiplier: bigint
+  activation: BaseFeeActivationByBlockNumber | BaseFeeActivationByHardfork;
+  maxChangeDenominator: bigint;
+  elasticityMultiplier: bigint;
 }
 
 /** Information about the blob gas used in a block. */
@@ -247,14 +280,14 @@ export interface BlobGas {
    * The total amount of blob gas consumed by the transactions within the
    * block.
    */
-  gasUsed: bigint
+  gasUsed: bigint;
   /**
    * The running total of blob gas consumed in excess of the target, prior to
    * the block. Blocks with above-target blob gas consumption increase this
    * value, blocks with below-target blob gas consumption decrease it
    * (bounded at 0).
    */
-  excessGas: bigint
+  excessGas: bigint;
 }
 
 /**
@@ -263,9 +296,9 @@ export interface BlobGas {
  */
 export interface BuildInfoAndOutput {
   /** The build info input file */
-  buildInfo: Uint8Array
+  buildInfo: Uint8Array;
   /** The build info output file */
-  output: Uint8Array
+  output: Uint8Array;
 }
 
 /** What chains to cache */
@@ -285,8 +318,8 @@ export declare enum CachedEndpoints {
 }
 
 export interface CallFailedErrorStackTraceEntry {
-  type: StackTraceEntryType.CALL_FAILED_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.CALL_FAILED_ERROR;
+  sourceReference: SourceReference;
 }
 
 /** The various kinds of call frames possible in the EVM. */
@@ -308,19 +341,19 @@ export declare enum CallKind {
 
 export interface CallOutput {
   /** Return value */
-  returnValue: Uint8Array
+  returnValue: Uint8Array;
 }
 
 /** The result of executing a call override. */
 export interface CallOverrideResult {
-  result: Uint8Array
-  shouldRevert: boolean
+  result: Uint8Array;
+  shouldRevert: boolean;
 }
 
 export interface CallstackEntryStackTraceEntry {
-  type: StackTraceEntryType.CALLSTACK_ENTRY
-  sourceReference: SourceReference
-  functionType: ContractFunctionType
+  type: StackTraceEntryType.CALLSTACK_ENTRY;
+  sourceReference: SourceReference;
+  functionType: ContractFunctionType;
 }
 
 /**
@@ -329,19 +362,19 @@ export interface CallstackEntryStackTraceEntry {
  */
 export interface CallTrace {
   /** The kind of call or contract creation this represents. */
-  kind: CallKind
+  kind: CallKind;
   /** Whether the call succeeded or reverted. */
-  success: boolean
+  success: boolean;
   /** Whether the call is a cheatcode. */
-  isCheatcode: boolean
+  isCheatcode: boolean;
   /** The amount of gas that was consumed. */
-  gasUsed: bigint
+  gasUsed: bigint;
   /** The amount of native token that was included with the call. */
-  value: bigint
+  value: bigint;
   /** The target address of the call. */
-  address: string
+  address: string;
   /** The name of the contract that is the target of the call, if known. */
-  contract?: string
+  contract?: string;
   /**
    * The input (calldata) to the call. If it encodes a known function call,
    * it will be decoded into the function name and a list of arguments.
@@ -349,51 +382,51 @@ export interface CallTrace {
    * function name may also be any of the special `fallback` and `receive`
    * functions. Otherwise, it will be provided as a raw byte array.
    */
-  inputs: DecodedTraceParameters | Uint8Array
+  inputs: DecodedTraceParameters | Uint8Array;
   /**
    * The output of the call. This will be a decoded human-readable
    * representation of the value if the function is known, otherwise a
    * raw byte array.
    */
-  outputs: string | Uint8Array
+  outputs: string | Uint8Array;
   /**
    * Interleaved subcalls and event logs. Use `kind` to check if each member
    * of the array is a call or log trace.
    */
-  children: Array<CallTrace | LogTrace>
+  children: Array<CallTrace | LogTrace>;
 }
 
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
   /** The chain ID */
-  chainId: bigint
+  chainId: bigint;
   /** The chain's name */
-  name: string
+  name: string;
   /** If present, overrides for the chain's supported hardforks */
-  hardforkActivationOverrides?: Array<HardforkActivation>
+  hardforkActivationOverrides?: Array<HardforkActivation>;
 }
 
 /** Error codes that can be returned by cheatcodes in Solidity tests. */
 export declare enum CheatcodeErrorCode {
   /** The specified cheatcode is not supported. */
-  UnsupportedCheatcode = 'UnsupportedCheatcode',
+  UnsupportedCheatcode = "UnsupportedCheatcode",
   /** The specified cheatcode is missing. */
-  MissingCheatcode = 'MissingCheatcode',
+  MissingCheatcode = "MissingCheatcode",
 }
 
 /** Error returned by a cheatcode in Solidity tests. */
 export interface CheatcodeErrorDetails {
   /** The error code representing the type of cheatcode error. */
-  code: CheatcodeErrorCode
+  code: CheatcodeErrorCode;
   /** The name of the cheatcode that caused the error. */
-  cheatcode: string
+  cheatcode: string;
 }
 
 export interface CheatcodeErrorStackTraceEntry {
-  type: StackTraceEntryType.CHEATCODE_ERROR
-  message: string
-  sourceReference: SourceReference
-  details?: CheatcodeErrorDetails
+  type: StackTraceEntryType.CHEATCODE_ERROR;
+  message: string;
+  sourceReference: SourceReference;
+  details?: CheatcodeErrorDetails;
 }
 
 /** Configuration for a code coverage reporter. */
@@ -407,7 +440,7 @@ export interface CodeCoverageConfig {
    * Exceptions thrown in the callback will be propagated to the original
    * caller.
    */
-  onCollectedCoverageCallback: (coverageHits: Uint8Array[]) => Promise<void>
+  onCollectedCoverageCallback: (coverageHits: Uint8Array[]) => Promise<void>;
 }
 
 /** A type that controls when stack traces are collected. */
@@ -424,31 +457,31 @@ export declare enum CollectStackTraces {
   OnFailure = 1,
 }
 
-export declare const CONSTRUCTOR_FUNCTION_NAME: string
+export declare const CONSTRUCTOR_FUNCTION_NAME: string;
 
 export interface ContractCallRunOutOfGasError {
-  type: StackTraceEntryType.CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR
-  sourceReference?: SourceReference
+  type: StackTraceEntryType.CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR;
+  sourceReference?: SourceReference;
 }
 
 /** A test contract to execute. */
 export interface ContractData {
   /** Contract ABI as json string. */
-  abi: string
+  abi: string;
   /**
    * Contract creation code as hex string. It can be missing if the contract
    * is ABI only.
    */
-  bytecode?: string
+  bytecode?: string;
   /** The link references of the deployment bytecode. */
-  linkReferences?: Record<string, Record<string, Array<LinkReference>>>
+  linkReferences?: Record<string, Record<string, Array<LinkReference>>>;
   /**
    * Contract runtime code as hex string. It can be missing if the contract
    * is ABI only.
    */
-  deployedBytecode?: string
+  deployedBytecode?: string;
   /** The link references of the deployed bytecode. */
-  deployedLinkReferences?: Record<string, Record<string, Array<LinkReference>>>
+  deployedLinkReferences?: Record<string, Record<string, Array<LinkReference>>>;
 }
 
 export declare enum ContractFunctionType {
@@ -462,13 +495,13 @@ export declare enum ContractFunctionType {
 }
 
 export interface ContractGasReport {
-  deployments: Array<DeploymentGasReport>
-  functions: Record<string, Array<FunctionGasReport>>
+  deployments: Array<DeploymentGasReport>;
+  functions: Record<string, Array<FunctionGasReport>>;
 }
 
 export interface ContractTooLargeErrorStackTraceEntry {
-  type: StackTraceEntryType.CONTRACT_TOO_LARGE_ERROR
-  sourceReference?: SourceReference
+  type: StackTraceEntryType.CONTRACT_TOO_LARGE_ERROR;
+  sourceReference?: SourceReference;
 }
 
 /**
@@ -477,79 +510,79 @@ export interface ContractTooLargeErrorStackTraceEntry {
  */
 export interface CounterExampleSequence {
   /** The original sequence size before shrinking. */
-  originalSequenceSize: bigint
+  originalSequenceSize: bigint;
   /** The shrunk counterexample sequence. */
-  sequence: Array<BaseCounterExample>
+  sequence: Array<BaseCounterExample>;
 }
 
 /** The instrumentation coverage library file name. */
-export declare const COVERAGE_LIBRARY_FILE_NAME: string
+export declare const COVERAGE_LIBRARY_FILE_NAME: string;
 
 export interface CreateOutput {
   /** Return value */
-  returnValue: Uint8Array
+  returnValue: Uint8Array;
   /** Optionally, a 160-bit address */
-  address?: Uint8Array
+  address?: Uint8Array;
 }
 
 export interface CustomErrorStackTraceEntry {
-  type: StackTraceEntryType.CUSTOM_ERROR
-  message: string
-  sourceReference: SourceReference
+  type: StackTraceEntryType.CUSTOM_ERROR;
+  message: string;
+  sourceReference: SourceReference;
 }
 
 export interface DebugTraceLogItem {
   /** Program Counter */
-  pc: bigint
-  op: number
+  pc: bigint;
+  op: number;
   /** Gas left before executing this operation as hex number. */
-  gas: string
+  gas: string;
   /** Gas cost of this operation as hex number. */
-  gasCost: string
+  gasCost: string;
   /** Array of all values (hex numbers) on the stack */
-  stack?: Array<string>
+  stack?: Array<string>;
   /** Depth of the call stack */
-  depth: bigint
+  depth: bigint;
   /** Size of memory array */
-  memSize: bigint
+  memSize: bigint;
   /** Name of the operation */
-  opName: string
+  opName: string;
   /** Description of an error as a hex string. */
-  error?: string
+  error?: string;
   /** Array of all allocated values as hex strings. */
-  memory?: Array<string>
+  memory?: Array<string>;
   /** Map of all stored values with keys and values encoded as hex strings. */
-  storage?: Record<string, string>
+  storage?: Record<string, string>;
 }
 
 export interface DebugTraceResult {
-  pass: boolean
-  gasUsed: bigint
-  output?: Uint8Array
-  structLogs: Array<DebugTraceLogItem>
+  pass: boolean;
+  gasUsed: bigint;
+  output?: Uint8Array;
+  structLogs: Array<DebugTraceLogItem>;
 }
 
 /** Decoded function call or event. */
 export interface DecodedTraceParameters {
   /** The name of a function or an event. */
-  name: string
+  name: string;
   /**
    * The arguments of the function call or the event, in their human-readable
    * representations.
    */
-  arguments: Array<string>
+  arguments: Array<string>;
 }
 
 export interface DeploymentGasReport {
-  gas: bigint
-  size: bigint
-  runtimeSize: bigint
-  status: GasReportExecutionStatus
+  gas: bigint;
+  size: bigint;
+  runtimeSize: bigint;
+  status: GasReportExecutionStatus;
 }
 
 export interface DirectLibraryCallErrorStackTraceEntry {
-  type: StackTraceEntryType.DIRECT_LIBRARY_CALL_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.DIRECT_LIBRARY_CALL_ERROR;
+  sourceReference: SourceReference;
 }
 
 /**
@@ -578,17 +611,17 @@ export declare enum ExceptionalHalt {
 
 /** Ethereum execution log. */
 export interface ExecutionLog {
-  address: Uint8Array
-  topics: Array<Uint8Array>
-  data: Uint8Array
+  address: Uint8Array;
+  topics: Array<Uint8Array>;
+  data: Uint8Array;
 }
 
 /** The result of executing a transaction. */
 export interface ExecutionResult {
   /** The transaction result */
-  result: SuccessResult | RevertResult | HaltResult
+  result: SuccessResult | RevertResult | HaltResult;
   /** Optional contract address if the transaction created a new contract. */
-  contractAddress?: Uint8Array
+  contractAddress?: Uint8Array;
 }
 
 /** Represents the exit code of the EVM. */
@@ -613,18 +646,18 @@ export declare enum ExitCode {
   UNKNOWN_HALT_REASON = 8,
 }
 
-export declare const FALLBACK_FUNCTION_NAME: string
+export declare const FALLBACK_FUNCTION_NAME: string;
 
 export interface FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
-  type: StackTraceEntryType.FALLBACK_NOT_PAYABLE_AND_NO_RECEIVE_ERROR
-  value: bigint
-  sourceReference: SourceReference
+  type: StackTraceEntryType.FALLBACK_NOT_PAYABLE_AND_NO_RECEIVE_ERROR;
+  value: bigint;
+  sourceReference: SourceReference;
 }
 
 export interface FallbackNotPayableErrorStackTraceEntry {
-  type: StackTraceEntryType.FALLBACK_NOT_PAYABLE_ERROR
-  value: bigint
-  sourceReference: SourceReference
+  type: StackTraceEntryType.FALLBACK_NOT_PAYABLE_ERROR;
+  value: bigint;
+  sourceReference: SourceReference;
 }
 
 /** Configuration for forking a blockchain */
@@ -633,15 +666,15 @@ export interface ForkConfig {
    * The block number to fork from. If not provided, the latest safe block is
    * used.
    */
-  blockNumber?: bigint
+  blockNumber?: bigint;
   /** The directory to cache remote JSON-RPC responses */
-  cacheDir?: string
+  cacheDir?: string;
   /** Overrides for the configuration of chains. */
-  chainOverrides?: Array<ChainOverride>
+  chainOverrides?: Array<ChainOverride>;
   /** The HTTP headers to use when making requests to the JSON-RPC endpoint */
-  httpHeaders?: Array<HttpHeader>
+  httpHeaders?: Array<HttpHeader>;
   /** The URL of the JSON-RPC endpoint to fork from */
-  url: string
+  url: string;
 }
 
 /** * Determines the level of file system access for the given path.
@@ -676,59 +709,59 @@ export declare enum FsAccessPermission {
 }
 
 export interface FunctionGasReport {
-  gas: bigint
-  status: GasReportExecutionStatus
+  gas: bigint;
+  status: GasReportExecutionStatus;
   /**
    * The proxy delegation chain for this call, if the called contract is a
    * proxy. Contains contract identifiers from outermost proxy to final
    * implementation, e.g. `["Proxy", "Implementation"]`.
    * Empty if the call is not through a proxy.
    */
-  proxyChain: Array<string>
+  proxyChain: Array<string>;
 }
 
 export interface FunctionNotPayableErrorStackTraceEntry {
-  type: StackTraceEntryType.FUNCTION_NOT_PAYABLE_ERROR
-  value: bigint
-  sourceReference: SourceReference
+  type: StackTraceEntryType.FUNCTION_NOT_PAYABLE_ERROR;
+  value: bigint;
+  sourceReference: SourceReference;
 }
 
 /** See [`edr_solidity_tests::fuzz::FuzzCase`] */
 export interface FuzzCase {
   /** The calldata used for this fuzz test */
-  readonly calldata: Uint8Array
+  readonly calldata: Uint8Array;
   /** Consumed gas */
-  readonly gas: bigint
+  readonly gas: bigint;
   /** The initial gas stipend for the transaction */
-  readonly stipend: bigint
+  readonly stipend: bigint;
 }
 
 /** Fuzz testing configuration */
 export interface FuzzConfigArgs {
   /** Path where fuzz failures are recorded and replayed if set. */
-  failurePersistDir?: string
+  failurePersistDir?: string;
   /** Name of the file to record fuzz failures, defaults to `failures`. */
-  failurePersistFile?: string
+  failurePersistFile?: string;
   /**
    * The amount of fuzz runs to perform for each fuzz test case. Higher
    * values gives more confidence in results at the cost of testing
    * speed.
    * Defaults to 256.
    */
-  runs?: number
+  runs?: number;
   /**
    * The maximum number of combined inputs that may be rejected before the
    * test as a whole aborts. “Global” filters apply to the whole test
    * case. If the test case is rejected, the whole thing is regenerated.
    * Defaults to 65536.
    */
-  maxTestRejects?: number
+  maxTestRejects?: number;
   /**
    * Hexadecimal string.
    * Optional seed for the fuzzing RNG algorithm.
    * Defaults to None.
    */
-  seed?: string
+  seed?: string;
   /**
    * Integer between 0 and 100.
    * The weight of the dictionary. A higher dictionary weight will bias the
@@ -736,37 +769,37 @@ export interface FuzzConfigArgs {
    * type(uint256).max or contract addresses from your environment.
    * Defaults to 40.
    */
-  dictionaryWeight?: number
+  dictionaryWeight?: number;
   /**
    * The flag indicating whether to include values from storage.
    * Defaults to true.
    */
-  includeStorage?: boolean
+  includeStorage?: boolean;
   /**
    * The flag indicating whether to include push bytes values.
    * Defaults to true.
    */
-  includePushBytes?: boolean
+  includePushBytes?: boolean;
   /**
    * Show `console.log` in fuzz test.
    * Defaults to false.
    */
-  showLogs?: boolean
+  showLogs?: boolean;
   /**
    * Optional timeout (in seconds) for each property test.
    * Defaults to none (no timeout).
    */
-  timeout?: number
+  timeout?: number;
 }
 
 /** See [`edr_solidity_tests::result::TestKind::Fuzz`] */
 export interface FuzzTestKind {
   /** See [`edr_solidity_tests::result::TestKind::Fuzz`] */
-  readonly runs: bigint
+  readonly runs: bigint;
   /** See [`edr_solidity_tests::result::TestKind::Fuzz`] */
-  readonly meanGas: bigint
+  readonly meanGas: bigint;
   /** See [`edr_solidity_tests::result::TestKind::Fuzz`] */
-  readonly medianGas: bigint
+  readonly medianGas: bigint;
 }
 
 /** Controls the gas estimation strategy used by `eth_estimateGas`. */
@@ -781,7 +814,7 @@ export declare enum GasEstimationMode {
 }
 
 export interface GasReport {
-  contracts: Record<string, ContractGasReport>
+  contracts: Record<string, ContractGasReport>;
 }
 
 /** Configuration for gas report collection. */
@@ -793,7 +826,7 @@ export interface GasReportConfig {
    * Exceptions thrown in the callback will be propagated to the original
    * caller.
    */
-  onCollectedGasReportCallback: (gasReport: GasReport) => Promise<void>
+  onCollectedGasReportCallback: (gasReport: GasReport) => Promise<void>;
 }
 
 export declare enum GasReportExecutionStatus {
@@ -802,39 +835,39 @@ export declare enum GasReportExecutionStatus {
   Halt = 2,
 }
 
-export declare const GENERIC_CHAIN_TYPE: string
+export declare const GENERIC_CHAIN_TYPE: string;
 
-export declare function genericChainProviderFactory(): ProviderFactory
+export declare function genericChainProviderFactory(): ProviderFactory;
 
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
   /** The exceptional halt that occurred */
-  reason: ExceptionalHalt
+  reason: ExceptionalHalt;
   /**
    * Halting will spend all the gas and will thus be equal to the specified
    * gas limit
    */
-  gasUsed: bigint
+  gasUsed: bigint;
   /** The logs */
-  logs: Array<ExecutionLog>
+  logs: Array<ExecutionLog>;
 }
 
 /** Configuration for a hardfork activation */
 export interface HardforkActivation {
   /** The condition for the hardfork activation */
-  condition: HardforkActivationByBlockNumber | HardforkActivationByTimestamp
+  condition: HardforkActivationByBlockNumber | HardforkActivationByTimestamp;
   /** The activated hardfork */
-  hardfork: string
+  hardfork: string;
 }
 
 export interface HardforkActivationByBlockNumber {
   /** The block number at which the hardfork is activated */
-  blockNumber: bigint
+  blockNumber: bigint;
 }
 
 export interface HardforkActivationByTimestamp {
   /** The timestamp at which the hardfork is activated */
-  timestamp: bigint
+  timestamp: bigint;
 }
 
 /**
@@ -843,12 +876,12 @@ export interface HardforkActivationByTimestamp {
  */
 export interface HeuristicFailed {
   /** Enum tag for JS. */
-  kind: "HeuristicFailed"
+  kind: "HeuristicFailed";
 }
 
 export interface HttpHeader {
-  name: string
-  value: string
+  name: string;
+  value: string;
 }
 
 /**
@@ -873,23 +906,23 @@ export declare enum IncludeTraces {
 /** A directive-level inline-config problem, located at the offending directive. */
 export interface InlineConfigDirectiveError {
   /** Discriminant tag for the `InlineConfigError` union. */
-  kind: "directive"
+  kind: "directive";
   /**
    * The solc source name the problem was found in (e.g.
    * `project/test/Foo.t.sol`).
    */
-  sourceName: string
+  sourceName: string;
   /** The contract the offending directive belongs to. */
-  contract: string
+  contract: string;
   /**
    * The test function the offending directive belongs to. Undefined when
    * the directive is contract-level.
    */
-  function?: string
+  function?: string;
   /** The 1-based line of the offending directive within the source. */
-  line: number
+  line: number;
   /** The problem itself; discriminate on its `kind` tag. */
-  problem: InlineConfigDirectiveProblem
+  problem: InlineConfigDirectiveProblem;
 }
 
 /**
@@ -899,19 +932,19 @@ export interface InlineConfigDirectiveError {
  */
 export interface InlineConfigDirectiveLocation {
   /** Enum tag for JS. */
-  kind: "InlineConfigDirectiveLocation"
+  kind: "InlineConfigDirectiveLocation";
   /** The contract the directive belongs to. */
-  contract: string
+  contract: string;
   /**
    * The test function the directive belongs to. Undefined when the directive
    * is contract-level.
    */
-  function?: string
+  function?: string;
   /**
    * Why resolving the location failed, including the directive problem
    * that was being reported.
    */
-  reason: string
+  reason: string;
 }
 
 /**
@@ -919,7 +952,13 @@ export interface InlineConfigDirectiveLocation {
  * over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
  * consumers can map each problem onto their own error types.
  */
-export type InlineConfigDirectiveProblem = InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey
+export type InlineConfigDirectiveProblem =
+  | InlineConfigInvalidSyntax
+  | InlineConfigUndeclaredProfile
+  | InlineConfigInvalidKey
+  | InlineConfigInvalidKeyForTestType
+  | InlineConfigInvalidValue
+  | InlineConfigDuplicateKey;
 
 /**
  * The same key was specified more than once for the same function or
@@ -927,9 +966,9 @@ export type InlineConfigDirectiveProblem = InlineConfigInvalidSyntax | InlineCon
  */
 export interface InlineConfigDuplicateKey {
   /** Enum tag for JS. */
-  kind: "InlineConfigDuplicateKey"
+  kind: "InlineConfigDuplicateKey";
   /** The duplicated key, exactly as written. */
-  key: string
+  key: string;
 }
 
 /**
@@ -940,14 +979,15 @@ export interface InlineConfigDuplicateKey {
  * rejected `runSolidityTests` promise as the `inlineConfigErrors` array on the
  * thrown error.
  */
-export type InlineConfigError = InlineConfigSourceError | InlineConfigDirectiveError
+export type InlineConfigError =
+  InlineConfigSourceError | InlineConfigDirectiveError;
 
 /** An unknown configuration key was used. */
 export interface InlineConfigInvalidKey {
   /** Enum tag for JS. */
-  kind: "InlineConfigInvalidKey"
+  kind: "InlineConfigInvalidKey";
   /** The offending key, exactly as written. */
-  key: string
+  key: string;
 }
 
 /**
@@ -956,11 +996,11 @@ export interface InlineConfigInvalidKey {
  */
 export interface InlineConfigInvalidKeyForTestType {
   /** Enum tag for JS. */
-  kind: "InlineConfigInvalidKeyForTestType"
+  kind: "InlineConfigInvalidKeyForTestType";
   /** The offending key, exactly as written. */
-  key: string
+  key: string;
   /** The kind of test the function is (`fuzz` or `invariant`). */
-  testType: string
+  testType: string;
 }
 
 /**
@@ -969,27 +1009,27 @@ export interface InlineConfigInvalidKeyForTestType {
  */
 export interface InlineConfigInvalidSolcVersion {
   /** Enum tag for JS. */
-  kind: "InlineConfigInvalidSolcVersion"
+  kind: "InlineConfigInvalidSolcVersion";
 }
 
 /** A directive was missing the `=` separator. */
 export interface InlineConfigInvalidSyntax {
   /** Enum tag for JS. */
-  kind: "InlineConfigInvalidSyntax"
+  kind: "InlineConfigInvalidSyntax";
   /** The offending directive line, stripped of comment decoration. */
-  directive: string
+  directive: string;
 }
 
 /** A value did not match the expected type for its key. */
 export interface InlineConfigInvalidValue {
   /** Enum tag for JS. */
-  kind: "InlineConfigInvalidValue"
+  kind: "InlineConfigInvalidValue";
   /** The offending key, exactly as written. */
-  key: string
+  key: string;
   /** The offending value, exactly as written. */
-  value: string
+  value: string;
   /** A description of the expected value type. */
-  expected: string
+  expected: string;
 }
 
 /**
@@ -998,38 +1038,43 @@ export interface InlineConfigInvalidValue {
  */
 export interface InlineConfigSourceError {
   /** Discriminant tag for the `InlineConfigError` union. */
-  kind: "source"
+  kind: "source";
   /**
    * The solc source name the problem was found in (e.g.
    * `project/test/Foo.t.sol`).
    */
-  sourceName: string
+  sourceName: string;
   /** The problem itself; discriminate on its `kind` tag. */
-  problem: InlineConfigSourceProblem
+  problem: InlineConfigSourceProblem;
 }
 
 /** The source's file could not be read at the path it was declared at. */
 export interface InlineConfigSourceFileNotFound {
   /** Enum tag for JS. */
-  kind: "InlineConfigSourceFileNotFound"
+  kind: "InlineConfigSourceFileNotFound";
   /** The path the source was expected at. */
-  path: string
+  path: string;
   /** Why reading it failed. */
-  reason: string
+  reason: string;
 }
 
 /**
  * A source-level problem, as a discriminated union over its `kind` tag. These
  * cannot be pinned to a single directive line, so they carry no line.
  */
-export type InlineConfigSourceProblem = InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound | InlineConfigDirectiveLocation
+export type InlineConfigSourceProblem =
+  | InlineConfigInvalidSolcVersion
+  | InlineConfigSourceFileNotFound
+  | InlineConfigDirectiveLocation;
 
-/** A profile other than `default` was used. */
-export interface InlineConfigUnsupportedProfile {
+/** A directive named a profile the project does not declare. */
+export interface InlineConfigUndeclaredProfile {
   /** Enum tag for JS. */
-  kind: "InlineConfigUnsupportedProfile"
-  /** The unsupported profile name. */
-  profile: string
+  kind: "InlineConfigUndeclaredProfile";
+  /** The undeclared profile name, exactly as written. */
+  profile: string;
+  /** The profiles the project declares, sorted. */
+  declaredProfiles: Array<string>;
 }
 
 export interface InstrumentationMetadata {
@@ -1038,72 +1083,72 @@ export interface InstrumentationMetadata {
    * deterministically generated from the source code, source id, and
    * Solidity version.
    */
-  readonly tag: Uint8Array
+  readonly tag: Uint8Array;
   /**
    * The kind of instrumented code. Currently, the only supported kind
    * is "statement".
    */
-  readonly kind: string
+  readonly kind: string;
   /**
    * The starting position of the instrumented code - including trivia such
    * as whitespace - in the source code, in UTF-16 code units.
    */
-  readonly startUtf16: number
+  readonly startUtf16: number;
   /**
    * The ending position of the instrumented code - including trivia such as
    * whitespace - in the source code, in UTF-16 code units.
    */
-  readonly endUtf16: number
+  readonly endUtf16: number;
 }
 
 export interface InstrumentationResult {
   /** The generated source code with coverage instrumentation. */
-  readonly source: string
+  readonly source: string;
   /** The metadata for each instrumented code segment. */
-  readonly metadata: Array<InstrumentationMetadata>
+  readonly metadata: Array<InstrumentationMetadata>;
 }
 
 export interface InternalFunctionCallStackEntry {
-  type: StackTraceEntryType.INTERNAL_FUNCTION_CALLSTACK_ENTRY
-  pc: number
-  sourceReference: SourceReference
+  type: StackTraceEntryType.INTERNAL_FUNCTION_CALLSTACK_ENTRY;
+  pc: number;
+  sourceReference: SourceReference;
 }
 
 export interface IntervalRange {
-  min: bigint
-  max: bigint
+  min: bigint;
+  max: bigint;
 }
 
 export interface InvalidParamsErrorStackTraceEntry {
-  type: StackTraceEntryType.INVALID_PARAMS_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.INVALID_PARAMS_ERROR;
+  sourceReference: SourceReference;
 }
 
 /** Invariant testing configuration. */
 export interface InvariantConfigArgs {
   /** Path where invariant failures are recorded and replayed if set. */
-  failurePersistDir?: string
+  failurePersistDir?: string;
   /**
    * The number of runs that must execute for each invariant test group.
    * Defaults to 256.
    */
-  runs?: number
+  runs?: number;
   /**
    * The number of calls executed to attempt to break invariants in one run.
    * Defaults to 500.
    */
-  depth?: number
+  depth?: number;
   /**
    * Fails the invariant fuzzing if a revert occurs.
    * Defaults to false.
    */
-  failOnRevert?: boolean
+  failOnRevert?: boolean;
   /**
    * Overrides unsafe external calls when running invariant tests, useful for
    * e.g. performing reentrancy checks.
    * Defaults to false.
    */
-  callOverride?: boolean
+  callOverride?: boolean;
   /**
    * Integer between 0 and 100.
    * The weight of the dictionary. A higher dictionary weight will bias the
@@ -1111,55 +1156,55 @@ export interface InvariantConfigArgs {
    * type(uint256).max or contract addresses from your environment.
    * Defaults to 40.
    */
-  dictionaryWeight?: number
+  dictionaryWeight?: number;
   /**
    * The flag indicating whether to include values from storage.
    * Defaults to true.
    */
-  includeStorage?: boolean
+  includeStorage?: boolean;
   /**
    * The flag indicating whether to include push bytes values.
    * Defaults to true.
    */
-  includePushBytes?: boolean
+  includePushBytes?: boolean;
   /**
    * The maximum number of attempts to shrink a failed the sequence. Shrink
    * process is disabled if set to 0.
    * Defaults to 5000.
    */
-  shrinkRunLimit?: number
+  shrinkRunLimit?: number;
   /**
    * The maximum number of rejects via `vm.assume` which can be encountered
    * during a single invariant run.
    * Defaults to 65536.
    */
-  maxAssumeRejects?: number
+  maxAssumeRejects?: number;
   /**
    * Optional timeout (in seconds) for each invariant test.
    * Defaults to none (no timeout).
    */
-  timeout?: number
+  timeout?: number;
 }
 
 /** See [`edr_solidity_tests::result::InvariantMetrics`] */
 export interface InvariantMetrics {
-  readonly calls: bigint
-  readonly reverts: bigint
-  readonly discards: bigint
+  readonly calls: bigint;
+  readonly reverts: bigint;
+  readonly discards: bigint;
 }
 
 /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
 export interface InvariantTestKind {
   /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
-  readonly runs: bigint
+  readonly runs: bigint;
   /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
-  readonly calls: bigint
+  readonly calls: bigint;
   /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
-  readonly reverts: bigint
+  readonly reverts: bigint;
   /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
-  readonly metrics: Record<string, InvariantMetrics>
+  readonly metrics: Record<string, InvariantMetrics>;
   /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
-  readonly failedCorpusReplays: bigint
+  readonly failedCorpusReplays: bigint;
 }
 
 /**
@@ -1169,11 +1214,13 @@ export interface InvariantTestKind {
  * standardized SHA3-256, so it can't be substituted by a platform SHA3
  * implementation.
  */
-export declare function keccak256(data: Uint8Array): Uint8Array
+export declare function keccak256(data: Uint8Array): Uint8Array;
 
-export declare const L1_CHAIN_TYPE: string
+export declare const L1_CHAIN_TYPE: string;
 
-export declare function l1GenesisState(hardfork: L1Hardfork): Array<AccountOverride>
+export declare function l1GenesisState(
+  hardfork: L1Hardfork
+): Array<AccountOverride>;
 
 /** Identifier for the Ethereum spec. */
 export declare enum L1Hardfork {
@@ -1214,29 +1261,33 @@ export declare enum L1Hardfork {
  *
  * Returns an error if the string does not match any known hardfork.
  */
-export declare function l1HardforkFromString(hardfork: string): L1Hardfork
+export declare function l1HardforkFromString(hardfork: string): L1Hardfork;
 
 /**
  * Returns the latest supported L1 hardfork.
  *
  * The returned value will be updated after each network upgrade.
  */
-export declare function l1HardforkLatest(): L1Hardfork
+export declare function l1HardforkLatest(): L1Hardfork;
 
-export declare function l1HardforkToString(hardfork: L1Hardfork): string
+export declare function l1HardforkToString(hardfork: L1Hardfork): string;
 
-export declare function l1ProviderFactory(): ProviderFactory
+export declare function l1ProviderFactory(): ProviderFactory;
 
-export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory
+export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory;
 
 /** Retrieves the latest version of `Solidity` supported for instrumentation. */
-export declare function latestSupportedSolidityVersion(): string
+export declare function latestSupportedSolidityVersion(): string;
 
-export declare function linkHexStringBytecode(code: string, address: string, position: number): string
+export declare function linkHexStringBytecode(
+  code: string,
+  address: string,
+  position: number
+): string;
 
 export interface LinkReference {
-  start: number
-  length: number
+  start: number;
+  length: number;
 }
 
 /** Configuration for a locally mined blockchain. */
@@ -1246,19 +1297,19 @@ export interface LocalConfig {
    *
    * [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
    */
-  genesisBlobGas?: BlobGas
+  genesisBlobGas?: BlobGas;
   /** The block gas limit of the genesis block. */
-  genesisBlockGasLimit: bigint
+  genesisBlockGasLimit: bigint;
   /** The date, in seconds since the Unix epoch, of the genesis block. */
-  genesisBlockTime?: bigint
+  genesisBlockTime?: bigint;
 }
 
 /** Configuration for the provider's logger. */
 export interface LoggerConfig {
   /** Whether to enable the logger. */
-  enable: boolean
-  decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]) => string[]
-  printLineCallback: (message: string, replace: boolean) => void
+  enable: boolean;
+  decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]) => string[];
+  printLineCallback: (message: string, replace: boolean) => void;
 }
 
 /** Kind marker for log traces. */
@@ -1270,7 +1321,7 @@ export declare enum LogKind {
 /** Object representing an event log in an execution trace. */
 export interface LogTrace {
   /** A constant to help discriminate the union `CallTrace | LogTrace`. */
-  kind: LogKind
+  kind: LogKind;
   /**
    * If the log is a known event (based on its first topic), it will be
    * decoded into the event name and list of named parameters. For
@@ -1278,64 +1329,66 @@ export interface LogTrace {
    * will be provided as an array where all but the last element are the
    * log topics, and the last element is the log data.
    */
-  parameters: DecodedTraceParameters | Array<Uint8Array>
+  parameters: DecodedTraceParameters | Array<Uint8Array>;
 }
 
 /** Configuration for the provider's mempool. */
 export interface MemPoolConfig {
-  order: MineOrdering
+  order: MineOrdering;
 }
 
 /** The type of ordering to use when selecting blocks to mine. */
 export declare enum MineOrdering {
   /** Insertion order */
-  Fifo = 'Fifo',
+  Fifo = "Fifo",
   /** Effective miner fee */
-  Priority = 'Priority',
+  Priority = "Priority",
 }
 
 /** Configuration for the provider's miner. */
 export interface MiningConfig {
-  autoMine: boolean
+  autoMine: boolean;
   /**
    * The block gas limit to use for mining a block.
    *
    * When not set, enforcement of the block gas limit is disabled in the mem
    * pool, miner, and REVM.
    */
-  blockGasLimit?: bigint
-  interval?: bigint | IntervalRange
-  memPool: MemPoolConfig
+  blockGasLimit?: bigint;
+  interval?: bigint | IntervalRange;
+  memPool: MemPoolConfig;
 }
 
 export interface MissingFallbackOrReceiveErrorStackTraceEntry {
-  type: StackTraceEntryType.MISSING_FALLBACK_OR_RECEIVE_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.MISSING_FALLBACK_OR_RECEIVE_ERROR;
+  sourceReference: SourceReference;
 }
 
 export interface NonContractAccountCalledErrorStackTraceEntry {
-  type: StackTraceEntryType.NONCONTRACT_ACCOUNT_CALLED_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.NONCONTRACT_ACCOUNT_CALLED_ERROR;
+  sourceReference: SourceReference;
 }
 
 /** Configuration for runtime observability. */
 export interface ObservabilityConfig {
   /** If present, configures runtime observability to collect code coverage. */
-  codeCoverage?: CodeCoverageConfig
+  codeCoverage?: CodeCoverageConfig;
   /** If present, configures runtime observability to collect gas reports. */
-  gasReport?: GasReportConfig
+  gasReport?: GasReportConfig;
   /**
    * Controls when to include call traces in the results of transaction
    * execution.
    *
    * Defaults to `IncludeTraces.None`.
    */
-  includeCallTraces?: IncludeTraces
+  includeCallTraces?: IncludeTraces;
 }
 
-export declare const OP_CHAIN_TYPE: string
+export declare const OP_CHAIN_TYPE: string;
 
-export declare function opGenesisState(hardfork: OpHardfork): Array<AccountOverride>
+export declare function opGenesisState(
+  hardfork: OpHardfork
+): Array<AccountOverride>;
 
 /** Identifier for the OP hardfork. */
 export declare enum OpHardfork {
@@ -1355,67 +1408,67 @@ export declare enum OpHardfork {
  *
  * Returns an error if the string does not match any known hardfork.
  */
-export declare function opHardforkFromString(hardfork: string): OpHardfork
+export declare function opHardforkFromString(hardfork: string): OpHardfork;
 
 /** Returns the string representation of the provided OP hardfork. */
-export declare function opHardforkToString(hardfork: OpHardfork): string
+export declare function opHardforkToString(hardfork: OpHardfork): string;
 
 /**
  * Returns the latest supported OP hardfork.
  *
  * The returned value will be updated after each network upgrade.
  */
-export declare function opLatestHardfork(): OpHardfork
+export declare function opLatestHardfork(): OpHardfork;
 
-export declare function opProviderFactory(): ProviderFactory
+export declare function opProviderFactory(): ProviderFactory;
 
-export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory
+export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory;
 
 export interface OtherExecutionErrorStackTraceEntry {
-  type: StackTraceEntryType.OTHER_EXECUTION_ERROR
-  sourceReference?: SourceReference
+  type: StackTraceEntryType.OTHER_EXECUTION_ERROR;
+  sourceReference?: SourceReference;
 }
 
 export interface PanicErrorStackTraceEntry {
-  type: StackTraceEntryType.PANIC_ERROR
-  errorCode: bigint
-  sourceReference?: SourceReference
+  type: StackTraceEntryType.PANIC_ERROR;
+  errorCode: bigint;
+  sourceReference?: SourceReference;
 }
 
 /** Represents an access permission to a single path */
 export interface PathPermission {
   /** Permission level to access the `path` */
-  access: FsAccessPermission
+  access: FsAccessPermission;
   /** The targeted path guarded by the permission */
-  path: string
+  path: string;
 }
 
-export declare const PRECOMPILE_FUNCTION_NAME: string
+export declare const PRECOMPILE_FUNCTION_NAME: string;
 
 export interface PrecompileErrorStackTraceEntry {
-  type: StackTraceEntryType.PRECOMPILE_ERROR
-  precompile: number
-  sourceReference?: undefined
+  type: StackTraceEntryType.PRECOMPILE_ERROR;
+  precompile: number;
+  sourceReference?: undefined;
 }
 
 /**
  * [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md#specification)
  * secp256r1 precompile.
  */
-export declare function precompileP256Verify(): Precompile
+export declare function precompileP256Verify(): Precompile;
 
-export declare function printStackTrace(trace: SolidityStackTrace): void
+export declare function printStackTrace(trace: SolidityStackTrace): void;
 
 /** Configuration for a provider. */
 export interface ProviderConfig {
   /** Whether to allow blocks with the same timestamp */
-  allowBlocksWithSameTimestamp: boolean
+  allowBlocksWithSameTimestamp: boolean;
   /** Whether to allow unlimited contract size */
-  allowUnlimitedContractSize: boolean
+  allowUnlimitedContractSize: boolean;
   /** Whether to return an `Err` when `eth_call` fails */
-  bailOnCallFailure: boolean
+  bailOnCallFailure: boolean;
   /** Whether to return an `Err` when a `eth_sendTransaction` fails */
-  bailOnTransactionFailure: boolean
+  bailOnTransactionFailure: boolean;
   /**
    * EIP-1559 base fee parameters activations to be used to calculate the
    * block base fee.
@@ -1426,49 +1479,49 @@ export interface ProviderConfig {
    * If not provided, the default values from the chain spec
    * will be used.
    */
-  baseFeeConfig?: Array<BaseFeeParamActivation>
+  baseFeeConfig?: Array<BaseFeeParamActivation>;
   /** The chain ID of the blockchain */
-  chainId: bigint
+  chainId: bigint;
   /** The address of the coinbase */
-  coinbase: Uint8Array
+  coinbase: Uint8Array;
   /**
    * The default transaction gas limit to use for RPC call and transaction
    * requests that do not specify a `gas` value.
    */
-  defaultTransactionGasLimit: bigint
+  defaultTransactionGasLimit: bigint;
   /**
    * The gas estimation mode to use for `eth_estimateGas`. Defaults to
    * `GasEstimationMode::TopLevelSuccess` if not set.
    */
-  gasEstimationMode?: GasEstimationMode
+  gasEstimationMode?: GasEstimationMode;
   /** The genesis state of the blockchain */
-  genesisState: Array<AccountOverride>
+  genesisState: Array<AccountOverride>;
   /** The hardfork of the blockchain */
-  hardfork: string
+  hardfork: string;
   /**
    * The initial base fee per gas of the blockchain. Required for EIP-1559
    * transactions and later
    */
-  initialBaseFeePerGas?: bigint
+  initialBaseFeePerGas?: bigint;
   /**
    * The initial parent beacon block root of the blockchain. Required for
    * EIP-4788
    */
-  initialParentBeaconBlockRoot?: Uint8Array
+  initialParentBeaconBlockRoot?: Uint8Array;
   /** The minimum gas price of the next block. */
-  minGasPrice: bigint
+  minGasPrice: bigint;
   /** The configuration for the miner */
-  mining: MiningConfig
+  mining: MiningConfig;
   /** The network configuration for the provider. */
-  network: ForkConfig | LocalConfig
+  network: ForkConfig | LocalConfig;
   /** The network ID of the blockchain */
-  networkId: bigint
+  networkId: bigint;
   /** The configuration for the provider's observability */
-  observability: ObservabilityConfig
+  observability: ObservabilityConfig;
   /** Secret keys of owned accounts */
-  ownedAccounts: Array<string>
+  ownedAccounts: Array<string>;
   /** Overrides for precompiles */
-  precompileOverrides: Array<Precompile>
+  precompileOverrides: Array<Precompile>;
   /**
    * Transaction gas cap, introduced in [EIP-7825].
    *
@@ -1482,31 +1535,31 @@ export interface ProviderConfig {
    *
    * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
    */
-  transactionGasCap?: bigint | false
+  transactionGasCap?: bigint | false;
 }
 
-export declare const RECEIVE_FUNCTION_NAME: string
+export declare const RECEIVE_FUNCTION_NAME: string;
 
 export interface ReturndataSizeErrorStackTraceEntry {
-  type: StackTraceEntryType.RETURNDATA_SIZE_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.RETURNDATA_SIZE_ERROR;
+  sourceReference: SourceReference;
 }
 
 export interface RevertErrorStackTraceEntry {
-  type: StackTraceEntryType.REVERT_ERROR
-  returnData: Uint8Array
-  sourceReference: SourceReference
-  isInvalidOpcodeError: boolean
+  type: StackTraceEntryType.REVERT_ERROR;
+  returnData: Uint8Array;
+  sourceReference: SourceReference;
+  isInvalidOpcodeError: boolean;
 }
 
 /** The result when the EVM terminates due to a revert. */
 export interface RevertResult {
   /** The amount of gas used */
-  gasUsed: bigint
+  gasUsed: bigint;
   /** The logs */
-  logs: Array<ExecutionLog>
+  logs: Array<ExecutionLog>;
   /** The transaction output */
-  output: Uint8Array
+  output: Uint8Array;
 }
 
 /**
@@ -1516,16 +1569,43 @@ export interface RevertResult {
  * Throws if the input isn't a valid secret key: exactly 32 bytes encoding a
  * big-endian scalar in `[1, n)`, where `n` is the curve order.
  */
-export declare function secp256k1PublicKeyFromSecretKey(secretKey: Uint8Array): Uint8Array
+export declare function secp256k1PublicKeyFromSecretKey(
+  secretKey: Uint8Array
+): Uint8Array;
 
-export type SolidityStackTrace = Array<SolidityStackTraceEntry>
+export type SolidityStackTrace = Array<SolidityStackTraceEntry>;
 
-export type SolidityStackTraceEntry = CallstackEntryStackTraceEntry | UnrecognizedCreateCallstackEntryStackTraceEntry | UnrecognizedContractCallstackEntryStackTraceEntry | PrecompileErrorStackTraceEntry | RevertErrorStackTraceEntry | PanicErrorStackTraceEntry | CustomErrorStackTraceEntry | FunctionNotPayableErrorStackTraceEntry | InvalidParamsErrorStackTraceEntry | FallbackNotPayableErrorStackTraceEntry | FallbackNotPayableAndNoReceiveErrorStackTraceEntry | UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry | MissingFallbackOrReceiveErrorStackTraceEntry | ReturndataSizeErrorStackTraceEntry | NonContractAccountCalledErrorStackTraceEntry | CallFailedErrorStackTraceEntry | DirectLibraryCallErrorStackTraceEntry | UnrecognizedCreateErrorStackTraceEntry | UnrecognizedContractErrorStackTraceEntry | OtherExecutionErrorStackTraceEntry | UnmappedSolc063RevertErrorStackTraceEntry | ContractTooLargeErrorStackTraceEntry | InternalFunctionCallStackEntry | ContractCallRunOutOfGasError | CheatcodeErrorStackTraceEntry
+export type SolidityStackTraceEntry =
+  | CallstackEntryStackTraceEntry
+  | UnrecognizedCreateCallstackEntryStackTraceEntry
+  | UnrecognizedContractCallstackEntryStackTraceEntry
+  | PrecompileErrorStackTraceEntry
+  | RevertErrorStackTraceEntry
+  | PanicErrorStackTraceEntry
+  | CustomErrorStackTraceEntry
+  | FunctionNotPayableErrorStackTraceEntry
+  | InvalidParamsErrorStackTraceEntry
+  | FallbackNotPayableErrorStackTraceEntry
+  | FallbackNotPayableAndNoReceiveErrorStackTraceEntry
+  | UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry
+  | MissingFallbackOrReceiveErrorStackTraceEntry
+  | ReturndataSizeErrorStackTraceEntry
+  | NonContractAccountCalledErrorStackTraceEntry
+  | CallFailedErrorStackTraceEntry
+  | DirectLibraryCallErrorStackTraceEntry
+  | UnrecognizedCreateErrorStackTraceEntry
+  | UnrecognizedContractErrorStackTraceEntry
+  | OtherExecutionErrorStackTraceEntry
+  | UnmappedSolc063RevertErrorStackTraceEntry
+  | ContractTooLargeErrorStackTraceEntry
+  | InternalFunctionCallStackEntry
+  | ContractCallRunOutOfGasError
+  | CheatcodeErrorStackTraceEntry;
 
 /** The result of a Solidity test run. */
 export interface SolidityTestResult {
   /** Gas report, if it was generated. */
-  readonly gasReport?: GasReport
+  readonly gasReport?: GasReport;
 }
 
 /**
@@ -1537,11 +1617,11 @@ export interface SolidityTestRunnerConfigArgs {
    * The absolute path to the project root directory.
    * Relative paths in cheat codes are resolved against this path.
    */
-  projectRoot: string
+  projectRoot: string;
   /** Configures the permissions of cheat codes that access the file system. */
-  fsPermissions?: Array<PathPermission>
+  fsPermissions?: Array<PathPermission>;
   /** Address labels for traces. Defaults to none. */
-  labels?: Array<AddressLabel>
+  labels?: Array<AddressLabel>;
   /**
    * Whether to enable isolation of calls. In isolation mode all top-level
    * calls are executed as a separate transaction in a separate EVM
@@ -1549,86 +1629,86 @@ export interface SolidityTestRunnerConfigArgs {
    * changes.
    * Defaults to false.
    */
-  isolate?: boolean
+  isolate?: boolean;
   /**
    * Whether or not to enable the ffi cheatcode.
    * Warning: Enabling this cheatcode has security implications, as it allows
    * tests to execute arbitrary programs on your computer.
    * Defaults to false.
    */
-  ffi?: boolean
+  ffi?: boolean;
   /**
    * Allow expecting reverts with `expectRevert` at the same callstack depth
    * as the test. Defaults to false.
    */
-  allowInternalExpectRevert?: boolean
+  allowInternalExpectRevert?: boolean;
   /**
    * The value of `msg.sender` in tests as hex string.
    * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
    */
-  sender?: Uint8Array
+  sender?: Uint8Array;
   /**
    * The value of `tx.origin` in tests as hex string.
    * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
    */
-  txOrigin?: Uint8Array
+  txOrigin?: Uint8Array;
   /**
    * The initial balance of the sender in tests.
    * Defaults to `0xffffffffffffffffffffffff`.
    */
-  initialBalance?: bigint
+  initialBalance?: bigint;
   /**
    * The value of `block.number` in tests.
    * Defaults to `1`.
    */
-  blockNumber?: bigint
+  blockNumber?: bigint;
   /**
    * The value of the `chainid` opcode in tests.
    * Defaults to `31337`.
    */
-  chainId?: bigint
+  chainId?: bigint;
   /** The hardfork to use for EVM execution. */
-  hardfork: string
+  hardfork: string;
   /**
    * The gas limit for each test case.
    * Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
    */
-  gasLimit?: bigint
+  gasLimit?: bigint;
   /**
    * The price of gas (in wei) in tests.
    * Defaults to `0`.
    */
-  gasPrice?: bigint
+  gasPrice?: bigint;
   /**
    * The base fee per gas (in wei) in tests.
    * Defaults to `0`.
    */
-  blockBaseFeePerGas?: bigint
+  blockBaseFeePerGas?: bigint;
   /**
    * The value of `block.coinbase` in tests.
    * Defaults to `0x0000000000000000000000000000000000000000`.
    */
-  blockCoinbase?: Uint8Array
+  blockCoinbase?: Uint8Array;
   /**
    * The value of `block.timestamp` in tests.
    * Defaults to 1.
    */
-  blockTimestamp?: bigint
+  blockTimestamp?: bigint;
   /**
    * The value of `block.difficulty` in tests.
    * Defaults to 0.
    */
-  blockDifficulty?: bigint
+  blockDifficulty?: bigint;
   /**
    * The `block.gaslimit` value during EVM execution.
    * Defaults to none.
    */
-  blockGasLimit?: bigint
+  blockGasLimit?: bigint;
   /**
    * Whether to disable the block gas limit.
    * Defaults to false.
    */
-  disableBlockGasLimit?: boolean
+  disableBlockGasLimit?: boolean;
   /**
    * Transaction gas cap, introduced in [EIP-7825].
    *
@@ -1636,19 +1716,19 @@ export interface SolidityTestRunnerConfigArgs {
    *
    * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
    */
-  transactionGasCap?: bigint
+  transactionGasCap?: bigint;
   /**
    * Whether to disable the [EIP-7825] transaction gas cap.
    * Defaults to false.
    *
    * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
    */
-  disableTransactionGasCap?: boolean
+  disableTransactionGasCap?: boolean;
   /**
    * The memory limit of the EVM in bytes.
    * Defaults to `33_554_432` (2^25 = 32MiB).
    */
-  memoryLimit?: bigint
+  memoryLimit?: bigint;
   /**
    * The predeploys applied in local mode. Defaults to no predeploys.
    * These should match the predeploys of the network in fork mode, so they
@@ -1656,68 +1736,68 @@ export interface SolidityTestRunnerConfigArgs {
    * The code must be set and non-empty. The nonce and the balance default to
    * zero and storage defaults to empty.
    */
-  localPredeploys?: Array<AccountOverride>
+  localPredeploys?: Array<AccountOverride>;
   /**
    * If set, all tests are run in fork mode using this url or remote name.
    * Defaults to none.
    */
-  ethRpcUrl?: string
+  ethRpcUrl?: string;
   /** Pins the block number for the global state fork. */
-  forkBlockNumber?: bigint
+  forkBlockNumber?: bigint;
   /**
    * Map of RPC endpoints from chain name to RPC urls for fork cheat codes,
    * e.g. `{ "optimism": "https://optimism.alchemyapi.io/v2/..." }`
    */
-  rpcEndpoints?: Record<string, string>
+  rpcEndpoints?: Record<string, string>;
   /**
    * Optional RPC cache path. If this is none, then no RPC calls will be
    * cached, otherwise data is cached to `<rpc_cache_path>/<chain
    * id>/<block number>`. Caching can be disabled for specific chains
    * with `rpc_storage_caching`.
    */
-  rpcCachePath?: string
+  rpcCachePath?: string;
   /** What RPC endpoints are cached. Defaults to all. */
-  rpcStorageCaching?: StorageCachingConfig
+  rpcStorageCaching?: StorageCachingConfig;
   /**
    * The number of seconds to wait before `vm.prompt` reverts with a timeout.
    * Defaults to 120.
    */
-  promptTimeout?: number
+  promptTimeout?: number;
   /** Fuzz testing configuration. */
-  fuzz?: FuzzConfigArgs
+  fuzz?: FuzzConfigArgs;
   /**
    * Invariant testing configuration.
    * If an invariant config setting is not set, but a corresponding fuzz
    * config value is set, then the fuzz config value will be used.
    */
-  invariant?: InvariantConfigArgs
+  invariant?: InvariantConfigArgs;
   /** Whether to collect stack traces. */
-  collectStackTraces?: CollectStackTraces
+  collectStackTraces?: CollectStackTraces;
   /**
    * Controls which test results should include execution traces. Defaults to
    * None.
    */
-  includeTraces?: IncludeTraces
+  includeTraces?: IncludeTraces;
   /** The configuration for the Solidity test runner's observability */
-  observability?: ObservabilityConfig
+  observability?: ObservabilityConfig;
   /**
    * A regex pattern to filter tests. If provided, only test methods that
    * match the pattern will be executed and reported as a test result.
    */
-  testPattern?: string
+  testPattern?: string;
   /**
    * A regex pattern to exclude tests. If provided, test methods that match
    * the pattern will not be executed or reported as a test result. Applied
    * after `test_pattern`.
    */
-  excludeTestPattern?: string
+  excludeTestPattern?: string;
   /**
    * Controls whether to generate a gas report after running the tests.
    * Enabling this also enables collection of all traces and EVM isolation
    * mode.
    * Defaults to false.
    */
-  generateGasReport?: boolean
+  generateGasReport?: boolean;
   /**
    * A list of EIP-712 canonical type definitions that can be referenced by
    * type name in the `eip712HashType` and `eip712HashStruct` cheatcodes.
@@ -1751,7 +1831,7 @@ export interface SolidityTestRunnerConfigArgs {
    * With *only* the first entry, `vm.eip712HashType("Mail")` works but
    * `vm.eip712HashType("Person")` fails with an unknown-type error.
    */
-  eip712CanonicalTypes?: Array<string>
+  eip712CanonicalTypes?: Array<string>;
   /**
    * Maps the solc source names of the test-suite sources (e.g.
    * `project/test/Foo.t.sol`) to their absolute paths on disk.
@@ -1760,7 +1840,7 @@ export interface SolidityTestRunnerConfigArgs {
    * `hardhat-config:` NatSpec directives) directly from the sources. A test
    * source without an entry has no inline configuration collected.
    */
-  testSourcePaths?: Record<string, string>
+  testSourcePaths?: Record<string, string>;
   /**
    * Maps non-relative Solidity import paths (as written in `import`
    * statements, e.g. `forge-std/src/Test.sol`) to absolute file paths on
@@ -1770,24 +1850,41 @@ export interface SolidityTestRunnerConfigArgs {
    * file and need no entry here; only non-relative paths (package imports)
    * do.
    */
-  importMappings?: Record<string, string>
+  importMappings?: Record<string, string>;
+  /**
+   * The Solidity test profile this run was started with.
+   *
+   * An inline-config directive prefixed with a profile name
+   * (`forge-config: ci.fuzz.runs = 8`) applies only under that profile; an
+   * unprefixed one applies under every profile, and the prefixed one wins
+   * where both set the same key. Defaults to `default`.
+   */
+  testProfile?: string;
+  /**
+   * Every Solidity test profile the project declares.
+   *
+   * A prefix naming a profile that is not declared is an error, so a
+   * mistyped one fails whichever profile is selected. `default` is always
+   * declared. Defaults to `["default"]`.
+   */
+  declaredTestProfiles?: Array<string>;
 }
 
 export interface SourceReference {
-  sourceName: string
-  sourceContent: string
-  contract?: string
-  function?: string
-  line: number
-  range: Array<number>
+  sourceName: string;
+  sourceContent: string;
+  contract?: string;
+  function?: string;
+  line: number;
+  range: Array<number>;
 }
 
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
-  kind: "StackTrace"
+  kind: "StackTrace";
   /** The stack trace entries */
-  entries: Array<SolidityStackTraceEntry>
+  entries: Array<SolidityStackTraceEntry>;
 }
 
 export declare enum StackTraceEntryType {
@@ -1818,12 +1915,14 @@ export declare enum StackTraceEntryType {
   CHEATCODE_ERROR = 24,
 }
 
-export declare function stackTraceEntryTypeToString(val: StackTraceEntryType): string
+export declare function stackTraceEntryTypeToString(
+  val: StackTraceEntryType
+): string;
 
 /** See [`edr_solidity_tests::result::TestKind::Unit`] */
 export interface StandardTestKind {
   /** The gas consumed by the test. */
-  readonly consumedGas: bigint
+  readonly consumedGas: bigint;
 }
 
 /** Settings to configure caching of remote RPC endpoints. */
@@ -1832,28 +1931,28 @@ export interface StorageCachingConfig {
    * Chains to cache. Either all or none or a list of chain names, e.g.
    * ["optimism", "mainnet"].
    */
-  chains: CachedChains | Array<string>
+  chains: CachedChains | Array<string>;
   /** Endpoints to cache. Either all or remote or a regex. */
-  endpoints: CachedEndpoints | string
+  endpoints: CachedEndpoints | string;
 }
 
 /** A description of a storage slot's state. */
 export interface StorageSlot {
   /** The storage slot's index */
-  index: bigint
+  index: bigint;
   /** The storage slot's value */
-  value: bigint
+  value: bigint;
 }
 
 /** Configuration for subscriptions. */
 export interface SubscriptionConfig {
   /** Callback to be called when a new event is received. */
-  subscriptionCallback: (arg: SubscriptionEvent) => void
+  subscriptionCallback: (arg: SubscriptionEvent) => void;
 }
 
 export interface SubscriptionEvent {
-  filterId: bigint
-  result: unknown
+  filterId: bigint;
+  result: unknown;
 }
 
 /** The possible reasons for successful termination of the EVM. */
@@ -1869,15 +1968,15 @@ export declare enum SuccessReason {
 /** The result when the EVM terminates successfully. */
 export interface SuccessResult {
   /** The reason for termination */
-  reason: SuccessReason
+  reason: SuccessReason;
   /** The amount of gas used */
-  gasUsed: bigint
+  gasUsed: bigint;
   /** The amount of gas refunded */
-  gasRefunded: bigint
+  gasRefunded: bigint;
   /** The logs */
-  logs: Array<ExecutionLog>
+  logs: Array<ExecutionLog>;
   /** The transaction output */
-  output: CallOutput | CreateOutput
+  output: CallOutput | CreateOutput;
 }
 
 /**
@@ -1901,23 +2000,23 @@ export interface SuiteResult {
    * The artifact id can be used to match input to result in the progress
    * callback.
    */
-  id: ArtifactId
+  id: ArtifactId;
   /** See [`edr_solidity_tests::result::SuiteResult::duration`]. */
-  durationNs: bigint
+  durationNs: bigint;
   /** See [`edr_solidity_tests::result::SuiteResult::test_results`]. */
-  testResults: Array<TestResult>
+  testResults: Array<TestResult>;
   /** See [`edr_solidity_tests::result::SuiteResult::warnings`]. */
-  warnings: Array<string>
+  warnings: Array<string>;
 }
 
 /** The result of a test execution. */
 export declare enum TestStatus {
   /** Test success */
-  Success = 'Success',
+  Success = "Success",
   /** Test failure */
-  Failure = 'Failure',
+  Failure = "Failure",
   /** Test skipped */
-  Skipped = 'Skipped',
+  Skipped = "Skipped",
 }
 
 /** Tracing config for Solidity stack trace generation. */
@@ -1927,105 +2026,105 @@ export interface TracingConfigWithBuffers {
    * build info file that contains both input and output or a Hardhat v3
    * build info file that doesn't contain output and a separate output file.
    */
-  buildInfos?: Array<Uint8Array> | Array<BuildInfoAndOutput>
+  buildInfos?: Array<Uint8Array> | Array<BuildInfoAndOutput>;
   /** Whether to ignore contracts whose name starts with "Ignored". */
-  ignoreContracts?: boolean
+  ignoreContracts?: boolean;
 }
 
 export interface TracingMessage {
   /** Sender address */
-  readonly caller: Uint8Array
+  readonly caller: Uint8Array;
   /** Recipient address. None if it is a Create message. */
-  readonly to?: Uint8Array
+  readonly to?: Uint8Array;
   /** Whether it's a static call */
-  readonly isStaticCall: boolean
+  readonly isStaticCall: boolean;
   /** Transaction gas limit */
-  readonly gasLimit: bigint
+  readonly gasLimit: bigint;
   /** Depth of the message */
-  readonly depth: number
+  readonly depth: number;
   /** Input data of the message */
-  readonly data: Uint8Array
+  readonly data: Uint8Array;
   /** Value sent in the message */
-  readonly value: bigint
+  readonly value: bigint;
   /**
    * Address of the code that is being executed. Can be different from `to`
    * if a delegate call is being done.
    */
-  readonly codeAddress?: Uint8Array
+  readonly codeAddress?: Uint8Array;
   /** Code of the contract that is being executed. */
-  readonly code?: Uint8Array
+  readonly code?: Uint8Array;
 }
 
 export interface TracingMessageResult {
   /** Execution result */
-  readonly executionResult: ExecutionResult
+  readonly executionResult: ExecutionResult;
 }
 
 export interface TracingStep {
   /** Call depth */
-  readonly depth: number
+  readonly depth: number;
   /** The program counter */
-  readonly pc: bigint
+  readonly pc: bigint;
   /** The executed op code */
-  readonly opcode: string
+  readonly opcode: string;
   /**
    * The entries on the stack. It only contains the top element unless
    * verbose tracing is enabled. The vector is empty if there are no elements
    * on the stack.
    */
-  readonly stack: Array<bigint>
+  readonly stack: Array<bigint>;
   /** The memory at the step. None if verbose tracing is disabled. */
-  readonly memory?: Uint8Array
+  readonly memory?: Uint8Array;
 }
 
 /** We couldn't generate stack traces, because an unexpected error occurred. */
 export interface UnexpectedError {
   /** Enum tag for JS. */
-  kind: "UnexpectedError"
+  kind: "UnexpectedError";
   /** The error message from the unexpected error. */
-  errorMessage: string
+  errorMessage: string;
 }
 
-export declare const UNKNOWN_FUNCTION_NAME: string
+export declare const UNKNOWN_FUNCTION_NAME: string;
 
 export interface UnmappedSolc063RevertErrorStackTraceEntry {
-  type: StackTraceEntryType.UNMAPPED_SOLC_0_6_3_REVERT_ERROR
-  sourceReference?: SourceReference
+  type: StackTraceEntryType.UNMAPPED_SOLC_0_6_3_REVERT_ERROR;
+  sourceReference?: SourceReference;
 }
 
-export declare const UNRECOGNIZED_CONTRACT_NAME: string
+export declare const UNRECOGNIZED_CONTRACT_NAME: string;
 
-export declare const UNRECOGNIZED_FUNCTION_NAME: string
+export declare const UNRECOGNIZED_FUNCTION_NAME: string;
 
 export interface UnrecognizedContractCallstackEntryStackTraceEntry {
-  type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_CALLSTACK_ENTRY
-  address: Uint8Array
-  sourceReference?: undefined
+  type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_CALLSTACK_ENTRY;
+  address: Uint8Array;
+  sourceReference?: undefined;
 }
 
 export interface UnrecognizedContractErrorStackTraceEntry {
-  type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_ERROR
-  address: Uint8Array
-  returnData: Uint8Array
-  sourceReference?: undefined
-  isInvalidOpcodeError: boolean
+  type: StackTraceEntryType.UNRECOGNIZED_CONTRACT_ERROR;
+  address: Uint8Array;
+  returnData: Uint8Array;
+  sourceReference?: undefined;
+  isInvalidOpcodeError: boolean;
 }
 
 export interface UnrecognizedCreateCallstackEntryStackTraceEntry {
-  type: StackTraceEntryType.UNRECOGNIZED_CREATE_CALLSTACK_ENTRY
-  sourceReference?: undefined
+  type: StackTraceEntryType.UNRECOGNIZED_CREATE_CALLSTACK_ENTRY;
+  sourceReference?: undefined;
 }
 
 export interface UnrecognizedCreateErrorStackTraceEntry {
-  type: StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR
-  returnData: Uint8Array
-  sourceReference?: undefined
-  isInvalidOpcodeError: boolean
+  type: StackTraceEntryType.UNRECOGNIZED_CREATE_ERROR;
+  returnData: Uint8Array;
+  sourceReference?: undefined;
+  isInvalidOpcodeError: boolean;
 }
 
 export interface UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
-  type: StackTraceEntryType.UNRECOGNIZED_FUNCTION_WITHOUT_FALLBACK_ERROR
-  sourceReference: SourceReference
+  type: StackTraceEntryType.UNRECOGNIZED_FUNCTION_WITHOUT_FALLBACK_ERROR;
+  sourceReference: SourceReference;
 }
 
 /**
@@ -2036,12 +2135,12 @@ export interface UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
  */
 export interface UnsafeToReplay {
   /** Enum tag for JS. */
-  kind: "UnsafeToReplay"
+  kind: "UnsafeToReplay";
   /**
    * Indeterminism due to specifying a fork url without a fork block number
    * in the test runner config.
    */
-  globalForkLatest: boolean
+  globalForkLatest: boolean;
   /**
    * The list of executed impure cheatcode signatures. We collect function
    * signatures instead of function names as whether a cheatcode is impure
@@ -2050,32 +2149,32 @@ export interface UnsafeToReplay {
    * `function createSelectFork(string calldata urlOrAlias) external returns
    * (uint256 forkId);`.
    */
-  impureCheatcodes: Array<string>
+  impureCheatcodes: Array<string>;
 }
 
 /** An entry in a value snapshot group. */
 export interface ValueSnapshotEntry {
   /** The name of the entry. */
-  name: string
+  name: string;
   /** The value of the entry. */
-  value: string
+  value: string;
 }
 
 /** A grouping of value snapshot entries for a test. */
 export interface ValueSnapshotGroup {
   /** The group name. */
-  name: string
+  name: string;
   /** The entries in the group. */
-  entries: Array<ValueSnapshotEntry>
+  entries: Array<ValueSnapshotEntry>;
 }
 
 export interface Withdrawal {
   /** The index of withdrawal */
-  index: bigint
+  index: bigint;
   /** The index of the validator that generated the withdrawal */
-  validatorIndex: bigint
+  validatorIndex: bigint;
   /** The recipient address for withdrawal value */
-  address: Uint8Array
+  address: Uint8Array;
   /** The value contained in withdrawal */
-  amount: bigint
+  amount: bigint;
 }
