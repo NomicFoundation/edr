@@ -2,10 +2,8 @@
 "@nomicfoundation/edr": minor
 ---
 
-Interval mining now validates its configuration up front. A `[min, max]` interval range must satisfy `1 <= min <= max`, and is rejected when the provider is created, when `evm_setIntervalMining` is called (JSON-RPC error `-32602`), and when a recorded scenario is loaded.
+Fixed interval mining accepting a `[min, max]` range that it could not honour. A range with `min > max` crashed the provider on its first interval-mined block, and `[0, 0]` starved the provider of incoming requests. A range must now satisfy `1 <= min <= max`, and is rejected when the provider is created, when `evm_setIntervalMining` is called (JSON-RPC error `-32602`), and when a recorded scenario is loaded. Both bounds remain inclusive.
 
-This is a breaking change: `[0, 0]` and `[0, N]` were previously accepted. `[0, 0]` starved the provider of incoming requests, and a range with `min > max` crashed the provider on its first interval-mined block, so neither previously worked as configured — but a configuration that Hardhat forwards today will now fail at provider creation. Hardhat converts a scalar `0` to "disabled" before reaching EDR; it does not yet normalise a zero minimum inside a range, which it must do to guarantee forwards compatibility.
+Fixed `evm_setIntervalMining` not restarting the interval timer when called with the interval that was already configured. A range draws a new interval before each block, so an unchanged configuration does not imply an unchanged schedule.
 
-Both bounds remain inclusive.
-
-`evm_setIntervalMining` now restarts the interval timer on every call, including when it sets the interval that is already configured, matching Hardhat.
+BREAKING CHANGE: `[0, 0]` and `[0, N]` interval ranges are no longer accepted. Neither previously worked as configured, but a configuration that is forwarded today will now fail when the provider is created. A scalar `0` still disables interval mining; a zero minimum inside a range must be normalised by the caller.

@@ -3,7 +3,7 @@
 //! The loop's thread owns the [`ProviderData`] outright; all access goes
 //! through [`Message`]s, so no locking is needed. The loop also owns the
 //! interval-mining timer, restarting it whenever a request reconfigured it —
-//! including to the interval already set, as Hardhat does.
+//! including to the interval already set.
 
 use std::{
     convert::Infallible,
@@ -101,8 +101,8 @@ pub(crate) enum Message<ChainSpecT: ProviderChainSpec> {
 /// Creates a channel that yields once the next interval-mined block is due.
 ///
 /// Yields nothing if interval mining is disabled. The interval is measured from
-/// the end of the previous mine, as Hardhat measures it, so the period between
-/// blocks is the interval plus the time spent mining.
+/// the end of the previous mine, so the period between blocks is the interval
+/// plus the time spent mining.
 ///
 /// Measuring from the end is what keeps interval mining from starving request
 /// handling: the deadline is always a full interval away when the loop next
@@ -154,9 +154,6 @@ pub(crate) fn run<ChainSpecT, TimerT>(
                 Ok(Message::Request { request, on_response }) => {
                     let response = requests::execute_request(&mut data, request);
 
-                    // Armed before the response is handed back, because
-                    // `on_response` serializes it on this thread and that is not
-                    // part of the interval.
                     if data.take_interval_reconfigured() {
                         interval_timer = next_interval_timer(data.interval_config());
                     }

@@ -139,8 +139,8 @@ async fn interval_mining_with_a_range_mines_blocks() -> anyhow::Result<()> {
 }
 
 /// An invalid range is rejected, and rejecting it leaves the provider usable.
-/// Before the range was validated, `[2000, 1000]` panicked the thread that
-/// owns the provider's data on the first interval-mined block.
+/// Before the range was validated, `[2000, 1000]` panicked the thread that owns
+/// the provider's data on the first interval-mined block.
 #[tokio::test(flavor = "multi_thread")]
 async fn evm_set_interval_mining_rejects_an_invalid_range() -> anyhow::Result<()> {
     let provider = provider_with_interval(None)?;
@@ -161,9 +161,6 @@ async fn evm_set_interval_mining_rejects_an_invalid_range() -> anyhow::Result<()
 /// `evm_setIntervalMining` restarts the timer even when it sets the interval
 /// that is already configured, so the next block is always due a full interval
 /// after the call.
-///
-/// Matches Hardhat, which deliberately dropped the same-value short-circuit
-/// from `MiningTimer.setBlockTime` in commit `1929c977c`.
 #[tokio::test(flavor = "multi_thread")]
 async fn evm_set_interval_mining_restarts_on_an_unchanged_interval() -> anyhow::Result<()> {
     /// Long enough that no block is ever due between two consecutive requests,
