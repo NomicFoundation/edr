@@ -53,7 +53,7 @@ parking_lot.workspace = true
 paste = "1.0"
 serde_json.workspace = true
 semver.workspace = true
-serial_test = "2.0.0"
+serial_test = "4.0.0"
 tempfile.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
