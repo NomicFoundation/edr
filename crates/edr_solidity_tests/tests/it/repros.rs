@@ -745,6 +745,17 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         "expected a counterexample call sequence"
     );
 
+    // When `afterInvariant()` is what fails, the replay must decode the
+    // revert reason from it rather than from the (passing) `invariant()`
+    // call, or the runner treats the failure as unreproduced and discards
+    // the stack trace it computed.
+    let after_invariant_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceAfterInvariantTest")
+        .expect("the AlwaysStackTraceAfterInvariant suite should have run");
+    // The failure does not depend on the fuzzed calls, so shrinking leaves no
+    // counterexample sequence; the stack trace alone is the point here.
+    assert_execution_error_stack_trace(after_invariant_suite, "invariantAlwaysHolds()");
+
     // An invariant that is already broken in the initial state fails the
     // campaign's initial check (`invariant_fuzz` returns an error before any
     // fuzzed calls); that path must produce a stack trace too.
