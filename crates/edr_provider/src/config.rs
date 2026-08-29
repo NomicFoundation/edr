@@ -117,7 +117,7 @@ pub struct LocalConfig {
 /// Configuration for interval mining.
 ///
 /// Every representable value yields a non-zero interval.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum IntervalConfig {
     /// Mine a block every `n` milliseconds.
     Fixed(NonZeroU64),
@@ -154,7 +154,7 @@ impl From<IntervalRangeConfig> for IntervalConfig {
 /// Non-empty and free of zeroes by construction, so
 /// [`IntervalRangeConfig::generate_interval`] can neither panic nor return
 /// zero. Deserialization is validated through [`UncheckedIntervalRange`].
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(try_from = "UncheckedIntervalRange")]
 pub struct IntervalRangeConfig {
     min: NonZeroU64,
@@ -410,10 +410,10 @@ mod tests {
     /// representation it was written as.
     #[test]
     fn interval_range_is_not_normalized_to_fixed() {
-        assert_ne!(
+        assert!(matches!(
             IntervalConfig::from(range(5, 5)),
-            IntervalConfig::Fixed(non_zero(5))
-        );
+            IntervalConfig::Range(_)
+        ));
     }
 
     #[test]
@@ -432,6 +432,9 @@ mod tests {
         }
     }
 
+    /// Both bounds are inclusive. A max-exclusive draw would make
+    /// [`interval_range_with_equal_bounds_is_deterministic`] sample an empty
+    /// range, which panics.
     #[test]
     fn interval_range_generates_values_within_bounds() {
         let range = range(2, 4);
@@ -442,43 +445,25 @@ mod tests {
         }
     }
 
-    /// Pins that both bounds are inclusive. Hardhat draws from a max-exclusive
-    /// range; EDR does not.
-    #[test]
-    fn interval_range_includes_both_bounds() {
-        let range = range(1, 2);
-
-        let mut seen_min = false;
-        let mut seen_max = false;
-        for _ in 0..1_000 {
-            match range.generate_interval().get() {
-                1 => seen_min = true,
-                2 => seen_max = true,
-                other => panic!("{other} is out of bounds"),
-            }
-        }
-
-        assert!(seen_min && seen_max);
-    }
-
     /// Recorded scenario files carry a serialized [`MiningConfig`], so this
     /// representation cannot change without invalidating them.
     #[test]
     fn interval_config_serializes_to_externally_tagged_json() -> anyhow::Result<()> {
-        let fixed = IntervalConfig::Fixed(non_zero(1000));
-        assert_eq!(serde_json::to_value(&fixed)?, json!({ "Fixed": 1000 }));
-        assert_eq!(
-            serde_json::from_value::<IntervalConfig>(json!({ "Fixed": 1000 }))?,
-            fixed
-        );
+        for (config, expected) in [
+            (
+                IntervalConfig::Fixed(non_zero(1000)),
+                json!({ "Fixed": 1000 }),
+            ),
+            (
+                IntervalConfig::from(range(1000, 5000)),
+                json!({ "Range": { "min": 1000, "max": 5000 } }),
+            ),
+        ] {
+            assert_eq!(serde_json::to_value(&config)?, expected);
 
-        let ranged = IntervalConfig::from(range(1000, 5000));
-        let ranged_json = json!({ "Range": { "min": 1000, "max": 5000 } });
-        assert_eq!(serde_json::to_value(&ranged)?, ranged_json);
-        assert_eq!(
-            serde_json::from_value::<IntervalConfig>(ranged_json)?,
-            ranged
-        );
+            let deserialized: IntervalConfig = serde_json::from_value(expected.clone())?;
+            assert_eq!(serde_json::to_value(&deserialized)?, expected);
+        }
 
         Ok(())
     }
@@ -494,18 +479,16 @@ mod tests {
             },
         };
 
-        assert_eq!(
-            serde_json::to_value(&config)?,
-            json!({
-                "autoMine": true,
-                "blockGasLimit": null,
-                "interval": { "Range": { "min": 1000, "max": 5000 } },
-                "memPool": { "order": "Priority" },
-            })
-        );
+        let expected = json!({
+            "autoMine": true,
+            "blockGasLimit": null,
+            "interval": { "Range": { "min": 1000, "max": 5000 } },
+            "memPool": { "order": "Priority" },
+        });
+        assert_eq!(serde_json::to_value(&config)?, expected);
 
-        let deserialized: MiningConfig = serde_json::from_value(serde_json::to_value(&config)?)?;
-        assert_eq!(deserialized.interval, config.interval);
+        let deserialized: MiningConfig = serde_json::from_value(expected.clone())?;
+        assert_eq!(serde_json::to_value(&deserialized)?, expected);
 
         Ok(())
     }
@@ -547,7 +530,7 @@ mod tests {
         let config: Option<IntervalConfig> =
             IntervalConfigRequest::FixedOrDisabled(0).try_into()?;
 
-        assert_eq!(config, None);
+        assert!(config.is_none());
 
         Ok(())
     }
@@ -556,11 +539,18 @@ mod tests {
     fn a_request_interval_is_converted() -> anyhow::Result<()> {
         let fixed: Option<IntervalConfig> =
             IntervalConfigRequest::FixedOrDisabled(1000).try_into()?;
-        assert_eq!(fixed, Some(IntervalConfig::Fixed(non_zero(1000))));
+        let Some(IntervalConfig::Fixed(interval)) = fixed else {
+            panic!("expected a fixed interval");
+        };
+        assert_eq!(interval, non_zero(1000));
 
         let ranged: Option<IntervalConfig> =
             IntervalConfigRequest::Range([1000, 5000]).try_into()?;
-        assert_eq!(ranged, Some(IntervalConfig::from(range(1000, 5000))));
+        let Some(IntervalConfig::Range(bounds)) = ranged else {
+            panic!("expected an interval range");
+        };
+        assert_eq!(bounds.min(), non_zero(1000));
+        assert_eq!(bounds.max(), non_zero(5000));
 
         Ok(())
     }

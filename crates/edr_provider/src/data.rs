@@ -449,9 +449,9 @@ where
     /// mining.
     ///
     /// Always signals a restart of the interval-mining timer, including for the
-    /// configuration that is already set. Equality of two configurations does
-    /// not imply an equal schedule, because a range is drawn anew before each
-    /// block, so it must not be used to decide whether to restart.
+    /// configuration that is already set: a range draws a new interval before
+    /// each block, so an unchanged configuration does not imply an unchanged
+    /// schedule.
     pub fn set_interval_config(&mut self, interval_config: Option<IntervalConfig>) {
         self.interval_config = interval_config;
         self.interval_reconfigured = true;
@@ -3236,10 +3236,8 @@ mod tests {
         test_utils::{create_test_config, one_ether, ProviderTestFixture},
     };
 
-    /// Hardhat restarts its mining timer on every `evm_setIntervalMining`,
-    /// including for the block time it already has. It deliberately dropped the
-    /// same-value short-circuit from `MiningTimer.setBlockTime` in commit
-    /// `1929c977c`.
+    /// Every call signals a restart, including one that sets the configuration
+    /// that is already in place.
     #[test]
     fn set_interval_config_always_signals_a_restart() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
