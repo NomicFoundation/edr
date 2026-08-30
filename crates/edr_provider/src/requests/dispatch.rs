@@ -61,9 +61,32 @@ where
     }
 
     Ok(ResponseWithCallTraces {
-        result: serde_json::Value::Array(results),
+        result: to_json_array(&results),
         call_trace_arenas,
     })
+}
+
+/// Collects already-serialized JSON values into a JSON array.
+fn to_json_array(values: &[Box<serde_json::value::RawValue>]) -> Box<serde_json::value::RawValue> {
+    let capacity = values
+        .iter()
+        .map(|value| value.get().len() + 1)
+        .sum::<usize>()
+        + 1;
+
+    let mut json = String::with_capacity(capacity);
+    json.push('[');
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            json.push(',');
+        }
+        json.push_str(value.get());
+    }
+    json.push(']');
+
+    // SAFETY: every element is a single well-formed JSON value, so the array is
+    // one too.
+    unsafe { serde_json::value::RawValue::from_string_unchecked(json) }
 }
 
 /// Executes a single JSON-RPC request, printing its method logs unless the
@@ -400,21 +423,19 @@ mod tests {
             ]),
         )?;
 
-        let serde_json::Value::Array(results) = &response.result else {
-            panic!("expected an array, got {:?}", response.result);
-        };
+        let results: Vec<Box<serde_json::value::RawValue>> = response.deserialize_result()?;
         assert_eq!(results.len(), 3);
 
-        let chain_id: U256 = serde_json::from_value(results[0].clone())?;
+        let chain_id: U256 = serde_json::from_str(results[0].get())?;
         assert_eq!(chain_id.to::<u64>(), fixture.config.chain_id);
 
-        let block_number: U256 = serde_json::from_value(results[1].clone())?;
+        let block_number: U256 = serde_json::from_str(results[1].get())?;
         assert_eq!(
             block_number.to::<u64>(),
             fixture.provider_data.last_block_number()
         );
 
-        let network_id: String = serde_json::from_value(results[2].clone())?;
+        let network_id: String = serde_json::from_str(results[2].get())?;
         assert_eq!(network_id, fixture.config.network_id.to_string());
 
         Ok(())
@@ -429,7 +450,7 @@ mod tests {
             ProviderRequest::Batch(Vec::new()),
         )?;
 
-        assert_eq!(response.result, serde_json::Value::Array(Vec::new()));
+        assert_eq!(response.result.get(), "[]");
         assert!(response.call_trace_arenas.is_empty());
 
         Ok(())

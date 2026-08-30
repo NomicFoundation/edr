@@ -104,7 +104,8 @@ fn provider_with_deployed_test_contract(
             ))
             .expect("Failed to deploy test contract");
 
-        serde_json::from_value::<B256>(response.result)
+        response
+            .deserialize_result::<B256>()
             .expect("Failed to deserialize transaction hash")
     };
 
@@ -116,7 +117,8 @@ fn provider_with_deployed_test_contract(
             ))
             .expect("Failed to get transaction receipt");
 
-        let receipt: L1RpcTransactionReceipt = serde_json::from_value(response.result)
+        let receipt: L1RpcTransactionReceipt = response
+            .deserialize_result()
             .expect("Failed to deserialize transaction receipt");
 
         receipt
@@ -209,7 +211,9 @@ async fn debug_trace_transaction() -> anyhow::Result<()> {
             }),
         ))?;
 
-        serde_json::from_value(response.result).expect("Failed to deserialize transaction hash")
+        response
+            .deserialize_result()
+            .expect("Failed to deserialize transaction hash")
     };
 
     // Reset the hits after the transaction
@@ -369,7 +373,7 @@ mod returndata {
             )))?;
 
         // Target.getValue() returns uint256(42), forwarded via returndatacopy.
-        let result: String = serde_json::from_value(response.result)?;
+        let result: String = response.deserialize_result()?;
         let expected = format!("0x{:0>64}", hex::encode(42u32.to_be_bytes()));
         assert_eq!(result, expected, "forwardSuccessfulCall() should return 42");
 
@@ -400,7 +404,7 @@ mod returndata {
 
         // forwardRevertedCall() returns the raw ABI-encoded revert data from
         // Target.willRevert() via returndatacopy.
-        let result: String = serde_json::from_value(response.result)?;
+        let result: String = response.deserialize_result()?;
         let reason = decode_revert_reason(&result);
         assert_eq!(reason, "expected revert reason");
 
@@ -431,7 +435,7 @@ mod returndata {
 
         // The EVM does not populate returndata for successful deployments, so
         // returndatasize() is 0 and the raw assembly return produces empty output.
-        let result: String = serde_json::from_value(response.result)?;
+        let result: String = response.deserialize_result()?;
         assert_eq!(
             result, "0x",
             "deployChild() should return empty data after successful CREATE"
@@ -464,7 +468,7 @@ mod returndata {
 
         // deployRevertingChild() returns the raw ABI-encoded revert data from the
         // failed CoverageDeployRevert constructor via returndatacopy.
-        let result: String = serde_json::from_value(response.result)?;
+        let result: String = response.deserialize_result()?;
         let reason = decode_revert_reason(&result);
         assert_eq!(reason, "constructor failed");
 

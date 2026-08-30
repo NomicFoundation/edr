@@ -92,7 +92,7 @@ fn transaction_receipt(
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 
-    let receipt: Option<L1RpcTransactionReceipt> = serde_json::from_value(response.result)?;
+    let receipt: Option<L1RpcTransactionReceipt> = response.deserialize_result()?;
     receipt.ok_or_else(|| anyhow::anyhow!("receipt should exist"))
 }
 
@@ -101,7 +101,7 @@ fn latest_block(provider: &Provider<L1ChainSpec>) -> anyhow::Result<L1RpcBlock<B
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    Ok(serde_json::from_value(response.result)?)
+    Ok(response.deserialize_result()?)
 }
 
 /// Clears the seeded slot, generating an SSTORE refund. With automining the

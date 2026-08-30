@@ -72,7 +72,7 @@ fn block_timestamp(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::Number(block_number), false),
     ))?;
 
-    let block: L1RpcBlock<B256> = serde_json::from_value(response.result)?;
+    let block: L1RpcBlock<B256> = response.deserialize_result()?;
     Ok(block.timestamp)
 }
 
@@ -89,7 +89,7 @@ fn call_log_emitter(
         }),
     ))?;
 
-    Ok(serde_json::from_value::<B256>(response.result)?)
+    Ok(response.deserialize_result::<B256>()?)
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -116,7 +116,7 @@ async fn logs_carry_the_timestamp_of_their_own_block() -> anyhow::Result<()> {
                 ..LogFilterOptions::default()
             }),
         ))?;
-        serde_json::from_value::<Vec<serde_json::Value>>(response.result)?
+        response.deserialize_result::<Vec<serde_json::Value>>()?
     };
 
     assert_eq!(logs.len(), 2, "expected one log per call");
@@ -166,7 +166,7 @@ async fn receipt_logs_carry_the_block_timestamp_too() -> anyhow::Result<()> {
     let response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetTransactionReceipt(call_hash),
     ))?;
-    let receipt: serde_json::Value = serde_json::from_value(response.result)?;
+    let receipt: serde_json::Value = response.deserialize_result()?;
 
     let log_timestamp = quantity(&receipt["logs"][0], "blockTimestamp")?;
 

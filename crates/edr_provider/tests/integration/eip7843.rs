@@ -178,7 +178,7 @@ async fn slotnum_opcode_returns_block_slot_number() -> anyhow::Result<()> {
             None,
         )))?;
 
-    let call_result: String = serde_json::from_value(response.result)?;
+    let call_result: String = response.deserialize_result()?;
     let slotnum_opcode_returned_value = U256::from_str(&call_result)?;
 
     assert_eq!(

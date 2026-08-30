@@ -150,7 +150,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
 /// Marshals a JSON-RPC response data into a `ResponseData`, taking into account
 /// large responses.
 pub fn marshal_response_data(
-    response: jsonrpc::ResponseData<serde_json::Value>,
+    response: jsonrpc::ResponseData<Box<serde_json::value::RawValue>>,
 ) -> napi::Result<ResponseData> {
     serde_json::to_string(&response)
         .and_then(|json| {

@@ -407,7 +407,7 @@ impl EdrContext {
         };
 
         Ok(GcProvider::from(Provider::new(
-            Arc::new(MockProvider::new(mocked_response)),
+            Arc::new(MockProvider::new(mocked_response)?),
             runtime,
             Arc::default(),
             dropped_provider_sender,

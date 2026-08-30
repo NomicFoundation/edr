@@ -58,7 +58,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
             None,
         )))?;
 
-    assert_eq!(response.result, "0x");
+    assert_eq!(response.deserialize_result::<String>()?, "0x");
 
     Ok(())
 }
@@ -99,7 +99,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
 
     // 1 gwei in hex
     assert_eq!(
-        response.result,
+        response.deserialize_result::<String>()?,
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
 
@@ -149,7 +149,7 @@ async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
 
     // 1 gwei in hex
     assert_eq!(
-        response.result,
+        response.deserialize_result::<String>()?,
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
 
