@@ -1620,17 +1620,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cargo_toml"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa61aec073ec94791433ddf3df2323ff9d1711557c2a0eefb0f99cb4f8dca520"
-dependencies = [
- "semver 1.0.28",
- "serde",
- "toml",
-]
-
-[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3312,7 +3301,6 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "auto_impl",
- "cargo_toml",
  "derive-where",
  "dyn-clone",
  "edr_block_api",

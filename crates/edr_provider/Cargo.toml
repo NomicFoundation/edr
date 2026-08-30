@@ -97,7 +97,6 @@ serial_test = "4.0.0"
 tempfile = "3.25.0"
 
 [build-dependencies]
-cargo_toml = { version = "1.0.0", default-features = false }
 toml = { version = "1.0.0", default-features = false, features = ["parse", "serde"] }
 
 [features]

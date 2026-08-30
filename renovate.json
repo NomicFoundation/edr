@@ -104,12 +104,6 @@
       "groupName": "tracing"
     },
     {
-      "description": "toml + cargo_toml: cargo_toml wraps toml and re-exports its types; both are build-dependencies of edr_provider and are used in a single expression in its build.rs. Bumping either alone strands a second toml in the lockfile and needs the same build.rs fix twice, so majors have to land together.",
-      "matchManagers": ["cargo"],
-      "matchPackageNames": ["/^toml(_|$)/", "cargo_toml"],
-      "groupName": "toml"
-    },
-    {
       "description": "External foundry-rs crates from crates.io. Need alloy + revm bump coordination.",
       "matchManagers": ["cargo"],
       "matchPackageNames": [
