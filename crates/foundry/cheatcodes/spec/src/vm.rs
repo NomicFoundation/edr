@@ -2560,6 +2560,14 @@ interface Vm {
     /// Solidity tests have no broadcast queue, so the only observable effect is the one that
     /// also applies in Foundry's test context: the RLP-encoded transaction is decoded and
     /// executed against the current EVM state, from the address recovered from its signature.
+    ///
+    /// It is executed as its own transaction, which has two consequences worth knowing. A revert
+    /// during its execution is not a cheatcode failure: the transaction is still included, and its
+    /// nonce is still consumed, exactly as it would be in a block. Only failures to *validate* it
+    /// (undecodable payload, unrecoverable signature, wrong chain id, sender that cannot pay) fail
+    /// the cheatcode. And the resulting state is committed to the database rather than journalled,
+    /// so it is not undone when the frame that broadcast it reverts; use `snapshotState` and
+    /// `revertToState` to roll it back.
     #[cheatcode(group = Scripting)]
     function broadcastRawTransaction(bytes calldata data) external;
 

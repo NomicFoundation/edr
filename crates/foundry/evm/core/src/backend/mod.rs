@@ -329,7 +329,14 @@ pub trait CheatcodeBackend<
     ///
     /// The transaction is validated by the EVM just like any other
     /// transaction, so an invalid chain id or an unaffordable transaction is
-    /// returned as an error rather than silently adjusted.
+    /// returned as an error rather than silently adjusted. A transaction that
+    /// validates but *reverts* is not an error: it is an included transaction,
+    /// and its nonce bump and fee payment are committed.
+    ///
+    /// The resulting state is committed to the database and reflected in
+    /// `journaled_state`, but no journal entries are recorded for it, so it is
+    /// not rolled back if the calling frame reverts. State snapshots do capture
+    /// and restore it.
     fn transact_from_tx(
         &mut self,
         tx: &TransactionRequest,
@@ -1805,7 +1812,21 @@ impl<
                 .wrap_err("backend: failed committing transaction")?
         };
 
+        // Only *validation* failures are errors; a transaction that reverts
+        // during execution is still an included transaction, so its changeset
+        // (nonce bump and fee payment) is committed either way. Traced because
+        // there is otherwise no signal that the transaction did not succeed.
+        if !res.result.is_success() {
+            trace!(result = ?res.result, "broadcast transaction did not succeed");
+        }
+
         self.commit(res.state);
+        // Not `Some(persistent_accounts)`, unlike `apply_state_changeset` in
+        // the `transact` path. There the fork DB is stale for persistent
+        // accounts, whose canonical state lives in the journal, so they must be
+        // skipped. Here the journal was flushed into the DB above, so DB and
+        // journal agree for every account, and skipping persistent ones would
+        // instead discard this transaction's legitimate effects on them.
         update_state(&mut journaled_state.state, self, None)?;
 
         Ok(())

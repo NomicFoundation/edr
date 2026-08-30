@@ -3412,7 +3412,7 @@
     {
       "func": {
         "id": "broadcastRawTransaction",
-        "description": "Takes a signed transaction and broadcasts it to the network.\nSolidity tests have no broadcast queue, so the only observable effect is the one that\nalso applies in Foundry's test context: the RLP-encoded transaction is decoded and\nexecuted against the current EVM state, from the address recovered from its signature.",
+        "description": "Takes a signed transaction and broadcasts it to the network.\nSolidity tests have no broadcast queue, so the only observable effect is the one that\nalso applies in Foundry's test context: the RLP-encoded transaction is decoded and\nexecuted against the current EVM state, from the address recovered from its signature.\nIt is executed as its own transaction, which has two consequences worth knowing. A revert\nduring its execution is not a cheatcode failure: the transaction is still included, and its\nnonce is still consumed, exactly as it would be in a block. Only failures to *validate* it\n(undecodable payload, unrecoverable signature, wrong chain id, sender that cannot pay) fail\nthe cheatcode. And the resulting state is committed to the database rather than journalled,\nso it is not undone when the frame that broadcast it reverts; use `snapshotState` and\n`revertToState` to roll it back.",
         "declaration": "function broadcastRawTransaction(bytes calldata data) external;",
         "visibility": "external",
         "mutability": "",
