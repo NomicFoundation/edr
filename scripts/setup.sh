@@ -10,7 +10,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --defaul
 source "$HOME/.cargo/env"
 
 # Install nightly rustfmt
-rustup toolchain install nightly --profile minimal --component rustfmt
+rustup toolchain install nightly-2026-08-29 --profile minimal --component rustfmt
 
 sudo apt update
 
