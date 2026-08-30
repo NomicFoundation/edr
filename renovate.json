@@ -169,6 +169,12 @@
       "allowedVersions": "<0.10"
     },
     {
+      "description": "cita_trie: hold at 4.x. 6.x delivers no functional change to EDR — nibbles/node/errors are byte-identical to 4.1.0 and trie.rs differs only by a lifetime-elision fix. The break is purely that 6.0.1 swapped the `hasher` crate for `cita-hasher` (upstream can't publish to `hasher`, which they don't own), so `hasher::HasherKeccak` no longer satisfies `cita_trie::Hasher`. Taking it also duplicates rlp 0.5 + 0.6 in the lockfile. Upstream went 28 months without a commit and 6.x has ~450 downloads. Lift this only if the crate survives the alloy-trie migration — see PR #1694.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["cita_trie"],
+      "allowedVersions": "<5"
+    },
+    {
       "description": "Hardhat ecosystem (hardhat, hardhat2 alias, @nomicfoundation/hardhat-*): exact-pinned, pnpm-patched, partly on pre-release tracks. Bumps invalidate patches and break the v2/v3 benchmark setup; coordinated manually with edr↔hardhat releases.",
       "matchManagers": ["npm"],
       "matchPackageNames": [
