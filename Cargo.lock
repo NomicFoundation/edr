@@ -9,7 +9,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5d307320b3181d6d7954e663bd7c774a838b8220fe0593c86d9fb09f498b4b"
 dependencies = [
  "fallible-iterator",
- "gimli",
+ "gimli 0.32.3",
  "smallvec",
 ]
 
@@ -3570,7 +3570,7 @@ dependencies = [
  "edr_tracing",
  "foundry-compilers",
  "foundry-evm-traces",
- "gimli",
+ "gimli 0.34.0",
  "indexmap 2.14.0",
  "itertools 0.15.0",
  "log",
@@ -4745,6 +4745,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
 dependencies = [
  "fallible-iterator",
+ "stable_deref_trait",
+]
+
+[[package]]
+name = "gimli"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1033caf0b349c518623b5396bfb2cf0bddf44f0306d543a250e5743297aafd10"
+dependencies = [
  "stable_deref_trait",
 ]
 
