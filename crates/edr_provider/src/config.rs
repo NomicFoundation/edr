@@ -153,7 +153,7 @@ impl From<IntervalRangeConfig> for IntervalConfig {
 ///
 /// Non-empty and free of zeroes by construction, so
 /// [`IntervalRangeConfig::generate_interval`] can neither panic nor return
-/// zero. Deserialization is validated through [`UncheckedIntervalRange`].
+/// zero. Deserialization upholds the same invariant.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(try_from = "UncheckedIntervalRange")]
 pub struct IntervalRangeConfig {
