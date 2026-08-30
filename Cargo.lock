@@ -1720,14 +1720,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "cita_trie"
-version = "4.1.0"
+name = "cita-hasher"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8c3d2abadaa28e0d277f9f6d07a2052544f045d929cd4d6f7bcfb43567c9767"
+checksum = "2e2c0e8d0ff985c53e1d5e5646eb3fd42364f5aac7bee3189a3dfdeb96cc7293"
 dependencies = [
- "hasher",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "cita_trie"
+version = "6.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2d50801de1d3f2745e8a9251cccd8b618842e55300684924a3da6d5ad5c130b"
+dependencies = [
+ "cita-hasher",
  "parking_lot",
- "rlp",
+ "rlp 0.6.1",
 ]
 
 [[package]]
@@ -7453,6 +7462,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rlp"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa24e92bb2a83198bb76d661a71df9f7076b8c420b8696e4d3d97d50d94479e3"
+dependencies = [
+ "bytes",
+ "rlp-derive",
+ "rustc-hex",
+]
+
+[[package]]
+name = "rlp-derive"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "652db34deaaa57929e10ca18e5454a32cb0efc351ae80d320334bbf907b908b3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "rpds"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7484,7 +7515,7 @@ dependencies = [
  "proptest",
  "rand 0.8.5",
  "rand 0.9.5",
- "rlp",
+ "rlp 0.5.2",
  "ruint-macro",
  "serde_core",
  "valuable",

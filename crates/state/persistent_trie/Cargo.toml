@@ -8,7 +8,7 @@ alloy-rlp.workspace = true
 alloy-rpc-types.workspace = true
 alloy-trie.workspace = true
 alloy-serde.workspace = true
-cita_trie = { version = "4.0.0", default-features = false }
+cita_trie = { version = "6.0.0", default-features = false }
 edr_primitives.workspace = true
 edr_state_api.workspace = true
 hasher = { version = "0.1.4", default-features = false, features = ["hash-keccak"] }
