@@ -26,6 +26,8 @@ use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
 use tokio::runtime;
 
+use crate::common::provider::new_provider;
+
 const SLOT_NUMBER_JSON_KEY: &str = "slotNumber";
 
 const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
@@ -41,25 +43,6 @@ const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 // TODO: once Solidity exposes SLOTNUM, replace this hand-assembled bytecode
 // with a compiled Solidity source for readability.
 const SLOT_NUMBER_CONTRACT: Bytes = bytes!("0x6009600c60003960096000f34b60005260206000f3");
-
-fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1ChainSpec>> {
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-
-    let mut config = create_test_config();
-    config.hardfork = hardfork;
-
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
-
-    Ok(provider)
-}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_header_includes_slot_number_on_amsterdam() -> anyhow::Result<()> {

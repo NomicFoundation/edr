@@ -6,42 +6,16 @@
 //! From Amsterdam onward, the block header carries a `blockAccessListHash`
 //! field. On earlier hardforks the field is omitted from the RPC response.
 
-use std::sync::Arc;
-
-use edr_chain_l1::{rpc::block::L1RpcBlock, L1ChainSpec};
+use edr_chain_l1::rpc::block::L1RpcBlock;
 use edr_primitives::{address, Address, B256, KECCAK_RLP_EMPTY_ARRAY, U256};
-use edr_provider::{
-    test_utils::{create_test_config, get_latest_block, mine_block, transfer_value},
-    time::CurrentTime,
-    NoopLogger, Provider,
-};
-use edr_solidity::contract_decoder::ContractDecoder;
-use parking_lot::RwLock;
-use tokio::runtime;
+use edr_provider::test_utils::{get_latest_block, mine_block, transfer_value};
+
+use crate::common::provider::new_provider;
 
 const BLOCK_ACCESS_LIST_HASH_JSON_KEY: &str = "blockAccessListHash";
 
 const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 const RECIPIENT: Address = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
-
-fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1ChainSpec>> {
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-
-    let mut config = create_test_config();
-    config.hardfork = hardfork;
-
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
-
-    Ok(provider)
-}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_header_includes_block_access_list_hash_on_amsterdam() -> anyhow::Result<()> {
@@ -102,14 +76,17 @@ async fn block_header_omits_block_access_list_hash_before_amsterdam() -> anyhow:
 
 #[cfg(feature = "test-remote")]
 mod fork {
+    use edr_chain_l1::L1ChainSpec;
     use edr_primitives::HashMap;
     use edr_provider::{
         config::ForkConfig,
         test_utils::{create_test_config_with, MinimalProviderConfig},
+        Provider,
     };
     use edr_test_utils::env::json_rpc_url_provider;
 
     use super::*;
+    use crate::common::provider::new_provider_from_config;
 
     /// Mines a state-modifying block and returns its block access list hash.
     fn mine_and_get_bal_hash(provider: &Provider<L1ChainSpec>) -> B256 {
@@ -125,9 +102,6 @@ mod fork {
     // forked mode.
     #[tokio::test(flavor = "multi_thread")]
     async fn block_access_list_hash_differs_across_forked_amsterdam_blocks() -> anyhow::Result<()> {
-        let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-        let subscriber = Box::new(|_event| {});
-
         let mut config =
             create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
                 block_number: Some(20_384_300),
@@ -138,14 +112,7 @@ mod fork {
             }));
         config.hardfork = edr_chain_l1::Hardfork::Amsterdam;
 
-        let provider = Provider::new(
-            runtime::Handle::current(),
-            logger,
-            subscriber,
-            config,
-            Arc::new(RwLock::<ContractDecoder>::default()),
-            CurrentTime,
-        )?;
+        let provider = new_provider_from_config(config)?;
 
         let first_block = mine_and_get_bal_hash(&provider);
         let second_block = mine_and_get_bal_hash(&provider);

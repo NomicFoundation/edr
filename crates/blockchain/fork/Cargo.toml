@@ -51,4 +51,4 @@ edr_test_blockchain.workspace = true
 edr_test_transaction.workspace = true
 edr_test_utils.workspace = true
 edr_transaction.workspace = true
-serial_test = "2.0.0"
+serial_test = "4.0.0"
