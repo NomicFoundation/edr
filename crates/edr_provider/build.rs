@@ -1,4 +1,11 @@
-use cargo_toml::{Dependency, DependencyDetail, Manifest};
+use cargo_toml::{Dependency, DependencyDetail, Manifest, VersionReq};
+
+/// `VersionReq`'s `Display` spells out the caret that a bare `"41.0.0"` leaves
+/// implicit.
+fn render_version_req(version: &VersionReq) -> String {
+    let rendered = version.to_string();
+    rendered.strip_prefix('^').unwrap_or(&rendered).to_owned()
+}
 
 fn main() {
     let cargo_toml: Manifest =
@@ -9,7 +16,7 @@ fn main() {
         .dependencies
         .get("revm")
     {
-        Some(Dependency::Simple(s)) => s.clone(),
+        Some(Dependency::Simple(s)) => render_version_req(s),
         Some(Dependency::Detailed(detailed)) => {
             let DependencyDetail {
                 version: Some(version),
@@ -24,7 +31,7 @@ fn main() {
             let git = git
                 .clone()
                 .map_or(String::new(), |git| format!("({git}{rev})"));
-            format!("{git}{version}")
+            format!("{git}{}", render_version_req(version))
         }
         None => panic!("revm dependency not found"),
         _ => panic!("Unrecognized revm dependency format"),
