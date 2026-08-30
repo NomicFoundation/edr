@@ -30,7 +30,7 @@ use foundry_evm_core::{
     utils::StateChangeset,
 };
 use foundry_evm_coverage::HitMaps;
-use foundry_evm_traces::{SparsedTraceArena, TracingMode};
+use foundry_evm_traces::{SparsedTraceArena, StepRecording, TracingMode};
 use revm::{
     bytecode::Bytecode,
     context::result::{ExecutionResult, HaltReason, HaltReasonTr, ResultAndState},
@@ -254,7 +254,7 @@ impl<
         self.inspector()
             .tracer
             .as_ref()
-            .is_some_and(|tracer| tracer.config().record_steps)
+            .is_some_and(|tracer| tracer.config().record_steps != StepRecording::None)
     }
 
     /// Whether when re-executing the calls the same results are guaranteed.

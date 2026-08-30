@@ -951,6 +951,55 @@ async fn always_mode_computes_invariant_stack_trace_without_call_traces() {
     );
 }
 
+// `vm.startDebugTraceRecording` raises step recording to `Full` mid-test and
+// `vm.stopAndReturnDebugTraceRecording` drops those details again while the
+// tracer keeps recording `(pc, op)`; neither may disturb the call traces
+// surfaced at `-vvv` and above, which are built from each node's ordering.
+#[tokio::test(flavor = "multi_thread")]
+async fn always_mode_keeps_call_traces_around_debug_trace_recording() {
+    let mut config = runner_config(None, &TEST_DATA_DEFAULT, false).await;
+    config.collect_stack_traces = CollectStackTraces::Always;
+    config.include_call_traces = IncludeCallTraces::All;
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let filter = SolidityTestFilter::new(".*", ".*", ".*cheats/RecordDebugTrace.t.sol");
+    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite = suite_results
+        .get("default/cheats/RecordDebugTrace.t.sol:RecordDebugTraceTest")
+        .expect("the RecordDebugTrace suite should have run");
+
+    for (name, result) in &suite.test_results {
+        assert_eq!(
+            result.status,
+            TestStatus::Success,
+            "{name}: {:?}",
+            result.reason
+        );
+        let root = &result
+            .execution_traces
+            .last()
+            .unwrap_or_else(|| panic!("{name}: the test call's arena is surfaced"))
+            .nodes()[0];
+        // The old cleanup wiped `ordering` wholesale; the `children` and
+        // stripping assertions are sanity checks around the one that
+        // discriminates. Every test deploys and calls at least one contract.
+        assert!(
+            !root.children.is_empty(),
+            "{name}: root call keeps its children"
+        );
+        assert!(
+            root.ordering
+                .iter()
+                .any(|item| matches!(item, TraceMemberOrder::Call(_))),
+            "{name}: root call's ordering keeps its calls"
+        );
+        assert!(
+            result.execution_traces.iter().all(steps_stripped),
+            "{name}: the debug window's details are stripped too"
+        );
+    }
+}
+
 // A passing test's arenas are recorded in `Always` mode too; they are freed
 // unless every result surfaces its call traces.
 #[tokio::test(flavor = "multi_thread")]

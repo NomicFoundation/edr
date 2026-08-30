@@ -16,7 +16,7 @@ use foundry_evm_core::{
     utils::get_blob_base_fee_update_fraction_by_spec_id,
     ContextExt,
 };
-use foundry_evm_traces::StackSnapshotType;
+use foundry_evm_traces::{StackSnapshotType, StepRecording};
 use itertools::Itertools;
 use rand::Rng;
 use revm::{
@@ -3038,14 +3038,26 @@ impl Cheatcode for stopAndReturnDebugTraceRecordingCall {
             .iter()
             .map(|step| convert_call_trace_ctx_to_debug_step(step))
             .collect();
-        // Free up memory by clearing the steps if they are not recorded outside of
-        // cheatcode usage.
-        if !record_info.original_tracer_config.record_steps {
-            tracer.traces_mut().nodes_mut().iter_mut().for_each(|node| {
-                node.trace.steps = Vec::new();
-                node.logs = Vec::new();
-                node.ordering = Vec::new();
-            });
+        // Free up memory by dropping what the tracer would not have recorded
+        // outside of cheatcode usage. Removing `Step` entries shifts every
+        // node's `ordering`, which the `pauseTracing`/`resumeTracing` ranges
+        // are keyed by; those are recorded as positions in the cheatcode
+        // call's own, still empty, ordering (see `utils.rs`), so they are
+        // unaffected.
+        match record_info.original_tracer_config.record_steps {
+            StepRecording::None => {
+                tracer.traces_mut().nodes_mut().iter_mut().for_each(|node| {
+                    node.clear_steps();
+                    node.logs = Vec::new();
+                    node.ordering = Vec::new();
+                });
+            }
+            StepRecording::PcAndOp => {
+                tracer.traces_mut().nodes_mut().iter_mut().for_each(|node| {
+                    node.clear_step_details();
+                });
+            }
+            StepRecording::Full => {}
         }
 
         // Revert the tracer config to the one before recording

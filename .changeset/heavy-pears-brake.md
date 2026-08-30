@@ -6,6 +6,8 @@ Reduced the memory footprint of the Solidity test runner. Call trace arenas that
 
 This fixes the out-of-memory failures at Hardhat verbosity `-vvvv` on large test suites, and lowers peak memory at the verbosities that record EVM steps (`-vvv` and above) — by 73% on an invariant-heavy suite at `-vvv`.
 
+The EVM steps recorded for stack traces now hold only what stack traces read: the program counter and opcode of every executed instruction (five bytes per step), instead of a full record with gas accounting and per-step snapshots (about 250 bytes per step). `vm.startDebugTraceRecording` still records the steps in full while it is active. This is where the remaining peak memory at `-vvv` and above went: on solady, peak memory at `-vvv` drops from 4.5 GiB to 0.57 GiB and the run from 16.5 s to 5.1 s; at `-vvvv` from 4.75 GiB to 0.62 GiB. Peak memory on uniswap-v4-core at `-vvv` drops from 2.4 GiB to 0.47 GiB, and on morpho-blue from 0.43 GiB to 0.28 GiB. The change ships in a fork of `revm-inspectors` (`Wodann/revm-inspectors`, tag `v0.41.4-edr.1`) until it lands upstream.
+
 Changed invariant campaigns that fail without executing any EVM call (for example an ABI error, or too many `vm.assume` rejections) to report no stack trace when stack traces are collected on every run (`CollectStackTraces.Always`), rather than a heuristic failure derived from the unrelated `setUp()` trace. The result's `reason` already explains such failures.
 
 Fixed the missing stack trace for an invariant test whose `afterInvariant()` reverts: the replay used to look for the revert reason in the (passing) `invariant()` call, so the runner concluded the failure could not be reproduced and discarded the stack trace it had computed.

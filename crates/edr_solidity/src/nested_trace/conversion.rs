@@ -2,7 +2,7 @@
 
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_primitives::{Address, Bytes, U160};
-use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
+use revm_inspectors::tracing::CallTraceArena;
 use revm_interpreter::{InternalResult, SuccessOrHalt};
 
 use super::{
@@ -59,10 +59,10 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
     // Based on https://github.com/paradigmxyz/revm-inspectors/blob/ceef3f3624ca51bf3c41c97d6c013606db3a6019/src/tracing/types.rs#L257
     let mut steps = Vec::new();
     let mut child_index = 0;
-    for step in &trace.steps {
+    for step in trace.iter_steps() {
         steps.push(NestedTraceStep::Evm(EvmStep { pc: step.pc as u32 }));
 
-        if is_calllike_op(step) {
+        if step.is_call_like_op() {
             // The opcode of this step is a call, but it's possible that this step resulted
             // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
             if let Some(call_id) = node.children.get(child_index).copied() {
@@ -200,18 +200,4 @@ fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTrait>(
             InternalResult::Suspend => ExitCode::InternalContinue,
         },
     }
-}
-
-fn is_calllike_op(step: &CallTraceStep) -> bool {
-    use revm_bytecode::opcode;
-
-    matches!(
-        step.op.get(),
-        opcode::CALL
-            | opcode::DELEGATECALL
-            | opcode::STATICCALL
-            | opcode::CREATE
-            | opcode::CALLCODE
-            | opcode::CREATE2
-    )
 }

@@ -24,7 +24,7 @@ use edr_state_api::State;
 use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
 use revm_inspector::JournalExt;
-use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
+use revm_inspectors::tracing::{StepRecording, TracingInspector, TracingInspectorConfig};
 
 use crate::{
     console_log::ConsoleLogCollector,
@@ -163,8 +163,10 @@ impl EvmObserver {
         let tracing_config = if config.verbose_raw_tracing {
             TracingInspectorConfig::all()
         } else {
+            // Stack traces only need the program counter and opcode of
+            // every executed step.
             TracingInspectorConfig::default_parity()
-                .set_steps(true)
+                .set_step_recording(StepRecording::PcAndOp)
                 .set_record_logs(true)
         };
 
