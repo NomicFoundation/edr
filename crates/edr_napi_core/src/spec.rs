@@ -152,21 +152,112 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
 pub fn marshal_response_data(
     response: jsonrpc::ResponseData<Box<serde_json::value::RawValue>>,
 ) -> napi::Result<ResponseData> {
-    serde_json::to_string(&response)
-        .and_then(|json| {
-            // We experimentally determined that 500_000_000 was the maximum string length
-            // that can be returned without causing the error:
-            //
-            // > Failed to convert rust `String` into napi `string`
-            //
-            // To be safe, we're limiting string lengths to half of that.
-            const MAX_STRING_LENGTH: usize = 250_000_000;
+    // We experimentally determined that 500_000_000 was the maximum string length
+    // that can be returned without causing the error:
+    //
+    // > Failed to convert rust `String` into napi `string`
+    //
+    // To be safe, we're limiting string lengths to half of that.
+    const MAX_STRING_LENGTH: usize = 250_000_000;
 
-            if json.len() <= MAX_STRING_LENGTH {
-                Ok(Either::A(json))
-            } else {
-                serde_json::to_value(response).map(Either::B)
-            }
-        })
-        .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+    // A success envelope's length is known before it is built, so an oversized
+    // response never has to be serialized only to be discarded.
+    if let jsonrpc::ResponseData::Success { result } = &response
+        && envelope_len(result) > MAX_STRING_LENGTH
+    {
+        return serde_json::to_value(response)
+            .map(Either::B)
+            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()));
+    }
+
+    let json = serialize_response(&response)
+        .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?;
+
+    if json.len() <= MAX_STRING_LENGTH {
+        Ok(Either::A(json))
+    } else {
+        serde_json::to_value(response)
+            .map(Either::B)
+            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+    }
+}
+
+/// Returns the length of the response envelope around an already-serialized
+/// result.
+fn envelope_len(result: &serde_json::value::RawValue) -> usize {
+    // `{"result":` and `}`
+    const OVERHEAD: usize = 11;
+
+    result.get().len() + OVERHEAD
+}
+
+/// Serializes a JSON-RPC response into a buffer that never has to grow.
+///
+/// `serde_json::to_string` starts at 128 bytes and doubles, so it copies a
+/// large result several times over.
+fn serialize_response(
+    response: &jsonrpc::ResponseData<Box<serde_json::value::RawValue>>,
+) -> Result<String, serde_json::Error> {
+    /// What `serde_json::to_string` would start from, for the envelope whose
+    /// length is not known up front.
+    const ERROR_CAPACITY: usize = 128;
+
+    let capacity = match response {
+        jsonrpc::ResponseData::Success { result } => envelope_len(result),
+        jsonrpc::ResponseData::Error { .. } => ERROR_CAPACITY,
+    };
+
+    let mut buffer = Vec::with_capacity(capacity);
+    serde_json::to_writer(&mut buffer, response)?;
+
+    // SAFETY: `serde_json` only emits UTF-8.
+    Ok(unsafe { String::from_utf8_unchecked(buffer) })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn raw_value(json: &str) -> Box<serde_json::value::RawValue> {
+        serde_json::value::RawValue::from_string(json.to_string()).expect("the JSON is valid")
+    }
+
+    fn assert_matches_serde(response: jsonrpc::ResponseData<Box<serde_json::value::RawValue>>) {
+        let expected = serde_json::to_string(&response).expect("serialization succeeds");
+
+        let json = match marshal_response_data(response).expect("marshalling succeeds") {
+            Either::A(json) => json,
+            Either::B(_) => panic!("the response is small enough to be a string"),
+        };
+
+        assert_eq!(json, expected);
+    }
+
+    #[test]
+    fn marshal_response_data_matches_serde_for_success() {
+        let results = [
+            "null",
+            "true",
+            "\"0x1\"",
+            "[]",
+            "[\"0x1\",{\"a\":[1,2,3]}]",
+            "{\"blockNumber\":\"0x1\",\"logs\":[]}",
+            "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        ];
+
+        for result in results {
+            assert_matches_serde(jsonrpc::ResponseData::Success {
+                result: raw_value(result),
+            });
+        }
+    }
+
+    #[test]
+    fn marshal_response_data_matches_serde_for_errors() {
+        assert_matches_serde(jsonrpc::ResponseData::new_error(
+            -32000,
+            "boom",
+            Some(serde_json::json!({ "method": "eth_call" })),
+        ));
+    }
 }
