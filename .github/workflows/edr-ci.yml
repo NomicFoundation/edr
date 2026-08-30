@@ -75,7 +75,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
 
       # Install pre-built binaries for cargo hack
-      - uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2.86.1
+      - uses: taiki-e/install-action@6cd13508893c0e7eab5f273c2575d3859bd7229a # v2.86.6
         with:
           tool: cargo-hack@0.6.39
 
@@ -251,12 +251,12 @@ jobs:
       - name: Install nightly rustfmt
         uses: ./.github/actions/setup-rust
         with:
-          toolchain: nightly
+          toolchain: nightly-2026-08-29
           components: rustfmt
           cache: false # already set up in previous step
 
       - name: Run cargo fmt
-        run: cargo +nightly fmt --all --check
+        run: cargo +nightly-2026-08-29 fmt --all --check
 
       - name: Run cargo clippy
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
@@ -417,7 +417,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2.86.1
+      - uses: taiki-e/install-action@6cd13508893c0e7eab5f273c2575d3859bd7229a # v2.86.6
         with:
           tool: zizmor@1.26.1
       # GH_TOKEN enables the online audits (known-vulnerabilities, tag->SHA resolution).

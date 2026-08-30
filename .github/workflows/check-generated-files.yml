@@ -26,7 +26,7 @@ jobs:
       - name: Setup Rust & install nightly rustfmt
         uses: ./.github/actions/setup-rust
         with:
-          toolchain: nightly
+          toolchain: nightly-2026-08-29
           components: rustfmt
 
       - name: Check that the generated chain configs are up to date
