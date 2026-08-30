@@ -25,7 +25,7 @@ edr_test_utils.workspace = true
 hex.workspace = true
 paste.workspace = true
 serde_json.workspace = true
-serial_test = "2.0.0"
+serial_test = "4.0.0"
 tempfile = { version = "3.25.0", default-features = false }
 tokio = { version = "1.23.0", features = ["macros"] }
 
