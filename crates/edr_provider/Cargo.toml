@@ -98,7 +98,7 @@ tempfile = "3.25.0"
 
 [build-dependencies]
 cargo_toml = { version = "0.22.3", default-features = false }
-toml = { version = "0.9.5", default-features = false }
+toml = { version = "1.0.0", default-features = false }
 
 [features]
 test-remote = ["dep:edr_test_utils"]
