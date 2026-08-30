@@ -15,7 +15,7 @@ use alloy_primitives::{
     map::{AddressSet, U256Map},
     uint, Address, TxKind, B256, U256,
 };
-use alloy_rpc_types::{BlockNumberOrTag, Transaction as RpcTransaction};
+use alloy_rpc_types::{BlockNumberOrTag, Transaction as RpcTransaction, TransactionRequest};
 use derive_where::derive_where;
 use eyre::Context;
 pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
@@ -23,6 +23,7 @@ use revm::{
     bytecode::Bytecode,
     context::{
         journaled_state::account::JournaledAccountTr, result::HaltReasonTr, CfgEnv, JournalInner,
+        JournalTr as _,
     },
     context_interface::result::ResultAndState,
     database::{CacheDB, DatabaseRef},
@@ -43,7 +44,7 @@ use crate::{
     },
     fork::{CreateFork, ForkId, MultiFork},
     state_snapshot::StateSnapshots,
-    utils::{configure_tx_env, get_blob_base_fee_update_fraction_by_spec_id},
+    utils::{configure_tx_env, configure_tx_req_env, get_blob_base_fee_update_fraction_by_spec_id},
 };
 
 mod diagnostic;
@@ -296,6 +297,43 @@ pub trait CheatcodeBackend<
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
+        inspector: &mut dyn CheatcodeInspectorTr<
+            BlockT,
+            TxT,
+            HardforkT,
+            Backend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            >,
+            ChainContextT,
+        >,
+        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> eyre::Result<()>
+    where
+        Self: Sized;
+
+    /// Executes the given transaction request as its own transaction against
+    /// the current state, committing the resulting state changes to the DB
+    /// _and_ the journaled state.
+    ///
+    /// Unlike [`CheatcodeBackend::transact`], the transaction is not fetched
+    /// from a fork, so this works in non-forked mode as well. `caller` is the
+    /// address the transaction is executed from; for a signed transaction it
+    /// must be the address recovered from the signature.
+    ///
+    /// The transaction is validated by the EVM just like any other
+    /// transaction, so an invalid chain id or an unaffordable transaction is
+    /// returned as an error rather than silently adjusted.
+    fn transact_from_tx(
+        &mut self,
+        tx: &TransactionRequest,
+        caller: Address,
         inspector: &mut dyn CheatcodeInspectorTr<
             BlockT,
             TxT,
@@ -1720,6 +1758,57 @@ impl<
             &persistent_accounts,
             inspector,
         )
+    }
+
+    fn transact_from_tx(
+        &mut self,
+        tx: &TransactionRequest,
+        caller: Address,
+        inspector: &mut dyn CheatcodeInspectorTr<
+            BlockT,
+            TxT,
+            HardforkT,
+            Backend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            >,
+            ChainContextT,
+        >,
+        mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> eyre::Result<()> {
+        trace!(?tx, ?caller, "execute signed transaction");
+
+        // Flush the in-flight journal into the database so the nested EVM sees
+        // the state as of the current point in the test.
+        self.commit(journaled_state.state.clone());
+
+        let res = {
+            configure_tx_req_env(&mut env.tx, tx, Some(caller))?;
+            let mut env = self.env_with_handler_cfg(env);
+
+            let db = self.clone();
+            let mut journal = Journal::<_, JournalEntry>::new(db);
+            journal.set_spec_id(env.cfg.spec.into());
+            // The transaction is executed as a nested transaction of the
+            // currently running test, so account for the current call depth.
+            journal.inner.depth = journaled_state.depth + 1;
+
+            let tx = std::mem::take(&mut env.tx);
+            EvmBuilderT::evm_with_journal_and_inspector(journal, env, inspector)
+                .inspect_tx(tx)
+                .wrap_err("backend: failed committing transaction")?
+        };
+
+        self.commit(res.state);
+        update_state(&mut journaled_state.state, self, None)?;
+
+        Ok(())
     }
 
     fn active_fork_id(&self) -> Option<LocalForkId> {

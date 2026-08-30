@@ -3412,7 +3412,7 @@
     {
       "func": {
         "id": "broadcastRawTransaction",
-        "description": "Scripting cheatcodes are not supported.",
+        "description": "Takes a signed transaction and broadcasts it to the network.\nSolidity tests have no broadcast queue, so the only observable effect is the one that\nalso applies in Foundry's test context: the RLP-encoded transaction is decoded and\nexecuted against the current EVM state, from the address recovered from its signature.",
         "declaration": "function broadcastRawTransaction(bytes calldata data) external;",
         "visibility": "external",
         "mutability": "",
@@ -3426,7 +3426,7 @@
         ]
       },
       "group": "scripting",
-      "status": "unsupported",
+      "status": "stable",
       "safety": "safe"
     },
     {

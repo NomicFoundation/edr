@@ -2553,6 +2553,16 @@ interface Vm {
     #[cheatcode(group = Utilities)]
     function eip712HashTypedData(string calldata jsonData) external pure returns (bytes32 digest);
 
+    // ======== Scripting ========
+
+    /// Takes a signed transaction and broadcasts it to the network.
+    ///
+    /// Solidity tests have no broadcast queue, so the only observable effect is the one that
+    /// also applies in Foundry's test context: the RLP-encoded transaction is decoded and
+    /// executed against the current EVM state, from the address recovered from its signature.
+    #[cheatcode(group = Scripting)]
+    function broadcastRawTransaction(bytes calldata data) external;
+
     // ======== Unsupported Cheatcodes ========
 
     // -------- Data Structures --------
@@ -2639,10 +2649,6 @@ interface Vm {
     /// Scripting cheatcodes are not supported.
     #[cheatcode(group = Scripting, status = Unsupported)]
     function stopBroadcast() external;
-
-    /// Scripting cheatcodes are not supported.
-    #[cheatcode(group = Scripting, status = Unsupported)]
-    function broadcastRawTransaction(bytes calldata data) external;
 
     /// EIP-7702 cheatcodes are not supported.
     #[cheatcode(group = Scripting, status = Unsupported)]

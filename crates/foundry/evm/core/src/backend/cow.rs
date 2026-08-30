@@ -4,6 +4,7 @@ use std::{borrow::Cow, collections::BTreeMap};
 
 use alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, B256, U256};
+use alloy_rpc_types::TransactionRequest;
 use derive_where::derive_where;
 use eyre::WrapErr;
 use foundry_fork_db::DatabaseError;
@@ -340,6 +341,37 @@ impl<
         self.backend_mut(env.clone().into()).transact(
             id,
             transaction,
+            inspector,
+            env,
+            journaled_state,
+        )
+    }
+
+    fn transact_from_tx(
+        &mut self,
+        tx: &TransactionRequest,
+        caller: Address,
+        inspector: &mut dyn CheatcodeInspectorTr<
+            BlockT,
+            TxT,
+            HardforkT,
+            Backend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            >,
+            ChainContextT,
+        >,
+        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> eyre::Result<()> {
+        self.backend_mut(env.clone().into()).transact_from_tx(
+            tx,
+            caller,
             inspector,
             env,
             journaled_state,

@@ -6,8 +6,11 @@ use std::{
     path::Path,
 };
 
+use alloy_consensus::{transaction::SignerRecoverable as _, TxEnvelope};
 use alloy_genesis::{Genesis, GenesisAccount};
 use alloy_primitives::{map::HashMap, Address, Bytes, B256, U256};
+use alloy_rlp::Decodable as _;
+use alloy_rpc_types::TransactionRequest;
 use alloy_sol_types::SolValue;
 use edr_common::fs::{read_json_file, write_json_file};
 use foundry_evm_core::{
@@ -2848,6 +2851,65 @@ impl Cheatcode for getStateDiffJsonCall {
             ChainContextT,
         >(state);
         Ok(serde_json::to_string(&state_diffs)?.abi_encode())
+    }
+}
+
+impl_is_pure_true!(broadcastRawTransactionCall);
+impl Cheatcode for broadcastRawTransactionCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { data } = self;
+
+        let tx = TxEnvelope::decode(&mut data.as_ref())
+            .map_err(|err| fmt_err!("failed to decode RLP-encoded transaction: {err}"))?;
+
+        // The sender is recovered from the signature; it is deliberately *not*
+        // the caller of the cheatcode. Otherwise the transaction would silently
+        // be re-attributed to whoever invoked `broadcastRawTransaction`.
+        let sender = tx
+            .recover_signer()
+            .map_err(|err| fmt_err!("failed to recover signer: {err}"))?;
+
+        let request: TransactionRequest = tx.into();
+
+        let (db, context) = split_context(ccx.ecx);
+        db.transact_from_tx(
+            &request,
+            sender,
+            ccx.state,
+            context.to_owned_env_with_chain_context(),
+            context.journaled_state,
+        )?;
+
+        Ok(Vec::default())
     }
 }
 
