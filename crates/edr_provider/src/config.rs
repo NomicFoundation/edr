@@ -127,8 +127,10 @@ pub enum IntervalConfig {
 }
 
 impl IntervalConfig {
-    /// Generates a (random) interval in milliseconds, based on the
-    /// configuration.
+    /// Returns the milliseconds to wait before mining the next block.
+    ///
+    /// A range draws a new value on each call. A fixed interval, and a range
+    /// with equal bounds, always return the same value.
     pub fn generate_interval(&self) -> NonZeroU64 {
         match self {
             IntervalConfig::Fixed(interval) => *interval,
