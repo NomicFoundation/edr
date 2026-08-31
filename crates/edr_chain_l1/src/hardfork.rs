@@ -7,9 +7,8 @@ use edr_primitives::UnknownHardfork;
 ///
 /// Models protocol upgrades, including ones without EVM-semantics changes,
 /// unlike [`EvmSpecId`] which models EVM behavior classes.
-///
-/// The strum-derived names (`serialize_all = "camelCase"`) are public API;
-/// the expected strings are pinned in this module's tests.
+// The strum-derived names (`serialize_all = "camelCase"`) are public API;
+// the expected strings are pinned in this module's tests.
 #[repr(u8)]
 #[derive(
     Clone,
