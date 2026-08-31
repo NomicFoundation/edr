@@ -3604,6 +3604,7 @@ dependencies = [
  "futures",
  "humantime-serde",
  "itertools 0.15.0",
+ "mockito",
  "num-traits",
  "once_cell",
  "parking_lot",
