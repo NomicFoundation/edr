@@ -66,15 +66,18 @@ where
     })
 }
 
+/// Returns the length of the JSON array [`to_json_array`] builds from `values`.
+fn json_array_len(values: &[Box<serde_json::value::RawValue>]) -> usize {
+    // The brackets, the values, and one separator between each pair.
+    let separators = values.len().saturating_sub(1);
+    let values = values.iter().map(|value| value.get().len()).sum::<usize>();
+
+    2 + values + separators
+}
+
 /// Collects already-serialized JSON values into a JSON array.
 fn to_json_array(values: &[Box<serde_json::value::RawValue>]) -> Box<serde_json::value::RawValue> {
-    let capacity = values
-        .iter()
-        .map(|value| value.get().len() + 1)
-        .sum::<usize>()
-        + 1;
-
-    let mut json = String::with_capacity(capacity);
+    let mut json = String::with_capacity(json_array_len(values));
     json.push('[');
     for (index, value) in values.iter().enumerate() {
         if index > 0 {
@@ -409,6 +412,60 @@ mod tests {
 
     use super::*;
     use crate::test_utils::ProviderTestFixture;
+
+    fn raw_values(json: &[&str]) -> Vec<Box<serde_json::value::RawValue>> {
+        json.iter()
+            .map(|json| {
+                serde_json::value::RawValue::from_string((*json).to_string())
+                    .expect("the JSON is valid")
+            })
+            .collect()
+    }
+
+    /// `from_string_unchecked` re-parses in debug builds, so every case here
+    /// also asserts the output is a single well-formed JSON value.
+    #[test]
+    fn to_json_array_separates_values() {
+        let cases = [
+            (vec![], "[]"),
+            (vec!["1"], "[1]"),
+            (vec!["1", "2"], "[1,2]"),
+            (vec!["1", "2", "3"], "[1,2,3]"),
+        ];
+
+        for (values, expected) in cases {
+            let values = raw_values(&values);
+
+            assert_eq!(to_json_array(&values).get(), expected);
+        }
+    }
+
+    /// Values are copied verbatim, so a separator inside one is not a
+    /// separator.
+    #[test]
+    fn to_json_array_preserves_values_containing_separators() {
+        let values = raw_values(&[r#""a,b""#, r#"{"c":[1,2]}"#, r#""]""#]);
+
+        assert_eq!(to_json_array(&values).get(), r#"["a,b",{"c":[1,2]},"]"]"#);
+    }
+
+    /// The buffer is sized once, so the reservation has to be exact.
+    #[test]
+    fn json_array_len_matches_the_built_array() {
+        let cases = [
+            vec![],
+            vec!["null"],
+            vec!["1", "2"],
+            vec![r#""a,b""#, r#"{"c":[1,2]}"#],
+            vec!["1", "2", "3", "4", "5"],
+        ];
+
+        for values in cases {
+            let values = raw_values(&values);
+
+            assert_eq!(json_array_len(&values), to_json_array(&values).get().len());
+        }
+    }
 
     #[test]
     fn execute_batch_request_preserves_order() -> anyhow::Result<()> {
