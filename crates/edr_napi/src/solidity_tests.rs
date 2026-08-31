@@ -11,6 +11,7 @@ pub mod test_results;
 
 use std::{borrow::Cow, path::Path};
 
+use edr_napi_core::solidity::config::BuildInfoAndOutput;
 use edr_primitives::Bytes;
 use edr_solidity::{
     linker::{LinkOutput, Linker},
@@ -78,7 +79,7 @@ pub(crate) struct ProjectInputs {
     /// The resolved ids of the test suites to execute.
     pub test_suites: Vec<edr_artifact::ArtifactId>,
     /// The build infos used for stack trace generation.
-    pub build_infos: Vec<edr_napi_core::solidity::config::BuildInfoAndOutput>,
+    pub build_infos: Vec<BuildInfoAndOutput>,
 }
 
 /// Loads all artifacts and build infos from the provided artifact directories
@@ -124,7 +125,7 @@ pub(crate) fn load_project_inputs(
                 ))
             })?;
 
-            build_infos.push(edr_napi_core::solidity::config::BuildInfoAndOutput {
+            build_infos.push(BuildInfoAndOutput {
                 build_info: build_info_buffer.into(),
                 output: output_buffer.into(),
             });
