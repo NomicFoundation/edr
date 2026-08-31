@@ -54,6 +54,7 @@ paste = "1.0"
 serde_json.workspace = true
 semver.workspace = true
 serial_test = "4.0.0"
+mockito = { version = "1.7", default-features = false }
 tempfile.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
