@@ -424,10 +424,10 @@ pub struct TestResult<HaltReasonT> {
 
     /// The outcome of the stack trace computation.
     /// None if the test succeeded or was skipped. Also None when the failure
-    /// left no trace arena behind; `reason` then explains the failure. That
-    /// happens when every call of an invariant campaign was rejected by
-    /// `vm.assume`, when the campaign failed before its first call, and when
-    /// an executor error produced the fuzz counterexample.
+    /// left no trace arena behind; `reason` then explains the failure. Examples
+    /// include a fuzz test whose inputs or an invariant campaign whose calls
+    /// were all rejected by `vm.assume`, an invariant campaign that failed
+    /// before its first call, and an executor-error fuzz counterexample.
     /// If the heuristic failed the vec is set but empty.
     /// Error if there was an error computing the stack trace.
     #[serde(skip)]
