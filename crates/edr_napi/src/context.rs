@@ -349,6 +349,8 @@ impl EdrContext {
 
                 let tracing_config = edr_napi_core::solidity::config::TracingConfigWithBuffers {
                     build_infos: Some(napi::Either::B(build_infos)),
+                    // Skipping `Ignored*`-named contracts is only used by EDR's own test harnesses;
+                    // production Hardhat always passes `false`.
                     ignore_contracts: Some(false),
                 };
 
