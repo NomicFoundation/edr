@@ -326,8 +326,13 @@ mod tests {
         }
     }
 
+    /// Pins that the fallback's re-parse keeps the digits rather than narrowing
+    /// to `f64`.
+    ///
+    /// JS never receives this value. `napi` panics marshalling a `Value` number
+    /// wider than `u64`, so the `Value` arm cannot carry one.
     #[test]
-    fn marshal_response_data_preserves_precision_above_the_limit() {
+    fn marshal_response_data_does_not_reformat_an_oversized_number() {
         const DIGITS: &str =
             "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
