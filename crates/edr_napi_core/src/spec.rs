@@ -147,23 +147,35 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
     }
 }
 
+/// We experimentally determined that `500_000_000` was the maximum string
+/// length that can be returned without causing the error:
+///
+/// > Failed to convert rust `String` into napi `string`
+///
+/// To be safe, we're limiting string lengths to half of that.
+const MAX_STRING_LENGTH: usize = 250_000_000;
+
 /// Marshals a JSON-RPC response data into a `ResponseData`, taking into account
 /// large responses.
 pub fn marshal_response_data(
     response: jsonrpc::ResponseData<Box<serde_json::value::RawValue>>,
 ) -> napi::Result<ResponseData> {
-    // We experimentally determined that 500_000_000 was the maximum string length
-    // that can be returned without causing the error:
-    //
-    // > Failed to convert rust `String` into napi `string`
-    //
-    // To be safe, we're limiting string lengths to half of that.
-    const MAX_STRING_LENGTH: usize = 250_000_000;
+    marshal_response_data_with_limit(response, MAX_STRING_LENGTH)
+}
 
+/// Marshals a JSON-RPC response data, returning a `serde_json::Value` for
+/// envelopes longer than `max_string_length`.
+///
+/// The limit is a parameter so that tests can reach it without allocating
+/// hundreds of megabytes.
+fn marshal_response_data_with_limit(
+    response: jsonrpc::ResponseData<Box<serde_json::value::RawValue>>,
+    max_string_length: usize,
+) -> napi::Result<ResponseData> {
     // A success envelope's length is known before it is built, so an oversized
     // response never has to be serialized only to be discarded.
     if let jsonrpc::ResponseData::Success { result } = &response
-        && envelope_len(result) > MAX_STRING_LENGTH
+        && envelope_len(result) > max_string_length
     {
         return serde_json::to_value(response)
             .map(Either::B)
@@ -173,7 +185,7 @@ pub fn marshal_response_data(
     let json = serialize_response(&response)
         .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?;
 
-    if json.len() <= MAX_STRING_LENGTH {
+    if json.len() <= max_string_length {
         Ok(Either::A(json))
     } else {
         serde_json::to_value(response)
@@ -259,5 +271,101 @@ mod tests {
             "boom",
             Some(serde_json::json!({ "method": "eth_call" })),
         ));
+    }
+
+    #[test]
+    fn envelope_len_matches_the_serialized_success() {
+        let results = [
+            "null",
+            "\"0x1\"",
+            "[]",
+            "{\"blockNumber\":\"0x1\",\"logs\":[]}",
+        ];
+
+        for result in results {
+            let result = raw_value(result);
+
+            let json = serde_json::to_string(&jsonrpc::ResponseData::Success {
+                result: result.clone(),
+            })
+            .expect("serialization succeeds");
+
+            assert_eq!(envelope_len(&result), json.len());
+        }
+    }
+
+    #[test]
+    fn marshal_response_data_returns_a_string_at_the_limit() {
+        let result = raw_value("{\"blockNumber\":\"0x1\"}");
+        let limit = envelope_len(&result);
+
+        let response = jsonrpc::ResponseData::Success { result };
+        let expected = serde_json::to_string(&response).expect("serialization succeeds");
+
+        match marshal_response_data_with_limit(response, limit).expect("marshalling succeeds") {
+            Either::A(json) => assert_eq!(json, expected),
+            Either::B(_) => panic!("an envelope at the limit is returned as a string"),
+        }
+    }
+
+    #[test]
+    fn marshal_response_data_returns_a_value_above_the_limit() {
+        let result = raw_value("{\"blockNumber\":\"0x1\"}");
+        let limit = envelope_len(&result) - 1;
+
+        match marshal_response_data_with_limit(jsonrpc::ResponseData::Success { result }, limit)
+            .expect("marshalling succeeds")
+        {
+            Either::A(_) => panic!("an envelope above the limit is returned as a value"),
+            Either::B(value) => {
+                assert_eq!(
+                    value,
+                    serde_json::json!({ "result": { "blockNumber": "0x1" } })
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn marshal_response_data_preserves_precision_above_the_limit() {
+        const DIGITS: &str =
+            "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+
+        let result = raw_value(DIGITS);
+        let limit = envelope_len(&result) - 1;
+
+        let value = match marshal_response_data_with_limit(
+            jsonrpc::ResponseData::Success { result },
+            limit,
+        )
+        .expect("marshalling succeeds")
+        {
+            Either::A(_) => panic!("an envelope above the limit is returned as a value"),
+            Either::B(value) => value,
+        };
+
+        assert_eq!(
+            serde_json::to_string(&value).expect("serialization succeeds"),
+            format!("{{\"result\":{DIGITS}}}")
+        );
+    }
+
+    #[test]
+    fn marshal_response_data_returns_a_value_for_an_oversized_error() {
+        let response: jsonrpc::ResponseData<Box<serde_json::value::RawValue>> =
+            jsonrpc::ResponseData::new_error(-32000, "boom", None);
+
+        let expected = serde_json::to_string(&response).expect("serialization succeeds");
+        let limit = expected.len() - 1;
+
+        match marshal_response_data_with_limit(response, limit).expect("marshalling succeeds") {
+            Either::A(_) => panic!("an envelope above the limit is returned as a value"),
+            Either::B(value) => {
+                assert_eq!(
+                    serde_json::to_string(&value).expect("serialization succeeds"),
+                    expected
+                );
+            }
+        }
     }
 }
