@@ -12,7 +12,7 @@ use edr_solidity_tests::{
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, SolidityTestRunnerConfig,
 };
-use foundry_cheatcodes::{FsPermissions, PathPermission};
+use foundry_cheatcodes::{FsPermissions, PathPermission, RpcEndpointUrl, RpcEndpoints};
 use foundry_evm::{
     constants::HARDHAT_CONSOLE_ADDRESS,
     decode::decode_console_logs,
@@ -800,4 +800,130 @@ async fn on_failure_mode_produces_stack_trace_for_failing_setup() {
         .expect("the AlwaysStackTraceFailingSetup suite should have run");
 
     assert_execution_error_stack_trace(suite, "setUp()");
+}
+
+/// One 32-byte zero hash as a hex literal.
+const ZERO_HASH: &str = "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+/// The `id` of the JSON-RPC request, to echo in the response.
+fn request_id(request: &mockito::Request) -> u64 {
+    serde_json::from_slice::<serde_json::Value>(request.body().expect("a JSON-RPC request"))
+        .expect("a JSON-RPC request body")
+        .get("id")
+        .and_then(serde_json::Value::as_u64)
+        .expect("a numeric request id")
+}
+
+/// Serves `method` with `result` on `server`, echoing the request id.
+async fn mock_rpc_method(
+    server: &mut mockito::Server,
+    method: &'static str,
+    result: String,
+) -> mockito::Mock {
+    server
+        .mock("POST", "/")
+        .match_body(mockito::Matcher::PartialJsonString(format!(
+            r#"{{"method":"{method}"}}"#
+        )))
+        .with_body_from_request(move |request| {
+            format!(
+                r#"{{"jsonrpc":"2.0","id":{},"result":{result}}}"#,
+                request_id(request)
+            )
+            .into()
+        })
+        .create_async()
+        .await
+}
+
+// Regression test: an executor error during a fuzz run — as opposed to a
+// reverting call — produces a counterexample without a recorded trace arena.
+// The result must report the error as its reason and no stack trace, rather
+// than panicking on the missing arena. The error is provoked through a fork
+// whose RPC serves fork creation but fails the account fetch the fuzzed call
+// triggers.
+#[tokio::test(flavor = "multi_thread")]
+async fn fuzz_executor_error_reports_no_stack_trace() {
+    let mut server = mockito::Server::new_async().await;
+    let block = format!(
+        r#"{{"hash":"{ZERO_HASH}","parentHash":"{ZERO_HASH}","sha3Uncles":"{ZERO_HASH}","miner":"0x0000000000000000000000000000000000000000","stateRoot":"{ZERO_HASH}","transactionsRoot":"{ZERO_HASH}","receiptsRoot":"{ZERO_HASH}","logsBloom":"0x{bloom}","difficulty":"0x0","number":"0x100","gasLimit":"0x1c9c380","gasUsed":"0x0","timestamp":"0x66000000","extraData":"0x","mixHash":"{ZERO_HASH}","nonce":"0x0000000000000000","baseFeePerGas":"0x0","totalDifficulty":"0x0","uncles":[],"transactions":[],"size":"0x0"}}"#,
+        bloom = "00".repeat(256),
+    );
+    let _mocks = [
+        mock_rpc_method(&mut server, "eth_blockNumber", r#""0x100""#.into()).await,
+        mock_rpc_method(&mut server, "eth_gasPrice", r#""0x0""#.into()).await,
+        mock_rpc_method(&mut server, "eth_chainId", r#""0x7a69""#.into()).await,
+        mock_rpc_method(&mut server, "eth_getBlockByNumber", block).await,
+        mock_rpc_method(&mut server, "eth_getTransactionCount", r#""0x0""#.into()).await,
+        mock_rpc_method(&mut server, "eth_getCode", r#""0x""#.into()).await,
+        mock_rpc_method(&mut server, "eth_getStorageAt", format!(r#""{ZERO_HASH}""#)).await,
+        mock_rpc_method(&mut server, "eth_getBalance", r#""0x0""#.into()).await,
+    ];
+    // The fetch of the one account only the fuzzed call touches fails. This
+    // mock is created last: mockito matches most recent first, so it shadows
+    // the zero-balance mock above for this address.
+    let _balance_mock = server
+        .mock("POST", "/")
+        .match_body(mockito::Matcher::AllOf(vec![
+            mockito::Matcher::Regex("eth_getBalance".into()),
+            mockito::Matcher::Regex("(?i)dead".into()),
+        ]))
+        .with_body_from_request(|request| {
+            format!(
+                r#"{{"jsonrpc":"2.0","id":{},"error":{{"code":-32000,"message":"account fetch refused by the test"}}}}"#,
+                request_id(request)
+            )
+            .into()
+        })
+        .create_async()
+        .await;
+
+    let mut config = runner_config(None, &TEST_DATA_DEFAULT, false).await;
+    config.collect_stack_traces = CollectStackTraces::Always;
+    config.cheats_config_options.rpc_endpoints =
+        RpcEndpoints::new([("mock", RpcEndpointUrl::new(server.url()))]);
+    // Fail fast if a request slips past the mocks.
+    config.evm_opts.fork_retries = Some(1);
+    config.evm_opts.fork_retry_backoff = Some(50);
+    // Every run errors; one is enough.
+    config.fuzz.runs = 1;
+
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let filter = SolidityTestFilter::contract("FuzzExecutorErrorTest");
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite = suite_results
+        .get("default/repros/FuzzExecutorError.t.sol:FuzzExecutorErrorTest")
+        .expect("the FuzzExecutorError suite should have run");
+    let result = suite
+        .test_results
+        .get("testFuzzTouchesUnfetchableAccount(uint256)")
+        .unwrap_or_else(|| {
+            panic!(
+                "the fuzz test should have run; results: {:?}",
+                suite
+                    .test_results
+                    .iter()
+                    .map(|(k, r)| (k, &r.status, &r.reason, &r.decoded_logs))
+                    .collect::<Vec<_>>()
+            )
+        });
+
+    assert_eq!(result.status, TestStatus::Failure, "{:?}", result.reason);
+    assert!(
+        result.counterexample.is_some(),
+        "the failed run yields a counterexample"
+    );
+    assert!(
+        result
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("account fetch refused by the test")),
+        "expected the executor error as the failure reason, got {:?}",
+        result.reason
+    );
+    assert!(
+        result.stack_trace_result.is_none(),
+        "no recorded arena describes an executor error, so there is no stack trace"
+    );
 }

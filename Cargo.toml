@@ -310,7 +310,7 @@ alloy-primitives = { version = "1.5.2", default-features = false, features = [
 alloy-sol-macro-expander = "1.5.2"
 alloy-sol-macro-input = "1.5.2"
 alloy-sol-types = "1.5.2"
-syn-solidity = "=0.8.26"
+syn-solidity = "=1.6.1"
 
 alloy-chains = "0.2.6"
 alloy-rlp = { version = "0.3.12", features = ["derive"] }
@@ -363,11 +363,11 @@ serde_json = { version = "1.0", features = [
 ] }
 strum = "0.28"
 thiserror = { version = "2.0.12", default-features = false }
-toml = "0.9"
+toml = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2"
-vergen = { version = "8", default-features = false }
+vergen = { version = "10", default-features = false }
 indexmap = "2.2"
 num-format = "0.4.4"
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
@@ -413,7 +413,6 @@ filter_map_next = "warn"
 flat_map_option = "warn"
 float_cmp_const = "warn"
 fn_params_excessive_bools = "warn"
-from_iter_instead_of_collect = "warn"
 implicit_clone = "warn"
 imprecise_flops = "warn"
 inconsistent_struct_constructor = "warn"
