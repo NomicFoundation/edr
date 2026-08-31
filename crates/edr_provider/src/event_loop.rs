@@ -2,8 +2,8 @@
 //!
 //! The loop's thread owns the [`ProviderData`] outright; all access goes
 //! through [`Message`]s, so no locking is needed. The loop also owns the
-//! interval-mining timer, re-arming it from
-//! [`ProviderData::interval_config`] whenever a message may have changed it.
+//! interval-mining timer, restarting it whenever a request reconfigured it —
+//! including to the interval already set.
 
 use std::{
     convert::Infallible,
@@ -100,11 +100,16 @@ pub(crate) enum Message<ChainSpecT: ProviderChainSpec> {
 
 /// Creates a channel that yields once the next interval-mined block is due.
 ///
-/// Yields nothing if interval mining is disabled. The interval is measured
-/// from the end of the previous mine.
+/// Yields nothing if interval mining is disabled. The interval is measured from
+/// the end of the previous mine, so the period between blocks is the interval
+/// plus the time spent mining.
+///
+/// Measuring from the end is what keeps interval mining from starving request
+/// handling: the deadline is always a full interval away when the loop next
+/// polls, so every cycle leaves a window in which the timer is not ready.
 fn next_interval_timer(interval_config: Option<&IntervalConfig>) -> Receiver<Instant> {
     if let Some(config) = interval_config {
-        let duration = Duration::from_millis(config.generate_interval());
+        let duration = Duration::from_millis(config.generate_interval().get());
         crossbeam_channel::after(duration)
     } else {
         crossbeam_channel::never()
@@ -137,7 +142,8 @@ pub(crate) fn run<ChainSpecT, TimerT>(
             // Checked first: shutdown must win over queued work.
             recv(cancellation_receiver) -> _ => break,
             // Checked before requests: a due block must not wait behind a long
-            // queue.
+            // queue. This cannot starve request handling; see
+            // `next_interval_timer`.
             recv(interval_timer) -> _ => {
                 if let Err(error) = data.interval_mine() {
                     log::error!("Unexpected error while performing interval mining: {error}");
@@ -146,16 +152,13 @@ pub(crate) fn run<ChainSpecT, TimerT>(
             }
             recv(request_receiver) -> message => match message {
                 Ok(Message::Request { request, on_response }) => {
-                    let current_interval = data.interval_config().cloned();
-
                     let response = requests::execute_request(&mut data, request);
 
-                    on_response.call(response);
-
-                    // `evm_setIntervalMining` may have changed the configuration.
-                    if data.interval_config() != current_interval.as_ref() {
+                    if data.take_interval_reconfigured() {
                         interval_timer = next_interval_timer(data.interval_config());
                     }
+
+                    on_response.call(response);
                 }
                 Ok(Message::SetCallOverrideCallback { callback, ack }) => {
                     data.set_call_override_callback(callback);
