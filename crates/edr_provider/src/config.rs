@@ -153,9 +153,8 @@ impl From<IntervalRangeConfig> for IntervalConfig {
 
 /// An inclusive range of interval-mining intervals, in milliseconds.
 ///
-/// Non-empty and free of zeroes by construction, so
-/// [`IntervalRangeConfig::generate_interval`] can neither panic nor return
-/// zero. Deserialization upholds the same invariant.
+/// Non-empty and free of zeroes by construction, including through
+/// deserialization.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(try_from = "UncheckedIntervalRange")]
 pub struct IntervalRangeConfig {
@@ -190,6 +189,8 @@ impl IntervalRangeConfig {
 
     /// Draws an interval uniformly from the range, in milliseconds. Both
     /// bounds are inclusive.
+    ///
+    /// Never returns zero and never panics.
     pub fn generate_interval(&self) -> NonZeroU64 {
         // `min <= max` is an invariant of the type, so the subtraction cannot
         // underflow and `0..=span` is never empty.
