@@ -49,8 +49,9 @@ pub struct Response<SuccessT> {
 
 /// Represents JSON-RPC 2.0 success response.
 ///
-/// `SuccessT` must not contain a `serde_json::value::RawValue`. The untagged
-/// representation buffers its input, which cannot yield one.
+/// When deserializing this untagged enum, `SuccessT` must not contain a
+/// `serde_json::value::RawValue`: the representation buffers its input and
+/// cannot yield one. Serialization with `RawValue` is supported.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ResponseData<SuccessT> {
