@@ -254,17 +254,20 @@ pub fn solc_version_from_build_info_id(build_info_id: &str) -> Option<Version> {
     let rest = build_info_id.strip_prefix("solc-")?;
 
     let parts: Vec<&str> = rest.split('-').collect();
-    let (version, compiler_type, hash) = match parts.as_slice() {
-        [version, hash] => (version, None, hash),
-        [version, compiler_type, hash] => (version, Some(compiler_type), hash),
-        _ => return None,
+    let [version, compiler_type @ .., hash] = parts.as_slice() else {
+        return None;
     };
 
-    // The compiler type must be alphanumeric and start with a letter.
-    if let Some(compiler_type) = compiler_type {
-        let mut chars = compiler_type.chars();
+    // The compiler type spans the segments between the version and the hash.
+    // It must start with a letter; the rest is alphanumeric, with the hyphens
+    // that separated the segments.
+    if let Some((first, rest)) = compiler_type.split_first() {
+        let mut chars = first.chars();
         if !chars.next().is_some_and(|c| c.is_ascii_alphabetic())
             || !chars.all(|c| c.is_ascii_alphanumeric())
+            || !rest
+                .iter()
+                .all(|segment| segment.chars().all(|c| c.is_ascii_alphanumeric()))
         {
             return None;
         }
@@ -535,6 +538,11 @@ mod tests {
             solc_version_from_build_info_id("solc-0_8_28-solx-ABC123"),
             Some(Version::new(0, 8, 28))
         );
+        // The compiler type may contain hyphens.
+        assert_eq!(
+            solc_version_from_build_info_id("solc-0_8_28-zk-solx-ABC123"),
+            Some(Version::new(0, 8, 28))
+        );
         // The hash may be empty.
         assert_eq!(
             solc_version_from_build_info_id("solc-1_2_3-"),
@@ -557,9 +565,13 @@ mod tests {
             solc_version_from_build_info_id("solc-0_8_24-1solx-abc123"),
             None
         );
-        // Too many segments.
         assert_eq!(
-            solc_version_from_build_info_id("solc-0_8_24-solx-extra-abc123"),
+            solc_version_from_build_info_id("solc-0_8_24--solx-abc123"),
+            None
+        );
+        // Non-hexadecimal trailing segment isn't a valid hash.
+        assert_eq!(
+            solc_version_from_build_info_id("solc-0_8_24-zk-solx-xyz"),
             None
         );
     }
