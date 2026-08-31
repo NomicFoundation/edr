@@ -229,7 +229,8 @@ fn find_artifact_files(artifacts_dir: &Path) -> Result<Vec<PathBuf>, ArtifactLoa
             })
         })
         .filter(|entry| {
-            entry.as_ref().is_ok_and(|entry| {
+            // Errors are kept so that they're propagated by `collect` below.
+            entry.as_ref().map_or(true, |entry| {
                 // Depth 1 entries are top-level files, which are ignored.
                 entry.depth() >= 2
                     && entry.file_type().is_file()
