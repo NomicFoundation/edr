@@ -814,6 +814,10 @@ async fn always_mode_reports_no_stack_trace_without_a_failing_arena() {
         result.reason
     );
     assert!(
+        result.execution_traces.is_empty(),
+        "rejected calls should leave no recorded trace arena"
+    );
+    assert!(
         result.stack_trace_result.is_none(),
         "no recorded arena describes the failure, so there is no stack trace"
     );
