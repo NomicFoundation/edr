@@ -2,6 +2,6 @@
 "@nomicfoundation/edr": minor
 ---
 
-Renamed the `SpecId` enum to `L1Hardfork`, mirroring `OpHardfork`, and removed support for pre-Byzantium Ethereum L1 hardforks: the enum no longer includes `Frontier`, `FrontierThawing`, `Homestead`, `DaoFork`, `Tangerine` and `SpuriousDragon`. Discriminants of the remaining variants are unchanged, so `Byzantium` is still `6`.
-
-Forking a chain from a block that precedes its oldest supported hardfork now fails with an error naming that hardfork, instead of silently skipping hardfork validation.
+- Added `L1Hardfork` enum, with all post-Byzantium L1 hardforks. Discriminants of the variants match those of `SpecId`.
+- Fixed an issue for forked blockchains where a block fork block that precedes its oldest supported hardfork was silently accepted. Now it fails with an error naming the oldest supported hardfork.
+- BREAKING CHANGE: Removed `SpecId`. Instead, use `L1Hardfork`. Using any of the pre-Byzantium hardforks (`Frontier`, `FrontierThawing`, `Homestead`, `DaoFork`, `Tangerine` and `SpuriousDragon`) previously resulted in a runtime error. Now, they are no longer representable.
