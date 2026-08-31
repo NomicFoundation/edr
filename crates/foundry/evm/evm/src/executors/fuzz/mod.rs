@@ -363,7 +363,9 @@ impl<
         let mut call = self
             .executor
             .call_raw(self.sender, address, calldata.clone(), U256::ZERO)
-            .map_err(|e| TestCaseError::fail(e.to_string()))?;
+            // Alternate formatting includes the error's chain: `to_string`
+            // yields only the outermost layer — a bare "EVM error".
+            .map_err(|e| TestCaseError::fail(format!("{e:#}")))?;
 
         // Handle `vm.assume`.
         if call.result.as_ref() == MAGIC_ASSUME {

@@ -1520,25 +1520,29 @@ impl<
         self.result.stack_trace_result = if let Some(CounterExample::Single(counter_example)) =
             self.result.counterexample.as_ref()
         {
-            let stack_trace_result: SolidityTestStackTraceResult<_> =
-                if fuzzed_executor.tracer_records_steps() {
-                    let (failing_trace, prior_traces) = self
-                        .result
-                        .execution_traces
-                        .split_last()
-                        .expect("the traced counterexample call recorded an arena");
-
-                    collect_stack_trace(
+            if fuzzed_executor.tracer_records_steps() {
+                if let Some((failing_trace, prior_traces)) =
+                    self.result.execution_traces.split_last()
+                {
+                    Some(collect_stack_trace(
                         &*self.cr.contract_decoder,
                         self.setup,
                         failing_trace,
                         prior_traces,
-                    )
-                } else if let Some(indeterminism_reasons) =
-                    counter_example.indeterminism_reasons.clone()
-                {
-                    indeterminism_reasons.into()
+                    ))
                 } else {
+                    // An executor error — as opposed to a reverting call —
+                    // produces a counterexample without a recorded arena, so
+                    // no trace describes the failure; the result's `reason`
+                    // carries the error.
+                    None
+                }
+            } else if let Some(indeterminism_reasons) =
+                counter_example.indeterminism_reasons.clone()
+            {
+                Some(indeterminism_reasons.into())
+            } else {
+                Some(
                     re_run_fuzz_counterexample_for_stack_traces(
                         self.cr,
                         func,
@@ -1546,9 +1550,9 @@ impl<
                         counter_example,
                         self.setup.has_setup_method,
                     )
-                    .into()
-                };
-            Some(stack_trace_result)
+                    .into(),
+                )
+            }
         } else {
             None
         };
