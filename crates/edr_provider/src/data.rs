@@ -85,8 +85,8 @@ use tokio::runtime;
 
 use crate::{
     config::{
-        ForkConfig, GasEstimationMode, LocalConfig, MemPoolConfig, MiningConfig, NetworkConfig,
-        ProviderConfig,
+        ForkConfig, GasEstimationMode, IntervalConfig, LocalConfig, MemPoolConfig, MiningConfig,
+        NetworkConfig, ProviderConfig,
     },
     data::{
         call::BlockEnvWithZeroBaseFee,
@@ -265,6 +265,7 @@ pub struct ProviderData<
     default_transaction_gas_limit: NonZeroU64,
     gas_estimation_mode: GasEstimationMode,
     is_auto_mining: bool,
+    interval_config: Option<IntervalConfig>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     mining_order: MineOrdering,
@@ -388,6 +389,11 @@ where
         &self.instance_id
     }
 
+    /// Returns the interval mining configuration, if enabled.
+    pub fn interval_config(&self) -> Option<&IntervalConfig> {
+        self.interval_config.as_ref()
+    }
+
     /// Returns whether the miner is mining automatically.
     pub fn is_auto_mining(&self) -> bool {
         self.is_auto_mining
@@ -435,6 +441,12 @@ where
 
     pub fn set_call_override_callback(&mut self, call_override: Option<Arc<dyn SyncCallOverride>>) {
         self.observability.call_override = call_override;
+    }
+
+    /// Sets the interval mining configuration. `None` disables interval
+    /// mining.
+    pub fn set_interval_config(&mut self, interval_config: Option<IntervalConfig>) {
+        self.interval_config = interval_config;
     }
 
     /// Sets the coinbase.
@@ -728,7 +740,7 @@ where
                 MiningConfig {
                     auto_mine: is_auto_mining,
                     block_gas_limit,
-                    interval: _interval,
+                    interval: interval_config,
                     mem_pool:
                         MemPoolConfig {
                             order: mining_order,
@@ -772,6 +784,7 @@ where
             default_transaction_gas_limit,
             gas_estimation_mode,
             is_auto_mining,
+            interval_config,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
             mining_order,

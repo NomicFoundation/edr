@@ -8,8 +8,8 @@ mod console_log;
 mod data;
 mod debug_trace;
 mod error;
+mod event_loop;
 mod filter;
-mod interval;
 mod logger;
 mod mock;
 /// Types for runtime observability.

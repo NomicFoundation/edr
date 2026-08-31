@@ -354,6 +354,9 @@ pub enum ProviderError<
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
+    /// The provider's thread terminated unexpectedly
+    #[error("The provider stopped unexpectedly and can no longer handle requests")]
+    UnexpectedTermination,
     /// The request hasn't been implemented yet
     #[error("Unimplemented: {0}")]
     Unimplemented(String),
@@ -551,6 +554,7 @@ impl<
             ProviderError::TransactionFailed(_) => INVALID_INPUT,
             ProviderError::TransactionCreationError(_) => INVALID_INPUT,
             ProviderError::TryFromIntError(_) => INVALID_INPUT,
+            ProviderError::UnexpectedTermination => INTERNAL_ERROR,
             ProviderError::Unimplemented(_) => INVALID_INPUT,
             ProviderError::UnknownAddress { .. } => INVALID_INPUT,
             ProviderError::UnmetHardfork { .. } => INVALID_PARAMS,

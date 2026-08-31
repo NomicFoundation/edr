@@ -11,75 +11,112 @@ use crate::spec::{Response, SyncNapiSpec};
 /// Trait for a synchronous N-API provider that can be used for dynamic trait
 /// objects.
 pub trait SyncProvider: Send + Sync {
-    /// Blocking method to handle a request.
-    fn handle_request(&self, request: String) -> napi::Result<Response>;
+    /// Enqueues a request for execution, invoking `on_response` with the
+    /// response once it is available.
+    ///
+    /// `on_response` may run on any thread, including synchronously on the
+    /// calling thread. It must be invoked exactly once; dropping it uninvoked
+    /// leaves the caller without a response.
+    ///
+    /// Must not wait for the request to be handled. The caller may be the JS
+    /// main thread, which request handling calls back into.
+    fn enqueue_request(
+        &self,
+        request: String,
+        on_response: Box<dyn FnOnce(napi::Result<Response>) + Send>,
+    );
 
-    /// Set to `true` to make the traces returned with `eth_call`,
-    /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
-    /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
-    /// `false` to disable this.
-    fn set_call_override_callback(&self, call_override_callback: Arc<dyn SyncCallOverride>);
+    /// Sets the call override callback.
+    fn set_call_override_callback(
+        &self,
+        call_override_callback: Arc<dyn SyncCallOverride>,
+    ) -> napi::Result<()>;
 
     /// Set the verbose tracing flag to the provided value.
-    fn set_verbose_tracing(&self, enabled: bool);
+    fn set_verbose_tracing(&self, enabled: bool) -> napi::Result<()>;
 }
 
 impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvider
     for edr_provider::Provider<ChainSpecT, TimerT>
 {
-    fn handle_request(&self, request: String) -> napi::Result<Response> {
+    fn enqueue_request(
+        &self,
+        request: String,
+        on_response: Box<dyn FnOnce(napi::Result<Response>) + Send>,
+    ) {
+        // Deserialization takes microseconds, so it stays on the calling thread.
         let request = match serde_json::from_str(&request) {
             Ok(request) => request,
             Err(error) => {
-                let message = error.to_string();
-
-                let request = serde_json::Value::from_str(&request).ok();
-                let method_name = request
-                    .as_ref()
-                    .and_then(|request| request.get("method"))
-                    .and_then(serde_json::Value::as_str);
-
-                let reason = InvalidRequestReason::new(method_name, &message);
-
-                // HACK: We need to log failed deserialization attempts when they concern input
-                // validation.
-                if let Some((method_name, provider_error)) =
-                    reason.provider_error::<ChainSpecT, TimerT>()
-                {
-                    // Ignore potential failure of logging, as returning the original error is more
-                    // important
-                    let _result = self.log_failed_deserialization(method_name, &provider_error);
-                }
-
-                let response = jsonrpc::ResponseData::<()>::Error {
-                    error: jsonrpc::Error {
-                        code: reason.error_code(),
-                        message: reason.error_message(),
-                        data: request,
-                    },
-                };
-
-                return serde_json::to_string(&response)
-                    .map_err(|error| {
-                        napi::Error::new(
-                            napi::Status::Unknown,
-                            format!("Failed to serialize response due to: {error}"),
-                        )
-                    })
-                    .map(Response::from);
+                on_response(handle_failed_deserialization(self, request, &error));
+                return;
             }
         };
 
-        let response = edr_provider::Provider::handle_request(self, request);
-
-        ChainSpecT::cast_response(response)
+        edr_provider::Provider::enqueue_request(
+            self,
+            request,
+            Box::new(move |response| on_response(ChainSpecT::cast_response(response))),
+        );
     }
 
-    fn set_call_override_callback(&self, call_override_callback: Arc<dyn SyncCallOverride>) {
-        self.set_call_override_callback(Some(call_override_callback));
+    fn set_call_override_callback(
+        &self,
+        call_override_callback: Arc<dyn SyncCallOverride>,
+    ) -> napi::Result<()> {
+        edr_provider::Provider::set_call_override_callback(self, Some(call_override_callback))
+            .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))
     }
 
-    fn set_verbose_tracing(&self, enabled: bool) {
-        self.set_verbose_tracing(enabled);
+    fn set_verbose_tracing(&self, enabled: bool) -> napi::Result<()> {
+        edr_provider::Provider::set_verbose_tracing(self, enabled)
+            .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))
     }
+}
+
+/// Constructs the JSON-RPC error response for a request that failed to
+/// deserialize.
+///
+/// Input-validation failures are also queued for logging through the provider.
+fn handle_failed_deserialization<ChainSpecT, TimerT>(
+    provider: &edr_provider::Provider<ChainSpecT, TimerT>,
+    request: String,
+    error: &serde_json::Error,
+) -> napi::Result<Response>
+where
+    ChainSpecT: SyncNapiSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+{
+    let message = error.to_string();
+
+    let request = serde_json::Value::from_str(&request).ok();
+    let method_name = request
+        .as_ref()
+        .and_then(|request| request.get("method"))
+        .and_then(serde_json::Value::as_str);
+
+    let reason = InvalidRequestReason::new(method_name, &message);
+
+    // HACK: We need to log failed deserialization attempts when they concern input
+    // validation.
+    if let Some((method_name, provider_error)) = reason.provider_error::<ChainSpecT, TimerT>() {
+        provider.log_failed_deserialization(method_name, provider_error);
+    }
+
+    let response = jsonrpc::ResponseData::<()>::Error {
+        error: jsonrpc::Error {
+            code: reason.error_code(),
+            message: reason.error_message(),
+            data: request,
+        },
+    };
+
+    serde_json::to_string(&response)
+        .map_err(|error| {
+            napi::Error::new(
+                napi::Status::Unknown,
+                format!("Failed to serialize response due to: {error}"),
+            )
+        })
+        .map(Response::from)
 }
