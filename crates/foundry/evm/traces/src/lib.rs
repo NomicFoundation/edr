@@ -38,6 +38,9 @@ pub mod decoder;
 pub use decoder::{CallTraceDecoder, CallTraceDecoderBuilder};
 use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 
+/// A suite's `setUp()` trace arenas in execution order. When setup failed,
+/// the last arena is the failing call; the setup stack-trace computation
+/// relies on that.
 pub type SetupTraces = Vec<SetupTrace>;
 
 pub type SetupTrace = (SetupTraceKind, SparsedTraceArena);

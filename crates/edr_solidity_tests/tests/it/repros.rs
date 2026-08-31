@@ -776,6 +776,49 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
     );
 }
 
+// An invariant campaign whose calls are all rejected by `vm.assume`
+// executes them but discards every trace. No arena then describes the
+// failure, so even `Always` mode reports no stack trace. The result's
+// reason explains the failure instead.
+#[tokio::test(flavor = "multi_thread")]
+async fn always_mode_reports_no_stack_trace_without_a_failing_arena() {
+    let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
+    config.collect_stack_traces = CollectStackTraces::Always;
+    // Abort the campaign quickly; every fuzzed call is rejected.
+    config.invariant.runs = 2;
+    config.invariant.depth = 2;
+    config.invariant.max_assume_rejects = 8;
+
+    let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
+    let runner = TEST_DATA_VIA_IR
+        .runner_with_contract_decoder(config, contract_decoder)
+        .await;
+    let filter = SolidityTestFilter::contract("AlwaysStackTraceInvariantNoCallTest");
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceInvariantNoCallTest")
+        .expect("the AlwaysStackTraceInvariantNoCall suite should have run");
+    let result = suite
+        .test_results
+        .get("invariantNothing()")
+        .expect("the invariant test should have run");
+
+    assert_eq!(result.status, TestStatus::Failure, "{:?}", result.reason);
+    assert!(
+        result
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("`vm.assume`")),
+        "expected the campaign to abort on assume rejects, got {:?}",
+        result.reason
+    );
+    assert!(
+        result.stack_trace_result.is_none(),
+        "no recorded arena describes the failure, so there is no stack trace"
+    );
+}
+
 // A failing `setUp()` must produce a stack trace via the re-execution
 // fallback in the default `CollectStackTraces::OnFailure` mode too, matching
 // the `Always` mode behavior.
