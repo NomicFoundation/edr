@@ -172,6 +172,9 @@ fn marshal_response_data_with_limit(
     response: jsonrpc::ResponseData<Box<serde_json::value::RawValue>>,
     max_string_length: usize,
 ) -> napi::Result<ResponseData> {
+    let to_napi_error =
+        |error: serde_json::Error| napi::Error::new(Status::GenericFailure, error.to_string());
+
     // A success envelope's length is known before it is built, so an oversized
     // response never has to be serialized only to be discarded.
     if let jsonrpc::ResponseData::Success { result } = &response
@@ -179,18 +182,17 @@ fn marshal_response_data_with_limit(
     {
         return serde_json::to_value(response)
             .map(Either::B)
-            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()));
+            .map_err(to_napi_error);
     }
 
-    let json = serialize_response(&response)
-        .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?;
+    let json = serialize_response(&response).map_err(to_napi_error)?;
 
     if json.len() <= max_string_length {
         Ok(Either::A(json))
     } else {
         serde_json::to_value(response)
             .map(Either::B)
-            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+            .map_err(to_napi_error)
     }
 }
 
