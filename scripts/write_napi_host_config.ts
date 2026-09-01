@@ -13,9 +13,10 @@
 //   node scripts/write_napi_host_config.ts <napi-dir> <platform-suffix> <out-path>
 //
 // where <platform-suffix> is a platform package suffix as printed by
-// scripts/detect_edr_platform.cjs (e.g. `linux-x64-gnu`).
+// scripts/detect_edr_platform.ts (e.g. `linux-x64-gnu`).
 //
 // Used by scripts/publish_to_verdaccio.sh.
+// See README.md for the conventions these scripts follow.
 
 import { writeFileSync } from "node:fs";
 import { createRequire } from "node:module";

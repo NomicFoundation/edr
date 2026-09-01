@@ -23,6 +23,7 @@ const KNOWN_IGNORED_HARDFORKS: [&str; 2] = ["delta", "pectra_blob_schedule"];
 const SUPERCHAIN_REGISTRY_REPO_URL: &str =
     "https://github.com/ethereum-optimism/superchain-registry.git";
 const REPO_CONFIGS_PATH: &str = "superchain/configs";
+const RUSTFMT_TOOLCHAIN: &str = "+nightly-2026-08-29";
 const EDR_SUPPORTED_NETWORKS: [&str; 2] = ["mainnet", "sepolia"];
 const GENERATED_FILE_WARNING_MESSAGE: &str = "
 // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
@@ -144,7 +145,7 @@ fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
 
     log::debug!("Formatting generated files...");
     Command::new("rustfmt")
-        .arg("+nightly")
+        .arg(RUSTFMT_TOOLCHAIN)
         .arg(generated_files_path)
         .arg(format!("{generated_module_path}.rs"))
         .output()?;

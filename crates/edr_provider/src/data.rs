@@ -85,8 +85,8 @@ use tokio::runtime;
 
 use crate::{
     config::{
-        ForkConfig, GasEstimationMode, LocalConfig, MemPoolConfig, MiningConfig, NetworkConfig,
-        ProviderConfig,
+        ForkConfig, GasEstimationMode, IntervalConfig, LocalConfig, MemPoolConfig, MiningConfig,
+        NetworkConfig, ProviderConfig,
     },
     data::{
         call::BlockEnvWithZeroBaseFee,
@@ -265,6 +265,9 @@ pub struct ProviderData<
     default_transaction_gas_limit: NonZeroU64,
     gas_estimation_mode: GasEstimationMode,
     is_auto_mining: bool,
+    interval_config: Option<IntervalConfig>,
+    /// Signals the event loop to restart the interval-mining timer.
+    interval_reconfigured: bool,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     mining_order: MineOrdering,
@@ -388,6 +391,11 @@ where
         &self.instance_id
     }
 
+    /// Returns the interval mining configuration, if enabled.
+    pub fn interval_config(&self) -> Option<&IntervalConfig> {
+        self.interval_config.as_ref()
+    }
+
     /// Returns whether the miner is mining automatically.
     pub fn is_auto_mining(&self) -> bool {
         self.is_auto_mining
@@ -437,6 +445,18 @@ where
         self.observability.call_override = call_override;
     }
 
+    /// Sets the interval mining configuration. `None` disables interval
+    /// mining.
+    ///
+    /// Always signals a restart of the interval-mining timer, including for the
+    /// configuration that is already set: a range draws a new interval before
+    /// each block, so an unchanged configuration does not imply an unchanged
+    /// schedule.
+    pub fn set_interval_config(&mut self, interval_config: Option<IntervalConfig>) {
+        self.interval_config = interval_config;
+        self.interval_reconfigured = true;
+    }
+
     /// Sets the coinbase.
     pub fn set_coinbase(&mut self, coinbase: Address) {
         self.beneficiary = coinbase;
@@ -448,6 +468,12 @@ where
 
     pub fn stop_impersonating_account(&mut self, address: Address) -> bool {
         self.impersonated_accounts.remove(&address)
+    }
+
+    /// Returns whether [`Self::set_interval_config`] was called since this was
+    /// last called, clearing the signal.
+    pub fn take_interval_reconfigured(&mut self) -> bool {
+        std::mem::take(&mut self.interval_reconfigured)
     }
 
     /// Returns the transaction gas cap, if set.
@@ -728,7 +754,7 @@ where
                 MiningConfig {
                     auto_mine: is_auto_mining,
                     block_gas_limit,
-                    interval: _interval,
+                    interval: interval_config,
                     mem_pool:
                         MemPoolConfig {
                             order: mining_order,
@@ -772,6 +798,8 @@ where
             default_transaction_gas_limit,
             gas_estimation_mode,
             is_auto_mining,
+            interval_config,
+            interval_reconfigured: false,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
             mining_order,
@@ -3207,6 +3235,33 @@ mod tests {
         console_log::tests::{deploy_console_log_contract, ConsoleLogTransaction},
         test_utils::{create_test_config, one_ether, ProviderTestFixture},
     };
+
+    /// Every call signals a restart, including one that sets the configuration
+    /// that is already in place.
+    #[test]
+    fn set_interval_config_always_signals_a_restart() -> anyhow::Result<()> {
+        let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
+        let data = &mut fixture.provider_data;
+
+        assert!(!data.take_interval_reconfigured());
+
+        let interval = IntervalConfig::Fixed(NonZeroU64::new(100).expect("non-zero"));
+
+        data.set_interval_config(Some(interval.clone()));
+        assert!(data.take_interval_reconfigured());
+        assert!(
+            !data.take_interval_reconfigured(),
+            "the signal is taken once"
+        );
+
+        data.set_interval_config(Some(interval));
+        assert!(data.take_interval_reconfigured());
+
+        data.set_interval_config(None);
+        assert!(data.take_interval_reconfigured());
+
+        Ok(())
+    }
 
     #[test]
     fn test_local_account_balance() -> anyhow::Result<()> {

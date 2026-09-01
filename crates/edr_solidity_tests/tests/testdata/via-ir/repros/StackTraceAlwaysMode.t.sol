@@ -2,6 +2,7 @@
 pragma solidity ^0.8.18;
 
 import "ds-test/test.sol";
+import "cheats/Vm.sol";
 
 // Fixture for `always_mode_produces_stack_trace_for_failing_test`: a failing
 // test that has a `setUp`, and reverts inside a called contract.
@@ -88,5 +89,33 @@ contract AlwaysStackTraceInvariantInitialTest is DSTest {
 
     function invariantAlwaysBroken() public view {
         reverter.boom();
+    }
+}
+
+// Covers the invariant campaign that keeps no trace arena. Every fuzzed
+// call hits `vm.assume(false)`, so the campaign rejects the call and
+// discards its trace. After `max_assume_rejects` rejects, the campaign
+// aborts without an arena describing the failure. The result therefore
+// carries a reason but no stack trace.
+contract AlwaysStackTraceInvariantNoCallTest is DSTest {
+    Rejecter rejecter;
+
+    function setUp() public {
+        rejecter = new Rejecter();
+    }
+
+    function invariantNothing() public view {}
+}
+
+contract Rejecter {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    uint256 public counter;
+
+    // The only fuzzable function (view functions are excluded from
+    // selection), so every campaign call is rejected.
+    function poke() public {
+        counter += 1;
+        vm.assume(false);
     }
 }

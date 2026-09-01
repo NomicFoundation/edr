@@ -48,6 +48,31 @@ pnpm soltestsBenchmark --benchmark-output soltest-report.json
 
 The CI is set up to run `soltestsBenchmark` on every commit in `main`, save the measurements and then compare PRs against the latest measurements from `main`. The measurements from `main` are visualized [here.](https://nomic-foundation-automation.github.io/edr-benchmark-results/soltests/)
 
+### Memory Benchmark
+
+Measures the peak memory (resident set size) of a full Solidity test run per repository and Hardhat verbosity level. Verbosity is the input that matters: Hardhat maps it to the EDR options that control trace collection (`collectStackTraces`/`includeTraces`), and at `-vvv` and above EDR records EVM steps for every call, which is what drove the out-of-memory reports this benchmark exists to track.
+
+How it works:
+
+- Every (repo, verbosity) cell runs in a fresh child process, because a process's peak RSS is a high-water mark that never decreases. The child is wrapped in GNU `time -v` where available, so the peak is also observed from outside — including for a child that the OOM killer terminates before it can report anything.
+- A cell whose child ran out of memory is recorded as `OOM`, with the last externally observed peak as a lower bound; on an unoptimized build this is expected for the larger repos. A cell that failed for any other reason is recorded as `error`, the remaining cells still run, and the command exits unsuccessfully at the end.
+- Children run with 4 rayon threads (`RAYON_NUM_THREADS`): peak memory scales with how many test suites run concurrently, and unbounded parallelism would leave every cell of an unoptimized build reading `OOM`, with nothing to compare against. They inherit the same V8 flags as the other benchmarks (a raised `--max-old-space-size`), so the operating system rather than V8's heap limit decides when a child is out of memory.
+- Progress goes to stderr; stdout carries only the final markdown table (rows are repos, columns are verbosity levels). The full results, including the memory in use before any test ran, are written to the JSON output file after every cell.
+
+Freed memory is reflected in these numbers: EDR's Node binding uses mimalloc, which returns the large freed buffers (such as recorded EVM steps) to the operating system.
+
+#### Run
+
+```shell
+pnpm install --frozen-lockfile
+
+# All default repos at verbosity 2, 3 and 4 (the levels with distinct trace-collection behaviour)
+pnpm soltestsMemory --benchmark-output memory-report.json
+
+# One repo, one verbosity level
+pnpm soltestsMemory --repo solady --verbosity 3
+```
+
 ### Compare EDR and Forge
 
 This is the second iteration of the Solidity test benchmarks that focuses on comparing the performance of EDR and Foundry Forge.

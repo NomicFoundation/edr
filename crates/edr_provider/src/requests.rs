@@ -1,4 +1,5 @@
 pub(crate) mod debug;
+mod dispatch;
 /// Ethereum RPC request types
 pub(crate) mod eth;
 /// Hardhat RPC request types
@@ -18,6 +19,7 @@ use ::serde::{
 use derive_where::derive_where;
 use edr_chain_spec_rpc::RpcChainSpec;
 
+pub(crate) use crate::requests::dispatch::execute_request;
 pub use crate::requests::{
     methods::{IntervalConfig, MethodInvocation},
     serde::{InvalidRequestReason, Timestamp},

@@ -25,6 +25,9 @@ import {
   runForgeTests,
   setupRepo,
   REPOS,
+  runSolidityTestsMemoryBenchmark,
+  MEMORY_REPOS,
+  MEMORY_VERBOSITIES,
 } from "./solidity-tests.js";
 
 const {
@@ -42,6 +45,7 @@ interface ParsedArguments {
     | "report-provider-benchmark"
     | "solidity-tests-benchmark"
     | "solidity-tests"
+    | "solidity-tests-memory"
     | "compare-forge"
     | "report-forge";
   grep?: string;
@@ -55,6 +59,7 @@ interface ParsedArguments {
   csv_input?: string;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   forge_path?: string;
+  verbosity?: number;
 }
 
 interface BenchmarkScenarioResult {
@@ -94,6 +99,7 @@ async function main(): Promise<boolean> {
       "report-provider-benchmark",
       "solidity-tests-benchmark",
       "solidity-tests",
+      "solidity-tests-memory",
       "compare-forge",
       "report-forge",
     ],
@@ -110,7 +116,7 @@ async function main(): Promise<boolean> {
   });
   parser.add_argument("-r", "--repo", {
     type: "str",
-    help: "Path to a repo to execute for Solidity tests. For the `solidity-tests` command, defaults to `forge-std` that is checked out automatically. For the `compare-forge` command defaults to all supported repos.",
+    help: `Which repo(s) to run. For the \`solidity-tests\` command: the path to a repo. For the \`compare-forge\` command: a repo name (defaults to all supported repos). For the \`solidity-tests-memory\` command: a comma-separated list of repo names (defaults to ${MEMORY_REPOS.join(", ")}).`,
   });
   parser.add_argument("-c", "--count", {
     type: "int",
@@ -128,6 +134,10 @@ async function main(): Promise<boolean> {
   parser.add_argument("--forge-path", {
     type: "str",
     help: "Path to forge executable (default: 'forge')",
+  });
+  parser.add_argument("--verbosity", {
+    type: "int",
+    help: `Hardhat verbosity level (0-5, i.e. -v to -vvvvv) for the \`solidity-tests-memory\` command. Pass one level per run; omit to measure verbosities ${MEMORY_VERBOSITIES.join(", ")}, the ones with distinct trace-collection behaviour.`,
   });
   const args: ParsedArguments = parser.parse_args();
 
@@ -177,6 +187,43 @@ async function main(): Promise<boolean> {
       console.log(csvResults);
     } else {
       console.error("Error: --repo is required for solidity-tests command");
+      return false;
+    }
+  } else if (args.command === "solidity-tests-memory") {
+    const repos =
+      args.repo !== undefined
+        ? args.repo
+            .split(",")
+            .map((repo) => repo.trim())
+            .filter((repo) => repo.length > 0)
+        : MEMORY_REPOS;
+    if (repos.length === 0) {
+      console.error("Error: --repo must name at least one repo");
+      return false;
+    }
+    if (
+      args.verbosity !== undefined &&
+      (args.verbosity < 0 || args.verbosity > 5)
+    ) {
+      console.error(
+        `Error: --verbosity must be between 0 and 5 (like Hardhat's -v to -vvvvv), got ${args.verbosity}`
+      );
+      return false;
+    }
+    const verbosities =
+      args.verbosity !== undefined ? [args.verbosity] : MEMORY_VERBOSITIES;
+    const memoryResults = await runSolidityTestsMemoryBenchmark(
+      repos,
+      verbosities,
+      benchmarkOutputPath
+    );
+    const failed = memoryResults.filter((result) => result.kind === "error");
+    if (failed.length > 0) {
+      console.error(
+        `Error: ${failed.length} measurement(s) failed: ${failed
+          .map((result) => `${result.repo} at verbosity ${result.verbosity}`)
+          .join(", ")}`
+      );
       return false;
     }
   } else if (args.command === "compare-forge") {
