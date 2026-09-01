@@ -22,22 +22,23 @@ async fn issue_588() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec, Arc<MockTime>>::default());
     let subscriber = Box::new(|_event| {});
 
-    let early_mainnet_fork =
+    let mainnet_fork =
         create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
-            block_number: Some(2_675_000),
+            block_number: Some(20_384_300),
             cache_dir: edr_defaults::CACHE_DIR.into(),
             chain_overrides: HashMap::default(),
             http_headers: None,
             url: json_rpc_url_provider::ethereum_mainnet(),
         }));
 
+    // With the clock at 1970, the forked block's timestamp is in the future.
     let current_time_is_1970 = Arc::new(MockTime::with_seconds(0));
 
     let _forking_succeeds = Provider::new(
         runtime::Handle::current(),
         logger,
         subscriber,
-        early_mainnet_fork,
+        mainnet_fork,
         Arc::new(RwLock::<ContractDecoder>::default()),
         current_time_is_1970,
     )?;

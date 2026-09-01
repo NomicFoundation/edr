@@ -115,7 +115,7 @@ describe("Eth module - hardfork dependant tests", function () {
   describe("Transaction, call and estimate gas validations", function () {
     describe("chain id validation", function () {
       describe("In a hardfork without access list but with EIP-155", function () {
-        useProviderAndCommon("spuriousDragon");
+        useProviderAndCommon("byzantium");
 
         it("Should validate the chain id if sent to eth_sendTransaction", async function () {
           const [sender] = await this.provider.send("eth_accounts");
@@ -129,7 +129,7 @@ describe("Eth module - hardfork dependant tests", function () {
 
         it("Should validate the chain id if an EIP-155 tx is sent with eth_sendRawTransaction", async function () {
           const signedTx = getSampleSignedTx(
-            new Common({ chain: "mainnet", hardfork: "spuriousDragon" })
+            new Common({ chain: "mainnet", hardfork: "byzantium" })
           );
           const serialized = bufferToRpcData(signedTx.serialize());
 

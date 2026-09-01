@@ -195,10 +195,6 @@ export interface AddressLabel {
  */
 export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
 
-export const AMSTERDAM: string
-
-export const ARROW_GLACIER: string
-
 /** A compilation artifact. */
 export interface Artifact {
   /** The identifier of the artifact. */
@@ -250,10 +246,6 @@ export interface BaseFeeParamActivation {
   elasticityMultiplier: bigint
 }
 
-export const BEDROCK: string
-
-export const BERLIN: string
-
 /** Information about the blob gas used in a block. */
 export interface BlobGas {
   /**
@@ -280,8 +272,6 @@ export interface BuildInfoAndOutput {
   /** The build info output file */
   output: Uint8Array
 }
-
-export const BYZANTIUM: string
 
 /** What chains to cache */
 export declare enum CachedChains {
@@ -378,10 +368,6 @@ export interface CallTrace {
   children: Array<CallTrace | LogTrace>
 }
 
-export const CANCUN: string
-
-export const CANYON: string
-
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
   /** The chain ID */
@@ -442,8 +428,6 @@ export declare enum CollectStackTraces {
    */
   OnFailure = 1
 }
-
-export const CONSTANTINOPLE: string
 
 export const CONSTRUCTOR_FUNCTION_NAME: string
 
@@ -519,8 +503,6 @@ export interface CustomErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
-export const DAO_FORK: string
-
 export interface DebugTraceLogItem {
   /** Program Counter */
   pc: bigint
@@ -574,8 +556,6 @@ export interface DirectLibraryCallErrorStackTraceEntry {
   type: StackTraceEntryType.DIRECT_LIBRARY_CALL_ERROR
   sourceReference: SourceReference
 }
-
-export const ECOTONE: string
 
 /**
  * Indicates that the EVM has experienced an exceptional halt. This causes
@@ -652,8 +632,6 @@ export interface FallbackNotPayableErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
-export const FJORD: string
-
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
   /**
@@ -670,10 +648,6 @@ export interface ForkConfig {
   /** The URL of the JSON-RPC endpoint to fork from */
   url: string
 }
-
-export const FRONTIER: string
-
-export const FRONTIER_THAWING: string
 
 /** * Determines the level of file system access for the given path.
  *
@@ -837,10 +811,6 @@ export const GENERIC_CHAIN_TYPE: string
 
 export declare function genericChainProviderFactory(): ProviderFactory
 
-export const GRANITE: string
-
-export const GRAY_GLACIER: string
-
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
   /** The exceptional halt that occurred */
@@ -880,10 +850,6 @@ export interface HeuristicFailed {
   /** Enum tag for JS. */
   kind: "HeuristicFailed"
 }
-
-export const HOLOCENE: string
-
-export const HOMESTEAD: string
 
 export interface HttpHeader {
   name: string
@@ -1194,10 +1160,6 @@ export interface InvariantTestKind {
   readonly failedCorpusReplays: bigint
 }
 
-export const ISTANBUL: string
-
-export const ISTHMUS: string
-
 /**
  * Computes the Keccak-256 hash of `data`, returning the 32-byte digest.
  *
@@ -1209,23 +1171,57 @@ export declare function keccak256(data: Uint8Array): Uint8Array
 
 export const L1_CHAIN_TYPE: string
 
-export declare function l1GenesisState(hardfork: SpecId): Array<AccountOverride>
+export declare function l1GenesisState(hardfork: L1Hardfork): Array<AccountOverride>
+
+/** Identifier for the Ethereum spec. */
+export declare enum L1Hardfork {
+  /** Byzantium */
+  Byzantium = 6,
+  /** Constantinople */
+  Constantinople = 7,
+  /** Petersburg */
+  Petersburg = 8,
+  /** Istanbul */
+  Istanbul = 9,
+  /** Muir Glacier */
+  MuirGlacier = 10,
+  /** Berlin */
+  Berlin = 11,
+  /** London */
+  London = 12,
+  /** Arrow Glacier */
+  ArrowGlacier = 13,
+  /** Gray Glacier */
+  GrayGlacier = 14,
+  /** Merge */
+  Merge = 15,
+  /** Shanghai */
+  Shanghai = 16,
+  /** Cancun */
+  Cancun = 17,
+  /** Prague */
+  Prague = 18,
+  /** Osaka */
+  Osaka = 19,
+  /** Amsterdam */
+  Amsterdam = 20
+}
 
 /**
- * Tries to parse the provided string to create a [`SpecId`] instance.
+ * Tries to parse the provided string to create an [`L1Hardfork`] instance.
  *
  * Returns an error if the string does not match any known hardfork.
  */
-export declare function l1HardforkFromString(hardfork: string): SpecId
+export declare function l1HardforkFromString(hardfork: string): L1Hardfork
 
 /**
- * Returns the latest supported OP hardfork.
+ * Returns the latest supported L1 hardfork.
  *
  * The returned value will be updated after each network upgrade.
  */
-export declare function l1HardforkLatest(): SpecId
+export declare function l1HardforkLatest(): L1Hardfork
 
-export declare function l1HardforkToString(hardfork: SpecId): string
+export declare function l1HardforkToString(hardfork: L1Hardfork): string
 
 export declare function l1ProviderFactory(): ProviderFactory
 
@@ -1283,14 +1279,10 @@ export interface LogTrace {
   parameters: DecodedTraceParameters | Array<Uint8Array>
 }
 
-export const LONDON: string
-
 /** Configuration for the provider's mempool. */
 export interface MemPoolConfig {
   order: MineOrdering
 }
-
-export const MERGE: string
 
 /** The type of ordering to use when selecting blocks to mine. */
 export declare enum MineOrdering {
@@ -1319,8 +1311,6 @@ export interface MissingFallbackOrReceiveErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
-export const MUIR_GLACIER: string
-
 export interface NonContractAccountCalledErrorStackTraceEntry {
   type: StackTraceEntryType.NONCONTRACT_ACCOUNT_CALLED_ERROR
   sourceReference: SourceReference
@@ -1345,7 +1335,7 @@ export const OP_CHAIN_TYPE: string
 
 export declare function opGenesisState(hardfork: OpHardfork): Array<AccountOverride>
 
-/** Enumeration of supported OP hardforks. */
+/** Identifier for the OP hardfork. */
 export declare enum OpHardfork {
   Bedrock = 100,
   Regolith = 101,
@@ -1379,8 +1369,6 @@ export declare function opProviderFactory(): ProviderFactory
 
 export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory
 
-export const OSAKA: string
-
 export interface OtherExecutionErrorStackTraceEntry {
   type: StackTraceEntryType.OTHER_EXECUTION_ERROR
   sourceReference?: SourceReference
@@ -1399,10 +1387,6 @@ export interface PathPermission {
   /** The targeted path guarded by the permission */
   path: string
 }
-
-export const PETERSBURG: string
-
-export const PRAGUE: string
 
 export const PRECOMPILE_FUNCTION_NAME: string
 
@@ -1501,8 +1485,6 @@ export interface ProviderConfig {
 
 export const RECEIVE_FUNCTION_NAME: string
 
-export const REGOLITH: string
-
 export interface ReturndataSizeErrorStackTraceEntry {
   type: StackTraceEntryType.RETURNDATA_SIZE_ERROR
   sourceReference: SourceReference
@@ -1524,8 +1506,6 @@ export interface RevertResult {
   /** The transaction output */
   output: Uint8Array
 }
-
-export const SHANGHAI: string
 
 export type SolidityStackTrace =
   Array<SolidityStackTraceEntry>
@@ -1793,54 +1773,6 @@ export interface SourceReference {
   range: Array<number>
 }
 
-/** Identifier for the Ethereum spec. */
-export declare enum SpecId {
-  /** Frontier */
-  Frontier = 0,
-  /** Frontier Thawing */
-  FrontierThawing = 1,
-  /** Homestead */
-  Homestead = 2,
-  /** DAO Fork */
-  DaoFork = 3,
-  /** Tangerine */
-  Tangerine = 4,
-  /** Spurious Dragon */
-  SpuriousDragon = 5,
-  /** Byzantium */
-  Byzantium = 6,
-  /** Constantinople */
-  Constantinople = 7,
-  /** Petersburg */
-  Petersburg = 8,
-  /** Istanbul */
-  Istanbul = 9,
-  /** Muir Glacier */
-  MuirGlacier = 10,
-  /** Berlin */
-  Berlin = 11,
-  /** London */
-  London = 12,
-  /** Arrow Glacier */
-  ArrowGlacier = 13,
-  /** Gray Glacier */
-  GrayGlacier = 14,
-  /** Merge */
-  Merge = 15,
-  /** Shanghai */
-  Shanghai = 16,
-  /** Cancun */
-  Cancun = 17,
-  /** Prague */
-  Prague = 18,
-  /** Osaka */
-  Osaka = 19,
-  /** Amsterdam */
-  Amsterdam = 20
-}
-
-export const SPURIOUS_DRAGON: string
-
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -1968,8 +1900,6 @@ export interface SuiteResult {
   /** See [`edr_solidity_tests::result::SuiteResult::warnings`]. */
   warnings: Array<string>
 }
-
-export const TANGERINE: string
 
 /** The result of a test execution. */
 export declare enum TestStatus {

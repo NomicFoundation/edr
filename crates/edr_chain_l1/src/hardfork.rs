@@ -7,9 +7,8 @@ use edr_primitives::UnknownHardfork;
 ///
 /// Models protocol upgrades, including ones without EVM-semantics changes,
 /// unlike [`EvmSpecId`] which models EVM behavior classes.
-///
-/// The `strum(serialize = …)` strings must stay identical to the [`name`]
-/// module constants.
+// The strum-derived names (`serialize_all = "camelCase"`) are public API;
+// the expected strings are pinned in this module's tests.
 #[repr(u8)]
 #[derive(
     Clone,
@@ -25,25 +24,10 @@ use edr_primitives::UnknownHardfork;
     strum::EnumString,
     strum::IntoStaticStr,
 )]
-#[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
+#[strum(serialize_all = "camelCase", parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum L1Hardfork {
-    /// Frontier hardfork
-    Frontier = 0,
-    /// Frontier Thawing hardfork
-    #[strum(serialize = "Frontier Thawing")]
-    FrontierThawing,
-    /// Homestead hardfork
-    Homestead,
-    /// DAO Fork hardfork
-    #[strum(serialize = "DAO Fork")]
-    DaoFork,
-    /// Tangerine Whistle hardfork
-    Tangerine,
-    /// Spurious Dragon hardfork
-    #[strum(serialize = "Spurious")]
-    SpuriousDragon,
     /// Byzantium hardfork
-    Byzantium,
+    Byzantium = 6,
     /// Constantinople hardfork
     Constantinople,
     /// Petersburg hardfork
@@ -57,10 +41,8 @@ pub enum L1Hardfork {
     /// London hardfork
     London,
     /// Arrow Glacier hardfork
-    #[strum(serialize = "Arrow Glacier")]
     ArrowGlacier,
     /// Gray Glacier hardfork
-    #[strum(serialize = "Gray Glacier")]
     GrayGlacier,
     /// Paris/Merge hardfork
     Merge,
@@ -84,12 +66,6 @@ fn unknown_hardfork(_name: &str) -> UnknownHardfork {
 impl From<L1Hardfork> for EvmSpecId {
     fn from(hardfork: L1Hardfork) -> Self {
         match hardfork {
-            // revm only models EVM behavior classes; hardforks without EVM
-            // changes map to their EVM-equivalent predecessor.
-            L1Hardfork::Frontier | L1Hardfork::FrontierThawing => EvmSpecId::FRONTIER,
-            L1Hardfork::Homestead | L1Hardfork::DaoFork => EvmSpecId::HOMESTEAD,
-            L1Hardfork::Tangerine => EvmSpecId::TANGERINE,
-            L1Hardfork::SpuriousDragon => EvmSpecId::SPURIOUS_DRAGON,
             L1Hardfork::Byzantium => EvmSpecId::BYZANTIUM,
             // Constantinople never went live on mainnet on its own: Petersburg
             // (Constantinople minus EIP-1283) activated at the same block.
@@ -109,67 +85,13 @@ impl From<L1Hardfork> for EvmSpecId {
     }
 }
 
-/// String identifiers for L1 hardforks.
-pub mod name {
-    /// String identifier for the Frontier hardfork
-    pub const FRONTIER: &str = "Frontier";
-    /// String identifier for the Frontier Thawing hardfork
-    pub const FRONTIER_THAWING: &str = "Frontier Thawing";
-    /// String identifier for the Homestead hardfork
-    pub const HOMESTEAD: &str = "Homestead";
-    /// String identifier for the DAO Fork hardfork
-    pub const DAO_FORK: &str = "DAO Fork";
-    /// String identifier for the Tangerine Whistle hardfork
-    pub const TANGERINE: &str = "Tangerine";
-    /// String identifier for the Spurious Dragon hardfork
-    pub const SPURIOUS_DRAGON: &str = "Spurious";
-    /// String identifier for the Byzantium hardfork
-    pub const BYZANTIUM: &str = "Byzantium";
-    /// String identifier for the Constantinople hardfork
-    pub const CONSTANTINOPLE: &str = "Constantinople";
-    /// String identifier for the Petersburg hardfork
-    pub const PETERSBURG: &str = "Petersburg";
-    /// String identifier for the Istanbul hardfork
-    pub const ISTANBUL: &str = "Istanbul";
-    /// String identifier for the Muir Glacier hardfork
-    pub const MUIR_GLACIER: &str = "MuirGlacier";
-    /// String identifier for the Berlin hardfork
-    pub const BERLIN: &str = "Berlin";
-    /// String identifier for the London hardfork
-    pub const LONDON: &str = "London";
-    /// String identifier for the Arrow Glacier hardfork
-    pub const ARROW_GLACIER: &str = "Arrow Glacier";
-    /// String identifier for the Gray Glacier hardfork
-    pub const GRAY_GLACIER: &str = "Gray Glacier";
-    /// String identifier for the Paris/Merge hardfork
-    pub const MERGE: &str = "Merge";
-    /// String identifier for the Shanghai hardfork
-    pub const SHANGHAI: &str = "Shanghai";
-    /// String identifier for the Cancun hardfork
-    pub const CANCUN: &str = "Cancun";
-    /// String identifier for the Prague hardfork
-    pub const PRAGUE: &str = "Prague";
-    /// String identifier for the Osaka hardfork
-    pub const OSAKA: &str = "Osaka";
-    /// String identifier for the Amsterdam hardfork
-    pub const AMSTERDAM: &str = "Amsterdam";
-    /// String identifier for the latest hardfork
-    pub const LATEST: &str = "Latest";
-}
-
 #[cfg(test)]
 mod tests {
     use core::str::FromStr;
 
     use super::*;
 
-    const VARIANTS: [L1Hardfork; 21] = [
-        L1Hardfork::Frontier,
-        L1Hardfork::FrontierThawing,
-        L1Hardfork::Homestead,
-        L1Hardfork::DaoFork,
-        L1Hardfork::Tangerine,
-        L1Hardfork::SpuriousDragon,
+    const VARIANTS: [L1Hardfork; 15] = [
         L1Hardfork::Byzantium,
         L1Hardfork::Constantinople,
         L1Hardfork::Petersburg,
@@ -194,30 +116,24 @@ mod tests {
         }
     }
 
-    /// The strings the `strum` derives emit/parse must stay in sync with the
-    /// [`name`] module constants, which are re-exported as public API.
-    const NAMES: [&str; 21] = [
-        name::FRONTIER,
-        name::FRONTIER_THAWING,
-        name::HOMESTEAD,
-        name::DAO_FORK,
-        name::TANGERINE,
-        name::SPURIOUS_DRAGON,
-        name::BYZANTIUM,
-        name::CONSTANTINOPLE,
-        name::PETERSBURG,
-        name::ISTANBUL,
-        name::MUIR_GLACIER,
-        name::BERLIN,
-        name::LONDON,
-        name::ARROW_GLACIER,
-        name::GRAY_GLACIER,
-        name::MERGE,
-        name::SHANGHAI,
-        name::CANCUN,
-        name::PRAGUE,
-        name::OSAKA,
-        name::AMSTERDAM,
+    /// The public hardfork name strings. Changing one is a breaking change
+    /// for consumers.
+    const NAMES: [&str; 15] = [
+        "byzantium",
+        "constantinople",
+        "petersburg",
+        "istanbul",
+        "muirGlacier",
+        "berlin",
+        "london",
+        "arrowGlacier",
+        "grayGlacier",
+        "merge",
+        "shanghai",
+        "cancun",
+        "prague",
+        "osaka",
+        "amsterdam",
     ];
 
     #[test]
@@ -228,10 +144,12 @@ mod tests {
             assert_eq!(L1Hardfork::from_str(name), Ok(hardfork));
         }
 
-        assert_eq!(L1Hardfork::from_str("Latest"), Err(UnknownHardfork));
+        assert_eq!(L1Hardfork::from_str("latest"), Err(UnknownHardfork));
         assert_eq!(L1Hardfork::from_str("NotAHardfork"), Err(UnknownHardfork));
         // strum must not fall back to parsing variant identifiers.
         assert_eq!(L1Hardfork::from_str("MUIR_GLACIER"), Err(UnknownHardfork));
+        // Former (PascalCase) names must no longer parse.
+        assert_eq!(L1Hardfork::from_str("MuirGlacier"), Err(UnknownHardfork));
     }
 
     #[test]
