@@ -467,8 +467,8 @@ impl CallTraceDecoder {
             };
 
             // If traced contract is a fallback contract, check if it has the
-            // decoded function. If not, then replace call data
-            // signature with `fallback`.
+            // decoded function. If not, then replace call data signature with
+            // `fallback`.
             let mut call_data = self.decode_function_input(trace, func);
             if let Some(fallback_functions) = self.fallback_contracts.get(&trace.address)
                 && !fallback_functions.contains(&selector)
@@ -678,8 +678,8 @@ impl CallTraceDecoder {
             .find_map(|func| func.abi_decode_output(&trace.output).ok())
         {
             // Functions coming from an external database do not have any
-            // outputs specified, and will lead to returning an
-            // empty list of values.
+            // outputs specified, and will lead to returning an empty list of
+            // values.
             if values.is_empty() {
                 return None;
             }
@@ -847,8 +847,8 @@ fn reconstruct_params(event: &Event, decoded: &DecodedEvent) -> Vec<DynSolValue>
     for input in &event.inputs {
         // Prevent panic of event `Transfer(from, to)` decoded with a signature
         // `Transfer(address indexed from, address indexed to, uint256 indexed
-        // tokenId)` by making sure the event inputs is not higher than
-        // decoded indexed / un-indexed values.
+        // tokenId)` by making sure the event inputs is not higher than decoded
+        // indexed / un-indexed values.
         if input.indexed && indexed < decoded.indexed.len() {
             let value = decoded
                 .indexed

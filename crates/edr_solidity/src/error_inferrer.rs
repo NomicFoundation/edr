@@ -137,8 +137,8 @@ pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
 ) -> Result<Vec<StackTraceEntry>, InferrerError<HaltReasonT>> {
     let recursion_start_idx = trace_strategy.recursion_start_idx();
     // To work around the borrow checker, we'll collect the indices of the
-    // frames we want to keep. We can't clone the frames, because some of
-    // them contain non-Clone `ClassInstance`s`
+    // frames we want to keep. We can't clone the frames, because some of them
+    // contain non-Clone `ClassInstance`s`
     let retained_indices: HashSet<_> = stacktrace
         .iter()
         .enumerate()
@@ -159,8 +159,8 @@ pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
             };
 
             // look TWO frames ahead to determine if this is a specific
-            // occurrence of a redundant CALLSTACK_ENTRY frame
-            // observed when using Solidity 0.8.5:
+            // occurrence of a redundant CALLSTACK_ENTRY frame observed when
+            // using Solidity 0.8.5:
             match (&frame, next_next_frame) {
                 (
                     StackTraceEntry::CallstackEntry {
@@ -1066,9 +1066,8 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
                         contract.get_function_from_selector(selector_from(calldata));
 
                     // in general this shouldn't happen, but it does when viaIR
-                    // is enabled, "optimizerSteps": "u" is
-                    // used, and the called function is fallback or
-                    // receive
+                    // is enabled, "optimizerSteps": "u" is used, and the called
+                    // function is fallback or receive
                     let Some(function) = function_from_selector else {
                         return Ok(Heuristic::Miss(inferred_stacktrace));
                     };
@@ -1369,10 +1368,10 @@ fn get_entry_before_initial_modifier_callstack_entry<HaltReasonT: HaltReasonTrai
         // If there is no selector, it must be a transfer.
         contract.receive.as_ref()
     } else {
-        // TODO https://github.com/NomicFoundation/edr/issues/963
-        // Defaulting to shorter slice doesn't make much sense at first glance,
-        // but we keep it after fixing the receive fallback, as this
-        // pattern is consistently used in the codebase.
+        // TODO https://github.com/NomicFoundation/edr/issues/963 Defaulting to
+        // shorter slice doesn't make much sense at first glance, but we keep it
+        // after fixing the receive fallback, as this pattern is consistently
+        // used in the codebase.
         contract.get_function_from_selector(selector_from(&trace.calldata))
     };
 
@@ -1724,8 +1723,8 @@ fn is_called_non_contract_account_error<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
     // We could change this to checking that the last valid location maps to a
-    // call, but it's way more complex as we need to get the ast node from
-    // that location.
+    // call, but it's way more complex as we need to get the ast node from that
+    // location.
 
     let contract_meta = trace
         .contract_meta()
@@ -1810,8 +1809,8 @@ fn is_constructor_invalid_arguments_error<HaltReasonT: HaltReasonTrait>(
     let contract = contract_meta.contract.read();
 
     // This function is only matters with contracts that have constructors
-    // defined. The ones that don't are abstract contracts, or their
-    // constructor doesn't take any argument.
+    // defined. The ones that don't are abstract contracts, or their constructor
+    // doesn't take any argument.
     let Some(constructor) = &contract.constructor else {
         return Ok(false);
     };
@@ -1876,8 +1875,8 @@ fn is_constructor_not_payable_error<HaltReasonT: HaltReasonTrait>(
     let contract = contract_meta.contract.read();
 
     // This function is only matters with contracts that have constructors
-    // defined. The ones that don't are abstract contracts, or their
-    // constructor doesn't take any argument.
+    // defined. The ones that don't are abstract contracts, or their constructor
+    // doesn't take any argument.
     let constructor = match &contract.constructor {
         Some(constructor) => constructor,
         None => return Ok(false),

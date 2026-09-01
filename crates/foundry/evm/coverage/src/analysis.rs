@@ -72,7 +72,8 @@ impl<'a> ContractVisitor<'a> {
             .ok_or_else(|| eyre::eyre!("Function has no kind"))?;
 
         // TODO: We currently can only detect empty bodies in normal functions,
-        // not any of the other kinds: https://github.com/foundry-rs/foundry/issues/9458
+        // not any of the other kinds:
+        // https://github.com/foundry-rs/foundry/issues/9458
         if kind != "function" && !has_statements(body) {
             return Ok(());
         }
@@ -204,9 +205,8 @@ impl<'a> ContractVisitor<'a> {
                     .ok_or_else(|| eyre::eyre!("if statement had no true body"))?;
 
                 // We need to store the current branch ID here since visiting
-                // the body of either of the if blocks may
-                // increase `self.branch_id` in the case of
-                // nested if statements.
+                // the body of either of the if blocks may increase
+                // `self.branch_id` in the case of nested if statements.
                 let branch_id = self.branch_id;
 
                 // We increase the branch ID here such that nested branches do
@@ -220,8 +220,7 @@ impl<'a> ContractVisitor<'a> {
                         // bodies contains statements.
                         if has_statements(&true_body) || has_statements(&false_body) {
                             // The branch instruction is mapped to the first
-                            // opcode within the true
-                            // body source range.
+                            // opcode within the true body source range.
                             self.push_item_kind(
                                 CoverageItemKind::Branch {
                                     branch_id,
@@ -232,9 +231,8 @@ impl<'a> ContractVisitor<'a> {
                             );
                             // Add the coverage item for branch 1 (false body).
                             // The relevant source range for the false branch is
-                            // the `else`
-                            // statement itself and the false body of the else
-                            // statement.
+                            // the `else` statement itself and the false body of
+                            // the else statement.
                             self.push_item_kind(
                                 CoverageItemKind::Branch {
                                     branch_id,
@@ -289,9 +287,8 @@ impl<'a> ContractVisitor<'a> {
                     .ok_or_else(|| eyre::eyre!("yul if statement had no body"))?;
 
                 // We need to store the current branch ID here since visiting
-                // the body of either of the if blocks may
-                // increase `self.branch_id` in the case of
-                // nested if statements.
+                // the body of either of the if blocks may increase
+                // `self.branch_id` in the case of nested if statements.
                 let branch_id = self.branch_id;
 
                 // We increase the branch ID here such that nested branches do
@@ -366,8 +363,7 @@ impl<'a> ContractVisitor<'a> {
                             path_id += 1;
                         } else if clause.attribute::<Node>("parameters").is_some() {
                             // Add coverage for clause with parameters and empty
-                            // statements.
-                            // (`catch (bytes memory reason) {}`).
+                            // statements. (`catch (bytes memory reason) {}`).
                             // Catch all clause without statements is ignored
                             // (`catch {}`).
                             self.push_item_kind(CoverageItemKind::Statement, &clause.src);
@@ -433,8 +429,7 @@ impl<'a> ContractVisitor<'a> {
             }
             NodeType::FunctionCall => {
                 // Do not count other kinds of calls towards coverage (like
-                // `typeConversion`
-                // and `structConstructorCall`).
+                // `typeConversion` and `structConstructorCall`).
                 let kind: Option<String> = node.attribute("kind");
                 if let Some("functionCall") = kind.as_deref() {
                     self.push_item_kind(CoverageItemKind::Statement, &node.src);
@@ -472,9 +467,9 @@ impl<'a> ContractVisitor<'a> {
             NodeType::BinaryOperation => {
                 self.push_item_kind(CoverageItemKind::Statement, &node.src);
 
-                // visit left and right expressions
-                // There could possibly a function call in the left or right
-                // expression e.g: callFunc(a) + callFunc(b)
+                // visit left and right expressions There could possibly a
+                // function call in the left or right expression e.g:
+                // callFunc(a) + callFunc(b)
                 if let Some(expr) = node.attribute("leftExpression") {
                     self.visit_expression(&expr)?;
                 }

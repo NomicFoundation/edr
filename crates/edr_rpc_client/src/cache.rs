@@ -78,8 +78,8 @@ impl Response {
             Ok(result) => Ok(result),
             Err(error) => {
                 // Remove the file from cache if the contents don't match the
-                // expected type. This can happen for example if
-                // a new field is added to a type.
+                // expected type. This can happen for example if a new field is
+                // added to a type.
                 remove_from_cache(&self.path).await?;
                 Err(RpcClientError::InvalidResponse {
                     response: self.value.to_string(),

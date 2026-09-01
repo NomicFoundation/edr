@@ -682,8 +682,8 @@ impl<
                 // Check if the timeout has been reached.
                 if timer.is_timed_out() {
                     // Since we never record a revert here the test is still
-                    // considered successful even though it
-                    // timed out. We *want* this behavior
+                    // considered successful even though it timed out. We *want*
+                    // this behavior
                     // for now, so that's ok, but
                     // future developers should be aware of this.
                     break 'stop;
@@ -695,8 +695,8 @@ impl<
                     .ok_or_else(|| eyre!("no input generated to call fuzzed target."))?;
 
                 // Execute call from the randomly generated sequence without
-                // committing state. State is committed only if
-                // call is not a magic assume.
+                // committing state. State is committed only if call is not a
+                // magic assume.
                 let mut call_result = current_run
                     .executor
                     .call_raw(
@@ -715,8 +715,7 @@ impl<
                 // Collect line coverage from last fuzzed call.
                 invariant_test.merge_coverage(call_result.line_coverage.clone());
                 // If running with edge coverage then merge edge count with the
-                // current history map and set new coverage in
-                // current run.
+                // current history map and set new coverage in current run.
                 if edge_coverage_enabled {
                     let (new_coverage, is_edge) =
                         call_result.merge_edge_coverage(&mut self.history_map);
@@ -739,15 +738,14 @@ impl<
                     // Commit executed call result.
                     current_run.executor.commit(&mut call_result);
 
-                    // Collect data for fuzzing from the state changeset.
-                    // This step updates the state dictionary and therefore
-                    // invalidates the ValueTree in use by
-                    // the current run. This manifestsitself in proptest
-                    // observing a different input case than what it was called
-                    // with, and creates inconsistencies
-                    // whenever proptest tries to use the input case after test
-                    // execution.
-                    // See <https://github.com/foundry-rs/foundry/issues/9764>.
+                    // Collect data for fuzzing from the state changeset. This
+                    // step updates the state dictionary and therefore
+                    // invalidates the ValueTree in use by the current run. This
+                    // manifestsitself in proptest observing a different input
+                    // case than what it was called with, and creates
+                    // inconsistencies whenever proptest tries to use the input
+                    // case after test execution. See
+                    // <https://github.com/foundry-rs/foundry/issues/9764>.
                     let mut state_changeset = call_result.state_changeset.clone();
                     if !call_result.reverted {
                         collect_data(
@@ -1043,9 +1041,8 @@ impl<
             && let Some(target) = targeted_contracts.get(&address)
         {
             // If test contract is marked as a target and no target selector
-            // explicitly set, then include only state-changing
-            // functions that are not reserved and selectors that
-            // are not explicitly excluded.
+            // explicitly set, then include only state-changing functions that
+            // are not reserved and selectors that are not explicitly excluded.
             let selectors: Vec<_> = target
                 .abi
                 .functions()
@@ -1085,9 +1082,9 @@ impl<
 
         // Since `targetInterfaces` returns a tuple array there is no guarantee
         // that the addresses are unique this map is used to merge functions of
-        // the specified interfaces for the same address. For example:
-        // `[(addr1, ["IERC20", "IOwnable"])]` and `[(addr1, ["IERC20"]),
-        // (addr1, ("IOwnable"))]` should be equivalent.
+        // the specified interfaces for the same address. For example: `[(addr1,
+        // ["IERC20", "IOwnable"])]` and `[(addr1, ["IERC20"]), (addr1,
+        // ("IOwnable"))]` should be equivalent.
         let mut combined = TargetedContracts::new();
 
         // Loop through each address and its associated artifact identifiers.
@@ -1202,10 +1199,9 @@ impl<
         });
 
         // Let's make sure the invariant is sound before actually starting the
-        // run: We'll assert the invariant in its initial state, and if
-        // it fails, we'll already know if we can early exit the
-        // invariant run. This does not count as a fuzz run. It will
-        // just register the revert.
+        // run: We'll assert the invariant in its initial state, and if it
+        // fails, we'll already know if we can early exit the invariant run.
+        // This does not count as a fuzz run. It will just register the revert.
         let mut failures = InvariantFailures::new();
         let last_call_results = assert_invariants(
             invariant_contract,

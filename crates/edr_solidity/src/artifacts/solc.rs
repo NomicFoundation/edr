@@ -274,9 +274,8 @@ impl BuildModel for SolcBuildModel {
                 log::debug!("Invalid opcode {opcode} at pc: {pc}");
 
                 // We assume this happens because the source maps point to the
-                // metadata region of the bytecode. That means
-                // that the actual instructions have
-                // already been decoded and we can stop here.
+                // metadata region of the bytecode. That means that the actual
+                // instructions have already been decoded and we can stop here.
                 return Ok(instructions);
             };
 

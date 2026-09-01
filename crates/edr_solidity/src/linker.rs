@@ -167,8 +167,7 @@ impl<'a> Linker<'a> {
             matching_artifacts.into_iter().next_back()
         } else {
             // If there's more than one, use the one that has the same version
-            // as the contract being linked. If there isn't, use the
-            // latest one.
+            // as the contract being linked. If there isn't, use the latest one.
             matching_artifacts
                 .iter()
                 .copied()
@@ -256,8 +255,7 @@ impl<'a> Linker<'a> {
         targets: impl IntoIterator<Item = &'a ArtifactId>,
     ) -> Result<LinkOutput, LinkerError> {
         // Library paths in `link_references` keys are always stripped, so we
-        // have to strip user-provided paths to be able to match them
-        // correctly.
+        // have to strip user-provided paths to be able to match them correctly.
         let mut libraries = deployed_libraries.with_stripped_file_prefixes(self.root.as_path());
 
         let mut needed_libraries = BTreeSet::new();
@@ -334,8 +332,7 @@ impl<'a> Linker<'a> {
         target: &'a ArtifactId,
     ) -> Result<LinkOutput, LinkerError> {
         // Library paths in `link_references` keys are always stripped, so we
-        // have to strip user-provided paths to be able to match them
-        // correctly.
+        // have to strip user-provided paths to be able to match them correctly.
         let mut libraries = deployed_libraries.with_stripped_file_prefixes(self.root.as_path());
 
         let mut needed_libraries = BTreeSet::new();
@@ -444,10 +441,9 @@ impl<'a> Linker<'a> {
                     let bytecode_mut = bytecode.to_mut();
                     if !bytecode_mut.link(&file.to_string_lossy(), name, address) {
                         // If we didn't link, there is nothing to link. By
-                        // calling `resolve()` we
-                        // make sure that the `BytecodeObject::Unlinked` is
-                        // turned into `BytecodeObject:
-                        // Bytecode`.
+                        // calling `resolve()` we make sure that the
+                        // `BytecodeObject::Unlinked` is turned into
+                        // `BytecodeObject: Bytecode`.
                         bytecode_mut.object.resolve();
                     }
                 }
@@ -626,8 +622,7 @@ mod tests {
             linker.contracts.keys().filter_map(move |id| {
                 // If we didn't strip paths, artifacts will have absolute paths.
                 // That's expected and we want to ensure that only `libraries`
-                // object has relative paths, artifacts should
-                // be kept as is.
+                // object has relative paths, artifacts should be kept as is.
                 let source = id
                     .source
                     .strip_prefix(self.project.root())

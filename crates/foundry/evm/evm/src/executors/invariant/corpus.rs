@@ -616,8 +616,7 @@ impl<
                     let tx = new_seq.get_mut(idx).unwrap();
                     if let (_, Some(function)) = targets.fuzzed_artifacts(tx) {
                         // TODO add call_value to call details and mutate it as
-                        // well as sender some
-                        // of the time
+                        // well as sender some of the time
                         if !function.inputs.is_empty() {
                             let mut new_function = function.clone();
                             let mut arg_mutation_rounds =
@@ -637,8 +636,7 @@ impl<
                                 .abi_decode_input(calldata_slice)
                                 .expect("fuzzed_artifacts returned wrong sig");
                             // For now, only new inputs are generated, no
-                            // existing inputs are
-                            // mutated.
+                            // existing inputs are mutated.
                             let mut gen_input = |input: &alloy_json_abi::Param| {
                                 fuzz_param_from_state(
                                     &input.selector_type().parse().unwrap(),
@@ -713,8 +711,8 @@ impl<
         }
 
         // When running with coverage guided fuzzing enabled then generate new
-        // sequence if initial sequence's length is less than depth or
-        // randomly, to occasionally intermix new txs.
+        // sequence if initial sequence's length is less than depth or randomly,
+        // to occasionally intermix new txs.
         if depth > sequence.len().saturating_sub(1) || test_runner.rng().random_ratio(1, 10) {
             return self.new_tx(test_runner);
         }

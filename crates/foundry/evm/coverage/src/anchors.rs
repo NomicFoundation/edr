@@ -117,8 +117,8 @@ pub fn find_anchor_branch(
                 element
             } else {
                 // NOTE(onbjerg): For some reason the last few bytes of the
-                // bytecode do not have a source map associated,
-                // so at that point we just stop searching
+                // bytecode do not have a source map associated, so at that
+                // point we just stop searching
                 break;
             };
 
@@ -136,8 +136,7 @@ pub fn find_anchor_branch(
                     == opcode::JUMPI
             {
                 // We do not support program counters bigger than usize. This is
-                // also an assumption in REVM, so this is just a
-                // sanity check.
+                // also an assumption in REVM, so this is just a sanity check.
                 ensure!(push_size <= 8, "jump destination overflow");
 
                 // Convert the push bytes for the second branch's PC to a usize

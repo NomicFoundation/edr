@@ -273,8 +273,8 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
         };
 
         // We use different directories for each remote node, to avoid storing
-        // invalid data in case the remote is forked chain which can
-        // happen with remotes running locally.
+        // invalid data in case the remote is forked chain which can happen with
+        // remotes running locally.
         let directory = self.rpc_cache_dir.join(remote).join(chain_id.to_string());
 
         ensure_cache_directory(&directory, cache_key).await?;
@@ -446,12 +446,13 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
         }
 
         // 2. Then move the temporary file to the cache path.
-        // This is guaranteed to be atomic on Unix platforms.
-        // There is no such guarantee on Windows, as there is no OS support for
-        // atomic move before Windows 10, but Rust will drop support for
-        // earlier versions of Windows in the future: <https://github.com/rust-lang/compiler-team/issues/651>. Hopefully the standard
-        // library will adapt its `rename` implementation to use the new atomic
-        // move API in Windows
+        // This is guaranteed to be atomic on Unix platforms. There is no such
+        // guarantee on Windows, as there is no OS support for atomic move
+        // before Windows 10, but Rust will drop support for earlier versions of
+        // Windows in the future:
+        // <https://github.com/rust-lang/compiler-team/issues/651>. Hopefully
+        // the standard library will adapt its `rename` implementation to use
+        // the new atomic move API in Windows
         // 10. In any case, if a cache file is corrupted, we detect and remove
         //     it when reading it.
         let cache_path = self.make_cache_path(cache_key).await?;

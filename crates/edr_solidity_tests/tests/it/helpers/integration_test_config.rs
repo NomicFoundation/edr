@@ -321,10 +321,11 @@ impl IntegrationTestConfig {
         let mut extra_output = self.extra_output.clone();
 
         // Sourcify verification requires solc metadata output. Since, it
-        // doesn't affect the UX & performance of the compiler, output
-        // the metadata files by default.
-        // For more info see: <https://github.com/foundry-rs/foundry/issues/2795>
-        // Metadata is not emitted as separate file because this breaks typechain support: <https://github.com/foundry-rs/foundry/issues/2969>
+        // doesn't affect the UX & performance of the compiler, output the
+        // metadata files by default. For more info see:
+        // <https://github.com/foundry-rs/foundry/issues/2795> Metadata is not
+        // emitted as separate file because this breaks typechain support:
+        // <https://github.com/foundry-rs/foundry/issues/2969>
         if !extra_output.contains(&ContractOutputSelection::Metadata) {
             extra_output.push(ContractOutputSelection::Metadata);
         }
@@ -354,8 +355,8 @@ impl IntegrationTestConfig {
     fn solc_settings(&self) -> Result<SolcSettings, SolcError> {
         // By default if no targets are specifically selected the model checker
         // uses all targets. This might be too much here, so only enable
-        // assertion checks. If users wish to enable all options they
-        // need to do so explicitly.
+        // assertion checks. If users wish to enable all options they need to do
+        // so explicitly.
         let mut model_checker = self.model_checker.clone();
         if let Some(model_checker_settings) = &mut model_checker
             && model_checker_settings.targets.is_none()

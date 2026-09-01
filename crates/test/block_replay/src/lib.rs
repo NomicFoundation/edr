@@ -413,10 +413,10 @@ pub async fn run_full_block<
             debug_assert_eq!(log.block_timestamp, Some(replay_header.timestamp));
         }
         // The remote log only carries one if the node serves the field, which
-        // is optional (execution-apis#639) and absent from responses
-        // cached before it existed. Compare it when it is there, and
-        // drop it either way before the whole-receipt comparison below,
-        // which would otherwise read a remote omission as a mismatch.
+        // is optional (execution-apis#639) and absent from responses cached
+        // before it existed. Compare it when it is there, and drop it either
+        // way before the whole-receipt comparison below, which would otherwise
+        // read a remote omission as a mismatch.
         for log in expected.transaction_logs() {
             if let Some(block_timestamp) = log.block_timestamp {
                 debug_assert_eq!(block_timestamp, replay_header.timestamp);

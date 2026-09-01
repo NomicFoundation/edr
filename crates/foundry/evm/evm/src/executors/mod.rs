@@ -483,8 +483,7 @@ impl<
         };
 
         // also mark this library as persistent, this will ensure that the state
-        // of the library is persistent across fork swaps in forking
-        // mode
+        // of the library is persistent across fork swaps in forking mode
         self.backend_mut().add_persistent_account(address);
 
         debug!(%address, "deployed contract");
@@ -937,8 +936,8 @@ impl<
 
         let mut block = self.env.block.clone();
         // We always set the gas price to 0 so we can execute the transaction
-        // regardless of network conditions - the actual gas price is
-        // kept in `self.block` and is applied by the cheatcode handler
+        // regardless of network conditions - the actual gas price is kept in
+        // `self.block` and is applied by the cheatcode handler
         // if it is enabled
         block.set_basefee(0);
         block.set_gas_limit(self.gas_limit);
@@ -1550,8 +1549,8 @@ impl<
         let mut is_edge = false;
         if let Some(x) = &mut self.edge_coverage {
             // Iterate over the current map and the history map together and
-            // update the history map, if we discover some new
-            // coverage, report true
+            // update the history map, if we discover some new coverage, report
+            // true
             for (curr, hist) in std::iter::zip(x, history_map) {
                 // If we got a hitcount of at least 1
                 if *curr > 0 {

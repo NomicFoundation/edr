@@ -638,8 +638,8 @@ mod tests {
         #[test]
         fn pre_jovian_does_not_clamp_to_min_base_fee() {
             // Even with a Jovian-encoded extra_data carrying a high
-            // min_base_fee, the pre-Jovian path must not apply the
-            // clamp — it should ignore extra_data entirely.
+            // min_base_fee, the pre-Jovian path must not apply the clamp — it
+            // should ignore extra_data entirely.
             let min_base_fee = 999_000_000u128;
             let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, min_base_fee);
             // gas_used well under target → base fee decreases below

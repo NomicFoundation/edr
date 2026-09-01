@@ -34,9 +34,8 @@ pub fn override_call_strat(
             let contracts = contracts.targets.lock();
             let contract = contracts.get(&target_address).unwrap_or_else(|| {
                 // Choose a random contract if target selected by lazy strategy
-                // is not in fuzz run identified contracts. This
-                // can happen when contract is created in
-                // `setUp` call but is not included in
+                // is not in fuzz run identified contracts. This can happen when
+                // contract is created in `setUp` call but is not included in
                 // targetContracts.
                 contracts.values().choose(&mut rand::rng()).unwrap()
             });

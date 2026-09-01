@@ -79,9 +79,9 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
 
         let parent_header = parent_block.block_header();
 
-        // TODO: https://github.com/NomicFoundation/edr/issues/990
-        // Replace this once we can detect chain-specific block inputs in the
-        // provider and avoid passing them as input.
+        // TODO: https://github.com/NomicFoundation/edr/issues/990 Replace this
+        // once we can detect chain-specific block inputs in the provider and
+        // avoid passing them as input.
         if hardfork >= Hardfork::Canyon {
             // `EthBlockBuilder` expects `inputs.withdrawals.is_some()` despite
             // OP not supporting withdrawals.
@@ -99,7 +99,8 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
 
         if hardfork >= Hardfork::Holocene {
             // For post-Holocene blocks, store the encoded base fee parameters
-            // to be used in the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
+            // to be used in the next block as `extraData`. See:
+            // <https://specs.optimism.io/protocol/holocene/exec-engine.html>
             overrides.extra_data = Some(overrides.extra_data.unwrap_or_else(|| {
                 let chain_base_fee_params = overrides
                     .base_fee_params

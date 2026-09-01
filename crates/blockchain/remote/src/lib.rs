@@ -362,9 +362,9 @@ impl<
             .await?
         {
             // Geth has recently removed the total difficulty field from block
-            // RPC responses, so we fall back to the terminal total
-            // difficulty of main net to provide backwards
-            // compatibility. TODO https://github.com/NomicFoundation/edr/issues/696
+            // RPC responses, so we fall back to the terminal total difficulty
+            // of main net to provide backwards compatibility. TODO
+            // https://github.com/NomicFoundation/edr/issues/696
             let total_difficulty = *block
                 .total_difficulty()
                 .unwrap_or(&edr_defaults::TERMINAL_TOTAL_DIFFICULTY);
@@ -401,8 +401,8 @@ impl<
     > {
         // Geth has recently removed the total difficulty field from block RPC
         // responses, so we fall back to the terminal total difficulty of main
-        // net to provide backwards compatibility.
-        // TODO https://github.com/NomicFoundation/edr/issues/696
+        // net to provide backwards compatibility. TODO
+        // https://github.com/NomicFoundation/edr/issues/696
         let total_difficulty = *block
             .total_difficulty()
             .unwrap_or(&edr_defaults::TERMINAL_TOTAL_DIFFICULTY);

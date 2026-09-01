@@ -55,9 +55,9 @@ where
     } else {
         if let Ok(latest_block) = provider.get_block_number().await {
             // If the `eth_getBlockByNumber` call succeeds, but returns null
-            // instead of the block, and the block number is less
-            // than equal the latest block, then the user is forking
-            // from a non-archive node with an older block number.
+            // instead of the block, and the block number is less than equal the
+            // latest block, then the user is forking from a non-archive node
+            // with an older block number.
             if block_number <= latest_block {
                 error!("{NON_ARCHIVE_NODE_WARNING}");
             }
@@ -121,8 +121,8 @@ where
     cfg.chain_id = chain_id;
     cfg.memory_limit = memory_limit;
     cfg.limit_contract_code_size = Some(usize::MAX);
-    // EIP-3607 rejects transactions from senders with deployed code.
-    // If EIP-3607 is enabled it can cause issues during fuzz/invariant tests if
+    // EIP-3607 rejects transactions from senders with deployed code. If
+    // EIP-3607 is enabled it can cause issues during fuzz/invariant tests if
     // the caller is a contract. So we disable the check by default.
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;

@@ -2554,8 +2554,8 @@ fn expect_call<
         && *val > U256::ZERO
     {
         // If the value of the transaction is non-zero, the EVM adds a call
-        // stipend of 2300 gas to ensure that the basic fallback
-        // function can be called.
+        // stipend of 2300 gas to ensure that the basic fallback function can be
+        // called.
         let positive_value_cost_stipend = 2300;
         if let Some(gas) = &mut gas {
             *gas += positive_value_cost_stipend;
@@ -2567,9 +2567,9 @@ fn expect_call<
 
     match call_type {
         ExpectedCallType::Count => {
-            // Get the expected calls for this target.
-            // In this case, as we're using counted expectCalls, we should not
-            // be able to set them more than once.
+            // Get the expected calls for this target. In this case, as we're
+            // using counted expectCalls, we should not be able to set them more
+            // than once.
             ensure!(
                 !expecteds.contains_key(calldata),
                 "counted expected calls can only bet set once"
@@ -2589,9 +2589,8 @@ fn expect_call<
             );
         }
         ExpectedCallType::NonCount => {
-            // Check if the expected calldata exists.
-            // If it does, increment the count by one as we expect to see it one
-            // more time.
+            // Check if the expected calldata exists. If it does, increment the
+            // count by one as we expect to see it one more time.
             match expecteds.entry(calldata.clone()) {
                 Entry::Occupied(mut entry) => {
                     let (expected, _) = entry.get_mut();
@@ -2692,13 +2691,12 @@ pub(crate) fn handle_expect_emit<
     log: &alloy_primitives::Log,
     interpreter: &mut Interpreter,
 ) {
-    // Fill or check the expected emits.
-    // We expect for emit checks to be filled as they're declared (from oldest
-    // to newest), so we fill them and push them to the back of the queue.
-    // If the user has properly filled all the emits, they'll end up in their
-    // original order. If not, the queue will not be in the order the events
-    // will be intended to be filled, and we'll be able to later detect this and
-    // bail.
+    // Fill or check the expected emits. We expect for emit checks to be filled
+    // as they're declared (from oldest to newest), so we fill them and push
+    // them to the back of the queue. If the user has properly filled all the
+    // emits, they'll end up in their original order. If not, the queue will not
+    // be in the order the events will be intended to be filled, and we'll be
+    // able to later detect this and bail.
 
     // First, we can return early if all events have been matched.
     // This allows a contract to arbitrarily emit more events than expected
@@ -2718,8 +2716,7 @@ pub(crate) fn handle_expect_emit<
         .any(|(expected, _)| expected.log.is_none());
     let index_to_fill_or_check = if should_fill_logs {
         // If there's anything to fill, we start with the last event to match in
-        // the queue (without taking into account events already
-        // matched).
+        // the queue (without taking into account events already matched).
         state
             .expected_emits
             .iter()
@@ -2728,8 +2725,8 @@ pub(crate) fn handle_expect_emit<
             .saturating_sub(1)
     } else {
         // Otherwise, if all expected logs are filled, we start to check any
-        // unmatched event in the declared order, so we start from the
-        // front (like a queue).
+        // unmatched event in the declared order, so we start from the front
+        // (like a queue).
         0
     };
 
@@ -2763,9 +2760,8 @@ pub(crate) fn handle_expect_emit<
     // Increment/set `count` for `log.address` and `log.data`
     match count_map.entry(log.address) {
         Entry::Occupied(mut entry) => {
-            // Checks and inserts the log into the map.
-            // If the log doesn't pass the checks, it is ignored and `count` is
-            // not incremented.
+            // Checks and inserts the log into the map. If the log doesn't pass
+            // the checks, it is ignored and `count` is not incremented.
             let log_count_map = entry.get_mut();
             log_count_map.insert(&log.data);
         }

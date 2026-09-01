@@ -154,8 +154,8 @@ fn get_unrecognized_message_stack_trace<HaltReasonT: HaltReasonTrait>(
         };
 
         // This is not a very exact heuristic, but most of the time it will be
-        // right, as solidity reverts if a call fails, and most
-        // contracts are in solidity
+        // right, as solidity reverts if a call fails, and most contracts are in
+        // solidity
         if is_error && trace_return_data.as_ref() == return_data.as_ref() {
             let unrecognized_entry: StackTraceEntry = match trace {
                 CreateOrCallMessageRef::Call(CallMessage { address, .. }) => {

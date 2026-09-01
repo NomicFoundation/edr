@@ -233,8 +233,8 @@ pub(crate) fn handle_expect_revert(
                 )),
                 _ => {
                     // The revert doesn't match our criteria, which means it's a
-                    // different revert For expectRevert
-                    // with count=0, any revert should fail the test
+                    // different revert For expectRevert with count=0, any
+                    // revert should fail the test
                     let decoded_revert = decode_revert(retdata.to_vec());
 
                     // Provide more specific error messages based on what was

@@ -459,8 +459,8 @@ impl<
                 }
             } else {
                 // For reading fixtures from storage arrays we collect values by
-                // calling the function with incremented indexes
-                // until there's an error.
+                // calling the function with incremented indexes until there's
+                // an error.
                 let mut vals = Vec::new();
                 let mut index = 0;
                 loop {
@@ -478,8 +478,8 @@ impl<
                         vals.push(decoded_result);
                     } else {
                         // No result returned for this index, we reached the end
-                        // of storage array or the
-                        // function is not a valid fixture.
+                        // of storage array or the function is not a valid
+                        // fixture.
                         break;
                     }
                     index += 1;
@@ -627,8 +627,8 @@ impl<
         }
 
         // Invariant testing requires tracing to figure out what contracts were
-        // created. We also want to disable `debug` for setup since we
-        // won't be using those traces.
+        // created. We also want to disable `debug` for setup since we won't be
+        // using those traces.
         let has_invariants = self
             .contract
             .abi
@@ -652,8 +652,8 @@ impl<
 
         if setup.reason.is_some() {
             // We want to report execution time without stack trace generation
-            // as people use these numbers to reason about the
-            // performance of their code.
+            // as people use these numbers to reason about the performance of
+            // their code.
             let elapsed = start.elapsed();
 
             setup.stack_trace_result = if setup_recorded_steps {
@@ -1402,10 +1402,9 @@ impl<
                             }
 
                             // If we can't get a revert reason for the second
-                            // time, we couldn't
-                            // replay the failure, so keep the original revert
-                            // reason and discard
-                            // the stack trace as it may be misleading.
+                            // time, we couldn't replay the failure, so keep the
+                            // original revert reason and discard the stack
+                            // trace as it may be misleading.
                             if reason.is_some() && revert_reason.is_none() {
                                 tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
                             } else {

@@ -66,8 +66,7 @@ impl PersistentAccountAndStorageTrie {
                 } else {
                     if account.is_created() {
                         // We can simply remove the storage trie db, as it will
-                        // get reinitialized in the next
-                        // operation
+                        // get reinitialized in the next operation
                         account_trie_mutation.remove_account_storage(address);
                     }
 

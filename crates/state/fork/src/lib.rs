@@ -146,8 +146,8 @@ impl<
         changes.iter().for_each(|(address, account)| {
             account.storage.iter().for_each(|(index, value)| {
                 // We never need to remove zero entries as a "removed" entry
-                // means that the lookup for a value in the
-                // local state succeeded.
+                // means that the lookup for a value in the local state
+                // succeeded.
                 if value.present_value() == U256::ZERO {
                     self.removed_storage_slots.insert((*address, *index));
                 }

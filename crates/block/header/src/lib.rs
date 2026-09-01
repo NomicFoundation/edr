@@ -457,13 +457,12 @@ impl PartialHeader {
                                             .expect("base fee must be set for post-Osaka blocks")
                                     } else {
                                         // In pre-Osaka (EIP-4844) scenarios,
-                                        // the base fee parameter
-                                        // is not used in excess blob gas
-                                        // calculation. Passing 0 is
-                                        // acceptable here because
+                                        // the base fee parameter is not used in
+                                        // excess blob gas calculation. Passing
+                                        // 0 is acceptable here because
                                         // `next_block_excess_blob_gas_osaka`
-                                        // ignores the base fee
-                                        // value for these hardforks.
+                                        // ignores the base fee value for these
+                                        // hardforks.
                                         0
                                     };
 

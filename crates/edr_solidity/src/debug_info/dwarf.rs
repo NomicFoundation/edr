@@ -444,8 +444,8 @@ impl ParsedDwarf {
 
                 // Two subprogram-like DIEs feed this: DW_TAG_inlined_subroutine
                 // (with abstract origin) and concrete DW_TAG_subprogram
-                // (low_pc, no DW_AT_inline) — typically
-                // self-recursive functions.
+                // (low_pc, no DW_AT_inline) — typically self-recursive
+                // functions.
                 let is_inlined = die.tag() == gimli::DW_TAG_inlined_subroutine;
                 let is_subprogram_with_pc = die.tag() == gimli::DW_TAG_subprogram
                     && die.attr(gimli::DW_AT_low_pc)?.is_some()
@@ -759,8 +759,7 @@ impl ParsedDwarf {
                 continue;
             }
             // Recent PUSH = JUMP destination (low 8 bytes; JUMPDESTs fit in
-            // u64). SWAP/DUP between PUSH and JUMP → bail to
-            // InternalJump.
+            // u64). SWAP/DUP between PUSH and JUMP → bail to InternalJump.
             let mut dest: Option<u64> = None;
             for j in (0..i).rev().take(8) {
                 let Some(prev) = instructions.get(j) else {
@@ -810,10 +809,9 @@ impl ParsedDwarf {
                         }
                     } else if t.low_pc < h.low_pc || t.high_pc > h.high_pc {
                         // `t` isn't nested in `h`: either parent-of-`h`
-                        // (return) or sibling
-                        // (cross-call between concrete subprograms).
-                        // Jumping to `t.low_pc` is a call; anything else, a
-                        // return.
+                        // (return) or sibling (cross-call between concrete
+                        // subprograms). Jumping to `t.low_pc` is a call;
+                        // anything else, a return.
                         if dest == Some(t.low_pc) {
                             JumpType::IntoFunction
                         } else {
@@ -1510,8 +1508,8 @@ mod tests {
             let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
 
             // Pin: some PC at Counter.sol:13 (the require) has
-            // inline_call_sites pointing at Counter.sol:8 (the
-            // _checkPositive call site).
+            // inline_call_sites pointing at Counter.sol:8 (the _checkPositive
+            // call site).
             let any_call_site_at_line_8 = instructions.iter().any(|inst| {
                 inst.location
                     .as_ref()
@@ -1610,9 +1608,9 @@ mod tests {
         #[test]
         fn every_jump_gets_a_non_default_jump_type() {
             // solx inlines helpers, so most JUMPs are dispatcher/abi-related
-            // and stay inside a single range — we only require
-            // every JUMP/JUMPI to get *some* non-default jump_type
-            // (not the NotJump placeholder).
+            // and stay inside a single range — we only require every JUMP/JUMPI
+            // to get *some* non-default jump_type (not the NotJump
+            // placeholder).
             let output = load_solx_output();
             let bc = &output
                 .contracts

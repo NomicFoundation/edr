@@ -157,9 +157,9 @@ async fn test_empty_test_suite_skips_setup() {
     // `FailingSetupTest.setUp()` reverts with "setup failed predictably". If
     // the runner doesn't short-circuit on an empty filter match, the suite
     // reports a `setUp()` failure (see the positive control in `test_core`
-    // above). Here we pick a filter that matches the suite (path +
-    // contract) but no test functions, and assert the suite is reported as
-    // completed with zero work.
+    // above). Here we pick a filter that matches the suite (path + contract)
+    // but no test functions, and assert the suite is reported as completed with
+    // zero work.
     let filter = SolidityTestFilter::new(
         "thisPatternMatchesNothing",
         "FailingSetupTest",

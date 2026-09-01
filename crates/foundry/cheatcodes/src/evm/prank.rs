@@ -485,8 +485,8 @@ fn prank<
             "cannot overwrite a prank until it is applied at least once"
         );
         // This case can only fail if the user calls `vm.startPrank` and then
-        // `vm.prank` later on. This should not be possible without
-        // first calling `stopPrank`
+        // `vm.prank` later on. This should not be possible without first
+        // calling `stopPrank`
         ensure!(
             single_call == *current_single_call,
             "cannot override an ongoing prank with a single vm.prank; \

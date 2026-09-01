@@ -79,8 +79,7 @@ impl<'a> LocalTraceIdentifier<'a> {
                             .expect("slice should be valid");
                         if constructor.abi_decode_input(constructor_args).is_ok() {
                             // If we can decode args with current abi then
-                            // remove args from code
-                            // to compare.
+                            // remove args from code to compare.
                             current_bytecode = current_bytecode
                                 .get(..bytecode.len())
                                 .expect("slice should be valid");
@@ -146,8 +145,8 @@ impl<'a> LocalTraceIdentifier<'a> {
         trace!(target: "evm::traces::local", %min_score, "no exact match found");
 
         // Note: the diff score can be inaccurate for small contracts so we're
-        // using a relatively high threshold here to avoid filtering out
-        // too many contracts.
+        // using a relatively high threshold here to avoid filtering out too
+        // many contracts.
         if min_score < 0.85 {
             min_score_id
         } else {
@@ -208,9 +207,8 @@ impl TraceIdentifier for LocalTraceIdentifier<'_> {
                     trace_span!(target: "evm::traces::local", "identify", %address).entered();
 
                 // In order to identify the addresses, we need at least the
-                // runtime code. It can be obtained from the
-                // trace itself (if it's a CREATE* call),
-                // or from the fetched bytecodes.
+                // runtime code. It can be obtained from the trace itself (if
+                // it's a CREATE* call), or from the fetched bytecodes.
                 let (runtime_code, creation_code) = match (runtime_code, creation_code) {
                     (Some(runtime_code), Some(creation_code)) => (runtime_code, creation_code),
                     (Some(runtime_code), _) => (runtime_code, &[] as &[u8]),

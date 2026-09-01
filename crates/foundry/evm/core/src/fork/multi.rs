@@ -91,9 +91,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         // the remote client(s).
         let fut = async move {
             // Flush cache every 60s, this ensures that long-running fork tests
-            // get their cache flushed from time to time.
-            // NOTE: we install the interval here because the
-            // `tokio::timer::Interval` requires a rt.
+            // get their cache flushed from time to time. NOTE: we install the
+            // interval here because the `tokio::timer::Interval` requires a rt.
             handler.set_flush_cache_interval(Duration::from_secs(60));
             handler.await;
         };

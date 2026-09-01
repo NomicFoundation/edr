@@ -125,19 +125,19 @@ impl ContractsIdentifier {
         // the bytecode.
         //
         // We don't know how long those arguments are, as we don't know which
-        // contract is being deployed, hence we don't know the signature
-        // of its constructor.
+        // contract is being deployed, hence we don't know the signature of its
+        // constructor.
         //
         // To make things even harder, we can't trust that the user actually
         // passed the right amount of arguments.
         //
         // Luckily, the chances of a complete deployment bytecode being the
-        // prefix of another one are remote. For example, most of the
-        // time it ends with its metadata hash, which will differ.
+        // prefix of another one are remote. For example, most of the time it
+        // ends with its metadata hash, which will differ.
         //
         // We take advantage of this last observation, and just return the
-        // bytecode that exactly matched the search_result (sub)trie
-        // that we got.
+        // bytecode that exactly matched the search_result (sub)trie that we
+        // got.
         match match_ {
             Some(contract) if is_create && contract.contract_metadata.is_deployment => {
                 return Some(contract);
@@ -192,13 +192,13 @@ impl ContractsIdentifier {
         // metadata hash.
         //
         // We check if we got to match the entire executable bytecode, and are
-        // just stuck because of the metadata. If that's the case, we
-        // can assume that any descendant will be a valid Bytecode, so
-        // we just choose the most recently added one.
+        // just stuck because of the metadata. If that's the case, we can assume
+        // that any descendant will be a valid Bytecode, so we just choose the
+        // most recently added one.
         //
         // The reason this works is because there's no chance that Solidity
-        // includes an entire bytecode (i.e. with metadata), as a prefix
-        // of another one.
+        // includes an entire bytecode (i.e. with metadata), as a prefix of
+        // another one.
         if !search_result.is_root()
             && is_matching_metadata(code, diff_index)
             && !search_result.descendants.is_empty()

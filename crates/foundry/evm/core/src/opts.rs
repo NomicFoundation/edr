@@ -287,8 +287,8 @@ where
 
             // Provider URLs could be of the format `{CHAIN_IDENTIFIER}-mainnet`
             // (e.g. Alchemy `opt-mainnet`, `arb-mainnet`), fallback to this
-            // method only if we're not able to retrieve chain id
-            // from `RetryProvider`.
+            // method only if we're not able to retrieve chain id from
+            // `RetryProvider`.
             if url.contains("mainnet") {
                 trace!(?url, "auto detected mainnet chain");
                 return Some(Chain::mainnet());
@@ -498,9 +498,9 @@ where
     S: Serializer,
 {
     // The TOML specification handles integers as i64 so the number
-    // representation is limited to i64. If the number is larger than
-    // `i64::MAX` and up to `u64::MAX`, we serialize it as a string to avoid
-    // losing precision.
+    // representation is limited to i64. If the number is larger than `i64::MAX`
+    // and up to `u64::MAX`, we serialize it as a string to avoid losing
+    // precision.
     if let Ok(n_i64) = i64::try_from(*n) {
         serializer.serialize_i64(n_i64)
     } else if let Ok(n_u64) = u64::try_from(*n) {

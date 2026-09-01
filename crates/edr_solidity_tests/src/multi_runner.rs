@@ -208,9 +208,8 @@ impl<
 
         // Collect the test sources' inline configuration up front, off the
         // async runtime (it reads and parses files). Any problem found
-        // — reported per test function, each located at its source line
-        // — fails here, aborting the whole run before any test
-        // executes.
+        // — reported per test function, each located at its source line — fails
+        // here, aborting the whole run before any test executes.
         let roots = inline_config_roots(&test_source_paths, &test_contracts);
         let inline_config_provider = tokio::task::spawn_blocking(move || {
             SharedInlineConfigProvider::collect(roots, import_resolver)

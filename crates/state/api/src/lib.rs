@@ -220,8 +220,8 @@ mod tests {
     }
 
     // Golden hash for `storage_root` over non-empty storage; values span the
-    // RLP length range (single byte through a full 32-byte word) to
-    // exercise encoding.
+    // RLP length range (single byte through a full 32-byte word) to exercise
+    // encoding.
     #[test]
     fn storage_root_with_slots() {
         const EXPECTED: &str = "0x54b24bc07538750267f9767e591e8b182ff36c9d27e751cdd59ac79fc67df4bd";

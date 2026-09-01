@@ -1456,8 +1456,8 @@ where
     ) -> Result<Arc<Box<dyn DynState>>, ProviderErrorForChainSpec<ChainSpecT>> {
         if let Some(state_id) = self.block_number_to_state_id.get(&block_number) {
             // We cannot use `LruCache::try_get_or_insert`, because it needs
-            // &mut self, but we would need &self in the callback to
-            // reference the blockchain.
+            // &mut self, but we would need &self in the callback to reference
+            // the blockchain.
             if let Some(state) = self.block_state_cache.get(state_id) {
                 return Ok(state.clone());
             }
@@ -2080,8 +2080,7 @@ where
 
                     if let Some(reward) = opt_reward.as_mut() {
                         // We don't compute this for the pending block, as
-                        // there's no effective miner
-                        // fee yet.
+                        // there's no effective miner fee yet.
                         reward.push(percentiles.iter().map(|_| U256::ZERO).collect());
                     }
                 }
@@ -2111,9 +2110,9 @@ where
                 .map_or(Ok(Bytes::new()), |account_info| {
                     state.code_by_hash(account_info.code_hash).map(|bytecode| {
                         // The `Bytecode` REVM struct pad the bytecode with 33
-                        // bytes of 0s for the `Checked`
-                        // and `Analysed` variants. `Bytecode::original_bytes`
-                        // returns unpadded version.
+                        // bytes of 0s for the `Checked` and `Analysed`
+                        // variants. `Bytecode::original_bytes` returns unpadded
+                        // version.
                         bytecode.original_bytes()
                     })
                 })?;
@@ -2595,8 +2594,8 @@ where
 
         let snapshot_id = if self.is_auto_mining() {
             // This check guarantees that the sent transaction is a pending
-            // transaction, meaning it can either be mined
-            // immediately or as part of a sequence of transactions.
+            // transaction, meaning it can either be mined immediately or as
+            // part of a sequence of transactions.
             self.validate_auto_mine_transaction(&transaction)?;
 
             Some(self.make_snapshot())
@@ -2629,8 +2628,7 @@ where
             .map(
                 |snapshot_id| -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
                     // Mine blocks until the sent transaction is mined. We might
-                    // need to mine multiple block due to
-                    // the gas limit.
+                    // need to mine multiple block due to the gas limit.
                     loop {
                         let result = self
                             .mine_and_commit_block(self.header_overrides())
@@ -2983,8 +2981,7 @@ fn create_forked_blockchain_and_state<
             .state_override_at_block_number(fork_block_number)
             .and_modify(|state_override| {
                 // No need to update the state_root, as it could only have been
-                // created by the `ForkedBlockchain`
-                // constructor.
+                // created by the `ForkedBlockchain` constructor.
                 state_override.diff.apply_diff(genesis_state.clone());
             })
             .or_insert_with(|| {

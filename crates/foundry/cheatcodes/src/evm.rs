@@ -279,8 +279,7 @@ impl Cheatcode for loadCall {
         if val.is_cold && val.data.is_zero() {
             if ccx.state.has_arbitrary_storage(&target) {
                 // If storage slot is untouched and load from a target with
-                // arbitrary storage, then set random value for
-                // current slot.
+                // arbitrary storage, then set random value for current slot.
                 let rand_value = ccx.state.rng().random();
                 ccx.state.arbitrary_storage.as_mut().unwrap().save(
                     ccx.ecx,
@@ -291,10 +290,9 @@ impl Cheatcode for loadCall {
                 val.data = rand_value;
             } else if ccx.state.is_arbitrary_storage_copy(&target) {
                 // If storage slot is untouched and load from a target that
-                // copies storage from a source address with
-                // arbitrary storage, then copy existing arbitrary value.
-                // If no arbitrary value generated yet, then the random one is
-                // saved and set.
+                // copies storage from a source address with arbitrary storage,
+                // then copy existing arbitrary value. If no arbitrary value
+                // generated yet, then the random one is saved and set.
                 let rand_value = ccx.state.rng().random();
                 val.data = ccx.state.arbitrary_storage.as_mut().unwrap().copy(
                     ccx.ecx,
@@ -3492,9 +3490,8 @@ fn inner_stop_gas_snapshot<
         .iter_mut()
         .find(|record| record.group == group && record.name == name)
     {
-        // Calculate the gas used since the snapshot was started.
-        // We subtract 171 from the gas used to account for gas used by the
-        // snapshot itself.
+        // Calculate the gas used since the snapshot was started. We subtract
+        // 171 from the gas used to account for gas used by the snapshot itself.
         let value = record.gas_used.saturating_sub(171);
 
         ccx.state

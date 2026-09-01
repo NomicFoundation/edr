@@ -254,9 +254,9 @@ impl Cheatcode for skip_1Call {
     ) -> Result {
         let Self { skipTest, reason } = self;
         if *skipTest {
-            // Skip should not work if called deeper than at test level.
-            // Since we're not returning the magic skip bytes, this will cause a
-            // test failure.
+            // Skip should not work if called deeper than at test level. Since
+            // we're not returning the magic skip bytes, this will cause a test
+            // failure.
             ensure!(
                 ccx.ecx.journaled_state.depth <= 1,
                 "`skip` can only be used at test level"
@@ -372,8 +372,8 @@ fn get_chain<
 
     // Check if this is an unknown chain ID by comparing the name to the chain
     // ID When a numeric ID is passed for an unknown chain,
-    // alloy_chain.to_string() will return the ID So if they match, it's
-    // likely an unknown chain ID
+    // alloy_chain.to_string() will return the ID So if they match, it's likely
+    // an unknown chain ID
     if chain_name == chain_id.to_string() {
         return Err(fmt_err!("invalid chain alias: {chain_alias}"));
     }

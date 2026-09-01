@@ -464,10 +464,9 @@ pub fn parse_eip712_canonical_types(
                 match parsed {
                     Ok(type_def) => {
                         // Reject duplicates rather than silently overwriting:
-                        // conflicting EIP-712
-                        // definitions would yield a wrong hash that's visually
-                        // indistinguishable
-                        // from a correct one.
+                        // conflicting EIP-712 definitions would yield a wrong
+                        // hash that's visually indistinguishable from a correct
+                        // one.
                         let name = type_def.name().to_string();
                         if map.insert(name.clone(), type_def).is_some() {
                             errors.push(Eip712Error::DuplicateTypeDef { name });

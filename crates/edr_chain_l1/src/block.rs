@@ -1002,8 +1002,8 @@ mod tests {
         #[test]
         fn upgraded_hash_varies_with_parent_hash() {
             // Distinct per block: the parent hash is unique per block within a
-            // chain, so no two sibling blocks share a hash
-            // (including in forked mode).
+            // chain, so no two sibling blocks share a hash (including in forked
+            // mode).
             assert_ne!(
                 block_access_list_hash(
                     Some(KECCAK_RLP_EMPTY_ARRAY),

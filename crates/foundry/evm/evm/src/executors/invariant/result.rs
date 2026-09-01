@@ -292,8 +292,8 @@ pub(crate) fn can_continue<
             return Ok(RichInvariantResults::new(false, None));
         } else if call_result.reverted {
             // If we don't fail test on revert then remove last reverted call
-            // from inputs. This improves shrinking performance as
-            // irrelevant calls won't be checked again.
+            // from inputs. This improves shrinking performance as irrelevant
+            // calls won't be checked again.
             invariant_run.inputs.pop();
         }
     }

@@ -50,9 +50,9 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
             self.record_hit(inputs.input.bytes(context));
 
             // Short-circuit the call to avoid execution of empty bytecode—which
-            // results in a `InstructionResult::Stop`—instead
-            // replaying the previous call or create's
-            // output to preserve the returndata buffer.
+            // results in a `InstructionResult::Stop`—instead replaying the
+            // previous call or create's output to preserve the returndata
+            // buffer.
             Some(CallOutcome {
                 result: InterpreterResult {
                     result: InstructionResult::Return,

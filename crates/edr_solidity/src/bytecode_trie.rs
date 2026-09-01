@@ -241,11 +241,10 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
             }
             Ordering::Greater => {
                 // If the split index is greater than the length of the key,
-                // this function was called with the wrong
-                // arguments due to a bug. Such a bug would be local to
-                // the bytecode trie insertion logic, so while in other parts of
-                // `edr_solidity` we prefer to propagate an
-                // error in case of invariant violations due to
+                // this function was called with the wrong arguments due to a
+                // bug. Such a bug would be local to the bytecode trie insertion
+                // logic, so while in other parts of `edr_solidity` we prefer to
+                // propagate an error in case of invariant violations due to
                 // possibly unforeseen dependencies between components, we panic
                 // here.
                 unreachable!("split index is greater than new key length")

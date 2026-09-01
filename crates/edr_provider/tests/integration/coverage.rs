@@ -464,8 +464,7 @@ mod returndata {
             )))?;
 
         // deployRevertingChild() returns the raw ABI-encoded revert data from
-        // the failed CoverageDeployRevert constructor via
-        // returndatacopy.
+        // the failed CoverageDeployRevert constructor via returndatacopy.
         let result: String = serde_json::from_value(response.result)?;
         let reason = decode_revert_reason(&result);
         assert_eq!(reason, "constructor failed");

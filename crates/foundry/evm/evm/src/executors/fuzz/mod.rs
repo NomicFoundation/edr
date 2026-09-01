@@ -251,11 +251,10 @@ impl<
                     counterexample: outcome,
                 }) => {
                     // We cannot use the calldata returned by the test runner in
-                    // `TestError::Fail`, since that input
-                    // represents the last run case, which may not correspond
-                    // with our failure - when a fuzz case
-                    // fails, proptest will try to run at least one
-                    // more case to find a minimal failure case.
+                    // `TestError::Fail`, since that input represents the last
+                    // run case, which may not correspond with our failure -
+                    // when a fuzz case fails, proptest will try to run at least
+                    // one more case to find a minimal failure case.
                     let reason = rd.maybe_decode(&outcome.call.result, status);
                     execution_data
                         .borrow_mut()
@@ -299,10 +298,9 @@ impl<
             Err(TestError::Abort(reason)) => {
                 let msg = reason.message();
                 // Currently the only operation that can trigger proptest global
-                // rejects is the `vm.assume` cheatcode, thus we
-                // surface this info to the user when the fuzz
-                // test aborts due to too many global rejects, making the error
-                // message more actionable.
+                // rejects is the `vm.assume` cheatcode, thus we surface this
+                // info to the user when the fuzz test aborts due to too many
+                // global rejects, making the error message more actionable.
                 result.reason = if msg == "Too many global rejects" {
                     let error = FuzzError::TooManyRejects(self.runner.config().max_global_rejects);
                     Some(error.to_string())

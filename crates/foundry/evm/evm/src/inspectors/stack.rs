@@ -732,8 +732,7 @@ impl<
                 Inspector::<_, EthInterpreter>::call_end(inspector, ecx, inputs, outcome);
 
                 // If the inspector returns a different status or a revert with
-                // a non-empty message, we assume it wants to
-                // tell us something
+                // a non-empty message, we assume it wants to tell us something
                 let different = outcome.result.result != result
                     || (outcome.result.result == InstructionResult::Revert
                         && outcome.output() != previous_outcome.output());
@@ -788,8 +787,7 @@ impl<
                 Inspector::<_, EthInterpreter>::create_end(inspector, ecx, call, outcome);
 
                 // If the inspector returns a different status or a revert with
-                // a non-empty message, we assume it wants to
-                // tell us something
+                // a non-empty message, we assume it wants to tell us something
                 let different = outcome.result.result != result
                     || (outcome.result.result == InstructionResult::Revert
                         && outcome.output() != previous_outcome.output());
@@ -1057,8 +1055,7 @@ impl<
     ) {
         if self.enable_isolation {
             // If we're in isolation mode, we need to keep track of the state at
-            // the beginning of the frame to be able to roll back on
-            // revert
+            // the beginning of the frame to be able to roll back on revert
             self.top_frame_journal
                 .clone_from(&ecx.journaled_state.state);
         }
@@ -1091,16 +1088,15 @@ impl<
             return;
         }
         // Encountered a revert, since cheatcodes may have altered the evm state
-        // in such a way that violates some constraints, e.g. `deal`, we
-        // need to manually roll back on revert before revm reverts the
-        // state itself
+        // in such a way that violates some constraints, e.g. `deal`, we need to
+        // manually roll back on revert before revm reverts the state itself
         if let Some(cheats) = self.cheatcodes.as_mut() {
             cheats.on_revert(ecx);
         }
 
         // If we're in isolation mode, we need to rollback to state before the
-        // root frame was created We can't rely on revm's journal
-        // because it doesn't account for changes made by isolated calls
+        // root frame was created We can't rely on revm's journal because it
+        // doesn't account for changes made by isolated calls
         if self.enable_isolation {
             ecx.journaled_state.state = std::mem::take(&mut self.top_frame_journal);
         }
@@ -1361,10 +1357,9 @@ impl<
                         Ok(account) => account,
                         Err(error) => {
                             // Mirror revm's DB-error handling: stash the typed
-                            // error on the context
-                            // and abort the frame with a fatal external error,
-                            // which the handler
-                            // surfaces to the caller as `EVMError::Database`.
+                            // error on the context and abort the frame with a
+                            // fatal external error, which the handler surfaces
+                            // to the caller as `EVMError::Database`.
                             *ecx.error() = Err(ContextError::Db(error));
                             return Some(CallOutcome {
                                 result: InterpreterResult {

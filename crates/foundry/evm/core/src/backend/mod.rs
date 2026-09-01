@@ -1161,9 +1161,9 @@ impl<
                     .expect("exists; qed");
 
                 // here's an edge case where we need to check if this account
-                // has been created, in which case we don't need
-                // to replace it with the account from the fork
-                // because the created account takes precedence:
+                // has been created, in which case we don't need to replace it
+                // with the account from the fork because the created account
+                // takes precedence:
                 // for example contract creation in setups
                 if init_account.is_created() {
                     trace!(?loaded_account, "skipping created account");
@@ -1310,8 +1310,7 @@ impl<
                 self.inner.state_snapshots.insert_at(snapshot.clone(), id);
             }
             // need to check whether there's a global failure which means an
-            // error occurred either during the snapshot or even
-            // before
+            // error occurred either during the snapshot or even before
             if self.is_global_failure(context.journaled_state) {
                 self.set_state_snapshot_failure(true);
             }
@@ -1329,9 +1328,9 @@ impl<
                 }
                 BackendDatabaseSnapshot::Forked(id, fork_id, idx, mut fork) => {
                     // there might be the case where the snapshot was created
-                    // during `setUp` with another caller,
-                    // so we need to ensure the caller account is present in the
-                    // journaled state and database
+                    // during `setUp` with another caller, so we need to ensure
+                    // the caller account is present in the journaled state and
+                    // database
                     let caller = context.tx.caller();
                     journaled_state.state.entry(caller).or_insert_with(|| {
                         let caller_account = context
@@ -1404,8 +1403,8 @@ impl<
             .ok_or_else(|| eyre::eyre!("Requested fork `{}` does not exit", id))?;
 
         // we still need to roll to the transaction, but we only need an empty
-        // dummy state since we don't need to update the active
-        // journaled state yet
+        // dummy state since we don't need to update the active journaled state
+        // yet
         let mut journaled_state = self.inner.new_journaled_state();
 
         let mut context = EvmContext {
@@ -1434,8 +1433,8 @@ impl<
         }
 
         // Update block number and timestamp of active fork (if any) with
-        // current env values, in order to preserve values changed by
-        // using `roll` and `warp` cheatcodes.
+        // current env values, in order to preserve values changed by using
+        // `roll` and `warp` cheatcodes.
         if let Some(active_fork_id) = self.active_fork_id() {
             self.forks.update_block(
                 self.ensure_fork_id(active_fork_id).cloned()?,
@@ -1452,8 +1451,8 @@ impl<
             .ok_or_else(|| eyre::eyre!("Requested fork `{}` does not exit", id))?;
 
         // If we're currently in forking mode we need to update the
-        // journaled_state to this point, this ensures the changes
-        // performed while the fork was active are recorded
+        // journaled_state to this point, this ensures the changes performed
+        // while the fork was active are recorded
         if let Some(active) = self.active_fork_mut() {
             active.journaled_state = context.journaled_state.clone();
 
@@ -1478,12 +1477,11 @@ impl<
             }
         } else {
             // this is the first time a fork is selected. This means up to this
-            // point all changes are made in a single
-            // `JournaledState`, for example after a `setup` that
-            // only created different forks. Since the
-            // `JournaledState` is valid for all forks until the first fork is
-            // selected, we need to update it for all forks and use it as init
-            // state for all future forks
+            // point all changes are made in a single `JournaledState`, for
+            // example after a `setup` that only created different forks. Since
+            // the `JournaledState` is valid for all forks until the first fork
+            // is selected, we need to update it for all forks and use it as
+            // init state for all future forks
 
             self.set_init_journaled_state(context.journaled_state.clone());
             self.prepare_init_journal_state()?;
@@ -1497,12 +1495,14 @@ impl<
             let mut fork = self.inner.take_fork(idx);
 
             // Make sure all persistent accounts on the newly selected fork
-            // reflect same state as the active db / previous fork.
-            // This can get out of sync when multiple forks are created on test
-            // `setUp`, then a fork is selected and persistent
-            // contract is changed. If first action in test is to
-            // select a different fork, then the persistent contract
-            // state won't reflect changes done in `setUp` for the other fork. See <https://github.com/foundry-rs/foundry/issues/10296> and <https://github.com/foundry-rs/foundry/issues/10552>.
+            // reflect same state as the active db / previous fork. This can get
+            // out of sync when multiple forks are created on test `setUp`, then
+            // a fork is selected and persistent contract is changed. If first
+            // action in test is to select a different fork, then the persistent
+            // contract state won't reflect changes done in `setUp` for the
+            // other fork. See
+            // <https://github.com/foundry-rs/foundry/issues/10296> and
+            // <https://github.com/foundry-rs/foundry/issues/10552>.
             let persistent_accounts = self.inner.persistent_accounts.clone();
             if let Some(db) = self.active_fork_db_mut() {
                 for addr in persistent_accounts {
@@ -1523,16 +1523,15 @@ impl<
             }
 
             // since all forks handle their state separately, the depth can
-            // drift this is a handover where the target fork starts
-            // at the same depth where it was selected. This ensures
-            // that there are no gaps in depth which would otherwise
-            // cause issues with the tracer
+            // drift this is a handover where the target fork starts at the same
+            // depth where it was selected. This ensures that there are no gaps
+            // in depth which would otherwise cause issues with the tracer
             fork.journaled_state.depth = context.journaled_state.depth;
 
             // another edge case where a fork is created and selected during
-            // setup with not necessarily the same caller as for the
-            // test, however we must always ensure that fork's state
-            // contains the current sender
+            // setup with not necessarily the same caller as for the test,
+            // however we must always ensure that fork's state contains the
+            // current sender
             let caller = context.tx.caller();
             fork.journaled_state.state.entry(caller).or_insert_with(|| {
                 let caller_account = context
@@ -1583,15 +1582,14 @@ impl<
             // the currently active fork is the targeted fork of this call
             if active_id == id {
                 // need to update the block's env settings right away, which is
-                // otherwise set when forks are selected
-                // `select_fork`
+                // otherwise set when forks are selected `select_fork`
                 update_current_env_with_fork_env(context, fork_env);
 
                 // we also need to update the journaled_state right away, this
-                // has essentially the same effect as selecting
-                // (`select_fork`) by discarding non-persistent
-                // storage from the journaled_state. This which will
-                // reset cached state from the previous block
+                // has essentially the same effect as selecting (`select_fork`)
+                // by discarding non-persistent storage from the
+                // journaled_state. This which will reset cached state from the
+                // previous block
                 let mut persistent_addrs = self.inner.persistent_accounts.clone();
                 // we also want to copy the caller state here
                 persistent_addrs.extend(self.caller_address());
@@ -1609,16 +1607,15 @@ impl<
                 }
 
                 // Ensure all previously loaded accounts are present in the
-                // journaled state to prevent issues in the new
-                // journalstate, e.g. assumptions that accounts are
-                // loaded if the account is not touched, we reload it, if it's
-                // touched we clone it.
+                // journaled state to prevent issues in the new journalstate,
+                // e.g. assumptions that accounts are loaded if the account is
+                // not touched, we reload it, if it's touched we clone it.
                 //
                 // Special case for accounts that are not created: we don't
-                // merge their state but load it in order to
-                // reflect their state at the new block
-                // (they should explicitly be marked as persistent if it is
-                // desired to keep state between fork rolls).
+                // merge their state but load it in order to reflect their state
+                // at the new block (they should explicitly be marked as
+                // persistent if it is desired to keep state between fork
+                // rolls).
                 for (addr, acc) in context.journaled_state.state.iter() {
                     if acc.is_created() {
                         if acc.is_touched() {
@@ -1712,11 +1709,12 @@ impl<
         };
 
         // This is a bit ambiguous because the user wants to transact an
-        // arbitrary transaction in the current context, but we're
-        // assuming the user wants to transact the transaction as it was
-        // mined. Usually this is used in a combination of a fork at the
-        // transaction's parent transaction in the block and then the transaction is transacted: <https://github.com/foundry-rs/foundry/issues/6538>
-        // So we modify the env to match the transaction's block.
+        // arbitrary transaction in the current context, but we're assuming the
+        // user wants to transact the transaction as it was mined. Usually this
+        // is used in a combination of a fork at the transaction's parent
+        // transaction in the block and then the transaction is transacted:
+        // <https://github.com/foundry-rs/foundry/issues/6538> So we modify the
+        // env to match the transaction's block.
         let (_fork_block, block) =
             self.get_block_number_and_block_for_transaction(id, transaction)?;
         update_env_block(&mut env.block, &block, env.cfg.spec.into());

@@ -125,8 +125,8 @@ impl L1RpcTransaction {
 
         let chain_id = transaction.chain_id().filter(|_| {
             // Following Hardhat in not returning `chain_id` for
-            // `PostEip155Legacy` legacy transactions even though
-            // the chain id would be recoverable.
+            // `PostEip155Legacy` legacy transactions even though the chain id
+            // would be recoverable.
             !transaction.is_legacy()
         });
 
