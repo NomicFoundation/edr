@@ -364,8 +364,6 @@ pub struct CompilerSettings {
 /// Specifies the optimizer settings.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct OptimizerSettings {
-    // 64-bit like solc and foundry-compilers: real projects ship vanity
-    // values such as aave-v4's 444444444444, which overflow u32.
     runs: Option<u64>,
     enabled: Option<bool>,
     details: Option<OptimizerDetails>,
