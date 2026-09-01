@@ -241,7 +241,10 @@ impl TestResult {
     /// Compute the error stack trace.
     /// The result is either the stack trace or the reason why we couldn't
     /// generate the stack trace.
-    /// Returns null if the test status is succeeded or skipped.
+    /// Returns null if the test succeeded or was skipped. Also returns null
+    /// when the failure left no trace behind, for example an invariant
+    /// campaign whose calls were all rejected by `vm.assume`; the `reason`
+    /// field then explains the failure.
     /// Cannot throw.
     #[napi]
     pub fn stack_trace(

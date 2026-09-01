@@ -7,7 +7,7 @@
 //
 // Checks:
 //   - the file parses and matches the expected shape, using the same parser
-//     the benchmark resolver (resolve-regression-trigger.cjs) uses;
+//     the benchmark's trigger resolver uses;
 //   - the referenced Hardhat PR exists in NomicFoundation/hardhat;
 //   - for an open Hardhat PR, the pinned sha is a commit reachable from the
 //     PR's head (i.e. actually part of what would be benchmarked).
@@ -19,24 +19,59 @@
 //     state, so the pin is inert, not broken — reported as a notice/warning
 //     (also keeps this check from breaking retroactively when the Hardhat PR
 //     state changes after the pin was added).
+//
+// See README.md for the conventions these scripts follow.
 
-const fs = require("node:fs");
+import { readFileSync } from "node:fs";
 
-const {
+import {
+  errorCode,
+  errorStatus,
+  type Core,
+  type PullRequest,
+} from "./github-script.ts";
+import {
   HARDHAT_OWNER,
-  HARDHAT_REPO,
   HARDHAT_PIN_PATH,
+  HARDHAT_REPO,
   parseHardhatPin,
-} = require("./hardhat-compat-pin.cjs");
+} from "./hardhat-compat-pin.ts";
+
+interface GitHub {
+  rest: {
+    pulls: {
+      get: (params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+      }) => Promise<{ data: PullRequest }>;
+    };
+    repos: {
+      compareCommitsWithBasehead: (params: {
+        owner: string;
+        repo: string;
+        basehead: string;
+      }) => Promise<{ data: { status: string } }>;
+    };
+  };
+}
 
 // `pinPath` is overridable for tests; in CI the file is read from the
 // checked-out workspace.
-module.exports = async ({ github, core, pinPath = HARDHAT_PIN_PATH }) => {
-  let raw;
+export async function validateHardhatCompatPin({
+  github,
+  core,
+  pinPath = HARDHAT_PIN_PATH,
+}: {
+  github: GitHub;
+  core: Core;
+  pinPath?: string;
+}): Promise<void> {
+  let raw: string;
   try {
-    raw = fs.readFileSync(pinPath, "utf8");
+    raw = readFileSync(pinPath, "utf8");
   } catch (e) {
-    if (e.code === "ENOENT") {
+    if (errorCode(e) === "ENOENT") {
       core.info(`${HARDHAT_PIN_PATH} not present; nothing to validate.`);
       return;
     }
@@ -47,7 +82,7 @@ module.exports = async ({ github, core, pinPath = HARDHAT_PIN_PATH }) => {
   const pin = parseHardhatPin(raw);
 
   const prName = `${HARDHAT_OWNER}/${HARDHAT_REPO}#${pin.pr}`;
-  let hardhatPr;
+  let hardhatPr: PullRequest;
   try {
     ({ data: hardhatPr } = await github.rest.pulls.get({
       owner: HARDHAT_OWNER,
@@ -55,7 +90,7 @@ module.exports = async ({ github, core, pinPath = HARDHAT_PIN_PATH }) => {
       pull_number: pin.pr,
     }));
   } catch (e) {
-    if (e.status === 404) {
+    if (errorStatus(e) === 404) {
       throw new Error(`${HARDHAT_PIN_PATH}: Hardhat PR ${prName} not found`);
     }
     throw e;
@@ -80,7 +115,7 @@ module.exports = async ({ github, core, pinPath = HARDHAT_PIN_PATH }) => {
   // The pin must reference a commit that's part of the open PR: reachable
   // from its head. (Commits already on main are also "reachable", but such a
   // pin is merely redundant, not broken.)
-  let comparison;
+  let comparison: { status: string };
   try {
     ({ data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
       owner: HARDHAT_OWNER,
@@ -88,7 +123,7 @@ module.exports = async ({ github, core, pinPath = HARDHAT_PIN_PATH }) => {
       basehead: `${pin.sha}...${hardhatPr.head.sha}`,
     }));
   } catch (e) {
-    if (e.status === 404) {
+    if (errorStatus(e) === 404) {
       throw new Error(
         `${HARDHAT_PIN_PATH}: pinned sha ${pin.sha} does not exist in ` +
           `${HARDHAT_OWNER}/${HARDHAT_REPO}`
@@ -108,4 +143,4 @@ module.exports = async ({ github, core, pinPath = HARDHAT_PIN_PATH }) => {
     `Hardhat compat pin OK: ${prName} (open) @ ${pin.sha}` +
       (pin.reason ? ` — ${pin.reason}` : "")
   );
-};
+}

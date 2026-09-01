@@ -5,7 +5,7 @@
 # otherwise only exercised when the benchmark actually runs, which may never
 # happen on the PR that adds it (e.g. if `/bench` was not commented there).
 #
-# See `.github/scripts/validate-hardhat-compat-pin.cjs` for the exact rules.
+# See `.github/scripts/validate-hardhat-compat-pin.ts` for the exact rules.
 
 name: Validate Hardhat compat pin
 
@@ -13,8 +13,10 @@ on:
   pull_request:
     paths:
       - .github/hardhat-compat-pin.json
-      - .github/scripts/hardhat-compat-pin.cjs
-      - .github/scripts/validate-hardhat-compat-pin.cjs
+      - .github/scripts/hardhat-compat-pin.ts
+      - .github/scripts/github-script.ts
+      - .github/scripts/package.json
+      - .github/scripts/validate-hardhat-compat-pin.ts
       - .github/workflows/validate-hardhat-compat-pin.yml
 
 concurrency:
@@ -41,5 +43,5 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const validate = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/validate-hardhat-compat-pin.cjs`);
-            await validate({ github, core });
+            const { validateHardhatCompatPin } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/validate-hardhat-compat-pin.ts`);
+            await validateHardhatCompatPin({ github, core });
