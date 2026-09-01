@@ -1,7 +1,8 @@
-use std::io;
+use std::{io, sync::Arc};
 
 use crossbeam_channel::{select_biased, unbounded, SendError, Sender};
 use derive_where::derive_where;
+use edr_napi_core::provider::SyncProvider;
 use edr_utils_sync::{CancellableThread, MAX_THREAD_NAME_LEN};
 use napi::tokio::runtime;
 
@@ -15,6 +16,18 @@ const _: () = {
     assert!(PROVIDER_THREAD_NAME.len() <= MAX_THREAD_NAME_LEN);
     assert!(RESPONSE_THREAD_NAME.len() <= MAX_THREAD_NAME_LEN);
 };
+
+/// Senders for off-loading dropped values to their deallocator threads.
+///
+/// Dropping the last handle to a provider joins that provider's event-loop
+/// thread. Providers therefore need a deallocator thread separate from the
+/// responses'.
+pub struct Deallocators {
+    /// Accepts dropped providers.
+    pub provider: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+    /// Accepts dropped responses.
+    pub response: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
+}
 
 /// Owns a dedicated OS thread that drops values of type `T` outside of the
 /// calling thread. Producers obtain cloneable senders via [`Self::sender`] and
