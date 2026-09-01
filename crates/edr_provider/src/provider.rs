@@ -4,7 +4,7 @@ use crossbeam_channel::{bounded, unbounded, RecvError, Sender};
 use edr_chain_spec::{ProtocolHardforkChainSpec, TransactionValidation};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
-use edr_utils_sync::CancellableThread;
+use edr_utils_sync::{CancellableThread, MAX_THREAD_NAME_LEN};
 use parking_lot::RwLock;
 use tokio::runtime;
 
@@ -20,6 +20,11 @@ use crate::{
     time::{CurrentTime, TimeSinceEpoch},
     ResponseWithCallTraces, SyncSubscriberCallback,
 };
+
+/// Name of the thread that owns the [`ProviderData`] and serves requests.
+const THREAD_NAME: &str = "edr-provider";
+
+const _: () = assert!(THREAD_NAME.len() <= MAX_THREAD_NAME_LEN);
 
 /// A JSON-RPC provider for Ethereum.
 ///
@@ -145,7 +150,7 @@ impl<
         let (request_sender, request_receiver) = unbounded();
 
         let thread =
-            CancellableThread::spawn("edr-provider".to_owned(), move |cancellation_receiver| {
+            CancellableThread::spawn(THREAD_NAME.to_owned(), move |cancellation_receiver| {
                 event_loop::run(data, request_receiver, cancellation_receiver);
             })
             .expect("failed to spawn the provider thread");
