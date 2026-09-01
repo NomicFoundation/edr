@@ -172,8 +172,9 @@ impl Database for ForkedDatabase {
     type Error = DatabaseError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        // Note: this will always return Some, since the `SharedBackend` will always
-        // load the account, this differs from `<CacheDB as Database>::basic`,
+        // Note: this will always return Some, since the `SharedBackend` will
+        // always load the account, this differs from `<CacheDB as
+        // Database>::basic`,
         // See also [MemDb::ensure_loaded](crate::backend::MemDb::ensure_loaded)
         Database::basic(&mut self.cache_db, address)
     }

@@ -109,9 +109,10 @@ impl<
         )
         .map_err(|e| e.to_string())?;
 
-        // If this is a top-level precompile call (depth == 1), persist the error
-        // message into the local context so it can be returned as output in the
-        // final result. Only do this for non-OOG halt errors.
+        // If this is a top-level precompile call (depth == 1), persist the
+        // error message into the local context so it can be returned as
+        // output in the final result. Only do this for non-OOG halt
+        // errors.
         if let Some(halt_reason) = output.halt_reason()
             && !halt_reason.is_oog()
             && context.journal().depth() == 1

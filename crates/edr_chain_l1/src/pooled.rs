@@ -404,8 +404,8 @@ mod tests {
     fn fake_eip4844_blob() -> Blob {
         const BLOB_VALUE: &[u8] = b"hello world";
 
-        // The blob starts 0, followed by `hello world`, then 0x80, and is padded with
-        // zeroes.
+        // The blob starts 0, followed by `hello world`, then 0x80, and is
+        // padded with zeroes.
         let mut bytes = vec![0x0u8];
         bytes.append(&mut BLOB_VALUE.to_vec());
         bytes.push(alloy_rlp::EMPTY_STRING_CODE);

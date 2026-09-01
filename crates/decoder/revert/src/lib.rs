@@ -105,8 +105,8 @@ impl RevertDecoder {
             return Some(reason.to_string());
         }
 
-        // Solidity's `Error(string)` (handled separately in order to strip revert:
-        // prefix)
+        // Solidity's `Error(string)` (handled separately in order to strip
+        // revert: prefix)
         if let Some(RevertReason::ContractError(ContractError::Revert(revert))) =
             RevertReason::decode(err)
         {
@@ -124,8 +124,8 @@ impl RevertDecoder {
             // Custom errors.
             if let Some(errors) = self.errors.get(selector) {
                 for error in errors {
-                    // If we don't decode, don't return an error, try to decode as a string
-                    // later.
+                    // If we don't decode, don't return an error, try to decode
+                    // as a string later.
                     if let Ok(decoded) = error.abi_decode_input(data) {
                         return Some(format!(
                             "{}({})",

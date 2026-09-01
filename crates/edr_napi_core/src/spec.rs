@@ -154,8 +154,9 @@ pub fn marshal_response_data(
 ) -> napi::Result<ResponseData> {
     serde_json::to_string(&response)
         .and_then(|json| {
-            // We experimentally determined that 500_000_000 was the maximum string length
-            // that can be returned without causing the error:
+            // We experimentally determined that 500_000_000 was the maximum
+            // string length that can be returned without causing
+            // the error:
             //
             // > Failed to convert rust `String` into napi `string`
             //

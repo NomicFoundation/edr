@@ -43,8 +43,8 @@ impl ArtifactFilters {
             }
             return Ok(Some(functions));
         }
-        // If no contract is specifically targeted, and this contract is not excluded,
-        // then accept all functions.
+        // If no contract is specifically targeted, and this contract is not
+        // excluded, then accept all functions.
         if self.targeted.is_empty() && !self.excluded.contains(&artifact.identifier()) {
             return Ok(Some(vec![]));
         }

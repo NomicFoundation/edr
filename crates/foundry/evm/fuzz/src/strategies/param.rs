@@ -124,9 +124,9 @@ pub fn fuzz_param_from_state(
     let value = || {
         let state = state.clone();
         let param = param.clone();
-        // Generate a bias and use it to pick samples or non-persistent values (50 /
-        // 50). Use `Index` instead of `Selector` when selecting a value to
-        // avoid iterating over the entire dictionary.
+        // Generate a bias and use it to pick samples or non-persistent values
+        // (50 / 50). Use `Index` instead of `Selector` when selecting a
+        // value to avoid iterating over the entire dictionary.
         any::<(bool, prop::sample::Index)>().prop_map(move |(bias, index)| {
             let state = state.dictionary_read();
             let values = if bias { state.samples(&param) } else { None }
@@ -146,11 +146,13 @@ pub fn fuzz_param_from_state(
                     if deployed_libs.contains(&fuzzed_addr) {
                         let mut rng = StdRng::seed_from_u64(0x1337); // use deterministic rng
 
-                        // Do not use addresses of deployed libraries as fuzz input, instead return
-                        // a deterministically random address. We cannot filter out this value (via
-                        // `prop_filter_map`) as proptest can invoke this closure after test
-                        // execution, and returning a `None` will cause it to panic.
-                        // See <https://github.com/foundry-rs/foundry/issues/9764> and <https://github.com/foundry-rs/foundry/issues/8639>.
+                        // Do not use addresses of deployed libraries as fuzz
+                        // input, instead return
+                        // a deterministically random address. We cannot filter
+                        // out this value (via
+                        // `prop_filter_map`) as proptest can invoke this
+                        // closure after test execution,
+                        // and returning a `None` will cause it to panic. See <https://github.com/foundry-rs/foundry/issues/9764> and <https://github.com/foundry-rs/foundry/issues/8639>.
                         loop {
                             fuzzed_addr.randomize_with(&mut rng);
                             if !deployed_libs.contains(&fuzzed_addr) {
@@ -198,8 +200,9 @@ pub fn fuzz_param_from_state(
                 .boxed(),
             1..=31 => value()
                 .prop_map(move |value| {
-                    // Generate a uintN in the correct range, then shift it to the range of intN
-                    // by subtracting 2^(N-1)
+                    // Generate a uintN in the correct range, then shift it to
+                    // the range of intN by subtracting
+                    // 2^(N-1)
                     let uint = U256::from_be_bytes(value.0) % U256::from(1).wrapping_shl(n);
                     let max_int_plus1 = U256::from(1).wrapping_shl(n - 1);
                     let num = I256::from_raw(uint.wrapping_sub(max_int_plus1));

@@ -25,8 +25,8 @@ pub fn subscriber_callback_for_chain_spec<
             ChainSpecT::SignedTransaction,
         >(event);
 
-        // This is blocking because it's important that the subscription events are
-        // in-order
+        // This is blocking because it's important that the subscription events
+        // are in-order
         subscription_callback_fn.call(event, ThreadsafeFunctionCallMode::Blocking);
     })
 }

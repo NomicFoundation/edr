@@ -140,7 +140,8 @@ impl PersistentStateTrie {
             default_account_fn,
         )?;
 
-        // If there is no old value, return zero to signal that the slot was empty
+        // If there is no old value, return zero to signal that the slot was
+        // empty
         Ok(old_value.unwrap_or(U256::ZERO))
     }
 }

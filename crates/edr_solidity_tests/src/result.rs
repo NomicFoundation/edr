@@ -210,7 +210,8 @@ impl<HaltReasonT: HaltReasonTrait> SuiteResult<HaltReasonT> {
         test_results: BTreeMap<String, TestResult<HaltReasonT>>,
         mut warnings: Vec<String>,
     ) -> Self {
-        // Add deprecated cheatcodes warning, if any of them used in current test suite.
+        // Add deprecated cheatcodes warning, if any of them used in current
+        // test suite.
         let mut deprecated_cheatcodes = HashMap::new();
 
         for test_result in test_results.values() {

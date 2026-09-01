@@ -105,7 +105,8 @@ impl KeyHasher {
         self,
         params: &CacheableLogFilterOptions<'_>,
     ) -> Result<Self, UnresolvedBlockTagError> {
-        // Destructuring to make sure we get a compiler error here if the fields change.
+        // Destructuring to make sure we get a compiler error here if the fields
+        // change.
         let CacheableLogFilterOptions {
             range,
             addresses,
@@ -155,8 +156,8 @@ impl KeyHasher {
     /// Hashes a single [`RewardPercentile`] value.
     pub fn hash_reward_percentile(self, value: &RewardPercentile) -> Self {
         const RESOLUTION: f64 = 100.0;
-        // `RewardPercentile` is an f64 in range [0, 100], so this is guaranteed not to
-        // overflow.
+        // `RewardPercentile` is an f64 in range [0, 100], so this is guaranteed
+        // not to overflow.
         self.hash_u64((value.as_ref() * RESOLUTION).floor() as u64)
     }
 

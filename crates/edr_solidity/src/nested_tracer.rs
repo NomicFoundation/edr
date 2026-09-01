@@ -376,7 +376,8 @@ enum InternalNestedTraceStepWithoutRefCell<HaltReasonT: HaltReasonTrait> {
 fn convert_to_external_trace<HaltReasonT: HaltReasonTrait>(
     value: Rc<RefCell<InternalNestedTrace<HaltReasonT>>>,
 ) -> NestedTrace<HaltReasonT> {
-    // We can't use `Rc::try_unwrap` because it requires that the `Rc` is unique.
+    // We can't use `Rc::try_unwrap` because it requires that the `Rc` is
+    // unique.
     let trace = value.borrow().clone();
 
     match trace {

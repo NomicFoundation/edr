@@ -28,8 +28,8 @@ pub fn handle_estimate_gas<
     request: ChainSpecT::RpcCallRequest,
     block_spec: Option<BlockSpec>,
 ) -> ProviderResultWithCallTraces<U64, ChainSpecT> {
-    // Matching Hardhat behavior in defaulting to "pending" instead of "latest" for
-    // estimate gas.
+    // Matching Hardhat behavior in defaulting to "pending" instead of "latest"
+    // for estimate gas.
     let block_spec = block_spec.unwrap_or_else(BlockSpec::pending);
 
     let transaction =

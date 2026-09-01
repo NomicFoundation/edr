@@ -278,8 +278,9 @@ impl Cheatcode for loadCall {
 
         if val.is_cold && val.data.is_zero() {
             if ccx.state.has_arbitrary_storage(&target) {
-                // If storage slot is untouched and load from a target with arbitrary storage,
-                // then set random value for current slot.
+                // If storage slot is untouched and load from a target with
+                // arbitrary storage, then set random value for
+                // current slot.
                 let rand_value = ccx.state.rng().random();
                 ccx.state.arbitrary_storage.as_mut().unwrap().save(
                     ccx.ecx,
@@ -289,9 +290,11 @@ impl Cheatcode for loadCall {
                 );
                 val.data = rand_value;
             } else if ccx.state.is_arbitrary_storage_copy(&target) {
-                // If storage slot is untouched and load from a target that copies storage from
-                // a source address with arbitrary storage, then copy existing arbitrary value.
-                // If no arbitrary value generated yet, then the random one is saved and set.
+                // If storage slot is untouched and load from a target that
+                // copies storage from a source address with
+                // arbitrary storage, then copy existing arbitrary value.
+                // If no arbitrary value generated yet, then the random one is
+                // saved and set.
                 let rand_value = ccx.state.rng().random();
                 val.data = ccx.state.arbitrary_storage.as_mut().unwrap().copy(
                     ccx.ecx,
@@ -1820,7 +1823,8 @@ impl Cheatcode for noAccessListCall {
         >,
     ) -> Result {
         let Self {} = self;
-        // Set to empty option in order to override previous applied access list.
+        // Set to empty option in order to override previous applied access
+        // list.
         if state.access_list.is_some() {
             state.access_list = Some(alloy_rpc_types::AccessList::default());
         }
@@ -3038,8 +3042,8 @@ impl Cheatcode for stopAndReturnDebugTraceRecordingCall {
             .iter()
             .map(|step| convert_call_trace_ctx_to_debug_step(step))
             .collect();
-        // Free up memory by clearing the steps if they are not recorded outside of
-        // cheatcode usage.
+        // Free up memory by clearing the steps if they are not recorded outside
+        // of cheatcode usage.
         if !record_info.original_tracer_config.record_steps {
             tracer.traces_mut().nodes_mut().iter_mut().for_each(|node| {
                 node.trace.steps = Vec::new();
@@ -3163,8 +3167,8 @@ fn inner_revert_to_state<
         RevertStateSnapshotAction::RevertKeep,
         &mut context,
     ) {
-        // we reset the evm's journaled_state to the state of the snapshot previous
-        // state
+        // we reset the evm's journaled_state to the state of the snapshot
+        // previous state
         ccx.ecx.journaled_state.inner = journaled_state;
         true
     } else {
@@ -3210,8 +3214,8 @@ fn inner_revert_to_state_and_delete<
         RevertStateSnapshotAction::RevertRemove,
         &mut context,
     ) {
-        // we reset the evm's journaled_state to the state of the snapshot previous
-        // state
+        // we reset the evm's journaled_state to the state of the snapshot
+        // previous state
         ccx.ecx.journaled_state.inner = journaled_state;
         true
     } else {
@@ -3475,8 +3479,8 @@ fn inner_stop_gas_snapshot<
             (active_group.clone(), active_name.clone())
         }
         _ => {
-            // If there is no active snapshot and either group or name is missing,
-            // we cannot resolve the snapshot to stop.
+            // If there is no active snapshot and either group or name is
+            // missing, we cannot resolve the snapshot to stop.
             bail!("no gas snapshot was started; call startSnapshotGas() first");
         }
     };
@@ -3489,8 +3493,8 @@ fn inner_stop_gas_snapshot<
         .find(|record| record.group == group && record.name == name)
     {
         // Calculate the gas used since the snapshot was started.
-        // We subtract 171 from the gas used to account for gas used by the snapshot
-        // itself.
+        // We subtract 171 from the gas used to account for gas used by the
+        // snapshot itself.
         let value = record.gas_used.saturating_sub(171);
 
         ccx.state
@@ -3770,7 +3774,8 @@ fn get_recorded_state_diffs<
                                 label: state.labels.get(&account_access.account).cloned(),
                                 ..Default::default()
                             });
-                    // Update balance diff. Do not overwrite the initial balance if already set.
+                    // Update balance diff. Do not overwrite the initial balance
+                    // if already set.
                     if let Some(diff) = &mut account_diff.balance_diff {
                         diff.new_value = account_access.newBalance;
                     } else {
@@ -3790,7 +3795,8 @@ fn get_recorded_state_diffs<
                                 label: state.labels.get(&storage_access.account).cloned(),
                                 ..Default::default()
                             });
-                        // Update state diff. Do not overwrite the initial value if already set.
+                        // Update state diff. Do not overwrite the initial value
+                        // if already set.
                         match account_diff.state_diff.entry(storage_access.slot) {
                             Entry::Vacant(slot_state_diff) => {
                                 slot_state_diff.insert(SlotStateDiff {

@@ -8,8 +8,8 @@ pub(crate) fn run(
 ) -> anyhow::Result<()> {
     let mut deltas = Vec::new();
 
-    // Run test command in working directory iterations times and capture the time
-    // it takes to run
+    // Run test command in working directory iterations times and capture the
+    // time it takes to run
     for i in 1..(iterations + 1) {
         println!("Running {i}/{iterations} `{test_command}`");
         let start = std::time::Instant::now();

@@ -87,13 +87,13 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 
         let (fork, mut handler) = Self::new();
 
-        // Spawn a light-weight thread just for sending and receiving data from the
-        // remote client(s).
+        // Spawn a light-weight thread just for sending and receiving data from
+        // the remote client(s).
         let fut = async move {
-            // Flush cache every 60s, this ensures that long-running fork tests get their
-            // cache flushed from time to time.
-            // NOTE: we install the interval here because the `tokio::timer::Interval`
-            // requires a rt.
+            // Flush cache every 60s, this ensures that long-running fork tests
+            // get their cache flushed from time to time.
+            // NOTE: we install the interval here because the
+            // `tokio::timer::Interval` requires a rt.
             handler.set_flush_cache_interval(Duration::from_secs(60));
             handler.await;
         };
@@ -432,7 +432,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
             }
             Request::ShutDown(sender) => {
                 trace!(target: "fork::multi", "received shutdown signal");
-                // We're emptying all fork backends, this way we ensure all caches get flushed.
+                // We're emptying all fork backends, this way we ensure all
+                // caches get flushed.
                 self.forks.clear();
                 self.handlers.clear();
                 let _ = sender.send(());
@@ -462,7 +463,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> Future
                     pin.on_request(req);
                 }
                 Poll::Ready(None) => {
-                    // Channel closed, but we still need to drive the fork handlers to completion.
+                    // Channel closed, but we still need to drive the fork
+                    // handlers to completion.
                     trace!(target: "fork::multi", "request channel closed");
                     break;
                 }
@@ -639,8 +641,8 @@ async fn create_fork<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: Hardf
     fork.env = env;
     let meta = BlockchainDbMeta::new(fork.env.block.clone().into(), fork.url.clone());
 
-    // We need to use the block number from the block because the env's number can
-    // be different on some L2s (e.g. Arbitrum).
+    // We need to use the block number from the block because the env's number
+    // can be different on some L2s (e.g. Arbitrum).
     let number = block.header().number();
 
     let cache_path = fork.block_cache_dir(fork.env.cfg.chain_id, number);

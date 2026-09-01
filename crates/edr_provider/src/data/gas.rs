@@ -175,8 +175,8 @@ fn binary_search_estimation<ChainSpecT: ProviderChainSpec<SignedTransaction: Tra
     while upper_bound - lower_bound > min_difference(lower_bound) && i < MAX_ITERATIONS {
         let mut mid = lower_bound + (upper_bound - lower_bound) / 2;
         if i == 0 {
-            // Start close to the lower bound as it's assumed to be derived from the gas
-            // used by the transaction.
+            // Start close to the lower bound as it's assumed to be derived from
+            // the gas used by the transaction.
             let initial_mid = 3 * lower_bound;
             mid = cmp::min(mid, initial_mid);
         }

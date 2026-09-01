@@ -334,7 +334,8 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         if let Some(endpoint) = self.rpc_endpoints.get(url_or_alias) {
             Ok(endpoint.clone())
         } else {
-            // check if it's a URL or a path to an existing file to an ipc socket
+            // check if it's a URL or a path to an existing file to an ipc
+            // socket
             if url_or_alias.starts_with("http") ||
                 url_or_alias.starts_with("ws") ||
                 // check for existing ipc file
@@ -462,8 +463,10 @@ pub fn parse_eip712_canonical_types(
             |(mut map, mut errors), parsed| {
                 match parsed {
                     Ok(type_def) => {
-                        // Reject duplicates rather than silently overwriting: conflicting EIP-712
-                        // definitions would yield a wrong hash that's visually indistinguishable
+                        // Reject duplicates rather than silently overwriting:
+                        // conflicting EIP-712
+                        // definitions would yield a wrong hash that's visually
+                        // indistinguishable
                         // from a correct one.
                         let name = type_def.name().to_string();
                         if map.insert(name.clone(), type_def).is_some() {
@@ -1203,7 +1206,8 @@ mod tests {
 
         #[test]
         fn registers_each_entry_under_its_primary() {
-            // Supply Mail and Person as separate entries to expose both by name.
+            // Supply Mail and Person as separate entries to expose both by
+            // name.
             let map = parse_eip712_canonical_types(vec![
                 MAIL_WITH_PERSON_CANONICAL.to_string(),
                 PERSON_CANONICAL.to_string(),

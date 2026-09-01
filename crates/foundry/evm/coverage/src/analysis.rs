@@ -71,14 +71,14 @@ impl<'a> ContractVisitor<'a> {
             .attribute("kind")
             .ok_or_else(|| eyre::eyre!("Function has no kind"))?;
 
-        // TODO: We currently can only detect empty bodies in normal functions, not any
-        // of the other kinds: https://github.com/foundry-rs/foundry/issues/9458
+        // TODO: We currently can only detect empty bodies in normal functions,
+        // not any of the other kinds: https://github.com/foundry-rs/foundry/issues/9458
         if kind != "function" && !has_statements(body) {
             return Ok(());
         }
 
-        // `fallback`, `receive`, and `constructor` functions have an empty `name`.
-        // Use the `kind` itself as the name.
+        // `fallback`, `receive`, and `constructor` functions have an empty
+        // `name`. Use the `kind` itself as the name.
         let name = if name.is_empty() { kind } else { name };
 
         self.push_item_kind(CoverageItemKind::Function { name }, &node.src);
@@ -203,22 +203,24 @@ impl<'a> ContractVisitor<'a> {
                     .attribute("trueBody")
                     .ok_or_else(|| eyre::eyre!("if statement had no true body"))?;
 
-                // We need to store the current branch ID here since visiting the body of either
-                // of the if blocks may increase `self.branch_id` in the case of
+                // We need to store the current branch ID here since visiting
+                // the body of either of the if blocks may
+                // increase `self.branch_id` in the case of
                 // nested if statements.
                 let branch_id = self.branch_id;
 
-                // We increase the branch ID here such that nested branches do not use the same
-                // branch ID as we do.
+                // We increase the branch ID here such that nested branches do
+                // not use the same branch ID as we do.
                 self.branch_id += 1;
 
                 match node.attribute::<Node>("falseBody") {
                     // Both if/else statements.
                     Some(false_body) => {
-                        // Add branch coverage items only if one of true/branch bodies contains
-                        // statements.
+                        // Add branch coverage items only if one of true/branch
+                        // bodies contains statements.
                         if has_statements(&true_body) || has_statements(&false_body) {
-                            // The branch instruction is mapped to the first opcode within the true
+                            // The branch instruction is mapped to the first
+                            // opcode within the true
                             // body source range.
                             self.push_item_kind(
                                 CoverageItemKind::Branch {
@@ -229,8 +231,10 @@ impl<'a> ContractVisitor<'a> {
                                 &true_body.src,
                             );
                             // Add the coverage item for branch 1 (false body).
-                            // The relevant source range for the false branch is the `else`
-                            // statement itself and the false body of the else statement.
+                            // The relevant source range for the false branch is
+                            // the `else`
+                            // statement itself and the false body of the else
+                            // statement.
                             self.push_item_kind(
                                 CoverageItemKind::Branch {
                                     branch_id,
@@ -253,7 +257,8 @@ impl<'a> ContractVisitor<'a> {
                         }
                     }
                     None => {
-                        // Add single branch coverage only if it contains statements.
+                        // Add single branch coverage only if it contains
+                        // statements.
                         if has_statements(&true_body) {
                             // Add the coverage item for branch 0 (true body).
                             self.push_item_kind(
@@ -283,13 +288,14 @@ impl<'a> ContractVisitor<'a> {
                     .as_deref()
                     .ok_or_else(|| eyre::eyre!("yul if statement had no body"))?;
 
-                // We need to store the current branch ID here since visiting the body of either
-                // of the if blocks may increase `self.branch_id` in the case of
+                // We need to store the current branch ID here since visiting
+                // the body of either of the if blocks may
+                // increase `self.branch_id` in the case of
                 // nested if statements.
                 let branch_id = self.branch_id;
 
-                // We increase the branch ID here such that nested branches do not use the same
-                // branch ID as we do
+                // We increase the branch ID here such that nested branches do
+                // not use the same branch ID as we do
                 self.branch_id += 1;
 
                 self.push_item_kind(
@@ -359,9 +365,11 @@ impl<'a> ContractVisitor<'a> {
                             // Increment path id for next branch.
                             path_id += 1;
                         } else if clause.attribute::<Node>("parameters").is_some() {
-                            // Add coverage for clause with parameters and empty statements.
+                            // Add coverage for clause with parameters and empty
+                            // statements.
                             // (`catch (bytes memory reason) {}`).
-                            // Catch all clause without statements is ignored (`catch {}`).
+                            // Catch all clause without statements is ignored
+                            // (`catch {}`).
                             self.push_item_kind(CoverageItemKind::Statement, &clause.src);
                             self.visit_statement(&clause)?;
                         }
@@ -424,7 +432,8 @@ impl<'a> ContractVisitor<'a> {
                 Ok(())
             }
             NodeType::FunctionCall => {
-                // Do not count other kinds of calls towards coverage (like `typeConversion`
+                // Do not count other kinds of calls towards coverage (like
+                // `typeConversion`
                 // and `structConstructorCall`).
                 let kind: Option<String> = node.attribute("kind");
                 if let Some("functionCall") = kind.as_deref() {
@@ -464,8 +473,8 @@ impl<'a> ContractVisitor<'a> {
                 self.push_item_kind(CoverageItemKind::Statement, &node.src);
 
                 // visit left and right expressions
-                // There could possibly a function call in the left or right expression
-                // e.g: callFunc(a) + callFunc(b)
+                // There could possibly a function call in the left or right
+                // expression e.g: callFunc(a) + callFunc(b)
                 if let Some(expr) = node.attribute("leftExpression") {
                     self.visit_expression(&expr)?;
                 }
@@ -660,7 +669,8 @@ impl SourceAnalysis {
         let mut all_items = Vec::new();
         let mut map = vec![(u32::MAX, 0); len];
         for (idx, items) in sourced_items {
-            // Assumes that all `idx` items are consecutive, guaranteed by the sort above.
+            // Assumes that all `idx` items are consecutive, guaranteed by the
+            // sort above.
             let entry = map.get_mut(idx).expect("idx should be within map bounds");
             if entry.0 == u32::MAX {
                 entry.0 = all_items.len() as u32;

@@ -158,15 +158,16 @@ pub fn decode_instructions(
         }
     }
 
-    // 3. Reuse BuildModel's lazy reverse index (built at most once per BuildModel).
+    // 3. Reuse BuildModel's lazy reverse index (built at most once per
+    //    BuildModel).
     let name_to_file_id = build_model.name_to_file_id();
 
     // 4. Per-file line-start caches, populated on demand.
     let mut line_starts_by_file_id: HashMap<u32, Vec<usize>> = HashMap::new();
 
-    // 5. Walk PCs, mirroring `source_map::decode_instructions` so PUSH operands are
-    //    skipped consistently. PcOpcodes ends iteration as soon as it hits an
-    //    invalid byte (CBOR metadata region), matching the previous `break`
+    // 5. Walk PCs, mirroring `source_map::decode_instructions` so PUSH operands
+    //    are skipped consistently. PcOpcodes ends iteration as soon as it hits
+    //    an invalid byte (CBOR metadata region), matching the previous `break`
     //    semantics.
     let mut instructions: Vec<Instruction> = PcOpcodes::new(normalized_code)
         .map(|step| {
@@ -400,7 +401,8 @@ impl ParsedDwarf {
 
             // Two passes over DIEs: pass 1 collects abstract-subprogram meta
             // (`DW_AT_artificial`, decl_file/line) keyed by DIE offset; pass 2
-            // walks inlined-subroutine + concrete subprogram DIEs and joins on it.
+            // walks inlined-subroutine + concrete subprogram DIEs and joins on
+            // it.
             let mut abstract_meta: HashMap<gimli::UnitOffset, AbstractOriginMeta> = HashMap::new();
             {
                 let mut entries = unit.entries();
@@ -415,7 +417,8 @@ impl ParsedDwarf {
                         match attr.name() {
                             gimli::DW_AT_inline => {
                                 if let gimli::AttributeValue::Inline(v) = attr.value() {
-                                    // DW_INL_inlined or DW_INL_declared_inlined.
+                                    // DW_INL_inlined or
+                                    // DW_INL_declared_inlined.
                                     is_inline = v.0 == 1 || v.0 == 3;
                                 }
                             }
@@ -440,8 +443,9 @@ impl ParsedDwarf {
                 depth += delta;
 
                 // Two subprogram-like DIEs feed this: DW_TAG_inlined_subroutine
-                // (with abstract origin) and concrete DW_TAG_subprogram (low_pc,
-                // no DW_AT_inline) — typically self-recursive functions.
+                // (with abstract origin) and concrete DW_TAG_subprogram
+                // (low_pc, no DW_AT_inline) — typically
+                // self-recursive functions.
                 let is_inlined = die.tag() == gimli::DW_TAG_inlined_subroutine;
                 let is_subprogram_with_pc = die.tag() == gimli::DW_TAG_subprogram
                     && die.attr(gimli::DW_AT_low_pc)?.is_some()
@@ -639,7 +643,8 @@ impl ParsedDwarf {
             user_func_range.is_none_or(|(begin, end)| offset >= begin && offset < end)
         };
 
-        // Pass 1: innermost artificial entry whose call_site is inside the user fn.
+        // Pass 1: innermost artificial entry whose call_site is inside the user
+        // fn.
         for r in &containing {
             if !r.is_artificial {
                 continue;
@@ -753,8 +758,9 @@ impl ParsedDwarf {
             if !matches!(inst.opcode, OpCode::JUMP | OpCode::JUMPI) {
                 continue;
             }
-            // Recent PUSH = JUMP destination (low 8 bytes; JUMPDESTs fit in u64).
-            // SWAP/DUP between PUSH and JUMP → bail to InternalJump.
+            // Recent PUSH = JUMP destination (low 8 bytes; JUMPDESTs fit in
+            // u64). SWAP/DUP between PUSH and JUMP → bail to
+            // InternalJump.
             let mut dest: Option<u64> = None;
             for j in (0..i).rev().take(8) {
                 let Some(prev) = instructions.get(j) else {
@@ -803,9 +809,11 @@ impl ParsedDwarf {
                             JumpType::InternalJump
                         }
                     } else if t.low_pc < h.low_pc || t.high_pc > h.high_pc {
-                        // `t` isn't nested in `h`: either parent-of-`h` (return)
-                        // or sibling (cross-call between concrete subprograms).
-                        // Jumping to `t.low_pc` is a call; anything else, a return.
+                        // `t` isn't nested in `h`: either parent-of-`h`
+                        // (return) or sibling
+                        // (cross-call between concrete subprograms).
+                        // Jumping to `t.low_pc` is a call; anything else, a
+                        // return.
                         if dest == Some(t.low_pc) {
                             JumpType::IntoFunction
                         } else {
@@ -1212,7 +1220,8 @@ mod tests {
             let model = make_build_model_for_scenarios();
             let instructions = decode_deployed_for(&output, "DivisionByZeroTest", &model);
 
-            // PC 0xc81 is the panic-emitting REVERT for `0x12` (divide by zero).
+            // PC 0xc81 is the panic-emitting REVERT for `0x12` (divide by
+            // zero).
             let inst = instructions
                 .iter()
                 .find(|i| i.pc == 0xc81)
@@ -1300,7 +1309,8 @@ mod tests {
                 .expect("DWARF decode should succeed for the Counter fixture");
             assert!(!instructions.is_empty());
 
-            // pc=0x002e maps to Counter.sol line 13 (the `require(v > 0, ...)`).
+            // pc=0x002e maps to Counter.sol line 13 (the `require(v > 0,
+            // ...)`).
             let has_line_13 = instructions
                 .iter()
                 .any(|inst| match inst.location.as_ref() {
@@ -1499,8 +1509,9 @@ mod tests {
             let model = make_build_model_for_counter();
             let instructions = decode_instructions(&raw, &bc.debug_info, &model, false).unwrap();
 
-            // Pin: some PC at Counter.sol:13 (the require) has inline_call_sites
-            // pointing at Counter.sol:8 (the _checkPositive call site).
+            // Pin: some PC at Counter.sol:13 (the require) has
+            // inline_call_sites pointing at Counter.sol:8 (the
+            // _checkPositive call site).
             let any_call_site_at_line_8 = instructions.iter().any(|inst| {
                 inst.location
                     .as_ref()
@@ -1598,9 +1609,10 @@ mod tests {
 
         #[test]
         fn every_jump_gets_a_non_default_jump_type() {
-            // solx inlines helpers, so most JUMPs are dispatcher/abi-related and
-            // stay inside a single range — we only require every JUMP/JUMPI to
-            // get *some* non-default jump_type (not the NotJump placeholder).
+            // solx inlines helpers, so most JUMPs are dispatcher/abi-related
+            // and stay inside a single range — we only require
+            // every JUMP/JUMPI to get *some* non-default jump_type
+            // (not the NotJump placeholder).
             let output = load_solx_output();
             let bc = &output
                 .contracts
@@ -1632,7 +1644,8 @@ mod tests {
             //   PC=0    PUSH2 0x0100   ; real destination
             //   PC=3    SWAP1          ; obscures the destination on the stack
             //   PC=4    JUMP
-            //   PC=0x100 JUMPDEST       ; inlined-subroutine entry (per ParsedDwarf)
+            //   PC=0x100 JUMPDEST       ; inlined-subroutine entry (per
+            // ParsedDwarf)
             let make_inst = |pc: u32, opcode: OpCode, push_data: Option<Vec<u8>>| Instruction {
                 pc,
                 opcode,

@@ -370,7 +370,8 @@ impl<'de> Deserialize<'de> for Timestamp {
     where
         D: Deserializer<'de>,
     {
-        // TODO: Accept only `0x`-prefixed hex strings (and possibly base 10 strings).
+        // TODO: Accept only `0x`-prefixed hex strings (and possibly base 10
+        // strings).
         U64::deserialize(deserializer)
             .map(|value| Timestamp(value.as_limbs()[0]))
             .map_err(|_err| {
@@ -418,8 +419,8 @@ pub(crate) mod storage_value {
             return Err(error_message());
         }
 
-        // Remove 2 characters for the "0x" prefix and divide by 2 because each byte is
-        // represented by 2 hex characters.
+        // Remove 2 characters for the "0x" prefix and divide by 2 because each
+        // byte is represented by 2 hex characters.
         let length = (value.len() - 2) / 2;
         if length != 32 {
             return Err(serde::de::Error::custom(format!(

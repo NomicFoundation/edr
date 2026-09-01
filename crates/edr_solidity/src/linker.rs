@@ -162,12 +162,13 @@ impl<'a> Linker<'a> {
             .collect::<Vec<_>>();
 
         if matching_artifacts.len() < 2 {
-            // If there's only one matching artifact, return that. Return `None` if there
-            // are no matching artifacts.
+            // If there's only one matching artifact, return that. Return `None`
+            // if there are no matching artifacts.
             matching_artifacts.into_iter().next_back()
         } else {
-            // If there's more than one, use the one that has the same version as the
-            // contract being linked. If there isn't, use the latest one.
+            // If there's more than one, use the one that has the same version
+            // as the contract being linked. If there isn't, use the
+            // latest one.
             matching_artifacts
                 .iter()
                 .copied()
@@ -254,8 +255,9 @@ impl<'a> Linker<'a> {
         mut nonce: u64,
         targets: impl IntoIterator<Item = &'a ArtifactId>,
     ) -> Result<LinkOutput, LinkerError> {
-        // Library paths in `link_references` keys are always stripped, so we have to
-        // strip user-provided paths to be able to match them correctly.
+        // Library paths in `link_references` keys are always stripped, so we
+        // have to strip user-provided paths to be able to match them
+        // correctly.
         let mut libraries = deployed_libraries.with_stripped_file_prefixes(self.root.as_path());
 
         let mut needed_libraries = BTreeSet::new();
@@ -265,8 +267,8 @@ impl<'a> Linker<'a> {
 
         let mut libs_to_deploy = Vec::new();
 
-        // If `libraries` does not contain needed dependency, compute its address and
-        // add to `libs_to_deploy`.
+        // If `libraries` does not contain needed dependency, compute its
+        // address and add to `libs_to_deploy`.
         for id in needed_libraries {
             let (lib_path, lib_name) = self.convert_artifact_id_to_lib_path(id);
 
@@ -331,8 +333,9 @@ impl<'a> Linker<'a> {
         salt: B256,
         target: &'a ArtifactId,
     ) -> Result<LinkOutput, LinkerError> {
-        // Library paths in `link_references` keys are always stripped, so we have to
-        // strip user-provided paths to be able to match them correctly.
+        // Library paths in `link_references` keys are always stripped, so we
+        // have to strip user-provided paths to be able to match them
+        // correctly.
         let mut libraries = deployed_libraries.with_stripped_file_prefixes(self.root.as_path());
 
         let mut needed_libraries = BTreeSet::new();
@@ -349,8 +352,8 @@ impl<'a> Linker<'a> {
                     .is_none_or(|libs| !libs.contains_key(&name))
             })
             .map(|id| {
-                // Link library with provided libs and extract bytecode object (possibly
-                // unlinked).
+                // Link library with provided libs and extract bytecode object
+                // (possibly unlinked).
                 let linked_contract = self.link(id, &libraries)?;
                 let bytecode =
                     linked_contract
@@ -364,8 +367,8 @@ impl<'a> Linker<'a> {
 
         let mut libs_to_deploy = Vec::new();
 
-        // Iteratively compute addresses and link libraries until we have no unlinked
-        // libraries left.
+        // Iteratively compute addresses and link libraries until we have no
+        // unlinked libraries left.
         while !needed_libraries.is_empty() {
             // Find any library which is fully linked.
             let deployable = needed_libraries
@@ -373,8 +376,8 @@ impl<'a> Linker<'a> {
                 .enumerate()
                 .find(|(_, (_, bytecode))| !bytecode.object.is_unlinked());
 
-            // If we haven't found any deployable library, it means we have a cyclic
-            // dependency.
+            // If we haven't found any deployable library, it means we have a
+            // cyclic dependency.
             let Some((index, &(id, _))) = deployable else {
                 return Err(LinkerError::CyclicDependency);
             };
@@ -440,9 +443,11 @@ impl<'a> Linker<'a> {
                 if let Some(bytecode) = contract.bytecode.as_mut() {
                     let bytecode_mut = bytecode.to_mut();
                     if !bytecode_mut.link(&file.to_string_lossy(), name, address) {
-                        // If we didn't link, there is nothing to link. By calling `resolve()` we
-                        // make sure that the `BytecodeObject::Unlinked` is turned into
-                        // `BytecodeObject:Bytecode`.
+                        // If we didn't link, there is nothing to link. By
+                        // calling `resolve()` we
+                        // make sure that the `BytecodeObject::Unlinked` is
+                        // turned into `BytecodeObject:
+                        // Bytecode`.
                         bytecode_mut.object.resolve();
                     }
                 }
@@ -452,8 +457,9 @@ impl<'a> Linker<'a> {
                     .and_then(|b| b.to_mut().bytecode.as_mut())
                     && !deployed_bytecode.link(&file.to_string_lossy(), name, address)
                 {
-                    // If we didn't link, there is nothing to link. By calling `resolve()` we
-                    // make sure that the `BytecodeObject::Unlinked` is turned into
+                    // If we didn't link, there is nothing to link. By calling
+                    // `resolve()` we make sure that the
+                    // `BytecodeObject::Unlinked` is turned into
                     // `BytecodeObject:Bytecode`.
                     deployed_bytecode.object.resolve();
                 }
@@ -619,8 +625,9 @@ mod tests {
         ) -> impl IntoIterator<Item = (&'a ArtifactId, String)> + 'a {
             linker.contracts.keys().filter_map(move |id| {
                 // If we didn't strip paths, artifacts will have absolute paths.
-                // That's expected and we want to ensure that only `libraries` object has
-                // relative paths, artifacts should be kept as is.
+                // That's expected and we want to ensure that only `libraries`
+                // object has relative paths, artifacts should
+                // be kept as is.
                 let source = id
                     .source
                     .strip_prefix(self.project.root())
@@ -628,8 +635,8 @@ mod tests {
                     .to_string_lossy();
                 let identifier = format!("{source}:{}", id.name);
 
-                // Skip ds-test as it always has no dependencies etc. (and the path is outside
-                // root so is not sanitized)
+                // Skip ds-test as it always has no dependencies etc. (and the
+                // path is outside root so is not sanitized)
                 if identifier.contains("DSTest") {
                     return None;
                 }

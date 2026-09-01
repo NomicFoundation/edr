@@ -44,7 +44,8 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
         request: String,
         on_response: Box<dyn FnOnce(napi::Result<Response>) + Send>,
     ) {
-        // Deserialization takes microseconds, so it stays on the calling thread.
+        // Deserialization takes microseconds, so it stays on the calling
+        // thread.
         let request = match serde_json::from_str(&request) {
             Ok(request) => request,
             Err(error) => {
@@ -97,8 +98,8 @@ where
 
     let reason = InvalidRequestReason::new(method_name, &message);
 
-    // HACK: We need to log failed deserialization attempts when they concern input
-    // validation.
+    // HACK: We need to log failed deserialization attempts when they concern
+    // input validation.
     if let Some((method_name, provider_error)) = reason.provider_error::<ChainSpecT, TimerT>() {
         provider.log_failed_deserialization(method_name, provider_error);
     }

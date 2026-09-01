@@ -206,10 +206,11 @@ impl<
             import_resolver,
         } = config;
 
-        // Collect the test sources' inline configuration up front, off the async
-        // runtime (it reads and parses files). Any problem found — reported per
-        // test function, each located at its source line — fails here, aborting
-        // the whole run before any test executes.
+        // Collect the test sources' inline configuration up front, off the
+        // async runtime (it reads and parses files). Any problem found
+        // — reported per test function, each located at its source line
+        // — fails here, aborting the whole run before any test
+        // executes.
         let roots = inline_config_roots(&test_source_paths, &test_contracts);
         let inline_config_provider = tokio::task::spawn_blocking(move || {
             SharedInlineConfigProvider::collect(roots, import_resolver)
@@ -460,8 +461,8 @@ impl<
             let mut decoder = CallTraceDecoderBuilder::new().build();
             let mut trace_identifier = TraceIdentifiers::new().with_local(&self.known_contracts);
 
-            // Setup traces are shared across all tests in the suite, so decode and analyze
-            // them only once.
+            // Setup traces are shared across all tests in the suite, so decode
+            // and analyze them only once.
             for (_, arena) in &mut r.setup_traces {
                 decoder.identify(arena, &mut trace_identifier);
                 tokio::task::block_in_place(|| {
@@ -490,7 +491,8 @@ impl<
                         .map(|(k, v)| (*k, v.clone())),
                 );
 
-                // Re-execute setup traces to collect identities of deployed contracts.
+                // Re-execute setup traces to collect identities of deployed
+                // contracts.
                 for (_, arena) in &mut r.setup_traces {
                     decoder.identify(arena, &mut trace_identifier);
                 }
@@ -513,7 +515,8 @@ impl<
                     for trace in &result.gas_report_traces {
                         decoder.clear_addresses();
 
-                        // Re-execute setup traces to collect identities of deployed contracts.
+                        // Re-execute setup traces to collect identities of
+                        // deployed contracts.
                         for (_, arena) in &r.setup_traces {
                             decoder.identify(arena, &mut trace_identifier);
                         }
@@ -609,8 +612,8 @@ impl<
             find_time,
         );
 
-        // Gas reports are collected for each suite and merged at the end to allow
-        // parallel execution of test suites.
+        // Gas reports are collected for each suite and merged at the end to
+        // allow parallel execution of test suites.
         let gas_reports = contracts
             .into_par_iter()
             .map(|(id, contract)| {

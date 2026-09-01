@@ -37,8 +37,9 @@ async fn test_function_override_evm_version() {
         )]),
     );
 
-    // With the inline `evmVersion` directive (in `ShanghaiCompatOverride.t.sol`)
-    // set to Shanghai, PUSH0 becomes available and the test passes.
+    // With the inline `evmVersion` directive (in
+    // `ShanghaiCompatOverride.t.sol`) set to Shanghai, PUSH0 becomes
+    // available and the test passes.
     let override_filter =
         SolidityTestFilter::new(".*", ".*", ".*spec/ShanghaiCompatOverride.t.sol");
     let config = TEST_DATA_PARIS.config_with_mock_rpc();

@@ -30,8 +30,8 @@ async fn estimate_gas() -> anyhow::Result<()> {
             .get_mut(&address)
             .expect("Account should be present in genesis state");
 
-        // Lower the balance to zero. This should not trigger an `OutOfFunds` error in
-        // REVM when estimating gas.
+        // Lower the balance to zero. This should not trigger an `OutOfFunds`
+        // error in REVM when estimating gas.
         account.balance = Some(U256::from(0u64));
 
         address
@@ -81,8 +81,8 @@ async fn estimate_gas_with_value() -> anyhow::Result<()> {
             .get_mut(&address)
             .expect("Account should be present in genesis state");
 
-        // Lower the balance to zero. This should not trigger an `OutOfFunds` error in
-        // REVM when estimating gas.
+        // Lower the balance to zero. This should not trigger an `OutOfFunds`
+        // error in REVM when estimating gas.
         account.balance = Some(U256::from(0u64));
 
         address

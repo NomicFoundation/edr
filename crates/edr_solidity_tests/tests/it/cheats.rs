@@ -34,8 +34,8 @@ async fn test_cheats_local(test_data: &L1ForgeTestData, should_fail: bool) {
         exclude_test_patterns.push(should_fail_pattern);
     }
 
-    // Exclude FFI tests on Windows because no `echo`, and file tests that expect
-    // certain file paths
+    // Exclude FFI tests on Windows because no `echo`, and file tests that
+    // expect certain file paths
     if cfg!(windows) {
         exclude_test_patterns.extend_from_slice(&windows_exclude_patterns);
     }

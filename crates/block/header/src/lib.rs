@@ -456,10 +456,13 @@ impl PartialHeader {
                                             .base_fee_per_gas
                                             .expect("base fee must be set for post-Osaka blocks")
                                     } else {
-                                        // In pre-Osaka (EIP-4844) scenarios, the base fee parameter
-                                        // is not used in excess blob gas calculation. Passing 0 is
+                                        // In pre-Osaka (EIP-4844) scenarios,
+                                        // the base fee parameter
+                                        // is not used in excess blob gas
+                                        // calculation. Passing 0 is
                                         // acceptable here because
-                                        // `next_block_excess_blob_gas_osaka` ignores the base fee
+                                        // `next_block_excess_blob_gas_osaka`
+                                        // ignores the base fee
                                         // value for these hardforks.
                                         0
                                     };
@@ -682,9 +685,9 @@ pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
     // TODO: Remove once https://github.com/alloy-rs/alloy/issues/2181 has been addressed.
     let gas_limit = u128::from(parent.gas_limit);
 
-    // In reality, [EIP-1559] specifies an initial base fee block number at which to
-    // use the initial base fee, but we always use it if the parent block is
-    // missing the base fee.
+    // In reality, [EIP-1559] specifies an initial base fee block number at
+    // which to use the initial base fee, but we always use it if the parent
+    // block is missing the base fee.
     //
     // [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     let base_fee = parent
@@ -702,7 +705,8 @@ pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
         // If the gas used in the current block is greater than the gas target, calculate a new
         // increased base fee.
         core::cmp::Ordering::Greater => {
-            // Calculate the increase in base fee based on the formula defined by EIP-1559.
+            // Calculate the increase in base fee based on the formula defined
+            // by EIP-1559.
             base_fee
                 + core::cmp::max(
                     // Ensure a minimum increase of 1.
@@ -714,7 +718,8 @@ pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
         // If the gas used in the current block is less than the gas target, calculate a new
         // decreased base fee.
         core::cmp::Ordering::Less => {
-            // Calculate the decrease in base fee based on the formula defined by EIP-1559.
+            // Calculate the decrease in base fee based on the formula defined
+            // by EIP-1559.
             base_fee.saturating_sub(
                 base_fee * (gas_target - gas_used)
                     / (gas_target * base_fee_params.max_change_denominator),
@@ -1105,8 +1110,8 @@ mod tests {
     // carries a `block_access_list_hash` at all is decided here.
     #[test]
     fn block_access_list_hash_absent_before_amsterdam_even_with_override() {
-        // An override on an earlier hardfork is ignored, so no spec-invalid header can
-        // be built.
+        // An override on an earlier hardfork is ignored, so no spec-invalid
+        // header can be built.
         let header = partial_header_with_hardfork(
             edr_chain_l1::Hardfork::Prague,
             HeaderOverrides {
@@ -1144,8 +1149,8 @@ mod tests {
 
     #[test]
     fn slot_number_absent_before_amsterdam_even_with_override() {
-        // An override on an earlier hardfork is ignored, so no spec-invalid header can
-        // be built.
+        // An override on an earlier hardfork is ignored, so no spec-invalid
+        // header can be built.
         let header = partial_header_with_hardfork(
             edr_chain_l1::Hardfork::Prague,
             HeaderOverrides {
@@ -1159,7 +1164,8 @@ mod tests {
 
     #[test]
     fn slot_number_honors_override_on_amsterdam() {
-        // The override must win over the parent-increment path (which would be 42).
+        // The override must win over the parent-increment path (which would be
+        // 42).
         let parent = BlockHeader {
             slot_number: Some(41),
             ..BlockHeader::default()

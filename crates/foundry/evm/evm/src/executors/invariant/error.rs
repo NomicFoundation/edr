@@ -156,7 +156,8 @@ impl FailedInvariantCaseData {
         >,
         inner_sequence: &[Option<BasicTxDetails>],
     ) -> Self {
-        // Collect abis of fuzzed and invariant contracts to decode custom error.
+        // Collect abis of fuzzed and invariant contracts to decode custom
+        // error.
         let revert_reason = RevertDecoder::new()
             .with_abis(targeted_contracts.targets.lock().values().map(|c| &c.abi))
             .with_abi(invariant_contract.abi)

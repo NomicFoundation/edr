@@ -164,8 +164,8 @@ impl<SignatureT: Recoverable + Signature> serde::Serialize for FakeableSignature
         let mut map = serializer.serialize_map(Some(3))?;
         map.serialize_entry("r", &self.r())?;
         map.serialize_entry("s", &self.s())?;
-        // Match geth's behavior by always serializing V-value, even when the Y-parity
-        // is known.
+        // Match geth's behavior by always serializing V-value, even when the
+        // Y-parity is known.
         // <https://github.com/ethereum/go-ethereum/blob/6a49d13c13d967dd9fb2190fd110ef6d90fc09cd/core/types/transaction_marshalling.go#L81>
         map.serialize_entry("v", &self.v())?;
 
@@ -205,8 +205,9 @@ impl<SignatureT: Recoverable + Signature> Signature for FakeableSignature<Signat
     fn y_parity(&self) -> Option<bool> {
         match &self.data {
             FakeableData::Fake { recovery_id } => {
-                // We add the +27 magic number that originates from Bitcoin as the
-                // `Signature::new` function adds it as well.
+                // We add the +27 magic number that originates from Bitcoin as
+                // the `Signature::new` function adds it as
+                // well.
                 if *recovery_id == 28 {
                     Some(true)
                 } else {

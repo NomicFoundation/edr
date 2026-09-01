@@ -163,9 +163,10 @@ fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
     }
 
     if check {
-        // Checks whether there were any changes aside from changes triggered due to
-        // different superchain registry commit SHA included in the documentation:
-        // a diff consisting only of `// source: <sha>` lines counts as up to date.
+        // Checks whether there were any changes aside from changes triggered
+        // due to different superchain registry commit SHA included in
+        // the documentation: a diff consisting only of `// source:
+        // <sha>` lines counts as up to date.
         let significant_diff = Command::new("git")
             .arg("diff")
             .arg(
@@ -448,9 +449,10 @@ fn generate_hardfork_activations_for(
         },
     );
 
-    // Superchain registry lists hardforks starting from Canyon, but there are two
-    // previous OpSpec hardforks before: bedrock and regolith. We are adding
-    // those hardforks to make sure that the blockchain hardfork list is complete.
+    // Superchain registry lists hardforks starting from Canyon, but there are
+    // two previous OpSpec hardforks before: bedrock and regolith. We are
+    // adding those hardforks to make sure that the blockchain hardfork list
+    // is complete.
     let previous_hardforks = [(OpHardfork::Bedrock, 0), (OpHardfork::Regolith, 0)];
     let activations_str: String = previous_hardforks
         .into_iter()

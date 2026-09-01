@@ -54,9 +54,10 @@ where
         block
     } else {
         if let Ok(latest_block) = provider.get_block_number().await {
-            // If the `eth_getBlockByNumber` call succeeds, but returns null instead of
-            // the block, and the block number is less than equal the latest block, then
-            // the user is forking from a non-archive node with an older block number.
+            // If the `eth_getBlockByNumber` call succeeds, but returns null
+            // instead of the block, and the block number is less
+            // than equal the latest block, then the user is forking
+            // from a non-archive node with an older block number.
             if block_number <= latest_block {
                 error!("{NON_ARCHIVE_NODE_WARNING}");
             }
@@ -121,13 +122,14 @@ where
     cfg.memory_limit = memory_limit;
     cfg.limit_contract_code_size = Some(usize::MAX);
     // EIP-3607 rejects transactions from senders with deployed code.
-    // If EIP-3607 is enabled it can cause issues during fuzz/invariant tests if the
-    // caller is a contract. So we disable the check by default.
+    // If EIP-3607 is enabled it can cause issues during fuzz/invariant tests if
+    // the caller is a contract. So we disable the check by default.
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
     cfg.disable_nonce_check = true;
     if disable_transaction_gas_cap {
-        // Setting to `u64::MAX` is REVM's idiom for opting out of the EIP-7825 cap.
+        // Setting to `u64::MAX` is REVM's idiom for opting out of the EIP-7825
+        // cap.
         cfg.tx_gas_limit_cap = Some(u64::MAX);
     } else if let Some(cap) = transaction_gas_cap {
         cfg.tx_gas_limit_cap = Some(cap);

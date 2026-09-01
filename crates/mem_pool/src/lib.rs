@@ -398,8 +398,8 @@ impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
                 should_retain
             });
 
-            // Check that the pending transactions still have consecutive nonces, starting
-            // from the sender's nonce
+            // Check that the pending transactions still have consecutive
+            // nonces, starting from the sender's nonce
             if let Some((idx, _)) = transactions
                 .iter()
                 .enumerate()

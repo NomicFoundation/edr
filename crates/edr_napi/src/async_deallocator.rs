@@ -29,8 +29,9 @@ impl<T: Send + 'static> AsyncDeallocator<T> {
             "async-deallocator".to_owned(),
             move |cancellation_receiver| {
                 loop {
-                    // `select_biased!` picks the first listed branch when multiple
-                    // arms are ready, so cancellation always wins over pending work.
+                    // `select_biased!` picks the first listed branch when
+                    // multiple arms are ready, so
+                    // cancellation always wins over pending work.
                     select_biased! {
                         // Cancellation channel was disconnected by dropping the CancellableThread.
                         recv(cancellation_receiver) -> _ => break,

@@ -205,7 +205,8 @@ impl<
             100 - dictionary_weight => fuzz_calldata(func.clone(), fuzz_fixtures),
             dictionary_weight => fuzz_calldata_from_state(func.clone(), &state),
         ];
-        // We want to collect at least one trace which will be displayed to user.
+        // We want to collect at least one trace which will be displayed to
+        // user.
         let max_traces_to_collect = std::cmp::max(1, self.config.gas_report_samples) as usize;
         let show_logs = self.config.show_logs;
 
@@ -249,9 +250,11 @@ impl<
                     exit_reason: status,
                     counterexample: outcome,
                 }) => {
-                    // We cannot use the calldata returned by the test runner in `TestError::Fail`,
-                    // since that input represents the last run case, which may not correspond with
-                    // our failure - when a fuzz case fails, proptest will try to run at least one
+                    // We cannot use the calldata returned by the test runner in
+                    // `TestError::Fail`, since that input
+                    // represents the last run case, which may not correspond
+                    // with our failure - when a fuzz case
+                    // fails, proptest will try to run at least one
                     // more case to find a minimal failure case.
                     let reason = rd.maybe_decode(&outcome.call.result, status);
                     execution_data
@@ -259,7 +262,8 @@ impl<
                         .logs
                         .extend(outcome.call.logs.clone());
                     execution_data.borrow_mut().counterexample = outcome;
-                    // HACK: we have to use an empty string here to denote `None`.
+                    // HACK: we have to use an empty string here to denote
+                    // `None`.
                     Err(TestCaseError::fail(reason.unwrap_or_default()))
                 }
             }
@@ -294,8 +298,9 @@ impl<
             Ok(()) => {}
             Err(TestError::Abort(reason)) => {
                 let msg = reason.message();
-                // Currently the only operation that can trigger proptest global rejects is the
-                // `vm.assume` cheatcode, thus we surface this info to the user when the fuzz
+                // Currently the only operation that can trigger proptest global
+                // rejects is the `vm.assume` cheatcode, thus we
+                // surface this info to the user when the fuzz
                 // test aborts due to too many global rejects, making the error
                 // message more actionable.
                 result.reason = if msg == "Too many global rejects" {
@@ -308,7 +313,8 @@ impl<
             Err(TestError::Fail(reason, _)) => {
                 let reason = reason.to_string();
                 if reason == TEST_TIMEOUT {
-                    // If the reason is a timeout, we consider the fuzz test successful.
+                    // If the reason is a timeout, we consider the fuzz test
+                    // successful.
                     result.success = true;
                 } else {
                     result.reason = (!reason.is_empty()).then_some(reason);
@@ -379,8 +385,8 @@ impl<
                 cheatcodes.deprecated.clone().into_iter().collect()
             });
 
-        // Consider call success if test should not fail on reverts and reverter is not
-        // the cheatcode or test address.
+        // Consider call success if test should not fail on reverts and reverter
+        // is not the cheatcode or test address.
         let success = if !self.config.fail_on_revert
             && call
                 .reverter

@@ -54,16 +54,17 @@ impl GasReport {
 
         let is_create = trace.kind.is_any_create();
 
-        // Only include top-level calls which account for calldata and base (21.000)
-        // cost. Only include Calls and Creates as only these calls are isolated
-        // in inspector.
+        // Only include top-level calls which account for calldata and base
+        // (21.000) cost. Only include Calls and Creates as only these
+        // calls are isolated in inspector.
         if trace.depth > 1 && (trace.kind == CallKind::Call || is_create) {
             return;
         }
 
         // For proxy calls, we only want to report the outermost call to avoid
-        // duplicating gas reports along the proxy chain. The inner calls will be
-        // included as part of the proxy chain in the gas report of the implementation.
+        // duplicating gas reports along the proxy chain. The inner calls will
+        // be included as part of the proxy chain in the gas report of
+        // the implementation.
         if trace.kind == CallKind::DelegateCall
             && !is_create
             && let Some(parent) = node
@@ -76,18 +77,19 @@ impl GasReport {
 
         let proxy_chain = detect_proxy_chain(arena, node.idx);
 
-        // Hide `node` to ensure no one accidentally uses it without considering the
-        // special handling for proxy chains below.
+        // Hide `node` to ensure no one accidentally uses it without considering
+        // the special handling for proxy chains below.
         #[allow(unused_variables)]
         let node = ();
 
-        // We always want to use the gas used from the original trace, even for proxy
-        // calls, as it represents the actual call made by the user and includes the
-        // full gas cost of the proxied call.
+        // We always want to use the gas used from the original trace, even for
+        // proxy calls, as it represents the actual call made by the
+        // user and includes the full gas cost of the proxied call.
         let gas_used = trace.gas_used;
 
-        // If the call is through a proxy, use the implementation's `TraceCall` for
-        // decoding and reporting gas, as it reflects the actual code being executed.
+        // If the call is through a proxy, use the implementation's `TraceCall`
+        // for decoding and reporting gas, as it reflects the actual
+        // code being executed.
         let trace = proxy_chain
             .as_ref()
             .and_then(|chain| chain.first().map(Deref::deref))
@@ -139,8 +141,9 @@ impl GasReport {
             let should_include = !name.test_function_kind().is_known();
 
             if is_setup {
-                // The `setUp` can only happen for test contracts, which are only deployed once,
-                // so we can safely retrieve the last deployment to override its
+                // The `setUp` can only happen for test contracts, which are
+                // only deployed once, so we can safely retrieve
+                // the last deployment to override its
                 // status based on the `setUp` function call.
                 if let Some(last_deployment) = contract_info.deployments.last_mut() {
                     last_deployment.status = status;

@@ -52,8 +52,8 @@ async fn assert_base_fee_activation(
     )
     .await?;
 
-    // One block before the activation point should have a different `extra_data`
-    // field than its parent
+    // One block before the activation point should have a different
+    // `extra_data` field than its parent
     assert_replay_header::<OpChainSpec>(
         runtime.clone(),
         url.clone(),
@@ -63,8 +63,8 @@ async fn assert_base_fee_activation(
     )
     .await?;
 
-    // The activation point block should use the new values for calculating the base
-    // fee
+    // The activation point block should use the new values for calculating the
+    // base fee
     assert_replay_header::<OpChainSpec>(
         runtime,
         url,

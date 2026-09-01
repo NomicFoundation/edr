@@ -80,11 +80,11 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
         let parent_header = parent_block.block_header();
 
         // TODO: https://github.com/NomicFoundation/edr/issues/990
-        // Replace this once we can detect chain-specific block inputs in the provider
-        // and avoid passing them as input.
+        // Replace this once we can detect chain-specific block inputs in the
+        // provider and avoid passing them as input.
         if hardfork >= Hardfork::Canyon {
-            // `EthBlockBuilder` expects `inputs.withdrawals.is_some()` despite OP not
-            // supporting withdrawals.
+            // `EthBlockBuilder` expects `inputs.withdrawals.is_some()` despite
+            // OP not supporting withdrawals.
             inputs.withdrawals = Some(Vec::new());
         }
 
@@ -98,8 +98,8 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
         )?;
 
         if hardfork >= Hardfork::Holocene {
-            // For post-Holocene blocks, store the encoded base fee parameters to be used in
-            // the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
+            // For post-Holocene blocks, store the encoded base fee parameters
+            // to be used in the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
             overrides.extra_data = Some(overrides.extra_data.unwrap_or_else(|| {
                 let chain_base_fee_params = overrides
                     .base_fee_params
@@ -140,8 +140,8 @@ impl<'builder, BlockchainErrorT: 'static + std::error::Error + Send + Sync>
         }
 
         if hardfork >= Hardfork::Jovian {
-            // Need to override `base_fee` field since from Jovian hardfork OP stack differs
-            // from standard EVM calculation.
+            // Need to override `base_fee` field since from Jovian hardfork OP
+            // stack differs from standard EVM calculation.
             overrides.base_fee = overrides.base_fee.or_else(|| {
                 overrides.base_fee_params.as_ref().map(|base_fee_params| {
                     op_next_base_fee(parent_header, hardfork, base_fee_params)

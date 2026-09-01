@@ -61,8 +61,8 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
         steps.push(NestedTraceStep::Evm(EvmStep { pc: step.pc as u32 }));
 
         if is_calllike_op(step) {
-            // The opcode of this step is a call, but it's possible that this step resulted
-            // in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
+            // The opcode of this step is a call, but it's possible that this
+            // step resulted in a revert or out of gas error in which case there's no actual child call executed and recorded: <https://github.com/paradigmxyz/reth/issues/3915>
             if let Some(call_id) = node.children.get(child_index).copied() {
                 child_index += 1;
                 let child_trace = convert_node(
@@ -72,8 +72,9 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
                     call_id,
                 )?;
 
-                // To ensure the Solidity stack trace heuristics work correctly, we don't add
-                // failed calls to the nested trace steps.
+                // To ensure the Solidity stack trace heuristics work correctly,
+                // we don't add failed calls to the nested trace
+                // steps.
                 if !call_opcode_failed(&child_trace) {
                     steps.push(match child_trace {
                         NestedTrace::Create(msg) => NestedTraceStep::Create(msg),

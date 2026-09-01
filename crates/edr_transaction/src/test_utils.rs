@@ -46,7 +46,8 @@ macro_rules! test_fake_sign_properties {
 
             let transaction_request = dummy_request();
 
-            // Fails to recover with signature error if tried to ecrocver a fake signature
+            // Fails to recover with signature error if tried to ecrocver a fake
+            // signature
             let sender: Address = "0x67091a7dd65bf4f1e95af0a479fbc782b61c129a"
                 .parse()
                 .expect("valid address");

@@ -76,11 +76,11 @@ impl FuzzConfig {
 
             // HACK: We need to leak the path as
             // `proptest::test_runner::FileFailurePersistence` requires a
-            // `&'static str`. We mitigate this by making sure that one particular path
-            // is only leaked once.
+            // `&'static str`. We mitigate this by making sure that one
+            // particular path is only leaked once.
             let failure_paths = FAILURE_PATHS.get_or_init(RwLock::default);
-            // Need to be in a block to ensure that the read lock is dropped before we try
-            // to insert.
+            // Need to be in a block to ensure that the read lock is dropped
+            // before we try to insert.
             {
                 let failure_paths_guard = failure_paths.read().expect("lock is not poisoned");
                 if let Some(static_path) = failure_paths_guard.get(&*failure_persist_path) {

@@ -4,7 +4,8 @@ use alloy_json_abi as abi;
 
 /// Converts a JSON ABI error item to its selector.
 pub fn json_abi_error_selector(error_abi_item: &serde_json::Value) -> Result<[u8; 4], Box<str>> {
-    // Unfortunately, alloy_json_abi does not allow deserializing from owned values
+    // Unfortunately, alloy_json_abi does not allow deserializing from owned
+    // values
     let value = error_abi_item.to_string();
     Ok(*serde_json::from_str::<abi::Error>(&value)
         .map_err(|e| e.to_string().into_boxed_str())?

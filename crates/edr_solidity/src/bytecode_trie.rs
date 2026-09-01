@@ -57,8 +57,8 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
 
         for (index, new_key_byte) in new_item.key().iter().copied().enumerate() {
             if index < cursor.prefix.range_end {
-                // If there is a mismatch with the prefix of the cursor, we have to add a split
-                // node
+                // If there is a mismatch with the prefix of the cursor, we have
+                // to add a split node
                 if new_key_byte
                     != *cursor
                         .prefix
@@ -72,8 +72,8 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
                     let node_to_split = std::mem::replace(cursor, split_node);
                     cursor.fill_split_node(node_to_split, new_item.clone());
 
-                    // `Self::fill_split_node` adds the item as a child of the split node so we can
-                    // stop here.
+                    // `Self::fill_split_node` adds the item as a child of the
+                    // split node so we can stop here.
                     return;
                 }
             } else {
@@ -120,7 +120,8 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
                         .get(index)
                         .expect("index should be within prefix key bounds")
                 {
-                    // Cursor cannot be root here, because the root's prefix ends at index 0.
+                    // Cursor cannot be root here, because the root's prefix
+                    // ends at index 0.
                     return Some(TrieSearch::LongestPrefixNode {
                         node: cursor,
                         diff_index: index,
@@ -149,8 +150,8 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
                 // If the cursor's range ends where the key ends, we have a hit.
                 Some(TrieSearch::ExactHit(item.clone()))
             } else {
-                // Otherwise the cursor's range is greater than the key's length which means the
-                // key is a prefix of the match.
+                // Otherwise the cursor's range is greater than the key's length
+                // which means the key is a prefix of the match.
                 None
             }
         })
@@ -224,7 +225,8 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
 
         match split_index.cmp(&new_item.key().len()) {
             Ordering::Less => {
-                // If the new key is longer than the end of split prefix, add it as a child node
+                // If the new key is longer than the end of split prefix, add it
+                // as a child node
                 self.child_nodes.insert(
                     *new_item
                         .key()
@@ -238,10 +240,12 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
                 self.match_ = Some(new_item);
             }
             Ordering::Greater => {
-                // If the split index is greater than the length of the key, this function was
-                // called with the wrong arguments due to a bug. Such a bug would be local to
-                // the bytecode trie insertion logic, so while in other parts of `edr_solidity`
-                // we prefer to propagate an error in case of invariant violations due to
+                // If the split index is greater than the length of the key,
+                // this function was called with the wrong
+                // arguments due to a bug. Such a bug would be local to
+                // the bytecode trie insertion logic, so while in other parts of
+                // `edr_solidity` we prefer to propagate an
+                // error in case of invariant violations due to
                 // possibly unforeseen dependencies between components, we panic
                 // here.
                 unreachable!("split index is greater than new key length")

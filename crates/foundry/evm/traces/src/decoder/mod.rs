@@ -148,8 +148,8 @@ impl CallTraceDecoder {
     /// The call trace decoder always knows how to decode calls to the cheatcode
     /// address, as well as DSTest-style logs.
     pub fn new() -> &'static Self {
-        // If you want to take arguments in this function, assign them to the fields of
-        // the cloned lazy instead of removing it
+        // If you want to take arguments in this function, assign them to the
+        // fields of the cloned lazy instead of removing it
         static INIT: OnceLock<CallTraceDecoder> = OnceLock::new();
         INIT.get_or_init(Self::init)
     }
@@ -422,8 +422,8 @@ impl CallTraceDecoder {
                 &Vec::new()
             };
 
-            // Check if unsupported fn selector: calldata dooes NOT point to one of its
-            // selectors + non-fallback contract + no receive
+            // Check if unsupported fn selector: calldata dooes NOT point to one
+            // of its selectors + non-fallback contract + no receive
             if let Some(contract_selectors) = self.non_fallback_contracts.get(&trace.address)
                 && !contract_selectors.contains(&selector)
                 && (!cdata.is_empty() || !self.receive_contracts.contains(&trace.address))
@@ -466,9 +466,9 @@ impl CallTraceDecoder {
                 };
             };
 
-            // If traced contract is a fallback contract, check if it has the decoded
-            // function. If not, then replace call data signature with
-            // `fallback`.
+            // If traced contract is a fallback contract, check if it has the
+            // decoded function. If not, then replace call data
+            // signature with `fallback`.
             let mut call_data = self.decode_function_input(trace, func);
             if let Some(fallback_functions) = self.fallback_contracts.get(&trace.address)
                 && !fallback_functions.contains(&selector)
@@ -677,8 +677,9 @@ impl CallTraceDecoder {
             .iter()
             .find_map(|func| func.abi_decode_output(&trace.output).ok())
         {
-            // Functions coming from an external database do not have any outputs specified,
-            // and will lead to returning an empty list of values.
+            // Functions coming from an external database do not have any
+            // outputs specified, and will lead to returning an
+            // empty list of values.
             if values.is_empty() {
                 return None;
             }
@@ -829,8 +830,8 @@ fn is_abi_data(data: &[u8]) -> bool {
     if rem == 0 || data.is_empty() {
         return true;
     }
-    // If the length is not a multiple of 32, also accept when the last remainder
-    // bytes are all 0.
+    // If the length is not a multiple of 32, also accept when the last
+    // remainder bytes are all 0.
     let slice = data
         .get(data.len() - rem..)
         .expect("data.len() - rem should be valid slice index");
@@ -845,9 +846,9 @@ fn reconstruct_params(event: &Event, decoded: &DecodedEvent) -> Vec<DynSolValue>
     let mut inputs = vec![];
     for input in &event.inputs {
         // Prevent panic of event `Transfer(from, to)` decoded with a signature
-        // `Transfer(address indexed from, address indexed to, uint256 indexed tokenId)`
-        // by making sure the event inputs is not higher than decoded indexed /
-        // un-indexed values.
+        // `Transfer(address indexed from, address indexed to, uint256 indexed
+        // tokenId)` by making sure the event inputs is not higher than
+        // decoded indexed / un-indexed values.
         if input.indexed && indexed < decoded.indexed.len() {
             let value = decoded
                 .indexed

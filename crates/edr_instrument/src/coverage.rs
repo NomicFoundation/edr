@@ -157,11 +157,13 @@ pub fn instrument_code(
                                 ],
                             );
 
-                            // The text offset doesn't matter as we already calculated text offsets
+                            // The text offset doesn't matter as we already
+                            // calculated text offsets
                             // for the markers in an earlier step
                             let new_cursor = block.create_cursor(cursor.text_offset());
 
-                            // Skip all descendants as `new_cursor` will already iterate those
+                            // Skip all descendants as `new_cursor` will already
+                            // iterate those
                             cursor.go_to_next_non_descendant();
 
                             queue.push(cursor);

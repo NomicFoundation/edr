@@ -83,7 +83,8 @@ impl EdgeCovInspector {
 
     #[cold]
     fn do_step(&mut self, interp: &mut Interpreter) {
-        let address = interp.input.target_address(); // TODO track context for delegatecall?
+        let address = interp.input.target_address(); // TODO track context for
+                                                     // delegatecall?
         let current_pc = interp.bytecode.pc();
 
         match interp.bytecode.opcode() {

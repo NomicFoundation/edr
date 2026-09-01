@@ -365,7 +365,8 @@ impl<
             ChainContextT,
         >,
     ) {
-        // Early return if corpus dir / coverage guided fuzzing is not configured.
+        // Early return if corpus dir / coverage guided fuzzing is not
+        // configured.
         let Some(corpus_dir) = &self.corpus_dir else {
             return;
         };
@@ -432,7 +433,8 @@ impl<
         }
 
         // This includes reverting txs in the corpus and `can_continue` removes
-        // them. We want this as it is new coverage and may help reach the other branch.
+        // them. We want this as it is new coverage and may help reach the other
+        // branch.
         self.metrics.corpus_count += 1;
         self.in_memory_corpus.push(corpus);
     }
@@ -454,16 +456,16 @@ impl<
         let mut new_seq = vec![];
         let test_runner = &mut test.execution_data.borrow_mut().branch_runner;
 
-        // Early return with first_input only if corpus dir / coverage guided fuzzing
-        // not configured.
+        // Early return with first_input only if corpus dir / coverage guided
+        // fuzzing not configured.
         let Some(corpus_dir) = &self.corpus_dir else {
             new_seq.push(self.new_tx(test_runner)?);
             return Ok(new_seq);
         };
 
         if !self.in_memory_corpus.is_empty() {
-            // Flush oldest corpus mutated more than configured max mutations unless they
-            // are favored.
+            // Flush oldest corpus mutated more than configured max mutations
+            // unless they are favored.
             let should_evict = self.in_memory_corpus.len() > self.corpus_min_size.max(1);
             if should_evict
                 && let Some(index) = self.in_memory_corpus.iter().position(|corpus| {
@@ -613,7 +615,8 @@ impl<
                     let idx = rng.random_range(0..new_seq.len());
                     let tx = new_seq.get_mut(idx).unwrap();
                     if let (_, Some(function)) = targets.fuzzed_artifacts(tx) {
-                        // TODO add call_value to call details and mutate it as well as sender some
+                        // TODO add call_value to call details and mutate it as
+                        // well as sender some
                         // of the time
                         if !function.inputs.is_empty() {
                             let mut new_function = function.clone();
@@ -633,7 +636,8 @@ impl<
                             let mut prev_inputs = function
                                 .abi_decode_input(calldata_slice)
                                 .expect("fuzzed_artifacts returned wrong sig");
-                            // For now, only new inputs are generated, no existing inputs are
+                            // For now, only new inputs are generated, no
+                            // existing inputs are
                             // mutated.
                             let mut gen_input = |input: &alloy_json_abi::Param| {
                                 fuzz_param_from_state(
@@ -702,15 +706,15 @@ impl<
     ) -> eyre::Result<BasicTxDetails> {
         let test_runner = &mut test.execution_data.borrow_mut().branch_runner;
 
-        // Early return with new input if corpus dir / coverage guided fuzzing not
-        // configured or if call was discarded.
+        // Early return with new input if corpus dir / coverage guided fuzzing
+        // not configured or if call was discarded.
         if self.corpus_dir.is_none() || discarded {
             return self.new_tx(test_runner);
         }
 
-        // When running with coverage guided fuzzing enabled then generate new sequence
-        // if initial sequence's length is less than depth or randomly, to
-        // occasionally intermix new txs.
+        // When running with coverage guided fuzzing enabled then generate new
+        // sequence if initial sequence's length is less than depth or
+        // randomly, to occasionally intermix new txs.
         if depth > sequence.len().saturating_sub(1) || test_runner.rng().random_ratio(1, 10) {
             return self.new_tx(test_runner);
         }

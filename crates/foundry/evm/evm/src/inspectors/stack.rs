@@ -565,7 +565,8 @@ impl<
                     .map(|cheatcodes| {
                         let mut ignored = std::mem::take(&mut cheatcodes.ignored_traces.ignored);
 
-                        // If the last pause call was not resumed, ignore the rest of the trace
+                        // If the last pause call was not resumed, ignore the
+                        // rest of the trace
                         if let Some(last_pause_call) = cheatcodes.ignored_traces.last_pause_call {
                             ignored.insert(last_pause_call, (arena.nodes().len(), 0));
                         }
@@ -730,8 +731,9 @@ impl<
                 let previous_outcome = outcome.clone();
                 Inspector::<_, EthInterpreter>::call_end(inspector, ecx, inputs, outcome);
 
-                // If the inspector returns a different status or a revert with a non-empty
-                // message, we assume it wants to tell us something
+                // If the inspector returns a different status or a revert with
+                // a non-empty message, we assume it wants to
+                // tell us something
                 let different = outcome.result.result != result
                     || (outcome.result.result == InstructionResult::Revert
                         && outcome.output() != previous_outcome.output());
@@ -785,8 +787,9 @@ impl<
                 let previous_outcome = outcome.clone();
                 Inspector::<_, EthInterpreter>::create_end(inspector, ecx, call, outcome);
 
-                // If the inspector returns a different status or a revert with a non-empty
-                // message, we assume it wants to tell us something
+                // If the inspector returns a different status or a revert with
+                // a non-empty message, we assume it wants to
+                // tell us something
                 let different = outcome.result.result != result
                     || (outcome.result.result == InstructionResult::Revert
                         && outcome.output() != previous_outcome.output());
@@ -843,11 +846,12 @@ impl<
         ecx.tx.set_kind(kind);
         ecx.tx.set_data(input);
         ecx.tx.set_value(value);
-        // Add 21000 to the gas limit to account for the base cost of transaction.
+        // Add 21000 to the gas limit to account for the base cost of
+        // transaction.
         ecx.tx.set_gas_limit(gas_limit + 21000);
 
-        // If we haven't disabled gas limit checks, ensure that transaction gas limit
-        // will not exceed block gas limit.
+        // If we haven't disabled gas limit checks, ensure that transaction gas
+        // limit will not exceed block gas limit.
         if !ecx.cfg.disable_block_gas_limit {
             ecx.tx
                 .set_gas_limit(std::cmp::min(ecx.tx.gas_limit(), ecx.block.gas_limit()));
@@ -896,7 +900,8 @@ impl<
 
             let res = evm.inspect_tx(context.tx.clone());
 
-            // need to reset the env in case it was modified via cheatcodes during execution
+            // need to reset the env in case it was modified via cheatcodes
+            // during execution
             let evm_context = evm.into_evm_context();
             *context.cfg = evm_context.cfg.clone();
             *context.block = evm_context.block.clone();
@@ -1051,8 +1056,9 @@ impl<
         >,
     ) {
         if self.enable_isolation {
-            // If we're in isolation mode, we need to keep track of the state at the
-            // beginning of the frame to be able to roll back on revert
+            // If we're in isolation mode, we need to keep track of the state at
+            // the beginning of the frame to be able to roll back on
+            // revert
             self.top_frame_journal
                 .clone_from(&ecx.journaled_state.state);
         }
@@ -1084,16 +1090,17 @@ impl<
         if !result.is_revert() {
             return;
         }
-        // Encountered a revert, since cheatcodes may have altered the evm state in such
-        // a way that violates some constraints, e.g. `deal`, we need to
-        // manually roll back on revert before revm reverts the state itself
+        // Encountered a revert, since cheatcodes may have altered the evm state
+        // in such a way that violates some constraints, e.g. `deal`, we
+        // need to manually roll back on revert before revm reverts the
+        // state itself
         if let Some(cheats) = self.cheatcodes.as_mut() {
             cheats.on_revert(ecx);
         }
 
-        // If we're in isolation mode, we need to rollback to state before the root
-        // frame was created We can't rely on revm's journal because it doesn't
-        // account for changes made by isolated calls
+        // If we're in isolation mode, we need to rollback to state before the
+        // root frame was created We can't rely on revm's journal
+        // because it doesn't account for changes made by isolated calls
         if self.enable_isolation {
             ecx.journaled_state.state = std::mem::take(&mut self.top_frame_journal);
         }
@@ -1337,10 +1344,11 @@ impl<
         );
 
         if let Some(cheatcodes) = self.cheatcodes.as_deref_mut() {
-            // Handle mocked functions, replace bytecode address with mock if matched.
+            // Handle mocked functions, replace bytecode address with mock if
+            // matched.
             if let Some(mocks) = cheatcodes.mocked_functions.get(&call.target_address) {
-                // Check if any mock function set for call data or if catch-all mock function
-                // set for selector.
+                // Check if any mock function set for call data or if catch-all
+                // mock function set for selector.
                 if let Some(target) = mocks.get(&call.input.bytes(ecx)).or_else(|| {
                     call.input
                         .bytes(ecx)
@@ -1352,8 +1360,10 @@ impl<
                     let target_account = match ecx.journal_mut().load_account_with_code(*target) {
                         Ok(account) => account,
                         Err(error) => {
-                            // Mirror revm's DB-error handling: stash the typed error on the context
-                            // and abort the frame with a fatal external error, which the handler
+                            // Mirror revm's DB-error handling: stash the typed
+                            // error on the context
+                            // and abort the frame with a fatal external error,
+                            // which the handler
                             // surfaces to the caller as `EVMError::Database`.
                             *ecx.error() = Err(ContextError::Db(error));
                             return Some(CallOutcome {
@@ -1416,7 +1426,8 @@ impl<
                         ..
                     } = &mut ecx.journaled_state.inner;
                     for (addr, acc_mut) in state {
-                        // Do not mark accounts and storage cold accounts with arbitrary storage.
+                        // Do not mark accounts and storage cold accounts with
+                        // arbitrary storage.
                         if let Some(cheatcodes) = &self.cheatcodes
                             && cheatcodes.has_arbitrary_storage(addr)
                         {
@@ -1453,8 +1464,8 @@ impl<
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
-        // We are processing inner context outputs in the outer context, so need to
-        // avoid processing twice.
+        // We are processing inner context outputs in the outer context, so need
+        // to avoid processing twice.
         if self.in_inner_context && ecx.journaled_state.depth == 1 {
             return;
         }
@@ -1529,8 +1540,8 @@ impl<
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
-        // We are processing inner context outputs in the outer context, so need to
-        // avoid processing twice.
+        // We are processing inner context outputs in the outer context, so need
+        // to avoid processing twice.
         if self.in_inner_context && ecx.journaled_state.depth == 1 {
             return;
         }

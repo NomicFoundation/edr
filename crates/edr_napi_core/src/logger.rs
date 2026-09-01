@@ -516,8 +516,8 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let result = display_fn(self);
         self.indentation -= 2;
 
-        // We need to return the result of the inner function after resetting the
-        // indentation
+        // We need to return the result of the inner function after resetting
+        // the indentation
         result
     }
 
@@ -700,9 +700,10 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         let console_log_inputs =
             (self.config.decode_console_log_inputs_fn)(encoded_console_logs.to_vec())?;
 
-        // This is a special case, as we always want to print the console.log messages.
-        // The difference is how. If we have a logger, we should use that, so that logs
-        // are printed in order. If we don't, we just print the messages here.
+        // This is a special case, as we always want to print the console.log
+        // messages. The difference is how. If we have a logger, we
+        // should use that, so that logs are printed in order. If we
+        // don't, we just print the messages here.
         if self.config.enable {
             if !console_log_inputs.is_empty() {
                 self.log_empty_line();

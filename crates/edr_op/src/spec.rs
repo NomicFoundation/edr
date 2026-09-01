@@ -234,8 +234,8 @@ impl GenesisBlockFactory for OpChainSpec {
 
         if block_config.hardfork >= Hardfork::Holocene {
             let config_base_fee_params = options.base_fee_params.as_ref();
-            // If no option is provided, fill the `extra_data` field with the dynamic
-            // EIP-1559 parameters.
+            // If no option is provided, fill the `extra_data` field with the
+            // dynamic EIP-1559 parameters.
             options.extra_data = options.extra_data.or_else(|| {
                 let base_fee_params = config_base_fee_params
                     .unwrap_or(&block_config.base_fee_params)
@@ -243,8 +243,8 @@ impl GenesisBlockFactory for OpChainSpec {
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
                 let encoded_extra_data = if block_config.hardfork >= Hardfork::Jovian {
-                    // TODO: once EDR fully supports Jovian, should allow user to configure
-                    // min_base_fee?
+                    // TODO: once EDR fully supports Jovian, should allow user
+                    // to configure min_base_fee?
                     encode_dynamic_base_fee_params_jovian(base_fee_params, 0)
                 } else {
                     encode_dynamic_base_fee_params_holocene(base_fee_params)
@@ -277,8 +277,8 @@ pub(crate) fn op_base_fee_params_for_block(
     parent_header: &BlockHeader,
     parent_hardfork: Hardfork,
 ) -> Option<BaseFeeParams<Hardfork>> {
-    // For post-Holocene blocks, use the parent header extra_data to determine the
-    // base fee parameters
+    // For post-Holocene blocks, use the parent header extra_data to determine
+    // the base fee parameters
     if parent_hardfork >= Hardfork::Holocene {
         Some(BaseFeeParams::Constant(decode_base_params(
             &parent_header.extra_data,
@@ -548,7 +548,8 @@ mod tests {
 
         #[test]
         fn pre_jovian_ignores_blob_gas_used() {
-            // gas_used == target → no-change under standard EIP-1559 if blob is ignored.
+            // gas_used == target → no-change under standard EIP-1559 if blob is
+            // ignored.
             let parent = parent_with(GAS_TARGET, Some(10_000_000), Bytes::default());
 
             let result = op_next_base_fee(
@@ -562,8 +563,9 @@ mod tests {
 
         #[test]
         fn jovian_uses_blob_gas_when_larger_than_gas_used() {
-            // gas_used == target (would be no-change alone); blob_gas_used = 2 * target
-            // should drive the base fee up via gas_metered = max(gas_used, blob_gas_used).
+            // gas_used == target (would be no-change alone); blob_gas_used = 2
+            // * target should drive the base fee up via gas_metered
+            // = max(gas_used, blob_gas_used).
             let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, 1);
             let parent = parent_with(GAS_TARGET, Some(2 * GAS_TARGET), extra_data);
 
@@ -578,8 +580,8 @@ mod tests {
                 "base fee should increase when blob_gas_used exceeds the target"
             );
 
-            // Equivalent parent with the blob usage moved into gas_used should yield
-            // the same next base fee.
+            // Equivalent parent with the blob usage moved into gas_used should
+            // yield the same next base fee.
             let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, 1);
             let equivalent_parent = parent_with(2 * GAS_TARGET, None, extra_data);
             let equivalent_result = op_next_base_fee(
@@ -602,7 +604,8 @@ mod tests {
                 &BaseFeeParams::Constant(BASE_FEE_PARAMS),
             );
 
-            // Pre-Jovian result for the same header should match, since gas_used dominates.
+            // Pre-Jovian result for the same header should match, since
+            // gas_used dominates.
             let pre_jovian_parent = parent_with(2 * GAS_TARGET, Some(1_000), Bytes::default());
             let pre_jovian_result = op_next_base_fee(
                 &pre_jovian_parent,
@@ -634,12 +637,13 @@ mod tests {
 
         #[test]
         fn pre_jovian_does_not_clamp_to_min_base_fee() {
-            // Even with a Jovian-encoded extra_data carrying a high min_base_fee, the
-            // pre-Jovian path must not apply the clamp — it should ignore extra_data
-            // entirely.
+            // Even with a Jovian-encoded extra_data carrying a high
+            // min_base_fee, the pre-Jovian path must not apply the
+            // clamp — it should ignore extra_data entirely.
             let min_base_fee = 999_000_000u128;
             let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, min_base_fee);
-            // gas_used well under target → base fee decreases below min_base_fee.
+            // gas_used well under target → base fee decreases below
+            // min_base_fee.
             let parent = parent_with(1_000_000, None, extra_data);
 
             let result = op_next_base_fee(
@@ -665,7 +669,8 @@ mod tests {
         fn jovian_clamps_to_min_base_fee() {
             let min_base_fee = 999_000_000u128;
             let extra_data = encode_dynamic_base_fee_params_jovian(&BASE_FEE_PARAMS, min_base_fee);
-            // gas_used well under target → unclamped base fee decreases below min_base_fee.
+            // gas_used well under target → unclamped base fee decreases below
+            // min_base_fee.
             let parent = parent_with(GAS_TARGET / 5, None, extra_data);
 
             let result = op_next_base_fee(

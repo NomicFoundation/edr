@@ -23,7 +23,8 @@ pub(crate) fn correct_selectors<ArtifactT: CompilerArtifact>(
 ) -> anyhow::Result<()> {
     for identified in contracts.iter().filter(|c| !c.is_deployment) {
         let mut contract = identified.contract.write();
-        // Fetch the method identifiers for the contract from the compiler output
+        // Fetch the method identifiers for the contract from the compiler
+        // output
         let method_identifiers = match compiler_output
             .contracts
             .get(&contract.location.file()?.read().source_name)

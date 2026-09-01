@@ -244,7 +244,8 @@ mod alchemy {
             .await
             .expect("should have succeeded");
 
-        // Earliest tag should be resolved to block number and it should be cached.
+        // Earliest tag should be resolved to block number and it should be
+        // cached.
         assert_eq!(client.files_in_cache().len(), 1);
     }
 

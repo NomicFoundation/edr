@@ -44,13 +44,13 @@ fn get_provider<
         hardfork_activation_overrides: Some(HardforkActivations::with_spec_id(hardfork)),
     };
     let url = json_rpc_url_provider::arbitrum_mainnet();
-    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
-    // ACCEPTABLE FOR TESTING PURPOSES ONLY.
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE
+    // RISK ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true") };
     let provider =
         get_chain_fork_provider::<ChainSpecT>(CHAIN_ID, block_number, chain_override, url, None);
-    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
-    // ACCEPTABLE FOR TESTING PURPOSES ONLY.
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE
+    // RISK ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::remove_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES") };
     provider
 }

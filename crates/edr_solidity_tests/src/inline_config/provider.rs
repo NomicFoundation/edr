@@ -105,8 +105,8 @@ impl CachedInlineConfigProvider {
         };
 
         // Parse the roots in parallel on rayon's global pool. Collection runs
-        // synchronously and completes before any test suite is dispatched, so it
-        // never contends with suite execution.
+        // synchronously and completes before any test suite is dispatched, so
+        // it never contends with suite execution.
         let collected: Vec<Option<(PathBuf, SourceCollection)>> =
             roots.par_iter().map(parse).collect();
 

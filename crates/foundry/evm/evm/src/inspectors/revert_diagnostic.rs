@@ -102,7 +102,8 @@ impl RevertDiagnostic {
         }
 
         if let Some((addr, _)) = self.non_contract_size_check {
-            // unknown schema as the call never took place --> output most generic reason
+            // unknown schema as the call never took place --> output most
+            // generic reason
             return Some(DetailedRevertReason::CallToNonContract(addr));
         }
 
@@ -177,8 +178,8 @@ impl RevertDiagnostic {
                 return;
             }
 
-            // Optimistically cache --> validated and cleared (if necessary) at `fn
-            // step_end()`
+            // Optimistically cache --> validated and cleared (if necessary) at
+            // `fn step_end()`
             self.non_contract_size_check = Some((addr, ctx.journal_ref().depth()));
             self.is_extcodesize_step = true;
         }
@@ -224,8 +225,8 @@ where
 
     /// Handles `REVERT` and `EXTCODESIZE` opcodes for diagnostics.
     fn step(&mut self, interp: &mut Interpreter, ctx: &mut CTX) {
-        // Check if an action has already been set (which would null the instruction
-        // pointer)
+        // Check if an action has already been set (which would null the
+        // instruction pointer)
         if interp.bytecode.action.is_some() {
             return;
         }

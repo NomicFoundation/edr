@@ -22,8 +22,8 @@ async fn issue_346() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    // The address has been changed from the repro in the issue to an address that
-    // we have a secret key for in the test config.
+    // The address has been changed from the repro in the issue to an address
+    // that we have a secret key for in the test config.
     let request_hex_salt = json!({
       "method": "eth_signTypedData_v4",
       "params": [

@@ -153,9 +153,9 @@ fn get_unrecognized_message_stack_trace<HaltReasonT: HaltReasonTrait>(
             NestedTrace::Create(create) => (create.exit.is_error(), create.return_data.clone()),
         };
 
-        // This is not a very exact heuristic, but most of the time it will be right, as
-        // solidity reverts if a call fails, and most contracts are in
-        // solidity
+        // This is not a very exact heuristic, but most of the time it will be
+        // right, as solidity reverts if a call fails, and most
+        // contracts are in solidity
         if is_error && trace_return_data.as_ref() == return_data.as_ref() {
             let unrecognized_entry: StackTraceEntry = match trace {
                 CreateOrCallMessageRef::Call(CallMessage { address, .. }) => {
@@ -275,7 +275,8 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
 
             subtraces_seen += 1;
 
-            // If there are more subtraces, this one didn't terminate the execution
+            // If there are more subtraces, this one didn't terminate the
+            // execution
             if subtraces_seen < number_of_subtraces {
                 continue;
             }

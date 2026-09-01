@@ -620,8 +620,8 @@ where
     }
 
     pub fn revert_to_snapshot(&mut self, snapshot_id: u64) -> bool {
-        // Ensure that, if the snapshot exists, we also remove all subsequent snapshots,
-        // as they can only be used once in Ganache.
+        // Ensure that, if the snapshot exists, we also remove all subsequent
+        // snapshots, as they can only be used once in Ganache.
         let mut removed_snapshots = self.snapshots.split_off(&snapshot_id);
 
         if let Some(snapshot) = removed_snapshots.remove(&snapshot_id) {
@@ -1011,7 +1011,8 @@ where
 
         let slot = EvmStorageSlot::new_changed(old_value, value, TransactionId::ZERO);
         let account_info = modified_state.basic(address).and_then(|mut account_info| {
-            // Retrieve the code if it's not empty. This is needed for the irregular state.
+            // Retrieve the code if it's not empty. This is needed for the
+            // irregular state.
             if let Some(account_info) = &mut account_info
                 && account_info.code_hash != KECCAK_EMPTY
             {
@@ -1092,8 +1093,8 @@ where
             })),
         )?;
 
-        // The code was stripped from the account, so we need to re-add it for the
-        // irregular state.
+        // The code was stripped from the account, so we need to re-add it for
+        // the irregular state.
         account_info.code = Some(irregular_code.clone());
 
         let state_root = modified_state.state_root()?;
@@ -1242,8 +1243,8 @@ where
                 .get(&sender)
                 .ok_or(ProviderError::UnknownAddress { address: sender })?;
 
-            // SAFETY: We know the secret key belongs to the sender, as we retrieved it from
-            // `local_accounts`.
+            // SAFETY: We know the secret key belongs to the sender, as we
+            // retrieved it from `local_accounts`.
             let signed_transaction =
                 unsafe { request.sign_for_sender_unchecked(secret_key, sender) }?;
 
@@ -1454,8 +1455,9 @@ where
         block_number: u64,
     ) -> Result<Arc<Box<dyn DynState>>, ProviderErrorForChainSpec<ChainSpecT>> {
         if let Some(state_id) = self.block_number_to_state_id.get(&block_number) {
-            // We cannot use `LruCache::try_get_or_insert`, because it needs &mut self, but
-            // we would need &self in the callback to reference the blockchain.
+            // We cannot use `LruCache::try_get_or_insert`, because it needs
+            // &mut self, but we would need &self in the callback to
+            // reference the blockchain.
             if let Some(state) = self.block_state_cache.get(state_id) {
                 return Ok(state.clone());
             }
@@ -2077,8 +2079,9 @@ where
                         .push(gas_used_ratio(header.gas_used, header.gas_limit));
 
                     if let Some(reward) = opt_reward.as_mut() {
-                        // We don't compute this for the pending block, as there's no
-                        // effective miner fee yet.
+                        // We don't compute this for the pending block, as
+                        // there's no effective miner
+                        // fee yet.
                         reward.push(percentiles.iter().map(|_| U256::ZERO).collect());
                     }
                 }
@@ -2107,9 +2110,10 @@ where
                 .basic(address)?
                 .map_or(Ok(Bytes::new()), |account_info| {
                     state.code_by_hash(account_info.code_hash).map(|bytecode| {
-                        // The `Bytecode` REVM struct pad the bytecode with 33 bytes of 0s for the
-                        // `Checked` and `Analysed` variants. `Bytecode::original_bytes` returns
-                        // unpadded version.
+                        // The `Bytecode` REVM struct pad the bytecode with 33
+                        // bytes of 0s for the `Checked`
+                        // and `Analysed` variants. `Bytecode::original_bytes`
+                        // returns unpadded version.
                         bytecode.original_bytes()
                     })
                 })?;
@@ -2221,14 +2225,15 @@ where
                 Ok(())
             };
 
-        // Limit the pre-allocated capacity based on the minimum reservable number of
-        // blocks to avoid too large allocations.
+        // Limit the pre-allocated capacity based on the minimum reservable
+        // number of blocks to avoid too large allocations.
         let mut mined_blocks = Vec::with_capacity(
             usize::try_from(number_of_blocks.min(2 * MINIMUM_RESERVABLE_BLOCKS))
                 .expect("number of blocks exceeds {u64::MAX}"),
         );
 
-        // we always mine the first block, and we don't apply the interval for it
+        // we always mine the first block, and we don't apply the interval for
+        // it
         mined_blocks.push(self.mine_and_commit_block(self.header_overrides())?);
 
         while u64::try_from(mined_blocks.len()).expect("usize cannot be larger than u128")
@@ -2239,8 +2244,8 @@ where
         }
 
         // If there is at least one remaining block, we mine one. This way, we
-        // guarantee that there's an empty block immediately before and after the
-        // reservation. This makes the logging easier to get right.
+        // guarantee that there's an empty block immediately before and after
+        // the reservation. This makes the logging easier to get right.
         if u64::try_from(mined_blocks.len()).expect("usize cannot be larger than u128")
             < number_of_blocks
         {
@@ -2260,8 +2265,8 @@ where
             self.blockchain
                 .reserve_blocks(&self.block_config, remaining_blocks - 1, interval)?;
 
-            // Ensure there is a cache entry for the last reserved block, to avoid
-            // recomputation
+            // Ensure there is a cache entry for the last reserved block, to
+            // avoid recomputation
             self.add_state_to_cache(current_state, self.last_block_number());
 
             let previous_timestamp = self.blockchain.last_block()?.block_header().timestamp;
@@ -2566,8 +2571,8 @@ where
 
             let transaction_hash = *transaction.transaction_hash();
 
-            // Despite not adding the transaction to the mempool, we still notify
-            // subscribers
+            // Despite not adding the transaction to the mempool, we still
+            // notify subscribers
             self.notify_subscribers_about_pending_transaction(&transaction_hash);
 
             let result = self.mine_and_commit_block_impl(
@@ -2589,9 +2594,9 @@ where
         }
 
         let snapshot_id = if self.is_auto_mining() {
-            // This check guarantees that the sent transaction is a pending transaction,
-            // meaning it can either be mined immediately or as part of a sequence of
-            // transactions.
+            // This check guarantees that the sent transaction is a pending
+            // transaction, meaning it can either be mined
+            // immediately or as part of a sequence of transactions.
             self.validate_auto_mine_transaction(&transaction)?;
 
             Some(self.make_snapshot())
@@ -2612,17 +2617,20 @@ where
         // be mined once the account's next (pending) nonce becomes high enough.
         //
         // If automining, we mine all pending transactions, including the sent
-        // transaction. We need to mine other transactions because it's possible that:
+        // transaction. We need to mine other transactions because it's possible
+        // that:
         //
-        // 1. The user enabled automining after transactions were added to the mempool.
-        // 2. Adding the sent transaction converted future transactions to pending
-        //    transactions.
+        // 1. The user enabled automining after transactions were added to the
+        //    mempool.
+        // 2. Adding the sent transaction converted future transactions to
+        //    pending transactions.
         let mut mining_results = Vec::new();
         snapshot_id
             .map(
                 |snapshot_id| -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-                    // Mine blocks until the sent transaction is mined. We might need to mine
-                    // multiple block due to the gas limit.
+                    // Mine blocks until the sent transaction is mined. We might
+                    // need to mine multiple block due to
+                    // the gas limit.
                     loop {
                         let result = self
                             .mine_and_commit_block(self.header_overrides())
@@ -2639,11 +2647,13 @@ where
                         }
                     }
 
-                    // Mine all remaining pending transactions, if any. E.g. this can happen if:
-                    // - the account corresponding to the sent transaction had future transactions
-                    //   that became pending
-                    // - the mine ordering is "priority" and the sent transaction has a higher
-                    //   miner's tip than other pending transactions.
+                    // Mine all remaining pending transactions, if any. E.g.
+                    // this can happen if:
+                    // - the account corresponding to the sent transaction had
+                    //   future transactions that became pending
+                    // - the mine ordering is "priority" and the sent
+                    //   transaction has a higher miner's tip than other pending
+                    //   transactions.
                     while self.mem_pool.has_pending_transactions() {
                         let result = self
                             .mine_and_commit_block(self.header_overrides())
@@ -2972,8 +2982,9 @@ fn create_forked_blockchain_and_state<
         irregular_state
             .state_override_at_block_number(fork_block_number)
             .and_modify(|state_override| {
-                // No need to update the state_root, as it could only have been created by the
-                // `ForkedBlockchain` constructor.
+                // No need to update the state_root, as it could only have been
+                // created by the `ForkedBlockchain`
+                // constructor.
                 state_override.diff.apply_diff(genesis_state.clone());
             })
             .or_insert_with(|| {
@@ -3436,7 +3447,8 @@ mod tests {
         Ok(())
     }
 
-    // Make sure executing a transaction in a pending block context doesn't panic.
+    // Make sure executing a transaction in a pending block context doesn't
+    // panic.
     #[test]
     fn execute_in_block_context_pending() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
@@ -4320,8 +4332,8 @@ mod tests {
                 ..L1CallRequest::default()
             };
 
-            // Should accept post-EIP-1559 gas semantics when running in the context of a
-            // post-EIP-1559 block
+            // Should accept post-EIP-1559 gas semantics when running in the
+            // context of a post-EIP-1559 block
             let result = call_hello_world_contract(
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
@@ -4333,8 +4345,8 @@ mod tests {
 
             assert_decoded_output(result.execution_result)?;
 
-            // Should accept pre-EIP-1559 gas semantics when running in the context of a
-            // pre-EIP-1559 block
+            // Should accept pre-EIP-1559 gas semantics when running in the
+            // context of a pre-EIP-1559 block
             let result = call_hello_world_contract(
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
@@ -4346,8 +4358,8 @@ mod tests {
 
             assert_decoded_output(result.execution_result)?;
 
-            // Should throw when given post-EIP-1559 gas semantics and when running in the
-            // context of a pre-EIP-1559 block
+            // Should throw when given post-EIP-1559 gas semantics and when
+            // running in the context of a pre-EIP-1559 block
             let result = call_hello_world_contract(
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
@@ -4366,8 +4378,8 @@ mod tests {
                 ))
             ));
 
-            // Should accept pre-EIP-1559 gas semantics when running in the context of a
-            // post-EIP-1559 block
+            // Should accept pre-EIP-1559 gas semantics when running in the
+            // context of a post-EIP-1559 block
             let result = call_hello_world_contract(
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
@@ -4379,8 +4391,8 @@ mod tests {
 
             assert_decoded_output(result.execution_result)?;
 
-            // Should support a historical call in the context of a block added via
-            // `mine_and_commit_blocks`
+            // Should support a historical call in the context of a block added
+            // via `mine_and_commit_blocks`
             let previous_block_number = fixture.provider_data.last_block_number();
 
             fixture.provider_data.mine_and_commit_blocks(100, 1)?;

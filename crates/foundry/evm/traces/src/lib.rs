@@ -67,8 +67,8 @@ impl SparsedTraceArena {
                 ignored: &HashMap<(usize, usize), (usize, usize)>,
                 cur_ignore_end: &mut Option<(usize, usize)>,
             ) {
-                // Prepend an additional None item to the ordering to handle the beginning of
-                // the trace.
+                // Prepend an additional None item to the ordering to handle the
+                // beginning of the trace.
                 let node = nodes
                     .get(node_idx)
                     .expect("node_idx should be within nodes bounds");
@@ -100,7 +100,8 @@ impl SparsedTraceArena {
                         }
                         // we only remove decoded internal calls if they did not start/pause tracing
                         Some(TraceMemberOrder::Step(step_idx)) => {
-                            // If this is an internal call beginning, track it in `internal_calls`
+                            // If this is an internal call beginning, track it
+                            // in `internal_calls`
                             let node = nodes
                                 .get(node_idx)
                                 .expect("node_idx should be within nodes bounds");
@@ -121,7 +122,8 @@ impl SparsedTraceArena {
                                 if *end_idx != step_idx {
                                     return true;
                                 }
-                                // only remove start if end should be removed as well
+                                // only remove start if end should be removed as
+                                // well
                                 if *remove_start && remove {
                                     items_to_remove.insert(*start_item_idx);
                                 } else {

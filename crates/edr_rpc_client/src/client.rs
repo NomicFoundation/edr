@@ -272,9 +272,9 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
             host.to_string()
         };
 
-        // We use different directories for each remote node, to avoid storing invalid
-        // data in case the remote is forked chain which can happen with remotes
-        // running locally.
+        // We use different directories for each remote node, to avoid storing
+        // invalid data in case the remote is forked chain which can
+        // happen with remotes running locally.
         let directory = self.rpc_cache_dir.join(remote).join(chain_id.to_string());
 
         ensure_cache_directory(&directory, cache_key).await?;
@@ -447,13 +447,13 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
 
         // 2. Then move the temporary file to the cache path.
         // This is guaranteed to be atomic on Unix platforms.
-        // There is no such guarantee on Windows, as there is no OS support for atomic
-        // move before Windows 10, but Rust will drop support for earlier
-        // versions of Windows in the future: <https://github.com/rust-lang/compiler-team/issues/651>. Hopefully the standard
-        // library will adapt its `rename` implementation to use the new atomic move API
-        // in Windows
-        // 10. In any case, if a cache file is corrupted, we detect and remove it when
-        //     reading it.
+        // There is no such guarantee on Windows, as there is no OS support for
+        // atomic move before Windows 10, but Rust will drop support for
+        // earlier versions of Windows in the future: <https://github.com/rust-lang/compiler-team/issues/651>. Hopefully the standard
+        // library will adapt its `rename` implementation to use the new atomic
+        // move API in Windows
+        // 10. In any case, if a cache file is corrupted, we detect and remove
+        //     it when reading it.
         let cache_path = self.make_cache_path(cache_key).await?;
         match tokio::fs::rename(&tmp_path, cache_path).await {
             Ok(_) => (),
@@ -466,7 +466,8 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
             }
         };
 
-        // In case of many concurrent renames, files remain in the tmp dir on Windows.
+        // In case of many concurrent renames, files remain in the tmp dir on
+        // Windows.
         #[cfg(target_os = "windows")]
         match tokio::fs::remove_file(&tmp_path).await {
             Ok(_) => (),
@@ -991,7 +992,8 @@ mod tests {
 
             let block_number = client.block_number().await.unwrap();
 
-            // Check that the block number call caches the largest known block number
+            // Check that the block number call caches the largest known block
+            // number
             {
                 assert!(client.cached_block_number.read().await.is_some());
             }

@@ -138,10 +138,10 @@ fn ast_function_definition_to_selector(
         // }
 
         if is_enum_type(param) {
-            // TODO: If the enum has >= 256 elements this will fail. It should be a uint16.
-            // This is  complicated, as enums can be inherited. Fortunately, if
-            // multiple parent contracts  define the same enum, solc fails to
-            // compile.
+            // TODO: If the enum has >= 256 elements this will fail. It should
+            // be a uint16. This is  complicated, as enums can be
+            // inherited. Fortunately, if multiple parent contracts
+            // define the same enum, solc fails to compile.
             param_types.push("uint8".to_string());
             continue;
         }

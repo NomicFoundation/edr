@@ -127,9 +127,9 @@ pub(crate) fn handle_assume_no_revert(
     retdata: &Bytes,
     known_contracts: &ContractsByArtifact,
 ) -> Result<()> {
-    // if a generic AssumeNoRevert, return Ok(). Otherwise, iterate over acceptable
-    // reasons and try to match against any, otherwise, return an Error with the
-    // revert data
+    // if a generic AssumeNoRevert, return Ok(). Otherwise, iterate over
+    // acceptable reasons and try to match against any, otherwise, return an
+    // Error with the revert data
     if assume_no_revert.reasons.is_empty() {
         Ok(())
     } else {
@@ -178,7 +178,8 @@ pub(crate) fn handle_expect_revert(
     }
 
     if expected_revert.count == 0 {
-        // If no specific reason or reverter is expected, we just check if it reverted
+        // If no specific reason or reverter is expected, we just check if it
+        // reverted
         if expected_revert.reverter.is_none() && expected_revert.reason.is_none() {
             ensure!(
                 matches!(status, return_ok!()),
@@ -191,8 +192,8 @@ pub(crate) fn handle_expect_revert(
         let mut reason_match = expected_revert.reason.as_ref().map(|_| false);
         let mut reverter_match = expected_revert.reverter.as_ref().map(|_| false);
 
-        // If we expect no reverts with a specific reason/reverter, but got a revert,
-        // we need to check if it matches our criteria
+        // If we expect no reverts with a specific reason/reverter, but got a
+        // revert, we need to check if it matches our criteria
         if !matches!(status, return_ok!()) {
             // We got a revert, but we expected 0 reverts
             // We need to check if this revert matches our expected criteria
@@ -231,11 +232,13 @@ pub(crate) fn handle_expect_revert(
                     expected_revert.reverter.unwrap()
                 )),
                 _ => {
-                    // The revert doesn't match our criteria, which means it's a different revert
-                    // For expectRevert with count=0, any revert should fail the test
+                    // The revert doesn't match our criteria, which means it's a
+                    // different revert For expectRevert
+                    // with count=0, any revert should fail the test
                     let decoded_revert = decode_revert(retdata.to_vec());
 
-                    // Provide more specific error messages based on what was expected
+                    // Provide more specific error messages based on what was
+                    // expected
                     match (expected_revert.reverter, expected_revert.reason.is_some()) {
                         (Some(reverter), true) => Err(fmt_err!(
                             "call reverted with '{}' from {}, but expected 0 reverts with reason '{}' from {}",

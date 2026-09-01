@@ -98,8 +98,8 @@ mod fork {
             .expect("Amsterdam block should include a block access list hash")
     }
 
-    // The simulated block access list hash must be unique per block, including in
-    // forked mode.
+    // The simulated block access list hash must be unique per block, including
+    // in forked mode.
     #[tokio::test(flavor = "multi_thread")]
     async fn block_access_list_hash_differs_across_forked_amsterdam_blocks() -> anyhow::Result<()> {
         let mut config =
