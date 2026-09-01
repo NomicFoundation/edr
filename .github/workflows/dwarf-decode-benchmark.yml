@@ -59,20 +59,29 @@ jobs:
       - name: Benchmark the base (merge commit's first parent)
         if: github.event_name == 'pull_request'
         run: |
+          # A PR that introduces (or moves) the bench has no base side to
+          # compare against — run the PR side informationally instead of
+          # failing on the missing bench target.
+          if ! git cat-file -e HEAD^1:crates/edr_solidity/benches/dwarf_decode.rs; then
+            echo "bench does not exist at the base commit; skipping the A/B comparison"
+            echo "HAS_BASELINE=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "HAS_BASELINE=true" >> "$GITHUB_ENV"
           git checkout --detach HEAD^1
           cargo bench --locked -p edr_solidity --bench dwarf_decode -- --save-baseline pr-base
           git checkout --detach "$GITHUB_SHA"
 
       - name: Benchmark the PR merge commit
         run: |
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          if [ "${HAS_BASELINE:-false}" = "true" ]; then
             cargo bench --locked -p edr_solidity --bench dwarf_decode -- --baseline pr-base
           else
             cargo bench --locked -p edr_solidity --bench dwarf_decode
           fi
 
       - name: Fail on a confident regression
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && env.HAS_BASELINE == 'true'
         run: |
           python3 - <<'EOF'
           import glob
