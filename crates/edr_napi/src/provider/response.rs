@@ -107,8 +107,8 @@ gc_tracked! {
             ..
         } = self;
 
-        // Off-loads deallocation of memory-heavy `call_trace_arenas` to a background
-        // thread to avoid blocking the JS thread; wasting valuable time.
+        // Finalizers run on the JS thread, where freeing the response's
+        // `call_trace_arenas` would hold up request dispatch.
         dropped_response_sender.deallocate(inner);
     }
 }
