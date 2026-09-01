@@ -3299,6 +3299,7 @@ dependencies = [
  "alloy-rpc-types-trace",
  "alloy-serde",
  "alloy-sol-types",
+ "alloy-trie",
  "anyhow",
  "auto_impl",
  "crossbeam-channel",
