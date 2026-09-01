@@ -280,6 +280,13 @@ pub struct DeployedCode<'a> {
 ///    converted, so they need no recorded EVM steps.
 /// 3. `failing_trace` itself, since execution may deploy a contract and then
 ///    fail inside it.
+///
+/// `failing_trace` must carry recorded EVM steps: the heuristics walk the
+/// executed instructions to locate the failure. Without steps, only the few
+/// inferences based on calldata and contract metadata can run.
+///
+/// An empty `Ok` result means the heuristics could not explain the failure.
+/// Callers present it as a failed heuristic, not as a missing stack trace.
 pub fn get_stack_trace<
     'arena,
     HaltReasonT: HaltReasonTrait,

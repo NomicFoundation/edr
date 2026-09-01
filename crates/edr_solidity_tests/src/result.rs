@@ -394,7 +394,13 @@ pub struct TestResult<HaltReasonT> {
     /// What kind of test this was
     pub kind: TestKind,
 
-    /// Traces
+    /// Trace arenas of the calls the test executed, in execution order.
+    ///
+    /// When the test failed and the tracer recorded steps, the last arena is
+    /// the call that produced the failure. The stack-trace computation splits
+    /// that arena off; it walks the earlier ones only for the contracts they
+    /// deployed. Can be empty even for a failing test — see
+    /// [`Self::stack_trace_result`].
     #[serde(skip)]
     pub execution_traces: Vec<SparsedTraceArena>,
 
@@ -416,9 +422,13 @@ pub struct TestResult<HaltReasonT> {
     /// execution which should be accumulated.
     pub value_snapshots: BTreeMap<String, BTreeMap<String, String>>,
 
-    /// The outcome of the stack trace error computation.
-    /// None if the test status is succeeded or skipped.
-    /// If the heuristic failed the vec is set but emtpy.
+    /// The outcome of the stack trace computation.
+    /// None if the test succeeded or was skipped. Also None when the failure
+    /// left no trace arena behind; `reason` then explains the failure. Examples
+    /// include a fuzz test whose inputs or an invariant campaign whose calls
+    /// were all rejected by `vm.assume`, an invariant campaign that failed
+    /// before its first call, and an executor-error fuzz counterexample.
+    /// If the heuristic failed the vec is set but empty.
     /// Error if there was an error computing the stack trace.
     #[serde(skip)]
     pub stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>>,
@@ -920,9 +930,10 @@ pub struct TestSetup<HaltReasonT> {
     /// Whether the test failed to deploy.
     pub deployment_failure: bool,
 
-    /// The outcome of the stack trace error computation.
-    /// None if the test status is succeeded or skipped.
-    /// If the heuristic failed the vec is set but emtpy.
+    /// The outcome of the stack trace computation.
+    /// None if setup succeeded, the suite was skipped, or no setup trace was
+    /// recorded for the failure.
+    /// If the heuristic failed the vec is set but empty.
     /// Error if there was an error computing the stack trace.
     pub stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>>,
     /// Whether the test had a setup method.
