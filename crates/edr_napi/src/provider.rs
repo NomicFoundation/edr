@@ -19,7 +19,7 @@ use parking_lot::RwLock;
 pub use self::factory::ProviderFactory;
 use self::response::Response;
 use crate::{
-    async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
+    async_deallocator::Deallocators, call_override::CallOverrideCallback,
     contract_decoder::ContractDecoder,
 };
 
@@ -29,8 +29,7 @@ pub struct Provider {
     contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
-    dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
-    dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
+    deallocators: Deallocators,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<Arc<napi::tokio::sync::Mutex<napi::tokio::fs::File>>>,
 }
@@ -41,8 +40,7 @@ impl Provider {
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
-        dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
-        dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
+        deallocators: Deallocators,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
@@ -51,8 +49,7 @@ impl Provider {
             contract_decoder,
             provider,
             runtime,
-            dropped_provider_sender,
-            dropped_response_sender,
+            deallocators,
             #[cfg(feature = "scenarios")]
             scenario_file: scenario_file.map(Arc::new),
         }
@@ -166,7 +163,7 @@ impl Provider {
     ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
-        let dropped_response_sender = self.dropped_response_sender.clone();
+        let dropped_response_sender = self.deallocators.response.clone();
 
         let enqueue_request =
             move |provider: &dyn SyncProvider, request: napi::Result<String>| match request {
@@ -276,14 +273,14 @@ impl ObjectFinalize for Provider {
     fn finalize(self, _env: Env) -> napi::Result<()> {
         let Self {
             provider,
-            dropped_provider_sender,
+            deallocators,
             ..
         } = self;
 
         // Off-loads deallocation to a background thread to avoid blocking the
         // JS thread (the provider may be running thread-safe functions on a
         // background thread; dropping it here would deadlock).
-        dropped_provider_sender.deallocate(provider);
+        deallocators.provider.deallocate(provider);
 
         Ok(())
     }
