@@ -23,7 +23,7 @@ const KNOWN_IGNORED_HARDFORKS: [&str; 2] = ["delta", "pectra_blob_schedule"];
 const SUPERCHAIN_REGISTRY_REPO_URL: &str =
     "https://github.com/ethereum-optimism/superchain-registry.git";
 const REPO_CONFIGS_PATH: &str = "superchain/configs";
-const RUSTFMT_TOOLCHAIN: &str = "+nightly-2026-08-29";
+const RUSTFMT_TOOLCHAIN: &str = "+nightly-2026-08-31";
 const EDR_SUPPORTED_NETWORKS: [&str; 2] = ["mainnet", "sepolia"];
 const GENERATED_FILE_WARNING_MESSAGE: &str = "
 // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.

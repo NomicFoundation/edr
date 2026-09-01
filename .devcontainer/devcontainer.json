@@ -34,7 +34,7 @@
       ],
       "settings": {
         "rust-analyzer.cargo.features": "all",
-        "rust-analyzer.rustfmt.extraArgs": ["+nightly-2026-08-29"]
+        "rust-analyzer.rustfmt.extraArgs": ["+nightly-2026-08-31"]
       }
     }
   }
