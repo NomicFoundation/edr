@@ -70,7 +70,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 NAPI_DIR="$REPO_ROOT/crates/edr_napi"
 
 # Detect the platform package suffix (e.g. linux-x64-gnu) from this host.
-PLATFORM="$(node "$SCRIPT_DIR/detect_edr_platform.cjs")"
+PLATFORM="$(node "$SCRIPT_DIR/detect_edr_platform.ts")"
+
+if [ -z "$PLATFORM" ]; then
+  echo "error: detect_edr_platform.ts produced no platform suffix" >&2
+  exit 1
+fi
 
 PLATFORM_DIR="$NAPI_DIR/npm/$PLATFORM"
 BINARY="edr.$PLATFORM.node"

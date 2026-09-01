@@ -19,7 +19,7 @@ name: Hardhat 3 Regression Benchmark
 # dispatch/`/bench` runs without an explicit hardhat-ref) then benchmark
 # against the pinned sha while the Hardhat PR is open, and revert to `main`
 # automatically once it's merged. Delete the pin file after the merge. See
-# `.github/scripts/resolve-regression-trigger.cjs` for details. PRs that touch
+# `.github/scripts/resolve-regression-trigger.ts` for details. PRs that touch
 # the pin file get it validated by `validate-hardhat-compat-pin.yml`.
 
 on:
@@ -105,8 +105,8 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const resolve = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/resolve-regression-trigger.cjs`);
-            await resolve({ github, context, core });
+            const { resolveRegressionTrigger } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/resolve-regression-trigger.ts`);
+            await resolveRegressionTrigger({ github, context, core });
 
   regression-benchmark:
     name: Regression benchmark
@@ -197,7 +197,7 @@ jobs:
         # Writes EDR_VER and HH_VER to $GITHUB_ENV
         env:
           EDR_REF: ${{ needs.setup.outputs.edr_ref }}
-        run: node .github/scripts/compute-sentinel-versions.cjs
+        run: node .github/scripts/compute-sentinel-versions.ts
 
       - name: Install EDR dependencies
         run: sfw pnpm install --frozen-lockfile --prefer-offline

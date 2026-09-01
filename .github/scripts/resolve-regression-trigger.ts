@@ -11,6 +11,9 @@
 // an optional "compat pin" (HARDHAT_PIN_PATH below): while the pinned Hardhat
 // PR is open, the benchmark runs against the pinned commit instead of `main`;
 // once that PR is merged (or closed), runs revert to `main` automatically.
+//
+// Loaded by `actions/github-script` in hh3-regression-benchmark.yml.
+// See README.md for the conventions these scripts follow.
 
 // How long to wait for the EDR CI run to conclude before giving up, and how
 // often to re-check while waiting. Tunable independently.
@@ -28,19 +31,106 @@ const CI_POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
 const DEFAULT_SCENARIO_FILTER = "*";
 const DEFAULT_BENCHMARK_FILTER = "test solidity,test mocha,test vitest";
 
-// Optional Hardhat compatibility pin (see hardhat-compat-pin.cjs for the file
+// Optional Hardhat compatibility pin (see hardhat-compat-pin.ts for the file
 // format). While the pinned Hardhat PR is open, runs that don't name an
 // explicit hardhat-ref benchmark against the pinned sha; once it's merged (or
 // closed) they revert to `main` automatically. Delete the file after the
 // Hardhat PR merges.
-const {
+import {
+  errorStatus,
+  type CoreWithOutputs,
+  type PullRequest,
+  type WorkflowRun,
+} from "./github-script.ts";
+import {
   HARDHAT_OWNER,
-  HARDHAT_REPO,
   HARDHAT_PIN_PATH,
+  HARDHAT_REPO,
   parseHardhatPin,
-} = require("./hardhat-compat-pin.cjs");
+  type HardhatPin,
+} from "./hardhat-compat-pin.ts";
 
-module.exports = async ({ github, context, core }) => {
+// `pulls.get` is called for both an EDR PR (fork check) and the pinned Hardhat
+// PR (open/merged check); the real API returns `repo` for either.
+interface PullRequestData extends PullRequest {
+  head: {
+    repo: { full_name: string };
+    sha: string;
+  };
+}
+
+interface GitHub {
+  rest: {
+    actions: {
+      listWorkflowRuns: (params: {
+        owner: string;
+        repo: string;
+        workflow_id: string;
+        head_sha: string;
+        per_page: number;
+      }) => Promise<{ data: { workflow_runs: WorkflowRun[] } }>;
+    };
+    pulls: {
+      get: (params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+      }) => Promise<{ data: PullRequestData }>;
+    };
+    repos: {
+      getContent: (params: {
+        owner: string;
+        repo: string;
+        path: string;
+        ref: string;
+      }) => Promise<{ data: { content: string } }>;
+    };
+    issues: {
+      createComment: (params: {
+        owner: string;
+        repo: string;
+        issue_number: number;
+        body: string;
+      }) => Promise<unknown>;
+    };
+    reactions: {
+      createForIssueComment: (params: {
+        owner: string;
+        repo: string;
+        comment_id: number;
+        content: string;
+      }) => Promise<unknown>;
+    };
+  };
+}
+
+export interface Context {
+  repo: { owner: string; repo: string };
+  eventName: string;
+  sha: string;
+  serverUrl: string;
+  runId: number;
+  payload: {
+    inputs?: Record<string, string | undefined>;
+    comment?: {
+      author_association: string;
+      user: { login: string };
+      id: number;
+      body: string;
+    };
+    issue?: { number: number };
+  };
+}
+
+export async function resolveRegressionTrigger({
+  github,
+  context,
+  core,
+}: {
+  github: GitHub;
+  context: Context;
+  core: CoreWithOutputs;
+}): Promise<void> {
   const { owner, repo } = context.repo;
   const fullName = `${owner}/${repo}`;
   const eventName = context.eventName;
@@ -59,7 +149,7 @@ module.exports = async ({ github, context, core }) => {
 
   // Wait for the EDR CI workflow run for `sha` to conclude. Returns true only
   // if it completed successfully. Polls until CI_WAIT_TIMEOUT_MS elapses.
-  async function waitForEdrCi(sha) {
+  async function waitForEdrCi(sha: string): Promise<boolean> {
     const deadline = Date.now() + CI_WAIT_TIMEOUT_MS;
     while (Date.now() < deadline) {
       const { data } = await github.rest.actions.listWorkflowRuns({
@@ -78,7 +168,7 @@ module.exports = async ({ github, context, core }) => {
         `EDR CI for ${sha.slice(0, 12)} not finished yet ` +
           `(status: ${run?.status ?? "not started"}); waiting...`
       );
-      await new Promise((r) => setTimeout(r, CI_POLL_INTERVAL_MS));
+      await new Promise((resolve) => setTimeout(resolve, CI_POLL_INTERVAL_MS));
     }
     core.warning("Timed out waiting for EDR CI to conclude");
     return false;
@@ -90,8 +180,10 @@ module.exports = async ({ github, context, core }) => {
   // sha is actually used. Throws on a malformed pin (or an unreadable pinned
   // PR) so misconfiguration fails loudly instead of silently benchmarking
   // `main` — which is exactly the incompatible state the pin exists to avoid.
-  async function resolveDefaultHardhatRef(ref) {
-    let raw;
+  async function resolveDefaultHardhatRef(
+    ref: string
+  ): Promise<{ ref: string; pin?: HardhatPin }> {
+    let raw: string;
     try {
       const { data } = await github.rest.repos.getContent({
         owner,
@@ -101,7 +193,9 @@ module.exports = async ({ github, context, core }) => {
       });
       raw = Buffer.from(data.content, "base64").toString("utf8");
     } catch (e) {
-      if (e.status === 404) return { ref: "main" }; // no pin
+      if (errorStatus(e) === 404) {
+        return { ref: "main" }; // no pin
+      }
       throw e;
     }
 
@@ -135,7 +229,10 @@ module.exports = async ({ github, context, core }) => {
   // the gating decision (`should_run`) is the only thing that matters. Run them
   // through this wrapper so any API rejection — insufficient token permissions,
   // rate limits, transient 5xx — degrades to a warning instead of aborting.
-  async function bestEffort(description, fn) {
+  async function bestEffort(
+    description: string,
+    fn: () => Promise<unknown>
+  ): Promise<void> {
     try {
       await fn();
     } catch (e) {
@@ -144,13 +241,19 @@ module.exports = async ({ github, context, core }) => {
     }
   }
 
-  async function postComment(body) {
-    if (eventName !== "issue_comment") return;
+  async function postComment(body: string): Promise<void> {
+    if (eventName !== "issue_comment") {
+      return;
+    }
+    const issueNumber = context.payload.issue?.number;
+    if (issueNumber === undefined) {
+      return;
+    }
     await bestEffort("Posting status comment", () =>
       github.rest.issues.createComment({
         owner,
         repo,
-        issue_number: context.payload.issue.number,
+        issue_number: issueNumber,
         body,
       })
     );
@@ -166,15 +269,23 @@ module.exports = async ({ github, context, core }) => {
     edrRef = context.sha;
     // An explicit hardhat-ref input always wins over the compat pin.
     hardhatRef =
-      context.payload.inputs["hardhat-ref"] ||
+      context.payload.inputs?.["hardhat-ref"] ||
       (await resolveDefaultHardhatRef(edrRef)).ref;
     scenarioFilter =
-      context.payload.inputs["scenario-filter"] || DEFAULT_SCENARIO_FILTER;
+      context.payload.inputs?.["scenario-filter"] || DEFAULT_SCENARIO_FILTER;
     benchmarkFilter =
-      context.payload.inputs["benchmark-filter"] || DEFAULT_BENCHMARK_FILTER;
+      context.payload.inputs?.["benchmark-filter"] || DEFAULT_BENCHMARK_FILTER;
     isBaseline = false;
   } else if (eventName === "issue_comment") {
     const comment = context.payload.comment;
+    const issue = context.payload.issue;
+
+    if (comment === undefined || issue === undefined) {
+      throw new Error(
+        "Malformed issue_comment payload: missing comment or issue"
+      );
+    }
+
     const assoc = comment.author_association;
     const allowed = ["OWNER", "MEMBER", "COLLABORATOR"];
 
@@ -197,7 +308,7 @@ module.exports = async ({ github, context, core }) => {
       const { data: pr } = await github.rest.pulls.get({
         owner,
         repo,
-        pull_number: context.payload.issue.number,
+        pull_number: issue.number,
       });
 
       if (pr.head.repo.full_name !== fullName) {
@@ -213,11 +324,11 @@ module.exports = async ({ github, context, core }) => {
 
         // Parse `key=value` or `key="value with spaces"` (command/step globs
         // like "cold compile" contain spaces, so quotes are supported).
-        const parseParam = (key) => {
+        const parseParam = (key: string): string => {
           const m = comment.body.match(
             new RegExp(`${key}=(?:"([^"]*)"|(\\S+))`)
           );
-          return m ? (m[1] ?? m[2]) : "";
+          return m?.[1] ?? m?.[2] ?? "";
         };
 
         hardhatRef = parseParam("hardhat-ref");
@@ -228,7 +339,7 @@ module.exports = async ({ github, context, core }) => {
         // is active on the PR head. A malformed pin is reported back to the
         // PR (instead of failing the job with no feedback) and skips the run.
         let pinNote = "";
-        let pinError;
+        let pinError: string | undefined;
         if (hardhatRef === "") {
           try {
             const resolved = await resolveDefaultHardhatRef(edrRef);
@@ -259,9 +370,8 @@ module.exports = async ({ github, context, core }) => {
             benchmarkFilter !== "*" &&
               `benchmarks matching \`${benchmarkFilter}\``,
           ].filter(Boolean);
-          const filterNote = filterNotes.length
-            ? ` (${filterNotes.join(", ")})`
-            : "";
+          const filterNote =
+            filterNotes.length > 0 ? ` (${filterNotes.join(", ")})` : "";
           await postComment(
             `🚀 [Starting regression benchmark](${runUrl}) for ` +
               `\`${edrRef.slice(0, 12)}\` against Hardhat ` +
@@ -289,4 +399,4 @@ module.exports = async ({ github, context, core }) => {
       `hardhat_ref=${hardhatRef} is_baseline=${isBaseline} ` +
       `scenario_filter=${scenarioFilter} benchmark_filter=${benchmarkFilter}`
   );
-};
+}
