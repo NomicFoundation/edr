@@ -2,8 +2,19 @@ use std::io;
 
 use crossbeam_channel::{select_biased, unbounded, SendError, Sender};
 use derive_where::derive_where;
-use edr_utils_sync::CancellableThread;
+use edr_utils_sync::{CancellableThread, MAX_THREAD_NAME_LEN};
 use napi::tokio::runtime;
+
+/// Name of the thread that drops providers.
+pub const PROVIDER_THREAD_NAME: &str = "edr-drop-prov";
+
+/// Name of the thread that drops responses.
+pub const RESPONSE_THREAD_NAME: &str = "edr-drop-resp";
+
+const _: () = {
+    assert!(PROVIDER_THREAD_NAME.len() <= MAX_THREAD_NAME_LEN);
+    assert!(RESPONSE_THREAD_NAME.len() <= MAX_THREAD_NAME_LEN);
+};
 
 /// Owns a dedicated OS thread that drops values of type `T` outside of the
 /// calling thread. Producers obtain cloneable senders via [`Self::sender`] and
@@ -22,6 +33,9 @@ pub struct AsyncDeallocator<T: Send + 'static> {
 
 impl<T: Send + 'static> AsyncDeallocator<T> {
     /// Constructs a new instance.
+    ///
+    /// `thread_name` must be at most [`MAX_THREAD_NAME_LEN`] bytes long, or the
+    /// OS receives it truncated.
     pub fn new(thread_name: String, runtime: runtime::Handle) -> io::Result<Self> {
         let (sender, receiver) = unbounded::<T>();
 

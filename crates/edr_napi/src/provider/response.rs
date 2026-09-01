@@ -172,7 +172,7 @@ mod tests {
     use napi::tokio::runtime;
 
     use super::*;
-    use crate::async_deallocator::AsyncDeallocator;
+    use crate::async_deallocator::{AsyncDeallocator, RESPONSE_THREAD_NAME};
 
     /// The tests never finalize a response, so the deallocator's thread and
     /// runtime need not outlive the sender.
@@ -181,12 +181,9 @@ mod tests {
             .build()
             .expect("failed to build a runtime");
 
-        AsyncDeallocator::new(
-            "async-deallocator-response".to_owned(),
-            runtime.handle().clone(),
-        )
-        .expect("failed to spawn the deallocator thread")
-        .sender()
+        AsyncDeallocator::new(RESPONSE_THREAD_NAME.to_owned(), runtime.handle().clone())
+            .expect("failed to spawn the deallocator thread")
+            .sender()
     }
 
     fn response(data: edr_napi_core::spec::ResponseData) -> edr_napi_core::spec::Response {

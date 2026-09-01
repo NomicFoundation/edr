@@ -17,7 +17,9 @@ use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
-    async_deallocator::{AsyncDeallocator, AsyncDeallocatorSender},
+    async_deallocator::{
+        AsyncDeallocator, AsyncDeallocatorSender, PROVIDER_THREAD_NAME, RESPONSE_THREAD_NAME,
+    },
     config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     contract_decoder::ContractDecoder,
     logger::LoggerConfig,
@@ -601,7 +603,7 @@ impl Context {
             provider_factories: HashMap::default(),
             solidity_test_runner_factories: HashMap::default(),
             provider_deallocator: AsyncDeallocator::new(
-                "async-deallocator-provider".to_owned(),
+                PROVIDER_THREAD_NAME.to_owned(),
                 runtime.clone(),
             )
             .map_err(|error| {
@@ -610,11 +612,8 @@ impl Context {
                     format!("Failed to spawn the provider deallocator thread: {error}"),
                 )
             })?,
-            response_deallocator: AsyncDeallocator::new(
-                "async-deallocator-response".to_owned(),
-                runtime,
-            )
-            .map_err(|error| {
+            response_deallocator: AsyncDeallocator::new(RESPONSE_THREAD_NAME.to_owned(), runtime)
+                .map_err(|error| {
                 napi::Error::new(
                     napi::Status::GenericFailure,
                     format!("Failed to spawn the response deallocator thread: {error}"),
