@@ -1,0 +1,105 @@
+name: DWARF decode benchmark
+
+# Same-machine A/B: benchmark the solx DWARF decode path at the PR's merge
+# commit against its base (the merge commit's first parent), on one runner in
+# one job so machine variance cancels. Criterion compares the two runs
+# statistically; the gate only fails when the 95% confidence interval says the
+# regression exceeds the threshold, so runner noise (a few percent per side)
+# cannot fail an innocent PR. Subtle regressions below the threshold are out
+# of scope here — catching those needs deterministic counters (planned:
+# iai-callgrind + Bencher, the slang pattern).
+#
+# Only the committed scenarios fixture runs in CI (small blobs). The
+# expensive-regime corpora are local-only via EDR_DWARF_BENCH_DIR — they embed
+# third-party contract sources with UNLICENSED SPDX headers, so they cannot be
+# committed. See crates/edr_solidity/benches/dwarf_decode.rs.
+
+on:
+  pull_request:
+    # Everything the bench compiles against, plus the dependency-bump vector
+    # (Cargo.lock). Paths filters rot silently when code moves — if the decode
+    # path grows a new module outside these, add it here.
+    paths:
+      - "crates/edr_solidity/src/debug_info/**"
+      - "crates/edr_solidity/src/artifacts.rs"
+      - "crates/edr_solidity/src/artifacts/**"
+      - "crates/edr_solidity/src/build_model.rs"
+      - "crates/edr_solidity/benches/dwarf_decode.rs"
+      - "crates/edr_solidity/fixtures/**"
+      - "crates/edr_solidity/Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/dwarf-decode-benchmark.yml"
+  # Informational single run (no baseline to compare against).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dwarf-decode-benchmark:
+    name: A/B benchmark DWARF decode against the PR base
+    runs-on: ubuntu-24.04
+    env:
+      # Match sibling Rust jobs so a shared target cache stays valid
+      # (cargo's fingerprint includes RUSTFLAGS).
+      RUSTFLAGS: -Dwarnings
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The base side of the A/B is the merge commit's first parent, so
+          # its full history segment must be present.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-rust
+
+      - name: Benchmark the base (merge commit's first parent)
+        if: github.event_name == 'pull_request'
+        run: |
+          git checkout --detach HEAD^1
+          cargo bench --locked -p edr_solidity --bench dwarf_decode -- --save-baseline pr-base
+          git checkout --detach "$GITHUB_SHA"
+
+      - name: Benchmark the PR merge commit
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            cargo bench --locked -p edr_solidity --bench dwarf_decode -- --baseline pr-base
+          else
+            cargo bench --locked -p edr_solidity --bench dwarf_decode
+          fi
+
+      - name: Fail on a confident regression
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 - <<'EOF'
+          import glob
+          import json
+          import sys
+
+          # Fail only when the 95% CI says the mean regressed by more than
+          # this, i.e. when even the optimistic bound is a real regression.
+          THRESHOLD = 0.10
+
+          changes = sorted(glob.glob("target/criterion/*/*/*/change/estimates.json"))
+          if not changes:
+              sys.exit("no criterion change estimates found - the baseline comparison did not run")
+
+          failed = False
+          for path in changes:
+              bench = "/".join(path.split("/")[2:5])
+              with open(path) as f:
+                  mean = json.load(f)["mean"]
+              point = mean["point_estimate"]
+              lower = mean["confidence_interval"]["lower_bound"]
+              upper = mean["confidence_interval"]["upper_bound"]
+              verdict = ""
+              if lower > THRESHOLD:
+                  verdict = f"  <-- regressed more than {THRESHOLD:.0%}"
+                  failed = True
+              print(f"{bench}: mean {point:+.1%} (95% CI {lower:+.1%} .. {upper:+.1%}){verdict}")
+
+          sys.exit(1 if failed else 0)
+          EOF
