@@ -1,11 +1,13 @@
 //! Conversion from `CallTraceArena` (from revm-inspectors) to `NestedTrace`.
 
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
-use edr_primitives::{Address, Bytes, HashMap, U160};
+use edr_primitives::{Address, Bytes, U160};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 use revm_interpreter::{InternalResult, SuccessOrHalt};
 
-use super::{CallMessage, CreateMessage, EvmStep, NestedTrace, NestedTraceStep, PrecompileMessage};
+use super::{
+    CallMessage, CodeMap, CreateMessage, EvmStep, NestedTrace, NestedTraceStep, PrecompileMessage,
+};
 use crate::exit_code::ExitCode;
 
 /// Error type for converting `CallTraceArena` to `NestedTrace`.
@@ -18,8 +20,8 @@ pub enum CallTraceArenaConversionError {
 
 /// Converts a `CallTraceArena` into a `NestedTrace`.
 pub(super) fn convert_from_arena<HaltReasonT: HaltReasonTrait>(
-    address_to_creation_code: &HashMap<Address, &Bytes>,
-    address_to_runtime_code: &HashMap<Address, &Bytes>,
+    address_to_creation_code: &CodeMap<'_>,
+    address_to_runtime_code: &CodeMap<'_>,
     arena: &CallTraceArena,
 ) -> Result<NestedTrace<HaltReasonT>, CallTraceArenaConversionError> {
     // Start conversion from the root node (index 0)
@@ -31,8 +33,8 @@ pub(super) fn convert_from_arena<HaltReasonT: HaltReasonTrait>(
 }
 
 fn convert_node<HaltReasonT: HaltReasonTrait>(
-    address_to_creation_code: &HashMap<Address, &Bytes>,
-    address_to_runtime_code: &HashMap<Address, &Bytes>,
+    address_to_creation_code: &CodeMap<'_>,
+    address_to_runtime_code: &CodeMap<'_>,
     arena: &CallTraceArena,
     node_idx: usize,
 ) -> Result<NestedTrace<HaltReasonT>, CallTraceArenaConversionError> {
@@ -111,7 +113,7 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
             deployed_contract: Some(trace.output.clone()),
             code: address_to_creation_code
                 .get(&trace.address)
-                .map(|c| (*c).clone())
+                .cloned()
                 .expect("Create must have code"),
             value: trace.value,
             return_data: trace.output.clone(),
@@ -127,7 +129,7 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
         address_to_runtime_code
             .get(&trace.address)
             // Code might not exist if it's a mocked contract
-            .map_or_else(|| Bytes::from_static(&[0u8]), |c| (*c).clone())
+            .map_or_else(|| Bytes::from_static(&[0u8]), Bytes::clone)
     };
 
     Ok(NestedTrace::Call(CallMessage {

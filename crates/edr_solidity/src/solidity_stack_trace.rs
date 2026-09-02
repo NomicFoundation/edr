@@ -7,7 +7,7 @@ use revm_inspectors::tracing::CallTraceArena;
 use crate::{
     build_model::ContractFunctionType,
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
-    nested_trace::{CallTraceArenaConversionError, NestedTrace},
+    nested_trace::{CallTraceArenaConversionError, CodeMap, NestedTrace},
     return_data::CheatcodeErrorDetails,
     solidity_tracer::{self, SolidityTracerError},
 };
@@ -260,13 +260,49 @@ impl<HaltReasonT> StackTraceCreationError<HaltReasonT> {
 }
 
 /// Code known to have been deployed to an address. A `None` field contributes
-/// no entries — the same as an empty map.
+/// no entries — the same as an empty map. See [`DeployedCodeMaps`] for the
+/// owned form.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DeployedCode<'a> {
     /// Mapping from contract address to creation (init) code.
     pub creation: Option<&'a HashMap<Address, Bytes>>,
     /// Mapping from contract address to runtime (deployed) code.
     pub runtime: Option<&'a HashMap<Address, Bytes>>,
+}
+
+/// Owned counterpart of [`DeployedCode`]: the creation and runtime code of
+/// contracts deployed during traced execution.
+///
+/// Building this once from arenas that are repeatedly used as code sources
+/// (e.g. a test suite's setup traces) lets those arenas be dropped while
+/// stack traces can still be decoded.
+#[derive(Clone, Debug, Default)]
+pub struct DeployedCodeMaps {
+    /// Mapping from contract address to creation (init) code.
+    creation: HashMap<Address, Bytes>,
+    /// Mapping from contract address to runtime (deployed) code.
+    runtime: HashMap<Address, Bytes>,
+}
+
+impl DeployedCodeMaps {
+    /// Records the creation and runtime code of every contract created in the
+    /// arena, overwriting earlier entries for the same address — the same
+    /// precedence [`get_stack_trace`] applies to its `code_sources`.
+    pub fn record_arena(&mut self, arena: &CallTraceArena) {
+        for (address, creation, runtime) in created_contracts(arena) {
+            self.creation.insert(address, creation.clone());
+            self.runtime.insert(address, runtime.clone());
+        }
+    }
+
+    /// Borrows the maps in the form [`get_stack_trace`] takes.
+    #[must_use]
+    pub fn as_deployed_code(&self) -> DeployedCode<'_> {
+        DeployedCode {
+            creation: Some(&self.creation),
+            runtime: Some(&self.runtime),
+        }
+    }
 }
 
 /// Computes the stack trace of `failing_trace`.
@@ -297,26 +333,16 @@ pub fn get_stack_trace<
     code_sources: impl IntoIterator<Item = &'arena CallTraceArena>,
     deployed_code: DeployedCode<'arena>,
 ) -> Result<Vec<StackTraceEntry>, StackTraceCreationError<HaltReasonT>> {
-    let mut address_to_creation_code: HashMap<Address, &Bytes> = deployed_code
-        .creation
-        .map(|map| map.iter().map(|(k, v)| (*k, v)).collect())
-        .unwrap_or_default();
-
-    let mut address_to_runtime_code: HashMap<Address, &Bytes> = deployed_code
-        .runtime
-        .map(|map| map.iter().map(|(k, v)| (*k, v)).collect())
-        .unwrap_or_default();
+    let mut address_to_creation_code = CodeMap::layered_over(deployed_code.creation);
+    let mut address_to_runtime_code = CodeMap::layered_over(deployed_code.runtime);
 
     for trace in code_sources
         .into_iter()
         .chain(std::iter::once(failing_trace))
     {
-        for node in trace.nodes() {
-            let address = node.trace.address;
-            if node.trace.kind.is_any_create() {
-                address_to_creation_code.insert(address, &node.trace.data);
-                address_to_runtime_code.insert(address, &node.trace.output);
-            }
+        for (address, creation, runtime) in created_contracts(trace) {
+            address_to_creation_code.insert(address, creation);
+            address_to_runtime_code.insert(address, runtime);
         }
     }
 
@@ -328,6 +354,20 @@ pub fn get_stack_trace<
     let trace = contract_decoder.try_to_decode_nested_trace(trace)?;
     let stack_trace = solidity_tracer::get_stack_trace(trace)?;
     Ok(stack_trace)
+}
+
+/// Returns the address, creation code and runtime code of every contract
+/// created in `arena`, in arena order. Failed creates are included: the
+/// conversion panics on a create node whose creation code is missing. Their
+/// entries deliberately shadow any pre-computed base mapping for the same
+/// address — the arena executed later, so its view of the address is the
+/// current one.
+fn created_contracts(arena: &CallTraceArena) -> impl Iterator<Item = (Address, &Bytes, &Bytes)> {
+    arena
+        .nodes()
+        .iter()
+        .filter(|node| node.trace.kind.is_any_create())
+        .map(|node| (node.trace.address, &node.trace.data, &node.trace.output))
 }
 
 /// The possible outcomes from computing stack traces.

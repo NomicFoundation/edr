@@ -972,6 +972,74 @@ async fn always_mode_frees_passing_tests_arenas_unless_all_are_included() {
         }
     }
 }
+
+// A failing test in `CollectStackTraces::OnFailure` mode with
+// `IncludeTraces::None` (Hardhat's default verbosity) must produce a
+// source-level stack trace via the re-execution path. This suite has no
+// invariant tests, so nothing is traced during the original run — not even
+// setup — and the re-run has to rebuild the deployed-code mapping itself.
+#[tokio::test(flavor = "multi_thread")]
+async fn on_failure_mode_produces_stack_trace_without_traced_setup() {
+    let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
+    config.collect_stack_traces = CollectStackTraces::OnFailure;
+    config.include_traces = IncludeTraces::None;
+
+    // Real decoder so the stack-trace inferrer runs (mirrors `issue_1482`).
+    let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
+    let runner = TEST_DATA_VIA_IR
+        .runner_with_contract_decoder(config, contract_decoder)
+        .await;
+    let filter = SolidityTestFilter::new(
+        ".*",
+        "AlwaysStackTraceTest",
+        ".*repros/StackTraceAlwaysMode.t.sol",
+    );
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceTest")
+        .expect("the AlwaysStackTrace suite should have run");
+
+    let unit_result = assert_execution_error_stack_trace(suite, "testRevertHasStackTrace()");
+    assert!(
+        unit_result.execution_traces.is_empty(),
+        "no call traces should be retained at `IncludeTraces::None`"
+    );
+    assert_execution_error_stack_trace(suite, "tableRevertHasStackTrace(uint256)");
+    assert_execution_error_stack_trace(suite, "testFuzzRevertHasStackTrace(uint256)");
+}
+
+// A suite's setup arenas are consumed after the run only by results that
+// surface their traces; when none will, they are freed with the suite.
+#[tokio::test(flavor = "multi_thread")]
+async fn always_mode_frees_setup_arenas_unless_a_result_surfaces_them() {
+    for (include_traces, expect_retained) in
+        [(IncludeTraces::Failing, false), (IncludeTraces::All, true)]
+    {
+        let mut config = runner_config(None, &TEST_DATA_DEFAULT, false).await;
+        config.collect_stack_traces = CollectStackTraces::Always;
+        config.include_traces = include_traces;
+
+        let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+        let suite_results = runner.test_collect(repro_filter(3190)).await.suite_results;
+        let suite = suite_results
+            .get("default/repros/Issue3190.t.sol:Issue3190Test")
+            .expect("the Issue3190 suite should have run");
+
+        assert!(
+            suite
+                .test_results
+                .values()
+                .all(|result| result.status == TestStatus::Success),
+            "every test passes, so at `Failing` nothing surfaces the setup traces"
+        );
+        assert_eq!(
+            !suite.setup_traces.is_empty(),
+            expect_retained,
+            "setup arenas retained at {include_traces:?}"
+        );
+    }
+}
 /// One 32-byte zero hash as a hex literal.
 const ZERO_HASH: &str = "0x0000000000000000000000000000000000000000000000000000000000000000";
 

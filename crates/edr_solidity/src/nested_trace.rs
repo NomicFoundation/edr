@@ -60,8 +60,8 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
     ///
     /// Returns an error if the arena is empty or has an invalid root node.
     pub fn from_call_trace_arena(
-        address_to_creation_code: &HashMap<Address, &Bytes>,
-        address_to_runtime_code: &HashMap<Address, &Bytes>,
+        address_to_creation_code: &CodeMap<'_>,
+        address_to_runtime_code: &CodeMap<'_>,
         arena: &revm_inspectors::tracing::CallTraceArena,
     ) -> Result<Self, CallTraceArenaConversionError> {
         conversion::convert_from_arena(address_to_creation_code, address_to_runtime_code, arena)
@@ -83,8 +83,8 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
     pub fn from_call_trace_arena_with_extracted_code(
         arena: &revm_inspectors::tracing::CallTraceArena,
     ) -> Result<Self, CallTraceArenaConversionError> {
-        let mut address_to_creation_code = HashMap::default();
-        let mut address_to_runtime_code = HashMap::default();
+        let mut address_to_creation_code = CodeMap::default();
+        let mut address_to_runtime_code = CodeMap::default();
 
         // Extract code mappings from CREATE traces
         for node in arena.nodes() {
@@ -96,6 +96,41 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
         }
 
         Self::from_call_trace_arena(&address_to_creation_code, &address_to_runtime_code, arena)
+    }
+}
+
+/// A lookup from contract address to code (creation or runtime), layered over
+/// an optional pre-computed base map: entries inserted on top win over the
+/// base for the same address. Keeping the base borrowed avoids copying it
+/// into a fresh lookup table for every conversion.
+#[derive(Debug, Default)]
+pub struct CodeMap<'a> {
+    base: Option<&'a HashMap<Address, Bytes>>,
+    overlay: HashMap<Address, &'a Bytes>,
+}
+
+impl<'a> CodeMap<'a> {
+    /// Creates a lookup whose misses fall back to `base`.
+    #[must_use]
+    pub fn layered_over(base: Option<&'a HashMap<Address, Bytes>>) -> Self {
+        Self {
+            base,
+            overlay: HashMap::default(),
+        }
+    }
+
+    /// Maps `address` to `code`, overriding the base and earlier inserts.
+    pub fn insert(&mut self, address: Address, code: &'a Bytes) {
+        self.overlay.insert(address, code);
+    }
+
+    /// Returns the overlay entry for `address`, falling back to the base map.
+    #[must_use]
+    pub fn get(&self, address: &Address) -> Option<&'a Bytes> {
+        self.overlay
+            .get(address)
+            .copied()
+            .or_else(|| self.base.and_then(|base| base.get(address)))
     }
 }
 

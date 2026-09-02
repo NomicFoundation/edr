@@ -683,9 +683,15 @@ impl<
             } else {
                 "constructor()".to_string()
             };
-            // `setup_failure_result` does not read the traces, so move rather
-            // than clone them.
-            let setup_traces = std::mem::take(&mut setup.traces);
+
+            // `setup_failure_result` does not read the traces, so only retain
+            // what is necessary.
+            let setup_traces = if self.trace_retention.retains_setup(/* any_failed */ true) {
+                std::mem::take(&mut setup.traces)
+            } else {
+                Vec::new()
+            };
+
             return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 elapsed,
                 setup_traces,
@@ -700,6 +706,17 @@ impl<
                 self.known_contracts,
             )
         });
+
+        // Nothing the tests run below needs the setup arenas: contract
+        // identification and `setup.deployed_code` were derived from them
+        // above. Their remaining consumers — trace decoding, the gas report
+        // and the napi conversion — all run after the suite, and what they
+        // produce is only used by results that surface their traces or by a
+        // requested gas report. Free them now if not even a failing test
+        // would.
+        if !self.trace_retention.retains_setup(/* any_failed */ true) {
+            setup.traces = Vec::new();
+        }
 
         let test_fail_functions = functions
             .iter()
@@ -760,6 +777,14 @@ impl<
             .values()
             .filter(|outcome| outcome.result.status == TestStatus::Success)
             .count();
+        let any_failed = test_outcomes
+            .values()
+            .any(|outcome| outcome.result.status.is_failure());
+        let setup_traces = if self.trace_retention.retains_setup(any_failed) {
+            setup.traces
+        } else {
+            Vec::new()
+        };
         info!(
             duration=?duration,
             "done. {}/{} successful",
@@ -768,7 +793,7 @@ impl<
         );
         Ok(SuiteRunOutcome {
             duration,
-            setup_traces: setup.traces,
+            setup_traces,
             test_outcomes,
             warnings,
         })
@@ -981,7 +1006,7 @@ impl<
 
                     collect_stack_trace(
                         &*self.cr.contract_decoder,
-                        self.setup,
+                        self.setup.deployed_code.as_deployed_code(),
                         failing_trace,
                         prior_traces,
                     )
@@ -1141,7 +1166,7 @@ impl<
 
                         collect_stack_trace(
                             &*self.cr.contract_decoder,
-                            self.setup,
+                            self.setup.deployed_code.as_deployed_code(),
                             failing_trace,
                             prior_traces,
                         )
@@ -1294,7 +1319,7 @@ impl<
                     known_contracts: self.cr.known_contracts,
                     ided_contracts: identified_contracts.clone(),
                     logs: &mut self.result.logs,
-                    setup_traces: &self.setup.traces,
+                    deployed_code: self.setup.deployed_code.as_deployed_code(),
                     line_coverage: &mut self.result.line_coverage,
                     deprecated_cheatcodes: &mut self.result.deprecated_cheatcodes,
                     inputs: &txes,
@@ -1341,7 +1366,7 @@ impl<
                     {
                         Some(collect_stack_trace(
                             &*self.cr.contract_decoder,
-                            self.setup,
+                            self.setup.deployed_code.as_deployed_code(),
                             failing_trace,
                             prior_traces,
                         ))
@@ -1390,7 +1415,7 @@ impl<
                         known_contracts: self.cr.known_contracts,
                         ided_contracts: identified_contracts.clone(),
                         logs: &mut self.result.logs,
-                        setup_traces: &self.setup.traces,
+                        deployed_code: self.setup.deployed_code.as_deployed_code(),
                         coverage: &mut None,
                         deprecated_cheatcodes: &mut self.result.deprecated_cheatcodes,
                         generate_stack_trace: true,
@@ -1466,7 +1491,7 @@ impl<
                     known_contracts: self.cr.known_contracts,
                     ided_contracts: identified_contracts.clone(),
                     logs: &mut self.result.logs,
-                    setup_traces: &self.setup.traces,
+                    deployed_code: self.setup.deployed_code.as_deployed_code(),
                     line_coverage: &mut self.result.line_coverage,
                     deprecated_cheatcodes: &mut self.result.deprecated_cheatcodes,
                     inputs: &invariant_result.last_run_inputs,
@@ -1589,7 +1614,7 @@ impl<
                 {
                     Some(collect_stack_trace(
                         &*self.cr.contract_decoder,
-                        self.setup,
+                        self.setup.deployed_code.as_deployed_code(),
                         failing_trace,
                         prior_traces,
                     ))
@@ -1700,19 +1725,25 @@ impl<
     ) -> Result<Vec<StackTraceEntry>, SolidityTestStackTraceError<HaltReasonT>> {
         let mut executor = self.cr.executor_builder.clone().build()?;
 
-        // Apply executor config overrides.
-        // Error is ignored since overrides were already validated in run().
-        let _ = self.cr.apply_executor_overrides(func, &mut executor);
-
-        // We only need light-weight tracing for setup to be able to match contract
-        // codes to contact addresses.
+        // Light-weight tracing suffices for setup: only the code of the
+        // contracts it deploys is needed, to seed stack-trace decoding. The
+        // tracer must stay on, as cheatcodes such as
+        // `vm.startDebugTraceRecording` require one.
         executor.inspector_mut().tracing(TracingMode::WithoutSteps);
-        let setup = self.cr.setup(&mut executor, needs_setup);
-        if let Some(reason) = setup.reason {
+        let mut re_run_setup = self.cr.setup(&mut executor, needs_setup);
+        // The deployed-code map has replaced the arenas as the code source,
+        // so nothing reads them again; free them ahead of the traced re-run.
+        re_run_setup.traces = Vec::new();
+        if let Some(reason) = re_run_setup.reason {
             // If this function was called, the setup succeeded during test execution, so
             // this is an unexpected failure.
             return Err(SolidityTestStackTraceError::FailingSetup(reason));
         }
+
+        // Apply executor config overrides after setup, as `FunctionRunner::run`
+        // does, so the re-run's setup matches the original's. The error is
+        // ignored: overrides were already validated in `run`.
+        let _ = self.cr.apply_executor_overrides(func, &mut executor);
 
         // Collect EVM step traces that are needed for stack trace generation.
         executor.inspector_mut().tracing(TracingMode::WithSteps);
@@ -1720,7 +1751,7 @@ impl<
         // Run unit test
         let new_trace_arena = match executor.call(
             self.cr.sender,
-            setup.address,
+            re_run_setup.address,
             func,
             args,
             U256::ZERO,
@@ -1735,8 +1766,8 @@ impl<
         get_stack_trace(
             &*self.cr.contract_decoder,
             &new_trace_arena.arena,
-            setup.traces.iter().map(|(_, arena)| &arena.arena),
-            DeployedCode::default(),
+            std::iter::empty(),
+            re_run_setup.deployed_code.as_deployed_code(),
         )
         .map_err(SolidityTestStackTraceError::Creation)
     }
@@ -1766,24 +1797,23 @@ fn get_setup_stack_trace<
 
 /// Builds the stack trace of `failing_trace`.
 ///
-/// Taken as an associated function of explicit fields rather than `&self`
-/// so it can be called from the fuzz path, where `self.executor` has
-/// already been moved out.
+/// A free function taking explicit arguments rather than `&self`, so it can
+/// be called from the fuzz path, where `self.executor` has already been
+/// moved out.
 fn collect_stack_trace<
     HaltReasonT: 'static + HaltReasonTrait + TryInto<HaltReason>,
     NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
 >(
     contract_decoder: &NestedTraceDecoderT,
-    setup: &TestSetup<HaltReasonT>,
+    deployed_code: DeployedCode<'_>,
     failing_trace: &SparsedTraceArena,
     prior_execution_traces: &[SparsedTraceArena],
 ) -> SolidityTestStackTraceResult<HaltReasonT> {
-    let setup_arenas = setup.traces.iter().map(|(_, arena)| &arena.arena);
     get_stack_trace(
         contract_decoder,
         &failing_trace.arena,
-        setup_arenas.chain(prior_execution_traces.iter().map(|arena| &arena.arena)),
-        DeployedCode::default(),
+        prior_execution_traces.iter().map(|arena| &arena.arena),
+        deployed_code,
     )
     .map_err(SolidityTestStackTraceError::from)
     .into()
@@ -1821,19 +1851,23 @@ fn re_run_fuzz_counterexample_for_stack_traces<
 ) -> Result<Vec<StackTraceEntry>, SolidityTestStackTraceError<HaltReasonT>> {
     let mut executor = contract_runner.executor_builder.clone().build()?;
 
-    // Apply executor config overrides.
-    // Error is ignored since overrides were already validated in run().
-    let _ = contract_runner.apply_executor_overrides(func, &mut executor);
-
-    // We only need light-weight tracing for setup to be able to match contract
-    // codes to contact addresses.
+    // As in `re_run_test_for_stack_traces`: light-weight tracing of setup to
+    // learn the code of the contracts it deploys.
     executor.inspector_mut().tracing(TracingMode::WithoutSteps);
-    let setup = contract_runner.setup(&mut executor, needs_setup);
-    if let Some(reason) = setup.reason {
+    let mut re_run_setup = contract_runner.setup(&mut executor, needs_setup);
+    // The deployed-code map has replaced the arenas as the code source, so
+    // nothing reads them again; free them ahead of the traced re-run.
+    re_run_setup.traces = Vec::new();
+    if let Some(reason) = re_run_setup.reason {
         // If this function was called, the setup succeeded during test execution, so
         // this is an unexpected failure.
         return Err(SolidityTestStackTraceError::FailingSetup(reason));
     }
+
+    // Apply executor config overrides after setup, as `FunctionRunner::run`
+    // does, so the re-run's setup matches the original's. The error is
+    // ignored: overrides were already validated in `run`.
+    let _ = contract_runner.apply_executor_overrides(func, &mut executor);
 
     // Collect EVM step traces that are needed for stack trace generation.
     executor.inspector_mut().tracing(TracingMode::WithSteps);
@@ -1853,8 +1887,8 @@ fn re_run_fuzz_counterexample_for_stack_traces<
     get_stack_trace(
         &*contract_runner.contract_decoder,
         &new_trace_arena.arena,
-        setup.traces.iter().map(|(_, arena)| &arena.arena),
-        DeployedCode::default(),
+        std::iter::empty(),
+        re_run_setup.deployed_code.as_deployed_code(),
     )
     .map_err(SolidityTestStackTraceError::Creation)
 }
