@@ -278,6 +278,20 @@ impl<
     }
 }
 
+/// The inline configuration a test suite runs with, extracted from its
+/// contract's source (see
+/// [`MultiContractRunner::inline_config_overrides`]).
+struct SuiteInlineConfig {
+    /// The merged per-function configuration overrides.
+    overrides: HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+    /// The functions that opted into `allowInternalExpectRevert`.
+    allow_internal_expect_revert: HashSet<TestFunctionIdentifier>,
+    /// Warnings for directives that cannot take effect, e.g. on a function
+    /// that matches nothing in the contract ABI. Reported on the suite's
+    /// result.
+    warnings: Vec<String>,
+}
+
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr + Send + Sync,
@@ -308,8 +322,14 @@ impl<
     >
 {
     /// Parses the inline configuration of the given test contract from its
-    /// source, returning the per-function overrides and the set of functions
-    /// that opted into `allowInternalExpectRevert`.
+    /// source, returning the overrides keyed by test function selector, the
+    /// set of tests that opted into `allowInternalExpectRevert`, and warnings
+    /// for directives that cannot take effect.
+    ///
+    /// A contract-level configuration (NatSpec above the contract definition)
+    /// applies to every test function in the contract's ABI — including
+    /// inherited ones — with function-level directives taking per-key
+    /// precedence.
     ///
     /// Returns empty collections when the contract's source isn't available or
     /// carries no inline configuration. Malformed directives never reach here:
@@ -319,36 +339,76 @@ impl<
         &self,
         artifact_id: &ArtifactId,
         contract: &TestContract,
-    ) -> (
-        HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
-        HashSet<TestFunctionIdentifier>,
-    ) {
+    ) -> SuiteInlineConfig {
         let parsed = self
             .inline_config_provider
             .get(&artifact_id.source, &artifact_id.name);
 
+        let mut warnings = Vec::new();
+
+        // Key the overrides by selector: every overload is a distinct test
+        // with a distinct selector.
+        let mut by_selector: HashMap<String, TestFunctionConfigOverride> = HashMap::new();
+        for function_override in parsed.functions {
+            let mut matched = false;
+            for function in contract
+                .abi
+                .functions()
+                .filter(|function| function.name == function_override.function_name)
+            {
+                matched = true;
+                by_selector.insert(
+                    function.selector().to_string(),
+                    function_override.config.clone(),
+                );
+            }
+            // A name matching no ABI function (e.g. not externally callable)
+            // can't be run as a test, so its override would silently do
+            // nothing; warn instead.
+            if !matched {
+                warnings.push(format!(
+                    "Found inline configuration for function \"{}\" in contract \"{}\", but no \
+                     matching function exists in the contract ABI (it may not be externally \
+                     callable), so it will not run as a test and its configuration is ignored.",
+                    function_override.function_name, artifact_id.name,
+                ));
+            }
+        }
+
+        // Apply the contract-level configuration underneath every test
+        // function's own overrides. Walking the ABI (rather than the source)
+        // covers inherited test functions too.
+        if let Some(contract_config) = &parsed.contract {
+            for function in contract.abi.functions() {
+                if !inline_config::is_test_function(&function.name) {
+                    continue;
+                }
+                by_selector
+                    .entry(function.selector().to_string())
+                    .or_default()
+                    .fill_unset_from(contract_config);
+            }
+        }
+
         let mut overrides = HashMap::new();
         let mut allow_internal_expect_revert = HashSet::new();
 
-        for function_override in parsed {
-            let Some(function_selector) =
-                inline_config::resolve_selector(&contract.abi, &function_override.function_name)
-            else {
-                // Not part of the ABI (e.g. not externally callable), so it
-                // can't be run as a test; ignore it.
-                continue;
-            };
+        for (function_selector, config) in by_selector {
             let identifier = TestFunctionIdentifier {
                 contract_artifact: artifact_id.clone(),
                 function_selector,
             };
-            if function_override.config.allow_internal_expect_revert == Some(true) {
+            if config.allow_internal_expect_revert == Some(true) {
                 allow_internal_expect_revert.insert(identifier.clone());
             }
-            overrides.insert(identifier, function_override.config);
+            overrides.insert(identifier, config);
         }
 
-        (overrides, allow_internal_expect_revert)
+        SuiteInlineConfig {
+            overrides,
+            allow_internal_expect_revert,
+            warnings,
+        }
     }
 
     fn run_test_suite(
@@ -378,8 +438,11 @@ impl<
         debug!("start executing all tests in contract");
 
         // Extract per-test inline configuration from the contract's source.
-        let (inline_overrides, allow_internal_expect_revert) =
-            self.inline_config_overrides(artifact_id, contract);
+        let SuiteInlineConfig {
+            overrides: inline_overrides,
+            allow_internal_expect_revert,
+            warnings: inline_config_warnings,
+        } = self.inline_config_overrides(artifact_id, contract);
 
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
@@ -451,6 +514,7 @@ impl<
                 span,
             );
         let mut r = runner.run_tests(filter, handle)?;
+        r.warnings.extend(inline_config_warnings);
 
         let mut gas_report = self
             .generate_gas_report

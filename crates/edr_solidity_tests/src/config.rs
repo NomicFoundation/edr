@@ -182,7 +182,8 @@ pub enum CollectStackTraces {
     OnFailure,
 }
 
-/// Test function level config override.
+/// Config override for a single test. Also used as a contract-level default
+/// (see [`Self::fill_unset_from`]).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TestFunctionConfigOverride {
     /// Allow expecting reverts with `expectRevert` at the same callstack depth
@@ -202,6 +203,87 @@ pub struct TestFunctionConfigOverride {
     pub fuzz: Option<FuzzConfigOverride>,
     /// Configuration override for invariant testing
     pub invariant: Option<InvariantConfigOverride>,
+}
+
+/// Sets `field` to `fallback`'s value if it is unset.
+fn fill<T: Clone>(field: &mut Option<T>, fallback: &Option<T>) {
+    if field.is_none() {
+        field.clone_from(fallback);
+    }
+}
+
+impl TestFunctionConfigOverride {
+    /// Fills every unset value from `fallback`, key by key — including within
+    /// the fuzz and invariant sections. Used to apply a contract-level inline
+    /// configuration underneath a function-level one: values set on the
+    /// function win, everything else falls back to the contract's.
+    pub fn fill_unset_from(&mut self, fallback: &Self) {
+        let Self {
+            allow_internal_expect_revert,
+            isolate,
+            evm_version,
+            fuzz,
+            invariant,
+        } = fallback;
+
+        fill(
+            &mut self.allow_internal_expect_revert,
+            allow_internal_expect_revert,
+        );
+        fill(&mut self.isolate, isolate);
+        fill(&mut self.evm_version, evm_version);
+
+        if let Some(fallback_fuzz) = fuzz {
+            match &mut self.fuzz {
+                Some(fuzz) => fuzz.fill_unset_from(fallback_fuzz),
+                None => self.fuzz = Some(fallback_fuzz.clone()),
+            }
+        }
+        if let Some(fallback_invariant) = invariant {
+            match &mut self.invariant {
+                Some(invariant) => invariant.fill_unset_from(fallback_invariant),
+                None => self.invariant = Some(fallback_invariant.clone()),
+            }
+        }
+    }
+}
+
+impl FuzzConfigOverride {
+    /// Fills every unset value from `fallback` (see
+    /// [`TestFunctionConfigOverride::fill_unset_from`]).
+    fn fill_unset_from(&mut self, fallback: &Self) {
+        let Self {
+            runs,
+            max_test_rejects,
+            show_logs,
+            timeout,
+        } = fallback;
+
+        fill(&mut self.runs, runs);
+        fill(&mut self.max_test_rejects, max_test_rejects);
+        fill(&mut self.show_logs, show_logs);
+        fill(&mut self.timeout, timeout);
+    }
+}
+
+impl InvariantConfigOverride {
+    /// Fills every unset value from `fallback` (see
+    /// [`TestFunctionConfigOverride::fill_unset_from`]).
+    fn fill_unset_from(&mut self, fallback: &Self) {
+        let Self {
+            runs,
+            depth,
+            fail_on_revert,
+            call_override,
+            timeout,
+        } = fallback;
+
+        fill(&mut self.runs, runs);
+        fill(&mut self.depth, depth);
+        fill(&mut self.fail_on_revert, fail_on_revert);
+        fill(&mut self.call_override, call_override);
+        fill(&mut self.timeout, timeout);
+    }
 }
 
 /// Timeout configuration.
@@ -242,4 +324,75 @@ pub struct InvariantConfigOverride {
     pub call_override: Option<bool>,
     /// Optional timeout (in seconds) for each invariant test.
     pub timeout: Option<TimeoutConfig>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fill_unset_from_keeps_set_values_and_fills_unset_ones() {
+        let mut config = TestFunctionConfigOverride {
+            isolate: Some(false),
+            fuzz: Some(FuzzConfigOverride {
+                runs: Some(1),
+                ..FuzzConfigOverride::default()
+            }),
+            ..TestFunctionConfigOverride::default()
+        };
+        let fallback = TestFunctionConfigOverride {
+            isolate: Some(true),
+            evm_version: Some("cancun".to_owned()),
+            fuzz: Some(FuzzConfigOverride {
+                runs: Some(2),
+                max_test_rejects: Some(3),
+                ..FuzzConfigOverride::default()
+            }),
+            invariant: Some(InvariantConfigOverride {
+                depth: Some(4),
+                ..InvariantConfigOverride::default()
+            }),
+            ..TestFunctionConfigOverride::default()
+        };
+
+        config.fill_unset_from(&fallback);
+
+        // Values set on `config` win, even against a conflicting fallback.
+        assert_eq!(config.isolate, Some(false));
+        let fuzz = config.fuzz.as_ref().unwrap();
+        assert_eq!(fuzz.runs, Some(1));
+        // Unset values fall back, key by key — also within a section `config`
+        // already declares.
+        assert_eq!(fuzz.max_test_rejects, Some(3));
+        assert_eq!(config.evm_version.as_deref(), Some("cancun"));
+        assert_eq!(config.invariant.as_ref().unwrap().depth, Some(4));
+    }
+
+    #[test]
+    fn fill_unset_from_empty_config_takes_fallback() {
+        let mut config = TestFunctionConfigOverride::default();
+        let fallback = TestFunctionConfigOverride {
+            allow_internal_expect_revert: Some(true),
+            invariant: Some(InvariantConfigOverride {
+                runs: Some(5),
+                timeout: Some(TimeoutConfig { time: Some(1) }),
+                ..InvariantConfigOverride::default()
+            }),
+            ..TestFunctionConfigOverride::default()
+        };
+
+        config.fill_unset_from(&fallback);
+        assert_eq!(config, fallback);
+    }
+
+    #[test]
+    fn fill_unset_from_empty_fallback_changes_nothing() {
+        let mut config = TestFunctionConfigOverride {
+            isolate: Some(true),
+            ..TestFunctionConfigOverride::default()
+        };
+        let before = config.clone();
+        config.fill_unset_from(&TestFunctionConfigOverride::default());
+        assert_eq!(config, before);
+    }
 }

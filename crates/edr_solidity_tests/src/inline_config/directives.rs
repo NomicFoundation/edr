@@ -1,7 +1,8 @@
 //! Parsing and validation of inline-config directives.
 //!
-//! Directives live in NatSpec comments above test functions and use either the
-//! `forge-config:` or `hardhat-config:` prefix, e.g.:
+//! Directives live in NatSpec comments above a test function or above the test
+//! contract itself, and use either the `forge-config:` or `hardhat-config:`
+//! prefix, e.g.:
 //!
 //! ```text
 //! forge-config: default.fuzz.runs = 100
@@ -61,12 +62,23 @@ pub(super) fn is_invariant_function(name: &str) -> bool {
 
 /// Whether `name` is a function the runner treats as a test, and which may
 /// therefore carry inline configuration.
-pub(super) fn is_test_function(name: &str) -> bool {
+pub(crate) fn is_test_function(name: &str) -> bool {
     name.starts_with("test") || is_invariant_function(name)
 }
 
-/// The kind of test a key applies to. A key is rejected when it appears on a
-/// test of a different kind; [`KeyCategory::Any`] keys are valid on both.
+/// What a directive block is attached to. Determines which keys are valid: a
+/// function accepts only the keys of its test kind, a contract accepts both
+/// fuzz and invariant keys.
+#[derive(Clone, Copy)]
+pub(super) enum DirectiveTarget<'a> {
+    /// The directives sit above a contract definition.
+    Contract,
+    /// The directives sit above the named test function.
+    Function(&'a str),
+}
+
+/// The kind of test a key applies to. On a function, a key of a different kind
+/// is rejected; [`KeyCategory::Any`] keys are valid on both.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum KeyCategory {
     /// Valid on any test (e.g. `isolate`, `evmVersion`).
@@ -353,7 +365,7 @@ fn parse_u32(value: &str, raw_key: &str) -> Result<u32, InlineConfigError> {
         })
 }
 
-/// Parses the inline configuration for a single function from its leading
+/// Parses the inline configuration attached to `target` from its leading
 /// NatSpec blocks.
 ///
 /// Returns `Ok(None)` when no inline-config directive is present. On a
@@ -361,7 +373,7 @@ fn parse_u32(value: &str, raw_key: &str) -> Result<u32, InlineConfigError> {
 /// so the caller can resolve it to a source line number.
 pub(super) fn parse_inline_config(
     blocks: &[NatSpecBlock],
-    function: &str,
+    target: DirectiveTarget<'_>,
 ) -> Result<Option<TestFunctionConfigOverride>, LocatedDirectiveError> {
     let mut raw_overrides = Vec::new();
     for block in blocks {
@@ -375,9 +387,6 @@ pub(super) fn parse_inline_config(
     if raw_overrides.is_empty() {
         return Ok(None);
     }
-
-    let is_fuzz_test = function.starts_with("test");
-    let is_invariant_test = is_invariant_function(function);
 
     let mut config = TestFunctionConfigOverride::default();
     let mut seen = Vec::new();
@@ -394,20 +403,26 @@ pub(super) fn parse_inline_config(
             }));
         };
 
-        // Key must match the test kind; top-level keys are valid on both.
-        let valid_for_kind = match key.category() {
-            KeyCategory::Any => true,
-            KeyCategory::Fuzz => is_fuzz_test,
-            KeyCategory::Invariant => is_invariant_test,
-        };
-        if !valid_for_kind {
-            return Err(located(InlineConfigError::InvalidKeyForTestType {
-                key: raw.raw_key.clone(),
-                test_type: if is_fuzz_test { "fuzz" } else { "invariant" }.to_owned(),
-            }));
+        // On a function the key must match the test kind; top-level keys are
+        // valid on both. A contract accepts both sections; each affects only
+        // the tests of its kind.
+        if let DirectiveTarget::Function(function) = target {
+            let is_fuzz_test = function.starts_with("test");
+            let valid_for_kind = match key.category() {
+                KeyCategory::Any => true,
+                KeyCategory::Fuzz => is_fuzz_test,
+                KeyCategory::Invariant => is_invariant_function(function),
+            };
+            if !valid_for_kind {
+                return Err(located(InlineConfigError::InvalidKeyForTestType {
+                    key: raw.raw_key.clone(),
+                    test_type: if is_fuzz_test { "fuzz" } else { "invariant" }.to_owned(),
+                }));
+            }
         }
 
-        // Reject duplicate keys for the same function.
+        // Reject duplicate keys within one target. The same key at contract
+        // and function level is not a duplicate; the function's value wins.
         if seen.contains(&key) {
             return Err(located(InlineConfigError::DuplicateKey {
                 key: raw.raw_key.clone(),
@@ -436,7 +451,13 @@ mod tests {
         text: &str,
         function: &str,
     ) -> Result<Option<TestFunctionConfigOverride>, InlineConfigError> {
-        parse_inline_config(&[block(text)], function).map_err(|located| located.error)
+        parse_inline_config(&[block(text)], DirectiveTarget::Function(function))
+            .map_err(|located| located.error)
+    }
+
+    fn parse_contract(text: &str) -> Result<Option<TestFunctionConfigOverride>, InlineConfigError> {
+        parse_inline_config(&[block(text)], DirectiveTarget::Contract)
+            .map_err(|located| located.error)
     }
 
     #[test]
@@ -520,7 +541,7 @@ mod tests {
                 block("/// hardhat-config: evmVersion = \"cancun\""),
                 block("/// hardhat-config: allow-internal-expect-revert = true"),
             ],
-            "testFoo",
+            DirectiveTarget::Function("testFoo"),
         )
         .unwrap()
         .unwrap();
@@ -644,7 +665,41 @@ mod tests {
                 block("/// forge-config: fuzz.runs = 1"),
                 block("/// forge-config: fuzz.runs = 2"),
             ],
-            "testFoo",
+            DirectiveTarget::Function("testFoo"),
+        )
+        .unwrap_err()
+        .error;
+        assert!(matches!(err, InlineConfigError::DuplicateKey { .. }));
+    }
+
+    #[test]
+    fn contract_target_accepts_fuzz_and_invariant_keys() {
+        // A contract's configuration applies to every test it runs, so both
+        // kinds of keys are valid side by side.
+        let text = "/**\n * forge-config: default.fuzz.runs = 10\n * forge-config: default.invariant.depth = 3\n * forge-config: default.isolate = true\n */";
+        let cfg = parse_contract(text).unwrap().unwrap();
+        assert_eq!(cfg.fuzz.unwrap().runs, Some(10));
+        assert_eq!(cfg.invariant.unwrap().depth, Some(3));
+        assert_eq!(cfg.isolate, Some(true));
+    }
+
+    #[test]
+    fn contract_target_still_validates_keys_and_values() {
+        let err = parse_contract("/// forge-config: fuzz.bogus = 1").unwrap_err();
+        assert!(matches!(err, InlineConfigError::InvalidKey { .. }));
+
+        let err = parse_contract("/// forge-config: fuzz.runs = -1").unwrap_err();
+        assert!(matches!(err, InlineConfigError::InvalidValue { .. }));
+    }
+
+    #[test]
+    fn contract_target_rejects_duplicate_keys() {
+        let err = parse_inline_config(
+            &[
+                block("/// forge-config: invariant.runs = 1"),
+                block("/// forge-config: invariant.runs = 2"),
+            ],
+            DirectiveTarget::Contract,
         )
         .unwrap_err()
         .error;
