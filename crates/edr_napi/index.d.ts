@@ -953,7 +953,7 @@ export interface InlineConfigDirectiveLocation {
  * consumers can map each problem onto their own error types.
  */
 export type InlineConfigDirectiveProblem =
-  InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey
+  InlineConfigInvalidSyntax | InlineConfigUndeclaredProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey
 
 /** The same key was specified more than once for a function. */
 export interface InlineConfigDuplicateKey {
@@ -1056,12 +1056,14 @@ export interface InlineConfigSourceFileNotFound {
 export type InlineConfigSourceProblem =
   InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound | InlineConfigDirectiveLocation
 
-/** A profile other than `default` was used. */
-export interface InlineConfigUnsupportedProfile {
+/** A directive named a profile the project does not declare. */
+export interface InlineConfigUndeclaredProfile {
   /** Enum tag for JS. */
-  kind: "InlineConfigUnsupportedProfile"
-  /** The unsupported profile name. */
+  kind: "InlineConfigUndeclaredProfile"
+  /** The undeclared profile name, exactly as written. */
   profile: string
+  /** The profiles the project declares, sorted. */
+  declaredProfiles: Array<string>
 }
 
 export interface InstrumentationMetadata {
@@ -1782,6 +1784,23 @@ export interface SolidityTestRunnerConfigArgs {
    * do.
    */
   importMappings?: Record<string, string>
+  /**
+   * The Solidity test profile this run was started with.
+   *
+   * An inline-config directive prefixed with a profile name
+   * (`forge-config: ci.fuzz.runs = 8`) applies only under that profile; an
+   * unprefixed one applies under every profile, and the prefixed one wins
+   * where both set the same key. Defaults to `default`.
+   */
+  testProfile?: string
+  /**
+   * Every Solidity test profile the project declares.
+   *
+   * A prefix naming a profile that is not declared is an error, so a
+   * mistyped one fails whichever profile is selected. `default` is always
+   * declared. Defaults to `["default"]`.
+   */
+  declaredTestProfiles?: Array<string>
 }
 
 export interface SourceReference {

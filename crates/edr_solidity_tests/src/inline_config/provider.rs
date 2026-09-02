@@ -28,6 +28,7 @@ use super::{
         InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors, InlineConfigProblem,
     },
     overrides::{collect_source, FunctionOverride, SourceCollection, SourceOverrides},
+    profiles::InlineConfigProfiles,
     resolver::ImportResolver,
 };
 
@@ -64,11 +65,15 @@ pub struct CachedInlineConfigProvider {
 impl CachedInlineConfigProvider {
     /// Parses every root's inline configuration in parallel, reading each
     /// root's file — and its imports, resolved by `import_resolver` — from
-    /// disk. Sources that carry no inline-config directive are skipped. Every
-    /// problem found (a malformed directive, an unreadable root file, or an
-    /// unsupported solc version) is accumulated and surfaced by
-    /// [`validate`](Self::validate).
-    pub fn collect(roots: &[InlineConfigRoot], import_resolver: &ImportResolver) -> Self {
+    /// disk, and resolving each directive against `profiles`. Sources that
+    /// carry no inline-config directive are skipped. Every problem found (a
+    /// malformed directive, an unreadable root file, or an unsupported solc
+    /// version) is accumulated and surfaced by [`validate`](Self::validate).
+    pub fn collect(
+        roots: &[InlineConfigRoot],
+        import_resolver: &ImportResolver,
+        profiles: &InlineConfigProfiles,
+    ) -> Self {
         let parse = |root: &InlineConfigRoot| -> Option<(PathBuf, SourceCollection)> {
             let content = match std::fs::read_to_string(&root.path) {
                 Ok(content) => content,
@@ -100,6 +105,7 @@ impl CachedInlineConfigProvider {
                 Arc::from(content),
                 root.version.clone(),
                 import_resolver,
+                profiles,
             );
             Some((root.source.clone(), collection))
         };
@@ -160,14 +166,19 @@ impl CachedInlineConfigProvider {
 pub struct SharedInlineConfigProvider(Arc<CachedInlineConfigProvider>);
 
 impl SharedInlineConfigProvider {
-    /// Collects every root's inline configuration, returning a shared handle to
-    /// the result. Problems found during collection are surfaced together by
-    /// [`validate`](Self::validate), which the runner calls up front to abort
-    /// the run before any test executes.
-    pub fn collect(roots: Vec<InlineConfigRoot>, import_resolver: ImportResolver) -> Self {
+    /// Collects every root's inline configuration, resolved against `profiles`,
+    /// returning a shared handle to the result. Problems found during
+    /// collection are surfaced together by [`validate`](Self::validate), which
+    /// the runner calls up front to abort the run before any test executes.
+    pub fn collect(
+        roots: Vec<InlineConfigRoot>,
+        import_resolver: ImportResolver,
+        profiles: InlineConfigProfiles,
+    ) -> Self {
         Self(Arc::new(CachedInlineConfigProvider::collect(
             &roots,
             &import_resolver,
+            &profiles,
         )))
     }
 
@@ -273,12 +284,49 @@ contract BadTest {
     #[test]
     fn cached_collects_and_queries() {
         let (root, _file) = root_with_source();
-        let provider = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default());
+        let provider = CachedInlineConfigProvider::collect(
+            &[root],
+            &ImportResolver::default(),
+            &InlineConfigProfiles::default(),
+        );
 
         provider.validate().expect("no problems");
         assert_overrides(&provider.get(Path::new(SOURCE_NAME), "MyTest"));
         // A source that was never collected reports no overrides.
         assert!(provider.get(Path::new("never.sol"), "MyTest").is_empty());
+    }
+
+    /// The selected profile reaches the directive parser, so the same source
+    /// collected under two profiles yields two different configurations.
+    #[test]
+    fn collects_per_selected_profile() {
+        const PROFILED_SOURCE: &str = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract ProfiledTest {
+    /// forge-config: fuzz.runs = 5
+    /// forge-config: ci.fuzz.runs = 9
+    function testFuzz(uint256 x) public {}
+}
+"#;
+
+        for (selected, expected) in [("default", 5), ("ci", 9)] {
+            let (root, _file) = root_named("project/profiled.sol", PROFILED_SOURCE);
+            let profiles =
+                InlineConfigProfiles::new(selected, ["ci".to_owned()]).expect("valid profiles");
+
+            let provider =
+                CachedInlineConfigProvider::collect(&[root], &ImportResolver::default(), &profiles);
+
+            provider.validate().expect("no problems");
+            let overrides = provider.get(Path::new("project/profiled.sol"), "ProfiledTest");
+            assert_eq!(overrides.len(), 1, "{selected}: {overrides:#?}");
+            assert_eq!(
+                overrides[0].config.fuzz.as_ref().and_then(|fuzz| fuzz.runs),
+                Some(expected),
+                "selected: {selected}"
+            );
+        }
     }
 
     #[test]
@@ -289,7 +337,11 @@ contract BadTest {
             version: Version::new(0, 8, 0),
         };
 
-        let provider = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default());
+        let provider = CachedInlineConfigProvider::collect(
+            &[root],
+            &ImportResolver::default(),
+            &InlineConfigProfiles::default(),
+        );
         let errors = provider.validate().expect_err("problems reported");
         let items = errors.items();
         assert_eq!(items.len(), 1, "{items:#?}");
@@ -311,7 +363,11 @@ contract BadTest {
     #[test]
     fn cached_accumulates_one_error_per_function() {
         let (root, _file) = malformed_root();
-        let provider = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default());
+        let provider = CachedInlineConfigProvider::collect(
+            &[root],
+            &ImportResolver::default(),
+            &InlineConfigProfiles::default(),
+        );
 
         let errors = provider.validate().expect_err("problems reported");
         let items = errors.items();
@@ -370,7 +426,11 @@ contract BadTest {
     #[test]
     fn shared_serves_concurrent_queries() {
         let (root, _file) = root_with_source();
-        let provider = SharedInlineConfigProvider::collect(vec![root], ImportResolver::default());
+        let provider = SharedInlineConfigProvider::collect(
+            vec![root],
+            ImportResolver::default(),
+            InlineConfigProfiles::default(),
+        );
 
         provider.validate().expect("no problems");
 
@@ -390,8 +450,11 @@ contract BadTest {
     fn shared_validate_reports_collection_problems() {
         let (good, _good_file) = root_with_source();
         let (bad, _bad_file) = malformed_root();
-        let provider =
-            SharedInlineConfigProvider::collect(vec![good, bad], ImportResolver::default());
+        let provider = SharedInlineConfigProvider::collect(
+            vec![good, bad],
+            ImportResolver::default(),
+            InlineConfigProfiles::default(),
+        );
 
         let errors = provider.validate().expect_err("problems reported");
         assert!(errors.to_string().contains("project/bad.sol"));

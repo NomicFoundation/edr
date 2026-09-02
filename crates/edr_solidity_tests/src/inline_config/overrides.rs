@@ -18,6 +18,7 @@ use super::{
     error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
     natspec,
     parse::{locate_functions, LocatedFunction},
+    profiles::InlineConfigProfiles,
     resolver::ImportResolver,
 };
 use crate::config::TestFunctionConfigOverride;
@@ -49,9 +50,10 @@ pub(super) struct SourceCollection {
 }
 
 /// Parses the file at `root_path` (its `content`, compiled with `version`) into
-/// the inline configuration of every contract it declares. Its imports are
-/// resolved by `import_resolver` and read from disk. `source` names the file
-/// in error reports (the solc source name the caller queries by).
+/// the inline configuration of every contract it declares, resolved against
+/// `profiles`. Its imports are resolved by `import_resolver` and read from disk.
+/// `source` names the file in error reports (the solc source name the caller
+/// queries by).
 ///
 /// A failure to locate the source's functions (an unsupported solc version)
 /// becomes the collection's single (source-level) error; otherwise every
@@ -62,6 +64,7 @@ pub(super) fn collect_source(
     content: Arc<str>,
     version: Version,
     import_resolver: &ImportResolver,
+    profiles: &InlineConfigProfiles,
 ) -> SourceCollection {
     let functions = match locate_functions(root_path, version, import_resolver) {
         Ok(functions) => functions,
@@ -81,6 +84,7 @@ pub(super) fn collect_source(
             source: content,
             functions,
         },
+        profiles,
     )
 }
 
@@ -97,7 +101,11 @@ struct SourceAst {
 /// [`SourceCollection::overrides`] (a query for them returns an empty vector);
 /// malformed directives are accumulated into [`SourceCollection::errors`]
 /// rather than failing the source.
-fn source_overrides(source: &Path, ast: &SourceAst) -> SourceCollection {
+fn source_overrides(
+    source: &Path,
+    ast: &SourceAst,
+    profiles: &InlineConfigProfiles,
+) -> SourceCollection {
     let mut overrides = SourceOverrides::new();
     let mut errors = Vec::new();
     let mut seen = HashSet::new();
@@ -106,7 +114,8 @@ fn source_overrides(source: &Path, ast: &SourceAst) -> SourceCollection {
         if !seen.insert(function.contract_name.as_str()) {
             continue;
         }
-        let (contract, contract_errors) = contract_overrides(source, ast, &function.contract_name);
+        let (contract, contract_errors) =
+            contract_overrides(source, ast, &function.contract_name, profiles);
         if !contract.is_empty() {
             overrides.insert(function.contract_name.clone(), contract);
         }
@@ -123,6 +132,7 @@ fn contract_overrides(
     source: &Path,
     ast: &SourceAst,
     contract_name: &str,
+    profiles: &InlineConfigProfiles,
 ) -> (Vec<FunctionOverride>, Vec<InlineConfigErrorItem>) {
     let mut overrides = Vec::new();
     let mut errors = Vec::new();
@@ -145,7 +155,7 @@ fn contract_overrides(
 
         // Only the first problem in a given function is reported; parsing moves
         // on to the next function so every function's problems surface.
-        match directives::parse_inline_config(&blocks, &function.function_name) {
+        match directives::parse_inline_config(&blocks, &function.function_name, profiles) {
             Ok(Some(config)) => overrides.push(FunctionOverride {
                 function_name: function.function_name.clone(),
                 config,

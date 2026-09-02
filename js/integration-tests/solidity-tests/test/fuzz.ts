@@ -575,4 +575,55 @@ describe("Fuzz and invariant testing", function () {
       BigInt(OVERRIDEN_RUNS * OVERRIDEN_DEPTH)
     ); // Overridden
   });
+
+  it("FuzzProfileOverrides", async function () {
+    const GLOBAL_RUNS = 100;
+
+    // The run count each test resolves to under each selected profile. See the
+    // inline directives in `InlineConfigProfiles.t.sol`.
+    const expected = {
+      default: {
+        "testFuzz_Unprefixed(uint256)": 3,
+        "testFuzz_ProfileWinsOverUnprefixed(uint256)": 3,
+        "testFuzz_DefaultProfileOnly(uint256)": 4,
+      },
+      ci: {
+        "testFuzz_Unprefixed(uint256)": 3,
+        "testFuzz_ProfileWinsOverUnprefixed(uint256)": 8,
+        // The `default.`-scoped directive doesn't apply here, so this falls
+        // back to the global configuration.
+        "testFuzz_DefaultProfileOnly(uint256)": GLOBAL_RUNS,
+      },
+    };
+
+    for (const [testProfile, runsByTest] of Object.entries(expected)) {
+      const result = await testContext.runTestsWithStats(
+        "InlineConfigProfilesTest",
+        {
+          fuzz: { runs: GLOBAL_RUNS, maxTestRejects: 0 },
+          testProfile,
+          declaredTestProfiles: ["default", "ci"],
+        }
+      );
+
+      assert.equal(result.failedTests, 0, `profile ${testProfile}`);
+      assert.equal(result.totalTests, 3, `profile ${testProfile}`);
+
+      for (const testResult of result.suiteResults[0].testResults) {
+        const expectedRuns =
+          runsByTest[testResult.name as keyof typeof runsByTest];
+        assert.notEqual(
+          expectedRuns,
+          undefined,
+          `unexpected test ${testResult.name}`
+        );
+        const fuzzKind = testResult.kind as FuzzTestKind;
+        assert.equal(
+          fuzzKind.runs,
+          BigInt(expectedRuns),
+          `${testResult.name} under profile ${testProfile}`
+        );
+      }
+    }
+  });
 });

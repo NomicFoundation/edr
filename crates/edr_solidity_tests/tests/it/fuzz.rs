@@ -6,6 +6,7 @@ use alloy_primitives::{Bytes, U256};
 use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{
     fuzz::CounterExample,
+    inline_config::InlineConfigProfiles,
     result::{SuiteResult, TestKind, TestStatus},
 };
 
@@ -31,7 +32,7 @@ async fn test_fuzz() {
             .join("|"),
         )
         .exclude_paths("invariant")
-        .exclude_contracts("FuzzConfigOverrideTest");
+        .exclude_contracts("FuzzConfigOverrideTest|FuzzProfileOverrideTest");
     let runner = TEST_DATA_DEFAULT.runner().await;
     let suite_result = runner.test_collect(filter).await.suite_results;
 
@@ -459,4 +460,63 @@ async fn test_fuzz_function_overrides() {
         override_runs_result.kind,
         TestKind::Fuzz { runs: 10, .. }
     ));
+}
+
+/// A prefixed directive applies only under its own profile; an unprefixed one
+/// applies under every profile. See `fuzz/FuzzProfileOverride.t.sol`.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_profile_overrides() {
+    // The run counts each test resolves to under each selected profile. The
+    // global config sets 100 runs, so a test with no directive that applies
+    // lands there.
+    let expected_runs = [
+        (
+            "default",
+            [
+                ("testFuzz_Unprefixed", 3),
+                ("testFuzz_ProfileWinsOverUnprefixed", 3),
+                ("testFuzz_DefaultProfileOnly", 4),
+            ],
+        ),
+        (
+            "ci",
+            [
+                ("testFuzz_Unprefixed", 3),
+                ("testFuzz_ProfileWinsOverUnprefixed", 8),
+                ("testFuzz_DefaultProfileOnly", 100),
+            ],
+        ),
+    ];
+
+    for (selected, cases) in expected_runs {
+        let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzProfileOverride.t.sol");
+        let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+        config.fuzz.runs = 100;
+        config.fuzz.max_test_rejects = 0;
+        config.inline_config_profiles =
+            InlineConfigProfiles::new(selected, ["ci".to_owned()]).expect("valid profiles");
+
+        let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+        let results = runner.test_collect(filter).await.suite_results;
+
+        let suite_result = results
+            .get("default/fuzz/FuzzProfileOverride.t.sol:FuzzProfileOverrideTest")
+            .unwrap_or_else(|| panic!("suite ran under {selected}"));
+
+        for (function, expected) in cases {
+            let name = format!("{function}(uint256)");
+            let result = suite_result
+                .test_results
+                .get(&name)
+                .unwrap_or_else(|| panic!("{name} ran under {selected}"));
+
+            let TestKind::Fuzz { runs, .. } = result.kind else {
+                panic!(
+                    "{name} under {selected} is not a fuzz test: {:?}",
+                    result.kind
+                );
+            };
+            assert_eq!(runs, expected, "{name} under profile `{selected}`");
+        }
+    }
 }

@@ -21,14 +21,16 @@ pub struct InlineConfigInvalidSyntax {
     pub directive: String,
 }
 
-/// A profile other than `default` was used.
+/// A directive named a profile the project does not declare.
 #[napi(object)]
-pub struct InlineConfigUnsupportedProfile {
+pub struct InlineConfigUndeclaredProfile {
     /// Enum tag for JS.
-    #[napi(ts_type = "\"InlineConfigUnsupportedProfile\"")]
+    #[napi(ts_type = "\"InlineConfigUndeclaredProfile\"")]
     pub kind: String,
-    /// The unsupported profile name.
+    /// The undeclared profile name, exactly as written.
     pub profile: String,
+    /// The profiles the project declares, sorted.
+    pub declared_profiles: Vec<String>,
 }
 
 /// An unknown configuration key was used.
@@ -131,7 +133,7 @@ pub type InlineConfigSourceProblem = Either3<
 #[napi]
 pub type InlineConfigDirectiveProblem = Either6<
     InlineConfigInvalidSyntax,
-    InlineConfigUnsupportedProfile,
+    InlineConfigUndeclaredProfile,
     InlineConfigInvalidKey,
     InlineConfigInvalidKeyForTestType,
     InlineConfigInvalidValue,
@@ -212,10 +214,11 @@ fn to_directive_problem(error: &CoreInlineConfigError) -> InlineConfigDirectiveP
             kind: "InlineConfigInvalidSyntax".to_owned(),
             directive: line.clone(),
         }),
-        CoreInlineConfigError::UnsupportedProfile { profile } => {
-            Either6::B(InlineConfigUnsupportedProfile {
-                kind: "InlineConfigUnsupportedProfile".to_owned(),
+        CoreInlineConfigError::UndeclaredProfile { profile, declared } => {
+            Either6::B(InlineConfigUndeclaredProfile {
+                kind: "InlineConfigUndeclaredProfile".to_owned(),
                 profile: profile.clone(),
+                declared_profiles: declared.clone(),
             })
         }
         CoreInlineConfigError::InvalidKey { key } => Either6::C(InlineConfigInvalidKey {
