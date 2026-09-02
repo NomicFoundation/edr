@@ -547,7 +547,9 @@ impl Context {
         #[cfg(feature = "tracing")]
         let subscriber = subscriber.with(flame_layer);
 
-        if let Err(error) = tracing::subscriber::set_global_default(subscriber) {
+        // `try_init` also installs the `log` bridge, which `set_global_default`
+        // does not.
+        if let Err(error) = subscriber.try_init() {
             println!(
                 "Failed to set global tracing subscriber with error: {error}\n\
                 Please only initialize EdrContext once per process to avoid this error."

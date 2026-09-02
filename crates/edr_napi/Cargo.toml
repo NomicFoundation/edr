@@ -70,6 +70,9 @@ tracing-subscriber = { version = "0.3.18", default-features = false, features = 
     "parking_lot",
     "smallvec",
     "std",
+    # Routes `log` records into the subscriber. Several EDR crates report
+    # unexpected failures through `log`, which is otherwise a sink.
+    "tracing-log",
 ] }
 
 # Solidity tests

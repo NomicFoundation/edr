@@ -1,5 +1,8 @@
 name: EDR NPM release
 env:
+  # EDR reports unexpected failures through `log`, which reaches the subscriber
+  # only when a filter admits it.
+  RUST_LOG: error
   DEBUG: napi:*
   APP_NAME: edr
   NUMBER_OF_TARGETS: 7

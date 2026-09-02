@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # EDR reports unexpected failures through `log`, which reaches the subscriber
+  # only when a filter admits it.
+  RUST_LOG: error
+
 jobs:
   test-recent-mainnet-block:
     name: Test recent mainnet block

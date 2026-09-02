@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # EDR reports unexpected failures through `log`, which reaches the subscriber
+  # only when a filter admits it.
+  RUST_LOG: error
+
 jobs:
   test-recent-op-block:
     name: Test recent OP block (${{ matrix.network }})

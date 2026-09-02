@@ -12,6 +12,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # EDR reports unexpected failures through `log`, which reaches the subscriber
+  # only when a filter admits it.
+  RUST_LOG: error
+
 jobs:
   run-hardhat-tests:
     name: Run Hardhat tests (${{ matrix.os }}, Node ${{ matrix.node }})

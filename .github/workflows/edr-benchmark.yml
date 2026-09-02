@@ -23,6 +23,11 @@ concurrency:
   # Don't cancel in progress jobs in main
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+env:
+  # EDR reports unexpected failures through `log`, which reaches the subscriber
+  # only when a filter admits it.
+  RUST_LOG: error
+
 jobs:
   benchmarks-test:
     name: Benchmarks test

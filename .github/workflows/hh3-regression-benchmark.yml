@@ -70,6 +70,11 @@ concurrency:
   # Don't cancel in-progress baseline runs on main so baselines aren't lost.
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
+env:
+  # EDR reports unexpected failures through `log`, which reaches the subscriber
+  # only when a filter admits it.
+  RUST_LOG: error
+
 jobs:
   setup:
     name: Resolve refs and authorize
