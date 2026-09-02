@@ -28,7 +28,7 @@ concurrency:
   # `closed` event groups with the runs from opened/synchronize and cancels
   # them. Pushes to main and manual dispatches have no PR number and fall back
   # to the ref.
-  group: ${{github.workflow}}-${{github.event.pull_request.number || github.ref}}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   # Don't cancel in progress jobs in main
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
