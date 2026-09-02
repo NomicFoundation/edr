@@ -403,7 +403,7 @@ impl ContractDecoder {
     ///
     /// Returns a [`DecodedCallTrace`] with:
     /// - The resolved function signature with proxy chain info if found via
-    ///   proxy (e.g., "EIP173Proxy>GreetingsRegistry")
+    ///   proxy (e.g., "Proxy1>Proxy2>...>Implementation")
     /// - The unrecognized-selector fallback if not resolvable
     fn resolve_via_proxy_chain_or_unrecognized(
         &mut self,
@@ -500,7 +500,7 @@ impl ContractDecoder {
     /// Builds a proxy chain label from a proxy chain ordered from the final
     /// implementation to the outermost proxy.
     ///
-    /// Returns a string like "EIP173Proxy>Router>GreetingsRegistry" where each
+    /// Returns a string like "Proxy1>Proxy2>...>Implementation" where each
     /// contract in the proxy chain is represented by its name, joined by `>`,
     /// starting with the outermost proxy.
     ///
