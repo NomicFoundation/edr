@@ -83,7 +83,7 @@ jobs:
       run:
         working-directory: ./crates/edr_napi
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
@@ -107,7 +107,7 @@ jobs:
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # latest main commit (2025-11-17)
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
         if: ${{ !matrix.settings.docker_tag }}
         with:
           toolchain: stable
@@ -125,7 +125,7 @@ jobs:
       # stale or empty index.js / index.d.ts. Don't enable for releases.
       - name: Cache cargo # zizmor: ignore[cache-poisoning] release builds run cold (guarded below); PR/main caches never feed a publish
         if: needs.check_commit.outputs.tag == ''
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index/
@@ -182,7 +182,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@11.21.0 --ignore-scripts
+            npm i -g pnpm@11.23.0 --ignore-scripts
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
@@ -213,7 +213,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@11.21.0 --ignore-scripts
+            npm i -g pnpm@11.23.0 --ignore-scripts
             pnpm -v
             pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
@@ -252,7 +252,7 @@ jobs:
       run:
         working-directory: ./crates/edr_napi
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup node and pnpm
@@ -288,7 +288,7 @@ jobs:
           - "26"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup node and pnpm
@@ -322,7 +322,7 @@ jobs:
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
         env:
           IMAGE: ${{ steps.select-image.outputs.ref }}
-        run: docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" bash -c "npm install -g pnpm@11.21.0; pnpm testNoBuild"
+        run: docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" bash -c "npm install -g pnpm@11.23.0; pnpm testNoBuild"
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
@@ -340,7 +340,7 @@ jobs:
           - "26"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup node and pnpm
@@ -372,7 +372,7 @@ jobs:
       - name: Test bindings
         env:
           IMAGE: ${{ steps.select-image.outputs.ref }}
-        run: docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" sh -c "npm install -g pnpm@11.21.0; pnpm testNoBuild"
+        run: docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" sh -c "npm install -g pnpm@11.23.0; pnpm testNoBuild"
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
@@ -390,7 +390,7 @@ jobs:
           - "26"
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup node and pnpm
@@ -424,7 +424,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            npm install -g pnpm@11.21.0
+            npm install -g pnpm@11.23.0
             set -e
             pnpm testNoBuild
             ls -la
@@ -445,7 +445,7 @@ jobs:
           - "26"
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup node and pnpm
@@ -478,7 +478,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            npm install -g pnpm@11.21.0
+            npm install -g pnpm@11.23.0
             set -e
             pnpm testNoBuild
 
@@ -488,7 +488,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.ref }}
@@ -535,7 +535,7 @@ jobs:
     outputs:
       filename: ${{ steps.pack.outputs.filename }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup node
@@ -623,7 +623,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
       - name: Setup node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         id: setup-node
         with:
           node-version: 24
@@ -641,7 +641,7 @@ jobs:
           # And in root edr package
           pnpm pack --pack-destination "$RUNNER_TEMP"
       - name: Checkout repository for comparison
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: remote-repository
           persist-credentials: false
@@ -664,7 +664,7 @@ jobs:
     needs: check_commit
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
@@ -678,7 +678,7 @@ jobs:
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
       - name: Notify pre-deploy
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -714,7 +714,7 @@ jobs:
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
       - name: Notify deployment to Slack
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -750,7 +750,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
       - name: Setup node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         id: setup-node
         with:
           node-version: 24

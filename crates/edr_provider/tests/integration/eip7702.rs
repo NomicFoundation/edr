@@ -8,8 +8,6 @@ mod reset;
 mod same_sender_and_authorizer;
 mod zeroed_chain_id;
 
-use std::sync::Arc;
-
 use edr_chain_l1::{
     rpc::{transaction::L1RpcTransactionWithSignature, TransactionRequest},
     L1ChainSpec,
@@ -21,15 +19,13 @@ use edr_provider::{
     test_utils::{
         create_test_config, one_ether, set_genesis_state_with_owned_accounts, sign_authorization,
     },
-    time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    MethodInvocation, Provider, ProviderRequest,
 };
 use edr_signer::public_key_to_address;
-use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
 use k256::SecretKey;
-use parking_lot::RwLock;
-use tokio::runtime;
+
+use crate::common::provider::new_provider_from_config;
 
 const CHAIN_ID: u64 = 0x7a69;
 
@@ -53,19 +49,7 @@ fn new_provider(
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
     set_genesis_state_with_owned_accounts(&mut config, owned_accounts, one_ether());
 
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
-
-    Ok(provider)
+    new_provider_from_config(config)
 }
 
 #[tokio::test(flavor = "multi_thread")]

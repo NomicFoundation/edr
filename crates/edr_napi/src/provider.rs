@@ -31,7 +31,7 @@ pub struct Provider {
     runtime: runtime::Handle,
     dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
     #[cfg(feature = "scenarios")]
-    scenario_file: Option<napi::tokio::sync::Mutex<napi::tokio::fs::File>>,
+    scenario_file: Option<Arc<napi::tokio::sync::Mutex<napi::tokio::fs::File>>>,
 }
 
 impl Provider {
@@ -51,7 +51,7 @@ impl Provider {
             runtime,
             dropped_provider_sender,
             #[cfg(feature = "scenarios")]
-            scenario_file,
+            scenario_file: scenario_file.map(Arc::new),
         }
     }
 }
@@ -155,20 +155,47 @@ impl Provider {
     }
 
     #[doc = "Handles a JSON-RPC request and returns a JSON-RPC response."]
-    #[napi(catch_unwind)]
-    pub async fn handle_request(&self, request: String) -> napi::Result<Response> {
-        let provider = self.provider.clone();
+    #[napi(catch_unwind, ts_return_type = "Promise<Response>")]
+    pub fn handle_request<'env>(
+        &self,
+        env: &'env Env,
+        request: String,
+    ) -> napi::Result<Object<'env>> {
+        let (deferred, promise) = env.create_deferred()?;
+
+        let enqueue_request =
+            move |provider: &dyn SyncProvider, request: napi::Result<String>| match request {
+                Ok(request) => provider.enqueue_request(
+                    request,
+                    Box::new(move |result| match result {
+                        Ok(response) => deferred.resolve(move |_env| Ok(Response::from(response))),
+                        Err(error) => deferred.reject(error),
+                    }),
+                ),
+                Err(error) => deferred.reject(error),
+            };
 
         #[cfg(feature = "scenarios")]
         if let Some(scenario_file) = &self.scenario_file {
-            crate::scenarios::write_request(scenario_file, &request).await?;
+            // Recorded before the request is enqueued. Concurrent calls race for
+            // the file, so the recorded order is not the call order.
+            let provider = self.provider.clone();
+            let scenario_file = Arc::clone(scenario_file);
+
+            self.runtime.spawn(async move {
+                let request = crate::scenarios::write_request(&scenario_file, &request)
+                    .await
+                    .map(|()| request);
+
+                enqueue_request(&*provider, request);
+            });
+
+            return Ok(promise);
         }
 
-        self.runtime
-            .spawn_blocking(move || provider.handle_request(request))
-            .await
-            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?
-            .map(Response::from)
+        enqueue_request(&*self.provider, Ok(request));
+
+        Ok(promise)
     }
 
     #[napi(catch_unwind, ts_return_type = "Promise<void>")]
@@ -214,9 +241,10 @@ impl Provider {
 
         let provider = self.provider.clone();
         self.runtime.spawn_blocking(move || {
-            provider.set_call_override_callback(call_override_callback);
-
-            deferred.resolve(|_env| Ok(()));
+            match provider.set_call_override_callback(call_override_callback) {
+                Ok(()) => deferred.resolve(|_env| Ok(())),
+                Err(error) => deferred.reject(error),
+            }
         });
 
         Ok(promise)
@@ -231,11 +259,9 @@ impl Provider {
         let provider = self.provider.clone();
 
         self.runtime
-            .spawn_blocking(move || {
-                provider.set_verbose_tracing(verbose_tracing);
-            })
+            .spawn_blocking(move || provider.set_verbose_tracing(verbose_tracing))
             .await
-            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?
     }
 }
 

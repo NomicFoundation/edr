@@ -17,7 +17,9 @@ use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
 use indicatif::ProgressBar;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt as _},
-    runtime, task,
+    runtime,
+    sync::oneshot,
+    task,
 };
 #[cfg(feature = "tracing")]
 use tracing_subscriber::{prelude::*, Registry};
@@ -126,7 +128,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
     println!("Executing requests");
 
     let start = Instant::now();
-    // Matches how `edr_napi` constructs and invokes the provider.
+    // Matches how `edr_napi` constructs the provider.
     let provider = task::spawn_blocking(move || {
         edr_provider::Provider::new(
             runtime::Handle::current(),
@@ -138,7 +140,6 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         )
     })
     .await??;
-    let provider = Arc::new(provider);
 
     let count = max_count.unwrap_or(requests.len());
     let bar = ProgressBar::new(count as u64);
@@ -150,10 +151,20 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         {
             break;
         }
-        let p = provider.clone();
-        let response = task::spawn_blocking(move || p.handle_request(request))
-            .await?
-            .map(|r| r.result);
+        let (response_sender, response_receiver) = oneshot::channel();
+        provider.enqueue_request(
+            request,
+            Box::new(move |response| {
+                // Ignore the error: only possible once the receiver is dropped.
+                let _ = response_sender.send(response);
+            }),
+        );
+
+        let response = response_receiver
+            .await
+            .context("The provider dropped the response")?
+            .map(|response| response.result);
+
         let response = jsonrpc::ResponseData::from(response);
         match response {
             jsonrpc::ResponseData::Success { .. } => success += 1,

@@ -23,6 +23,7 @@ const KNOWN_IGNORED_HARDFORKS: [&str; 2] = ["delta", "pectra_blob_schedule"];
 const SUPERCHAIN_REGISTRY_REPO_URL: &str =
     "https://github.com/ethereum-optimism/superchain-registry.git";
 const REPO_CONFIGS_PATH: &str = "superchain/configs";
+const RUSTFMT_TOOLCHAIN: &str = "+nightly-2026-08-29";
 const EDR_SUPPORTED_NETWORKS: [&str; 2] = ["mainnet", "sepolia"];
 const GENERATED_FILE_WARNING_MESSAGE: &str = "
 // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
@@ -118,6 +119,11 @@ fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
 
     let generated_module_path = generated_module_path()?;
     let modules_dir = Path::new(generated_module_path.as_str());
+    // Remove previously generated modules so that chains removed from the
+    // superchain registry don't leave stale files behind
+    if modules_dir.exists() {
+        fs::remove_dir_all(modules_dir)?;
+    }
     create_dir_all(modules_dir)?;
 
     let chains_to_generate =
@@ -139,7 +145,7 @@ fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
 
     log::debug!("Formatting generated files...");
     Command::new("rustfmt")
-        .arg("+nightly")
+        .arg(RUSTFMT_TOOLCHAIN)
         .arg(generated_files_path)
         .arg(format!("{generated_module_path}.rs"))
         .output()?;
@@ -158,11 +164,19 @@ fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
 
     if check {
         // Checks whether there were any changes aside from changes triggered due to
-        // different superchain registry commit SHA included in the documentation
+        // different superchain registry commit SHA included in the documentation:
+        // a diff consisting only of `// source: <sha>` lines counts as up to date.
         let significant_diff = Command::new("git")
             .arg("diff")
-            .arg("-G'^//// source: https:////github.com//ethereum-optimism//superchain-registry//tree//'")
-            .arg("--exit-code").output()?;
+            .arg(
+                "--ignore-matching-lines=^// source: \
+                 https://github\\.com/ethereum-optimism/superchain-registry/tree/",
+            )
+            .arg("--exit-code")
+            .arg("--")
+            .arg(modules_dir)
+            .arg(format!("{generated_module_path}.rs"))
+            .output()?;
 
         let result = if significant_diff.status.success() {
             log::info!("OP chain configs are up to date ✓");
@@ -170,13 +184,20 @@ fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
         } else {
             Err(anyhow!("Significant changes pending to be included"))
         };
-        // Rollback any modification done to generated/* files
-        let mut files_to_restore = modules_dir.to_path_buf();
-        files_to_restore.push("*");
+        // Rollback any modification done to the generated files: restore
+        // tracked files (including deleted ones) and remove newly generated
+        // files that aren't tracked yet
         Command::new("git")
             .arg("checkout")
             .arg("--")
-            .arg(files_to_restore)
+            .arg(modules_dir)
+            .arg(format!("{generated_module_path}.rs"))
+            .output()?;
+        Command::new("git")
+            .arg("clean")
+            .arg("--force")
+            .arg("--")
+            .arg(modules_dir)
             .output()?;
         result
     } else {

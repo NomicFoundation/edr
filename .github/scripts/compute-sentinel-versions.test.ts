@@ -1,13 +1,27 @@
 // Run with Node's built-in test runner (no extra dependencies):
-//   node --test .github/scripts/
+//   node --test .github/scripts/compute-sentinel-versions.test.ts
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-const {
-  edrVersion,
-  hardhatVersion,
-} = require("./compute-sentinel-versions.cjs");
+import { edrVersion, hardhatVersion } from "./compute-sentinel-versions.ts";
+
+const SCRIPT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "compute-sentinel-versions.ts"
+);
+
+// Run the script as the workflow does. The env guards run before any network
+// access, so these stay offline.
+function run(env: Record<string, string>) {
+  return spawnSync(process.execPath, [SCRIPT], {
+    encoding: "utf8",
+    env: { ...process.env, ...env },
+  });
+}
 
 test("edrVersion appends a -local.<sha> prerelease", () => {
   assert.equal(
@@ -53,5 +67,24 @@ test("hardhatVersion strips a prerelease tag from the published version", () => 
 test("hardhatVersion throws on an unparseable version", () => {
   assert.throws(() => hardhatVersion("not.a.version"), /Unparseable/);
   assert.throws(() => hardhatVersion("3.x"), /Unparseable/);
+  assert.throws(() => hardhatVersion("3.9.0.1"), /Unparseable/);
   assert.throws(() => hardhatVersion("3.9.0", "3.x"), /Unparseable/);
+});
+
+// The entrypoint is the whole contract with the workflow: it must run when
+// executed by `node`, and it must fail loudly rather than leave $GITHUB_ENV
+// unwritten — an unset EDR_VER only surfaces ~40 minutes later, after the Rust
+// and Hardhat builds, as an "unbound variable" in a later step.
+test("CLI exits 1 when EDR_REF is not set", () => {
+  const result = run({ EDR_REF: "", GITHUB_ENV: "/dev/null" });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /EDR_REF is not set/);
+});
+
+test("CLI exits 1 when GITHUB_ENV is not set", () => {
+  const result = run({ EDR_REF: "deadbeefcafe", GITHUB_ENV: "" });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /GITHUB_ENV is not set/);
 });

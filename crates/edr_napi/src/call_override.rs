@@ -142,9 +142,8 @@ impl CallOverrideCallback {
 
         // `SyncCallOverride` has no error path, and silently returning `None`
         // would alter `eth_call` results, so a failing JS callback must fail
-        // loudly. This runs on a tokio blocking thread, so the panic is
-        // caught by the runtime and surfaces as a JSON-RPC internal error
-        // rather than aborting the process.
+        // loudly. This runs on the provider's thread, so the panic terminates
+        // it and every subsequent request reports `UnexpectedTermination`.
         receiver
             .recv()
             .expect("Channel can only close if the threadsafe call was dropped without running")

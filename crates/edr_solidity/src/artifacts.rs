@@ -151,6 +151,7 @@ pub enum CompilerType {
     #[default]
     Solc,
     /// Slang solx compiler
+    #[strum(serialize = "slang-solx")]
     SlangSolx,
 }
 
@@ -363,7 +364,7 @@ pub struct CompilerSettings {
 /// Specifies the optimizer settings.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct OptimizerSettings {
-    runs: Option<u32>,
+    runs: Option<u64>,
     enabled: Option<bool>,
     details: Option<OptimizerDetails>,
 }
@@ -578,7 +579,7 @@ mod tests {
     #[test]
     fn to_compiler_type_reads_the_build_info_sentinel() {
         const SOLC_COMPILER_TYPE: &str = "solc";
-        const SLANG_SOLX_COMPILER_TYPE: &str = "slangSolx";
+        const SLANG_SOLX_COMPILER_TYPE: &str = "slang-solx";
 
         assert_eq!(CompilerType::Solc.to_string(), SOLC_COMPILER_TYPE);
         assert_eq!(
@@ -597,5 +598,28 @@ mod tests {
 
         assert_eq!(to_compiler_type(None), CompilerType::Solc);
         assert_eq!(to_compiler_type(Some("not-a-compiler")), CompilerType::Solc);
+    }
+
+    /// aave-v4 shipped `optimizer.runs: 444444444444` (a widespread
+    /// vanity-runs convention); solc and foundry-compilers both treat the
+    /// field as 64-bit, so build-info parsing must not reject or clamp it.
+    #[test]
+    fn optimizer_runs_wider_than_u32_round_trips() {
+        let raw = serde_json::json!({
+            "language": "Solidity",
+            "sources": {},
+            "settings": {
+                "optimizer": { "enabled": true, "runs": 444_444_444_444_u64 },
+                "outputSelection": {},
+            },
+        });
+
+        let input: CompilerInput =
+            serde_json::from_value(raw).expect("64-bit optimizer.runs must deserialize");
+        let round_tripped = serde_json::to_value(&input).expect("serializes");
+        assert_eq!(
+            round_tripped["settings"]["optimizer"]["runs"],
+            serde_json::json!(444_444_444_444_u64)
+        );
     }
 }

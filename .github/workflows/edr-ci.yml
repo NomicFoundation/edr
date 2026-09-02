@@ -32,7 +32,7 @@ jobs:
       matrix:
         os: ["ubuntu-24.04", "macos-15"]
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: socketdev/action@ba6de6cc0565af1f42295590380973573297e31f # v1.3.2
@@ -51,7 +51,7 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
@@ -68,14 +68,14 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-rust
 
       # Install pre-built binaries for cargo hack
-      - uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2.86.1
+      - uses: taiki-e/install-action@6cd13508893c0e7eab5f273c2575d3859bd7229a # v2.86.6
         with:
           tool: cargo-hack@0.6.39
 
@@ -101,7 +101,7 @@ jobs:
       matrix:
         os: ["ubuntu-24.04", "macos-15", "windows-2025"]
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -112,15 +112,15 @@ jobs:
       - uses: ./.github/actions/setup-llvm-cov
 
       - name: Restore EDR RPC cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             **/edr-cache
-          key: edr-rs-rpc-cache-v1-${{ matrix.os }}
+          key: edr-rs-rpc-cache-v2-${{ matrix.os }}
           # Save key includes a hashFiles suffix; restore via the
           # OS-scoped prefix to pick up the most recent matching entry.
           restore-keys: |
-            edr-rs-rpc-cache-v1-${{ matrix.os }}-
+            edr-rs-rpc-cache-v2-${{ matrix.os }}-
 
       - name: Run cargo tests (with coverage)
         env:
@@ -128,7 +128,7 @@ jobs:
         run: cargo llvm-cov --workspace --all-targets --all-features --locked --no-fail-fast --codecov --output-path codecov.json
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: codecov.json
           name: ${{ matrix.os }}
@@ -139,11 +139,11 @@ jobs:
         run: cargo test --doc --workspace --features tracing --locked --no-fail-fast
 
       - name: Save EDR RPC cache
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             **/edr-cache
-          key: edr-rs-rpc-cache-v1-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
+          key: edr-rs-rpc-cache-v2-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
 
       # disable until:
       # 1) https://github.com/napi-rs/napi-rs/issues/1405 is resolved (Windows-only)
@@ -177,7 +177,7 @@ jobs:
         node: [24]
         os: [ubuntu-24.04, macos-15, windows-2025]
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -194,15 +194,15 @@ jobs:
           builds-napi-crate: "true"
 
       - name: Restore EDR RPC cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             **/edr-cache
-          key: edr-ts-rpc-cache-v1-${{ matrix.os }}
+          key: edr-ts-rpc-cache-v2-${{ matrix.os }}
           # Save key includes a hashFiles suffix; restore via the
           # OS-scoped prefix to pick up the most recent matching entry.
           restore-keys: |
-            edr-ts-rpc-cache-v1-${{ matrix.os }}-
+            edr-ts-rpc-cache-v2-${{ matrix.os }}-
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -221,7 +221,7 @@ jobs:
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: codecov.json
           name: ${{ matrix.os }}
@@ -229,18 +229,18 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Save EDR RPC cache
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             **/edr-cache
-          key: edr-ts-rpc-cache-v1-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
+          key: edr-ts-rpc-cache-v2-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
 
   edr-style:
     name: Check EDR Style
     runs-on: ubuntu-24.04
     needs: check-edr
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -251,12 +251,12 @@ jobs:
       - name: Install nightly rustfmt
         uses: ./.github/actions/setup-rust
         with:
-          toolchain: nightly
+          toolchain: nightly-2026-08-29
           components: rustfmt
           cache: false # already set up in previous step
 
       - name: Run cargo fmt
-        run: cargo +nightly fmt --all --check
+        run: cargo +nightly-2026-08-29 fmt --all --check
 
       - name: Run cargo clippy
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
@@ -266,7 +266,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -283,7 +283,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr-safety
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -307,7 +307,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -327,7 +327,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr-safety
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -349,7 +349,7 @@ jobs:
       RUSTFLAGS: -Dwarnings
       RUSTDOCFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -375,7 +375,7 @@ jobs:
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: codecov.json
           name: ubuntu-24.04
@@ -387,7 +387,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
@@ -398,7 +398,7 @@ jobs:
     name: Lint GitHub Actions workflows
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # Official image bundles shellcheck + pyflakes, so `run:` linting needs no runner deps.
@@ -414,10 +414,10 @@ jobs:
     name: Audit GitHub Actions security (zizmor)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2.86.1
+      - uses: taiki-e/install-action@6cd13508893c0e7eab5f273c2575d3859bd7229a # v2.86.6
         with:
           tool: zizmor@1.26.1
       # GH_TOKEN enables the online audits (known-vulnerabilities, tag->SHA resolution).

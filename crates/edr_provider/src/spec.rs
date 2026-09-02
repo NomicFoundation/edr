@@ -234,12 +234,16 @@ pub trait FromRpcType<RpcT, TimerT: Clone + TimeSinceEpoch>: Sized {
 }
 
 pub trait SyncProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    'static + ProviderSpec<TimerT> + SyncBlockChainSpec
+    'static
+    + ProviderSpec<TimerT, RpcCallRequest: Send, RpcTransactionRequest: Send>
+    + SyncBlockChainSpec
 {
 }
 
 impl<
-        ProviderSpecT: 'static + ProviderSpec<TimerT> + SyncBlockChainSpec,
+        ProviderSpecT: 'static
+            + ProviderSpec<TimerT, RpcCallRequest: Send, RpcTransactionRequest: Send>
+            + SyncBlockChainSpec,
         TimerT: Clone + TimeSinceEpoch,
     > SyncProviderSpec<TimerT> for ProviderSpecT
 {

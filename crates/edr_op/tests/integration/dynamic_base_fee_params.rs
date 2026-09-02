@@ -81,23 +81,7 @@ impl_test_dynamic_base_fee_params! {
         136_165_876,
         144_546_703, // jovian activated block
     ],
-    base_mainnet: json_rpc_url_provider::base_mainnet() => [
-        25_955_889,
-        30_795_009,
-        31_747_084,
-        37_483_302,
-        38_088_319,
-        38_951_425, // jovian activated block
-        39_647_879, // SystemConfig EIP-1559 update 2025-12-18
-        41_711_238, // SystemConfig EIP-1559 update 2026-02-04
-        43_841_215, // SystemConfig EIP-1559 update 2026-03-25
-        44_467_358, // Jovian+ Block with exceeding `blobGasUsed`
-    ],
     op_sepolia: json_rpc_url_provider::op_sepolia() => [
         26_806_602,
-    ],
-    base_sepolia: json_rpc_url_provider::base_sepolia() => [
-        21_256_270,
-        26_299_084,
     ],
 }

@@ -169,6 +169,12 @@
       "allowedVersions": "<0.10"
     },
     {
+      "description": "cita_trie: hold at 4.x. 6.x delivers no functional change to EDR — nibbles/node/errors are byte-identical to 4.1.0 and trie.rs differs only by a lifetime-elision fix. The break is purely that 6.0.1 swapped the `hasher` crate for `cita-hasher` (upstream can't publish to `hasher`, which they don't own), so `hasher::HasherKeccak` no longer satisfies `cita_trie::Hasher`. Taking it also duplicates rlp 0.5 + 0.6 in the lockfile. Upstream went 28 months without a commit and 6.x has ~450 downloads. Lift this only if the crate survives the alloy-trie migration — see PR #1694.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["cita_trie"],
+      "allowedVersions": "<5"
+    },
+    {
       "description": "Hardhat ecosystem (hardhat, hardhat2 alias, @nomicfoundation/hardhat-*): exact-pinned, pnpm-patched, partly on pre-release tracks. Bumps invalidate patches and break the v2/v3 benchmark setup; coordinated manually with edr↔hardhat releases.",
       "matchManagers": ["npm"],
       "matchPackageNames": [
@@ -177,6 +183,12 @@
         "/^@nomicfoundation\\/hardhat-/"
       ],
       "enabled": false
+    },
+    {
+      "description": "rust-nightly: every bump drags a repo-wide rustfmt reformat along with it, so keep it to a monthly chore rather than the weekend cadence. The plain-text datasource carries no release timestamps, so minimumReleaseAge is pinned to 0 here rather than left to interact with the global 7-day floor under internalChecksFilter: strict.",
+      "matchDatasources": ["custom.rust-nightly"],
+      "schedule": ["on the first day of the month"],
+      "minimumReleaseAge": "0 days"
     }
   ],
   "customManagers": [
@@ -192,8 +204,32 @@
       "depNameTemplate": "pnpm",
       "datasourceTemplate": "npm",
       "versioningTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "rustfmt nightly pin (`nightly-YYYY-MM-DD`). rustfmt.toml enables `wrap_comments`, an unstable option whose output drifts between nightlies, so the toolchain is pinned by date — which no built-in manager can see. The pin is duplicated across CI, the pre-commit hook, the devcontainer's format-on-save, the setup script and docs that install it, and the op-chain config generator; this manager is what keeps them in lockstep, since any one left behind reintroduces the CI/local split. Bumping it requires a repo-wide reformat in the same PR.",
+      "managerFilePatterns": [
+        ".github/workflows/edr-ci.yml",
+        ".github/workflows/check-generated-files.yml",
+        "crates/tool/op_chain_config_generator/src/main.rs",
+        ".cargo-husky/hooks/pre-commit",
+        ".devcontainer/devcontainer.json",
+        ".claude/skills/update-revm/SKILL.md",
+        "scripts/setup.sh",
+        "book/src/01_getting_started/01_setup.md"
+      ],
+      "matchStrings": ["nightly-(?<currentValue>\\d{4}-\\d{2}-\\d{2})"],
+      "depNameTemplate": "rust-nightly",
+      "datasourceTemplate": "custom.rust-nightly",
+      "versioningTemplate": "regex:^(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})$"
     }
   ],
+  "customDatasources": {
+    "rust-nightly": {
+      "defaultRegistryUrlTemplate": "https://static.rust-lang.org/dist/channel-rust-nightly-date.txt",
+      "format": "plain"
+    }
+  },
   "labels": ["dependencies", "no changeset needed"],
   "configMigration": true,
   "dependencyDashboard": false,

@@ -25,7 +25,7 @@ use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
 use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractDecoderError},
-    solidity_stack_trace::{get_stack_trace, StackTraceCreationResult},
+    solidity_stack_trace::{get_stack_trace, DeployedCode, StackTraceCreationResult},
 };
 use edr_state_api::StateError;
 use foundry_evm_traces::CallTraceArena;
@@ -354,6 +354,9 @@ pub enum ProviderError<
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
+    /// The provider's thread terminated unexpectedly
+    #[error("The provider stopped unexpectedly and can no longer handle requests")]
+    UnexpectedTermination,
     /// The request hasn't been implemented yet
     #[error("Unimplemented: {0}")]
     Unimplemented(String),
@@ -551,6 +554,7 @@ impl<
             ProviderError::TransactionFailed(_) => INVALID_INPUT,
             ProviderError::TransactionCreationError(_) => INVALID_INPUT,
             ProviderError::TryFromIntError(_) => INVALID_INPUT,
+            ProviderError::UnexpectedTermination => INTERNAL_ERROR,
             ProviderError::Unimplemented(_) => INVALID_INPUT,
             ProviderError::UnknownAddress { .. } => INVALID_INPUT,
             ProviderError::UnmetHardfork { .. } => INVALID_PARAMS,
@@ -659,11 +663,13 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
     ) -> Self {
         let stack_trace_result = get_stack_trace(
             contract_decoder,
-            std::iter::once(call_trace_arena),
-            Some(address_to_executed_code),
+            call_trace_arena,
+            std::iter::empty(),
+            DeployedCode {
+                creation: None,
+                runtime: Some(address_to_executed_code),
+            },
         )
-        .transpose()
-        .expect("Contains a single call trace arena")
         .into();
 
         Self {
@@ -684,11 +690,13 @@ impl<HaltReasonT: HaltReasonTrait> TransactionFailure<HaltReasonT> {
         let data = format!("0x{}", hex::encode(output.as_ref()));
         let stack_trace_result = get_stack_trace(
             contract_decoder,
-            std::iter::once(call_trace_arena),
-            Some(address_to_executed_code),
+            call_trace_arena,
+            std::iter::empty(),
+            DeployedCode {
+                creation: None,
+                runtime: Some(address_to_executed_code),
+            },
         )
-        .transpose()
-        .expect("Contains a single call trace arena")
         .into();
 
         Self {

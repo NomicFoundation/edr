@@ -3,8 +3,9 @@ name: Hardhat 3 Regression Benchmark
 # Benchmarks the *local* EDR build under test against Hardhat's E2E regression
 # scenarios. Unlike Hardhat's own regression-benchmark (which uses whatever EDR
 # is pinned on npm), this workflow builds EDR locally, publishes it to a local
-# Verdaccio registry, repoints Hardhat's `@nomicfoundation/edr` dependency at it,
-# and then runs Hardhat's `pnpm bench:regression --use-local`.
+# Verdaccio registry, repoints Hardhat's `@nomicfoundation/edr` dependency at
+# it, builds Hardhat against that local EDR, and then runs Hardhat's
+# `pnpm bench:regression --use-local`.
 #
 # Hardhat compat pin: when an EDR change breaks compatibility with current
 # Hardhat main (so the baseline benchmark would fail until the matching
@@ -18,7 +19,7 @@ name: Hardhat 3 Regression Benchmark
 # dispatch/`/bench` runs without an explicit hardhat-ref) then benchmark
 # against the pinned sha while the Hardhat PR is open, and revert to `main`
 # automatically once it's merged. Delete the pin file after the merge. See
-# `.github/scripts/resolve-regression-trigger.cjs` for details. PRs that touch
+# `.github/scripts/resolve-regression-trigger.ts` for details. PRs that touch
 # the pin file get it validated by `validate-hardhat-compat-pin.yml`.
 
 on:
@@ -95,7 +96,7 @@ jobs:
     steps:
       # Sparse-checkout only the workflow scripts so the github-script step can
       # require the resolver module below.
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: .github/scripts
           persist-credentials: false
@@ -104,8 +105,8 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const resolve = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/resolve-regression-trigger.cjs`);
-            await resolve({ github, context, core });
+            const { resolveRegressionTrigger } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/resolve-regression-trigger.ts`);
+            await resolveRegressionTrigger({ github, context, core });
 
   regression-benchmark:
     name: Regression benchmark
@@ -117,21 +118,23 @@ jobs:
     runs-on: hardhat-linux-amd64-self-hosted
     timeout-minutes: 180
     permissions:
-      # Lets the short-lived GITHUB_TOKEN used on non-baseline runs read commit
-      # metadata via the REST API (see "Store benchmark result").
+      # Lets the GITHUB_TOKEN used by "Compare benchmark result against
+      # baseline" read commit metadata via the REST API. Only needed on
+      # dispatch and `/bench` runs; push events carry the commit in the
+      # event payload.
       contents: read
     env:
       # Hardhat is checked out into ./hardhat; the EDR repo is the workspace root.
       HH: ${{ github.workspace }}/hardhat
     steps:
       - name: Checkout EDR
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.setup.outputs.edr_ref }}
           persist-credentials: false
 
       - name: Checkout Hardhat
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: NomicFoundation/hardhat
           ref: ${{ needs.setup.outputs.hardhat_ref }}
@@ -194,7 +197,7 @@ jobs:
         # Writes EDR_VER and HH_VER to $GITHUB_ENV
         env:
           EDR_REF: ${{ needs.setup.outputs.edr_ref }}
-        run: node .github/scripts/compute-sentinel-versions.cjs
+        run: node .github/scripts/compute-sentinel-versions.ts
 
       - name: Install EDR dependencies
         run: sfw pnpm install --frozen-lockfile --prefer-offline
@@ -207,51 +210,19 @@ jobs:
         working-directory: hardhat
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Build Hardhat
-        working-directory: hardhat
-        run: |
-          pnpm build
-          # pnpm 11 skips creating bin symlinks whose target isn't built at
-          # install time; relink now that build output exists. See pnpm/pnpm#10524.
-          pnpm rebuild -r
-
-      - name: Repoint Hardhat at the local EDR build
-        working-directory: hardhat
-        # Repoint the EDR dependency, and bump the hardhat package's own version
-        # so `decidePublishAction` returns "publish" (not "skip") and
-        # `--use-local` republishes hardhat carrying our EDR dependency, even
-        # right after a Hardhat release.
-        run: |
-          set -euo pipefail
-          npm pkg set "dependencies.@nomicfoundation/edr=$EDR_VER" --prefix packages/hardhat
-          npm pkg set version="$HH_VER" --prefix packages/hardhat
-
       - name: Start Verdaccio
+        # Needs the preceding install: `verdaccio` is a devDependency of the
+        # Hardhat workspace.
         working-directory: hardhat
-        # The preceding repoint desyncs packages/hardhat/package.json from
-        # pnpm-lock.yaml (the `-local.<sha>` sentinel only exists in Verdaccio,
-        # published later), so disable pnpm's pre-run frozen-lockfile deps check
-        # for this `pnpm <bin>` invocation — it would otherwise abort with
-        # ERR_PNPM_OUTDATED_LOCKFILE. Scoped to this step so the earlier
-        # `pnpm build`/`rebuild` steps keep their verification.
-        env:
-          PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
         run: pnpm verdaccio start --background
 
-      - name: Publish local EDR to Verdaccio
-        # Reuses Hardhat's pre-seeded Verdaccio auth.
-        run: |
-          bash ./scripts/publish_to_verdaccio.sh \
-            --version "$EDR_VER" \
-            --registry http://127.0.0.1:4873/ \
-            --npmrc "$HH/.verdaccio/.npmrc"
-
       - name: Clear stale pnpm metadata cache
-        # The self-hosted runner reuses ~/.cache/pnpm across runs. The benchmark
-        # republishes deterministic versions (e.g. hardhat@3.9.1) whose content
-        # changes each run (new @nomicfoundation/edr pin), so a prior run's cached
-        # packument makes `pnpm publish` skip ("already exists") and scenario
-        # installs resolve a stale EDR dependency.
+        # The self-hosted runner reuses ~/.cache/pnpm across runs. This job
+        # publishes deterministic versions whose content changes each run (the
+        # EDR sentinel, the benchmark's hardhat republishes). A stale packument
+        # makes `pnpm publish` skip ("already exists") and installs resolve a
+        # stale dependency. Run before anything publishes to or resolves from
+        # Verdaccio.
         #
         # pnpm 11 ignores `npm_config_cache_dir`, so the metadata cache can't be
         # relocated.
@@ -262,13 +233,68 @@ jobs:
         # preserves install speed.
         run: rm -rf "$HOME/.cache/pnpm"
 
+      - name: Publish local EDR to Verdaccio
+        # Reuses Hardhat's pre-seeded Verdaccio auth.
+        run: |
+          bash ./scripts/publish_to_verdaccio.sh \
+            --version "$EDR_VER" \
+            --registry http://127.0.0.1:4873/ \
+            --npmrc "$HH/.verdaccio/.npmrc"
+
+      - name: Repoint Hardhat at the local EDR build
+        working-directory: hardhat
+        # Repoint the EDR dependency and point the @nomicfoundation scope at
+        # Verdaccio, where the sentinel lives. Also bump hardhat's own version
+        # so `decidePublishAction` returns "publish" instead of "skip".
+        # Without the bump, `--use-local` would not republish hardhat right
+        # after a Hardhat release.
+        #
+        # The override is scoped: install-wide, pnpm's whole-lockfile
+        # `minimumReleaseAge` verification would route through Verdaccio's
+        # uplink. It is also persistent, so later pnpm invocations can still
+        # resolve the localhost-only sentinel.
+        run: |
+          set -euo pipefail
+          npm pkg set "dependencies.@nomicfoundation/edr=$EDR_VER" --prefix packages/hardhat
+          npm pkg set version="$HH_VER" --prefix packages/hardhat
+          echo "@nomicfoundation:registry=http://127.0.0.1:4873/" >> .npmrc
+
+      - name: Reinstall Hardhat dependencies against the local EDR build
+        working-directory: hardhat
+        # Re-sync the repoint-desynced lockfile; only the EDR packages move.
+        # The `pnpm build` below then compiles against the local EDR's
+        # typings. The checks fail fast on a broken install, which would
+        # otherwise surface as a confusing tsc error or as a napi load error
+        # deep in the benchmark.
+        #
+        # Not sfw-wrapped: a firewall proxy could intercept the loopback
+        # registry. The only new packages come from that registry, so there
+        # is nothing for Socket to scan anyway.
+        run: |
+          set -euo pipefail
+          pnpm install --no-frozen-lockfile
+          resolved=$(node -p 'require("./packages/hardhat/node_modules/@nomicfoundation/edr/package.json").version' 2>/dev/null || echo missing)
+          if [ "$resolved" != "$EDR_VER" ]; then
+            echo "::error::packages/hardhat resolves @nomicfoundation/edr@$resolved, expected $EDR_VER"
+            exit 1
+          fi
+          # The native binding is an optionalDependency; verify it loads.
+          (cd packages/hardhat && node -e 'require("@nomicfoundation/edr")')
+          # Surface any lockfile drift for post-hoc comparison.
+          git --no-pager diff -- pnpm-lock.yaml
+
+      - name: Build Hardhat
+        working-directory: hardhat
+        run: |
+          pnpm build
+          # pnpm 11 skips creating bin symlinks whose target isn't built at
+          # install time; relink now that build output exists. See pnpm/pnpm#10524.
+          pnpm rebuild -r
+
       - name: Run regression benchmark
         working-directory: hardhat
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
-          # See "Start Verdaccio": bypass pnpm's frozen-lockfile deps check for
-          # the repoint-desynced workspace.
-          PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
           # Scenario/benchmark glob filters, always set by the setup job (`*`
           # matches all). Forwarded verbatim to bench:regression, which matches
           # them against scenario directory / benchmark (command or step) names.
@@ -391,37 +417,100 @@ jobs:
             || cat regression-report.json 2>/dev/null \
             || echo "(no regression-report.json produced)"
 
-      - name: Store benchmark result
+      # Comparing and recording are split so that a regression can be told
+      # apart from a failed write. This invocation only reads, so it cannot
+      # fail the way "Record baseline in the results repo" can.
+      #
+      # It can still fail on a fetch or clone error instead of on the alert.
+      # Nothing here distinguishes the two, so the Slack message calls both a
+      # regression. The step's error annotation on the run says which it was.
+      #
+      # The comparison is against the last recorded data point, i.e. the
+      # previous push to main. So the baseline moves: a regression alerts
+      # once, then becomes the new normal.
+      - name: Compare benchmark result against baseline
+        id: compare
         uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        # A regression must not break main, so absorb the alert on baseline
+        # runs and let the Slack step report it instead. Comparison runs
+        # (`/bench`, dispatch) still fail.
+        continue-on-error: ${{ needs.setup.outputs.is_baseline == 'true' }}
         with:
           tool: customSmallerIsBetter
           output-file-path: hardhat/regression-report.json
           gh-repository: github.com/nomic-foundation-automation/edr-benchmark-results
           gh-pages-branch: main
           benchmark-data-dir-path: hardhat3
-          # Baseline (main push) runs push to the external results repo, which
-          # needs the cross-repo PAT. Non-baseline runs (PR/dispatch and the
-          # `/bench` issue_comment path) never push — the token is only used to
-          # read commit metadata and to clone the (public) results repo for
-          # comparison — so use the short-lived GITHUB_TOKEN.
-          github-token: ${{ needs.setup.outputs.is_baseline == 'true' && secrets.BENCHMARK_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
-          # Only push a new baseline on main-branch pushes; PRs/dispatch only compare.
-          auto-push: ${{ needs.setup.outputs.is_baseline == 'true' }}
+          # This invocation only reads the (public) results repo, so the
+          # short-lived GITHUB_TOKEN suffices on every trigger. A token is
+          # still required: with `gh-repository` set, the action rejects an
+          # empty `github-token` during config validation.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: false
           alert-threshold: "110%"
-          # Fail the run on a regression for comparisons; never break main.
-          fail-on-alert: ${{ needs.setup.outputs.is_baseline != 'true' }}
+          fail-on-alert: true
           summary-always: true
 
-      - name: Notify failures
-        # Only ping Slack for failed baseline runs (pushes to main)
-        if: ${{ failure() && needs.setup.outputs.is_baseline == 'true' }}
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+      - name: Clear the results-repo clone
+        # "Compare benchmark result against baseline" leaves its clone of the
+        # results repo in the workspace, and `git clone` refuses a non-empty
+        # destination, so remove it before "Record baseline in the results
+        # repo" clones again. `always()` because a comparison run that
+        # fails on a regression has to clean up too.
+        if: always()
+        run: rm -rf "${GITHUB_WORKSPACE:?}/benchmark-data-repository"
+
+      # Record the data point whether or not it regressed, so main's baseline
+      # always tracks the newest commit. `fail-on-alert` is off here, so the
+      # only way this fails is a genuine store failure (clone, auth or push
+      # error) — which fails the run and gets the generic Slack notification
+      # rather than the regression one.
+      - name: Record baseline in the results repo
+        id: record
+        if: ${{ needs.setup.outputs.is_baseline == 'true' }}
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        # `tool` through `benchmark-data-dir-path` must stay identical to
+        # "Compare benchmark result against baseline" — the two invocations
+        # have to address the same dataset.
+        with:
+          tool: customSmallerIsBetter
+          output-file-path: hardhat/regression-report.json
+          gh-repository: github.com/nomic-foundation-automation/edr-benchmark-results
+          gh-pages-branch: main
+          benchmark-data-dir-path: hardhat3
+          # Pushing to another repository needs the cross-repo PAT.
+          github-token: ${{ secrets.BENCHMARK_GITHUB_TOKEN }}
+          auto-push: true
+          fail-on-alert: false
+          # The comparison above already wrote the summary.
+          summary-always: false
+
+      - name: Notify failures and regressions
+        # Fires on baseline runs for a failed run, or for a regression that
+        # `continue-on-error` deliberately left green.
+        #
+        # Two details in the condition that look removable but are not:
+        # 1. `failure()` suppresses the implicit `success()` that GitHub wraps
+        #    every step `if:` in. Without it, this step is skipped on the
+        #    failed runs it exists to report.
+        # 2. It reads `outcome`, not `conclusion`, because `continue-on-error`
+        #    rewrites `conclusion` to `success`.
+        #
+        # The regression wording needs the record step to have succeeded too.
+        # An infra error that trips both steps therefore reads as a plain
+        # failure.
+        if: ${{ needs.setup.outputs.is_baseline == 'true' && (failure() || steps.compare.outcome == 'failure') }}
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.GH_ACTION_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: webhook-trigger
+          # Slack is the only channel a regression is reported on, so a
+          # rejected delivery must fail the step rather than just warn — even
+          # though on the green regression path that reddens the run.
+          errors: true
           payload: |
             {
-              "workflow_name": "${{ github.workflow }}",
+              "workflow_name": "${{ github.workflow }}${{ (steps.compare.outcome == 'failure' && steps.record.outcome == 'success') && ' — perf regression on main (baseline updated)' || '' }}",
               "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
 

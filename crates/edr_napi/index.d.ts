@@ -146,7 +146,10 @@ export declare class TestResult {
    * Compute the error stack trace.
    * The result is either the stack trace or the reason why we couldn't
    * generate the stack trace.
-   * Returns null if the test status is succeeded or skipped.
+   * Returns null if the test succeeded or was skipped. Also returns null
+   * when the failure left no trace behind, for example an invariant
+   * campaign whose calls were all rejected by `vm.assume`; the `reason`
+   * field then explains the failure.
    * Cannot throw.
    */
   stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null
@@ -1204,6 +1207,15 @@ export interface InvariantTestKind {
 export const ISTANBUL: string
 
 export const ISTHMUS: string
+
+/**
+ * Computes the Keccak-256 hash of `data`, returning the 32-byte digest.
+ *
+ * This is Ethereum's pre-standard Keccak-256, whose padding differs from the
+ * standardized SHA3-256, so it can't be substituted by a platform SHA3
+ * implementation.
+ */
+export declare function keccak256(data: Uint8Array): Uint8Array
 
 export const L1_CHAIN_TYPE: string
 

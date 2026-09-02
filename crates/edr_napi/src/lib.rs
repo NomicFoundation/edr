@@ -24,6 +24,8 @@ mod debug_trace;
 pub mod gas_report;
 /// Types and functions related to code coverage instrumentation.
 pub mod instrument;
+/// Native Keccak-256 hashing.
+pub mod keccak;
 /// Types for EVM execution logs.
 pub mod log;
 /// Types for an RPC request logger.

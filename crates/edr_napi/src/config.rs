@@ -466,10 +466,13 @@ impl TryFrom<MiningConfig> for edr_provider::config::Mining {
                         edr_provider::config::Interval::Fixed(interval)
                     }
                     Either::B(IntervalRange { min, max }) => {
-                        edr_provider::config::Interval::Range {
-                            min: min.try_cast()?,
-                            max: max.try_cast()?,
-                        }
+                        let bounds = [min.try_cast()?, max.try_cast()?];
+                        let range = edr_provider::config::IntervalRangeConfig::try_from(bounds)
+                            .map_err(|error| {
+                                napi::Error::new(napi::Status::InvalidArg, error.to_string())
+                            })?;
+
+                        edr_provider::config::Interval::Range(range)
                     }
                 };
 
