@@ -387,9 +387,6 @@ pub struct TestResult<HaltReasonT> {
     pub reason: Option<String>,
 
     /// Minimal reproduction test case for failing test.
-    ///
-    /// Its trace arenas are freed once the test has finished — nothing
-    /// consumes them.
     pub counterexample: Option<CounterExample>,
 
     /// Any captured & parsed as strings logs along the test's execution which
@@ -524,13 +521,14 @@ impl<HaltReasonT> From<TestResult<HaltReasonT>> for TestRunOutcome<HaltReasonT> 
 }
 
 impl<HaltReasonT> TestResult<HaltReasonT> {
-    /// Frees every trace arena that no longer has a consumer, as decided by
-    /// `policy`, and strips the recorded EVM steps from the arenas it keeps.
+    /// Frees the execution traces when they no longer have a consumer, as
+    /// decided by `policy`, and strips the recorded EVM steps from arenas it
+    /// keeps.
     pub(crate) fn free_unconsumed_traces(&mut self, policy: TraceRetentionPolicy) {
         let Self {
             status,
             reason: _,
-            counterexample,
+            counterexample: _,
             logs: _,
             decoded_logs: _,
             kind: _,
@@ -550,17 +548,6 @@ impl<HaltReasonT> TestResult<HaltReasonT> {
             Retain::CallsOnly => {
                 execution_traces.strip_steps();
             }
-        }
-
-        // Counterexample arenas have no consumer at all once the test has
-        // finished: they are neither decoded nor exposed over napi.
-        let counterexamples: &mut [BaseCounterExample] = match counterexample {
-            Some(CounterExample::Single(counterexample)) => std::slice::from_mut(counterexample),
-            Some(CounterExample::Sequence(_, counterexamples)) => counterexamples,
-            None => &mut [],
-        };
-        for counterexample in counterexamples {
-            counterexample.traces = None;
         }
     }
 

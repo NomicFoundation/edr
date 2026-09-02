@@ -107,15 +107,12 @@ impl TraceRetentionPolicy {
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::{map::HashMap, Bytes};
+    use alloy_primitives::map::HashMap;
     use edr_chain_spec::EvmHaltReason;
     use foundry_evm::traces::{CallTraceArena, SparsedTraceArena};
 
     use super::*;
-    use crate::{
-        fuzz::{BaseCounterExample, CounterExample},
-        result::TestResult,
-    };
+    use crate::result::TestResult;
 
     #[test]
     fn retains_arenas_only_for_results_that_surface_call_traces() {
@@ -155,33 +152,27 @@ mod tests {
     }
 
     #[test]
-    fn frees_counterexample_arenas_without_consumers() {
+    fn frees_or_strips_execution_traces_per_policy() {
         let arena = || SparsedTraceArena {
             arena: CallTraceArena::default(),
             ignored: HashMap::default(),
         };
-        let counterexample =
-            || BaseCounterExample::from_fuzz_call(Bytes::new(), &[], Some(arena()), None);
 
-        let mut result = TestResult::<EvmHaltReason> {
+        // `All` keeps the call traces.
+        let mut kept = TestResult::<EvmHaltReason> {
             execution_traces: [arena()].into_iter().collect(),
-            counterexample: Some(CounterExample::Sequence(
-                2,
-                vec![counterexample(), counterexample()],
-            )),
             ..TestResult::default()
         };
+        kept.free_unconsumed_traces(TraceRetentionPolicy::new(IncludeTraces::All, false));
+        assert_eq!(kept.execution_traces.len(), 1);
 
-        // `All` keeps the call traces, but the counterexample arenas have no
-        // consumer.
-        result.free_unconsumed_traces(TraceRetentionPolicy::new(IncludeTraces::All, false));
-
-        assert_eq!(result.execution_traces.len(), 1);
-        let Some(CounterExample::Sequence(_, counterexamples)) = &result.counterexample else {
-            panic!("counterexample kind changed");
+        // `Failing` frees a passing test's call traces.
+        let mut freed = TestResult::<EvmHaltReason> {
+            status: TestStatus::Success,
+            execution_traces: [arena()].into_iter().collect(),
+            ..TestResult::default()
         };
-        assert!(counterexamples
-            .iter()
-            .all(|counterexample| counterexample.traces.is_none()));
+        freed.free_unconsumed_traces(TraceRetentionPolicy::new(IncludeTraces::Failing, false));
+        assert!(freed.execution_traces.is_empty());
     }
 }
