@@ -22,6 +22,8 @@ pub mod context;
 pub mod contract_decoder;
 mod debug_trace;
 pub mod gas_report;
+/// Reporting Rust-owned resources to the JavaScript garbage collector.
+pub mod gc;
 /// Types and functions related to code coverage instrumentation.
 pub mod instrument;
 /// Native Keccak-256 hashing.

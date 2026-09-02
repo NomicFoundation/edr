@@ -20,8 +20,22 @@ pub use self::factory::ProviderFactory;
 use self::response::Response;
 use crate::{
     async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
-    contract_decoder::ContractDecoder,
+    contract_decoder::ContractDecoder, gc::GcTracked,
 };
+
+/// Bytes reported to V8 for the OS thread that a provider owns.
+///
+/// This is the standard library's default stack reservation, which
+/// [`edr_utils_sync::CancellableThread`] does not override. `RUST_MIN_STACK`
+/// does, in which case the figure is wrong but still the right order of
+/// magnitude.
+///
+/// [`GcProvider`] reports it and [`ObjectFinalize::finalize`] releases it, so
+/// the two must stay the same amount.
+pub const THREAD_EXTERNAL_MEMORY: i64 = 2 * 1024 * 1024;
+
+/// A [`Provider`] on its way to JavaScript, reporting its OS thread to V8.
+pub type GcProvider = GcTracked<Provider, THREAD_EXTERNAL_MEMORY>;
 
 /// A JSON-RPC provider for Ethereum.
 #[napi(custom_finalize)]
@@ -36,6 +50,9 @@ pub struct Provider {
 
 impl Provider {
     /// Constructs a new instance.
+    ///
+    /// Hand the result to JavaScript as a [`GcProvider`], so V8 learns of the
+    /// OS thread it now owns.
     pub fn new(
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
@@ -266,12 +283,16 @@ impl Provider {
 }
 
 impl ObjectFinalize for Provider {
-    fn finalize(self, _env: Env) -> napi::Result<()> {
+    fn finalize(self, env: Env) -> napi::Result<()> {
         let Self {
             provider,
             dropped_provider_sender,
             ..
         } = self;
+
+        // Releases what `GcProvider` reported. Only a JS object reaches this
+        // finalizer, so the two amounts always pair up.
+        env.adjust_external_memory(-THREAD_EXTERNAL_MEMORY)?;
 
         // Off-loads deallocation to a background thread to avoid blocking the
         // JS thread (the provider may be running thread-safe functions on a
