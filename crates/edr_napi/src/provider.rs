@@ -9,7 +9,7 @@ use edr_solidity::artifacts::{
     solc::extract_solc_contract_metadata, solx::extract_solx_contract_metadata, to_compiler_type,
 };
 use napi::{
-    bindgen_prelude::{FnArgs, Function, Object, ObjectFinalize, Promise, Uint8Array},
+    bindgen_prelude::{FnArgs, Function, Object, Promise, Uint8Array},
     tokio::runtime,
     Env, Status,
 };
@@ -20,7 +20,7 @@ pub use self::factory::ProviderFactory;
 use self::response::Response;
 use crate::{
     async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
-    contract_decoder::ContractDecoder,
+    contract_decoder::ContractDecoder, gc::gc_tracked,
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -36,7 +36,10 @@ pub struct Provider {
 
 impl Provider {
     /// Constructs a new instance.
-    pub fn new(
+    ///
+    /// Hand the result to JavaScript as a [`GcProvider`], so V8 learns of the
+    /// OS thread it now owns.
+    pub(crate) fn new(
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
@@ -265,8 +268,17 @@ impl Provider {
     }
 }
 
-impl ObjectFinalize for Provider {
-    fn finalize(self, _env: Env) -> napi::Result<()> {
+gc_tracked! {
+    /// A [`Provider`] on its way to JavaScript, reporting its OS thread to V8.
+    pub(crate) type GcProvider = GcTracked<Provider>;
+
+    /// The standard library's default thread stack reservation, which
+    /// [`edr_utils_sync::CancellableThread`] does not override.
+    /// `RUST_MIN_STACK` does, in which case the figure is wrong but still the
+    /// right order of magnitude.
+    const EXTERNAL_MEMORY: i64 = 2 * 1024 * 1024;
+
+    fn drop(self) {
         let Self {
             provider,
             dropped_provider_sender,
@@ -277,7 +289,5 @@ impl ObjectFinalize for Provider {
         // JS thread (the provider may be running thread-safe functions on a
         // background thread; dropping it here would deadlock).
         dropped_provider_sender.deallocate(provider);
-
-        Ok(())
     }
 }

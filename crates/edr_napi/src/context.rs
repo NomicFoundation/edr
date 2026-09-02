@@ -21,7 +21,7 @@ use crate::{
     config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     contract_decoder::ContractDecoder,
     logger::LoggerConfig,
-    provider::{factory::SyncProviderFactory, Provider, ProviderFactory},
+    provider::{factory::SyncProviderFactory, GcProvider, Provider, ProviderFactory},
     solidity_tests::{
         artifact::{Artifact, ArtifactId},
         config::SolidityTestRunnerConfigArgs,
@@ -139,14 +139,14 @@ impl EdrContext {
                     Arc::clone(&contract_decoder),
                 )
                 .map(|provider| {
-                    Provider::new(
+                    GcProvider::from(Provider::new(
                         provider,
                         runtime,
                         contract_decoder,
                         dropped_provider_sender,
                         #[cfg(feature = "scenarios")]
                         scenario_file,
-                    )
+                    ))
                 });
 
             deferred.resolve(|_env| result);
@@ -390,11 +390,13 @@ impl EdrContext {
 impl EdrContext {
     /// Creates a mock provider, which always returns the given response.
     /// For testing purposes.
-    #[napi(async_runtime)]
+    // `GcProvider` only carries the value to JavaScript, which receives a
+    // `Provider`.
+    #[napi(async_runtime, ts_return_type = "Provider")]
     pub fn create_mock_provider(
         &self,
         mocked_response: serde_json::Value,
-    ) -> napi::Result<Provider> {
+    ) -> napi::Result<GcProvider> {
         use crate::mock::MockProvider;
 
         let runtime = runtime::Handle::current();
@@ -404,16 +406,14 @@ impl EdrContext {
             context.provider_deallocator.sender()
         };
 
-        let provider = Provider::new(
+        Ok(GcProvider::from(Provider::new(
             Arc::new(MockProvider::new(mocked_response)),
             runtime,
             Arc::default(),
             dropped_provider_sender,
             #[cfg(feature = "scenarios")]
             None,
-        );
-
-        Ok(provider)
+        )))
     }
 
     /// Creates a provider with a mock timer.
@@ -462,7 +462,7 @@ impl EdrContext {
             // Using a closure to limit the scope, allowing us to use `?` for error
             // handling. This is necessary because the result of the closure is used
             // to resolve the deferred promise.
-            let create_provider = move || -> napi::Result<Provider> {
+            let create_provider = move || -> napi::Result<GcProvider> {
                 use crate::subscription::subscriber_callback_for_chain_spec;
 
                 let logger = Logger::<GenericChainSpec, Arc<edr_provider::time::MockTime>>::new(
@@ -491,14 +491,14 @@ impl EdrContext {
                 )
                 .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
-                Ok(Provider::new(
+                Ok(GcProvider::from(Provider::new(
                     Arc::new(provider),
                     runtime,
                     contract_decoder,
                     dropped_provider_sender,
                     #[cfg(feature = "scenarios")]
                     None,
-                ))
+                )))
             };
 
             let result = create_provider();
