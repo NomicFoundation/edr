@@ -36,11 +36,13 @@
   "files": [
     "index.js",
     "index.d.ts",
+    "binding.js",
+    "binding.d.ts",
     "dist/src/",
     "coverage.sol"
   ],
   "license": "MIT",
-  "main": "index.js",
+  "main": "./index.js",
   "napi": {
     "binaryName": "edr",
     "targets": [
@@ -70,11 +72,12 @@
     "lint": "pnpm run prettier && pnpm run eslint",
     "lint:fix": "pnpm run prettier --write",
     "pretest": "pnpm build:test",
-    "prettier": "prettier --check \"test/**.ts\"",
-    "test": "mocha --recursive \"test/**/*.ts\"",
-    "testNoBuild": "mocha --recursive \"test/**/{,!(logs|mock)}.ts\"",
+    "prettier": "prettier --check \"test/**/*.ts\"",
+    "test": "mocha --recursive --ignore \"test/isolated/**\" \"test/**/*.ts\"",
+    "test:isolated": "mocha --node-option expose-gc \"test/isolated/**/*.ts\"",
+    "testNoBuild": "mocha --recursive --ignore \"test/isolated/**\" \"test/**/{,!(logs|mock)}.ts\"",
     "universal": "napi universalize",
     "version": "napi version"
   },
-  "types": "index.d.ts"
+  "types": "./index.d.ts"
 }
