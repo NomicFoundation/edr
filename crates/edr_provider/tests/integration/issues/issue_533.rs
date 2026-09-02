@@ -9,7 +9,7 @@ use edr_provider::{
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
-use edr_solidity::{config::IncludeTraces, contract_decoder::ContractDecoder};
+use edr_solidity::{config::IncludeCallTraces, contract_decoder::ContractDecoder};
 use edr_test_utils::env::json_rpc_url_provider;
 use parking_lot::RwLock;
 use tokio::runtime;
@@ -30,7 +30,7 @@ async fn issue_533() -> anyhow::Result<()> {
         });
 
         config.with_observability(ObservabilityConfig {
-            include_call_traces: IncludeTraces::All,
+            include_call_traces: IncludeCallTraces::All,
             ..ObservabilityConfig::default()
         });
 

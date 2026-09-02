@@ -50,7 +50,7 @@ The CI is set up to run `soltestsBenchmark` on every commit in `main`, save the 
 
 ### Memory Benchmark
 
-Measures the peak memory (resident set size) of a full Solidity test run per repository and Hardhat verbosity level. Verbosity is the input that matters: Hardhat maps it to the EDR options that control trace collection (`collectStackTraces`/`includeTraces`), and at `-vvv` and above EDR records EVM steps for every call, which is what drove the out-of-memory reports this benchmark exists to track.
+Measures the peak memory (resident set size) of a full Solidity test run per repository and Hardhat verbosity level. Verbosity is the input that matters: Hardhat maps it to the EDR options that control trace collection (`collectStackTraces`/`includeCallTraces`), and at `-vvv` and above EDR records EVM steps for every call, which is what drove the out-of-memory reports this benchmark exists to track.
 
 How it works:
 

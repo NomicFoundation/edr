@@ -6,7 +6,7 @@ use alloy_json_abi::Event;
 use alloy_primitives::address;
 use alloy_primitives::{b256, Address, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
-use edr_solidity::{config::IncludeTraces, solidity_stack_trace::StackTraceEntry};
+use edr_solidity::{config::IncludeCallTraces, solidity_stack_trace::StackTraceEntry};
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
     revm::context::{BlockEnv, TxEnv},
@@ -124,7 +124,7 @@ async fn runner_config<
         config.evm_opts.sender = sender;
     }
 
-    config.include_traces = IncludeTraces::All;
+    config.include_call_traces = IncludeCallTraces::All;
 
     config
 }
@@ -853,15 +853,15 @@ async fn on_failure_mode_produces_stack_trace_for_failing_setup() {
 // unless something will still consume them.
 #[tokio::test(flavor = "multi_thread")]
 async fn always_mode_frees_arenas_nothing_consumes() {
-    for (include_traces, expect_retained) in [
+    for (include_call_traces, expect_retained) in [
         // Nothing surfaces call traces: the arenas go, the stack trace stays.
-        (IncludeTraces::None, false),
+        (IncludeCallTraces::None, false),
         // The failing test's call traces are surfaced.
-        (IncludeTraces::Failing, true),
+        (IncludeCallTraces::Failing, true),
     ] {
         let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
         config.collect_stack_traces = CollectStackTraces::Always;
-        config.include_traces = include_traces;
+        config.include_call_traces = include_call_traces;
 
         let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
         let runner = TEST_DATA_VIA_IR
@@ -881,12 +881,12 @@ async fn always_mode_frees_arenas_nothing_consumes() {
         assert_eq!(
             !result.execution_traces.is_empty(),
             expect_retained,
-            "arenas retained at {include_traces:?}"
+            "arenas retained at {include_call_traces:?}"
         );
         if expect_retained {
             assert!(
                 result.execution_traces.iter().all(steps_stripped),
-                "steps stripped from the retained arenas at {include_traces:?}"
+                "steps stripped from the retained arenas at {include_call_traces:?}"
             );
         }
     }
@@ -911,7 +911,7 @@ fn steps_stripped(arena: &SparsedTraceArena) -> bool {
 async fn always_mode_computes_invariant_stack_trace_without_call_traces() {
     let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
     config.collect_stack_traces = CollectStackTraces::Always;
-    config.include_traces = IncludeTraces::None;
+    config.include_call_traces = IncludeCallTraces::None;
     config.invariant.runs = 10;
     config.invariant.depth = 10;
 
@@ -936,7 +936,7 @@ async fn always_mode_computes_invariant_stack_trace_without_call_traces() {
     );
     assert!(
         result.execution_traces.is_empty(),
-        "no call traces are surfaced at IncludeTraces::None"
+        "no call traces are surfaced at IncludeCallTraces::None"
     );
 }
 
@@ -944,12 +944,13 @@ async fn always_mode_computes_invariant_stack_trace_without_call_traces() {
 // unless every result surfaces its call traces.
 #[tokio::test(flavor = "multi_thread")]
 async fn always_mode_frees_passing_tests_arenas_unless_all_are_included() {
-    for (include_traces, expect_retained) in
-        [(IncludeTraces::Failing, false), (IncludeTraces::All, true)]
-    {
+    for (include_call_traces, expect_retained) in [
+        (IncludeCallTraces::Failing, false),
+        (IncludeCallTraces::All, true),
+    ] {
         let mut config = runner_config(None, &TEST_DATA_DEFAULT, false).await;
         config.collect_stack_traces = CollectStackTraces::Always;
-        config.include_traces = include_traces;
+        config.include_call_traces = include_call_traces;
 
         let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
         let suite_results = runner.test_collect(repro_filter(3347)).await.suite_results;
@@ -962,7 +963,7 @@ async fn always_mode_frees_passing_tests_arenas_unless_all_are_included() {
             assert_eq!(
                 !result.execution_traces.is_empty(),
                 expect_retained,
-                "{name}: arenas retained at {include_traces:?}"
+                "{name}: arenas retained at {include_call_traces:?}"
             );
             // Retained arenas keep their call tree but not the recorded steps.
             assert!(
@@ -974,7 +975,7 @@ async fn always_mode_frees_passing_tests_arenas_unless_all_are_included() {
 }
 
 // A failing test in `CollectStackTraces::OnFailure` mode with
-// `IncludeTraces::None` (Hardhat's default verbosity) must produce a
+// `IncludeCallTraces::None` (Hardhat's default verbosity) must produce a
 // source-level stack trace via the re-execution path. This suite has no
 // invariant tests, so nothing is traced during the original run — not even
 // setup — and the re-run has to rebuild the deployed-code mapping itself.
@@ -982,7 +983,7 @@ async fn always_mode_frees_passing_tests_arenas_unless_all_are_included() {
 async fn on_failure_mode_produces_stack_trace_without_traced_setup() {
     let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
     config.collect_stack_traces = CollectStackTraces::OnFailure;
-    config.include_traces = IncludeTraces::None;
+    config.include_call_traces = IncludeCallTraces::None;
 
     // Real decoder so the stack-trace inferrer runs (mirrors `issue_1482`).
     let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
@@ -1003,7 +1004,7 @@ async fn on_failure_mode_produces_stack_trace_without_traced_setup() {
     let unit_result = assert_execution_error_stack_trace(suite, "testRevertHasStackTrace()");
     assert!(
         unit_result.execution_traces.is_empty(),
-        "no call traces should be retained at `IncludeTraces::None`"
+        "no call traces should be retained at `IncludeCallTraces::None`"
     );
     assert_execution_error_stack_trace(suite, "tableRevertHasStackTrace(uint256)");
     assert_execution_error_stack_trace(suite, "testFuzzRevertHasStackTrace(uint256)");
@@ -1013,12 +1014,13 @@ async fn on_failure_mode_produces_stack_trace_without_traced_setup() {
 // surface their traces; when none will, they are freed with the suite.
 #[tokio::test(flavor = "multi_thread")]
 async fn always_mode_frees_setup_arenas_unless_a_result_surfaces_them() {
-    for (include_traces, expect_retained) in
-        [(IncludeTraces::Failing, false), (IncludeTraces::All, true)]
-    {
+    for (include_call_traces, expect_retained) in [
+        (IncludeCallTraces::Failing, false),
+        (IncludeCallTraces::All, true),
+    ] {
         let mut config = runner_config(None, &TEST_DATA_DEFAULT, false).await;
         config.collect_stack_traces = CollectStackTraces::Always;
-        config.include_traces = include_traces;
+        config.include_call_traces = include_call_traces;
 
         let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
         let suite_results = runner.test_collect(repro_filter(3190)).await.suite_results;
@@ -1036,7 +1038,7 @@ async fn always_mode_frees_setup_arenas_unless_a_result_surfaces_them() {
         assert_eq!(
             !suite.setup_traces.is_empty(),
             expect_retained,
-            "setup arenas retained at {include_traces:?}"
+            "setup arenas retained at {include_call_traces:?}"
         );
     }
 }

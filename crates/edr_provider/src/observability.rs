@@ -18,7 +18,7 @@ use edr_inspector_bytecode::ExecutedBytecodeCollector;
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
 use edr_receipt::{log::ExecutionLog, ExecutionResult};
 use edr_solidity::{
-    config::IncludeTraces, contract_decoder::ContractDecoder, tracing::SolidityTracingInspector,
+    config::IncludeCallTraces, contract_decoder::ContractDecoder, tracing::SolidityTracingInspector,
 };
 use edr_state_api::State;
 use foundry_evm_traces::CallTraceArena;
@@ -46,7 +46,7 @@ pub type Config = ObservabilityConfig;
 #[derive(Clone, Default)]
 pub struct ObservabilityConfig {
     pub call_override: Option<Arc<dyn SyncCallOverride>>,
-    pub include_call_traces: IncludeTraces,
+    pub include_call_traces: IncludeCallTraces,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     pub on_collected_gas_report_fn: Option<Box<dyn SyncOnCollectedGasReportCallback>>,
     pub verbose_raw_tracing: bool,
@@ -74,7 +74,7 @@ impl Debug for ObservabilityConfig {
 #[derive(Clone)]
 pub struct EvmObserverConfig {
     pub call_override: Option<Arc<dyn SyncCallOverride>>,
-    pub include_call_traces: IncludeTraces,
+    pub include_call_traces: IncludeCallTraces,
     pub contract_decoder: Arc<RwLock<ContractDecoder>>,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     pub verbose_raw_tracing: bool,
@@ -144,7 +144,7 @@ pub struct EvmObservedData {
 impl EvmObservedData {
     pub(crate) fn into_call_traces(
         self,
-        include: IncludeTraces,
+        include: IncludeCallTraces,
         is_success: bool,
     ) -> Option<CallTraceArena> {
         include
@@ -379,7 +379,7 @@ impl<HaltReasonT> WithExecutionResult for ExecutionResultAndStateWithMetadata<Ha
 pub(crate) struct ObservedExecution<ExecutionResultT> {
     pub evm_observed_data: EvmObservedData,
     pub execution_result: ExecutionResultT,
-    include_call_traces: IncludeTraces,
+    include_call_traces: IncludeCallTraces,
 }
 
 impl<ExecutionResultT: WithExecutionResult> ObservedExecution<ExecutionResultT> {

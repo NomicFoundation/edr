@@ -301,7 +301,7 @@ impl EdrContext {
                 })
                 .collect::<napi::Result<TestContracts>>());
 
-            let include_traces = config.include_traces.into();
+            let include_call_traces = config.include_call_traces;
 
             let runtime_for_factory = runtime.clone();
             let create_result = runtime
@@ -348,7 +348,7 @@ impl EdrContext {
                                               result,
                                           }| {
                                         let suite_result =
-                                            SuiteResult::new(artifact_id, result, include_traces);
+                                            SuiteResult::new(artifact_id, result, include_call_traces);
 
                                         let status = on_test_suite_completed_callback.call(
                                             suite_result,

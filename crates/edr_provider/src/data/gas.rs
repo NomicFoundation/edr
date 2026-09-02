@@ -371,11 +371,11 @@ fn probe_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionM
             .evm_observed_data
             .call_trace_arena,
     );
-    let should_include_traces = observer_config
+    let should_include_call_traces = observer_config
         .include_call_traces
         .should_include(|| !accepted);
 
-    let call_trace = should_include_traces.then_some(
+    let call_trace = should_include_call_traces.then_some(
         observed_limited_execution
             .evm_observed_data
             .call_trace_arena,

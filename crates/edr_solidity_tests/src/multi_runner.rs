@@ -16,7 +16,7 @@ use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_decoder_revert::RevertDecoder;
-use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
+use edr_solidity::{config::IncludeCallTraces, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
@@ -119,13 +119,14 @@ pub struct MultiContractRunner<
     revert_decoder: RevertDecoder,
     /// The fork to use at launch
     fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
-    /// Whether to collect stack traces.
+    /// When a source-level stack trace is computed for a failing test.
     collect_stack_traces: CollectStackTraces,
     /// Whether to collect coverage info
     coverage: bool,
-    /// Whether to enable trace mode and which traces to include in test
-    /// results.
-    include_traces: IncludeTraces,
+    /// Which test results carry call traces. Together with
+    /// `collect_stack_traces`, this also decides whether — and how much —
+    /// tracing is enabled during execution.
+    include_call_traces: IncludeCallTraces,
     /// Whether to enable Solidity fuzz fixtures support
     enable_fuzz_fixtures: bool,
     /// Whether to enable table test support
@@ -190,7 +191,7 @@ impl<
 
         let SolidityTestRunnerConfig {
             collect_stack_traces,
-            mut include_traces,
+            mut include_call_traces,
             coverage,
             mut evm_opts,
             project_root,
@@ -231,7 +232,7 @@ impl<
 
         if generate_gas_report {
             // Traces are needed to generate a gas report
-            include_traces = IncludeTraces::All;
+            include_call_traces = IncludeCallTraces::All;
             // Enable EVM isolation for more accurate gas measurements
             evm_opts.isolate = true;
         } else {
@@ -253,7 +254,7 @@ impl<
             fork,
             collect_stack_traces,
             coverage,
-            include_traces,
+            include_call_traces,
             enable_fuzz_fixtures,
             enable_table_tests,
             fuzz_config: fuzz,
@@ -395,9 +396,9 @@ impl<
 
         let tracing_mode = match self.collect_stack_traces {
             CollectStackTraces::Always => TracingMode::WithSteps,
-            CollectStackTraces::OnFailure => match self.include_traces {
-                IncludeTraces::Failing | IncludeTraces::All => TracingMode::WithoutSteps,
-                IncludeTraces::None => TracingMode::None,
+            CollectStackTraces::OnFailure => match self.include_call_traces {
+                IncludeCallTraces::Failing | IncludeCallTraces::All => TracingMode::WithoutSteps,
+                IncludeCallTraces::None => TracingMode::None,
             },
         };
 
@@ -450,7 +451,7 @@ impl<
                     invariant_config: &self.invariant_config,
                     test_function_overrides: &inline_overrides,
                     generate_gas_report: self.generate_gas_report,
-                    include_traces: self.include_traces,
+                    include_call_traces: self.include_call_traces,
                 },
                 span,
             );
@@ -465,7 +466,7 @@ impl<
             .generate_gas_report
             .then(crate::gas_report::GasReport::default);
 
-        let test_results = if self.include_traces == IncludeTraces::None {
+        let test_results = if self.include_call_traces == IncludeCallTraces::None {
             test_outcomes
                 .into_iter()
                 .map(|(signature, outcome)| (signature, outcome.result))
@@ -500,7 +501,7 @@ impl<
                     } = outcome;
 
                     if self
-                        .include_traces
+                        .include_call_traces
                         .should_include(|| result.status.is_failure())
                     {
                         decoder.clear_addresses();

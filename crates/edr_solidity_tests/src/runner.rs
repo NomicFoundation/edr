@@ -17,7 +17,7 @@ use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{
-    config::IncludeTraces,
+    config::IncludeCallTraces,
     contract_decoder::SyncNestedTraceDecoder,
     solidity_stack_trace::{get_stack_trace, DeployedCode, StackTraceEntry},
 };
@@ -141,7 +141,7 @@ pub struct ContractRunnerOptions<'a> {
     /// be disabled by function-level overrides.
     pub generate_gas_report: bool,
     /// Which test results carry call traces to the caller.
-    pub include_traces: IncludeTraces,
+    pub include_call_traces: IncludeCallTraces,
 }
 
 /// Contract artifact related arguments to the contract runner.
@@ -205,7 +205,7 @@ impl<
             invariant_config,
             test_function_overrides,
             generate_gas_report,
-            include_traces,
+            include_call_traces,
         } = options;
 
         Self {
@@ -226,7 +226,7 @@ impl<
             span,
             test_function_overrides,
             generate_gas_report,
-            trace_retention: TraceRetentionPolicy::new(include_traces, generate_gas_report),
+            trace_retention: TraceRetentionPolicy::new(include_call_traces, generate_gas_report),
             _phantom: PhantomData,
         }
     }

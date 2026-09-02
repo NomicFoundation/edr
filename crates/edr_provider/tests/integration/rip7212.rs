@@ -10,7 +10,7 @@ use edr_provider::{
     ProviderRequest,
 };
 use edr_solidity::{
-    config::IncludeTraces,
+    config::IncludeCallTraces,
     contract_decoder::ContractDecoder,
     nested_trace::{CodeMap, NestedTrace},
 };
@@ -69,7 +69,7 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
 async fn rip7212_enabled() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.hardfork = edr_chain_l1::Hardfork::Prague;
-    config.observability.include_call_traces = IncludeTraces::All;
+    config.observability.include_call_traces = IncludeCallTraces::All;
     config.precompile_overrides = [(
         *secp256r1::P256VERIFY.address(),
         p256verify_precompile as edr_precompile::PrecompileFn,
@@ -124,7 +124,7 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
 async fn rip7212_enabled_post_osaka() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.hardfork = edr_chain_l1::Hardfork::Osaka;
-    config.observability.include_call_traces = IncludeTraces::All;
+    config.observability.include_call_traces = IncludeCallTraces::All;
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});

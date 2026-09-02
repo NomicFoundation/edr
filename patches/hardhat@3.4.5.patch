@@ -1,7 +1,53 @@
+diff --git a/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.d.ts b/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.d.ts
+index ec1bae277d9df71a51f5b32f315ee9c9bc1f2d26..5d38198d198f51c40ef2f973238febb7cfb5f3e3 100644
+--- a/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.d.ts
++++ b/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.d.ts
+@@ -5,7 +5,7 @@ import type { RequestArguments, SuccessfulJsonRpcResponse } from "../../../../ty
+ import type { RequireField } from "../../../../types/utils.js";
+ import type { JsonRpcRequestWrapperFunction } from "../network-manager.js";
+ import type { SubscriptionEvent, ProviderConfig, TracingConfigWithBuffers, GasReportConfig } from "@nomicfoundation/edr";
+-import { ContractDecoder, IncludeTraces } from "@nomicfoundation/edr";
++import { ContractDecoder, IncludeCallTraces } from "@nomicfoundation/edr";
+ import { BaseProvider } from "../base-provider.js";
+ interface EdrProviderConfig {
+     chainDescriptors: ChainDescriptorsConfig;
+@@ -15,7 +15,7 @@ interface EdrProviderConfig {
+     jsonRpcRequestWrapper?: JsonRpcRequestWrapperFunction;
+     coverageConfig?: CoverageConfig;
+     gasReportConfig?: GasReportConfig;
+-    includeCallTraces?: IncludeTraces;
++    includeCallTraces?: IncludeCallTraces;
+     connectionId: number;
+     networkName: string;
+     verbosity: number;
+@@ -40,6 +40,6 @@ export declare class EdrProvider extends BaseProvider {
+     addCompilationResult(solcVersion: string, compilerInput: any, compilerOutput: any): Promise<void>;
+     onSubscriptionEvent(event: SubscriptionEvent): void;
+ }
+-export declare function getProviderConfig(networkConfig: RequireField<EdrNetworkConfig, "chainType">, coverageConfig: CoverageConfig | undefined, gasReportConfig: GasReportConfig | undefined, chainDescriptors: ChainDescriptorsConfig, includeCallTraces?: IncludeTraces): Promise<ProviderConfig>;
++export declare function getProviderConfig(networkConfig: RequireField<EdrNetworkConfig, "chainType">, coverageConfig: CoverageConfig | undefined, gasReportConfig: GasReportConfig | undefined, chainDescriptors: ChainDescriptorsConfig, includeCallTraces?: IncludeCallTraces): Promise<ProviderConfig>;
+ export {};
+ //# sourceMappingURL=edr-provider.d.ts.map
+\ No newline at end of file
 diff --git a/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js b/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js
-index 991bcb9217f76c32af422acd493fa9610b1e4b3c..24858adbac67dbc65d1d2c078d69f0e4878b98ed 100644
+index 991bcb9217f76c32af422acd493fa9610b1e4b3c..6c67dc9f3eee31a8845388053c9557c2d07324e0 100644
 --- a/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js
 +++ b/dist/src/internal/builtin-plugins/network-manager/edr/edr-provider.js
+@@ -1,4 +1,4 @@
+-import { ContractDecoder, IncludeTraces } from "@nomicfoundation/edr";
++import { ContractDecoder, IncludeCallTraces } from "@nomicfoundation/edr";
+ import { assertHardhatInvariant, HardhatError, } from "@nomicfoundation/hardhat-errors";
+ import { toSeconds } from "@nomicfoundation/hardhat-utils/date";
+ import { createDebug } from "@nomicfoundation/hardhat-utils/debug";
+@@ -67,7 +67,7 @@ export class EdrProvider extends BaseProvider {
+                 },
+             }, contractDecoder);
+             const tracesEnabled = includeCallTraces !== undefined &&
+-                includeCallTraces !== IncludeTraces.None;
++                includeCallTraces !== IncludeCallTraces.None;
+             let traceOutput;
+             if (tracesEnabled) {
+                 const { TraceOutputManager: TraceOutputManagerImpl } = await import("./utils/trace-output.js");
 @@ -258,27 +258,34 @@ export class EdrProvider extends BaseProvider {
  export async function getProviderConfig(networkConfig, coverageConfig, gasReportConfig, chainDescriptors, includeCallTraces) {
      const specId = hardhatHardforkToEdrSpecId(networkConfig.hardfork, networkConfig.chainType);
@@ -40,10 +86,56 @@ index 991bcb9217f76c32af422acd493fa9610b1e4b3c..24858adbac67dbc65d1d2c078d69f0e4
          networkId: BigInt(networkConfig.networkId),
          observability: {
              codeCoverage: coverageConfig,
+diff --git a/dist/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.d.ts b/dist/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.d.ts
+index 490551bf12ff111bb5f8e16e221145a58d6114c4..66ba537fe77b99c5e3dca4851ac59571eddf3e7b 100644
+--- a/dist/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.d.ts
++++ b/dist/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.d.ts
+@@ -1,6 +1,6 @@
+ import type { CallTrace } from "@nomicfoundation/edr";
+ import { styleText } from "node:util";
+-import { IncludeTraces } from "@nomicfoundation/edr";
+-export declare function verbosityToIncludeTraces(verbosity: number): IncludeTraces;
++import { IncludeCallTraces } from "@nomicfoundation/edr";
++export declare function verbosityToIncludeTraces(verbosity: number): IncludeCallTraces;
+ export declare function formatTraces(traces: CallTrace[], prefix: string, colorize?: typeof styleText): string;
+ //# sourceMappingURL=trace-formatters.d.ts.map
+\ No newline at end of file
+diff --git a/dist/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.js b/dist/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.js
+index 9fd003342c2f459ccfc767c3fa7047210a9ea262..c5b5189e40f509d18d5f0fa288e55992d8eaff2e 100644
+--- a/dist/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.js
++++ b/dist/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.js
+@@ -1,14 +1,14 @@
+ import { styleText } from "node:util";
+-import { LogKind, CallKind, IncludeTraces } from "@nomicfoundation/edr";
++import { LogKind, CallKind, IncludeCallTraces } from "@nomicfoundation/edr";
+ import { bytesToHexString } from "@nomicfoundation/hardhat-utils/hex";
+ export function verbosityToIncludeTraces(verbosity) {
+     if (verbosity >= 4) {
+-        return IncludeTraces.All;
++        return IncludeCallTraces.All;
+     }
+     else if (verbosity >= 3) {
+-        return IncludeTraces.Failing;
++        return IncludeCallTraces.Failing;
+     }
+-    return IncludeTraces.None;
++    return IncludeCallTraces.None;
+ }
+ export function formatTraces(traces, prefix, 
+ // Allow passing a custom colorize function for testing purposes
 diff --git a/dist/src/internal/builtin-plugins/solidity-test/helpers.js b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
-index 2370cd07ecb5f7913c8325b01f15302c90170ee9..17bde110d70ea1a4d5c4973af7b23e379c52b624 100644
+index 2370cd07ecb5f7913c8325b01f15302c90170ee9..ed74395365f90f6ee4ad25a314d36e1aaca475a2 100644
 --- a/dist/src/internal/builtin-plugins/solidity-test/helpers.js
 +++ b/dist/src/internal/builtin-plugins/solidity-test/helpers.js
+@@ -41,7 +41,7 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({ chainTy
+     const localPredeploys = chainType === OPTIMISM_CHAIN_TYPE
+         ? opGenesisState(opHardforkFromString(resolvedHardfork))
+         : l1GenesisState(l1HardforkFromString(resolvedHardfork));
+-    const includeTraces = verbosityToIncludeTraces(verbosity);
++    const includeCallTraces = verbosityToIncludeTraces(verbosity);
+     const blockGasLimit = config.blockGasLimit === false ? undefined : config.blockGasLimit;
+     const disableBlockGasLimit = config.blockGasLimit === false;
+     const blockDifficulty = config.prevRandao;
 @@ -54,7 +54,12 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({ chainTy
      if (config.forking?.rpcEndpoints !== undefined) {
          rpcEndpoints = {};
@@ -58,8 +150,12 @@ index 2370cd07ecb5f7913c8325b01f15302c90170ee9..17bde110d70ea1a4d5c4973af7b23e37
          }
      }
      const shouldAlwaysCollectStackTraces = verbosity > DEFAULT_VERBOSITY;
-@@ -72,6 +77,8 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({ chainTy
-         includeTraces,
+@@ -69,9 +74,11 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({ chainTy
+         blockCoinbase,
+         observability,
+         testPattern,
+-        includeTraces,
++        includeCallTraces,
          blockGasLimit,
          disableBlockGasLimit,
 +        // TODO: Hardcoded for now. This should be made configurable by the user.
@@ -156,3 +252,94 @@ index 6a8b5dc220db7a3c595be286bea9ad5ef515deae..dfea18b5f4bde1ca4a0279cacec65784
 -    "clean": "rimraf dist ./test/fixture-projects/*-tmp-*-*-*-*-*"
    }
  }
+diff --git a/src/internal/builtin-plugins/network-manager/edr/edr-provider.ts b/src/internal/builtin-plugins/network-manager/edr/edr-provider.ts
+index b0c369095ad4683ca8f2cf94dc6804b3cd4b710e..cf4cef3e0f2da2b5e9e0ad4088880369489a8aa6 100644
+--- a/src/internal/builtin-plugins/network-manager/edr/edr-provider.ts
++++ b/src/internal/builtin-plugins/network-manager/edr/edr-provider.ts
+@@ -23,7 +23,7 @@ import type {
+   GasReportConfig,
+ } from "@nomicfoundation/edr";
+ 
+-import { ContractDecoder, IncludeTraces } from "@nomicfoundation/edr";
++import { ContractDecoder, IncludeCallTraces } from "@nomicfoundation/edr";
+ import {
+   assertHardhatInvariant,
+   HardhatError,
+@@ -69,7 +69,7 @@ interface EdrProviderConfig {
+   jsonRpcRequestWrapper?: JsonRpcRequestWrapperFunction;
+   coverageConfig?: CoverageConfig;
+   gasReportConfig?: GasReportConfig;
+-  includeCallTraces?: IncludeTraces;
++  includeCallTraces?: IncludeCallTraces;
+   connectionId: number;
+   networkName: string;
+   verbosity: number;
+@@ -158,7 +158,7 @@ export class EdrProvider extends BaseProvider {
+ 
+       const tracesEnabled =
+         includeCallTraces !== undefined &&
+-        includeCallTraces !== IncludeTraces.None;
++        includeCallTraces !== IncludeCallTraces.None;
+ 
+       let traceOutput: TraceOutputManager | undefined;
+       if (tracesEnabled) {
+@@ -450,7 +450,7 @@ export async function getProviderConfig(
+   coverageConfig: CoverageConfig | undefined,
+   gasReportConfig: GasReportConfig | undefined,
+   chainDescriptors: ChainDescriptorsConfig,
+-  includeCallTraces?: IncludeTraces,
++  includeCallTraces?: IncludeCallTraces,
+ ): Promise<ProviderConfig> {
+   const specId = hardhatHardforkToEdrSpecId(
+     networkConfig.hardfork,
+diff --git a/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.ts b/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.ts
+index e109b5d9e38fc0465ce756481850d9dc18ddeb10..a2aafec24fd3097d89c00aa19731eb16f55b46cc 100644
+--- a/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.ts
++++ b/src/internal/builtin-plugins/network-manager/edr/utils/trace-formatters.ts
+@@ -6,19 +6,19 @@ import type {
+ 
+ import { styleText } from "node:util";
+ 
+-import { LogKind, CallKind, IncludeTraces } from "@nomicfoundation/edr";
++import { LogKind, CallKind, IncludeCallTraces } from "@nomicfoundation/edr";
+ import { bytesToHexString } from "@nomicfoundation/hardhat-utils/hex";
+ 
+ type NestedArray<T> = Array<T | NestedArray<T>>;
+ 
+-export function verbosityToIncludeTraces(verbosity: number): IncludeTraces {
++export function verbosityToIncludeTraces(verbosity: number): IncludeCallTraces {
+   if (verbosity >= 4) {
+-    return IncludeTraces.All;
++    return IncludeCallTraces.All;
+   } else if (verbosity >= 3) {
+-    return IncludeTraces.Failing;
++    return IncludeCallTraces.Failing;
+   }
+ 
+-  return IncludeTraces.None;
++  return IncludeCallTraces.None;
+ }
+ 
+ export function formatTraces(
+diff --git a/src/internal/builtin-plugins/solidity-test/helpers.ts b/src/internal/builtin-plugins/solidity-test/helpers.ts
+index 3f5d36c042de0d7d1029954a4afcfd287406321d..ac280d3419197dfb5db91cd1a874c3db51b940d1 100644
+--- a/src/internal/builtin-plugins/solidity-test/helpers.ts
++++ b/src/internal/builtin-plugins/solidity-test/helpers.ts
+@@ -95,7 +95,7 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({
+       ? opGenesisState(opHardforkFromString(resolvedHardfork))
+       : l1GenesisState(l1HardforkFromString(resolvedHardfork));
+ 
+-  const includeTraces = verbosityToIncludeTraces(verbosity);
++  const includeCallTraces = verbosityToIncludeTraces(verbosity);
+ 
+   const blockGasLimit =
+     config.blockGasLimit === false ? undefined : config.blockGasLimit;
+@@ -133,7 +133,7 @@ export async function solidityTestConfigToSolidityTestRunnerConfigArgs({
+     blockCoinbase,
+     observability,
+     testPattern,
+-    includeTraces,
++    includeCallTraces,
+     blockGasLimit,
+     disableBlockGasLimit,
+     blockDifficulty,

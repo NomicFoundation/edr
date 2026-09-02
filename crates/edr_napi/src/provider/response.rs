@@ -48,11 +48,11 @@ impl Response {
             })
     }
 
-    /// Constructs the execution traces for the request. Returns an empty array
-    /// if traces are not enabled for this provider according to
-    /// [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
-    /// an array of the root calls of the trace, which always includes the
-    /// request's call itself.
+    /// Constructs the call traces for the request. Returns an empty array if
+    /// call traces are not enabled for this provider according to
+    /// `ObservabilityConfig.includeCallTraces`. Otherwise, returns an array of
+    /// the root calls of the trace, which always includes the request's call
+    /// itself.
     #[napi(catch_unwind)]
     pub fn call_traces(&self) -> Vec<CallTrace> {
         self.inner

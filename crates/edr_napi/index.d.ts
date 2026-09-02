@@ -96,11 +96,11 @@ export declare class Response {
   /** Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace. */
   stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | null
   /**
-   * Constructs the execution traces for the request. Returns an empty array
-   * if traces are not enabled for this provider according to
-   * [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
-   * an array of the root calls of the trace, which always includes the
-   * request's call itself.
+   * Constructs the call traces for the request. Returns an empty array if
+   * call traces are not enabled for this provider according to
+   * `ObservabilityConfig.includeCallTraces`. Otherwise, returns an array of
+   * the root calls of the trace, which always includes the request's call
+   * itself.
    */
   callTraces(): Array<CallTrace>
 }
@@ -154,12 +154,12 @@ export declare class TestResult {
    */
   stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null
   /**
-   * Constructs the call traces for the test. Returns an empty array if
+   * Constructs the call traces for the test. Returns an empty array if call
    * traces for this test were not requested according to
-   * [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`].
-   * Otherwise, returns an array of the root calls of the trace, which
-   * always includes the test call itself and may also include the suite's
-   * setup call if there is one (identified by the function name `setUp`).
+   * `SolidityTestRunnerConfigArgs.includeCallTraces`. Otherwise, returns an
+   * array of the root calls of the trace, which always includes the test
+   * call itself and may also include the suite's setup call if there is one
+   * (identified by the function name `setUp`).
    */
   callTraces(): Array<CallTrace>
 }
@@ -891,21 +891,26 @@ export interface HttpHeader {
 }
 
 /**
- * Configuration that controls whether execution traces are decoded and
- * included in results.
+ * Which results carry call traces — the tree of calls recorded during an
+ * execution.
  *
  * This can either be for Solidity test results or provider transaction
- * execution results.
+ * execution results. It says nothing about stack traces: whether a failing
+ * Solidity test also gets a source-level stack trace is controlled by
+ * `CollectStackTraces`.
  */
-export declare enum IncludeTraces {
-  /** No traces will be included at all. */
+export declare enum IncludeCallTraces {
+  /** No call traces will be included at all. */
   None = 0,
   /**
-   * Traces will be included only on the results of failed tests or
-   * execution.
+   * Call traces will be included only on the results of failed tests or
+   * executions.
    */
   Failing = 1,
-  /** Traces will be included for all test results or executed transactions. */
+  /**
+   * Call traces will be included for all test results and executed
+   * transactions.
+   */
   All = 2
 }
 
@@ -1336,9 +1341,9 @@ export interface ObservabilityConfig {
    * Controls when to include call traces in the results of transaction
    * execution.
    *
-   * Defaults to `IncludeTraces.None`.
+   * Defaults to `IncludeCallTraces.None`.
    */
-  includeCallTraces?: IncludeTraces
+  includeCallTraces?: IncludeCallTraces
 }
 
 export const OP_CHAIN_TYPE: string
@@ -1702,14 +1707,25 @@ export interface SolidityTestRunnerConfigArgs {
    * config value is set, then the fuzz config value will be used.
    */
   invariant?: InvariantConfigArgs
-  /** Whether to collect stack traces. */
+  /**
+   * Controls when a source-level stack trace is computed for a failing
+   * test. Defaults to `CollectStackTraces.OnFailure`.
+   */
   collectStackTraces?: CollectStackTraces
   /**
-   * Controls which test results should include execution traces. Defaults to
-   * None.
+   * Controls which test results carry call traces, retrievable with
+   * `TestResult.callTraces()`. Stack traces are controlled separately by
+   * `collectStackTraces`. Not to be confused with
+   * `ObservabilityConfig.includeCallTraces`, which applies to provider
+   * transaction execution and is ignored here.
+   *
+   * Defaults to `IncludeCallTraces.None`.
    */
-  includeTraces?: IncludeTraces
-  /** The configuration for the Solidity test runner's observability */
+  includeCallTraces?: IncludeCallTraces
+  /**
+   * The configuration for the Solidity test runner's observability. Only
+   * its coverage configuration is used; its `includeCallTraces` is ignored.
+   */
   observability?: ObservabilityConfig
   /**
    * A regex pattern to filter tests. If provided, only test methods that
@@ -1724,8 +1740,8 @@ export interface SolidityTestRunnerConfigArgs {
   excludeTestPattern?: string
   /**
    * Controls whether to generate a gas report after running the tests.
-   * Enabling this also enables collection of all traces and EVM isolation
-   * mode.
+   * Enabling this forces `includeCallTraces` to `IncludeCallTraces.All` and
+   * enables EVM isolation mode.
    * Defaults to false.
    */
   generateGasReport?: boolean
