@@ -904,6 +904,42 @@ fn steps_stripped(arena: &SparsedTraceArena) -> bool {
     })
 }
 
+// A failing invariant test whose call traces nobody surfaces still gets its
+// stack trace: the replay keeps the arenas for stack-trace generation even
+// though the retention policy will free them afterwards.
+#[tokio::test(flavor = "multi_thread")]
+async fn always_mode_computes_invariant_stack_trace_without_call_traces() {
+    let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
+    config.collect_stack_traces = CollectStackTraces::Always;
+    config.include_traces = IncludeTraces::None;
+    config.invariant.runs = 10;
+    config.invariant.depth = 10;
+
+    let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
+    let runner = TEST_DATA_VIA_IR
+        .runner_with_contract_decoder(config, contract_decoder)
+        .await;
+    let filter = SolidityTestFilter::new(
+        ".*",
+        "AlwaysStackTraceInvariantTest",
+        ".*repros/StackTraceAlwaysMode.t.sol",
+    );
+    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceInvariantTest")
+        .expect("the AlwaysStackTraceInvariant suite should have run");
+
+    let result = assert_execution_error_stack_trace(suite, "invariantCountIsZero()");
+    assert!(
+        result.counterexample.is_some(),
+        "expected a replayed counterexample call sequence"
+    );
+    assert!(
+        result.execution_traces.is_empty(),
+        "no call traces are surfaced at IncludeTraces::None"
+    );
+}
+
 // A passing test's arenas are recorded in `Always` mode too; they are freed
 // unless every result surfaces its call traces.
 #[tokio::test(flavor = "multi_thread")]

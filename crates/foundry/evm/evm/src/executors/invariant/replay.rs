@@ -69,11 +69,19 @@ pub struct ReplayRunArgs<
     pub line_coverage: &'a mut Option<HitMaps>,
     pub deprecated_cheatcodes: &'a mut HashMap<&'static str, Option<&'static str>>,
     pub inputs: &'a [BasicTxDetails],
+    /// Whether to compute a stack trace for the replayed failure. When false,
+    /// [`ReplayResult::stack_trace_result`] is always `None`.
     pub generate_stack_trace: bool,
     /// Must be provided if `generate_stack_trace` is true
     pub contract_decoder: Option<&'a NestedTraceDecoderT>,
     pub revert_decoder: &'a RevertDecoder,
     pub fail_on_revert: bool,
+    /// Whether the caller still consumes the replayed arenas and so wants
+    /// them accumulated in [`Self::execution_traces`]. When false — and no
+    /// stack trace needs them — they are dropped with the call results they
+    /// came from. Only consulted when `generate_stack_trace` is false:
+    /// stack-trace generation keeps the arenas regardless.
+    pub retain_traces: bool,
 }
 
 /// Results of a replay
@@ -126,15 +134,20 @@ pub fn replay_run<
         contract_decoder,
         revert_decoder,
         fail_on_revert,
+        retain_traces,
     } = args;
-
-    // We want traces for a failed case.
 
     executor.set_tracing(if generate_stack_trace && executor.safe_to_re_execute() {
         TracingMode::WithSteps
     } else {
         TracingMode::WithoutSteps
     });
+
+    // Stack-trace generation needs the accumulated arenas — the last as the
+    // failing trace, the earlier ones as code sources — so keep them even
+    // when the caller won't consume them afterwards; the caller's retention
+    // policy frees them once the test finishes.
+    let keep_traces = retain_traces || generate_stack_trace;
 
     let mut counterexample_sequence = vec![];
 
@@ -155,7 +168,9 @@ pub fn replay_run<
             known_contracts,
         ));
 
-        execution_traces.push(call_result.traces.take().expect("enabled tracing"));
+        if keep_traces {
+            execution_traces.push(call_result.traces.take().expect("enabled tracing"));
+        }
 
         // Create counter example to be used in failed case.
         counterexample_sequence.push(BaseCounterExample::from_invariant_call(
@@ -176,28 +191,31 @@ pub fn replay_run<
             .is_some_and(InstructionResult::is_ok)
             && (fail_on_revert || !call_result.reverted)
         {
-            let stack_trace_result =
-                if let Some(indeterminism_reasons) = call_result.indeterminism_reasons {
-                    Some(indeterminism_reasons.into())
-                } else {
-                    contract_decoder.map(|decoder| {
-                        let (failing_trace, prior_traces) = execution_traces
-                            .split_last()
-                            .expect("an arena was pushed for this call above");
+            let stack_trace_result = if !generate_stack_trace {
+                // The caller wants no stack trace; without `keep_traces` the
+                // arenas it would need were never accumulated.
+                None
+            } else if let Some(indeterminism_reasons) = call_result.indeterminism_reasons {
+                Some(indeterminism_reasons.into())
+            } else {
+                contract_decoder.map(|decoder| {
+                    let (failing_trace, prior_traces) = execution_traces
+                        .split_last()
+                        .expect("`generate_stack_trace` implies `keep_traces`");
 
-                        get_stack_trace(
-                            decoder,
-                            &failing_trace.arena,
-                            setup_traces
-                                .iter()
-                                .map(|(_, arena)| &arena.arena)
-                                .chain(prior_traces.iter().map(|arena| &arena.arena)),
-                            DeployedCode::default(),
-                        )
-                        .map_err(SolidityTestStackTraceError::from)
-                        .into()
-                    })
-                };
+                    get_stack_trace(
+                        decoder,
+                        &failing_trace.arena,
+                        setup_traces
+                            .iter()
+                            .map(|(_, arena)| &arena.arena)
+                            .chain(prior_traces.iter().map(|arena| &arena.arena)),
+                        DeployedCode::default(),
+                    )
+                    .map_err(SolidityTestStackTraceError::from)
+                    .into()
+                })
+            };
             let revert_reason =
                 revert_decoder.maybe_decode(call_result.result.as_ref(), call_result.exit_reason);
             return Ok(ReplayResult {
@@ -209,9 +227,11 @@ pub fn replay_run<
 
         // This call is not the failing one, so its arena can only ever serve
         // as a code source: strip it now rather than when the next push
-        // displaces it, so no arena in the collection is step-laden while the
-        // next call runs.
-        execution_traces.strip_last_steps();
+        // displaces it, so the tracer's in-flight arena is the only
+        // step-laden one.
+        if keep_traces {
+            execution_traces.strip_last_steps();
+        }
     }
 
     // Replay invariant to collect logs and traces.
@@ -231,7 +251,9 @@ pub fn replay_run<
             .into(),
     )?;
 
-    execution_traces.push(invariant_result.traces.expect("tracing is on"));
+    if keep_traces {
+        execution_traces.push(invariant_result.traces.expect("tracing is on"));
+    }
     logs.extend(invariant_result.logs);
     deprecated_cheatcodes.extend(
         invariant_result
@@ -246,7 +268,9 @@ pub fn replay_run<
             call_result: after_invariant_result,
             success: _,
         } = call_after_invariant_function(&executor, invariant_contract.address)?;
-        execution_traces.push(after_invariant_result.traces.expect("tracing is on"));
+        if keep_traces {
+            execution_traces.push(after_invariant_result.traces.expect("tracing is on"));
+        }
         logs.extend(after_invariant_result.logs);
     }
 
@@ -265,7 +289,7 @@ pub fn replay_run<
                             // carrying steps.
                             let (failing_trace, prior_traces) = execution_traces
                                 .split_last()
-                                .expect("the invariant or afterInvariant arena was pushed above");
+                                .expect("`generate_stack_trace` implies `keep_traces`");
 
                             get_stack_trace(
                                 decoder,
@@ -295,7 +319,7 @@ pub fn replay_run<
     })
 }
 
-/// Arguments to `replay_run`.
+/// Arguments to `replay_error`.
 pub struct ReplayErrorArgs<
     'a,
     NestedTraceDecoderT,
@@ -329,6 +353,8 @@ pub struct ReplayErrorArgs<
     /// Must be provided if `generate_stack_trace` is true
     pub contract_decoder: Option<&'a NestedTraceDecoderT>,
     pub revert_decoder: &'a RevertDecoder,
+    /// See [`ReplayRunArgs::retain_traces`].
+    pub retain_traces: bool,
 }
 
 /// Replays the error case, shrinks the failing sequence and collects all
@@ -370,6 +396,7 @@ pub fn replay_error<
         generate_stack_trace,
         contract_decoder,
         revert_decoder,
+        retain_traces,
     } = args;
 
     match failed_case.test_error {
@@ -403,6 +430,7 @@ pub fn replay_error<
                 contract_decoder,
                 fail_on_revert: failed_case.fail_on_revert,
                 revert_decoder,
+                retain_traces,
             })
         }
     }
