@@ -4,4 +4,4 @@
 
 mod cancellable_thread;
 
-pub use self::cancellable_thread::CancellableThread;
+pub use self::cancellable_thread::{CancellableThread, MAX_THREAD_NAME_LEN};
