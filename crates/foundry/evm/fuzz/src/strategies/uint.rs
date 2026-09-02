@@ -149,7 +149,8 @@ impl UintStrategy {
             return Ok(UintValueTree::new(uint_fixture.0, false));
         }
 
-        // If fixture is not a valid type, raise error and generate random value.
+        // If fixture is not a valid type, raise error and generate random
+        // value.
         error!(
             "{:?} is not a valid {} fixture",
             fixture,

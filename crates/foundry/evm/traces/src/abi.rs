@@ -173,7 +173,8 @@ mod tests {
 
         assert_eq!(event.inputs.len(), 3);
 
-        // Only the address fields get indexed since total_params > num_indexed_params
+        // Only the address fields get indexed since total_params >
+        // num_indexed_params
         let parsed = event.decode_log(&log).unwrap();
 
         assert_eq!(event.inputs.iter().filter(|param| param.indexed).count(), 2);

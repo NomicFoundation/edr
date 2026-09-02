@@ -195,8 +195,8 @@ impl<
             DatabaseComponentError<BlockchainErrorT, StateError>,
         >,
     > {
-        // The transaction's gas limit cannot be greater than the remaining gas in the
-        // block, unless the block gas limit check is disabled.
+        // The transaction's gas limit cannot be greater than the remaining gas
+        // in the block, unless the block gas limit check is disabled.
         if !self.cfg.disable_block_gas_limit && transaction.gas_limit() > self.gas_remaining() {
             return Err(BlockTransactionError::ExceedsBlockGasLimit);
         }
@@ -986,8 +986,8 @@ mod tests {
             )
             .expect("should produce a hash");
 
-            // Upgraded away from the empty-list default, and reproducible for the same
-            // inputs.
+            // Upgraded away from the empty-list default, and reproducible for
+            // the same inputs.
             assert_ne!(hash, KECCAK_RLP_EMPTY_ARRAY);
             assert_eq!(
                 block_access_list_hash(
@@ -1001,8 +1001,9 @@ mod tests {
 
         #[test]
         fn upgraded_hash_varies_with_parent_hash() {
-            // Distinct per block: the parent hash is unique per block within a chain, so no
-            // two sibling blocks share a hash (including in forked mode).
+            // Distinct per block: the parent hash is unique per block within a
+            // chain, so no two sibling blocks share a hash (including in forked
+            // mode).
             assert_ne!(
                 block_access_list_hash(
                     Some(KECCAK_RLP_EMPTY_ARRAY),

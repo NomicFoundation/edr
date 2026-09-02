@@ -31,7 +31,8 @@ impl<T> StateSnapshots<T> {
     pub fn remove(&mut self, id: U256) -> Option<T> {
         let snapshot_state = self.state_snapshots.remove(&id);
 
-        // Revert all state snapshots taken after the state snapshot with the `id`
+        // Revert all state snapshots taken after the state snapshot with the
+        // `id`
         let mut to_revert = id.add(U256::from(1));
         while to_revert < self.id {
             self.state_snapshots.remove(&to_revert);

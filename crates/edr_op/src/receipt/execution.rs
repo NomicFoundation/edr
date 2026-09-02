@@ -53,8 +53,8 @@ where
     LogT: alloy_rlp::Decodable,
 {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        // Use a temporary buffer to decode the header, avoiding the original buffer
-        // from being advanced
+        // Use a temporary buffer to decode the header, avoiding the original
+        // buffer from being advanced
         let first_value_header = {
             let mut temp_buf = *buf;
 
@@ -62,8 +62,8 @@ where
             alloy_rlp::Header::decode(&mut temp_buf)?
         };
 
-        // The first value of the receipt is 1 byte long, which means it's the status
-        // code of an EIP-658 receipt.
+        // The first value of the receipt is 1 byte long, which means it's the
+        // status code of an EIP-658 receipt.
         if first_value_header.payload_length == 1 {
             let receipt = Eip658OrDeposit::decode(buf)?;
             Ok(receipt.into())

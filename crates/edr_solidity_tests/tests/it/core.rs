@@ -154,11 +154,12 @@ async fn test_core() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_empty_test_suite_skips_setup() {
-    // `FailingSetupTest.setUp()` reverts with "setup failed predictably". If the
-    // runner doesn't short-circuit on an empty filter match, the suite reports a
-    // `setUp()` failure (see the positive control in `test_core` above). Here we
-    // pick a filter that matches the suite (path + contract) but no test
-    // functions, and assert the suite is reported as completed with zero work.
+    // `FailingSetupTest.setUp()` reverts with "setup failed predictably". If
+    // the runner doesn't short-circuit on an empty filter match, the suite
+    // reports a `setUp()` failure (see the positive control in `test_core`
+    // above). Here we pick a filter that matches the suite (path + contract)
+    // but no test functions, and assert the suite is reported as completed with
+    // zero work.
     let filter = SolidityTestFilter::new(
         "thisPatternMatchesNothing",
         "FailingSetupTest",
@@ -1106,8 +1107,8 @@ async fn test_function_override_isolate_ignored_with_gas_report() {
     // directive.
     let filter = SolidityTestFilter::new(".*", ".*", "default/core/IsolateOverrideDisabled.t.sol");
 
-    // First, verify that the test fails when gas reports are disabled (the inline
-    // override disables isolation).
+    // First, verify that the test fails when gas reports are disabled (the
+    // inline override disables isolation).
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.evm_opts.isolate = true;
 
@@ -1128,8 +1129,8 @@ async fn test_function_override_isolate_ignored_with_gas_report() {
         )]),
     );
 
-    // Now enable gas reports and verify the override is ignored — the test should
-    // pass because isolation stays enabled.
+    // Now enable gas reports and verify the override is ignored — the test
+    // should pass because isolation stays enabled.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.generate_gas_report = true;
 

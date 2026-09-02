@@ -375,8 +375,8 @@ mod tests {
     #[test]
     fn test_block_spec_eip_1898_block_number_from_str_deserialization() {
         let value = r#"{"blockNumber": "0x1"}"#;
-        // Check that the deserializer works for references as well (serde_json::Value
-        // is owned).
+        // Check that the deserializer works for references as well
+        // (serde_json::Value is owned).
         let block_spec: BlockSpec = serde_json::from_str(value).unwrap();
         assert!(matches!(
             block_spec,

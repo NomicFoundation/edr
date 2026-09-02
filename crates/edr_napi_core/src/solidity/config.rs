@@ -290,7 +290,8 @@ impl TestRunnerConfig {
         } else if let Some(block_gas_limit) = block_gas_limit
             && !evm_opts.disable_block_gas_limit
         {
-            // If a block gas limit is set, it should override the default gas limit.
+            // If a block gas limit is set, it should override the default gas
+            // limit.
             evm_opts.env.gas_limit = block_gas_limit;
         } else {
             // No cap and no block gas limit apply, so use the uncapped maximum.

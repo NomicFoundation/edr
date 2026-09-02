@@ -688,8 +688,8 @@ impl<
             Ok(decoded) => decoded,
             Err(alloy_sol_types::Error::UnknownSelector { name: _, selector }) => {
                 if let Some(unsupported_cheatcode) = find_upstream_cheatcode_signature(selector) {
-                    // Cheatcode implemented in Foundry but not known by EDR (either as
-                    // supported or unsupported)
+                    // Cheatcode implemented in Foundry but not known by EDR
+                    // (either as supported or unsupported)
                     return Err(CheatcodeErrorDetails {
                         code: CheatcodeErrorCode::MissingCheatcode,
                         cheatcode: unsupported_cheatcode,
@@ -883,9 +883,9 @@ impl<
         let gas = Gas::new(call.gas_limit);
         let curr_depth = ecx.journaled_state.depth();
 
-        // At the root call to test function or script `run()`/`setUp()` functions, we
-        // are decreasing sender nonce to ensure that it matches on-chain nonce
-        // once we start broadcasting.
+        // At the root call to test function or script `run()`/`setUp()`
+        // functions, we are decreasing sender nonce to ensure that it matches
+        // on-chain nonce once we start broadcasting.
         if curr_depth == 0 {
             let sender = ecx.tx.caller();
             let account = match super::evm::journaled_account(ecx, sender) {
@@ -1006,7 +1006,8 @@ impl<
                     })
                     .map(|(_, v)| v),
             } && let Some(return_data) = if return_data_queue.len() == 1 {
-                // If the mocked calls stack has a single element in it, don't empty it
+                // If the mocked calls stack has a single element in it, don't
+                // empty it
                 return_data_queue.front().cloned()
             } else {
                 // Else, we pop the front element
@@ -1031,7 +1032,8 @@ impl<
 
         // Apply our prank
         if let Some(prank) = &self.get_prank(curr_depth) {
-            // Apply delegate call, `call.caller`` will not equal `prank.prank_caller`
+            // Apply delegate call, `call.caller`` will not equal
+            // `prank.prank_caller`
             if prank.delegate_call
                 && curr_depth == prank.depth
                 && let CallScheme::DelegateCall = call.scheme
@@ -1070,9 +1072,9 @@ impl<
 
         // Record called accounts if `startStateDiffRecording` has been called
         if let Some(recorded_account_diffs_stack) = &mut self.recorded_account_diffs_stack {
-            // Determine if account is "initialized," ie, it has a non-zero balance, a
-            // non-zero nonce, a non-zero KECCAK_EMPTY codehash, or non-empty
-            // code
+            // Determine if account is "initialized," ie, it has a non-zero
+            // balance, a non-zero nonce, a non-zero KECCAK_EMPTY codehash, or
+            // non-empty code
             let initialized;
             let old_balance;
             if let Ok(acc) = ecx.journaled_state.load_account(call.target_address) {
@@ -1088,9 +1090,9 @@ impl<
                 CallScheme::DelegateCall => crate::Vm::AccountAccessKind::DelegateCall,
                 CallScheme::StaticCall => crate::Vm::AccountAccessKind::StaticCall,
             };
-            // Record this call by pushing it to a new pending vector; all subsequent calls
-            // at that depth will be pushed to the same vector. When the call
-            // ends, the RecordedAccountAccess (and all subsequent
+            // Record this call by pushing it to a new pending vector; all
+            // subsequent calls at that depth will be pushed to the same vector.
+            // When the call ends, the RecordedAccountAccess (and all subsequent
             // RecordedAccountAccesses) will be updated with the revert status
             // of this call, since the EVM does not mark accounts as "warm" if
             // the call from which they were accessed is reverted
@@ -1302,9 +1304,9 @@ impl<
             ChainContextT,
         >,
     ) {
-        // When the first interpreter is initialized we've circumvented the balance and
-        // gas checks, so we apply our actual block data with the correct fees
-        // and all.
+        // When the first interpreter is initialized we've circumvented the
+        // balance and gas checks, so we apply our actual block data with the
+        // correct fees and all.
         if let Some(block) = self.block.take() {
             ecx.block = block.into();
         }
@@ -1357,8 +1359,8 @@ impl<
             self.record_state_diffs(interpreter, ecx);
         }
 
-        // `expectSafeMemory`: check if the current opcode is allowed to interact with
-        // memory.
+        // `expectSafeMemory`: check if the current opcode is allowed to
+        // interact with memory.
         if !self.allowed_mem_writes.is_empty() {
             self.check_mem_opcodes(
                 interpreter,
@@ -1400,7 +1402,8 @@ impl<
             self.meter_gas_check(interpreter);
         }
 
-        // `setArbitraryStorage` and `copyStorage`: add arbitrary values to storage.
+        // `setArbitraryStorage` and `copyStorage`: add arbitrary values to
+        // storage.
         if self.arbitrary_storage.is_some() {
             self.arbitrary_storage_end(interpreter, ecx);
         }
@@ -1461,19 +1464,19 @@ impl<
         call: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
-        // System addresses that are transparent to cheatcode state.
-        // Treating `COVERAGE_ADDRESS` as a system address prevents the prank cleanup
+        // System addresses that are transparent to cheatcode state. Treating
+        // `COVERAGE_ADDRESS` as a system address prevents the prank cleanup
         // below from running for coverage instrumentation probes — which would
-        // otherwise wipe a single-call `vm.prank` before the user's intended next call
-        // could consume it.
+        // otherwise wipe a single-call `vm.prank` before the user's intended
+        // next call could consume it.
         let cheatcode_call = call.target_address == CHEATCODE_ADDRESS
             || call.target_address == HARDHAT_CONSOLE_ADDRESS
             || call.target_address == COVERAGE_ADDRESS;
 
-        // Clean up pranks/broadcasts if it's not a cheatcode call end. We shouldn't do
-        // it for cheatcode calls because they are not applied for cheatcodes in the
-        // `call` hook. This should be placed before the revert handling,
-        // because we might exit early there
+        // Clean up pranks/broadcasts if it's not a cheatcode call end. We
+        // shouldn't do it for cheatcode calls because they are not applied for
+        // cheatcodes in the `call` hook. This should be placed before the
+        // revert handling, because we might exit early there
         if !cheatcode_call {
             // Clean up pranks
             let curr_depth = ecx.journaled_state.depth();
@@ -1482,7 +1485,8 @@ impl<
             {
                 ecx.tx.set_caller(prank.prank_origin);
 
-                // Clean single-call prank once we have returned to the original depth
+                // Clean single-call prank once we have returned to the original
+                // depth
                 if prank.single_call {
                     self.pranks.remove(&curr_depth);
                 }
@@ -1491,9 +1495,9 @@ impl<
 
         // Handle assume no revert cheatcode.
         if let Some(assume_no_revert) = &mut self.assume_no_revert {
-            // Record current reverter address before processing the expect revert if call
-            // reverted, expect revert is set with expected reverter address and
-            // no actual reverter set yet.
+            // Record current reverter address before processing the expect
+            // revert if call reverted, expect revert is set with expected
+            // reverter address and no actual reverter set yet.
             if outcome.result.is_revert() && assume_no_revert.reverted_by.is_none() {
                 assume_no_revert.reverted_by = Some(call.target_address);
             }
@@ -1501,8 +1505,8 @@ impl<
             // allow multiple cheatcode calls at the same depth
             let curr_depth = ecx.journaled_state.depth();
             if curr_depth <= assume_no_revert.depth && !cheatcode_call {
-                // Discard run if we're at the same depth as cheatcode, call reverted, and no
-                // specific reason was supplied
+                // Discard run if we're at the same depth as cheatcode, call
+                // reverted, and no specific reason was supplied
                 if outcome.result.is_revert() {
                     let assume_no_revert = std::mem::take(&mut self.assume_no_revert).unwrap();
                     return match revert_handlers::handle_assume_no_revert(
@@ -1533,12 +1537,12 @@ impl<
 
         // Handle expected reverts.
         if let Some(expected_revert) = &mut self.expected_revert {
-            // Record current reverter address and call scheme before processing the expect
-            // revert if call reverted.
+            // Record current reverter address and call scheme before processing
+            // the expect revert if call reverted.
             if outcome.result.is_revert() {
-                // Record current reverter address if expect revert is set with expected
-                // reverter address and no actual reverter was set yet or if
-                // we're expecting more than one revert.
+                // Record current reverter address if expect revert is set with
+                // expected reverter address and no actual reverter was set yet
+                // or if we're expecting more than one revert.
                 if expected_revert.reverter.is_some()
                     && (expected_revert.reverted_by.is_none() || expected_revert.count > 1)
                 {
@@ -1562,7 +1566,8 @@ impl<
 
                     let internal_expect_revert =
                         self.config.internal_expect_revert || expected_revert.allow_internal || {
-                            // If no global config enables it, check for function-level override
+                            // If no global config enables it, check for
+                            // function-level override
                             self.identify_test_function_from_call(call, ecx)
                                 .as_ref()
                                 .is_some_and(|id| {
@@ -1595,8 +1600,9 @@ impl<
                     };
                 }
 
-                // Flip `pending_processing` flag for cheatcode revert expectations, marking
-                // that we've exited the `expectCheatcodeRevert` call scope
+                // Flip `pending_processing` flag for cheatcode revert
+                // expectations, marking that we've exited the
+                // `expectCheatcodeRevert` call scope
                 if let ExpectedRevertKind::Cheatcode { pending_processing } =
                     &mut self.expected_revert.as_mut().unwrap().kind
                 {
@@ -1611,8 +1617,8 @@ impl<
             return;
         }
 
-        // Record the gas usage of the call, this allows the `lastCallGas` cheatcode to
-        // retrieve the gas usage of the last call.
+        // Record the gas usage of the call, this allows the `lastCallGas`
+        // cheatcode to retrieve the gas usage of the last call.
         let gas = outcome.result.gas;
         self.gas_metering.last_call_gas = Some(crate::Vm::Gas {
             gasLimit: gas.limit(),
@@ -1622,15 +1628,15 @@ impl<
             gasRemaining: gas.remaining(),
         });
 
-        // If `startStateDiffRecording` has been called, update the `reverted` status of
-        // the previous call depth's recorded accesses, if any
+        // If `startStateDiffRecording` has been called, update the `reverted`
+        // status of the previous call depth's recorded accesses, if any
         if let Some(recorded_account_diffs_stack) = &mut self.recorded_account_diffs_stack {
             // The root call cannot be recorded.
             if ecx.journaled_state.depth() > 0
                 && let Some(last_recorded_depth) = &mut recorded_account_diffs_stack.pop()
             {
-                // Update the reverted status of all deeper calls if this call reverted, in
-                // accordance with EVM behavior
+                // Update the reverted status of all deeper calls if this call
+                // reverted, in accordance with EVM behavior
                 if outcome.result.is_revert() {
                     for element in last_recorded_depth.iter_mut() {
                         element.reverted = true;
@@ -1642,10 +1648,10 @@ impl<
                 }
 
                 if let Some(call_access) = last_recorded_depth.first_mut() {
-                    // Assert that we're at the correct depth before recording post-call state
-                    // changes. Depending on the depth the cheat was
-                    // called at, there may not be any pending
-                    // calls to update if execution has percolated up to a higher depth.
+                    // Assert that we're at the correct depth before recording
+                    // post-call state changes. Depending on the depth the cheat
+                    // was called at, there may not be any pending calls to
+                    // update if execution has percolated up to a higher depth.
                     let curr_depth = ecx.journaled_state.depth();
                     if call_access.depth == curr_depth as u64
                         && let Ok(acc) = ecx.journaled_state.load_account(call.target_address)
@@ -1653,10 +1659,10 @@ impl<
                         debug_assert!(access_is_call(call_access.kind));
                         call_access.newBalance = acc.info.balance;
                     }
-                    // Merge the last depth's AccountAccesses into the AccountAccesses at the
-                    // current depth, or push them back onto the pending
-                    // vector if higher depths were not recorded. This
-                    // preserves ordering of accesses.
+                    // Merge the last depth's AccountAccesses into the
+                    // AccountAccesses at the current depth, or push them back
+                    // onto the pending vector if higher depths were not
+                    // recorded. This preserves ordering of accesses.
                     if let Some(last) = recorded_account_diffs_stack.last_mut() {
                         last.append(last_recorded_depth);
                     } else {
@@ -1671,13 +1677,14 @@ impl<
         // We know we've found all the expected emits in the right order
         // if the queue is fully matched.
         // If it's not fully matched, then either:
-        // 1. Not enough events were emitted (we'll know this because the amount of
-        //    times we
-        // inspected events will be less than the size of the queue) 2. The wrong events
-        // were emitted (The inspected events should match the size of the queue, but
-        // still some events will not be matched)
+        // 1. Not enough events were emitted (we'll know this because the amount
+        //    of times we
+        // inspected events will be less than the size of the queue) 2. The
+        // wrong events were emitted (The inspected events should match the size
+        // of the queue, but still some events will not be matched)
 
-        // First, check that we're at the call depth where the emits were declared from.
+        // First, check that we're at the call depth where the emits were
+        // declared from.
         let should_check_emits = self
             .expected_emits
             .iter()
@@ -1743,18 +1750,18 @@ impl<
                 return;
             }
 
-            // All emits were found, we're good.
-            // Clear the queue, as we expect the user to declare more events for the next
-            // call if they wanna match further events.
+            // All emits were found, we're good. Clear the queue, as we expect
+            // the user to declare more events for the next call if they wanna
+            // match further events.
             self.expected_emits.clear();
         }
 
-        // this will ensure we don't have false positives when trying to diagnose
-        // reverts in fork mode
+        // this will ensure we don't have false positives when trying to
+        // diagnose reverts in fork mode
         let diag = self.fork_revert_diagnostic.take();
 
-        // if there's a revert and a previous call was diagnosed as fork related revert
-        // then we can return a better error here
+        // if there's a revert and a previous call was diagnosed as fork related
+        // revert then we can return a better error here
         if outcome.result.is_revert()
             && let Some(err) = diag
         {
@@ -1762,12 +1769,12 @@ impl<
             return;
         }
 
-        // try to diagnose reverts in multi-fork mode where a call is made to an address
-        // that does not exist
+        // try to diagnose reverts in multi-fork mode where a call is made to an
+        // address that does not exist
         if let TxKind::Call(test_contract) = ecx.tx.kind() {
-            // if a call to a different contract than the original test contract returned
-            // with `Stop` we check if the contract actually exists on the
-            // active fork
+            // if a call to a different contract than the original test contract
+            // returned with `Stop` we check if the contract actually exists on
+            // the active fork
             if ecx.journaled_state.db().is_forked_mode()
                 && outcome.result.result == InstructionResult::Stop
                 && call.target_address != test_contract
@@ -1782,20 +1789,20 @@ impl<
 
         // If the depth is 0, then this is the root call terminating
         if ecx.journaled_state.depth() == 0 {
-            // If we already have a revert, we shouldn't run the below logic as it can
-            // obfuscate an earlier error that happened first with unrelated
-            // information about another error when using cheatcodes.
+            // If we already have a revert, we shouldn't run the below logic as
+            // it can obfuscate an earlier error that happened first with
+            // unrelated information about another error when using cheatcodes.
             if outcome.result.is_revert() {
                 return;
             }
 
-            // If there's not a revert, we can continue on to run the last logic for expect*
-            // cheatcodes.
+            // If there's not a revert, we can continue on to run the last logic
+            // for expect* cheatcodes.
 
             // Match expected calls
             for (address, calldatas) in &self.expected_calls {
-                // Loop over each address, and for each address, loop over each calldata it
-                // expects.
+                // Loop over each address, and for each address, loop over each
+                // calldata it expects.
                 for (calldata, (expected, actual_count)) in calldatas {
                     // Grab the values we expect to see
                     let ExpectedCallData {
@@ -1848,9 +1855,8 @@ impl<
                 }
             }
 
-            // Check if we have any leftover expected emits
-            // First, if any emits were found at the root call, then we its ok and we remove
-            // them.
+            // Check if we have any leftover expected emits First, if any emits
+            // were found at the root call, then we its ok and we remove them.
             self.expected_emits
                 .retain(|(expected, _)| expected.count > 0 && !expected.found);
             // If not empty, we got mismatched emits
@@ -1997,7 +2003,8 @@ impl<
         {
             ecx.tx.set_caller(prank.prank_origin);
 
-            // Clean single-call prank once we have returned to the original depth
+            // Clean single-call prank once we have returned to the original
+            // depth
             if prank.single_call {
                 std::mem::take(&mut self.pranks);
             }
@@ -2035,15 +2042,15 @@ impl<
             };
         }
 
-        // If `startStateDiffRecording` has been called, update the `reverted` status of
-        // the previous call depth's recorded accesses, if any
+        // If `startStateDiffRecording` has been called, update the `reverted`
+        // status of the previous call depth's recorded accesses, if any
         if let Some(recorded_account_diffs_stack) = &mut self.recorded_account_diffs_stack {
             // The root call cannot be recorded.
             if curr_depth > 0
                 && let Some(last_depth) = &mut recorded_account_diffs_stack.pop()
             {
-                // Update the reverted status of all deeper calls if this call reverted, in
-                // accordance with EVM behavior
+                // Update the reverted status of all deeper calls if this call
+                // reverted, in accordance with EVM behavior
                 if outcome.result.is_revert() {
                     for element in last_depth.iter_mut() {
                         element.reverted = true;
@@ -2055,10 +2062,11 @@ impl<
                 }
 
                 if let Some(create_access) = last_depth.first_mut() {
-                    // Assert that we're at the correct depth before recording post-create state
-                    // changes. Depending on what depth the cheat was called at, there
-                    // may not be any pending calls to update if execution has
-                    // percolated up to a higher depth.
+                    // Assert that we're at the correct depth before recording
+                    // post-create state changes. Depending on what depth the
+                    // cheat was called at, there may not be any pending calls
+                    // to update if execution has percolated up to a higher
+                    // depth.
                     let depth = ecx.journaled_state.depth();
                     if create_access.depth == depth as u64 {
                         debug_assert_eq!(
@@ -2077,10 +2085,10 @@ impl<
                                 .original_bytes();
                         }
                     }
-                    // Merge the last depth's AccountAccesses into the AccountAccesses at the
-                    // current depth, or push them back onto the pending
-                    // vector if higher depths were not recorded. This
-                    // preserves ordering of accesses.
+                    // Merge the last depth's AccountAccesses into the
+                    // AccountAccesses at the current depth, or push them back
+                    // onto the pending vector if higher depths were not
+                    // recorded. This preserves ordering of accesses.
                     if let Some(last) = recorded_account_diffs_stack.last_mut() {
                         last.append(last_depth);
                     } else {
@@ -2131,9 +2139,8 @@ impl<
     #[cold]
     fn meter_gas(&mut self, interpreter: &mut Interpreter) {
         if let Some(paused_gas) = self.gas_metering.paused_frames.last() {
-            // Keep gas constant if paused.
-            // Make sure we record the memory changes so that memory expansion is not
-            // paused.
+            // Keep gas constant if paused. Make sure we record the memory
+            // changes so that memory expansion is not paused.
             let memory = *interpreter.gas.memory();
             interpreter.gas = *paused_gas;
             interpreter.gas.memory_mut().words_num = memory.words_num;
@@ -2177,8 +2184,8 @@ impl<
             self.gas_metering.gas_records.iter_mut().for_each(|record| {
                 let curr_depth = ecx.journaled_state.depth();
                 if curr_depth == record.depth {
-                    // Skip the first opcode of the first call frame as it includes the gas cost of
-                    // creating the snapshot.
+                    // Skip the first opcode of the first call frame as it
+                    // includes the gas cost of creating the snapshot.
                     if self.gas_metering.last_gas_used != 0 {
                         let gas_diff = interpreter
                             .gas
@@ -2187,8 +2194,8 @@ impl<
                         record.gas_used = record.gas_used.saturating_add(gas_diff);
                     }
 
-                    // Update `last_gas_used` to the current spent gas for the next iteration to
-                    // compare against.
+                    // Update `last_gas_used` to the current spent gas for the
+                    // next iteration to compare against.
                     self.gas_metering.last_gas_used = interpreter.gas.total_gas_spent();
                 }
             });
@@ -2341,12 +2348,14 @@ impl<
         };
         match interpreter.bytecode.opcode() {
             op::SELFDESTRUCT => {
-                // Ensure that we're not selfdestructing a context recording was initiated on
+                // Ensure that we're not selfdestructing a context recording was
+                // initiated on
                 let Some(last) = account_accesses.last_mut() else {
                     return;
                 };
 
-                // get previous balance and initialized status of the target account
+                // get previous balance and initialized status of the target
+                // account
                 let target = try_or_return!(interpreter.stack.peek(0));
                 let target = Address::from_word(B256::from(target));
                 let (initialized, old_balance) = ecx
@@ -2397,8 +2406,8 @@ impl<
                 let key = try_or_return!(interpreter.stack.peek(0));
                 let address = interpreter.input.target_address;
 
-                // Try to include present value for informational purposes, otherwise assume
-                // it's not set (zero value)
+                // Try to include present value for informational purposes,
+                // otherwise assume it's not set (zero value)
                 let mut present_value = U256::ZERO;
                 // Try to load the account and the slot's present value
                 if ecx.journaled_state.load_account(address).is_ok()
@@ -2429,8 +2438,8 @@ impl<
                 let key = try_or_return!(interpreter.stack.peek(0));
                 let value = try_or_return!(interpreter.stack.peek(1));
                 let address = interpreter.input.target_address;
-                // Try to load the account and the slot's previous value, otherwise, assume it's
-                // not set (zero value)
+                // Try to load the account and the slot's previous value,
+                // otherwise, assume it's not set (zero value)
                 let mut previous_value = U256::ZERO;
                 if ecx.journaled_state.load_account(address).is_ok()
                     && let Some(previous) = ecx.sload(address, key)
@@ -2501,8 +2510,9 @@ impl<
                     storageAccesses: vec![],
                     depth: curr_depth,
                 };
-                // Record the EXT* call as an account access at the current depth
-                // (future storage accesses will be recorded in a new "Resume" context)
+                // Record the EXT* call as an account access at the current
+                // depth (future storage accesses will be recorded in a new
+                // "Resume" context)
                 if let Some(last) = account_accesses.last_mut() {
                     last.push(account_access);
                 } else {
@@ -2525,15 +2535,15 @@ impl<
             return;
         };
 
-        // The `mem_opcode_match` macro is used to match the current opcode against a
-        // list of opcodes that can mutate memory (either directly or expansion
-        // via reading). If the opcode is a match, the memory offsets that are
-        // being written to are checked to be within the allowed ranges. If not,
-        // the test is failed and the transaction is reverted. For all opcodes
-        // that can mutate memory aside from MSTORE, MSTORE8, and MLOAD, the
-        // size and destination offset are on the stack, and the macro expands
-        // all of these cases. For MSTORE, MSTORE8, and MLOAD, the size of the
-        // memory write is implicit, so these cases are hard-coded.
+        // The `mem_opcode_match` macro is used to match the current opcode
+        // against a list of opcodes that can mutate memory (either directly or
+        // expansion via reading). If the opcode is a match, the memory offsets
+        // that are being written to are checked to be within the allowed
+        // ranges. If not, the test is failed and the transaction is reverted.
+        // For all opcodes that can mutate memory aside from MSTORE, MSTORE8,
+        // and MLOAD, the size and destination offset are on the stack, and the
+        // macro expands all of these cases. For MSTORE, MSTORE8, and MLOAD, the
+        // size of the memory write is implicit, so these cases are hard-coded.
         macro_rules! mem_opcode_match {
             ($(($opcode:ident, $offset_depth:expr, $size_depth:expr, $writes:expr)),* $(,)?) => {
                 match interpreter.bytecode.opcode() {
@@ -2666,8 +2676,8 @@ impl<
             }
         }
 
-        // Check if the current opcode can write to memory, and if so, check if the
-        // memory being written to is registered as safe to modify.
+        // Check if the current opcode can write to memory, and if so, check if
+        // the memory being written to is registered as safe to modify.
         mem_opcode_match!(
             (CALLDATACOPY, 0, 2, true),
             (CODECOPY, 0, 2, true),
@@ -2742,10 +2752,13 @@ fn append_storage_access(
     // Assert that there's an existing record for the current context.
     if !last.is_empty() && last.first().unwrap().depth < storage_depth {
         // Three cases to consider:
-        // 1. If there hasn't been a context switch since the start of this context,
-        //    then add the storage access to the current context record.
-        // 2. If there's an existing Resume record, then add the storage access to it.
-        // 3. Otherwise, create a new Resume record based on the current context.
+        // 1. If there hasn't been a context switch since the start of this
+        //    context, then add the storage access to the current context
+        //    record.
+        // 2. If there's an existing Resume record, then add the storage access
+        //    to it.
+        // 3. Otherwise, create a new Resume record based on the current
+        //    context.
         if last.len() == 1 {
             last.first_mut()
                 .unwrap()
@@ -2846,9 +2859,8 @@ fn apply_dispatch_traced<
         .database
         .record_cheatcode_purity(cheat.signature(), cheat.is_pure());
 
-    // Apply the cheatcode.
-    // Not using dynamic dispatch here due to the complexity involved in making it
-    // work with generic parameters.
+    // Apply the cheatcode. Not using dynamic dispatch here due to the
+    // complexity involved in making it work with generic parameters.
     let mut result = apply_dispatch(calls, ccx, executor);
 
     // Format the error message to include the cheatcode name.
@@ -2857,7 +2869,8 @@ fn apply_dispatch_traced<
     {
         let name = cheat.name();
         // Skip showing the cheatcode name for:
-        // - assertions: too verbose, and can already be inferred from the error message
+        // - assertions: too verbose, and can already be inferred from the error
+        //   message
         // - `rpcUrl`: forge-std relies on it in `getChainWithUpdatedRpcUrl`
         if !name.contains("assert") && name != "rpcUrl" {
             *e = fmt_err!("vm.{name}: {e}");

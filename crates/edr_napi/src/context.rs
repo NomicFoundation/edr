@@ -459,9 +459,9 @@ impl EdrContext {
         };
 
         runtime.clone().spawn_blocking(move || {
-            // Using a closure to limit the scope, allowing us to use `?` for error
-            // handling. This is necessary because the result of the closure is used
-            // to resolve the deferred promise.
+            // Using a closure to limit the scope, allowing us to use `?` for
+            // error handling. This is necessary because the result of the
+            // closure is used to resolve the deferred promise.
             let create_provider = move || -> napi::Result<Provider> {
                 use crate::subscription::subscriber_callback_for_chain_spec;
 

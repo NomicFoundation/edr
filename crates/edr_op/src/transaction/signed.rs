@@ -78,7 +78,8 @@ impl alloy_rlp::Encodable for OpSignedTransaction {
 
 impl Default for OpSignedTransaction {
     fn default() -> Self {
-        // This implementation is necessary to be able to use `revm`'s builder pattern.
+        // This implementation is necessary to be able to use `revm`'s builder
+        // pattern.
         Self::PreEip155Legacy(Legacy {
             nonce: 0,
             gas_price: 0,

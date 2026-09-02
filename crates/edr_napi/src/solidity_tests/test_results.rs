@@ -813,9 +813,9 @@ impl CallTrace {
 
                 let top_index = Some(stack.len() - 1);
 
-                // Push children in reverse order to result in linear traversal of the arena for
-                // cache efficiency, on the assumption that the arena contains a pre-order
-                // traversal of the trace.
+                // Push children in reverse order to result in linear traversal
+                // of the arena for cache efficiency, on the assumption that the
+                // arena contains a pre-order traversal of the trace.
                 stack.extend(node.children.iter().rev().map(|&arena_index| StackItem {
                     visited: false,
                     parent_stack_index: top_index,

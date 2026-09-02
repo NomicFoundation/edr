@@ -1822,7 +1822,8 @@ fn select<'a>(value: &'a Value, mut path: &str) -> Result<Vec<&'a Value>> {
     if path == "." {
         path = "$";
     }
-    // format error with debug string because json_path errors may contain newlines
+    // format error with debug string because json_path errors may contain
+    // newlines
     jsonpath_lib::select(value, &canonicalize_json_path(path))
         .map_err(|e| fmt_err!("failed selecting from JSON: {:?}", e.to_string()))
 }
@@ -1875,26 +1876,29 @@ pub(super) fn json_value_to_token(value: &Value) -> Result<DynSolValue> {
         }
         Value::Number(number) => {
             if let Some(f) = number.as_f64() {
-                // Check if the number has decimal digits because the EVM does not support
-                // floating point math
+                // Check if the number has decimal digits because the EVM does
+                // not support floating point math
                 if f.fract() == 0.0 {
-                    // Use the string representation of the `serde_json` Number type instead of
-                    // calling f.to_string(), because some numbers are wrongly rounded up after
-                    // being convented to f64.
-                    // Example: 18446744073709551615 becomes 18446744073709552000 after parsing it
-                    // to f64.
+                    // Use the string representation of the `serde_json` Number
+                    // type instead of
+                    // calling f.to_string(), because some numbers are wrongly
+                    // rounded up after being convented to f64. Example:
+                    // 18446744073709551615 becomes 18446744073709552000 after
+                    // parsing it to f64.
                     let s = number.to_string();
 
-                    // Coerced to scientific notation, so short-circuit to using fallback.
-                    // This will not have a problem with hex numbers, as for parsing these
-                    // We'd need to prefix this with 0x.
-                    // See also <https://docs.soliditylang.org/en/latest/types.html#rational-and-integer-literals>
+                    // Coerced to scientific notation, so short-circuit to using
+                    // fallback. This will not have a problem with hex numbers,
+                    // as for parsing these We'd need to prefix this with 0x.
+                    // See also
+                    // <https://docs.soliditylang.org/en/latest/types.html#rational-and-integer-literals>
                     if s.contains('e') {
-                        // Calling Number::to_string with powers of ten formats the number using
-                        // scientific notation and causes from_dec_str to fail. Using format! with
-                        // f64 keeps the full number representation.
-                        // Example: 100000000000000000000 becomes 1e20 when Number::to_string is
-                        // used.
+                        // Calling Number::to_string with powers of ten formats
+                        // the number using scientific notation and causes
+                        // from_dec_str to fail. Using format! with f64 keeps
+                        // the full number representation. Example:
+                        // 100000000000000000000 becomes 1e20 when
+                        // Number::to_string is used.
                         let fallback_s = f.to_string();
                         if let Ok(n) = fallback_s.parse() {
                             return Ok(DynSolValue::Uint(n, 256));
@@ -1943,8 +1947,8 @@ fn serialize_value_as_json(value: DynSolValue) -> Result<Value> {
     match value {
         DynSolValue::Bool(b) => Ok(Value::Bool(b)),
         DynSolValue::String(s) => {
-            // Strings are allowed to contain stringified JSON objects, so we try to parse
-            // it like one first.
+            // Strings are allowed to contain stringified JSON objects, so we
+            // try to parse it like one first.
             if let Ok(map) = serde_json::from_str(&s) {
                 Ok(Value::Object(map))
             } else {

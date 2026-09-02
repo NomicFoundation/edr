@@ -59,7 +59,8 @@ impl Database for MemDb {
     type Error = DatabaseError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        // Note: this will always return `Some(AccountInfo)`, See `EmptyDBWrapper`
+        // Note: this will always return `Some(AccountInfo)`, See
+        // `EmptyDBWrapper`
         Database::basic(&mut self.inner, address)
     }
 
@@ -108,8 +109,8 @@ impl DatabaseRef for EmptyDBWrapper {
     type Error = DatabaseError;
 
     fn basic_ref(&self, _address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        // Note: this will always return `Some(AccountInfo)`, for the reason explained
-        // above
+        // Note: this will always return `Some(AccountInfo)`, for the reason
+        // explained above
         Ok(Some(AccountInfo::default()))
     }
 
@@ -150,7 +151,8 @@ mod tests {
         // insert the modified account info
         db.insert_account_info(address, info);
 
-        // now we can call `basic` again and it should return the inserted account info
+        // now we can call `basic` again and it should return the inserted
+        // account info
         let info = Database::basic(&mut db, address).unwrap();
         assert!(info.is_some());
     }
@@ -186,8 +188,8 @@ mod tests {
         ));
 
         let info = Database::basic(&mut db, address).unwrap();
-        // We know info exists, as MemDb always returns `Some(AccountInfo)` due to the
-        // `EmptyDbWrapper`.
+        // We know info exists, as MemDb always returns `Some(AccountInfo)` due
+        // to the `EmptyDbWrapper`.
         assert!(info.is_some());
         let mut info = info.unwrap();
         info.balance = U256::from(500u64);

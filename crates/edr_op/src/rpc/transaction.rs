@@ -84,8 +84,8 @@ impl TryFrom<Transaction> for OpSignedTransaction {
                     "Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction"
                 );
 
-                // As the transaction type is not 0 or `None`, this will always result in a
-                // post-EIP 155 legacy transaction.
+                // As the transaction type is not 0 or `None`, this will always
+                // result in a post-EIP 155 legacy transaction.
                 OpTransactionType::Legacy
             }
         };

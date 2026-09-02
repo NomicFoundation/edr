@@ -1224,7 +1224,8 @@ async fn test_invariant_function_override_fail_on_revert() {
     );
 
     // The inline `invariant.fail-on-revert = true` directive (in
-    // `InvariantOverrideFailOnRevert.t.sol`) makes the invariant fail on revert.
+    // `InvariantOverrideFailOnRevert.t.sol`) makes the invariant fail on
+    // revert.
     let override_filter = SolidityTestFilter::new(
         ".*",
         ".*",
@@ -1277,8 +1278,8 @@ async fn test_invariant_function_override_call_override() {
     );
 
     // The inline `invariant.call-override = true` directive (in
-    // `InvariantOverrideCallOverride.t.sol`) enables call override, exposing the
-    // reentrancy.
+    // `InvariantOverrideCallOverride.t.sol`) enables call override, exposing
+    // the reentrancy.
     let override_filter = SolidityTestFilter::new(
         ".*",
         ".*",
@@ -1312,10 +1313,10 @@ async fn test_invariant_function_override_timeout() {
     config.invariant.runs = 10000;
     config.invariant.depth = 20000;
 
-    // With no timeout the test takes a long time and eventually fails when counter
-    // >= 10000. Not tested here because it would slow down the test suite. The
-    // 1-second timeout comes from the inline `invariant.timeout` directive in
-    // `InvariantTimeout.t.sol`.
+    // With no timeout the test takes a long time and eventually fails when
+    // counter >= 10000. Not tested here because it would slow down the test
+    // suite. The 1-second timeout comes from the inline `invariant.timeout`
+    // directive in `InvariantTimeout.t.sol`.
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;

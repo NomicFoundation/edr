@@ -107,16 +107,18 @@ pub fn find_anchor_branch(
             .get(pc)
             .expect("pc should be within bytecode bounds");
 
-        // We found a push, so we do some PC -> IC translation accounting, but we also
-        // check if this push is coupled with the JUMPI we are interested in.
+        // We found a push, so we do some PC -> IC translation accounting, but
+        // we also check if this push is coupled with the JUMPI we are
+        // interested in.
 
         // Check if Opcode is PUSH
         if (opcode::PUSH1..=opcode::PUSH32).contains(&op) {
             let element = if let Some(element) = source_map.get(pc - cumulative_push_size) {
                 element
             } else {
-                // NOTE(onbjerg): For some reason the last few bytes of the bytecode do not have
-                // a source map associated, so at that point we just stop searching
+                // NOTE(onbjerg): For some reason the last few bytes of the
+                // bytecode do not have a source map associated, so at that
+                // point we just stop searching
                 break;
             };
 
@@ -125,16 +127,16 @@ pub fn find_anchor_branch(
             pc += push_size;
             cumulative_push_size += push_size;
 
-            // Check if we are in the source range we are interested in, and if the next
-            // opcode is a JUMPI
+            // Check if we are in the source range we are interested in, and if
+            // the next opcode is a JUMPI
             if is_in_source_range(element, loc)
                 && *bytecode
                     .get(pc + 1)
                     .expect("pc + 1 should be within bytecode bounds")
                     == opcode::JUMPI
             {
-                // We do not support program counters bigger than usize. This is also an
-                // assumption in REVM, so this is just a sanity check.
+                // We do not support program counters bigger than usize. This is
+                // also an assumption in REVM, so this is just a sanity check.
                 ensure!(push_size <= 8, "jump destination overflow");
 
                 // Convert the push bytes for the second branch's PC to a usize

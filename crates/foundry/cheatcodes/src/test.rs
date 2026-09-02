@@ -254,8 +254,8 @@ impl Cheatcode for skip_1Call {
     ) -> Result {
         let Self { skipTest, reason } = self;
         if *skipTest {
-            // Skip should not work if called deeper than at test level.
-            // Since we're not returning the magic skip bytes, this will cause a test
+            // Skip should not work if called deeper than at test level. Since
+            // we're not returning the magic skip bytes, this will cause a test
             // failure.
             ensure!(
                 ccx.ecx.journaled_state.depth <= 1,
@@ -336,7 +336,8 @@ impl Cheatcode for getChain_1Call {
         >,
     ) -> Result {
         let Self { chainId } = self;
-        // Convert the chainId to a string and use the existing get_chain function
+        // Convert the chainId to a string and use the existing get_chain
+        // function
         let chain_id_str = chainId.to_string();
         get_chain(state, &chain_id_str)
     }
@@ -369,14 +370,16 @@ fn get_chain<
     let chain_name = alloy_chain.to_string();
     let chain_id = alloy_chain.id();
 
-    // Check if this is an unknown chain ID by comparing the name to the chain ID
-    // When a numeric ID is passed for an unknown chain, alloy_chain.to_string()
-    // will return the ID So if they match, it's likely an unknown chain ID
+    // Check if this is an unknown chain ID by comparing the name to the chain
+    // ID When a numeric ID is passed for an unknown chain,
+    // alloy_chain.to_string() will return the ID So if they match, it's likely
+    // an unknown chain ID
     if chain_name == chain_id.to_string() {
         return Err(fmt_err!("invalid chain alias: {chain_alias}"));
     }
 
-    // Try to retrieve RPC URL and chain alias from user's config in foundry.toml.
+    // Try to retrieve RPC URL and chain alias from user's config in
+    // foundry.toml.
     let (rpc_url, chain_alias) = if let Some(rpc_url) = state
         .config
         .rpc_endpoint(&chain_name)

@@ -287,7 +287,8 @@ impl<
         if let Some(outcome) = self.code_coverage.as_mut().and_then(|code_coverage| {
             Inspector::<_, EthInterpreter>::call(&mut code_coverage.collector, context, inputs)
         }) {
-            // Inner inspector is short-circuiting the call. We should preserve its outcome.
+            // Inner inspector is short-circuiting the call. We should preserve
+            // its outcome.
             return Some(outcome);
         }
         self.mocker.call(context, inputs)

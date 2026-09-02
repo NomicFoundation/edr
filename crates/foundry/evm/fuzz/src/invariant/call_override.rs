@@ -75,7 +75,8 @@ impl RandomCallGenerator {
             // TODO: Do we want it to be 80% chance only too ?
             let sender = original_target;
 
-            // Set which contract we mostly (80% chance) want to generate calldata from.
+            // Set which contract we mostly (80% chance) want to generate
+            // calldata from.
             *self.target_reference.write() = original_caller;
 
             // `original_caller` has a 80% chance of being the `new_target`.

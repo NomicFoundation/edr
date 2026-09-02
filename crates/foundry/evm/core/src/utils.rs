@@ -60,12 +60,12 @@ pub fn apply_chain_and_block_specific_env_changes<N, BlockT, TxT, HardforkT>(
                 return;
             }
             BinanceSmartChain | BinanceSmartChainTestnet => {
-                // https://github.com/foundry-rs/foundry/issues/9942
-                // As far as observed from the source code of bnb-chain/bsc, the `difficulty`
-                // field is still in use and returned by the corresponding
-                // opcode but `prevrandao` (`mixHash`) is always zero, even
-                // though bsc adopts the newer EVM specification. This will
-                // confuse revm and causes emulation failure.
+                // https://github.com/foundry-rs/foundry/issues/9942 As far as
+                // observed from the source code of bnb-chain/bsc, the
+                // `difficulty` field is still in use and returned by the
+                // corresponding opcode but `prevrandao` (`mixHash`) is always
+                // zero, even though bsc adopts the newer EVM specification.
+                // This will confuse revm and causes emulation failure.
                 env.block
                     .set_prevrandao(Some(env.block.difficulty().into()));
                 return;
@@ -77,8 +77,8 @@ pub fn apply_chain_and_block_specific_env_changes<N, BlockT, TxT, HardforkT>(
                 }
             }
             c if c.is_arbitrum() => {
-                // on arbitrum `block.number` is the L1 block which is included in the
-                // `l1BlockNumber` field
+                // on arbitrum `block.number` is the L1 block which is included
+                // in the `l1BlockNumber` field
                 if let Some(l1_block_number) = block
                     .other_fields()
                     .and_then(|other| other.get("l1BlockNumber").cloned())

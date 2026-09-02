@@ -49,9 +49,10 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
         if inputs.bytecode_address == COVERAGE_ADDRESS {
             self.record_hit(inputs.input.bytes(context));
 
-            // Short-circuit the call to avoid execution of empty bytecode—which results in
-            // a `InstructionResult::Stop`—instead replaying the previous call or create's
-            // output to preserve the returndata buffer.
+            // Short-circuit the call to avoid execution of empty bytecode—which
+            // results in a `InstructionResult::Stop`—instead replaying the
+            // previous call or create's output to preserve the returndata
+            // buffer.
             Some(CallOutcome {
                 result: InterpreterResult {
                     result: InstructionResult::Return,
@@ -77,7 +78,8 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
-        // Skip coverage calls — their output is already identical to what we stored.
+        // Skip coverage calls — their output is already identical to what we
+        // stored.
         if inputs.bytecode_address != COVERAGE_ADDRESS {
             self.previous_call_output = outcome.result.output.clone();
         }

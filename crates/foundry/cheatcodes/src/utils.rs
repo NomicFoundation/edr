@@ -1301,8 +1301,8 @@ fn get_canonical_type_def(
 fn get_struct_hash(type_def: &Eip712TypeDef, abi_encoded_data: &Bytes) -> Result {
     let mut resolver = Resolver::default();
 
-    // Populate the resolver by ingesting the canonical type definition, and then
-    // get the corresponding `DynSolType` of the primary type.
+    // Populate the resolver by ingesting the canonical type definition, and
+    // then get the corresponding `DynSolType` of the primary type.
     resolver
         .ingest_string(type_def.canonical_definition())
         .map_err(|e| fmt_err!("Resolver failed to ingest type definition: {e}"))?;

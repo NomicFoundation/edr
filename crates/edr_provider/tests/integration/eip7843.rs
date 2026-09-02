@@ -157,7 +157,8 @@ async fn slotnum_opcode_returns_block_slot_number() -> anyhow::Result<()> {
 
     let contract_address = deploy_contract(&provider, SENDER, SLOT_NUMBER_CONTRACT.clone())?;
 
-    // Mine a few more blocks so the call executes in a block well after deployment.
+    // Mine a few more blocks so the call executes in a block well after
+    // deployment.
     mine_block(&provider);
     mine_block(&provider);
 
@@ -211,8 +212,8 @@ async fn slotnum_opcode_unavailable_before_amsterdam() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    // The init bytecode never executes 0x4b (it only copies the runtime out), so
-    // deployment succeeds even pre-Amsterdam.
+    // The init bytecode never executes 0x4b (it only copies the runtime out),
+    // so deployment succeeds even pre-Amsterdam.
     let contract_address = deploy_contract(&provider, SENDER, SLOT_NUMBER_CONTRACT.clone())?;
 
     let result = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
@@ -225,8 +226,8 @@ async fn slotnum_opcode_unavailable_before_amsterdam() -> anyhow::Result<()> {
         None,
     )));
 
-    // The opcode is recognized by revm but gated on the hardfork, so it halts with
-    // `NotActivated` rather than a generic failure.
+    // The opcode is recognized by revm but gated on the hardfork, so it halts
+    // with `NotActivated` rather than a generic failure.
     assert!(
         matches!(
             &result,

@@ -205,11 +205,11 @@ pub fn replay_run<
         }
     }
 
-    // Replay invariant to collect logs and traces.
-    // We do this only once at the end of the replayed sequence.
-    // Checking after each call doesn't add valuable info for passing scenario
-    // (invariant call result is always success) nor for failed scenarios
-    // (invariant call result is always success until the last call that breaks it).
+    // Replay invariant to collect logs and traces. We do this only once at the
+    // end of the replayed sequence. Checking after each call doesn't add
+    // valuable info for passing scenario (invariant call result is always
+    // success) nor for failed scenarios (invariant call result is always
+    // success until the last call that breaks it).
     let CallInvariantResult {
         call_result: invariant_result,
         success: invariant_success,
@@ -372,8 +372,8 @@ pub fn replay_error<
 
             set_up_inner_replay(&mut executor, &failed_case.inner_sequence);
 
-            // Replay calls to get the counterexample and to collect logs, traces and
-            // coverage.
+            // Replay calls to get the counterexample and to collect logs,
+            // traces and coverage.
             replay_run(ReplayRunArgs {
                 execution_traces,
                 invariant_contract,

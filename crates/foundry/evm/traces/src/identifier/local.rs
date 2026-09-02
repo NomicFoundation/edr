@@ -78,8 +78,8 @@ impl<'a> LocalTraceIdentifier<'a> {
                             .get(bytecode.len()..)
                             .expect("slice should be valid");
                         if constructor.abi_decode_input(constructor_args).is_ok() {
-                            // If we can decode args with current abi then remove args from
-                            // code to compare.
+                            // If we can decode args with current abi then
+                            // remove args from code to compare.
                             current_bytecode = current_bytecode
                                 .get(..bytecode.len())
                                 .expect("slice should be valid");
@@ -118,7 +118,8 @@ impl<'a> LocalTraceIdentifier<'a> {
             }
         }
 
-        // Iterate over the remaining artifacts with less code length: `len*0.9..len`.
+        // Iterate over the remaining artifacts with less code length:
+        // `len*0.9..len`.
         let min_len = (len * 9) / 10;
         let idx = self.find_index(min_len);
         for i in idx..same_length_idx {
@@ -131,7 +132,8 @@ impl<'a> LocalTraceIdentifier<'a> {
             }
         }
 
-        // Fallback to comparing deployed code if min score greater than threshold.
+        // Fallback to comparing deployed code if min score greater than
+        // threshold.
         if min_score >= 0.85 {
             for (artifact, _) in &self.ordered_ids {
                 if let found @ Some(_) = check(artifact, false, &mut min_score) {
@@ -142,9 +144,9 @@ impl<'a> LocalTraceIdentifier<'a> {
 
         trace!(target: "evm::traces::local", %min_score, "no exact match found");
 
-        // Note: the diff score can be inaccurate for small contracts so we're using a
-        // relatively high threshold here to avoid filtering out too many
-        // contracts.
+        // Note: the diff score can be inaccurate for small contracts so we're
+        // using a relatively high threshold here to avoid filtering out too
+        // many contracts.
         if min_score < 0.85 {
             min_score_id
         } else {
@@ -160,8 +162,8 @@ impl<'a> LocalTraceIdentifier<'a> {
             .ordered_ids
             .binary_search_by_key(&len, |(_, probe)| *probe);
 
-        // In case of multiple artifacts with the same code length, we need to find the
-        // first one.
+        // In case of multiple artifacts with the same code length, we need to
+        // find the first one.
         while idx > 0
             && self
                 .ordered_ids
@@ -204,9 +206,9 @@ impl TraceIdentifier for LocalTraceIdentifier<'_> {
                 let _span =
                     trace_span!(target: "evm::traces::local", "identify", %address).entered();
 
-                // In order to identify the addresses, we need at least the runtime code. It can
-                // be obtained from the trace itself (if it's a CREATE* call),
-                // or from the fetched bytecodes.
+                // In order to identify the addresses, we need at least the
+                // runtime code. It can be obtained from the trace itself (if
+                // it's a CREATE* call), or from the fetched bytecodes.
                 let (runtime_code, creation_code) = match (runtime_code, creation_code) {
                     (Some(runtime_code), Some(creation_code)) => (runtime_code, creation_code),
                     (Some(runtime_code), _) => (runtime_code, &[] as &[u8]),

@@ -704,8 +704,8 @@ mod tests {
         let transaction2 = dummy_eip155_transaction_with_price(sender2, 0, 1_000)?;
         fixture.add_transaction(transaction2.clone())?;
 
-        // This has the same gasPrice than tx2, but arrived later, so it's placed later
-        // in the queue
+        // This has the same gasPrice than tx2, but arrived later, so it's
+        // placed later in the queue
         let transaction3 = dummy_eip155_transaction_with_price(sender3, 0, 1_000)?;
         fixture.add_transaction(transaction3.clone())?;
 

@@ -627,8 +627,8 @@ impl Cheatcode for readLineCall {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
 
-        // Get reader for previously opened file to continue reading OR initialize new
-        // reader
+        // Get reader for previously opened file to continue reading OR
+        // initialize new reader
         let reader = match state.test_context.opened_read_files.entry(path.clone()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => entry.insert(BufReader::new(fs::open(path)?)),
@@ -637,8 +637,8 @@ impl Cheatcode for readLineCall {
         let mut line: String = String::new();
         reader.read_line(&mut line)?;
 
-        // Remove trailing newline character, preserving others for cases where it may
-        // be important
+        // Remove trailing newline character, preserving others for cases where
+        // it may be important
         if line.ends_with('\n') {
             line.pop();
             if line.ends_with('\r') {
@@ -1091,7 +1091,8 @@ fn get_artifact_code<
         [artifact] => Ok(*artifact),
         filtered => {
             let mut filtered = filtered.to_vec();
-            // If we know the current script/test contract solc version, try to filter by it
+            // If we know the current script/test contract solc version, try to
+            // filter by it
             state
                 .config
                 .running_artifact

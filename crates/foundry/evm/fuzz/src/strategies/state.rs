@@ -55,8 +55,8 @@ impl EvmFuzzState {
         config: FuzzDictionaryConfig,
         deployed_libs: &[Address],
     ) -> Self {
-        // Sort accounts to ensure deterministic dictionary generation from the same
-        // setUp state.
+        // Sort accounts to ensure deterministic dictionary generation from the
+        // same setUp state.
         let mut accs = db.cache.accounts.iter().collect::<Vec<_>>();
         accs.sort_by_key(|(address, _)| *address);
 
@@ -173,7 +173,8 @@ impl FuzzDictionary {
             self.insert_push_bytes_values(address, &account.info);
             // Insert storage values.
             if self.config.include_storage {
-                // Sort storage values before inserting to ensure deterministic dictionary.
+                // Sort storage values before inserting to ensure deterministic
+                // dictionary.
                 let values = account.storage.iter().collect::<BTreeMap<_, _>>();
                 for (slot, value) in values {
                     self.insert_storage_value(slot, value);
@@ -204,7 +205,8 @@ impl FuzzDictionary {
         if let Some(function) = function
             && !function.outputs.is_empty()
         {
-            // Decode result and collect samples to be used in subsequent fuzz runs.
+            // Decode result and collect samples to be used in subsequent fuzz
+            // runs.
             if let Ok(decoded_result) = function.abi_decode_output(result) {
                 self.insert_sample_values(decoded_result, run_depth);
             }
@@ -214,8 +216,8 @@ impl FuzzDictionary {
     /// Insert values from call log topics and data into fuzz dictionary.
     fn insert_logs_values(&mut self, abi: Option<&JsonAbi>, logs: &[Log], run_depth: u32) {
         let mut samples = Vec::new();
-        // Decode logs with known events and collect samples from indexed fields and
-        // event body.
+        // Decode logs with known events and collect samples from indexed fields
+        // and event body.
         for log in logs {
             let mut log_decoded = false;
             // Try to decode log with events from contract abi.
@@ -230,8 +232,8 @@ impl FuzzDictionary {
                 }
             }
 
-            // If we weren't able to decode event then we insert raw data in fuzz
-            // dictionary.
+            // If we weren't able to decode event then we insert raw data in
+            // fuzz dictionary.
             if !log_decoded {
                 for &topic in log.topics() {
                     self.insert_value(topic);
@@ -290,8 +292,8 @@ impl FuzzDictionary {
                 let push_size = (op - opcode::PUSH1 + 1) as usize;
                 let push_start = i + 1;
                 let push_end = push_start + push_size;
-                // As a precaution, if a fuzz test deploys malformed bytecode (such as using
-                // `CREATE2`) this will terminate the loop early.
+                // As a precaution, if a fuzz test deploys malformed bytecode
+                // (such as using `CREATE2`) this will terminate the loop early.
                 if push_start > code.len() || push_end > code.len() {
                     break;
                 }
@@ -304,7 +306,8 @@ impl FuzzDictionary {
                     // Never add 0 to the dictionary as it's always present.
                     self.insert_value(push_value.into());
 
-                    // Also add the value below and above the push value to the dictionary.
+                    // Also add the value below and above the push value to the
+                    // dictionary.
                     self.insert_value((push_value - U256::from(1)).into());
 
                     if push_value != U256::MAX {
@@ -324,7 +327,8 @@ impl FuzzDictionary {
     fn insert_storage_value(&mut self, storage_slot: &U256, storage_value: &U256) {
         self.insert_value(B256::from(*storage_slot));
         self.insert_value(B256::from(*storage_value));
-        // also add the value below and above the storage value to the dictionary.
+        // also add the value below and above the storage value to the
+        // dictionary.
         if *storage_value != U256::ZERO {
             let below_value = storage_value - U256::from(1);
             self.insert_value(B256::from(below_value));
@@ -374,7 +378,8 @@ impl FuzzDictionary {
                     if values.len() < limit as usize {
                         values.insert(sample_value);
                     } else {
-                        // Insert as state value (will be removed at the end of the run).
+                        // Insert as state value (will be removed at the end of
+                        // the run).
                         self.insert_value(sample_value);
                     }
                 } else {
@@ -431,7 +436,8 @@ impl FuzzDictionary {
 /// Utility function to ignore metadata hash of the given bytecode.
 /// This assumes that the metadata is at the end of the bytecode.
 pub fn ignore_metadata_hash(bytecode: &[u8]) -> &[u8] {
-    // Get the last two bytes of the bytecode to find the length of CBOR metadata.
+    // Get the last two bytes of the bytecode to find the length of CBOR
+    // metadata.
     let Some((rest, metadata_len_bytes)) = bytecode.split_last_chunk() else {
         return bytecode;
     };

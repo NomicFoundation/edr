@@ -60,12 +60,13 @@ impl PersistentAccountAndStorageTrie {
         changes.iter().for_each(|(address, account)| {
             if account.is_touched() {
                 if (account.is_empty() && !account.is_created()) || account.is_selfdestructed() {
-                    // Removes account only if it exists, so safe to use for empty, touched accounts
+                    // Removes account only if it exists, so safe to use for
+                    // empty, touched accounts
                     account_trie_mutation.remove_account(address);
                 } else {
                     if account.is_created() {
-                        // We can simply remove the storage trie db, as it will get reinitialized in
-                        // the next operation
+                        // We can simply remove the storage trie db, as it will
+                        // get reinitialized in the next operation
                         account_trie_mutation.remove_account_storage(address);
                     }
 

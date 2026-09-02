@@ -96,8 +96,8 @@ impl<
                 .map(|transaction| (*transaction.transaction_hash(), block.clone())),
         );
 
-        // SAFETY: We have checked that the block hash and number are not in the maps,
-        // so it's ok to use unchecked.
+        // SAFETY: We have checked that the block hash and number are not in the
+        // maps, so it's ok to use unchecked.
         let block = unsafe {
             self.hash_to_block
                 .insert_unique_unchecked(*block_hash, block.clone());

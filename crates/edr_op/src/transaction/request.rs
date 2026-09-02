@@ -56,27 +56,33 @@ impl Sign for OpTransactionRequest {
     ) -> Result<OpSignedTransaction, SignatureError> {
         Ok(match self {
             OpTransactionRequest::Legacy(transaction) => {
-                // SAFETY: The safety concern is propagated in the function signature.
+                // SAFETY: The safety concern is propagated in the function
+                // signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
             OpTransactionRequest::Eip155(transaction) => {
-                // SAFETY: The safety concern is propagated in the function signature.
+                // SAFETY: The safety concern is propagated in the function
+                // signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
             OpTransactionRequest::Eip2930(transaction) => {
-                // SAFETY: The safety concern is propagated in the function signature.
+                // SAFETY: The safety concern is propagated in the function
+                // signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
             OpTransactionRequest::Eip1559(transaction) => {
-                // SAFETY: The safety concern is propagated in the function signature.
+                // SAFETY: The safety concern is propagated in the function
+                // signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
             OpTransactionRequest::Eip4844(transaction) => {
-                // SAFETY: The safety concern is propagated in the function signature.
+                // SAFETY: The safety concern is propagated in the function
+                // signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
             OpTransactionRequest::Eip7702(transaction) => {
-                // SAFETY: The safety concern is propagated in the function signature.
+                // SAFETY: The safety concern is propagated in the function
+                // signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
         })

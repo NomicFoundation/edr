@@ -216,8 +216,8 @@ mod tests {
 
     #[test]
     fn stops_at_previous_member() {
-        // Code between the directive and an earlier comment terminates the scan,
-        // so the earlier `/// detached` comment does not leak in.
+        // Code between the directive and an earlier comment terminates the
+        // scan, so the earlier `/// detached` comment does not leak in.
         let src = "contract C {\n    /// detached\n    uint256 x;\n\n    /// forge-config: default.fuzz.runs = 5\n    function f() {}\n}";
         assert_eq!(
             scan(src),

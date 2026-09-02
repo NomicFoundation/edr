@@ -119,8 +119,8 @@ impl From<LocalConfig> for edr_provider::config::Local {
 
 impl From<ScenarioProviderConfig> for ProviderConfig {
     fn from(mut value: ScenarioProviderConfig) -> Self {
-        // We don't support custom cache directories for replaying scenarios, so set it
-        // to the default directory.
+        // We don't support custom cache directories for replaying scenarios, so
+        // set it to the default directory.
         if let NetworkConfig::Fork(fork_config) = &mut value.network {
             fork_config.cache_dir = PathBuf::from(edr_defaults::CACHE_DIR);
             fork_config.chain_overrides = value.chain_overrides;

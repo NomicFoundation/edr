@@ -41,8 +41,8 @@ pub struct LocatedFunction {
 /// Maps a solc [`Version`] to a Slang [`LanguageVersion`]; clamping versions
 /// newer than Slang supports down to its latest grammar.
 fn to_language_version(solc_version: Version) -> Result<LanguageVersion, FromSemverError> {
-    // Fall back to the latest Slang grammar for any solc version newer than what
-    // Slang supports.
+    // Fall back to the latest Slang grammar for any solc version newer than
+    // what Slang supports.
     let latest: Version = LanguageVersion::LATEST.into();
     if solc_version > latest {
         Ok(LanguageVersion::LATEST)

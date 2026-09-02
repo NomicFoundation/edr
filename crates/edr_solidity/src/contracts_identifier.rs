@@ -33,8 +33,8 @@ pub struct IdentifiedContract {
 fn is_matching_metadata(code: &[u8], last_byte: usize) -> bool {
     let mut byte = 0;
     while byte < last_byte {
-        // It's possible we don't recognize the opcode if it's from an unknown chain, so
-        // just return false in that case.
+        // It's possible we don't recognize the opcode if it's from an unknown
+        // chain, so just return false in that case.
         let Some(opcode) = OpCode::new(
             *code
                 .get(byte)
@@ -121,22 +121,23 @@ impl ContractsIdentifier {
             }) => (node, diff_index, match_),
         };
 
-        // Deployment messages have their abi-encoded arguments at the end of the
-        // bytecode.
+        // Deployment messages have their abi-encoded arguments at the end of
+        // the bytecode.
         //
-        // We don't know how long those arguments are, as we don't know which contract
-        // is being deployed, hence we don't know the signature of its
+        // We don't know how long those arguments are, as we don't know which
+        // contract is being deployed, hence we don't know the signature of its
         // constructor.
         //
-        // To make things even harder, we can't trust that the user actually passed the
-        // right amount of arguments.
+        // To make things even harder, we can't trust that the user actually
+        // passed the right amount of arguments.
         //
-        // Luckily, the chances of a complete deployment bytecode being the prefix of
-        // another one are remote. For example, most of the time it ends with
-        // its metadata hash, which will differ.
+        // Luckily, the chances of a complete deployment bytecode being the
+        // prefix of another one are remote. For example, most of the time it
+        // ends with its metadata hash, which will differ.
         //
-        // We take advantage of this last observation, and just return the bytecode that
-        // exactly matched the search_result (sub)trie that we got.
+        // We take advantage of this last observation, and just return the
+        // bytecode that exactly matched the search_result (sub)trie that we
+        // got.
         match match_ {
             Some(contract) if is_create && contract.contract_metadata.is_deployment => {
                 return Some(contract);
@@ -187,16 +188,17 @@ impl ContractsIdentifier {
             }
         }
 
-        // If we got here we may still have the contract, but with a different metadata
-        // hash.
+        // If we got here we may still have the contract, but with a different
+        // metadata hash.
         //
-        // We check if we got to match the entire executable bytecode, and are just
-        // stuck because of the metadata. If that's the case, we can assume that
-        // any descendant will be a valid Bytecode, so we just choose the most
-        // recently added one.
+        // We check if we got to match the entire executable bytecode, and are
+        // just stuck because of the metadata. If that's the case, we can assume
+        // that any descendant will be a valid Bytecode, so we just choose the
+        // most recently added one.
         //
-        // The reason this works is because there's no chance that Solidity includes an
-        // entire bytecode (i.e. with metadata), as a prefix of another one.
+        // The reason this works is because there's no chance that Solidity
+        // includes an entire bytecode (i.e. with metadata), as a prefix of
+        // another one.
         if !search_result.is_root()
             && is_matching_metadata(code, diff_index)
             && !search_result.descendants.is_empty()
@@ -490,8 +492,8 @@ mod tests {
         let bytecode = create_test_deployment_bytecode(vec![1, 2, 3, 4, 5]);
         contracts_identifier.add_bytecode(wrap(bytecode.clone()));
 
-        // a create trace that matches the a deployment bytecode plus some extra stuff
-        // (constructor args)
+        // a create trace that matches the a deployment bytecode plus some extra
+        // stuff (constructor args)
         let is_create = true;
         let contract =
             contracts_identifier.search_bytecode_from_root(is_create, &[1, 2, 3, 4, 5, 10, 11]);
@@ -505,7 +507,8 @@ mod tests {
             contracts_identifier.search_bytecode_from_root(false, &[1, 2, 3, 4, 5, 10, 11]);
         assert!(contract.is_none());
 
-        // the same scenario but with a runtime bytecode shouldn't result in matches
+        // the same scenario but with a runtime bytecode shouldn't result in
+        // matches
         let mut contracts_identifier = ContractsIdentifier::default();
         let bytecode = create_test_bytecode(vec![1, 2, 3, 4, 5]);
         contracts_identifier.add_bytecode(wrap(bytecode.clone()));

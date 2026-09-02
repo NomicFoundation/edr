@@ -293,8 +293,9 @@ mod test {
 
     #[test]
     fn test_matches_hardhat_serialization() -> anyhow::Result<()> {
-        // Generated with the "Hardhat Network provider eth_getTransactionReceipt should
-        // return the right values for successful txs" hardhat-core test.
+        // Generated with the "Hardhat Network provider
+        // eth_getTransactionReceipt should return the right values for
+        // successful txs" hardhat-core test.
         let receipt_from_hardhat = json!({
           "transactionHash": "0x08d14db1a6253234f7efc94fc661f52b708882552af37ebf4f5cd904618bb208",
           "transactionIndex": "0x0",

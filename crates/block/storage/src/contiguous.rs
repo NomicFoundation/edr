@@ -162,8 +162,8 @@ impl<
     ) -> Result<&BlockT, InsertBlockError> {
         let block_hash = block.block_hash();
 
-        // As blocks are contiguous, we are guaranteed that the block number won't exist
-        // if its hash is not present.
+        // As blocks are contiguous, we are guaranteed that the block number
+        // won't exist if its hash is not present.
         if self.hash_to_block.contains_key(block_hash) {
             return Err(InsertBlockError::DuplicateBlock {
                 block_hash: *block_hash,

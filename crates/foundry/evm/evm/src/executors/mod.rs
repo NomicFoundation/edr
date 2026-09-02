@@ -482,8 +482,8 @@ impl<
             panic!("Deployment succeeded, but no address was returned: {result:#?}");
         };
 
-        // also mark this library as persistent, this will ensure that the state of the
-        // library is persistent across fork swaps in forking mode
+        // also mark this library as persistent, this will ensure that the state
+        // of the library is persistent across fork swaps in forking mode
         self.backend_mut().add_persistent_account(address);
 
         debug!(%address, "deployed contract");
@@ -793,8 +793,8 @@ impl<
         if let Some(cheats) = self.inspector_mut().cheatcodes.as_mut() {
             cheats.ignored_traces.ignored.clear();
 
-            // if tracing was paused but never unpaused, we should begin next frame with
-            // tracing still paused
+            // if tracing was paused but never unpaused, we should begin next
+            // frame with tracing still paused
             if let Some(last_pause_call) = cheats.ignored_traces.last_pause_call.as_mut() {
                 *last_pause_call = (0, 0);
             }
@@ -847,7 +847,8 @@ impl<
         should_fail: bool,
     ) -> bool {
         if call_result.has_state_snapshot_failure {
-            // a failure occurred in a reverted snapshot, which is considered a failed test
+            // a failure occurred in a reverted snapshot, which is considered a
+            // failed test
             return should_fail;
         }
         self.is_success(call_result.reverted, state_changeset, should_fail)
@@ -894,7 +895,8 @@ impl<
             return false;
         }
 
-        // A failure occurred in a reverted snapshot, which is considered a failed test.
+        // A failure occurred in a reverted snapshot, which is considered a
+        // failed test.
         if self.backend().has_state_snapshot_failure() {
             return false;
         }
@@ -933,9 +935,10 @@ impl<
         cfg.spec = self.spec_id();
 
         let mut block = self.env.block.clone();
-        // We always set the gas price to 0 so we can execute the transaction regardless
-        // of network conditions - the actual gas price is kept in `self.block`
-        // and is applied by the cheatcode handler if it is enabled
+        // We always set the gas price to 0 so we can execute the transaction
+        // regardless of network conditions - the actual gas price is kept in
+        // `self.block` and is applied by the cheatcode handler
+        // if it is enabled
         block.set_basefee(0);
         block.set_gas_limit(self.gas_limit);
 
@@ -1545,8 +1548,9 @@ impl<
         let mut new_coverage = false;
         let mut is_edge = false;
         if let Some(x) = &mut self.edge_coverage {
-            // Iterate over the current map and the history map together and update
-            // the history map, if we discover some new coverage, report true
+            // Iterate over the current map and the history map together and
+            // update the history map, if we discover some new coverage, report
+            // true
             for (curr, hist) in std::iter::zip(x, history_map) {
                 // If we got a hitcount of at least 1
                 if *curr > 0 {
@@ -1566,7 +1570,8 @@ impl<
                     // If the old record for this edge pair is lower, update
                     if *hist < bucket {
                         if *hist == 0 {
-                            // Counts as an edge the first time we see it, otherwise it's a feature.
+                            // Counts as an edge the first time we see it,
+                            // otherwise it's a feature.
                             is_edge = true;
                         }
                         *hist = bucket;

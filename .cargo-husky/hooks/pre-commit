@@ -18,6 +18,6 @@ set -xe
 # See https://github.com/rust-lang/cargo/issues/8424#issuecomment-1734683743 and the thread.
 
 cargo clippy --workspace --all-targets ${ALL_FEATURES} -- --deny warnings
-cargo +nightly-2026-08-29 fmt --all -- --check
+cargo +nightly-2026-08-31 fmt --all -- --check
 cargo test --doc --workspace ${ALL_FEATURES}
 cargo test --workspace --all-targets ${ALL_FEATURES}

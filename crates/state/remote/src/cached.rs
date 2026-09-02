@@ -164,9 +164,10 @@ fn fetch_remote_account<
 ) -> Result<Option<AccountInfo>, StateError> {
     let account = remote.basic(address)?.map(|mut account_info| {
         // Always cache code regardless of the block number for two reasons:
-        // 1. It's an invariant of this trait getting an `AccountInfo` by calling
-        //    `basic`,
-        // one can call `code_by_hash` with `AccountInfo.code_hash` and get the code.
+        // 1. It's an invariant of this trait getting an `AccountInfo` by
+        //    calling `basic`,
+        // one can call `code_by_hash` with `AccountInfo.code_hash` and get the
+        // code.
         // 2. Since the code is identified by its hash, it never goes stale.
         if let Some(code) = account_info.code.take() {
             let block_code = code_cache.entry(remote.block_number()).or_default();

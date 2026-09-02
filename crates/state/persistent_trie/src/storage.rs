@@ -61,7 +61,8 @@ impl<'a> StorageTrie {
 
         keys.iter()
             .map(|proof_key| {
-                // Map over keys so that the result is guaranteed to be in order.
+                // Map over keys so that the result is guaranteed to be in
+                // order.
                 all_proof_nodes
                     .matching_nodes_sorted(proof_key)
                     .into_iter()

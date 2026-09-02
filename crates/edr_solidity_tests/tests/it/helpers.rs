@@ -227,11 +227,12 @@ impl ForgeTestProfile {
 
         if matches!(self, Self::ViaIr) {
             config.via_ir = true;
-            // Emit build-info (standard JSON input + output, incl. AST and source
-            // maps) so the integration test can build a real `ContractDecoder`
-            // and exercise contract recognition — unlike the `NoOpContractDecoder`
-            // used elsewhere in this harness. Source maps are required by the
-            // decoder but are not part of the default output selection.
+            // Emit build-info (standard JSON input + output, incl. AST and
+            // source maps) so the integration test can build a real
+            // `ContractDecoder` and exercise contract recognition — unlike the
+            // `NoOpContractDecoder` used elsewhere in this harness. Source maps
+            // are required by the decoder but are not part of the default
+            // output selection.
             config.build_info = true;
             // Select the full `evm.bytecode` / `evm.deployedBytecode` output
             // (object, opcodes, source map, link references) — all required by
@@ -547,8 +548,8 @@ impl<
 
         let linked_contracts = linker.get_linked_artifacts(&libraries)?;
 
-        // Create a mapping of name => (abi, deployment code, Vec<library deployment
-        // code>)
+        // Create a mapping of name => (abi, deployment code, Vec<library
+        // deployment code>)
         let mut test_contracts = TestContracts::default();
 
         for (id, contract) in linked_contracts.iter() {
@@ -608,7 +609,8 @@ impl<
     /// Builds a [`SolidityTestRunnerConfig`] with mock RPC endpoints.
     pub fn config_with_mock_rpc(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
-        // Construct a new one to create new failure persistance directory for each test
+        // Construct a new one to create new failure persistance directory for
+        // each test
         let mut config = ForgeTestProfile::runner_config(
             self.hardfork,
             self.new_fuzz_failure_dir(),
@@ -624,7 +626,8 @@ impl<
     /// cache path.
     pub fn config_with_remote_rpc(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
-        // Construct a new one to create new failure persistance directory for each test
+        // Construct a new one to create new failure persistance directory for
+        // each test
         let mut config = ForgeTestProfile::runner_config(
             self.hardfork,
             self.new_fuzz_failure_dir(),
@@ -958,9 +961,10 @@ pub fn contract_decoder(build_info_dir: &Path) -> ContractDecoder {
             let bytes = std::fs::read(&path).expect("failed to read build-info file");
             let mut value: serde_json::Value =
                 serde_json::from_slice(&bytes).expect("failed to parse build-info json");
-            // Foundry's build-info omits `evm.{bytecode,deployedBytecode}.opcodes`,
-            // which edr_solidity's artifact parser requires (the field is
-            // otherwise unused). Inject an empty value so parsing succeeds.
+            // Foundry's build-info omits
+            // `evm.{bytecode,deployedBytecode}.opcodes`, which edr_solidity's
+            // artifact parser requires (the field is otherwise unused). Inject
+            // an empty value so parsing succeeds.
             if let Some(contracts) = value
                 .get_mut("output")
                 .and_then(|output| output.get_mut("contracts"))
@@ -1008,10 +1012,9 @@ pub fn contract_decoder(build_info_dir: &Path) -> ContractDecoder {
 
 fn get_compiled(project: &Project) -> ProjectCompileOutput {
     let lock_file_path = project.sources_path().join(".lock");
-    // Compile only once per test run.
-    // We need to use a file lock because `cargo-nextest` runs tests in different
-    // processes. This is similar to [`edr_test_utils::util::initialize`],
-    // see its comments for more details.
+    // Compile only once per test run. We need to use a file lock because
+    // `cargo-nextest` runs tests in different processes. This is similar to
+    // [`edr_test_utils::util::initialize`], see its comments for more details.
     let mut lock = new_fd_lock(&lock_file_path);
     let read = lock.read().unwrap();
     let out;

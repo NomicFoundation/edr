@@ -165,7 +165,8 @@ mod base_fee_params {
 
             let block_base_fee_params = edr_op::block::decode_base_params(&latest_block.extra_data);
 
-            // assert that the block was built using the given configuration values
+            // assert that the block was built using the given configuration
+            // values
             assert_eq!(block_base_fee_params.max_change_denominator, 300);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 6);
 
@@ -200,7 +201,8 @@ mod base_fee_params {
             assert_eq!(block.number, Some(1));
             let block_base_fee_params = edr_op::block::decode_base_params(&block.extra_data);
 
-            // assert that the block was built using the given configuration values
+            // assert that the block was built using the given configuration
+            // values
             assert_eq!(block_base_fee_params.max_change_denominator, 300);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 6);
 
@@ -210,10 +212,10 @@ mod base_fee_params {
             assert_eq!(block.number, Some(2));
             let block_base_fee_params = edr_op::block::decode_base_params(&block.extra_data);
 
-            // Header extra_data encodes base_fee_params values needed for calculating next
-            // block. As this is the block number 2, and we configured new
-            // values from block 3, this block header should already encode the
-            // new values
+            // Header extra_data encodes base_fee_params values needed for
+            // calculating next block. As this is the block number 2, and we
+            // configured new values from block 3, this block header should
+            // already encode the new values
             assert_eq!(block_base_fee_params.max_change_denominator, 200);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 2);
             Ok(())
@@ -232,9 +234,10 @@ mod base_fee_params {
 
             let block_base_fee_params = edr_op::block::decode_base_params(&latest_block.extra_data);
 
-            // Defaults to CANYON values since when creating a new local blockchain block
-            // number will be 0, so the dynamic configs won't apply yet, and EDR
-            // will fallback to the most recent Hardfork-defined params
+            // Defaults to CANYON values since when creating a new local
+            // blockchain block number will be 0, so the dynamic configs won't
+            // apply yet, and EDR will fallback to the most recent
+            // Hardfork-defined params
             assert_eq!(block_base_fee_params.max_change_denominator, 250);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 6);
             Ok(())
@@ -275,7 +278,8 @@ mod base_fee_params {
             let latest_block = latest_block(&provider)?;
             let block_base_fee_params = edr_op::block::decode_base_params(&latest_block.extra_data);
 
-            // assert that the block was built using the given configuration values
+            // assert that the block was built using the given configuration
+            // values
             assert_eq!(block_base_fee_params.max_change_denominator, 300);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 6);
 
@@ -318,7 +322,8 @@ mod base_fee_params {
             assert_eq!(block.number, Some(fork_block_number + 1));
             let block_base_fee_params = edr_op::block::decode_base_params(&block.extra_data);
 
-            // assert that the block was built using the first configuration values
+            // assert that the block was built using the first configuration
+            // values
             assert_eq!(block_base_fee_params.max_change_denominator, 300);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 6);
 
@@ -328,10 +333,11 @@ mod base_fee_params {
             assert_eq!(block.number, Some(fork_block_number + 2));
             let block_base_fee_params = edr_op::block::decode_base_params(&block.extra_data);
 
-            // Header extra_data encodes base_fee_params values needed for calculating next
-            // block. As this is the block number `fork_block_number + 2`, and
-            // we configured new values from block `fork_block_number + 3`, this
-            // block header should already encode the new values
+            // Header extra_data encodes base_fee_params values needed for
+            // calculating next block. As this is the block number
+            // `fork_block_number + 2`, and we configured new values from block
+            // `fork_block_number + 3`, this block header should already encode
+            // the new values
             assert_eq!(block_base_fee_params.max_change_denominator, 200);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 2);
             Ok(())
@@ -359,8 +365,9 @@ mod base_fee_params {
             let block_base_fee_params = edr_op::block::decode_base_params(&latest_block.extra_data);
 
             // assert that the block was built using OP_MAINNET values
-            // `first_dynamic_base_fee_activation` block number matches with the third base
-            // fee activation on `edr_op::hardfork::op::MAINNET_BASE_FEE_PARAMS`
+            // `first_dynamic_base_fee_activation` block number matches with the
+            // third base fee activation on
+            // `edr_op::hardfork::op::MAINNET_BASE_FEE_PARAMS`
             assert_eq!(block_base_fee_params.max_change_denominator, 250);
             assert_eq!(block_base_fee_params.elasticity_multiplier, 4);
             Ok(())

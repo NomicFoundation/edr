@@ -329,8 +329,8 @@ impl<
         executor.set_balance(self.sender, U256::MAX)?;
         executor.set_balance(CALLER, U256::MAX)?;
 
-        // We set the nonce of the deployer accounts to 1 to get the same addresses as
-        // DappTools
+        // We set the nonce of the deployer accounts to 1 to get the same
+        // addresses as DappTools
         executor.set_nonce(self.sender, 1)?;
 
         // Deploy libraries
@@ -364,8 +364,8 @@ impl<
         let address = self.sender.create(executor.get_nonce(self.sender)?);
         result.address = address;
 
-        // Set the contracts initial balance before deployment, so it is available
-        // during construction
+        // Set the contracts initial balance before deployment, so it is
+        // available during construction
         executor.set_balance(address, self.initial_balance)?;
 
         // Deploy the test contract
@@ -388,7 +388,8 @@ impl<
             return Ok(result);
         }
 
-        // Reset `self.sender`s and `CALLER`s balance to the initial balance we want
+        // Reset `self.sender`s and `CALLER`s balance to the initial balance we
+        // want
         executor.set_balance(self.sender, self.initial_balance)?;
         executor.set_balance(CALLER, self.initial_balance)?;
         executor.set_balance(LIBRARY_DEPLOYER, self.initial_balance)?;
@@ -457,8 +458,9 @@ impl<
                     fixtures.insert(fixture_name(func.name.clone()), decoded_result);
                 }
             } else {
-                // For reading fixtures from storage arrays we collect values by calling the
-                // function with incremented indexes until there's an error.
+                // For reading fixtures from storage arrays we collect values by
+                // calling the function with incremented indexes until there's
+                // an error.
                 let mut vals = Vec::new();
                 let mut index = 0;
                 loop {
@@ -475,8 +477,9 @@ impl<
                     ) {
                         vals.push(decoded_result);
                     } else {
-                        // No result returned for this index, we reached the end of storage
-                        // array or the function is not a valid fixture.
+                        // No result returned for this index, we reached the end
+                        // of storage array or the function is not a valid
+                        // fixture.
                         break;
                     }
                     index += 1;
@@ -518,8 +521,8 @@ impl<
         filter: &dyn TestFilter,
         tokio_handle: &tokio::runtime::Handle,
     ) -> Result<SuiteResult<HaltReasonT>, TestRunnerError> {
-        // Forge doesn't include building the executor in the test time, so we're
-        // excluding it as well.
+        // Forge doesn't include building the executor in the test time, so
+        // we're excluding it as well.
         let mut executor = self.executor_builder.clone().build()?;
 
         let start = Instant::now();
@@ -549,8 +552,8 @@ impl<
             }
         }
 
-        // There are multiple setUp function, so we return a single test result for
-        // `setUp`
+        // There are multiple setUp function, so we return a single test result
+        // for `setUp`
         if setup_fns.len() > 1 {
             return Ok(SuiteResult::new(
                 start.elapsed(),
@@ -572,7 +575,8 @@ impl<
             .filter(|func| func.name.is_after_invariant())
             .collect();
         if after_invariant_fns.len() > 1 {
-            // Return a single test result failure if multiple functions declared.
+            // Return a single test result failure if multiple functions
+            // declared.
             return Ok(SuiteResult::new(
                 start.elapsed(),
                 Vec::new(),
@@ -595,8 +599,8 @@ impl<
             match_sig
         });
 
-        // Filter out functions sequentially since it's very fast and there is no need
-        // to do it in parallel.
+        // Filter out functions sequentially since it's very fast and there is
+        // no need to do it in parallel.
         let find_timer = Instant::now();
         let functions = self
             .contract
@@ -622,9 +626,9 @@ impl<
             ));
         }
 
-        // Invariant testing requires tracing to figure out what contracts were created.
-        // We also want to disable `debug` for setup since we won't be using those
-        // traces.
+        // Invariant testing requires tracing to figure out what contracts were
+        // created. We also want to disable `debug` for setup since we won't be
+        // using those traces.
         let has_invariants = self
             .contract
             .abi
@@ -647,16 +651,18 @@ impl<
         executor.inspector_mut().tracer = prev_tracer;
 
         if setup.reason.is_some() {
-            // We want to report execution time without stack trace generation as people use
-            // these numbers to reason about the performance of their code.
+            // We want to report execution time without stack trace generation
+            // as people use these numbers to reason about the performance of
+            // their code.
             let elapsed = start.elapsed();
 
             setup.stack_trace_result = if setup_recorded_steps {
-                // We collected steps during setup, so we can generate the stack trace
+                // We collected steps during setup, so we can generate the stack
+                // trace
                 get_setup_stack_trace(&*self.contract_decoder, &setup.traces)
             } else if let Some(indeterminism_reasons) = setup.indeterminism_reasons.as_ref() {
-                // We cannot re-run the setup due to indeterminism, so we return the
-                // indeterminism reasons
+                // We cannot re-run the setup due to indeterminism, so we return
+                // the indeterminism reasons
                 Some(indeterminism_reasons.clone().into())
             } else {
                 // Re-execute with collection of steps to generate stack traces
@@ -1086,7 +1092,8 @@ impl<
                     )));
                 let elapsed = start.elapsed();
 
-                // Indeterminism reasons are only relevant for stack trace generation
+                // Indeterminism reasons are only relevant for stack trace
+                // generation
                 let indeterminism_reasons = raw_call_result.indeterminism_reasons.take();
 
                 self.result
@@ -1117,8 +1124,8 @@ impl<
                 return self.result;
             }
 
-            // If it's the last iteration and all other runs succeeded, then use last call
-            // result for logs and traces.
+            // If it's the last iteration and all other runs succeeded, then use
+            // last call result for logs and traces.
             if i == fixtures_len - 1 {
                 self.result
                     .single_result(true, None, raw_call_result, start.elapsed());
@@ -1191,8 +1198,8 @@ impl<
 
         let mut executor = self.clone_executor();
 
-        // Enable edge coverage if running with coverage guided fuzzing or with edge
-        // coverage metrics (useful for benchmarking the fuzzer).
+        // Enable edge coverage if running with coverage guided fuzzing or with
+        // edge coverage metrics (useful for benchmarking the fuzzer).
         executor.inspector_mut().collect_edge_coverage(
             invariant_config.corpus_dir.is_some() || invariant_config.show_edge_coverage,
         );
@@ -1221,7 +1228,8 @@ impl<
             && let Some(mut call_sequence) =
                 persisted_call_sequence(failure_file.as_path(), test_bytecode)
         {
-            // Create calls from failed sequence and check if invariant still broken.
+            // Create calls from failed sequence and check if invariant still
+            // broken.
             let txes = call_sequence
                 .iter_mut()
                 .map(|seq| BasicTxDetails {
@@ -1246,8 +1254,8 @@ impl<
                 invariant_contract.call_after_invariant,
             ) && !success
             {
-                // If sequence still fails then replay error to collect traces and
-                // exit without executing new runs.
+                // If sequence still fails then replay error to collect traces
+                // and exit without executing new runs.
                 let stack_trace_result = replay_run(ReplayRunArgs {
                     executor: self.clone_executor(),
                     execution_traces: &mut self.result.execution_traces,
@@ -1285,7 +1293,8 @@ impl<
             Err(error) => {
                 let elapsed = start.elapsed();
 
-                // Indeterminism reasons are only relevant for stack trace generation
+                // Indeterminism reasons are only relevant for stack trace
+                // generation
                 let indeterminism_reasons = error.indetereminism_reasons();
 
                 self.result.invariant_setup_fail(error, elapsed);
@@ -1323,7 +1332,8 @@ impl<
                 return self.result;
             }
         };
-        // Merge coverage collected during invariant run with test setup coverage.
+        // Merge coverage collected during invariant run with test setup
+        // coverage.
         self.result.merge_coverages(invariant_result.line_coverage);
 
         let mut counterexample = None;
@@ -1338,8 +1348,8 @@ impl<
             Some(error) => match error {
                 InvariantFuzzError::BrokenInvariant(case_data)
                 | InvariantFuzzError::Revert(case_data) => {
-                    // Replay error to create counterexample and to collect logs, traces and
-                    // coverage.
+                    // Replay error to create counterexample and to collect
+                    // logs, traces and coverage.
                     match replay_error(ReplayErrorArgs {
                         executor: self.clone_executor(),
                         execution_traces: &mut self.result.execution_traces,
@@ -1391,9 +1401,10 @@ impl<
                                 ));
                             }
 
-                            // If we can't get a revert reason for the second time, we couldn't
-                            // replay the failure, so keep the original revert reason
-                            // and discard the stack trace as it may be misleading.
+                            // If we can't get a revert reason for the second
+                            // time, we couldn't replay the failure, so keep the
+                            // original revert reason and discard the stack
+                            // trace as it may be misleading.
                             if reason.is_some() && revert_reason.is_none() {
                                 tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
                             } else {
@@ -1601,7 +1612,8 @@ impl<
                     // Merge tx result traces in unit test result.
                     self.result.extend(call_result);
 
-                    // To continue unit test execution the call should not revert.
+                    // To continue unit test execution the call should not
+                    // revert.
                     if reverted {
                         self.result.single_fail(None, start.elapsed());
                         return Err(());
@@ -1636,13 +1648,13 @@ impl<
         // Error is ignored since overrides were already validated in run().
         let _ = self.cr.apply_executor_overrides(func, &mut executor);
 
-        // We only need light-weight tracing for setup to be able to match contract
-        // codes to contact addresses.
+        // We only need light-weight tracing for setup to be able to match
+        // contract codes to contact addresses.
         executor.inspector_mut().tracing(TracingMode::WithoutSteps);
         let setup = self.cr.setup(&mut executor, needs_setup);
         if let Some(reason) = setup.reason {
-            // If this function was called, the setup succeeded during test execution, so
-            // this is an unexpected failure.
+            // If this function was called, the setup succeeded during test
+            // execution, so this is an unexpected failure.
             return Err(SolidityTestStackTraceError::FailingSetup(reason));
         }
 
@@ -1762,8 +1774,8 @@ fn re_run_fuzz_counterexample_for_stack_traces<
     executor.inspector_mut().tracing(TracingMode::WithoutSteps);
     let setup = contract_runner.setup(&mut executor, needs_setup);
     if let Some(reason) = setup.reason {
-        // If this function was called, the setup succeeded during test execution, so
-        // this is an unexpected failure.
+        // If this function was called, the setup succeeded during test
+        // execution, so this is an unexpected failure.
         return Err(SolidityTestStackTraceError::FailingSetup(reason));
     }
 

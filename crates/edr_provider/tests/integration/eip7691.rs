@@ -57,8 +57,8 @@ async fn block_header() -> anyhow::Result<()> {
         Some(excess_blobs * DATA_GAS_PER_BLOB)
     );
 
-    // The first block does not affect the number of excess blobs, as it has less
-    // than the target number of blobs (6)
+    // The first block does not affect the number of excess blobs, as it has
+    // less than the target number of blobs (6)
     let excess_blob_transaction = BlobTransactionBuilder::default()
         .duplicate_blobs(7)
         .nonce(1)
@@ -124,8 +124,8 @@ async fn block_header() -> anyhow::Result<()> {
         Some(excess_blobs * DATA_GAS_PER_BLOB)
     );
 
-    // The fourth block decreases the excess by 6 blob (0 - 6), but should not go
-    // below 0 - the minimum
+    // The fourth block decreases the excess by 6 blob (0 - 6), but should not
+    // go below 0 - the minimum
     excess_blobs = excess_blobs.saturating_sub(6);
 
     // Mine an empty block to validate the previous block's excess

@@ -302,8 +302,8 @@ mod returndata {
 
     fn create_provider_with_coverage() -> Fixture {
         let mut config = create_test_config();
-        // We need to activate coverage measurement for these tests, but don't use the
-        // result.
+        // We need to activate coverage measurement for these tests, but don't
+        // use the result.
         config.observability.on_collected_coverage_fn = Some(Box::new(move |_hits| Ok(())));
 
         let from = {
@@ -430,7 +430,8 @@ mod returndata {
             )))?;
 
         // The EVM does not populate returndata for successful deployments, so
-        // returndatasize() is 0 and the raw assembly return produces empty output.
+        // returndatasize() is 0 and the raw assembly return produces empty
+        // output.
         let result: String = serde_json::from_value(response.result)?;
         assert_eq!(
             result, "0x",
@@ -462,8 +463,8 @@ mod returndata {
                 None,
             )))?;
 
-        // deployRevertingChild() returns the raw ABI-encoded revert data from the
-        // failed CoverageDeployRevert constructor via returndatacopy.
+        // deployRevertingChild() returns the raw ABI-encoded revert data from
+        // the failed CoverageDeployRevert constructor via returndatacopy.
         let result: String = serde_json::from_value(response.result)?;
         let reason = decode_revert_reason(&result);
         assert_eq!(reason, "constructor failed");

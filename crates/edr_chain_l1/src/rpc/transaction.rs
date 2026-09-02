@@ -118,14 +118,15 @@ impl L1RpcTransaction {
                 .effective_gas_price(base_fee)
                 .unwrap_or_else(|| *transaction.gas_price())
         } else {
-            // We are following Hardhat's behavior of returning the max fee per gas for
-            // pending transactions.
+            // We are following Hardhat's behavior of returning the max fee per
+            // gas for pending transactions.
             *transaction.gas_price()
         };
 
         let chain_id = transaction.chain_id().filter(|_| {
-            // Following Hardhat in not returning `chain_id` for `PostEip155Legacy` legacy
-            // transactions even though the chain id would be recoverable.
+            // Following Hardhat in not returning `chain_id` for
+            // `PostEip155Legacy` legacy transactions even though the chain id
+            // would be recoverable.
             !transaction.is_legacy()
         });
 
@@ -560,8 +561,8 @@ impl TryFrom<L1RpcTransactionWithSignature> for L1SignedTransaction {
                     "Unsupported transaction type: {type}. Reverting to post-EIP 155 legacy transaction"
                 );
 
-                // As the transaction type is not 0 or `None`, this will always result in a
-                // post-EIP 155 legacy transaction.
+                // As the transaction type is not 0 or `None`, this will always
+                // result in a post-EIP 155 legacy transaction.
                 L1TransactionType::Legacy
             }
         };

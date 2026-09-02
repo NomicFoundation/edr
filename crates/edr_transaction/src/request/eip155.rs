@@ -98,8 +98,8 @@ impl Eip155 {
     }
 
     fn v_value_adjustment(&self) -> u64 {
-        // `CHAIN_ID * 2 + 35` comes from EIP-155 and we subtract the Bitcoin magic
-        // number 27, because `Signature::new` adds that.
+        // `CHAIN_ID * 2 + 35` comes from EIP-155 and we subtract the Bitcoin
+        // magic number 27, because `Signature::new` adds that.
         self.chain_id * 2 + 35 - 27
     }
 }

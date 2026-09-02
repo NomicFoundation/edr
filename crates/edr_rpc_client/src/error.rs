@@ -39,8 +39,8 @@ impl std::fmt::Display for ReqwestError {
             };
             write!(f, "{prefix} ({code})")?;
         } else {
-            // It might be an upgrade, but `reqwest` doesn't expose checking that on the
-            // self type.
+            // It might be an upgrade, but `reqwest` doesn't expose checking
+            // that on the self type.
             f.write_str("unknown self")?;
         }
 

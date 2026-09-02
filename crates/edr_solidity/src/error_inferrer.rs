@@ -136,9 +136,9 @@ pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
     trace_strategy: &dyn TraceStrategy,
 ) -> Result<Vec<StackTraceEntry>, InferrerError<HaltReasonT>> {
     let recursion_start_idx = trace_strategy.recursion_start_idx();
-    // To work around the borrow checker, we'll collect the indices of the frames we
-    // want to keep. We can't clone the frames, because some of them contain
-    // non-Clone `ClassInstance`s`
+    // To work around the borrow checker, we'll collect the indices of the
+    // frames we want to keep. We can't clone the frames, because some of them
+    // contain non-Clone `ClassInstance`s`
     let retained_indices: HashSet<_> = stacktrace
         .iter()
         .enumerate()
@@ -158,8 +158,9 @@ pub(crate) fn filter_redundant_frames<HaltReasonT: HaltReasonTrait>(
                 return true;
             };
 
-            // look TWO frames ahead to determine if this is a specific occurrence of
-            // a redundant CALLSTACK_ENTRY frame observed when using Solidity 0.8.5:
+            // look TWO frames ahead to determine if this is a specific
+            // occurrence of a redundant CALLSTACK_ENTRY frame observed when
+            // using Solidity 0.8.5:
             match (&frame, next_next_frame) {
                 (
                     StackTraceEntry::CallstackEntry {
@@ -491,7 +492,8 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
     for custom_error in &contract.custom_errors {
         if return_data.matches_selector(custom_error.selector) {
             // if the return data matches a custom error in the called contract,
-            // we format the message using the returnData and the custom error instance
+            // we format the message using the returnData and the custom error
+            // instance
             let decoded = custom_error.decode_error_data(return_data.value)?;
 
             let params = decoded
@@ -652,7 +654,8 @@ fn get_cheatcode_error_source_reference<HaltReasonT: HaltReasonTrait>(
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
 
-    // Prefer the exact cheatcode call site, when its location maps to a function.
+    // Prefer the exact cheatcode call site, when its location maps to a
+    // function.
     for step in trace.steps().iter().rev() {
         let NestedTraceStep::Evm(step) = step else {
             continue;
@@ -998,14 +1001,15 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
         // There should always be a function here, but that's not the case with
         // optimizations.
         //
-        // If this is a create trace, we already checked args and nonpayable failures
-        // before calling this function.
+        // If this is a create trace, we already checked args and nonpayable
+        // failures before calling this function.
         //
-        // If it's a call trace, we already jumped into a function. But optimizations
-        // can happen.
+        // If it's a call trace, we already jumped into a function. But
+        // optimizations can happen.
         let failing_function = location.get_containing_function()?;
 
-        // If the failure is in a modifier we add an entry with the function/constructor
+        // If the failure is in a modifier we add an entry with the
+        // function/constructor
         match failing_function {
             Some(func) if func.r#type == ContractFunctionType::Modifier => {
                 let frame = get_entry_before_failure_in_modifier(trace, function_jumpdests)?;
@@ -1061,9 +1065,9 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
                     let function_from_selector =
                         contract.get_function_from_selector(selector_from(calldata));
 
-                    // in general this shouldn't happen, but it does when viaIR is enabled,
-                    // "optimizerSteps": "u" is used, and the called function is fallback or
-                    // receive
+                    // in general this shouldn't happen, but it does when viaIR
+                    // is enabled, "optimizerSteps": "u" is used, and the called
+                    // function is fallback or receive
                     let Some(function) = function_from_selector else {
                         return Ok(Heuristic::Miss(inferred_stacktrace));
                     };
@@ -1364,9 +1368,9 @@ fn get_entry_before_initial_modifier_callstack_entry<HaltReasonT: HaltReasonTrai
         // If there is no selector, it must be a transfer.
         contract.receive.as_ref()
     } else {
-        // TODO https://github.com/NomicFoundation/edr/issues/963
-        // Defaulting to shorter slice doesn't make much sense at first glance, but we
-        // keep it after fixing the receive fallback, as this pattern is consistently
+        // TODO https://github.com/NomicFoundation/edr/issues/963 Defaulting to
+        // shorter slice doesn't make much sense at first glance, but we keep it
+        // after fixing the receive fallback, as this pattern is consistently
         // used in the codebase.
         contract.get_function_from_selector(selector_from(&trace.calldata))
     };
@@ -1718,8 +1722,8 @@ fn instruction_within_function_to_unmapped_solc_0_6_3_revert_error_source_refere
 fn is_called_non_contract_account_error<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
-    // We could change this to checking that the last valid location maps to a call,
-    // but it's way more complex as we need to get the ast node from that
+    // We could change this to checking that the last valid location maps to a
+    // call, but it's way more complex as we need to get the ast node from that
     // location.
 
     let contract_meta = trace
@@ -1804,8 +1808,8 @@ fn is_constructor_invalid_arguments_error<HaltReasonT: HaltReasonTrait>(
 
     let contract = contract_meta.contract.read();
 
-    // This function is only matters with contracts that have constructors defined.
-    // The ones that don't are abstract contracts, or their constructor
+    // This function is only matters with contracts that have constructors
+    // defined. The ones that don't are abstract contracts, or their constructor
     // doesn't take any argument.
     let Some(constructor) = &contract.constructor else {
         return Ok(false);
@@ -1870,8 +1874,8 @@ fn is_constructor_not_payable_error<HaltReasonT: HaltReasonTrait>(
 
     let contract = contract_meta.contract.read();
 
-    // This function is only matters with contracts that have constructors defined.
-    // The ones that don't are abstract contracts, or their constructor
+    // This function is only matters with contracts that have constructors
+    // defined. The ones that don't are abstract contracts, or their constructor
     // doesn't take any argument.
     let constructor = match &contract.constructor {
         Some(constructor) => constructor,
@@ -2091,8 +2095,8 @@ fn is_proxy_error_propagated<HaltReasonT: HaltReasonTrait>(
     };
 
     let Some(subtrace_contract_meta) = subtrace.contract_meta() else {
-        // If we can't recognize the implementation we'd better don't consider it as
-        // such
+        // If we can't recognize the implementation we'd better don't consider
+        // it as such
         return Ok(false);
     };
 
@@ -2116,8 +2120,8 @@ fn is_proxy_error_propagated<HaltReasonT: HaltReasonTrait>(
 
         let inst = contract_meta.get_instruction(step.pc)?;
 
-        // All the remaining locations should be valid, as they are part of the inline
-        // asm
+        // All the remaining locations should be valid, as they are part of the
+        // inline asm
         if inst.location.is_none() {
             return Ok(false);
         }

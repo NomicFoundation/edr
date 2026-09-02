@@ -58,8 +58,8 @@ pub(super) fn collect_compiled_contracts_and_files<ArtifactT: CompilerArtifact>(
         })
         .collect::<anyhow::Result<HashMap<_, _>>>()?;
 
-    // Secondly, collect all the contracts and fill the source file/contracts with
-    // processed functions
+    // Secondly, collect all the contracts and fill the source file/contracts
+    // with processed functions
     let mut contract_id_to_linearized_base_contract_ids = HashMap::new();
     let mut contract_id_to_contract = IndexMap::new();
 
@@ -273,9 +273,9 @@ impl BuildModel for SolcBuildModel {
             } else {
                 log::debug!("Invalid opcode {opcode} at pc: {pc}");
 
-                // We assume this happens because the source maps point to the metadata region
-                // of the bytecode. That means that the actual instructions have
-                // already been decoded and we can stop here.
+                // We assume this happens because the source maps point to the
+                // metadata region of the bytecode. That means that the actual
+                // instructions have already been decoded and we can stop here.
                 return Ok(instructions);
             };
 

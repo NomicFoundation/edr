@@ -254,7 +254,8 @@ pub(crate) fn can_continue<
             .executor
             .is_success(false, Cow::Borrowed(state_changeset), false);
 
-    // Assert invariants if the call did not revert and the handlers did not fail.
+    // Assert invariants if the call did not revert and the handlers did not
+    // fail.
     if !call_result.reverted && handlers_succeeded {
         if let Some(traces) = call_result.traces {
             invariant_run.run_traces.push(traces);
@@ -290,9 +291,9 @@ pub(crate) fn can_continue<
 
             return Ok(RichInvariantResults::new(false, None));
         } else if call_result.reverted {
-            // If we don't fail test on revert then remove last reverted call from inputs.
-            // This improves shrinking performance as irrelevant calls won't be checked
-            // again.
+            // If we don't fail test on revert then remove last reverted call
+            // from inputs. This improves shrinking performance as irrelevant
+            // calls won't be checked again.
             invariant_run.inputs.pop();
         }
     }

@@ -116,8 +116,8 @@ impl ProviderBuilder {
         // a copy is needed for the next lines to work
         let mut url_str = url_str;
 
-        // invalid url: non-prefixed URL scheme is not allowed, so we prepend the
-        // default http prefix
+        // invalid url: non-prefixed URL scheme is not allowed, so we prepend
+        // the default http prefix
         let storage;
         if url_str.starts_with("localhost:") {
             storage = format!("http://{url_str}");

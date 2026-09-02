@@ -73,14 +73,14 @@ async fn issue_570_error_message() -> anyhow::Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_570_env_var() -> anyhow::Result<()> {
-    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
-    // ACCEPTABLE FOR TESTING PURPOSES ONLY.
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE
+    // RISK ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true") };
 
     let provider = get_provider();
 
-    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
-    // ACCEPTABLE FOR TESTING PURPOSES ONLY.
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE
+    // RISK ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::remove_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES") };
 
     let provider = provider?;
@@ -102,14 +102,14 @@ async fn issue_570_env_var() -> anyhow::Result<()> {
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_570_unsupported_requested() -> anyhow::Result<()> {
-    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
-    // ACCEPTABLE FOR TESTING PURPOSES ONLY.
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE
+    // RISK ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true") };
 
     let provider = get_provider();
 
-    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
-    // ACCEPTABLE FOR TESTING PURPOSES ONLY.
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE
+    // RISK ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::remove_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES") };
 
     let provider = provider?;

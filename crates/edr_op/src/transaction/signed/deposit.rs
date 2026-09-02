@@ -75,8 +75,8 @@ impl ExecutableTransaction for Deposit {
     }
 
     fn gas_price(&self) -> &u128 {
-        // No gas is refunded as ETH. (either by not refunding or utilizing the fact the
-        // gas-price of the deposit is 0)
+        // No gas is refunded as ETH. (either by not refunding or utilizing the
+        // fact the gas-price of the deposit is 0)
         &0
     }
 
@@ -116,8 +116,8 @@ impl ExecutableTransaction for Deposit {
     }
 
     fn max_priority_fee_per_gas(&self) -> Option<&u128> {
-        // No transaction priority fee is charged. No payment is made to the block
-        // fee-recipient.
+        // No transaction priority fee is charged. No payment is made to the
+        // block fee-recipient.
         Some(&0)
     }
 

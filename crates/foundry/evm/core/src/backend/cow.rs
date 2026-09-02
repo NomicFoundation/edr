@@ -126,8 +126,8 @@ impl<
     where
         InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'b mut Self, ChainContextT>,
     {
-        // this is a new call to inspect with a new env, so even if we've cloned the
-        // backend already, we reset the initialized state
+        // this is a new call to inspect with a new env, so even if we've cloned
+        // the backend already, we reset the initialized state
         self.is_initialized = false;
         self.spec_id = *env.cfg.spec();
         let mut env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);

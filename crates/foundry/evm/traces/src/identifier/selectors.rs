@@ -98,8 +98,8 @@ impl OpenChainClient {
             if err.is_timeout() || err.is_connect() {
                 return true;
             }
-            // Error HTTP codes (5xx) are considered connectivity issues and will prompt
-            // retry
+            // Error HTTP codes (5xx) are considered connectivity issues and
+            // will prompt retry
             if let Some(status) = err.status() {
                 let code = status.as_u16();
                 if (500..600).contains(&code) {

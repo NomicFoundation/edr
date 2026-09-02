@@ -93,8 +93,8 @@ impl<
         self.storage.get_mut().revert_to_block(block_number);
 
         if block_number == 0 {
-            // Reservations and state diffs can only occur after the genesis block,
-            // so we can clear them all
+            // Reservations and state diffs can only occur after the genesis
+            // block, so we can clear them all
             self.reservations.get_mut().clear();
 
             // Keep the genesis block's diff

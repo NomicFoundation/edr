@@ -104,8 +104,8 @@ impl<
                 .map_err(StateError::Remote)
         })?;
 
-        // If the account is empty, we must return `None` to signify non-existence.
-        // See <https://github.com/bluealloy/revm/pull/3097>
+        // If the account is empty, we must return `None` to signify
+        // non-existence. See <https://github.com/bluealloy/revm/pull/3097>
         // Using bitwise AND to avoid short-circuiting
         let account_info = if (account_info.code_hash == KECCAK_EMPTY)
             & (account_info.nonce == 0)

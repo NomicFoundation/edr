@@ -31,7 +31,8 @@ where
     }
 
     fn call(&mut self, ecx: &mut CTX, inputs: &mut CallInputs) -> Option<CallOutcome> {
-        // We don't want to override the very first call made to the test contract.
+        // We don't want to override the very first call made to the test
+        // contract.
         if self.call_generator.is_some() && ecx.tx().caller() != inputs.caller {
             self.override_call(inputs);
         }
@@ -64,8 +65,8 @@ impl Fuzzer {
         // TODO: disabled for now since it's flooding the dictionary
         // for index in 0..interpreter.shared_memory.len() / 32 {
         //     let mut slot = [0u8; 32];
-        //     slot.clone_from_slice(interpreter.shared_memory.get_slice(index * 32,
-        // 32));
+        //     slot.clone_from_slice(interpreter.shared_memory.get_slice(index *
+        // 32, 32));
 
         //     state.insert(slot);
         // }
@@ -76,7 +77,8 @@ impl Fuzzer {
     /// Overrides an external call and tries to call any method of msg.sender.
     fn override_call(&mut self, call: &mut CallInputs) {
         if let Some(ref mut call_generator) = self.call_generator {
-            // We only override external calls which are not coming from the test contract.
+            // We only override external calls which are not coming from the
+            // test contract.
             if call.caller != call_generator.test_address
                 && call.scheme == CallScheme::Call
                 && !call_generator.used

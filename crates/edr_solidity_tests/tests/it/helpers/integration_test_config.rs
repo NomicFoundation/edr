@@ -320,11 +320,12 @@ impl IntegrationTestConfig {
     fn configured_artifacts_handler(&self) -> ConfigurableArtifacts {
         let mut extra_output = self.extra_output.clone();
 
-        // Sourcify verification requires solc metadata output. Since, it doesn't
-        // affect the UX & performance of the compiler, output the metadata files
-        // by default.
-        // For more info see: <https://github.com/foundry-rs/foundry/issues/2795>
-        // Metadata is not emitted as separate file because this breaks typechain support: <https://github.com/foundry-rs/foundry/issues/2969>
+        // Sourcify verification requires solc metadata output. Since, it
+        // doesn't affect the UX & performance of the compiler, output the
+        // metadata files by default. For more info see:
+        // <https://github.com/foundry-rs/foundry/issues/2795> Metadata is not
+        // emitted as separate file because this breaks typechain support:
+        // <https://github.com/foundry-rs/foundry/issues/2969>
         if !extra_output.contains(&ContractOutputSelection::Metadata) {
             extra_output.push(ContractOutputSelection::Metadata);
         }
@@ -352,10 +353,10 @@ impl IntegrationTestConfig {
     /// - the optimizer (including details, if configured)
     /// - evm version
     fn solc_settings(&self) -> Result<SolcSettings, SolcError> {
-        // By default if no targets are specifically selected the model checker uses all
-        // targets. This might be too much here, so only enable assertion
-        // checks. If users wish to enable all options they need to do so
-        // explicitly.
+        // By default if no targets are specifically selected the model checker
+        // uses all targets. This might be too much here, so only enable
+        // assertion checks. If users wish to enable all options they need to do
+        // so explicitly.
         let mut model_checker = self.model_checker.clone();
         if let Some(model_checker_settings) = &mut model_checker
             && model_checker_settings.targets.is_none()
@@ -388,7 +389,8 @@ impl IntegrationTestConfig {
         }
         .with_extra_output(self.configured_artifacts_handler().output_selection());
 
-        // We're keeping AST in `--build-info` for backwards compatibility with HardHat.
+        // We're keeping AST in `--build-info` for backwards compatibility with
+        // HardHat.
         if self.ast || self.build_info {
             settings = settings.with_ast();
         }

@@ -630,8 +630,8 @@ impl<
         fuzz_fixtures: &FuzzFixtures,
         deployed_libs: &[Address],
     ) -> Result<InvariantFuzzTestResult, InvariantFuzzError> {
-        // Throw an error to abort test run if the invariant function accepts input
-        // params
+        // Throw an error to abort test run if the invariant function accepts
+        // input params
         if !invariant_contract.invariant_function.inputs.is_empty() {
             return Err(eyre!("Invariant test function should have no inputs").into());
         }
@@ -643,7 +643,8 @@ impl<
         let mut runs = 0;
         let timer = FuzzTestTimer::new(self.config.timeout);
         let continue_campaign = |runs: u32| {
-            // If timeout is configured, then perform invariant runs until expires.
+            // If timeout is configured, then perform invariant runs until
+            // expires.
             if self.config.timeout.is_some() {
                 return !timer.is_timed_out();
             }
@@ -651,8 +652,8 @@ impl<
             runs < self.config.runs
         };
 
-        // Invariant runs with edge coverage if corpus dir is set or showing edge
-        // coverage.
+        // Invariant runs with edge coverage if corpus dir is set or showing
+        // edge coverage.
         let edge_coverage_enabled =
             self.config.corpus_dir.is_some() || self.config.show_edge_coverage;
 
@@ -671,7 +672,8 @@ impl<
                 self.config.depth as usize,
             );
 
-            // We stop the run immediately if we have reverted, and `fail_on_revert` is set.
+            // We stop the run immediately if we have reverted, and
+            // `fail_on_revert` is set.
             if self.config.fail_on_revert && invariant_test.reverts() > 0 {
                 return Err(eyre!("call reverted").into());
             }
@@ -679,9 +681,10 @@ impl<
             while current_run.depth < self.config.depth {
                 // Check if the timeout has been reached.
                 if timer.is_timed_out() {
-                    // Since we never record a revert here the test is still considered
-                    // successful even though it timed out. We *want*
-                    // this behavior for now, so that's ok, but
+                    // Since we never record a revert here the test is still
+                    // considered successful even though it timed out. We *want*
+                    // this behavior
+                    // for now, so that's ok, but
                     // future developers should be aware of this.
                     break 'stop;
                 }
@@ -691,8 +694,9 @@ impl<
                     .last()
                     .ok_or_else(|| eyre!("no input generated to call fuzzed target."))?;
 
-                // Execute call from the randomly generated sequence without committing state.
-                // State is committed only if call is not a magic assume.
+                // Execute call from the randomly generated sequence without
+                // committing state. State is committed only if call is not a
+                // magic assume.
                 let mut call_result = current_run
                     .executor
                     .call_raw(
@@ -710,8 +714,8 @@ impl<
 
                 // Collect line coverage from last fuzzed call.
                 invariant_test.merge_coverage(call_result.line_coverage.clone());
-                // If running with edge coverage then merge edge count with the current history
-                // map and set new coverage in current run.
+                // If running with edge coverage then merge edge count with the
+                // current history map and set new coverage in current run.
                 if edge_coverage_enabled {
                     let (new_coverage, is_edge) =
                         call_result.merge_edge_coverage(&mut self.history_map);
@@ -734,13 +738,14 @@ impl<
                     // Commit executed call result.
                     current_run.executor.commit(&mut call_result);
 
-                    // Collect data for fuzzing from the state changeset.
-                    // This step updates the state dictionary and therefore invalidates the
-                    // ValueTree in use by the current run. This manifestsitself in proptest
-                    // observing a different input case than what it was called with, and creates
-                    // inconsistencies whenever proptest tries to use the input case after test
-                    // execution.
-                    // See <https://github.com/foundry-rs/foundry/issues/9764>.
+                    // Collect data for fuzzing from the state changeset. This
+                    // step updates the state dictionary and therefore
+                    // invalidates the ValueTree in use by the current run. This
+                    // manifestsitself in proptest observing a different input
+                    // case than what it was called with, and creates
+                    // inconsistencies whenever proptest tries to use the input
+                    // case after test execution. See
+                    // <https://github.com/foundry-rs/foundry/issues/9764>.
                     let mut state_changeset = call_result.state_changeset.clone();
                     if !call_result.reverted {
                         collect_data(
@@ -752,8 +757,8 @@ impl<
                         );
                     }
 
-                    // Collect created contracts and add to fuzz targets only if targeted contracts
-                    // are updatable.
+                    // Collect created contracts and add to fuzz targets only if
+                    // targeted contracts are updatable.
                     if let Err(error) =
                         &invariant_test.targeted_contracts.collect_created_contracts(
                             &state_changeset,
@@ -784,7 +789,8 @@ impl<
                     if !result.can_continue || current_run.depth == self.config.depth - 1 {
                         invariant_test.set_last_run_inputs(&current_run.inputs);
                     }
-                    // If test cannot continue then stop current run and exit test suite.
+                    // If test cannot continue then stop current run and exit
+                    // test suite.
                     if !result.can_continue {
                         break 'stop;
                     }
@@ -804,7 +810,8 @@ impl<
             // Extend corpus with current run data.
             corpus_manager.collect_inputs(&current_run);
 
-            // Call `afterInvariant` only if it is declared and test didn't fail already.
+            // Call `afterInvariant` only if it is declared and test didn't fail
+            // already.
             if invariant_contract.call_after_invariant && !invariant_test.has_errors() {
                 assert_after_invariant(
                     &invariant_contract,
@@ -896,7 +903,8 @@ impl<
 
         self.select_selectors(to, &mut contracts)?;
 
-        // There should be at least one contract identified as target for fuzz runs.
+        // There should be at least one contract identified as target for fuzz
+        // runs.
         if contracts.is_empty() {
             eyre::bail!("No contracts to fuzz.");
         }
@@ -975,8 +983,8 @@ impl<
             }
         }
 
-        // Insert `targetArtifacts` into the executor `targeted_abi`, if they have not
-        // been seen before.
+        // Insert `targetArtifacts` into the executor `targeted_abi`, if they
+        // have not been seen before.
         for contract in targeted_artifacts {
             let identifier = self.validate_selected_contract(contract, &[])?;
 
@@ -1022,8 +1030,8 @@ impl<
             .call_sol_default(address, &IInvariantTest::excludeSelectorsCall {});
         for IInvariantTest::FuzzSelector { addr, selectors } in excluded_selectors {
             if addr == address {
-                // If fuzz selector address is the test contract, then record selectors to be
-                // later excluded if needed.
+                // If fuzz selector address is the test contract, then record
+                // selectors to be later excluded if needed.
                 excluded_test_selectors = selectors.clone();
             }
             self.add_address_with_functions(addr, &selectors, true, targeted_contracts)?;
@@ -1032,9 +1040,9 @@ impl<
         if target_test_selectors.is_empty()
             && let Some(target) = targeted_contracts.get(&address)
         {
-            // If test contract is marked as a target and no target selector explicitly set,
-            // then include only state-changing functions that are not reserved
-            // and selectors that are not explicitly excluded.
+            // If test contract is marked as a target and no target selector
+            // explicitly set, then include only state-changing functions that
+            // are not reserved and selectors that are not explicitly excluded.
             let selectors: Vec<_> = target
                 .abi
                 .functions()
@@ -1074,8 +1082,8 @@ impl<
 
         // Since `targetInterfaces` returns a tuple array there is no guarantee
         // that the addresses are unique this map is used to merge functions of
-        // the specified interfaces for the same address. For example:
-        // `[(addr1, ["IERC20", "IOwnable"])]` and `[(addr1, ["IERC20"]), (addr1,
+        // the specified interfaces for the same address. For example: `[(addr1,
+        // ["IERC20", "IOwnable"])]` and `[(addr1, ["IERC20"]), (addr1,
         // ("IOwnable"))]` should be equivalent.
         let mut combined = TargetedContracts::new();
 
@@ -1084,7 +1092,8 @@ impl<
         for IInvariantTest::FuzzInterface { addr, artifacts } in &interfaces {
             // Identifiers are specified as an array, so we loop through them.
             for identifier in artifacts {
-                // Try to find the contract by name or identifier in the project's contracts.
+                // Try to find the contract by name or identifier in the
+                // project's contracts.
                 if let Some(abi) = self
                     .project_contracts
                     .find_abi_by_name_or_identifier(identifier)
@@ -1094,7 +1103,8 @@ impl<
                         .entry(*addr)
                         // If the entry exists, extends its ABI with the function list.
                         .and_modify(|entry| {
-                            // Extend the ABI's function list with the new functions.
+                            // Extend the ABI's function list with the new
+                            // functions.
                             entry.abi.functions.extend(abi.functions.clone());
                         })
                         // Otherwise insert it into the map.
@@ -1163,8 +1173,8 @@ impl<
         )
         .no_shrink();
 
-        // Allows `override_call_strat` to use the address given by the Fuzzer inspector
-        // during EVM execution.
+        // Allows `override_call_strat` to use the address given by the Fuzzer
+        // inspector during EVM execution.
         let mut call_generator = None;
         if self.config.call_override {
             let target_contract_ref = Arc::new(RwLock::new(Address::ZERO));
@@ -1188,9 +1198,9 @@ impl<
             collect: true,
         });
 
-        // Let's make sure the invariant is sound before actually starting the run:
-        // We'll assert the invariant in its initial state, and if it fails, we'll
-        // already know if we can early exit the invariant run.
+        // Let's make sure the invariant is sound before actually starting the
+        // run: We'll assert the invariant in its initial state, and if it
+        // fails, we'll already know if we can early exit the invariant run.
         // This does not count as a fuzz run. It will just register the revert.
         let mut failures = InvariantFailures::new();
         let last_call_results = assert_invariants(
