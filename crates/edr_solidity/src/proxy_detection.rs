@@ -239,4 +239,69 @@ mod tests {
         let chain = detect_proxy_chain(&arena, 0);
         assert!(chain.is_none());
     }
+
+    #[test]
+    fn test_clones_with_immutable_args_proxy() {
+        // Proxy pattern where selector matches but calldata differs
+        // (e.g., clones-with-immutable-args appends data)
+        let proxy_addr = Address::repeat_byte(1);
+        let impl_addr = Address::repeat_byte(2);
+        // Parent calldata is just the selector + some args
+        let parent_calldata = Bytes::from_static(b"SELC_args");
+        // Child calldata has the same selector but extra data appended
+        let child_calldata = Bytes::from_static(b"SELC_args_and_extra_immutable_data");
+        let output = Bytes::from_static(b"output");
+
+        let arena = build_arena(vec![
+            (
+                CallKind::Call,
+                proxy_addr,
+                parent_calldata,
+                output.clone(),
+                vec![1],
+            ),
+            (
+                CallKind::DelegateCall,
+                impl_addr,
+                child_calldata,
+                output,
+                vec![],
+            ),
+        ]);
+        let proxy_call = &arena.nodes()[0].trace;
+        let impl_call = &arena.nodes()[1].trace;
+
+        let chain = detect_proxy_chain(&arena, 0);
+        assert_eq!(chain, Some(vec![impl_call, proxy_call]));
+    }
+
+    #[test]
+    fn test_different_selector_not_proxy() {
+        // DELEGATECALL with different first 4 bytes should not be detected as proxy
+        let proxy_addr = Address::repeat_byte(1);
+        let impl_addr = Address::repeat_byte(2);
+        // Different selectors (first 4 bytes)
+        let parent_calldata = Bytes::from_static(b"AABBrest_of_data");
+        let child_calldata = Bytes::from_static(b"CCDDrest_of_data");
+        let output = Bytes::from_static(b"output");
+
+        let arena = build_arena(vec![
+            (
+                CallKind::Call,
+                proxy_addr,
+                parent_calldata,
+                output.clone(),
+                vec![1],
+            ),
+            (
+                CallKind::DelegateCall,
+                impl_addr,
+                child_calldata,
+                output,
+                vec![],
+            ),
+        ]);
+        let chain = detect_proxy_chain(&arena, 0);
+        assert!(chain.is_none());
+    }
 }
