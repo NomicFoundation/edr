@@ -8,6 +8,11 @@ on:
   pull_request:
     branches:
       - "**"
+    # `closed` runs no jobs (see the `github.event.action` guard below). It
+    # exists so that closing or merging a PR creates a run that takes over the
+    # PR's concurrency group, cancelling a benchmark that is still occupying
+    # the self-hosted runner for a PR nobody is going to look at again.
+    types: [opened, synchronize, reopened, closed]
   workflow_dispatch:
 
 # Results are pushed to an external repo via a PAT, so GITHUB_TOKEN only reads.
@@ -19,7 +24,11 @@ defaults:
     working-directory: js/benchmark
 
 concurrency:
-  group: ${{github.workflow}}-${{github.ref}}
+  # Key PR runs on the PR number rather than the ref, so the run created by the
+  # `closed` event groups with the runs from opened/synchronize and cancels
+  # them. Pushes to main and manual dispatches have no PR number and fall back
+  # to the ref.
+  group: ${{github.workflow}}-${{github.event.pull_request.number || github.ref}}
   # Don't cancel in progress jobs in main
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
@@ -28,8 +37,13 @@ jobs:
     name: Benchmarks test
     environment: github-action-benchmark
     runs-on: edr-benchmark-runner
-    # Only run for trusted collaborators since third-parties could run malicious code on the self-hosted benchmark runner.
-    if: github.ref == 'refs/heads/main' || github.repository == github.event.pull_request.head.repo.full_name
+    # Skip on `closed`: that event is only here to trigger the concurrency
+    # cancellation. Otherwise only run for trusted collaborators since
+    # third-parties could run malicious code on the self-hosted benchmark runner.
+    if: >-
+      github.event.action != 'closed'
+      && (github.ref == 'refs/heads/main'
+        || github.repository == github.event.pull_request.head.repo.full_name)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
