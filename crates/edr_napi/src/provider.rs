@@ -9,7 +9,7 @@ use edr_solidity::artifacts::{
     solc::extract_solc_contract_metadata, solx::extract_solx_contract_metadata, to_compiler_type,
 };
 use napi::{
-    bindgen_prelude::{FnArgs, Function, Object, ObjectFinalize, Promise, Uint8Array},
+    bindgen_prelude::{FnArgs, Function, Object, Promise, Uint8Array},
     tokio::runtime,
     Env, Status,
 };
@@ -20,22 +20,8 @@ pub use self::factory::ProviderFactory;
 use self::response::Response;
 use crate::{
     async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
-    contract_decoder::ContractDecoder, gc::GcTracked,
+    contract_decoder::ContractDecoder, gc::gc_tracked,
 };
-
-/// Bytes reported to V8 for the OS thread that a provider owns.
-///
-/// This is the standard library's default stack reservation, which
-/// [`edr_utils_sync::CancellableThread`] does not override. `RUST_MIN_STACK`
-/// does, in which case the figure is wrong but still the right order of
-/// magnitude.
-///
-/// [`GcProvider`] reports it and [`ObjectFinalize::finalize`] releases it, so
-/// the two must stay the same amount.
-pub const THREAD_EXTERNAL_MEMORY: i64 = 2 * 1024 * 1024;
-
-/// A [`Provider`] on its way to JavaScript, reporting its OS thread to V8.
-pub type GcProvider = GcTracked<Provider, THREAD_EXTERNAL_MEMORY>;
 
 /// A JSON-RPC provider for Ethereum.
 #[napi(custom_finalize)]
@@ -53,7 +39,7 @@ impl Provider {
     ///
     /// Hand the result to JavaScript as a [`GcProvider`], so V8 learns of the
     /// OS thread it now owns.
-    pub fn new(
+    pub(crate) fn new(
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
@@ -282,23 +268,26 @@ impl Provider {
     }
 }
 
-impl ObjectFinalize for Provider {
-    fn finalize(self, env: Env) -> napi::Result<()> {
+gc_tracked! {
+    /// A [`Provider`] on its way to JavaScript, reporting its OS thread to V8.
+    pub(crate) type GcProvider = GcTracked<Provider>;
+
+    /// The standard library's default thread stack reservation, which
+    /// [`edr_utils_sync::CancellableThread`] does not override.
+    /// `RUST_MIN_STACK` does, in which case the figure is wrong but still the
+    /// right order of magnitude.
+    const EXTERNAL_MEMORY: i64 = 2 * 1024 * 1024;
+
+    fn drop(self) {
         let Self {
             provider,
             dropped_provider_sender,
             ..
         } = self;
 
-        // Releases what `GcProvider` reported. Only a JS object reaches this
-        // finalizer, so the two amounts always pair up.
-        env.adjust_external_memory(-THREAD_EXTERNAL_MEMORY)?;
-
         // Off-loads deallocation to a background thread to avoid blocking the
         // JS thread (the provider may be running thread-safe functions on a
         // background thread; dropping it here would deadlock).
         dropped_provider_sender.deallocate(provider);
-
-        Ok(())
     }
 }
