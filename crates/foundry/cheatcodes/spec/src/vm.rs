@@ -2578,8 +2578,8 @@ interface Vm {
     ///
     /// Supports 2 different inputs:
     ///  1. Name of a struct type, declared in the running test contract's
-    ///     Solidity sources or one of their imports. These are parsed once,
-    ///     when the test run starts.
+    ///     Solidity source or one of its imports. These are parsed once, when
+    ///     the test run starts.
     ///
     ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
     ///     Note: the cheatcode will use the canonical type even if the input is malformed
@@ -2591,8 +2591,8 @@ interface Vm {
     ///
     /// Supports 2 different inputs:
     ///  1. Name of a struct type, declared in the running test contract's
-    ///     Solidity sources or one of their imports. These are parsed once,
-    ///     when the test run starts.
+    ///     Solidity source or one of its imports. These are parsed once, when
+    ///     the test run starts.
     ///
     ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
     ///     Note: the cheatcode will use the canonical type even if the input is malformed

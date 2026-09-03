@@ -6,6 +6,7 @@ use std::sync::Arc;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::contract_decoder::SyncNestedTraceDecoder;
 use edr_solidity_tests::{
+    error::TestRunnerError,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
@@ -14,7 +15,23 @@ use edr_solidity_tests::{
     MultiContractRunner, TestFilterConfig,
 };
 
-pub use self::factory::{CreateTestRunnerError, SyncTestRunnerFactory};
+pub use self::factory::SyncTestRunnerFactory;
+
+/// The reason a test run failed before producing results.
+pub enum RunTestsError {
+    /// One or more of the selected suites' sources could not be collected.
+    /// Carried as the structured, locatable problems so the caller can surface
+    /// them to the JS side rather than a flat string.
+    InvalidInlineConfig(edr_solidity_tests::inline_config::error::InlineConfigErrors),
+    /// Any other failure, already rendered for the JS side.
+    Failed(napi::Error),
+}
+
+impl From<napi::Error> for RunTestsError {
+    fn from(error: napi::Error) -> Self {
+        Self::Failed(error)
+    }
+}
 
 pub trait SyncTestRunner: Send + Sync {
     fn run_tests(
@@ -22,7 +39,7 @@ pub trait SyncTestRunner: Send + Sync {
         runtime: tokio::runtime::Handle,
         test_filter: Arc<TestFilterConfig>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<String>>,
-    ) -> napi::Result<SolidityTestResult>;
+    ) -> Result<SolidityTestResult, RunTestsError>;
 }
 
 impl<
@@ -59,7 +76,7 @@ impl<
         runtime: tokio::runtime::Handle,
         test_filter: Arc<TestFilterConfig>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<String>>,
-    ) -> napi::Result<SolidityTestResult> {
+    ) -> Result<SolidityTestResult, RunTestsError> {
         let test_result = self
             .test(
                 runtime,
@@ -81,7 +98,12 @@ impl<
                     },
                 ),
             )
-            .map_err(|err| napi::Error::from_reason(err.to_string()))?;
+            .map_err(|error| match error {
+                TestRunnerError::InlineConfig(errors) => RunTestsError::InvalidInlineConfig(errors),
+                error @ TestRunnerError::ExecutorBuilderError(_) => {
+                    RunTestsError::Failed(napi::Error::from_reason(error.to_string()))
+                }
+            })?;
 
         Ok(test_result)
     }
