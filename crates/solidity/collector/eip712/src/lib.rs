@@ -1,17 +1,18 @@
 //! Defines EIP-712 types and a means of collecting EIP-712 canonical type
 //! definitions from Solidity sources.
 
+#![warn(missing_docs)]
+
 pub mod collector;
 pub mod parse;
-pub mod provider;
 
 pub use edr_solidity_parser_slang::ImportResolver;
 
 /// An EIP-712 type definition in canonical form, paired with its
 /// primary-type name.
 ///
-/// Only [`Eip712TypeDef::parse`] can construct one, which guarantees the
-/// canonical-form invariant.
+/// Only [`Eip712Type::parse`] and the collector can construct one, and both
+/// produce the canonical form.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Eip712Type {
     name: String,
@@ -24,8 +25,7 @@ impl Eip712Type {
         &self.name
     }
 
-    /// Canonical EIP-712 type definition, as produced by
-    /// [`EncodeType::canonicalize`].
+    /// Canonical EIP-712 type definition.
     pub fn canonical_definition(&self) -> &str {
         &self.canonical_definition
     }

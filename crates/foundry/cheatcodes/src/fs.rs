@@ -1096,14 +1096,10 @@ fn get_artifact_code<
                 .filter(|(id, _)| id.version == state.config.running_artifact.version)
                 .collect::<Vec<_>>();
 
-            if let Some(artifact) = filtered.first() {
-                if filtered.len() == 1 {
-                    Ok(**artifact)
-                } else {
-                    Err(fmt_err!("multiple matching artifacts found"))
-                }
-            } else {
-                Err(fmt_err!("multiple matching artifacts found, but none match the solc version of the current script/test"))
+            match filtered.as_slice() {
+                [artifact] => Ok(**artifact),
+                [] => Err(fmt_err!("multiple matching artifacts found, but none match the solc version of the current script/test")),
+                _ => Err(fmt_err!("multiple matching artifacts found")),
             }
         }
     }?
@@ -1583,7 +1579,6 @@ mod tests {
     use std::{collections::HashSet, sync::Arc};
 
     use alloy_json_abi::ContractObject;
-    use edr_solidity_collector_eip712::collector::Eip712TypeCollection;
     use foundry_evm_core::{evm_context::L1EvmBuilder, opts::EvmOpts};
     use revm::{
         context::{
@@ -1614,7 +1609,7 @@ mod tests {
             Arc::default(),
             artifact,
             HashSet::new(),
-            Eip712TypeCollection::default(),
+            Arc::default(),
         );
 
         Cheatcodes::new(Arc::new(config))

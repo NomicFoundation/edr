@@ -22,12 +22,10 @@ pub struct UnsupportedSolcVersionError {
     pub source: FromSemverError,
 }
 
-// TODO: `derive(Clone)` once `FromSemverError` implements `Clone`.
+// TODO: `derive(Clone)` once `FromSemverError` implements `Clone`. Until then
+// the identity match below is the only way to duplicate it out of the borrow.
 impl Clone for UnsupportedSolcVersionError {
     fn clone(&self) -> Self {
-        // Not a needless match: `FromSemverError` is neither `Clone` nor
-        // `Copy`, so the identity match is the only way to duplicate it out
-        // of the borrow.
         #[allow(clippy::needless_match)]
         let source = match self.source {
             FromSemverError::UnexpectedMetadata => FromSemverError::UnexpectedMetadata,
@@ -78,8 +76,6 @@ pub fn supports_solc_version(solc_version: &Version) -> bool {
 /// Maps a solc [`Version`] to a Slang [`LanguageVersion`]; clamping versions
 /// newer than Slang supports down to its latest grammar.
 fn to_language_version(solc_version: Version) -> Result<LanguageVersion, FromSemverError> {
-    // Fall back to the latest Slang grammar for any solc version newer than what
-    // Slang supports.
     let latest: Version = LanguageVersion::LATEST.into();
     if solc_version > latest {
         Ok(LanguageVersion::LATEST)
