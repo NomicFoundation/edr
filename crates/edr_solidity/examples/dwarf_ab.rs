@@ -27,7 +27,7 @@ use edr_solidity::{
     artifacts::{
         solx::SolxBuildModel, CompilerArtifact as _, CompilerInput, CompilerOutput, SolxBytecode,
     },
-    build_model::BuildModel as _,
+    build_model::{BuildModel as _, Instruction},
 };
 
 fn rss_line(label: &str) {
@@ -45,6 +45,68 @@ fn rss_line(label: &str) {
     );
 }
 
+/// Digest over everything a decode produces, for comparing revisions. Per-blob
+/// digests are sorted before hashing: `output.contracts` is a `HashMap`, so
+/// blob iteration order varies between processes.
+fn equivalence_digest(all: &[Vec<Instruction>]) -> String {
+    let mut blob_digests: Vec<String> = Vec::new();
+    for insns in all {
+        let mut digest = String::new();
+        for i in insns {
+            use std::fmt::Write as _;
+            let loc = i.location.as_ref().map(|l| {
+                let name = l
+                    .file()
+                    .map(|f| f.read().source_name.clone())
+                    .unwrap_or_default();
+                (name, l.offset, l.length)
+            });
+            let _ = write!(
+                digest,
+                "{}:{}:{:?}:{:?}:{:?}:{};",
+                i.pc,
+                i.opcode,
+                i.jump_type,
+                i.push_data,
+                loc,
+                i.inline_call_sites
+                    .iter()
+                    .map(|l| format!("{}+{}", l.offset, l.length))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            );
+        }
+        blob_digests.push(hex::encode(edr_primitives::keccak256(digest.as_bytes())));
+    }
+    blob_digests.sort_unstable();
+    hex::encode(edr_primitives::keccak256(blob_digests.join(",").as_bytes()))
+}
+
+/// What the decoded instruction vectors themselves occupy, i.e. what a real
+/// build-info load retains per contract.
+fn report_retained(all: &[Vec<Instruction>], instructions: usize) {
+    let inst_size = std::mem::size_of::<Instruction>();
+    let push_heap: usize = all
+        .iter()
+        .flatten()
+        .map(|i| i.push_data.as_ref().map_or(0, Vec::capacity))
+        .sum();
+    let call_sites: usize = all
+        .iter()
+        .flatten()
+        .map(|i| i.inline_call_sites.len())
+        .sum();
+    eprintln!(
+        "retained: {} vecs, {} instructions x {} B = {} kB inline, push_heap={} kB, call_sites={} entries",
+        all.len(),
+        instructions,
+        inst_size,
+        instructions * inst_size / 1024,
+        push_heap / 1024,
+        call_sites
+    );
+}
+
 fn main() {
     let mut args = std::env::args().skip(1);
     let input_path = args
@@ -53,7 +115,12 @@ fn main() {
     let output_path = args
         .next()
         .expect("usage: dwarf_ab <input.json> <output.json> [iters]");
-    let iters: u32 = args.next().and_then(|s| s.parse().ok()).unwrap_or(20);
+    let iters: u32 = args.next().map_or(20, |arg| {
+        arg.parse().unwrap_or_else(|error| {
+            panic!("iters must be a positive integer, got {arg:?}: {error}")
+        })
+    });
+    assert!(iters > 0, "iters must be at least 1");
 
     rss_line("start");
     let input: CompilerInput =
@@ -88,7 +155,7 @@ fn main() {
     // First pass: decode everything, retaining results, to see what the
     // instruction vectors themselves cost (this is what a real build-info
     // load retains per contract).
-    let mut all: Vec<Vec<edr_solidity::build_model::Instruction>> = Vec::new();
+    let mut all: Vec<Vec<Instruction>> = Vec::new();
     let mut decoded = 0usize;
     let mut instructions = 0usize;
     for (artifact, code, is_deployment) in &items {
@@ -99,65 +166,8 @@ fn main() {
         }
     }
     rss_line("all decoded (retained)");
-    // Equivalence digest over everything a decode produces. Per-blob digests
-    // are sorted before hashing: `output.contracts` is a HashMap, so blob
-    // iteration order varies between processes.
-    {
-        let mut blob_digests: Vec<String> = Vec::new();
-        for insns in &all {
-            let mut digest = String::new();
-            for i in insns {
-                use std::fmt::Write as _;
-                let loc = i.location.as_ref().map(|l| {
-                    let name = l
-                        .file()
-                        .map(|f| f.read().source_name.clone())
-                        .unwrap_or_default();
-                    (name, l.offset, l.length)
-                });
-                let _ = write!(
-                    digest,
-                    "{}:{}:{:?}:{:?}:{:?}:{};",
-                    i.pc,
-                    i.opcode,
-                    i.jump_type,
-                    i.push_data,
-                    loc,
-                    i.inline_call_sites
-                        .iter()
-                        .map(|l| format!("{}+{}", l.offset, l.length))
-                        .collect::<Vec<_>>()
-                        .join(",")
-                );
-            }
-            blob_digests.push(hex::encode(edr_primitives::keccak256(digest.as_bytes())));
-        }
-        blob_digests.sort_unstable();
-        eprintln!(
-            "DIGEST {}",
-            hex::encode(edr_primitives::keccak256(blob_digests.join(",").as_bytes()))
-        );
-    }
-    let inst_size = std::mem::size_of::<edr_solidity::build_model::Instruction>();
-    let push_heap: usize = all
-        .iter()
-        .flatten()
-        .map(|i| i.push_data.as_ref().map_or(0, Vec::capacity))
-        .sum();
-    let call_sites: usize = all
-        .iter()
-        .flatten()
-        .map(|i| i.inline_call_sites.len())
-        .sum();
-    eprintln!(
-        "retained: {} vecs, {} instructions x {} B = {} kB inline, push_heap={} kB, call_sites={} entries",
-        all.len(),
-        instructions,
-        inst_size,
-        instructions * inst_size / 1024,
-        push_heap / 1024,
-        call_sites
-    );
+    eprintln!("DIGEST {}", equivalence_digest(&all));
+    report_retained(&all, instructions);
     drop(all);
     rss_line("retained dropped");
 
