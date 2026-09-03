@@ -45,10 +45,7 @@ use crate::{
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inline_config::{
         self,
-        error::{
-            InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors,
-            InlineConfigProblem,
-        },
+        error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
     },
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
@@ -229,15 +226,26 @@ impl<
         // test function at its source line — fails here, aborting the whole
         // run before any test executes.
         let (roots, mut source_errors) = test_source_roots(&test_source_paths, &test_contracts);
-        let collected_sources =
+        let collected =
             tokio::task::spawn_blocking(move || collect_test_sources(&roots, &import_resolver))
                 .await
-                .expect("Thread shouldn't panic")
-                .map_err(|inline_config_errors| {
-                    source_errors.extend(inline_config_errors);
+                .expect("Thread shouldn't panic");
 
-                    InlineConfigErrors::from(source_errors)
-                })?;
+        // The sources that could not be located are reported together with the
+        // problems found in the ones that could, so a run surfaces every
+        // problem at once.
+        let collected_sources = match collected {
+            Ok(collected_sources) => collected_sources,
+            Err(collect_errors) => {
+                source_errors.extend(collect_errors);
+                HashMap::new()
+            }
+        };
+        if !source_errors.is_empty() {
+            return Err(SolidityTestRunnerConfigError::InlineConfig(
+                source_errors.into(),
+            ));
+        }
 
         // Attach to each suite the data extracted from its source. Several
         // suites can share one source, and a suite whose source wasn't

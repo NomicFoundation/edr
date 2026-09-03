@@ -3,7 +3,9 @@
 use std::io::Write as _;
 
 use edr_solidity_tests::{
-    inline_config::error::{InlineConfigDirectiveError, InlineConfigProblem},
+    inline_config::error::{
+        InlineConfigCollectError, InlineConfigDirectiveError, InlineConfigProblem,
+    },
     result::TestKind,
     SolidityTestRunnerConfigError,
 };
@@ -207,5 +209,41 @@ async fn contract_level_inline_config_applies_to_all_tests() {
         ),
         "expected 2 runs of depth 3 (6 calls), got {:?}",
         invariant.kind
+    );
+}
+
+/// A test source missing from `test_source_paths` cannot be parsed, so its
+/// inline configuration and EIP-712 types would silently go uncollected. The
+/// run is rejected up front instead.
+#[tokio::test(flavor = "multi_thread")]
+async fn source_without_a_path_aborts_whole_run() {
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    let source = config
+        .test_source_paths
+        .keys()
+        .find(|source| source.ends_with("default/fuzz/Fuzz.t.sol"))
+        .cloned()
+        .expect("test data contains the fuzz test source");
+    config.test_source_paths.remove(&source);
+
+    let error = TEST_DATA_DEFAULT
+        .try_build_runner(config)
+        .await
+        .expect_err("runner creation fails on an unlisted test source");
+
+    let SolidityTestRunnerConfigError::InlineConfig(errors) = error else {
+        panic!("expected an inline-config error, got: {error}");
+    };
+
+    let items = errors.items();
+    assert_eq!(items.len(), 1, "{items:#?}");
+    assert_eq!(items[0].source_path, source);
+    assert!(
+        matches!(
+            &items[0].problem,
+            InlineConfigProblem::Source(InlineConfigCollectError::SourcePathNotProvided)
+        ),
+        "{:#?}",
+        items[0].problem
     );
 }
