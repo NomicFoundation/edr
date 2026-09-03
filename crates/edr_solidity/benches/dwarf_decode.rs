@@ -25,12 +25,30 @@ use edr_solidity::{
 
 const CORPUS_DIR_VAR: &str = "EDR_DWARF_BENCH_DIR";
 
+/// One DWARF-carrying bytecode section that decodes successfully.
+struct Blob {
+    source: String,
+    contract: String,
+    is_deployment: bool,
+    artifact: SolxBytecode,
+    /// The hex-decoded bytecode.
+    code: Vec<u8>,
+}
+
+impl Blob {
+    fn dwarf_bytes(&self) -> u64 {
+        // `debug_info` is un-prefixed hex, so two characters per byte.
+        u64::try_from(self.artifact.debug_info.len() / 2).expect("blob size fits in u64")
+    }
+}
+
 struct Corpus {
     name: String,
     model: SolxBuildModel,
-    /// DWARF-carrying artifacts that decode successfully, with their
-    /// hex-decoded bytecode and deployment flag.
-    items: Vec<(SolxBytecode, Vec<u8>, bool)>,
+    /// Sorted by `(source, contract, is_deployment)`: `output.contracts` is a
+    /// `HashMap`, so without this both sides of an A/B would traverse the
+    /// blobs in different orders.
+    blobs: Vec<Blob>,
     dwarf_bytes: u64,
 }
 
@@ -39,12 +57,12 @@ impl Corpus {
         let model = SolxBuildModel::new(input, &output)
             .unwrap_or_else(|error| panic!("corpus '{name}' must build a model: {error}"));
 
-        let mut items = Vec::new();
-        for contracts in output.contracts.values() {
-            for contract in contracts.values() {
+        let mut blobs = Vec::new();
+        for (source, contracts) in &output.contracts {
+            for (contract, compiled) in contracts {
                 for (artifact, is_deployment) in [
-                    (&contract.evm.bytecode, true),
-                    (&contract.evm.deployed_bytecode, false),
+                    (&compiled.evm.bytecode, true),
+                    (&compiled.evm.deployed_bytecode, false),
                 ] {
                     if artifact.debug_info.is_empty() {
                         continue;
@@ -61,24 +79,38 @@ impl Corpus {
                     {
                         continue;
                     }
-                    items.push((artifact.clone(), code, is_deployment));
+                    blobs.push(Blob {
+                        source: source.clone(),
+                        contract: contract.clone(),
+                        is_deployment,
+                        artifact: artifact.clone(),
+                        code,
+                    });
                 }
             }
         }
+        blobs.sort_by(|a, b| {
+            (&a.source, &a.contract, a.is_deployment).cmp(&(
+                &b.source,
+                &b.contract,
+                b.is_deployment,
+            ))
+        });
         assert!(
-            !items.is_empty(),
+            !blobs.is_empty(),
             "corpus '{name}' has no decodable DWARF blobs"
         );
 
-        let dwarf_bytes = items
-            .iter()
-            .map(|(artifact, ..)| artifact.debug_info.len() as u64 / 2)
-            .sum();
+        let dwarf_bytes = blobs.iter().map(Blob::dwarf_bytes).sum();
+        println!(
+            "corpus '{name}': {} decodable DWARF blobs, {dwarf_bytes} bytes of DWARF",
+            blobs.len()
+        );
 
         Self {
             name,
             model,
-            items,
+            blobs,
             dwarf_bytes,
         }
     }
@@ -89,6 +121,16 @@ impl Corpus {
 /// which is valid because `Scenarios.t.sol` is append-only between fixture
 /// regenerations.
 fn committed_corpus() -> Corpus {
+    // Each side of an A/B builds its corpus from its own revision, so a
+    // change that makes blobs fail to decode would shrink the timed work on
+    // one side only and read as a speedup. Pin what the committed fixture
+    // yields today (96 blobs, ~490 KB; the byte count moves slightly per
+    // regeneration because solx embeds the build directory). A regeneration
+    // that lands below these is a signal to investigate, not to relax the
+    // floor (see fixtures/README.md).
+    const MIN_BLOBS: usize = 96;
+    const MIN_DWARF_BYTES: u64 = 480_000;
+
     let mut input: CompilerInput = serde_json::from_str(include_str!(
         "../fixtures/solx_compiler_input_scenarios.json"
     ))
@@ -104,7 +146,18 @@ fn committed_corpus() -> Corpus {
     ))
     .expect("solx_compiler_output_scenarios.json must parse");
 
-    Corpus::new("scenarios".to_string(), input, output)
+    let corpus = Corpus::new("scenarios".to_string(), input, output);
+    assert!(
+        corpus.blobs.len() >= MIN_BLOBS,
+        "scenarios fixture yields {} decodable DWARF blobs, expected at least {MIN_BLOBS}",
+        corpus.blobs.len()
+    );
+    assert!(
+        corpus.dwarf_bytes >= MIN_DWARF_BYTES,
+        "scenarios fixture yields {} bytes of DWARF, expected at least {MIN_DWARF_BYTES}",
+        corpus.dwarf_bytes
+    );
+    corpus
 }
 
 fn corpora_from_env() -> Vec<Corpus> {
@@ -155,38 +208,37 @@ fn bench_corpus(c: &mut Criterion, corpus: &Corpus) {
     group.throughput(Throughput::Bytes(corpus.dwarf_bytes));
     group.bench_function(BenchmarkId::new("full_pass", &corpus.name), |b| {
         b.iter(|| {
-            for (artifact, code, is_deployment) in &corpus.items {
+            for blob in &corpus.blobs {
                 let instructions = corpus
                     .model
-                    .decode_instructions(artifact, code, *is_deployment)
+                    .decode_instructions(&blob.artifact, &blob.code, blob.is_deployment)
                     .expect("probed decode must succeed");
                 black_box(instructions);
             }
         });
     });
 
-    // The largest blob alone: with ~bytes^1.7 scaling the full pass is
-    // dominated by small blobs' fixed costs, so regressions in the expensive
-    // regime show up here first.
-    let (artifact, code, is_deployment) = corpus
-        .items
+    // The largest blob alone. The full pass is dominated by the corpus's many
+    // small blobs and their fixed per-blob costs, and because decode time
+    // grows super-linearly (~bytes^1.7) the cheap regime does not predict the
+    // expensive one, so the latter gets its own bench. The blob's size goes
+    // into the throughput, not the id: a fixture regeneration that changes it
+    // must not rename the bench out from under `--baseline`.
+    let largest = corpus
+        .blobs
         .iter()
-        .max_by_key(|(artifact, ..)| artifact.debug_info.len())
+        .max_by_key(|blob| blob.dwarf_bytes())
         .expect("corpus is non-empty");
-    let blob_bytes = artifact.debug_info.len() as u64 / 2;
-    group.throughput(Throughput::Bytes(blob_bytes));
-    group.bench_function(
-        BenchmarkId::new("largest_blob", format!("{}/{blob_bytes}B", corpus.name)),
-        |b| {
-            b.iter(|| {
-                let instructions = corpus
-                    .model
-                    .decode_instructions(artifact, code, *is_deployment)
-                    .expect("probed decode must succeed");
-                black_box(instructions);
-            });
-        },
-    );
+    group.throughput(Throughput::Bytes(largest.dwarf_bytes()));
+    group.bench_function(BenchmarkId::new("largest_blob", &corpus.name), |b| {
+        b.iter(|| {
+            let instructions = corpus
+                .model
+                .decode_instructions(&largest.artifact, &largest.code, largest.is_deployment)
+                .expect("probed decode must succeed");
+            black_box(instructions);
+        });
+    });
 
     group.finish();
 }
