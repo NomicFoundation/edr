@@ -227,7 +227,7 @@ describe("Solidity Tests", () => {
 
   it("resolves EIP-712 types across multiple suites in one run", async function () {
     // Exercises collection over two different root sources within a single
-    // test run (the sources are parsed in parallel at runner creation).
+    // test run (the sources are parsed in parallel when the run starts).
     const artifacts = [
       loadContract("./data/artifacts/default/Eip712ResolveTest.json"),
       loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
@@ -262,9 +262,10 @@ describe("Solidity Tests", () => {
     }
   });
 
-  // A non-empty `testSourcePaths` must cover every test suite whose source
-  // can be parsed; problems reject the run up front, carrying the structured
-  // `inlineConfigErrors` array on the thrown error.
+  // A non-empty `testSourcePaths` must name the source of every selected test
+  // suite, with no exceptions; a missing entry rejects the run before any test
+  // executes, carrying the structured `inlineConfigErrors` array on the thrown
+  // error.
   // Typed against the generated `InlineConfigError` union rather than a
   // hand-written shape, so a typings regression fails to compile here.
   async function expectSourceErrors(

@@ -146,7 +146,11 @@ async fn test_gas_metering_reset() {
     let filter = SolidityTestFilter::new(".*", "GasMeteringResetTest", ".*cheats/");
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite_result = suite_results
         .get("default/cheats/GasMeteringReset.t.sol:GasMeteringResetTest")
@@ -182,7 +186,11 @@ async fn test_expect_partial_revert() {
     let filter = SolidityTestFilter::new(".*", "ExpectPartialRevertTest", ".*cheats/");
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite_result = suite_results
         .get("default/cheats/ExpectPartialRevert.t.sol:ExpectPartialRevertTest")
@@ -218,7 +226,11 @@ async fn test_assume_no_revert() {
     // tests can influence each other's execution.
     config.fuzz.failure_persist_dir = None;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite_result = suite_results
         .get("default/cheats/AssumeNoRevert2.t.sol:AssumeNoRevertTest")
@@ -263,7 +275,11 @@ async fn test_assume_no_revert_with_data() {
     // tests can influence each other's execution.
     config.fuzz.failure_persist_dir = None;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite_result = suite_results
         .get("default/cheats/AssumeNoRevertWithData.t.sol:AssumeNoRevertWithDataTest")
