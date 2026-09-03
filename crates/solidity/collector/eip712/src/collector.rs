@@ -16,16 +16,14 @@ use slang_solidity_v2::{
 
 use crate::Eip712Type;
 
-#[derive(Debug, thiserror::Error)]
 /// A struct survived encodability filtering while one of its dependencies did
-/// not, which the fixed point in [`reject_non_encodable`] is meant to prevent.
+/// not, which the fixed point in `reject_non_encodable` is meant to prevent.
+#[derive(Debug, thiserror::Error)]
 #[error(
     "struct `{name}` cannot be canonicalized because struct dependency `{dependency}` is missing."
 )]
 pub struct MissingStructDependency {
-    /// The struct being canonicalized.
     name: String,
-    /// The dependency it references that is absent from the encodable set.
     dependency: String,
 }
 
@@ -91,8 +89,9 @@ impl Eip712Type {
 /// A set of EIP-712 canonical type definitions collected from a compilation
 /// unit, keyed by primary type name.
 ///
-/// Names that were seen but cannot be used (a same-name conflict between two
-/// files, a non-EIP-712-encodable member, or a transitively non-encodable
+/// Names that were seen but cannot be used (a same-name conflict the asking
+/// source cannot settle, a reference to a name that resolves to more than one
+/// struct, a non-EIP-712-encodable member, or a transitively non-encodable
 /// dependency) are recorded separately so a lookup can explain *why* a type is
 /// unavailable rather than reporting a bare "not found".
 #[derive(Clone, Debug, Default)]
@@ -151,20 +150,29 @@ impl Eip712TypeCollection {
     }
 }
 
-/// Core collection logic, decoupled from disk so it can be unit-tested against
-/// an in-memory compilation unit.
+/// Collects every EIP-712 canonical type reachable from `unit`.
+///
+/// `root_file_id` names the file the query is scoped to: when a name resolves
+/// to definitions that disagree, the one declared there wins a direct lookup,
+/// so a test's own struct is never shadowed from deep in its import graph.
+/// Structs *referencing* such a name are rejected either way — a canonical
+/// type identifies its dependencies by bare name alone.
 pub fn collect_eip712_types_from_compilation_unit(
     unit: &CompilationUnit,
     root_file_id: &str,
 ) -> Eip712TypeCollection {
     let collected = collect_structs(unit);
 
-    let DedupedCollection { unique, duplicates } = dedup_by_name(collected, root_file_id);
+    let DedupedCollection {
+        unique,
+        duplicates,
+        ambiguous,
+    } = dedup_by_name(collected, root_file_id);
 
     let EncodableCollection {
         encodables,
         rejected,
-    } = reject_non_encodable(unique, duplicates);
+    } = reject_non_encodable(unique, duplicates, &ambiguous);
 
     let types = encodables
         .iter()
@@ -331,7 +339,7 @@ pub enum RejectReason {
     Duplicate {
         /// The contested struct name.
         name: String,
-        /// The files declaring it, in collection order.
+        /// The distinct files declaring it, sorted.
         file_ids: Vec<String>,
     },
     /// The struct declares a member EIP-712 cannot encode — a mapping, a
@@ -340,6 +348,19 @@ pub enum RejectReason {
     NonEncodableMembers {
         /// The offending member names.
         members: Vec<String>,
+    },
+    /// The struct references a name that resolves to different structs in
+    /// different files. A canonical type inlines its dependencies by bare
+    /// name, so there is no way to say which one was meant.
+    #[error(
+        "Struct references ambiguously-named {}: '{}'. Rename one of the conflicting structs, or \
+         reference it from a source that declares it.",
+        if .dependencies.len() == 1 { "type" } else { "types" },
+        .dependencies.join(", ")
+    )]
+    AmbiguousDependencies {
+        /// The referenced names that resolve to more than one struct.
+        dependencies: Vec<String>,
     },
     /// The struct is well-formed but references a struct that was itself
     /// rejected, so it cannot be encoded either.
@@ -357,15 +378,25 @@ pub enum RejectReason {
 struct DedupedCollection {
     pub unique: HashMap<String, CollectedStruct>,
     pub duplicates: HashMap<String, RejectReason>,
+    /// Names that resolve to different structs in different files. The root's
+    /// definition wins a direct lookup by name, but a canonical type inlines
+    /// its dependencies by bare name, so a struct *referencing* such a name
+    /// would have to guess which body to inline and is rejected instead.
+    pub ambiguous: HashSet<String>,
 }
 
 /// Resolves structs sharing a name to a single definition.
 ///
-/// A definition in `root_file_id` — the source whose test suite is asking —
-/// wins over any imported definition of the same name, so a test's own struct
-/// is never shadowed by a collision deep in its import graph. Names with no
-/// root definition survive only if every definition agrees; otherwise the name
-/// is ambiguous and rejected.
+/// Definitions that agree collapse to one. When they disagree, a definition in
+/// `root_file_id` — the source whose test suite is asking — wins a direct
+/// lookup, so a test's own struct is never shadowed by a collision deep in its
+/// import graph; with no single root definition to prefer, the name is
+/// rejected outright.
+///
+/// Either way the name is recorded as ambiguous, because a canonical type
+/// identifies its dependencies by bare name alone: any struct referencing it
+/// could be encoded with the wrong body and is rejected by
+/// [`reject_non_encodable`].
 fn dedup_by_name(collected: Vec<CollectedStruct>, root_file_id: &str) -> DedupedCollection {
     let mut by_name: HashMap<String, Vec<CollectedStruct>> = HashMap::new();
     for struct_def in collected {
@@ -377,24 +408,30 @@ fn dedup_by_name(collected: Vec<CollectedStruct>, root_file_id: &str) -> Deduped
 
     let mut unique: HashMap<String, CollectedStruct> = HashMap::new();
     let mut duplicates: HashMap<String, RejectReason> = HashMap::new();
+    let mut ambiguous = HashSet::new();
     for (struct_name, struct_defs) in by_name {
-        let mut candidates: Vec<CollectedStruct> = struct_defs
-            .iter()
-            .filter(|def| def.file_id == root_file_id)
-            .cloned()
-            .collect();
-        if candidates.is_empty() {
-            candidates = struct_defs;
-        }
-
-        let (first, rest) = candidates
+        let (first, rest) = struct_defs
             .split_first()
             .expect("a name is only present because at least one struct declared it");
 
-        if rest.iter().all(|def| agree(def, first)) {
+        let fingerprint = make_fingerprint(first);
+        if rest.iter().all(|def| make_fingerprint(def) == fingerprint) {
             unique.insert(struct_name, first.clone());
+            continue;
+        }
+
+        ambiguous.insert(struct_name.clone());
+
+        let mut in_root = struct_defs.iter().filter(|def| def.file_id == root_file_id);
+        // Exactly one definition in the source that asked: it wins. With none,
+        // or with two of them disagreeing, there is nothing to prefer.
+        if let (Some(root_def), None) = (in_root.next(), in_root.next()) {
+            unique.insert(struct_name, root_def.clone());
         } else {
-            let file_ids = candidates.into_iter().map(|def| def.file_id).collect();
+            let mut file_ids: Vec<String> =
+                struct_defs.iter().map(|def| def.file_id.clone()).collect();
+            file_ids.sort();
+            file_ids.dedup();
             duplicates.insert(
                 struct_name.clone(),
                 RejectReason::Duplicate {
@@ -405,13 +442,11 @@ fn dedup_by_name(collected: Vec<CollectedStruct>, root_file_id: &str) -> Deduped
         }
     }
 
-    DedupedCollection { unique, duplicates }
-}
-
-/// Whether two same-named structs declare the same members in the same order,
-/// making the choice between them immaterial.
-fn agree(left: &CollectedStruct, right: &CollectedStruct) -> bool {
-    make_fingerprint(left) == make_fingerprint(right)
+    DedupedCollection {
+        unique,
+        duplicates,
+        ambiguous,
+    }
 }
 
 /// A deterministic fingerprint of a struct's name and members (including
@@ -444,6 +479,7 @@ struct EncodableCollection {
 fn reject_non_encodable(
     collected: HashMap<String, CollectedStruct>,
     previously_rejected: HashMap<String, RejectReason>,
+    ambiguous: &HashSet<String>,
 ) -> EncodableCollection {
     let mut encodables = HashMap::new();
 
@@ -463,7 +499,26 @@ fn reject_non_encodable(
     for (name, struct_def) in collected {
         match EncodableStruct::new(struct_def, |struct_name| struct_names.contains(struct_name)) {
             Ok(encodable) => {
-                encodables.insert(name, encodable);
+                // A canonical type inlines its dependencies by bare name, so a
+                // struct referencing an ambiguous one cannot be encoded without
+                // guessing which definition was meant.
+                let ambiguous_dependencies: Vec<String> = encodable
+                    .direct_struct_deps
+                    .iter()
+                    .filter(|dependency| ambiguous.contains(*dependency))
+                    .cloned()
+                    .collect();
+
+                if ambiguous_dependencies.is_empty() {
+                    encodables.insert(name, encodable);
+                } else {
+                    newly_rejected.insert(
+                        name,
+                        RejectReason::AmbiguousDependencies {
+                            dependencies: ambiguous_dependencies,
+                        },
+                    );
+                }
             }
             Err(reason) => {
                 newly_rejected.insert(name, reason);
@@ -893,6 +948,66 @@ mod tests {
         ));
     }
 
+    /// A dependency must resolve to the struct it actually references, not to
+    /// whichever same-named struct wins the top-level lookup. Inlining the
+    /// wrong one yields a `typeHash` that does not match the Solidity type.
+    #[test]
+    fn imported_dependency_keeps_its_own_definition() {
+        let collection = collect(&[
+            (
+                "root.sol",
+                "import {Order} from \"dep.sol\";
+                 struct Point { uint256 x; }",
+            ),
+            (
+                "dep.sol",
+                "struct Point { address a; }
+                 struct Order { Point p; }",
+            ),
+        ]);
+
+        // `Order.p` is `dep.sol`'s `Point`, so it must not be encoded with
+        // `root.sol`'s.
+        let order = collection.get("Order");
+        assert!(
+            !matches!(&order, Ok(ty) if ty.canonical_definition().contains("Point(uint256 x)")),
+            "Order inlined the wrong Point: {order:?}"
+        );
+    }
+
+    /// Root-preference settles a direct lookup, but it must not leak into
+    /// dependency resolution: a struct referencing the contested name could be
+    /// encoded with either body.
+    #[test]
+    fn root_preference_does_not_extend_to_dependents() {
+        let collection = collect(&[
+            (
+                "root.sol",
+                "import {Order} from \"dep.sol\";
+                 struct Point { uint256 x; }
+                 struct RootUses { Point p; }",
+            ),
+            (
+                "dep.sol",
+                "struct Point { address a; }
+                 struct Order { Point p; }",
+            ),
+        ]);
+
+        // The direct lookup still resolves to the asking source's definition.
+        assert_eq!(get_canonical_type(&collection, "Point"), "Point(uint256 x)");
+
+        // Neither dependent is encodable: both would inline a `Point` chosen
+        // by name alone.
+        for name in ["Order", "RootUses"] {
+            let error = collection.get(name).unwrap_err();
+            assert!(
+                matches!(&error, Eip712CollectionLookupError::Rejected(Eip712TypeRejected { reason: RejectReason::AmbiguousDependencies { dependencies }, .. }) if dependencies.iter().any(|dependency| dependency == "Point")),
+                "{name}: {error}"
+            );
+        }
+    }
+
     #[test]
     fn dependent_of_conflicting_struct_is_rejected() {
         let collection = collect_one(
@@ -900,12 +1015,12 @@ mod tests {
              contract C { struct S { uint256 b; } }
              struct Uses { S s; }",
         );
-        // `Uses` is well-formed in isolation; it is rejected because it
-        // references the unusable `S`. The report names the struct type, not
-        // the member that happens to hold it.
+        // `Uses` is well-formed in isolation; it is rejected because `S` names
+        // two different structs, so there is no saying which body to inline.
+        // The report names the struct type, not the member holding it.
         let uses = collection.get("Uses").unwrap_err();
         assert!(
-            matches!(&uses, Eip712CollectionLookupError::Rejected(Eip712TypeRejected { reason: RejectReason::UnusableDependencies { dependencies }, .. }) if dependencies.iter().any(|dependency| dependency == "S")),
+            matches!(&uses, Eip712CollectionLookupError::Rejected(Eip712TypeRejected { reason: RejectReason::AmbiguousDependencies { dependencies }, .. }) if dependencies.iter().any(|dependency| dependency == "S")),
             "unexpected: {uses}"
         );
     }

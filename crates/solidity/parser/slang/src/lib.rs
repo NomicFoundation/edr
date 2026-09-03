@@ -7,6 +7,6 @@ mod compilation;
 mod resolver;
 
 pub use crate::{
-    compilation::{build_compilation_unit, supports_solc_version, UnsupportedSolcVersionError},
+    compilation::{build_compilation_unit, UnsupportedSolcVersionError},
     resolver::ImportResolver,
 };

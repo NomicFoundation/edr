@@ -66,13 +66,6 @@ pub fn build_compilation_unit(
     Ok(builder.build())
 }
 
-/// Whether Slang has a grammar for sources compiled with `solc_version`
-/// (versions newer than Slang supports are clamped to its latest grammar, so
-/// only versions older than the oldest supported grammar are unsupported).
-pub fn supports_solc_version(solc_version: &Version) -> bool {
-    to_language_version(solc_version.clone()).is_ok()
-}
-
 /// Maps a solc [`Version`] to a Slang [`LanguageVersion`]; clamping versions
 /// newer than Slang supports down to its latest grammar.
 fn to_language_version(solc_version: Version) -> Result<LanguageVersion, FromSemverError> {

@@ -11,7 +11,11 @@ async fn test_coverage_returndata() {
     config.coverage = true;
     config.on_collected_coverage_fn = Some(Box::new(|_hits| Ok(())));
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -36,7 +40,11 @@ async fn test_coverage_prank() {
     config.coverage = true;
     config.on_collected_coverage_fn = Some(Box::new(|_hits| Ok(())));
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,

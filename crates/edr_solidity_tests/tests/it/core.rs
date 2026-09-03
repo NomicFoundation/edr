@@ -21,7 +21,10 @@ async fn test_core() {
     let SolidityTestsRunResult {
         test_result: _,
         suite_results,
-    } = runner.test_collect(filter).await;
+    } = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results");
 
     assert_multiple(
         &suite_results,
@@ -168,7 +171,10 @@ async fn test_empty_test_suite_skips_setup() {
     let SolidityTestsRunResult {
         test_result: _,
         suite_results,
-    } = runner.test_collect(filter).await;
+    } = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results");
 
     let suite = suite_results
         .get("default/core/FailingSetup.t.sol:FailingSetupTest")
@@ -189,7 +195,11 @@ async fn test_empty_test_suite_skips_setup() {
 async fn test_linking() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*linking");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -223,7 +233,11 @@ async fn test_linking() {
 async fn test_logs() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*logs");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -790,7 +804,10 @@ async fn test_env_vars() {
 
     let filter = SolidityTestFilter::new("testSetEnv", ".*", ".*");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let _ = runner.test_collect(filter).await;
+    let _ = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results");
 
     assert_eq!(env::var(env_var_key).unwrap(), env_var_val);
 }
@@ -799,7 +816,11 @@ async fn test_env_vars() {
 async fn test_doesnt_run_abstract_contract() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*Abstract.t.sol".to_string().as_str());
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     assert!(!results.contains_key("default/core/Abstract.t.sol:AbstractTestBase"));
     assert!(results.contains_key("default/core/Abstract.t.sol:AbstractTest"));
 }
@@ -808,7 +829,11 @@ async fn test_doesnt_run_abstract_contract() {
 async fn test_trace() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*trace");
     let runner = TEST_DATA_DEFAULT.tracing_runner().await;
-    let suite_result = runner.test_collect(filter).await.suite_results;
+    let suite_result = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     // TODO: This trace test is very basic - it is probably a good candidate for
     // snapshot testing.
@@ -856,7 +881,11 @@ async fn test_trace() {
 async fn test_before_setup_with_selfdestruct() {
     let filter = SolidityTestFilter::new(".*", ".*BeforeTestSelfDestructTest", ".*");
     let runner = TEST_DATA_PARIS.runner().await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -929,7 +958,11 @@ async fn test_deprecated_cheatcode_warning() {
 
     let filter = SolidityTestFilter::new(".*", ".*", "default/core/DeprecatedCheatcode.t.sol");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple_deprecation_warnings(
         &results,
@@ -960,7 +993,10 @@ async fn test_gas_report_revert() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.generate_gas_report = true;
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let SolidityTestsRunResult { test_result, .. } = runner.test_collect(filter).await;
+    let SolidityTestsRunResult { test_result, .. } = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results");
 
     let gas_report = test_result.gas_report.unwrap();
 
@@ -998,7 +1034,11 @@ async fn test_function_override_allow_internal_expect_revert() {
     config.cheats_config_options.allow_internal_expect_revert = true;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -1017,7 +1057,11 @@ async fn test_function_override_isolate() {
     // that the test actually depends on isolation mode.
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter.clone()).await.suite_results;
+    let results = runner
+        .test_collect(filter.clone())
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -1039,7 +1083,11 @@ async fn test_function_override_isolate() {
         SolidityTestFilter::new(".*", ".*", "default/core/IsolateOverrideEnabled.t.sol");
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(enabled_filter).await.suite_results;
+    let results = runner
+        .test_collect(enabled_filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -1061,7 +1109,11 @@ async fn test_function_override_isolate_disable() {
     config.evm_opts.isolate = true;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter.clone()).await.suite_results;
+    let results = runner
+        .test_collect(filter.clone())
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -1080,7 +1132,11 @@ async fn test_function_override_isolate_disable() {
     config.evm_opts.isolate = true;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(disabled_filter).await.suite_results;
+    let results = runner
+        .test_collect(disabled_filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -1112,7 +1168,11 @@ async fn test_function_override_isolate_ignored_with_gas_report() {
     config.evm_opts.isolate = true;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter.clone()).await.suite_results;
+    let results = runner
+        .test_collect(filter.clone())
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -1134,7 +1194,11 @@ async fn test_function_override_isolate_ignored_with_gas_report() {
     config.generate_gas_report = true;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
