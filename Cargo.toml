@@ -324,7 +324,6 @@ alloy-trie = "0.9.3"
 anyhow = { version = "1.0.100", default-features = false }
 arrayvec = "0.7"
 auto_impl = { version = "1.2", default-features = false }
-crossbeam-channel = "0.5"
 dunce = "1"
 dyn-clone = { version = "1.0.13", default-features = false }
 base64 = "0.23"
@@ -335,6 +334,7 @@ chrono = { version = "0.4", default-features = false, features = [
 clap = { version = "4.0.0", features = ["derive"] }
 ciborium = "0.2"
 color-eyre = "0.6"
+crossbeam-channel = "0.5"
 derive_more = { version = "2", default-features = false }
 derive-where = { version = "1.6.0", default-features = false }
 evm-disassembler = "0.6"
