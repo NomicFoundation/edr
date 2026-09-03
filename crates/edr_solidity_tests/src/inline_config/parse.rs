@@ -117,7 +117,6 @@ mod tests {
         Ok(locate_contracts_in_unit(&unit, &file_id))
     }
 
-
     #[test]
     fn locates_contracts_and_functions_with_offsets() {
         let source = "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\n/// forge-config: default.fuzz.runs = 9\ncontract C {\n    uint256 internal value;\n\n    /// forge-config: default.fuzz.runs = 5\n    function testFoo(uint256 x) public {}\n}\n";

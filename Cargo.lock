@@ -3591,7 +3591,7 @@ dependencies = [
  "rayon",
  "semver 1.0.28",
  "slang_solidity_v2",
- "thiserror 2.0.18",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -3601,7 +3601,7 @@ dependencies = [
  "edr_common",
  "semver 1.0.28",
  "slang_solidity_v2",
- "thiserror 2.0.18",
+ "thiserror 2.0.20",
 ]
 
 [[package]]

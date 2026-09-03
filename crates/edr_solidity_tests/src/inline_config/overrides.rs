@@ -11,13 +11,11 @@ use slang_solidity_v2::compilation::CompilationUnit;
 
 use super::{
     directives::{self, DirectiveTarget, LocatedDirectiveError},
-    error::{
-        InlineConfigCollectError, InlineConfigDirectiveError, InlineConfigErrorItem,
-        InlineConfigProblem,
-    },
+    error::{InlineConfigCollectError, InlineConfigDirectiveError, InlineConfigErrorItem},
     natspec,
     parse::{locate_contracts_in_unit, LocatedContract, LocatedFunction},
 };
+use crate::config::TestFunctionConfigOverride;
 
 /// The inline configuration parsed for a single test function.
 #[derive(Clone, Debug)]
