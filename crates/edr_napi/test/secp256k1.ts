@@ -62,9 +62,7 @@ describe("secp256k1PublicKeyFromSecretKey", function () {
       CURVE_ORDER + BigInt(1),
       BigInt(2) ** BigInt(256) - BigInt(1),
     ]) {
-      assert.throws(() =>
-        secp256k1PublicKeyFromSecretKey(secretKeyOf(scalar))
-      );
+      assert.throws(() => secp256k1PublicKeyFromSecretKey(secretKeyOf(scalar)));
     }
   });
 
