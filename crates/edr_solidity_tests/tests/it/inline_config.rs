@@ -3,14 +3,38 @@
 use std::io::Write as _;
 
 use edr_solidity_tests::{
+    error::TestRunnerError,
     inline_config::error::{
         InlineConfigCollectError, InlineConfigDirectiveError, InlineConfigProblem,
     },
     result::TestKind,
-    SolidityTestRunnerConfigError,
 };
 
 use crate::helpers::{SolidityTestFilter, TEST_DATA_DEFAULT};
+
+/// Runs every suite matching `filter` and returns the inline-config problems
+/// the run was rejected with.
+///
+/// Collection happens when a run starts, over the suites it selected, so these
+/// problems surface from the run rather than from runner creation — still
+/// before any test executes.
+async fn expect_inline_config_errors(
+    config: edr_solidity_tests::SolidityTestRunnerConfig<edr_chain_l1::EvmHardfork>,
+    filter: SolidityTestFilter,
+) -> edr_solidity_tests::inline_config::error::InlineConfigErrors {
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let result = runner.test(
+        tokio::runtime::Handle::current(),
+        std::sync::Arc::new(filter),
+        std::sync::Arc::new(|_| {}),
+    );
+
+    match result {
+        Err(TestRunnerError::InlineConfig(errors)) => errors,
+        Err(error) => panic!("expected an inline-config error, got: {error}"),
+        Ok(_) => panic!("the run should have been rejected"),
+    }
+}
 
 /// A source whose two test functions each carry a distinct malformed directive.
 const MALFORMED_SOURCE: &str = r#"// SPDX-License-Identifier: MIT
@@ -25,9 +49,9 @@ contract BadInlineConfig {
 }
 "#;
 
-/// Ill-formed inline configuration fails runner creation — aborting the whole
-/// run before any test executes (matching Hardhat/Foundry) — reporting the
-/// first problem of every affected function, located at its source line.
+/// Ill-formed inline configuration aborts the whole run when it starts, before
+/// any test executes (matching Hardhat/Foundry), reporting the first problem of
+/// every affected function, located at its source line.
 #[tokio::test(flavor = "multi_thread")]
 async fn malformed_inline_config_aborts_whole_run() {
     let mut file = tempfile::Builder::new()
@@ -43,7 +67,8 @@ async fn malformed_inline_config_aborts_whole_run() {
     // collection parses each source with the grammar of the version its
     // artifact was compiled with, so redirecting e.g. the 0.5.17
     // `FuzzPreBytecodeHash.t.sol` would report a source-level
-    // `InvalidSolcVersion` error instead of the directive errors.
+    // would be skipped with an unsupported-version warning, so no directive
+    // errors would be reported at all.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let source = config
         .test_source_paths
@@ -55,14 +80,11 @@ async fn malformed_inline_config_aborts_whole_run() {
         .test_source_paths
         .insert(source.clone(), file.path().to_path_buf());
 
-    let error = TEST_DATA_DEFAULT
-        .try_build_runner(config)
-        .await
-        .expect_err("runner creation fails on malformed inline config");
-
-    let SolidityTestRunnerConfigError::InlineConfig(errors) = error else {
-        panic!("expected an inline-config error, got: {error}");
-    };
+    let errors = expect_inline_config_errors(
+        config,
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/Fuzz.t.sol"),
+    )
+    .await;
 
     // One problem per affected function, each locating its source, contract,
     // function and the line of the offending directive.
@@ -129,7 +151,11 @@ async fn unmatched_function_directive_warns() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*inline/UnmatchedInlineConfig.t.sol");
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = results
         .get("default/inline/UnmatchedInlineConfig.t.sol:UnmatchedInlineConfigTest")
@@ -157,7 +183,11 @@ async fn contract_level_inline_config_applies_to_all_tests() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*inline/ContractLevelConfig.t.sol");
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = results
         .get("default/inline/ContractLevelConfig.t.sol:ContractLevelConfigTest")
@@ -212,9 +242,9 @@ async fn contract_level_inline_config_applies_to_all_tests() {
     );
 }
 
-/// A test source missing from `test_source_paths` cannot be parsed, so its
-/// inline configuration and EIP-712 types would silently go uncollected. The
-/// run is rejected up front instead.
+/// A test source missing from `test_source_paths` is never located or read, so
+/// its inline configuration and EIP-712 types would silently go uncollected.
+/// The run is rejected before any test executes instead.
 #[tokio::test(flavor = "multi_thread")]
 async fn source_without_a_path_aborts_whole_run() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
@@ -226,14 +256,11 @@ async fn source_without_a_path_aborts_whole_run() {
         .expect("test data contains the fuzz test source");
     config.test_source_paths.remove(&source);
 
-    let error = TEST_DATA_DEFAULT
-        .try_build_runner(config)
-        .await
-        .expect_err("runner creation fails on an unlisted test source");
-
-    let SolidityTestRunnerConfigError::InlineConfig(errors) = error else {
-        panic!("expected an inline-config error, got: {error}");
-    };
+    let errors = expect_inline_config_errors(
+        config,
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/Fuzz.t.sol"),
+    )
+    .await;
 
     let items = errors.items();
     assert_eq!(items.len(), 1, "{items:#?}");
@@ -257,7 +284,11 @@ async fn pre_0_8_source_is_skipped_with_a_warning() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzPreBytecodeHash.t.sol");
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = results
         .get("default/fuzz/FuzzPreBytecodeHash.t.sol:FuzzPreBytecodeHash")
@@ -272,5 +303,45 @@ async fn pre_0_8_source_is_skipped_with_a_warning() {
     assert!(
         warning.contains("FuzzPreBytecodeHash.t.sol") && warning.contains("EIP-712"),
         "{warning}"
+    );
+}
+
+/// Only the sources of the suites a run selects are parsed. A filter that
+/// excludes a broken source must not pay for parsing it — nor be failed by it.
+#[tokio::test(flavor = "multi_thread")]
+async fn filtered_out_sources_are_not_parsed() {
+    let mut file = tempfile::Builder::new()
+        .suffix(".sol")
+        .tempfile()
+        .expect("temp file");
+    file.write_all(MALFORMED_SOURCE.as_bytes())
+        .expect("write source");
+
+    // Point one source at the malformed file, then filter to a different one.
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    let source = config
+        .test_source_paths
+        .keys()
+        .find(|source| source.ends_with("default/fuzz/Fuzz.t.sol"))
+        .cloned()
+        .expect("test data contains the fuzz test source");
+    config
+        .test_source_paths
+        .insert(source, file.path().to_path_buf());
+
+    let filter = SolidityTestFilter::new(".*", ".*", ".*inline/ContractLevelConfig.t.sol");
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
+
+    // The malformed source belongs to a suite this run did not select, so it
+    // was never parsed and its problems never surfaced.
+    assert!(
+        results.contains_key("default/inline/ContractLevelConfig.t.sol:ContractLevelConfigTest"),
+        "{:#?}",
+        results.keys()
     );
 }

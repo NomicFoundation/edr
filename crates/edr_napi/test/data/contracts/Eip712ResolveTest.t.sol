@@ -37,8 +37,8 @@ struct Point {
 
 /// Exercises the EIP-712 type resolution used by `vm.eip712HashType` and
 /// `vm.eip712HashStruct`: each type below is resolved by parsing this test
-/// contract's own sources (and its relative/mapped imports), with no canonical
-/// types configured up front.
+/// contract's own source (and its relative/mapped imports), with nothing
+/// configured beyond the source paths.
 contract Eip712ResolveTest {
     Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 

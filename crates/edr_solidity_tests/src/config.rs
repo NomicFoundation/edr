@@ -12,7 +12,7 @@ use foundry_evm::{
 
 use crate::{
     fork::CreateFork,
-    inline_config::{error::InlineConfigErrors, ImportResolver},
+    inline_config::ImportResolver,
     opts::{effective_transaction_gas_cap, Env as EvmEnv, EvmOpts},
 };
 
@@ -27,10 +27,6 @@ pub enum SolidityTestRunnerConfigError {
     /// Failed to normalize project root
     #[error("Failed to normalize project root with error: {0}")]
     InvalidProjectRoot(std::io::Error),
-    /// One or more test sources carry invalid inline configuration. Carries
-    /// every problem found, each located at its source line.
-    #[error("Found invalid inline configuration in test sources:\n{0}")]
-    InlineConfig(#[from] InlineConfigErrors),
 }
 
 /// Solidity tests configuration
@@ -71,10 +67,15 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// EIP-712 struct definitions served to the `eip712HashType` and
     /// `eip712HashStruct` cheatcodes.
     ///
-    /// An empty map disables collection. A non-empty map must cover every
-    /// test suite whose source can be parsed (solc >= 0.8): a missing entry,
-    /// an unreadable or unparseable source, or an unsupported solc version
-    /// for a listed source fails runner creation.
+    /// An empty map disables collection. A non-empty map must name the source
+    /// of every test suite a run selects; a missing entry fails that run when
+    /// it starts, rather than silently leaving the suite without inline
+    /// configuration or EIP-712 types.
+    ///
+    /// Only the sources of the suites a run selects are read and parsed, so a
+    /// filtered run does not pay for the rest of the project. Listing a source
+    /// that cannot be parsed is safe: it is skipped, and the suites it
+    /// declares report that as a warning.
     pub test_source_paths: HashMap<PathBuf, PathBuf>,
     /// Resolves the imports of test sources while parsing them (see
     /// [`Self::test_source_paths`]).

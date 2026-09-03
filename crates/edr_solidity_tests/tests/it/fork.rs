@@ -21,7 +21,11 @@ mod remote {
         let runner = TEST_DATA_DEFAULT
             .runner_with_fuzz_persistence(TEST_DATA_DEFAULT.config_with_remote_rpc())
             .await;
-        let suite_result = runner.test_collect(filter).await.suite_results;
+        let suite_result = runner
+            .test_collect(filter)
+            .await
+            .expect("the run produces results")
+            .suite_results;
         assert_eq!(suite_result.len(), 1);
 
         for (_, SuiteResult { test_results, .. }) in suite_result {
