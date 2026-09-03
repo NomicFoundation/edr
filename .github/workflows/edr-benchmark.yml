@@ -24,13 +24,18 @@ defaults:
     working-directory: js/benchmark
 
 concurrency:
-  # Key PR runs on the PR number rather than the ref, so the run created by the
-  # `closed` event groups with the runs from opened/synchronize and cancels
-  # them. Pushes to main and manual dispatches have no PR number and fall back
-  # to the ref.
+  # Key PR runs on the PR number rather than the ref. For a `closed` event
+  # `github.ref` is only `refs/pull/N/merge` when the PR was closed without
+  # merging; when it was merged, `github.ref` is the base branch (e.g.
+  # `refs/heads/main`), so keying on the ref would not group the `closed` run
+  # with the PR's earlier runs. Pushes to main and manual dispatches have no PR
+  # number and fall back to the ref.
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  # Don't cancel in progress jobs in main
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # Never cancel in-progress runs on main. PR runs are always cancellable,
+  # including the `closed` run of a merged PR, whose `github.ref` is the base
+  # branch: with `cancel-in-progress: false` GitHub would park that run behind
+  # the in-progress benchmark instead of cancelling it.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
 
 jobs:
   benchmarks-test:
