@@ -53,8 +53,7 @@ pub struct InspectorStackBuilder<HardforkT: HardforkTr, ChainContextT: ChainCont
     /// Used in the cheatcode handler to overwrite the gas price separately from
     /// the gas price in the execution environment.
     pub gas_price: Option<u128>,
-    /// The cheatcodes config.
-    // Wrapped in an `Arc` to allow sharing between multiple inspectors.
+    /// The cheatcodes config, shared between inspectors.
     pub cheatcodes: Option<Arc<CheatsConfig<HardforkT>>>,
     /// The fuzzer inspector and its state, if it exists.
     pub fuzzer: Option<Fuzzer>,
