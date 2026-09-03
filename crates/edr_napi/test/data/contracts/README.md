@@ -1,9 +1,10 @@
 # Solidity test fixtures
 
 These `.sol` sources back the EIP-712 type-resolution integration tests in
-`test/solidity-tests.ts`. Unlike most fixtures in this repo, the EIP-712
-cheatcodes (`vm.eip712HashType`, `vm.eip712HashStruct`) are served by parsing
-the running test contract's **source files from disk**, eagerly at runner
+`test/solidity-tests.ts`. Unlike most fixtures here, these files are read at
+run time rather than only compiled ahead of it: the EIP-712 cheatcodes
+(`vm.eip712HashType`, `vm.eip712HashStruct`) resolve type names by parsing the
+running test contract's **source files from disk**, eagerly at runner
 creation. The sources are read from the absolute paths supplied through the
 `testSourcePaths` runner config, keyed by the `sourceName` recorded in their
 compiled artifacts (the tests point each entry into this directory).
