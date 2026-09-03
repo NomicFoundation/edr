@@ -247,7 +247,7 @@ pub struct InspectorData<
 > {
     pub logs: Vec<Log>,
     pub labels: AddressHashMap<String>,
-    pub traces: Option<SparsedTraceArena>,
+    pub call_trace_arena: Option<SparsedTraceArena>,
     pub line_coverage: Option<HitMaps>,
     pub edge_coverage: Option<Vec<u8>>,
     pub cheatcodes: Option<
@@ -557,7 +557,7 @@ impl<
                 },
         } = self;
 
-        let traces = tracer
+        let call_trace_arena = tracer
             .map(foundry_evm_traces::TracingInspector::into_traces)
             .map(|arena| {
                 let ignored = cheatcodes
@@ -589,7 +589,7 @@ impl<
                 .as_ref()
                 .map(|cheatcodes| cheatcodes.labels.clone())
                 .unwrap_or_default(),
-            traces,
+            call_trace_arena,
             line_coverage: line_coverage.map(foundry_evm_coverage::LineCoverageCollector::finish),
             edge_coverage: edge_coverage.map(EdgeCovInspector::into_hitcount),
             cheatcodes,

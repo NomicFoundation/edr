@@ -155,12 +155,17 @@ pub fn replay_run<
             U256::ZERO,
         )?;
         logs.extend(call_result.logs);
-        execution_traces.push(call_result.traces.clone().expect("enabled tracing"));
+        execution_traces.push(
+            call_result
+                .call_trace_arena
+                .clone()
+                .expect("enabled tracing"),
+        );
         HitMaps::merge_opt(coverage, call_result.line_coverage);
 
         // Identify newly generated contracts, if they exist.
         ided_contracts.extend(load_contracts(
-            call_result.traces.iter().map(|a| &a.arena),
+            call_result.call_trace_arena.iter().map(|a| &a.arena),
             known_contracts,
         ));
 
@@ -170,7 +175,7 @@ pub fn replay_run<
             tx.call_details.target,
             &tx.call_details.calldata,
             &ided_contracts,
-            call_result.traces,
+            call_result.call_trace_arena,
             /* indeterminism_reason */ None,
         ));
 
@@ -230,7 +235,7 @@ pub fn replay_run<
             .into(),
     )?;
 
-    execution_traces.push(invariant_result.traces.expect("tracing is on"));
+    execution_traces.push(invariant_result.call_trace_arena.expect("tracing is on"));
     logs.extend(invariant_result.logs);
     deprecated_cheatcodes.extend(
         invariant_result
@@ -249,7 +254,7 @@ pub fn replay_run<
             call_result: after_invariant_result,
             success: after_invariant_success,
         } = call_after_invariant_function(&executor, invariant_contract.address)?;
-        execution_traces.push(after_invariant_result.traces.clone().unwrap());
+        execution_traces.push(after_invariant_result.call_trace_arena.clone().unwrap());
         after_invariant_indeterminism = after_invariant_result.indeterminism_reasons;
         if !after_invariant_success {
             after_invariant_failure = Some(Failure {

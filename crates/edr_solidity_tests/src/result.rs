@@ -713,7 +713,8 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(raw_call_result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(raw_call_result.labels);
-        self.execution_traces.extend(raw_call_result.traces);
+        self.execution_traces
+            .extend(raw_call_result.call_trace_arena);
         self.merge_coverages(raw_call_result.line_coverage);
 
         self.status = match success {
@@ -743,7 +744,7 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(result.labeled_addresses);
-        self.execution_traces.extend(result.traces);
+        self.execution_traces.extend(result.call_trace_arena);
         self.merge_coverages(result.line_coverage);
 
         self.status = if result.skipped {
@@ -809,7 +810,7 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
             metrics: HashMap::default(),
             failed_corpus_replays: 0,
         };
-        self.execution_traces.extend(e.take_traces());
+        self.execution_traces.extend(e.take_call_trace_arena());
         self.status = TestStatus::Failure;
         self.reason = Some(format!(
             "failed to set up invariant testing environment: {e}"
@@ -879,7 +880,7 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(call_result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(call_result.labels);
-        self.execution_traces.extend(call_result.traces);
+        self.execution_traces.extend(call_result.call_trace_arena);
         self.merge_coverages(call_result.line_coverage);
     }
 
@@ -1091,7 +1092,7 @@ impl<HaltReasonT: HaltReasonTrait> TestSetup<HaltReasonT> {
         self.logs.extend(raw.logs);
         self.labels.extend(raw.labels);
         self.traces
-            .extend(raw.traces.map(|traces| (trace_kind, traces)));
+            .extend(raw.call_trace_arena.map(|traces| (trace_kind, traces)));
         if let Some(indeterminism_reasons) = self.indeterminism_reasons.as_mut() {
             indeterminism_reasons.merge(raw.indeterminism_reasons);
         } else {

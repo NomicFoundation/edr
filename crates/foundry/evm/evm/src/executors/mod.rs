@@ -1306,8 +1306,8 @@ pub struct RawCallResult<
     pub logs: Vec<Log>,
     /// The labels assigned to addresses during the call
     pub labels: AddressHashMap<String>,
-    /// The traces of the call
-    pub traces: Option<SparsedTraceArena>,
+    /// The call trace arena of the call
+    pub call_trace_arena: Option<SparsedTraceArena>,
     /// The line coverage info collected during the call
     pub line_coverage: Option<HitMaps>,
     /// The edge coverage info collected during the call
@@ -1364,7 +1364,7 @@ impl<
             stipend: 0,
             logs: Vec::new(),
             labels: HashMap::default(),
-            traces: None,
+            call_trace_arena: None,
             line_coverage: None,
             edge_coverage: None,
             state_changeset: HashMap::default(),
@@ -1753,7 +1753,7 @@ fn convert_executed_result<
     let InspectorData {
         mut logs,
         labels,
-        traces,
+        call_trace_arena,
         line_coverage,
         edge_coverage,
         cheatcodes,
@@ -1774,7 +1774,7 @@ fn convert_executed_result<
         stipend: gas.initial_total_gas(),
         logs,
         labels,
-        traces,
+        call_trace_arena,
         line_coverage,
         edge_coverage,
         state_changeset,
