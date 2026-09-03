@@ -2064,14 +2064,26 @@ mod tests {
 
     use super::*;
 
-    fn contains_tuple(value: &DynSolValue) -> bool {
+    /// `serialize_value_as_json` re-parses any string whose content is a JSON
+    /// object, so such strings do not survive the round trip.
+    fn roundtrippable_strings(value: &DynSolValue) -> bool {
         match value {
-            DynSolValue::Tuple(_) | DynSolValue::CustomStruct { .. } => true,
-            DynSolValue::Array(v) | DynSolValue::FixedArray(v) => {
-                v.first().is_some_and(contains_tuple)
+            DynSolValue::String(s) => serde_json::from_str::<Map<String, Value>>(s).is_err(),
+            DynSolValue::Array(v) | DynSolValue::FixedArray(v) | DynSolValue::Tuple(v) => {
+                v.iter().all(roundtrippable_strings)
             }
-            _ => false,
+            DynSolValue::CustomStruct { tuple, .. } => tuple.iter().all(roundtrippable_strings),
+            _ => true,
         }
+    }
+
+    fn valid_value(value: &DynSolValue) -> bool {
+        (match value {
+            DynSolValue::Tuple(_) | DynSolValue::CustomStruct { .. } => false,
+            DynSolValue::Array(v) | DynSolValue::FixedArray(v) => v.iter().all(valid_value),
+            _ => true,
+        }) && roundtrippable_strings(value)
+            && value.as_type().is_some()
     }
 
     /// [`DynSolValue::Bytes`] of length 32 and 20 are converted to
@@ -2102,8 +2114,7 @@ mod tests {
     fn guessable_types() -> impl proptest::strategy::Strategy<Value = DynSolValue> {
         proptest::arbitrary::any::<DynSolValue>()
             .prop_map(fixup_guessable)
-            .prop_filter("tuples are not supported", |v| !contains_tuple(v))
-            .prop_filter("filter out values without type", |v| v.as_type().is_some())
+            .prop_filter("invalid value", valid_value)
     }
 
     // Tests to ensure that conversion [DynSolValue] -> [serde_json::Value] ->
@@ -2120,10 +2131,13 @@ mod tests {
         }
 
         #[test]
-        fn test_json_roundtrip(v in proptest::arbitrary::any::<DynSolValue>().prop_filter("filter out values without type", |v| v.as_type().is_some())) {
-                let json = serialize_value_as_json(v.clone()).unwrap();
+        fn test_json_roundtrip(v in proptest::arbitrary::any::<DynSolValue>()
+            .prop_filter("filter out values without type", |v| v.as_type().is_some())
+            .prop_filter("JSON-object strings are not roundtrippable", roundtrippable_strings))
+        {
+            let json = serialize_value_as_json(v.clone()).unwrap();
             let value = parse_json_as(&json, &v.as_type().unwrap()).unwrap();
-                assert_eq!(value, v);
+            assert_eq!(value, v);
         }
     }
 }
