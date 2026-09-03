@@ -185,9 +185,14 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     /// `eip712HashStruct` cheatcodes.
     ///
     /// Omitting the map (or passing an empty one) disables collection
-    /// entirely. A non-empty map must name every test suite's source: a
-    /// missing entry rejects the run up front, rather than silently leaving
-    /// that suite without inline configuration or EIP-712 types.
+    /// entirely. A non-empty map must name the source of every test suite a
+    /// run selects: a missing entry rejects that run before any test executes,
+    /// rather than silently leaving the suite without inline configuration or
+    /// EIP-712 types.
+    ///
+    /// Only the sources of the suites a run selects are read and parsed, so
+    /// filtering to one test file does not pay for parsing the project. An
+    /// entry for a suite no run selects is simply unused.
     ///
     /// It is safe to list a source that cannot be parsed — one compiled with
     /// solc older than 0.8, or one Slang's grammar rejects. Such a source is
@@ -197,7 +202,7 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     /// Maps non-relative Solidity import paths (as written in `import`
     /// statements, e.g. `forge-std/src/Test.sol`) to absolute file paths on
     /// disk, for resolving imports while parsing the test sources (see
-    /// `test_source_paths`).
+    /// `testSourcePaths`).
     ///
     /// Relative import paths (`./`, `../`) are resolved against the importing
     /// file and need no entry here; only non-relative paths (package imports)

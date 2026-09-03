@@ -703,7 +703,7 @@ async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
 
   solidityTestsConfig.projectRoot = repoPath;
   solidityTestsConfig.rpcCachePath = RPC_CACHE_PATH;
-  // Absolute paths of the test sources, for inline-config parsing.
+  // Absolute paths of the test sources, for inline-config and EIP-712 parsing.
   solidityTestsConfig.testSourcePaths = testSourcePaths;
   const rootPermission = {
     path: repoPath,

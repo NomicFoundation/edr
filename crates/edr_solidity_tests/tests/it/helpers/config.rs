@@ -131,7 +131,11 @@ impl<
 
     /// Executes the test runner
     pub async fn test(self) -> BTreeMap<String, SuiteResult<HaltReasonT>> {
-        self.runner.test_collect(self.filter).await.suite_results
+        self.runner
+            .test_collect(self.filter)
+            .await
+            .expect("the run produces results")
+            .suite_results
     }
 
     pub async fn run(self) {

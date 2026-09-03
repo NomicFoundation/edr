@@ -30,6 +30,11 @@ use crate::inline_config::{
     line_of, SourceOverrides,
 };
 
+/// A source far enough out of sync with the grammar yields a syntax diagnostic
+/// per token; the first few say what is wrong just as well as all of them, and
+/// the rest are summarised as a count.
+const MAX_REPORTED_PARSE_ERRORS: usize = 5;
+
 /// A Solidity test source to collect from.
 #[derive(Clone, Debug)]
 pub(crate) struct TestSourceRoot {
@@ -53,7 +58,7 @@ pub(crate) enum CollectedTestSource {
 }
 
 /// Everything extracted from one test source's single parse.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub(crate) struct SourceCollections {
     /// The EIP-712 struct definitions reachable from the source. Shared rather
     /// than copied: every suite declared in the source serves the same types.
@@ -210,9 +215,18 @@ fn collect_root(
         .collect();
 
     if !parse_errors.is_empty() {
+        let reported = parse_errors.len();
+        let mut reasons: Vec<String> = parse_errors
+            .into_iter()
+            .take(MAX_REPORTED_PARSE_ERRORS)
+            .collect();
+        if reported > MAX_REPORTED_PARSE_ERRORS {
+            reasons.push(format!("and {} more", reported - MAX_REPORTED_PARSE_ERRORS));
+        }
+
         return Ok(CollectedTestSource::Skipped(SkippedSource::ParseErrors {
             source_name: root.source.clone(),
-            reasons: parse_errors,
+            reasons,
         }));
     }
 

@@ -127,8 +127,9 @@ pub struct InlineConfigErrorItem {
 /// An inline-config problem, split by whether it can be pinned to a single
 /// directive line.
 ///
-/// A source-level problem (e.g. an unsupported solc version, an unreadable
-/// source file, or a directive whose location could not be resolved) carries
+/// A source-level problem (e.g. a source with no configured path, an
+/// unreadable source file, or a directive whose location could not be
+/// resolved) carries
 /// no contract/function/line — there is no directive line to point at. A
 /// directive-level problem always carries the contract and line; the function
 /// is absent for a contract-level directive.
@@ -147,8 +148,8 @@ pub enum InlineConfigProblem {
 
 /// Every inline-config problem found while collecting the test sources.
 ///
-/// When collection surfaces any problem, runner creation fails and the whole
-/// test run is aborted before any suite executes. At most one problem is
+/// When collection surfaces any problem, the run fails before any suite
+/// executes. At most one problem is
 /// reported per directive target — each test function, plus each contract's
 /// own directives — across every source.
 #[derive(Clone, Debug, PartialEq)]

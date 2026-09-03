@@ -4,7 +4,7 @@ use edr_artifact::ArtifactId;
 use edr_decoder_revert::RevertDecoder;
 use edr_napi_core::solidity::{
     config::{TestRunnerConfig, TracingConfigWithBuffers},
-    CreateTestRunnerError, SyncTestRunner, SyncTestRunnerFactory,
+    SyncTestRunner, SyncTestRunnerFactory,
 };
 use edr_op::{solidity_tests::OpEvmBuilder, transaction::OpTxEnv};
 use edr_primitives::Bytes;
@@ -12,7 +12,7 @@ use edr_solidity_tests::{
     contracts::ContractsByArtifact,
     multi_runner::TestContract,
     revm::context::{BlockEnv, TxEnv},
-    MultiContractRunner, SolidityTestRunnerConfigError,
+    MultiContractRunner,
 };
 use napi::tokio;
 use napi_derive::napi;
@@ -31,7 +31,7 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
         libs_to_deploy: Vec<Bytes>,
         revert_decoder: RevertDecoder,
         tracing_config: TracingConfigWithBuffers,
-    ) -> Result<Box<dyn SyncTestRunner>, CreateTestRunnerError> {
+    ) -> napi::Result<Box<dyn SyncTestRunner>> {
         let contract_decoder = LazyContractDecoder::new(tracing_config);
 
         let runner = tokio::task::block_in_place(|| {
@@ -53,16 +53,11 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
                     contract_decoder,
                     revert_decoder,
                 ))
-                .map_err(|err| match err {
-                    // Preserve the structured inline-config problems so the
-                    // caller can surface their locations to the user.
-                    SolidityTestRunnerConfigError::InlineConfig(errors) => {
-                        CreateTestRunnerError::InvalidInlineConfig(errors)
-                    }
-                    err => CreateTestRunnerError::Failed(napi::Error::new(
+                .map_err(|err| {
+                    napi::Error::new(
                         napi::Status::GenericFailure,
                         format!("Failed to create multi contract runner: {err}"),
-                    )),
+                    )
                 })
         })?;
 

@@ -18,7 +18,6 @@ use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReport
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
 use edr_solidity_collector_eip712::collector::Eip712TypeCollection;
-use edr_solidity_parser_slang::supports_solc_version;
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
@@ -49,6 +48,7 @@ use crate::{
             InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors,
             InlineConfigProblem,
         },
+        ImportResolver,
     },
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
@@ -92,12 +92,6 @@ pub struct SolidityTestsRunResult<HaltReasonT> {
     pub suite_results: BTreeMap<String, SuiteResult<HaltReasonT>>,
 }
 
-#[derive(Clone, Debug)]
-struct TestContractWithSource {
-    contract: TestContract,
-    source: SuiteSourceData,
-}
-
 /// A multi contract runner receives a set of contracts deployed in an EVM
 /// instance and proceeds to run all test functions in these contracts.
 #[derive_where(Clone; BlockT, HardforkT, NestedTraceDecoderT, TransactionT)]
@@ -114,10 +108,14 @@ pub struct MultiContractRunner<
 > {
     /// The project root directory.
     project_root: PathBuf,
-    /// Test contracts to deploy incl. the data extracted from its test source
-    /// at construction: resolved inline-config overrides and EIP-712 struct
-    /// definitions.
-    test_contracts: BTreeMap<ArtifactId, TestContractWithSource>,
+    /// Test contracts to deploy.
+    test_contracts: TestContracts,
+    /// Maps each test source's solc source name to its absolute path on disk.
+    /// The sources of the suites a run selects are parsed for their inline
+    /// configuration and EIP-712 struct definitions.
+    test_source_paths: HashMap<PathBuf, PathBuf>,
+    /// Resolves the imports of those sources.
+    import_resolver: ImportResolver,
     /// Known contracts by artifact id
     known_contracts: Arc<ContractsByArtifact>,
     /// Libraries to deploy.
@@ -221,50 +219,6 @@ impl<
             import_resolver,
         } = config;
 
-        // Read and parse the test sources up front, off the async runtime.
-        // Each unique source is parsed once; both its inline test
-        // configuration and its EIP-712 struct definitions are extracted from
-        // the same compilation unit. Any problem found — a source that cannot
-        // be located, read, or parsed, or an ill-formed directive reported per
-        // test function at its source line — fails here, aborting the whole
-        // run before any test executes.
-        let (roots, mut source_errors) = test_source_roots(&test_source_paths, &test_contracts);
-        let collected =
-            tokio::task::spawn_blocking(move || collect_test_sources(&roots, &import_resolver))
-                .await
-                .expect("Thread shouldn't panic");
-
-        // The sources that could not be located are reported together with the
-        // problems found in the ones that could, so a run surfaces every
-        // problem at once.
-        let collected_sources = match collected {
-            Ok(collected_sources) => collected_sources,
-            Err(collect_errors) => {
-                source_errors.extend(collect_errors);
-                HashMap::new()
-            }
-        };
-        if let Ok(errors) = InlineConfigErrors::try_from(source_errors) {
-            return Err(SolidityTestRunnerConfigError::InlineConfig(errors));
-        }
-
-        // Attach to each suite the data extracted from its source. Several
-        // suites can share one source, and a suite whose source wasn't
-        // collected (no `test_source_paths` entry) gets empty data.
-        let test_contracts = test_contracts
-            .into_iter()
-            .map(|(artifact_id, contract)| {
-                let source = collected_sources
-                    .get(&artifact_id.source)
-                    .map(|collected_source| {
-                        SuiteSourceData::new(collected_source, &artifact_id, &contract.abi)
-                    })
-                    .unwrap_or_default();
-
-                (artifact_id, TestContractWithSource { contract, source })
-            })
-            .collect();
-
         // Do canonicalization in blocking context.
         // Canonicalization can touch the file system, hence the blocking thread
         let project_root = tokio::task::spawn_blocking(move || {
@@ -303,6 +257,8 @@ impl<
             on_collected_coverage_fn,
             _phantom: PhantomData,
             generate_gas_report,
+            test_source_paths,
+            import_resolver,
         })
     }
 
@@ -315,7 +271,7 @@ impl<
     fn matching_contracts<'a>(
         &'a self,
         filter: &'a dyn TestFilter,
-    ) -> impl Iterator<Item = (&'a ArtifactId, &'a TestContractWithSource)> {
+    ) -> impl Iterator<Item = (&'a ArtifactId, &'a TestContract)> {
         self.test_contracts
             .iter()
             .filter(|&(id, _)| matches_contract(id, filter))
@@ -351,10 +307,55 @@ impl<
         TransactionT,
     >
 {
+    /// Reads and parses the sources of `contracts`, pairing each suite with
+    /// the inline configuration and EIP-712 types extracted from its own.
+    ///
+    /// Several suites can share one source, which is parsed once. A suite
+    /// whose source was not collected — because `test_source_paths` is empty,
+    /// disabling collection — runs with neither.
+    fn collect_suite_sources(
+        &self,
+        contracts: Vec<(ArtifactId, TestContract)>,
+    ) -> Result<Vec<(ArtifactId, TestContract, SuiteSourceData)>, TestRunnerError> {
+        let (roots, mut source_errors) =
+            test_source_roots(&self.test_source_paths, contracts.iter().map(|(id, _)| id));
+
+        // The sources that could not be located are reported together with the
+        // problems found in the ones that could, so a run surfaces every
+        // problem at once.
+        let collected_sources = match collect_test_sources(&roots, &self.import_resolver) {
+            Ok(collected_sources) => collected_sources,
+            Err(collect_errors) => {
+                source_errors.extend(collect_errors);
+                HashMap::new()
+            }
+        };
+        if !source_errors.is_empty() {
+            let errors = InlineConfigErrors::try_from(source_errors)
+                .expect("the problems were just checked to be non-empty");
+            return Err(TestRunnerError::InlineConfig(errors));
+        }
+
+        Ok(contracts
+            .into_iter()
+            .map(|(artifact_id, contract)| {
+                let source = collected_sources
+                    .get(&artifact_id.source)
+                    .map(|collected_source| {
+                        SuiteSourceData::new(collected_source, &artifact_id, &contract.abi)
+                    })
+                    .unwrap_or_default();
+
+                (artifact_id, contract, source)
+            })
+            .collect())
+    }
+
     fn run_test_suite(
         &self,
         artifact_id: &ArtifactId,
-        contract: &TestContractWithSource,
+        contract: &TestContract,
+        source: SuiteSourceData,
         fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
         filter: &dyn TestFilter,
         handle: &tokio::runtime::Handle,
@@ -377,18 +378,12 @@ impl<
 
         debug!("start executing all tests in contract");
 
-        // The per-test inline configuration and EIP-712 struct definitions
-        // were extracted from the contract's source at construction.
-        let TestContractWithSource {
-            contract,
-            source:
-                SuiteSourceData {
-                    test_function_overrides,
-                    allow_internal_expect_revert,
-                    warnings: inline_config_warnings,
-                    eip712_types,
-                },
-        } = contract;
+        let SuiteSourceData {
+            test_function_overrides,
+            allow_internal_expect_revert,
+            warnings: inline_config_warnings,
+            eip712_types,
+        } = source;
 
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
@@ -396,8 +391,8 @@ impl<
             self.evm_opts.clone(),
             self.known_contracts.clone(),
             artifact_id.clone(),
-            allow_internal_expect_revert.clone(),
-            Arc::clone(eip712_types),
+            allow_internal_expect_revert,
+            eip712_types,
         );
 
         let tracing_mode = match self.collect_stack_traces {
@@ -455,13 +450,13 @@ impl<
                     enable_table_tests: self.enable_table_tests,
                     fuzz_config: &self.fuzz_config,
                     invariant_config: &self.invariant_config,
-                    test_function_overrides,
+                    test_function_overrides: &test_function_overrides,
                     generate_gas_report: self.generate_gas_report,
                 },
                 span,
             );
         let mut r = runner.run_tests(filter, handle)?;
-        r.warnings.extend(inline_config_warnings.iter().cloned());
+        r.warnings.extend(inline_config_warnings);
 
         let mut gas_report = self
             .generate_gas_report
@@ -555,20 +550,17 @@ impl<
     pub async fn test_collect(
         self,
         filter: impl TestFilter + 'static,
-    ) -> SolidityTestsRunResult<HaltReasonT> {
+    ) -> Result<SolidityTestsRunResult<HaltReasonT>, TestRunnerError> {
         let (tx_results, mut rx_results) =
             tokio::sync::mpsc::unbounded_channel::<SuiteResultAndArtifactId<HaltReasonT>>();
 
-        let test_result = self
-            .test(
-                tokio::runtime::Handle::current(),
-                Arc::new(filter),
-                Arc::new(move |suite_result| {
-                    let _ = tx_results.clone().send(suite_result);
-                }),
-                // TODO return error instead once testsa are backported
-            )
-            .expect("fork created successfully");
+        let test_result = self.test(
+            tokio::runtime::Handle::current(),
+            Arc::new(filter),
+            Arc::new(move |suite_result| {
+                let _ = tx_results.clone().send(suite_result);
+            }),
+        )?;
 
         let mut suite_results = BTreeMap::new();
 
@@ -580,10 +572,10 @@ impl<
             suite_results.insert(artifact_id.identifier(), result);
         }
 
-        SolidityTestsRunResult {
+        Ok(SolidityTestsRunResult {
             test_result,
             suite_results,
-        }
+        })
     }
 
     /// Executes _all_ tests that match the given `filter`.
@@ -620,15 +612,24 @@ impl<
             find_time,
         );
 
+        // Read and parse the sources of the suites this run selected — and only
+        // those, so filtering to one test file does not pay for parsing the
+        // whole project. Each unique source is parsed once; both its inline
+        // test configuration and its EIP-712 struct definitions come from the
+        // same compilation unit. Any problem found fails here, before any test
+        // executes.
+        let contracts = tokio::task::block_in_place(|| self.collect_suite_sources(contracts))?;
+
         // Gas reports are collected for each suite and merged at the end to allow
         // parallel execution of test suites.
         let gas_reports = contracts
             .into_par_iter()
-            .map(|(id, contract)| {
+            .map(|(id, contract, source)| {
                 let _guard = tokio_handle.enter();
                 let (result, gas_report) = self.run_test_suite(
                     &id,
                     &contract,
+                    source,
                     fork.clone(),
                     filter.as_ref(),
                     &tokio_handle,
@@ -663,22 +664,22 @@ fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
     filter.matches_path(&id.source) && filter.matches_contract(&id.name)
 }
 
-/// Builds the collection roots for every test contract whose source has a
-/// known on-disk path, deduplicated by source (a source declaring multiple test
-/// contracts is parsed once), sorted by source so problems are reported in a
-/// deterministic order.
+/// Splits the selected test contracts' sources into the roots to parse and the
+/// sources that have no `test_source_paths` entry.
+///
+/// Roots are deduplicated by source (a source declaring several selected
+/// contracts is parsed once) and both results are sorted by source, so
+/// problems are reported in a deterministic order.
 ///
 /// An empty `test_source_paths` disables collection entirely (for callers
 /// using neither inline configuration nor the EIP-712 cheatcodes). A
-/// *non-empty* map must cover every test source Slang can parse: a parseable
-/// (solc >= 0.8) source without an entry is reported as an error, aborting the
-/// run at creation rather than silently skipping the source. Sources whose
-/// solc version Slang has no grammar for are exempt — listing one aborts the
-/// run with an unsupported-version error instead, so an entry could never
-/// succeed.
-fn test_source_roots(
+/// *non-empty* map must name the source of every selected test contract, with
+/// no exceptions: one without an entry is reported as an error rather than
+/// silently going uncollected. Listing a source Slang cannot parse is safe —
+/// it is skipped with a warning — so the rule is satisfiable for every source.
+fn test_source_roots<'a>(
     test_source_paths: &HashMap<PathBuf, PathBuf>,
-    test_contracts: &TestContracts,
+    test_contracts: impl IntoIterator<Item = &'a ArtifactId>,
 ) -> (Vec<TestSourceRoot>, Vec<InlineConfigErrorItem>) {
     if test_source_paths.is_empty() {
         return (Vec::new(), Vec::new());
@@ -686,16 +687,22 @@ fn test_source_roots(
 
     let mut roots_by_source = BTreeMap::new();
     let mut errors_by_source = BTreeMap::new();
-    for artifact_id in test_contracts.keys() {
+    for artifact_id in test_contracts {
         if let Some(path) = test_source_paths.get(&artifact_id.source) {
-            roots_by_source
+            let root = roots_by_source
                 .entry(artifact_id.source.clone())
                 .or_insert_with(|| TestSourceRoot {
                     source: artifact_id.source.clone(),
                     path: path.clone(),
                     version: artifact_id.version.clone(),
                 });
-        } else if supports_solc_version(&artifact_id.version) {
+            // One source can back artifacts compiled at several versions. Parse
+            // it with the newest grammar any of them needs: an older one would
+            // reject syntax the newer artifact legitimately uses.
+            if artifact_id.version > root.version {
+                root.version = artifact_id.version.clone();
+            }
+        } else {
             errors_by_source
                 .entry(artifact_id.source.clone())
                 .or_insert_with(|| InlineConfigErrorItem {
@@ -712,7 +719,7 @@ fn test_source_roots(
     )
 }
 
-/// The data extracted from a test suite's source at runner construction: its
+/// The data extracted from a test suite's source when the run starts: its
 /// inline configuration resolved against the contract's ABI, and the EIP-712
 /// struct definitions served to the `eip712HashType`/`eip712HashStruct`
 /// cheatcodes.
@@ -743,8 +750,8 @@ impl SuiteSourceData {
     ///
     /// A contract that carries no inline configuration yields empty overrides.
     /// Malformed directives never reach here: they are caught during
-    /// collection, which fails runner creation (see
-    /// [`MultiContractRunner::new`]).
+    /// collection, which fails the run before any test executes (see
+    /// [`MultiContractRunner::collect_suite_sources`]).
     fn new(source: &CollectedTestSource, artifact_id: &ArtifactId, abi: &JsonAbi) -> Self {
         let collections = match source {
             CollectedTestSource::Collected(collections) => collections,
@@ -863,7 +870,7 @@ mod tests {
     fn empty_source_paths_disable_collection() {
         let contracts = test_contracts(&[("test/A.t.sol", Version::new(0, 8, 24))]);
 
-        let (roots, errors) = test_source_roots(&HashMap::new(), &contracts);
+        let (roots, errors) = test_source_roots(&HashMap::new(), contracts.keys());
 
         assert!(roots.is_empty());
         assert!(errors.is_empty());
@@ -881,7 +888,7 @@ mod tests {
         )]
         .into();
 
-        let (roots, errors) = test_source_roots(&paths, &contracts);
+        let (roots, errors) = test_source_roots(&paths, contracts.keys());
 
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].source, PathBuf::from("test/A.t.sol"));
@@ -893,11 +900,11 @@ mod tests {
         ));
     }
 
+    /// Listing a source Slang cannot parse is safe — it is skipped with a
+    /// warning — so the "name every source" rule has no exceptions and an
+    /// unlisted one is reported like any other.
     #[test]
-    fn unparseable_solc_version_without_entry_is_exempt() {
-        // Slang has no grammar for solc < 0.8, so listing such a source could
-        // never succeed (it fails with an unsupported-version error instead);
-        // an unlisted one is skipped rather than reported as missing.
+    fn unparseable_solc_version_without_entry_is_still_an_error() {
         let contracts = test_contracts(&[
             ("test/A.t.sol", Version::new(0, 8, 24)),
             ("test/Legacy.t.sol", Version::new(0, 6, 12)),
@@ -908,9 +915,10 @@ mod tests {
         )]
         .into();
 
-        let (roots, errors) = test_source_roots(&paths, &contracts);
+        let (roots, errors) = test_source_roots(&paths, contracts.keys());
 
         assert_eq!(roots.len(), 1);
-        assert!(errors.is_empty());
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].source_name, PathBuf::from("test/Legacy.t.sol"));
     }
 }

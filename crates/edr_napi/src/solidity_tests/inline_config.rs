@@ -1,7 +1,7 @@
 //! Surfaces ill-formed inline configuration (`forge-config:`/
 //! `hardhat-config:` NatSpec directives) as a structured JS error.
 
-use edr_solidity_tests::inline_config::error as core;
+use edr_solidity_tests::inline_config::error as config_error;
 use napi::{
     bindgen_prelude::{Either, Either3, Either6},
     Env, JsValue,
@@ -180,16 +180,16 @@ pub struct InlineConfigDirectiveError {
 #[napi]
 pub type InlineConfigError = Either<InlineConfigSourceError, InlineConfigDirectiveError>;
 
-fn to_source_problem(error: &core::InlineConfigCollectError) -> InlineConfigSourceProblem {
+fn to_source_problem(error: &config_error::InlineConfigCollectError) -> InlineConfigSourceProblem {
     match error {
-        core::InlineConfigCollectError::RootFileNotFound { path, reason } => {
+        config_error::InlineConfigCollectError::RootFileNotFound { path, reason } => {
             Either3::A(InlineConfigSourceFileNotFound {
                 kind: "InlineConfigSourceFileNotFound".to_owned(),
                 path: path.clone(),
                 reason: reason.clone(),
             })
         }
-        core::InlineConfigCollectError::DirectiveLocation {
+        config_error::InlineConfigCollectError::DirectiveLocation {
             contract,
             function,
             reason,
@@ -199,7 +199,7 @@ fn to_source_problem(error: &core::InlineConfigCollectError) -> InlineConfigSour
             function: function.clone(),
             reason: reason.clone(),
         }),
-        core::InlineConfigCollectError::SourcePathNotProvided => {
+        config_error::InlineConfigCollectError::SourcePathNotProvided => {
             Either3::C(InlineConfigSourcePathNotProvided {
                 kind: "InlineConfigSourcePathNotProvided".to_owned(),
             })
@@ -207,30 +207,32 @@ fn to_source_problem(error: &core::InlineConfigCollectError) -> InlineConfigSour
     }
 }
 
-fn to_directive_problem(error: &core::InlineConfigError) -> InlineConfigDirectiveProblem {
+fn to_directive_problem(error: &config_error::InlineConfigError) -> InlineConfigDirectiveProblem {
     match error {
-        core::InlineConfigError::InvalidSyntax { line } => Either6::A(InlineConfigInvalidSyntax {
-            kind: "InlineConfigInvalidSyntax".to_owned(),
-            directive: line.clone(),
-        }),
-        core::InlineConfigError::UnsupportedProfile { profile } => {
+        config_error::InlineConfigError::InvalidSyntax { line } => {
+            Either6::A(InlineConfigInvalidSyntax {
+                kind: "InlineConfigInvalidSyntax".to_owned(),
+                directive: line.clone(),
+            })
+        }
+        config_error::InlineConfigError::UnsupportedProfile { profile } => {
             Either6::B(InlineConfigUnsupportedProfile {
                 kind: "InlineConfigUnsupportedProfile".to_owned(),
                 profile: profile.clone(),
             })
         }
-        core::InlineConfigError::InvalidKey { key } => Either6::C(InlineConfigInvalidKey {
+        config_error::InlineConfigError::InvalidKey { key } => Either6::C(InlineConfigInvalidKey {
             kind: "InlineConfigInvalidKey".to_owned(),
             key: key.clone(),
         }),
-        core::InlineConfigError::InvalidKeyForTestType { key, test_type } => {
+        config_error::InlineConfigError::InvalidKeyForTestType { key, test_type } => {
             Either6::D(InlineConfigInvalidKeyForTestType {
                 kind: "InlineConfigInvalidKeyForTestType".to_owned(),
                 key: key.clone(),
                 test_type: test_type.clone(),
             })
         }
-        core::InlineConfigError::InvalidValue {
+        config_error::InlineConfigError::InvalidValue {
             key,
             value,
             expected,
@@ -240,27 +242,31 @@ fn to_directive_problem(error: &core::InlineConfigError) -> InlineConfigDirectiv
             value: value.clone(),
             expected: (*expected).to_owned(),
         }),
-        core::InlineConfigError::DuplicateKey { key } => Either6::F(InlineConfigDuplicateKey {
-            kind: "InlineConfigDuplicateKey".to_owned(),
-            key: key.clone(),
-        }),
+        config_error::InlineConfigError::DuplicateKey { key } => {
+            Either6::F(InlineConfigDuplicateKey {
+                kind: "InlineConfigDuplicateKey".to_owned(),
+                key: key.clone(),
+            })
+        }
     }
 }
 
-fn to_entry(item: &core::InlineConfigErrorItem) -> InlineConfigError {
+fn to_entry(item: &config_error::InlineConfigErrorItem) -> InlineConfigError {
     let source_name = item.source_name.to_string_lossy().into_owned();
     match &item.problem {
-        core::InlineConfigProblem::Source(error) => Either::A(InlineConfigSourceError {
+        config_error::InlineConfigProblem::Source(error) => Either::A(InlineConfigSourceError {
             kind: "source".to_owned(),
             source_name,
             problem: to_source_problem(error),
         }),
-        core::InlineConfigProblem::Directive(core::InlineConfigDirectiveError {
-            contract,
-            function,
-            line,
-            error,
-        }) => Either::B(InlineConfigDirectiveError {
+        config_error::InlineConfigProblem::Directive(
+            config_error::InlineConfigDirectiveError {
+                contract,
+                function,
+                line,
+                error,
+            },
+        ) => Either::B(InlineConfigDirectiveError {
             kind: "directive".to_owned(),
             source_name,
             contract: contract.clone(),
@@ -278,14 +284,14 @@ fn to_entry(item: &core::InlineConfigErrorItem) -> InlineConfigError {
 /// Must be called on the JS thread (it builds JS values); the reject path in
 /// [`crate::context`] does so from the deferred's resolver. Falls back to a
 /// plain message-only error if building the structured object fails.
-pub(crate) fn to_napi_error(env: &Env, errors: &core::InlineConfigErrors) -> napi::Error {
+pub(crate) fn to_napi_error(env: &Env, errors: &config_error::InlineConfigErrors) -> napi::Error {
     build_structured_error(env, errors)
         .unwrap_or_else(|_| napi::Error::from_reason(summary(errors)))
 }
 
 fn build_structured_error(
     env: &Env,
-    errors: &core::InlineConfigErrors,
+    errors: &config_error::InlineConfigErrors,
 ) -> napi::Result<napi::Error> {
     let mut error_object = env.create_error(napi::Error::from_reason(summary(errors)))?;
     let items: Vec<InlineConfigError> = errors.items().iter().map(to_entry).collect();
@@ -293,6 +299,6 @@ fn build_structured_error(
     Ok(napi::Error::from(error_object.to_unknown()))
 }
 
-fn summary(errors: &core::InlineConfigErrors) -> String {
+fn summary(errors: &config_error::InlineConfigErrors) -> String {
     format!("Found invalid inline configuration in test sources:\n{errors}")
 }

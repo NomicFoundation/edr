@@ -833,7 +833,7 @@ impl<
 
     /// Builds a non-tracing runner with the given config, returning the
     /// creation error instead of panicking. Used to exercise configs that fail
-    /// runner creation, e.g. malformed inline configuration.
+    /// runner creation, e.g. an unreachable fork URL.
     pub async fn try_build_runner(
         &self,
         config: SolidityTestRunnerConfig<HardforkT>,

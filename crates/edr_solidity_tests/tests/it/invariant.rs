@@ -15,6 +15,7 @@ macro_rules! get_counterexample {
         $runner
             .test_collect($filter)
             .await
+            .expect("the run produces results")
             .suite_results
             .values()
             .last()
@@ -34,7 +35,11 @@ async fn test_invariant_with_alias() {
     let filter =
         SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTest1.t.sol");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -79,6 +84,7 @@ async fn test_invariant_filters() {
                 ".*fuzz/invariant/target/(ExcludeContracts|TargetContracts).t.sol",
             ))
             .await
+            .expect("the run produces results")
             .suite_results,
         BTreeMap::from([
             (
@@ -102,6 +108,7 @@ async fn test_invariant_filters() {
                 ".*fuzz/invariant/target/(ExcludeSenders|TargetSenders).t.sol",
             ))
             .await
+            .expect("the run produces results")
             .suite_results,
         BTreeMap::from([
             (
@@ -131,6 +138,7 @@ async fn test_invariant_filters() {
                 ".*fuzz/invariant/target/TargetInterfaces.t.sol",
             ))
             .await
+            .expect("the run produces results")
             .suite_results,
         BTreeMap::from([(
             "default/fuzz/invariant/target/TargetInterfaces.t.sol:TargetWorldInterfaces",
@@ -154,6 +162,7 @@ async fn test_invariant_filters() {
                 ".*fuzz/invariant/target/(ExcludeSelectors|TargetSelectors).t.sol",
             ))
             .await
+            .expect("the run produces results")
             .suite_results,
         BTreeMap::from([
             (
@@ -173,7 +182,7 @@ async fn test_invariant_filters() {
             ".*",
             ".*",
             ".*fuzz/invariant/targetAbi/(ExcludeArtifacts|TargetArtifacts|TargetArtifactSelectors|TargetArtifactSelectors2).t.sol",
-        )).await.suite_results,
+        )).await.expect("the run produces results").suite_results,
         BTreeMap::from([
             (
                 "default/fuzz/invariant/targetAbi/ExcludeArtifacts.t.sol:ExcludeArtifacts",
@@ -225,7 +234,11 @@ async fn test_invariant_override() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -258,7 +271,11 @@ async fn test_invariant_fail_on_revert() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -293,7 +310,11 @@ async fn test_invariant_storage() {
             TEST_DATA_DEFAULT.config_with_mock_rpc(),
         )
         .await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -345,6 +366,7 @@ async fn test_invariant_inner_contract() {
         .await
         .test_collect(filter)
         .await
+        .expect("the run produces results")
         .suite_results;
     assert_multiple(
         &results,
@@ -467,6 +489,7 @@ async fn test_shrink_big_sequence() {
         .clone()
         .test_collect(filter.clone())
         .await
+        .expect("the run produces results")
         .suite_results
         .values()
         .last()
@@ -487,7 +510,11 @@ async fn test_shrink_big_sequence() {
     assert_eq!(initial_sequence.len(), 77);
 
     // test failure persistence
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     let _test_result = results
         .get("default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequenceTest")
         .unwrap()
@@ -578,7 +605,11 @@ async fn test_invariant_preserve_state() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -604,6 +635,7 @@ async fn test_invariant_with_address_fixture() {
             ".*fuzz/invariant/common/InvariantCalldataDictionary.t.sol",
         ))
         .await
+        .expect("the run produces results")
         .suite_results;
     assert_multiple(
         &results,
@@ -631,7 +663,11 @@ async fn test_invariant_assume_does_not_revert() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -653,7 +689,11 @@ async fn test_invariant_assume_respects_restrictions() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -682,7 +722,11 @@ async fn test_invariant_decode_custom_error() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -711,7 +755,11 @@ async fn test_invariant_fuzzed_selected_targets() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([
@@ -747,7 +795,11 @@ async fn test_invariant_fixtures() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -779,7 +831,11 @@ async fn test_invariant_scrape_values() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([
@@ -831,6 +887,7 @@ async fn test_invariant_roll_fork_handler() {
             path_pattern,
         ))
         .await
+        .expect("the run produces results")
         .suite_results;
 
     assert_multiple(
@@ -865,6 +922,7 @@ async fn test_invariant_roll_fork_handler() {
             path_pattern,
         ))
         .await
+        .expect("the run produces results")
         .suite_results;
 
     assert_multiple(
@@ -895,7 +953,11 @@ async fn test_invariant_excluded_senders() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -921,7 +983,7 @@ async fn test_invariant_after_invariant() {
         .await;
 
     assert_multiple(
-        &runner.test_collect(failure_filter).await.suite_results,
+        &runner.test_collect(failure_filter).await.expect("the run produces results").suite_results,
         BTreeMap::from([(
             "default/fuzz/invariant/common/InvariantAfterInvariant.t.sol:InvariantAfterInvariantTest",
             vec![
@@ -952,7 +1014,7 @@ async fn test_invariant_after_invariant() {
         .await;
 
     assert_multiple(
-            &runner.clone().test_collect(success_pattern).await.suite_results,
+            &runner.clone().test_collect(success_pattern).await.expect("the run produces results").suite_results,
             BTreeMap::from([(
                 "default/fuzz/invariant/common/InvariantAfterInvariant.t.sol:InvariantAfterInvariantTest",
                 vec![
@@ -993,7 +1055,11 @@ async fn test_invariant_gas_report() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.generate_gas_report = true;
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let test_result = runner.test_collect(filter).await.test_result;
+    let test_result = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .test_result;
 
     assert!(test_result.gas_report.is_some());
 
@@ -1037,7 +1103,11 @@ async fn test_invariant_metrics() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let test_results = results
         .get("default/fuzz/invariant/common/InvariantMetrics.t.sol:CounterTest")
@@ -1072,7 +1142,11 @@ async fn test_invariant_timeout() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let test_results = results
         .get("default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest")
@@ -1125,7 +1199,11 @@ async fn test_invariant_selectors_weight() {
         )
         .await;
 
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -1151,7 +1229,11 @@ async fn test_invariant_function_override_runs() {
     config.invariant.depth = 10;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let test_result = results
         .get("default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantTest")
@@ -1177,7 +1259,11 @@ async fn test_invariant_function_override_runs() {
     );
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(override_filter).await.suite_results;
+    let results = runner
+        .test_collect(override_filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let test_result = results
         .get(
@@ -1212,7 +1298,11 @@ async fn test_invariant_function_override_fail_on_revert() {
     config.invariant.fail_on_revert = false;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     // Succeeds when not failing on revert.
     assert_multiple(
@@ -1235,7 +1325,11 @@ async fn test_invariant_function_override_fail_on_revert() {
     config.invariant.depth = 10;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(override_filter).await.suite_results;
+    let results = runner
+        .test_collect(override_filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     // Fails when overridden to fail on revert.
     assert_multiple(
@@ -1266,7 +1360,11 @@ async fn test_invariant_function_override_call_override() {
     config.invariant.call_override = false;
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -1286,7 +1384,11 @@ async fn test_invariant_function_override_call_override() {
     );
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(override_filter).await.suite_results;
+    let results = runner
+        .test_collect(override_filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -1318,7 +1420,11 @@ async fn test_invariant_function_override_timeout() {
     // `InvariantTimeout.t.sol`.
 
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,

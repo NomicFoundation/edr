@@ -610,7 +610,11 @@ async fn issue_1482() {
         .runner_with_contract_decoder(config, contract_decoder)
         .await;
     let filter = repro_filter(1482);
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("via-ir/repros/Issue1482.t.sol:Issue1482Test")
@@ -705,7 +709,11 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         .runner_with_contract_decoder(config, contract_decoder)
         .await;
     let filter = SolidityTestFilter::path(".*repros/StackTraceAlwaysMode.t.sol");
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceTest")
@@ -794,7 +802,11 @@ async fn always_mode_reports_no_stack_trace_without_a_failing_arena() {
         .runner_with_contract_decoder(config, contract_decoder)
         .await;
     let filter = SolidityTestFilter::contract("AlwaysStackTraceInvariantNoCallTest");
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceInvariantNoCallTest")
@@ -840,7 +852,11 @@ async fn on_failure_mode_produces_stack_trace_for_failing_setup() {
         .runner_with_contract_decoder(config, contract_decoder)
         .await;
     let filter = SolidityTestFilter::contract("AlwaysStackTraceFailingSetupTest");
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceFailingSetupTest")
@@ -937,7 +953,11 @@ async fn fuzz_executor_error_reports_no_stack_trace() {
 
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let filter = SolidityTestFilter::contract("FuzzExecutorErrorTest");
-    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     let suite = suite_results
         .get("default/repros/FuzzExecutorError.t.sol:FuzzExecutorErrorTest")

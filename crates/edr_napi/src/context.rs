@@ -321,22 +321,13 @@ impl EdrContext {
                 .expect("Failed to join test runner factory thread");
 
             let outcome = match create_result {
-                // An inline-config failure carries structured, located problems
-                // that we surface on the rejected promise's error as
-                // `inlineConfigErrors`. Building that JS object requires the JS
-                // thread, so route it through the deferred's resolver (which
-                // runs there) rather than `deferred.reject`, which only carries
-                // a message.
-                Err(solidity::CreateTestRunnerError::InvalidInlineConfig(errors)) => {
-                    RunOutcome::InvalidInlineConfig(errors)
-                }
-                Err(solidity::CreateTestRunnerError::Failed(error)) => {
+                Err(error) => {
                     deferred.reject(error);
                     return;
                 }
                 Ok(test_runner) => {
                     let runtime_for_runner = runtime.clone();
-                    let test_result = try_or_reject_deferred!(runtime
+                    let run_result = runtime
                         .clone()
                         .spawn_blocking(move || {
                             test_runner.run_tests(
@@ -367,9 +358,24 @@ impl EdrContext {
                             )
                         })
                         .await
-                        .expect("Failed to join test runner thread"));
+                        .expect("Failed to join test runner thread");
 
-                    RunOutcome::Completed(test_result)
+                    match run_result {
+                        Ok(test_result) => RunOutcome::Completed(test_result),
+                        // An inline-config failure carries structured, located
+                        // problems that we surface on the rejected promise's
+                        // error as `inlineConfigErrors`. Building that JS object
+                        // requires the JS thread, so route it through the
+                        // deferred's resolver (which runs there) rather than
+                        // `deferred.reject`, which only carries a message.
+                        Err(solidity::RunTestsError::InvalidInlineConfig(errors)) => {
+                            RunOutcome::InvalidInlineConfig(errors)
+                        }
+                        Err(solidity::RunTestsError::Failed(error)) => {
+                            deferred.reject(error);
+                            return;
+                        }
+                    }
                 }
             };
 

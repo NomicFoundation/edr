@@ -24,7 +24,7 @@ pub mod result;
 
 pub use foundry_evm::executors::stack_trace::SolidityTestStackTraceError;
 
-mod error;
+pub mod error;
 mod test_filter;
 
 pub use foundry_evm::*;
