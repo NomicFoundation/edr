@@ -11,10 +11,7 @@ use slang_solidity_v2::compilation::CompilationUnit;
 
 use super::{
     directives::{self, DirectiveTarget, LocatedDirectiveError},
-    error::{
-        InlineConfigCollectError, InlineConfigDirectiveError, InlineConfigErrorItem,
-        InlineConfigProblem,
-    },
+    error::{InlineConfigCollectError, InlineConfigDirectiveError, InlineConfigErrorItem},
     natspec,
     parse::{locate_contracts_in_unit, LocatedContract, LocatedFunction},
     profiles::InlineConfigProfiles,
