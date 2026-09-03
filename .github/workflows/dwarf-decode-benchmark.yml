@@ -19,8 +19,30 @@ on:
   pull_request:
     # Everything the bench compiles against, plus the dependency-bump vector
     # (Cargo.lock). Paths filters rot silently when code moves — if the decode
-    # path grows a new module outside these, add it here.
+    # path grows a new module outside these, add it here. Keep the two lists
+    # identical.
     paths:
+      - "crates/edr_solidity/src/debug_info.rs"
+      - "crates/edr_solidity/src/debug_info/**"
+      - "crates/edr_solidity/src/artifacts.rs"
+      - "crates/edr_solidity/src/artifacts/**"
+      - "crates/edr_solidity/src/build_model.rs"
+      - "crates/edr_solidity/benches/dwarf_decode.rs"
+      - "crates/edr_solidity/fixtures/**"
+      - "crates/edr_solidity/Cargo.toml"
+      - "Cargo.lock"
+      - ".github/scripts/check-dwarf-benchmark-regression.ts"
+      - ".github/scripts/package.json"
+      - ".github/workflows/dwarf-decode-benchmark.yml"
+  # Pushes to main take the informational single-run path (nothing to compare
+  # against). They exist to seed the cargo cache: setup-rust only saves it on
+  # main and rust-cache keys it per job, so without this trigger no run ever
+  # saved this job's cache and every PR run compiled from scratch.
+  push:
+    branches:
+      - "main"
+    paths:
+      - "crates/edr_solidity/src/debug_info.rs"
       - "crates/edr_solidity/src/debug_info/**"
       - "crates/edr_solidity/src/artifacts.rs"
       - "crates/edr_solidity/src/artifacts/**"
@@ -47,21 +69,25 @@ jobs:
     name: A/B benchmark DWARF decode against the PR base
     runs-on: ubuntu-24.04
     env:
-      # Match sibling Rust jobs so a shared target cache stays valid
-      # (cargo's fingerprint includes RUSTFLAGS).
+      # Same value as the sibling Rust jobs (repo convention). Cargo's
+      # fingerprint includes RUSTFLAGS, so this job's restored cache only
+      # helps while the value stays put.
       RUSTFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # The base side of the A/B is the merge commit's first parent, so
-          # its full history segment must be present.
-          fetch-depth: 0
+          # HEAD is the merge commit; its first parent is the base side of the
+          # A/B. Depth 2 reaches both parents and nothing more.
+          fetch-depth: 2
       - uses: ./.github/actions/setup-rust
 
       - name: Benchmark the base (merge commit's first parent)
         if: github.event_name == 'pull_request'
         run: |
+          # A restored cache may carry criterion data from another run; start
+          # clean so `change/` reflects only this job's comparison.
+          rm -rf target/criterion
           # A PR that introduces (or moves) the bench has no base side to
           # compare against — run the PR side informationally instead of
           # failing on the missing bench target.
@@ -72,15 +98,15 @@ jobs:
           fi
           echo "HAS_BASELINE=true" >> "$GITHUB_ENV"
           git checkout --detach HEAD^1
-          cargo bench --locked -p edr_solidity --bench dwarf_decode -- --save-baseline pr-base
+          cargo bench --locked -p edr_solidity --bench dwarf_decode -- --noplot --save-baseline pr-base
           git checkout --detach "$GITHUB_SHA"
 
       - name: Benchmark the PR merge commit
         run: |
           if [ "${HAS_BASELINE:-false}" = "true" ]; then
-            cargo bench --locked -p edr_solidity --bench dwarf_decode -- --baseline pr-base
+            cargo bench --locked -p edr_solidity --bench dwarf_decode -- --noplot --baseline pr-base
           else
-            cargo bench --locked -p edr_solidity --bench dwarf_decode
+            cargo bench --locked -p edr_solidity --bench dwarf_decode -- --noplot
           fi
 
       - uses: ./.github/actions/setup-node
