@@ -324,7 +324,6 @@ alloy-trie = "0.9.3"
 anyhow = { version = "1.0.100", default-features = false }
 arrayvec = "0.7"
 auto_impl = { version = "1.2", default-features = false }
-crossbeam-channel = "0.5"
 dunce = "1"
 dyn-clone = { version = "1.0.13", default-features = false }
 base64 = "0.23"
