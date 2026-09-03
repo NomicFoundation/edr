@@ -170,6 +170,7 @@ mod tests {
     use std::io::Write as _;
 
     use super::*;
+    use crate::inline_config::error::InlineConfigDirectiveError;
 
     fn temp_source(content: &str) -> tempfile::NamedTempFile {
         let mut file = tempfile::Builder::new()
@@ -280,6 +281,48 @@ contract C {
             &item.problem,
             InlineConfigProblem::Source(InlineConfigCollectError::ParseError { .. })
         )));
+    }
+
+    /// A contract-level directive carries no function, so its problem is
+    /// reported against the contract alone.
+    #[test]
+    fn malformed_contract_level_directive_is_reported_without_a_function() {
+        let file = temp_source(
+            "// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+/// forge-config: default.fuzz.runs = -1
+contract BadContractLevel {
+    /// forge-config: default.fuzz.runs = 5
+    function testValid(uint256 x) public {}
+}
+",
+        );
+        let root = root_for(
+            &file,
+            "project/BadContractLevel.t.sol",
+            Version::new(0, 8, 24),
+        );
+
+        let errors = collect_root(&root, &ImportResolver::default()).expect_err("expected errors");
+
+        assert_eq!(errors.len(), 1, "{errors:#?}");
+        let error = errors.first().expect("should contain an error");
+        let InlineConfigProblem::Directive(InlineConfigDirectiveError {
+            contract,
+            function,
+            line,
+            ..
+        }) = &error.problem
+        else {
+            panic!("expected a directive problem, got {:#?}", error.problem);
+        };
+        assert_eq!(contract, "BadContractLevel");
+        assert_eq!(*function, None);
+        assert_eq!(*line, 4);
+
+        // The rendered report names the contract without a function.
+        assert!(error.to_string().contains("BadContractLevel:"), "{error}");
     }
 
     #[test]
