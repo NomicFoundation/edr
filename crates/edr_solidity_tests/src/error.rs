@@ -15,4 +15,8 @@ pub enum TestRunnerError {
         .0.display()
     )]
     UnknownFileAtFuzzFailureDir(std::path::PathBuf),
+    /// One or more of the selected suites' sources could not be collected.
+    /// Carried as structured problems so consumers can locate each one.
+    #[error("Could not collect from the test sources:\n{0}")]
+    InlineConfig(#[from] crate::inline_config::error::InlineConfigErrors),
 }

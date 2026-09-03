@@ -4,8 +4,8 @@ These `.sol` sources back the EIP-712 type-resolution integration tests in
 `test/solidity-tests.ts`. Unlike most fixtures here, these files are read at
 run time rather than only compiled ahead of it: the EIP-712 cheatcodes
 (`vm.eip712HashType`, `vm.eip712HashStruct`) resolve type names by parsing the
-running test contract's **source files from disk**, eagerly at runner
-creation. The sources are read from the absolute paths supplied through the
+running test contract's **source files from disk**, eagerly when a test run
+starts, over the sources of the suites that run selected. The sources are read from the absolute paths supplied through the
 `testSourcePaths` runner config, keyed by the `sourceName` recorded in their
 compiled artifacts (the tests point each entry into this directory).
 
@@ -23,7 +23,8 @@ compiled artifacts (the tests point each entry into this directory).
   `../artifacts/default/Eip712UnknownTest.json`.
 - `Eip712SyntaxError.sol` — deliberately broken (never compiled); a test
   points a suite's `testSourcePaths` entry at it to check that an unparseable
-  source rejects the run up front.
+  source is skipped, with the suite still
+  running and reporting a warning.
 
 ## Recompiling
 
