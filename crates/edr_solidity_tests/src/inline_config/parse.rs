@@ -1,11 +1,10 @@
 //! Structural extraction of contracts and functions via Slang's compilation
 //! unit.
 //!
-//! We build a full [`CompilationUnit`] over the on-disk root file — resolving
-//! imports (see [`edr_solidity_parser_slang::ImportResolver`]) and reading
-//! them from disk — then walk the
-//! root file's resolved AST for contract and function positions. The NatSpec
-//! text itself is recovered from the raw source by
+//! Given a [`CompilationUnit`] already built over the root file — by
+//! [`crate::test_sources`], which resolves imports and reads them from disk —
+//! this walks that file's resolved AST for contract and function positions.
+//! The NatSpec text itself is recovered from the raw source by
 //! [`super::natspec::collect_natspec`], which scans backwards from each
 //! definition.
 //!
@@ -90,11 +89,12 @@ pub(crate) fn locate_contracts_in_unit(
 mod tests {
     use std::{io::Write as _, path::Path};
 
-    use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver};
+    use edr_solidity_parser_slang::{
+        build_compilation_unit, ImportResolver, UnsupportedSolcVersionError,
+    };
     use semver::Version;
 
     use super::*;
-    use crate::inline_config::error::InlineConfigCollectError;
 
     /// Parses the file at `root_path` (with its imports resolved by
     /// `import_resolver` and read from disk) and returns every contract
@@ -110,7 +110,7 @@ mod tests {
         root_path: &Path,
         version: Version,
         import_resolver: &ImportResolver,
-    ) -> Result<Vec<LocatedContract>, InlineConfigCollectError> {
+    ) -> Result<Vec<LocatedContract>, UnsupportedSolcVersionError> {
         let unit = build_compilation_unit(root_path, version, import_resolver)?;
         let file_id = root_path.to_string_lossy().into_owned();
 

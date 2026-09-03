@@ -1004,15 +1004,6 @@ export interface InlineConfigInvalidKeyForTestType {
   testType: string
 }
 
-/**
- * The source's solc version has no supported grammar, so its inline
- * configuration could not be parsed.
- */
-export interface InlineConfigInvalidSolcVersion {
-  /** Enum tag for JS. */
-  kind: "InlineConfigInvalidSolcVersion"
-}
-
 /** A directive was missing the `=` separator. */
 export interface InlineConfigInvalidSyntax {
   /** Enum tag for JS. */
@@ -1059,17 +1050,9 @@ export interface InlineConfigSourceFileNotFound {
   reason: string
 }
 
-/** The test source's content could not be parsed to an AST. */
-export interface InlineConfigSourceParseError {
-  /** Enum tag for JS. */
-  kind: "InlineConfigSourceParseError"
-  /** The parse error, located at its source line. */
-  reason: string
-}
-
 /**
- * The test source has no `testSourcePaths` entry, so it could not be located,
- * read, and parsed.
+ * The test source has no `testSourcePaths` entry, so it is not located, read,
+ * or parsed.
  */
 export interface InlineConfigSourcePathNotProvided {
   /** Enum tag for JS. */
@@ -1081,7 +1064,7 @@ export interface InlineConfigSourcePathNotProvided {
  * cannot be pinned to a single directive line, so they carry no line.
  */
 export type InlineConfigSourceProblem =
-  InlineConfigInvalidSolcVersion | InlineConfigSourceFileNotFound | InlineConfigDirectiveLocation | InlineConfigSourcePathNotProvided | InlineConfigSourceParseError
+  InlineConfigSourceFileNotFound | InlineConfigDirectiveLocation | InlineConfigSourcePathNotProvided
 
 /** A profile other than `default` was used. */
 export interface InlineConfigUnsupportedProfile {
@@ -1765,11 +1748,15 @@ export interface SolidityTestRunnerConfigArgs {
    * struct definitions served to the `eip712HashType` and
    * `eip712HashStruct` cheatcodes.
    *
-   * Omitting the map (or passing an empty one) disables collection. A
-   * non-empty map must cover every test suite whose source can be parsed
-   * (solc >= 0.8): a missing entry, an unreadable or unparseable source,
-   * or an unsupported solc version for a listed source rejects the run up
-   * front.
+   * Omitting the map (or passing an empty one) disables collection
+   * entirely. A non-empty map must name every test suite's source: a
+   * missing entry rejects the run up front, rather than silently leaving
+   * that suite without inline configuration or EIP-712 types.
+   *
+   * It is safe to list a source that cannot be parsed — one compiled with
+   * solc older than 0.8, or one Slang's grammar rejects. Such a source is
+   * skipped, and every suite it declares reports that as a warning instead
+   * of failing the run.
    */
   testSourcePaths?: Record<string, string>
   /**

@@ -22,11 +22,14 @@
 //! The work flows through the submodules as a pipeline:
 //!
 //! ```text
-//!   - parse      locate contract/function definitions via Slang
+//!   - parse      locate contract/function definitions in a Slang unit
 //!   - natspec    scan the NatSpec comment blocks above each definition
 //!   - directives parse a block's lines into a config
 //!   - overrides  compose the above into a source's per-contract overrides
 //! ```
+//!
+//! The unit itself is built by `crate::test_sources`, which reads the source
+//! and its imports from disk.
 //!
 //! The test runner drives extraction through
 //! `crate::test_sources::collect_test_sources`, which parses each test
@@ -45,5 +48,5 @@ pub use edr_solidity_parser_slang::ImportResolver;
 pub use self::overrides::{ContractInlineConfig, FunctionOverride};
 pub(crate) use self::{
     directives::is_test_function,
-    overrides::{collect_source_overrides_from_unit, SourceOverrides},
+    overrides::{collect_source_overrides_from_unit, line_of, SourceOverrides},
 };

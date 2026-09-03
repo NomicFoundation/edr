@@ -2528,8 +2528,9 @@ interface Vm {
     /// Generates the hash of the canonical EIP-712 type representation.
     ///
     /// Supports 2 different inputs:
-    ///  1. Name of a struct type, resolved by parsing the running test
-    ///     contract's Solidity sources (and their imports) on demand.
+    ///  1. Name of a struct type, declared in the running test contract's
+    ///     Solidity sources or one of their imports. These are parsed once,
+    ///     when the test run starts.
     ///
     ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
     ///     Note: the cheatcode will use the canonical type even if the input is malformed
@@ -2540,8 +2541,9 @@ interface Vm {
     /// Generates the struct hash of the canonical EIP-712 type representation and its abi-encoded data.
     ///
     /// Supports 2 different inputs:
-    ///  1. Name of a struct type, resolved by parsing the running test
-    ///     contract's Solidity sources (and their imports) on demand.
+    ///  1. Name of a struct type, declared in the running test contract's
+    ///     Solidity sources or one of their imports. These are parsed once,
+    ///     when the test run starts.
     ///
     ///  2. String representation of the type (i.e. "Foo(Bar bar) Bar(uint256 baz)").
     ///     Note: the cheatcode will use the canonical type even if the input is malformed

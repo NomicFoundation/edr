@@ -94,6 +94,14 @@ export async function buildSolidityTestsInput(
    * Used by EDR to parse inline test configuration and EIP-712 struct
    * definitions from the sources. */
   testSourcePaths: Record<string, string>;
+  /** Maps non-relative Solidity import paths to absolute paths on disk, so
+   * EDR can follow imports out of a test source while parsing it.
+   *
+   * Keyed by solc source name, which covers imports written as the source
+   * name. An import written some other way (an npm specifier that solc
+   * rewrote, say) has no entry and stays unresolved: EDR degrades to the
+   * types it can still reach rather than failing. */
+  importMappings: Record<string, string>;
 }> {
   let testRootPaths: string[];
 
@@ -189,6 +197,15 @@ export async function buildSolidityTestsInput(
     ])
   );
 
+  // Every compiled source, not just the test suites: a test's imports reach
+  // into contracts and dependencies, and EDR resolves them while parsing.
+  const importMappings = Object.fromEntries(
+    edrArtifacts.map(({ userSourceName, edrArtifact }) => [
+      edrArtifact.id.source,
+      resolveFromRoot(hre.config.paths.root, userSourceName),
+    ])
+  );
+
   const artifacts = edrArtifacts.map(({ edrArtifact }) => edrArtifact);
 
   const tracingConfig: TracingConfigWithBuffers = {
@@ -196,7 +213,13 @@ export async function buildSolidityTestsInput(
     ignoreContracts: false,
   };
 
-  return { artifacts, testSuiteIds, tracingConfig, testSourcePaths };
+  return {
+    artifacts,
+    testSuiteIds,
+    tracingConfig,
+    testSourcePaths,
+    importMappings,
+  };
 }
 
 /* Get the directory name of the current file based on the `import.meta.url`*/

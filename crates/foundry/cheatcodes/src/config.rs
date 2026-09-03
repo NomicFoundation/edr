@@ -8,9 +8,7 @@ use std::{
 use alloy_primitives::{map::AddressHashMap, U256};
 use edr_artifact::ArtifactId;
 use edr_common::fs::normalize_path;
-use edr_solidity_collector_eip712::{
-    collector::Eip712TypeCollection, provider::SharedEip712TypeProvider, Eip712Type,
-};
+use edr_solidity_collector_eip712::collector::Eip712TypeCollection;
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, evm_context::HardforkTr, opts::EvmOpts};
 
@@ -66,7 +64,7 @@ pub struct CheatsConfig<HardforkT> {
     pub chain_id_to_alias: HashMap<u64, String>,
     /// EIP-712 types collected from Solidity sources scoped to the running
     /// artifact.
-    pub eip712_types: Eip712TypeCollection,
+    pub eip712_types: Arc<Eip712TypeCollection>,
 }
 
 /// Chain data for getChain cheatcodes
@@ -132,31 +130,6 @@ pub struct TestFunctionIdentifier {
     pub function_selector: String,
 }
 
-/// EIP-712 type provider scoped to a single test suite's running artifact.
-///
-/// Wraps the shared, run-wide [`SharedEip712TypeProvider`] together with the
-/// artifact whose source is currently executing, so cheatcodes can resolve a
-/// type by name without threading the artifact through every call site.
-#[derive(Clone, Debug)]
-pub struct SuiteEip712TypeProvider<ErrorT> {
-    provider: SharedEip712TypeProvider<ErrorT>,
-    running_artifact: ArtifactId,
-}
-
-impl<ErrorT: std::error::Error> SuiteEip712TypeProvider<ErrorT> {
-    /// Resolves an EIP-712 canonical type by name from the running test
-    /// contract's Solidity sources.
-    ///
-    /// Note: this reads project sources from disk the same way the compiler
-    /// does — driven by the test runner, not by user-controlled paths — and so
-    /// intentionally does not go through `fs_permissions`.
-    pub fn get_eip712_type(&self, type_name: &str) -> Result<Eip712Type> {
-        self.provider
-            .get_eip712_type(&self.running_artifact.source, type_name)
-            .map_err(|reason| fmt_err!("{reason}"))
-    }
-}
-
 impl PartialEq for TestFunctionIdentifier {
     fn eq(&self, other: &Self) -> bool {
         self.contract_artifact.name == other.contract_artifact.name
@@ -184,7 +157,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         available_artifacts: Arc<ContractsByArtifact>,
         running_artifact: ArtifactId,
         functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
-        eip712_types: Eip712TypeCollection,
+        eip712_types: Arc<Eip712TypeCollection>,
     ) -> Self {
         let CheatsConfigOptions {
             execution_context,
@@ -816,7 +789,7 @@ mod tests {
                 version: Version::new(0, 8, 0),
             },
             HashSet::new(),
-            Eip712TypeCollection::default(),
+            Arc::default(),
         )
     }
 

@@ -1280,8 +1280,8 @@ fn random_int<
 ///
 /// - an inline type definition string (detected by the presence of `(`), which
 ///   is parsed and canonicalized on demand, or
-/// - a type name, lazily resolved by parsing the running test contract's
-///   Solidity sources via the EIP-712 type provider.
+/// - a type name, looked up among the EIP-712 struct definitions collected from
+///   the running test contract's sources when the run started.
 fn get_canonical_type_def(
     name_or_def: &str,
     eip712_types: &Eip712TypeCollection,

@@ -1,8 +1,8 @@
 //! Composes the lower layers into a source's inline configuration.
 //!
-//! Given a source file on disk and its solc version, this locates its contracts
-//! and functions ([`super::parse`]), recovers each one's leading NatSpec
-//! ([`super::natspec`]), parses the directives within
+//! Given a source's already-built compilation unit and its text, this locates
+//! its contracts and functions ([`super::parse`]), recovers each one's leading
+//! NatSpec ([`super::natspec`]), parses the directives within
 //! ([`super::directives`]), and groups the results per contract.
 
 use std::{collections::HashMap, path::Path};
@@ -199,7 +199,7 @@ fn located_problem(
         .into(),
     };
     InlineConfigErrorItem {
-        source_path: source.to_path_buf(),
+        source_name: source.to_path_buf(),
         problem,
     }
 }
@@ -208,7 +208,7 @@ fn located_problem(
 /// the offsets handed across parsing stages are out of sync with the source
 /// text, so a fabricated line number would point the user at the wrong place.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-enum LineOfError {
+pub(crate) enum LineOfError {
     /// The offset lies beyond the end of the source text.
     #[error("directive offset {offset} lies beyond the {source_len}-byte source")]
     OffsetOutOfBounds {
@@ -226,7 +226,7 @@ enum LineOfError {
 }
 
 /// The 1-based line number of `offset` within `source`.
-fn line_of(source: &str, offset: usize) -> Result<u32, LineOfError> {
+pub(crate) fn line_of(source: &str, offset: usize) -> Result<u32, LineOfError> {
     if offset > source.len() {
         return Err(LineOfError::OffsetOutOfBounds {
             offset,

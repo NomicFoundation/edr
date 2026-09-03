@@ -45,7 +45,10 @@ use crate::{
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inline_config::{
         self,
-        error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
+        error::{
+            InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors,
+            InlineConfigProblem,
+        },
     },
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
@@ -241,10 +244,8 @@ impl<
                 HashMap::new()
             }
         };
-        if !source_errors.is_empty() {
-            return Err(SolidityTestRunnerConfigError::InlineConfig(
-                source_errors.into(),
-            ));
+        if let Ok(errors) = InlineConfigErrors::try_from(source_errors) {
+            return Err(SolidityTestRunnerConfigError::InlineConfig(errors));
         }
 
         // Attach to each suite the data extracted from its source. Several
@@ -396,7 +397,7 @@ impl<
             self.known_contracts.clone(),
             artifact_id.clone(),
             allow_internal_expect_revert.clone(),
-            eip712_types.clone(),
+            Arc::clone(eip712_types),
         );
 
         let tracing_mode = match self.collect_stack_traces {
@@ -698,7 +699,7 @@ fn test_source_roots(
             errors_by_source
                 .entry(artifact_id.source.clone())
                 .or_insert_with(|| InlineConfigErrorItem {
-                    source_path: artifact_id.source.clone(),
+                    source_name: artifact_id.source.clone(),
                     problem: InlineConfigProblem::Source(
                         InlineConfigCollectError::SourcePathNotProvided,
                     ),
@@ -726,7 +727,8 @@ struct SuiteSourceData {
     /// result.
     warnings: Vec<String>,
     /// The EIP-712 struct definitions reachable from the suite's source.
-    eip712_types: Eip712TypeCollection,
+    /// Shared, not copied: every suite in a source serves the same types.
+    eip712_types: Arc<Eip712TypeCollection>,
 }
 
 impl SuiteSourceData {
@@ -744,7 +746,21 @@ impl SuiteSourceData {
     /// collection, which fails runner creation (see
     /// [`MultiContractRunner::new`]).
     fn new(source: &CollectedTestSource, artifact_id: &ArtifactId, abi: &JsonAbi) -> Self {
-        let parsed = source
+        let collections = match source {
+            CollectedTestSource::Collected(collections) => collections,
+            // Nothing was collected from the source, so the suite runs with no
+            // inline configuration and no resolvable EIP-712 types. Say so on
+            // the suite rather than silently behaving as if the source were
+            // empty.
+            CollectedTestSource::Skipped(reason) => {
+                return Self {
+                    warnings: vec![reason.to_string()],
+                    ..Self::default()
+                };
+            }
+        };
+
+        let parsed = collections
             .overrides
             .get(&artifact_id.name)
             .cloned()
@@ -813,7 +829,7 @@ impl SuiteSourceData {
             test_function_overrides,
             allow_internal_expect_revert,
             warnings,
-            eip712_types: source.eip712_types.clone(),
+            eip712_types: Arc::clone(&collections.eip712_types),
         }
     }
 }
@@ -870,7 +886,7 @@ mod tests {
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].source, PathBuf::from("test/A.t.sol"));
         assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].source_path, PathBuf::from("test/B.t.sol"));
+        assert_eq!(errors[0].source_name, PathBuf::from("test/B.t.sol"));
         assert!(matches!(
             &errors[0].problem,
             InlineConfigProblem::Source(InlineConfigCollectError::SourcePathNotProvided)

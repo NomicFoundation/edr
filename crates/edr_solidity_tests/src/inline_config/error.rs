@@ -1,16 +1,15 @@
 //! The errors surfaced while resolving inline configuration.
+//!
+//! These also cover failures to locate or read a test source, which EIP-712
+//! type collection shares, so a run using no inline configuration can still
+//! fail with one.
 
 use std::path::PathBuf;
-
-use edr_solidity_parser_slang::UnsupportedSolcVersionError;
 
 /// Errors produced while collecting a source's inline configuration before the
 /// individual directives are parsed (see [`InlineConfigError`]).
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
 pub enum InlineConfigCollectError {
-    /// The source's solc version has no supported Slang grammar.
-    #[error(transparent)]
-    InvalidSolcVersion(#[from] UnsupportedSolcVersionError),
     /// A test source's file was not found at the path it was declared at.
     #[error("could not read inline-config source '{path}': {reason}")]
     RootFileNotFound {
@@ -19,16 +18,10 @@ pub enum InlineConfigCollectError {
         /// Why reading it failed.
         reason: String,
     },
-    /// The test source has no `test_source_paths` entry, so it cannot be
-    /// located, read, and parsed.
+    /// The test source has no `test_source_paths` entry, so it is not located,
+    /// read, or parsed.
     #[error("no source path was provided for the test source")]
     SourcePathNotProvided,
-    /// The test source's content could not be parsed to an AST.
-    #[error("the test source could not be parsed: {reason}")]
-    ParseError {
-        /// The parse error, located at its source line.
-        reason: String,
-    },
     /// A directive's offset could not be resolved to a line number: it lies
     /// outside the source text (or the line count overflows), meaning the
     /// parsing stages disagree about the source, so its directives cannot be
@@ -122,11 +115,11 @@ pub struct InlineConfigDirectiveError {
 /// user at it — modeled on the stack-trace `SourceReference` surfaced to
 /// consumers.
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
-#[error("{}: {problem}", source_path.display())]
+#[error("{}: {problem}", source_name.display())]
 pub struct InlineConfigErrorItem {
     /// The solc source name the problem was found in (e.g.
     /// `project/test/Foo.t.sol`).
-    pub source_path: PathBuf,
+    pub source_name: PathBuf,
     /// The problem, together with whatever location detail applies to it.
     pub problem: InlineConfigProblem,
 }
@@ -185,8 +178,22 @@ impl std::fmt::Display for InlineConfigErrors {
     }
 }
 
-impl From<Vec<InlineConfigErrorItem>> for InlineConfigErrors {
-    fn from(items: Vec<InlineConfigErrorItem>) -> Self {
-        Self { items }
+impl TryFrom<Vec<InlineConfigErrorItem>> for InlineConfigErrors {
+    type Error = NoInlineConfigProblems;
+
+    /// Fails on an empty vector: an `InlineConfigErrors` carrying no problem
+    /// would render as an empty report and abort a run for no stated reason.
+    fn try_from(items: Vec<InlineConfigErrorItem>) -> Result<Self, Self::Error> {
+        if items.is_empty() {
+            Err(NoInlineConfigProblems)
+        } else {
+            Ok(Self { items })
+        }
     }
 }
+
+/// Returned when [`InlineConfigErrors`] is built from an empty set of
+/// problems, which would describe a failure that did not happen.
+#[derive(Clone, Copy, Debug, thiserror::Error)]
+#[error("no inline-config problems to report")]
+pub struct NoInlineConfigProblems;

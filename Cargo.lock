@@ -3584,11 +3584,7 @@ name = "edr_solidity_collector_eip712"
 version = "0.3.8"
 dependencies = [
  "alloy-dyn-abi",
- "crossbeam-channel",
- "derive-where",
  "edr_solidity_parser_slang",
- "edr_utils_sync",
- "rayon",
  "semver 1.0.28",
  "slang_solidity_v2",
  "thiserror 2.0.20",

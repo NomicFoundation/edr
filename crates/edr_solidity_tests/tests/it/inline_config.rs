@@ -79,7 +79,7 @@ async fn malformed_inline_config_aborts_whole_run() {
             )
         })
         .expect("testFuzzBad reported");
-    assert_eq!(fuzz.source_path, source);
+    assert_eq!(fuzz.source_name, source);
     let InlineConfigProblem::Directive(InlineConfigDirectiveError { contract, line, .. }) =
         &fuzz.problem
     else {
@@ -237,7 +237,7 @@ async fn source_without_a_path_aborts_whole_run() {
 
     let items = errors.items();
     assert_eq!(items.len(), 1, "{items:#?}");
-    assert_eq!(items[0].source_path, source);
+    assert_eq!(items[0].source_name, source);
     assert!(
         matches!(
             &items[0].problem,
@@ -245,5 +245,32 @@ async fn source_without_a_path_aborts_whole_run() {
         ),
         "{:#?}",
         items[0].problem
+    );
+}
+
+/// A test source Slang has no grammar for — solc older than 0.8 — is skipped
+/// rather than failing the run: it uses neither inline configuration nor the
+/// EIP-712 cheatcodes. The suite still runs, and says why nothing was
+/// collected from it.
+#[tokio::test(flavor = "multi_thread")]
+async fn pre_0_8_source_is_skipped_with_a_warning() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzPreBytecodeHash.t.sol");
+    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let suite = results
+        .get("default/fuzz/FuzzPreBytecodeHash.t.sol:FuzzPreBytecodeHash")
+        .expect("the suite still runs");
+    assert!(
+        !suite.test_results.is_empty(),
+        "the suite's tests should have executed"
+    );
+
+    assert_eq!(suite.warnings.len(), 1, "{:#?}", suite.warnings);
+    let warning = &suite.warnings[0];
+    assert!(
+        warning.contains("FuzzPreBytecodeHash.t.sol") && warning.contains("EIP-712"),
+        "{warning}"
     );
 }

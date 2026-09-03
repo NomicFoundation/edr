@@ -7,26 +7,25 @@
 //! ordering, encodability propagation, deduplication) mirror that
 //! implementation and `forge bind-json`.
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::collections::{HashMap, HashSet};
 
-use edr_solidity_parser_slang::{build_compilation_unit, UnsupportedSolcVersionError};
-use semver::Version;
 use slang_solidity_v2::{
     ast::{Definition, Type},
     compilation::CompilationUnit,
 };
 
-use crate::{Eip712Type, ImportResolver};
+use crate::Eip712Type;
 
 #[derive(Debug, thiserror::Error)]
+/// A struct survived encodability filtering while one of its dependencies did
+/// not, which the fixed point in [`reject_non_encodable`] is meant to prevent.
 #[error(
     "struct `{name}` cannot be canonicalized because struct dependency `{dependency}` is missing."
 )]
 pub struct MissingStructDependency {
+    /// The struct being canonicalized.
     name: String,
+    /// The dependency it references that is absent from the encodable set.
     dependency: String,
 }
 
@@ -61,8 +60,13 @@ impl Eip712Type {
             Ok(visited.into_iter().collect())
         }
 
-        let dependency_names = transitive_struct_deps(root, encodables)?;
-        let mut dependency_heads = dependency_names
+        // EIP-712 orders the referenced types by *name*, which is not the same
+        // as ordering their rendered heads: `(` sorts above `$`, so `A` and
+        // `A$` would render in the wrong order.
+        let mut dependency_names = transitive_struct_deps(root, encodables)?;
+        dependency_names.sort();
+
+        let dependency_heads = dependency_names
             .iter()
             .map(|dependency| {
                 let dependency = encodables.get(dependency).ok_or(MissingStructDependency {
@@ -72,7 +76,6 @@ impl Eip712Type {
                 Ok(struct_head(dependency))
             })
             .collect::<Result<Vec<_>, MissingStructDependency>>()?;
-        dependency_heads.sort();
 
         let name = root.name.clone();
         let mut canonical_definition = struct_head(root);
@@ -109,12 +112,15 @@ pub struct Eip712TypeRejected {
     pub reason: RejectReason,
 }
 
-/// Why a [`Eip712Collection::get`] lookup did not return a type.
+/// Why a [`Eip712TypeCollection::get`] lookup did not return a type.
 #[derive(Clone, Debug, thiserror::Error)]
 pub enum Eip712CollectionLookupError {
     /// No struct with this name exists in the compilation unit.
     #[error("EIP-712 type '{type_name}' was not found.")]
-    NotFound { type_name: String },
+    NotFound {
+        /// The name that was looked up.
+        type_name: String,
+    },
     /// A struct with this name exists but cannot be used as an EIP-712 type.
     #[error(transparent)]
     Rejected(#[from] Eip712TypeRejected),
@@ -138,61 +144,22 @@ impl Eip712TypeCollection {
         }
     }
 
+    /// Whether the source declared no struct at all — neither usable nor
+    /// rejected.
     pub fn is_empty(&self) -> bool {
         self.rejected.is_empty() && self.types.is_empty()
     }
 }
 
-/// Errors that prevent collection from running at all (as opposed to per-type
-/// rejections, which are surfaced lazily via [`Eip712Collection::get`]).
-#[derive(Clone, Debug, thiserror::Error)]
-pub enum Eip712CollectError {
-    /// The provided solc version is invalid.
-    #[error(transparent)]
-    InvalidSolcVersion(#[from] UnsupportedSolcVersionError),
-
-    /// The root source file could not be read.
-    #[error("could not read EIP-712 root source {path}: {reason}")]
-    RootFileNotFound {
-        /// The root source path.
-        path: String,
-        /// Why it could not be read.
-        reason: String,
-    },
-}
-
-/// Collects EIP-712 canonical types reachable from `root_source`.
-///
-/// `import_map` maps non-relative import paths (as written in `import`
-/// statements) to absolute disk paths; relative imports are resolved against
-/// the importing file. Parse errors and unresolved imports degrade gracefully
-/// — structs that still resolve are collected — but a missing root file is a
-/// hard error.
-pub fn collect_eip712_types_for_file(
-    root_source: &Path,
-    solc_version: Version,
-    import_resolver: &ImportResolver,
-) -> Result<Eip712TypeCollection, Eip712CollectError> {
-    // Pre-check the root: a build over a missing root only yields a diagnostic
-    // and an empty unit, which we would otherwise mistake for "no types".
-    if let Err(error) = std::fs::metadata(root_source) {
-        return Err(Eip712CollectError::RootFileNotFound {
-            path: root_source.display().to_string(),
-            reason: error.to_string(),
-        });
-    }
-
-    let unit = build_compilation_unit(root_source, solc_version, import_resolver)?;
-
-    Ok(collect_eip712_types_from_compilation_unit(&unit))
-}
-
 /// Core collection logic, decoupled from disk so it can be unit-tested against
 /// an in-memory compilation unit.
-pub fn collect_eip712_types_from_compilation_unit(unit: &CompilationUnit) -> Eip712TypeCollection {
+pub fn collect_eip712_types_from_compilation_unit(
+    unit: &CompilationUnit,
+    root_file_id: &str,
+) -> Eip712TypeCollection {
     let collected = collect_structs(unit);
 
-    let DedupedCollection { unique, duplicates } = dedup_by_name(collected);
+    let DedupedCollection { unique, duplicates } = dedup_by_name(collected, root_file_id);
 
     let EncodableCollection {
         encodables,
@@ -355,12 +322,36 @@ fn encode_member_type(ty: &Type) -> Option<String> {
     }
 }
 
+/// Why a struct that exists in the sources cannot serve as an EIP-712 type.
 #[derive(Clone, Debug, thiserror::Error)]
 pub enum RejectReason {
+    /// Two files declare a struct of this name with different members, and
+    /// neither is the source that asked, so the name is ambiguous.
     #[error("Conflicting definitions of struct '{name}' in: {}", .file_ids.join(", "))]
-    Duplicate { name: String, file_ids: Vec<String> },
+    Duplicate {
+        /// The contested struct name.
+        name: String,
+        /// The files declaring it, in collection order.
+        file_ids: Vec<String>,
+    },
+    /// The struct declares a member EIP-712 cannot encode — a mapping, a
+    /// function, a fixed-point number, or a type that did not resolve.
     #[error("Struct has non-encodable {}: '{}'", if .members.len() == 1 { "member" } else { "members" }, .members.join(", "))]
-    NonEncodableMembers { members: Vec<String> },
+    NonEncodableMembers {
+        /// The offending member names.
+        members: Vec<String>,
+    },
+    /// The struct is well-formed but references a struct that was itself
+    /// rejected, so it cannot be encoded either.
+    #[error(
+        "Struct references unusable {}: '{}'",
+        if .dependencies.len() == 1 { "type" } else { "types" },
+        .dependencies.join(", ")
+    )]
+    UnusableDependencies {
+        /// The referenced struct type names that are unusable.
+        dependencies: Vec<String>,
+    },
 }
 
 struct DedupedCollection {
@@ -368,34 +359,42 @@ struct DedupedCollection {
     pub duplicates: HashMap<String, RejectReason>,
 }
 
-/// Deduplicates structs with the same name but different definitions; rejects
-/// all of them as unusable.
-fn dedup_by_name(collected: Vec<CollectedStruct>) -> DedupedCollection {
+/// Resolves structs sharing a name to a single definition.
+///
+/// A definition in `root_file_id` — the source whose test suite is asking —
+/// wins over any imported definition of the same name, so a test's own struct
+/// is never shadowed by a collision deep in its import graph. Names with no
+/// root definition survive only if every definition agrees; otherwise the name
+/// is ambiguous and rejected.
+fn dedup_by_name(collected: Vec<CollectedStruct>, root_file_id: &str) -> DedupedCollection {
     let mut by_name: HashMap<String, Vec<CollectedStruct>> = HashMap::new();
     for struct_def in collected {
         by_name
             .entry(struct_def.name.clone())
-            .and_modify(|defs| defs.push(struct_def.clone()))
-            .or_insert(vec![struct_def]);
+            .or_default()
+            .push(struct_def);
     }
 
     let mut unique: HashMap<String, CollectedStruct> = HashMap::new();
     let mut duplicates: HashMap<String, RejectReason> = HashMap::new();
     for (struct_name, struct_defs) in by_name {
-        let mut iter = struct_defs.iter();
+        let mut candidates: Vec<CollectedStruct> = struct_defs
+            .iter()
+            .filter(|def| def.file_id == root_file_id)
+            .cloned()
+            .collect();
+        if candidates.is_empty() {
+            candidates = struct_defs;
+        }
 
-        let next = iter
-            .next()
-            .expect("at least one struct definition must exist for this name");
-        let first_struct_def = next.clone();
-        let fingerprint = make_fingerprint(next);
+        let (first, rest) = candidates
+            .split_first()
+            .expect("a name is only present because at least one struct declared it");
 
-        // If fingerprints match, keep one definition and ignore the rest; otherwise,
-        // reject all definitions for this name as unusable.
-        if iter.all(|def| make_fingerprint(def) == fingerprint) {
-            unique.insert(struct_name, first_struct_def);
+        if rest.iter().all(|def| agree(def, first)) {
+            unique.insert(struct_name, first.clone());
         } else {
-            let file_ids = struct_defs.into_iter().map(|def| def.file_id).collect();
+            let file_ids = candidates.into_iter().map(|def| def.file_id).collect();
             duplicates.insert(
                 struct_name.clone(),
                 RejectReason::Duplicate {
@@ -407,6 +406,12 @@ fn dedup_by_name(collected: Vec<CollectedStruct>) -> DedupedCollection {
     }
 
     DedupedCollection { unique, duplicates }
+}
+
+/// Whether two same-named structs declare the same members in the same order,
+/// making the choice between them immaterial.
+fn agree(left: &CollectedStruct, right: &CollectedStruct) -> bool {
+    make_fingerprint(left) == make_fingerprint(right)
 }
 
 /// A deterministic fingerprint of a struct's name and members (including
@@ -474,22 +479,23 @@ fn reject_non_encodable(
             encodables.remove(name);
         }
 
-        // Take `newly_rejected` so it's reset for the next iteration
         rejected.extend(std::mem::take(&mut newly_rejected));
 
         for (name, encodable) in &encodables {
-            let non_encodable_members = encodable
+            // These are struct *type* names, not member names — reporting them
+            // as members would name the wrong thing in the error.
+            let unusable_dependencies = encodable
                 .direct_struct_deps
                 .iter()
                 .filter(|dependency| !encodables.contains_key(*dependency))
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>();
 
-            if !non_encodable_members.is_empty() {
+            if !unusable_dependencies.is_empty() {
                 newly_rejected.insert(
                     name.clone(),
-                    RejectReason::NonEncodableMembers {
-                        members: non_encodable_members,
+                    RejectReason::UnusableDependencies {
+                        dependencies: unusable_dependencies,
                     },
                 );
             }
@@ -580,7 +586,7 @@ mod tests {
         builder.add_file((*root).to_string());
 
         let unit = builder.build();
-        collect_eip712_types_from_compilation_unit(&unit)
+        collect_eip712_types_from_compilation_unit(&unit, root)
     }
 
     /// Convenience function to collect from a single root source.
@@ -780,13 +786,16 @@ mod tests {
             collection.get("Inner"),
             Err(Eip712CollectionLookupError::Rejected( Eip712TypeRejected { reason: RejectReason::NonEncodableMembers { members } ,.. })) if members.iter().any(|member| member.contains("m"))
         ));
+        // `Outer`'s own members are all encodable; it falls because `Inner`
+        // does, so it is reported as an unusable dependency rather than as a
+        // non-encodable member.
         let outer = collection.get("Outer").unwrap_err();
         assert!(
             matches!(
                 &outer,
                 Eip712CollectionLookupError::Rejected(
-                    Eip712TypeRejected { reason: RejectReason::NonEncodableMembers { members }, .. } ,
-                ) if members.iter().any(|member| member.contains("Inner"))
+                    Eip712TypeRejected { reason: RejectReason::UnusableDependencies { dependencies }, .. } ,
+                ) if dependencies.iter().any(|dependency| dependency == "Inner")
             ),
             "unexpected: {outer}"
         );
@@ -848,6 +857,42 @@ mod tests {
         assert_eq!(get_canonical_type(&collection, "Ok"), "Ok(uint256 c)");
     }
 
+    /// The suite's own source is the one asking, so its definition wins over a
+    /// same-named struct anywhere in its import graph — otherwise a collision
+    /// in a dependency (`Permit`, `Order`, `Call`) would make the test's own
+    /// struct unusable.
+    #[test]
+    fn root_definition_wins_over_a_conflicting_import() {
+        let collection = collect(&[
+            (
+                "root.sol",
+                "import \"other.sol\";
+                 struct S { uint256 a; }",
+            ),
+            ("other.sol", "struct S { address b; }"),
+        ]);
+        assert_eq!(get_canonical_type(&collection, "S"), "S(uint256 a)");
+    }
+
+    /// With no definition in the root source to prefer, conflicting imported
+    /// definitions leave the name genuinely ambiguous.
+    #[test]
+    fn conflicting_imports_without_a_root_definition_are_rejected() {
+        let collection = collect(&[
+            (
+                "root.sol",
+                "import \"a.sol\";
+                 import \"b.sol\";",
+            ),
+            ("a.sol", "struct S { uint256 a; }"),
+            ("b.sol", "struct S { address b; }"),
+        ]);
+        assert!(matches!(
+            collection.get("S"),
+            Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected { reason: RejectReason::Duplicate { name, .. }, .. })) if name == "S"
+        ));
+    }
+
     #[test]
     fn dependent_of_conflicting_struct_is_rejected() {
         let collection = collect_one(
@@ -855,11 +900,12 @@ mod tests {
              contract C { struct S { uint256 b; } }
              struct Uses { S s; }",
         );
-        // `Uses` is well-formed in isolation; it is rejected because its member
-        // references the unusable `S`, which surfaces as a non-encodable member.
+        // `Uses` is well-formed in isolation; it is rejected because it
+        // references the unusable `S`. The report names the struct type, not
+        // the member that happens to hold it.
         let uses = collection.get("Uses").unwrap_err();
         assert!(
-            matches!(&uses, Eip712CollectionLookupError::Rejected(Eip712TypeRejected { reason: RejectReason::NonEncodableMembers { members }, .. }) if members.iter().any(|member| member == "S")),
+            matches!(&uses, Eip712CollectionLookupError::Rejected(Eip712TypeRejected { reason: RejectReason::UnusableDependencies { dependencies }, .. }) if dependencies.iter().any(|dependency| dependency == "S")),
             "unexpected: {uses}"
         );
     }
