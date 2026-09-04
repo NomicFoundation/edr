@@ -835,6 +835,39 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         "expected UnsafeToReplay naming envOr, got {flaky_stack_trace:?}"
     );
 
+    // A replay that fails in a different phase than the campaign did: the
+    // campaign failed in `invariant()`, while the replay reaches the
+    // always-reverting `afterInvariant()`. That unrelated revert must not
+    // replace the original reason, and the divergence must be reported as
+    // unsafe to replay.
+    let cross_phase_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceCrossPhaseTest")
+        .expect("the AlwaysStackTraceCrossPhase suite should have run");
+    let cross_phase_result = cross_phase_suite
+        .test_results
+        .get("invariantFlaky()")
+        .expect("the cross-phase invariant test should have run");
+    assert!(
+        cross_phase_result
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("flaky invariant")),
+        "expected the original revert reason to be kept, got {:?}",
+        cross_phase_result.reason
+    );
+    let cross_phase_stack_trace = cross_phase_result
+        .stack_trace_result
+        .as_ref()
+        .expect("a stack trace result should be present");
+    assert!(
+        matches!(
+            cross_phase_stack_trace,
+            SolidityTestStackTraceResult::UnsafeToReplay { impure_cheatcodes, .. }
+                if impure_cheatcodes.iter().any(|sig| sig.contains("envOr"))
+        ),
+        "expected UnsafeToReplay naming envOr, got {cross_phase_stack_trace:?}"
+    );
+
     // An invariant that is already broken in the initial state fails the
     // campaign's initial check (`invariant_fuzz` returns an error before any
     // fuzzed calls); that path must produce a stack trace too.
