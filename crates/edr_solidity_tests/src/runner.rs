@@ -1392,10 +1392,18 @@ impl<
                             }
 
                             // If we can't get a revert reason for the second time, we couldn't
-                            // replay the failure, so keep the original revert reason
-                            // and discard the stack trace as it may be misleading.
+                            // replay the failure, so keep the original revert reason.
                             if reason.is_some() && revert_reason.is_none() {
-                                tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
+                                if matches!(
+                                    &stack_trace_result,
+                                    Some(SolidityTestStackTraceResult::UnsafeToReplay { .. })
+                                ) {
+                                    // Indeterminism explains a failure that did not reproduce
+                                    self.result.stack_trace_result = stack_trace_result;
+                                } else {
+                                    // Discard the stack trace as it may be misleading.
+                                    tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
+                                }
                             } else {
                                 self.result.stack_trace_result = stack_trace_result;
                                 self.result.reason = revert_reason;

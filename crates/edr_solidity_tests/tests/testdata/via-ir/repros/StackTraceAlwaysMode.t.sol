@@ -64,6 +64,27 @@ contract Counter {
     }
 }
 
+// Covers the `afterInvariant()` stack-trace path: the invariant holds, so
+// the campaign only fails once `afterInvariant()` reverts, and on replay
+// both the fuzzed sequence and `invariant()` succeed — leaving the revert
+// reason of the reproduced failure only in `afterInvariant()`'s result.
+// `Counter` gives the campaign a fuzzable target.
+contract AlwaysStackTraceAfterInvariantTest is DSTest {
+    Counter counter;
+    Reverter reverter;
+
+    function setUp() public {
+        counter = new Counter();
+        reverter = new Reverter();
+    }
+
+    function invariantAlwaysHolds() public view {}
+
+    function afterInvariant() public view {
+        reverter.boom();
+    }
+}
+
 // Covers the failing-`setUp()` stack-trace path (issue #1605). The suite
 // needs at least one test function, or `run_tests` skips setup entirely.
 contract AlwaysStackTraceFailingSetupTest is DSTest {
@@ -117,5 +138,116 @@ contract Rejecter {
     function poke() public {
         counter += 1;
         vm.assume(false);
+    }
+}
+
+// Covers the indeterministic `afterInvariant()` replay: the impure `envOr`
+// call taints the re-execution, so the failure must be reported as unsafe
+// to replay instead of with a concrete stack trace.
+contract AlwaysStackTraceImpureAfterInvariantTest is DSTest {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    Counter counter;
+    Reverter reverter;
+
+    function setUp() public {
+        counter = new Counter();
+        reverter = new Reverter();
+    }
+
+    function invariantAlwaysHolds() public view {}
+
+    function afterInvariant() public view {
+        vm.envOr("EDR_NONEXISTENT_ENV_VAR", uint256(0));
+        reverter.boom();
+    }
+}
+
+// Covers the indeterministic `invariant()` before a failing
+// `afterInvariant()`: the impure `envOr` call makes it uncertain that
+// `invariant()` passes again on a re-execution. `afterInvariant()` only ran
+// because it passed, so the failure must be reported as unsafe to replay.
+contract AlwaysStackTraceImpureInvariantTest is DSTest {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    Counter counter;
+    Reverter reverter;
+
+    function setUp() public {
+        counter = new Counter();
+        reverter = new Reverter();
+    }
+
+    function invariantAlwaysHolds() public view {
+        vm.envOr("EDR_NONEXISTENT_ENV_VAR", uint256(0));
+    }
+
+    function afterInvariant() public view {
+        reverter.boom();
+    }
+}
+
+// Covers the `afterInvariant()` failure that does not reproduce on replay.
+// The first execution reads an unset variable and reverts; the same call sets
+// the variable, so every later execution passes. The campaign therefore
+// fails, while the replay succeeds. Only the impure `envOr` read explains
+// the divergence, so the failure must be reported as unsafe to replay.
+contract AlwaysStackTraceFlakyAfterInvariantTest is DSTest {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    Counter counter;
+
+    function setUp() public {
+        counter = new Counter();
+        // Overwrite whatever value the process environment holds, so a prior
+        // campaign in this process or a caller-set variable cannot mask the
+        // first-call revert below.
+        vm.setEnv("EDR_FLAKY_AFTER_INVARIANT", "0");
+    }
+
+    function invariantAlwaysHolds() public view {}
+
+    function afterInvariant() public {
+        uint256 seen = vm.envOr("EDR_FLAKY_AFTER_INVARIANT", uint256(0));
+        vm.setEnv("EDR_FLAKY_AFTER_INVARIANT", "1");
+        require(seen == 1, "flaky boom");
+    }
+}
+
+// Covers a replay failure in a different phase than the campaign's. The
+// campaign fails in `invariant()` the first time it observes a fuzzed call,
+// so its failure phase is `invariant()`. Every later execution passes, so
+// the replay's `invariant()` succeeds and the always-reverting
+// `afterInvariant()` runs. That revert is not the campaign's failure. The
+// result must keep the original reason and report the replay as unsafe
+// instead of adopting the unrelated revert.
+contract AlwaysStackTraceCrossPhaseTest is DSTest {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    Counter counter;
+    Reverter reverter;
+
+    function setUp() public {
+        counter = new Counter();
+        reverter = new Reverter();
+        // Overwrite whatever value the process environment holds, so a prior
+        // campaign in this process or a caller-set variable cannot change
+        // which execution reverts below.
+        vm.setEnv("EDR_CROSS_PHASE_INVARIANT", "0");
+    }
+
+    // Passes while no fuzzed call has run. The first execution that observes
+    // one reverts and arms the variable, so every later execution — shrinking
+    // and the replay — passes again.
+    function invariantFlaky() public {
+        uint256 seen = vm.envOr("EDR_CROSS_PHASE_INVARIANT", uint256(0));
+        if (counter.count() > 0) {
+            vm.setEnv("EDR_CROSS_PHASE_INVARIANT", "1");
+            require(seen == 1, "flaky invariant");
+        }
+    }
+
+    function afterInvariant() public view {
+        reverter.boom();
     }
 }
