@@ -18,8 +18,8 @@ use crate::executors::RawCallResult;
 pub struct CaseOutcome {
     /// Data of a single fuzz test case.
     pub case: FuzzCase,
-    /// The traces of the call.
-    pub traces: Option<SparsedTraceArena>,
+    /// The call trace arena of the call.
+    pub call_trace_arena: Option<SparsedTraceArena>,
     /// The coverage info collected during the call.
     pub coverage: Option<HitMaps>,
     /// logs of a single fuzz test case.

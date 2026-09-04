@@ -15,6 +15,7 @@ use std::{
 };
 
 use alloy_primitives::map::HashMap;
+use derive_where::derive_where;
 use revm_inspectors::tracing::types::DecodedTraceStep;
 pub use revm_inspectors::tracing::{
     types::{
@@ -31,7 +32,7 @@ use serde::{Deserialize, Serialize};
 /// Identifiers figure out what ABIs and labels belong to all the addresses of
 /// the trace.
 pub mod identifier;
-use identifier::LocalTraceIdentifier;
+use identifier::{LocalTraceIdentifier, TraceIdentifier};
 
 pub mod abi;
 pub mod decoder;
@@ -39,11 +40,137 @@ pub use decoder::{CallTraceDecoder, CallTraceDecoderBuilder};
 use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 
 /// A suite's setup-phase trace arenas, including deployments and `setUp()`,
-/// in execution order. When setup failed, the last arena is the failing call;
-/// the setup stack-trace computation relies on that.
-pub type SetupTraces = Vec<SetupTrace>;
+/// in execution order.
+///
+/// The setup stack-trace computation only names the last arena as the failing
+/// call, so the earlier ones never need their steps. When setup failed, that
+/// last arena is the failing call.
+pub type SetupTraces = TraceArenas<SetupTrace>;
 
+/// A setup trace arena paired with the kind of setup call that recorded it.
 pub type SetupTrace = (SetupTraceKind, SparsedTraceArena);
+
+/// The arenas a test's execution has recorded so far, in execution order.
+///
+/// Only the last arena may be named as the failing trace of a stack-trace
+/// computation; every earlier arena may only serve as a code source, which is
+/// walked for its CREATE nodes alone.
+pub type ExecutionTraces = TraceArenas<SparsedTraceArena>;
+
+/// An element of [`TraceArenas`]: a trace arena, possibly paired with
+/// metadata.
+pub trait HasTraceArena {
+    /// The carried arena.
+    fn trace_arena_mut(&mut self) -> &mut SparsedTraceArena;
+}
+
+impl HasTraceArena for SparsedTraceArena {
+    fn trace_arena_mut(&mut self) -> &mut SparsedTraceArena {
+        self
+    }
+}
+
+impl HasTraceArena for SetupTrace {
+    fn trace_arena_mut(&mut self) -> &mut SparsedTraceArena {
+        &mut self.1
+    }
+}
+
+/// Trace arenas in execution order.
+///
+/// At most the last element's arena carries recorded EVM steps, because
+/// [`push`](Self::push) — the only way to grow the collection — strips them
+/// from the arena it displaces. That bounds the memory peak while a test is
+/// still running, not just between tests. The collection derefs to a slice
+/// for reading; the mutating methods decode arenas in place or strip steps,
+/// so none of them can reintroduce steps or reorder the arenas.
+#[derive(Clone, Debug, Serialize)]
+#[derive_where(Default)]
+#[serde(transparent)]
+pub struct TraceArenas<T>(Vec<T>);
+
+impl<T: HasTraceArena> TraceArenas<T> {
+    /// Appends an element, stripping the recorded EVM steps from the arena
+    /// that was previously last (see [`SparsedTraceArena::strip_steps`]).
+    ///
+    /// The strip is unconditional, even when the whole collection is freed
+    /// once the test finishes. The in-test peak is worth the walk.
+    pub fn push(&mut self, item: T) {
+        self.strip_last_steps();
+        self.0.push(item);
+    }
+
+    /// Identifies the contracts in every arena and decodes the arenas in
+    /// place. Decoding writes labels and decoded call data; it cannot
+    /// reintroduce recorded steps.
+    pub async fn identify_and_decode(
+        &mut self,
+        decoder: &mut CallTraceDecoder,
+        identifier: &mut impl TraceIdentifier,
+    ) {
+        for item in &mut self.0 {
+            let arena = item.trace_arena_mut();
+            decoder.identify(arena, identifier);
+            decode_trace_arena(&mut arena.arena, decoder).await;
+        }
+    }
+
+    /// Strips the recorded EVM steps from the last arena, if any — the strip
+    /// [`push`](Self::push) would otherwise do when that arena is displaced.
+    pub fn strip_last_steps(&mut self) {
+        if let Some(last) = self.0.last_mut() {
+            last.trace_arena_mut().strip_steps();
+        }
+    }
+
+    /// Strips the recorded EVM steps from every arena, including the last.
+    ///
+    /// Must only be called once a stack trace can no longer be requested for
+    /// any of them.
+    pub fn strip_steps(&mut self) {
+        for item in &mut self.0 {
+            item.trace_arena_mut().strip_steps();
+        }
+    }
+}
+
+impl<T> Deref for TraceArenas<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> IntoIterator for TraceArenas<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a TraceArenas<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<T: HasTraceArena> FromIterator<T> for TraceArenas<T> {
+    /// Collects through [`push`](Self::push), so every arena but the last is
+    /// stripped of its steps.
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut traces = Self::default();
+        for item in iter {
+            traces.push(item);
+        }
+        traces
+    }
+}
 
 /// Trace arena keeping track of ignored trace items.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -392,6 +519,19 @@ mod tests {
         ignored.insert((1, 0), (3, 0));
 
         SparsedTraceArena { arena, ignored }
+    }
+
+    #[test]
+    fn push_strips_steps_of_the_displaced_arena_only() {
+        let mut traces = ExecutionTraces::default();
+
+        traces.push(paused_arena());
+        assert!(!traces[0].nodes()[0].trace.steps.is_empty());
+
+        traces.push(paused_arena());
+        assert!(traces[0].nodes()[0].trace.steps.is_empty());
+        assert!(traces[0].ignored.is_empty());
+        assert!(!traces[1].nodes()[0].trace.steps.is_empty());
     }
 
     #[test]

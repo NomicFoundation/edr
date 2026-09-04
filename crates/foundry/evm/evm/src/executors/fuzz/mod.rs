@@ -229,7 +229,7 @@ impl<
                         data.first_case.replace(case.case);
                     }
 
-                    if let Some(call_traces) = case.traces {
+                    if let Some(call_traces) = case.call_trace_arena {
                         if data.traces.len() == max_traces_to_collect {
                             data.traces.pop();
                         }
@@ -273,9 +273,9 @@ impl<
             traces.pop()
         } else {
             // Nothing reads `BaseCounterExample::traces`, so the failing
-            // arena can move into `FuzzTestResult::traces` rather than be
-            // cloned for both.
-            call.traces
+            // arena can move into `FuzzTestResult::call_trace_arena` rather than
+            // be cloned for both.
+            call.call_trace_arena
         };
 
         let mut result = FuzzTestResult {
@@ -287,7 +287,7 @@ impl<
             counterexample: None,
             logs: fuzz_result.logs,
             labeled_addresses: call.labels,
-            traces: last_run_traces,
+            call_trace_arena: last_run_traces,
             gas_report_traces: traces.into_iter().map(|a| a.arena).collect(),
             line_coverage: fuzz_result.coverage,
             deprecated_cheatcodes: fuzz_result.deprecated_cheatcodes,
@@ -402,7 +402,7 @@ impl<
                     gas: call.gas_used,
                     stipend: call.stipend,
                 },
-                traces: call.traces,
+                call_trace_arena: call.call_trace_arena,
                 coverage: call.line_coverage,
                 logs: call.logs,
                 deprecated_cheatcodes,

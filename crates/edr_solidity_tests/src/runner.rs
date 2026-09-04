@@ -564,7 +564,7 @@ impl<
         if setup_fns.len() > 1 {
             return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 start.elapsed(),
-                Vec::new(),
+                SetupTraces::default(),
                 [(
                     "setUp()".to_string(),
                     TestResult::fail("multiple setUp functions".to_string()),
@@ -585,7 +585,7 @@ impl<
             // Return a single test result failure if multiple functions declared.
             return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 start.elapsed(),
-                Vec::new(),
+                SetupTraces::default(),
                 [(
                     "afterInvariant()".to_string(),
                     TestResult::fail("multiple afterInvariant functions".to_string()),
@@ -626,7 +626,7 @@ impl<
         if functions.is_empty() {
             return Ok(SuiteRunOutcome::without_samples(SuiteResult::new(
                 start.elapsed(),
-                Vec::new(),
+                SetupTraces::default(),
                 BTreeMap::new(),
                 warnings,
             )));
@@ -1724,8 +1724,8 @@ impl<
             U256::ZERO,
             Some(self.cr.revert_decoder),
         ) {
-            Ok(res) => res.raw.traces,
-            Err(EvmError::Execution(err)) => err.raw.traces,
+            Ok(res) => res.raw.call_trace_arena,
+            Err(EvmError::Execution(err)) => err.raw.call_trace_arena,
             Err(err) => return Err(err.into()),
         }
         .expect("enabled tracing");
@@ -1846,7 +1846,7 @@ fn re_run_fuzz_counterexample_for_stack_traces<
         )
         .map_err(|err| SolidityTestStackTraceError::Evm(err.to_string()))?;
 
-    let new_trace_arena = call.traces.expect("tracing is on");
+    let new_trace_arena = call.call_trace_arena.expect("tracing is on");
 
     get_stack_trace(
         &*contract_runner.contract_decoder,

@@ -219,12 +219,12 @@ pub struct FuzzTestResult {
     /// Labeled addresses
     pub labeled_addresses: AddressHashMap<String>,
 
-    /// Exemplary traces for a fuzz run of the test function
+    /// Exemplary call trace arena for a fuzz run of the test function
     ///
     /// **Note** We only store a single trace of a successful fuzz call,
     /// otherwise we would get `num(fuzz_cases)` traces, one for each run,
     /// which is neither helpful nor performant.
-    pub traces: Option<SparsedTraceArena>,
+    pub call_trace_arena: Option<SparsedTraceArena>,
 
     /// Additional traces used for gas report construction.
     /// Those traces should not be displayed.
