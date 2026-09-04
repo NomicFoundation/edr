@@ -260,17 +260,31 @@ pub fn replay_run<
         logs.extend(after_invariant_result.logs);
     }
 
-    // The backend accumulates indeterminism across calls, so the failing
-    // call's reasons include everything the replay executed before it.
     let Failure {
         output: failing_output,
         exit_reason: failing_exit_reason,
         indeterminism_reasons,
-    } = after_invariant_failure.unwrap_or_else(|| Failure {
-        output: invariant_result.result,
-        exit_reason: invariant_result.exit_reason,
-        indeterminism_reasons: invariant_result.indeterminism_reasons,
-    });
+    } = match after_invariant_failure {
+        // `invariant()` executed on a copy-on-write backend, so its own
+        // indeterminism never reaches `afterInvariant()`'s call result.
+        // `afterInvariant()` only ran because `invariant()` passed, so that
+        // indeterminism taints this failure too and must be merged in.
+        Some(mut failure) => {
+            failure.indeterminism_reasons = match failure.indeterminism_reasons {
+                Some(mut reasons) => {
+                    reasons.merge(invariant_result.indeterminism_reasons);
+                    Some(reasons)
+                }
+                None => invariant_result.indeterminism_reasons,
+            };
+            failure
+        }
+        None => Failure {
+            output: invariant_result.result,
+            exit_reason: invariant_result.exit_reason,
+            indeterminism_reasons: invariant_result.indeterminism_reasons,
+        },
+    };
 
     let stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>> =
         generate_stack_trace
