@@ -802,6 +802,39 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         "expected UnsafeToReplay naming envOr, got {impure_invariant_stack_trace:?}"
     );
 
+    // A failure that does not reproduce on replay: `afterInvariant()` reverts
+    // only on its first execution (see the fixture). The replay observes the
+    // impure `envOr` read that explains the divergence, so the result must be
+    // `UnsafeToReplay` and keep the original revert reason. It must not be
+    // discarded with the "no revert reason on replay" heuristic.
+    let flaky_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceFlakyAfterInvariantTest")
+        .expect("the AlwaysStackTraceFlakyAfterInvariant suite should have run");
+    let flaky_result = flaky_suite
+        .test_results
+        .get("invariantAlwaysHolds()")
+        .expect("the flaky afterInvariant invariant test should have run");
+    assert!(
+        flaky_result
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("flaky boom")),
+        "expected the original revert reason to be kept, got {:?}",
+        flaky_result.reason
+    );
+    let flaky_stack_trace = flaky_result
+        .stack_trace_result
+        .as_ref()
+        .expect("a stack trace result should be present");
+    assert!(
+        matches!(
+            flaky_stack_trace,
+            SolidityTestStackTraceResult::UnsafeToReplay { impure_cheatcodes, .. }
+                if impure_cheatcodes.iter().any(|sig| sig.contains("envOr"))
+        ),
+        "expected UnsafeToReplay naming envOr, got {flaky_stack_trace:?}"
+    );
+
     // An invariant that is already broken in the initial state fails the
     // campaign's initial check (`invariant_fuzz` returns an error before any
     // fuzzed calls); that path must produce a stack trace too.

@@ -186,3 +186,30 @@ contract AlwaysStackTraceImpureInvariantTest is DSTest {
         reverter.boom();
     }
 }
+
+// Covers the `afterInvariant()` failure that does not reproduce on replay.
+// The first execution reads an unset variable and reverts; the same call sets
+// the variable, so every later execution passes. The campaign therefore
+// fails, while the replay succeeds. Only the impure `envOr` read explains
+// the divergence, so the failure must be reported as unsafe to replay.
+contract AlwaysStackTraceFlakyAfterInvariantTest is DSTest {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    Counter counter;
+
+    function setUp() public {
+        counter = new Counter();
+        // Overwrite whatever value the process environment holds, so a prior
+        // campaign in this process or a caller-set variable cannot mask the
+        // first-call revert below.
+        vm.setEnv("EDR_FLAKY_AFTER_INVARIANT", "0");
+    }
+
+    function invariantAlwaysHolds() public view {}
+
+    function afterInvariant() public {
+        uint256 seen = vm.envOr("EDR_FLAKY_AFTER_INVARIANT", uint256(0));
+        vm.setEnv("EDR_FLAKY_AFTER_INVARIANT", "1");
+        require(seen == 1, "flaky boom");
+    }
+}
