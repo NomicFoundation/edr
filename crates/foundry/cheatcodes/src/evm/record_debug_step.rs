@@ -3,14 +3,14 @@ use foundry_evm_core::buffer::{get_buffer_accesses, BufferKind};
 use foundry_evm_traces::CallTraceArena;
 use revm::{bytecode::opcode::OpCode, interpreter::InstructionResult};
 use revm_inspectors::tracing::types::{
-    CallTraceNode, CallTraceStep, RecordedMemory, TraceMemberOrder,
+    CallTraceNode, DetailedStepRef, RecordedMemory, TraceMemberOrder,
 };
 use spec::Vm::DebugStep;
 
-// Context for a CallTraceStep, includes depth and contract address.
+// Context for a step recorded in full, includes depth and contract address.
 pub(crate) struct CallTraceCtx<'a> {
     pub node: &'a CallTraceNode,
-    pub step: &'a CallTraceStep,
+    pub step: DetailedStepRef<'a>,
 }
 
 // Do a depth first traverse of the nodes and steps and return steps
@@ -57,8 +57,7 @@ fn recursive_flatten_call_trace<'a>(
                 if *record_started {
                     let step = node
                         .trace
-                        .steps
-                        .get(*step_idx)
+                        .detailed_step(*step_idx)
                         .expect("Step index should be valid");
                     flatten_steps.push(CallTraceCtx { node, step });
                 }
@@ -81,7 +80,7 @@ fn recursive_flatten_call_trace<'a>(
     }
 }
 
-// Function to convert CallTraceStep to DebugStep
+// Function to convert a recorded step to DebugStep
 pub(crate) fn convert_call_trace_ctx_to_debug_step(ctx: &CallTraceCtx) -> DebugStep {
     let opcode = ctx.step.op.get();
     let stack = get_stack_inputs_for_opcode(opcode, ctx.step.stack.as_deref());

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use alloy_dyn_abi::JsonAbiExt;
-use alloy_primitives::Log;
+use alloy_primitives::{Bytes, Log};
 use derive_where::derive_where;
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{
@@ -258,14 +258,23 @@ pub fn replay_run<
             .map_or_else(Default::default, |cheats| cheats.deprecated.clone()),
     );
 
-    // Collect after invariant logs and traces.
+    // Collect after invariant logs and traces. When `afterInvariant()` is what
+    // failed, its output and exit reason — not `invariant()`'s, which
+    // succeeded — carry the revert reason of the reproduced failure.
+    let mut after_invariant_failure: Option<(Bytes, Option<InstructionResult>)> = None;
     if invariant_contract.call_after_invariant && invariant_success {
         let CallAfterInvariantResult {
             call_result: after_invariant_result,
-            success: _,
+            success: after_invariant_success,
         } = call_after_invariant_function(&executor, invariant_contract.address)?;
         if keep_traces {
             execution_traces.push(after_invariant_result.traces.expect("tracing is on"));
+        }
+        if !after_invariant_success {
+            after_invariant_failure = Some((
+                after_invariant_result.result,
+                after_invariant_result.exit_reason,
+            ));
         }
         logs.extend(after_invariant_result.logs);
     }
@@ -300,10 +309,11 @@ pub fn replay_run<
             })
             .flatten();
 
-    let revert_reason = revert_decoder.maybe_decode(
-        invariant_result.result.as_ref(),
-        invariant_result.exit_reason,
-    );
+    let (failing_output, failing_exit_reason) = match &after_invariant_failure {
+        Some((output, exit_reason)) => (output, *exit_reason),
+        None => (&invariant_result.result, invariant_result.exit_reason),
+    };
+    let revert_reason = revert_decoder.maybe_decode(failing_output.as_ref(), failing_exit_reason);
 
     Ok(ReplayResult {
         counterexample_sequence,

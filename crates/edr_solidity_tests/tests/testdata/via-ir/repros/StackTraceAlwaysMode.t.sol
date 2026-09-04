@@ -64,6 +64,27 @@ contract Counter {
     }
 }
 
+// Covers the `afterInvariant()` stack-trace path: the invariant holds, so
+// the campaign only fails once `afterInvariant()` reverts, and on replay
+// both the fuzzed sequence and `invariant()` succeed — leaving the revert
+// reason of the reproduced failure only in `afterInvariant()`'s result.
+// `Counter` gives the campaign a fuzzable target.
+contract AlwaysStackTraceAfterInvariantTest is DSTest {
+    Counter counter;
+    Reverter reverter;
+
+    function setUp() public {
+        counter = new Counter();
+        reverter = new Reverter();
+    }
+
+    function invariantAlwaysHolds() public view {}
+
+    function afterInvariant() public view {
+        reverter.boom();
+    }
+}
+
 // Covers the failing-`setUp()` stack-trace path (issue #1605). The suite
 // needs at least one test function, or `run_tests` skips setup entirely.
 contract AlwaysStackTraceFailingSetupTest is DSTest {

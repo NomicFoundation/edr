@@ -18,11 +18,11 @@ use alloy_primitives::map::HashMap;
 use revm_inspectors::tracing::types::DecodedTraceStep;
 pub use revm_inspectors::tracing::{
     types::{
-        CallKind, CallLog, CallTrace, CallTraceNode, CallTraceStep, DecodedCallData,
-        DecodedCallLog, DecodedCallTrace, TraceMemberOrder,
+        CallKind, CallLog, CallTrace, CallTraceNode, DecodedCallData, DecodedCallLog,
+        DecodedCallTrace, DetailedStepRef, StepDetail, StepRef, StepStore, TraceMemberOrder,
     },
     CallTraceArena, FourByteInspector, GethTraceBuilder, ParityTraceBuilder, StackSnapshotType,
-    TraceWriter, TracingInspector, TracingInspectorConfig,
+    StepRecording, TraceWriter, TracingInspector, TracingInspectorConfig,
 };
 use serde::{Deserialize, Serialize};
 
@@ -238,8 +238,10 @@ impl TracingMode {
     pub fn into_config(self) -> Option<TracingInspectorConfig> {
         let record_steps = match self {
             Self::None => return None,
-            Self::WithoutSteps => false,
-            Self::WithSteps => true,
+            Self::WithoutSteps => StepRecording::None,
+            // Stack traces need the program counter and opcode of every step, nothing more;
+            // the debug-trace cheatcodes raise this to `Full` while they record.
+            Self::WithSteps => StepRecording::PcAndOp,
         };
 
         Some(TracingInspectorConfig {
@@ -314,7 +316,7 @@ fn clear_node(
                 let step = node
                     .trace
                     .steps
-                    .get(step_idx)
+                    .detail(step_idx)
                     .expect("step_idx should be within steps bounds");
                 if let Some(decoded) = &step.decoded
                     && let DecodedTraceStep::InternalCall(_, end_step_idx) = &**decoded
@@ -371,11 +373,7 @@ fn clear_node(
 /// Use [`SparsedTraceArena::strip_steps`] there instead.
 pub fn strip_arena_steps(arena: &mut CallTraceArena) {
     for node in arena.nodes_mut() {
-        node.trace.steps = Vec::new();
-        node.ordering
-            .retain(|item| !matches!(item, TraceMemberOrder::Step(_)));
-        // `retain` keeps the capacity, which grew with one entry per step.
-        node.ordering.shrink_to_fit();
+        node.clear_steps();
     }
 }
 
@@ -443,24 +441,15 @@ mod tests {
 
     use super::*;
 
-    /// Returns a minimal recorded step; only its presence in a node matters.
-    fn step() -> CallTraceStep {
-        CallTraceStep {
-            pc: 0,
-            op: OpCode::STOP,
-            stack: None,
-            push_stack: None,
-            memory: None,
-            returndata: alloy_primitives::Bytes::default(),
-            gas_remaining: 0,
-            gas_refund_counter: 0,
-            gas_used: 0,
-            gas_cost: 0,
-            storage_change: None,
-            status: None,
-            immediate_bytes: None,
-            decoded: None,
+    /// Returns `count` minimal steps recorded in full; only their presence in
+    /// a node matters.
+    fn steps(count: usize) -> StepStore {
+        let mut steps = StepStore::default();
+        for _ in 0..count {
+            let step_index = steps.push(0, OpCode::STOP);
+            steps.push_detail(step_index, StepDetail::default());
         }
+        steps
     }
 
     /// Root node with a `pauseTracing` child (node 1), a `resumeTracing` child
@@ -473,7 +462,7 @@ mod tests {
         let nodes = arena.nodes_mut();
         nodes[0].children = vec![1, 2, 3];
         nodes[0].logs = vec![CallLog::default(), CallLog::default()];
-        nodes[0].trace.steps = (0..5).map(|_| step()).collect();
+        nodes[0].trace.steps = steps(5);
         nodes[0].ordering = vec![
             Step(0),
             Log(0),
@@ -513,6 +502,24 @@ mod tests {
         assert!(traces[0].nodes()[0].trace.steps.is_empty());
         assert!(traces[0].ignored.is_empty());
         assert!(!traces[1].nodes()[0].trace.steps.is_empty());
+    }
+
+    #[test]
+    fn clear_step_details_keeps_the_base_track() {
+        let mut arena = paused_arena();
+        let node = &mut arena.arena.nodes_mut()[0];
+        let expected: Vec<TraceMemberOrder> = node
+            .ordering
+            .iter()
+            .filter(|item| !matches!(item, TraceMemberOrder::Step(_)))
+            .copied()
+            .collect();
+
+        node.clear_step_details();
+
+        assert_eq!(node.trace.step_count(), 5);
+        assert_eq!(node.trace.detailed_step_count(), 0);
+        assert_eq!(node.ordering, expected);
     }
 
     #[test]
