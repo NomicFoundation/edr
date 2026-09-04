@@ -3412,7 +3412,7 @@
     {
       "func": {
         "id": "broadcastRawTransaction",
-        "description": "Scripting cheatcodes are not supported.",
+        "description": "Executes a signed, RLP-encoded transaction against the current EVM state, from the address\nrecovered from its signature.\nNothing is broadcast to a network. This matches the behavior of Foundry's cheatcode of the\nsame name in a test context.\nThe transaction is executed as its own transaction, not as a call from the test:\n- It fails the cheatcode only if it is invalid: undecodable payload, unrecoverable\n  signature, wrong chain id, or a sender that cannot pay for it. A transaction that is\n  valid but reverts during execution is still included, so its nonce is consumed and its\n  fee is paid, and the cheatcode succeeds.\n- The declared nonce is not checked, as in all Solidity tests. The sender's account nonce\n  is used and incremented, so replaying the same transaction twice succeeds twice.\n- The resulting state is committed to the database rather than journaled, so it is not\n  undone when the calling frame reverts. Use `snapshotState` and `revertToState` to roll\n  it back.",
         "declaration": "function broadcastRawTransaction(bytes calldata data) external;",
         "visibility": "external",
         "mutability": "",
@@ -3426,7 +3426,7 @@
         ]
       },
       "group": "scripting",
-      "status": "unsupported",
+      "status": "stable",
       "safety": "safe"
     },
     {
