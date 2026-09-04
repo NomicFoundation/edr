@@ -327,16 +327,18 @@ pub trait CheatcodeBackend<
     /// is executed from `tx.from`, which for a signed transaction is the
     /// address recovered from its signature.
     ///
-    /// The transaction is validated by the EVM just like any other
-    /// transaction, so an invalid chain id or an unaffordable transaction is
-    /// returned as an error rather than silently adjusted. A transaction that
-    /// validates but *reverts* is not an error: it is an included transaction,
-    /// and its nonce bump and fee payment are committed.
+    /// The transaction is validated by the EVM with the configuration of the
+    /// running test, so an invalid chain id or an unaffordable transaction is
+    /// returned as an error rather than silently adjusted, while the nonce is
+    /// not checked because Solidity tests disable the nonce check. A
+    /// transaction that validates but *reverts* is not an error: it is an
+    /// included transaction, and its nonce bump and fee payment are committed.
     ///
-    /// The resulting state is committed to the database and reflected in
-    /// `journaled_state`, but no journal entries are recorded for it, so it is
-    /// not rolled back if the calling frame reverts. State snapshots do capture
-    /// and restore it.
+    /// The transaction sees the test's uncommitted changes in
+    /// `journaled_state`, but only its own changes are committed to the
+    /// database and mirrored into `journaled_state`. No journal entries are
+    /// recorded for them, so they are not rolled back if the calling frame
+    /// reverts. State snapshots do capture and restore them.
     fn transact_from_tx(
         &mut self,
         tx: &TransactionRequest,
@@ -1789,15 +1791,17 @@ impl<
     ) -> eyre::Result<()> {
         trace!(?tx, "execute signed transaction");
 
-        // Flush the in-flight journal into the database so the nested EVM sees
-        // the state as of the current point in the test.
-        self.commit(journaled_state.state.clone());
-
         let res = {
             configure_tx_req_env(&mut env.tx, tx, None)?;
             let mut env = self.env_with_handler_cfg(env);
 
-            let db = self.clone();
+            // Execute against a copy of the backend seeded with the current
+            // journaled state, so the transaction sees the state at this point
+            // of the test. Seeding the copy rather than `self` keeps the test's
+            // uncommitted changes out of the database: they may still be
+            // reverted by the test, in which case nothing would undo them.
+            let mut db = self.clone();
+            db.commit(journaled_state.state.clone());
             let mut journal = Journal::<_, JournalEntry>::new(db);
             journal.set_spec_id(env.cfg.spec.into());
             // The transaction is executed as a nested transaction of the
@@ -1818,14 +1822,29 @@ impl<
             trace!(result = ?res.result, "broadcast transaction did not succeed");
         }
 
+        // Commit the transaction's changes and mirror them into the loaded
+        // accounts, but only the accounts and slots the transaction touched.
+        // The database never received the test's uncommitted changes, so for
+        // everything else the journaled state is the only source of truth and
+        // must not be overwritten from the database.
+        let touched: Vec<(Address, Vec<U256>)> = res
+            .state
+            .iter()
+            .filter(|(_, account)| account.is_touched())
+            .map(|(address, account)| (*address, account.storage.keys().copied().collect()))
+            .collect();
         self.commit(res.state);
-        // Not `Some(persistent_accounts)`, unlike `apply_state_changeset` in
-        // the `transact` path. There the fork DB is stale for persistent
-        // accounts, whose canonical state lives in the journal, so they must be
-        // skipped. Here the journal was flushed into the DB above, so DB and
-        // journal agree for every account, and skipping persistent ones would
-        // instead discard this transaction's legitimate effects on them.
-        update_state(&mut journaled_state.state, self, None)?;
+        for (address, slots) in touched {
+            let Some(account) = journaled_state.state.get_mut(&address) else {
+                continue;
+            };
+            account.info = self.basic(address)?.unwrap_or_default();
+            for slot in slots {
+                if let Some(value) = account.storage.get_mut(&slot) {
+                    value.present_value = self.storage(address, slot)?;
+                }
+            }
+        }
 
         Ok(())
     }

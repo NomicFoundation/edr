@@ -214,6 +214,28 @@ contract BroadcastRawTransactionTest is DSTest {
         assertEq(SIGNER.balance, 9 ether, "signer should have paid the value");
     }
 
+    /// State the test has changed but not yet committed is visible to the raw
+    /// transaction, and changes on slots the transaction does not touch
+    /// survive the broadcast.
+    function testUncommittedTestStateIsVisibleToTheBroadcast() public {
+        vm.deal(SIGNER, 10 ether);
+
+        // An uncommitted call to the recorder: `calls` is now 1.
+        (bool ok,) = RECORDER.call("");
+        assertTrue(ok, "priming call failed");
+        // And an unrelated slot on the same account, which the transaction
+        // will not touch.
+        bytes32 slot = bytes32(uint256(7));
+        vm.store(RECORDER, slot, bytes32(uint256(42)));
+
+        vm.broadcastRawTransaction(CALL_TX);
+
+        Recorder recorder = Recorder(RECORDER);
+        assertEq(recorder.calls(), 2, "transaction should have built on the uncommitted call count");
+        assertEq(recorder.lastSender(), SIGNER, "sender should be the signature's signer");
+        assertEq(uint256(vm.load(RECORDER, slot)), 42, "untouched slot must survive the broadcast");
+    }
+
     // ---------------------------------------------------------------------
     // Rejections
     //
@@ -571,5 +593,55 @@ contract MyERC20 {
                 _approve(owner, spender, currentAllowance - amount);
             }
         }
+    }
+}
+
+/// Touches an account nothing else in the transaction touches, broadcasts,
+/// and reverts, so the touch is undone in the journal.
+contract LeakyBroadcaster {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    function transferBroadcastRevert(address payable victim, bytes calldata raw) external {
+        (bool ok,) = victim.call{value: 1 ether}("");
+        require(ok, "transfer failed");
+        vm.broadcastRawTransaction(raw);
+        revert("LeakyBroadcaster: rolled back");
+    }
+}
+
+/// The test's own uncommitted state must not leak into the database through
+/// the cheatcode. Within one transaction the journal shadows the database, so
+/// the leak can only be observed across transactions: it is provoked in
+/// `setUp` and checked in the test.
+///
+/// The victim is touched only inside the reverting frame. The revert unmarks
+/// it as touched, so the end of `setUp` does not commit it, and whatever the
+/// cheatcode wrote to the database for it is what the test sees.
+contract BroadcastRawTransactionNoLeakTest is DSTest {
+    Vm constant vm = Vm(HEVM_ADDRESS);
+
+    // Same Nick's-method fixture as in `BroadcastRawTransactionTest`.
+    bytes constant NICKS_TX =
+        hex"f8678085174876e800830186a0808096600a600c600039600a6000f3602a60005260206000f31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222";
+    address constant NICKS_DEPLOYER = 0x015B263b6C0d90A87B8F1809749b7ffE9e442C49;
+    address constant NICKS_FACTORY = 0xDE61810BeA1f40ed5D943d89844A7111f461D0De;
+    address payable constant VICTIM = payable(0x00000000000000000000000000000000000b0B04);
+
+    function setUp() public {
+        vm.deal(NICKS_DEPLOYER, 0.01 ether);
+        LeakyBroadcaster leaky = new LeakyBroadcaster();
+        vm.deal(address(leaky), 1 ether);
+
+        try leaky.transferBroadcastRevert(VICTIM, NICKS_TX) {
+            revert("expected the frame to revert");
+        } catch {}
+
+        assertEq(VICTIM.balance, 0, "reverted transfer should be undone in the journal");
+        assertGt(NICKS_FACTORY.code.length, 0, "broadcast should survive the revert");
+    }
+
+    function testRevertedStateDoesNotLeakIntoTheDatabase() public {
+        assertEq(VICTIM.balance, 0, "reverted transfer must not leak into the database");
+        assertGt(NICKS_FACTORY.code.length, 0, "broadcast should persist across transactions");
     }
 }
