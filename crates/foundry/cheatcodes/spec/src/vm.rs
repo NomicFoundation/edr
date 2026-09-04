@@ -2555,19 +2555,22 @@ interface Vm {
 
     // ======== Scripting ========
 
-    /// Takes a signed transaction and broadcasts it to the network.
+    /// Executes a signed, RLP-encoded transaction against the current EVM state, from the address
+    /// recovered from its signature.
     ///
-    /// Solidity tests have no broadcast queue, so the only observable effect is the one that
-    /// also applies in Foundry's test context: the RLP-encoded transaction is decoded and
-    /// executed against the current EVM state, from the address recovered from its signature.
+    /// Nothing is broadcast to a network. This matches the behavior of Foundry's cheatcode of the
+    /// same name in a test context.
     ///
-    /// It is executed as its own transaction, which has two consequences worth knowing. A revert
-    /// during its execution is not a cheatcode failure: the transaction is still included, and its
-    /// nonce is still consumed, exactly as it would be in a block. Only failures to *validate* it
-    /// (undecodable payload, unrecoverable signature, wrong chain id, sender that cannot pay) fail
-    /// the cheatcode. And the resulting state is committed to the database rather than journalled,
-    /// so it is not undone when the frame that broadcast it reverts; use `snapshotState` and
-    /// `revertToState` to roll it back.
+    /// The transaction is executed as its own transaction, not as a call from the test:
+    /// - It fails the cheatcode only if it is invalid: undecodable payload, unrecoverable
+    ///   signature, wrong chain id, or a sender that cannot pay for it. A transaction that is
+    ///   valid but reverts during execution is still included, so its nonce is consumed and its
+    ///   fee is paid, and the cheatcode succeeds.
+    /// - The declared nonce is not checked, as in all Solidity tests. The sender's account nonce
+    ///   is used and incremented, so replaying the same transaction twice succeeds twice.
+    /// - The resulting state is committed to the database rather than journaled, so it is not
+    ///   undone when the calling frame reverts. Use `snapshotState` and `revertToState` to roll
+    ///   it back.
     #[cheatcode(group = Scripting)]
     function broadcastRawTransaction(bytes calldata data) external;
 
