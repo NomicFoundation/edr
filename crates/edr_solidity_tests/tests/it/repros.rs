@@ -756,6 +756,29 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
     // counterexample sequence; the stack trace alone is the point here.
     assert_execution_error_stack_trace(after_invariant_suite, "invariantAlwaysHolds()");
 
+    // An impure cheatcode inside `afterInvariant()` taints the replay, so the
+    // result must say the failure is unsafe to replay rather than carry a
+    // stack trace computed from an indeterministic re-execution.
+    let impure_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceImpureAfterInvariantTest")
+        .expect("the AlwaysStackTraceImpureAfterInvariant suite should have run");
+    let impure_result = impure_suite
+        .test_results
+        .get("invariantAlwaysHolds()")
+        .expect("the impure afterInvariant invariant test should have run");
+    let impure_stack_trace = impure_result
+        .stack_trace_result
+        .as_ref()
+        .expect("a stack trace result should be present");
+    assert!(
+        matches!(
+            impure_stack_trace,
+            SolidityTestStackTraceResult::UnsafeToReplay { impure_cheatcodes, .. }
+                if impure_cheatcodes.iter().any(|sig| sig.contains("envOr"))
+        ),
+        "expected UnsafeToReplay naming envOr, got {impure_stack_trace:?}"
+    );
+
     // An invariant that is already broken in the initial state fails the
     // campaign's initial check (`invariant_fuzz` returns an error before any
     // fuzzed calls); that path must produce a stack trace too.

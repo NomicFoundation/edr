@@ -140,3 +140,25 @@ contract Rejecter {
         vm.assume(false);
     }
 }
+
+// Covers the indeterministic `afterInvariant()` replay: the impure `envOr`
+// call taints the re-execution, so the failure must be reported as unsafe
+// to replay instead of with a concrete stack trace.
+contract AlwaysStackTraceImpureAfterInvariantTest is DSTest {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    Counter counter;
+    Reverter reverter;
+
+    function setUp() public {
+        counter = new Counter();
+        reverter = new Reverter();
+    }
+
+    function invariantAlwaysHolds() public view {}
+
+    function afterInvariant() public view {
+        vm.envOr("EDR_NONEXISTENT_ENV_VAR", uint256(0));
+        reverter.boom();
+    }
+}
