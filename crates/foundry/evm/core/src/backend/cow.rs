@@ -350,7 +350,6 @@ impl<
     fn transact_from_tx(
         &mut self,
         tx: &TransactionRequest,
-        caller: Address,
         inspector: &mut dyn CheatcodeInspectorTr<
             BlockT,
             TxT,
@@ -369,13 +368,8 @@ impl<
         env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()> {
-        self.backend_mut(env.clone().into()).transact_from_tx(
-            tx,
-            caller,
-            inspector,
-            env,
-            journaled_state,
-        )
+        self.backend_mut(env.clone().into())
+            .transact_from_tx(tx, inspector, env, journaled_state)
     }
 
     fn active_fork_id(&self) -> Option<LocalForkId> {

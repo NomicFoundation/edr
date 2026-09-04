@@ -323,9 +323,9 @@ pub trait CheatcodeBackend<
     /// _and_ the journaled state.
     ///
     /// Unlike [`CheatcodeBackend::transact`], the transaction is not fetched
-    /// from a fork, so this works in non-forked mode as well. `caller` is the
-    /// address the transaction is executed from; for a signed transaction it
-    /// must be the address recovered from the signature.
+    /// from a fork, so this works in non-forked mode as well. The transaction
+    /// is executed from `tx.from`, which for a signed transaction is the
+    /// address recovered from its signature.
     ///
     /// The transaction is validated by the EVM just like any other
     /// transaction, so an invalid chain id or an unaffordable transaction is
@@ -340,7 +340,6 @@ pub trait CheatcodeBackend<
     fn transact_from_tx(
         &mut self,
         tx: &TransactionRequest,
-        caller: Address,
         inspector: &mut dyn CheatcodeInspectorTr<
             BlockT,
             TxT,
@@ -1770,7 +1769,6 @@ impl<
     fn transact_from_tx(
         &mut self,
         tx: &TransactionRequest,
-        caller: Address,
         inspector: &mut dyn CheatcodeInspectorTr<
             BlockT,
             TxT,
@@ -1789,14 +1787,14 @@ impl<
         mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()> {
-        trace!(?tx, ?caller, "execute signed transaction");
+        trace!(?tx, "execute signed transaction");
 
         // Flush the in-flight journal into the database so the nested EVM sees
         // the state as of the current point in the test.
         self.commit(journaled_state.state.clone());
 
         let res = {
-            configure_tx_req_env(&mut env.tx, tx, Some(caller))?;
+            configure_tx_req_env(&mut env.tx, tx, None)?;
             let mut env = self.env_with_handler_cfg(env);
 
             let db = self.clone();
