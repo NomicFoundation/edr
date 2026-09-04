@@ -10,6 +10,7 @@ use edr_solidity::{
 };
 use eyre::Result;
 use foundry_evm_core::{
+    backend::IndeterminismReasons,
     contracts::{ContractsByAddress, ContractsByArtifact},
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
@@ -111,11 +112,12 @@ pub fn replay_run<
         ChainContextT,
     >,
 ) -> Result<ReplayResult<HaltReasonT>> {
-    /// What a reverting call returned. The revert reason is decoded from
-    /// these fields.
+    /// What a reverting call returned. The revert reason and the
+    /// replay-safety verdict are decoded from these fields.
     struct Failure {
         output: Bytes,
         exit_reason: Option<InstructionResult>,
+        indeterminism_reasons: Option<IndeterminismReasons>,
     }
 
     let ReplayRunArgs {
@@ -252,16 +254,28 @@ pub fn replay_run<
             after_invariant_failure = Some(Failure {
                 output: after_invariant_result.result,
                 exit_reason: after_invariant_result.exit_reason,
+                indeterminism_reasons: after_invariant_result.indeterminism_reasons,
             });
         }
         logs.extend(after_invariant_result.logs);
     }
 
+    // The backend accumulates indeterminism across calls, so the failing
+    // call's reasons include everything the replay executed before it.
+    let Failure {
+        output: failing_output,
+        exit_reason: failing_exit_reason,
+        indeterminism_reasons,
+    } = after_invariant_failure.unwrap_or_else(|| Failure {
+        output: invariant_result.result,
+        exit_reason: invariant_result.exit_reason,
+        indeterminism_reasons: invariant_result.indeterminism_reasons,
+    });
+
     let stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>> =
         generate_stack_trace
             .then(|| {
-                invariant_result
-                    .indeterminism_reasons
+                indeterminism_reasons
                     .map(SolidityTestStackTraceResult::from)
                     .or_else(|| {
                         contract_decoder.map(|decoder| {
@@ -285,13 +299,6 @@ pub fn replay_run<
             })
             .flatten();
 
-    let (failing_output, failing_exit_reason) = match &after_invariant_failure {
-        Some(Failure {
-            output,
-            exit_reason,
-        }) => (output, *exit_reason),
-        None => (&invariant_result.result, invariant_result.exit_reason),
-    };
     let revert_reason = revert_decoder.maybe_decode(failing_output.as_ref(), failing_exit_reason);
 
     Ok(ReplayResult {
