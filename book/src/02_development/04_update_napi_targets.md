@@ -12,7 +12,7 @@ Once done, replace the `napi.triples.additional` entries in `crates/edr_napi/pac
 
 Ensure that the `version` field of all `npm/*/package.json` files is set to the latest release and `engines.node` to the minimum supported version.
 
-Finally, to update the `index.js`, run:
+Finally, to regenerate `binding.js` and `binding.d.ts`, run:
 
 ```bash
 cd crates/edr_napi &&

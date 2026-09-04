@@ -1,16 +1,12 @@
 // Regression test for provider OS-thread reclamation.
 //
-// Every provider spawns a dedicated OS thread (#1486) that is joined only when
-// its JS wrapper is finalized. EDR retains the subscription callback through a
-// threadsafe function — a GC root V8 cannot trace through — so a callback that
-// strongly reaches its wrapper roots the wrapper, its finalizer never runs, and
-// the thread leaks. On macOS this exhausts the per-process thread cap.
-//
-// Run out of the main suite, in its own process (see the `test:threads` script),
-// so the thread-count baseline is this test's alone — no threads left over from
-// other test files. It reads `/proc/self/status`, so it runs on Linux only and
-// skips elsewhere; it needs `global.gc` (mocha `--node-option expose-gc`) and
-// skips without it.
+// A provider's OS thread (#1486) is joined only when its JS wrapper is
+// finalized, and EDR holds the subscription callback through a threadsafe
+// function V8 cannot trace. A callback capturing the wrapper used to root it
+// and leak the thread; the `createProvider` override in index.js prevents
+// that, and this asserts threads are reclaimed either way. Runs in its own
+// process (`test:isolated`) for a clean thread baseline; Linux-only
+// (`/proc/self/status`) and needs `expose-gc`.
 
 import { readFileSync } from "fs";
 import { assert } from "chai";
@@ -22,22 +18,15 @@ import {
   registerGenericProviderFactory,
 } from "../helpers";
 
-// Providers created per scenario. Large enough that a per-provider thread leak
-// dwarfs the shared tokio pool and any measurement jitter.
+// Enough providers that a per-provider leak dwarfs measurement jitter.
 const COUNT = 200;
 
-// Threads still held, over the scenario's own baseline, that count as reclaimed.
-// The gap this must resolve is enormous — a leak retains ~COUNT, the fix ~0 —
-// and a regression leaks *every* provider (all go through the same path), so
-// this stays tight; `settleToBaseline` waits out reclamation lag rather than
-// this tolerating it.
+// A leak retains ~COUNT threads and the fix ~0, so this stays tight.
 const RETAINED_THRESHOLD = 20;
 
-// How long `settleToBaseline` waits for reclamation before giving up. Drains in
-// one batch when unloaded; the budget only bounds the wait on a busy runner.
+// Bounds the wait for reclamation; a real leak rides it out to a failure.
 const SETTLE_BUDGET_MS = 20_000;
 
-// The process's current live OS-thread count (Linux).
 function liveThreads(): number {
   const match = readFileSync("/proc/self/status", "utf-8").match(
     /^Threads:\s*(\d+)/m
@@ -48,12 +37,7 @@ function liveThreads(): number {
   return Number(match[1]);
 }
 
-// Drives GC and yields so napi finalizers and the async deallocator's thread
-// joins can run, until the count returns to within RETAINED_THRESHOLD of
-// `baseline` or the budget elapses. Forcing GC makes collection deterministic;
-// the budget only bounds how long we wait for the joins to drain, so a busy
-// runner makes this slower rather than flaky. A real leak never drains and rides
-// the budget out to a failing assertion.
+// Forces GC and yields so finalizers and thread joins can run.
 async function settleToBaseline(baseline: number): Promise<number> {
   const deadline = Date.now() + SETTLE_BUDGET_MS;
   let count = liveThreads();
@@ -75,16 +59,14 @@ interface Measurement {
 }
 
 // Creates and releases COUNT providers whose subscription callbacks reference
-// their wrappers in the given way, then reports how many threads were spawned
-// and how many survived reclamation.
+// their wrappers in the given way.
 async function measureReclamation(
   context: EdrContext,
   capture: "weak" | "strong"
 ): Promise<Measurement> {
   const baseline = liveThreads();
 
-  // Hold every provider alive until the peak is measured, so the peak is
-  // deterministic regardless of when GC runs during creation.
+  // Held until the peak is measured, so the peak is deterministic.
   let providers: Provider[] | null = [];
 
   for (let i = 0; i < COUNT; i++) {
@@ -92,15 +74,14 @@ async function measureReclamation(
     let bind: (created: Provider) => void;
 
     if (capture === "weak") {
-      // The HH2/HH3 guard: the callback reaches the provider only through a
-      // WeakRef, assigned after construction.
+      // Hardhat's WeakRef guard.
       let weak: WeakRef<Provider> | undefined;
       subscriptionCallback = () => void weak?.deref();
       bind = (created) => {
         weak = new WeakRef(created);
       };
     } else {
-      // An unguarded consumer: the callback reaches the provider strongly.
+      // An unguarded consumer.
       const holder: { provider?: Provider } = {};
       subscriptionCallback = () => void holder.provider;
       bind = (created) => {
@@ -120,8 +101,6 @@ async function measureReclamation(
 
   const peak = liveThreads();
 
-  // Release every provider; only the subscription callback's reference (weak,
-  // or — for `strong` — routed through EDR's trampoline) remains.
   providers = null;
 
   const settled = await settleToBaseline(baseline);
@@ -132,12 +111,7 @@ function assertReclaimed({ baseline, peak, settled }: Measurement): void {
   const spawned = peak - baseline;
   const retained = settled - baseline;
 
-  // `assert(condition, message)` reports only the message on failure, avoiding
-  // chai's equality-style `expected/actual` diff — which here would misleadingly
-  // frame the threshold as a target rather than an upper bound.
-
-  // Guards against a false pass: the providers must actually have spawned
-  // threads, or "reclaimed" would be meaningless.
+  // Guards against a false pass: the providers must have spawned threads.
   assert(
     spawned >= COUNT * 0.8,
     `providers did not spawn their threads: only ${spawned} of ~${COUNT} appeared at peak (expected at least ${Math.floor(
@@ -145,7 +119,6 @@ function assertReclaimed({ baseline, peak, settled }: Measurement): void {
     )})`
   );
 
-  // A leak retains ~COUNT threads; the fix retains ~0.
   assert(
     retained <= RETAINED_THRESHOLD,
     `provider threads were not reclaimed: ${retained} of ${COUNT} still alive after release (expected at most ${RETAINED_THRESHOLD})`
@@ -153,7 +126,6 @@ function assertReclaimed({ baseline, peak, settled }: Measurement): void {
 }
 
 describe("provider OS-thread reclamation", function () {
-  // Generous: covers up to two full settle budgets plus provider creation.
   this.timeout(SETTLE_BUDGET_MS * 2 + 60_000);
 
   before(function () {
@@ -172,10 +144,7 @@ describe("provider OS-thread reclamation", function () {
     assertReclaimed(await measureReclamation(context, "weak"));
   });
 
-  // `createProvider`'s wrapper (see index.js) stores the callback on the
-  // provider and hands the binding a trampoline that reaches it only weakly,
-  // so even a strongly-capturing consumer callback no longer roots the
-  // provider.
+  // The `createProvider` override in index.js makes this hold too.
   it("reclaims threads even for a strongly-referencing callback", async function () {
     assertReclaimed(await measureReclamation(context, "strong"));
   });
