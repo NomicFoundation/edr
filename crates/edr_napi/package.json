@@ -72,6 +72,7 @@
     "lint": "pnpm run prettier && pnpm run eslint",
     "lint:fix": "pnpm run prettier --write",
     "pretest": "pnpm build:test",
+    "pretest:isolated": "pnpm build:test",
     "prettier": "prettier --check \"test/**/*.ts\"",
     "test": "mocha --recursive --ignore \"test/isolated/**\" \"test/**/*.ts\"",
     "test:isolated": "mocha --node-option expose-gc \"test/isolated/**/*.ts\"",
