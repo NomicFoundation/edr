@@ -33,8 +33,9 @@ pub struct Provider {
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
     dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
-    /// What a response carrying call trace arenas reports to V8. Follows
-    /// `verbose_raw_tracing`, which [`Self::set_verbose_tracing`] toggles.
+    /// What a response reports to V8 for each call trace arena it carries.
+    /// Follows `verbose_raw_tracing`, which [`Self::set_verbose_tracing`]
+    /// toggles.
     call_trace_external_mem_size: AtomicI64,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<Arc<napi::tokio::sync::Mutex<napi::tokio::fs::File>>>,

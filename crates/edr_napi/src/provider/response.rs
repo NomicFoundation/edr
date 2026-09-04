@@ -11,8 +11,7 @@ use crate::{
     },
 };
 
-/// Bytes reported for a response whose call trace arenas were recorded without
-/// stack snapshots.
+/// Bytes reported for one recorded call trace arena, without stack snapshots.
 ///
 /// A `CallTraceStep` is 192 bytes, so this is a trace of roughly 5,400 steps.
 /// A complex contract call runs many more, which is the intended direction:
@@ -20,8 +19,8 @@ use crate::{
 /// only forgoes some of the benefit.
 const CALL_TRACE_EXTERNAL_MEM_SIZE: i64 = 1024 * 1024;
 
-/// Bytes reported for a response whose call trace steps also carry stack
-/// snapshots, as `verbose_raw_tracing` records them.
+/// Bytes reported for one recorded call trace arena whose steps also carry
+/// stack snapshots, as `verbose_raw_tracing` records them.
 ///
 /// A snapshot is a `Box<[U256]>`, so a step costs roughly 448 bytes rather than
 /// 192. PR #1301 measured 4.9x more retained memory in this configuration, so
@@ -38,10 +37,10 @@ const STACK_TRACE_EXTERNAL_MEM_SIZE: i64 = 4 * 1024;
 /// tree costs several times its serialized length, so this is a floor.
 const VALUE_DATA_EXTERNAL_MEM_SIZE: i64 = 256 * 1024 * 1024;
 
-/// Bytes a response reports for the call trace arenas it carries.
+/// Bytes a response reports for each call trace arena it carries.
 ///
 /// Recording stack snapshots takes a step from roughly 192 bytes to 448, so a
-/// verbosely traced response stands for several times as much.
+/// verbosely recorded arena stands for several times as much.
 pub(crate) const fn call_trace_external_mem_size(verbose_tracing: bool) -> i64 {
     if verbose_tracing {
         VERBOSE_CALL_TRACE_EXTERNAL_MEM_SIZE
@@ -61,9 +60,9 @@ pub struct Response {
 impl Response {
     /// Constructs a new instance.
     ///
-    /// `call_trace_external_mem_size` is what the provider reports for a
-    /// response carrying call trace arenas, which depends on whether it records
-    /// stack snapshots.
+    /// `call_trace_external_mem_size` is what the provider reports for each
+    /// call trace arena the response carries, which depends on whether it
+    /// records stack snapshots.
     pub(crate) fn new(
         inner: edr_napi_core::spec::Response,
         call_trace_external_mem_size: i64,
@@ -77,9 +76,8 @@ impl Response {
             external_memory += STACK_TRACE_EXTERNAL_MEM_SIZE;
         }
 
-        if !inner.call_trace_arenas.is_empty() {
-            external_memory += call_trace_external_mem_size;
-        }
+        let arena_count = i64::try_from(inner.call_trace_arenas.len()).unwrap_or(i64::MAX);
+        external_memory += call_trace_external_mem_size.saturating_mul(arena_count);
 
         Self {
             inner,
@@ -216,6 +214,19 @@ mod tests {
         let response = Response::new(inner, call_trace_external_mem_size(true));
 
         assert_eq!(response.external_memory, call_trace_external_mem_size(true));
+    }
+
+    #[test]
+    fn external_memory_scales_with_the_arena_count() {
+        let mut inner = response(Either::A(String::new()));
+        inner.call_trace_arenas = vec![CallTraceArena::default(); 3];
+
+        let response = Response::new(inner, call_trace_external_mem_size(false));
+
+        assert_eq!(
+            response.external_memory,
+            3 * call_trace_external_mem_size(false)
+        );
     }
 
     /// Pins the ratio the figures were derived from: PR #1301 measured 4.9x
