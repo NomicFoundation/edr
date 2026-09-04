@@ -162,3 +162,27 @@ contract AlwaysStackTraceImpureAfterInvariantTest is DSTest {
         reverter.boom();
     }
 }
+
+// Covers the indeterministic `invariant()` before a failing
+// `afterInvariant()`: the impure `envOr` call makes it uncertain that
+// `invariant()` passes again on a re-execution. `afterInvariant()` only ran
+// because it passed, so the failure must be reported as unsafe to replay.
+contract AlwaysStackTraceImpureInvariantTest is DSTest {
+    Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
+
+    Counter counter;
+    Reverter reverter;
+
+    function setUp() public {
+        counter = new Counter();
+        reverter = new Reverter();
+    }
+
+    function invariantAlwaysHolds() public view {
+        vm.envOr("EDR_NONEXISTENT_ENV_VAR", uint256(0));
+    }
+
+    function afterInvariant() public view {
+        reverter.boom();
+    }
+}

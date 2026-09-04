@@ -779,6 +779,29 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         "expected UnsafeToReplay naming envOr, got {impure_stack_trace:?}"
     );
 
+    // The mirror case: the impure cheatcode runs in the passing `invariant()`
+    // and `afterInvariant()` reverts without one. `afterInvariant()` only ran
+    // because `invariant()` passed, so this failure is unsafe to replay too.
+    let impure_invariant_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceImpureInvariantTest")
+        .expect("the AlwaysStackTraceImpureInvariant suite should have run");
+    let impure_invariant_result = impure_invariant_suite
+        .test_results
+        .get("invariantAlwaysHolds()")
+        .expect("the impure invariant test should have run");
+    let impure_invariant_stack_trace = impure_invariant_result
+        .stack_trace_result
+        .as_ref()
+        .expect("a stack trace result should be present");
+    assert!(
+        matches!(
+            impure_invariant_stack_trace,
+            SolidityTestStackTraceResult::UnsafeToReplay { impure_cheatcodes, .. }
+                if impure_cheatcodes.iter().any(|sig| sig.contains("envOr"))
+        ),
+        "expected UnsafeToReplay naming envOr, got {impure_invariant_stack_trace:?}"
+    );
+
     // An invariant that is already broken in the initial state fails the
     // campaign's initial check (`invariant_fuzz` returns an error before any
     // fuzzed calls); that path must produce a stack trace too.
