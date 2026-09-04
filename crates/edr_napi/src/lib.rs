@@ -44,6 +44,8 @@ pub mod result;
 /// Types relating to benchmark scenarios.
 #[cfg(feature = "scenarios")]
 pub mod scenarios;
+/// Native secp256k1 operations.
+pub mod secp256k1;
 mod serde;
 /// Solidity test runner.
 pub mod solidity_tests;

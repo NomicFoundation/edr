@@ -780,6 +780,7 @@ module.exports.precompileP256Verify = nativeBinding.precompileP256Verify
 module.exports.printStackTrace = nativeBinding.printStackTrace
 module.exports.RECEIVE_FUNCTION_NAME = nativeBinding.RECEIVE_FUNCTION_NAME
 module.exports.REGOLITH = nativeBinding.REGOLITH
+module.exports.secp256k1PublicKeyFromSecretKey = nativeBinding.secp256k1PublicKeyFromSecretKey
 module.exports.SHANGHAI = nativeBinding.SHANGHAI
 module.exports.SpecId = nativeBinding.SpecId
 module.exports.SPURIOUS_DRAGON = nativeBinding.SPURIOUS_DRAGON
