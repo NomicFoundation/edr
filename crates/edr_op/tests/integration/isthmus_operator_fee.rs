@@ -46,7 +46,10 @@ async fn operator_fee_parameters_storage_defaults_to_0() -> anyhow::Result<()> {
         ),
     ))?;
 
-    assert_eq!(operator_fee.result, format!("{:#066x}", U256::ZERO),);
+    assert_eq!(
+        operator_fee.deserialize_result::<String>()?,
+        format!("{:#066x}", U256::ZERO),
+    );
     Ok(())
 }
 
@@ -142,7 +145,7 @@ fn get_transaction_receipt(
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 
-    let receipt: edr_op::rpc::OpRpcBlockReceipt = serde_json::from_value(result.result)?;
+    let receipt: edr_op::rpc::OpRpcBlockReceipt = result.deserialize_result()?;
     Ok(receipt)
 }
 
@@ -158,7 +161,7 @@ fn send_transaction(provider: &Provider<OpChainSpec>) -> anyhow::Result<B256> {
         MethodInvocation::SendTransaction(transaction),
     ))?;
 
-    let transaction_hash: B256 = serde_json::from_value(result.result)?;
+    let transaction_hash: B256 = result.deserialize_result()?;
     Ok(transaction_hash)
 }
 fn set_operator_fee_params_in_storage(

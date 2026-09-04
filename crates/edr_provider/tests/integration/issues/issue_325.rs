@@ -55,13 +55,13 @@ async fn issue_325() -> anyhow::Result<()> {
         }),
     ))?;
 
-    let transaction_hash: B256 = serde_json::from_value(result.result)?;
+    let transaction_hash: B256 = result.deserialize_result()?;
 
     let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::DropTransaction(transaction_hash),
     ))?;
 
-    let dropped: bool = serde_json::from_value(result.result)?;
+    let dropped: bool = result.deserialize_result()?;
 
     assert!(dropped);
 

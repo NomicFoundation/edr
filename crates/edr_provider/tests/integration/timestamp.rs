@@ -75,7 +75,7 @@ impl TimestampFixture {
             MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
         ))?;
 
-        let block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+        let block: L1RpcBlock<B256> = result.deserialize_result()?;
         Ok(block.timestamp)
     }
 

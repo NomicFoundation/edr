@@ -280,13 +280,13 @@ where
         MethodInvocation::SendTransaction(deploy_transaction),
     ))?;
 
-    let transaction_hash: B256 = serde_json::from_value(result.result)?;
+    let transaction_hash: B256 = result.deserialize_result()?;
 
     let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 
-    let receipt: L1RpcTransactionReceipt = serde_json::from_value(result.result)?;
+    let receipt: L1RpcTransactionReceipt = result.deserialize_result()?;
     let contract_address = receipt.contract_address.expect("Call must create contract");
 
     Ok(contract_address)
@@ -304,17 +304,18 @@ where
         .expect("evm_mine should succeed");
 }
 
-/// Returns the raw JSON of the latest block.
+/// Returns the latest block as JSON.
 pub fn get_latest_block<TimerT>(provider: &Provider<L1ChainSpec, TimerT>) -> serde_json::Value
 where
     TimerT: Clone + TimeSinceEpoch,
 {
-    provider
+    let response = provider
         .handle_request(ProviderRequest::with_single(
             MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
         ))
-        .expect("eth_getBlockByNumber should succeed")
-        .result
+        .expect("eth_getBlockByNumber should succeed");
+
+    response.deserialize_result().expect("the block is JSON")
 }
 
 /// Fixture for testing `ProviderData`.
@@ -499,8 +500,9 @@ pub fn transfer_value(
         ))
         .expect("eth_sendTransaction should succeed");
 
-    let transaction_hash: B256 =
-        serde_json::from_value(response.result).expect("response should be a transaction hash");
+    let transaction_hash: B256 = response
+        .deserialize_result()
+        .expect("response should be a transaction hash");
 
     let response = provider
         .handle_request(ProviderRequest::with_single(
@@ -508,8 +510,9 @@ pub fn transfer_value(
         ))
         .expect("eth_getTransactionReceipt should succeed");
 
-    let receipt: Option<L1RpcTransactionReceipt> =
-        serde_json::from_value(response.result).expect("response should be a receipt");
+    let receipt: Option<L1RpcTransactionReceipt> = response
+        .deserialize_result()
+        .expect("response should be a receipt");
 
     receipt.expect("receipt should exist")
 }

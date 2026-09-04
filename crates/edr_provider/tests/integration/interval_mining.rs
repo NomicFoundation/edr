@@ -46,7 +46,7 @@ fn block_number(provider: &Provider<L1ChainSpec>) -> anyhow::Result<u64> {
     let response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::BlockNumber(()),
     ))?;
-    let block_number: U256 = serde_json::from_value(response.result)?;
+    let block_number: U256 = response.deserialize_result()?;
     Ok(block_number.to::<u64>())
 }
 

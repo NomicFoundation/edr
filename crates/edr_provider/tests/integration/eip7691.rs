@@ -49,7 +49,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let first_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    let first_block: L1RpcBlock<B256> = result.deserialize_result()?;
     assert_eq!(first_block.blob_gas_used, Some(DATA_GAS_PER_BLOB));
 
     assert_eq!(
@@ -72,7 +72,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let second_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    let second_block: L1RpcBlock<B256> = result.deserialize_result()?;
     assert_eq!(second_block.blob_gas_used, Some(7 * DATA_GAS_PER_BLOB));
 
     assert_eq!(
@@ -96,7 +96,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let third_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    let third_block: L1RpcBlock<B256> = result.deserialize_result()?;
     assert_eq!(third_block.blob_gas_used, Some(8 * DATA_GAS_PER_BLOB));
 
     assert_eq!(
@@ -116,7 +116,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fourth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    let fourth_block: L1RpcBlock<B256> = result.deserialize_result()?;
     assert_eq!(fourth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
@@ -137,7 +137,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fifth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    let fifth_block: L1RpcBlock<B256> = result.deserialize_result()?;
     assert_eq!(fifth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
