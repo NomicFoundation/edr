@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use alloy_dyn_abi::JsonAbiExt;
-use alloy_primitives::Log;
+use alloy_primitives::{Bytes, Log};
 use derive_where::derive_where;
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{
@@ -111,6 +111,13 @@ pub fn replay_run<
         ChainContextT,
     >,
 ) -> Result<ReplayResult<HaltReasonT>> {
+    /// What a reverting call returned. The revert reason is decoded from
+    /// these fields.
+    struct Failure {
+        output: Bytes,
+        exit_reason: Option<InstructionResult>,
+    }
+
     let ReplayRunArgs {
         execution_traces,
         mut executor,
@@ -231,13 +238,22 @@ pub fn replay_run<
             .map_or_else(Default::default, |cheats| cheats.deprecated.clone()),
     );
 
-    // Collect after invariant logs and traces.
+    // Collect after invariant logs and traces. When `afterInvariant()` is
+    // what failed, the revert reason must be decoded from it rather than from
+    // the passing `invariant()` call.
+    let mut after_invariant_failure: Option<Failure> = None;
     if invariant_contract.call_after_invariant && invariant_success {
         let CallAfterInvariantResult {
             call_result: after_invariant_result,
-            success: _,
+            success: after_invariant_success,
         } = call_after_invariant_function(&executor, invariant_contract.address)?;
         execution_traces.push(after_invariant_result.traces.clone().unwrap());
+        if !after_invariant_success {
+            after_invariant_failure = Some(Failure {
+                output: after_invariant_result.result,
+                exit_reason: after_invariant_result.exit_reason,
+            });
+        }
         logs.extend(after_invariant_result.logs);
     }
 
@@ -269,10 +285,14 @@ pub fn replay_run<
             })
             .flatten();
 
-    let revert_reason = revert_decoder.maybe_decode(
-        invariant_result.result.as_ref(),
-        invariant_result.exit_reason,
-    );
+    let (failing_output, failing_exit_reason) = match &after_invariant_failure {
+        Some(Failure {
+            output,
+            exit_reason,
+        }) => (output, *exit_reason),
+        None => (&invariant_result.result, invariant_result.exit_reason),
+    };
+    let revert_reason = revert_decoder.maybe_decode(failing_output.as_ref(), failing_exit_reason);
 
     Ok(ReplayResult {
         counterexample_sequence,
