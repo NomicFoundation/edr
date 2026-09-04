@@ -25,11 +25,12 @@ const CI_POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
 // --benchmarks unconditionally; `*` matches everything.
 //
 // Scenarios default to all. Benchmarks default to just the test-execution
-// entries — EDR affects EVM execution, not Solidity compilation, so we skip the
+// entries (the trailing `*` picks up verbosity variants like `test solidity
+// -vvv`) — EDR affects EVM execution, not Solidity compilation, so we skip the
 // expensive compile ones to save CI time. Override per run via the workflow
 // inputs / `scenarios=`/`benchmarks=` comment args; pass `*` for the full suite.
 const DEFAULT_SCENARIO_FILTER = "*";
-const DEFAULT_BENCHMARK_FILTER = "test solidity,test mocha,test vitest";
+const DEFAULT_BENCHMARK_FILTER = "test solidity*,test mocha*,test vitest*";
 
 // Optional Hardhat compatibility pin (see hardhat-compat-pin.ts for the file
 // format). While the pinned Hardhat PR is open, runs that don't name an
