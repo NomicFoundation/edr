@@ -56,7 +56,14 @@ class EdrContext extends binding.EdrContext {
     /** @type {{ provider?: WeakRef<Provider> }} */
     const weak = {};
 
+    // The binding only ever sees the trampoline below, so its own check that
+    // the callback is callable no longer covers the consumer's value.
     const userCallback = subscriptionConfig.subscriptionCallback;
+    if (typeof userCallback !== "function") {
+      throw new TypeError(
+        `subscriptionConfig.subscriptionCallback must be a function, got ${typeof userCallback}`
+      );
+    }
 
     const provider = await super.createProvider(
       chainType,
