@@ -355,4 +355,221 @@ contract BroadcastRawTransactionTest is DSTest {
         assertEq(NICKS_FACTORY.code.length, 0, "snapshot should undo the broadcast");
         assertEq(vm.getNonce(NICKS_DEPLOYER), 0, "snapshot should undo the nonce bump");
     }
+
+    // ---------------------------------------------------------------------
+    // Ported from upstream Foundry's BroadcastRawTransaction.t.sol.
+    //
+    // The signed fixtures are legacy transactions bound to chain id 1 with
+    // gasPrice 100 wei and gas 200000, so the tests that use them first
+    // switch to chain id 1 and set a non-zero base fee, as upstream does.
+    // The blobs are copied verbatim from upstream; the `Signed transaction`
+    // comments describe what each one decodes to.
+    // ---------------------------------------------------------------------
+
+    address constant UPSTREAM_SIGNER = 0x5316812db67073C4d4af8BB3000C5B86c2877e94;
+    address constant UPSTREAM_RECIPIENT = 0x6Fd0A0CFF9A87aDF51695b40b4fA267855a8F4c6;
+    uint256 constant UPSTREAM_GAS_PRICE = 100;
+    uint256 constant UPSTREAM_AMOUNT = 17;
+
+    // Signed transaction:
+    // { from: UPSTREAM_SIGNER, to: UPSTREAM_RECIPIENT, gas: 200000, gasPrice: 100,
+    //   value: 17, data: none, nonce: 0, chainId: 1 }
+    bytes constant UPSTREAM_TRANSFER_TX =
+        hex"f860806483030d40946fd0a0cff9a87adf51695b40b4fa267855a8f4c6118025a03ebeabbcfe43c2c982e99b376b5fb6e765059d7f215533c8751218cac99bbd80a00a56cf5c382442466770a756e81272d06005c9e90fb8dbc5b53af499d5aca856";
+
+    // A well-formed RLP list that is an *unsigned* legacy transaction: six
+    // fields, no v/r/s. Structurally valid RLP, but not a transaction.
+    bytes constant UPSTREAM_UNSIGNED_TX =
+        hex"dd806483030d40940993863c19b0defb183ca2b502db7d1b331ded757b80";
+
+    // ERC20 fixture for the calldata tests. The two blobs below call
+    // `approve` and `transfer` on a token etched at this address.
+    address constant TOKEN = 0x5bF11839F61EF5ccEEaf1F4153e44df5D02825f7;
+    address constant ALICE = 0x7ED31830602f9F7419307235c0610Fb262AA0375;
+    address constant BOB = 0x70CF146aB98ffD5dE24e75dd7423F16181Da8E13;
+    address constant CHARLIE = 0xae0900Cf97f8C233c64F7089cEC7d5457215BB8d;
+
+    // Signed transaction:
+    // { from: ALICE, to: TOKEN, value: 0, data: approve(BOB, 50), nonce: 0,
+    //   gasPrice: 100, gasLimit: 200000, chainId: 1 }
+    bytes constant ALICE_APPROVE_BOB_TX =
+        hex"f8a5806483030d40945bf11839f61ef5cceeaf1f4153e44df5d02825f780b844095ea7b300000000000000000000000070cf146ab98ffd5de24e75dd7423f16181da8e13000000000000000000000000000000000000000000000000000000000000003225a0e25b9ef561d9a413b21755cc0e4bb6e80f2a88a8a52305690956130d612074dfa07bfd418bc2ad3c3f435fa531cdcdc64887f64ed3fb0d347d6b0086e320ad4eb1";
+    // Signed transaction:
+    // { from: CHARLIE, to: TOKEN, value: 0, data: transfer(BOB, 5), nonce: 0,
+    //   gasPrice: 100, gasLimit: 200000, chainId: 1 }
+    bytes constant CHARLIE_TRANSFER_BOB_TX =
+        hex"f8a5806483030d40945bf11839f61ef5cceeaf1f4153e44df5d02825f780b844a9059cbb00000000000000000000000070cf146ab98ffd5de24e75dd7423f16181da8e13000000000000000000000000000000000000000000000000000000000000000525a0941562f519e33dfe5b44ebc2b799686cebeaeacd617dd89e393620b380797da2a0447dfd38d9444ccd571b000482c81674733761753430c81ee6669e9542c266a1";
+
+    function _switchToUpstreamEnv() internal {
+        vm.fee(1);
+        vm.chainId(1);
+    }
+
+    /// A legacy transaction pays `gasPrice` for every unit of gas it uses,
+    /// regardless of the base fee, and a plain transfer uses exactly 21000.
+    /// Pins the exact fee, where the tests above only pin conservation, and
+    /// runs under a non-zero base fee set by a cheatcode, which the nested
+    /// EVM has to inherit.
+    function testExactFeeForAPlainTransfer() public {
+        _switchToUpstreamEnv();
+        vm.deal(UPSTREAM_SIGNER, 1 ether);
+        assertEq(UPSTREAM_RECIPIENT.balance, 0);
+
+        vm.broadcastRawTransaction(UPSTREAM_TRANSFER_TX);
+
+        assertEq(
+            UPSTREAM_SIGNER.balance,
+            1 ether - (UPSTREAM_GAS_PRICE * 21_000) - UPSTREAM_AMOUNT,
+            "sender should have paid exactly 21000 gas at gasPrice plus the value"
+        );
+        assertEq(UPSTREAM_RECIPIENT.balance, UPSTREAM_AMOUNT, "recipient should have received the value");
+    }
+
+    /// The account the raw transaction credited can immediately spend that
+    /// balance from a pranked call. This is the cheapest direct check that the
+    /// running test's journal was refreshed with the broadcast's results.
+    function testRecipientCanSpendTheBroadcastValue() public {
+        _switchToUpstreamEnv();
+        vm.deal(UPSTREAM_SIGNER, 1 ether);
+        address random = address(uint160(uint256(keccak256(abi.encodePacked("random")))));
+
+        vm.broadcastRawTransaction(UPSTREAM_TRANSFER_TX);
+        assertEq(UPSTREAM_RECIPIENT.balance, UPSTREAM_AMOUNT);
+        assertEq(random.balance, 0);
+
+        uint256 value = 5;
+        vm.prank(UPSTREAM_RECIPIENT);
+        (bool success,) = random.call{value: value}("");
+        assertTrue(success, "recipient should be able to spend what the broadcast sent it");
+
+        assertEq(UPSTREAM_RECIPIENT.balance, UPSTREAM_AMOUNT - value, "recipient balance should reflect the spend");
+        assertEq(random.balance, value, "value should have arrived");
+    }
+
+    /// The cheatcode-revert machinery keeps working after the nested EVM ran
+    /// with the same inspector. Upstream added this after hitting a
+    /// journaled-state bug in exactly this spot.
+    function testCheatcodeRevertsStillWorkAfterABroadcast() public {
+        _switchToUpstreamEnv();
+        vm.deal(UPSTREAM_SIGNER, 1 ether);
+
+        vm.broadcastRawTransaction(UPSTREAM_TRANSFER_TX);
+        assertEq(UPSTREAM_RECIPIENT.balance, UPSTREAM_AMOUNT);
+
+        vm._expectCheatcodeRevert();
+        vm.assertFalse(true);
+    }
+
+    /// Two raw transactions with calldata, from two different signers, write
+    /// to a contract's storage, interleaved with an ordinary pranked call. The
+    /// only test in this file whose raw transactions carry calldata.
+    function testMultipleSignedTransactionsWithCalldata() public {
+        _switchToUpstreamEnv();
+
+        // Equivalent to `new MyERC20()` at the address the fixtures were signed for.
+        vm.etch(TOKEN, type(MyERC20).runtimeCode);
+        MyERC20 token = MyERC20(TOKEN);
+
+        token.mint(100, ALICE);
+        assertEq(token.balanceOf(ALICE), 100);
+        assertEq(token.balanceOf(BOB), 0);
+        assertEq(token.balanceOf(CHARLIE), 0);
+
+        // Equivalent to `vm.prank(ALICE); token.approve(BOB, 50);`
+        vm.deal(ALICE, 10 ether);
+        vm.broadcastRawTransaction(ALICE_APPROVE_BOB_TX);
+        assertEq(token.allowance(ALICE, BOB), 50, "approve from the raw transaction should have landed");
+
+        vm.deal(BOB, 1 ether);
+        vm.prank(BOB);
+        token.transferFrom(ALICE, CHARLIE, 20);
+        assertEq(token.balanceOf(BOB), 0);
+        assertEq(token.balanceOf(CHARLIE), 20);
+
+        // Equivalent to `vm.prank(CHARLIE); token.transfer(BOB, 5);`
+        vm.deal(CHARLIE, 1 ether);
+        vm.broadcastRawTransaction(CHARLIE_TRANSFER_BOB_TX);
+
+        assertEq(token.balanceOf(ALICE), 80, "alice should have lost the transferred amount");
+        assertEq(token.balanceOf(BOB), 5, "bob should have received the raw transfer");
+        assertEq(token.balanceOf(CHARLIE), 15, "charlie should have paid the raw transfer");
+    }
+
+    /// An unsigned transaction is well-formed RLP but not a transaction. Like
+    /// the junk-bytes test above, only the crate-owned prefix is pinned.
+    function testRevertIfTransactionIsUnsigned() public {
+        vm._expectCheatcodeRevert(
+            bytes("vm.broadcastRawTransaction: failed to decode RLP-encoded transaction")
+        );
+        vm.broadcastRawTransaction(UPSTREAM_UNSIGNED_TX);
+    }
+}
+
+/// Minimal ERC20 for the calldata tests, ported from upstream Foundry.
+contract MyERC20 {
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+
+    function mint(uint256 amount, address to) public {
+        _mint(to, amount);
+    }
+
+    function balanceOf(address account) public view returns (uint256) {
+        return _balances[account];
+    }
+
+    function transfer(address to, uint256 amount) public returns (bool) {
+        _transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function allowance(address owner, address spender) public view returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    function approve(address spender, uint256 amount) public returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) public returns (bool) {
+        _spendAllowance(from, msg.sender, amount);
+        _transfer(from, to, amount);
+        return true;
+    }
+
+    function _transfer(address from, address to, uint256 amount) internal {
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
+
+        uint256 fromBalance = _balances[from];
+        require(fromBalance >= amount, "ERC20: transfer amount exceeds balance");
+        unchecked {
+            _balances[from] = fromBalance - amount;
+            _balances[to] += amount;
+        }
+    }
+
+    function _mint(address account, uint256 amount) internal {
+        require(account != address(0), "ERC20: mint to the zero address");
+        unchecked {
+            _balances[account] += amount;
+        }
+    }
+
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+        _allowances[owner][spender] = amount;
+    }
+
+    function _spendAllowance(address owner, address spender, uint256 amount) internal {
+        uint256 currentAllowance = allowance(owner, spender);
+        if (currentAllowance != type(uint256).max) {
+            require(currentAllowance >= amount, "ERC20: insufficient allowance");
+            unchecked {
+                _approve(owner, spender, currentAllowance - amount);
+            }
+        }
+    }
 }
