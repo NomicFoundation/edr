@@ -112,12 +112,11 @@ pub fn replay_run<
         ChainContextT,
     >,
 ) -> Result<ReplayResult<HaltReasonT>> {
-    /// What a reverting call returned. The revert reason and the
-    /// replay-safety verdict are decoded from these fields.
+    /// What a reverting call returned. The revert reason is decoded from
+    /// these fields.
     struct Failure {
         output: Bytes,
         exit_reason: Option<InstructionResult>,
-        indeterminism_reasons: Option<IndeterminismReasons>,
     }
 
     let ReplayRunArgs {
@@ -244,47 +243,47 @@ pub fn replay_run<
     // what failed, the revert reason must be decoded from it rather than from
     // the passing `invariant()` call.
     let mut after_invariant_failure: Option<Failure> = None;
+    let mut after_invariant_indeterminism: Option<IndeterminismReasons> = None;
     if invariant_contract.call_after_invariant && invariant_success {
         let CallAfterInvariantResult {
             call_result: after_invariant_result,
             success: after_invariant_success,
         } = call_after_invariant_function(&executor, invariant_contract.address)?;
         execution_traces.push(after_invariant_result.traces.clone().unwrap());
+        after_invariant_indeterminism = after_invariant_result.indeterminism_reasons;
         if !after_invariant_success {
             after_invariant_failure = Some(Failure {
                 output: after_invariant_result.result,
                 exit_reason: after_invariant_result.exit_reason,
-                indeterminism_reasons: after_invariant_result.indeterminism_reasons,
             });
         }
         logs.extend(after_invariant_result.logs);
     }
 
+    // Replay safety covers every call the replay executed, whichever one
+    // failed. The sequence's persisted impurity is included in both tail
+    // results. `invariant()` and `afterInvariant()` run on copy-on-write
+    // backends, so each result only carries its own impurity and the two
+    // must be merged. A failure that did not reproduce can also be explained
+    // by impurity observed anywhere in the replay.
+    let indeterminism_reasons = match (
+        invariant_result.indeterminism_reasons,
+        after_invariant_indeterminism,
+    ) {
+        (Some(mut reasons), other) => {
+            reasons.merge(other);
+            Some(reasons)
+        }
+        (None, other) => other,
+    };
+
     let Failure {
         output: failing_output,
         exit_reason: failing_exit_reason,
-        indeterminism_reasons,
-    } = match after_invariant_failure {
-        // `invariant()` executed on a copy-on-write backend, so its own
-        // indeterminism never reaches `afterInvariant()`'s call result.
-        // `afterInvariant()` only ran because `invariant()` passed, so that
-        // indeterminism taints this failure too and must be merged in.
-        Some(mut failure) => {
-            failure.indeterminism_reasons = match failure.indeterminism_reasons {
-                Some(mut reasons) => {
-                    reasons.merge(invariant_result.indeterminism_reasons);
-                    Some(reasons)
-                }
-                None => invariant_result.indeterminism_reasons,
-            };
-            failure
-        }
-        None => Failure {
-            output: invariant_result.result,
-            exit_reason: invariant_result.exit_reason,
-            indeterminism_reasons: invariant_result.indeterminism_reasons,
-        },
-    };
+    } = after_invariant_failure.unwrap_or_else(|| Failure {
+        output: invariant_result.result,
+        exit_reason: invariant_result.exit_reason,
+    });
 
     let stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>> =
         generate_stack_trace
