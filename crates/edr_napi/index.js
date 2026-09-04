@@ -85,4 +85,9 @@ class EdrContext extends binding.EdrContext {
 // follows, so consumers see exactly one `EdrContext` — the guarded one. The
 // override keeps `createProvider`'s signature, so `index.d.ts`'s
 // `export * from "./binding"` describes it exactly.
-module.exports = { ...binding, EdrContext };
+//
+// Spread `require("./binding")` directly rather than `binding`: Node derives a
+// CommonJS module's ESM named exports by statically scanning it, and only
+// recognizes a spread of a `require()` call as a re-export. Spreading the
+// variable would leave ESM consumers with `EdrContext` as the sole named export.
+module.exports = { ...require("./binding"), EdrContext };
