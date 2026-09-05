@@ -11,7 +11,7 @@ use edr_solidity_collector_eip712::{
     collector::{collect_eip712_types_from_compilation_unit, Eip712TypeCollection},
     ImportResolver,
 };
-use edr_solidity_parser_slang::{build_compilation_unit, UnsupportedSolcVersionError};
+use edr_solidity_parser_slang::{build_compilation_unit, language_version_for_solc};
 use semver::Version;
 
 fn fixture(relative: &str) -> PathBuf {
@@ -30,20 +30,17 @@ fn collect(
     relative: &str,
     version: Version,
     import_resolver: &ImportResolver,
-) -> Result<Eip712TypeCollection, UnsupportedSolcVersionError> {
+) -> Eip712TypeCollection {
     let root = fixture(relative);
-    let unit = build_compilation_unit(&root, version, import_resolver)?;
+    let language_version = language_version_for_solc(&version).expect("supported solc version");
+    let unit = build_compilation_unit(&root, language_version, import_resolver);
 
-    Ok(collect_eip712_types_from_compilation_unit(
-        &unit,
-        &root.to_string_lossy(),
-    ))
+    collect_eip712_types_from_compilation_unit(&unit, &root.to_string_lossy())
 }
 
 #[test]
 fn resolves_relative_imports() {
-    let types = collect("relative/Root.sol", solc(), &ImportResolver::default())
-        .expect("0.8.24 is supported");
+    let types = collect("relative/Root.sol", solc(), &ImportResolver::default());
 
     assert_eq!(
         types.get("Mail").unwrap().canonical_definition(),
@@ -58,8 +55,7 @@ fn resolves_mapped_imports() {
         fixture("mapped/lib/Token.sol"),
     )]);
 
-    let types = collect("mapped/Root.sol", solc(), &ImportResolver::new(import_map))
-        .expect("0.8.24 is supported");
+    let types = collect("mapped/Root.sol", solc(), &ImportResolver::new(import_map));
 
     assert_eq!(
         types.get("Payment").unwrap().canonical_definition(),
@@ -72,8 +68,7 @@ fn unmapped_import_leaves_dependency_unresolved_but_unit_builds() {
     // No import mapping supplied: the import is unresolved (a diagnostic, not a
     // hard error). `Payment` depends on the missing `Token`, so it is not
     // usable, but collection itself still succeeds.
-    let types = collect("mapped/Root.sol", solc(), &ImportResolver::default())
-        .expect("an unresolved import still yields a unit");
+    let types = collect("mapped/Root.sol", solc(), &ImportResolver::default());
 
     assert!(types.get("Token").is_err());
 }
@@ -83,20 +78,7 @@ fn missing_root_file_yields_no_types() {
     // A build over a missing root yields a diagnostic and an empty unit; the
     // test runner pre-checks the root's existence to tell this apart from a
     // source that genuinely declares no structs.
-    let types = collect("does/not/exist.sol", solc(), &ImportResolver::default())
-        .expect("a missing root is a diagnostic, not a build failure");
+    let types = collect("does/not/exist.sol", solc(), &ImportResolver::default());
 
     assert!(types.is_empty());
-}
-
-#[test]
-fn unsupported_solc_version_is_an_error() {
-    let error = collect(
-        "relative/Root.sol",
-        Version::new(0, 7, 6),
-        &ImportResolver::default(),
-    )
-    .expect_err("0.7.6 has no Slang grammar");
-
-    assert_eq!(error.version, Version::new(0, 7, 6));
 }
