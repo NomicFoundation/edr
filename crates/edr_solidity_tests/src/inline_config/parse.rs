@@ -90,7 +90,7 @@ mod tests {
     use std::{io::Write as _, path::Path};
 
     use edr_solidity_parser_slang::{
-        build_compilation_unit, ImportResolver, UnsupportedSolcVersionError,
+        build_compilation_unit, language_version_for_solc, ImportResolver,
     };
     use semver::Version;
 
@@ -105,16 +105,18 @@ mod tests {
     /// semantic analysis — then reads the root file's AST. Unresolvable imports
     /// degrade gracefully: the root file's contracts are still recovered.
     ///
-    /// Fails if `version` maps to no supported Slang grammar.
+    /// Panics if `version` maps to no supported Slang grammar.
     fn locate_contracts(
         root_path: &Path,
         version: Version,
         import_resolver: &ImportResolver,
-    ) -> Result<Vec<LocatedContract>, UnsupportedSolcVersionError> {
-        let unit = build_compilation_unit(root_path, version, import_resolver)?;
+    ) -> Vec<LocatedContract> {
+        let language_version =
+            language_version_for_solc(&version).expect("supported solc version");
+        let unit = build_compilation_unit(root_path, language_version, import_resolver);
         let file_id = root_path.to_string_lossy().into_owned();
 
-        Ok(locate_contracts_in_unit(&unit, &file_id))
+        locate_contracts_in_unit(&unit, &file_id)
     }
 
     #[test]
@@ -127,8 +129,7 @@ mod tests {
         file.write_all(source.as_bytes()).expect("write source");
 
         let version = Version::new(0, 8, 0);
-        let contracts = locate_contracts(file.path(), version, &ImportResolver::default())
-            .expect("0.8.0 is supported");
+        let contracts = locate_contracts(file.path(), version, &ImportResolver::default());
         assert_eq!(contracts.len(), 1, "contracts: {contracts:#?}");
 
         let contract = &contracts[0];

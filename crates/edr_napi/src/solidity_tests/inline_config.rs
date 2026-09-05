@@ -138,7 +138,8 @@ pub type InlineConfigDirectiveProblem = Either6<
 >;
 
 /// A source-level inline-config problem: one that could not be tied to a single
-/// directive (e.g. an unsupported solc version or an unreadable source).
+/// directive (e.g. an unreadable source, or one with no `testSourcePaths`
+/// entry).
 #[napi(object)]
 pub struct InlineConfigSourceError {
     /// Discriminant tag for the `InlineConfigError` union.

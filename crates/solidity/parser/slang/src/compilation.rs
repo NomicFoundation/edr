@@ -5,37 +5,24 @@ use std::path::Path;
 use semver::Version;
 use slang_solidity_v2::{
     compilation::{CompilationBuilder, CompilationUnit},
-    utils::{FromSemverError, LanguageVersion},
+    utils::LanguageVersion,
 };
 
 use crate::resolver::{ImportResolver, SourceProvider};
 
-/// The solc version a source was compiled with maps to no supported Slang
-/// grammar.
-#[derive(Debug, thiserror::Error, PartialEq)]
-#[error("solc version {version} is not supported by Slang: {source}")]
-pub struct UnsupportedSolcVersionError {
-    /// The rejected solc version.
-    pub version: Version,
-    /// The underlying version-mapping error.
-    #[source]
-    pub source: FromSemverError,
-}
-
-// TODO: `derive(Clone)` once `FromSemverError` implements `Clone`. Until then
-// the identity match below is the only way to duplicate it out of the borrow.
-impl Clone for UnsupportedSolcVersionError {
-    fn clone(&self) -> Self {
-        #[allow(clippy::needless_match)]
-        let source = match self.source {
-            FromSemverError::UnexpectedMetadata => FromSemverError::UnexpectedMetadata,
-            FromSemverError::UnsupportedVersion => FromSemverError::UnsupportedVersion,
-        };
-        Self {
-            version: self.version.clone(),
-            source,
-        }
+/// Maps a solc version to the Slang grammar that parses it, or `None` when it
+/// predates the oldest grammar Slang ships.
+///
+/// A version newer than the newest grammar clamps down to it, and build and
+/// pre-release metadata is ignored: a nightly parses as its release.
+pub fn language_version_for_solc(solc_version: &Version) -> Option<LanguageVersion> {
+    let release = Version::new(solc_version.major, solc_version.minor, solc_version.patch);
+    let latest: Version = LanguageVersion::LATEST.into();
+    if release > latest {
+        return Some(LanguageVersion::LATEST);
     }
+
+    LanguageVersion::try_from(release).ok()
 }
 
 /// Builds a Slang compilation unit over the file at `root_path`, resolving its
@@ -45,88 +32,51 @@ impl Clone for UnsupportedSolcVersionError {
 /// Parse errors and unresolvable imports degrade gracefully: they surface as
 /// diagnostics on the unit, and whatever still resolves is available. A
 /// missing root file yields an empty unit — callers that need to distinguish
-/// that case must check the root's existence themselves. Fails only if
-/// `solc_version` maps to no supported Slang grammar.
+/// that case must check the root's existence themselves.
 pub fn build_compilation_unit(
     root_path: &Path,
-    solc_version: Version,
+    language_version: LanguageVersion,
     import_resolver: &ImportResolver,
-) -> Result<CompilationUnit, UnsupportedSolcVersionError> {
-    let language_version = to_language_version(solc_version.clone()).map_err(|source| {
-        UnsupportedSolcVersionError {
-            version: solc_version,
-            source,
-        }
-    })?;
-
+) -> CompilationUnit {
     let mut builder =
         CompilationBuilder::create(language_version, SourceProvider::new(import_resolver));
     builder.add_file(root_path.to_string_lossy().into_owned());
 
-    Ok(builder.build())
-}
-
-/// Maps a solc [`Version`] to a Slang [`LanguageVersion`]; clamping versions
-/// newer than Slang supports down to its latest grammar.
-fn to_language_version(solc_version: Version) -> Result<LanguageVersion, FromSemverError> {
-    let latest: Version = LanguageVersion::LATEST.into();
-    if solc_version > latest {
-        Ok(LanguageVersion::LATEST)
-    } else {
-        LanguageVersion::try_from(solc_version)
-    }
+    builder.build()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    mod version_mapping {
-        use super::*;
-
-        #[test]
-        fn exact_supported_version() {
-            assert_eq!(
-                to_language_version(Version::new(0, 8, 24)).unwrap(),
-                LanguageVersion::V0_8_24
-            );
-        }
-
-        #[test]
-        fn clamps_newer_versions_to_latest() {
-            assert_eq!(
-                to_language_version(Version::new(0, 9, 0)).unwrap(),
-                LanguageVersion::LATEST
-            );
-        }
-
-        #[test]
-        fn rejects_versions_older_than_0_8_0() {
-            assert!(matches!(
-                to_language_version(Version::new(0, 7, 6)),
-                Err(FromSemverError::UnsupportedVersion)
-            ));
-        }
-
-        #[test]
-        fn rejects_versions_with_build_and_prerelease_metadata() {
-            let version = Version::parse("0.8.24+commit.abcdef").unwrap();
-            assert!(matches!(
-                to_language_version(version),
-                Err(FromSemverError::UnexpectedMetadata)
-            ));
-        }
+    #[test]
+    fn exact_supported_version() {
+        assert_eq!(
+            language_version_for_solc(&Version::new(0, 8, 24)),
+            Some(LanguageVersion::V0_8_24)
+        );
     }
 
     #[test]
-    fn unsupported_version_error_carries_the_version() {
-        match build_compilation_unit(
-            Path::new("/does/not/matter.sol"),
-            Version::new(0, 7, 6),
-            &ImportResolver::default(),
-        ) {
-            Err(error) => assert_eq!(error.version, Version::new(0, 7, 6)),
-            Ok(_) => panic!("0.7.6 has no Slang grammar"),
-        }
+    fn clamps_newer_versions_to_latest() {
+        assert_eq!(
+            language_version_for_solc(&Version::new(0, 9, 0)),
+            Some(LanguageVersion::LATEST)
+        );
+    }
+
+    #[test]
+    fn versions_older_than_0_8_0_have_no_grammar() {
+        assert_eq!(language_version_for_solc(&Version::new(0, 7, 6)), None);
+    }
+
+    #[test]
+    fn ignores_build_and_prerelease_metadata() {
+        let version = Version::parse("0.8.24-nightly.2024.1.1+commit.abcdef").expect("valid semver");
+
+        assert_eq!(
+            language_version_for_solc(&version),
+            Some(LanguageVersion::V0_8_24)
+        );
     }
 }
