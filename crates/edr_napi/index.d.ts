@@ -985,7 +985,8 @@ export interface InlineConfigInvalidValue {
 
 /**
  * A source-level inline-config problem: one that could not be tied to a single
- * directive (e.g. an unsupported solc version or an unreadable source).
+ * directive (e.g. an unreadable source, or one with no `testSourcePaths`
+ * entry).
  */
 export interface InlineConfigSourceError {
   /** Discriminant tag for the `InlineConfigError` union. */
@@ -1727,20 +1728,23 @@ export interface SolidityTestRunnerConfigArgs {
    * struct definitions served to the `eip712HashType` and
    * `eip712HashStruct` cheatcodes.
    *
+   * Both features require solc 0.8 or newer. A source compiled with an
+   * older one is never parsed, so it needs no entry and its suites get
+   * neither inline configuration nor EIP-712 types.
+   *
    * Omitting the map (or passing an empty one) disables collection
-   * entirely. A non-empty map must name the source of every test suite a
-   * run selects: a missing entry rejects that run before any test executes,
-   * rather than silently leaving the suite without inline configuration or
-   * EIP-712 types.
+   * entirely. A non-empty map must name the source of every 0.8-or-newer
+   * test suite a run selects: a missing entry rejects that run before any
+   * test executes, rather than silently leaving the suite without inline
+   * configuration or EIP-712 types.
    *
    * Only the sources of the suites a run selects are read and parsed, so
    * filtering to one test file does not pay for parsing the project. An
    * entry for a suite no run selects is simply unused.
    *
-   * It is safe to list a source that cannot be parsed — one compiled with
-   * solc older than 0.8, or one Slang's grammar rejects. Such a source is
-   * skipped, and every suite it declares reports that as a warning instead
-   * of failing the run.
+   * It is safe to list a source Slang's grammar rejects: it is skipped, and
+   * every suite it declares reports that as a warning instead of failing
+   * the run.
    */
   testSourcePaths?: Record<string, string>
   /**

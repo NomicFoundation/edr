@@ -586,8 +586,8 @@ impl<
         // onto the root yields the absolute path (production callers provide
         // these paths explicitly instead). Imports to e.g. forge-std have no
         // import mapping and simply stay unresolved, which still recovers the
-        // root file's functions. Pre-0.8 sources, which Slang cannot parse,
-        // are listed like any other: collection skips them with a warning.
+        // root file's functions. Pre-0.8 sources need no entry — collection
+        // never parses them — but listing them is harmless.
         let test_source_paths: HashMap<PathBuf, PathBuf> = test_contracts
             .keys()
             .map(|id| (id.source.clone(), root.join(&id.source)))

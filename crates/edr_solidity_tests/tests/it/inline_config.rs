@@ -275,19 +275,22 @@ async fn source_without_a_path_aborts_whole_run() {
     );
 }
 
-/// A test source Slang has no grammar for — solc older than 0.8 — is skipped
-/// rather than failing the run: it uses neither inline configuration nor the
-/// EIP-712 cheatcodes. The suite still runs, and says why nothing was
-/// collected from it.
+/// Inline configuration and the EIP-712 cheatcodes both require solc 0.8 or
+/// newer, so a source compiled with an older one is never collected from: it
+/// needs no `test_source_paths` entry, and its suites run unremarked.
 #[tokio::test(flavor = "multi_thread")]
-async fn pre_0_8_source_is_skipped_with_a_warning() {
+async fn pre_0_8_source_is_not_collected_from() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzPreBytecodeHash.t.sol");
-    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config
+        .test_source_paths
+        .retain(|source, _path| !source.ends_with("fuzz/FuzzPreBytecodeHash.t.sol"));
+
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let results = runner
         .test_collect(filter)
         .await
-        .expect("the run produces results")
+        .expect("a pre-0.8 source needs no test source path")
         .suite_results;
 
     let suite = results
@@ -297,13 +300,7 @@ async fn pre_0_8_source_is_skipped_with_a_warning() {
         !suite.test_results.is_empty(),
         "the suite's tests should have executed"
     );
-
-    assert_eq!(suite.warnings.len(), 1, "{:#?}", suite.warnings);
-    let warning = &suite.warnings[0];
-    assert!(
-        warning.contains("FuzzPreBytecodeHash.t.sol") && warning.contains("EIP-712"),
-        "{warning}"
-    );
+    assert!(suite.warnings.is_empty(), "{:#?}", suite.warnings);
 }
 
 /// Only the sources of the suites a run selects are parsed. A filter that

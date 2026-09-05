@@ -7,21 +7,17 @@
 //! extracted from that same compilation unit. The unit is dropped afterwards
 //! — nothing is cached beyond the extracted data.
 //!
-//! A source Slang cannot parse — its solc version predates the oldest
-//! grammar, or the file itself does not parse — is skipped rather than
-//! failing the run: it may well use neither feature. The reason is reported
-//! as a warning on every suite the source declares.
+//! A source that does not parse is skipped rather than failing the run: it
+//! may well use neither feature. The reason is reported as a warning on every
+//! suite the source declares.
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use edr_solidity_collector_eip712::collector::{
     collect_eip712_types_from_compilation_unit, Eip712TypeCollection,
 };
-use edr_solidity_parser_slang::{
-    build_compilation_unit, ImportResolver, UnsupportedSolcVersionError,
-};
+use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver, LanguageVersion};
 use rayon::prelude::*;
-use semver::Version;
 use slang_solidity_v2::diagnostics::{DiagnosticExtensions as _, DiagnosticKind};
 
 use crate::inline_config::{
@@ -44,8 +40,10 @@ pub(crate) struct TestSourceRoot {
     pub source: PathBuf,
     /// Absolute path to the file on disk, used to read and parse it.
     pub path: PathBuf,
-    /// The solc version the file was compiled with.
-    pub version: Version,
+    /// The grammar to parse the file with, mapped from the solc version it was
+    /// compiled with. A source whose version maps to no grammar never becomes
+    /// a root, so parsing cannot fail on the version.
+    pub version: LanguageVersion,
 }
 
 /// The outcome of collecting one test source.
@@ -54,7 +52,7 @@ pub(crate) enum CollectedTestSource {
     /// The source was parsed; both collections come from its single unit.
     Collected(SourceCollections),
     /// The source could not be parsed, so nothing was collected from it.
-    Skipped(SkippedSource),
+    Skipped(UnparseableSource),
 }
 
 /// Everything extracted from one test source's single parse.
@@ -67,42 +65,27 @@ pub(crate) struct SourceCollections {
     pub overrides: SourceOverrides,
 }
 
-/// Why a test source yielded no inline configuration and no EIP-712 types.
+/// A test source Slang's grammar rejects, so it yielded no inline
+/// configuration and no EIP-712 types.
 ///
-/// Neither is fatal on its own — a source using neither feature is unaffected
-/// — so the run continues and every suite the source declares reports this as
-/// a warning.
+/// Slang is error-tolerant and yields a partial AST, which could silently miss
+/// structs and directives, so nothing is collected from such a source. That is
+/// not fatal on its own — a source using neither feature is unaffected — so
+/// the run continues and every suite the source declares reports this as a
+/// warning.
 #[derive(Clone, Debug, thiserror::Error)]
-pub(crate) enum SkippedSource {
-    /// Slang has no grammar for the solc version the source was compiled with.
-    #[error(
-        "Skipped collecting inline configuration and EIP-712 types from \"{}\": {reason}. Inline \
-         configuration directives in this source have no effect, and the EIP-712 cheatcodes \
-         cannot resolve type names declared in it.",
-        .source_name.display()
-    )]
-    UnsupportedSolcVersion {
-        /// The solc source name.
-        source_name: PathBuf,
-        /// Why the version maps to no Slang grammar.
-        reason: UnsupportedSolcVersionError,
-    },
-    /// The source itself does not parse. Slang is error-tolerant and yields a
-    /// partial AST, which could silently miss structs and directives, so
-    /// nothing is collected from it.
-    #[error(
-        "Skipped collecting inline configuration and EIP-712 types from \"{}\": the source did \
-         not parse ({}). Inline configuration directives in this source have no effect, and the \
-         EIP-712 cheatcodes cannot resolve type names declared in it.",
-        .source_name.display(),
-        .reasons.join("; ")
-    )]
-    ParseErrors {
-        /// The solc source name.
-        source_name: PathBuf,
-        /// The syntax diagnostics, each located at its source line.
-        reasons: Vec<String>,
-    },
+#[error(
+    "Skipped collecting inline configuration and EIP-712 types from \"{}\": the source did not \
+     parse ({}). Inline configuration directives in this source have no effect, and the EIP-712 \
+     cheatcodes cannot resolve type names declared in it.",
+    .source_name.display(),
+    .reasons.join("; ")
+)]
+pub(crate) struct UnparseableSource {
+    /// The solc source name.
+    source_name: PathBuf,
+    /// The syntax diagnostics, each located at its source line.
+    reasons: Vec<String>,
 }
 
 /// Reads and parses every root, extracting both collections from each root's
@@ -115,7 +98,7 @@ pub(crate) enum SkippedSource {
 /// Only a source that cannot be located or read, and ill-formed inline
 /// configuration within one that can, are errors. Every such problem across
 /// every source is accumulated rather than short-circuited, so one run reports
-/// them all. A source Slang cannot parse is [`Skipped`] instead.
+/// them all. A source Slang's grammar rejects is [`Skipped`] instead.
 ///
 /// [`Skipped`]: CollectedTestSource::Skipped
 pub(crate) fn collect_test_sources(
@@ -175,20 +158,7 @@ fn collect_root(
         }
     };
 
-    // A source Slang has no grammar for carries no directives and no types we
-    // can see, so skip it rather than failing every other suite in the run
-    // alongside it.
-    let unit = match build_compilation_unit(&root.path, root.version.clone(), import_resolver) {
-        Ok(unit) => unit,
-        Err(reason) => {
-            return Ok(CollectedTestSource::Skipped(
-                SkippedSource::UnsupportedSolcVersion {
-                    source_name: root.source.clone(),
-                    reason,
-                },
-            ));
-        }
-    };
+    let unit = build_compilation_unit(&root.path, root.version, import_resolver);
 
     let file_id = root.path.to_string_lossy();
 
@@ -224,7 +194,7 @@ fn collect_root(
             reasons.push(format!("and {} more", reported - MAX_REPORTED_PARSE_ERRORS));
         }
 
-        return Ok(CollectedTestSource::Skipped(SkippedSource::ParseErrors {
+        return Ok(CollectedTestSource::Skipped(UnparseableSource {
             source_name: root.source.clone(),
             reasons,
         }));
@@ -242,6 +212,9 @@ fn collect_root(
 #[cfg(test)]
 mod tests {
     use std::{collections::HashSet, io::Write as _};
+
+    use edr_solidity_parser_slang::language_version_for_solc;
+    use semver::Version;
 
     use super::*;
     use crate::inline_config::error::{InlineConfigDirectiveError, InlineConfigProblem};
@@ -267,7 +240,7 @@ mod tests {
         TestSourceRoot {
             source: PathBuf::from(source),
             path: file.path().to_path_buf(),
-            version,
+            version: language_version_for_solc(&version).expect("supported solc version"),
         }
     }
 
@@ -328,29 +301,6 @@ contract C {
         assert!(collected.eip712_types.is_empty());
     }
 
-    /// A source Slang has no grammar for is skipped, not fatal: it may use
-    /// neither inline configuration nor the EIP-712 cheatcodes, and failing
-    /// the run would take every other suite down with it.
-    #[test]
-    fn unsupported_solc_version_is_skipped() {
-        let file = temp_source("contract C {}");
-        let root = root_for(&file, "project/C.t.sol", Version::new(0, 7, 6));
-
-        let collected = collect_root(&root, &ImportResolver::default())
-            .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"));
-
-        let CollectedTestSource::Skipped(reason) = collected else {
-            panic!("0.7.6 has no Slang grammar, so the source cannot be collected");
-        };
-        assert!(
-            matches!(reason, SkippedSource::UnsupportedSolcVersion { .. }),
-            "{reason:?}"
-        );
-        // The warning names the source and says what stops working.
-        assert!(reason.to_string().contains("project/C.t.sol"), "{reason}");
-        assert!(reason.to_string().contains("EIP-712"), "{reason}");
-    }
-
     /// A partially-parsed source would silently miss structs and directives,
     /// so nothing is collected from it — but the run continues.
     #[test]
@@ -375,10 +325,9 @@ contract C {
         let CollectedTestSource::Skipped(reason) = source else {
             panic!("a source that does not parse cannot be collected");
         };
-        assert!(
-            matches!(reason, SkippedSource::ParseErrors { .. }),
-            "{reason:?}"
-        );
+        // The warning names the source and says what stops working.
+        assert!(reason.to_string().contains("project/C.t.sol"), "{reason}");
+        assert!(reason.to_string().contains("EIP-712"), "{reason}");
     }
 
     /// Both directive prefixes are recognized, and a directive that is not in
@@ -528,7 +477,7 @@ contract BadContractLevel {
         let root = TestSourceRoot {
             source: PathBuf::from("project/Missing.t.sol"),
             path: PathBuf::from("/does/not/exist/Missing.t.sol"),
-            version: Version::new(0, 8, 24),
+            version: LanguageVersion::V0_8_24,
         };
 
         let errors =

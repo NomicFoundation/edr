@@ -18,6 +18,7 @@ use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReport
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
 use edr_solidity_collector_eip712::collector::Eip712TypeCollection;
+use edr_solidity_parser_slang::language_version_for_solc;
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{
@@ -34,6 +35,7 @@ use foundry_evm::{
     traces::{identifier::TraceIdentifiers, CallTraceDecoderBuilder, TracingMode},
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use semver::Version;
 
 use crate::{
     config::CollectStackTraces,
@@ -698,10 +700,11 @@ fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
 ///
 /// An empty `test_source_paths` disables collection entirely (for callers
 /// using neither inline configuration nor the EIP-712 cheatcodes). A
-/// *non-empty* map must name the source of every selected test contract, with
-/// no exceptions: one without an entry is reported as an error rather than
-/// silently going uncollected. Listing a source Slang cannot parse is safe —
-/// it is skipped with a warning — so the rule is satisfiable for every source.
+/// *non-empty* map must name the source of every selected test contract Slang
+/// has a grammar for: one without an entry is reported as an error rather than
+/// silently going uncollected. Both features require solc 0.8 or newer, so a
+/// source compiled with an older one is dropped here — it needs no entry, and
+/// gets neither collection.
 fn test_source_roots<'a>(
     test_source_paths: &HashMap<PathBuf, PathBuf>,
     test_contracts: impl IntoIterator<Item = &'a ArtifactId>,
@@ -710,38 +713,40 @@ fn test_source_roots<'a>(
         return (Vec::new(), Vec::new());
     }
 
-    let mut roots_by_source = BTreeMap::new();
-    let mut errors_by_source = BTreeMap::new();
+    // One source can back artifacts compiled at several versions. Parse it
+    // with the newest grammar any of them needs: an older one would reject
+    // syntax the newer artifact legitimately uses.
+    let mut versions_by_source: BTreeMap<&PathBuf, &Version> = BTreeMap::new();
     for artifact_id in test_contracts {
-        if let Some(path) = test_source_paths.get(&artifact_id.source) {
-            let root = roots_by_source
-                .entry(artifact_id.source.clone())
-                .or_insert_with(|| TestSourceRoot {
-                    source: artifact_id.source.clone(),
-                    path: path.clone(),
-                    version: artifact_id.version.clone(),
-                });
-            // One source can back artifacts compiled at several versions. Parse
-            // it with the newest grammar any of them needs: an older one would
-            // reject syntax the newer artifact legitimately uses.
-            if artifact_id.version > root.version {
-                root.version = artifact_id.version.clone();
-            }
-        } else {
-            errors_by_source
-                .entry(artifact_id.source.clone())
-                .or_insert_with(|| InlineConfigErrorItem {
-                    source_name: artifact_id.source.clone(),
-                    problem: InlineConfigProblem::Source(
-                        InlineConfigCollectError::SourcePathNotProvided,
-                    ),
-                });
+        versions_by_source
+            .entry(&artifact_id.source)
+            .and_modify(|version| *version = (*version).max(&artifact_id.version))
+            .or_insert(&artifact_id.version);
+    }
+
+    let mut roots = Vec::new();
+    let mut errors = Vec::new();
+    for (source, version) in versions_by_source {
+        let Some(language_version) = language_version_for_solc(version) else {
+            continue;
+        };
+
+        match test_source_paths.get(source) {
+            Some(path) => roots.push(TestSourceRoot {
+                source: source.clone(),
+                path: path.clone(),
+                version: language_version,
+            }),
+            None => errors.push(InlineConfigErrorItem {
+                source_name: source.clone(),
+                problem: InlineConfigProblem::Source(
+                    InlineConfigCollectError::SourcePathNotProvided,
+                ),
+            }),
         }
     }
-    (
-        roots_by_source.into_values().collect(),
-        errors_by_source.into_values().collect(),
-    )
+
+    (roots, errors)
 }
 
 /// The data extracted from a test suite's source when the run starts: its
@@ -868,7 +873,7 @@ impl SuiteSourceData {
 
 #[cfg(test)]
 mod tests {
-    use semver::Version;
+    use edr_solidity_parser_slang::LanguageVersion;
 
     use super::*;
 
@@ -925,11 +930,11 @@ mod tests {
         ));
     }
 
-    /// Listing a source Slang cannot parse is safe — it is skipped with a
-    /// warning — so the "name every source" rule has no exceptions and an
-    /// unlisted one is reported like any other.
+    /// Inline configuration and the EIP-712 cheatcodes both require solc 0.8,
+    /// so a source compiled with an older one is not collected from at all —
+    /// and therefore needs no `test_source_paths` entry.
     #[test]
-    fn unparseable_solc_version_without_entry_is_still_an_error() {
+    fn pre_0_8_source_needs_no_entry() {
         let contracts = test_contracts(&[
             ("test/A.t.sol", Version::new(0, 8, 24)),
             ("test/Legacy.t.sol", Version::new(0, 6, 12)),
@@ -943,7 +948,29 @@ mod tests {
         let (roots, errors) = test_source_roots(&paths, contracts.keys());
 
         assert_eq!(roots.len(), 1);
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].source_name, PathBuf::from("test/Legacy.t.sol"));
+        assert_eq!(roots[0].source, PathBuf::from("test/A.t.sol"));
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    /// A source backing artifacts compiled at several versions is parsed with
+    /// the newest grammar any of them needs, so a pre-0.8 artifact does not
+    /// exempt a source that a 0.8 artifact also comes from.
+    #[test]
+    fn source_is_collected_from_when_any_artifact_is_0_8() {
+        let contracts = test_contracts(&[
+            ("test/A.t.sol", Version::new(0, 6, 12)),
+            ("test/A.t.sol", Version::new(0, 8, 24)),
+        ]);
+        let paths = [(
+            PathBuf::from("test/A.t.sol"),
+            PathBuf::from("/project/test/A.t.sol"),
+        )]
+        .into();
+
+        let (roots, errors) = test_source_roots(&paths, contracts.keys());
+
+        assert_eq!(roots.len(), 1);
+        assert_eq!(roots[0].version, LanguageVersion::V0_8_24);
+        assert!(errors.is_empty(), "{errors:?}");
     }
 }
