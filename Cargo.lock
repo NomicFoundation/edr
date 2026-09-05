@@ -3576,7 +3576,9 @@ dependencies = [
  "serde",
  "serde_json",
  "strum 0.28.0",
+ "tempfile",
  "thiserror 2.0.20",
+ "walkdir",
 ]
 
 [[package]]
