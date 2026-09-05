@@ -3,7 +3,7 @@ description: Resolves the node Docker image for a job. Normal runs use the GHCR 
 
 inputs:
   tag:
-    description: node image tag, e.g. 24-bullseye-slim or 22-alpine
+    description: node image tag, e.g. 24-bookworm-slim or 22-alpine
     required: true
   release-tag:
     description: check_commit's release tag; non-empty marks a release run
