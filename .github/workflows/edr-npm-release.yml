@@ -58,14 +58,19 @@ jobs:
           # select-node-image action (GHCR mirror normally, Docker Hub on
           # releases). New or changed tags must be added to the mirror
           # workflow's tag list in the same PR.
+          #
+          # The gnu image sets the glibc floor of the published binaries:
+          # bookworm puts it at 2.34, up from 2.30 on bullseye, which went
+          # away when Debian 11 hit EOL on 2026-08-31 and its security pool
+          # was purged out from under `apt-get install`.
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            docker_tag: 24-bullseye-slim
+            docker_tag: 24-bookworm-slim
             flavor: gnu
 
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            docker_tag: 24-bullseye-slim
+            docker_tag: 24-bookworm-slim
             flavor: gnu
 
           - host: ubuntu-24.04
