@@ -75,7 +75,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
 
       # Install pre-built binaries for cargo hack
-      - uses: taiki-e/install-action@6cd13508893c0e7eab5f273c2575d3859bd7229a # v2.86.6
+      - uses: taiki-e/install-action@742a3317eac7bd62f91cd888b4eead5e784ba833 # v2.87.1
         with:
           tool: cargo-hack@0.6.39
 
@@ -417,7 +417,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@6cd13508893c0e7eab5f273c2575d3859bd7229a # v2.86.6
+      - uses: taiki-e/install-action@742a3317eac7bd62f91cd888b4eead5e784ba833 # v2.87.1
         with:
           tool: zizmor@1.26.1
       # GH_TOKEN enables the online audits (known-vulnerabilities, tag->SHA resolution).
