@@ -3,8 +3,8 @@ import * as path from "path";
 
 import {
   EdrContext,
-  InlineConfigError,
-  InlineConfigSourceError,
+  TestSourceError,
+  TestSourceFileError,
   L1_CHAIN_TYPE,
   l1HardforkLatest,
   l1HardforkToString,
@@ -264,13 +264,13 @@ describe("Solidity Tests", () => {
 
   // A non-empty `testSourcePaths` must name the source of every selected test
   // suite, with no exceptions; a missing entry rejects the run before any test
-  // executes, carrying the structured `inlineConfigErrors` array on the thrown
+  // executes, carrying the structured `testSourceErrors` array on the thrown
   // error.
-  // Typed against the generated `InlineConfigError` union rather than a
+  // Typed against the generated `TestSourceError` union rather than a
   // hand-written shape, so a typings regression fails to compile here.
   async function expectSourceErrors(
     run: Promise<unknown>
-  ): Promise<InlineConfigSourceError[]> {
+  ): Promise<TestSourceFileError[]> {
     let caught: unknown = null;
     try {
       await run;
@@ -278,16 +278,16 @@ describe("Solidity Tests", () => {
       caught = error;
     }
     assert.isNotNull(caught, "expected the run to reject");
-    const { inlineConfigErrors } = caught as {
-      inlineConfigErrors?: InlineConfigError[];
+    const { testSourceErrors } = caught as {
+      testSourceErrors?: TestSourceError[];
     };
-    assert.isArray(inlineConfigErrors);
-    const sourceErrors = inlineConfigErrors!.filter(
-      (entry): entry is InlineConfigSourceError => entry.kind === "source"
+    assert.isArray(testSourceErrors);
+    const sourceErrors = testSourceErrors!.filter(
+      (entry): entry is TestSourceFileError => entry.kind === "source"
     );
     assert.equal(
       sourceErrors.length,
-      inlineConfigErrors!.length,
+      testSourceErrors!.length,
       "expected only source-level problems"
     );
     return sourceErrors;
@@ -322,48 +322,78 @@ describe("Solidity Tests", () => {
       errors[0].sourceName,
       "data/contracts/Eip712UnknownTest.t.sol"
     );
-    assert.equal(errors[0].problem.kind, "InlineConfigSourcePathNotProvided");
+    assert.equal(errors[0].problem.kind, "TestSourcePathNotProvided");
   });
 
-  it("warns instead of failing when a test source cannot be parsed", async function () {
+  it("rejects when a test source cannot be parsed", async function () {
     const artifacts = [
       loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
     ];
     const testSuites = artifacts.map((artifact) => artifact.id);
 
-    const [, results] = await runAllSolidityTests(
-      context,
-      L1_CHAIN_TYPE,
-      artifacts,
-      testSuites,
-      {
+    const errors = await expectSourceErrors(
+      runAllSolidityTests(context, L1_CHAIN_TYPE, artifacts, testSuites, {
         disableTransactionGasCap: true,
         projectRoot: __dirname,
         hardfork: l1HardforkToString(l1HardforkLatest()),
         // Point the suite's source at a file that cannot be parsed to an
         // AST, simulating an on-disk source that diverged from its compiled
-        // artifact. The suite still runs: it may use neither inline
-        // configuration nor the EIP-712 cheatcodes.
+        // artifact.
         testSourcePaths: {
           "data/contracts/Eip712UnknownTest.t.sol": path.join(
             __dirname,
             "data/contracts/Eip712SyntaxError.sol"
           ),
         },
-      }
+      })
     );
 
-    assert.equal(results.length, artifacts.length);
-    const warnings = results.flatMap((result) => result.warnings);
-    assert.isAbove(warnings.length, 0, "expected a warning for the source");
-    assert.isTrue(
-      warnings.some(
-        (warning) =>
-          warning.includes("data/contracts/Eip712UnknownTest.t.sol") &&
-          warning.includes("did not parse")
-      ),
-      `unexpected warnings: ${JSON.stringify(warnings)}`
+    assert.equal(errors.length, 1);
+    assert.equal(
+      errors[0].sourceName,
+      "data/contracts/Eip712UnknownTest.t.sol"
     );
+    assert.equal(errors[0].problem.kind, "TestSourceParseErrors");
+  });
+
+  it("rejects when a test source predates the oldest Solidity grammar", async function () {
+    const artifact = loadContract(
+      "./data/artifacts/default/Eip712UnknownTest.json"
+    );
+    // Collection requires solc 0.8; the artifact's own version is irrelevant
+    // to this run, which never executes a test.
+    artifact.id = { ...artifact.id, solcVersion: "0.7.6" };
+
+    const errors = await expectSourceErrors(
+      runAllSolidityTests(
+        context,
+        L1_CHAIN_TYPE,
+        [artifact],
+        [artifact.id],
+        {
+          disableTransactionGasCap: true,
+          projectRoot: __dirname,
+          hardfork: l1HardforkToString(l1HardforkLatest()),
+          testSourcePaths: {
+            "data/contracts/Eip712UnknownTest.t.sol": path.join(
+              __dirname,
+              "data/contracts/Eip712UnknownTest.t.sol"
+            ),
+          },
+        }
+      )
+    );
+
+    assert.equal(errors.length, 1);
+    assert.equal(
+      errors[0].sourceName,
+      "data/contracts/Eip712UnknownTest.t.sol"
+    );
+    const { problem } = errors[0];
+    assert.equal(problem.kind, "TestSourceUnsupportedSolcVersion");
+    if (problem.kind === "TestSourceUnsupportedSolcVersion") {
+      assert.equal(problem.version, "0.7.6");
+    }
   });
 
   it("filters tests according to pattern", async function () {

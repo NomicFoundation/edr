@@ -14,8 +14,11 @@
 
 use std::collections::HashSet;
 
-use super::{error::InlineConfigError, natspec::NatSpecBlock, profiles::InlineConfigProfiles};
-use crate::config::{TestFunctionConfigOverride, TimeoutConfig};
+use super::{natspec::NatSpecBlock, profiles::InlineConfigProfiles};
+use crate::{
+    config::{TestFunctionConfigOverride, TimeoutConfig},
+    test_source_error::InlineConfigError,
+};
 
 const HARDHAT_CONFIG_PREFIX: &str = "hardhat-config:";
 const FORGE_CONFIG_PREFIX: &str = "forge-config:";

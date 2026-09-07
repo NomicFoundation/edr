@@ -803,7 +803,11 @@ async fn test_env_vars() {
     }
 
     let filter = SolidityTestFilter::new("testSetEnv", ".*", ".*");
-    let runner = TEST_DATA_DEFAULT.runner().await;
+    // Keep collection disabled here. The `.*` path filter selects every
+    // suite, including the pre-0.8 sources Slang has no grammar for.
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fuzz_persistence(TEST_DATA_DEFAULT.config_without_source_collection())
+        .await;
     let _ = runner
         .test_collect(filter)
         .await

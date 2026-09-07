@@ -38,7 +38,7 @@ use crate::{
 /// completed run.
 enum RunOutcome {
     Completed(edr_solidity_tests::multi_runner::SolidityTestResult),
-    InvalidInlineConfig(edr_solidity_tests::inline_config::error::InlineConfigErrors),
+    InvalidInlineConfig(edr_solidity_tests::test_source_error::TestSourceErrors),
 }
 
 /// Unwraps `$expr`, or rejects `$deferred` with the error and returns
@@ -364,7 +364,7 @@ impl EdrContext {
                         Ok(test_result) => RunOutcome::Completed(test_result),
                         // An inline-config failure carries structured, located
                         // problems that we surface on the rejected promise's
-                        // error as `inlineConfigErrors`. Building that JS object
+                        // error as `testSourceErrors`. Building that JS object
                         // requires the JS thread, so route it through the
                         // deferred's resolver (which runs there) rather than
                         // `deferred.reject`, which only carries a message.

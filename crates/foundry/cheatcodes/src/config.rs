@@ -64,7 +64,9 @@ pub struct CheatsConfig<HardforkT> {
     pub chain_id_to_alias: HashMap<u64, String>,
     /// EIP-712 types collected from Solidity sources scoped to the running
     /// artifact.
-    pub eip712_types: Arc<Eip712TypeCollection>,
+    /// `None` when no source was collected for the running suite, which is
+    /// not the same as a source that declared no struct.
+    pub eip712_types: Option<Arc<Eip712TypeCollection>>,
     /// Memoized private key -> wallet derivations.
     pub wallet_cache: WalletCache,
 }
@@ -159,7 +161,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         available_artifacts: Arc<ContractsByArtifact>,
         running_artifact: ArtifactId,
         functions_internal_expect_revert: HashSet<TestFunctionIdentifier>,
-        eip712_types: Arc<Eip712TypeCollection>,
+        eip712_types: Option<Arc<Eip712TypeCollection>>,
     ) -> Self {
         let CheatsConfigOptions {
             execution_context,
@@ -792,7 +794,7 @@ mod tests {
                 version: Version::new(0, 8, 0),
             },
             HashSet::new(),
-            Arc::default(),
+            None,
         )
     }
 
