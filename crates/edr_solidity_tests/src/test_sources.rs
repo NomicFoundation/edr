@@ -7,9 +7,11 @@
 //! extracted from that same compilation unit. The unit is dropped afterwards
 //! — nothing is cached beyond the extracted data.
 //!
-//! A source that does not parse is skipped rather than failing the run: it
-//! may well use neither feature. The reason is reported as a warning on every
-//! suite the source declares.
+//! Every source named by `test_source_paths` is parsed; nothing is exempt and
+//! nothing is skipped. Problems are accumulated across all of them — an
+//! unreadable file, a solc version with no grammar, a source that does not
+//! parse, ill-formed directives — and returned together, so one run reports
+//! every problem rather than the first.
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
@@ -20,10 +22,9 @@ use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver, Language
 use rayon::prelude::*;
 use slang_solidity_v2::diagnostics::{DiagnosticExtensions as _, DiagnosticKind};
 
-use crate::inline_config::{
-    collect_source_overrides_from_unit,
-    error::{InlineConfigCollectError, InlineConfigErrorItem},
-    line_of, SourceOverrides,
+use crate::{
+    inline_config::{collect_source_overrides_from_unit, line_of, SourceOverrides},
+    test_source_error::{TestSourceCollectError, TestSourceErrorItem},
 };
 
 /// A source far enough out of sync with the grammar yields a syntax diagnostic
@@ -32,7 +33,7 @@ use crate::inline_config::{
 const MAX_REPORTED_PARSE_ERRORS: usize = 5;
 
 /// A Solidity test source to collect from.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct TestSourceRoot {
     /// The identity this root is queried by — the compiled artifact's solc
     /// source name (e.g. the running test contract's `source`). Collections
@@ -41,51 +42,20 @@ pub(crate) struct TestSourceRoot {
     /// Absolute path to the file on disk, used to read and parse it.
     pub path: PathBuf,
     /// The grammar to parse the file with, mapped from the solc version it was
-    /// compiled with. A source whose version maps to no grammar never becomes
-    /// a root, so parsing cannot fail on the version.
+    /// compiled with. A source whose version maps to no grammar is reported as
+    /// a problem instead of becoming a root, so parsing cannot fail on the
+    /// version.
     pub version: LanguageVersion,
 }
 
-/// The outcome of collecting one test source.
-#[derive(Clone, Debug)]
-pub(crate) enum CollectedTestSource {
-    /// The source was parsed; both collections come from its single unit.
-    Collected(SourceCollections),
-    /// The source could not be parsed, so nothing was collected from it.
-    Skipped(UnparseableSource),
-}
-
 /// Everything extracted from one test source's single parse.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct SourceCollections {
     /// The EIP-712 struct definitions reachable from the source. Shared rather
     /// than copied: every suite declared in the source serves the same types.
     pub eip712_types: Arc<Eip712TypeCollection>,
     /// The successfully-parsed inline configuration, keyed by contract name.
     pub overrides: SourceOverrides,
-}
-
-/// A test source Slang's grammar rejects, so it yielded no inline
-/// configuration and no EIP-712 types.
-///
-/// Slang is error-tolerant and yields a partial AST, which could silently miss
-/// structs and directives, so nothing is collected from such a source. That is
-/// not fatal on its own — a source using neither feature is unaffected — so
-/// the run continues and every suite the source declares reports this as a
-/// warning.
-#[derive(Clone, Debug, thiserror::Error)]
-#[error(
-    "Skipped collecting inline configuration and EIP-712 types from \"{}\": the source did not \
-     parse ({}). Inline configuration directives in this source have no effect, and the EIP-712 \
-     cheatcodes cannot resolve type names declared in it.",
-    .source_name.display(),
-    .reasons.join("; ")
-)]
-pub(crate) struct UnparseableSource {
-    /// The solc source name.
-    source_name: PathBuf,
-    /// The syntax diagnostics, each located at its source line.
-    reasons: Vec<String>,
 }
 
 /// Reads and parses every root, extracting both collections from each root's
@@ -95,16 +65,12 @@ pub(crate) struct UnparseableSource {
 /// completes before any test suite is dispatched, so it never contends with
 /// suite execution.
 ///
-/// Only a source that cannot be located or read, and ill-formed inline
-/// configuration within one that can, are errors. Every such problem across
-/// every source is accumulated rather than short-circuited, so one run reports
-/// them all. A source Slang's grammar rejects is [`Skipped`] instead.
-///
-/// [`Skipped`]: CollectedTestSource::Skipped
+/// Every problem across every source is accumulated rather than
+/// short-circuited, so one run reports them all.
 pub(crate) fn collect_test_sources(
     roots: &[TestSourceRoot],
     import_resolver: &ImportResolver,
-) -> Result<HashMap<PathBuf, CollectedTestSource>, Vec<InlineConfigErrorItem>> {
+) -> Result<HashMap<PathBuf, SourceCollections>, Vec<TestSourceErrorItem>> {
     let results: Vec<_> = roots
         .par_iter()
         .map(|root| (root.source.clone(), collect_root(root, import_resolver)))
@@ -134,22 +100,23 @@ pub(crate) fn collect_test_sources(
 /// Collects one root: read the file, build its compilation unit, and run both
 /// extractions on it.
 ///
-/// The two extractions run sequentially on purpose: Slang's CST nodes are
-/// `Rc`-based, so the unit cannot be shared across threads; parallelism is
-/// across roots instead.
+/// Each root gets its own unit rather than sharing one. A merged unit would
+/// widen `all_definitions()` across unrelated test files, so a struct name
+/// that is unambiguous within one root could be rejected because another
+/// root's import closure disagrees about it.
 fn collect_root(
     root: &TestSourceRoot,
     import_resolver: &ImportResolver,
-) -> Result<CollectedTestSource, Vec<InlineConfigErrorItem>> {
+) -> Result<SourceCollections, Vec<TestSourceErrorItem>> {
     // Read the content up front: the NatSpec directives are recovered from the
     // raw source text, and a build over a missing root only yields a
     // diagnostic and an empty unit, which must not be mistaken for "no types".
     let content = match std::fs::read_to_string(&root.path) {
         Ok(content) => content,
         Err(error) => {
-            return Err(vec![InlineConfigErrorItem {
+            return Err(vec![TestSourceErrorItem {
                 source_name: root.source.clone(),
-                problem: InlineConfigCollectError::RootFileNotFound {
+                problem: TestSourceCollectError::RootFileNotFound {
                     path: root.path.display().to_string(),
                     reason: error.to_string(),
                 }
@@ -163,50 +130,51 @@ fn collect_root(
     let file_id = root.path.to_string_lossy();
 
     // Slang is error-tolerant and yields a partial AST, so a root file that
-    // doesn't fully parse could silently miss structs and directives; skip it
+    // doesn't fully parse could silently miss structs and directives; report it
     // rather than collect half of it. Other diagnostic kinds — unresolvable
     // imports in particular, which are legitimately optional — keep degrading
     // gracefully.
-    let parse_errors: Vec<String> = unit
+    let mut syntax_diagnostics = unit
         .diagnostics()
         .iter()
         .filter(|diagnostic| {
             diagnostic.file_id() == file_id
                 && matches!(diagnostic.kind(), DiagnosticKind::Syntax(_))
         })
-        .map(|diagnostic| {
-            match line_of(&content, diagnostic.text_range().start) {
-                Ok(line) => format!("{} (line {line})", diagnostic.message()),
-                // The line is decoration on a warning; an offset we cannot
-                // place is not worth failing the run over.
-                Err(_unplaceable) => diagnostic.message(),
-            }
-        })
-        .collect();
+        .peekable();
 
-    if !parse_errors.is_empty() {
-        let reported = parse_errors.len();
-        let mut reasons: Vec<String> = parse_errors
-            .into_iter()
+    if syntax_diagnostics.peek().is_some() {
+        let mut reasons: Vec<String> = syntax_diagnostics
+            .by_ref()
             .take(MAX_REPORTED_PARSE_ERRORS)
+            .map(|diagnostic| {
+                match line_of(&content, diagnostic.text_range().start) {
+                    Ok(line) => format!("{} (line {line})", diagnostic.message()),
+                    // The line is decoration on the reported problem: an
+                    // offset we cannot place still reports its diagnostic.
+                    Err(_unplaceable) => diagnostic.message(),
+                }
+            })
             .collect();
-        if reported > MAX_REPORTED_PARSE_ERRORS {
-            reasons.push(format!("and {} more", reported - MAX_REPORTED_PARSE_ERRORS));
+
+        let unreported = syntax_diagnostics.count();
+        if unreported > 0 {
+            reasons.push(format!("and {unreported} more"));
         }
 
-        return Ok(CollectedTestSource::Skipped(UnparseableSource {
+        return Err(vec![TestSourceErrorItem {
             source_name: root.source.clone(),
-            reasons,
-        }));
+            problem: TestSourceCollectError::SourceParseErrors { reasons }.into(),
+        }]);
     }
 
     let overrides = collect_source_overrides_from_unit(&root.source, &content, &unit, &file_id)?;
     let eip712_types = Arc::new(collect_eip712_types_from_compilation_unit(&unit, &file_id));
 
-    Ok(CollectedTestSource::Collected(SourceCollections {
+    Ok(SourceCollections {
         eip712_types,
         overrides,
-    }))
+    })
 }
 
 #[cfg(test)]
@@ -217,15 +185,7 @@ mod tests {
     use semver::Version;
 
     use super::*;
-    use crate::inline_config::error::{InlineConfigDirectiveError, InlineConfigProblem};
-
-    /// Unwraps the collections of a source expected to have been parsed.
-    fn collections(source: CollectedTestSource) -> SourceCollections {
-        match source {
-            CollectedTestSource::Collected(collections) => collections,
-            CollectedTestSource::Skipped(reason) => panic!("unexpectedly skipped: {reason}"),
-        }
-    }
+    use crate::test_source_error::{InlineConfigDirectiveError, TestSourceProblem};
 
     fn temp_source(content: &str) -> tempfile::NamedTempFile {
         let mut file = tempfile::Builder::new()
@@ -236,11 +196,20 @@ mod tests {
         file
     }
 
-    fn root_for(file: &tempfile::NamedTempFile, source: &str, version: Version) -> TestSourceRoot {
+    /// The solc source name most fixtures are collected under.
+    const FIXTURE_SOURCE: &str = "project/C.t.sol";
+
+    /// A solc version Slang has a grammar for. The fixtures are not about
+    /// version mapping, so they all parse with the same one.
+    fn fixture_grammar() -> LanguageVersion {
+        language_version_for_solc(&Version::new(0, 8, 24)).expect("supported solc version")
+    }
+
+    fn root_for(file: &tempfile::NamedTempFile, source: &str) -> TestSourceRoot {
         TestSourceRoot {
             source: PathBuf::from(source),
             path: file.path().to_path_buf(),
-            version: language_version_for_solc(&version).expect("supported solc version"),
+            version: fixture_grammar(),
         }
     }
 
@@ -258,12 +227,10 @@ contract C {
 }
 ",
         );
-        let root = root_for(&file, "project/C.t.sol", Version::new(0, 8, 24));
+        let root = root_for(&file, FIXTURE_SOURCE);
 
-        let collected = collections(
-            collect_root(&root, &ImportResolver::default())
-                .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}")),
-        );
+        let collected = collect_root(&root, &ImportResolver::default())
+            .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"));
 
         let overrides = collected.overrides.get("C").expect("C has overrides");
         assert_eq!(overrides.functions.len(), 1);
@@ -290,21 +257,19 @@ contract C {
 }
 ",
         );
-        let root = root_for(&file, "project/C.t.sol", Version::new(0, 8, 24));
+        let root = root_for(&file, FIXTURE_SOURCE);
 
-        let collected = collections(
-            collect_root(&root, &ImportResolver::default())
-                .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}")),
-        );
+        let collected = collect_root(&root, &ImportResolver::default())
+            .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"));
 
         assert!(collected.overrides.is_empty());
         assert!(collected.eip712_types.is_empty());
     }
 
     /// A partially-parsed source would silently miss structs and directives,
-    /// so nothing is collected from it — but the run continues.
+    /// so it is reported rather than half-collected.
     #[test]
-    fn root_file_parse_errors_are_skipped() {
+    fn root_file_parse_errors_are_reported() {
         let file = temp_source(
             "// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
@@ -316,18 +281,17 @@ contract C {
 }
 ",
         );
-        let root = root_for(&file, "project/C.t.sol", Version::new(0, 8, 24));
+        let root = root_for(&file, FIXTURE_SOURCE);
 
-        let collected = collect_test_sources(&[root], &ImportResolver::default())
-            .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"));
+        let errors = collect_test_sources(&[root], &ImportResolver::default())
+            .expect_err("a source that does not parse cannot be collected");
 
-        let source = &collected[&PathBuf::from("project/C.t.sol")];
-        let CollectedTestSource::Skipped(reason) = source else {
-            panic!("a source that does not parse cannot be collected");
-        };
-        // The warning names the source and says what stops working.
-        assert!(reason.to_string().contains("project/C.t.sol"), "{reason}");
-        assert!(reason.to_string().contains("EIP-712"), "{reason}");
+        assert_eq!(errors.len(), 1, "{errors:#?}");
+        assert_eq!(errors[0].source_name, PathBuf::from(FIXTURE_SOURCE));
+        assert!(matches!(
+            &errors[0].problem,
+            TestSourceProblem::Source(TestSourceCollectError::SourceParseErrors { .. })
+        ));
     }
 
     /// Both directive prefixes are recognized, and a directive that is not in
@@ -347,12 +311,10 @@ contract C {
 }
 ",
         );
-        let root = root_for(&file, "project/C.t.sol", Version::new(0, 8, 24));
+        let root = root_for(&file, FIXTURE_SOURCE);
 
-        let collected = collections(
-            collect_root(&root, &ImportResolver::default())
-                .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}")),
-        );
+        let collected = collect_root(&root, &ImportResolver::default())
+            .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"));
 
         let overrides = collected.overrides.get("C").expect("C has overrides");
         assert_eq!(overrides.functions.len(), 1, "{:#?}", overrides.functions);
@@ -382,12 +344,12 @@ contract BadTest {
 }
 ",
         );
-        let root = root_for(&file, "project/BadTest.t.sol", Version::new(0, 8, 24));
+        let root = root_for(&file, "project/BadTest.t.sol");
 
         let errors = collect_root(&root, &ImportResolver::default()).expect_err("expected errors");
 
         assert_eq!(errors.len(), 1, "{errors:#?}");
-        let InlineConfigProblem::Directive(InlineConfigDirectiveError { function, line, .. }) =
+        let TestSourceProblem::Directive(InlineConfigDirectiveError { function, line, .. }) =
             &errors[0].problem
         else {
             panic!("expected a directive problem, got {:#?}", errors[0].problem);
@@ -412,8 +374,8 @@ contract Bad {
         let first = temp_source(bad);
         let second = temp_source(bad);
         let roots = [
-            root_for(&first, "project/First.t.sol", Version::new(0, 8, 24)),
-            root_for(&second, "project/Second.t.sol", Version::new(0, 8, 24)),
+            root_for(&first, "project/First.t.sol"),
+            root_for(&second, "project/Second.t.sol"),
         ];
 
         let errors =
@@ -445,17 +407,13 @@ contract BadContractLevel {
 }
 ",
         );
-        let root = root_for(
-            &file,
-            "project/BadContractLevel.t.sol",
-            Version::new(0, 8, 24),
-        );
+        let root = root_for(&file, "project/BadContractLevel.t.sol");
 
         let errors = collect_root(&root, &ImportResolver::default()).expect_err("expected errors");
 
         assert_eq!(errors.len(), 1, "{errors:#?}");
         let error = errors.first().expect("should contain an error");
-        let InlineConfigProblem::Directive(InlineConfigDirectiveError {
+        let TestSourceProblem::Directive(InlineConfigDirectiveError {
             contract,
             function,
             line,
@@ -477,7 +435,7 @@ contract BadContractLevel {
         let root = TestSourceRoot {
             source: PathBuf::from("project/Missing.t.sol"),
             path: PathBuf::from("/does/not/exist/Missing.t.sol"),
-            version: LanguageVersion::V0_8_24,
+            version: fixture_grammar(),
         };
 
         let errors =
@@ -488,7 +446,7 @@ contract BadContractLevel {
         let error = errors.first().expect("should contain an error");
         assert!(matches!(
             &error.problem,
-            InlineConfigProblem::Source(InlineConfigCollectError::RootFileNotFound { .. })
+            TestSourceProblem::Source(TestSourceCollectError::RootFileNotFound { .. })
         ));
     }
 }

@@ -6,12 +6,11 @@ edition.workspace = true
 [dependencies]
 alloy-dyn-abi = { workspace = true, features = ["eip712"] }
 edr_solidity_parser_slang.workspace = true
-semver.workspace = true
 slang_solidity_v2.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-edr_solidity_parser_slang.workspace = true
+semver.workspace = true
 
 [lints]
 workspace = true

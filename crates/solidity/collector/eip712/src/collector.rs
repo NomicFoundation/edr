@@ -10,7 +10,7 @@
 use std::collections::{HashMap, HashSet};
 
 use slang_solidity_v2::{
-    ast::{Definition, Type},
+    ast::{Definition, StructMember, Type, TypeName},
     compilation::CompilationUnit,
 };
 
@@ -20,9 +20,9 @@ use crate::Eip712Type;
 /// not, which the fixed point in `reject_non_encodable` is meant to prevent.
 #[derive(Debug, thiserror::Error)]
 #[error(
-    "struct `{name}` cannot be canonicalized because struct dependency `{dependency}` is missing."
+    "struct `{name}` cannot be canonicalized because struct dependency `{dependency}` is missing"
 )]
-pub struct MissingStructDependency {
+struct MissingStructDependency {
     name: String,
     dependency: String,
 }
@@ -34,6 +34,18 @@ impl Eip712Type {
         root: &EncodableStruct,
         encodables: &HashMap<String, EncodableStruct>,
     ) -> Result<Eip712Type, MissingStructDependency> {
+        /// Resolves a dependency name the root (transitively) references.
+        fn dependency<'a>(
+            encodables: &'a HashMap<String, EncodableStruct>,
+            root: &EncodableStruct,
+            name: &str,
+        ) -> Result<&'a EncodableStruct, MissingStructDependency> {
+            encodables.get(name).ok_or_else(|| MissingStructDependency {
+                name: root.name.clone(),
+                dependency: name.to_owned(),
+            })
+        }
+
         fn transitive_struct_deps(
             root: &EncodableStruct,
             encodables: &HashMap<String, EncodableStruct>,
@@ -46,13 +58,8 @@ impl Eip712Type {
                     continue;
                 }
 
-                let dependency = encodables.get(&next).ok_or(MissingStructDependency {
-                    name: root.name.clone(),
-                    dependency: next.clone(),
-                })?;
-
-                stack.extend(dependency.direct_struct_deps.clone());
-                visited.insert(next.clone());
+                stack.extend(dependency(encodables, root, &next)?.direct_struct_deps.clone());
+                visited.insert(next);
             }
 
             Ok(visited.into_iter().collect())
@@ -66,13 +73,7 @@ impl Eip712Type {
 
         let dependency_heads = dependency_names
             .iter()
-            .map(|dependency| {
-                let dependency = encodables.get(dependency).ok_or(MissingStructDependency {
-                    name: root.name.clone(),
-                    dependency: dependency.clone(),
-                })?;
-                Ok(struct_head(dependency))
-            })
+            .map(|name| Ok(struct_head(dependency(encodables, root, name)?)))
             .collect::<Result<Vec<_>, MissingStructDependency>>()?;
 
         let name = root.name.clone();
@@ -103,7 +104,7 @@ pub struct Eip712TypeCollection {
 /// An error type for a struct that exists but could not be converted to an
 /// EIP-712 canonical type.
 #[derive(Clone, Debug, thiserror::Error)]
-#[error("EIP-712 type '{name}' cannot be used: {reason}")]
+#[error("EIP-712 type `{name}` cannot be used: {reason}")]
 pub struct Eip712TypeRejected {
     /// The requested type name.
     pub name: String,
@@ -115,7 +116,7 @@ pub struct Eip712TypeRejected {
 #[derive(Clone, Debug, thiserror::Error)]
 pub enum Eip712CollectionLookupError {
     /// No struct with this name exists in the compilation unit.
-    #[error("EIP-712 type '{type_name}' was not found.")]
+    #[error("EIP-712 type `{type_name}` was not found")]
     NotFound {
         /// The name that was looked up.
         type_name: String,
@@ -212,23 +213,39 @@ impl EncodableStruct {
         is_struct_fn: impl Fn(&str) -> bool,
     ) -> Result<Self, RejectReason> {
         let mut members = Vec::new();
+        let mut unresolved_members = Vec::new();
         let mut non_encodable_members = Vec::new();
         let mut direct_struct_deps = Vec::new();
 
         for member in struct_def.members {
-            if let Some(encoded_type) = member.encoded_type {
-                let base = base_type_name(encoded_type.as_str());
-                if base != struct_def.name && is_struct_fn(base) {
-                    direct_struct_deps.push(base.to_owned());
-                }
+            match member.encoded_type {
+                Ok(encoded_type) => {
+                    let base = base_type_name(encoded_type.as_str());
+                    if base != struct_def.name && is_struct_fn(base) {
+                        direct_struct_deps.push(base.to_owned());
+                    }
 
-                members.push(EncodableMember {
-                    name: member.name,
-                    encoded_type,
-                });
-            } else {
-                non_encodable_members.push(member.name);
+                    members.push(EncodableMember {
+                        name: member.name,
+                        encoded_type,
+                    });
+                }
+                Err(MemberTypeProblem::Unresolved { declared }) => {
+                    unresolved_members.push(match declared {
+                        Some(declared) => format!("{declared} {}", member.name),
+                        None => member.name,
+                    });
+                }
+                Err(MemberTypeProblem::NotEncodable) => non_encodable_members.push(member.name),
             }
+        }
+
+        // An unresolved type is the more actionable of the two, and usually
+        // the cause of the other members looking wrong too.
+        if !unresolved_members.is_empty() {
+            return Err(RejectReason::UnresolvedMemberTypes {
+                members: unresolved_members,
+            });
         }
 
         if !non_encodable_members.is_empty() {
@@ -236,6 +253,11 @@ impl EncodableStruct {
                 members: non_encodable_members,
             });
         }
+
+        // Two members of the same struct type are one dependency, and naming
+        // it twice in a rejection would read as two.
+        direct_struct_deps.sort();
+        direct_struct_deps.dedup();
 
         Ok(Self {
             name: struct_def.name,
@@ -248,9 +270,21 @@ impl EncodableStruct {
 #[derive(Clone)]
 struct CollectedMember {
     name: String,
-    /// EIP-712 encoded member type, or `None` if not encodable (mapping,
-    /// function, fixed-point, unresolved, …).
-    encoded_type: Option<String>,
+    encoded_type: Result<String, MemberTypeProblem>,
+}
+
+/// Why a struct member has no EIP-712 encoding.
+#[derive(Clone)]
+enum MemberTypeProblem {
+    /// The member's type did not resolve, so what it encodes to is unknown.
+    /// The file declaring it is usually one no import could reach.
+    Unresolved {
+        /// The type as written, when it can be recovered from the source.
+        declared: Option<String>,
+    },
+    /// The type resolved, and EIP-712 has no encoding for it: a mapping, a
+    /// function, a fixed-point number, or an array of unevaluable length.
+    NotEncodable,
 }
 
 struct EncodableMember {
@@ -271,7 +305,7 @@ fn collect_structs(unit: &CompilationUnit) -> Vec<CollectedStruct> {
             .iter()
             .map(|member| CollectedMember {
                 name: member.name().unparse().to_owned(),
-                encoded_type: member.get_type().and_then(|ty| encode_member_type(&ty)),
+                encoded_type: encode_member(&member),
             })
             .collect();
 
@@ -282,6 +316,35 @@ fn collect_structs(unit: &CompilationUnit) -> Vec<CollectedStruct> {
         });
     }
     collected
+}
+
+/// Encodes a member's type, distinguishing a type that did not resolve from
+/// one that resolved to something EIP-712 cannot encode.
+fn encode_member(member: &StructMember) -> Result<String, MemberTypeProblem> {
+    let Some(resolved) = member.get_type() else {
+        return Err(MemberTypeProblem::Unresolved {
+            declared: declared_type_name(&member.type_name()),
+        });
+    };
+
+    encode_member_type(&resolved).ok_or(MemberTypeProblem::NotEncodable)
+}
+
+/// Recovers a member's type as written, so an unresolved type can be named in
+/// an error. Only the forms an unresolved type can take are rendered.
+fn declared_type_name(type_name: &TypeName) -> Option<String> {
+    match type_name {
+        TypeName::IdentifierPath(path) => Some(
+            path.iter()
+                .map(|segment| segment.unparse().to_owned())
+                .collect::<Vec<_>>()
+                .join("."),
+        ),
+        TypeName::ArrayTypeName(array) => {
+            declared_type_name(&array.operand()).map(|base| format!("{base}[]"))
+        }
+        TypeName::ElementaryType(_) | TypeName::FunctionType(_) | TypeName::MappingType(_) => None,
+    }
 }
 
 /// Encodes a resolved member type to its EIP-712 form, following the same
@@ -318,8 +381,14 @@ fn encode_member_type(ty: &Type) -> Option<String> {
         }
         Type::FixedSizeArray(array) => {
             let base = encode_member_type(&array.element_type())?;
-            let size = array.size();
-            Some(format!("{base}[{size}]"))
+            // Slang yields 0 for a length it cannot constant-fold, e.g.
+            // `uint256[Lib.MAX]`. Solidity rejects a genuinely zero-length
+            // fixed array, so 0 means "unknown length" and encoding it as
+            // `[0]` would hash a type the source does not declare.
+            match array.size() {
+                0 => None,
+                size => Some(format!("{base}[{size}]")),
+            }
         }
         Type::Mapping(_)
         | Type::Function(_)
@@ -330,21 +399,49 @@ fn encode_member_type(ty: &Type) -> Option<String> {
     }
 }
 
+/// Renders `noun` for `count` items, so an error naming one member or type
+/// does not read as if it named several.
+fn pluralize(count: usize, noun: &str) -> String {
+    if count == 1 {
+        noun.to_owned()
+    } else {
+        format!("{noun}s")
+    }
+}
+
 /// Why a struct that exists in the sources cannot serve as an EIP-712 type.
 #[derive(Clone, Debug, thiserror::Error)]
 pub enum RejectReason {
     /// Two files declare a struct of this name with different members, and
     /// neither is the source that asked, so the name is ambiguous.
-    #[error("Conflicting definitions of struct '{name}' in: {}", .file_ids.join(", "))]
+    #[error(
+        "conflicting definitions in: {}. Rename one of them, or reference it from a source that \
+         declares it",
+        .file_ids.join(", ")
+    )]
     Duplicate {
-        /// The contested struct name.
-        name: String,
         /// The distinct files declaring it, sorted.
         file_ids: Vec<String>,
     },
+    /// The struct declares a member whose type did not resolve, so what it
+    /// encodes to is unknown.
+    #[error(
+        "struct has {} with an unresolved type: `{}`. Check that the file declaring the type is \
+         reachable, adding an import mapping if it is behind a package import",
+        pluralize(.members.len(), "member"),
+        .members.join("`, `")
+    )]
+    UnresolvedMemberTypes {
+        /// The offending members, each as its declared type and name.
+        members: Vec<String>,
+    },
     /// The struct declares a member EIP-712 cannot encode — a mapping, a
-    /// function, a fixed-point number, or a type that did not resolve.
-    #[error("Struct has non-encodable {}: '{}'", if .members.len() == 1 { "member" } else { "members" }, .members.join(", "))]
+    /// function, a fixed-point number, or an array of unevaluable length.
+    #[error(
+        "struct has non-encodable {}: `{}`",
+        pluralize(.members.len(), "member"),
+        .members.join("`, `")
+    )]
     NonEncodableMembers {
         /// The offending member names.
         members: Vec<String>,
@@ -353,10 +450,10 @@ pub enum RejectReason {
     /// different files. A canonical type inlines its dependencies by bare
     /// name, so there is no way to say which one was meant.
     #[error(
-        "Struct references ambiguously-named {}: '{}'. Rename one of the conflicting structs, or \
-         reference it from a source that declares it.",
-        if .dependencies.len() == 1 { "type" } else { "types" },
-        .dependencies.join(", ")
+        "struct references ambiguously-named {}: `{}`. Rename one of the conflicting structs, or \
+         reference it from a source that declares it",
+        pluralize(.dependencies.len(), "type"),
+        .dependencies.join("`, `")
     )]
     AmbiguousDependencies {
         /// The referenced names that resolve to more than one struct.
@@ -365,9 +462,9 @@ pub enum RejectReason {
     /// The struct is well-formed but references a struct that was itself
     /// rejected, so it cannot be encoded either.
     #[error(
-        "Struct references unusable {}: '{}'",
-        if .dependencies.len() == 1 { "type" } else { "types" },
-        .dependencies.join(", ")
+        "struct references unusable {}: `{}`",
+        pluralize(.dependencies.len(), "type"),
+        .dependencies.join("`, `")
     )]
     UnusableDependencies {
         /// The referenced struct type names that are unusable.
@@ -424,7 +521,7 @@ fn dedup_by_name(collected: Vec<CollectedStruct>, root_file_id: &str) -> Deduped
 
         let mut in_root = struct_defs.iter().filter(|def| def.file_id == root_file_id);
         // Exactly one definition in the source that asked: it wins. With none,
-        // or with two of them disagreeing, there is nothing to prefer.
+        // or with two of them, there is nothing to prefer.
         if let (Some(root_def), None) = (in_root.next(), in_root.next()) {
             unique.insert(struct_name, root_def.clone());
         } else {
@@ -434,10 +531,7 @@ fn dedup_by_name(collected: Vec<CollectedStruct>, root_file_id: &str) -> Deduped
             file_ids.dedup();
             duplicates.insert(
                 struct_name.clone(),
-                RejectReason::Duplicate {
-                    name: struct_name,
-                    file_ids,
-                },
+                RejectReason::Duplicate { file_ids },
             );
         }
     }
@@ -457,7 +551,11 @@ fn make_fingerprint(struct_def: &CollectedStruct) -> String {
         .members
         .iter()
         .map(|member| {
-            let ty = member.encoded_type.as_deref().unwrap_or("<unsupported>");
+            let ty = match &member.encoded_type {
+                Ok(encoded_type) => encoded_type.as_str(),
+                Err(MemberTypeProblem::Unresolved { .. }) => "<unresolved>",
+                Err(MemberTypeProblem::NotEncodable) => "<unsupported>",
+            };
             let name = &member.name;
             format!("{ty} {name}")
         })
@@ -492,8 +590,8 @@ fn reject_non_encodable(
         .chain(previously_rejected.keys().cloned())
         .collect();
 
-    // Combine the previously and newly rejected structs so we can propagate
-    // non-encodability to dependents.
+    // Seeded with the earlier rejections so the fixed point below propagates
+    // those to their dependents too.
     let mut newly_rejected = previously_rejected;
 
     for (name, struct_def) in collected {
@@ -750,6 +848,47 @@ mod tests {
         );
     }
 
+    /// Slang cannot constant-fold a length behind a member access, and
+    /// reports it as 0. Encoding that as `uint256[0]` would return a hash for
+    /// a type the source never declared, so the struct is rejected instead.
+    #[test]
+    fn fixed_size_array_with_unevaluable_length_is_not_encodable() {
+        let collection = collect_one(
+            "library Limits { uint256 internal constant MAX = 4; }
+             struct Batch { uint256[Limits.MAX] amounts; }",
+        );
+
+        let error = collection
+            .get("Batch")
+            .expect_err("an unevaluable array length cannot be encoded");
+        assert!(error.to_string().contains("amounts"), "{error}");
+    }
+
+    /// A type behind an import that did not resolve is not the same as a type
+    /// EIP-712 cannot encode, and the error must name the declared type so the
+    /// reader can find the missing import.
+    #[test]
+    fn unresolved_member_type_names_what_was_declared() {
+        let collection = collect_one("struct Order { Coupon coupon; }");
+
+        let error = collection
+            .get("Order")
+            .expect_err("an unresolved member type cannot be encoded");
+        let message = error.to_string();
+        assert!(message.contains("unresolved type"), "{message}");
+        assert!(message.contains("Coupon coupon"), "{message}");
+    }
+
+    #[test]
+    fn fixed_size_array_with_literal_length_is_encodable() {
+        let collection = collect_one("struct Batch { uint256[3] amounts; }");
+
+        assert_eq!(
+            get_canonical_type(&collection, "Batch"),
+            "Batch(uint256[3] amounts)"
+        );
+    }
+
     #[test]
     fn user_defined_value_type_resolves_to_underlying() {
         let collection = collect_one(
@@ -906,7 +1045,7 @@ mod tests {
         );
         assert!(matches!(
             collection.get("S"),
-            Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected { reason: RejectReason::Duplicate { name, .. }, .. })) if name == "S"
+            Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected { name, reason: RejectReason::Duplicate { .. } })) if name == "S"
         ));
         // An unrelated struct is still usable.
         assert_eq!(get_canonical_type(&collection, "Ok"), "Ok(uint256 c)");
@@ -944,7 +1083,7 @@ mod tests {
         ]);
         assert!(matches!(
             collection.get("S"),
-            Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected { reason: RejectReason::Duplicate { name, .. }, .. })) if name == "S"
+            Err(Eip712CollectionLookupError::Rejected(Eip712TypeRejected { name, reason: RejectReason::Duplicate { .. } })) if name == "S"
         ));
     }
 

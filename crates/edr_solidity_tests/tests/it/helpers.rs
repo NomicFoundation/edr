@@ -586,8 +586,9 @@ impl<
         // onto the root yields the absolute path (production callers provide
         // these paths explicitly instead). Imports to e.g. forge-std have no
         // import mapping and simply stay unresolved, which still recovers the
-        // root file's functions. Pre-0.8 sources need no entry — collection
-        // never parses them — but listing them is harmless.
+        // root file's functions. Every testdata source is listed here; a run
+        // whose filter selects a pre-0.8 one needs
+        // `config_without_source_collection` instead.
         let test_source_paths: HashMap<PathBuf, PathBuf> = test_contracts
             .keys()
             .map(|id| (id.source.clone(), root.join(&id.source)))
@@ -618,6 +619,21 @@ impl<
         );
         config.cheats_config_options.rpc_endpoints = mock_rpc_endpoints();
         config.test_source_paths = self.test_source_paths.clone();
+
+        config
+    }
+
+    /// Builds a [`SolidityTestRunnerConfig`] with source collection disabled.
+    ///
+    /// An empty `test_source_paths` reads and parses nothing, so no inline
+    /// configuration and no EIP-712 types are collected. That is how a run
+    /// whose filter selects a source predating solc 0.8 keeps working:
+    /// collection needs a grammar Slang ships, and a non-empty map must name
+    /// every selected suite, so such a run is rejected unless collection is
+    /// off entirely.
+    pub fn config_without_source_collection(&self) -> SolidityTestRunnerConfig<HardforkT> {
+        let mut config = self.config_with_mock_rpc();
+        config.test_source_paths.clear();
 
         config
     }

@@ -1098,7 +1098,7 @@ impl Cheatcode for eip712HashType_0Call {
             typeNameOrDefinition,
         } = self;
 
-        let type_def = get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types)?;
+        let type_def = get_canonical_type_def(typeNameOrDefinition, state.config.eip712_types.as_deref())?;
         Ok(keccak256(type_def.canonical_definition().as_bytes()).to_vec())
     }
 }
@@ -1139,7 +1139,7 @@ impl Cheatcode for eip712HashStruct_0Call {
             abiEncodedData,
         } = self;
 
-        let type_def = get_canonical_type_def(typeNameOrDefinition, &state.config.eip712_types)?;
+        let type_def = get_canonical_type_def(typeNameOrDefinition, state.config.eip712_types.as_deref())?;
 
         get_struct_hash(&type_def, abiEncodedData)
     }
@@ -1284,16 +1284,23 @@ fn random_int<
 ///   the running test contract's sources when the run started.
 fn get_canonical_type_def(
     name_or_def: &str,
-    eip712_types: &Eip712TypeCollection,
+    eip712_types: Option<&Eip712TypeCollection>,
 ) -> Result<Eip712Type> {
     if name_or_def.contains('(') {
-        Eip712Type::parse(name_or_def).map_err(|error| fmt_err!("{error}"))
-    } else {
-        eip712_types
-            .get(name_or_def)
-            .cloned()
-            .map_err(|error| fmt_err!("{error}"))
+        return Eip712Type::parse(name_or_def).map_err(|error| fmt_err!("{error}"));
     }
+
+    let Some(eip712_types) = eip712_types else {
+        return Err(fmt_err!(
+            "cannot resolve EIP-712 type `{name_or_def}`: no Solidity source was collected for \
+             this test suite; set `testSourcePaths` to enable collection"
+        ));
+    };
+
+    eip712_types
+        .get(name_or_def)
+        .cloned()
+        .map_err(|error| fmt_err!("{error}"))
 }
 
 /// Returns the EIP-712 struct hash for provided name, definition and ABI

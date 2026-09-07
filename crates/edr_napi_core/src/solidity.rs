@@ -22,7 +22,7 @@ pub enum RunTestsError {
     /// One or more of the selected suites' sources could not be collected.
     /// Carried as the structured, locatable problems so the caller can surface
     /// them to the JS side rather than a flat string.
-    InvalidInlineConfig(edr_solidity_tests::inline_config::error::InlineConfigErrors),
+    InvalidInlineConfig(edr_solidity_tests::test_source_error::TestSourceErrors),
     /// Any other failure, already rendered for the JS side.
     Failed(napi::Error),
 }
@@ -99,7 +99,7 @@ impl<
                 ),
             )
             .map_err(|error| match error {
-                TestRunnerError::InlineConfig(errors) => RunTestsError::InvalidInlineConfig(errors),
+                TestRunnerError::TestSources(errors) => RunTestsError::InvalidInlineConfig(errors),
                 error @ TestRunnerError::ExecutorBuilderError(_) => {
                     RunTestsError::Failed(napi::Error::from_reason(error.to_string()))
                 }

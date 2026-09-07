@@ -38,7 +38,6 @@
 //! compilation unit.
 
 mod directives;
-pub mod error;
 mod natspec;
 mod overrides;
 mod parse;

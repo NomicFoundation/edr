@@ -17,6 +17,7 @@ pub use config::{
 };
 
 pub mod inline_config;
+pub mod test_source_error;
 
 mod test_sources;
 

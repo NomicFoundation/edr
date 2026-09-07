@@ -1609,7 +1609,7 @@ mod tests {
             Arc::default(),
             artifact,
             HashSet::new(),
-            Arc::default(),
+            None,
         );
 
         Cheatcodes::new(Arc::new(config))

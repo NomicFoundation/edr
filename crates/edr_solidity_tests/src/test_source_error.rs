@@ -6,12 +6,33 @@
 
 use std::path::PathBuf;
 
+use semver::Version;
+
 /// Errors produced while collecting a source's inline configuration before the
 /// individual directives are parsed (see [`InlineConfigError`]).
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
-pub enum InlineConfigCollectError {
-    /// A test source's file was not found at the path it was declared at.
-    #[error("could not read inline-config source '{path}': {reason}")]
+pub enum TestSourceCollectError {
+    /// The solc version the source was compiled with predates the oldest
+    /// Solidity grammar Slang ships, so the source cannot be parsed at all.
+    #[error(
+        "solc version {version} is not supported: collection requires solc 0.8.0 or newer, so \
+         this source rejects the whole run. Compile it with 0.8.0+, or pass an empty \
+         `test_source_paths` to disable collection"
+    )]
+    UnsupportedSolcVersion {
+        /// The solc version the source's artifact was compiled with.
+        version: Version,
+    },
+    /// The source does not parse. Slang is error-tolerant and yields a partial
+    /// AST, which could silently miss struct definitions and directives, so
+    /// nothing is collected from a source that does not parse cleanly.
+    #[error("the source did not parse: {}", reasons.join("; "))]
+    SourceParseErrors {
+        /// The syntax diagnostics, each located at its source line.
+        reasons: Vec<String>,
+    },
+    /// A test source's file could not be read at the path it was declared at.
+    #[error("could not read test source `{path}`: {reason}")]
     RootFileNotFound {
         /// The path the source was expected at.
         path: String,
@@ -20,7 +41,7 @@ pub enum InlineConfigCollectError {
     },
     /// The test source has no `test_source_paths` entry, so it is not located,
     /// read, or parsed.
-    #[error("no source path was provided for the test source")]
+    #[error("no `test_source_paths` entry for this source")]
     SourcePathNotProvided,
     /// A directive's offset could not be resolved to a line number: it lies
     /// outside the source text (or the line count overflows), meaning the
@@ -116,30 +137,31 @@ pub struct InlineConfigDirectiveError {
 /// consumers.
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
 #[error("{}: {problem}", source_name.display())]
-pub struct InlineConfigErrorItem {
+pub struct TestSourceErrorItem {
     /// The solc source name the problem was found in (e.g.
     /// `project/test/Foo.t.sol`).
     pub source_name: PathBuf,
     /// The problem, together with whatever location detail applies to it.
-    pub problem: InlineConfigProblem,
+    pub problem: TestSourceProblem,
 }
 
 /// An inline-config problem, split by whether it can be pinned to a single
 /// directive line.
 ///
-/// A source-level problem (e.g. a source with no configured path, an
-/// unreadable source file, or a directive whose location could not be
-/// resolved) carries
-/// no contract/function/line — there is no directive line to point at. A
-/// directive-level problem always carries the contract and line; the function
-/// is absent for a contract-level directive.
+/// A source-level problem carries no contract, function or line, because
+/// there is no directive to point at. A source with no configured path, an
+/// unreadable file, an unsupported solc version, a source that does not parse
+/// and an unresolvable directive location all qualify.
+///
+/// A directive-level problem always carries the contract and line. The
+/// function is absent for a contract-level directive.
 #[derive(Clone, Debug, thiserror::Error, PartialEq)]
-pub enum InlineConfigProblem {
+pub enum TestSourceProblem {
     /// A problem found while collecting the source, before its directives could
     /// be parsed. Kept structured so consumers can map it onto their own error
     /// types; render it with `to_string()` for a human.
     #[error(transparent)]
-    Source(#[from] InlineConfigCollectError),
+    Source(#[from] TestSourceCollectError),
     /// A problem in a specific directive. Kept structured so consumers can map
     /// it onto their own error types; render it with `to_string()` for a human.
     #[error(transparent)]
@@ -149,25 +171,24 @@ pub enum InlineConfigProblem {
 /// Every inline-config problem found while collecting the test sources.
 ///
 /// When collection surfaces any problem, the run fails before any suite
-/// executes. At most one problem is
-/// reported per directive target — each test function, plus each contract's
-/// own directives — across every source.
+/// executes. At most one problem is reported per directive target across
+/// every source — each test function, plus each contract's own directives.
 #[derive(Clone, Debug, PartialEq)]
-pub struct InlineConfigErrors {
-    items: Vec<InlineConfigErrorItem>,
+pub struct TestSourceErrors {
+    items: Vec<TestSourceErrorItem>,
 }
 
-impl InlineConfigErrors {
+impl TestSourceErrors {
     /// The individual problems, each with its location, for structured
     /// reporting to consumers.
-    pub fn items(&self) -> &[InlineConfigErrorItem] {
+    pub fn items(&self) -> &[TestSourceErrorItem] {
         &self.items
     }
 }
 
-impl std::error::Error for InlineConfigErrors {}
+impl std::error::Error for TestSourceErrors {}
 
-impl std::fmt::Display for InlineConfigErrors {
+impl std::fmt::Display for TestSourceErrors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (index, item) in self.items.iter().enumerate() {
             if index > 0 {
@@ -179,22 +200,22 @@ impl std::fmt::Display for InlineConfigErrors {
     }
 }
 
-impl TryFrom<Vec<InlineConfigErrorItem>> for InlineConfigErrors {
-    type Error = NoInlineConfigProblems;
+impl TryFrom<Vec<TestSourceErrorItem>> for TestSourceErrors {
+    type Error = NoTestSourceProblems;
 
-    /// Fails on an empty vector: an `InlineConfigErrors` carrying no problem
+    /// Fails on an empty vector: an `TestSourceErrors` carrying no problem
     /// would render as an empty report and abort a run for no stated reason.
-    fn try_from(items: Vec<InlineConfigErrorItem>) -> Result<Self, Self::Error> {
+    fn try_from(items: Vec<TestSourceErrorItem>) -> Result<Self, Self::Error> {
         if items.is_empty() {
-            Err(NoInlineConfigProblems)
+            Err(NoTestSourceProblems)
         } else {
             Ok(Self { items })
         }
     }
 }
 
-/// Returned when [`InlineConfigErrors`] is built from an empty set of
+/// Returned when [`TestSourceErrors`] is built from an empty set of
 /// problems, which would describe a failure that did not happen.
 #[derive(Clone, Copy, Debug, thiserror::Error)]
 #[error("no inline-config problems to report")]
-pub struct NoInlineConfigProblems;
+pub struct NoTestSourceProblems;

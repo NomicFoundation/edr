@@ -195,6 +195,10 @@ export interface AddressLabel {
  */
 export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
 
+export const AMSTERDAM: string
+
+export const ARROW_GLACIER: string
+
 /** A compilation artifact. */
 export interface Artifact {
   /** The identifier of the artifact. */
@@ -246,6 +250,10 @@ export interface BaseFeeParamActivation {
   elasticityMultiplier: bigint
 }
 
+export const BEDROCK: string
+
+export const BERLIN: string
+
 /** Information about the blob gas used in a block. */
 export interface BlobGas {
   /**
@@ -272,6 +280,8 @@ export interface BuildInfoAndOutput {
   /** The build info output file */
   output: Uint8Array
 }
+
+export const BYZANTIUM: string
 
 /** What chains to cache */
 export declare enum CachedChains {
@@ -368,6 +378,10 @@ export interface CallTrace {
   children: Array<CallTrace | LogTrace>
 }
 
+export const CANCUN: string
+
+export const CANYON: string
+
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
   /** The chain ID */
@@ -428,6 +442,8 @@ export declare enum CollectStackTraces {
    */
   OnFailure = 1
 }
+
+export const CONSTANTINOPLE: string
 
 export const CONSTRUCTOR_FUNCTION_NAME: string
 
@@ -503,6 +519,8 @@ export interface CustomErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
+export const DAO_FORK: string
+
 export interface DebugTraceLogItem {
   /** Program Counter */
   pc: bigint
@@ -556,6 +574,8 @@ export interface DirectLibraryCallErrorStackTraceEntry {
   type: StackTraceEntryType.DIRECT_LIBRARY_CALL_ERROR
   sourceReference: SourceReference
 }
+
+export const ECOTONE: string
 
 /**
  * Indicates that the EVM has experienced an exceptional halt. This causes
@@ -632,6 +652,8 @@ export interface FallbackNotPayableErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
+export const FJORD: string
+
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
   /**
@@ -648,6 +670,10 @@ export interface ForkConfig {
   /** The URL of the JSON-RPC endpoint to fork from */
   url: string
 }
+
+export const FRONTIER: string
+
+export const FRONTIER_THAWING: string
 
 /** * Determines the level of file system access for the given path.
  *
@@ -811,6 +837,10 @@ export const GENERIC_CHAIN_TYPE: string
 
 export declare function genericChainProviderFactory(): ProviderFactory
 
+export const GRANITE: string
+
+export const GRAY_GLACIER: string
+
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
   /** The exceptional halt that occurred */
@@ -851,6 +881,10 @@ export interface HeuristicFailed {
   kind: "HeuristicFailed"
 }
 
+export const HOLOCENE: string
+
+export const HOMESTEAD: string
+
 export interface HttpHeader {
   name: string
   value: string
@@ -877,7 +911,7 @@ export declare enum IncludeTraces {
 
 /** A directive-level inline-config problem, located at the offending directive. */
 export interface InlineConfigDirectiveError {
-  /** Discriminant tag for the `InlineConfigError` union. */
+  /** Discriminant tag for the `TestSourceError` union. */
   kind: "directive"
   /**
    * The solc source name the problem was found in (e.g.
@@ -898,30 +932,8 @@ export interface InlineConfigDirectiveError {
 }
 
 /**
- * A directive's offset could not be resolved to a line number within its
- * source, meaning the parsing stages disagree about the source text, so its
- * directives cannot be trusted.
- */
-export interface InlineConfigDirectiveLocation {
-  /** Enum tag for JS. */
-  kind: "InlineConfigDirectiveLocation"
-  /** The contract the directive belongs to. */
-  contract: string
-  /**
-   * The test function the directive belongs to. Undefined when the directive
-   * is contract-level.
-   */
-  function?: string
-  /**
-   * Why resolving the location failed, including the directive problem
-   * that was being reported.
-   */
-  reason: string
-}
-
-/**
  * The problem in a single inline-config directive, as a discriminated union
- * over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
+ * over its `kind` tag — mirroring the Rust-side `TestSourceError` enum so
  * consumers can map each problem onto their own error types.
  */
 export type InlineConfigDirectiveProblem =
@@ -937,17 +949,6 @@ export interface InlineConfigDuplicateKey {
   /** The duplicated key, exactly as written. */
   key: string
 }
-
-/**
- * A single ill-formed inline-config entry, located so the user can find and
- * fix it. A discriminated union over `kind`: a `source`-level entry carries no
- * directive location, a `directive`-level entry carries the contract and line,
- * plus the function unless the directive is contract-level. Attached to the
- * rejected `runSolidityTests` promise as the `inlineConfigErrors` array on the
- * thrown error.
- */
-export type InlineConfigError =
-  InlineConfigSourceError | InlineConfigDirectiveError
 
 /** An unknown configuration key was used. */
 export interface InlineConfigInvalidKey {
@@ -989,49 +990,6 @@ export interface InlineConfigInvalidValue {
   /** A description of the expected value type. */
   expected: string
 }
-
-/**
- * A source-level inline-config problem: one that could not be tied to a single
- * directive (e.g. an unreadable source, or one with no `testSourcePaths`
- * entry).
- */
-export interface InlineConfigSourceError {
-  /** Discriminant tag for the `InlineConfigError` union. */
-  kind: "source"
-  /**
-   * The solc source name the problem was found in (e.g.
-   * `project/test/Foo.t.sol`).
-   */
-  sourceName: string
-  /** The problem itself; discriminate on its `kind` tag. */
-  problem: InlineConfigSourceProblem
-}
-
-/** The source's file could not be read at the path it was declared at. */
-export interface InlineConfigSourceFileNotFound {
-  /** Enum tag for JS. */
-  kind: "InlineConfigSourceFileNotFound"
-  /** The path the source was expected at. */
-  path: string
-  /** Why reading it failed. */
-  reason: string
-}
-
-/**
- * The test source has no `testSourcePaths` entry, so it is not located, read,
- * or parsed.
- */
-export interface InlineConfigSourcePathNotProvided {
-  /** Enum tag for JS. */
-  kind: "InlineConfigSourcePathNotProvided"
-}
-
-/**
- * A source-level problem, as a discriminated union over its `kind` tag. These
- * cannot be pinned to a single directive line, so they carry no line.
- */
-export type InlineConfigSourceProblem =
-  InlineConfigSourceFileNotFound | InlineConfigDirectiveLocation | InlineConfigSourcePathNotProvided
 
 /** A profile other than `default` was used. */
 export interface InlineConfigUnsupportedProfile {
@@ -1171,6 +1129,10 @@ export interface InvariantTestKind {
   readonly failedCorpusReplays: bigint
 }
 
+export const ISTANBUL: string
+
+export const ISTHMUS: string
+
 /**
  * Computes the Keccak-256 hash of `data`, returning the 32-byte digest.
  *
@@ -1182,57 +1144,23 @@ export declare function keccak256(data: Uint8Array): Uint8Array
 
 export const L1_CHAIN_TYPE: string
 
-export declare function l1GenesisState(hardfork: L1Hardfork): Array<AccountOverride>
-
-/** Identifier for the Ethereum spec. */
-export declare enum L1Hardfork {
-  /** Byzantium */
-  Byzantium = 6,
-  /** Constantinople */
-  Constantinople = 7,
-  /** Petersburg */
-  Petersburg = 8,
-  /** Istanbul */
-  Istanbul = 9,
-  /** Muir Glacier */
-  MuirGlacier = 10,
-  /** Berlin */
-  Berlin = 11,
-  /** London */
-  London = 12,
-  /** Arrow Glacier */
-  ArrowGlacier = 13,
-  /** Gray Glacier */
-  GrayGlacier = 14,
-  /** Merge */
-  Merge = 15,
-  /** Shanghai */
-  Shanghai = 16,
-  /** Cancun */
-  Cancun = 17,
-  /** Prague */
-  Prague = 18,
-  /** Osaka */
-  Osaka = 19,
-  /** Amsterdam */
-  Amsterdam = 20
-}
+export declare function l1GenesisState(hardfork: SpecId): Array<AccountOverride>
 
 /**
- * Tries to parse the provided string to create an [`L1Hardfork`] instance.
+ * Tries to parse the provided string to create a [`SpecId`] instance.
  *
  * Returns an error if the string does not match any known hardfork.
  */
-export declare function l1HardforkFromString(hardfork: string): L1Hardfork
+export declare function l1HardforkFromString(hardfork: string): SpecId
 
 /**
- * Returns the latest supported L1 hardfork.
+ * Returns the latest supported OP hardfork.
  *
  * The returned value will be updated after each network upgrade.
  */
-export declare function l1HardforkLatest(): L1Hardfork
+export declare function l1HardforkLatest(): SpecId
 
-export declare function l1HardforkToString(hardfork: L1Hardfork): string
+export declare function l1HardforkToString(hardfork: SpecId): string
 
 export declare function l1ProviderFactory(): ProviderFactory
 
@@ -1290,10 +1218,14 @@ export interface LogTrace {
   parameters: DecodedTraceParameters | Array<Uint8Array>
 }
 
+export const LONDON: string
+
 /** Configuration for the provider's mempool. */
 export interface MemPoolConfig {
   order: MineOrdering
 }
+
+export const MERGE: string
 
 /** The type of ordering to use when selecting blocks to mine. */
 export declare enum MineOrdering {
@@ -1322,6 +1254,8 @@ export interface MissingFallbackOrReceiveErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
+export const MUIR_GLACIER: string
+
 export interface NonContractAccountCalledErrorStackTraceEntry {
   type: StackTraceEntryType.NONCONTRACT_ACCOUNT_CALLED_ERROR
   sourceReference: SourceReference
@@ -1346,7 +1280,7 @@ export const OP_CHAIN_TYPE: string
 
 export declare function opGenesisState(hardfork: OpHardfork): Array<AccountOverride>
 
-/** Identifier for the OP hardfork. */
+/** Enumeration of supported OP hardforks. */
 export declare enum OpHardfork {
   Bedrock = 100,
   Regolith = 101,
@@ -1380,6 +1314,8 @@ export declare function opProviderFactory(): ProviderFactory
 
 export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory
 
+export const OSAKA: string
+
 export interface OtherExecutionErrorStackTraceEntry {
   type: StackTraceEntryType.OTHER_EXECUTION_ERROR
   sourceReference?: SourceReference
@@ -1398,6 +1334,10 @@ export interface PathPermission {
   /** The targeted path guarded by the permission */
   path: string
 }
+
+export const PETERSBURG: string
+
+export const PRAGUE: string
 
 export const PRECOMPILE_FUNCTION_NAME: string
 
@@ -1496,6 +1436,8 @@ export interface ProviderConfig {
 
 export const RECEIVE_FUNCTION_NAME: string
 
+export const REGOLITH: string
+
 export interface ReturndataSizeErrorStackTraceEntry {
   type: StackTraceEntryType.RETURNDATA_SIZE_ERROR
   sourceReference: SourceReference
@@ -1518,14 +1460,7 @@ export interface RevertResult {
   output: Uint8Array
 }
 
-/**
- * Derives the secp256k1 public key of the provided secret key, returning it
- * in uncompressed SEC1 form: 65 bytes, `0x04 || X || Y`.
- *
- * Throws if the input isn't a valid secret key: exactly 32 bytes encoding a
- * big-endian scalar in `[1, n)`, where `n` is the curve order.
- */
-export declare function secp256k1PublicKeyFromSecretKey(secretKey: Uint8Array): Uint8Array
+export const SHANGHAI: string
 
 export type SolidityStackTrace =
   Array<SolidityStackTraceEntry>
@@ -1738,23 +1673,25 @@ export interface SolidityTestRunnerConfigArgs {
    * struct definitions served to the `eip712HashType` and
    * `eip712HashStruct` cheatcodes.
    *
-   * Both features require solc 0.8 or newer. A source compiled with an
-   * older one is never parsed, so it needs no entry and its suites get
-   * neither inline configuration nor EIP-712 types.
-   *
    * Omitting the map (or passing an empty one) disables collection
-   * entirely. A non-empty map must name the source of every 0.8-or-newer
-   * test suite a run selects: a missing entry rejects that run before any
-   * test executes, rather than silently leaving the suite without inline
-   * configuration or EIP-712 types.
+   * entirely: no source is read or parsed, and no run can be rejected for a
+   * source-level problem. Both features require solc 0.8 or newer, so
+   * disabling collection is how a project whose test sources predate that
+   * keeps running its tests.
    *
-   * Only the sources of the suites a run selects are read and parsed, so
-   * filtering to one test file does not pay for parsing the project. An
-   * entry for a suite no run selects is simply unused.
+   * A non-empty map must name the source of every test suite a run selects,
+   * with no exceptions, and every source backing a selected suite is
+   * parsed. An entry no selected suite uses is never opened. Each problem
+   * found across all of them — a suite with no entry, an unreadable file, a
+   * solc version older than 0.8, a source that does not parse, an
+   * ill-formed directive — is accumulated and reported together on
+   * `testSourceErrors`, rejecting the run before any test executes rather
+   * than silently leaving a suite without inline configuration or EIP-712
+   * types.
    *
-   * It is safe to list a source Slang's grammar rejects: it is skipped, and
-   * every suite it declares reports that as a warning instead of failing
-   * the run.
+   * Only the sources of the suites a run selects are read and parsed. Since
+   * `testPattern` and `excludeTestPattern` filter test functions rather
+   * than suites, that is every suite passed to the run.
    */
   testSourcePaths?: Record<string, string>
   /**
@@ -1778,6 +1715,54 @@ export interface SourceReference {
   line: number
   range: Array<number>
 }
+
+/** Identifier for the Ethereum spec. */
+export declare enum SpecId {
+  /** Frontier */
+  Frontier = 0,
+  /** Frontier Thawing */
+  FrontierThawing = 1,
+  /** Homestead */
+  Homestead = 2,
+  /** DAO Fork */
+  DaoFork = 3,
+  /** Tangerine */
+  Tangerine = 4,
+  /** Spurious Dragon */
+  SpuriousDragon = 5,
+  /** Byzantium */
+  Byzantium = 6,
+  /** Constantinople */
+  Constantinople = 7,
+  /** Petersburg */
+  Petersburg = 8,
+  /** Istanbul */
+  Istanbul = 9,
+  /** Muir Glacier */
+  MuirGlacier = 10,
+  /** Berlin */
+  Berlin = 11,
+  /** London */
+  London = 12,
+  /** Arrow Glacier */
+  ArrowGlacier = 13,
+  /** Gray Glacier */
+  GrayGlacier = 14,
+  /** Merge */
+  Merge = 15,
+  /** Shanghai */
+  Shanghai = 16,
+  /** Cancun */
+  Cancun = 17,
+  /** Prague */
+  Prague = 18,
+  /** Osaka */
+  Osaka = 19,
+  /** Amsterdam */
+  Amsterdam = 20
+}
+
+export const SPURIOUS_DRAGON: string
 
 /** The stack trace result */
 export interface StackTrace {
@@ -1905,6 +1890,113 @@ export interface SuiteResult {
   testResults: Array<TestResult>
   /** See [`edr_solidity_tests::result::SuiteResult::warnings`]. */
   warnings: Array<string>
+}
+
+export const TANGERINE: string
+
+/**
+ * A directive's offset could not be resolved to a line number within its
+ * source, meaning the parsing stages disagree about the source text, so its
+ * directives cannot be trusted.
+ */
+export interface TestSourceDirectiveLocation {
+  /** Enum tag for JS. */
+  kind: "TestSourceDirectiveLocation"
+  /** The contract the directive belongs to. */
+  contract: string
+  /**
+   * The test function the directive belongs to. Undefined when the directive
+   * is contract-level.
+   */
+  function?: string
+  /**
+   * Why resolving the location failed, including the directive problem
+   * that was being reported.
+   */
+  reason: string
+}
+
+/**
+ * A single ill-formed inline-config entry, located so the user can find and
+ * fix it. A discriminated union over `kind`: a `source`-level entry carries no
+ * directive location, a `directive`-level entry carries the contract and line,
+ * plus the function unless the directive is contract-level. Attached to the
+ * rejected `runSolidityTests` promise as the `testSourceErrors` array on the
+ * thrown error.
+ */
+export type TestSourceError =
+  TestSourceFileError | InlineConfigDirectiveError
+
+/**
+ * A source-level inline-config problem: one that could not be tied to a single
+ * directive (e.g. an unreadable source, or one with no `testSourcePaths`
+ * entry).
+ */
+export interface TestSourceFileError {
+  /** Discriminant tag for the `TestSourceError` union. */
+  kind: "source"
+  /**
+   * The solc source name the problem was found in (e.g.
+   * `project/test/Foo.t.sol`).
+   */
+  sourceName: string
+  /** The problem itself; discriminate on its `kind` tag. */
+  problem: TestSourceFileProblem
+}
+
+/** The source's file could not be read at the path it was declared at. */
+export interface TestSourceFileNotFound {
+  /** Enum tag for JS. */
+  kind: "TestSourceFileNotFound"
+  /** The path the source was expected at. */
+  path: string
+  /** Why reading it failed. */
+  reason: string
+}
+
+/**
+ * A source-level problem, as a discriminated union over its `kind` tag. These
+ * cannot be pinned to a single directive line, so they carry no line.
+ */
+export type TestSourceFileProblem =
+  TestSourceFileNotFound | TestSourceDirectiveLocation | TestSourcePathNotProvided | TestSourceUnsupportedSolcVersion | TestSourceParseErrors
+
+/**
+ * The source does not parse, so nothing could be collected from it. A
+ * partially-parsed source would silently miss struct definitions and
+ * directives, so it is reported rather than half-collected.
+ */
+export interface TestSourceParseErrors {
+  /** Enum tag for JS. */
+  kind: "TestSourceParseErrors"
+  /**
+   * The syntax diagnostics, each located at its source line. Truncated to
+   * the first few, followed by a count of the rest.
+   */
+  reasons: Array<string>
+}
+
+/**
+ * The test source has no `testSourcePaths` entry, so it is not located, read,
+ * or parsed.
+ */
+export interface TestSourcePathNotProvided {
+  /** Enum tag for JS. */
+  kind: "TestSourcePathNotProvided"
+}
+
+/**
+ * The solc version the source was compiled with predates the oldest Solidity
+ * grammar available, so the source cannot be parsed at all. Collecting inline
+ * configuration and EIP-712 struct definitions requires solc 0.8.0 or newer,
+ * and no source is exempt: a run that selects this one can only proceed with
+ * collection disabled entirely, by omitting `testSourcePaths`.
+ */
+export interface TestSourceUnsupportedSolcVersion {
+  /** Enum tag for JS. */
+  kind: "TestSourceUnsupportedSolcVersion"
+  /** The solc version the source's artifact was compiled with. */
+  version: string
 }
 
 /** The result of a test execution. */

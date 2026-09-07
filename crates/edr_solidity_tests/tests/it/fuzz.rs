@@ -32,7 +32,12 @@ async fn test_fuzz() {
         )
         .exclude_paths("invariant")
         .exclude_contracts("FuzzConfigOverrideTest");
-    let runner = TEST_DATA_DEFAULT.runner().await;
+    // Keep collection disabled here. `.*fuzz/` selects the 0.5.17
+    // `FuzzPreBytecodeHash.t.sol`, which Slang has no grammar for, and
+    // nothing left under this filter carries inline configuration.
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fuzz_persistence(TEST_DATA_DEFAULT.config_without_source_collection())
+        .await;
     let suite_result = runner
         .test_collect(filter)
         .await
