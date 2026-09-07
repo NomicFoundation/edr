@@ -93,7 +93,11 @@ export async function buildSolidityTestsInput(
   tracingConfig: TracingConfigWithBuffers;
   /** Maps each test suite's solc source name to its absolute path on disk.
    * Used by EDR to parse inline test configuration and EIP-712 struct
-   * definitions from the sources. */
+   * definitions from the sources.
+   *
+   * EDR requires an entry for every suite it is asked to run, and rejects the
+   * whole run otherwise. Collection needs solc 0.8, so a project with an
+   * older test source must pass an empty map to disable it. */
   testSourcePaths: Record<string, string>;
 }> {
   let testRootPaths: string[];
@@ -197,11 +201,14 @@ export async function buildSolidityTestsInput(
     ignoreContracts: false,
   };
 
-  // NOTE: `importMappings` is deliberately not built here. EDR matches import
-  // paths exactly as written, while Hardhat's source names are prefixed
-  // (`project/…`, `npm/pkg@version/…`), so a map keyed by source name would
-  // never match a real import and would only look like coverage. Resolving
-  // `forge-std/src/Test.sol` to a path needs Hardhat's own resolver.
+  // Keep `importMappings` out of this input. EDR matches import paths exactly
+  // as written, while Hardhat's source names are prefixed (`project/…`,
+  // `npm/pkg@version/…`). A map keyed by source name would therefore match no
+  // real import.
+  //
+  // The cost is that structs behind a package import are unreachable, so
+  // `vm.eip712HashType` reports them as unknown types. Closing that gap needs
+  // Hardhat's resolver to supply entries keyed by the import path as written.
   return { artifacts, testSuiteIds, tracingConfig, testSourcePaths };
 }
 
