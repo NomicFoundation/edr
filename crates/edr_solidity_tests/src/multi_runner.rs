@@ -42,17 +42,13 @@ use crate::{
     contracts::get_contract_name,
     error::TestRunnerError,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
-    inline_config::{
-        self,
-        error::{
-            InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors,
-            InlineConfigProblem,
-        },
-        ImportResolver,
-    },
+    inline_config::{self, ImportResolver},
     result::{SuiteResult, SuiteRunOutcome, TestRunOutcome},
+    test_source_error::{
+        TestSourceCollectError, TestSourceErrorItem, TestSourceErrors, TestSourceProblem,
+    },
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
-    test_sources::{collect_test_sources, CollectedTestSource, TestSourceRoot},
+    test_sources::{collect_test_sources, SourceCollections, TestSourceRoot},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
     TestFunctionConfigOverride,
 };
@@ -335,9 +331,9 @@ impl<
             }
         };
         if !source_errors.is_empty() {
-            let errors = InlineConfigErrors::try_from(source_errors)
+            let errors = TestSourceErrors::try_from(source_errors)
                 .expect("the problems were just checked to be non-empty");
-            return Err(TestRunnerError::InlineConfig(errors));
+            return Err(TestRunnerError::TestSources(errors));
         }
 
         Ok(contracts
@@ -345,8 +341,8 @@ impl<
             .map(|(artifact_id, contract)| {
                 let source = collected_sources
                     .get(&artifact_id.source)
-                    .map(|collected_source| {
-                        SuiteSourceData::new(collected_source, &artifact_id, &contract.abi)
+                    .map(|collections| {
+                        SuiteSourceData::new(collections, &artifact_id, &contract.abi)
                     })
                     .unwrap_or_default();
 
@@ -639,12 +635,9 @@ impl<
             find_time,
         );
 
-        // Read and parse the sources of the suites this run selected — and only
-        // those, so filtering to one test file does not pay for parsing the
-        // whole project. Each unique source is parsed once; both its inline
-        // test configuration and its EIP-712 struct definitions come from the
-        // same compilation unit. Any problem found fails here, before any test
-        // executes.
+        // Collection reads and parses files, so it must not run on the async
+        // runtime's poll thread. Any problem it finds fails the run here,
+        // before any test executes.
         let contracts = tokio::task::block_in_place(|| self.collect_suite_sources(contracts))?;
 
         // Gas reports are collected for each suite and merged at the end to allow
@@ -691,24 +684,23 @@ fn matches_contract(id: &ArtifactId, filter: &dyn TestFilter) -> bool {
     filter.matches_path(&id.source) && filter.matches_contract(&id.name)
 }
 
-/// Splits the selected test contracts' sources into the roots to parse and the
-/// sources that have no `test_source_paths` entry.
+/// Splits the selected test contracts' sources into the roots to parse and
+/// the problems found while locating them.
 ///
 /// Roots are deduplicated by source (a source declaring several selected
 /// contracts is parsed once) and both results are sorted by source, so
 /// problems are reported in a deterministic order.
 ///
 /// An empty `test_source_paths` disables collection entirely (for callers
-/// using neither inline configuration nor the EIP-712 cheatcodes). A
-/// *non-empty* map must name the source of every selected test contract Slang
-/// has a grammar for: one without an entry is reported as an error rather than
-/// silently going uncollected. Both features require solc 0.8 or newer, so a
-/// source compiled with an older one is dropped here — it needs no entry, and
-/// gets neither collection.
+/// using neither inline configuration nor the EIP-712 cheatcodes, and for
+/// those whose sources predate the oldest grammar Slang ships). A *non-empty*
+/// map must name the source of every selected test contract, with no
+/// exceptions: one without an entry, or one whose solc version has no grammar,
+/// is reported as a problem rather than silently going uncollected.
 fn test_source_roots<'a>(
     test_source_paths: &HashMap<PathBuf, PathBuf>,
     test_contracts: impl IntoIterator<Item = &'a ArtifactId>,
-) -> (Vec<TestSourceRoot>, Vec<InlineConfigErrorItem>) {
+) -> (Vec<TestSourceRoot>, Vec<TestSourceErrorItem>) {
     if test_source_paths.is_empty() {
         return (Vec::new(), Vec::new());
     }
@@ -727,23 +719,28 @@ fn test_source_roots<'a>(
     let mut roots = Vec::new();
     let mut errors = Vec::new();
     for (source, version) in versions_by_source {
-        let Some(language_version) = language_version_for_solc(version) else {
-            continue;
+        let problem = match (
+            test_source_paths.get(source),
+            language_version_for_solc(version),
+        ) {
+            (Some(path), Some(language_version)) => {
+                roots.push(TestSourceRoot {
+                    source: source.clone(),
+                    path: path.clone(),
+                    version: language_version,
+                });
+                continue;
+            }
+            (None, _) => TestSourceCollectError::SourcePathNotProvided,
+            (Some(_), None) => TestSourceCollectError::UnsupportedSolcVersion {
+                version: version.clone(),
+            },
         };
 
-        match test_source_paths.get(source) {
-            Some(path) => roots.push(TestSourceRoot {
-                source: source.clone(),
-                path: path.clone(),
-                version: language_version,
-            }),
-            None => errors.push(InlineConfigErrorItem {
-                source_name: source.clone(),
-                problem: InlineConfigProblem::Source(
-                    InlineConfigCollectError::SourcePathNotProvided,
-                ),
-            }),
-        }
+        errors.push(TestSourceErrorItem {
+            source_name: source.clone(),
+            problem: TestSourceProblem::Source(problem),
+        });
     }
 
     (roots, errors)
@@ -765,7 +762,9 @@ struct SuiteSourceData {
     warnings: Vec<String>,
     /// The EIP-712 struct definitions reachable from the suite's source.
     /// Shared, not copied: every suite in a source serves the same types.
-    eip712_types: Arc<Eip712TypeCollection>,
+    /// `None` when the suite's source was not collected, because
+    /// `test_source_paths` is empty and collection is disabled.
+    eip712_types: Option<Arc<Eip712TypeCollection>>,
 }
 
 impl SuiteSourceData {
@@ -779,24 +778,10 @@ impl SuiteSourceData {
     /// precedence.
     ///
     /// A contract that carries no inline configuration yields empty overrides.
-    /// Malformed directives never reach here: they are caught during
-    /// collection, which fails the run before any test executes (see
+    /// Nothing that went wrong during collection reaches here: every such
+    /// problem fails the run before any test executes (see
     /// [`MultiContractRunner::collect_suite_sources`]).
-    fn new(source: &CollectedTestSource, artifact_id: &ArtifactId, abi: &JsonAbi) -> Self {
-        let collections = match source {
-            CollectedTestSource::Collected(collections) => collections,
-            // Nothing was collected from the source, so the suite runs with no
-            // inline configuration and no resolvable EIP-712 types. Say so on
-            // the suite rather than silently behaving as if the source were
-            // empty.
-            CollectedTestSource::Skipped(reason) => {
-                return Self {
-                    warnings: vec![reason.to_string()],
-                    ..Self::default()
-                };
-            }
-        };
-
+    fn new(collections: &SourceCollections, artifact_id: &ArtifactId, abi: &JsonAbi) -> Self {
         let parsed = collections
             .overrides
             .get(&artifact_id.name)
@@ -866,7 +851,7 @@ impl SuiteSourceData {
             test_function_overrides,
             allow_internal_expect_revert,
             warnings,
-            eip712_types: Arc::clone(&collections.eip712_types),
+            eip712_types: Some(Arc::clone(&collections.eip712_types)),
         }
     }
 }
@@ -926,29 +911,58 @@ mod tests {
         assert_eq!(errors[0].source_name, PathBuf::from("test/B.t.sol"));
         assert!(matches!(
             &errors[0].problem,
-            InlineConfigProblem::Source(InlineConfigCollectError::SourcePathNotProvided)
+            TestSourceProblem::Source(TestSourceCollectError::SourcePathNotProvided)
         ));
     }
 
-    /// Inline configuration and the EIP-712 cheatcodes both require solc 0.8,
-    /// so a source compiled with an older one is not collected from at all —
-    /// and therefore needs no `test_source_paths` entry.
+    /// Collection requires solc 0.8, and a listed source is never exempt: one
+    /// compiled with an older version is reported alongside every other
+    /// problem rather than silently going uncollected.
     #[test]
-    fn pre_0_8_source_needs_no_entry() {
+    fn pre_0_8_source_is_a_problem() {
         let contracts = test_contracts(&[
             ("test/A.t.sol", Version::new(0, 8, 24)),
             ("test/Legacy.t.sol", Version::new(0, 6, 12)),
         ]);
-        let paths = [(
-            PathBuf::from("test/A.t.sol"),
-            PathBuf::from("/project/test/A.t.sol"),
-        )]
+        let paths = [
+            (
+                PathBuf::from("test/A.t.sol"),
+                PathBuf::from("/project/test/A.t.sol"),
+            ),
+            (
+                PathBuf::from("test/Legacy.t.sol"),
+                PathBuf::from("/project/test/Legacy.t.sol"),
+            ),
+        ]
         .into();
 
         let (roots, errors) = test_source_roots(&paths, contracts.keys());
 
         assert_eq!(roots.len(), 1);
         assert_eq!(roots[0].source, PathBuf::from("test/A.t.sol"));
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].source_name, PathBuf::from("test/Legacy.t.sol"));
+        assert!(
+            matches!(
+                &errors[0].problem,
+                TestSourceProblem::Source(TestSourceCollectError::UnsupportedSolcVersion {
+                    version
+                }) if *version == Version::new(0, 6, 12)
+            ),
+            "{:?}",
+            errors[0].problem
+        );
+    }
+
+    /// An empty map disables collection, so a pre-0.8 source is not a problem
+    /// — the run simply collects nothing.
+    #[test]
+    fn pre_0_8_source_is_fine_when_collection_is_disabled() {
+        let contracts = test_contracts(&[("test/Legacy.t.sol", Version::new(0, 6, 12))]);
+
+        let (roots, errors) = test_source_roots(&HashMap::new(), contracts.keys());
+
+        assert!(roots.is_empty());
         assert!(errors.is_empty(), "{errors:?}");
     }
 

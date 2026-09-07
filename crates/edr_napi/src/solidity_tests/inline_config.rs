@@ -1,9 +1,13 @@
 //! Surfaces ill-formed inline configuration (`forge-config:`/
 //! `hardhat-config:` NatSpec directives) as a structured JS error.
+//!
+//! These also cover failures to locate, read or parse a test source, which
+//! EIP-712 type collection shares, so a run using no inline configuration can
+//! still fail with one.
 
-use edr_solidity_tests::inline_config::error as config_error;
+use edr_solidity_tests::test_source_error as config_error;
 use napi::{
-    bindgen_prelude::{Either, Either3, Either6},
+    bindgen_prelude::{Either, Either5, Either6},
     Env, JsValue,
 };
 use napi_derive::napi;
@@ -78,9 +82,9 @@ pub struct InlineConfigDuplicateKey {
 
 /// The source's file could not be read at the path it was declared at.
 #[napi(object)]
-pub struct InlineConfigSourceFileNotFound {
+pub struct TestSourceFileNotFound {
     /// Enum tag for JS.
-    #[napi(ts_type = "\"InlineConfigSourceFileNotFound\"")]
+    #[napi(ts_type = "\"TestSourceFileNotFound\"")]
     pub kind: String,
     /// The path the source was expected at.
     pub path: String,
@@ -92,9 +96,9 @@ pub struct InlineConfigSourceFileNotFound {
 /// source, meaning the parsing stages disagree about the source text, so its
 /// directives cannot be trusted.
 #[napi(object)]
-pub struct InlineConfigDirectiveLocation {
+pub struct TestSourceDirectiveLocation {
     /// Enum tag for JS.
-    #[napi(ts_type = "\"InlineConfigDirectiveLocation\"")]
+    #[napi(ts_type = "\"TestSourceDirectiveLocation\"")]
     pub kind: String,
     /// The contract the directive belongs to.
     pub contract: String,
@@ -109,23 +113,52 @@ pub struct InlineConfigDirectiveLocation {
 /// The test source has no `testSourcePaths` entry, so it is not located, read,
 /// or parsed.
 #[napi(object)]
-pub struct InlineConfigSourcePathNotProvided {
+pub struct TestSourcePathNotProvided {
     /// Enum tag for JS.
-    #[napi(ts_type = "\"InlineConfigSourcePathNotProvided\"")]
+    #[napi(ts_type = "\"TestSourcePathNotProvided\"")]
     pub kind: String,
+}
+
+/// The solc version the source was compiled with predates the oldest Solidity
+/// grammar available, so the source cannot be parsed at all. Collecting inline
+/// configuration and EIP-712 struct definitions requires solc 0.8.0 or newer,
+/// and no source is exempt: a run that selects this one can only proceed with
+/// collection disabled entirely, by omitting `testSourcePaths`.
+#[napi(object)]
+pub struct TestSourceUnsupportedSolcVersion {
+    /// Enum tag for JS.
+    #[napi(ts_type = "\"TestSourceUnsupportedSolcVersion\"")]
+    pub kind: String,
+    /// The solc version the source's artifact was compiled with.
+    pub version: String,
+}
+
+/// The source does not parse, so nothing could be collected from it. A
+/// partially-parsed source would silently miss struct definitions and
+/// directives, so it is reported rather than half-collected.
+#[napi(object)]
+pub struct TestSourceParseErrors {
+    /// Enum tag for JS.
+    #[napi(ts_type = "\"TestSourceParseErrors\"")]
+    pub kind: String,
+    /// The syntax diagnostics, each located at its source line. Truncated to
+    /// the first few, followed by a count of the rest.
+    pub reasons: Vec<String>,
 }
 
 /// A source-level problem, as a discriminated union over its `kind` tag. These
 /// cannot be pinned to a single directive line, so they carry no line.
 #[napi]
-pub type InlineConfigSourceProblem = Either3<
-    InlineConfigSourceFileNotFound,
-    InlineConfigDirectiveLocation,
-    InlineConfigSourcePathNotProvided,
+pub type TestSourceFileProblem = Either5<
+    TestSourceFileNotFound,
+    TestSourceDirectiveLocation,
+    TestSourcePathNotProvided,
+    TestSourceUnsupportedSolcVersion,
+    TestSourceParseErrors,
 >;
 
 /// The problem in a single inline-config directive, as a discriminated union
-/// over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
+/// over its `kind` tag — mirroring the Rust-side `TestSourceError` enum so
 /// consumers can map each problem onto their own error types.
 #[napi]
 pub type InlineConfigDirectiveProblem = Either6<
@@ -141,21 +174,21 @@ pub type InlineConfigDirectiveProblem = Either6<
 /// directive (e.g. an unreadable source, or one with no `testSourcePaths`
 /// entry).
 #[napi(object)]
-pub struct InlineConfigSourceError {
-    /// Discriminant tag for the `InlineConfigError` union.
+pub struct TestSourceFileError {
+    /// Discriminant tag for the `TestSourceError` union.
     #[napi(ts_type = "\"source\"")]
     pub kind: String,
     /// The solc source name the problem was found in (e.g.
     /// `project/test/Foo.t.sol`).
     pub source_name: String,
     /// The problem itself; discriminate on its `kind` tag.
-    pub problem: InlineConfigSourceProblem,
+    pub problem: TestSourceFileProblem,
 }
 
 /// A directive-level inline-config problem, located at the offending directive.
 #[napi(object)]
 pub struct InlineConfigDirectiveError {
-    /// Discriminant tag for the `InlineConfigError` union.
+    /// Discriminant tag for the `TestSourceError` union.
     #[napi(ts_type = "\"directive\"")]
     pub kind: String,
     /// The solc source name the problem was found in (e.g.
@@ -176,33 +209,45 @@ pub struct InlineConfigDirectiveError {
 /// fix it. A discriminated union over `kind`: a `source`-level entry carries no
 /// directive location, a `directive`-level entry carries the contract and line,
 /// plus the function unless the directive is contract-level. Attached to the
-/// rejected `runSolidityTests` promise as the `inlineConfigErrors` array on the
+/// rejected `runSolidityTests` promise as the `testSourceErrors` array on the
 /// thrown error.
 #[napi]
-pub type InlineConfigError = Either<InlineConfigSourceError, InlineConfigDirectiveError>;
+pub type TestSourceError = Either<TestSourceFileError, InlineConfigDirectiveError>;
 
-fn to_source_problem(error: &config_error::InlineConfigCollectError) -> InlineConfigSourceProblem {
+fn to_source_problem(error: &config_error::TestSourceCollectError) -> TestSourceFileProblem {
     match error {
-        config_error::InlineConfigCollectError::RootFileNotFound { path, reason } => {
-            Either3::A(InlineConfigSourceFileNotFound {
-                kind: "InlineConfigSourceFileNotFound".to_owned(),
+        config_error::TestSourceCollectError::RootFileNotFound { path, reason } => {
+            Either5::A(TestSourceFileNotFound {
+                kind: "TestSourceFileNotFound".to_owned(),
                 path: path.clone(),
                 reason: reason.clone(),
             })
         }
-        config_error::InlineConfigCollectError::DirectiveLocation {
+        config_error::TestSourceCollectError::DirectiveLocation {
             contract,
             function,
             reason,
-        } => Either3::B(InlineConfigDirectiveLocation {
-            kind: "InlineConfigDirectiveLocation".to_owned(),
+        } => Either5::B(TestSourceDirectiveLocation {
+            kind: "TestSourceDirectiveLocation".to_owned(),
             contract: contract.clone(),
             function: function.clone(),
             reason: reason.clone(),
         }),
-        config_error::InlineConfigCollectError::SourcePathNotProvided => {
-            Either3::C(InlineConfigSourcePathNotProvided {
-                kind: "InlineConfigSourcePathNotProvided".to_owned(),
+        config_error::TestSourceCollectError::SourcePathNotProvided => {
+            Either5::C(TestSourcePathNotProvided {
+                kind: "TestSourcePathNotProvided".to_owned(),
+            })
+        }
+        config_error::TestSourceCollectError::UnsupportedSolcVersion { version } => {
+            Either5::D(TestSourceUnsupportedSolcVersion {
+                kind: "TestSourceUnsupportedSolcVersion".to_owned(),
+                version: version.to_string(),
+            })
+        }
+        config_error::TestSourceCollectError::SourceParseErrors { reasons } => {
+            Either5::E(TestSourceParseErrors {
+                kind: "TestSourceParseErrors".to_owned(),
+                reasons: reasons.clone(),
             })
         }
     }
@@ -252,15 +297,15 @@ fn to_directive_problem(error: &config_error::InlineConfigError) -> InlineConfig
     }
 }
 
-fn to_entry(item: &config_error::InlineConfigErrorItem) -> InlineConfigError {
+fn to_entry(item: &config_error::TestSourceErrorItem) -> TestSourceError {
     let source_name = item.source_name.to_string_lossy().into_owned();
     match &item.problem {
-        config_error::InlineConfigProblem::Source(error) => Either::A(InlineConfigSourceError {
+        config_error::TestSourceProblem::Source(error) => Either::A(TestSourceFileError {
             kind: "source".to_owned(),
             source_name,
             problem: to_source_problem(error),
         }),
-        config_error::InlineConfigProblem::Directive(
+        config_error::TestSourceProblem::Directive(
             config_error::InlineConfigDirectiveError {
                 contract,
                 function,
@@ -280,26 +325,26 @@ fn to_entry(item: &config_error::InlineConfigErrorItem) -> InlineConfigError {
 
 /// Builds the error that rejects `runSolidityTests` when inline-config
 /// validation fails, carrying the structured, located problems on the JS error
-/// as its `inlineConfigErrors` property.
+/// as its `testSourceErrors` property.
 ///
 /// Must be called on the JS thread (it builds JS values); the reject path in
 /// [`crate::context`] does so from the deferred's resolver. Falls back to a
 /// plain message-only error if building the structured object fails.
-pub(crate) fn to_napi_error(env: &Env, errors: &config_error::InlineConfigErrors) -> napi::Error {
+pub(crate) fn to_napi_error(env: &Env, errors: &config_error::TestSourceErrors) -> napi::Error {
     build_structured_error(env, errors)
         .unwrap_or_else(|_| napi::Error::from_reason(summary(errors)))
 }
 
 fn build_structured_error(
     env: &Env,
-    errors: &config_error::InlineConfigErrors,
+    errors: &config_error::TestSourceErrors,
 ) -> napi::Result<napi::Error> {
     let mut error_object = env.create_error(napi::Error::from_reason(summary(errors)))?;
-    let items: Vec<InlineConfigError> = errors.items().iter().map(to_entry).collect();
-    error_object.set("inlineConfigErrors", items)?;
+    let items: Vec<TestSourceError> = errors.items().iter().map(to_entry).collect();
+    error_object.set("testSourceErrors", items)?;
     Ok(napi::Error::from(error_object.to_unknown()))
 }
 
-fn summary(errors: &config_error::InlineConfigErrors) -> String {
-    format!("Found invalid inline configuration in test sources:\n{errors}")
+fn summary(errors: &config_error::TestSourceErrors) -> String {
+    format!("Could not collect from the test sources:\n{errors}")
 }

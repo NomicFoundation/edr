@@ -9,7 +9,8 @@
 //! hardhat-config: invariant.fail-on-revert = true
 //! ```
 
-use super::{error::InlineConfigError, natspec::NatSpecBlock};
+use super::natspec::NatSpecBlock;
+use crate::test_source_error::InlineConfigError;
 use crate::config::{TestFunctionConfigOverride, TimeoutConfig};
 
 const HARDHAT_CONFIG_PREFIX: &str = "hardhat-config:";

@@ -184,23 +184,25 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     /// struct definitions served to the `eip712HashType` and
     /// `eip712HashStruct` cheatcodes.
     ///
-    /// Both features require solc 0.8 or newer. A source compiled with an
-    /// older one is never parsed, so it needs no entry and its suites get
-    /// neither inline configuration nor EIP-712 types.
-    ///
     /// Omitting the map (or passing an empty one) disables collection
-    /// entirely. A non-empty map must name the source of every 0.8-or-newer
-    /// test suite a run selects: a missing entry rejects that run before any
-    /// test executes, rather than silently leaving the suite without inline
-    /// configuration or EIP-712 types.
+    /// entirely: no source is read or parsed, and no run can be rejected for a
+    /// source-level problem. Both features require solc 0.8 or newer, so
+    /// disabling collection is how a project whose test sources predate that
+    /// keeps running its tests.
     ///
-    /// Only the sources of the suites a run selects are read and parsed, so
-    /// filtering to one test file does not pay for parsing the project. An
-    /// entry for a suite no run selects is simply unused.
+    /// A non-empty map must name the source of every test suite a run selects,
+    /// with no exceptions, and every source backing a selected suite is
+    /// parsed. An entry no selected suite uses is never opened. Each problem
+    /// found across all of them — a suite with no entry, an unreadable file, a
+    /// solc version older than 0.8, a source that does not parse, an
+    /// ill-formed directive — is accumulated and reported together on
+    /// `testSourceErrors`, rejecting the run before any test executes rather
+    /// than silently leaving a suite without inline configuration or EIP-712
+    /// types.
     ///
-    /// It is safe to list a source Slang's grammar rejects: it is skipped, and
-    /// every suite it declares reports that as a warning instead of failing
-    /// the run.
+    /// Only the sources of the suites a run selects are read and parsed. Since
+    /// `testPattern` and `excludeTestPattern` filter test functions rather
+    /// than suites, that is every suite passed to the run.
     pub test_source_paths: Option<HashMap<String, String>>,
     /// Maps non-relative Solidity import paths (as written in `import`
     /// statements, e.g. `forge-std/src/Test.sol`) to absolute file paths on

@@ -1,11 +1,11 @@
 //! Inline-config (`forge-config:`/`hardhat-config:`) end-to-end behavior.
 
-use std::io::Write as _;
+use std::{io::Write as _, path::PathBuf};
 
 use edr_solidity_tests::{
     error::TestRunnerError,
-    inline_config::error::{
-        InlineConfigCollectError, InlineConfigDirectiveError, InlineConfigProblem,
+    test_source_error::{
+        TestSourceCollectError, InlineConfigDirectiveError, TestSourceProblem,
     },
     result::TestKind,
 };
@@ -21,7 +21,7 @@ use crate::helpers::{SolidityTestFilter, TEST_DATA_DEFAULT};
 async fn expect_inline_config_errors(
     config: edr_solidity_tests::SolidityTestRunnerConfig<edr_chain_l1::EvmHardfork>,
     filter: SolidityTestFilter,
-) -> edr_solidity_tests::inline_config::error::InlineConfigErrors {
+) -> edr_solidity_tests::test_source_error::TestSourceErrors {
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let result = runner.test(
         tokio::runtime::Handle::current(),
@@ -30,7 +30,7 @@ async fn expect_inline_config_errors(
     );
 
     match result {
-        Err(TestRunnerError::InlineConfig(errors)) => errors,
+        Err(TestRunnerError::TestSources(errors)) => errors,
         Err(error) => panic!("expected an inline-config error, got: {error}"),
         Ok(_) => panic!("the run should have been rejected"),
     }
@@ -49,11 +49,22 @@ contract BadInlineConfig {
 }
 "#;
 
-/// Ill-formed inline configuration aborts the whole run when it starts, before
-/// any test executes (matching Hardhat/Foundry), reporting the first problem of
-/// every affected function, located at its source line.
-#[tokio::test(flavor = "multi_thread")]
-async fn malformed_inline_config_aborts_whole_run() {
+/// The solc source name of the test source these tests redirect or remove to
+/// provoke a collection problem.
+///
+/// It must be one Slang parses: collection uses the grammar of the version its
+/// artifact was compiled with, so standing in for e.g. the 0.5.17
+/// `FuzzPreBytecodeHash.t.sol` would report an unsupported-version problem
+/// instead of the one under test.
+const STAND_IN_SOURCE: &str = "default/fuzz/Fuzz.t.sol";
+
+/// The runner's fuzz runs with no inline configuration applied. The
+/// contract-level directive in `ContractLevelConfig.t.sol` sets 15, so this
+/// value appearing means the directive was never collected.
+const DEFAULT_FUZZ_RUNS: usize = 256;
+
+/// Writes [`MALFORMED_SOURCE`] to a temporary `.sol` file on disk.
+fn malformed_source_file() -> tempfile::NamedTempFile {
     let mut file = tempfile::Builder::new()
         .suffix(".sol")
         .tempfile()
@@ -61,30 +72,54 @@ async fn malformed_inline_config_aborts_whole_run() {
     file.write_all(MALFORMED_SOURCE.as_bytes())
         .expect("write source");
 
-    // Point one of the test sources at the malformed file on disk; collection
-    // parses it under that source's name. The source must be picked
-    // deterministically and be compiled with a solc version Slang supports:
-    // collection parses each source with the grammar of the version its
-    // artifact was compiled with, so redirecting e.g. the 0.5.17
-    // `FuzzPreBytecodeHash.t.sol` would report a source-level
-    // would be skipped with an unsupported-version warning, so no directive
-    // errors would be reported at all.
-    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    let source = config
+    file
+}
+
+/// Resolves [`STAND_IN_SOURCE`] to the solc source name `config` knows it by.
+fn stand_in_source_name(
+    config: &edr_solidity_tests::SolidityTestRunnerConfig<edr_chain_l1::EvmHardfork>,
+) -> PathBuf {
+    config
         .test_source_paths
         .keys()
-        .find(|source| source.ends_with("default/fuzz/Fuzz.t.sol"))
+        .find(|source| source.ends_with(STAND_IN_SOURCE))
         .cloned()
-        .expect("test data contains the fuzz test source");
+        .expect("test data contains the stand-in source")
+}
+
+/// The filter selecting only [`STAND_IN_SOURCE`]'s suite.
+fn stand_in_filter() -> SolidityTestFilter {
+    SolidityTestFilter::new(".*", ".*", &format!(".*{STAND_IN_SOURCE}"))
+}
+
+/// The solc source name of the test source compiled with a version that
+/// predates the oldest Solidity grammar, used to provoke that problem.
+const PRE_0_8_SOURCE: &str = "default/fuzz/FuzzPreBytecodeHash.t.sol";
+
+/// The sole test contract [`PRE_0_8_SOURCE`] declares.
+const PRE_0_8_CONTRACT: &str = "FuzzPreBytecodeHash";
+
+/// The filter selecting only [`PRE_0_8_SOURCE`]'s suite.
+fn pre_0_8_filter() -> SolidityTestFilter {
+    SolidityTestFilter::new(".*", ".*", &format!(".*{PRE_0_8_SOURCE}"))
+}
+
+/// Ill-formed inline configuration aborts the whole run when it starts, before
+/// any test executes (matching Hardhat/Foundry), reporting the first problem of
+/// every affected function, located at its source line.
+#[tokio::test(flavor = "multi_thread")]
+async fn malformed_inline_config_aborts_whole_run() {
+    let file = malformed_source_file();
+
+    // Point the stand-in source at the malformed file on disk; collection
+    // parses it under that source's name.
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    let source = stand_in_source_name(&config);
     config
         .test_source_paths
         .insert(source.clone(), file.path().to_path_buf());
 
-    let errors = expect_inline_config_errors(
-        config,
-        SolidityTestFilter::new(".*", ".*", ".*fuzz/Fuzz.t.sol"),
-    )
-    .await;
+    let errors = expect_inline_config_errors(config, stand_in_filter()).await;
 
     // One problem per affected function, each locating its source, contract,
     // function and the line of the offending directive.
@@ -96,13 +131,13 @@ async fn malformed_inline_config_aborts_whole_run() {
         .find(|item| {
             matches!(
                 &item.problem,
-                InlineConfigProblem::Directive(InlineConfigDirectiveError { function, .. })
+                TestSourceProblem::Directive(InlineConfigDirectiveError { function, .. })
                     if function.as_deref() == Some("testFuzzBad")
             )
         })
         .expect("testFuzzBad reported");
     assert_eq!(fuzz.source_name, source);
-    let InlineConfigProblem::Directive(InlineConfigDirectiveError { contract, line, .. }) =
+    let TestSourceProblem::Directive(InlineConfigDirectiveError { contract, line, .. }) =
         &fuzz.problem
     else {
         unreachable!("filtered to a testFuzzBad directive above");
@@ -115,12 +150,12 @@ async fn malformed_inline_config_aborts_whole_run() {
         .find(|item| {
             matches!(
                 &item.problem,
-                InlineConfigProblem::Directive(InlineConfigDirectiveError { function, .. })
+                TestSourceProblem::Directive(InlineConfigDirectiveError { function, .. })
                     if function.as_deref() == Some("testOtherBad")
             )
         })
         .expect("testOtherBad reported");
-    let InlineConfigProblem::Directive(InlineConfigDirectiveError { line, .. }) = &other.problem
+    let TestSourceProblem::Directive(InlineConfigDirectiveError { line, .. }) = &other.problem
     else {
         unreachable!("filtered to a testOtherBad directive above");
     };
@@ -247,55 +282,127 @@ async fn contract_level_inline_config_applies_to_all_tests() {
 /// The run is rejected before any test executes instead.
 #[tokio::test(flavor = "multi_thread")]
 async fn source_without_a_path_aborts_whole_run() {
+    let file = malformed_source_file();
+
+    // A missing entry is found while locating roots, a malformed directive
+    // while parsing one. The two are collected separately and merged, so a run
+    // hitting both must report both.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    let source = config
+    let unlisted = stand_in_source_name(&config);
+    config.test_source_paths.remove(&unlisted);
+
+    let malformed = config
         .test_source_paths
         .keys()
-        .find(|source| source.ends_with("default/fuzz/Fuzz.t.sol"))
+        .find(|source| source.ends_with("inline/ContractLevelConfig.t.sol"))
         .cloned()
-        .expect("test data contains the fuzz test source");
-    config.test_source_paths.remove(&source);
+        .expect("test data contains the contract-level config source");
+    config
+        .test_source_paths
+        .insert(malformed.clone(), file.path().to_path_buf());
 
     let errors = expect_inline_config_errors(
         config,
-        SolidityTestFilter::new(".*", ".*", ".*fuzz/Fuzz.t.sol"),
+        SolidityTestFilter::new(".*", ".*", ".*(fuzz/Fuzz|inline/ContractLevelConfig)\\.t\\.sol"),
     )
     .await;
 
     let items = errors.items();
+    assert!(
+        items.iter().any(|item| item.source_name == unlisted
+            && matches!(
+                &item.problem,
+                TestSourceProblem::Source(TestSourceCollectError::SourcePathNotProvided)
+            )),
+        "{items:#?}"
+    );
+    assert!(
+        items
+            .iter()
+            .any(|item| item.source_name == malformed
+                && matches!(&item.problem, TestSourceProblem::Directive(_))),
+        "{items:#?}"
+    );
+}
+
+/// Disabling collection stops inline configuration taking effect, not just
+/// EIP-712 resolution: the contract-level `fuzz.runs` is ignored and the
+/// runner's own default applies.
+#[tokio::test(flavor = "multi_thread")]
+async fn collection_disabled_ignores_inline_config() {
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.test_source_paths.clear();
+
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner
+        .test_collect(SolidityTestFilter::new(
+            ".*",
+            ".*",
+            ".*inline/ContractLevelConfig.t.sol",
+        ))
+        .await
+        .expect("collection is disabled, so nothing can reject the run")
+        .suite_results;
+
+    let suite = results
+        .get("default/inline/ContractLevelConfig.t.sol:ContractLevelConfigTest")
+        .expect("suite ran");
+    let result = suite
+        .test_results
+        .get("testFuzz_ContractLevelRuns(uint256)")
+        .expect("the test ran");
+
+    match result.kind {
+        TestKind::Fuzz { runs, .. } => assert_eq!(runs, DEFAULT_FUZZ_RUNS),
+        ref kind => panic!("expected a fuzz test, got {kind:?}"),
+    }
+}
+
+/// Collection requires solc 0.8 or newer, so a run that selects a pre-0.8
+/// source and provides a source-path map is rejected, naming the version.
+#[tokio::test(flavor = "multi_thread")]
+async fn pre_0_8_source_aborts_whole_run() {
+    let errors =
+        expect_inline_config_errors(TEST_DATA_DEFAULT.config_with_mock_rpc(), pre_0_8_filter())
+            .await;
+
+    let items = errors.items();
     assert_eq!(items.len(), 1, "{items:#?}");
-    assert_eq!(items[0].source_name, source);
+    assert!(
+        items[0].source_name.ends_with(PRE_0_8_SOURCE),
+        "{:#?}",
+        items[0].source_name
+    );
     assert!(
         matches!(
             &items[0].problem,
-            InlineConfigProblem::Source(InlineConfigCollectError::SourcePathNotProvided)
+            TestSourceProblem::Source(TestSourceCollectError::UnsupportedSolcVersion {
+                version
+            }) if *version == semver::Version::new(0, 5, 17)
         ),
         "{:#?}",
         items[0].problem
     );
 }
 
-/// Inline configuration and the EIP-712 cheatcodes both require solc 0.8 or
-/// newer, so a source compiled with an older one is never collected from: it
-/// needs no `test_source_paths` entry, and its suites run unremarked.
+/// Omitting the source-path map disables collection entirely, which is how a
+/// project whose test sources predate solc 0.8 keeps running its tests. The
+/// suite runs; it simply gets no inline configuration and no EIP-712 types.
 #[tokio::test(flavor = "multi_thread")]
-async fn pre_0_8_source_is_not_collected_from() {
-    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzPreBytecodeHash.t.sol");
+async fn pre_0_8_source_runs_when_collection_is_disabled() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config
-        .test_source_paths
-        .retain(|source, _path| !source.ends_with("fuzz/FuzzPreBytecodeHash.t.sol"));
+    config.test_source_paths.clear();
 
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let results = runner
-        .test_collect(filter)
+        .test_collect(pre_0_8_filter())
         .await
-        .expect("a pre-0.8 source needs no test source path")
+        .expect("collection is disabled, so nothing can reject the run")
         .suite_results;
 
     let suite = results
-        .get("default/fuzz/FuzzPreBytecodeHash.t.sol:FuzzPreBytecodeHash")
-        .expect("the suite still runs");
+        .get(&format!("{PRE_0_8_SOURCE}:{PRE_0_8_CONTRACT}"))
+        .expect("the suite runs");
     assert!(
         !suite.test_results.is_empty(),
         "the suite's tests should have executed"
@@ -307,21 +414,12 @@ async fn pre_0_8_source_is_not_collected_from() {
 /// excludes a broken source must not pay for parsing it — nor be failed by it.
 #[tokio::test(flavor = "multi_thread")]
 async fn filtered_out_sources_are_not_parsed() {
-    let mut file = tempfile::Builder::new()
-        .suffix(".sol")
-        .tempfile()
-        .expect("temp file");
-    file.write_all(MALFORMED_SOURCE.as_bytes())
-        .expect("write source");
+    let file = malformed_source_file();
 
-    // Point one source at the malformed file, then filter to a different one.
+    // Point the stand-in source at the malformed file, then filter to a
+    // different one.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    let source = config
-        .test_source_paths
-        .keys()
-        .find(|source| source.ends_with("default/fuzz/Fuzz.t.sol"))
-        .cloned()
-        .expect("test data contains the fuzz test source");
+    let source = stand_in_source_name(&config);
     config
         .test_source_paths
         .insert(source, file.path().to_path_buf());
