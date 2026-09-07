@@ -5,9 +5,10 @@ These `.sol` sources back the EIP-712 type-resolution integration tests in
 run time rather than only compiled ahead of it: the EIP-712 cheatcodes
 (`vm.eip712HashType`, `vm.eip712HashStruct`) resolve type names by parsing the
 running test contract's **source files from disk**, eagerly when a test run
-starts, over the sources of the suites that run selected. The sources are read from the absolute paths supplied through the
-`testSourcePaths` runner config, keyed by the `sourceName` recorded in their
-compiled artifacts (the tests point each entry into this directory).
+starts, over the sources of the suites the run selected. The sources are read
+from the absolute paths supplied through the `testSourcePaths` runner config,
+keyed by the `sourceName` recorded in their compiled artifacts (the tests
+point each entry into this directory).
 
 ## Files
 
@@ -23,8 +24,7 @@ compiled artifacts (the tests point each entry into this directory).
   `../artifacts/default/Eip712UnknownTest.json`.
 - `Eip712SyntaxError.sol` — deliberately broken (never compiled); a test
   points a suite's `testSourcePaths` entry at it to check that an unparseable
-  source is skipped, with the suite still
-  running and reporting a warning.
+  source rejects the run before any test executes.
 
 ## Recompiling
 

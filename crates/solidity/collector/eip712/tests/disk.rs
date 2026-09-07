@@ -66,11 +66,16 @@ fn resolves_mapped_imports() {
 #[test]
 fn unmapped_import_leaves_dependency_unresolved_but_unit_builds() {
     // No import mapping supplied: the import is unresolved (a diagnostic, not a
-    // hard error). `Payment` depends on the missing `Token`, so it is not
-    // usable, but collection itself still succeeds.
+    // hard error). Collection still succeeds, but `Payment`'s member type does
+    // not resolve, so `Payment` is rejected rather than encoded without it.
     let types = collect("mapped/Root.sol", solc(), &ImportResolver::default());
 
     assert!(types.get("Token").is_err());
+
+    let error = types
+        .get("Payment")
+        .expect_err("a member behind an unresolved import cannot be encoded");
+    assert!(error.to_string().contains("token"), "{error}");
 }
 
 #[test]

@@ -11,12 +11,14 @@ use slang_solidity_v2::compilation::CompilationUnit;
 
 use super::{
     directives::{self, DirectiveTarget, LocatedDirectiveError},
-    error::{InlineConfigCollectError, InlineConfigDirectiveError, InlineConfigErrorItem},
     natspec,
     parse::{locate_contracts_in_unit, LocatedContract, LocatedFunction},
     profiles::InlineConfigProfiles,
 };
-use crate::config::TestFunctionConfigOverride;
+use crate::{
+    config::TestFunctionConfigOverride,
+    test_source_error::{InlineConfigDirectiveError, TestSourceCollectError, TestSourceErrorItem},
+};
 
 /// The inline configuration parsed for a single test function.
 #[derive(Clone, Debug)]
@@ -71,7 +73,7 @@ pub(crate) fn collect_source_overrides_from_unit(
     unit: &CompilationUnit,
     file_id: &str,
     profiles: &InlineConfigProfiles,
-) -> Result<SourceOverrides, Vec<InlineConfigErrorItem>> {
+) -> Result<SourceOverrides, Vec<TestSourceErrorItem>> {
     source_overrides(
         source,
         content,
@@ -88,7 +90,7 @@ fn source_overrides(
     content: &str,
     contracts: &[LocatedContract],
     profiles: &InlineConfigProfiles,
-) -> Result<SourceOverrides, Vec<InlineConfigErrorItem>> {
+) -> Result<SourceOverrides, Vec<TestSourceErrorItem>> {
     let mut overrides = SourceOverrides::new();
     let mut errors = Vec::new();
     for located in contracts {
@@ -117,7 +119,7 @@ fn contract_overrides(
     source_text: &str,
     contract: &LocatedContract,
     profiles: &InlineConfigProfiles,
-) -> (ContractInlineConfig, Vec<InlineConfigErrorItem>) {
+) -> (ContractInlineConfig, Vec<TestSourceErrorItem>) {
     let mut config = ContractInlineConfig::default();
     let mut errors = Vec::new();
 
@@ -197,7 +199,7 @@ fn located_problem(
     contract: &LocatedContract,
     function: Option<&str>,
     LocatedDirectiveError { offset, error }: LocatedDirectiveError,
-) -> InlineConfigErrorItem {
+) -> TestSourceErrorItem {
     let problem = match line_of(source_text, offset) {
         Ok(line) => InlineConfigDirectiveError {
             contract: contract.contract_name.clone(),
@@ -206,14 +208,14 @@ fn located_problem(
             error,
         }
         .into(),
-        Err(line_error) => InlineConfigCollectError::DirectiveLocation {
+        Err(line_error) => TestSourceCollectError::DirectiveLocation {
             contract: contract.contract_name.clone(),
             function: function.map(str::to_owned),
             reason: format!("{line_error} (while reporting: {error})"),
         }
         .into(),
     };
-    InlineConfigErrorItem {
+    TestSourceErrorItem {
         source_name: source.to_path_buf(),
         problem,
     }
