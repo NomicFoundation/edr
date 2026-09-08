@@ -9,38 +9,61 @@ use napi::{
 };
 use napi_derive::napi;
 
+use crate::callback::{self, OnOwnerCollected, ProviderCallbacks};
+
 /// Configuration for the provider's logger.
 #[napi(object)]
 pub struct LoggerConfig<'env> {
     /// Whether to enable the logger.
     pub enable: bool,
+    /// Callback to decode the arguments of `console.log` calls.
     // TODO: https://github.com/NomicFoundation/edr/issues/1532
     // `ts_type` declares `ArrayBuffer[]` to match Hardhat 2's typings; the
     // runtime value is a `Uint8Array[]`, which `Buffer.from(x)` accepts.
     #[napi(ts_type = "(inputs: ArrayBuffer[]) => string[]")]
     pub decode_console_log_inputs_callback: Function<'env, Vec<Uint8Array>, Vec<String>>,
+    /// Callback to print a line of log output.
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
     pub print_line_callback: Function<'env, FnArgs<(String, bool)>, ()>,
 }
 
 impl LoggerConfig<'_> {
     /// Resolves the logger config, converting it to a
-    /// `edr_napi_core::logger::Config`.
-    pub fn resolve(self) -> napi::Result<edr_napi_core::logger::Config> {
-        let decode_console_log_inputs_callback = self
-            .decode_console_log_inputs_callback
-            .build_threadsafe_function::<Vec<Bytes>>()
-            // Maintain a weak reference to the function to avoid blocking
-            // the event loop from exiting.
-            .weak::<true>()
-            .build_callback(|ctx: ThreadsafeCallContext<Vec<Bytes>>| {
-                let inputs: Vec<Uint8Array> = ctx
-                    .value
-                    .into_iter()
-                    .map(|input| Uint8Array::from(input.to_vec()))
-                    .collect();
-                Ok(inputs)
-            })?;
+    /// `edr_napi_core::logger::Config` and registering the consumer's
+    /// callbacks in `callbacks`.
+    ///
+    /// Both callbacks are kept out of their threadsafe functions; see
+    /// [`crate::callback`]. They are resolved even when the logger is
+    /// disabled, so a consumer who turned logging off used to leak their
+    /// provider too.
+    pub fn resolve(
+        self,
+        env: &Env,
+        callbacks: &mut ProviderCallbacks,
+    ) -> napi::Result<edr_napi_core::logger::Config> {
+        let decode_console_log_inputs_callback = callbacks.unroot_into(
+            env,
+            self.decode_console_log_inputs_callback,
+            "decodeConsoleLogInputs",
+            // The decoded strings are consumed, so a late call has to fail
+            // with the callback's name.
+            OnOwnerCollected::Throw,
+            |trampoline| {
+                trampoline
+                    .build_threadsafe_function::<Vec<Bytes>>()
+                    // Unreferenced from the event loop; see the constant's
+                    // docs.
+                    .weak::<{ callback::EVENT_LOOP_UNREFERENCED }>()
+                    .build_callback(|ctx: ThreadsafeCallContext<Vec<Bytes>>| {
+                        let inputs: Vec<Uint8Array> = ctx
+                            .value
+                            .into_iter()
+                            .map(|input| Uint8Array::from(input.to_vec()))
+                            .collect();
+                        Ok(inputs)
+                    })
+            },
+        )?;
 
         let decode_console_log_inputs_fn = Arc::new(move |console_log_inputs| {
             let (sender, receiver) = channel();
@@ -83,15 +106,23 @@ impl LoggerConfig<'_> {
                 .map_err(LoggerError::DecodeConsoleLogInputs)
         });
 
-        let print_line_callback = self
-            .print_line_callback
-            .build_threadsafe_function::<(String, bool)>()
-            // Maintain a weak reference to the function to avoid blocking
-            // the event loop from exiting.
-            .weak::<true>()
-            .build_callback(|ctx: ThreadsafeCallContext<(String, bool)>| {
-                Ok(FnArgs { data: ctx.value })
-            })?;
+        let print_line_callback = callbacks.unroot_into(
+            env,
+            self.print_line_callback,
+            "printLine",
+            // The callback returns nothing, so a late call is dropped.
+            OnOwnerCollected::DropCall,
+            |trampoline| {
+                trampoline
+                    .build_threadsafe_function::<(String, bool)>()
+                    // Unreferenced from the event loop; see the constant's
+                    // docs.
+                    .weak::<{ callback::EVENT_LOOP_UNREFERENCED }>()
+                    .build_callback(|ctx: ThreadsafeCallContext<(String, bool)>| {
+                        Ok(FnArgs { data: ctx.value })
+                    })
+            },
+        )?;
 
         let print_line_fn = Arc::new(move |message, replace| {
             let (sender, receiver) = channel();

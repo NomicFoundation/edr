@@ -1,14 +1,19 @@
 use std::sync::Arc;
 
-use edr_napi_core::subscription::SubscriptionEventData;
+// Aliased because this module's own `SubscriptionEvent` shadows the name.
+use edr_napi_core::subscription::{
+    SubscriptionEvent as CoreSubscriptionEvent, SubscriptionEventData,
+};
 use edr_primitives::B256;
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, SyncSubscriberCallback};
 use napi::{
     bindgen_prelude::{BigInt, Function},
     threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode},
-    Unknown,
+    Env, Unknown,
 };
 use napi_derive::napi;
+
+use crate::callback::{self, OnOwnerCollected, ProviderCallbacks};
 
 /// Creates a chain-specific [`SyncSubscriberCallback`] for the provided
 /// function and chain type.
@@ -19,7 +24,7 @@ pub fn subscriber_callback_for_chain_spec<
     subscription_callback_fn: Arc<SubscriptionTsfn>,
 ) -> Box<dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>> {
     Box::new(move |event| {
-        let event = edr_napi_core::subscription::SubscriptionEvent::new::<
+        let event = CoreSubscriptionEvent::new::<
             ChainSpecT::Block,
             ChainSpecT::RpcBlock<B256>,
             ChainSpecT::SignedTransaction,
@@ -39,47 +44,60 @@ pub struct SubscriptionConfig<'env> {
 }
 
 pub type SubscriptionTsfn = ThreadsafeFunction<
-    edr_napi_core::subscription::SubscriptionEvent,
+    CoreSubscriptionEvent,
     (),
     SubscriptionEvent<'static>,
     /* ErrorStatus */ napi::Status,
     /* CalleeHandled */ false,
-    /* Weak */ true,
+    /* Weak */ { callback::EVENT_LOOP_UNREFERENCED },
     /* MaxQueueSize */ 0,
 >;
 
 impl SubscriptionConfig<'_> {
-    pub fn resolve(self) -> napi::Result<Arc<SubscriptionTsfn>> {
-        let subscription_event_callback_fn = self
-            .subscription_callback
-            .build_threadsafe_function::<edr_napi_core::subscription::SubscriptionEvent>()
-            // Maintain a weak reference to the function to avoid blocking
-            // the event loop from exiting.
-            .weak::<true>()
-            .build_callback(
-                |ctx: ThreadsafeCallContext<edr_napi_core::subscription::SubscriptionEvent>| {
-                    let env = ctx.env;
+    /// Builds the threadsafe function the provider calls, registering the
+    /// consumer's callback in `callbacks`. See [`crate::callback`] for why the
+    /// callback is kept out of the threadsafe function.
+    pub fn resolve(
+        self,
+        env: &Env,
+        callbacks: &mut ProviderCallbacks,
+    ) -> napi::Result<Arc<SubscriptionTsfn>> {
+        let subscription_callback = callbacks.unroot_into(
+            env,
+            self.subscription_callback,
+            "subscription",
+            // The callback returns nothing, so a late event is dropped.
+            OnOwnerCollected::DropCall,
+            |trampoline| {
+                trampoline
+                    .build_threadsafe_function::<CoreSubscriptionEvent>()
+                    // Unreferenced from the event loop; see the constant's
+                    // docs.
+                    .weak::<{ callback::EVENT_LOOP_UNREFERENCED }>()
+                    .build_callback(|ctx: ThreadsafeCallContext<CoreSubscriptionEvent>| {
+                        let env = ctx.env;
 
-                    let filter_id = BigInt {
-                        sign_bit: false,
-                        words: ctx.value.filter_id.as_limbs().to_vec(),
-                    };
+                        let filter_id = BigInt {
+                            sign_bit: false,
+                            words: ctx.value.filter_id.as_limbs().to_vec(),
+                        };
 
-                    let result: Unknown<'static> = match ctx.value.result {
-                        SubscriptionEventData::Logs(logs) => env.to_js_value(&logs)?,
-                        SubscriptionEventData::NewHeads(block_to_js_value_fn) => {
-                            block_to_js_value_fn(&env)?
-                        }
-                        SubscriptionEventData::NewPendingTransactions(tx_hash) => {
-                            env.to_js_value(&tx_hash)?
-                        }
-                    };
+                        let result: Unknown<'static> = match ctx.value.result {
+                            SubscriptionEventData::Logs(logs) => env.to_js_value(&logs)?,
+                            SubscriptionEventData::NewHeads(block_to_js_value_fn) => {
+                                block_to_js_value_fn(&env)?
+                            }
+                            SubscriptionEventData::NewPendingTransactions(tx_hash) => {
+                                env.to_js_value(&tx_hash)?
+                            }
+                        };
 
-                    Ok(SubscriptionEvent { filter_id, result })
-                },
-            )?;
+                        Ok(SubscriptionEvent { filter_id, result })
+                    })
+            },
+        )?;
 
-        Ok(Arc::new(subscription_event_callback_fn))
+        Ok(Arc::new(subscription_callback))
     }
 }
 
