@@ -85,10 +85,10 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d
 +                genesisBlockTime,
 +            };
 +        }
-+        // EDR holds `subscriptionCallback` through a threadsafe function, which V8
-+        // cannot see through. A strong reference to the wrapper from that callback
-+        // would root the wrapper, and with it the provider whose OS thread is only
-+        // released once the provider is finalized.
++        // EDR used to hold `subscriptionCallback` in a threadsafe function's
++        // root, so a strong reference to the wrapper from that callback leaked
++        // the provider and its OS thread. EDR now owns the callback through
++        // the provider's own object, so this `WeakRef` guards older EDR versions only.
 +        let wrapperWeakRef;
          const printLineFn = loggerConfig.printLineFn ?? logger_1.printLine;
          const replaceLastLineFn = loggerConfig.replaceLastLineFn ?? logger_1.replaceLastLine;
@@ -511,10 +511,10 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
 -    // To accommodate construction ordering, we need an adapter to forward events
 -    // from the EdrProvider callback to the wrapper's listener
 -    const eventAdapter = new EdrProviderEventAdapter();
-+    // EDR holds `subscriptionCallback` through a threadsafe function, which V8
-+    // cannot see through. A strong reference to the wrapper from that callback
-+    // would root the wrapper, and with it the provider whose OS thread is only
-+    // released once the provider is finalized.
++    // EDR used to hold `subscriptionCallback` in a threadsafe function's
++    // root, so a strong reference to the wrapper from that callback leaked
++    // the provider and its OS thread. EDR now owns the callback through
++    // the provider's own object, so this `WeakRef` guards older EDR versions only.
 +    let wrapperWeakRef: WeakRef<EdrProviderWrapper> | undefined;
  
      const printLineFn = loggerConfig.printLineFn ?? printLine;
