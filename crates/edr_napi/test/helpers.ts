@@ -14,6 +14,7 @@ import {
   l1HardforkToString,
   LoggerConfig,
   MineOrdering,
+  MiningConfig,
   Provider,
   ProviderConfig,
   SolidityTestResult,
@@ -288,6 +289,21 @@ export function l1ProviderConfig(
     ownedAccounts: [DEFAULT_OWNED_ACCOUNT],
     precompileOverrides: [],
     ...rest,
+  };
+}
+
+/**
+ * A [`MiningConfig`] that mines a block every `intervalMs` instead of on
+ * demand, so the provider's own thread drives block production.
+ */
+export function intervalMiningConfig(intervalMs: bigint): MiningConfig {
+  return {
+    autoMine: false,
+    blockGasLimit: 300_000_000n,
+    interval: intervalMs,
+    memPool: {
+      order: MineOrdering.Priority,
+    },
   };
 }
 
