@@ -23,6 +23,7 @@ use napi_derive::napi;
 use crate::{
     account::AccountOverride,
     block::BlobGas,
+    callback::{self, CallbackOwner, OnOwnerCollected, ProviderCallbacks},
     cast::TryCast,
     gas_report::GasReport,
     logger::LoggerConfig,
@@ -503,40 +504,67 @@ impl TryFrom<MiningConfig> for edr_provider::config::Mining {
     }
 }
 
+/// What the core expects an observability callback to report: nothing on
+/// success, and any error as an owned, thread-safe boxed error.
+type CallbackOutcome = Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+/// The error for a callback result that could not cross the channel back to
+/// the blocking caller.
+fn send_failure(key: &str) -> napi::Error {
+    napi::Error::new(
+        napi::Status::GenericFailure,
+        format!("Failed to send result from {key}"),
+    )
+}
+
 /// Bridges a JS async callback (`fn(Js) -> Promise<()>`) into the synchronous,
-/// blocking Rust callback the provider core requires.
+/// blocking Rust callback the core expects.
 ///
-/// Builds a weak threadsafe function from `callback`, then returns a closure
-/// that, on each call, converts the core value via `to_js`, invokes the JS
-/// function on its own thread, and blocks until the returned promise resolves.
-/// The three failure points — the threadsafe call not being scheduled, a
-/// synchronous exception in the callback, and a promise rejection — are all
-/// funneled into the returned `Result`. `label` names the callback in error
-/// messages.
-fn blocking_promise_callback<CoreT, JsT, ToJsFnT>(
+/// Builds a threadsafe function from `callback`. When `owner` says an object
+/// will own the callback, the threadsafe function is built from a trampoline
+/// instead. See [`CallbackOwner`]. Either way it is built with
+/// [`callback::EVENT_LOOP_UNREFERENCED`] as its `Weak` flag. The returned
+/// closure then, on each call, converts the core value via `to_js`, invokes
+/// the JS function on its own thread, and blocks until the returned promise
+/// resolves. The three failure points — the threadsafe call not being
+/// scheduled, a synchronous exception in the callback, and a promise
+/// rejection — are all funneled into the returned `Result`. `key` names the
+/// callback in error messages. It also names it under its owner, when `owner`
+/// claims ownership. The collected-owner policy passed to `own` is inert for
+/// a rooted callback.
+fn blocking_promise_callback<CoreT, JsT, ToJsFnT, OwnerT>(
+    env: &Env,
     callback: Function<'_, JsT, Promise<()>>,
     runtime: runtime::Handle,
-    label: &'static str,
+    key: &'static str,
+    owner: &mut OwnerT,
     to_js: ToJsFnT,
 ) -> napi::Result<
-    impl Fn(CoreT) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
-        + Clone
-        + Send
-        + Sync
-        + use<CoreT, JsT, ToJsFnT>,
+    impl Fn(CoreT) -> CallbackOutcome + Clone + Send + Sync + use<CoreT, JsT, ToJsFnT, OwnerT>,
 >
 where
     JsT: ToNapiValue + Send + 'static,
     ToJsFnT: Fn(CoreT) -> JsT + Clone + Send + Sync + 'static,
+    // The opaque type has to name `OwnerT`, because `use<..>` cannot omit a
+    // type parameter. It therefore needs `OwnerT: 'static`, even though it
+    // never captures the owner.
+    OwnerT: CallbackOwner + 'static,
 {
-    let tsfn = std::sync::Arc::new(
-        callback
-            .build_threadsafe_function::<JsT>()
-            // Maintain a weak reference to the function to avoid blocking the
-            // event loop from exiting.
-            .weak::<true>()
-            .build_callback(|ctx: ThreadsafeCallContext<JsT>| Ok(ctx.value))?,
-    );
+    let tsfn = owner.own(
+        env,
+        callback,
+        key,
+        // The returned promise is awaited, so a late call has to fail with
+        // the callback's name.
+        OnOwnerCollected::Throw,
+        |called_function| {
+            called_function
+                .build_threadsafe_function::<JsT>()
+                .weak::<{ callback::EVENT_LOOP_UNREFERENCED }>()
+                .build_callback(|ctx: ThreadsafeCallContext<JsT>| Ok(ctx.value))
+        },
+    )?;
+    let tsfn = std::sync::Arc::new(tsfn);
 
     Ok(move |value: CoreT| {
         let runtime = runtime.clone();
@@ -556,22 +584,14 @@ where
                     Ok(promise) => {
                         runtime.spawn(async move {
                             let result = promise.await.map_err(napi_error::reason_and_forget);
-                            sender.send(result).map_err(|_error| {
-                                napi::Error::new(
-                                    napi::Status::GenericFailure,
-                                    format!("Failed to send result from {label}"),
-                                )
-                            })
+                            sender.send(result).map_err(|_error| send_failure(key))
                         });
                     }
                     Err(error) => {
                         // On the JS thread; dropping the error here is safe.
-                        sender.send(Err(error.to_string())).map_err(|_error| {
-                            napi::Error::new(
-                                napi::Status::GenericFailure,
-                                format!("Failed to send result from {label}"),
-                            )
-                        })?;
+                        sender
+                            .send(Err(error.to_string()))
+                            .map_err(|_error| send_failure(key))?;
                     }
                 }
                 Ok(())
@@ -581,7 +601,7 @@ where
         if status != napi::Status::Ok {
             return Err(napi::Error::new(
                 napi::Status::GenericFailure,
-                format!("Threadsafe call to {label} failed with status {status:?}"),
+                format!("Threadsafe call to {key} failed with status {status:?}"),
             )
             .into());
         }
@@ -592,7 +612,7 @@ where
         receiver.recv().map_err(|_error| {
             napi::Error::new(
                 napi::Status::GenericFailure,
-                format!("{label} was dropped before returning a result"),
+                format!("{key} was dropped before returning a result"),
             )
         })??;
 
@@ -603,18 +623,24 @@ where
 impl ObservabilityConfig<'_> {
     /// Resolves the instance, converting it to a
     /// [`edr_provider::observability::Config`].
-    pub fn resolve(
+    ///
+    /// `owner` decides who keeps the callbacks alive. See [`CallbackOwner`].
+    pub fn resolve<OwnerT: CallbackOwner + 'static>(
         self,
+        env: &Env,
         runtime: runtime::Handle,
+        owner: &mut OwnerT,
     ) -> napi::Result<edr_provider::observability::Config> {
         let on_collected_coverage_fn = self
             .code_coverage
             .map(
                 |code_coverage| -> napi::Result<Box<dyn SyncOnCollectedCoverageCallback>> {
                     let callback = blocking_promise_callback(
+                        env,
                         code_coverage.on_collected_coverage_callback,
                         runtime.clone(),
-                        "on_collected_coverage_callback",
+                        "onCollectedCoverage",
+                        owner,
                         |hits: HashSet<Bytes>| {
                             hits.into_iter()
                                 .map(|hit| Uint8Array::from(hit.to_vec()))
@@ -632,9 +658,11 @@ impl ObservabilityConfig<'_> {
             .map(
                 |gas_report| -> napi::Result<Box<dyn SyncOnCollectedGasReportCallback>> {
                     let callback = blocking_promise_callback(
+                        env,
                         gas_report.on_collected_gas_report_callback,
                         runtime.clone(),
-                        "on_collected_gas_report_callback",
+                        "onCollectedGasReport",
+                        owner,
                         |report: edr_gas_report::GasReport| GasReport::from(report),
                     )?;
 
@@ -659,9 +687,13 @@ impl ObservabilityConfig<'_> {
 
 impl ProviderConfig<'_> {
     /// Resolves the instance to a [`edr_napi_core::provider::Config`].
+    /// Observability callbacks the provider's object must own are registered
+    /// in `callbacks`; see [`crate::callback`].
     pub fn resolve(
         self,
+        env: &Env,
         runtime: runtime::Handle,
+        callbacks: &mut ProviderCallbacks,
     ) -> napi::Result<edr_napi_core::provider::Config> {
         let owned_accounts = self
             .owned_accounts
@@ -717,6 +749,8 @@ impl ProviderConfig<'_> {
                 },
             })?;
 
+        let observability = self.observability.resolve(env, runtime, callbacks)?;
+
         Ok(edr_napi_core::provider::Config {
             allow_blocks_with_same_timestamp: self.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: self.allow_unlimited_contract_size,
@@ -759,7 +793,7 @@ impl ProviderConfig<'_> {
                 }
             },
             network_id: self.network_id.try_cast()?,
-            observability: self.observability.resolve(runtime)?,
+            observability,
             owned_accounts,
             precompile_overrides,
             transaction_gas_cap,
@@ -819,23 +853,31 @@ pub struct ConfigResolution {
     pub logger_config: edr_napi_core::logger::Config,
     pub provider_config: edr_napi_core::provider::Config,
     pub subscription_callback: Arc<SubscriptionTsfn>,
+    /// Every consumer callback the provider's JavaScript object has to own;
+    /// see [`crate::callback`]. The only correct consumer is
+    /// [`callback::ProviderWithCallbacks`], which attaches them as the
+    /// provider's object is created.
+    pub callbacks: ProviderCallbacks,
 }
 
 /// Helper function for resolving the provided N-API configs.
 pub fn resolve_configs<'env>(
+    env: &Env,
     runtime: runtime::Handle,
     provider_config: ProviderConfig<'env>,
     logger_config: LoggerConfig<'env>,
     subscription_config: SubscriptionConfig<'env>,
 ) -> napi::Result<ConfigResolution> {
-    let provider_config = provider_config.resolve(runtime)?;
-    let logger_config = logger_config.resolve()?;
+    let mut callbacks = ProviderCallbacks::default();
 
-    let subscription_callback = subscription_config.resolve()?;
+    let provider_config = provider_config.resolve(env, runtime, &mut callbacks)?;
+    let logger_config = logger_config.resolve(env, &mut callbacks)?;
+    let subscription_callback = subscription_config.resolve(env, &mut callbacks)?;
 
     Ok(ConfigResolution {
         logger_config,
         provider_config,
         subscription_callback,
+        callbacks,
     })
 }

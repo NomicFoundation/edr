@@ -1269,7 +1269,9 @@ export interface LocalConfig {
 export interface LoggerConfig {
   /** Whether to enable the logger. */
   enable: boolean
+  /** Callback to decode the arguments of `console.log` calls. */
   decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]) => string[]
+  /** Callback to print a line of log output. */
   printLineCallback: (message: string, replace: boolean) => void
 }
 

@@ -12,12 +12,13 @@ use foundry_cheatcodes::{FsPermissions, RpcEndpointUrl, RpcEndpoints};
 use napi::{
     bindgen_prelude::{BigInt, Uint8Array},
     tokio::runtime,
-    Either, Status,
+    Either, Env, Status,
 };
 use napi_derive::napi;
 
 use crate::{
     account::AccountOverride,
+    callback::RootedByThreadsafeFunction,
     cast::TryCast,
     config::ObservabilityConfig,
     serde::{
@@ -230,6 +231,7 @@ impl SolidityTestRunnerConfigArgs<'_> {
     /// [`edr_napi_core::solidity::config::TestRunnerConfig`].
     pub fn resolve(
         self,
+        env: &Env,
         runtime: runtime::Handle,
     ) -> napi::Result<edr_napi_core::solidity::config::TestRunnerConfig> {
         let SolidityTestRunnerConfigArgs {
@@ -375,8 +377,8 @@ impl SolidityTestRunnerConfigArgs<'_> {
             || Ok(None),
             |observability| {
                 observability
-                    .resolve(runtime)
-                    .map(|config| config.on_collected_coverage_fn)
+                    .resolve(env, runtime, &mut RootedByThreadsafeFunction)
+                    .map(|observability| observability.on_collected_coverage_fn)
             },
         )?;
 
