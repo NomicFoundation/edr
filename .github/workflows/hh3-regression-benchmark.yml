@@ -113,9 +113,10 @@ jobs:
     needs: setup
     if: needs.setup.outputs.should_run == 'true'
     environment: github-action-benchmark
-    # Use Hardhat's dedicated self-hosted runner for stable measurements that
-    # are comparable to Hardhat's own regression baselines.
-    runs-on: hardhat-linux-amd64-self-hosted
+    # Use EDR's dedicated self-hosted runner for stable measurements. Results
+    # are compared against EDR's own baselines in the results repo, not against
+    # Hardhat's regression baselines, which are recorded on a different machine.
+    runs-on: edr-benchmark-runner-2
     timeout-minutes: 180
     permissions:
       # Lets the GITHUB_TOKEN used by "Compare benchmark result against
