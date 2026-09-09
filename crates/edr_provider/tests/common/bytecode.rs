@@ -1,9 +1,8 @@
 //! Tiny EVM assembler for hand-built test contracts.
 #![cfg(feature = "test-utils")]
 
-use edr_primitives::Bytes;
-
 pub use edr_primitives::bytecode::opcode;
+use edr_primitives::Bytes;
 
 /// Assembles a contract's runtime code opcode by opcode, encapsulating the
 /// deploy-wrapper and length bookkeeping.
