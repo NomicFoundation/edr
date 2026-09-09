@@ -8,41 +8,32 @@
 //! omitted from the RPC response. EDR has no consensus layer, so it simulates
 //! one slot per mined block.
 
-use std::{str::FromStr as _, sync::Arc};
+use std::str::FromStr as _;
 
-use edr_chain_l1::{
-    rpc::{block::L1RpcBlock, call::L1CallRequest},
-    L1ChainSpec,
-};
+use edr_chain_l1::rpc::{block::L1RpcBlock, call::L1CallRequest};
 use edr_eth::BlockSpec;
-use edr_primitives::{address, bytes, Address, Bytes, B256, U256};
+use edr_primitives::{address, Address, Bytes, B256, U256};
 use edr_provider::{
-    test_utils::{create_test_config, deploy_contract, get_latest_block, mine_block},
-    time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
-    TransactionFailureReason,
+    test_utils::{deploy_contract, get_latest_block, mine_block},
+    MethodInvocation, ProviderError, ProviderRequest, TransactionFailureReason,
 };
-use edr_solidity::contract_decoder::ContractDecoder;
-use parking_lot::RwLock;
-use tokio::runtime;
 
-use crate::common::provider::new_provider;
+use crate::common::{
+    bytecode::{opcode::SLOTNUM, BytecodeBuilder},
+    provider::{new_provider, new_provider_with_config},
+};
 
 const SLOT_NUMBER_JSON_KEY: &str = "slotNumber";
 
 const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 
-/// Init bytecode for a contract that returns the current block's slot number.
-///
-/// `SLOTNUM` (`0x4b`) has no Solidity/Yul builtin, so this is hand-assembled
-/// instead of compiled. The deployed runtime is `4b60005260206000f3`
-/// (`SLOTNUM; PUSH1 0; MSTORE; PUSH1 0x20; PUSH1 0; RETURN`): it writes the
-/// slot number to memory and returns it as a 32-byte word. The `6009600c…f3`
-/// prefix is the standard constructor that copies that runtime out as the
-/// deployed code.
-// TODO: once Solidity exposes SLOTNUM, replace this hand-assembled bytecode
-// with a compiled Solidity source for readability.
-const SLOT_NUMBER_CONTRACT: Bytes = bytes!("0x6009600c60003960096000f34b60005260206000f3");
+/// Init bytecode for a contract that returns the current block's slot number
+/// as a 32-byte word.
+fn slot_number_contract() -> Bytes {
+    let mut contract = BytecodeBuilder::default();
+    contract.opcode(SLOTNUM).return_top_word();
+    contract.deployable()
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_header_includes_slot_number_on_amsterdam() -> anyhow::Result<()> {
@@ -155,7 +146,7 @@ async fn slot_number_continues_after_reserved_blocks() -> anyhow::Result<()> {
 async fn slotnum_opcode_returns_block_slot_number() -> anyhow::Result<()> {
     let provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
 
-    let contract_address = deploy_contract(&provider, SENDER, SLOT_NUMBER_CONTRACT.clone())?;
+    let contract_address = deploy_contract(&provider, SENDER, slot_number_contract())?;
 
     // Mine a few more blocks so the call executes in a block well after deployment.
     mine_block(&provider);
@@ -194,26 +185,15 @@ async fn slotnum_opcode_returns_block_slot_number() -> anyhow::Result<()> {
 // fail rather than return a value.
 #[tokio::test(flavor = "multi_thread")]
 async fn slotnum_opcode_unavailable_before_amsterdam() -> anyhow::Result<()> {
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-
-    let mut config = create_test_config();
-    config.hardfork = edr_chain_l1::Hardfork::Osaka;
-    // Surface the resulting halt as an error instead of empty output.
-    config.bail_on_call_failure = true;
-
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::new(RwLock::<ContractDecoder>::default()),
-        CurrentTime,
-    )?;
+    let provider = new_provider_with_config(|config| {
+        config.hardfork = edr_chain_l1::Hardfork::Osaka;
+        // Surface the resulting halt as an error instead of empty output.
+        config.bail_on_call_failure = true;
+    })?;
 
     // The init bytecode never executes 0x4b (it only copies the runtime out), so
     // deployment succeeds even pre-Amsterdam.
-    let contract_address = deploy_contract(&provider, SENDER, SLOT_NUMBER_CONTRACT.clone())?;
+    let contract_address = deploy_contract(&provider, SENDER, slot_number_contract())?;
 
     let result = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
         L1CallRequest {
