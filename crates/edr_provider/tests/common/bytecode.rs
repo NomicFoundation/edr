@@ -3,23 +3,7 @@
 
 use edr_primitives::Bytes;
 
-/// Opcodes used by hand-built test contracts.
-pub mod opcode {
-    pub const STOP: u8 = 0x00;
-    pub const CALLDATALOAD: u8 = 0x35;
-    pub const CODECOPY: u8 = 0x39;
-    pub const SLOTNUM: u8 = 0x4b;
-    pub const POP: u8 = 0x50;
-    pub const MSTORE: u8 = 0x52;
-    pub const SSTORE: u8 = 0x55;
-    pub const PUSH1: u8 = 0x60;
-    pub const RETURN: u8 = 0xf3;
-
-    // EIP-8024 stack instructions (Amsterdam).
-    pub const DUPN: u8 = 0xe6;
-    pub const SWAPN: u8 = 0xe7;
-    pub const EXCHANGE: u8 = 0xe8;
-}
+pub use edr_primitives::bytecode::opcode;
 
 /// Assembles a contract's runtime code opcode by opcode, encapsulating the
 /// deploy-wrapper and length bookkeeping.
@@ -57,7 +41,7 @@ impl BytecodeBuilder {
 
     /// The assembled runtime code, for contracts seeded directly into state
     /// rather than deployed.
-    pub fn runtime(&self) -> Bytes {
+    pub fn runtime(self) -> Bytes {
         self.runtime.clone().into()
     }
 
