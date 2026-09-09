@@ -19,8 +19,10 @@
 //!
 //! The two steps come paired, so no caller obtains a trampoline without
 //! deciding who owns the callback. [`ProviderCallbacks::unroot_into`] serves
-//! callbacks attached together when their owner is created. A call arriving
-//! after the owner's collection is handled as [`OnOwnerCollected`] specifies.
+//! callbacks attached together when their owner is created, and
+//! [`unroot_pending`] serves a callback whose attachment has to wait for work
+//! on another thread. A call arriving after the owner's collection is handled
+//! as [`OnOwnerCollected`] specifies.
 
 use std::{ffi::CString, ptr};
 
@@ -282,7 +284,8 @@ struct Unrooted<'env, Args: JsValuesTupleIntoVec, Return> {
 ///
 /// The returned [`Unrooted::unowned`] has to be attached to an object, or the
 /// callback stays rooted. That is the leak this exists to prevent. The public
-/// entry point, [`ProviderCallbacks::unroot_into`], pairs the two steps.
+/// entry points, [`ProviderCallbacks::unroot_into`] and [`unroot_pending`],
+/// each pair the two steps.
 fn unroot<'env, Args, Return>(
     env: &'env Env,
     callback: Function<'env, Args, Return>,
@@ -451,7 +454,7 @@ where
 /// provider's configuration is resolved.
 ///
 /// The call override is not here. It is set on a provider that already
-/// exists, so it is attached separately, once the provider holds it.
+/// exists, so it is attached through a [`PendingAttachment`] instead.
 #[derive(Default)]
 pub struct ProviderCallbacks(Vec<UnownedCallback>);
 
@@ -590,6 +593,171 @@ impl CallbackOwner for RootedByThreadsafeFunction {
         Args: JsValuesTupleIntoVec,
     {
         build(callback)
+    }
+}
+
+/// What [`unroot_pending`] produces.
+pub struct PendingUnroot<BuiltT> {
+    /// What `build` made from the trampoline.
+    pub built: BuiltT,
+    /// Completes or abandons the attachment on the JavaScript thread.
+    pub attachment: PendingAttachment,
+}
+
+/// Unroots `callback` and prepares attaching it to `owner`, for an attachment
+/// that has to wait for work on another thread.
+///
+/// `build` receives the trampoline and builds the threadsafe function from
+/// it, so the trampoline never escapes this module. Taking `build` as a
+/// closure also keeps a `?` at the call site from dropping a formed
+/// attachment, because the owner reference is only created once every
+/// fallible step has succeeded. `key` names the callback under its owner and
+/// must be unique among the callbacks one object owns.
+pub fn unroot_pending<'env, Args, Return, BuiltT>(
+    env: &'env Env,
+    owner: &Object<'_>,
+    callback: Function<'env, Args, Return>,
+    key: &'static str,
+    owner_collected: OnOwnerCollected,
+    build: impl FnOnce(Function<'env, Args, Return>) -> napi::Result<BuiltT>,
+) -> napi::Result<PendingUnroot<BuiltT>>
+where
+    Args: JsValuesTupleIntoVec,
+{
+    let Unrooted {
+        trampoline,
+        unowned,
+    } = unroot(env, callback, key, owner_collected)?;
+
+    // A failure here or below drops `unowned`. Any threadsafe function built
+    // from the trampoline drops with the error, so the trampoline's finalizer
+    // reclaims the callback.
+    let built = build(trampoline)?;
+
+    let attachment = PendingAttachment::new(env, owner, unowned)?;
+
+    Ok(PendingUnroot { built, attachment })
+}
+
+/// A callback together with the owner it will be attached to, for an
+/// attachment that has to wait for work on another thread.
+///
+/// A callback that replaces a predecessor needs this. The entry it takes is
+/// the predecessor's only owner. The new callback must therefore take that
+/// entry only once nothing calls the predecessor anymore. The work that
+/// stops those calls happens on another thread, so the attachment completes
+/// afterwards in a JavaScript-thread closure. The owner is held through a
+/// counted reference. The callback's own reference keeps its count until
+/// attachment, so both survive the hand-off. Attaching releases both counts.
+/// Abandoning releases only the owner's, and the callback's then lasts until
+/// the trampoline is finalized.
+///
+/// Dropping one without calling [`Self::attach`] or [`Self::abandon`] leaks.
+/// The owner reference keeps its count, so the owner is rooted for the
+/// environment's life. In practice only environment teardown drops one that
+/// way. No `Drop` impl could help. That drop can happen off the JavaScript
+/// thread, where deleting the reference is not allowed.
+pub struct PendingAttachment {
+    owner: sys::napi_ref,
+    callback: UnownedCallback,
+}
+
+// SAFETY: both fields hold opaque Node-API handles, never dereferenced by
+// Rust and only passed back to Node-API from `attach` and `abandon`, which
+// run on the environment's JavaScript thread.
+unsafe impl Send for PendingAttachment {}
+
+impl PendingAttachment {
+    /// Prepares attaching `callback` to `owner`.
+    fn new(env: &Env, owner: &Object<'_>, callback: UnownedCallback) -> napi::Result<Self> {
+        let mut reference = ptr::null_mut();
+
+        // Created with a count, so the owner outlives the hand-off.
+        //
+        // SAFETY: `env` is a live environment on its JavaScript thread, as
+        // holding an `&Env` implies, and `owner` is a live object in it.
+        napi::check_status!(
+            unsafe { sys::napi_create_reference(env.raw(), owner.raw(), 1, &mut reference) },
+            "Failed to reference the `{}` callback's owner",
+            callback.key
+        )?;
+
+        Ok(Self {
+            owner: reference,
+            callback,
+        })
+    }
+
+    /// Completes the attachment, making the owner own the callback.
+    ///
+    /// A failure leaves the callback unowned while it can still be called. A
+    /// callback capturing its owner then keeps the owner alive for the
+    /// environment's life. In practice only environment teardown produces a
+    /// failure. Must not be called from a basic finalizer, where Node-API 10
+    /// permits almost none of the calls this makes.
+    pub fn attach(self, env: &Env) -> napi::Result<()> {
+        let Self { owner, callback } = self;
+
+        let mut object = ptr::null_mut();
+
+        // SAFETY: holding an `&Env` implies being on its JavaScript thread,
+        // and the reference was created on it in `new`.
+        let read = napi::check_status!(
+            unsafe { sys::napi_get_reference_value(env.raw(), owner, &mut object) },
+            "Failed to read the `{}` callback's owner",
+            callback.key
+        );
+
+        // The owner reference has served its purpose whether or not the read
+        // succeeded.
+        //
+        // SAFETY: holding an `&Env` implies being on its JavaScript thread,
+        // and the reference was created on it in `new`. Consuming `self`
+        // means this runs once.
+        let deleted = unsafe { sys::napi_delete_reference(env.raw(), owner) };
+        debug_assert!(
+            deleted == sys::Status::napi_ok,
+            "failed to delete an owner reference: {}",
+            napi::Status::from(deleted)
+        );
+
+        read?;
+
+        // The reference held a count, so the owner cannot have been collected.
+        debug_assert!(
+            !object.is_null(),
+            "the `{}` callback's owner reference read as absent",
+            callback.key
+        );
+
+        // SAFETY: holding an `&Env` implies a valid environment on its
+        // JavaScript thread, and `object` is the live owner just read.
+        let holder = unsafe { callbacks_holder(env.raw(), object)? };
+
+        // SAFETY: holding an `&Env` implies a valid environment on its
+        // JavaScript thread, and `holder` is the owner's callbacks holder,
+        // just read or created. This method's documentation forbids calling
+        // it from a basic finalizer.
+        unsafe { callback.attach_to_holder(env.raw(), holder) }
+    }
+
+    /// Abandons the attachment, releasing the owner reference without giving
+    /// the owner the callback.
+    ///
+    /// For the path where the callback's installation failed, so nothing will
+    /// call it. Its threadsafe function drops with the failure, and the
+    /// trampoline's finalizer then reclaims the callback.
+    pub fn abandon(self, env: &Env) {
+        // SAFETY: holding an `&Env` implies being on its JavaScript thread,
+        // and the reference was created on it in `new`. Consuming `self`
+        // means this runs once.
+        let status = unsafe { sys::napi_delete_reference(env.raw(), self.owner) };
+
+        debug_assert!(
+            status == sys::Status::napi_ok,
+            "failed to delete an owner reference: {}",
+            napi::Status::from(status)
+        );
     }
 }
 

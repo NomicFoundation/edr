@@ -2,14 +2,18 @@ use std::sync::{mpsc::channel, Arc};
 
 use edr_primitives::{Address, Bytes};
 use napi::{
-    bindgen_prelude::{FnArgs, Function, Promise, Uint8Array},
+    bindgen_prelude::{FnArgs, Function, Object, Promise, Uint8Array},
     threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode},
     tokio::runtime,
     Env, Status,
 };
 use napi_derive::napi;
 
-use crate::{cast::TryCast, napi_error};
+use crate::{
+    callback::{self, OnOwnerCollected, PendingAttachment, PendingUnroot},
+    cast::TryCast,
+    napi_error,
+};
 
 /// The result of executing a call override.
 #[napi(object)]
@@ -43,7 +47,7 @@ type CallOverrideTsfn = ThreadsafeFunction<
     FnArgs<(Uint8Array, Uint8Array)>,
     /* ErrorStatus */ Status,
     /* CalleeHandled */ false,
-    /* Weak */ true,
+    /* Weak */ { callback::EVENT_LOOP_UNREFERENCED },
     /* MaxQueueSize */ 0,
 >;
 
@@ -53,32 +57,68 @@ pub struct CallOverrideCallback {
     runtime: runtime::Handle,
 }
 
+/// What [`CallOverrideCallback::resolve`] produces.
+pub struct ResolvedCallOverride {
+    /// What the provider calls.
+    pub callback: CallOverrideCallback,
+    /// Completes on the JavaScript thread once the provider holds `callback`.
+    pub attachment: PendingAttachment,
+}
+
 impl CallOverrideCallback {
-    pub fn new(
+    /// Builds the threadsafe function the provider calls, along with the
+    /// attachment that will make `owner` own the consumer's callback.
+    ///
+    /// See [`crate::callback`] for why the callback is kept out of the
+    /// threadsafe function.
+    pub fn resolve(
+        env: &Env,
+        owner: &Object<'_>,
         call_override_callback: Function<
             '_,
             FnArgs<(Uint8Array, Uint8Array)>,
             Promise<Option<CallOverrideResult>>,
         >,
         runtime: runtime::Handle,
-    ) -> napi::Result<Self> {
-        let call_override_callback_fn = call_override_callback
-            .build_threadsafe_function::<CallOverrideCall>()
-            // Maintain a weak reference to the function to avoid blocking
-            // the event loop from exiting.
-            .weak::<true>()
-            .build_callback(|ctx: ThreadsafeCallContext<CallOverrideCall>| {
-                let address = Uint8Array::from(ctx.value.contract_address.to_vec());
-                let data = Uint8Array::from(ctx.value.data.to_vec());
+    ) -> napi::Result<ResolvedCallOverride> {
+        let PendingUnroot {
+            built: call_override_callback_fn,
+            attachment,
+        } = callback::unroot_pending(
+            env,
+            owner,
+            call_override_callback,
+            "callOverride",
+            // The callback's result decides an `eth_call`, and returning
+            // `undefined` would silently make it `None`. A late call
+            // therefore fails with the callback's name, which panics the
+            // provider's thread; see `call_override` below. Only a collected
+            // owner reaches this, so the consumer no longer holds the
+            // provider.
+            OnOwnerCollected::Throw,
+            |trampoline| {
+                trampoline
+                    .build_threadsafe_function::<CallOverrideCall>()
+                    // Unreferenced from the event loop; see the constant's
+                    // docs.
+                    .weak::<{ callback::EVENT_LOOP_UNREFERENCED }>()
+                    .build_callback(|ctx: ThreadsafeCallContext<CallOverrideCall>| {
+                        let address = Uint8Array::from(ctx.value.contract_address.to_vec());
+                        let data = Uint8Array::from(ctx.value.data.to_vec());
 
-                Ok(FnArgs {
-                    data: (address, data),
-                })
-            })?;
+                        Ok(FnArgs {
+                            data: (address, data),
+                        })
+                    })
+            },
+        )?;
 
-        Ok(Self {
-            call_override_callback_fn: Arc::new(call_override_callback_fn),
-            runtime,
+        Ok(ResolvedCallOverride {
+            callback: Self {
+                call_override_callback_fn: Arc::new(call_override_callback_fn),
+                runtime,
+            },
+            attachment,
         })
     }
 

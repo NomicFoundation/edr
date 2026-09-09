@@ -12,7 +12,7 @@ use edr_solidity::artifacts::{
     solc::extract_solc_contract_metadata, solx::extract_solx_contract_metadata, to_compiler_type,
 };
 use napi::{
-    bindgen_prelude::{FnArgs, Function, Object, Promise, Uint8Array},
+    bindgen_prelude::{FnArgs, Function, Object, Promise, This, Uint8Array},
     tokio::runtime,
     Env, Status,
 };
@@ -22,8 +22,10 @@ use parking_lot::RwLock;
 pub use self::factory::ProviderFactory;
 use self::response::{call_trace_external_mem_size, GcResponse, Response};
 use crate::{
-    async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
-    contract_decoder::ContractDecoder, gc::gc_tracked,
+    async_deallocator::AsyncDeallocatorSender,
+    call_override::{CallOverrideCallback, ResolvedCallOverride},
+    contract_decoder::ContractDecoder,
+    gc::gc_tracked,
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -223,10 +225,22 @@ impl Provider {
         Ok(promise)
     }
 
+    /// Sets the callback deciding `eth_call` overrides, replacing any
+    /// callback set before.
+    ///
+    /// Await the returned promise before setting another callback.
+    /// Overlapping calls can leave the provider calling a callback that has
+    /// already been collected. A later override then makes every request fail
+    /// with `UnexpectedTermination`.
     #[napi(catch_unwind, ts_return_type = "Promise<void>")]
     pub fn set_call_override_callback<'env>(
         &self,
         env: &'env Env,
+        // The provider's own JavaScript object, which takes ownership of the
+        // callback below so that the callback does not root it; see
+        // `crate::callback`. napi injects this and leaves it out of the
+        // generated typings.
+        this: This<'env>,
         // TODO: https://github.com/NomicFoundation/edr/issues/1532
         // `ts_arg_type` declares `ArrayBuffer` to match Hardhat 2's typings
         // for this callback; the runtime value is actually a `Uint8Array`.
@@ -252,24 +266,44 @@ impl Provider {
     ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
-        let call_override_callback =
-            match CallOverrideCallback::new(call_override_callback, self.runtime.clone()) {
-                Ok(callback) => callback,
-                Err(error) => {
-                    deferred.reject(error);
-                    return Ok(promise);
-                }
-            };
+        // The new callback replaces its predecessor under the provider's
+        // object only after the provider holds the new one, in the deferred's
+        // resolver below; see `PendingAttachment`. Setting a call override
+        // more than once replaces the entry rather than adding one.
+        let ResolvedCallOverride {
+            callback: call_override_callback,
+            attachment,
+        } = match CallOverrideCallback::resolve(
+            env,
+            &this.object,
+            call_override_callback,
+            self.runtime.clone(),
+        ) {
+            Ok(resolved) => resolved,
+            Err(error) => {
+                deferred.reject(error);
+                return Ok(promise);
+            }
+        };
 
         let call_override_callback =
             Arc::new(move |address, data| call_override_callback.call_override(address, data));
 
         let provider = self.provider.clone();
         self.runtime.spawn_blocking(move || {
-            match provider.set_call_override_callback(call_override_callback) {
-                Ok(()) => deferred.resolve(|_env| Ok(())),
-                Err(error) => deferred.reject(error),
-            }
+            let result = provider.set_call_override_callback(call_override_callback);
+
+            // The resolver runs on the JavaScript thread, which the
+            // attachment requires; returning its error rejects the promise.
+            deferred.resolve(move |env| match result {
+                Ok(()) => attachment.attach(&env),
+                Err(error) => {
+                    // The provider never installed the callback, so no owner:
+                    // it is reclaimed with its threadsafe function.
+                    attachment.abandon(&env);
+                    Err(error)
+                }
+            });
         });
 
         Ok(promise)
