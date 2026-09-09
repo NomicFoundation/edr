@@ -27,9 +27,7 @@ use crate::common::{
 
 const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 
-/// Marker value each contract plants on the stack and must return. The stack
-/// slots around it hold `0` or `7`, so a wrong stack manipulation returns a
-/// different value instead of failing outright.
+/// Marker value each contract plants on the stack and must return.
 const MARKER: u8 = 42;
 
 /// DUPN/SWAPN immediate decoding to operand value 17, the smallest the
