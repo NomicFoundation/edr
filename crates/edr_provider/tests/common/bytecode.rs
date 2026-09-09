@@ -53,7 +53,7 @@ impl BytecodeBuilder {
 
     /// Init bytecode wrapping the runtime in the standard constructor that
     /// copies it out as the deployed code.
-    pub fn deployable(&self) -> Bytes {
+    pub fn deployable(self) -> Bytes {
         const CONSTRUCTOR_LEN: u8 = 12;
 
         let runtime_len = u8::try_from(self.runtime.len()).expect("runtime length fits a PUSH1");
