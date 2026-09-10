@@ -45,19 +45,32 @@ impl ImportResolver {
     }
 }
 
-/// Reads files from disk and resolves imports.
-pub(super) struct SourceProvider<'resolver> {
-    import_resolver: &'resolver ImportResolver,
+/// Serves file contents and resolves imports for a compilation unit.
+///
+/// Files already read by the caller (the roots) are served from `preloaded`,
+/// keyed by file ID; every other file (the imports) is read from disk.
+pub(super) struct SourceProvider<'a> {
+    import_resolver: &'a ImportResolver,
+    preloaded: &'a HashMap<String, &'a str>,
 }
 
-impl<'resolver> SourceProvider<'resolver> {
-    pub(super) fn new(import_resolver: &'resolver ImportResolver) -> Self {
-        Self { import_resolver }
+impl<'a> SourceProvider<'a> {
+    pub(super) fn new(
+        import_resolver: &'a ImportResolver,
+        preloaded: &'a HashMap<String, &'a str>,
+    ) -> Self {
+        Self {
+            import_resolver,
+            preloaded,
+        }
     }
 }
 
 impl CompilationBuilderConfig for SourceProvider<'_> {
     fn read_file(&mut self, file_id: &str) -> Result<String, String> {
+        if let Some(content) = self.preloaded.get(file_id) {
+            return Ok((*content).to_owned());
+        }
         std::fs::read_to_string(Path::new(file_id)).map_err(|error| error.to_string())
     }
 

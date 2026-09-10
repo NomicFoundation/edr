@@ -1,20 +1,17 @@
 //! Composes the lower layers into a source's inline configuration.
 //!
-//! Given a source file on disk and its solc version, this locates its contracts
-//! and functions ([`super::parse`]), recovers each one's leading NatSpec
+//! Given a source's text and the contracts and functions located in it
+//! ([`super::parse`]), this recovers each one's leading NatSpec
 //! ([`super::natspec`]), parses the directives within
 //! ([`super::directives`]), and groups the results per contract.
 
 use std::{collections::HashMap, path::Path};
 
-use semver::Version;
-
 use super::{
     directives::{self, DirectiveTarget, LocatedDirectiveError},
     error::{InlineConfigCollectError, InlineConfigErrorItem, InlineConfigProblem},
     natspec,
-    parse::{locate_contracts, LocatedContract, LocatedFunction},
-    resolver::ImportResolver,
+    parse::{LocatedContract, LocatedFunction},
 };
 use crate::config::TestFunctionConfigOverride;
 
@@ -64,37 +61,18 @@ pub(super) struct SourceCollection {
     pub(super) errors: Vec<InlineConfigErrorItem>,
 }
 
-/// Parses the file at `root_path` (its `content`, compiled with `version`) into
-/// the inline configuration of every contract it declares. Its imports are
-/// resolved by `import_resolver` and read from disk. `source` names the file
-/// in error reports (the solc source name the caller queries by).
-///
-/// A failure to locate the source's contracts (an unsupported solc version)
-/// becomes the collection's single (source-level) error; otherwise every
-/// contract is parsed and its per-function problems accumulated.
+/// Parses the inline configuration of every contract in `contracts` — located
+/// in the source whose text is `content` — accumulating each contract's
+/// problems. `source` names the file in error reports (the solc source name the
+/// caller queries by).
 pub(super) fn collect_source(
     source: &Path,
-    root_path: &Path,
     content: &str,
-    version: Version,
-    import_resolver: &ImportResolver,
+    contracts: &[LocatedContract],
 ) -> SourceCollection {
-    let contracts = match locate_contracts(root_path, version, import_resolver) {
-        Ok(contracts) => contracts,
-        Err(error) => {
-            return SourceCollection {
-                overrides: SourceOverrides::new(),
-                errors: vec![InlineConfigErrorItem {
-                    source: source.to_path_buf(),
-                    problem: InlineConfigProblem::Source(error),
-                }],
-            };
-        }
-    };
-
     let mut overrides = SourceOverrides::new();
     let mut errors = Vec::new();
-    for located in &contracts {
+    for located in contracts {
         let (contract, contract_errors) = contract_overrides(source, content, located);
         if !contract.is_empty() {
             overrides.insert(located.contract_name.clone(), contract);

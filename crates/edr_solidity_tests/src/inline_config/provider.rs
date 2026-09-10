@@ -1,10 +1,10 @@
 //! Inline-config resolution.
 //!
 //! Collection: given the set of test sources to cover — each with the absolute
-//! path of its file on disk — parse each with Slang and extract every
-//! contract's inline configuration, accumulating every problem found (a
-//! malformed directive, an unreadable root file, or an unsupported solc
-//! version).
+//! path of its file on disk — compile them together into a single Slang
+//! compilation unit (one per language version) and extract every contract's
+//! inline configuration, accumulating every problem found (a malformed
+//! directive, an unreadable root file, or an unsupported solc version).
 //!
 //! Use: the runner first [`validate`](SharedInlineConfigProvider::validate)s —
 //! if collection found any problem, runner creation fails and the whole run is
@@ -14,13 +14,14 @@
 //! happened during collection.
 
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use rayon::prelude::*;
 use semver::Version;
+use slang_solidity_v2::utils::LanguageVersion;
 
 use super::{
     directives,
@@ -28,6 +29,7 @@ use super::{
         InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors, InlineConfigProblem,
     },
     overrides::{collect_source, ContractInlineConfig, SourceCollection, SourceOverrides},
+    parse::{self, LocatedContract},
     resolver::ImportResolver,
 };
 
@@ -49,10 +51,10 @@ pub struct InlineConfigRoot {
 /// parsing so the run can be aborted up front.
 ///
 /// [`collect`](Self::collect) does all the work — read each source and its
-/// imports from disk, parse them with Slang, and extract every contract's
-/// inline configuration — once. Only sources that carry a directive are
-/// parsed. Problems (a malformed directive, an unreadable root file, or an
-/// unsupported solc version) are accumulated (see
+/// imports from disk, compile them together with Slang, and extract every
+/// contract's inline configuration — once. Only sources that carry a directive
+/// are compiled. Problems (a malformed directive, an unreadable root file, or
+/// an unsupported solc version) are accumulated (see
 /// [`validate`](Self::validate)) rather than short-circuiting, so every
 /// problem across every source is reported together.
 #[derive(Debug)]
@@ -61,67 +63,100 @@ pub struct CachedInlineConfigProvider {
     errors: Vec<InlineConfigErrorItem>,
 }
 
+/// A root whose file has been read and found to carry a directive, awaiting
+/// compilation.
+struct PendingRoot<'root> {
+    root: &'root InlineConfigRoot,
+    /// The root's Slang file ID (see [`parse::root_file_id`]).
+    file_id: String,
+    content: String,
+}
+
+/// The outcome of reading a root's file (see [`read_root`]).
+enum ReadRoot<'root> {
+    /// The file carries an inline-config directive and awaits compilation.
+    Pending(PendingRoot<'root>),
+    /// The file carries no directive, so there is nothing to compile.
+    NoDirective,
+    /// The file could not be read.
+    Unreadable(InlineConfigErrorItem),
+}
+
 impl CachedInlineConfigProvider {
-    /// Parses every root's inline configuration in parallel, reading each
-    /// root's file — and its imports, resolved by `import_resolver` — from
-    /// disk. Sources that carry no inline-config directive are skipped. Every
-    /// problem found (a malformed directive, an unreadable root file, or an
-    /// unsupported solc version) is accumulated and surfaced by
-    /// [`validate`](Self::validate).
+    /// Parses every root's inline configuration, reading each root's file — and
+    /// its imports, resolved by `import_resolver` — from disk. Sources that
+    /// carry no inline-config directive are skipped. Every problem found (a
+    /// malformed directive, an unreadable root file, or an unsupported solc
+    /// version) is accumulated and surfaced by [`validate`](Self::validate).
+    ///
+    /// All roots sharing a language version are compiled into a single Slang
+    /// compilation unit, so their shared imports are parsed and analyzed once.
     pub fn collect(roots: &[InlineConfigRoot], import_resolver: &ImportResolver) -> Self {
-        let parse = |root: &InlineConfigRoot| -> Option<(PathBuf, SourceCollection)> {
-            let content = match std::fs::read_to_string(&root.path) {
-                Ok(content) => content,
-                Err(error) => {
-                    return Some((
-                        root.source.clone(),
-                        SourceCollection {
-                            overrides: SourceOverrides::new(),
-                            errors: vec![InlineConfigErrorItem {
-                                source: root.source.clone(),
-                                problem: InlineConfigProblem::Source(
-                                    InlineConfigCollectError::RootFileNotFound {
-                                        path: root.path.display().to_string(),
-                                        reason: error.to_string(),
-                                    },
-                                ),
-                            }],
-                        },
-                    ));
+        let mut errors = Vec::new();
+
+        // Read every root in parallel on rayon's global pool, keeping those
+        // that carry a directive. Collection runs synchronously and completes
+        // before any test suite is dispatched, so it never contends with suite
+        // execution.
+        let read: Vec<ReadRoot<'_>> = roots.par_iter().map(read_root).collect();
+
+        // Group the pending roots by language version: a compilation unit is
+        // fixed to one grammar, so this is one unit in the common single-version
+        // project.
+        let mut by_version: BTreeMap<LanguageVersion, Vec<PendingRoot<'_>>> = BTreeMap::new();
+        for read in read {
+            let pending = match read {
+                ReadRoot::Pending(pending) => pending,
+                ReadRoot::NoDirective => continue,
+                ReadRoot::Unreadable(error) => {
+                    errors.push(error);
+                    continue;
                 }
             };
-            // Fast path: only parse sources that carry a directive.
-            if !directives::contains_inline_config_directive(&content) {
-                return None;
+            match parse::to_language_version(pending.root.version.clone()) {
+                Ok(version) => by_version.entry(version).or_default().push(pending),
+                Err(error) => errors.push(source_problem(
+                    &pending.root.source,
+                    InlineConfigCollectError::InvalidSolcVersion(error),
+                )),
             }
-            let collection = collect_source(
-                &root.source,
-                &root.path,
-                &content,
-                root.version.clone(),
-                import_resolver,
-            );
-            Some((root.source.clone(), collection))
-        };
-
-        // Parse the roots in parallel on rayon's global pool. Collection runs
-        // synchronously and completes before any test suite is dispatched, so it
-        // never contends with suite execution.
-        let collected: Vec<Option<(PathBuf, SourceCollection)>> =
-            roots.par_iter().map(parse).collect();
+        }
 
         let mut by_source = HashMap::new();
-        let mut errors = Vec::new();
-        for (source, collection) in collected.into_iter().flatten() {
-            let SourceCollection {
-                overrides,
-                errors: source_errors,
-            } = collection;
-            // Each item already carries its source name, contract, function and
-            // line, so problems from every source flatten into one report.
-            errors.extend(source_errors);
-            if !overrides.is_empty() {
-                by_source.insert(source, overrides);
+        for (version, pending) in by_version {
+            let preloaded: HashMap<String, &str> = pending
+                .iter()
+                .map(|pending| (pending.file_id.clone(), pending.content.as_str()))
+                .collect();
+            let unit = parse::compile_roots(version, &preloaded, import_resolver);
+
+            // Locating a root's contracts is a shallow walk of its AST; the
+            // directive parsing that follows is independent per root.
+            let located: Vec<(&PendingRoot<'_>, Vec<LocatedContract>)> = pending
+                .iter()
+                .map(|pending| (pending, parse::locate_contracts(&unit, &pending.file_id)))
+                .collect();
+            let collected: Vec<(&InlineConfigRoot, SourceCollection)> = located
+                .into_par_iter()
+                .map(|(pending, contracts)| {
+                    let collection =
+                        collect_source(&pending.root.source, &pending.content, &contracts);
+                    (pending.root, collection)
+                })
+                .collect();
+
+            for (root, collection) in collected {
+                let SourceCollection {
+                    overrides,
+                    errors: source_errors,
+                } = collection;
+                // Each item already carries its source name, contract, function
+                // and line, so problems from every source flatten into one
+                // report.
+                errors.extend(source_errors);
+                if !overrides.is_empty() {
+                    by_source.insert(root.source.clone(), overrides);
+                }
             }
         }
 
@@ -151,6 +186,39 @@ impl CachedInlineConfigProvider {
             .and_then(|configs| configs.get(contract_name))
             .cloned()
             .unwrap_or_default()
+    }
+}
+
+/// Reads `root`'s file. Only a file that carries an inline-config directive is
+/// worth compiling (the fast path).
+fn read_root(root: &InlineConfigRoot) -> ReadRoot<'_> {
+    let content = match std::fs::read_to_string(&root.path) {
+        Ok(content) => content,
+        Err(error) => {
+            return ReadRoot::Unreadable(source_problem(
+                &root.source,
+                InlineConfigCollectError::RootFileNotFound {
+                    path: root.path.display().to_string(),
+                    reason: error.to_string(),
+                },
+            ));
+        }
+    };
+    if !directives::contains_inline_config_directive(&content) {
+        return ReadRoot::NoDirective;
+    }
+    ReadRoot::Pending(PendingRoot {
+        root,
+        file_id: parse::root_file_id(&root.path),
+        content,
+    })
+}
+
+/// A source-level problem (one with no directive line to point at) in `source`.
+fn source_problem(source: &Path, error: InlineConfigCollectError) -> InlineConfigErrorItem {
+    InlineConfigErrorItem {
+        source: source.to_path_buf(),
+        problem: InlineConfigProblem::Source(error),
     }
 }
 

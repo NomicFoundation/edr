@@ -22,7 +22,8 @@
 //! The work flows through the submodules as a pipeline:
 //!
 //! ```text
-//!   - parse      locate contract/function definitions via Slang
+//!   - parse      compile the roots into one Slang unit and locate their
+//!                contract/function definitions
 //!   - natspec    scan the NatSpec comment blocks above each definition
 //!   - directives parse a block's lines into a config
 //!   - overrides  compose the above into a source's per-contract overrides
