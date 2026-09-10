@@ -2553,6 +2553,27 @@ interface Vm {
     #[cheatcode(group = Utilities)]
     function eip712HashTypedData(string calldata jsonData) external pure returns (bytes32 digest);
 
+    // ======== Scripting ========
+
+    /// Executes a signed, RLP-encoded transaction against the current EVM state, from the address
+    /// recovered from its signature.
+    ///
+    /// Nothing is broadcast to a network. This matches the behavior of Foundry's cheatcode of the
+    /// same name in a test context.
+    ///
+    /// The transaction is executed as its own transaction, not as a call from the test:
+    /// - It fails the cheatcode only if it is invalid: undecodable payload, unrecoverable
+    ///   signature, wrong chain id, or a sender that cannot pay for it. A transaction that is
+    ///   valid but reverts during execution is still included, so its nonce is consumed and its
+    ///   fee is paid, and the cheatcode succeeds.
+    /// - The declared nonce is not checked, as in all Solidity tests. The sender's account nonce
+    ///   is used and incremented, so replaying the same transaction twice succeeds twice.
+    /// - The resulting state is committed to the database rather than journaled, so it is not
+    ///   undone when the calling frame reverts. Use `snapshotState` and `revertToState` to roll
+    ///   it back.
+    #[cheatcode(group = Scripting)]
+    function broadcastRawTransaction(bytes calldata data) external;
+
     // ======== Unsupported Cheatcodes ========
 
     // -------- Data Structures --------
@@ -2639,10 +2660,6 @@ interface Vm {
     /// Scripting cheatcodes are not supported.
     #[cheatcode(group = Scripting, status = Unsupported)]
     function stopBroadcast() external;
-
-    /// Scripting cheatcodes are not supported.
-    #[cheatcode(group = Scripting, status = Unsupported)]
-    function broadcastRawTransaction(bytes calldata data) external;
 
     /// EIP-7702 cheatcodes are not supported.
     #[cheatcode(group = Scripting, status = Unsupported)]
