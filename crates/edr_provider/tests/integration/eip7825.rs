@@ -9,8 +9,8 @@ use edr_defaults::SECRET_KEYS;
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::address;
 use edr_provider::{
-    MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec, ProviderRequest,
-    ResponseWithCallTraces,
+    config::ConfigOption, MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec,
+    ProviderRequest, ResponseWithCallTraces,
 };
 use edr_test_utils::secret_key::secret_key_to_address;
 
@@ -25,7 +25,8 @@ fn new_provider(
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
     new_provider_with_config(|config| {
         config.hardfork = edr_chain_l1::Hardfork::Osaka;
-        config.transaction_gas_cap = transaction_gas_cap;
+        config.transaction_gas_cap =
+            transaction_gas_cap.map_or(ConfigOption::Disable, ConfigOption::Custom);
         config.mining.auto_mine = auto_mine;
     })
 }
