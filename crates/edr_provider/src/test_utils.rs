@@ -19,7 +19,9 @@ use parking_lot::RwLock;
 use tokio::runtime;
 
 use crate::{
-    config::{ForkConfig, GasEstimationMode, LocalConfig, MiningConfig, ProviderConfig},
+    config::{
+        ConfigOption, ForkConfig, GasEstimationMode, LocalConfig, MiningConfig, ProviderConfig,
+    },
     error::ProviderErrorForChainSpec,
     observability::ObservabilityConfig,
     time::{CurrentTime, TimeSinceEpoch},
@@ -240,7 +242,7 @@ pub fn create_test_config_with<HardforkT: Default>(
         observability: config.observability.unwrap_or_default(),
         owned_accounts: config.owned_accounts,
         precompile_overrides: HashMap::default(),
-        transaction_gas_cap: None,
+        transaction_gas_cap: ConfigOption::Disable,
     }
 }
 /// Retrieves the pending base fee per gas from the provider data.
