@@ -92,6 +92,11 @@
       "groupName": "napi-rs"
     },
     {
+      "description": "changesets/action + @changesets/cli: the action hard-validates the CLI major and refuses to run on a mismatch (action v1 requires CLI v2, action v2 requires CLI v3). They must move together. Nothing catches a mismatch in PR CI, because release.yml only runs on push to main.",
+      "matchPackageNames": ["changesets/action", "@changesets/cli"],
+      "groupName": "changesets"
+    },
+    {
       "description": "tokio family: keep async-surface versions in lockstep.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["/^tokio(-|$)/"],
