@@ -1535,6 +1535,15 @@ export interface RevertResult {
   output: Uint8Array
 }
 
+/**
+ * Derives the secp256k1 public key of the provided secret key, returning it
+ * in uncompressed SEC1 form: 65 bytes, `0x04 || X || Y`.
+ *
+ * Throws if the input isn't a valid secret key: exactly 32 bytes encoding a
+ * big-endian scalar in `[1, n)`, where `n` is the curve order.
+ */
+export declare function secp256k1PublicKeyFromSecretKey(secretKey: Uint8Array): Uint8Array
+
 export const SHANGHAI: string
 
 export type SolidityStackTrace =
