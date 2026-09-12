@@ -12,7 +12,7 @@ use foundry_evm::{
 
 use crate::{
     fork::CreateFork,
-    inline_config::{ImportResolver, InlineConfigErrors},
+    inline_config::{ImportResolver, InlineConfigErrors, InlineConfigProfiles},
     opts::{effective_transaction_gas_cap, Env as EvmEnv, EvmOpts},
 };
 
@@ -72,6 +72,10 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// Resolves the imports of test sources when parsing their inline
     /// configuration (`forge-config:`/`hardhat-config:` NatSpec directives).
     pub import_resolver: ImportResolver,
+    /// The profile the run was started with and every profile the project
+    /// declares, used to scope inline-config directives. Defaults to the single
+    /// `default` profile.
+    pub inline_config_profiles: InlineConfigProfiles,
 }
 
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
