@@ -1328,3 +1328,44 @@ async fn test_invariant_function_override_timeout() {
         )]),
     );
 }
+
+// The gas-report sample budget bounds how many runs' traces are collected: a
+// run past the budget records no traces at all instead of recording and then
+// dropping them. The report sees the sampled runs' calls plus the replayed
+// last run's.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_gas_report_samples_bound_collected_run_traces() {
+    const RUNS: u32 = 4;
+    const DEPTH: u32 = 3;
+    for (gas_report_samples, sampled_runs) in [(2, 2), (8, RUNS)] {
+        let filter = SolidityTestFilter::new(
+            ".*",
+            ".*",
+            ".*fuzz/invariant/common/InvariantGasReportSamples.t.sol",
+        );
+        let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+        config.generate_gas_report = true;
+        config.invariant.runs = RUNS;
+        config.invariant.depth = DEPTH;
+        config.invariant.gas_report_samples = gas_report_samples;
+
+        let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+        let test_result = runner.test_collect(filter).await.test_result;
+        let bump_calls = test_result
+            .gas_report
+            .as_ref()
+            .expect("a gas report was requested")
+            .contracts
+            .get("default/fuzz/invariant/common/InvariantGasReportSamples.t.sol:Bumper")
+            .expect("the handler should be in the gas report")
+            .functions
+            .get("bump()")
+            .map_or(0, Vec::len);
+
+        assert_eq!(
+            bump_calls,
+            ((sampled_runs + 1) * DEPTH) as usize,
+            "calls reported with a budget of {gas_report_samples}"
+        );
+    }
+}
