@@ -2,7 +2,7 @@
 
 Committed compiler inputs and outputs used by the `edr_solidity` unit tests (mostly the DWARF tests in `src/debug_info/dwarf.rs`).
 
-Don't edit the JSON files by hand — each pair is the output of a build flow. To update one, run its flow below and commit the result. If a freshly regenerated file differs from the committed one when you didn't expect it to, something in the toolchain moved (solx release, hardhat-solx settings, …); track that down instead of tweaking the JSON until it fits.
+Don't edit the JSON files by hand — each pair is the output of a build flow. To update one, run its flow below and commit the result. If a freshly regenerated file differs from the committed one when you didn't expect it to, something in the toolchain moved (solx release, hardhat-slang-solx settings, …); track that down instead of tweaking the JSON until it fits.
 
 | Fixture | What it is | How to regenerate |
 | --- | --- | --- |

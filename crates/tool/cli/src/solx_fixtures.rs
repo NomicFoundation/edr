@@ -12,8 +12,9 @@
 //!
 //! The committed inputs pin `settings.optimizer.mode` explicitly (trace
 //! shapes differ per mode) so a change to a default can't silently change
-//! what the fixtures test. The pinned "1" matches hardhat-solx's default,
-//! the pipeline these fixtures stand in for — not solx's own default "3".
+//! what the fixtures test. The pinned "1" matches hardhat-slang-solx's
+//! default, the pipeline these fixtures stand in for — not solx's own
+//! default "3".
 //! The `stack_trace_scenarios_mode3` variant exists because mode-1 DWARF
 //! is statement-attributed since solx 0.1.6, so only mode-3 artifacts
 //! still reach the inference's declaration-attributed and unmapped-revert
