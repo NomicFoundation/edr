@@ -412,6 +412,9 @@ importers:
       '@nomicfoundation/edr':
         specifier: workspace:*
         version: link:../../../crates/edr_napi
+      '@nomicfoundation/hardhat-slang-solx':
+        specifier: 3.0.3
+        version: 3.0.3(hardhat@3.16.0(patch_hash=6a41e35bc8995798aaed726067f2f281bd88148b22e92c4788ab4a712d9cfc3b))
       '@tsconfig/node22':
         specifier: ^22.0.0
         version: 22.0.6
@@ -1385,14 +1388,13 @@ packages:
       c-kzg:
         optional: true
 
-  '@nomicfoundation/hardhat-errors@3.0.16':
-    resolution: {integrity: sha512-z3hxWX2vG0C0JBojKHcUjArOXftHQZ2cPnHOSReILq6/UZXuzm9WIEBDPbotH2tgjRDKBlh0+XOpJZjFhEODIw==}
-
   '@nomicfoundation/hardhat-errors@3.0.21':
     resolution: {integrity: sha512-jXgqgxmI1D7vYcWRQnb6HsRDssxE87a4xJ48FQAdkZUPclB0aVISx6IoVG1Kttx2jJ7tNuo9GasJxpOv7stqyg==}
 
-  '@nomicfoundation/hardhat-utils@4.1.4':
-    resolution: {integrity: sha512-DEAu/uIBTNkPedfTnokh6tKum/Kxr5xMlh8ZovBGqlKA8AlxP26J0PBjK73fmeUQ0sh432suWksSr5CtHVG04A==}
+  '@nomicfoundation/hardhat-slang-solx@3.0.3':
+    resolution: {integrity: sha512-efOJNN3JDfwbyx/ZJuHbg3OQMsQX9sQKWz2RakJluif+i6sHyS2SlQa7U6yxcnmgKe4FSXr4bfhk2Rwx745r6A==}
+    peerDependencies:
+      hardhat: ^3.15.0
 
   '@nomicfoundation/hardhat-utils@4.1.9':
     resolution: {integrity: sha512-vUyHQ2H1VfknTUxO3Vat7z0y9WkDUF69pLrrLZN2K1/+TKJN+TVzEMeXW/2GXJzIhm2uc2qZXOYwQUh+SU9PbQ==}
@@ -2382,10 +2384,6 @@ packages:
 
   fast-diff@1.3.0:
     resolution: {integrity: sha512-VxPP4NqbUjj6MaAOafWeUn2cXWLcCtljklUtZf0Ind4XQ+QPtmA0b18zZy0jIQx+ExRVCR/ZQpBmik5lXshNsw==}
-
-  fast-equals@5.4.0:
-    resolution: {integrity: sha512-jt2DW/aNFNwke7AUd+Z+e6pz39KO5rzdbbFCg2sGafS4mk13MI7Z8O5z9cADNn5lhGODIgLwug6TZO2ctf7kcw==}
-    engines: {node: '>=6.0.0'}
 
   fast-equals@6.0.3:
     resolution: {integrity: sha512-IECu4C0fFZFoUC2cA2rDaNUuVIfWIZMwh3tY+ng924vOuD9OaUFFrcIrVwCKbV7TJDkGmrHfhwZ7R0AnHfVhyw==}
@@ -3610,10 +3608,6 @@ packages:
     resolution: {integrity: sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg==}
     engines: {node: '>=14.0'}
 
-  undici@6.27.0:
-    resolution: {integrity: sha512-YmfV3YnEDzXRC5lZ2jWtWWHKGUm1zIt8AhesR1tens+HTNv+YZlN/dp6G727LOvMJ8xjP9Be7Y2Sdr96LDm+pg==}
-    engines: {node: '>=18.17'}
-
   undici@6.28.1:
     resolution: {integrity: sha512-zWpdTVD54H48CIybL0rWQ3ukpb9d23wM7eH5RtfdmeP70cWHNjtfo7P4vZX+5CoDcO53J4Pu5uXp7lNfjc6DRA==}
     engines: {node: '>=18.17'}
@@ -4669,23 +4663,17 @@ snapshots:
       '@nomicfoundation/ethereumjs-rlp': 5.0.4
       ethereum-cryptography: 0.1.3
 
-  '@nomicfoundation/hardhat-errors@3.0.16':
-    dependencies:
-      '@nomicfoundation/hardhat-utils': 4.1.4
-
   '@nomicfoundation/hardhat-errors@3.0.21':
     dependencies:
       '@nomicfoundation/hardhat-utils': 4.1.9
 
-  '@nomicfoundation/hardhat-utils@4.1.4':
+  '@nomicfoundation/hardhat-slang-solx@3.0.3(hardhat@3.16.0(patch_hash=6a41e35bc8995798aaed726067f2f281bd88148b22e92c4788ab4a712d9cfc3b))':
     dependencies:
-      '@streamparser/json-node': 0.0.22
-      env-paths: 2.2.1
-      ethereum-cryptography: 2.2.1
-      fast-equals: 5.4.0
-      json-stream-stringify: 3.1.7
-      rfdc: 1.4.1
-      undici: 6.27.0
+      '@nomicfoundation/hardhat-errors': 3.0.21
+      '@nomicfoundation/hardhat-utils': 4.1.9
+      '@nomicfoundation/hardhat-zod-utils': 3.0.5(zod@3.25.76)
+      hardhat: 3.16.0(patch_hash=6a41e35bc8995798aaed726067f2f281bd88148b22e92c4788ab4a712d9cfc3b)
+      zod: 3.25.76
 
   '@nomicfoundation/hardhat-utils@4.1.9':
     dependencies:
@@ -4701,8 +4689,8 @@ snapshots:
 
   '@nomicfoundation/hardhat-zod-utils@3.0.5(zod@3.25.76)':
     dependencies:
-      '@nomicfoundation/hardhat-errors': 3.0.16
-      '@nomicfoundation/hardhat-utils': 4.1.4
+      '@nomicfoundation/hardhat-errors': 3.0.21
+      '@nomicfoundation/hardhat-utils': 4.1.9
       zod: 3.25.76
 
   '@nomicfoundation/solidity-analyzer-darwin-arm64@0.1.2':
@@ -5927,8 +5915,6 @@ snapshots:
   fast-deep-equal@3.1.3: {}
 
   fast-diff@1.3.0: {}
-
-  fast-equals@5.4.0: {}
 
   fast-equals@6.0.3: {}
 
@@ -7280,8 +7266,6 @@ snapshots:
   undici@5.29.0:
     dependencies:
       '@fastify/busboy': 2.1.1
-
-  undici@6.27.0: {}
 
   undici@6.28.1: {}
 

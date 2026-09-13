@@ -112,17 +112,7 @@ function compare(solc: Block | undefined, solx: Block | undefined): string[] {
   return probs;
 }
 
-// hardhat-slang-solx is not installed in this workspace (see the README) —
-// skip the sweep when the import fails.
-let pluginAvailable = false;
-try {
-  await import("@nomicfoundation/hardhat-slang-solx");
-  pluginAvailable = true;
-} catch {
-  // plugin missing — sweep skipped.
-}
-
-describe("solx-vs-solc trace parity", { skip: !pluginAvailable }, () => {
+describe("solx-vs-solc trace parity", () => {
   let solcBlocks: Map<string, Block>;
   let solxBlocks: Map<string, Block>;
   let allKeys: string[];
@@ -131,7 +121,7 @@ describe("solx-vs-solc trace parity", { skip: !pluginAvailable }, () => {
     const solcRun = runProfile([]);
     solcBlocks = parseTraceBlocks(solcRun.stdout);
 
-    const solxRun = runProfile(["--build-profile", "solx"]);
+    const solxRun = runProfile(["--build-profile", "slang-solx"]);
     solxBlocks = parseTraceBlocks(solxRun.stdout);
 
     allKeys = [...new Set([...solcBlocks.keys(), ...solxBlocks.keys()])].sort();
