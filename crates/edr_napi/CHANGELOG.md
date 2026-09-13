@@ -1,5 +1,15 @@
 # @nomicfoundation/edr
 
+## 0.21.0
+
+### Minor Changes
+
+- c08c761: Raised the minimum supported version of glibc for the prebuilt Linux gnu binaries (`@nomicfoundation/edr-linux-x64-gnu`, `@nomicfoundation/edr-linux-arm64-gnu`) from 2.30 to 2.34.
+
+### Patch Changes
+
+- d8579ed: Fixed the missing stack trace for an invariant test whose `afterInvariant()` reverts. The replay used to look for the revert reason in the passing `invariant()` call, so the runner discarded the failure's stack trace as unreproducible.
+
 ## 0.20.0
 
 ### Minor Changes
