@@ -4,7 +4,7 @@ Integration test that asserts EDR renders **the same Solidity stack trace** for 
 
 ## What it does
 
-`test/sweep.ts` runs `hardhat test` twice (once with the `default` build profile = solc, once with the `solx` profile), parses the failing-test trace blocks from each run, and asserts per scenario that:
+`test/sweep.ts` runs `hardhat test` twice (once with the `default` build profile = solc, once with the `slang-solx` profile), parses the failing-test trace blocks from each run, and asserts per scenario that:
 
 1. `Error:` reasons match.
 2. Frame counts match.
@@ -18,31 +18,6 @@ Scenarios that diverge from solc are pinned to solx's output via `scenariosDiver
 | --- | --- |
 | `InternalRecurseTest` | solx's optimizer fully unrolls 3-deep self-recursion; inlined frames collapse. |
 
-## Current state
-
-Not yet running in CI. `@nomicfoundation/hardhat-slang-solx` is on npm but needs hardhat ^3.15.0, and this workspace pins hardhat 3.4.5, so the plugin is not a dependency of this package; without it the suite self-skips.
-
-## Prerequisites
-
-To run the sweep, a local build of `hardhat-slang-solx` must be linked into this package.
-
-```sh
-# 1. Clone the hardhat monorepo (the plugin lives on main, under packages/hardhat-slang-solx).
-git clone https://github.com/NomicFoundation/hardhat.git
-cd hardhat
-
-# 2. Install + build the monorepo so packages/hardhat-slang-solx/dist exists.
-pnpm install
-pnpm --filter @nomicfoundation/hardhat-slang-solx build
-
-# 3. Symlink the built plugin into this package's node_modules.
-cd <edr-repo>/js/integration-tests/solx-parity-sweep
-mkdir -p node_modules/@nomicfoundation
-ln -s <path-to-hardhat-clone>/packages/hardhat-slang-solx node_modules/@nomicfoundation/hardhat-slang-solx
-```
-
-> Do not use `pnpm link` for step 3: with pnpm ≥ 9 it writes a machine-local `link:` dependency into the workspace root's `package.json`, `pnpm-workspace.yaml` and `pnpm-lock.yaml`, which must never be committed. The plain symlink has no side effects. Note that a `pnpm install` recreates `node_modules`, removing the symlink — re-create it afterwards.
-
 ## Running
 
 ```sh
@@ -50,7 +25,9 @@ pnpm install
 pnpm test
 ```
 
-The `pretest` step builds the workspace's `@nomicfoundation/edr` napi binary so the sweep runs against current EDR sources. With no `hardhat-slang-solx` linked the suite self-skips quickly.
+The `pretest` step builds the workspace's `@nomicfoundation/edr` napi binary so the sweep runs against current EDR sources. `@nomicfoundation/hardhat-slang-solx` is a regular dev dependency; on first use it downloads the solx release its version map selects into Hardhat's global compiler cache, so the first run needs network access. CI runs this package with the other `js/integration-tests/*` suites.
+
+To try an unreleased plugin build, symlink it over the installed one (`ln -s <hardhat-clone>/packages/hardhat-slang-solx node_modules/@nomicfoundation/hardhat-slang-solx`); do not use `pnpm link`, which writes a machine-local `link:` dependency into the workspace manifests. A `pnpm install` restores the published package.
 
 ## Adding scenarios
 

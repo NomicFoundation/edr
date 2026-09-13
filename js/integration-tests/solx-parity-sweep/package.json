@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
+    "@nomicfoundation/hardhat-slang-solx": "3.0.3",
     "@tsconfig/node22": "^22.0.0",
     "@types/node": "^22.0.0",
     "forge-std": "github:foundry-rs/forge-std#v1.14.0",
@@ -15,7 +16,7 @@
   "scripts": {
     "build": "pnpm run build:dev",
     "build:dev": "tsc --build --incremental .",
-    "pretest": "node ./scripts/maybe-build.js",
+    "pretest": "cd ../../.. && pnpm build:dev",
     "test": "node --import tsx/esm --test \"test/*.ts\""
   },
   "type": "module"
