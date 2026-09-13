@@ -112,16 +112,17 @@ function compare(solc: Block | undefined, solx: Block | undefined): string[] {
   return probs;
 }
 
-// hardhat-solx is an optional dep — skip the sweep if it's not installed.
-let hardhatSolxAvailable = false;
+// hardhat-slang-solx is not installed in this workspace (see the README) —
+// skip the sweep when the import fails.
+let pluginAvailable = false;
 try {
-  await import("@nomicfoundation/hardhat-solx");
-  hardhatSolxAvailable = true;
+  await import("@nomicfoundation/hardhat-slang-solx");
+  pluginAvailable = true;
 } catch {
-  // optional dep missing — sweep skipped.
+  // plugin missing — sweep skipped.
 }
 
-describe("solx-vs-solc trace parity", { skip: !hardhatSolxAvailable }, () => {
+describe("solx-vs-solc trace parity", { skip: !pluginAvailable }, () => {
   let solcBlocks: Map<string, Block>;
   let solxBlocks: Map<string, Block>;
   let allKeys: string[];

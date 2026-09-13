@@ -12,7 +12,7 @@ Integration test that asserts EDR renders **the same Solidity stack trace** for 
 
 ## Pinned divergences
 
-Scenarios that diverge from solc are pinned to solx's output via `scenariosDivergingFromSolc` in `test/sweep.ts`; every other scenario runs under the strict parity check. A golden mismatch means solx changed: either remove the entry (improvement) or update the pinned shape (regression). The pin set is specific to the solx release `hardhat-solx`'s version map selects.
+Scenarios that diverge from solc are pinned to solx's output via `scenariosDivergingFromSolc` in `test/sweep.ts`; every other scenario runs under the strict parity check. A golden mismatch means solx changed: either remove the entry (improvement) or update the pinned shape (regression). The pin set is specific to the solx release `hardhat-slang-solx`'s version map selects.
 
 | Scenario | Why it diverges |
 | --- | --- |
@@ -20,25 +20,25 @@ Scenarios that diverge from solc are pinned to solx's output via `scenariosDiver
 
 ## Current state
 
-Not yet running in CI. The suite has `@nomicfoundation/hardhat-solx` as an `optionalDependencies` entry because that package is not yet on the public npm registry; without it the suite self-skips.
+Not yet running in CI. `@nomicfoundation/hardhat-slang-solx` is on npm but needs hardhat ^3.15.0, and this workspace pins hardhat 3.4.5, so the plugin is not a dependency of this package; without it the suite self-skips.
 
 ## Prerequisites
 
-To run the sweep, a local build of `hardhat-solx` must be linked into this package.
+To run the sweep, a local build of `hardhat-slang-solx` must be linked into this package.
 
 ```sh
-# 1. Clone the hardhat monorepo (the plugin lives on main, under packages/hardhat-solx).
+# 1. Clone the hardhat monorepo (the plugin lives on main, under packages/hardhat-slang-solx).
 git clone https://github.com/NomicFoundation/hardhat.git
 cd hardhat
 
-# 2. Install + build the monorepo so packages/hardhat-solx/dist exists.
+# 2. Install + build the monorepo so packages/hardhat-slang-solx/dist exists.
 pnpm install
-pnpm --filter @nomicfoundation/hardhat-solx build
+pnpm --filter @nomicfoundation/hardhat-slang-solx build
 
 # 3. Symlink the built plugin into this package's node_modules.
 cd <edr-repo>/js/integration-tests/solx-parity-sweep
 mkdir -p node_modules/@nomicfoundation
-ln -s <path-to-hardhat-clone>/packages/hardhat-solx node_modules/@nomicfoundation/hardhat-solx
+ln -s <path-to-hardhat-clone>/packages/hardhat-slang-solx node_modules/@nomicfoundation/hardhat-slang-solx
 ```
 
 > Do not use `pnpm link` for step 3: with pnpm ≥ 9 it writes a machine-local `link:` dependency into the workspace root's `package.json`, `pnpm-workspace.yaml` and `pnpm-lock.yaml`, which must never be committed. The plain symlink has no side effects. Note that a `pnpm install` recreates `node_modules`, removing the symlink — re-create it afterwards.
@@ -50,7 +50,7 @@ pnpm install
 pnpm test
 ```
 
-The `pretest` step builds the workspace's `@nomicfoundation/edr` napi binary so the sweep runs against current EDR sources. With no `hardhat-solx` linked the suite self-skips quickly.
+The `pretest` step builds the workspace's `@nomicfoundation/edr` napi binary so the sweep runs against current EDR sources. With no `hardhat-slang-solx` linked the suite self-skips quickly.
 
 ## Adding scenarios
 
@@ -62,4 +62,4 @@ Scenarios live in `contracts/Scenarios.t.sol`, committed in this project. To add
 
 This corpus is compiled live on every run and exists only for the sweep. The Rust tests in `edr_solidity`/`edr_provider` pin the same shapes against a separate committed fixture (`crates/edr_solidity/fixtures/`, regenerated with `gen-solx-fixtures` — see the [fixtures index](../../../crates/edr_solidity/fixtures/README.md)), so provider-path coverage for a new shape needs a scenario there too.
 
-Note on toolchains: what the solx profile compiles with depends on hardhat-solx's settings (e.g. its explicit `-O1` optimizer default) and the solx release its version map selects (`SOLIDITY_TO_SOLX_VERSION_MAP`; `0.8.34` → `0.1.8` today). A locally linked hardhat-solx build can silently bring a different map — if pins break unexpectedly, check which solx actually ran via the bytecode's trailing CBOR `solcx` stamp.
+Note on toolchains: what the solx profile compiles with depends on hardhat-slang-solx's settings (e.g. its explicit `-O1` optimizer default) and the solx release its version map selects (`SOLIDITY_TO_SOLX_VERSION_MAP`, which maps `0.8.34` to `0.1.8`). A locally linked hardhat-slang-solx build can silently bring a different map — if pins break unexpectedly, check which solx actually ran via the bytecode's trailing CBOR `solcx` stamp.
