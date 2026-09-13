@@ -48,5 +48,9 @@ tracing = ["edr_chain_spec_evm/tracing"]
 name = "contracts_identifier"
 harness = false
 
+[[bench]]
+name = "dwarf_decode"
+harness = false
+
 [lints]
 workspace = true
