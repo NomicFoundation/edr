@@ -541,15 +541,21 @@ mod tests {
         parse_with(&InlineConfigProfiles::default(), &[text], function)
     }
 
+    /// Parses `lines`, each its own NatSpec block, on a contract against
+    /// `profiles`.
+    fn parse_contract_with(
+        profiles: &InlineConfigProfiles,
+        lines: &[&str],
+    ) -> Result<Option<TestFunctionConfigOverride>, InlineConfigError> {
+        let blocks: Vec<NatSpecBlock> = lines.iter().map(|line| block(line)).collect();
+        parse_inline_config(&blocks, DirectiveTarget::Contract, profiles)
+            .map_err(|located| located.error)
+    }
+
     /// Parses `text` on a contract under a project that declares only
     /// `default`.
     fn parse_contract(text: &str) -> Result<Option<TestFunctionConfigOverride>, InlineConfigError> {
-        parse_inline_config(
-            &[block(text)],
-            DirectiveTarget::Contract,
-            &InlineConfigProfiles::default(),
-        )
-        .map_err(|located| located.error)
+        parse_contract_with(&InlineConfigProfiles::default(), &[text])
     }
 
     /// Builds a profile context selecting `selected` out of `declared`.
@@ -1044,6 +1050,79 @@ mod tests {
         .unwrap_err()
         .error;
         assert!(matches!(err, InlineConfigError::DuplicateKey { .. }));
+    }
+
+    #[test]
+    fn contract_target_resolves_profiles() {
+        // The contract level scopes and overrides exactly like a function does:
+        // the selected profile's directive wins, an unselected one is inert.
+        let directives = [
+            "/// forge-config: fuzz.runs = 15",
+            "/// forge-config: ci.fuzz.runs = 8",
+            "/// forge-config: ci.invariant.depth = 3",
+        ];
+
+        let cfg = parse_contract_with(&profiles("ci", &["ci"]), &directives)
+            .unwrap()
+            .unwrap();
+        assert_eq!(cfg.fuzz.unwrap().runs, Some(8));
+        assert_eq!(cfg.invariant.unwrap().depth, Some(3));
+
+        let cfg = parse_contract_with(&profiles("default", &["ci"]), &directives)
+            .unwrap()
+            .unwrap();
+        assert_eq!(cfg.fuzz.unwrap().runs, Some(15));
+        assert_eq!(cfg.invariant, None);
+    }
+
+    #[test]
+    fn contract_target_with_only_unselected_directives_yields_none() {
+        // The runner layers a contract's configuration under every test; a
+        // contract whose directives all target another profile must contribute
+        // nothing rather than an empty override.
+        assert_eq!(
+            parse_contract_with(
+                &profiles("default", &["ci"]),
+                &[
+                    "/// forge-config: ci.fuzz.runs = 8",
+                    "/// forge-config: ci.invariant.depth = 3",
+                ],
+            ),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn contract_target_validates_unselected_profile_directives() {
+        let selected = profiles("default", &["ci"]);
+
+        let err =
+            parse_contract_with(&selected, &["/// forge-config: ci.fuzz.runs = -1"]).unwrap_err();
+        assert!(
+            matches!(err, InlineConfigError::InvalidValue { .. }),
+            "{err:?}"
+        );
+
+        let err =
+            parse_contract_with(&selected, &["/// forge-config: nope.fuzz.runs = 1"]).unwrap_err();
+        assert!(
+            matches!(err, InlineConfigError::UndeclaredProfile { .. }),
+            "{err:?}"
+        );
+
+        // Duplicates are per scope on a contract too.
+        let err = parse_contract_with(
+            &selected,
+            &[
+                "/// forge-config: ci.invariant.runs = 1",
+                "/// forge-config: ci.invariant.runs = 2",
+            ],
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, InlineConfigError::DuplicateKey { .. }),
+            "{err:?}"
+        );
     }
 
     #[test]
