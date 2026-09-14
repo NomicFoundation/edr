@@ -34,12 +34,7 @@ Run one script with `node scripts/detect_edr_platform.ts`, or one test file with
 
 A few JavaScript scripts remain outside these two directories. When you edit one, convert it to TypeScript as part of that change — time and deadlines permitting. If the conversion would hold up an urgent fix, say so in the pull request rather than leaving it unremarked.
 
-Today that means:
-
-- `js/integration-tests/solx-parity-sweep/scripts/maybe-build.js` — check its `TODO` first; the script is due to be deleted once `@nomicfoundation/hardhat-solx` is published on npm, so converting it may be wasted work.
-- `js/integration-tests/solx-parity-sweep/scripts/regen-fixtures.js`
-
-`scripts/` and `.github/scripts/` are already free of JavaScript, and `scripts/script-language.test.ts` keeps them that way.
+Today there are none left: `scripts/` and `.github/scripts/` are free of JavaScript, and `scripts/script-language.test.ts` keeps them that way.
 
 ## What stays JavaScript
 

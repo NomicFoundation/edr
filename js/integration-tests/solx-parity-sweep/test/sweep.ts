@@ -112,16 +112,7 @@ function compare(solc: Block | undefined, solx: Block | undefined): string[] {
   return probs;
 }
 
-// hardhat-solx is an optional dep — skip the sweep if it's not installed.
-let hardhatSolxAvailable = false;
-try {
-  await import("@nomicfoundation/hardhat-solx");
-  hardhatSolxAvailable = true;
-} catch {
-  // optional dep missing — sweep skipped.
-}
-
-describe("solx-vs-solc trace parity", { skip: !hardhatSolxAvailable }, () => {
+describe("solx-vs-solc trace parity", () => {
   let solcBlocks: Map<string, Block>;
   let solxBlocks: Map<string, Block>;
   let allKeys: string[];
@@ -130,7 +121,7 @@ describe("solx-vs-solc trace parity", { skip: !hardhatSolxAvailable }, () => {
     const solcRun = runProfile([]);
     solcBlocks = parseTraceBlocks(solcRun.stdout);
 
-    const solxRun = runProfile(["--build-profile", "solx"]);
+    const solxRun = runProfile(["--build-profile", "slang-solx"]);
     solxBlocks = parseTraceBlocks(solxRun.stdout);
 
     allKeys = [...new Set([...solcBlocks.keys(), ...solxBlocks.keys()])].sort();
