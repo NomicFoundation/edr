@@ -1819,11 +1819,8 @@ impl<
             trace!(result = ?res.result, "broadcast transaction did not succeed");
         }
 
-        // Commit the transaction's changes and mirror them into the loaded
-        // accounts, but only the accounts and slots the transaction touched.
-        // The database never received the test's uncommitted changes, so for
-        // everything else the journaled state is the only source of truth and
-        // must not be overwritten from the database.
+        // Only overwrite the journaled state for accounts and slots that the
+        // transaction touched.
         let touched: Vec<(Address, Vec<U256>)> = res
             .state
             .iter()
