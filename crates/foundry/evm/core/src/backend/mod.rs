@@ -1816,7 +1816,6 @@ impl<
         // during execution is still an included transaction, so its changeset
         // (nonce bump and fee payment) is committed either way. Traced because
         // there is otherwise no signal that the transaction did not succeed.
-        if !res.result.is_success() {
             trace!(result = ?res.result, "broadcast transaction did not succeed");
         }
 
