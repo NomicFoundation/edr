@@ -797,8 +797,8 @@ where
         let spec_id: EvmSpecId = hardfork.into();
 
         let mempool_transaction_gas_cap = if spec_id >= EvmSpecId::AMSTERDAM {
-            // EIP-8037 removes the pre-execution validation since transaction.gas limit
-            // includes both dimensions: state and execution
+            // From Amsterdam (EIP-8037) the cap bounds execution gas only, so the mem
+            // pool must not apply it to `tx.gas`.
             None
         } else {
             transaction_gas_cap
