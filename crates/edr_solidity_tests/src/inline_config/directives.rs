@@ -60,7 +60,7 @@ pub(super) fn is_reserved_profile_name(name: &str) -> bool {
 }
 
 /// The scope a directive applies under.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 enum DirectiveScope {
     /// Written without a profile prefix (`fuzz.runs = 3`): applies under every
     /// profile.
