@@ -770,6 +770,24 @@ describe("Provider", () => {
       assertHasNumber(event.result);
       assert.equal(typeof event.result.number, "string");
     });
+
+    // The binding only ever sees the wrapper's forwarding function (see
+    // index.js), so the wrapper has to reject a non-function itself.
+    it("rejects a non-function callback before creating the provider", async function () {
+      await chai
+        .expect(
+          createGenericProvider(
+            context,
+            {},
+            silentLoggerConfig(),
+            "not a function" as unknown as (event: SubscriptionEvent) => void
+          )
+        )
+        .to.be.rejectedWith(
+          TypeError,
+          /subscriptionConfig\.subscriptionCallback must be a function, got string/
+        );
+    });
   });
 
   describe("transactionGasCap", () => {
