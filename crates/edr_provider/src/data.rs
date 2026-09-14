@@ -747,8 +747,7 @@ where
             gas_estimation_mode,
             // Used by `create_blockchain_and_state`
             genesis_state: _genesis_state,
-            // Used by `create_blockchain_and_state`
-            hardfork: _hardfork,
+            hardfork,
             // Used by `create_blockchain_and_state`
             initial_base_fee_per_gas: _initial_base_fee_per_gas,
             initial_parent_beacon_block_root,
@@ -795,6 +794,15 @@ where
                 RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
             };
 
+        let spec_id: EvmSpecId = hardfork.into();
+
+        let mempool_transaction_gas_cap = if spec_id >= EvmSpecId::AMSTERDAM {
+            // EIP-8037 removes the pre-execution validation since transaction.gas limit
+            // includes both dimensions: state and execution
+            None
+        } else {
+            transaction_gas_cap
+        };
         Ok(Self {
             runtime_handle,
             bail_on_call_failure,
@@ -810,7 +818,7 @@ where
             interval_config,
             interval_reconfigured: false,
             irregular_state,
-            mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
+            mem_pool: MemPool::new(block_gas_limit, mempool_transaction_gas_cap),
             mining_order,
             network_id,
             observability,
