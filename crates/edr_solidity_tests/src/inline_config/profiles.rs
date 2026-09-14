@@ -9,7 +9,7 @@
 
 use std::collections::BTreeSet;
 
-use super::error::InlineConfigProfilesError;
+use super::{directives::is_reserved_profile_name, error::InlineConfigProfilesError};
 
 /// The profile that is always declared, and the one selected when the caller
 /// names none.
@@ -22,10 +22,11 @@ pub const DEFAULT_PROFILE: &str = "default";
 /// selected), which reproduces the behavior of a caller that knows nothing
 /// about profiles.
 ///
-/// Note: a name that collides with an inline-config key category (`fuzz`,
-/// `invariant`, `isolate`, `evmVersion`, `allowInternalExpectRevert`) can never
-/// be used as a prefix, since the parser reads that segment as the key.
-/// Consumers should reject such names when validating their configuration.
+/// Every declared name must be usable as a directive prefix, which
+/// [`new`](Self::new) enforces: it must be non-empty, contain none of `.`, `=`,
+/// or whitespace, and not collide with an inline-config key category (`fuzz`,
+/// `invariant`, `isolate`, `evmVersion`, `allowInternalExpectRevert`), which
+/// the parser always reads as the key.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InlineConfigProfiles {
     selected: String,
@@ -45,7 +46,8 @@ impl InlineConfigProfiles {
     /// Constructs the profile context of a run. `default` is always added to
     /// `declared`.
     ///
-    /// Fails if the selected profile is not among the declared ones.
+    /// Fails if a declared name cannot be written as a directive prefix, or if
+    /// the selected profile is not among the declared ones.
     pub fn new(
         selected: impl Into<String>,
         declared: impl IntoIterator<Item = String>,
@@ -56,6 +58,10 @@ impl InlineConfigProfiles {
         // messages list them deterministically.
         let mut declared: BTreeSet<String> = declared.into_iter().collect();
         declared.insert(DEFAULT_PROFILE.to_owned());
+
+        for name in &declared {
+            validate_name(name)?;
+        }
 
         if !declared.contains(&selected) {
             return Err(InlineConfigProfilesError::SelectedNotDeclared {
@@ -83,9 +89,29 @@ impl InlineConfigProfiles {
     }
 }
 
+/// Rejects a profile name that the directive parser could never read back as a
+/// prefix.
+fn validate_name(name: &str) -> Result<(), InlineConfigProfilesError> {
+    if name.is_empty() {
+        return Err(InlineConfigProfilesError::EmptyName);
+    }
+    if name.contains(['.', '=']) || name.chars().any(char::is_whitespace) {
+        return Err(InlineConfigProfilesError::UnrepresentableName {
+            name: name.to_owned(),
+        });
+    }
+    if is_reserved_profile_name(name) {
+        return Err(InlineConfigProfilesError::ReservedName {
+            name: name.to_owned(),
+        });
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::inline_config::directives::TOP_LEVEL_KEYS;
 
     #[test]
     fn default_selects_and_declares_the_default_profile() {
@@ -139,5 +165,60 @@ mod tests {
             }
         );
         assert!(error.to_string().contains("declared profiles are: default"));
+    }
+
+    #[test]
+    fn empty_name_is_rejected() {
+        let error =
+            InlineConfigProfiles::new(DEFAULT_PROFILE, [String::new()]).expect_err("empty name");
+
+        assert_eq!(error, InlineConfigProfilesError::EmptyName);
+    }
+
+    #[test]
+    fn names_the_parser_cannot_split_are_rejected() {
+        // The parser splits a key on the first `=`, trims it, then splits off
+        // the prefix at the first `.`; a name containing any of those could
+        // never be matched.
+        for name in ["my.ci", "ci=1", "my ci", " ci", "ci\t"] {
+            let error =
+                InlineConfigProfiles::new(DEFAULT_PROFILE, [name.to_owned()]).expect_err(name);
+
+            assert_eq!(
+                error,
+                InlineConfigProfilesError::UnrepresentableName {
+                    name: name.to_owned(),
+                },
+                "{name:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn key_categories_are_reserved() {
+        for name in TOP_LEVEL_KEYS {
+            let error =
+                InlineConfigProfiles::new(DEFAULT_PROFILE, [name.to_owned()]).expect_err(name);
+
+            assert_eq!(
+                error,
+                InlineConfigProfilesError::ReservedName {
+                    name: name.to_owned(),
+                },
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_selected_name_is_reported_as_invalid_not_undeclared() {
+        let error = InlineConfigProfiles::new("fuzz", ["fuzz".to_owned()]).expect_err("reserved");
+
+        assert_eq!(
+            error,
+            InlineConfigProfilesError::ReservedName {
+                name: "fuzz".to_owned(),
+            }
+        );
     }
 }

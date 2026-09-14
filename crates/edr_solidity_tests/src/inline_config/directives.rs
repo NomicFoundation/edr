@@ -45,13 +45,19 @@ pub(super) fn contains_inline_config_directive(source: &str) -> bool {
 
 /// Top-level inline-config key categories. A leading dot-segment that is not
 /// one of these is interpreted as a (profile) prefix.
-const TOP_LEVEL_KEYS: [&str; 5] = [
+pub(super) const TOP_LEVEL_KEYS: [&str; 5] = [
     "fuzz",
     "invariant",
     "allowInternalExpectRevert",
     "isolate",
     "evmVersion",
 ];
+
+/// Whether `name` is one of the top-level key categories, and therefore can
+/// never be read as a profile prefix.
+pub(super) fn is_reserved_profile_name(name: &str) -> bool {
+    TOP_LEVEL_KEYS.contains(&name)
+}
 
 /// The scope a directive applies under.
 #[derive(Clone, Debug, PartialEq, Eq)]
