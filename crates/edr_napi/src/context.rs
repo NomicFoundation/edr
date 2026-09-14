@@ -23,12 +23,13 @@ use crate::{
     logger::LoggerConfig,
     provider::{factory::SyncProviderFactory, GcProvider, Provider, ProviderFactory},
     solidity_tests::{
-        artifact::{Artifact, ArtifactId},
+        artifact::{Artifact, ArtifactId, TestSuiteReference},
+        artifact_contracts_from_napi,
         config::SolidityTestRunnerConfigArgs,
         factory::SolidityTestRunnerFactory,
-        inline_config,
+        inline_config, load_project_inputs,
         test_results::{SolidityTestResult, SuiteResult},
-        LinkingOutput,
+        ArtifactContracts, LinkingOutput, ProjectInputs,
     },
     subscription::SubscriptionConfig,
 };
@@ -217,12 +218,10 @@ impl EdrContext {
     ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
-        let on_test_suite_completed_callback = try_or_reject_promise!(
+        let on_test_suite_completed = try_or_reject_promise!(
             deferred,
             promise,
-            on_test_suite_completed_callback
-                .build_threadsafe_function::<SuiteResult>()
-                .build_callback(|ctx: ThreadsafeCallContext<SuiteResult>| Ok(ctx.value))
+            build_on_test_suite_completed(on_test_suite_completed_callback)
         );
 
         let test_filter: Arc<TestFilterConfig> = Arc::new(try_or_reject_promise!(
@@ -237,152 +236,292 @@ impl EdrContext {
 
         let context = self.inner.clone();
         runtime.clone().spawn(async move {
-            macro_rules! try_or_reject_deferred {
-                ($expr:expr) => {
-                    match $expr {
-                        Ok(value) => value,
-                        Err(error) => {
-                            deferred.reject(error);
-                            return;
-                        }
-                    }
+            let result = async {
+                let factory = {
+                    let context = context.lock().await;
+                    context.solidity_test_runner_factory(&chain_type).await?
                 };
-            }
-            let factory = {
-                let context = context.lock().await;
-                try_or_reject_deferred!(context.solidity_test_runner_factory(&chain_type).await)
-            };
 
-            let linking_output =
-                try_or_reject_deferred!(LinkingOutput::link(&config.project_root, artifacts));
+                let artifact_contracts = artifact_contracts_from_napi(artifacts)?;
 
-            // Build revert decoder from ABIs of all artifacts.
-            let abis = linking_output
-                .known_contracts
-                .iter()
-                .map(|(_, contract)| &contract.abi);
+                let test_suites = test_suites
+                    .into_iter()
+                    .map(edr_artifact::ArtifactId::try_from)
+                    .collect::<Result<Vec<_>, _>>()?;
 
-            let revert_decoder = RevertDecoder::new().with_abis(abis);
-
-            let test_suites = try_or_reject_deferred!(test_suites
-                .into_iter()
-                .map(edr_artifact::ArtifactId::try_from)
-                .collect::<Result<Vec<_>, _>>());
-
-            let contracts = try_or_reject_deferred!(test_suites
-                .iter()
-                .map(|artifact_id| {
-                    let contract_data = linking_output
-                        .known_contracts
-                        .get(artifact_id)
-                        .ok_or_else(|| {
-                            napi::Error::new(
-                                napi::Status::GenericFailure,
-                                format!("Unknown contract: {}", artifact_id.identifier()),
-                            )
-                        })?;
-
-                    let bytecode = contract_data.bytecode.clone().ok_or_else(|| {
-                        napi::Error::new(
-                            napi::Status::GenericFailure,
-                            format!(
-                                "No bytecode for test suite contract: {}",
-                                artifact_id.identifier()
-                            ),
-                        )
-                    })?;
-
-                    let test_contract = TestContract {
-                        abi: contract_data.abi.clone(),
-                        bytecode,
-                    };
-
-                    Ok((artifact_id.clone(), test_contract))
-                })
-                .collect::<napi::Result<TestContracts>>());
-
-            let include_traces = config.include_traces.into();
-
-            let runtime_for_factory = runtime.clone();
-            let create_result = runtime
-                .clone()
-                .spawn_blocking(move || {
-                    factory.create_test_runner(
-                        runtime_for_factory,
-                        config,
-                        contracts,
-                        linking_output.known_contracts,
-                        linking_output.libs_to_deploy,
-                        revert_decoder,
-                        tracing_config.into(),
-                    )
-                })
+                run_test_suites(
+                    runtime,
+                    factory,
+                    config,
+                    artifact_contracts,
+                    test_suites,
+                    edr_napi_core::solidity::config::TracingConfigWithBuffers::from(tracing_config),
+                    test_filter,
+                    on_test_suite_completed,
+                )
                 .await
-                .expect("Failed to join test runner factory thread");
+            }
+            .await;
 
-            let outcome = match create_result {
-                // An inline-config failure carries structured, located problems
-                // that we surface on the rejected promise's error as
-                // `inlineConfigErrors`. Building that JS object requires the JS
-                // thread, so route it through the deferred's resolver (which
-                // runs there) rather than `deferred.reject`, which only carries
-                // a message.
-                Err(solidity::CreateTestRunnerError::InvalidInlineConfig(errors)) => {
-                    RunOutcome::InvalidInlineConfig(errors)
-                }
-                Err(solidity::CreateTestRunnerError::Failed(error)) => {
-                    deferred.reject(error);
-                    return;
-                }
-                Ok(test_runner) => {
-                    let runtime_for_runner = runtime.clone();
-                    let test_result = try_or_reject_deferred!(runtime
-                        .clone()
-                        .spawn_blocking(move || {
-                            test_runner.run_tests(
-                                runtime_for_runner,
-                                test_filter,
-                                Arc::new(
-                                    move |SuiteResultAndArtifactId {
-                                              artifact_id,
-                                              result,
-                                          }| {
-                                        let suite_result =
-                                            SuiteResult::new(artifact_id, result, include_traces);
-
-                                        let status = on_test_suite_completed_callback.call(
-                                            suite_result,
-                                            ThreadsafeFunctionCallMode::Blocking,
-                                        );
-
-                                        // This should always succeed since we're using an
-                                        // unbounded queue. We add an assertion for completeness.
-                                        assert_eq!(
-                                            status,
-                                            napi::Status::Ok,
-                                            "Failed to call on_test_suite_completed_callback with status: {status}"
-                                        );
-                                    },
-                                ),
-                            )
-                        })
-                        .await
-                        .expect("Failed to join test runner thread"));
-
-                    RunOutcome::Completed(test_result)
-                }
-            };
-
-            deferred.resolve(move |env| match outcome {
-                RunOutcome::Completed(test_result) => Ok(SolidityTestResult::from(test_result)),
-                RunOutcome::InvalidInlineConfig(errors) => {
-                    Err(inline_config::to_napi_error(&env, &errors))
-                }
-            });
+            match result {
+                Ok(outcome) => deferred.resolve(move |env| match outcome {
+                    RunOutcome::Completed(test_result) => Ok(SolidityTestResult::from(test_result)),
+                    RunOutcome::InvalidInlineConfig(errors) => {
+                        Err(inline_config::to_napi_error(&env, &errors))
+                    }
+                }),
+                Err(error) => deferred.reject(error),
+            }
         });
 
         Ok(promise)
     }
+
+    /// Executes Solidity tests, loading artifacts and build infos from the
+    /// provided artifact directories.
+    ///
+    /// The function will return a promise that resolves to a
+    /// [`SolidityTestResult`].
+    ///
+    /// Arguments:
+    /// - `chainType`: the same chain type that was passed to
+    ///   `registerProviderFactory`.
+    /// - `artifactsDirectories`: the paths of the project's artifact
+    ///   directories, in the Hardhat v3 format. All artifacts are loaded, so
+    ///   that cheatcodes that access artifacts and other functionality (e.g.
+    ///   auto-linking, gas reports) work.
+    /// - `testSuites`: references to the test suite contracts to execute. The
+    ///   referenced artifacts must be present in the artifact directories.
+    /// - `configArgs`: solidity test runner configuration. See the struct docs
+    ///   for details.
+    /// - `onTestSuiteCompletedCallback`: The progress callback will be called
+    ///   with the results of each test suite as soon as it finished executing.
+    #[napi(
+        catch_unwind,
+        async_runtime,
+        ts_return_type = "Promise<SolidityTestResult>"
+    )]
+    pub fn run_solidity_tests_from_paths<'env>(
+        &self,
+        env: &'env Env,
+        chain_type: String,
+        artifacts_directories: Vec<String>,
+        test_suites: Vec<TestSuiteReference>,
+        config_args: SolidityTestRunnerConfigArgs<'env>,
+        on_test_suite_completed_callback: Function<'env, SuiteResult, ()>,
+    ) -> napi::Result<Object<'env>> {
+        let (deferred, promise) = env.create_deferred()?;
+
+        let on_test_suite_completed = try_or_reject_promise!(
+            deferred,
+            promise,
+            build_on_test_suite_completed(on_test_suite_completed_callback)
+        );
+
+        let test_filter: Arc<TestFilterConfig> = Arc::new(try_or_reject_promise!(
+            deferred,
+            promise,
+            config_args.try_get_test_filter()
+        ));
+
+        let runtime = runtime::Handle::current();
+        let config =
+            try_or_reject_promise!(deferred, promise, config_args.resolve(runtime.clone()));
+
+        let context = self.inner.clone();
+        runtime.clone().spawn(async move {
+            let result = async {
+                let factory = {
+                    let context = context.lock().await;
+                    context.solidity_test_runner_factory(&chain_type).await?
+                };
+
+                let ProjectInputs {
+                    artifact_contracts,
+                    test_suites,
+                    build_infos,
+                } = runtime
+                    .spawn_blocking(move || {
+                        load_project_inputs(&artifacts_directories, test_suites)
+                    })
+                    .await
+                    .expect("Failed to join artifact loading thread")?;
+
+                let tracing_config = edr_napi_core::solidity::config::TracingConfigWithBuffers {
+                    build_infos: Some(napi::Either::B(build_infos)),
+                    // Skipping `Ignored*`-named contracts is only used by EDR's own test harnesses;
+                    // production Hardhat always passes `false`.
+                    ignore_contracts: Some(false),
+                };
+
+                run_test_suites(
+                    runtime,
+                    factory,
+                    config,
+                    artifact_contracts,
+                    test_suites,
+                    tracing_config,
+                    test_filter,
+                    on_test_suite_completed,
+                )
+                .await
+            }
+            .await;
+
+            match result {
+                Ok(outcome) => deferred.resolve(move |env| match outcome {
+                    RunOutcome::Completed(test_result) => Ok(SolidityTestResult::from(test_result)),
+                    RunOutcome::InvalidInlineConfig(errors) => {
+                        Err(inline_config::to_napi_error(&env, &errors))
+                    }
+                }),
+                Err(error) => deferred.reject(error),
+            }
+        });
+
+        Ok(promise)
+    }
+}
+
+/// Builds a callback that forwards each completed test suite's results to the
+/// provided JS function.
+fn build_on_test_suite_completed(
+    on_test_suite_completed_callback: Function<'_, SuiteResult, ()>,
+) -> napi::Result<impl Fn(SuiteResult) + Send + Sync + 'static> {
+    let on_test_suite_completed_callback = on_test_suite_completed_callback
+        .build_threadsafe_function::<SuiteResult>()
+        .build_callback(|ctx: ThreadsafeCallContext<SuiteResult>| Ok(ctx.value))?;
+
+    Ok(move |suite_result: SuiteResult| {
+        let status = on_test_suite_completed_callback
+            .call(suite_result, ThreadsafeFunctionCallMode::Blocking);
+
+        // This should always succeed since we're using an unbounded queue.
+        // We add an assertion for completeness.
+        assert_eq!(
+            status,
+            napi::Status::Ok,
+            "Failed to call on_test_suite_completed_callback with status: {status}"
+        );
+    })
+}
+
+/// Links the provided artifacts and runs the provided test suites,
+/// forwarding each suite's results to `on_test_suite_completed` as soon as it
+/// finished executing.
+///
+/// Returns a [`RunOutcome`] so that inline-config failures can be converted
+/// into a structured JS error by the caller on the JS thread.
+#[allow(clippy::too_many_arguments)]
+async fn run_test_suites(
+    runtime: runtime::Handle,
+    factory: Arc<dyn solidity::SyncTestRunnerFactory>,
+    config: edr_napi_core::solidity::config::TestRunnerConfig,
+    artifact_contracts: ArtifactContracts,
+    test_suites: Vec<edr_artifact::ArtifactId>,
+    tracing_config: edr_napi_core::solidity::config::TracingConfigWithBuffers,
+    test_filter: Arc<TestFilterConfig>,
+    on_test_suite_completed: impl Fn(SuiteResult) + Send + Sync + 'static,
+) -> napi::Result<RunOutcome> {
+    let linking_output = LinkingOutput::link(&config.project_root, artifact_contracts)?;
+
+    // Build revert decoder from ABIs of all artifacts.
+    let abis = linking_output
+        .known_contracts
+        .iter()
+        .map(|(_, contract)| &contract.abi);
+
+    let revert_decoder = RevertDecoder::new().with_abis(abis);
+
+    let contracts = test_suites
+        .iter()
+        .map(|artifact_id| {
+            let contract_data =
+                linking_output
+                    .known_contracts
+                    .get(artifact_id)
+                    .ok_or_else(|| {
+                        napi::Error::new(
+                            napi::Status::GenericFailure,
+                            format!("Unknown contract: {}", artifact_id.identifier()),
+                        )
+                    })?;
+
+            let bytecode = contract_data.bytecode.clone().ok_or_else(|| {
+                napi::Error::new(
+                    napi::Status::GenericFailure,
+                    format!(
+                        "No bytecode for test suite contract: {}",
+                        artifact_id.identifier()
+                    ),
+                )
+            })?;
+
+            let test_contract = TestContract {
+                abi: contract_data.abi.clone(),
+                bytecode,
+            };
+
+            Ok((artifact_id.clone(), test_contract))
+        })
+        .collect::<napi::Result<TestContracts>>()?;
+
+    let include_traces = config.include_traces.into();
+
+    let runtime_for_factory = runtime.clone();
+    let create_result = runtime
+        .clone()
+        .spawn_blocking(move || {
+            factory.create_test_runner(
+                runtime_for_factory,
+                config,
+                contracts,
+                linking_output.known_contracts,
+                linking_output.libs_to_deploy,
+                revert_decoder,
+                tracing_config,
+            )
+        })
+        .await
+        .expect("Failed to join test runner factory thread");
+
+    let test_runner = match create_result {
+        // An inline-config failure carries structured, located problems that
+        // are surfaced on the rejected promise's error as `inlineConfigErrors`.
+        // Building that JS object requires the JS thread, so it's routed to
+        // the caller's deferred resolver (which runs there) rather than being
+        // rejected here, which would only carry a message.
+        Err(solidity::CreateTestRunnerError::InvalidInlineConfig(errors)) => {
+            return Ok(RunOutcome::InvalidInlineConfig(errors));
+        }
+        Err(solidity::CreateTestRunnerError::Failed(error)) => {
+            return Err(error);
+        }
+        Ok(test_runner) => test_runner,
+    };
+
+    let runtime_for_runner = runtime.clone();
+    let test_result = runtime
+        .spawn_blocking(move || {
+            test_runner.run_tests(
+                runtime_for_runner,
+                test_filter,
+                Arc::new(
+                    move |SuiteResultAndArtifactId {
+                              artifact_id,
+                              result,
+                          }| {
+                        let suite_result = SuiteResult::new(artifact_id, result, include_traces);
+
+                        on_test_suite_completed(suite_result);
+                    },
+                ),
+            )
+        })
+        .await
+        .expect("Failed to join test runner thread")?;
+
+    Ok(RunOutcome::Completed(test_result))
 }
 
 #[cfg(feature = "test-mock")]

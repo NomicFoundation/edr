@@ -13,6 +13,8 @@ export declare class ContractDecoder {
   constructor()
   /** Creates a new instance with the provided configuration. */
   static withContracts(config: TracingConfigWithBuffers): ContractDecoder
+  /** Creates a new instance by reading the project's build infos from disk. */
+  static fromProject(config: ProjectArtifactsConfig): ContractDecoder
 }
 
 export declare class EdrContext {
@@ -47,6 +49,28 @@ export declare class EdrContext {
    *   with the results of each test suite as soon as it finished executing.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (arg: SuiteResult) => void): Promise<SolidityTestResult>
+  /**
+   * Executes Solidity tests, loading artifacts and build infos from the
+   * provided artifact directories.
+   *
+   * The function will return a promise that resolves to a
+   * [`SolidityTestResult`].
+   *
+   * Arguments:
+   * - `chainType`: the same chain type that was passed to
+   *   `registerProviderFactory`.
+   * - `artifactsDirectories`: the paths of the project's artifact
+   *   directories, in the Hardhat v3 format. All artifacts are loaded, so
+   *   that cheatcodes that access artifacts and other functionality (e.g.
+   *   auto-linking, gas reports) work.
+   * - `testSuites`: references to the test suite contracts to execute. The
+   *   referenced artifacts must be present in the artifact directories.
+   * - `configArgs`: solidity test runner configuration. See the struct docs
+   *   for details.
+   * - `onTestSuiteCompletedCallback`: The progress callback will be called
+   *   with the results of each test suite as soon as it finished executing.
+   */
+  runSolidityTestsFromPaths(chainType: string, artifactsDirectories: Array<string>, testSuites: Array<TestSuiteReference>, configArgs: SolidityTestRunnerConfigArgs, onTestSuiteCompletedCallback: (arg: SuiteResult) => void): Promise<SolidityTestResult>
 }
 
 export declare class Exit {
@@ -1430,6 +1454,19 @@ export declare function precompileP256Verify(): Precompile
 
 export declare function printStackTrace(trace: SolidityStackTrace): void
 
+/** Configuration for loading a project's compilation output from disk. */
+export interface ProjectArtifactsConfig {
+  /** The path of the project's artifacts directory. */
+  artifactsDir: string
+  /**
+   * The path of the directory containing the project's build info files.
+   * Defaults to the `build-info` subdirectory of `artifactsDir`.
+   */
+  buildInfoDir?: string
+  /** Whether to ignore contracts whose name starts with "Ignored". */
+  ignoreContracts?: boolean
+}
+
 /** Configuration for a provider. */
 export interface ProviderConfig {
   /** Whether to allow blocks with the same timestamp */
@@ -1989,6 +2026,24 @@ export declare enum TestStatus {
   Failure = 'Failure',
   /** Test skipped */
   Skipped = 'Skipped'
+}
+
+/**
+ * A reference to a test suite contract within an artifacts directory.
+ *
+ * Unlike [`ArtifactId`], it doesn't require knowing the solc version that
+ * produced the contract; the version is resolved from the artifacts on disk.
+ */
+export interface TestSuiteReference {
+  /**
+   * The source name of the Solidity file containing the test suite, e.g.
+   * `contracts/Counter.t.sol`. Both the user-facing source name and the
+   * compiler input source name (e.g. `project/contracts/Counter.t.sol`)
+   * are accepted.
+   */
+  source: string
+  /** The name of the test suite contract, e.g. `CounterTest`. */
+  name: string
 }
 
 /** Tracing config for Solidity stack trace generation. */
