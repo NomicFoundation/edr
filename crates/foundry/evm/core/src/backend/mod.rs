@@ -1795,11 +1795,9 @@ impl<
             configure_tx_req_env(&mut env.tx, tx, None)?;
             let mut env = self.env_with_handler_cfg(env);
 
-            // Execute against a copy of the backend seeded with the current
-            // journaled state, so the transaction sees the state at this point
-            // of the test. Seeding the copy rather than `self` keeps the test's
-            // uncommitted changes out of the database: they may still be
-            // reverted by the test, in which case nothing would undo them.
+            // Use a clone of the backend, seeded with the current journaled
+            // state, to keep uncommitted changes out of the database if a
+            // test reverts.
             let mut db = self.clone();
             db.commit(journaled_state.state.clone());
             let mut journal = Journal::<_, JournalEntry>::new(db);
