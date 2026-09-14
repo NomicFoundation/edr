@@ -2891,9 +2891,7 @@ impl Cheatcode for broadcastRawTransactionCall {
         let tx = TxEnvelope::decode(&mut data.as_ref())
             .map_err(|err| fmt_err!("failed to decode RLP-encoded transaction: {err}"))?;
 
-        // The conversion below recovers the signer and sets it as `from`, so
-        // the transaction is executed from the address that signed it, and
-        // deliberately *not* from the caller of the cheatcode.
+        // Validate the signature so an invalid one prints a clear error.
         tx.recover_signer()
             .map_err(|err| fmt_err!("failed to recover signer: {err}"))?;
 
