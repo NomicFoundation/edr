@@ -12,6 +12,8 @@
 //! A directive's key may carry a profile prefix, scoping it to that profile.
 //! See [`parse_inline_config`] for how scoping and precedence work.
 
+use std::collections::HashSet;
+
 use super::{error::InlineConfigError, natspec::NatSpecBlock, profiles::InlineConfigProfiles};
 use crate::config::{TestFunctionConfigOverride, TimeoutConfig};
 
@@ -60,7 +62,7 @@ pub(super) fn is_reserved_profile_name(name: &str) -> bool {
 }
 
 /// The scope a directive applies under.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 enum DirectiveScope {
     /// Written without a profile prefix (`fuzz.runs = 3`): applies under every
     /// profile.
@@ -68,6 +70,13 @@ enum DirectiveScope {
     /// Written with a profile prefix (`ci.fuzz.runs = 8`): applies only when
     /// that profile is the selected one.
     Profile(String),
+}
+
+impl DirectiveScope {
+    /// Whether this is the prefixed scope of `profile`.
+    fn is_profile(&self, profile: &str) -> bool {
+        matches!(self, Self::Profile(name) if name == profile)
+    }
 }
 
 /// Whether `name` is an invariant test, matching the runner's classification
@@ -106,7 +115,7 @@ enum KeyCategory {
 }
 
 /// A recognized inline-config key.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Key {
     Isolate,
     AllowInternalExpectRevert,
@@ -155,6 +164,33 @@ impl Key {
             | Self::InvariantFailOnRevert
             | Self::InvariantCallOverride
             | Self::InvariantTimeout => KeyCategory::Invariant,
+        }
+    }
+
+    /// Checks that this key may appear on `target`. On a function the key must
+    /// match the test kind; top-level keys are valid on both. A contract
+    /// accepts both sections; each affects only the tests of its kind.
+    fn check_target(
+        self,
+        target: DirectiveTarget<'_>,
+        raw_key: &str,
+    ) -> Result<(), InlineConfigError> {
+        let DirectiveTarget::Function(function) = target else {
+            return Ok(());
+        };
+        let is_fuzz_test = function.starts_with("test");
+        let valid_for_kind = match self.category() {
+            KeyCategory::Any => true,
+            KeyCategory::Fuzz => is_fuzz_test,
+            KeyCategory::Invariant => is_invariant_function(function),
+        };
+        if valid_for_kind {
+            Ok(())
+        } else {
+            Err(InlineConfigError::InvalidKeyForTestType {
+                key: raw_key.to_owned(),
+                test_type: if is_fuzz_test { "fuzz" } else { "invariant" }.to_owned(),
+            })
         }
     }
 
@@ -422,92 +458,55 @@ pub(super) fn parse_inline_config(
         return Ok(None);
     }
 
-    // Directives of unselected profiles are validated into a scratch config and
-    // discarded, so a bad key or value fails whichever profile is selected.
-    let mut config = TestFunctionConfigOverride::default();
-    let mut unselected = TestFunctionConfigOverride::default();
-
-    // Applied after the unprefixed ones, so they win whatever order they were
-    // written in.
-    let mut selected_profile: Vec<(&RawOverride, Key)> = Vec::new();
-
-    // Whether anything reached `config`: a function whose directives all target
-    // unselected profiles must report none, not an override that sets nothing.
-    let mut applied = false;
-
-    // The (scope, key) pairs already seen, to reject duplicates per scope.
-    let mut seen: Vec<(&DirectiveScope, Key)> = Vec::new();
-
-    // First pass: validate every directive and apply the unprefixed ones.
+    // Every directive is validated in a scratch config, whichever profile it names,
+    // so a bad key or value fails on every run.
+    let mut scratch = TestFunctionConfigOverride::default();
+    let mut validated = Vec::with_capacity(raw_overrides.len());
+    // The (scope, key) pairs already seen. Duplicates are rejected per target
+    // and scope: the same key at contract and function level is not a
+    // duplicate (the function's value wins), nor is the same key under two
+    // profiles.
+    let mut seen = HashSet::new();
     for raw in &raw_overrides {
         let located = |error: InlineConfigError| LocatedDirectiveError {
             offset: raw.offset,
             error,
         };
 
-        let Some(key) = Key::from_canonical(&raw.key) else {
-            return Err(located(InlineConfigError::InvalidKey {
+        let key = Key::from_canonical(&raw.key).ok_or_else(|| {
+            located(InlineConfigError::InvalidKey {
                 key: raw.raw_key.clone(),
-            }));
-        };
-
-        // On a function the key must match the test kind; top-level keys are
-        // valid on both. A contract accepts both sections; each affects only
-        // the tests of its kind.
-        if let DirectiveTarget::Function(function) = target {
-            let is_fuzz_test = function.starts_with("test");
-            let valid_for_kind = match key.category() {
-                KeyCategory::Any => true,
-                KeyCategory::Fuzz => is_fuzz_test,
-                KeyCategory::Invariant => is_invariant_function(function),
-            };
-            if !valid_for_kind {
-                return Err(located(InlineConfigError::InvalidKeyForTestType {
-                    key: raw.raw_key.clone(),
-                    test_type: if is_fuzz_test { "fuzz" } else { "invariant" }.to_owned(),
-                }));
-            }
-        }
-
-        // Reject duplicate keys within one target and scope. The same key at
-        // contract and function level is not a duplicate (the function's value
-        // wins), nor is the same key under two profiles.
-        if seen.contains(&(&raw.scope, key)) {
+            })
+        })?;
+        key.check_target(target, &raw.raw_key).map_err(located)?;
+        if !seen.insert((&raw.scope, key)) {
             return Err(located(InlineConfigError::DuplicateKey {
                 key: raw.raw_key.clone(),
             }));
         }
-        seen.push((&raw.scope, key));
-
-        // Unprefixed directives apply now; the selected profile's are replayed
-        // in the second pass.
-        let target = match &raw.scope {
-            DirectiveScope::Bare => {
-                applied = true;
-                &mut config
-            }
-            DirectiveScope::Profile(profile) => {
-                if profile.as_str() == profiles.selected() {
-                    selected_profile.push((raw, key));
-                    applied = true;
-                }
-                &mut unselected
-            }
-        };
-        key.apply(target, raw).map_err(located)?;
+        key.apply(&mut scratch, raw).map_err(located)?;
+        validated.push((raw, key));
     }
 
-    // Second pass: the selected profile's directives override the unprefixed
-    // ones. Their values were validated above, so this cannot fail.
-    for (raw, key) in selected_profile {
-        key.apply(&mut config, raw)
+    // Unprefixed directives first, then the selected profile's, so the latter
+    // win irrespective of the order they were written in.
+    let bare = validated
+        .iter()
+        .filter(|(raw, _)| raw.scope == DirectiveScope::Bare);
+    let selected = validated
+        .iter()
+        .filter(|(raw, _)| raw.scope.is_profile(profiles.selected()));
+
+    let mut config = None;
+    for (raw, key) in bare.chain(selected) {
+        key.apply(config.get_or_insert_default(), raw)
             .map_err(|error| LocatedDirectiveError {
                 offset: raw.offset,
                 error,
             })?;
     }
 
-    Ok(applied.then_some(config))
+    Ok(config)
 }
 
 #[cfg(test)]
