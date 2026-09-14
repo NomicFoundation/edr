@@ -135,6 +135,26 @@ pub enum InlineConfigProfilesError {
         /// The declared profiles, sorted.
         declared: Vec<String>,
     },
+    /// A declared profile name is empty.
+    #[error("a Solidity test profile name must not be empty")]
+    EmptyName,
+    /// A declared profile name contains a character the directive grammar
+    /// cannot carry in a prefix (`.`, `=`, or whitespace).
+    #[error(
+        "invalid Solidity test profile name `{name}`: a profile name must not contain `.`, `=`, or whitespace"
+    )]
+    UnrepresentableName {
+        /// The offending name.
+        name: String,
+    },
+    /// A declared profile name is an inline-config key category (`fuzz`,
+    /// `invariant`, ...), which the directive parser always reads as the key
+    /// rather than as a profile prefix.
+    #[error("invalid Solidity test profile name `{name}`: it is a reserved inline-config key")]
+    ReservedName {
+        /// The offending name.
+        name: String,
+    },
 }
 
 /// A single inline-config problem together with enough location to point the
