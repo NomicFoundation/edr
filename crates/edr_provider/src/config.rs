@@ -320,12 +320,7 @@ pub struct ProviderConfig<HardforkT> {
     pub observability: ObservabilityConfig,
     pub owned_accounts: Vec<k256::SecretKey>,
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
-    /// Transaction gas cap, introduced in [EIP-7825].
-    ///
-    /// [`ConfigOption::Default`] resolves to the cap the hardfork activates, if
-    /// any. [`ConfigOption::Disable`] accepts transactions with any `gas` value
-    /// in the mempool and executes them without REVM's transaction gas cap
-    /// check.
+    /// [EIP-7825] transaction gas cap; execution gas only from Amsterdam.
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
     pub transaction_gas_cap: ConfigOption<u64>,
