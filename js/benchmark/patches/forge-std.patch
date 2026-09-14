@@ -39,7 +39,7 @@ new file mode 100644
 index 0000000..6aa92ae
 --- /dev/null
 +++ b/hardhat.config.js
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,35 @@
 +/** @type import('hardhat/config').HardhatUserConfig */
 +module.exports = {
 +  solidity: {
@@ -54,20 +54,24 @@ index 0000000..6aa92ae
 +  paths: {
 +    sources: "./test",
 +  },
-+  solidityTest: {
-+    forking: {
-+      rpcEndpoints: {
-+        mainnet: process.env.ALCHEMY_URL,
-+        optimism_sepolia: "https://sepolia.optimism.io/",
-+        arbitrum_one_sepolia: "https://sepolia-rollup.arbitrum.io/rpc/",
-+        needs_undefined_env_var: "${UNDEFINED_RPC_URL_PLACEHOLDER}"
-+      }
-+    },
-+    fuzz: {
-+      // Used to ensure deterministic fuzz execution
-+      seed: "0x1234567890123456789012345678901234567890",
-+      runs: 256
-+    },
++  test: {
++    solidity: {
++      forking: {
++        rpcEndpoints: {
++          // Defaulted so a run without the secret still resolves the config;
++          // only the fork suites then fail, as they did before.
++          mainnet: process.env.ALCHEMY_URL ?? "",
++          optimism_sepolia: "https://sepolia.optimism.io/",
++          arbitrum_one_sepolia: "https://sepolia-rollup.arbitrum.io/rpc/",
++          needs_undefined_env_var: "${UNDEFINED_RPC_URL_PLACEHOLDER}"
++        }
++      },
++      fuzz: {
++        // Used to ensure deterministic fuzz execution
++        seed: "0x1234567890123456789012345678901234567890",
++        runs: 256
++      },
++    }
 +  }
 +};
 +

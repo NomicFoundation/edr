@@ -33,7 +33,7 @@ new file mode 100644
 index 0000000..ffd179a
 --- /dev/null
 +++ b/hardhat.config.js
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,38 @@
 +module.exports = {
 +"paths": {
 +  "sources": "src",
@@ -55,18 +55,20 @@ index 0000000..ffd179a
 +    "evmVersion": "paris"
 +  }
 +},
-+"solidityTest": {
-+  "allowInternalExpectRevert": true,
-+  "fuzz": {
-+    "runs": 256,
-+    "seed": "0x1234",
-+  },
-+  "invariant": {
-+    "runs": 16,
-+    "depth": 256,
-+    "failOnRevert": true,
-+    "seed": "0x1234",
-+  },
++"test": {
++  "solidity": {
++    "allowInternalExpectRevert": true,
++    "fuzz": {
++      "runs": 256,
++      "seed": "0x1234",
++    },
++    "invariant": {
++      "runs": 16,
++      "depth": 256,
++      "failOnRevert": true,
++      "seed": "0x1234",
++    },
++  }
 +}
 +};
 +

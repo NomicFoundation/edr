@@ -20,7 +20,7 @@ new file mode 100644
 index 0000000..12dcdc4
 --- /dev/null
 +++ b/hardhat.config.js
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,40 @@
 +module.exports = {
 +"paths": {
 +  "sources": "src",
@@ -42,19 +42,21 @@ index 0000000..12dcdc4
 +    }
 +  }
 +},
-+"solidityTest": {
-+  "ffi": true,
-+  "fsPermissions": {
-+    "readWrite": [
-+      ".forge-snapshots/"
-+    ],
-+    "read": ["./out", "./test/bin"],
-+  },
-+  "allowInternalExpectRevert": true,
-+  "gasLimit": 300000000n,
-+  "fuzz": {
-+    "runs": 10,
-+    "seed": "0x4444"
++"test": {
++  "solidity": {
++    "ffi": true,
++    "fsPermissions": {
++      "readWrite": [
++        ".forge-snapshots/"
++      ],
++      "read": ["./out", "./test/bin"],
++    },
++    "allowInternalExpectRevert": true,
++    "gasLimit": 300000000n,
++    "fuzz": {
++      "runs": 10,
++      "seed": "0x4444"
++    }
 +  }
 +}
 +};

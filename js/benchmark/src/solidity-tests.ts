@@ -675,7 +675,7 @@ async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
 
   const configPath = path.join(repoPath, "hardhat.config.js");
   const userConfig = (await import(configPath)).default;
-  if (userConfig.solidityTest === undefined) {
+  if (userConfig.test?.solidity === undefined) {
     throw new Error(`Missing Solidity test config in ${configPath}`);
   }
   const hre = await createHardhatRuntimeEnvironment(
@@ -686,11 +686,16 @@ async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
 
   const { artifacts, testSuiteIds, tracingConfig, testSourcePaths } =
     await buildSolidityTestsInput(hre);
+  // The resolved profile, not `userConfig.test.solidity`: only Hardhat's
+  // config resolution turns `forking.rpcEndpoints` into the
+  // `ResolvedConfigurationVariable`s the helper calls `.get()` on.
+  const { eip712Types: _eip712Types, ...profileConfig } =
+    hre.config.test.solidity.profiles.default;
   const solidityTestsConfig =
     await solidityTestConfigToSolidityTestRunnerConfigArgs({
       chainType: "l1",
       projectRoot: repoPath,
-      config: userConfig.solidityTest,
+      config: profileConfig,
       verbosity,
       observability: undefined,
       testPattern: undefined,
