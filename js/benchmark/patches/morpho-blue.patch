@@ -24,7 +24,7 @@ index 7242cf4..1bb3b6f 100644
 -fail_on_revert = true
 +allow_internal_expect_revert = true
 +fuzz = { runs = 256, seed = "0x1234" }
-+invariant = { runs = 16, depth = 256, fail_on_revert = true, seed = "0x1234" }
++invariant = { runs = 16, depth = 256, fail_on_revert = true }
  
  [profile.default.fmt]
  wrap_comments = true
@@ -33,7 +33,7 @@ new file mode 100644
 index 0000000..ffd179a
 --- /dev/null
 +++ b/hardhat.config.js
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,37 @@
 +module.exports = {
 +"paths": {
 +  "sources": "src",
@@ -66,7 +66,6 @@ index 0000000..ffd179a
 +      "runs": 16,
 +      "depth": 256,
 +      "failOnRevert": true,
-+      "seed": "0x1234",
 +    },
 +  }
 +}
