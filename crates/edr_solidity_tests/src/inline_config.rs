@@ -31,6 +31,12 @@
 //! function testFoo(uint256 x) public { /* ... */ }
 //! ```
 //!
+//! Profiles are resolved separately for the contracts and functions,
+//! and only then are the contract's directives applied underneath the
+//! function's. Level precedence therefore outranks profile precedence: a
+//! function's unprefixed `fuzz.runs` beats the contract's `ci.fuzz.runs` even
+//! under `ci`.
+//!
 //! The work flows through the submodules as a pipeline:
 //!
 //! ```text
