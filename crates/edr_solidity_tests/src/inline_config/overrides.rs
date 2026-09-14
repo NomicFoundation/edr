@@ -67,9 +67,9 @@ pub(super) struct SourceCollection {
 
 /// Parses the file at `root_path` (its `content`, compiled with `version`) into
 /// the inline configuration of every contract it declares, resolved against
-/// `profiles`. Its imports are resolved by `import_resolver` and read from disk.
-/// `source` names the file in error reports (the solc source name the caller
-/// queries by).
+/// `profiles`. Its imports are resolved by `import_resolver` and read from
+/// disk. `source` names the file in error reports (the solc source name the
+/// caller queries by).
 ///
 /// A failure to locate the source's contracts (an unsupported solc version)
 /// becomes the collection's single (source-level) error; otherwise every
@@ -111,8 +111,8 @@ pub(super) fn collect_source(
 /// Parses the inline configuration of `contract` — the contract-level
 /// directives above its definition and the per-function directives above each
 /// of its test functions — within the already-parsed `source_text`, resolved
-/// against `profiles`, returning the successful overrides and the problems found
-/// (at most one per function, plus at most one for the contract's own
+/// against `profiles`, returning the successful overrides and the problems
+/// found (at most one per function, plus at most one for the contract's own
 /// directives), each located at its source line.
 fn contract_overrides(
     source: &Path,
