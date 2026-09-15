@@ -299,14 +299,6 @@ impl WalletCache {
     }
 }
 
-impl Clone for WalletCache {
-    fn clone(&self) -> Self {
-        Self {
-            inner: Mutex::new(self.inner.lock().clone()),
-        }
-    }
-}
-
 impl fmt::Debug for WalletCache {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Deliberately omit the entries: they are private keys.

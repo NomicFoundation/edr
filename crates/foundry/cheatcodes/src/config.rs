@@ -19,7 +19,7 @@ use crate::{cache::StorageCachingConfig, crypto::WalletCache, Vm::Rpc};
 ///
 /// This is essentially a subset of various `Config` settings `Cheatcodes` needs
 /// to know.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct CheatsConfig<HardforkT> {
     /// Whether the execution is in the context of a test run, gas snapshot or
     /// code coverage.
