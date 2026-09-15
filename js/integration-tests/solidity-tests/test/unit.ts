@@ -99,6 +99,43 @@ describe("Unit tests", () => {
     );
   });
 
+  it("UndeclaredInlineConfigProfile", async function () {
+    // A directive's profile prefix is validated against the declared profiles,
+    // not the selected one, so a mistyped prefix fails whichever profile the
+    // run selects.
+    for (const testProfile of ["default", "ci"]) {
+      await assert.rejects(
+        testContext.runTestsWithStats("InlineConfigUndeclaredProfileTest", {
+          testProfile,
+          declaredTestProfiles: ["default", "ci"],
+        }),
+        (error: Error & { inlineConfigErrors?: InlineConfigError[] }) => {
+          const errors = error.inlineConfigErrors;
+          if (!Array.isArray(errors) || errors.length !== 1) {
+            throw new Error(
+              `expected one structured inline config error, got ${JSON.stringify(errors)}`
+            );
+          }
+
+          const [entry] = errors;
+          if (entry.kind !== "directive") {
+            throw new Error(`expected a directive problem, got ${entry.kind}`);
+          }
+          assert.equal(entry.function, "testFuzz_UndeclaredProfile");
+          if (entry.problem.kind !== "InlineConfigUndeclaredProfile") {
+            throw new Error(
+              `expected InlineConfigUndeclaredProfile, got ${entry.problem.kind}`
+            );
+          }
+          assert.equal(entry.problem.profile, "nope");
+          // The declared profiles are reported so the message can name them.
+          assert.deepEqual(entry.problem.declaredProfiles, ["ci", "default"]);
+          return true;
+        }
+      );
+    }
+  });
+
   it("Latest global fork stack trace", async function (t) {
     if (testContext.rpcUrl === undefined) {
       return t.skip();

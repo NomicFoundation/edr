@@ -76,11 +76,16 @@ pub enum InlineConfigError {
         /// The offending directive line.
         line: String,
     },
-    /// A profile other than `default` was used.
-    #[error("unsupported profile `{profile}`; only `default` is supported")]
-    UnsupportedProfile {
-        /// The unsupported profile name.
+    /// A directive named a profile the project does not declare.
+    #[error(
+        "unknown profile `{profile}`; declared profiles are: {}",
+        declared.join(", ")
+    )]
+    UndeclaredProfile {
+        /// The undeclared profile name, exactly as written.
         profile: String,
+        /// The profiles the project declares, sorted.
+        declared: Vec<String>,
     },
     /// An unknown configuration key was used.
     #[error("invalid key `{key}`")]
@@ -113,6 +118,42 @@ pub enum InlineConfigError {
     DuplicateKey {
         /// The duplicated (raw) key.
         key: String,
+    },
+}
+
+/// Why a set of profiles could not be used to resolve inline configuration.
+#[derive(Clone, Debug, thiserror::Error, PartialEq, Eq)]
+pub enum InlineConfigProfilesError {
+    /// The selected profile is not one of the declared ones.
+    #[error(
+        "the selected Solidity test profile `{selected}` is not declared; declared profiles are: {}",
+        declared.join(", ")
+    )]
+    SelectedNotDeclared {
+        /// The selected profile.
+        selected: String,
+        /// The declared profiles, sorted.
+        declared: Vec<String>,
+    },
+    /// A declared profile name is empty.
+    #[error("a Solidity test profile name must not be empty")]
+    EmptyName,
+    /// A declared profile name contains a character the directive grammar
+    /// cannot carry in a prefix (`.`, `=`, or whitespace).
+    #[error(
+        "invalid Solidity test profile name `{name}`: a profile name must not contain `.`, `=`, or whitespace"
+    )]
+    UnrepresentableName {
+        /// The offending name.
+        name: String,
+    },
+    /// A declared profile name is an inline-config key category (`fuzz`,
+    /// `invariant`, ...), which the directive parser always reads as the key
+    /// rather than as a profile prefix.
+    #[error("invalid Solidity test profile name `{name}`: it is a reserved inline-config key")]
+    ReservedName {
+        /// The offending name.
+        name: String,
     },
 }
 
