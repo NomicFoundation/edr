@@ -37,7 +37,9 @@ fn assert_code_at(provider: &Provider<L1ChainSpec>, address: Address, expected: 
             )))
             .expect("eth_getCode should succeed");
 
-        serde_json::from_value(response.result).expect("response should be Bytes")
+        response
+            .deserialize_result()
+            .expect("response should be Bytes")
     };
 
     assert_eq!(code, *expected);
@@ -85,7 +87,7 @@ async fn trace_transaction() -> anyhow::Result<()> {
         ))
         .expect("eth_sendTransaction should succeed");
 
-    let transaction_hash: B256 = serde_json::from_value(response.result)?;
+    let transaction_hash: B256 = response.deserialize_result()?;
 
     let _response = provider
         .handle_request(ProviderRequest::with_single(
@@ -129,13 +131,13 @@ async fn get_transaction() -> anyhow::Result<()> {
         ))
         .expect("eth_sendTransaction should succeed");
 
-    let transaction_hash: B256 = serde_json::from_value(response.result)?;
+    let transaction_hash: B256 = response.deserialize_result()?;
 
     let response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: L1RpcTransactionWithSignature = serde_json::from_value(response.result)?;
+    let transaction: L1RpcTransactionWithSignature = response.deserialize_result()?;
     let transaction = edr_chain_l1::L1SignedTransaction::try_from(transaction)?;
 
     if let edr_chain_l1::L1SignedTransaction::Eip7702(transaction) = transaction {

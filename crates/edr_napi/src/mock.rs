@@ -7,12 +7,15 @@ use edr_rpc_client::jsonrpc;
 
 /// A mock provider that always returns the given mocked response.
 pub struct MockProvider {
-    mocked_response: serde_json::Value,
+    mocked_response: Box<serde_json::value::RawValue>,
 }
 
 impl MockProvider {
-    pub fn new(mocked_response: serde_json::Value) -> Self {
-        Self { mocked_response }
+    pub fn new(mocked_response: serde_json::Value) -> napi::Result<Self> {
+        let mocked_response = serde_json::value::to_raw_value(&mocked_response)
+            .map_err(|error| napi::Error::new(napi::Status::InvalidArg, error.to_string()))?;
+
+        Ok(Self { mocked_response })
     }
 }
 

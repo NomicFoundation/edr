@@ -38,13 +38,12 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Update version & Create Pull Request
-        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
+        uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         with:
-          title: "edr-${{ steps.get-version.outputs.version }}"
-          commit: "edr-${{ steps.get-version.outputs.version }}"
-          version: "bash ./scripts/release.sh"
-        env:
+          pr-title: "edr-${{ steps.get-version.outputs.version }}"
+          commit-message: "edr-${{ steps.get-version.outputs.version }}"
+          version-script: "bash ./scripts/release.sh"
           # If the default GITHUB_TOKEN is used, checks will not run in release PRs.
           # To have checks run, set up CHANGESETS_TOKEN in repo secrets with read/write
           # permission for Contents and Pull requests scopes.
-          GITHUB_TOKEN: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}

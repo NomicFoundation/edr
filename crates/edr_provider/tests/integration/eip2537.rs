@@ -27,7 +27,7 @@ fn send_call(
         )))
         .expect("request should succeed");
 
-    let output: Bytes = serde_json::from_value(response.result)?;
+    let output: Bytes = response.deserialize_result()?;
 
     Ok(output)
 }

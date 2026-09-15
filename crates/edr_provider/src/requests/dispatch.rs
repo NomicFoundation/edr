@@ -61,9 +61,35 @@ where
     }
 
     Ok(ResponseWithCallTraces {
-        result: serde_json::Value::Array(results),
+        result: to_json_array(&results),
         call_trace_arenas,
     })
+}
+
+/// Returns the length of the JSON array [`to_json_array`] builds from `values`.
+fn json_array_len(values: &[Box<serde_json::value::RawValue>]) -> usize {
+    // The brackets, the values, and one separator between each pair.
+    let separators = values.len().saturating_sub(1);
+    let values = values.iter().map(|value| value.get().len()).sum::<usize>();
+
+    2 + values + separators
+}
+
+/// Collects already-serialized JSON values into a JSON array.
+fn to_json_array(values: &[Box<serde_json::value::RawValue>]) -> Box<serde_json::value::RawValue> {
+    let mut json = String::with_capacity(json_array_len(values));
+    json.push('[');
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            json.push(',');
+        }
+        json.push_str(value.get());
+    }
+    json.push(']');
+
+    // SAFETY: every element is a single well-formed JSON value, so the array is
+    // one too.
+    unsafe { serde_json::value::RawValue::from_string_unchecked(json) }
 }
 
 /// Executes a single JSON-RPC request, printing its method logs unless the
@@ -387,6 +413,60 @@ mod tests {
     use super::*;
     use crate::test_utils::ProviderTestFixture;
 
+    fn raw_values(json: &[&str]) -> Vec<Box<serde_json::value::RawValue>> {
+        json.iter()
+            .map(|json| {
+                serde_json::value::RawValue::from_string((*json).to_string())
+                    .expect("the JSON is valid")
+            })
+            .collect()
+    }
+
+    /// `from_string_unchecked` re-parses in debug builds, so every case here
+    /// also asserts the output is a single well-formed JSON value.
+    #[test]
+    fn to_json_array_separates_values() {
+        let cases = [
+            (vec![], "[]"),
+            (vec!["1"], "[1]"),
+            (vec!["1", "2"], "[1,2]"),
+            (vec!["1", "2", "3"], "[1,2,3]"),
+        ];
+
+        for (values, expected) in cases {
+            let values = raw_values(&values);
+
+            assert_eq!(to_json_array(&values).get(), expected);
+        }
+    }
+
+    /// Values are copied verbatim, so a separator inside one is not a
+    /// separator.
+    #[test]
+    fn to_json_array_preserves_values_containing_separators() {
+        let values = raw_values(&[r#""a,b""#, r#"{"c":[1,2]}"#, r#""]""#]);
+
+        assert_eq!(to_json_array(&values).get(), r#"["a,b",{"c":[1,2]},"]"]"#);
+    }
+
+    /// The buffer is sized once, so the reservation has to be exact.
+    #[test]
+    fn json_array_len_matches_the_built_array() {
+        let cases = [
+            vec![],
+            vec!["null"],
+            vec!["1", "2"],
+            vec![r#""a,b""#, r#"{"c":[1,2]}"#],
+            vec!["1", "2", "3", "4", "5"],
+        ];
+
+        for values in cases {
+            let values = raw_values(&values);
+
+            assert_eq!(json_array_len(&values), to_json_array(&values).get().len());
+        }
+    }
+
     #[test]
     fn execute_batch_request_preserves_order() -> anyhow::Result<()> {
         let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
@@ -400,21 +480,19 @@ mod tests {
             ]),
         )?;
 
-        let serde_json::Value::Array(results) = &response.result else {
-            panic!("expected an array, got {:?}", response.result);
-        };
+        let results: Vec<Box<serde_json::value::RawValue>> = response.deserialize_result()?;
         assert_eq!(results.len(), 3);
 
-        let chain_id: U256 = serde_json::from_value(results[0].clone())?;
+        let chain_id: U256 = serde_json::from_str(results[0].get())?;
         assert_eq!(chain_id.to::<u64>(), fixture.config.chain_id);
 
-        let block_number: U256 = serde_json::from_value(results[1].clone())?;
+        let block_number: U256 = serde_json::from_str(results[1].get())?;
         assert_eq!(
             block_number.to::<u64>(),
             fixture.provider_data.last_block_number()
         );
 
-        let network_id: String = serde_json::from_value(results[2].clone())?;
+        let network_id: String = serde_json::from_str(results[2].get())?;
         assert_eq!(network_id, fixture.config.network_id.to_string());
 
         Ok(())
@@ -429,7 +507,7 @@ mod tests {
             ProviderRequest::Batch(Vec::new()),
         )?;
 
-        assert_eq!(response.result, serde_json::Value::Array(Vec::new()));
+        assert_eq!(response.result.get(), "[]");
         assert!(response.call_trace_arenas.is_empty());
 
         Ok(())

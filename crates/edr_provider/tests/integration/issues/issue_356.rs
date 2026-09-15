@@ -66,7 +66,7 @@ async fn issue_356() -> anyhow::Result<()> {
         )))?;
 
     assert_eq!(
-        response.result,
+        response.deserialize_result::<String>()?,
         "0x0000000000000000000000000000000000000000000000000000000000000006"
     );
 

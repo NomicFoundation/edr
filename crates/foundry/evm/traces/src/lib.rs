@@ -15,6 +15,7 @@ use std::{
 };
 
 use alloy_primitives::map::HashMap;
+use derive_where::derive_where;
 use revm_inspectors::tracing::types::DecodedTraceStep;
 pub use revm_inspectors::tracing::{
     types::{
@@ -31,7 +32,7 @@ use serde::{Deserialize, Serialize};
 /// Identifiers figure out what ABIs and labels belong to all the addresses of
 /// the trace.
 pub mod identifier;
-use identifier::LocalTraceIdentifier;
+use identifier::{LocalTraceIdentifier, TraceIdentifier};
 
 pub mod abi;
 pub mod decoder;
@@ -39,11 +40,137 @@ pub use decoder::{CallTraceDecoder, CallTraceDecoderBuilder};
 use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 
 /// A suite's setup-phase trace arenas, including deployments and `setUp()`,
-/// in execution order. When setup failed, the last arena is the failing call;
-/// the setup stack-trace computation relies on that.
-pub type SetupTraces = Vec<SetupTrace>;
+/// in execution order.
+///
+/// The setup stack-trace computation only names the last arena as the failing
+/// call, so the earlier ones never need their steps. When setup failed, that
+/// last arena is the failing call.
+pub type SetupTraces = TraceArenas<SetupTrace>;
 
+/// A setup trace arena paired with the kind of setup call that recorded it.
 pub type SetupTrace = (SetupTraceKind, SparsedTraceArena);
+
+/// The arenas a test's execution has recorded so far, in execution order.
+///
+/// Only the last arena may be named as the failing trace of a stack-trace
+/// computation; every earlier arena may only serve as a code source, which is
+/// walked for its CREATE nodes alone.
+pub type ExecutionTraces = TraceArenas<SparsedTraceArena>;
+
+/// An element of [`TraceArenas`]: a trace arena, possibly paired with
+/// metadata.
+pub trait HasTraceArena {
+    /// The carried arena.
+    fn trace_arena_mut(&mut self) -> &mut SparsedTraceArena;
+}
+
+impl HasTraceArena for SparsedTraceArena {
+    fn trace_arena_mut(&mut self) -> &mut SparsedTraceArena {
+        self
+    }
+}
+
+impl HasTraceArena for SetupTrace {
+    fn trace_arena_mut(&mut self) -> &mut SparsedTraceArena {
+        &mut self.1
+    }
+}
+
+/// Trace arenas in execution order.
+///
+/// At most the last element's arena carries recorded EVM steps, because
+/// [`push`](Self::push) — the only way to grow the collection — strips them
+/// from the arena it displaces. That bounds the memory peak while a test is
+/// still running, not just between tests. The collection derefs to a slice
+/// for reading; the mutating methods decode arenas in place or strip steps,
+/// so none of them can reintroduce steps or reorder the arenas.
+#[derive(Clone, Debug, Serialize)]
+#[derive_where(Default)]
+#[serde(transparent)]
+pub struct TraceArenas<T>(Vec<T>);
+
+impl<T: HasTraceArena> TraceArenas<T> {
+    /// Appends an element, stripping the recorded EVM steps from the arena
+    /// that was previously last (see [`SparsedTraceArena::strip_steps`]).
+    ///
+    /// The strip is unconditional, even when the whole collection is freed
+    /// once the test finishes. The in-test peak is worth the walk.
+    pub fn push(&mut self, item: T) {
+        self.strip_last_steps();
+        self.0.push(item);
+    }
+
+    /// Identifies the contracts in every arena and decodes the arenas in
+    /// place. Decoding writes labels and decoded call data; it cannot
+    /// reintroduce recorded steps.
+    pub async fn identify_and_decode(
+        &mut self,
+        decoder: &mut CallTraceDecoder,
+        identifier: &mut impl TraceIdentifier,
+    ) {
+        for item in &mut self.0 {
+            let arena = item.trace_arena_mut();
+            decoder.identify(arena, identifier);
+            decode_trace_arena(&mut arena.arena, decoder).await;
+        }
+    }
+
+    /// Strips the recorded EVM steps from the last arena, if any — the strip
+    /// [`push`](Self::push) would otherwise do when that arena is displaced.
+    pub fn strip_last_steps(&mut self) {
+        if let Some(last) = self.0.last_mut() {
+            last.trace_arena_mut().strip_steps();
+        }
+    }
+
+    /// Strips the recorded EVM steps from every arena, including the last.
+    ///
+    /// Must only be called once a stack trace can no longer be requested for
+    /// any of them.
+    pub fn strip_steps(&mut self) {
+        for item in &mut self.0 {
+            item.trace_arena_mut().strip_steps();
+        }
+    }
+}
+
+impl<T> Deref for TraceArenas<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> IntoIterator for TraceArenas<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a TraceArenas<T> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<T: HasTraceArena> FromIterator<T> for TraceArenas<T> {
+    /// Collects through [`push`](Self::push), so every arena but the last is
+    /// stripped of its steps.
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut traces = Self::default();
+        for item in iter {
+            traces.push(item);
+        }
+        traces
+    }
+}
 
 /// Trace arena keeping track of ignored trace items.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,106 +191,38 @@ impl SparsedTraceArena {
         if self.ignored.is_empty() {
             Cow::Borrowed(&self.arena)
         } else {
-            fn clear_node(
-                nodes: &mut [CallTraceNode],
-                node_idx: usize,
-                ignored: &HashMap<(usize, usize), (usize, usize)>,
-                cur_ignore_end: &mut Option<(usize, usize)>,
-            ) {
-                // Prepend an additional None item to the ordering to handle the beginning of
-                // the trace.
-                let node = nodes
-                    .get(node_idx)
-                    .expect("node_idx should be within nodes bounds");
-                let items = std::iter::once(None)
-                    .chain(node.ordering.clone().into_iter().map(Some))
-                    .enumerate();
-
-                let mut internal_calls = Vec::new();
-                let mut items_to_remove = BTreeSet::new();
-                for (item_idx, item) in items {
-                    if let Some(end_node) = ignored.get(&(node_idx, item_idx)) {
-                        *cur_ignore_end = Some(*end_node);
-                    }
-
-                    let mut remove = cur_ignore_end.is_some() & item.is_some();
-
-                    match item {
-                        // we only remove calls if they did not start/pause tracing
-                        Some(TraceMemberOrder::Call(child_idx)) => {
-                            let node = nodes
-                                .get(node_idx)
-                                .expect("node_idx should be within nodes bounds");
-                            let &child_node_idx = node
-                                .children
-                                .get(child_idx)
-                                .expect("child_idx should be within children bounds");
-                            clear_node(nodes, child_node_idx, ignored, cur_ignore_end);
-                            remove &= cur_ignore_end.is_some();
-                        }
-                        // we only remove decoded internal calls if they did not start/pause tracing
-                        Some(TraceMemberOrder::Step(step_idx)) => {
-                            // If this is an internal call beginning, track it in `internal_calls`
-                            let node = nodes
-                                .get(node_idx)
-                                .expect("node_idx should be within nodes bounds");
-                            let step = node
-                                .trace
-                                .steps
-                                .get(step_idx)
-                                .expect("step_idx should be within steps bounds");
-                            if let Some(decoded) = &step.decoded
-                                && let DecodedTraceStep::InternalCall(_, end_step_idx) = &**decoded
-                            {
-                                internal_calls.push((item_idx, remove, *end_step_idx));
-                                // we decide if we should remove it later
-                                remove = false;
-                            }
-                            // Handle ends of internal calls
-                            internal_calls.retain(|(start_item_idx, remove_start, end_idx)| {
-                                if *end_idx != step_idx {
-                                    return true;
-                                }
-                                // only remove start if end should be removed as well
-                                if *remove_start && remove {
-                                    items_to_remove.insert(*start_item_idx);
-                                } else {
-                                    remove = false;
-                                }
-
-                                false
-                            });
-                        }
-                        _ => {}
-                    }
-
-                    if remove {
-                        items_to_remove.insert(item_idx);
-                    }
-
-                    if let Some((end_node, end_step_idx)) = cur_ignore_end
-                        && node_idx == *end_node
-                        && item_idx == *end_step_idx
-                    {
-                        *cur_ignore_end = None;
-                    }
-                }
-
-                for (offset, item_idx) in items_to_remove.into_iter().enumerate() {
-                    let ordering = &mut nodes
-                        .get_mut(node_idx)
-                        .expect("node_idx should be within nodes bounds")
-                        .ordering;
-                    ordering.remove(item_idx - offset - 1);
-                }
-            }
-
             let mut arena = self.arena.clone();
-
             clear_node(arena.nodes_mut(), 0, &self.ignored, &mut None);
-
             Cow::Owned(arena)
         }
+    }
+
+    /// Removes the ignored trace items from the arena itself, so that it no
+    /// longer needs resolving.
+    fn resolve_in_place(&mut self) {
+        if !self.ignored.is_empty() {
+            clear_node(self.arena.nodes_mut(), 0, &self.ignored, &mut None);
+            self.ignored = HashMap::default();
+        }
+    }
+
+    /// Discards the recorded EVM steps, keeping the rest of the call tree:
+    /// its nodes, their logs and their ordering. With step recording enabled
+    /// the steps are by far the largest part of an arena — one entry per
+    /// executed opcode — while in the Solidity test runner their only
+    /// consumer is stack-trace generation.
+    ///
+    /// Must only be called once a stack trace can no longer be requested for
+    /// this arena.
+    ///
+    /// Ignored ranges (from the `pauseTracing`/`resumeTracing` cheatcodes) are
+    /// resolved first: they are keyed by position in each node's `ordering`,
+    /// which dropping the step entries would shift. Afterwards the arena is
+    /// no longer sparse and [`resolve_arena`](Self::resolve_arena) borrows it
+    /// as is.
+    pub fn strip_steps(&mut self) {
+        self.resolve_in_place();
+        strip_arena_steps(&mut self.arena);
     }
 }
 
@@ -212,6 +271,130 @@ impl TracingMode {
             record_logs: true,
             record_immediate_bytes: false,
         })
+    }
+}
+
+/// Removes the trace items covered by `ignored` from the sub-tree rooted at
+/// `node_idx`, recursing into the children it visits. `cur_ignore_end` carries
+/// the end of the range currently being skipped across that recursion, so a
+/// range may start in one node and end in another.
+fn clear_node(
+    nodes: &mut [CallTraceNode],
+    node_idx: usize,
+    ignored: &HashMap<(usize, usize), (usize, usize)>,
+    cur_ignore_end: &mut Option<(usize, usize)>,
+) {
+    // The loop below borrows `nodes` mutably to recurse into children, so it
+    // cannot also iterate this node's `ordering` through `nodes`. Taking the
+    // vector out is cheaper than cloning it: with step recording enabled it
+    // holds one entry per executed opcode. The loop reads this node's
+    // `children` and `steps` through `nodes` but never its `ordering`, so
+    // nothing observes the gap.
+    let mut ordering = std::mem::take(
+        &mut nodes
+            .get_mut(node_idx)
+            .expect("node_idx should be within nodes bounds")
+            .ordering,
+    );
+    // Prepend an additional None item to the ordering to handle the beginning of
+    // the trace.
+    let items = std::iter::once(None)
+        .chain(ordering.iter().copied().map(Some))
+        .enumerate();
+
+    let mut internal_calls = Vec::new();
+    let mut items_to_remove = BTreeSet::new();
+    for (item_idx, item) in items {
+        if let Some(end_node) = ignored.get(&(node_idx, item_idx)) {
+            *cur_ignore_end = Some(*end_node);
+        }
+
+        let mut remove = cur_ignore_end.is_some() & item.is_some();
+
+        match item {
+            // we only remove calls if they did not start/pause tracing
+            Some(TraceMemberOrder::Call(child_idx)) => {
+                let node = nodes
+                    .get(node_idx)
+                    .expect("node_idx should be within nodes bounds");
+                let &child_node_idx = node
+                    .children
+                    .get(child_idx)
+                    .expect("child_idx should be within children bounds");
+                clear_node(nodes, child_node_idx, ignored, cur_ignore_end);
+                remove &= cur_ignore_end.is_some();
+            }
+            // we only remove decoded internal calls if they did not start/pause tracing
+            Some(TraceMemberOrder::Step(step_idx)) => {
+                // If this is an internal call beginning, track it in `internal_calls`
+                let node = nodes
+                    .get(node_idx)
+                    .expect("node_idx should be within nodes bounds");
+                let step = node
+                    .trace
+                    .steps
+                    .get(step_idx)
+                    .expect("step_idx should be within steps bounds");
+                if let Some(decoded) = &step.decoded
+                    && let DecodedTraceStep::InternalCall(_, end_step_idx) = &**decoded
+                {
+                    internal_calls.push((item_idx, remove, *end_step_idx));
+                    // we decide if we should remove it later
+                    remove = false;
+                }
+                // Handle ends of internal calls
+                internal_calls.retain(|(start_item_idx, remove_start, end_idx)| {
+                    if *end_idx != step_idx {
+                        return true;
+                    }
+                    // only remove start if end should be removed as well
+                    if *remove_start && remove {
+                        items_to_remove.insert(*start_item_idx);
+                    } else {
+                        remove = false;
+                    }
+
+                    false
+                });
+            }
+            _ => {}
+        }
+
+        if remove {
+            items_to_remove.insert(item_idx);
+        }
+
+        if let Some((end_node, end_step_idx)) = cur_ignore_end
+            && node_idx == *end_node
+            && item_idx == *end_step_idx
+        {
+            *cur_ignore_end = None;
+        }
+    }
+
+    for (offset, item_idx) in items_to_remove.into_iter().enumerate() {
+        ordering.remove(item_idx - offset - 1);
+    }
+    nodes
+        .get_mut(node_idx)
+        .expect("node_idx should be within nodes bounds")
+        .ordering = ordering;
+}
+
+/// Discards the recorded EVM steps of every node in `arena`, keeping the rest
+/// of the call tree: its nodes, their logs and their ordering. See
+/// [`SparsedTraceArena::strip_steps`] for when this is safe.
+///
+/// Must not be applied to the arena of a still-sparse [`SparsedTraceArena`]:
+/// its ignored ranges are keyed by position in `ordering`, which this shifts.
+/// Use [`SparsedTraceArena::strip_steps`] there instead.
+pub fn strip_arena_steps(arena: &mut CallTraceArena) {
+    for node in arena.nodes_mut() {
+        node.trace.steps = Vec::new();
+        node.ordering
+            .retain(|item| !matches!(item, TraceMemberOrder::Step(_)));
+        // `retain` keeps the capacity, which grew with one entry per step.
+        node.ordering.shrink_to_fit();
     }
 }
 
@@ -271,4 +454,110 @@ pub fn load_contracts<'a>(
         }
     }
     contracts
+}
+
+#[cfg(test)]
+mod tests {
+    use revm::bytecode::opcode::OpCode;
+
+    use super::*;
+
+    /// Returns a minimal recorded step; only its presence in a node matters.
+    fn step() -> CallTraceStep {
+        CallTraceStep {
+            pc: 0,
+            op: OpCode::STOP,
+            stack: None,
+            push_stack: None,
+            memory: None,
+            returndata: alloy_primitives::Bytes::default(),
+            gas_remaining: 0,
+            gas_refund_counter: 0,
+            gas_used: 0,
+            gas_cost: 0,
+            storage_change: None,
+            status: None,
+            immediate_bytes: None,
+            decoded: None,
+        }
+    }
+
+    /// Root node with a `pauseTracing` child (node 1), a `resumeTracing` child
+    /// (node 3) and a call in between (node 2) that should be ignored, with
+    /// steps interleaved the way the tracing inspector records them.
+    fn paused_arena() -> SparsedTraceArena {
+        use TraceMemberOrder::{Call, Log, Step};
+
+        let mut arena = CallTraceArena::default();
+        let nodes = arena.nodes_mut();
+        nodes[0].children = vec![1, 2, 3];
+        nodes[0].logs = vec![CallLog::default(), CallLog::default()];
+        nodes[0].trace.steps = (0..5).map(|_| step()).collect();
+        nodes[0].ordering = vec![
+            Step(0),
+            Log(0),
+            Step(1),
+            Call(0),
+            Step(2),
+            Call(1),
+            Log(1),
+            Step(3),
+            Call(2),
+            Step(4),
+        ];
+        for idx in 1..=3 {
+            nodes.push(CallTraceNode {
+                parent: Some(0),
+                idx,
+                ..CallTraceNode::default()
+            });
+        }
+
+        // Recorded by the cheatcodes as the position in the cheatcode call's
+        // own (still empty) ordering.
+        let mut ignored = HashMap::default();
+        ignored.insert((1, 0), (3, 0));
+
+        SparsedTraceArena { arena, ignored }
+    }
+
+    #[test]
+    fn push_strips_steps_of_the_displaced_arena_only() {
+        let mut traces = ExecutionTraces::default();
+
+        traces.push(paused_arena());
+        assert!(!traces[0].nodes()[0].trace.steps.is_empty());
+
+        traces.push(paused_arena());
+        assert!(traces[0].nodes()[0].trace.steps.is_empty());
+        assert!(traces[0].ignored.is_empty());
+        assert!(!traces[1].nodes()[0].trace.steps.is_empty());
+    }
+
+    #[test]
+    fn strip_steps_matches_resolving_then_dropping_steps() {
+        let mut arena = paused_arena();
+
+        let expected: Vec<Vec<TraceMemberOrder>> = arena
+            .resolve_arena()
+            .nodes()
+            .iter()
+            .map(|node| {
+                node.ordering
+                    .iter()
+                    .filter(|item| !matches!(item, TraceMemberOrder::Step(_)))
+                    .copied()
+                    .collect()
+            })
+            .collect();
+
+        arena.strip_steps();
+
+        assert!(arena.ignored.is_empty());
+        assert!(matches!(arena.resolve_arena(), Cow::Borrowed(_)));
+        for (node, expected) in arena.nodes().iter().zip(expected) {
+            assert!(node.trace.steps.is_empty());
+            assert_eq!(node.ordering, expected);
+        }
+    }
 }

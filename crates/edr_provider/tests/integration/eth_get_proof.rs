@@ -52,9 +52,9 @@ fn verify_account_proof<'proof>(
         )))
         .unwrap();
 
-    let account_proof_response: EIP1186AccountProofResponse =
-        serde_json::from_value(proof_response.result)
-            .expect("Failed to deserialize account proof response");
+    let account_proof_response: EIP1186AccountProofResponse = proof_response
+        .deserialize_result()
+        .expect("Failed to deserialize account proof response");
 
     assert_eq!(account_proof_response.account_proof, expected_proof);
 }
@@ -78,9 +78,9 @@ fn verify_storage_proof<'proof>(
         )))
         .unwrap();
 
-    let account_proof_response: EIP1186AccountProofResponse =
-        serde_json::from_value(proof_response.result)
-            .expect("Failed to deserialize account proof response");
+    let account_proof_response: EIP1186AccountProofResponse = proof_response
+        .deserialize_result()
+        .expect("Failed to deserialize account proof response");
 
     assert_eq!(
         account_proof_response
@@ -249,8 +249,9 @@ mod fork {
                 (),
             )))
             .expect("Failed to get block number");
-        let block_number: U256 =
-            serde_json::from_value(response.result).expect("Block number should be a quantity");
+        let block_number: U256 = response
+            .deserialize_result()
+            .expect("Block number should be a quantity");
         block_number.to::<u64>()
     }
 
@@ -272,7 +273,8 @@ mod fork {
                 BlockSpec::Number(block_number),
             )))
             .expect("Failed to get proof");
-        let proof: EIP1186AccountProofResponse = serde_json::from_value(response.result)
+        let proof: EIP1186AccountProofResponse = response
+            .deserialize_result()
             .expect("Failed to deserialize account proof response");
 
         let response = provider
@@ -283,8 +285,10 @@ mod fork {
                 ),
             ))
             .expect("Failed to get block");
-        let state_root = response
-            .result
+        let block: serde_json::Value = response
+            .deserialize_result()
+            .expect("Failed to deserialize block");
+        let state_root = block
             .get("stateRoot")
             .expect("Block should have a state root");
         let state_root: B256 =

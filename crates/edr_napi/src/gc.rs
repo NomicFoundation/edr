@@ -2,9 +2,15 @@ use napi::{bindgen_prelude::ToNapiValue, sys, Env};
 
 /// Declares how much external memory a type's JavaScript object stands for.
 ///
-/// Implemented by `gc_tracked!`, which also emits the finalizer releasing
-/// [`Self::EXTERNAL_MEMORY`] again. Implementing it by hand gets the report
-/// without that release.
+/// Implemented by `gc_tracked!`, which also emits the finalizer releasing the
+/// same amount. Implementing it by hand gets the report without that release.
+///
+/// Must return the same value for the lifetime of the JavaScript object. A
+/// type whose answer varies has to store it, so both ends read one field.
+///
+/// The function should run in constant time, as it can be called on a hot
+/// code path! The figure is only a heuristic for the order of magnitude of
+/// the externally allocated memory.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not declared with `gc_tracked!`",
     label = "not declared with `gc_tracked!`",
@@ -12,7 +18,7 @@ use napi::{bindgen_prelude::ToNapiValue, sys, Env};
 )]
 pub trait HasExternalMemory {
     /// Bytes reported to V8 while the JavaScript object is alive.
-    const EXTERNAL_MEMORY: i64;
+    fn external_memory(&self) -> i64;
 }
 
 /// Blanket-implemented for every type that has its own [`Drop`], so
@@ -31,12 +37,12 @@ pub trait MoveTheDropImplIntoGcTracked {}
 impl<T: Drop> MoveTheDropImplIntoGcTracked for T {}
 
 /// Wraps a value so that handing it to JavaScript reports
-/// [`HasExternalMemory::EXTERNAL_MEMORY`] bytes to V8.
+/// [`HasExternalMemory::external_memory`] bytes to V8.
 ///
 /// `gc_tracked!` is the only thing that implements [`HasExternalMemory`], and
-/// it emits the finalizer that releases the same constant. The report and its
+/// it emits the finalizer that releases the same amount. The report and its
 /// release are therefore declared together, and neither can name a different
-/// amount.
+/// figure.
 ///
 /// # Why report at all
 ///
@@ -60,7 +66,7 @@ impl<T: ToNapiValue + HasExternalMemory> ToNapiValue for GcTracked<T> {
         // Reported before the conversion, because only a JS object gets a
         // finalizer to release it. A conversion that fails afterwards leaves an
         // over-report, which makes V8 more eager rather than less.
-        Env::from_raw(env).adjust_external_memory(T::EXTERNAL_MEMORY)?;
+        Env::from_raw(env).adjust_external_memory(val.0.external_memory())?;
 
         // SAFETY: `env` is valid, as this function's own contract requires.
         unsafe { T::to_napi_value(env, val.0) }
@@ -71,8 +77,10 @@ impl<T: ToNapiValue + HasExternalMemory> ToNapiValue for GcTracked<T> {
 /// JavaScript object reports and the finalizer that releases it.
 ///
 /// `GcTracked` in the alias is a literal token rather than a path, so it needs
-/// no import. `fn drop` takes `self` by value, and `mut self` is not
-/// supported.
+/// no import. Both functions take `self` by the name written here, and
+/// `mut self` is not supported.
+///
+/// `external_memory` should run in constant time; see [`HasExternalMemory`].
 ///
 /// ```text
 /// gc_tracked! {
@@ -80,7 +88,9 @@ impl<T: ToNapiValue + HasExternalMemory> ToNapiValue for GcTracked<T> {
 ///     pub(crate) type GcProvider = GcTracked<Provider>;
 ///
 ///     /// What the JavaScript object stands for.
-///     const EXTERNAL_MEMORY: i64 = 2 * 1024 * 1024;
+///     fn external_memory(&self) -> i64 {
+///         2 * 1024 * 1024
+///     }
 ///
 ///     fn drop(self) {
 ///         // whatever `Drop` would have done
@@ -93,7 +103,7 @@ macro_rules! gc_tracked {
         $alias_vis:vis type $alias:ident = GcTracked<$ty:ty>;
 
         $(#[$memory_meta:meta])*
-        const EXTERNAL_MEMORY: i64 = $external_memory:expr;
+        fn external_memory(&$memory_self:ident) -> i64 $memory_body:block
 
         fn drop($self:ident) $body:block
     ) => {
@@ -102,7 +112,7 @@ macro_rules! gc_tracked {
 
         impl $crate::gc::HasExternalMemory for $ty {
             $(#[$memory_meta])*
-            const EXTERNAL_MEMORY: i64 = $external_memory;
+            fn external_memory(&$memory_self) -> i64 $memory_body
         }
 
         impl $crate::gc::MoveTheDropImplIntoGcTracked for $ty {}
@@ -113,15 +123,16 @@ macro_rules! gc_tracked {
 
         impl ::napi::bindgen_prelude::ObjectFinalize for $ty {
             fn finalize($self, env: ::napi::Env) -> ::napi::Result<()> {
-                // Runs first, so returning below cannot drop the value on the
-                // JS thread.
+                let external_memory =
+                    <Self as $crate::gc::HasExternalMemory>::external_memory(&$self);
+
+                // Runs before the report is released, so returning below cannot
+                // drop the value on the JS thread.
                 Self::__gc_tracked_drop($self);
 
                 // Releases what the conversion to JavaScript reported. Only a
                 // JS object reaches this finalizer, so the amounts pair up.
-                env.adjust_external_memory(
-                    -<Self as $crate::gc::HasExternalMemory>::EXTERNAL_MEMORY,
-                )?;
+                env.adjust_external_memory(-external_memory)?;
 
                 Ok(())
             }

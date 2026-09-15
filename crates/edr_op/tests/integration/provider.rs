@@ -57,7 +57,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
             MethodInvocation::BlockNumber(()),
         ))?;
 
-        serde_json::from_value::<U64>(response.result)?.to::<u64>()
+        response.deserialize_result::<U64>()?.to::<u64>()
     };
 
     let data = bytes!(
@@ -140,7 +140,9 @@ mod base_fee_params {
                 false,
             ),
         ))?;
-        serde_json::from_value::<L1RpcBlock<B256>>(response.result).map_err(Into::into)
+        response
+            .deserialize_result::<L1RpcBlock<B256>>()
+            .map_err(Into::into)
     }
 
     mod local {

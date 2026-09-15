@@ -57,7 +57,7 @@ async fn issue_324() -> anyhow::Result<()> {
     )))?;
 
     assert_eq!(
-        x.result,
+        x.deserialize_result::<String>()?,
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
 
@@ -72,7 +72,7 @@ async fn issue_324() -> anyhow::Result<()> {
     )))?;
 
     assert_eq!(
-        y.result,
+        y.deserialize_result::<String>()?,
         "0x0000000000000000000000000000000000000000000000000000000000000002"
     );
 
@@ -90,7 +90,7 @@ async fn issue_324() -> anyhow::Result<()> {
         MethodInvocation::GetStorageAt(contract_address, x_storage_index, None),
     ))?;
 
-    assert_eq!(new_x.result, expected_x);
+    assert_eq!(new_x.deserialize_result::<String>()?, expected_x);
 
     let new_x = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
         L1CallRequest {
@@ -102,7 +102,7 @@ async fn issue_324() -> anyhow::Result<()> {
         None,
     )))?;
 
-    assert_eq!(new_x.result, expected_x);
+    assert_eq!(new_x.deserialize_result::<String>()?, expected_x);
 
     let y_storage_index = U256::from(1u64);
     let expected_y = "0x0000000000000000000000000000000000000000000000000000000000000003";
@@ -118,7 +118,7 @@ async fn issue_324() -> anyhow::Result<()> {
         MethodInvocation::GetStorageAt(contract_address, y_storage_index, None),
     ))?;
 
-    assert_eq!(new_y.result, expected_y);
+    assert_eq!(new_y.deserialize_result::<String>()?, expected_y);
 
     let new_y = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
         L1CallRequest {
@@ -130,7 +130,7 @@ async fn issue_324() -> anyhow::Result<()> {
         None,
     )))?;
 
-    assert_eq!(new_y.result, expected_y);
+    assert_eq!(new_y.deserialize_result::<String>()?, expected_y);
 
     Ok(())
 }
