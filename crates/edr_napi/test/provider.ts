@@ -23,10 +23,12 @@ import {
   DEFAULT_GENESIS_ADDRESS,
   fundedGenesisState,
   getContext,
+  intervalMiningConfig,
   l1ProviderConfig,
   loadContract,
   registerGenericProviderFactory,
   silentLoggerConfig,
+  subscribeToNewHeads,
 } from "./helpers";
 
 chai.use(chaiAsPromised);
@@ -674,7 +676,12 @@ describe("Provider", () => {
           decodeConsoleLogInputsCallback: (
             _inputs: ArrayBuffer[]
           ): string[] => {
-            throw new Error(ERROR_MESSAGE);
+            // A bare string, because the coercing exception path cannot
+            // reference a primitive and would replace it. If the string
+            // survives intact, the trampoline left the thrown value
+            // untouched.
+            // eslint-disable-next-line @typescript-eslint/only-throw-error
+            throw ERROR_MESSAGE;
           },
         }
       );
@@ -769,6 +776,139 @@ describe("Provider", () => {
 
       assertHasNumber(event.result);
       assert.equal(typeof event.result.number, "string");
+    });
+
+    // The test above mines from this thread, so the threadsafe function is
+    // called from it too. Under interval mining the provider's own OS thread
+    // makes the call. The trampoline must resolve the consumer's callback
+    // across that boundary without reordering events.
+    it("delivers ordered events from the provider's own thread under interval mining", async function () {
+      const INTERVAL_MS = 50n;
+      const EXPECTED = 5;
+
+      const blockNumbers: bigint[] = [];
+      let resolveEnough!: () => void;
+      const enoughEvents = new Promise<void>((resolve) => {
+        resolveEnough = resolve;
+      });
+
+      const provider = await createGenericProvider(
+        context,
+        { mining: intervalMiningConfig(INTERVAL_MS) },
+        silentLoggerConfig(),
+        (event) => {
+          function assertHasNumber(
+            x: unknown
+          ): asserts x is { number: string } {
+            if (
+              typeof x !== "object" ||
+              x === null ||
+              !("number" in x) ||
+              typeof x.number !== "string"
+            ) {
+              throw new Error("missing string `number` field");
+            }
+          }
+
+          assertHasNumber(event.result);
+          blockNumbers.push(BigInt(event.result.number));
+          if (blockNumbers.length >= EXPECTED) {
+            resolveEnough();
+          }
+        }
+      );
+
+      const subscriptionId = await subscribeToNewHeads(provider);
+
+      await enoughEvents;
+
+      // Stops deliveries, so a late event cannot throw into the callback
+      // after the test has finished. Mining itself continues until the
+      // provider is collected.
+      const unsubscribeResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 2,
+          jsonrpc: "2.0",
+          method: "eth_unsubscribe",
+          params: [subscriptionId],
+        })
+      );
+      assert.strictEqual(JSON.parse(unsubscribeResponse.data).result, true);
+
+      // Blocking call mode is what keeps events in order.
+      assert.isAtLeast(blockNumbers.length, EXPECTED);
+      for (let i = 1; i < blockNumbers.length; i++) {
+        assert.equal(
+          blockNumbers[i],
+          blockNumbers[i - 1] + 1n,
+          `block ${blockNumbers[i]} did not follow ${blockNumbers[i - 1]}`
+        );
+      }
+    });
+  });
+
+  describe("callback ownership", () => {
+    it("owns every configured callback under a hidden property", async function () {
+      const provider = await createGenericProvider(context, {
+        observability: {
+          codeCoverage: {
+            onCollectedCoverageCallback: (): Promise<void> => Promise.resolve(),
+          },
+          gasReport: {
+            onCollectedGasReportCallback: (): Promise<void> =>
+              Promise.resolve(),
+          },
+        },
+      });
+      const firstOverride = (): Promise<CallOverrideResult | undefined> =>
+        Promise.resolve(undefined);
+      const secondOverride = (): Promise<CallOverrideResult | undefined> =>
+        Promise.resolve(undefined);
+      await provider.setCallOverrideCallback(firstOverride);
+      await provider.setCallOverrideCallback(secondOverride);
+
+      // `__edrCallbacks` is part of the published contract: non-enumerable,
+      // non-writable, non-configurable.
+      const descriptor = Object.getOwnPropertyDescriptor(
+        provider,
+        "__edrCallbacks"
+      );
+      assert.isDefined(descriptor);
+      assert.deepInclude(descriptor, {
+        enumerable: false,
+        writable: false,
+        configurable: false,
+      });
+
+      // A callback registered without ending up here would be silently
+      // collectable, which reclamation tests cannot detect.
+      const holder = descriptor.value as Record<string, unknown>;
+      assert.hasAllKeys(holder, [
+        "subscription",
+        "decodeConsoleLogInputs",
+        "printLine",
+        "onCollectedCoverage",
+        "onCollectedGasReport",
+        "callOverride",
+      ]);
+
+      // Setting the override again replaces its entry rather than adding one.
+      assert.strictEqual(holder.callOverride, secondOverride);
+
+      // Entries stay replaceable but cannot be deleted from under a live
+      // callback.
+      const entryDescriptor = Object.getOwnPropertyDescriptor(
+        holder,
+        "callOverride"
+      );
+      assert.isDefined(entryDescriptor);
+      assert.deepInclude(entryDescriptor, {
+        writable: true,
+        enumerable: true,
+        configurable: false,
+      });
+
+      assert.notInclude(Object.keys(provider), "__edrCallbacks");
     });
   });
 
