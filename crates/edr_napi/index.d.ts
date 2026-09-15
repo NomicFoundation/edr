@@ -72,6 +72,15 @@ export declare class Provider {
   contractDecoder(): ContractDecoder
   /** Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(request: string): Promise<Response>
+  /**
+   * Sets the callback deciding `eth_call` overrides, replacing any
+   * callback set before.
+   *
+   * Await the returned promise before setting another callback.
+   * Overlapping calls can leave the provider calling a callback that has
+   * already been collected. A later override then makes every request fail
+   * with `UnexpectedTermination`.
+   */
   setCallOverrideCallback(callOverrideCallback: (contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>): Promise<void>
   /**
    * Set to `true` to make the traces returned with `eth_call`,
