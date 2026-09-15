@@ -18,6 +18,7 @@ use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
     async_deallocator::AsyncDeallocator,
+    callback::ProviderWithCallbacks,
     config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     contract_decoder::ContractDecoder,
     logger::LoggerConfig,
@@ -91,10 +92,12 @@ impl EdrContext {
             logger_config,
             provider_config,
             subscription_callback,
+            callbacks,
         } = try_or_reject_promise!(
             deferred,
             promise,
             resolve_configs(
+                env,
                 runtime.clone(),
                 provider_config,
                 logger_config,
@@ -139,14 +142,17 @@ impl EdrContext {
                     Arc::clone(&contract_decoder),
                 )
                 .map(|provider| {
-                    GcProvider::from(Provider::new(
-                        provider,
-                        runtime,
-                        contract_decoder,
-                        dropped_provider_sender,
-                        #[cfg(feature = "scenarios")]
-                        scenario_file,
-                    ))
+                    ProviderWithCallbacks::new(
+                        GcProvider::from(Provider::new(
+                            provider,
+                            runtime,
+                            contract_decoder,
+                            dropped_provider_sender,
+                            #[cfg(feature = "scenarios")]
+                            scenario_file,
+                        )),
+                        callbacks,
+                    )
                 });
 
             deferred.resolve(|_env| result);
@@ -233,7 +239,7 @@ impl EdrContext {
 
         let runtime = runtime::Handle::current();
         let config =
-            try_or_reject_promise!(deferred, promise, config_args.resolve(runtime.clone()));
+            try_or_reject_promise!(deferred, promise, config_args.resolve(env, runtime.clone()));
 
         let context = self.inner.clone();
         runtime.clone().spawn(async move {
@@ -439,10 +445,12 @@ impl EdrContext {
             logger_config,
             provider_config,
             subscription_callback,
+            callbacks,
         } = try_or_reject_promise!(
             deferred,
             promise,
             resolve_configs(
+                env,
                 runtime.clone(),
                 provider_config,
                 logger_config,
@@ -462,7 +470,7 @@ impl EdrContext {
             // Using a closure to limit the scope, allowing us to use `?` for error
             // handling. This is necessary because the result of the closure is used
             // to resolve the deferred promise.
-            let create_provider = move || -> napi::Result<GcProvider> {
+            let create_provider = move || -> napi::Result<ProviderWithCallbacks<GcProvider>> {
                 use crate::subscription::subscriber_callback_for_chain_spec;
 
                 let logger = Logger::<GenericChainSpec, Arc<edr_provider::time::MockTime>>::new(
@@ -491,14 +499,17 @@ impl EdrContext {
                 )
                 .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
-                Ok(GcProvider::from(Provider::new(
-                    Arc::new(provider),
-                    runtime,
-                    contract_decoder,
-                    dropped_provider_sender,
-                    #[cfg(feature = "scenarios")]
-                    None,
-                )))
+                Ok(ProviderWithCallbacks::new(
+                    GcProvider::from(Provider::new(
+                        Arc::new(provider),
+                        runtime,
+                        contract_decoder,
+                        dropped_provider_sender,
+                        #[cfg(feature = "scenarios")]
+                        None,
+                    )),
+                    callbacks,
+                ))
             };
 
             let result = create_provider();
