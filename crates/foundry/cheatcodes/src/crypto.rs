@@ -325,16 +325,20 @@ mod tests {
     fn test_sign_p256() {
         use p256::ecdsa::VerifyingKey;
 
-        let pk_u256: U256 = "1".parse().unwrap();
-        let signing_key = P256SigningKey::from_bytes(&pk_u256.to_be_bytes().into()).unwrap();
+        let pk_u256: U256 = "1".parse().expect("literal is a valid U256");
+        let signing_key = P256SigningKey::from_bytes(&pk_u256.to_be_bytes().into())
+            .expect("1 is a valid P-256 private key");
         let digest = FixedBytes::from_hex(
             "0x44acf6b7e36c1342c2c5897204fe09504e1e2efb1a900377dbc4e7a6a133ec56",
         )
-        .unwrap();
+        .expect("literal is a valid 32-byte hex digest");
 
-        let result = sign_p256(&pk_u256, &digest).unwrap();
-        let result_bytes: [u8; 64] = result.try_into().unwrap();
-        let signature = P256Signature::from_bytes(&result_bytes.into()).unwrap();
+        let result = sign_p256(&pk_u256, &digest).expect("signing with a valid key should succeed");
+        let result_bytes: [u8; 64] = result
+            .try_into()
+            .expect("P-256 signature should be encoded as 64 bytes");
+        let signature = P256Signature::from_bytes(&result_bytes.into())
+            .expect("encoded bytes should be a valid P-256 signature");
         let verifying_key = VerifyingKey::from(&signing_key);
         assert!(verifying_key
             .verify_prehash(digest.as_slice(), &signature)
@@ -346,14 +350,16 @@ mod tests {
         // max n from https://neuromancer.sk/std/secg/secp256r1
         let pk = "0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"
             .parse()
-            .unwrap();
+            .expect("literal is a valid U256");
         let digest = FixedBytes::from_hex(
             "0x54705ba3baafdbdfba8c5f9a70f7a89bee98d906b53e31074da7baecdc0da9ad",
         )
-        .unwrap();
+        .expect("literal is a valid 32-byte hex digest");
         let result = sign_p256(&pk, &digest);
         assert_eq!(
-            result.err().unwrap().to_string(),
+            result
+                .expect_err("a key equal to the curve order should be rejected")
+                .to_string(),
             "private key must be less than the NistP256 curve order (115792089210356248762697446949407573529996955224135760342422259061068512044369)"
         );
     }
@@ -369,14 +375,16 @@ mod tests {
             U256::from(0xA11CE),
             "0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
                 .parse()
-                .unwrap(),
+                .expect("literal is a valid U256"),
         ];
 
         for key in &keys {
-            let expected = parse_wallet(key).unwrap();
+            let expected = parse_wallet(key).expect("test key should be a valid private key");
             // First call populates the cache; the second one hits it.
             for _ in 0..2 {
-                let cached = cache.get_or_derive(key).unwrap();
+                let cached = cache
+                    .get_or_derive(key)
+                    .expect("test key should be a valid private key");
                 assert_eq!(cached.address(), expected.address());
                 assert_eq!(
                     cached.credential().verifying_key(),
@@ -395,12 +403,16 @@ mod tests {
         let digest = FixedBytes::from_hex(
             "0x44acf6b7e36c1342c2c5897204fe09504e1e2efb1a900377dbc4e7a6a133ec56",
         )
-        .unwrap();
+        .expect("literal is a valid 32-byte hex digest");
 
-        let expected = parse_wallet(&key).unwrap().sign_hash_sync(&digest).unwrap();
+        let expected = parse_wallet(&key)
+            .expect("test key should be a valid private key")
+            .sign_hash_sync(&digest)
+            .expect("signing with a valid key should succeed");
         // Sign twice so the second signature comes from a cached wallet.
         for _ in 0..2 {
-            let actual = sign(&cache, &key, &digest).unwrap();
+            let actual =
+                sign(&cache, &key, &digest).expect("signing with a valid key should succeed");
             assert_eq!(actual, expected);
         }
     }
@@ -409,10 +421,14 @@ mod tests {
     fn wallet_cache_rejects_and_does_not_cache_invalid_keys() {
         let cache = WalletCache::default();
 
-        let err = cache.get_or_derive(&U256::ZERO).unwrap_err();
+        let err = cache
+            .get_or_derive(&U256::ZERO)
+            .expect_err("the zero key should be rejected");
         assert_eq!(err.to_string(), "private key cannot be 0");
 
-        let err = cache.get_or_derive(&U256::MAX).unwrap_err();
+        let err = cache
+            .get_or_derive(&U256::MAX)
+            .expect_err("a key above the curve order should be rejected");
         assert!(
             err.to_string()
                 .starts_with("private key must be less than the Secp256k1 curve order"),
@@ -424,17 +440,24 @@ mod tests {
 
     #[test]
     fn wallet_cache_is_bounded() {
-        let cache = WalletCache::new(NonZeroUsize::new(2).unwrap());
+        let cache = WalletCache::new(NonZeroUsize::new(2).expect("literal is non-zero"));
 
         for key in 1..=3u64 {
-            cache.get_or_derive(&U256::from(key)).unwrap();
+            cache
+                .get_or_derive(&U256::from(key))
+                .expect("test key should be a valid private key");
         }
 
         assert_eq!(cache.len(), 2);
         // Evicted entries are re-derived correctly.
         assert_eq!(
-            cache.get_or_derive(&U256::from(1)).unwrap().address(),
-            parse_wallet(&U256::from(1)).unwrap().address()
+            cache
+                .get_or_derive(&U256::from(1))
+                .expect("test key should be a valid private key")
+                .address(),
+            parse_wallet(&U256::from(1))
+                .expect("test key should be a valid private key")
+                .address()
         );
     }
 
@@ -443,8 +466,10 @@ mod tests {
         let cache = WalletCache::default();
         let key: U256 = "0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
             .parse()
-            .unwrap();
-        let wallet = cache.get_or_derive(&key).unwrap();
+            .expect("literal is a valid U256");
+        let wallet = cache
+            .get_or_derive(&key)
+            .expect("test key should be a valid private key");
 
         let debug = format!("{cache:?}");
         assert!(!debug.contains("4c0883a6"), "{debug}");
@@ -460,8 +485,13 @@ mod tests {
         let digest = FixedBytes::from_hex(
             "0x54705ba3baafdbdfba8c5f9a70f7a89bee98d906b53e31074da7baecdc0da9ad",
         )
-        .unwrap();
+        .expect("literal is a valid 32-byte hex digest");
         let result = sign_p256(&U256::ZERO, &digest);
-        assert_eq!(result.err().unwrap().to_string(), "private key cannot be 0");
+        assert_eq!(
+            result
+                .expect_err("the zero key should be rejected")
+                .to_string(),
+            "private key cannot be 0"
+        );
     }
 }
