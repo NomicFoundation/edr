@@ -24,6 +24,7 @@ pub use foundry_evm::executors::stack_trace::SolidityTestStackTraceError;
 
 mod error;
 mod test_filter;
+mod trace_retention;
 
 pub use foundry_evm::*;
 pub use test_filter::{TestFilter, TestFilterConfig};

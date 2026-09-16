@@ -301,8 +301,8 @@ impl TestResult {
         setup_traces: &edr_solidity_tests::traces::SetupTraces,
         include_traces: IncludeTraces,
     ) -> Self {
-        let include_trace = include_traces == IncludeTraces::All
-            || (include_traces == IncludeTraces::Failing && test_result.status.is_failure());
+        let include_trace = edr_solidity::config::IncludeTraces::from(include_traces)
+            .should_include(|| test_result.status.is_failure());
 
         Self {
             name,

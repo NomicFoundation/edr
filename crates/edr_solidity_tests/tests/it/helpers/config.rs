@@ -18,9 +18,8 @@ use foundry_evm::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
     },
-    traces::{decode_trace_arena, render_trace_arena, CallTraceDecoderBuilder},
+    traces::{identifier::TraceIdentifiers, render_trace_arena, CallTraceDecoderBuilder},
 };
-use futures::future::join_all;
 use itertools::Itertools;
 
 use crate::helpers::{tracing::init_tracing_for_solidity_tests, SolidityTestFilter};
@@ -157,19 +156,17 @@ impl<
                 {
                     let logs = decode_console_logs(&result.logs);
                     let outcome = if should_fail { "fail" } else { "pass" };
-                    let call_trace_decoder = CallTraceDecoderBuilder::default()
+                    let mut call_trace_decoder = CallTraceDecoderBuilder::default()
                         .with_known_contracts(&known_contracts)
                         .build();
-                    let decoded_traces =
-                        join_all(result.execution_traces.iter_mut().map(|arena| {
-                            let decoder = &call_trace_decoder;
-                            async move {
-                                decode_trace_arena(arena, decoder).await;
-                                render_trace_arena(arena)
-                            }
-                        }))
-                        .await
-                        .into_iter()
+                    result
+                        .execution_traces
+                        .identify_and_decode(&mut call_trace_decoder, &mut TraceIdentifiers::new())
+                        .await;
+                    let decoded_traces = result
+                        .execution_traces
+                        .iter()
+                        .map(|arena| render_trace_arena(arena))
                         .collect::<Vec<String>>();
                     eyre::bail!(
                         "Test {} did not {} as expected.\nReason: {:?}\nLogs:\n{}\n\nTraces:\n{}",

@@ -58,14 +58,19 @@ jobs:
           # select-node-image action (GHCR mirror normally, Docker Hub on
           # releases). New or changed tags must be added to the mirror
           # workflow's tag list in the same PR.
+          #
+          # The gnu image sets the glibc floor of the published binaries:
+          # bookworm puts it at 2.34, up from 2.30 on bullseye, which went
+          # away when Debian 11 hit EOL on 2026-08-31 and its security pool
+          # was purged out from under `apt-get install`.
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            docker_tag: 24-bullseye-slim
+            docker_tag: 24-bookworm-slim
             flavor: gnu
 
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            docker_tag: 24-bullseye-slim
+            docker_tag: 24-bookworm-slim
             flavor: gnu
 
           - host: ubuntu-24.04
@@ -182,7 +187,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@11.23.0 --ignore-scripts
+            npm i -g pnpm@11.25.0 --ignore-scripts
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
@@ -213,7 +218,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@11.23.0 --ignore-scripts
+            npm i -g pnpm@11.25.0 --ignore-scripts
             pnpm -v
             pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
@@ -322,7 +327,7 @@ jobs:
         # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
         env:
           IMAGE: ${{ steps.select-image.outputs.ref }}
-        run: docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" bash -c "npm install -g pnpm@11.23.0; pnpm testNoBuild"
+        run: docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" bash -c "npm install -g pnpm@11.25.0; pnpm testNoBuild"
   test-linux-x64-musl-binding:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
@@ -372,7 +377,7 @@ jobs:
       - name: Test bindings
         env:
           IMAGE: ${{ steps.select-image.outputs.ref }}
-        run: docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" sh -c "npm install -g pnpm@11.23.0; pnpm testNoBuild"
+        run: docker run --rm -e CI=1 -v "$(pwd)":/build -w /build/crates/edr_napi "$IMAGE" sh -c "npm install -g pnpm@11.25.0; pnpm testNoBuild"
   test-linux-aarch64-gnu-binding:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
@@ -424,7 +429,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            npm install -g pnpm@11.23.0
+            npm install -g pnpm@11.25.0
             set -e
             pnpm testNoBuild
             ls -la
@@ -478,7 +483,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            npm install -g pnpm@11.23.0
+            npm install -g pnpm@11.25.0
             set -e
             pnpm testNoBuild
 
