@@ -1,11 +1,5 @@
 // Wait for the workflow run recorded against a head SHA to conclude.
 //
-// Shared by the two places that have to order themselves against another run
-// for the same commit: hh3-regression-benchmark waits for edr-ci.yml, and the
-// select-node-image action waits for mirror-docker-images.yml (see
-// wait-for-mirror-run.ts). They differ only in what an absent run means,
-// hence `onMissing`.
-//
 // See README.md for the conventions these scripts follow.
 
 import type { Core, WorkflowRun } from "./github-script.ts";
@@ -26,14 +20,14 @@ export interface GitHub {
 
 export type WaitResult =
   | { outcome: "concluded"; run: WorkflowRun }
-  | { outcome: "missing" } // only with `onMissing: "stop"`
-  | { outcome: "timed-out" };
+  | { outcome: "missing" }
+  | { outcome: "timeout" };
 
 // `onMissing` says what an empty run list means: "wait" for a run the caller
 // knows was triggered and that may not be registered yet, "stop" when the run
 // is optional and its absence is itself the answer.
 //
-// `sleep` and `now` are seams for testing the polling and timeout paths.
+// Tests pass `sleep` and `now` to fake the clock.
 export async function waitForWorkflowRun({
   github,
   core,
@@ -67,23 +61,27 @@ export async function waitForWorkflowRun({
       repo,
       workflow_id: workflowId,
       head_sha: headSha,
-      per_page: 1,
+      // Newest first, but a re-run keeps its original created_at, so an
+      // in-flight run can sit behind a newer completed one.
+      per_page: 10,
     });
-    const run = data.workflow_runs[0];
+    const runs = data.workflow_runs;
+    const newest = runs[0];
+    const pending = runs.find((run) => run.status !== "completed");
 
-    if (run === undefined && onMissing === "stop") {
+    if (newest === undefined && onMissing === "stop") {
       return { outcome: "missing" };
     }
-    if (run !== undefined && run.status === "completed") {
-      return { outcome: "concluded", run };
+    if (newest !== undefined && pending === undefined) {
+      return { outcome: "concluded", run: newest };
     }
     if (now() >= deadline) {
-      return { outcome: "timed-out" };
+      return { outcome: "timeout" };
     }
 
     core.info(
       `${workflowId} for ${headSha.slice(0, 12)} has not concluded ` +
-        `(status: ${run?.status ?? "not started"}); re-checking in ` +
+        `(status: ${pending?.status ?? "not started"}); re-checking in ` +
         `${pollIntervalMs / 1000}s`
     );
     await sleep(pollIntervalMs);

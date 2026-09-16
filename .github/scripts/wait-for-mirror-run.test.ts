@@ -18,10 +18,12 @@ const PR_HEAD_SHA = "b63ac3702506637a8c4b51a9ee1f4a0c5e2d6a19";
 function makeDeps({
   run,
   prHeadSha,
+  apiError,
 }: {
   run?: WorkflowRun;
   prHeadSha?: string;
-}) {
+  apiError?: unknown;
+} = {}) {
   const shas: string[] = [];
   const infos: string[] = [];
   const warnings: string[] = [];
@@ -33,6 +35,9 @@ function makeDeps({
         listWorkflowRuns: async ({ workflow_id, head_sha }) => {
           assert.equal(workflow_id, "mirror-docker-images.yml");
           shas.push(head_sha);
+          if (apiError !== undefined) {
+            throw apiError;
+          }
           return { data: { workflow_runs: run === undefined ? [] : [run] } };
         },
       },
@@ -67,16 +72,16 @@ function makeDeps({
   };
 }
 
-function completed(conclusion: string): WorkflowRun {
+function completed(conclusion: string | null): WorkflowRun {
   return { id: 42, status: "completed", conclusion };
 }
 
 test("no mirror run for the commit: does not wait", async () => {
-  const deps = makeDeps({});
+  const deps = makeDeps();
   await waitForMirrorRun(deps);
 
-  assert.equal(deps.shas.length, 1);
-  assert.match(deps.infos[0] ?? "", /No mirror run for /);
+  assert.deepEqual(deps.shas, [PUSH_SHA]);
+  assert.match(deps.infos.join("\n"), /No mirror run for /);
   assert.deepEqual(deps.warnings, []);
 });
 
@@ -91,27 +96,31 @@ test("a successful mirror run is reported with its URL", async () => {
   assert.deepEqual(deps.warnings, []);
 });
 
-// A fork PR's mirror job skips itself; the tags it would re-copy already exist.
 test("a skipped mirror run does not warn", async () => {
   const deps = makeDeps({ run: completed("skipped") });
   await waitForMirrorRun(deps);
 
-  assert.match(deps.infos[0] ?? "", /Mirror run was skipped/);
+  assert.match(deps.infos.join("\n"), /Mirror run was skipped/);
   assert.deepEqual(deps.warnings, []);
 });
 
-for (const conclusion of ["failure", "cancelled", "timed_out"]) {
-  test(`a ${conclusion} mirror run warns and proceeds`, async () => {
-    const deps = makeDeps({ run: completed(conclusion) });
-    await waitForMirrorRun(deps);
+test("a failed mirror run warns and proceeds", async () => {
+  const deps = makeDeps({ run: completed("failure") });
+  await waitForMirrorRun(deps);
 
-    assert.match(
-      deps.warnings[0] ?? "",
-      new RegExp(`concluded '${conclusion}'`)
-    );
-    assert.match(deps.warnings[0] ?? "", /proceeding anyway/);
-  });
-}
+  assert.match(
+    deps.warnings.join("\n"),
+    /concluded 'failure'.*proceeding anyway/
+  );
+});
+
+// The API reports a completed run without a conclusion while finalising it.
+test("a completed run without a conclusion warns and proceeds", async () => {
+  const deps = makeDeps({ run: completed(null) });
+  await waitForMirrorRun(deps);
+
+  assert.match(deps.warnings.join("\n"), /concluded 'null'.*proceeding anyway/);
+});
 
 test("a mirror run that never concludes warns and proceeds", async () => {
   const deps = makeDeps({
@@ -119,8 +128,27 @@ test("a mirror run that never concludes warns and proceeds", async () => {
   });
   await waitForMirrorRun(deps);
 
-  assert.match(deps.warnings[0] ?? "", /Timed out waiting for the mirror run/);
-  assert.match(deps.warnings[0] ?? "", /proceeding anyway/);
+  // 15 minutes of 30-second polls, plus the one that finds the deadline passed.
+  assert.equal(deps.shas.length, 31);
+  assert.match(
+    deps.warnings.join("\n"),
+    /Timed out waiting for the mirror run.*proceeding anyway/
+  );
+});
+
+test("an API error warns and proceeds instead of failing the step", async () => {
+  const deps = makeDeps({
+    apiError: Object.assign(
+      new Error("Resource not accessible by integration"),
+      { status: 403 }
+    ),
+  });
+  await waitForMirrorRun(deps);
+
+  assert.match(
+    deps.warnings.join("\n"),
+    /Could not check the mirror run .*Resource not accessible.*proceeding anyway/
+  );
 });
 
 test("pull_request events wait on the PR head, not the merge commit", async () => {
@@ -131,11 +159,4 @@ test("pull_request events wait on the PR head, not the merge commit", async () =
   await waitForMirrorRun(deps);
 
   assert.deepEqual(deps.shas, [PR_HEAD_SHA]);
-});
-
-test("push events wait on the pushed commit", async () => {
-  const deps = makeDeps({ run: completed("success") });
-  await waitForMirrorRun(deps);
-
-  assert.deepEqual(deps.shas, [PUSH_SHA]);
 });

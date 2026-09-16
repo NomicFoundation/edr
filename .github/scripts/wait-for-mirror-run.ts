@@ -4,23 +4,17 @@
 // edr-npm-release.yml start in parallel, so a pull can race ahead of the tag
 // the mirror is still copying and fail with "manifest unknown".
 //
-// Best-effort by design — it never fails the job. Most commits have no mirror
-// run at all, a fork PR's mirror job skips itself, and a failed weekly
-// re-sync shares main's head SHA; in each of those the tags a pull needs are
-// already in place. The pull itself is the loud, authoritative failure for a
-// tag that genuinely isn't there.
+// Never fails the job: a failed weekly re-sync shares main's head SHA, and the
+// pull itself is the loud, authoritative failure for a tag that isn't there.
 //
-// Loaded by actions/github-script in .github/actions/select-node-image.
+// Loaded by `actions/github-script` in .github/actions/select-node-image.
 // See README.md for the conventions these scripts follow.
 
 import type { Core } from "./github-script.ts";
 import { waitForWorkflowRun, type GitHub } from "./wait-for-workflow-run.ts";
 
-const MIRROR_WORKFLOW = "mirror-docker-images.yml";
-
-// How long to wait for the mirror run before giving up, and how often to
-// re-check while waiting. Copying the node tags takes a couple of minutes;
-// the margin is for a queued run. Overshooting costs a wait, not a failure.
+// Copying the node tags takes a couple of minutes; the margin is for a queued
+// run. Overshooting costs a wait, not a failure.
 const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 const POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
 
@@ -31,7 +25,6 @@ export interface Context {
   payload: { pull_request?: { head: { sha: string } } };
 }
 
-// `sleep` and `now` are seams for testing; see wait-for-workflow-run.ts.
 export async function waitForMirrorRun({
   github,
   context,
@@ -49,28 +42,39 @@ export async function waitForMirrorRun({
   // For pull_request events the mirror run is recorded against the PR head
   // SHA, not the merge commit `context.sha` points at.
   const headSha = context.payload.pull_request?.head.sha ?? context.sha;
+  const shortSha = headSha.slice(0, 12);
 
-  const result = await waitForWorkflowRun({
-    github,
-    core,
-    owner,
-    repo,
-    workflowId: MIRROR_WORKFLOW,
-    headSha,
-    timeoutMs: TIMEOUT_MS,
-    pollIntervalMs: POLL_INTERVAL_MS,
-    onMissing: "stop",
-    sleep,
-    now,
-  });
-
-  if (result.outcome === "missing") {
-    core.info(`No mirror run for ${headSha}; not waiting.`);
+  let result;
+  try {
+    result = await waitForWorkflowRun({
+      github,
+      core,
+      owner,
+      repo,
+      workflowId: "mirror-docker-images.yml",
+      headSha,
+      timeoutMs: TIMEOUT_MS,
+      pollIntervalMs: POLL_INTERVAL_MS,
+      onMissing: "stop",
+      sleep,
+      now,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    core.warning(
+      `Could not check the mirror run for ${shortSha} (${message}); ` +
+        `proceeding anyway`
+    );
     return;
   }
-  if (result.outcome === "timed-out") {
+
+  if (result.outcome === "missing") {
+    core.info(`No mirror run for ${shortSha}; not waiting`);
+    return;
+  }
+  if (result.outcome === "timeout") {
     core.warning(
-      `Timed out waiting for the mirror run for ${headSha}; proceeding anyway`
+      `Timed out waiting for the mirror run for ${shortSha}; proceeding anyway`
     );
     return;
   }
@@ -88,7 +92,7 @@ export async function waitForMirrorRun({
       break;
     default:
       core.warning(
-        `Mirror run for ${headSha} concluded '${run.conclusion}' (${url}); ` +
+        `Mirror run for ${shortSha} concluded '${run.conclusion}' (${url}); ` +
           `proceeding anyway`
       );
   }
