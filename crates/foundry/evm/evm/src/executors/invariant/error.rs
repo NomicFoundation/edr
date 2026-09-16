@@ -86,10 +86,13 @@ impl InvariantFuzzError {
         }
     }
 
-    /// Removes and returns the traces of the offending call, if recorded.
-    pub fn take_traces(&mut self) -> Option<SparsedTraceArena> {
+    /// Removes and returns the call trace arena of the offending call, if
+    /// recorded.
+    pub fn take_call_trace_arena(&mut self) -> Option<SparsedTraceArena> {
         match self {
-            Self::BrokenInvariant(case_data) | Self::Revert(case_data) => case_data.traces.take(),
+            Self::BrokenInvariant(case_data) | Self::Revert(case_data) => {
+                case_data.call_trace_arena.take()
+            }
             Self::Abi(_) | Self::Other(_) | Self::MaxAssumeRejects(_) => None,
         }
     }
@@ -127,8 +130,8 @@ pub struct FailedInvariantCaseData {
     pub fail_on_revert: bool,
     /// Indeterminism from cheatcodes if any.
     pub indeterminism_reasons: Option<IndeterminismReasons>,
-    /// The traces of the offending call, if recorded.
-    pub traces: Option<SparsedTraceArena>,
+    /// The call trace arena of the offending call, if recorded.
+    pub call_trace_arena: Option<SparsedTraceArena>,
 }
 
 impl FailedInvariantCaseData {
@@ -178,7 +181,7 @@ impl FailedInvariantCaseData {
             shrink_run_limit: invariant_config.shrink_run_limit,
             fail_on_revert: invariant_config.fail_on_revert,
             indeterminism_reasons: call_result.indeterminism_reasons,
-            traces: call_result.traces,
+            call_trace_arena: call_result.call_trace_arena,
         }
     }
 }

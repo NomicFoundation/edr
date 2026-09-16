@@ -2,14 +2,17 @@
 pub mod factory;
 mod response;
 
-use std::sync::Arc;
+use std::sync::{
+    atomic::{self, AtomicI64},
+    Arc,
+};
 
 use edr_napi_core::provider::SyncProvider;
 use edr_solidity::artifacts::{
     solc::extract_solc_contract_metadata, solx::extract_solx_contract_metadata, to_compiler_type,
 };
 use napi::{
-    bindgen_prelude::{FnArgs, Function, Object, ObjectFinalize, Promise, Uint8Array},
+    bindgen_prelude::{FnArgs, Function, Object, Promise, Uint8Array},
     tokio::runtime,
     Env, Status,
 };
@@ -17,10 +20,10 @@ use napi_derive::napi;
 use parking_lot::RwLock;
 
 pub use self::factory::ProviderFactory;
-use self::response::Response;
+use self::response::{call_trace_external_mem_size, GcResponse, Response};
 use crate::{
     async_deallocator::AsyncDeallocatorSender, call_override::CallOverrideCallback,
-    contract_decoder::ContractDecoder,
+    contract_decoder::ContractDecoder, gc::gc_tracked,
 };
 
 /// A JSON-RPC provider for Ethereum.
@@ -30,13 +33,20 @@ pub struct Provider {
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
     dropped_provider_sender: AsyncDeallocatorSender<Arc<dyn SyncProvider>>,
+    /// What a response reports to V8 for each call trace arena it carries.
+    /// Follows `verbose_raw_tracing`, which [`Self::set_verbose_tracing`]
+    /// toggles.
+    call_trace_external_mem_size: AtomicI64,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<Arc<napi::tokio::sync::Mutex<napi::tokio::fs::File>>>,
 }
 
 impl Provider {
     /// Constructs a new instance.
-    pub fn new(
+    ///
+    /// Hand the result to JavaScript as a [`GcProvider`], so V8 learns of the
+    /// OS thread it now owns.
+    pub(crate) fn new(
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
         contract_decoder: Arc<RwLock<edr_solidity::contract_decoder::ContractDecoder>>,
@@ -50,6 +60,9 @@ impl Provider {
             provider,
             runtime,
             dropped_provider_sender,
+            // `verbose_raw_tracing` is not exposed in the provider config, so
+            // it starts disabled.
+            call_trace_external_mem_size: AtomicI64::new(call_trace_external_mem_size(false)),
             #[cfg(feature = "scenarios")]
             scenario_file: scenario_file.map(Arc::new),
         }
@@ -163,12 +176,24 @@ impl Provider {
     ) -> napi::Result<Object<'env>> {
         let (deferred, promise) = env.create_deferred()?;
 
+        // Relaxed because the figure publishes nothing: a response created
+        // alongside `set_verbose_tracing` may read either value, and reports
+        // and releases whichever it read.
+        let call_trace_external_mem_size = self
+            .call_trace_external_mem_size
+            .load(atomic::Ordering::Relaxed);
+
         let enqueue_request =
             move |provider: &dyn SyncProvider, request: napi::Result<String>| match request {
                 Ok(request) => provider.enqueue_request(
                     request,
                     Box::new(move |result| match result {
-                        Ok(response) => deferred.resolve(move |_env| Ok(Response::from(response))),
+                        Ok(response) => deferred.resolve(move |_env| {
+                            Ok(GcResponse::from(Response::new(
+                                response,
+                                call_trace_external_mem_size,
+                            )))
+                        }),
                         Err(error) => deferred.reject(error),
                     }),
                 ),
@@ -256,6 +281,12 @@ impl Provider {
     /// `false` to disable this.
     #[napi(catch_unwind)]
     pub async fn set_verbose_tracing(&self, verbose_tracing: bool) -> napi::Result<()> {
+        // Responses made from here on report the figure for this setting.
+        self.call_trace_external_mem_size.store(
+            call_trace_external_mem_size(verbose_tracing),
+            atomic::Ordering::Relaxed,
+        );
+
         let provider = self.provider.clone();
 
         self.runtime
@@ -265,8 +296,19 @@ impl Provider {
     }
 }
 
-impl ObjectFinalize for Provider {
-    fn finalize(self, _env: Env) -> napi::Result<()> {
+gc_tracked! {
+    /// A [`Provider`] on its way to JavaScript, reporting its OS thread to V8.
+    pub(crate) type GcProvider = GcTracked<Provider>;
+
+    /// The standard library's default thread stack reservation, which
+    /// [`edr_utils_sync::CancellableThread`] does not override.
+    /// `RUST_MIN_STACK` does, in which case the figure is wrong but still the
+    /// right order of magnitude.
+    fn external_memory(&self) -> i64 {
+        2 * 1024 * 1024
+    }
+
+    fn drop(self) {
         let Self {
             provider,
             dropped_provider_sender,
@@ -277,7 +319,5 @@ impl ObjectFinalize for Provider {
         // JS thread (the provider may be running thread-safe functions on a
         // background thread; dropping it here would deadlock).
         dropped_provider_sender.deallocate(provider);
-
-        Ok(())
     }
 }

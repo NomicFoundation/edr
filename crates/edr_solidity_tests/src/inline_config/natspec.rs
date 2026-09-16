@@ -1,15 +1,14 @@
 //! Extraction of leading NatSpec comment blocks directly from source text.
 //!
 //! Slang does not attach documentation comments to syntax nodes, so we recover
-//! them from the raw source (see [`super::parse`]). Given a function's
-//! start offset, we scan *backwards* from the function: the scan stops at the
-//! first byte that is neither whitespace nor part of a comment, so it reads
-//! only the leading comments immediately above the function and never the rest
-//! of the contract.
+//! them from the raw source (see [`super::parse`]). Given a definition's start
+//! offset, we scan *backwards*: the scan stops at the first byte that is
+//! neither whitespace nor part of a comment, so it reads only the comments
+//! immediately above that contract or function definition.
 //!
 //! # Which comments count
 //!
-//! *All* NatSpec blocks (`///` runs and `/** */` comments) in the function's
+//! *All* NatSpec blocks (`///` runs and `/** */` comments) in the definition's
 //! leading comment region are collected, in source order. Plain `//` and
 //! `/* */` comments and blank lines in that region are transparent: they
 //! neither terminate the scan nor split off the NatSpec blocks around them.
@@ -22,9 +21,9 @@
 //! declaration. Directives in an earlier block are therefore honored here and
 //! by Foundry, but are invisible in solc build info. In the common cases —
 //! one NatSpec block, possibly with plain comments between it and the
-//! function — all three agree.
+//! definition — all three agree.
 
-/// A NatSpec comment block found in a function's leading region.
+/// A NatSpec comment block found in a definition's leading region.
 ///
 /// Either a single `/** ... */` block comment or a single `///` line comment.
 /// The [`text`](NatSpecBlock::text) still contains the comment delimiters;
@@ -43,8 +42,9 @@ pub struct NatSpecBlock {
 ///
 /// Scanning runs backwards from `node_start` and stops at the first byte that
 /// is neither whitespace nor part of a comment — so it terminates at the
-/// previous member's `}`/`;` (or the enclosing contract's `{`), and the work is
-/// bounded by the size of the leading comments, not the rest of the source.
+/// previous member's `}`/`;` (or the enclosing contract's `{`, or the previous
+/// source-unit member for a contract), and the work is bounded by the size of
+/// the leading comments, not the rest of the source.
 ///
 /// Plain `//` and `/* */` comments are skipped like whitespace rather than
 /// terminating the scan. Only `///` and `/** */` text is collected.

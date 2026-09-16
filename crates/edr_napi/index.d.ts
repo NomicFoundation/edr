@@ -886,8 +886,11 @@ export interface InlineConfigDirectiveError {
   sourceName: string
   /** The contract the offending directive belongs to. */
   contract: string
-  /** The test function the offending directive belongs to. */
-  function: string
+  /**
+   * The test function the offending directive belongs to. Undefined when
+   * the directive is contract-level.
+   */
+  function?: string
   /** The 1-based line of the offending directive within the source. */
   line: number
   /** The problem itself; discriminate on its `kind` tag. */
@@ -904,8 +907,11 @@ export interface InlineConfigDirectiveLocation {
   kind: "InlineConfigDirectiveLocation"
   /** The contract the directive belongs to. */
   contract: string
-  /** The test function the directive belongs to. */
-  function: string
+  /**
+   * The test function the directive belongs to. Undefined when the directive
+   * is contract-level.
+   */
+  function?: string
   /**
    * Why resolving the location failed, including the directive problem
    * that was being reported.
@@ -921,7 +927,10 @@ export interface InlineConfigDirectiveLocation {
 export type InlineConfigDirectiveProblem =
   InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey
 
-/** The same key was specified more than once for a function. */
+/**
+ * The same key was specified more than once for the same function or
+ * contract.
+ */
 export interface InlineConfigDuplicateKey {
   /** Enum tag for JS. */
   kind: "InlineConfigDuplicateKey"
@@ -932,9 +941,10 @@ export interface InlineConfigDuplicateKey {
 /**
  * A single ill-formed inline-config entry, located so the user can find and
  * fix it. A discriminated union over `kind`: a `source`-level entry carries no
- * directive location, a `directive`-level entry carries contract/function/
- * line. Attached to the rejected `runSolidityTests` promise as the
- * `inlineConfigErrors` array on the thrown error.
+ * directive location, a `directive`-level entry carries the contract and line,
+ * plus the function unless the directive is contract-level. Attached to the
+ * rejected `runSolidityTests` promise as the `inlineConfigErrors` array on the
+ * thrown error.
  */
 export type InlineConfigError =
   InlineConfigSourceError | InlineConfigDirectiveError
@@ -949,7 +959,7 @@ export interface InlineConfigInvalidKey {
 
 /**
  * A key was used on a test of the wrong kind (e.g. `fuzz.*` on an invariant
- * test).
+ * test). Only function-level directives can produce this.
  */
 export interface InlineConfigInvalidKeyForTestType {
   /** Enum tag for JS. */

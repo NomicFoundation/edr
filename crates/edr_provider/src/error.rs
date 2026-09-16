@@ -110,6 +110,9 @@ pub enum CreationError<GenesisBlockCreationErrorT, HardforkT> {
     /// An error that occured while querying the remote state.
     #[error(transparent)]
     RpcClient(#[from] RpcClientError),
+    /// The OS refused to start the thread that owns the provider's state.
+    #[error("Failed to spawn the provider thread: {0}")]
+    ThreadSpawn(#[source] std::io::Error),
 }
 
 /// Helper type for a chain-specific [`ProviderError`].

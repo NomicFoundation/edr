@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use alloy_dyn_abi::JsonAbiExt;
-use alloy_primitives::Log;
+use alloy_primitives::{Bytes, Log};
 use derive_where::derive_where;
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{
@@ -10,6 +10,7 @@ use edr_solidity::{
 };
 use eyre::Result;
 use foundry_evm_core::{
+    backend::IndeterminismReasons,
     contracts::{ContractsByAddress, ContractsByArtifact},
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
@@ -21,7 +22,7 @@ use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, InvariantContract},
     BaseCounterExample,
 };
-use foundry_evm_traces::{load_contracts, SetupTraces, SparsedTraceArena, TracingMode};
+use foundry_evm_traces::{load_contracts, ExecutionTraces, SetupTraces, TracingMode};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
 use revm::{
@@ -36,7 +37,7 @@ use super::{
 };
 use crate::executors::{
     stack_trace::{SolidityTestStackTraceError, SolidityTestStackTraceResult},
-    Executor,
+    Executor, RawCallResult,
 };
 
 /// Arguments to `replay_run`.
@@ -51,7 +52,7 @@ pub struct ReplayRunArgs<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub execution_traces: &'a mut Vec<SparsedTraceArena>,
+    pub execution_traces: &'a mut ExecutionTraces,
     pub executor: Executor<
         BlockT,
         TxT,
@@ -111,6 +112,13 @@ pub fn replay_run<
         ChainContextT,
     >,
 ) -> Result<ReplayResult<HaltReasonT>> {
+    /// What a reverting call returned. The revert reason is decoded from
+    /// these fields.
+    struct Failure {
+        output: Bytes,
+        exit_reason: Option<InstructionResult>,
+    }
+
     let ReplayRunArgs {
         execution_traces,
         mut executor,
@@ -140,21 +148,41 @@ pub fn replay_run<
 
     // Replay each call from the sequence, collect logs, traces and coverage.
     for tx in inputs.iter() {
-        let call_result = executor.transact_raw(
+        let RawCallResult {
+            exit_reason,
+            reverted,
+            has_state_snapshot_failure: _,
+            result,
+            gas_used: _,
+            gas_refunded: _,
+            stipend: _,
+            logs: call_logs,
+            labels: _,
+            call_trace_arena,
+            line_coverage,
+            edge_coverage: _,
+            state_changeset: _,
+            env: _,
+            cheatcodes: _,
+            out: _,
+            reverter: _,
+            indeterminism_reasons,
+        } = executor.transact_raw(
             tx.sender,
             tx.call_details.target,
             tx.call_details.calldata.clone(),
             U256::ZERO,
         )?;
-        logs.extend(call_result.logs);
-        execution_traces.push(call_result.traces.clone().expect("enabled tracing"));
-        HitMaps::merge_opt(coverage, call_result.line_coverage);
+        logs.extend(call_logs);
+        HitMaps::merge_opt(coverage, line_coverage);
 
         // Identify newly generated contracts, if they exist.
         ided_contracts.extend(load_contracts(
-            call_result.traces.iter().map(|a| &a.arena),
+            call_trace_arena.iter().map(|a| &a.arena),
             known_contracts,
         ));
+
+        execution_traces.push(call_trace_arena.expect("enabled tracing"));
 
         // Create counter example to be used in failed case.
         counterexample_sequence.push(BaseCounterExample::from_invariant_call(
@@ -162,47 +190,49 @@ pub fn replay_run<
             tx.call_details.target,
             &tx.call_details.calldata,
             &ided_contracts,
-            call_result.traces,
+            // Counterexample arenas are never consumed; the failing arena
+            // lives on in `execution_traces`.
+            None,
             /* indeterminism_reason */ None,
         ));
 
         // If this call failed, but didn't revert, this is terminal for sure.
         // If this call reverted, only exit if `fail_on_revert` is true.
-        if !call_result
-            .exit_reason
-            .is_some_and(InstructionResult::is_ok)
-            && (fail_on_revert || !call_result.reverted)
-        {
-            let stack_trace_result =
-                if let Some(indeterminism_reasons) = call_result.indeterminism_reasons {
-                    Some(indeterminism_reasons.into())
-                } else {
-                    contract_decoder.map(|decoder| {
-                        let (failing_trace, prior_traces) = execution_traces
-                            .split_last()
-                            .expect("an arena was pushed for this call above");
+        if !exit_reason.is_some_and(InstructionResult::is_ok) && (fail_on_revert || !reverted) {
+            let stack_trace_result = if let Some(indeterminism_reasons) = indeterminism_reasons {
+                Some(indeterminism_reasons.into())
+            } else {
+                contract_decoder.map(|decoder| {
+                    let (failing_trace, prior_traces) = execution_traces
+                        .split_last()
+                        .expect("an arena was pushed for this call above");
 
-                        get_stack_trace(
-                            decoder,
-                            &failing_trace.arena,
-                            setup_traces
-                                .iter()
-                                .map(|(_, arena)| &arena.arena)
-                                .chain(prior_traces.iter().map(|arena| &arena.arena)),
-                            DeployedCode::default(),
-                        )
-                        .map_err(SolidityTestStackTraceError::from)
-                        .into()
-                    })
-                };
-            let revert_reason =
-                revert_decoder.maybe_decode(call_result.result.as_ref(), call_result.exit_reason);
+                    get_stack_trace(
+                        decoder,
+                        &failing_trace.arena,
+                        setup_traces
+                            .iter()
+                            .map(|(_, arena)| &arena.arena)
+                            .chain(prior_traces.iter().map(|arena| &arena.arena)),
+                        DeployedCode::default(),
+                    )
+                    .map_err(SolidityTestStackTraceError::from)
+                    .into()
+                })
+            };
+            let revert_reason = revert_decoder.maybe_decode(result.as_ref(), exit_reason);
             return Ok(ReplayResult {
                 counterexample_sequence,
                 stack_trace_result,
                 revert_reason,
             });
         }
+
+        // This call is not the failing one, so its arena can only ever serve
+        // as a code source. Strip it now rather than when the next push
+        // displaces it. Then no arena in the collection is step-laden while
+        // the next call runs.
+        execution_traces.strip_last_steps();
     }
 
     // Replay invariant to collect logs and traces.
@@ -222,7 +252,7 @@ pub fn replay_run<
             .into(),
     )?;
 
-    execution_traces.push(invariant_result.traces.expect("tracing is on"));
+    execution_traces.push(invariant_result.call_trace_arena.expect("tracing is on"));
     logs.extend(invariant_result.logs);
     deprecated_cheatcodes.extend(
         invariant_result
@@ -231,27 +261,66 @@ pub fn replay_run<
             .map_or_else(Default::default, |cheats| cheats.deprecated.clone()),
     );
 
-    // Collect after invariant logs and traces.
+    // Collect after invariant logs and traces. When `afterInvariant()` is
+    // what failed, the revert reason must be decoded from it rather than from
+    // the passing `invariant()` call.
+    let mut after_invariant_failure: Option<Failure> = None;
+    let mut after_invariant_indeterminism: Option<IndeterminismReasons> = None;
     if invariant_contract.call_after_invariant && invariant_success {
         let CallAfterInvariantResult {
             call_result: after_invariant_result,
-            success: _,
+            success: after_invariant_success,
         } = call_after_invariant_function(&executor, invariant_contract.address)?;
-        execution_traces.push(after_invariant_result.traces.clone().unwrap());
+        execution_traces.push(
+            after_invariant_result
+                .call_trace_arena
+                .expect("tracing is on"),
+        );
+        after_invariant_indeterminism = after_invariant_result.indeterminism_reasons;
+        if !after_invariant_success {
+            after_invariant_failure = Some(Failure {
+                output: after_invariant_result.result,
+                exit_reason: after_invariant_result.exit_reason,
+            });
+        }
         logs.extend(after_invariant_result.logs);
     }
+
+    // Replay safety covers every call the replay executed, whichever one
+    // failed. The sequence's persisted impurity is included in both tail
+    // results. `invariant()` and `afterInvariant()` run on copy-on-write
+    // backends, so each result only carries its own impurity and the two
+    // must be merged. A failure that did not reproduce can also be explained
+    // by impurity observed anywhere in the replay.
+    let indeterminism_reasons = match (
+        invariant_result.indeterminism_reasons,
+        after_invariant_indeterminism,
+    ) {
+        (Some(mut reasons), other) => {
+            reasons.merge(other);
+            Some(reasons)
+        }
+        (None, other) => other,
+    };
+
+    let Failure {
+        output: failing_output,
+        exit_reason: failing_exit_reason,
+    } = after_invariant_failure.unwrap_or_else(|| Failure {
+        output: invariant_result.result,
+        exit_reason: invariant_result.exit_reason,
+    });
 
     let stack_trace_result: Option<SolidityTestStackTraceResult<HaltReasonT>> =
         generate_stack_trace
             .then(|| {
-                invariant_result
-                    .indeterminism_reasons
+                indeterminism_reasons
                     .map(SolidityTestStackTraceResult::from)
                     .or_else(|| {
                         contract_decoder.map(|decoder| {
-                            let (failing_trace, prior_traces) = execution_traces
-                                .split_last()
-                                .expect("the invariant call arena was pushed above");
+                            let (failing_trace, prior_traces) = execution_traces.split_last().expect(
+                                "the failing call's arena was pushed above: afterInvariant() when it ran, otherwise invariant()",
+                            );
 
                             get_stack_trace(
                                 decoder,
@@ -269,10 +338,7 @@ pub fn replay_run<
             })
             .flatten();
 
-    let revert_reason = revert_decoder.maybe_decode(
-        invariant_result.result.as_ref(),
-        invariant_result.exit_reason,
-    );
+    let revert_reason = revert_decoder.maybe_decode(failing_output.as_ref(), failing_exit_reason);
 
     Ok(ReplayResult {
         counterexample_sequence,
@@ -293,7 +359,7 @@ pub struct ReplayErrorArgs<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub execution_traces: &'a mut Vec<SparsedTraceArena>,
+    pub execution_traces: &'a mut ExecutionTraces,
     pub executor: Executor<
         BlockT,
         TxT,

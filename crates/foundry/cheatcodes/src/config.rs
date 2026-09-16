@@ -13,13 +13,13 @@ use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, evm_context::HardforkTr, opts::EvmOpts};
 
 use super::{FsAccessKind, FsPermissions, Result, RpcEndpoint, RpcEndpointUrl, RpcEndpoints};
-use crate::{cache::StorageCachingConfig, Vm::Rpc};
+use crate::{cache::StorageCachingConfig, crypto::WalletCache, Vm::Rpc};
 
 /// Additional, configurable context the `Cheatcodes` inspector has access to
 ///
 /// This is essentially a subset of various `Config` settings `Cheatcodes` needs
 /// to know.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct CheatsConfig<HardforkT> {
     /// Whether the execution is in the context of a test run, gas snapshot or
     /// code coverage.
@@ -64,6 +64,8 @@ pub struct CheatsConfig<HardforkT> {
     pub chain_id_to_alias: HashMap<u64, String>,
     /// Mapping of known EIP-712 canonical type definitions by type name.
     pub eip712_types_by_name: HashMap<String, Eip712TypeDef>,
+    /// Memoized private key -> wallet derivations.
+    pub wallet_cache: WalletCache,
 }
 
 /// Chain data for getChain cheatcodes
@@ -265,6 +267,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
             eip712_types_by_name,
+            wallet_cache: WalletCache::default(),
         }
     }
 
@@ -504,6 +507,7 @@ impl<HardforkT: HardforkTr> Default for CheatsConfig<HardforkT> {
             chains: HashMap::new(),
             chain_id_to_alias: HashMap::new(),
             eip712_types_by_name: HashMap::new(),
+            wallet_cache: WalletCache::default(),
         }
     }
 }

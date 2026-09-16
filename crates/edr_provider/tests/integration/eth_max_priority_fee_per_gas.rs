@@ -30,7 +30,7 @@ async fn eth_max_priority_fee_per_gas() -> anyhow::Result<()> {
     ))?;
 
     // 1 gwei in hex
-    assert_eq!(response.result, "0x3b9aca00");
+    assert_eq!(response.deserialize_result::<String>()?, "0x3b9aca00");
 
     Ok(())
 }

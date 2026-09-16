@@ -21,7 +21,7 @@ use foundry_evm::{
         TransactionErrorTrait,
     },
     executors::stack_trace::SolidityTestStackTraceResult,
-    traces::{CallKind, CallTraceDecoder, DecodedCallData},
+    traces::{CallKind, CallTraceDecoder, DecodedCallData, SparsedTraceArena, TraceMemberOrder},
 };
 
 use crate::helpers::{
@@ -745,6 +745,129 @@ async fn always_mode_produces_stack_trace_for_failing_test() {
         "expected a counterexample call sequence"
     );
 
+    // When `afterInvariant()` is what fails, the replay must decode the
+    // revert reason from it rather than from the (passing) `invariant()`
+    // call, or the runner treats the failure as unreproduced and discards
+    // the stack trace it computed.
+    let after_invariant_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceAfterInvariantTest")
+        .expect("the AlwaysStackTraceAfterInvariant suite should have run");
+    // The failure does not depend on the fuzzed calls, so shrinking leaves no
+    // counterexample sequence; the stack trace alone is the point here.
+    assert_execution_error_stack_trace(after_invariant_suite, "invariantAlwaysHolds()");
+
+    // An impure cheatcode inside `afterInvariant()` taints the replay, so the
+    // result must say the failure is unsafe to replay rather than carry a
+    // stack trace computed from an indeterministic re-execution.
+    let impure_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceImpureAfterInvariantTest")
+        .expect("the AlwaysStackTraceImpureAfterInvariant suite should have run");
+    let impure_result = impure_suite
+        .test_results
+        .get("invariantAlwaysHolds()")
+        .expect("the impure afterInvariant invariant test should have run");
+    let impure_stack_trace = impure_result
+        .stack_trace_result
+        .as_ref()
+        .expect("a stack trace result should be present");
+    assert!(
+        matches!(
+            impure_stack_trace,
+            SolidityTestStackTraceResult::UnsafeToReplay { impure_cheatcodes, .. }
+                if impure_cheatcodes.iter().any(|sig| sig.contains("envOr"))
+        ),
+        "expected UnsafeToReplay naming envOr, got {impure_stack_trace:?}"
+    );
+
+    // The mirror case: the impure cheatcode runs in the passing `invariant()`
+    // and `afterInvariant()` reverts without one. `afterInvariant()` only ran
+    // because `invariant()` passed, so this failure is unsafe to replay too.
+    let impure_invariant_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceImpureInvariantTest")
+        .expect("the AlwaysStackTraceImpureInvariant suite should have run");
+    let impure_invariant_result = impure_invariant_suite
+        .test_results
+        .get("invariantAlwaysHolds()")
+        .expect("the impure invariant test should have run");
+    let impure_invariant_stack_trace = impure_invariant_result
+        .stack_trace_result
+        .as_ref()
+        .expect("a stack trace result should be present");
+    assert!(
+        matches!(
+            impure_invariant_stack_trace,
+            SolidityTestStackTraceResult::UnsafeToReplay { impure_cheatcodes, .. }
+                if impure_cheatcodes.iter().any(|sig| sig.contains("envOr"))
+        ),
+        "expected UnsafeToReplay naming envOr, got {impure_invariant_stack_trace:?}"
+    );
+
+    // A failure that does not reproduce on replay: `afterInvariant()` reverts
+    // only on its first execution (see the fixture). The replay observes the
+    // impure `envOr` read that explains the divergence, so the result must be
+    // `UnsafeToReplay` and keep the original revert reason. It must not be
+    // discarded with the "no revert reason on replay" heuristic.
+    let flaky_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceFlakyAfterInvariantTest")
+        .expect("the AlwaysStackTraceFlakyAfterInvariant suite should have run");
+    let flaky_result = flaky_suite
+        .test_results
+        .get("invariantAlwaysHolds()")
+        .expect("the flaky afterInvariant invariant test should have run");
+    assert!(
+        flaky_result
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("flaky boom")),
+        "expected the original revert reason to be kept, got {:?}",
+        flaky_result.reason
+    );
+    let flaky_stack_trace = flaky_result
+        .stack_trace_result
+        .as_ref()
+        .expect("a stack trace result should be present");
+    assert!(
+        matches!(
+            flaky_stack_trace,
+            SolidityTestStackTraceResult::UnsafeToReplay { impure_cheatcodes, .. }
+                if impure_cheatcodes.iter().any(|sig| sig.contains("envOr"))
+        ),
+        "expected UnsafeToReplay naming envOr, got {flaky_stack_trace:?}"
+    );
+
+    // A replay that fails in a different phase than the campaign did: the
+    // campaign failed in `invariant()`, while the replay reaches the
+    // always-reverting `afterInvariant()`. That unrelated revert must not
+    // replace the original reason, and the divergence must be reported as
+    // unsafe to replay.
+    let cross_phase_suite = suite_results
+        .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceCrossPhaseTest")
+        .expect("the AlwaysStackTraceCrossPhase suite should have run");
+    let cross_phase_result = cross_phase_suite
+        .test_results
+        .get("invariantFlaky()")
+        .expect("the cross-phase invariant test should have run");
+    assert!(
+        cross_phase_result
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("flaky invariant")),
+        "expected the original revert reason to be kept, got {:?}",
+        cross_phase_result.reason
+    );
+    let cross_phase_stack_trace = cross_phase_result
+        .stack_trace_result
+        .as_ref()
+        .expect("a stack trace result should be present");
+    assert!(
+        matches!(
+            cross_phase_stack_trace,
+            SolidityTestStackTraceResult::UnsafeToReplay { impure_cheatcodes, .. }
+                if impure_cheatcodes.iter().any(|sig| sig.contains("envOr"))
+        ),
+        "expected UnsafeToReplay naming envOr, got {cross_phase_stack_trace:?}"
+    );
+
     // An invariant that is already broken in the initial state fails the
     // campaign's initial check (`invariant_fuzz` returns an error before any
     // fuzzed calls); that path must produce a stack trace too.
@@ -849,6 +972,93 @@ async fn on_failure_mode_produces_stack_trace_for_failing_setup() {
     assert_execution_error_stack_trace(suite, "setUp()");
 }
 
+// Once a failing test's stack trace has been computed, its arenas are freed
+// unless something will still consume them.
+#[tokio::test(flavor = "multi_thread")]
+async fn always_mode_frees_arenas_nothing_consumes() {
+    for (include_traces, expect_retained) in [
+        // Nothing surfaces call traces: the arenas go, the stack trace stays.
+        (IncludeTraces::None, false),
+        // The failing test's call traces are surfaced.
+        (IncludeTraces::Failing, true),
+    ] {
+        let mut config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
+        config.collect_stack_traces = CollectStackTraces::Always;
+        config.include_traces = include_traces;
+
+        let contract_decoder = contract_decoder(TEST_DATA_VIA_IR.build_info_path());
+        let runner = TEST_DATA_VIA_IR
+            .runner_with_contract_decoder(config, contract_decoder)
+            .await;
+        let filter = SolidityTestFilter::new(
+            ".*",
+            "AlwaysStackTraceTest",
+            ".*repros/StackTraceAlwaysMode.t.sol",
+        );
+        let suite_results = runner.test_collect(filter).await.suite_results;
+        let suite = suite_results
+            .get("via-ir/repros/StackTraceAlwaysMode.t.sol:AlwaysStackTraceTest")
+            .expect("the AlwaysStackTrace suite should have run");
+
+        let result = assert_execution_error_stack_trace(suite, "testRevertHasStackTrace()");
+        assert_eq!(
+            !result.execution_traces.is_empty(),
+            expect_retained,
+            "arenas retained at {include_traces:?}"
+        );
+        if expect_retained {
+            assert!(
+                result.execution_traces.iter().all(steps_stripped),
+                "steps stripped from the retained arenas at {include_traces:?}"
+            );
+        }
+    }
+}
+
+/// Whether `arena` keeps its call tree but none of the recorded EVM steps —
+/// neither the step records nor their entries in each node's ordering.
+fn steps_stripped(arena: &SparsedTraceArena) -> bool {
+    arena.nodes().iter().all(|node| {
+        node.trace.steps.is_empty()
+            && !node
+                .ordering
+                .iter()
+                .any(|item| matches!(item, TraceMemberOrder::Step(_)))
+    })
+}
+
+// A passing test's arenas are recorded in `Always` mode too; they are freed
+// unless every result surfaces its call traces.
+#[tokio::test(flavor = "multi_thread")]
+async fn always_mode_frees_passing_tests_arenas_unless_all_are_included() {
+    for (include_traces, expect_retained) in
+        [(IncludeTraces::Failing, false), (IncludeTraces::All, true)]
+    {
+        let mut config = runner_config(None, &TEST_DATA_DEFAULT, false).await;
+        config.collect_stack_traces = CollectStackTraces::Always;
+        config.include_traces = include_traces;
+
+        let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+        let suite_results = runner.test_collect(repro_filter(3347)).await.suite_results;
+        let suite = suite_results
+            .get("default/repros/Issue3347.t.sol:Issue3347Test")
+            .expect("the Issue3347 suite should have run");
+
+        for (name, result) in &suite.test_results {
+            assert_eq!(result.status, TestStatus::Success, "{name}");
+            assert_eq!(
+                !result.execution_traces.is_empty(),
+                expect_retained,
+                "{name}: arenas retained at {include_traces:?}"
+            );
+            // Retained arenas keep their call tree but not the recorded steps.
+            assert!(
+                result.execution_traces.iter().all(steps_stripped),
+                "{name}: steps stripped from retained arenas"
+            );
+        }
+    }
+}
 /// One 32-byte zero hash as a hex literal.
 const ZERO_HASH: &str = "0x0000000000000000000000000000000000000000000000000000000000000000";
 

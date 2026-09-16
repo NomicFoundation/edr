@@ -20,8 +20,7 @@
     }
   },
   "containerEnv": {
-    "ALCHEMY_URL": "${localEnv:ALCHEMY_URL}",
-    "INFURA_URL": "${localEnv:INFURA_URL}"
+    "ALCHEMY_URL": "${localEnv:ALCHEMY_URL}"
   },
   "customizations": {
     "vscode": {

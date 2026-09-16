@@ -71,7 +71,7 @@ k256 = { version = "0.13.1", default-features = false, features = [
 ] }
 lazy_static = { version = "1.4.0", default-features = false }
 log = { version = "0.4.20", default-features = false }
-lru = "0.18.0"
+lru.workspace = true
 parking_lot.workspace = true
 rand.workspace = true
 revm-inspector.workspace = true
@@ -89,6 +89,7 @@ tracing = { version = "0.1.44", features = [
 
 [dev-dependencies]
 alloy-eips.workspace = true
+alloy-trie = { workspace = true, features = ["ethereum"] }
 anyhow = "1.0.100"
 edr_eip7825.workspace = true
 edr_test_block_replay.workspace = true

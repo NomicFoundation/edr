@@ -947,7 +947,9 @@ describe("Evm module", function () {
             });
 
             it("should allow disabling interval mining", async function () {
-              const interval = 100;
+              // Generous, because the assertions below depend on a block
+              // arriving within `0.7 * interval` of when it is due.
+              const interval = 250;
               const initialBlock = await getBlockNumber();
               await this.provider.send("evm_setIntervalMining", [interval]);
 
@@ -967,7 +969,9 @@ describe("Evm module", function () {
             });
 
             it("should mine block with transaction after the interval", async function () {
-              const interval = 100;
+              // Generous, because the assertion below depends on a block
+              // arriving within `0.7 * interval` of when it is due.
+              const interval = 250;
               const txHash = await this.provider.send("eth_sendTransaction", [
                 {
                   from: DEFAULT_ACCOUNTS_ADDRESSES[1],

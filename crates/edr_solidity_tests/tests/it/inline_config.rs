@@ -2,9 +2,11 @@
 
 use std::io::Write as _;
 
-use edr_solidity_tests::{inline_config::InlineConfigProblem, SolidityTestRunnerConfigError};
+use edr_solidity_tests::{
+    inline_config::InlineConfigProblem, result::TestKind, SolidityTestRunnerConfigError,
+};
 
-use crate::helpers::TEST_DATA_DEFAULT;
+use crate::helpers::{SolidityTestFilter, TEST_DATA_DEFAULT};
 
 /// A source whose two test functions each carry a distinct malformed directive.
 const MALFORMED_SOURCE: &str = r#"// SPDX-License-Identifier: MIT
@@ -68,7 +70,7 @@ async fn malformed_inline_config_aborts_whole_run() {
         .find(|item| {
             matches!(
                 &item.problem,
-                InlineConfigProblem::Directive { function, .. } if function == "testFuzzBad"
+                InlineConfigProblem::Directive { function, .. } if function.as_deref() == Some("testFuzzBad")
             )
         })
         .expect("testFuzzBad reported");
@@ -84,7 +86,7 @@ async fn malformed_inline_config_aborts_whole_run() {
         .find(|item| {
             matches!(
                 &item.problem,
-                InlineConfigProblem::Directive { function, .. } if function == "testOtherBad"
+                InlineConfigProblem::Directive { function, .. } if function.as_deref() == Some("testOtherBad")
             )
         })
         .expect("testOtherBad reported");
@@ -106,5 +108,97 @@ async fn malformed_inline_config_aborts_whole_run() {
     assert!(
         rendered.contains("BadInlineConfig.testOtherBad"),
         "{rendered}"
+    );
+}
+
+/// A directive on a test-named function that matches nothing in the contract
+/// ABI (e.g. not externally callable) cannot take effect: the function never
+/// runs as a test. The suite reports a warning instead of silently ignoring
+/// the directive.
+#[tokio::test(flavor = "multi_thread")]
+async fn unmatched_function_directive_warns() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*inline/UnmatchedInlineConfig.t.sol");
+    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let suite = results
+        .get("default/inline/UnmatchedInlineConfig.t.sol:UnmatchedInlineConfigTest")
+        .expect("suite ran");
+    assert!(
+        suite.test_results.contains_key("test_Runs()"),
+        "{:#?}",
+        suite.test_results.keys()
+    );
+
+    assert_eq!(suite.warnings.len(), 1, "{:#?}", suite.warnings);
+    let warning = &suite.warnings[0];
+    assert!(
+        warning.contains("testFuzz_NotExternallyCallable")
+            && warning.contains("UnmatchedInlineConfigTest"),
+        "{warning}"
+    );
+}
+
+/// A contract-level directive (NatSpec above the contract definition) applies
+/// to every test the contract runs — including inherited ones — with
+/// function-level directives taking per-key precedence.
+#[tokio::test(flavor = "multi_thread")]
+async fn contract_level_inline_config_applies_to_all_tests() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*inline/ContractLevelConfig.t.sol");
+    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let suite = results
+        .get("default/inline/ContractLevelConfig.t.sol:ContractLevelConfigTest")
+        .expect("suite ran");
+
+    let fuzz_runs = |test_name: &str| -> u32 {
+        let result = suite
+            .test_results
+            .get(test_name)
+            .unwrap_or_else(|| panic!("{test_name} ran"));
+        match result.kind {
+            TestKind::Fuzz { runs, .. } => u32::try_from(runs).expect("runs fit in u32"),
+            ref kind => panic!("{test_name} is a fuzz test, got {kind:?}"),
+        }
+    };
+
+    // The contract-level `fuzz.runs = 15` covers functions with no directive of
+    // their own, whether declared directly or inherited from a base contract.
+    assert_eq!(fuzz_runs("testFuzz_ContractLevelRuns(uint256)"), 15);
+    assert_eq!(fuzz_runs("testFuzz_InheritedRuns(uint256)"), 15);
+    // A function-level directive wins over the contract level.
+    assert_eq!(fuzz_runs("testFuzz_FunctionOverridesContract(uint256)"), 20);
+
+    // Overloaded test functions are distinct tests; each overload gets the
+    // contract-level configuration.
+    assert_eq!(fuzz_runs("testFuzz_Overloaded(uint256)"), 15);
+    assert_eq!(fuzz_runs("testFuzz_Overloaded(uint256,uint256)"), 15);
+    // A function-level directive identifies its function by name only, so it
+    // applies to every overload of that name.
+    assert_eq!(fuzz_runs("testFuzz_OverloadedWithDirective(uint256)"), 25);
+    assert_eq!(
+        fuzz_runs("testFuzz_OverloadedWithDirective(uint256,uint256)"),
+        25
+    );
+
+    // The contract-level invariant section applies to the invariant test.
+    let invariant = suite
+        .test_results
+        .get("invariant_ContractLevelRuns()")
+        .expect("invariant test ran");
+    assert!(
+        matches!(
+            invariant.kind,
+            TestKind::Invariant {
+                runs: 2,
+                calls: 6,
+                ..
+            }
+        ),
+        "expected 2 runs of depth 3 (6 calls), got {:?}",
+        invariant.kind
     );
 }

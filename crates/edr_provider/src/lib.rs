@@ -67,8 +67,18 @@ pub type ProviderResultWithCallTraces<T, ChainSpecT> =
 
 #[derive(Clone, Debug)]
 pub struct ResponseWithCallTraces {
-    pub result: serde_json::Value,
+    /// The serialized JSON-RPC result.
+    pub result: Box<serde_json::value::RawValue>,
     pub call_trace_arenas: Vec<CallTraceArena>,
+}
+
+impl ResponseWithCallTraces {
+    /// Parses the result on each call.
+    pub fn deserialize_result<T: serde::de::DeserializeOwned>(
+        &self,
+    ) -> Result<T, serde_json::Error> {
+        serde_json::from_str(self.result.get())
+    }
 }
 
 fn to_json<
@@ -78,7 +88,7 @@ fn to_json<
 >(
     value: T,
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
-    let response = serde_json::to_value(value).map_err(ProviderError::Serialization)?;
+    let response = serde_json::value::to_raw_value(&value).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithCallTraces {
         result: response,
@@ -93,7 +103,8 @@ fn to_json_with_trace<
 >(
     value: (T, Option<CallTraceArena>),
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
-    let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
+    let response =
+        serde_json::value::to_raw_value(&value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithCallTraces {
         result: response,
@@ -108,7 +119,8 @@ fn to_json_with_traces<
 >(
     value: (T, Vec<CallTraceArena>),
 ) -> Result<ResponseWithCallTraces, ProviderErrorForChainSpec<ChainSpecT>> {
-    let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
+    let response =
+        serde_json::value::to_raw_value(&value.0).map_err(ProviderError::Serialization)?;
 
     Ok(ResponseWithCallTraces {
         result: response,

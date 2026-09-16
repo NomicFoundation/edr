@@ -11,7 +11,7 @@ use tokio::runtime;
 use crate::{
     config::ProviderConfig,
     data::ProviderData,
-    error::{CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
+    error::{CreationError, CreationErrorForChainSpec, ProviderError, ProviderErrorForChainSpec},
     event_loop::{self, Message, OnResponse},
     logger::SyncLogger,
     mock::SyncCallOverride,
@@ -148,7 +148,7 @@ impl<
             CancellableThread::spawn("edr-provider".to_owned(), move |cancellation_receiver| {
                 event_loop::run(data, request_receiver, cancellation_receiver);
             })
-            .expect("failed to spawn the provider thread");
+            .map_err(CreationError::ThreadSpawn)?;
 
         Ok(Self {
             request_sender,

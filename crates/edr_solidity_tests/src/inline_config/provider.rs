@@ -27,7 +27,7 @@ use super::{
     error::{
         InlineConfigCollectError, InlineConfigErrorItem, InlineConfigErrors, InlineConfigProblem,
     },
-    overrides::{collect_source, FunctionOverride, SourceCollection, SourceOverrides},
+    overrides::{collect_source, ContractInlineConfig, SourceCollection, SourceOverrides},
     resolver::ImportResolver,
 };
 
@@ -50,7 +50,7 @@ pub struct InlineConfigRoot {
 ///
 /// [`collect`](Self::collect) does all the work — read each source and its
 /// imports from disk, parse them with Slang, and extract every contract's
-/// per-function overrides — once. Only sources that carry a directive are
+/// inline configuration — once. Only sources that carry a directive are
 /// parsed. Problems (a malformed directive, an unreadable root file, or an
 /// unsupported solc version) are accumulated (see
 /// [`validate`](Self::validate)) rather than short-circuiting, so every
@@ -97,7 +97,7 @@ impl CachedInlineConfigProvider {
             let collection = collect_source(
                 &root.source,
                 &root.path,
-                Arc::from(content),
+                &content,
                 root.version.clone(),
                 import_resolver,
             );
@@ -138,14 +138,14 @@ impl CachedInlineConfigProvider {
         }
     }
 
-    /// Returns the inline configuration of every test function declared
-    /// directly in `contract_name` within `source`, as computed during
-    /// collection.
+    /// Returns the inline configuration of `contract_name` within `source`, as
+    /// computed during collection: its contract-level configuration and the
+    /// overrides of every test function declared directly in it.
     ///
-    /// Returns an empty vector if the contract carries no inline configuration.
-    /// Malformed directives never reach here — they are caught up front by
+    /// Returns an empty configuration if the contract carries none. Malformed
+    /// directives never reach here — they are caught up front by
     /// [`validate`](Self::validate), which aborts the run.
-    pub fn get(&self, source: &Path, contract_name: &str) -> Vec<FunctionOverride> {
+    pub fn get(&self, source: &Path, contract_name: &str) -> ContractInlineConfig {
         self.by_source
             .get(source)
             .and_then(|configs| configs.get(contract_name))
@@ -180,7 +180,7 @@ impl SharedInlineConfigProvider {
 
     /// Returns the inline configuration of `contract_name` within `source` — a
     /// plain lookup against the already-collected configuration.
-    pub fn get(&self, source: &Path, contract_name: &str) -> Vec<FunctionOverride> {
+    pub fn get(&self, source: &Path, contract_name: &str) -> ContractInlineConfig {
         self.0.get(source, contract_name)
     }
 }
@@ -195,6 +195,7 @@ mod tests {
     const SOURCE: &str = r#"// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/// forge-config: default.invariant.runs = 7
 contract MyTest {
     uint256 internal value;
 
@@ -255,7 +256,11 @@ contract BadTest {
         root_named("project/bad.sol", MALFORMED_SOURCE)
     }
 
-    fn assert_overrides(overrides: &[FunctionOverride]) {
+    fn assert_overrides(config: &ContractInlineConfig) {
+        let contract = config.contract.as_ref().expect("contract-level config");
+        assert_eq!(contract.invariant.as_ref().unwrap().runs, Some(7));
+
+        let overrides = &config.functions;
         assert_eq!(overrides.len(), 2, "{overrides:#?}");
         let fuzz = overrides
             .iter()
@@ -277,7 +282,7 @@ contract BadTest {
 
         provider.validate().expect("no problems");
         assert_overrides(&provider.get(Path::new(SOURCE_NAME), "MyTest"));
-        // A source that was never collected reports no overrides.
+        // A source that was never collected reports no configuration.
         assert!(provider.get(Path::new("never.sol"), "MyTest").is_empty());
     }
 
@@ -328,7 +333,7 @@ contract BadTest {
             .find(|item| {
                 matches!(
                     &item.problem,
-                    InlineConfigProblem::Directive { function, .. } if function == "testFuzz"
+                    InlineConfigProblem::Directive { function, .. } if function.as_deref() == Some("testFuzz")
                 )
             })
             .expect("testFuzz reported");
@@ -344,7 +349,7 @@ contract BadTest {
             .find(|item| {
                 matches!(
                     &item.problem,
-                    InlineConfigProblem::Directive { function, .. } if function == "testOther"
+                    InlineConfigProblem::Directive { function, .. } if function.as_deref() == Some("testOther")
                 )
             })
             .expect("testOther reported");
@@ -356,15 +361,61 @@ contract BadTest {
         assert!(items.iter().all(|item| {
             !matches!(
                 &item.problem,
-                InlineConfigProblem::Directive { function, .. } if function == "testValid"
+                InlineConfigProblem::Directive { function, .. } if function.as_deref() == Some("testValid")
             )
         }));
 
         // The well-formed function's override is still collected alongside the
         // malformed ones.
-        let overrides = provider.get(Path::new("project/bad.sol"), "BadTest");
-        assert_eq!(overrides.len(), 1);
-        assert_eq!(overrides[0].function_name, "testValid");
+        let config = provider.get(Path::new("project/bad.sol"), "BadTest");
+        assert_eq!(config.functions.len(), 1);
+        assert_eq!(config.functions[0].function_name, "testValid");
+    }
+
+    /// A malformed contract-level directive is reported against the contract
+    /// (no function) at the offending line, while a well-formed function-level
+    /// override in the same contract is still collected.
+    #[test]
+    fn malformed_contract_level_directive_reported_without_function() {
+        let source = r#"// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+/// forge-config: default.fuzz.runs = -1
+contract BadContractLevel {
+    /// forge-config: default.fuzz.runs = 5
+    function testValid(uint256 x) public {}
+}
+"#;
+        let (root, _file) = root_named("project/bad_contract.sol", source);
+        let provider = CachedInlineConfigProvider::collect(&[root], &ImportResolver::default());
+
+        let errors = provider.validate().expect_err("problems reported");
+        let items = errors.items();
+        assert_eq!(items.len(), 1, "{items:#?}");
+        let InlineConfigProblem::Directive {
+            contract,
+            function,
+            line,
+            ..
+        } = &items[0].problem
+        else {
+            panic!("expected a directive problem, got {:#?}", items[0].problem);
+        };
+        assert_eq!(contract, "BadContractLevel");
+        assert_eq!(*function, None);
+        assert_eq!(*line, 4);
+
+        // The rendered report names the contract without a function.
+        assert!(
+            items[0].to_string().contains("BadContractLevel:"),
+            "{}",
+            items[0]
+        );
+
+        let config = provider.get(Path::new("project/bad_contract.sol"), "BadContractLevel");
+        assert!(config.contract.is_none());
+        assert_eq!(config.functions.len(), 1);
+        assert_eq!(config.functions[0].function_name, "testValid");
     }
 
     #[test]

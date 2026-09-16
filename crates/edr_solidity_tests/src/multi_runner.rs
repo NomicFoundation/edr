@@ -30,9 +30,7 @@ use foundry_evm::{
     fork::CreateFork,
     inspectors::{cheatcodes::CheatsConfigOptions, CheatsConfig},
     opts::EvmOpts,
-    traces::{
-        decode_trace_arena, identifier::TraceIdentifiers, CallTraceDecoderBuilder, TracingMode,
-    },
+    traces::{identifier::TraceIdentifiers, CallTraceDecoderBuilder, TracingMode},
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -42,7 +40,7 @@ use crate::{
     error::TestRunnerError,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inline_config::{self, InlineConfigRoot, SharedInlineConfigProvider},
-    result::SuiteResult,
+    result::{SuiteResult, SuiteRunOutcome, TestRunOutcome},
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
     TestFunctionConfigOverride,
@@ -278,6 +276,20 @@ impl<
     }
 }
 
+/// The inline configuration a test suite runs with, extracted from its
+/// contract's source (see
+/// [`MultiContractRunner::inline_config_overrides`]).
+struct SuiteInlineConfig {
+    /// The merged per-function configuration overrides.
+    overrides: HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
+    /// The functions that opted into `allowInternalExpectRevert`.
+    allow_internal_expect_revert: HashSet<TestFunctionIdentifier>,
+    /// Warnings for directives that cannot take effect, e.g. on a function
+    /// that matches nothing in the contract ABI. Reported on the suite's
+    /// result.
+    warnings: Vec<String>,
+}
+
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr + Send + Sync,
@@ -308,8 +320,14 @@ impl<
     >
 {
     /// Parses the inline configuration of the given test contract from its
-    /// source, returning the per-function overrides and the set of functions
-    /// that opted into `allowInternalExpectRevert`.
+    /// source, returning the overrides keyed by test function selector, the
+    /// set of tests that opted into `allowInternalExpectRevert`, and warnings
+    /// for directives that cannot take effect.
+    ///
+    /// A contract-level configuration (NatSpec above the contract definition)
+    /// applies to every test function in the contract's ABI — including
+    /// inherited ones — with function-level directives taking per-key
+    /// precedence.
     ///
     /// Returns empty collections when the contract's source isn't available or
     /// carries no inline configuration. Malformed directives never reach here:
@@ -319,36 +337,76 @@ impl<
         &self,
         artifact_id: &ArtifactId,
         contract: &TestContract,
-    ) -> (
-        HashMap<TestFunctionIdentifier, TestFunctionConfigOverride>,
-        HashSet<TestFunctionIdentifier>,
-    ) {
+    ) -> SuiteInlineConfig {
         let parsed = self
             .inline_config_provider
             .get(&artifact_id.source, &artifact_id.name);
 
+        let mut warnings = Vec::new();
+
+        // Key the overrides by selector: every overload is a distinct test
+        // with a distinct selector.
+        let mut by_selector: HashMap<String, TestFunctionConfigOverride> = HashMap::new();
+        for function_override in parsed.functions {
+            let mut matched = false;
+            for function in contract
+                .abi
+                .functions()
+                .filter(|function| function.name == function_override.function_name)
+            {
+                matched = true;
+                by_selector.insert(
+                    function.selector().to_string(),
+                    function_override.config.clone(),
+                );
+            }
+            // A name matching no ABI function (e.g. not externally callable)
+            // can't be run as a test, so its override would silently do
+            // nothing; warn instead.
+            if !matched {
+                warnings.push(format!(
+                    "Found inline configuration for function \"{}\" in contract \"{}\", but no \
+                     matching function exists in the contract ABI (it may not be externally \
+                     callable), so it will not run as a test and its configuration is ignored.",
+                    function_override.function_name, artifact_id.name,
+                ));
+            }
+        }
+
+        // Apply the contract-level configuration underneath every test
+        // function's own overrides. Walking the ABI (rather than the source)
+        // covers inherited test functions too.
+        if let Some(contract_config) = &parsed.contract {
+            for function in contract.abi.functions() {
+                if !inline_config::is_test_function(&function.name) {
+                    continue;
+                }
+                by_selector
+                    .entry(function.selector().to_string())
+                    .or_default()
+                    .fill_unset_from(contract_config);
+            }
+        }
+
         let mut overrides = HashMap::new();
         let mut allow_internal_expect_revert = HashSet::new();
 
-        for function_override in parsed {
-            let Some(function_selector) =
-                inline_config::resolve_selector(&contract.abi, &function_override.function_name)
-            else {
-                // Not part of the ABI (e.g. not externally callable), so it
-                // can't be run as a test; ignore it.
-                continue;
-            };
+        for (function_selector, config) in by_selector {
             let identifier = TestFunctionIdentifier {
                 contract_artifact: artifact_id.clone(),
                 function_selector,
             };
-            if function_override.config.allow_internal_expect_revert == Some(true) {
+            if config.allow_internal_expect_revert == Some(true) {
                 allow_internal_expect_revert.insert(identifier.clone());
             }
-            overrides.insert(identifier, function_override.config);
+            overrides.insert(identifier, config);
         }
 
-        (overrides, allow_internal_expect_revert)
+        SuiteInlineConfig {
+            overrides,
+            allow_internal_expect_revert,
+            warnings,
+        }
     }
 
     fn run_test_suite(
@@ -378,8 +436,11 @@ impl<
         debug!("start executing all tests in contract");
 
         // Extract per-test inline configuration from the contract's source.
-        let (inline_overrides, allow_internal_expect_revert) =
-            self.inline_config_overrides(artifact_id, contract);
+        let SuiteInlineConfig {
+            overrides: inline_overrides,
+            allow_internal_expect_revert,
+            warnings: inline_config_warnings,
+        } = self.inline_config_overrides(artifact_id, contract);
 
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
@@ -447,89 +508,113 @@ impl<
                     invariant_config: &self.invariant_config,
                     test_function_overrides: &inline_overrides,
                     generate_gas_report: self.generate_gas_report,
+                    include_traces: self.include_traces,
                 },
                 span,
             );
-        let mut r = runner.run_tests(filter, handle)?;
+        let SuiteRunOutcome {
+            duration,
+            mut setup_traces,
+            test_outcomes,
+            mut warnings,
+        } = runner.run_tests(filter, handle)?;
+        warnings.extend(inline_config_warnings);
 
         let mut gas_report = self
             .generate_gas_report
             .then(crate::gas_report::GasReport::default);
 
-        if self.include_traces != IncludeTraces::None {
+        let test_results = if self.include_traces == IncludeTraces::None {
+            test_outcomes
+                .into_iter()
+                .map(|(signature, outcome)| (signature, outcome.result))
+                .collect()
+        } else {
             let mut decoder = CallTraceDecoderBuilder::new().build();
             let mut trace_identifier = TraceIdentifiers::new().with_local(&self.known_contracts);
 
             // Setup traces are shared across all tests in the suite, so decode and analyze
             // them only once.
-            for (_, arena) in &mut r.setup_traces {
-                decoder.identify(arena, &mut trace_identifier);
-                tokio::task::block_in_place(|| {
-                    handle.block_on(decode_trace_arena(arena, &decoder));
-                });
-            }
+            tokio::task::block_in_place(|| {
+                handle.block_on(
+                    setup_traces.identify_and_decode(&mut decoder, &mut trace_identifier),
+                );
+            });
 
             if let Some(gas_report) = gas_report.as_mut() {
                 tokio::task::block_in_place(|| {
                     handle.block_on(
-                        gas_report.analyze(r.setup_traces.iter().map(|(_, a)| &a.arena), &decoder),
+                        gas_report.analyze(setup_traces.iter().map(|(_, a)| &a.arena), &decoder),
                     );
                 });
             }
 
-            for result in r.test_results.values_mut() {
-                if result.status.is_success() && self.include_traces != IncludeTraces::All {
-                    continue;
-                }
+            test_outcomes
+                .into_iter()
+                .map(|(signature, outcome)| {
+                    let TestRunOutcome {
+                        mut result,
+                        gas_report_samples,
+                    } = outcome;
 
-                decoder.clear_addresses();
-                decoder.labels.extend(
-                    result
-                        .labeled_addresses
-                        .iter()
-                        .map(|(k, v)| (*k, v.clone())),
-                );
-
-                // Re-execute setup traces to collect identities of deployed contracts.
-                for (_, arena) in &mut r.setup_traces {
-                    decoder.identify(arena, &mut trace_identifier);
-                }
-
-                for arena in &mut result.execution_traces {
-                    decoder.identify(arena, &mut trace_identifier);
-                    tokio::task::block_in_place(|| {
-                        handle.block_on(decode_trace_arena(arena, &decoder));
-                    });
-                }
-
-                if let Some(gas_report) = gas_report.as_mut() {
-                    tokio::task::block_in_place(|| {
-                        handle.block_on(gas_report.analyze(
-                            result.execution_traces.iter().map(|arena| &arena.arena),
-                            &decoder,
-                        ));
-                    });
-
-                    for trace in &result.gas_report_traces {
+                    if self
+                        .include_traces
+                        .should_include(|| result.status.is_failure())
+                    {
                         decoder.clear_addresses();
+                        decoder.labels.extend(
+                            result
+                                .labeled_addresses
+                                .iter()
+                                .map(|(k, v)| (*k, v.clone())),
+                        );
 
                         // Re-execute setup traces to collect identities of deployed contracts.
-                        for (_, arena) in &r.setup_traces {
+                        for (_, arena) in &setup_traces {
                             decoder.identify(arena, &mut trace_identifier);
                         }
 
-                        for arena in trace {
-                            decoder.identify(arena, &mut trace_identifier);
+                        tokio::task::block_in_place(|| {
+                            handle.block_on(
+                                result
+                                    .execution_traces
+                                    .identify_and_decode(&mut decoder, &mut trace_identifier),
+                            );
+                        });
+
+                        if let Some(gas_report) = gas_report.as_mut() {
                             tokio::task::block_in_place(|| {
-                                handle.block_on(gas_report.analyze([arena], &decoder));
+                                handle.block_on(gas_report.analyze(
+                                    result.execution_traces.iter().map(|arena| &arena.arena),
+                                    &decoder,
+                                ));
                             });
+
+                            for trace in gas_report_samples.into_iter().flatten() {
+                                decoder.clear_addresses();
+
+                                // Re-execute setup traces to collect identities of deployed
+                                // contracts.
+                                for (_, arena) in &setup_traces {
+                                    decoder.identify(arena, &mut trace_identifier);
+                                }
+
+                                for arena in trace {
+                                    decoder.identify(&arena, &mut trace_identifier);
+                                    tokio::task::block_in_place(|| {
+                                        handle.block_on(gas_report.analyze([&arena], &decoder));
+                                    });
+                                }
+                            }
                         }
                     }
-                }
-                // Clear memory.
-                result.gas_report_traces.clear();
-            }
-        }
+
+                    (signature, result)
+                })
+                .collect()
+        };
+
+        let r = SuiteResult::new(duration, setup_traces, test_results, warnings);
         debug!(duration=?r.duration, "executed all tests in contract");
 
         Ok((r, gas_report))

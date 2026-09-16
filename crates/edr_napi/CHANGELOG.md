@@ -1,5 +1,35 @@
 # @nomicfoundation/edr
 
+## 0.20.0
+
+### Minor Changes
+
+- e1974f4: Added an optional `blockTimestamp` field to logs, as specified by [ethereum/execution-apis#639](https://github.com/ethereum/execution-apis/pull/639). Logs returned by `eth_getLogs`, `eth_getFilterLogs`, `eth_getFilterChanges`, `eth_subscribe("logs")` and in transaction receipts now carry the timestamp of the block the log is in, as a hex QUANTITY.
+
+  Matching the spec, the field is populated for locally mined blocks. When forking, it is passed through from the remote node, which every major client now serves; a log from a node that predates the spec change keeps the field absent rather than defaulting it, so a missing timestamp stays distinguishable from a real one.
+
+- 9637a17: Added a synchronous, native Keccak-256 implementation: `keccak256`.
+- e1974f4: Added a version subdirectory to the RPC response cache on disk, to invalidate outdated cache types. Cache entries now live under `rpc_cache/v2`, so everything else in `rpc_cache` is ignored and can be deleted.
+- 883a780: Added support for contract-level inline configurations in Solidity tests.
+
+  As part of this, the `function` field of `InlineConfigDirectiveError` and `InlineConfigDirectiveLocation` changed from `string` to `string | undefined`: it is absent when the directive is contract-level rather than function-level.
+
+- def04e7:
+  - Fixed interval mining accepting a `[min, max]` range that it could not honour. A range with `min > max` crashed the provider on its first interval-mined block, and `[0, 0]` starved the provider of incoming requests. A range must now satisfy `1 <= min <= max`, and is rejected when the provider is created, when `evm_setIntervalMining` is called (JSON-RPC error `-32602`), and when a recorded scenario is loaded. Both bounds remain inclusive.
+
+    BREAKING CHANGE: `[0, 0]` and `[0, N]` interval ranges are no longer accepted. Neither previously worked as configured, but a configuration that is forwarded today will now fail when the provider is created. A scalar `0` still disables interval mining; a zero minimum inside a range must be normalised by the caller.
+
+  - Fixed `evm_setIntervalMining` not restarting the interval timer when called with the interval that was already configured. A range draws a new interval before each block, so an unchanged configuration does not imply an unchanged schedule.
+
+### Patch Changes
+
+- ba201a9: Fixed calls through proxy contracts being reported as `<unrecognized-selector>` in logged transactions and calls. When a function selector is not found in the called contract's ABI, it is now resolved against the ABI of the implementation behind the proxy, and the call is labeled with the full delegation chain, e.g. `Proxy>Implementation#setValue`. This works for any proxy that forwards the selector via `DELEGATECALL`.
+- 7fff2bd: Moved JSON-RPC request handling onto a dedicated provider thread, reducing the JS scenario benchmark by ~27%
+- 089eaf1: Fixed build-info parsing rejecting compiler input whose `optimizer.runs` exceeds 32 bits. Projects using vanity runs values such as `444444444444` (aave-v4's historical setting) failed the whole build-info parse — disabling stack traces — even though solc accepts the value; the field is now read as 64-bit, matching solc and foundry-compilers.
+- 0684fdf: Fixed provider threads accumulating until the process ran out of them. Each provider owns a dedicated OS thread, which V8 could not see, so an unreachable provider was never collected and its thread never joined. On macOS, whose per-process thread limit is far below Linux's, a suite creating hundreds of providers exhausted it.
+
+  `createProvider` now rejects when the OS refuses a thread, instead of panicking and leaving its promise pending forever.
+
 ## 0.19.0
 
 ### Minor Changes

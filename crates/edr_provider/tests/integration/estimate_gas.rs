@@ -85,7 +85,9 @@ impl Fixture {
             ),
         ))?;
 
-        let gas: U64 = serde_json::from_value(response.result).expect("estimate should be U64");
+        let gas: U64 = response
+            .deserialize_result()
+            .expect("estimate should be U64");
         Ok(gas.to::<u64>())
     }
 
@@ -122,8 +124,9 @@ impl Fixture {
             )))
             .expect("eth_call n() should succeed");
 
-        let bytes: Bytes =
-            serde_json::from_value(response.result).expect("call should return Bytes");
+        let bytes: Bytes = response
+            .deserialize_result()
+            .expect("call should return Bytes");
         U256::from_be_slice(bytes.as_ref())
     }
 }
@@ -242,7 +245,7 @@ async fn plain_transfer_estimation_unchanged_with_no_internal_out_of_gas() -> an
             None,
         )))?;
 
-    let gas: U64 = serde_json::from_value(response.result)?;
+    let gas: U64 = response.deserialize_result()?;
     // The same value `estimate_gas` produces today for a plain transfer:
     // `minimum_cost + 1` (the clamp in `estimate_gas`). What matters here
     // is that changing the estimation mode does not affect this output.

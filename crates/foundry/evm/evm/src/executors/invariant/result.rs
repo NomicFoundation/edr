@@ -256,7 +256,7 @@ pub(crate) fn can_continue<
 
     // Assert invariants if the call did not revert and the handlers did not fail.
     if !call_result.reverted && handlers_succeeded {
-        if let Some(traces) = call_result.traces {
+        if let Some(traces) = call_result.call_trace_arena {
             invariant_run.run_traces.push(traces);
         }
 

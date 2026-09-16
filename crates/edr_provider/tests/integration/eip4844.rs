@@ -221,7 +221,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
         MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
     ))?;
 
-    let transaction_hash: B256 = serde_json::from_value(result.result)?;
+    let transaction_hash: B256 = result.deserialize_result()?;
     assert_eq!(transaction_hash, *expected.transaction_hash());
 
     Ok(())
@@ -259,13 +259,13 @@ async fn get_transaction() -> anyhow::Result<()> {
         MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
     ))?;
 
-    let transaction_hash: B256 = serde_json::from_value(result.result)?;
+    let transaction_hash: B256 = result.deserialize_result()?;
 
     let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: L1RpcTransactionWithSignature = serde_json::from_value(result.result)?;
+    let transaction: L1RpcTransactionWithSignature = result.deserialize_result()?;
     let transaction = edr_chain_l1::L1SignedTransaction::try_from(transaction)?;
 
     assert_eq!(transaction, expected);
@@ -313,7 +313,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let first_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    let first_block: L1RpcBlock<B256> = result.deserialize_result()?;
     assert_eq!(first_block.blob_gas_used, Some(DATA_GAS_PER_BLOB));
 
     assert_eq!(
@@ -337,7 +337,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let second_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    let second_block: L1RpcBlock<B256> = result.deserialize_result()?;
     assert_eq!(second_block.blob_gas_used, Some(4 * DATA_GAS_PER_BLOB));
 
     assert_eq!(
@@ -361,7 +361,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let third_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    let third_block: L1RpcBlock<B256> = result.deserialize_result()?;
     assert_eq!(third_block.blob_gas_used, Some(5 * DATA_GAS_PER_BLOB));
 
     assert_eq!(
@@ -381,7 +381,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fourth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    let fourth_block: L1RpcBlock<B256> = result.deserialize_result()?;
     assert_eq!(fourth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
@@ -402,7 +402,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fifth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    let fifth_block: L1RpcBlock<B256> = result.deserialize_result()?;
     assert_eq!(fifth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
@@ -441,7 +441,7 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
                 MethodInvocation::GetStorageAt(*contract_address, index, None),
             ))?;
 
-            let storage_value: B256 = serde_json::from_value(result.result)?;
+            let storage_value: B256 = result.deserialize_result()?;
             assert_eq!(storage_value, blob_hash);
         }
 
@@ -452,7 +452,7 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
                 MethodInvocation::GetStorageAt(*contract_address, index, None),
             ))?;
 
-            let storage_value: B256 = serde_json::from_value(result.result)?;
+            let storage_value: B256 = result.deserialize_result()?;
             assert_eq!(storage_value, B256::ZERO);
         }
 

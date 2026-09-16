@@ -310,7 +310,7 @@ alloy-primitives = { version = "1.5.2", default-features = false, features = [
 alloy-sol-macro-expander = "1.5.2"
 alloy-sol-macro-input = "1.5.2"
 alloy-sol-types = "1.5.2"
-syn-solidity = "=1.6.1"
+syn-solidity = "=1.7.2"
 
 alloy-chains = "0.2.6"
 alloy-rlp = { version = "0.3.12", features = ["derive"] }
@@ -341,6 +341,7 @@ itertools = "0.15"
 jsonpath_lib = "0.3"
 k256 = "0.13"
 log = { version = "0.4.17", default-features = false }
+lru = "0.18.0"
 parking_lot = { version = "0.12.1", default-features = false }
 paste = { version = "1.0.14", default-features = false }
 proptest = "1.7.0"
@@ -354,11 +355,13 @@ similar-asserts = "2.0"
 rand = "0.9"
 rustc-hash = "2.0"
 serde = { version = "1.0", features = ["derive", "std"] }
-# Arbitrary precision is needed by the `parseJson` cheatcode and preserve order is needed by `edr_solidity`.
+# Arbitrary precision is needed by the `parseJson` cheatcode, preserve order by
+# `edr_solidity`, and raw value by `edr_provider::ResponseWithCallTraces`.
 # The features are listed here instead of in the Cargo.toml of those packages to avoid surprises from feature unification.
 serde_json = { version = "1.0", features = [
     "arbitrary_precision",
     "preserve_order",
+    "raw_value",
     "std",
 ] }
 strum = "0.28"
