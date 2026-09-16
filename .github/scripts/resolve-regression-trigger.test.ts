@@ -40,7 +40,8 @@ interface Captured {
 
 // `pinFile` is the raw content of .github/hardhat-compat-pin.json (absent →
 // repos.getContent 404s, i.e. no pin). `hardhatPr` is the Hardhat PR that a
-// valid pin's pulls.get resolves to.
+// valid pin's pulls.get resolves to. `ci` is the EDR CI run, or one entry per
+// listWorkflowRuns call with the last repeating (`undefined` = no run yet).
 function makeDeps({
   eventName,
   sha = "",
@@ -55,7 +56,7 @@ function makeDeps({
   eventName: string;
   sha?: string;
   payload?: Context["payload"];
-  ci?: WorkflowRun;
+  ci?: WorkflowRun | Array<WorkflowRun | undefined>;
   pr?: EdrPullRequest;
   pinFile?: string;
   hardhatPr?: HardhatPullRequest;
@@ -70,6 +71,12 @@ function makeDeps({
     comments: [],
     reactions: [],
   };
+
+  // Fake clock, advanced only by the fake `sleep`, so the CI wait's timeout
+  // path costs no wall-clock time.
+  let clock = 0;
+  const ciResponses = Array.isArray(ci) ? ci : [ci];
+  let ciCalls = 0;
 
   const core = {
     setOutput: (name: string, value: string) => {
@@ -94,7 +101,8 @@ function makeDeps({
         }) => {
           assert.equal(workflow_id, "edr-ci.yml");
           assert.equal(head_sha, pr?.head.sha);
-          return { data: { workflow_runs: ci === undefined ? [] : [ci] } };
+          const run = ciResponses[Math.min(ciCalls++, ciResponses.length - 1)];
+          return { data: { workflow_runs: run === undefined ? [] : [run] } };
         },
       },
       pulls: {
@@ -165,7 +173,16 @@ function makeDeps({
     payload,
   };
 
-  return { github, context, core, captured };
+  return {
+    github,
+    context,
+    core,
+    sleep: async (ms: number) => {
+      clock += ms;
+    },
+    now: () => clock,
+    captured,
+  };
 }
 
 // Stand-in head for the pinned Hardhat PR; the resolver never reads it.
@@ -541,6 +558,36 @@ test("issue_comment → same-repo PR with failing CI does not run", async () => 
   assert.equal(captured.outputs.should_run, "false");
   assert.equal(captured.outputs.hardhat_ref, "main"); // no hardhat-ref= in body
   assert.equal(captured.comments.length, 1);
+  assert.match(firstComment(captured), /hasn't passed yet/);
+});
+
+test("issue_comment → waits for in-progress CI, then runs", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "issue_comment",
+    payload: commentPayload("/bench"),
+    pr: { head: { repo: { full_name: FULL }, sha: "1234567890ab" } },
+    ci: [
+      undefined,
+      { id: 1, status: "in_progress", conclusion: null },
+      { id: 1, status: "completed", conclusion: "success" },
+    ],
+  });
+  await resolveRegressionTrigger(deps);
+  assert.equal(captured.outputs.should_run, "true");
+  assert.match(captured.infos.join("\n"), /status: not started/);
+  assert.match(captured.infos.join("\n"), /status: in_progress/);
+});
+
+test("issue_comment → CI that never registers times out and does not run", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "issue_comment",
+    payload: commentPayload("/bench"),
+    pr: { head: { repo: { full_name: FULL }, sha: "1234567890ab" } },
+    ci: [undefined],
+  });
+  await resolveRegressionTrigger(deps);
+  assert.equal(captured.outputs.should_run, "false");
+  assert.match(captured.warnings.join("\n"), /Timed out waiting for EDR CI/);
   assert.match(firstComment(captured), /hasn't passed yet/);
 });
 

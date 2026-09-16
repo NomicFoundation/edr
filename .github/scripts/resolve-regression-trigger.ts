@@ -124,14 +124,19 @@ export interface Context {
   };
 }
 
+// Tests pass `sleep` and `now` to fake the clock of the CI wait.
 export async function resolveRegressionTrigger({
   github,
   context,
   core,
+  sleep,
+  now,
 }: {
   github: GitHub;
   context: Context;
   core: CoreWithOutputs;
+  sleep?: (ms: number) => Promise<unknown>;
+  now?: () => number;
 }): Promise<void> {
   const { owner, repo } = context.repo;
   const fullName = `${owner}/${repo}`;
@@ -163,6 +168,8 @@ export async function resolveRegressionTrigger({
       pollIntervalMs: CI_POLL_INTERVAL_MS,
       // A `/bench` comment can land before CI registers its run.
       onMissing: "wait",
+      sleep,
+      now,
     });
     if (result.outcome !== "concluded") {
       core.warning("Timed out waiting for EDR CI to conclude");
