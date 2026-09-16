@@ -10,6 +10,14 @@ inputs:
   cache:
     description: Automatically configure Rust cache
     default: true
+  cache-directories:
+    description: Extra paths to cache alongside the cargo registry and target dir
+    # `napi build` regenerates index.d.ts by re-running the `#[napi]` proc
+    # macros, so it forces a rebuild whenever its type-definition cache is
+    # missing — and forces one more when the cache reappears, because the
+    # `NAPI_FORCE_BUILD_*` env var it watches goes from set to unset. Keeping
+    # the directory means neither happens.
+    default: target/napi-rs
 
 runs:
   using: composite
@@ -21,6 +29,7 @@ runs:
         toolchain: ${{ inputs.toolchain }}
         components: ${{ inputs.components }}
         cache: ${{ inputs.cache }}
+        cache-directories: ${{ inputs.cache-directories }}
         cache-save-if: ${{ github.ref == 'refs/heads/main' }}
         # Disabled: caching ~/.cargo/bin/ wholesale clobbers rustup's proxy
         # binaries on restore after a runner image bump, leaving `cargo` to
