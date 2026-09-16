@@ -8,5 +8,5 @@
     "sourceMap": false,
     "skipLibCheck": false
   },
-  "files": ["./index.d.ts"]
+  "files": ["./binding.d.ts"]
 }

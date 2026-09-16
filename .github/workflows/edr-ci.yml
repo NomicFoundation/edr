@@ -220,6 +220,16 @@ jobs:
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
 
+      # The `test/isolated` tests run in a separate process from the standard
+      # suite, so their measurements start from a clean baseline.
+      - name: Run isolated tests
+        shell: bash
+        run: |
+          # Same env as "Run tests", so `pretest:isolated` reuses its build.
+          # shellcheck disable=SC1090 # generated env from cargo-llvm-cov, not a static file
+          source <(cargo llvm-cov show-env --sh)
+          pnpm -C crates/edr_napi test:isolated
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
