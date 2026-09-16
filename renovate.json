@@ -82,6 +82,12 @@
       "groupName": "reqwest"
     },
     {
+      "description": "gimli + addr2line: released in lockstep by gimli-rs; each addr2line pins an exact gimli minor and takes gimli types in its API, so bumping one alone cannot compile. Add `object` here too if addr2line's `object` feature is ever enabled.",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["gimli", "addr2line"],
+      "groupName": "gimli-rs"
+    },
+    {
       "description": "napi-rs: Rust crates and @napi-rs/cli are ABI-tied; must move in lockstep with edr_napi.",
       "matchPackageNames": [
         "napi",
