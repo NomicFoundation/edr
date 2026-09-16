@@ -33,7 +33,9 @@ runs:
         # TEMPORARY (drop before merge): also save from this branch so two
         # runs can verify the napi type-definition cache survives. Saving
         # from every branch would evict main's caches under the repo's 10GB cap.
-        cache-save-if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ci/napi-typedef-cache' }}
+        # `github.ref` is `refs/pull/<n>/merge` on pull_request, so the branch
+        # has to be matched via `github.head_ref`.
+        cache-save-if: ${{ github.ref == 'refs/heads/main' || github.head_ref == 'ci/napi-typedef-cache' }}
         # Disabled: caching ~/.cargo/bin/ wholesale clobbers rustup's proxy
         # binaries on restore after a runner image bump, leaving `cargo` to
         # behave as `rustup-init` and rejecting every subcommand.
