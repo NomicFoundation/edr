@@ -7,6 +7,7 @@ import {
   AccountOverride,
   CallOverrideResult,
   ContractDecoder,
+  L1Hardfork,
   l1HardforkToString,
   Provider,
   SubscriptionEvent,
@@ -15,7 +16,6 @@ import {
   opProviderFactory,
   opHardforkToString,
   OpHardfork,
-  SpecId,
 } from "..";
 import {
   ALCHEMY_URL,
@@ -465,7 +465,7 @@ describe("Provider", () => {
       // the provider itself runs a pre-Osaka hardfork so the precompile is not
       // available by default.
       genesisState: fundedGenesisState(),
-      hardfork: l1HardforkToString(SpecId.Prague),
+      hardfork: l1HardforkToString(L1Hardfork.Prague),
       ...(enabled ? { precompileOverrides: [precompileP256Verify()] } : {}),
     });
 
@@ -780,8 +780,8 @@ describe("Provider", () => {
       transactionGasCap: bigint | false | undefined
     ): Promise<Provider> {
       return createGenericProvider(context, {
-        hardfork: l1HardforkToString(SpecId.Osaka),
-        genesisState: fundedGenesisState(l1HardforkToString(SpecId.Osaka)),
+        hardfork: l1HardforkToString(L1Hardfork.Osaka),
+        genesisState: fundedGenesisState(l1HardforkToString(L1Hardfork.Osaka)),
         transactionGasCap,
       });
     }
