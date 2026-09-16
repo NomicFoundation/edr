@@ -337,7 +337,7 @@ index 6afdd63..41130c5 100644
 -  "forge-std=test/utils/forge-std/"
 -]
 +fuzz = { runs = 256, seed = "0x4444" }
-+invariant = { runs = 10, depth = 15, seed = "0x4444"}
++invariant = { runs = 10, depth = 15}
  
  [profile.pre_global_structs]
  skip = ["*/g/*", "*/*7702*", "*/*Transient*", "*/ext/ithaca/*", "*/ext/zksync/*"]
@@ -357,7 +357,7 @@ new file mode 100644
 index 0000000..a46a72f
 --- /dev/null
 +++ b/hardhat.config.js
-@@ -0,0 +1,34 @@
+@@ -0,0 +1,32 @@
 +module.exports = {
 +"paths": {
 +  "sources": "src",
@@ -375,19 +375,17 @@ index 0000000..a46a72f
 +    "evmVersion": "paris"
 +  }
 +},
-+"solidityTest": {
-+  "fsPermissions": {
-+    "read": ["./test/data"],
-+  },
-+  "gasLimit": 100_000_000n,
-+  "fuzz": {
-+    "runs": 256,
-+    "seed":"0x4444"
-+  },
-+  "invariant": {
-+    "runs": 10,
-+    "depth": 15,
-+    "seed":"0x4444"
++"test": {
++  "solidity": {
++    "gasLimit": 100_000_000n,
++    "fuzz": {
++      "runs": 256,
++      "seed":"0x4444"
++    },
++    "invariant": {
++      "runs": 10,
++      "depth": 15,
++    }
 +  }
 +}
 +};

@@ -30,7 +30,12 @@ const config = {
     },
     // These packages use HH v3
     {
-      packages: ["@nomicfoundation/edr-helpers", "solidity-tests", "benchmark"],
+      packages: [
+        "@nomicfoundation/edr-helpers",
+        "solidity-tests",
+        "benchmark",
+        "solx-parity-sweep",
+      ],
       dependencies: ["hardhat"],
     },
   ],
