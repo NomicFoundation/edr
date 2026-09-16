@@ -6,7 +6,7 @@
     "@tsconfig/node22": "^22.0.0",
     "@types/node": "^22.0.0",
     "forge-std": "github:foundry-rs/forge-std#v1.14.0",
-    "hardhat": "^3.4.5",
+    "hardhat": "3.16.0",
     "tsx": "^4.19.3",
     "typescript": "~5.8.2"
   },

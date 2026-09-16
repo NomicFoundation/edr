@@ -16,9 +16,8 @@ pub mod op;
 ///
 /// Models protocol upgrades, including ones without EVM-semantics changes,
 /// unlike [`op_revm::OpSpecId`] which models EVM behavior classes.
-///
-/// The `strum(serialize = …)` strings must stay identical to the [`name`]
-/// module constants.
+// The strum-derived names (`serialize_all = "camelCase"`) are public API;
+// the expected strings are pinned in this module's tests.
 #[repr(u8)]
 #[derive(
     Clone,
@@ -34,7 +33,7 @@ pub mod op;
     strum::EnumString,
     strum::IntoStaticStr,
 )]
-#[strum(parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
+#[strum(serialize_all = "camelCase", parse_err_ty = UnknownHardfork, parse_err_fn = unknown_hardfork)]
 pub enum OpHardfork {
     /// Bedrock hardfork
     Bedrock = 100,
@@ -84,30 +83,6 @@ impl From<OpHardfork> for EvmSpecId {
     fn from(hardfork: OpHardfork) -> Self {
         op_revm::OpSpecId::from(hardfork).into_eth_spec()
     }
-}
-
-/// String identifiers for OP hardforks.
-pub mod name {
-    /// String identifier for the Bedrock hardfork
-    pub const BEDROCK: &str = "Bedrock";
-    /// String identifier for the Regolith hardfork
-    pub const REGOLITH: &str = "Regolith";
-    /// String identifier for the Canyon hardfork
-    pub const CANYON: &str = "Canyon";
-    /// String identifier for the Ecotone hardfork
-    pub const ECOTONE: &str = "Ecotone";
-    /// String identifier for the Fjord hardfork
-    pub const FJORD: &str = "Fjord";
-    /// String identifier for the Granite hardfork
-    pub const GRANITE: &str = "Granite";
-    /// String identifier for the Holocene hardfork
-    pub const HOLOCENE: &str = "Holocene";
-    /// String identifier for the Isthmus hardfork
-    pub const ISTHMUS: &str = "Isthmus";
-    /// String identifier for the Jovian hardfork
-    pub const JOVIAN: &str = "Jovian";
-    /// String identifier for the Interop hardfork
-    pub const INTEROP: &str = "Interop";
 }
 
 /// Returns the chain configurations for OP chains.
@@ -167,19 +142,11 @@ mod tests {
         }
     }
 
-    /// The strings the `strum` derives emit/parse must stay in sync with the
-    /// [`name`] module constants, which are re-exported as public API.
+    /// The public hardfork name strings. Changing one is a breaking change
+    /// for consumers.
     const NAMES: [&str; 10] = [
-        name::BEDROCK,
-        name::REGOLITH,
-        name::CANYON,
-        name::ECOTONE,
-        name::FJORD,
-        name::GRANITE,
-        name::HOLOCENE,
-        name::ISTHMUS,
-        name::JOVIAN,
-        name::INTEROP,
+        "bedrock", "regolith", "canyon", "ecotone", "fjord", "granite", "holocene", "isthmus",
+        "jovian", "interop",
     ];
 
     #[test]
@@ -193,6 +160,8 @@ mod tests {
         assert_eq!(OpHardfork::from_str("NotAHardfork"), Err(UnknownHardfork));
         // strum must not fall back to parsing variant identifiers.
         assert_eq!(OpHardfork::from_str("BEDROCK"), Err(UnknownHardfork));
+        // Former (PascalCase) names must no longer parse.
+        assert_eq!(OpHardfork::from_str("Bedrock"), Err(UnknownHardfork));
     }
 
     #[test]

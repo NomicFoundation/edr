@@ -1,4 +1,5 @@
 import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
@@ -206,7 +207,11 @@ export function dirName(importUrl: string) {
 
 function buildMutex() {
   if (BUILD_MUTEX === undefined) {
-    BUILD_MUTEX = new MultiProcessMutex("edr-helpers-build-mutex");
+    // hardhat-utils ≥4 takes the lock file's absolute path; this is where
+    // the name-based ≤3 API put it.
+    BUILD_MUTEX = new MultiProcessMutex(
+      path.join(os.tmpdir(), "edr-helpers-build-mutex.txt")
+    );
   }
   return BUILD_MUTEX;
 }

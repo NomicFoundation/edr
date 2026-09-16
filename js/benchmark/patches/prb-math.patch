@@ -16,7 +16,7 @@ new file mode 100644
 index 0000000..9aef871
 --- /dev/null
 +++ b/hardhat.config.js
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,31 @@
 +module.exports = {
 +"paths": {
 +  "sources": "src",
@@ -37,11 +37,13 @@ index 0000000..9aef871
 +    "evmVersion": "shanghai"
 +  }
 +},
-+"solidityTest": {
-+  "allowInternalExpectRevert": true,
-+  "fuzz": {
-+    "runs": 256,
-+	  "seed": "0x1234"
++"test": {
++  "solidity": {
++    "allowInternalExpectRevert": true,
++    "fuzz": {
++      "runs": 256,
++  	  "seed": "0x1234"
++    }
 +  }
 +}
 +};

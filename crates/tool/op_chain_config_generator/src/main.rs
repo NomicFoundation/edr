@@ -456,7 +456,7 @@ fn generate_hardfork_activations_for(
         .into_iter()
         .chain(superchain_activations)
         .map(|(hardfork, activation)| {
-            let hardfork_str: &'static str = hardfork.into();
+            let hardfork_str = capitalize_first_letter(hardfork.into());
 
             format!(
                 "
@@ -476,7 +476,7 @@ fn get_op_hardfork_from(hardfork_str: &str) -> anyhow::Result<Option<OpHardfork>
         .map(|(before_match, _)| before_match)
         .ok_or(anyhow!("activation is not time based: {hardfork_str}"))?;
 
-    match OpHardfork::from_str(&capitalize_first_letter(hardfork_name)) {
+    match OpHardfork::from_str(hardfork_name) {
         Err(_) => {
             if !KNOWN_IGNORED_HARDFORKS.contains(&hardfork_name) {
                 bail!("hardfork name is not supported: {hardfork_name}")

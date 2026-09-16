@@ -72,17 +72,17 @@ pub enum ForkedBlockchainCreationError<HardforkT> {
         /// Latest block number
         latest_block_number: u64,
     },
-    /// The detected hardfork is not supported
+    /// The fork block predates the chain's oldest supported hardfork
     #[error(
-        "Cannot fork {chain_name} from block {fork_block_number}. The hardfork must be at least Spurious Dragon, but {hardfork:?} was detected."
+        "Cannot fork {chain_name} from block {fork_block_number}. The block precedes {oldest_hardfork:?}, which is the chain's oldest supported hardfork."
     )]
-    InvalidHardfork {
+    UnsupportedForkBlock {
         /// Requested fork block number
         fork_block_number: u64,
         /// Chain name
         chain_name: String,
-        /// Detected hardfork
-        hardfork: HardforkT,
+        /// The chain's oldest supported hardfork
+        oldest_hardfork: HardforkT,
     },
     /// Unsupported storage overrides
     #[error(
@@ -303,23 +303,20 @@ impl<
             .expect("Block must exist since block number is less than the latest block number.")
             .timestamp();
 
-        if let Some(remote_hardfork) =
-            hardfork_activations
-                .as_ref()
-                .and_then(|hardfork_activations| {
-                    hardfork_activations.hardfork_at_block(fork_block_number, fork_timestamp)
-                })
-        {
-            let remote_evm_spec_id = remote_hardfork.clone().into();
-            if remote_evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
-                return Err(ForkedBlockchainCreationError::InvalidHardfork {
+        if let Some(hardfork_activations) = hardfork_activations.as_ref() {
+            let remote_hardfork = hardfork_activations
+                .hardfork_at_block(fork_block_number, fork_timestamp)
+                .ok_or_else(|| ForkedBlockchainCreationError::UnsupportedForkBlock {
                     chain_name: chain_config
                         .map_or("unknown".to_string(), |config| config.name.clone()),
                     fork_block_number,
-                    hardfork: remote_hardfork,
-                });
-            }
+                    oldest_hardfork: hardfork_activations
+                        .oldest_hardfork()
+                        .expect("Empty activation schedules are mapped to `None` above")
+                        .clone(),
+                })?;
 
+            let remote_evm_spec_id = remote_hardfork.clone().into();
             let local_evm_spec_id = hardfork.clone().into();
             if remote_evm_spec_id < EvmSpecId::PRAGUE && local_evm_spec_id >= EvmSpecId::PRAGUE {
                 let state_root = state_root_generator.lock().next_value();

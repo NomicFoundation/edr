@@ -22,6 +22,8 @@ pub struct HardforkActivation<HardforkT> {
 }
 
 /// A struct that stores the hardforks for a chain.
+///
+/// Activations are ordered from oldest to newest.
 #[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
 #[serde(transparent)]
 pub struct HardforkActivations<HardforkT> {
@@ -53,6 +55,14 @@ impl<HardforkT> HardforkActivations<HardforkT> {
     /// Whether no hardforks activations are present.
     pub fn is_empty(&self) -> bool {
         self.hardforks.is_empty()
+    }
+
+    /// Returns the oldest hardfork of the activation schedule, or `None` if it
+    /// is empty.
+    pub fn oldest_hardfork(&self) -> Option<&HardforkT> {
+        self.hardforks
+            .first()
+            .map(|HardforkActivation { hardfork, .. }| hardfork)
     }
 }
 
