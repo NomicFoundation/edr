@@ -20,11 +20,35 @@ interface Block {
 }
 
 function runProfile(args: string[]): SpawnSyncReturns<string> {
-  return spawnSync("pnpm", ["hardhat", "test", ...args], {
+  const run = spawnSync("pnpm", ["hardhat", "test", ...args], {
     cwd: import.meta.dirname + "/..",
     encoding: "utf8",
     env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
   });
+  // A failing corpus is the point, so a non-zero exit is expected; `error`
+  // is not — the process never started, or its output was truncated.
+  if (run.error !== undefined) {
+    throw new Error(
+      `\`hardhat test ${args.join(" ")}\` did not run: ${run.error.message}`
+    );
+  }
+  return run;
+}
+
+// A compile that fails reaches the assertions only as an empty parse, and
+// hardhat reports why on stderr.
+function outputTail(run: SpawnSyncReturns<string>): string {
+  const lastLines = (output: string) =>
+    output
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .slice(-15)
+      .join("\n");
+  return [
+    `exit status ${run.status}`,
+    `--- stderr ---\n${lastLines(run.stderr)}`,
+    `--- stdout ---\n${lastLines(run.stdout)}`,
+  ].join("\n");
 }
 
 function parseTraceBlocks(output: string): Map<string, Block> {
@@ -113,15 +137,17 @@ function compare(solc: Block | undefined, solx: Block | undefined): string[] {
 }
 
 describe("solx-vs-solc trace parity", () => {
+  let solcRun: SpawnSyncReturns<string>;
+  let solxRun: SpawnSyncReturns<string>;
   let solcBlocks: Map<string, Block>;
   let solxBlocks: Map<string, Block>;
   let allKeys: string[];
 
   before(() => {
-    const solcRun = runProfile([]);
+    solcRun = runProfile([]);
     solcBlocks = parseTraceBlocks(solcRun.stdout);
 
-    const solxRun = runProfile(["--build-profile", "slang-solx"]);
+    solxRun = runProfile(["--build-profile", "slang-solx"]);
     solxBlocks = parseTraceBlocks(solxRun.stdout);
 
     allKeys = [...new Set([...solcBlocks.keys(), ...solxBlocks.keys()])].sort();
@@ -153,8 +179,16 @@ describe("solx-vs-solc trace parity", () => {
   ]);
 
   it("compiles both profiles and produces failing-test trace blocks", () => {
-    assert.notStrictEqual(solcBlocks.size, 0, "solc produced no trace blocks");
-    assert.notStrictEqual(solxBlocks.size, 0, "solx produced no trace blocks");
+    assert.notStrictEqual(
+      solcBlocks.size,
+      0,
+      `solc produced no trace blocks\n${outputTail(solcRun)}`
+    );
+    assert.notStrictEqual(
+      solxBlocks.size,
+      0,
+      `solx produced no trace blocks\n${outputTail(solxRun)}`
+    );
   });
 
   it("every scenario from solc has a matching solx block", () => {
