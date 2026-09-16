@@ -38,6 +38,17 @@ struct Fixture {
     output: &'static str,
 }
 
+const STACK_TRACE_SCENARIOS_SOURCES: &[(&str, &str)] = &[
+    (
+        "project/contracts/StackTraceScenarios.sol",
+        "StackTraceScenarios.sol",
+    ),
+    (
+        "project/contracts/StackTraceScenariosBase.sol",
+        "StackTraceScenariosBase.sol",
+    ),
+];
+
 const FIXTURES: &[Fixture] = &[
     Fixture {
         name: "counter",
@@ -48,31 +59,13 @@ const FIXTURES: &[Fixture] = &[
     Fixture {
         name: "stack_trace_scenarios",
         input: "solx_compiler_input_stack_trace_scenarios.json",
-        sources: &[
-            (
-                "project/contracts/StackTraceScenarios.sol",
-                "StackTraceScenarios.sol",
-            ),
-            (
-                "project/contracts/StackTraceScenariosBase.sol",
-                "StackTraceScenariosBase.sol",
-            ),
-        ],
+        sources: STACK_TRACE_SCENARIOS_SOURCES,
         output: "solx_compiler_output_stack_trace_scenarios.json",
     },
     Fixture {
         name: "stack_trace_scenarios_mode3",
         input: "solx_compiler_input_stack_trace_scenarios_mode3.json",
-        sources: &[
-            (
-                "project/contracts/StackTraceScenarios.sol",
-                "StackTraceScenarios.sol",
-            ),
-            (
-                "project/contracts/StackTraceScenariosBase.sol",
-                "StackTraceScenariosBase.sol",
-            ),
-        ],
+        sources: STACK_TRACE_SCENARIOS_SOURCES,
         output: "solx_compiler_output_stack_trace_scenarios_mode3.json",
     },
 ];
