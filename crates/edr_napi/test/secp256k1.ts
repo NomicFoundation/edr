@@ -111,9 +111,9 @@ describe("secp256k1PublicKeyFromSecretKey", function () {
     );
   });
 
-  // A mismatch with the JS implementation would produce wrong addresses, so
+  // A mismatch with EthersJS implementation would produce wrong addresses, so
   // this covers a wide range of random keys.
-  it("fuzz: matches the JS implementation for random secret keys", function () {
+  it("fuzz: matches the EthersJS implementation for random secret keys", function () {
     for (let i = 0; i < FUZZ_ITERATIONS; i++) {
       const secretKey = randomBytes(SECRET_KEY_BYTES);
 
