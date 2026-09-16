@@ -189,7 +189,7 @@ impl Cheatcode for addrCall {
         >,
     >(
         &self,
-        _state: &mut Cheatcodes<
+        state: &mut Cheatcodes<
             BlockT,
             TxT,
             ChainContextT,
@@ -200,7 +200,7 @@ impl Cheatcode for addrCall {
         >,
     ) -> Result {
         let Self { privateKey } = self;
-        let wallet = super::crypto::parse_wallet(privateKey)?;
+        let wallet = state.config.wallet_cache.get_or_derive(privateKey)?;
         Ok(wallet.address().abi_encode())
     }
 }

@@ -341,6 +341,7 @@ itertools = "0.15"
 jsonpath_lib = "0.3"
 k256 = "0.13"
 log = { version = "0.4.17", default-features = false }
+lru = "0.18.0"
 parking_lot = { version = "0.12.1", default-features = false }
 paste = { version = "1.0.14", default-features = false }
 proptest = "1.7.0"

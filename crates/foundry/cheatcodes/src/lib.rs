@@ -17,6 +17,7 @@ pub use config::{
     parse_eip712_canonical_types, CheatsConfig, CheatsConfigOptions, ExecutionContextConfig,
     TestFunctionIdentifier,
 };
+pub use crypto::WalletCache;
 pub use endpoints::{RpcEndpoint, RpcEndpointUrl, RpcEndpoints};
 pub use error::{Error, ErrorKind, Result};
 use foundry_evm_core::{
