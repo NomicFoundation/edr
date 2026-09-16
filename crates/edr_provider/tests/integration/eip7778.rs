@@ -13,7 +13,7 @@ use edr_chain_l1::{
     L1ChainSpec,
 };
 use edr_eth::PreEip1898BlockSpec;
-use edr_primitives::{address, bytes, Address, Bytecode, Bytes, B256, U256};
+use edr_primitives::{address, Address, Bytecode, Bytes, B256, U256};
 use edr_provider::{
     test_utils::{one_ether, set_genesis_state_with_owned_accounts},
     AccountOverride, MethodInvocation, Provider, ProviderRequest,
@@ -21,7 +21,13 @@ use edr_provider::{
 use edr_state_api::{EvmStorage, EvmStorageSlot, TransactionId};
 use edr_test_utils::secret_key::secret_key_from_str;
 
-use crate::common::provider::{new_provider_with_config, send_transaction};
+use crate::common::{
+    bytecode::{
+        opcode::{CALLDATALOAD, SSTORE, STOP},
+        BytecodeBuilder,
+    },
+    provider::{new_provider_with_config, send_transaction},
+};
 
 const CHAIN_ID: u64 = 0x7a69;
 
@@ -33,7 +39,16 @@ const CONTRACT: Address = address!("0x000000000000000000000000000000000000c0de")
 
 /// Deployed code `SSTORE(calldataload(0), calldataload(32))`: calling it with
 /// `[slot(32) || value(32)]` writes `value` to storage `slot`.
-const STORAGE_WRITER_CODE: Bytes = bytes!("0x6020356000355500");
+fn storage_writer_code() -> Bytes {
+    let mut code = BytecodeBuilder::default();
+    code.push1(0x20)
+        .opcode(CALLDATALOAD)
+        .push1(0)
+        .opcode(CALLDATALOAD)
+        .opcode(SSTORE)
+        .opcode(STOP);
+    code.runtime()
+}
 
 /// Storage slot seeded into [`CONTRACT`] and cleared by the refunding
 /// transaction.
@@ -61,7 +76,7 @@ fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1C
         config.genesis_state.insert(
             CONTRACT,
             AccountOverride {
-                code: Some(Bytecode::new_raw(STORAGE_WRITER_CODE)),
+                code: Some(Bytecode::new_raw(storage_writer_code())),
                 storage: Some(seeded_storage()),
                 ..AccountOverride::default()
             },

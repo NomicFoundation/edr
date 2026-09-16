@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "author": "Nomic Foundation",
   "devDependencies": {
-    "@changesets/cli": "^2.29.5",
+    "@changesets/cli": "^3.0.0",
     "@types/node": "^22.0.0",
     "prettier": "^3.2.5",
     "syncpack": "^15.0.0",
