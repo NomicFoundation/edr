@@ -12,7 +12,7 @@ use napi_derive::napi;
 /// big-endian scalar in `[1, n)`, where `n` is the curve order.
 // The `js_name` avoids the `secp256K1` that the automatic camel-casing of
 // `secp256k1_` would produce.
-#[napi(js_name = "secp256k1PublicKeyFromSecretKey")]
+#[napi(catch_unwind, js_name = "secp256k1PublicKeyFromSecretKey")]
 pub fn secp256k1_public_key_from_secret_key(secret_key: Uint8Array) -> napi::Result<Uint8Array> {
     let scalar = NonZeroScalar::try_from(secret_key.as_ref()).map_err(|_error| {
         napi::Error::new(
@@ -21,9 +21,8 @@ pub fn secp256k1_public_key_from_secret_key(secret_key: Uint8Array) -> napi::Res
         )
     })?;
 
-    // `mul_by_generator` uses the fixed-base precomputed table, unlike
-    // `SecretKey::public_key`, which performs a generic variable-base
-    // multiplication.
+    // Keep `mul_by_generator`! It indexes a precomputed table of generator
+    // multiples, whereas `SecretKey::public_key` would rebuild one per call.
     let public_key = ProjectivePoint::mul_by_generator(&*scalar).to_affine();
 
     Ok(Uint8Array::new(
