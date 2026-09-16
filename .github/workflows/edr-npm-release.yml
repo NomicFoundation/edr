@@ -129,7 +129,7 @@ jobs:
       # Release commits build cold: napi codegen relies on proc-macro
       # expansion (napi-rs#1297), so warm-cache builds risk shipping
       # stale or empty index.js / index.d.ts. Don't enable for releases.
-      - name: Cache cargo # zizmor: ignore[cache-poisoning] release builds run cold (asserted below); PR/main caches never feed a publish
+      - name: Cache cargo # zizmor: ignore[cache-poisoning] release builds run cold (guarded below); PR/main caches never feed a publish
         if: needs.check_commit.outputs.is_release != 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -143,14 +143,12 @@ jobs:
           restore-keys: |
             ${{ matrix.settings.target }}-cargo-v5-${{ matrix.settings.host }}-
 
-      # Tripwire for future edits to the cache gate above: if it stops
-      # skipping release runs, fail before building from a warm cache.
       - name: Assert release builds run cold
         if: needs.check_commit.outputs.is_release == 'true'
         shell: bash
         run: |
           if [ -e "${GITHUB_WORKSPACE}/target" ]; then
-            echo "target/ exists on a release build: the cargo cache gate is broken" >&2
+            echo "target/ exists on a release build: the Cache cargo step above ran on a release, and napi codegen needs a cold build" >&2
             exit 1
           fi
 
@@ -525,7 +523,7 @@ jobs:
               echo "pre-release commit: tag=next"
               echo "tag=next" >> "$GITHUB_OUTPUT"
             else
-              echo "pre-release commit, but event is ${{ github.event_name }}, not push: not a release run"
+              echo "not a release run: pre-release commit but event is $GITHUB_EVENT_NAME, not push"
             fi
           # matches with release commit
           elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
@@ -535,14 +533,14 @@ jobs:
               echo "release commit: tag=latest"
               echo "tag=latest" >> "$GITHUB_OUTPUT"
             else
-              echo "release commit, but $GITHUB_REF is not main or hh2: not a release run"
+              echo "not a release run: release commit but $GITHUB_REF is neither main nor hh2"
             fi
           else
-            echo "not a release commit: not a release run"
+            echo "not a release run: not a release commit"
           fi
 
-    # `is_release` is the single authority for release/non-release gating;
-    # `tag` is only the npm dist-tag (next/latest) for `publish`.
+    # `tag` is the npm dist-tag only; every other release check reads `is_release`,
+    # which is always the string 'true' or 'false', so compare explicitly.
     outputs:
       tag: ${{ steps.check_commit.outputs.tag }}
       is_release: ${{ steps.check_commit.outputs.tag != '' }}
