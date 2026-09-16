@@ -50,6 +50,7 @@ import {
   parseHardhatPin,
   type HardhatPin,
 } from "./hardhat-compat-pin.ts";
+import { waitForWorkflowRun } from "./wait-for-workflow-run.ts";
 
 // `pulls.get` is called for both an EDR PR (fork check) and the pinned Hardhat
 // PR (open/merged check); the real API returns `repo` for either.
@@ -151,28 +152,26 @@ export async function resolveRegressionTrigger({
   // Wait for the EDR CI workflow run for `sha` to conclude. Returns true only
   // if it completed successfully. Polls until CI_WAIT_TIMEOUT_MS elapses.
   async function waitForEdrCi(sha: string): Promise<boolean> {
-    const deadline = Date.now() + CI_WAIT_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      const { data } = await github.rest.actions.listWorkflowRuns({
-        owner,
-        repo,
-        workflow_id: "edr-ci.yml",
-        head_sha: sha,
-        per_page: 1,
-      });
-      const run = data.workflow_runs[0];
-      if (run !== undefined && run.status === "completed") {
-        core.info(`EDR CI run ${run.id} concluded: ${run.conclusion}`);
-        return run.conclusion === "success";
-      }
-      core.info(
-        `EDR CI for ${sha.slice(0, 12)} not finished yet ` +
-          `(status: ${run?.status ?? "not started"}); waiting...`
-      );
-      await new Promise((resolve) => setTimeout(resolve, CI_POLL_INTERVAL_MS));
+    const result = await waitForWorkflowRun({
+      github,
+      core,
+      owner,
+      repo,
+      workflowId: "edr-ci.yml",
+      headSha: sha,
+      timeoutMs: CI_WAIT_TIMEOUT_MS,
+      pollIntervalMs: CI_POLL_INTERVAL_MS,
+      // A `/bench` comment can land before CI registers its run.
+      onMissing: "wait",
+    });
+    if (result.outcome !== "concluded") {
+      core.warning("Timed out waiting for EDR CI to conclude");
+      return false;
     }
-    core.warning("Timed out waiting for EDR CI to conclude");
-    return false;
+    core.info(
+      `EDR CI run ${result.run.id} concluded: ${result.run.conclusion}`
+    );
+    return result.run.conclusion === "success";
   }
 
   // Resolve the Hardhat ref for runs that didn't name one explicitly: `main`,

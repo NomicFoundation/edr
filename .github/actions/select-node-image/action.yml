@@ -17,49 +17,15 @@ outputs:
 runs:
   using: composite
   steps:
-    # On PRs/pushes that touch mirror-docker-images.yml, pulls can race ahead
-    # of the mirror run for the same SHA and fail with "manifest unknown"; no
-    # run means nothing to wait for. Best-effort: never fails the job — the
-    # pull itself is the authoritative failure for a genuinely missing tag.
+    # Pulls can otherwise race ahead of the mirror run for the same commit
+    # and fail with "manifest unknown". Best-effort: never fails the job.
     - name: Wait for in-flight mirror run
       if: inputs.is-release != 'true'
-      shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-        # For pull_request events the mirror run is recorded against the PR
-        # head SHA, not the merge commit that github.sha points at.
-        HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      run: |
-        set -euo pipefail
-        DEADLINE=$(( $(date +%s) + 15 * 60 ))
-        while true; do
-          RUN=$(gh api \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/mirror-docker-images.yml/runs?head_sha=${HEAD_SHA}&per_page=1" \
-            --jq '.workflow_runs[0] // empty')
-          if [ -z "$RUN" ]; then
-            echo "No mirror run for ${HEAD_SHA}; not waiting."
-            exit 0
-          fi
-          STATUS=$(jq -r .status <<<"$RUN")
-          if [ "$STATUS" = "completed" ]; then
-            CONCLUSION=$(jq -r .conclusion <<<"$RUN")
-            URL=$(jq -r .html_url <<<"$RUN")
-            case "$CONCLUSION" in
-              success) echo "Mirror run succeeded: $URL" ;;
-              # The mirror job skips itself on fork PRs; the tags it would
-              # have re-copied already exist.
-              skipped) echo "Mirror run was skipped: $URL" ;;
-              *) echo "::warning::Mirror run for ${HEAD_SHA} concluded '$CONCLUSION' ($URL); proceeding anyway" ;;
-            esac
-            exit 0
-          fi
-          if [ "$(date +%s)" -ge "$DEADLINE" ]; then
-            echo "::warning::Timed out waiting for the mirror run for ${HEAD_SHA}; proceeding anyway"
-            exit 0
-          fi
-          echo "Mirror run in progress (status: $STATUS); retrying in 30s..."
-          sleep 30
-        done
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      with:
+        script: |
+          const { waitForMirrorRun } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/wait-for-mirror-run.ts`);
+          await waitForMirrorRun({ github, context, core });
 
     - id: select
       shell: bash
