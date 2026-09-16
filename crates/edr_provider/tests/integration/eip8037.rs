@@ -18,7 +18,7 @@ use edr_block_api::Block as _;
 use edr_block_header::HeaderOverrides;
 use edr_chain_l1::{
     request::Eip155,
-    rpc::{call::L1CallRequest, TransactionRequest},
+    rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec, L1SignedTransaction, L1TransactionRequest,
 };
 use edr_chain_spec::ExecutableTransaction as _;
@@ -37,7 +37,7 @@ use tokio::runtime;
 
 use crate::common::{
     bytecode::{opcode, BytecodeBuilder},
-    provider::{new_provider_with_config, send_transaction},
+    provider::{estimate_gas, new_provider_with_config, send_transaction, transaction_receipt},
 };
 
 /// Contract creating [`FRESH_SLOTS`] new storage slots: state gas dominates.
@@ -629,6 +629,75 @@ async fn estimate_gas_accepts_gas_above_cap_from_amsterdam() -> anyhow::Result<(
     provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
         call, None,
     )))?;
+
+    Ok(())
+}
+
+/// `eth_estimateGas` covers both dimensions: state gas is drawn from `tx.gas`
+/// too, so a slot-creating transaction succeeds with exactly the estimate, and
+/// the estimate exceeds the pre-Amsterdam one although slot creation got
+/// cheaper in execution gas.
+#[tokio::test(flavor = "multi_thread")]
+async fn estimate_gas_covers_state_gas() -> anyhow::Result<()> {
+    let new_provider = |hardfork| {
+        new_provider_with_config(|config| {
+            config.hardfork = hardfork;
+            config.genesis_state.insert(
+                SLOT_CREATOR,
+                AccountOverride {
+                    code: Some(Bytecode::new_raw(slot_creator_code())),
+                    ..AccountOverride::default()
+                },
+            );
+        })
+    };
+
+    let amsterdam = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
+    let osaka = new_provider(edr_chain_l1::Hardfork::Osaka)?;
+
+    let send_with_gas = |gas: u64| -> anyhow::Result<L1RpcTransactionReceipt> {
+        let transaction_hash = send_transaction(
+            &amsterdam,
+            TransactionRequest {
+                from: caller(&amsterdam),
+                to: Some(SLOT_CREATOR),
+                gas: Some(gas),
+                ..TransactionRequest::default()
+            },
+        )?;
+        transaction_receipt(&amsterdam, transaction_hash)
+    };
+    let request = |provider: &Provider<L1ChainSpec>| L1CallRequest {
+        from: Some(caller(provider)),
+        to: Some(SLOT_CREATOR),
+        ..L1CallRequest::default()
+    };
+
+    let estimate = estimate_gas(&amsterdam, request(&amsterdam));
+    let pre_amsterdam_estimate = estimate_gas(&osaka, request(&osaka));
+
+    assert!(
+        estimate > pre_amsterdam_estimate,
+        "the Amsterdam estimate ({estimate}) should exceed the Osaka one \
+         ({pre_amsterdam_estimate}): each new slot now costs state gas on top of a \
+         lower execution charge"
+    );
+
+    // The pre-Amsterdam estimate does not account for the state gas.
+    let receipt = send_with_gas(pre_amsterdam_estimate)?;
+    assert_eq!(
+        receipt.status,
+        Some(false),
+        "the transaction should run out of gas with the Osaka estimate"
+    );
+
+    let receipt = send_with_gas(estimate)?;
+    assert_eq!(
+        receipt.status,
+        Some(true),
+        "the transaction should succeed with the estimated gas"
+    );
+    assert!(receipt.gas_used <= estimate);
 
     Ok(())
 }
