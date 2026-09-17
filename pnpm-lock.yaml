@@ -414,7 +414,7 @@ importers:
         version: link:../../../crates/edr_napi
       '@nomicfoundation/hardhat-slang-solx':
         specifier: 3.0.3
-        version: 3.0.3(hardhat@3.16.0(patch_hash=6a41e35bc8995798aaed726067f2f281bd88148b22e92c4788ab4a712d9cfc3b))
+        version: 3.0.3(hardhat@3.16.0(patch_hash=9cc347656e1a2399905c8503688bbc574d704a5838733a57b6d1e592aa09fd97))
       '@tsconfig/node22':
         specifier: ^22.0.0
         version: 22.0.6
@@ -4667,12 +4667,12 @@ snapshots:
     dependencies:
       '@nomicfoundation/hardhat-utils': 4.1.9
 
-  '@nomicfoundation/hardhat-slang-solx@3.0.3(hardhat@3.16.0(patch_hash=6a41e35bc8995798aaed726067f2f281bd88148b22e92c4788ab4a712d9cfc3b))':
+  '@nomicfoundation/hardhat-slang-solx@3.0.3(hardhat@3.16.0(patch_hash=9cc347656e1a2399905c8503688bbc574d704a5838733a57b6d1e592aa09fd97))':
     dependencies:
       '@nomicfoundation/hardhat-errors': 3.0.21
       '@nomicfoundation/hardhat-utils': 4.1.9
       '@nomicfoundation/hardhat-zod-utils': 3.0.5(zod@3.25.76)
-      hardhat: 3.16.0(patch_hash=6a41e35bc8995798aaed726067f2f281bd88148b22e92c4788ab4a712d9cfc3b)
+      hardhat: 3.16.0(patch_hash=9cc347656e1a2399905c8503688bbc574d704a5838733a57b6d1e592aa09fd97)
       zod: 3.25.76
 
   '@nomicfoundation/hardhat-utils@4.1.9':
