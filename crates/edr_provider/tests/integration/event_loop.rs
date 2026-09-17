@@ -22,7 +22,7 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// The message that [`PanickingLogger`] panics with, matched by
 /// [`suppress_deliberate_panic_backtraces`].
-const LOGGER_PANIC_MESSAGE: &str = "logger panic";
+const LOGGER_PANIC_MESSAGE: &str = "PanickingLogger deliberately panicked";
 
 /// A logger that panics once its method logs are printed, killing the event
 /// loop's thread while a request is in flight.
@@ -49,9 +49,8 @@ impl Logger<L1ChainSpec, CurrentTime> for PanickingLogger {
 /// other panic to the hook it replaces.
 ///
 /// Symbolizing a backtrace costs seconds on a coverage-instrumented Windows
-/// build, and the default hook serializes that work process-wide. The
-/// deliberate panics in this file would otherwise stall the test binary for
-/// longer than [`RESPONSE_TIMEOUT`].
+/// build, and the default hook serializes that work process-wide. The three
+/// deliberate panics in this file stalled the test binary for 11s in CI.
 fn suppress_deliberate_panic_backtraces() {
     static INSTALL_HOOK: Once = Once::new();
 
@@ -64,8 +63,8 @@ fn suppress_deliberate_panic_backtraces() {
                 return;
             }
 
-            // A panic raised here would abort the process, so neither the
-            // thread name nor the location may be unwrapped.
+            // Never unwrap here: a panic inside a panic hook aborts the
+            // process.
             let thread = thread::current();
             let thread = thread.name().unwrap_or("<unnamed>");
             let location = info
