@@ -5,5 +5,5 @@
     "declaration": true,
     "sourceMap": true
   },
-  "include": ["hardhat-solx.d.ts", "hardhat.config.ts", "./test/**/*.ts"]
+  "include": ["hardhat.config.ts", "./test/**/*.ts"]
 }

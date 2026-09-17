@@ -345,6 +345,9 @@ jobs:
     name: Run integration tests
     runs-on: ubuntu-24.04
     needs: check-edr-safety
+    # Cap well below GHA's 6h ceiling so a hung compile fails fast rather
+    # than burning a full job slot.
+    timeout-minutes: 30
     env:
       RUSTFLAGS: -Dwarnings
       RUSTDOCFLAGS: -Dwarnings

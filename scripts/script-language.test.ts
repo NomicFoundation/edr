@@ -1,6 +1,5 @@
 // Both script directories are TypeScript-only; see scripts/README.md. This is
-// a ratchet, not a repo-wide ban: JavaScript scripts elsewhere get converted
-// when someone next edits them, and tool config stays CommonJS on purpose.
+// a ratchet, not a repo-wide ban: tool config stays CommonJS on purpose.
 
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";

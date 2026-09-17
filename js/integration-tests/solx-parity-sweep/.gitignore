@@ -1,5 +1,3 @@
 dist/
 artifacts/
 cache/
-# Copied at pretest from crates/edr_solidity/fixtures/sources/
-contracts/
