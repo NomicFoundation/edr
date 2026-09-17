@@ -1,11 +1,13 @@
 pub mod artifact;
 pub mod cheatcode_errors;
 pub mod config;
+pub mod error;
 pub mod factory;
 pub mod inline_config;
 pub mod l1;
 #[cfg(feature = "op")]
 pub mod op;
+pub mod parsing;
 pub mod runner;
 pub mod test_results;
 
