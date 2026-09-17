@@ -23,10 +23,11 @@ import { join } from "node:path";
 export const THRESHOLD = 0.1;
 
 // `<group>/<function>/<parameter>` ids of the benches CI always runs — the
-// committed scenarios corpus in crates/edr_solidity/benches/dwarf_decode.rs.
+// committed stack-trace scenarios corpus in
+// crates/edr_solidity/benches/dwarf_decode.rs.
 export const EXPECTED_BENCHMARKS = [
-  "dwarf_decode/full_pass/scenarios",
-  "dwarf_decode/largest_blob/scenarios",
+  "dwarf_decode/full_pass/stack_trace_scenarios",
+  "dwarf_decode/largest_blob/stack_trace_scenarios",
 ];
 
 export interface ChangeEstimate {

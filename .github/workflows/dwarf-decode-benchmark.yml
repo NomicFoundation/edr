@@ -10,10 +10,10 @@ name: DWARF decode benchmark
 # those needs deterministic counters (planned: iai-callgrind + Bencher, the
 # slang pattern).
 #
-# Only the committed scenarios fixture runs in CI (small blobs). The
-# expensive-regime corpora are local-only via EDR_DWARF_BENCH_DIR — they embed
-# third-party contract sources with UNLICENSED SPDX headers, so they cannot be
-# committed. See crates/edr_solidity/benches/dwarf_decode.rs.
+# Only the committed stack-trace scenarios fixture runs in CI (small blobs).
+# The expensive-regime corpora are local-only via EDR_DWARF_BENCH_DIR — they
+# embed third-party contract sources with UNLICENSED SPDX headers, so they
+# cannot be committed. See crates/edr_solidity/benches/dwarf_decode.rs.
 
 on:
   pull_request:
