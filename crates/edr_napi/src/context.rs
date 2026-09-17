@@ -26,7 +26,7 @@ use crate::{
         artifact::{Artifact, ArtifactId},
         config::SolidityTestRunnerConfigArgs,
         factory::SolidityTestRunnerFactory,
-        inline_config,
+        error as test_source_error,
         test_results::{SolidityTestResult, SuiteResult},
         LinkingOutput,
     },
@@ -382,7 +382,7 @@ impl EdrContext {
             deferred.resolve(move |env| match outcome {
                 RunOutcome::Completed(test_result) => Ok(SolidityTestResult::from(test_result)),
                 RunOutcome::InvalidInlineConfig(errors) => {
-                    Err(inline_config::to_napi_error(&env, &errors))
+                    Err(test_source_error::to_napi_error(&env, &errors))
                 }
             });
         });

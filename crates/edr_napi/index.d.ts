@@ -195,10 +195,6 @@ export interface AddressLabel {
  */
 export declare function addStatementCoverageInstrumentation(sourceCode: string, sourceId: string, solidityVersion: string): InstrumentationResult
 
-export const AMSTERDAM: string
-
-export const ARROW_GLACIER: string
-
 /** A compilation artifact. */
 export interface Artifact {
   /** The identifier of the artifact. */
@@ -250,10 +246,6 @@ export interface BaseFeeParamActivation {
   elasticityMultiplier: bigint
 }
 
-export const BEDROCK: string
-
-export const BERLIN: string
-
 /** Information about the blob gas used in a block. */
 export interface BlobGas {
   /**
@@ -280,8 +272,6 @@ export interface BuildInfoAndOutput {
   /** The build info output file */
   output: Uint8Array
 }
-
-export const BYZANTIUM: string
 
 /** What chains to cache */
 export declare enum CachedChains {
@@ -378,10 +368,6 @@ export interface CallTrace {
   children: Array<CallTrace | LogTrace>
 }
 
-export const CANCUN: string
-
-export const CANYON: string
-
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
   /** The chain ID */
@@ -442,8 +428,6 @@ export declare enum CollectStackTraces {
    */
   OnFailure = 1
 }
-
-export const CONSTANTINOPLE: string
 
 export const CONSTRUCTOR_FUNCTION_NAME: string
 
@@ -519,8 +503,6 @@ export interface CustomErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
-export const DAO_FORK: string
-
 export interface DebugTraceLogItem {
   /** Program Counter */
   pc: bigint
@@ -574,8 +556,6 @@ export interface DirectLibraryCallErrorStackTraceEntry {
   type: StackTraceEntryType.DIRECT_LIBRARY_CALL_ERROR
   sourceReference: SourceReference
 }
-
-export const ECOTONE: string
 
 /**
  * Indicates that the EVM has experienced an exceptional halt. This causes
@@ -652,8 +632,6 @@ export interface FallbackNotPayableErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
-export const FJORD: string
-
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
   /**
@@ -670,10 +648,6 @@ export interface ForkConfig {
   /** The URL of the JSON-RPC endpoint to fork from */
   url: string
 }
-
-export const FRONTIER: string
-
-export const FRONTIER_THAWING: string
 
 /** * Determines the level of file system access for the given path.
  *
@@ -837,10 +811,6 @@ export const GENERIC_CHAIN_TYPE: string
 
 export declare function genericChainProviderFactory(): ProviderFactory
 
-export const GRANITE: string
-
-export const GRAY_GLACIER: string
-
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
   /** The exceptional halt that occurred */
@@ -881,10 +851,6 @@ export interface HeuristicFailed {
   kind: "HeuristicFailed"
 }
 
-export const HOLOCENE: string
-
-export const HOMESTEAD: string
-
 export interface HttpHeader {
   name: string
   value: string
@@ -909,93 +875,120 @@ export declare enum IncludeTraces {
   All = 2
 }
 
-/** A directive-level inline-config problem, located at the offending directive. */
+/**
+ * r" A directive-level problem, located at the offending directive.
+ * r"
+ * r" Its tag names the half of the `TestSourceError` union it belongs to,
+ * r" not its own type, because the two halves differ in shape rather than in
+ * r" what went wrong.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigDirectiveError {
-  /** Discriminant tag for the `TestSourceError` union. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "directive"
   /**
-   * The solc source name the problem was found in (e.g.
-   * `project/test/Foo.t.sol`).
+   * r" The solc source name the problem was found in (e.g.
+   * r" `project/test/Foo.t.sol`).
    */
   sourceName: string
-  /** The contract the offending directive belongs to. */
+  /** r" The contract the offending directive belongs to. */
   contract: string
   /**
-   * The test function the offending directive belongs to. Undefined when
-   * the directive is contract-level.
+   * r" The test function the offending directive belongs to. Undefined
+   * r" when the directive is contract-level.
    */
   function?: string
-  /** The 1-based line of the offending directive within the source. */
+  /** r" The 1-based line of the offending directive within the source. */
   line: number
-  /** The problem itself; discriminate on its `kind` tag. */
+  /** r" The problem itself; discriminate on its `kind` tag. */
   problem: InlineConfigDirectiveProblem
 }
 
 /**
  * The problem in a single inline-config directive, as a discriminated union
- * over its `kind` tag — mirroring the Rust-side `TestSourceError` enum so
+ * over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
  * consumers can map each problem onto their own error types.
  */
 export type InlineConfigDirectiveProblem =
   InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey
 
 /**
- * The same key was specified more than once for the same function or
- * contract.
+ * r" The same key was set twice for the same target.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigDuplicateKey {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigDuplicateKey"
-  /** The duplicated key, exactly as written. */
-  key: string
-}
-
-/** An unknown configuration key was used. */
-export interface InlineConfigInvalidKey {
-  /** Enum tag for JS. */
-  kind: "InlineConfigInvalidKey"
-  /** The offending key, exactly as written. */
+  /** r" The duplicated key. */
   key: string
 }
 
 /**
- * A key was used on a test of the wrong kind (e.g. `fuzz.*` on an invariant
- * test). Only function-level directives can produce this.
+ * r" An unknown configuration key was used.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
+export interface InlineConfigInvalidKey {
+  /** Discriminant tag for the union this belongs to. */
+  kind: "InlineConfigInvalidKey"
+  /** r" The offending key, exactly as written. */
+  key: string
+}
+
+/**
+ * r" A key was used on a test of the wrong kind (e.g. `fuzz.*` on an
+ * r" invariant test).
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigInvalidKeyForTestType {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidKeyForTestType"
-  /** The offending key, exactly as written. */
+  /** r" The offending key, exactly as written. */
   key: string
-  /** The kind of test the function is (`fuzz` or `invariant`). */
+  /** r" The kind of test the function is (`fuzz` or `invariant`). */
   testType: string
 }
 
-/** A directive was missing the `=` separator. */
+/**
+ * r" A directive was missing the `=` separator.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigInvalidSyntax {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidSyntax"
-  /** The offending directive line, stripped of comment decoration. */
+  /** r" The offending directive line, stripped of comment decoration. */
   directive: string
 }
 
-/** A value did not match the expected type for its key. */
+/**
+ * r" A value did not match the expected type for its key.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigInvalidValue {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidValue"
-  /** The offending key, exactly as written. */
+  /** r" The offending key, exactly as written. */
   key: string
-  /** The offending value, exactly as written. */
+  /** r" The offending value, exactly as written. */
   value: string
-  /** A description of the expected value type. */
+  /** r" What the key expects instead. */
   expected: string
 }
 
-/** A profile other than `default` was used. */
+/**
+ * r" A profile other than `default` was used.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigUnsupportedProfile {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigUnsupportedProfile"
-  /** The unsupported profile name. */
+  /** r" The unsupported profile name. */
   profile: string
 }
 
@@ -1129,10 +1122,6 @@ export interface InvariantTestKind {
   readonly failedCorpusReplays: bigint
 }
 
-export const ISTANBUL: string
-
-export const ISTHMUS: string
-
 /**
  * Computes the Keccak-256 hash of `data`, returning the 32-byte digest.
  *
@@ -1144,23 +1133,57 @@ export declare function keccak256(data: Uint8Array): Uint8Array
 
 export const L1_CHAIN_TYPE: string
 
-export declare function l1GenesisState(hardfork: SpecId): Array<AccountOverride>
+export declare function l1GenesisState(hardfork: L1Hardfork): Array<AccountOverride>
+
+/** Identifier for the Ethereum spec. */
+export declare enum L1Hardfork {
+  /** Byzantium */
+  Byzantium = 6,
+  /** Constantinople */
+  Constantinople = 7,
+  /** Petersburg */
+  Petersburg = 8,
+  /** Istanbul */
+  Istanbul = 9,
+  /** Muir Glacier */
+  MuirGlacier = 10,
+  /** Berlin */
+  Berlin = 11,
+  /** London */
+  London = 12,
+  /** Arrow Glacier */
+  ArrowGlacier = 13,
+  /** Gray Glacier */
+  GrayGlacier = 14,
+  /** Merge */
+  Merge = 15,
+  /** Shanghai */
+  Shanghai = 16,
+  /** Cancun */
+  Cancun = 17,
+  /** Prague */
+  Prague = 18,
+  /** Osaka */
+  Osaka = 19,
+  /** Amsterdam */
+  Amsterdam = 20
+}
 
 /**
- * Tries to parse the provided string to create a [`SpecId`] instance.
+ * Tries to parse the provided string to create an [`L1Hardfork`] instance.
  *
  * Returns an error if the string does not match any known hardfork.
  */
-export declare function l1HardforkFromString(hardfork: string): SpecId
+export declare function l1HardforkFromString(hardfork: string): L1Hardfork
 
 /**
- * Returns the latest supported OP hardfork.
+ * Returns the latest supported L1 hardfork.
  *
  * The returned value will be updated after each network upgrade.
  */
-export declare function l1HardforkLatest(): SpecId
+export declare function l1HardforkLatest(): L1Hardfork
 
-export declare function l1HardforkToString(hardfork: SpecId): string
+export declare function l1HardforkToString(hardfork: L1Hardfork): string
 
 export declare function l1ProviderFactory(): ProviderFactory
 
@@ -1218,14 +1241,10 @@ export interface LogTrace {
   parameters: DecodedTraceParameters | Array<Uint8Array>
 }
 
-export const LONDON: string
-
 /** Configuration for the provider's mempool. */
 export interface MemPoolConfig {
   order: MineOrdering
 }
-
-export const MERGE: string
 
 /** The type of ordering to use when selecting blocks to mine. */
 export declare enum MineOrdering {
@@ -1254,8 +1273,6 @@ export interface MissingFallbackOrReceiveErrorStackTraceEntry {
   sourceReference: SourceReference
 }
 
-export const MUIR_GLACIER: string
-
 export interface NonContractAccountCalledErrorStackTraceEntry {
   type: StackTraceEntryType.NONCONTRACT_ACCOUNT_CALLED_ERROR
   sourceReference: SourceReference
@@ -1280,7 +1297,7 @@ export const OP_CHAIN_TYPE: string
 
 export declare function opGenesisState(hardfork: OpHardfork): Array<AccountOverride>
 
-/** Enumeration of supported OP hardforks. */
+/** Identifier for the OP hardfork. */
 export declare enum OpHardfork {
   Bedrock = 100,
   Regolith = 101,
@@ -1314,8 +1331,6 @@ export declare function opProviderFactory(): ProviderFactory
 
 export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory
 
-export const OSAKA: string
-
 export interface OtherExecutionErrorStackTraceEntry {
   type: StackTraceEntryType.OTHER_EXECUTION_ERROR
   sourceReference?: SourceReference
@@ -1334,10 +1349,6 @@ export interface PathPermission {
   /** The targeted path guarded by the permission */
   path: string
 }
-
-export const PETERSBURG: string
-
-export const PRAGUE: string
 
 export const PRECOMPILE_FUNCTION_NAME: string
 
@@ -1436,8 +1447,6 @@ export interface ProviderConfig {
 
 export const RECEIVE_FUNCTION_NAME: string
 
-export const REGOLITH: string
-
 export interface ReturndataSizeErrorStackTraceEntry {
   type: StackTraceEntryType.RETURNDATA_SIZE_ERROR
   sourceReference: SourceReference
@@ -1460,7 +1469,14 @@ export interface RevertResult {
   output: Uint8Array
 }
 
-export const SHANGHAI: string
+/**
+ * Derives the secp256k1 public key of the provided secret key, returning it
+ * in uncompressed SEC1 form: 65 bytes, `0x04 || X || Y`.
+ *
+ * Throws if the input isn't a valid secret key: exactly 32 bytes encoding a
+ * big-endian scalar in `[1, n)`, where `n` is the curve order.
+ */
+export declare function secp256k1PublicKeyFromSecretKey(secretKey: Uint8Array): Uint8Array
 
 export type SolidityStackTrace =
   Array<SolidityStackTraceEntry>
@@ -1716,54 +1732,6 @@ export interface SourceReference {
   range: Array<number>
 }
 
-/** Identifier for the Ethereum spec. */
-export declare enum SpecId {
-  /** Frontier */
-  Frontier = 0,
-  /** Frontier Thawing */
-  FrontierThawing = 1,
-  /** Homestead */
-  Homestead = 2,
-  /** DAO Fork */
-  DaoFork = 3,
-  /** Tangerine */
-  Tangerine = 4,
-  /** Spurious Dragon */
-  SpuriousDragon = 5,
-  /** Byzantium */
-  Byzantium = 6,
-  /** Constantinople */
-  Constantinople = 7,
-  /** Petersburg */
-  Petersburg = 8,
-  /** Istanbul */
-  Istanbul = 9,
-  /** Muir Glacier */
-  MuirGlacier = 10,
-  /** Berlin */
-  Berlin = 11,
-  /** London */
-  London = 12,
-  /** Arrow Glacier */
-  ArrowGlacier = 13,
-  /** Gray Glacier */
-  GrayGlacier = 14,
-  /** Merge */
-  Merge = 15,
-  /** Shanghai */
-  Shanghai = 16,
-  /** Cancun */
-  Cancun = 17,
-  /** Prague */
-  Prague = 18,
-  /** Osaka */
-  Osaka = 19,
-  /** Amsterdam */
-  Amsterdam = 20
-}
-
-export const SPURIOUS_DRAGON: string
-
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -1892,32 +1860,32 @@ export interface SuiteResult {
   warnings: Array<string>
 }
 
-export const TANGERINE: string
-
 /**
- * A directive's offset could not be resolved to a line number within its
- * source, meaning the parsing stages disagree about the source text, so its
- * directives cannot be trusted.
+ * r" A directive's offset could not be resolved to a line number within its
+ * r" source, meaning the parsing stages disagree about the source text, so
+ * r" its directives cannot be trusted.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceDirectiveLocation {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceDirectiveLocation"
-  /** The contract the directive belongs to. */
+  /** r" The contract the directive belongs to. */
   contract: string
   /**
-   * The test function the directive belongs to. Undefined when the directive
-   * is contract-level.
+   * r" The test function the directive belongs to. Undefined when the
+   * r" directive is contract-level.
    */
   function?: string
   /**
-   * Why resolving the location failed, including the directive problem
-   * that was being reported.
+   * r" Why resolving the location failed, including the directive problem
+   * r" that was being reported.
    */
   reason: string
 }
 
 /**
- * A single ill-formed inline-config entry, located so the user can find and
+ * A single problem found in the test sources, located so the user can find and
  * fix it. A discriminated union over `kind`: a `source`-level entry carries no
  * directive location, a `directive`-level entry carries the contract and line,
  * plus the function unless the directive is contract-level. Attached to the
@@ -1928,29 +1896,38 @@ export type TestSourceError =
   TestSourceFileError | InlineConfigDirectiveError
 
 /**
- * A source-level inline-config problem: one that could not be tied to a single
- * directive (e.g. an unreadable source, or one with no `testSourcePaths`
- * entry).
+ * r" A problem with the source itself, which no single directive can be
+ * r" blamed for.
+ * r"
+ * r" Its tag names the half of the `TestSourceError` union it belongs to,
+ * r" not its own type, because the two halves differ in shape rather than in
+ * r" what went wrong.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceFileError {
-  /** Discriminant tag for the `TestSourceError` union. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "source"
   /**
-   * The solc source name the problem was found in (e.g.
-   * `project/test/Foo.t.sol`).
+   * r" The solc source name the problem was found in (e.g.
+   * r" `project/test/Foo.t.sol`).
    */
   sourceName: string
-  /** The problem itself; discriminate on its `kind` tag. */
+  /** r" The problem itself; discriminate on its `kind` tag. */
   problem: TestSourceFileProblem
 }
 
-/** The source's file could not be read at the path it was declared at. */
+/**
+ * r" The source's file could not be read at the path it was declared at.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface TestSourceFileNotFound {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceFileNotFound"
-  /** The path the source was expected at. */
+  /** r" The path the source was expected at. */
   path: string
-  /** Why reading it failed. */
+  /** r" Why reading it failed. */
   reason: string
 }
 
@@ -1962,40 +1939,47 @@ export type TestSourceFileProblem =
   TestSourceFileNotFound | TestSourceDirectiveLocation | TestSourcePathNotProvided | TestSourceUnsupportedSolcVersion | TestSourceParseErrors
 
 /**
- * The source does not parse, so nothing could be collected from it. A
- * partially-parsed source would silently miss struct definitions and
- * directives, so it is reported rather than half-collected.
+ * r" The source does not parse, so nothing could be collected from it. A
+ * r" partially-parsed source would silently miss struct definitions and
+ * r" directives, so it is reported rather than half-collected.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceParseErrors {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceParseErrors"
   /**
-   * The syntax diagnostics, each located at its source line. Truncated to
-   * the first few, followed by a count of the rest.
+   * r" The syntax diagnostics, each located at its source line. Truncated
+   * r" to the first few, followed by a count of the rest.
    */
   reasons: Array<string>
 }
 
 /**
- * The test source has no `testSourcePaths` entry, so it is not located, read,
- * or parsed.
+ * r" The test source has no `testSourcePaths` entry, so it is not located,
+ * r" read, or parsed.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourcePathNotProvided {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "TestSourcePathNotProvided"
 }
 
 /**
- * The solc version the source was compiled with predates the oldest Solidity
- * grammar available, so the source cannot be parsed at all. Collecting inline
- * configuration and EIP-712 struct definitions requires solc 0.8.0 or newer,
- * and no source is exempt: a run that selects this one can only proceed with
- * collection disabled entirely, by omitting `testSourcePaths`.
+ * r" The solc version the source was compiled with predates the oldest
+ * r" Solidity grammar available, so the source cannot be parsed at all.
+ * r" Collecting inline configuration and EIP-712 struct definitions requires
+ * r" solc 0.8.0 or newer, and no source is exempt: a run that selects this
+ * r" one can only proceed with collection disabled entirely, by omitting
+ * r" `testSourcePaths`.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceUnsupportedSolcVersion {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceUnsupportedSolcVersion"
-  /** The solc version the source's artifact was compiled with. */
+  /** r" The solc version the source's artifact was compiled with. */
   version: string
 }
 
