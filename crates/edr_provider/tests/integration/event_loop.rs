@@ -1,7 +1,8 @@
 #![cfg(feature = "test-utils")]
 
 use std::{
-    sync::{mpsc, Arc},
+    panic,
+    sync::{mpsc, Arc, Once},
     time::Duration,
 };
 
@@ -16,6 +17,10 @@ use tokio::runtime;
 
 /// Generous: a correct implementation settles the callback immediately.
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// The payload that [`PanickingLogger`] panics with, matched by
+/// [`suppress_deliberate_panic_backtraces`].
+const LOGGER_PANIC_PAYLOAD: &str = "logger panic";
 
 /// A logger that panics once its method logs are printed, killing the event
 /// loop's thread while a request is in flight.
@@ -34,13 +39,49 @@ impl Logger<L1ChainSpec, CurrentTime> for PanickingLogger {
         _method: &str,
         _error: Option<&ProviderErrorForChainSpec<L1ChainSpec>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        panic!("logger panic");
+        // Panicking with the payload itself keeps it a `&str`, which is the
+        // type the hook downcasts to.
+        panic::panic_any(LOGGER_PANIC_PAYLOAD);
     }
+}
+
+/// Reports a [`LOGGER_PANIC_PAYLOAD`] panic as a single line, leaving every
+/// other panic to the hook it replaces.
+///
+/// Symbolizing a backtrace costs seconds on a coverage-instrumented Windows
+/// build, and the default hook serializes that work process-wide. The
+/// deliberate panics below would otherwise stall the test binary for longer
+/// than [`RESPONSE_TIMEOUT`].
+fn suppress_deliberate_panic_backtraces() {
+    static INSTALL_HOOK: Once = Once::new();
+
+    INSTALL_HOOK.call_once(|| {
+        let previous_hook = panic::take_hook();
+
+        panic::set_hook(Box::new(move |info| {
+            let is_deliberate = info
+                .payload()
+                .downcast_ref::<&str>()
+                .is_some_and(|payload| *payload == LOGGER_PANIC_PAYLOAD);
+
+            if is_deliberate {
+                let location = info
+                    .location()
+                    .expect("a panic from `panic_any` records its location");
+
+                eprintln!("{LOGGER_PANIC_PAYLOAD} at {location}; backtrace suppressed");
+            } else {
+                previous_hook(info);
+            }
+        }));
+    });
 }
 
 fn provider_with_logger(
     logger: Box<dyn edr_provider::SyncLogger<L1ChainSpec, CurrentTime>>,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
+    suppress_deliberate_panic_backtraces();
+
     Ok(Provider::new(
         runtime::Handle::current(),
         logger,
