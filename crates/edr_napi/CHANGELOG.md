@@ -1,5 +1,25 @@
 # @nomicfoundation/edr
 
+## 0.21.0
+
+### Minor Changes
+
+- c08c761: Raised the minimum supported version of glibc for the prebuilt Linux gnu binaries (`@nomicfoundation/edr-linux-x64-gnu`, `@nomicfoundation/edr-linux-arm64-gnu`) from 2.30 to 2.34.
+- e4ca492: Added support for the `vm.broadcastRawTransaction(bytes)` cheatcode in Solidity tests. The RLP-encoded signed transaction is decoded and executed against the current EVM state from the address recovered from its signature, matching Foundry's behavior in a test context. This makes it possible to replay pre-signed transactions such as deterministic-deployment bootstraps (Nick's method), which cannot be reproduced with `vm.prank`.
+- 8fda95e:
+  - Added `L1Hardfork` enum, with all post-Byzantium L1 hardforks. Discriminants of the variants match those of `SpecId`.
+  - Fixed an issue for forked blockchains where a block that precedes its oldest supported hardfork was silently accepted. Now it fails with an error naming the oldest supported hardfork.
+  - BREAKING CHANGE: Removed `SpecId`. Instead, use `L1Hardfork`. Using any of the pre-Byzantium hardforks (`Frontier`, `FrontierThawing`, `Homestead`, `DaoFork`, `Tangerine` and `SpuriousDragon`) previously resulted in a runtime error. Now, they are no longer representable.
+- eab0190: Added a synchronous, native secp256k1 public key derivation: `secp256k1PublicKeyFromSecretKey`.
+- 8fda95e:
+  - Changed the hardfork name strings to match Hardhat's definitions: names are now camelCase (e.g. `"byzantium"`, `"muirGlacier"`, `"bedrock"`). `l1HardforkToString`/`opHardforkToString` return the new names, and `l1HardforkFromString`/`opHardforkFromString` and provider configs accept only them — passing an old-style name (e.g. `"Byzantium"`) fails.
+  - BREAKING CHANGE: Removed hardfork name string constants (`BYZANTIUM`, …, `AMSTERDAM` and `BEDROCK`, …, `ISTHMUS`). Instead, obtain them using `l1HardforkToString` (e.g. replace `OSAKA` with `l1HardforkToString(L1Hardfork.Osaka)`).
+
+### Patch Changes
+
+- d8579ed: Fixed the missing stack trace for an invariant test whose `afterInvariant()` reverts. The replay used to look for the revert reason in the passing `invariant()` call, so the runner discarded the failure's stack trace as unreproducible.
+- fc66e0d: Improved the performance of the `vm.addr`, `vm.sign` and `vm.signCompact` cheatcodes by caching the private key to address derivation per test suite.
+
 ## 0.20.0
 
 ### Minor Changes
