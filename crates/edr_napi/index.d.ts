@@ -870,92 +870,119 @@ export declare enum IncludeTraces {
   All = 2,
 }
 
-/** A directive-level inline-config problem, located at the offending directive. */
+/**
+ * r" A directive-level problem, located at the offending directive.
+ * r"
+ * r" Its tag names the half of the `TestSourceError` union it belongs to,
+ * r" not its own type, because the two halves differ in shape rather than in
+ * r" what went wrong.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigDirectiveError {
-  /** Discriminant tag for the `TestSourceError` union. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "directive"
   /**
-   * The solc source name the problem was found in (e.g.
-   * `project/test/Foo.t.sol`).
+   * r" The solc source name the problem was found in (e.g.
+   * r" `project/test/Foo.t.sol`).
    */
   sourceName: string
-  /** The contract the offending directive belongs to. */
+  /** r" The contract the offending directive belongs to. */
   contract: string
   /**
-   * The test function the offending directive belongs to. Undefined when
-   * the directive is contract-level.
+   * r" The test function the offending directive belongs to. Undefined
+   * r" when the directive is contract-level.
    */
   function?: string
-  /** The 1-based line of the offending directive within the source. */
+  /** r" The 1-based line of the offending directive within the source. */
   line: number
-  /** The problem itself; discriminate on its `kind` tag. */
+  /** r" The problem itself; discriminate on its `kind` tag. */
   problem: InlineConfigDirectiveProblem
 }
 
 /**
  * The problem in a single inline-config directive, as a discriminated union
- * over its `kind` tag — mirroring the Rust-side `TestSourceError` enum so
+ * over its `kind` tag — mirroring the Rust-side `InlineConfigError` enum so
  * consumers can map each problem onto their own error types.
  */
 export type InlineConfigDirectiveProblem = InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey
 
 /**
- * The same key was specified more than once for the same function or
- * contract.
+ * r" The same key was set twice for the same target.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigDuplicateKey {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigDuplicateKey"
-  /** The duplicated key, exactly as written. */
-  key: string
-}
-
-/** An unknown configuration key was used. */
-export interface InlineConfigInvalidKey {
-  /** Enum tag for JS. */
-  kind: "InlineConfigInvalidKey"
-  /** The offending key, exactly as written. */
+  /** r" The duplicated key. */
   key: string
 }
 
 /**
- * A key was used on a test of the wrong kind (e.g. `fuzz.*` on an invariant
- * test). Only function-level directives can produce this.
+ * r" An unknown configuration key was used.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
+export interface InlineConfigInvalidKey {
+  /** Discriminant tag for the union this belongs to. */
+  kind: "InlineConfigInvalidKey"
+  /** r" The offending key, exactly as written. */
+  key: string
+}
+
+/**
+ * r" A key was used on a test of the wrong kind (e.g. `fuzz.*` on an
+ * r" invariant test).
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigInvalidKeyForTestType {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidKeyForTestType"
-  /** The offending key, exactly as written. */
+  /** r" The offending key, exactly as written. */
   key: string
-  /** The kind of test the function is (`fuzz` or `invariant`). */
+  /** r" The kind of test the function is (`fuzz` or `invariant`). */
   testType: string
 }
 
-/** A directive was missing the `=` separator. */
+/**
+ * r" A directive was missing the `=` separator.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigInvalidSyntax {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidSyntax"
-  /** The offending directive line, stripped of comment decoration. */
+  /** r" The offending directive line, stripped of comment decoration. */
   directive: string
 }
 
-/** A value did not match the expected type for its key. */
+/**
+ * r" A value did not match the expected type for its key.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigInvalidValue {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidValue"
-  /** The offending key, exactly as written. */
+  /** r" The offending key, exactly as written. */
   key: string
-  /** The offending value, exactly as written. */
+  /** r" The offending value, exactly as written. */
   value: string
-  /** A description of the expected value type. */
+  /** r" What the key expects instead. */
   expected: string
 }
 
-/** A profile other than `default` was used. */
+/**
+ * r" A profile other than `default` was used.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigUnsupportedProfile {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigUnsupportedProfile"
-  /** The unsupported profile name. */
+  /** r" The unsupported profile name. */
   profile: string
 }
 
@@ -1826,29 +1853,31 @@ export interface SuiteResult {
 }
 
 /**
- * A directive's offset could not be resolved to a line number within its
- * source, meaning the parsing stages disagree about the source text, so its
- * directives cannot be trusted.
+ * r" A directive's offset could not be resolved to a line number within its
+ * r" source, meaning the parsing stages disagree about the source text, so
+ * r" its directives cannot be trusted.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceDirectiveLocation {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceDirectiveLocation"
-  /** The contract the directive belongs to. */
+  /** r" The contract the directive belongs to. */
   contract: string
   /**
-   * The test function the directive belongs to. Undefined when the directive
-   * is contract-level.
+   * r" The test function the directive belongs to. Undefined when the
+   * r" directive is contract-level.
    */
   function?: string
   /**
-   * Why resolving the location failed, including the directive problem
-   * that was being reported.
+   * r" Why resolving the location failed, including the directive problem
+   * r" that was being reported.
    */
   reason: string
 }
 
 /**
- * A single ill-formed inline-config entry, located so the user can find and
+ * A single problem found in the test sources, located so the user can find and
  * fix it. A discriminated union over `kind`: a `source`-level entry carries no
  * directive location, a `directive`-level entry carries the contract and line,
  * plus the function unless the directive is contract-level. Attached to the
@@ -1858,29 +1887,38 @@ export interface TestSourceDirectiveLocation {
 export type TestSourceError = TestSourceFileError | InlineConfigDirectiveError
 
 /**
- * A source-level inline-config problem: one that could not be tied to a single
- * directive (e.g. an unreadable source, or one with no `testSourcePaths`
- * entry).
+ * r" A problem with the source itself, which no single directive can be
+ * r" blamed for.
+ * r"
+ * r" Its tag names the half of the `TestSourceError` union it belongs to,
+ * r" not its own type, because the two halves differ in shape rather than in
+ * r" what went wrong.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceFileError {
-  /** Discriminant tag for the `TestSourceError` union. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "source"
   /**
-   * The solc source name the problem was found in (e.g.
-   * `project/test/Foo.t.sol`).
+   * r" The solc source name the problem was found in (e.g.
+   * r" `project/test/Foo.t.sol`).
    */
   sourceName: string
-  /** The problem itself; discriminate on its `kind` tag. */
+  /** r" The problem itself; discriminate on its `kind` tag. */
   problem: TestSourceFileProblem
 }
 
-/** The source's file could not be read at the path it was declared at. */
+/**
+ * r" The source's file could not be read at the path it was declared at.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface TestSourceFileNotFound {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceFileNotFound"
-  /** The path the source was expected at. */
+  /** r" The path the source was expected at. */
   path: string
-  /** Why reading it failed. */
+  /** r" Why reading it failed. */
   reason: string
 }
 
@@ -1891,40 +1929,47 @@ export interface TestSourceFileNotFound {
 export type TestSourceFileProblem = TestSourceFileNotFound | TestSourceDirectiveLocation | TestSourcePathNotProvided | TestSourceUnsupportedSolcVersion | TestSourceParseErrors
 
 /**
- * The source does not parse, so nothing could be collected from it. A
- * partially-parsed source would silently miss struct definitions and
- * directives, so it is reported rather than half-collected.
+ * r" The source does not parse, so nothing could be collected from it. A
+ * r" partially-parsed source would silently miss struct definitions and
+ * r" directives, so it is reported rather than half-collected.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceParseErrors {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceParseErrors"
   /**
-   * The syntax diagnostics, each located at its source line. Truncated to
-   * the first few, followed by a count of the rest.
+   * r" The syntax diagnostics, each located at its source line. Truncated
+   * r" to the first few, followed by a count of the rest.
    */
   reasons: Array<string>
 }
 
 /**
- * The test source has no `testSourcePaths` entry, so it is not located, read,
- * or parsed.
+ * r" The test source has no `testSourcePaths` entry, so it is not located,
+ * r" read, or parsed.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourcePathNotProvided {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "TestSourcePathNotProvided"
 }
 
 /**
- * The solc version the source was compiled with predates the oldest Solidity
- * grammar available, so the source cannot be parsed at all. Collecting inline
- * configuration and EIP-712 struct definitions requires solc 0.8.0 or newer,
- * and no source is exempt: a run that selects this one can only proceed with
- * collection disabled entirely, by omitting `testSourcePaths`.
+ * r" The solc version the source was compiled with predates the oldest
+ * r" Solidity grammar available, so the source cannot be parsed at all.
+ * r" Collecting inline configuration and EIP-712 struct definitions requires
+ * r" solc 0.8.0 or newer, and no source is exempt: a run that selects this
+ * r" one can only proceed with collection disabled entirely, by omitting
+ * r" `testSourcePaths`.
+ *
+ *  Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceUnsupportedSolcVersion {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceUnsupportedSolcVersion"
-  /** The solc version the source's artifact was compiled with. */
+  /** r" The solc version the source's artifact was compiled with. */
   version: string
 }
 
