@@ -9,13 +9,15 @@ use std::{
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
 use edr_gas_report::SyncOnCollectedGasReportCallback;
-use edr_napi_callback::{self as callback, CallbackOwner, OnOwnerCollected, OwnedCallbacks};
+use edr_napi_callback::{
+    self as callback, CallbackOwner, OnOwnerCollected, OwnedCallbacks, RootedByThreadsafeFunction,
+};
 use edr_napi_core::provider::ConfigOption;
 use edr_primitives::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
 use napi::{
     bindgen_prelude::{BigInt, Function, Promise, Reference, ToNapiValue, Uint8Array},
-    threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunctionCallMode},
+    threadsafe_function::{ThreadsafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode},
     tokio::runtime,
     Either, Env, JsString, JsStringUtf8,
 };
@@ -517,40 +519,39 @@ fn send_failure(key: &str) -> napi::Error {
     )
 }
 
-/// Bridges a JS async callback (`fn(Js) -> Promise<()>`) into the synchronous,
-/// blocking Rust callback the core expects.
+/// The threadsafe function behind an observability callback.
+type PromiseCallbackTsfn<JsT> = ThreadsafeFunction<
+    JsT,
+    Promise<()>,
+    JsT,
+    /* ErrorStatus */ napi::Status,
+    /* CalleeHandled */ false,
+    /* Weak */ { callback::EVENT_LOOP_UNREFERENCED },
+    /* MaxQueueSize */ 0,
+>;
+
+/// Builds the threadsafe function that calls `callback`.
 ///
-/// Builds a threadsafe function from `callback`. When `owner` says an object
-/// will own the callback, the threadsafe function is built from a trampoline
-/// instead. See [`CallbackOwner`]. Either way it is built with
-/// [`callback::EVENT_LOOP_UNREFERENCED`] as its `Weak` flag. The returned
-/// closure then, on each call, converts the core value via `to_js`, invokes
-/// the JS function on its own thread, and blocks until the returned promise
-/// resolves. The three failure points — the threadsafe call not being
-/// scheduled, a synchronous exception in the callback, and a promise
-/// rejection — are all funneled into the returned `Result`. `key` names the
-/// callback in error messages. It also names it under its owner, when `owner`
-/// claims ownership. The collected-owner policy passed to `own` is inert for
-/// a rooted callback.
-fn blocking_promise_callback<CoreT, JsT, ToJsFnT, OwnerT>(
+/// When `owner` says an object will own the callback, the threadsafe function
+/// is built from a trampoline instead. See [`CallbackOwner`]. `key` names the
+/// callback under its owner. The collected-owner policy is inert for a rooted
+/// callback.
+///
+/// Kept apart from [`blocking_promise_callback`], which returns an opaque
+/// type. An opaque type has to name every type parameter in scope, so having
+/// `OwnerT` there would bind the returned closure's lifetime to the owner it
+/// never captures.
+fn promise_callback_tsfn<JsT, OwnerT>(
     env: &Env,
     callback: Function<'_, JsT, Promise<()>>,
-    runtime: runtime::Handle,
     key: &'static str,
     owner: &mut OwnerT,
-    to_js: ToJsFnT,
-) -> napi::Result<
-    impl Fn(CoreT) -> CallbackOutcome + Clone + Send + Sync + use<CoreT, JsT, ToJsFnT, OwnerT>,
->
+) -> napi::Result<PromiseCallbackTsfn<JsT>>
 where
     JsT: ToNapiValue + Send + 'static,
-    ToJsFnT: Fn(CoreT) -> JsT + Clone + Send + Sync + 'static,
-    // The opaque type has to name `OwnerT`, because `use<..>` cannot omit a
-    // type parameter. It therefore needs `OwnerT: 'static`, even though it
-    // never captures the owner.
-    OwnerT: CallbackOwner + 'static,
+    OwnerT: CallbackOwner,
 {
-    let tsfn = owner.own(
+    owner.own(
         env,
         callback,
         key,
@@ -563,10 +564,31 @@ where
                 .weak::<{ callback::EVENT_LOOP_UNREFERENCED }>()
                 .build_callback(|ctx: ThreadsafeCallContext<JsT>| Ok(ctx.value))
         },
-    )?;
+    )
+}
+
+/// Bridges a JS async callback (`fn(Js) -> Promise<()>`) into the synchronous,
+/// blocking Rust callback the core expects.
+///
+/// The returned closure, on each call, converts the core value via `to_js`,
+/// invokes the JS function on its own thread, and blocks until the returned
+/// promise resolves. The three failure points — the threadsafe call not being
+/// scheduled, a synchronous exception in the callback, and a promise
+/// rejection — are all funneled into the returned `Result`. `key` names the
+/// callback in error messages.
+fn blocking_promise_callback<CoreT, JsT, ToJsFnT>(
+    tsfn: PromiseCallbackTsfn<JsT>,
+    runtime: runtime::Handle,
+    key: &'static str,
+    to_js: ToJsFnT,
+) -> impl Fn(CoreT) -> CallbackOutcome + Clone + Send + Sync + use<CoreT, JsT, ToJsFnT>
+where
+    JsT: ToNapiValue + Send + 'static,
+    ToJsFnT: Fn(CoreT) -> JsT + Clone + Send + Sync + 'static,
+{
     let tsfn = std::sync::Arc::new(tsfn);
 
-    Ok(move |value: CoreT| {
+    move |value: CoreT| {
         let runtime = runtime.clone();
         let (sender, receiver) = std::sync::mpsc::channel();
 
@@ -617,15 +639,40 @@ where
         })??;
 
         Ok(())
-    })
+    }
 }
 
 impl ObservabilityConfig<'_> {
-    /// Resolves the instance, converting it to a
-    /// [`edr_provider::observability::Config`].
+    /// Resolves the instance for an owner that outlives its threadsafe
+    /// functions, registering the callbacks in `callbacks`.
     ///
-    /// `owner` decides who keeps the callbacks alive. See [`CallbackOwner`].
-    pub fn resolve<OwnerT: CallbackOwner + 'static>(
+    /// The callbacks are unrooted, so the threadsafe functions calling them
+    /// root trampolines instead. See [`edr_napi_callback`].
+    pub fn resolve_unrooted(
+        self,
+        env: &Env,
+        runtime: runtime::Handle,
+        callbacks: &mut OwnedCallbacks,
+    ) -> napi::Result<edr_provider::observability::Config> {
+        self.resolve_with(env, runtime, callbacks)
+    }
+
+    /// Resolves the instance for threadsafe functions whose own lifetime is
+    /// already bounded, letting them root the callbacks.
+    ///
+    /// A Solidity test run's threadsafe functions live only as long as the
+    /// run, so rooting a callback cannot outlive that bound.
+    pub fn resolve_rooted(
+        self,
+        env: &Env,
+        runtime: runtime::Handle,
+    ) -> napi::Result<edr_provider::observability::Config> {
+        self.resolve_with(env, runtime, &mut RootedByThreadsafeFunction)
+    }
+
+    /// The body both entry points share. `owner` fixes who keeps the
+    /// callbacks alive at compile time.
+    fn resolve_with<OwnerT: CallbackOwner>(
         self,
         env: &Env,
         runtime: runtime::Handle,
@@ -635,18 +682,24 @@ impl ObservabilityConfig<'_> {
             .code_coverage
             .map(
                 |code_coverage| -> napi::Result<Box<dyn SyncOnCollectedCoverageCallback>> {
-                    let callback = blocking_promise_callback(
+                    let key = "onCollectedCoverage";
+                    let tsfn = promise_callback_tsfn(
                         env,
                         code_coverage.on_collected_coverage_callback,
-                        runtime.clone(),
-                        "onCollectedCoverage",
+                        key,
                         owner,
+                    )?;
+
+                    let callback = blocking_promise_callback(
+                        tsfn,
+                        runtime.clone(),
+                        key,
                         |hits: HashSet<Bytes>| {
                             hits.into_iter()
                                 .map(|hit| Uint8Array::from(hit.to_vec()))
                                 .collect::<Vec<_>>()
                         },
-                    )?;
+                    );
 
                     Ok(Box::new(callback))
                 },
@@ -657,14 +710,20 @@ impl ObservabilityConfig<'_> {
             .gas_report
             .map(
                 |gas_report| -> napi::Result<Box<dyn SyncOnCollectedGasReportCallback>> {
-                    let callback = blocking_promise_callback(
+                    let key = "onCollectedGasReport";
+                    let tsfn = promise_callback_tsfn(
                         env,
                         gas_report.on_collected_gas_report_callback,
-                        runtime.clone(),
-                        "onCollectedGasReport",
+                        key,
                         owner,
-                        |report: edr_gas_report::GasReport| GasReport::from(report),
                     )?;
+
+                    let callback = blocking_promise_callback(
+                        tsfn,
+                        runtime.clone(),
+                        key,
+                        |report: edr_gas_report::GasReport| GasReport::from(report),
+                    );
 
                     Ok(Box::new(callback))
                 },
@@ -749,7 +808,9 @@ impl ProviderConfig<'_> {
                 },
             })?;
 
-        let observability = self.observability.resolve(env, runtime, callbacks)?;
+        let observability = self
+            .observability
+            .resolve_unrooted(env, runtime, callbacks)?;
 
         Ok(edr_napi_core::provider::Config {
             allow_blocks_with_same_timestamp: self.allow_blocks_with_same_timestamp,

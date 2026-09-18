@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use derive_more::Debug;
-use edr_napi_callback::RootedByThreadsafeFunction;
 use edr_primitives::hex;
 use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
@@ -377,7 +376,7 @@ impl SolidityTestRunnerConfigArgs<'_> {
             || Ok(None),
             |observability| {
                 observability
-                    .resolve(env, runtime, &mut RootedByThreadsafeFunction)
+                    .resolve_rooted(env, runtime)
                     .map(|observability| observability.on_collected_coverage_fn)
             },
         )?;
