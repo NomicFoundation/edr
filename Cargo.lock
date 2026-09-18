@@ -3144,6 +3144,7 @@ dependencies = [
  "edr_gas_report",
  "edr_generic",
  "edr_instrument",
+ "edr_napi_callback",
  "edr_napi_core",
  "edr_op",
  "edr_precompile",
@@ -3174,6 +3175,14 @@ dependencies = [
  "tracing",
  "tracing-flame",
  "tracing-subscriber 0.3.23",
+]
+
+[[package]]
+name = "edr_napi_callback"
+version = "0.3.8"
+dependencies = [
+ "napi",
+ "static_assertions",
 ]
 
 [[package]]

@@ -32,6 +32,7 @@ members = [
     "crates/inspector/bytecode",
     "crates/edr_macros",
     "crates/edr_napi",
+    "crates/napi/callback",
     "crates/edr_op",
     "crates/edr_provider",
     "crates/edr_receipt",
@@ -170,6 +171,7 @@ edr_instrument = { path = "crates/edr_instrument" }
 edr_macros = { path = "crates/edr_macros" }
 edr_mem_pool = { path = "crates/mem_pool" }
 edr_napi_core = { path = "crates/edr_napi_core" }
+edr_napi_callback = { path = "crates/napi/callback" }
 edr_op = { path = "crates/edr_op" }
 edr_primitives = { path = "crates/primitives" }
 edr_precompile = { path = "crates/precompile" }

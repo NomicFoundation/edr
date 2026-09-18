@@ -9,7 +9,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::callback::{self, OnOwnerCollected, OwnedCallbacks};
+use edr_napi_callback::{self as callback, OnOwnerCollected, OwnedCallbacks};
 
 /// Configuration for the provider's logger.
 #[napi(object)]
@@ -33,7 +33,7 @@ impl LoggerConfig<'_> {
     /// callbacks in `callbacks`.
     ///
     /// Both callbacks are kept out of their threadsafe functions; see
-    /// [`crate::callback`]. They are resolved even when the logger is
+    /// [`edr_napi_callback`]. They are resolved even when the logger is
     /// disabled.
     pub fn resolve(
         self,

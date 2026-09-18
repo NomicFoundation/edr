@@ -29,6 +29,7 @@ edr_gas_report.workspace = true
 edr_generic.workspace = true
 edr_instrument.workspace = true
 edr_napi_core.workspace = true
+edr_napi_callback.workspace = true
 edr_op = { workspace = true, optional = true }
 edr_precompile.workspace = true
 edr_primitives.workspace = true

@@ -1,5 +1,6 @@
 use std::sync::{mpsc::channel, Arc};
 
+use edr_napi_callback::{self as callback, DeferredAttachment, OnOwnerCollected, PendingUnroot};
 use edr_primitives::{Address, Bytes};
 use napi::{
     bindgen_prelude::{FnArgs, Function, Object, Promise, Uint8Array},
@@ -9,11 +10,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::{
-    callback::{self, DeferredAttachment, OnOwnerCollected, PendingUnroot},
-    cast::TryCast,
-    napi_error,
-};
+use crate::{cast::TryCast, napi_error};
 
 /// The result of executing a call override.
 #[napi(object)]
@@ -72,7 +69,7 @@ impl CallOverrideCallback {
     /// Builds the threadsafe function the provider calls, along with the
     /// attachment that will make `owner` own the consumer's callback.
     ///
-    /// See [`crate::callback`] for why the callback is kept out of the
+    /// See [`edr_napi_callback`] for why the callback is kept out of the
     /// threadsafe function.
     pub fn resolve<'env>(
         env: &'env Env,

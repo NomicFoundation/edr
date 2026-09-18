@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use derive_more::Debug;
+use edr_napi_callback::RootedByThreadsafeFunction;
 use edr_primitives::hex;
 use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
@@ -18,7 +19,6 @@ use napi_derive::napi;
 
 use crate::{
     account::AccountOverride,
-    callback::RootedByThreadsafeFunction,
     cast::TryCast,
     config::ObservabilityConfig,
     serde::{

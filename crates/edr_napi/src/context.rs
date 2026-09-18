@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use edr_decoder_revert::RevertDecoder;
+use edr_napi_callback::DeferredOwner;
 use edr_napi_core::{provider::SyncProvider, solidity};
 use edr_primitives::HashMap;
 use edr_solidity_tests::{
@@ -18,7 +19,6 @@ use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
     async_deallocator::AsyncDeallocator,
-    callback::DeferredOwner,
     config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     contract_decoder::ContractDecoder,
     logger::LoggerConfig,

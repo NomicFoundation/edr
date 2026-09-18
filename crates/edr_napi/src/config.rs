@@ -9,6 +9,7 @@ use std::{
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
 use edr_gas_report::SyncOnCollectedGasReportCallback;
+use edr_napi_callback::{self as callback, CallbackOwner, OnOwnerCollected, OwnedCallbacks};
 use edr_napi_core::provider::ConfigOption;
 use edr_primitives::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
@@ -23,7 +24,6 @@ use napi_derive::napi;
 use crate::{
     account::AccountOverride,
     block::BlobGas,
-    callback::{self, CallbackOwner, OnOwnerCollected, OwnedCallbacks},
     cast::TryCast,
     gas_report::GasReport,
     logger::LoggerConfig,
@@ -688,7 +688,7 @@ impl ObservabilityConfig<'_> {
 impl ProviderConfig<'_> {
     /// Resolves the instance to a [`edr_napi_core::provider::Config`].
     /// Observability callbacks the provider's object must own are registered
-    /// in `callbacks`; see [`crate::callback`].
+    /// in `callbacks`; see [`edr_napi_callback`].
     pub fn resolve(
         self,
         env: &Env,
@@ -857,7 +857,7 @@ pub struct ConfigResolution {
 
 /// Helper function for resolving the provided N-API configs.
 ///
-/// `callbacks` must come from a [`crate::callback::DeferredOwner`], whose
+/// `callbacks` must come from a [`edr_napi_callback::DeferredOwner`], whose
 /// completion attaches every callback registered here. A registry nothing
 /// attaches leaks every callback in it.
 pub fn resolve_configs<'env>(

@@ -10,7 +10,6 @@ mod async_deallocator;
 mod block;
 /// Types for overriding a call.
 pub mod call_override;
-pub mod callback;
 /// Types for casting N-API types to Rust types.
 pub mod cast;
 /// Supported chain types.

@@ -237,7 +237,7 @@ impl Provider {
         &self,
         env: &'env Env,
         // The provider's own JavaScript object. It owns the callback below,
-        // so the callback cannot root it; see `crate::callback`. Napi injects
+        // so the callback cannot root it; see `edr_napi_callback`. Napi injects
         // the parameter and omits it from the generated typings.
         this: This<'env>,
         // TODO: https://github.com/NomicFoundation/edr/issues/1532

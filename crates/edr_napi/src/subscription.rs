@@ -13,7 +13,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::callback::{self, OnOwnerCollected, OwnedCallbacks};
+use edr_napi_callback::{self as callback, OnOwnerCollected, OwnedCallbacks};
 
 /// Creates a chain-specific [`SyncSubscriberCallback`] for the provided
 /// function and chain type.
@@ -55,7 +55,7 @@ pub type SubscriptionTsfn = ThreadsafeFunction<
 
 impl SubscriptionConfig<'_> {
     /// Builds the threadsafe function the provider calls, registering the
-    /// consumer's callback in `callbacks`. See [`crate::callback`] for why the
+    /// consumer's callback in `callbacks`. See [`edr_napi_callback`] for why the
     /// callback is kept out of the threadsafe function.
     pub fn resolve(
         self,
