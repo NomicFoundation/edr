@@ -374,7 +374,8 @@ jobs:
         run: |
           # shellcheck disable=SC1090 # generated env from cargo-llvm-cov, not a static file
           source <(cargo llvm-cov show-env --sh)
-          pnpm run --recursive --filter './js/integration-tests/*' test
+          # Both pretests run the root `build:dev`; concurrent `napi build`s race on `index.d.ts`.
+          pnpm run --recursive --sequential --filter './js/integration-tests/*' test
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
       - name: Upload coverage to Codecov
