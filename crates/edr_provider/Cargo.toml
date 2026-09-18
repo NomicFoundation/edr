@@ -37,6 +37,7 @@ edr_defaults.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
+edr_eip7825.workspace = true
 edr_eip7892.workspace = true
 edr_eth.workspace = true
 edr_evm.workspace = true
@@ -91,7 +92,6 @@ tracing = { version = "0.1.44", features = [
 alloy-eips.workspace = true
 alloy-trie = { workspace = true, features = ["ethereum"] }
 anyhow = "1.0.100"
-edr_eip7825.workspace = true
 edr_test_block_replay.workspace = true
 hex = "0.4"
 edr_test_utils.workspace = true
