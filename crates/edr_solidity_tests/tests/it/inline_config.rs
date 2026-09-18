@@ -3,7 +3,9 @@
 use std::io::Write as _;
 
 use edr_solidity_tests::{
-    inline_config::InlineConfigProblem, result::TestKind, SolidityTestRunnerConfigError,
+    inline_config::{InlineConfigProblem, InlineConfigProfiles},
+    result::TestKind,
+    SolidityTestRunnerConfigError,
 };
 
 use crate::helpers::{SolidityTestFilter, TEST_DATA_DEFAULT};
@@ -201,4 +203,100 @@ async fn contract_level_inline_config_applies_to_all_tests() {
         "expected 2 runs of depth 3 (6 calls), got {:?}",
         invariant.kind
     );
+}
+
+/// Profiles are resolved at the contract level and at each function separately,
+/// before the contract's configuration is applied underneath the function's.
+/// So the function level wins over the contract level whichever of the two
+/// carries a profile prefix. See `inline/ProfileLevelPrecedence.t.sol`.
+#[tokio::test(flavor = "multi_thread")]
+async fn contract_level_profiles_resolve_before_function_precedence() {
+    const GLOBAL_RUNS: usize = 100;
+
+    // The run count each test resolves to under each selected profile.
+    let expected_runs = [
+        (
+            "default",
+            [
+                (
+                    "ProfileLevelPrecedenceTest",
+                    "testFuzz_ContractLevelOnly",
+                    15,
+                ),
+                (
+                    "ProfileLevelPrecedenceTest",
+                    "testFuzz_FunctionBareBeatsContractProfile",
+                    20,
+                ),
+                (
+                    "ProfileLevelPrecedenceTest",
+                    "testFuzz_FunctionProfileFallsBackToContract",
+                    15,
+                ),
+                // The contract's only directive is scoped to `ci`, so nothing
+                // applies and the test stays on the global configuration.
+                (
+                    "ProfileOnlyContractLevelTest",
+                    "testFuzz_NoDirective",
+                    GLOBAL_RUNS,
+                ),
+            ],
+        ),
+        (
+            "ci",
+            [
+                (
+                    "ProfileLevelPrecedenceTest",
+                    "testFuzz_ContractLevelOnly",
+                    8,
+                ),
+                (
+                    "ProfileLevelPrecedenceTest",
+                    "testFuzz_FunctionBareBeatsContractProfile",
+                    20,
+                ),
+                (
+                    "ProfileLevelPrecedenceTest",
+                    "testFuzz_FunctionProfileFallsBackToContract",
+                    30,
+                ),
+                ("ProfileOnlyContractLevelTest", "testFuzz_NoDirective", 8),
+            ],
+        ),
+    ];
+
+    for (selected, cases) in expected_runs {
+        let filter = SolidityTestFilter::new(".*", ".*", ".*inline/ProfileLevelPrecedence.t.sol");
+        let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+        config.fuzz.runs = u32::try_from(GLOBAL_RUNS).expect("runs fit in u32");
+        config.inline_config_profiles =
+            InlineConfigProfiles::new(selected, ["ci".to_owned()]).expect("valid profiles");
+
+        let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+        let results = runner.test_collect(filter).await.suite_results;
+
+        for (contract, function, expected) in cases {
+            let suite = results
+                .get(&format!(
+                    "default/inline/ProfileLevelPrecedence.t.sol:{contract}"
+                ))
+                .unwrap_or_else(|| panic!("{contract} ran under {selected}"));
+            let name = format!("{function}(uint256)");
+            let result = suite
+                .test_results
+                .get(&name)
+                .unwrap_or_else(|| panic!("{contract}.{name} ran under {selected}"));
+
+            let TestKind::Fuzz { runs, .. } = result.kind else {
+                panic!(
+                    "{contract}.{name} under {selected} is not a fuzz test: {:?}",
+                    result.kind
+                );
+            };
+            assert_eq!(
+                runs, expected,
+                "{contract}.{name} under profile `{selected}`"
+            );
+        }
+    }
 }

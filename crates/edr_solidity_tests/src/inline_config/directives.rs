@@ -8,8 +8,13 @@
 //! forge-config: default.fuzz.runs = 100
 //! hardhat-config: invariant.fail-on-revert = true
 //! ```
+//!
+//! A directive's key may carry a profile prefix, scoping it to that profile.
+//! See [`parse_inline_config`] for how scoping and precedence work.
 
-use super::{error::InlineConfigError, natspec::NatSpecBlock};
+use std::collections::HashSet;
+
+use super::{error::InlineConfigError, natspec::NatSpecBlock, profiles::InlineConfigProfiles};
 use crate::config::{TestFunctionConfigOverride, TimeoutConfig};
 
 const HARDHAT_CONFIG_PREFIX: &str = "hardhat-config:";
@@ -42,7 +47,7 @@ pub(super) fn contains_inline_config_directive(source: &str) -> bool {
 
 /// Top-level inline-config key categories. A leading dot-segment that is not
 /// one of these is interpreted as a (profile) prefix.
-const TOP_LEVEL_KEYS: [&str; 5] = [
+pub(super) const TOP_LEVEL_KEYS: [&str; 5] = [
     "fuzz",
     "invariant",
     "allowInternalExpectRevert",
@@ -50,9 +55,29 @@ const TOP_LEVEL_KEYS: [&str; 5] = [
     "evmVersion",
 ];
 
-/// Inline-config profiles the parser accepts as a leading dot-segment prefix.
-/// Only `default` is supported today; add new profiles here to extend support.
-const SUPPORTED_PROFILES: [&str; 1] = ["default"];
+/// Whether `name` is one of the top-level key categories, and therefore can
+/// never be read as a profile prefix.
+pub(super) fn is_reserved_profile_name(name: &str) -> bool {
+    TOP_LEVEL_KEYS.contains(&name)
+}
+
+/// The scope a directive applies under.
+#[derive(Debug, PartialEq, Eq, Hash)]
+enum DirectiveScope {
+    /// Written without a profile prefix (`fuzz.runs = 3`): applies under every
+    /// profile.
+    Bare,
+    /// Written with a profile prefix (`ci.fuzz.runs = 8`): applies only when
+    /// that profile is the selected one.
+    Profile(String),
+}
+
+impl DirectiveScope {
+    /// Whether this is the prefixed scope of `profile`.
+    fn is_profile(&self, profile: &str) -> bool {
+        matches!(self, Self::Profile(name) if name == profile)
+    }
+}
 
 /// Whether `name` is an invariant test, matching the runner's classification
 /// (`invariant*` or the `statefulFuzz*` alias).
@@ -90,7 +115,7 @@ enum KeyCategory {
 }
 
 /// A recognized inline-config key.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Key {
     Isolate,
     AllowInternalExpectRevert,
@@ -139,6 +164,33 @@ impl Key {
             | Self::InvariantFailOnRevert
             | Self::InvariantCallOverride
             | Self::InvariantTimeout => KeyCategory::Invariant,
+        }
+    }
+
+    /// Checks that this key may appear on `target`. On a function the key must
+    /// match the test kind; top-level keys are valid on both. A contract
+    /// accepts both sections; each affects only the tests of its kind.
+    fn check_target(
+        self,
+        target: DirectiveTarget<'_>,
+        raw_key: &str,
+    ) -> Result<(), InlineConfigError> {
+        let DirectiveTarget::Function(function) = target else {
+            return Ok(());
+        };
+        let is_fuzz_test = function.starts_with("test");
+        let valid_for_kind = match self.category() {
+            KeyCategory::Any => true,
+            KeyCategory::Fuzz => is_fuzz_test,
+            KeyCategory::Invariant => is_invariant_function(function),
+        };
+        if valid_for_kind {
+            Ok(())
+        } else {
+            Err(InlineConfigError::InvalidKeyForTestType {
+                key: raw_key.to_owned(),
+                test_type: if is_fuzz_test { "fuzz" } else { "invariant" }.to_owned(),
+            })
         }
     }
 
@@ -223,9 +275,11 @@ impl Key {
 
 /// A single parsed directive, prior to validation.
 struct RawOverride {
-    /// Canonical (camelCase) key.
+    /// The profile the directive applies under.
+    scope: DirectiveScope,
+    /// Canonical (camelCase) key, with any profile prefix stripped.
     key: String,
-    /// The key exactly as written (for diagnostics).
+    /// The key exactly as written, profile prefix included (for diagnostics).
     raw_key: String,
     /// The value exactly as written.
     raw_value: String,
@@ -289,7 +343,10 @@ fn block_to_lines(block: &NatSpecBlock) -> Vec<DirectiveLine<'_>> {
 /// Parses a single candidate directive line — already stripped of comment
 /// decoration by [`block_to_lines`] — returning `None` if it is not an inline
 /// config directive.
-fn parse_line(line: &DirectiveLine<'_>) -> Result<Option<RawOverride>, LocatedDirectiveError> {
+fn parse_line(
+    line: &DirectiveLine<'_>,
+    profiles: &InlineConfigProfiles,
+) -> Result<Option<RawOverride>, LocatedDirectiveError> {
     let text = line.text;
     let located = |error: InlineConfigError| LocatedDirectiveError {
         offset: line.offset,
@@ -312,22 +369,28 @@ fn parse_line(line: &DirectiveLine<'_>) -> Result<Option<RawOverride>, LocatedDi
     let raw_key = raw_key.trim();
     let raw_value = raw_value.trim();
 
-    // Detect and strip a profile prefix (see `SUPPORTED_PROFILES`).
+    // Detect and strip a profile prefix. It is validated against the declared
+    // profiles, not the selected one, so a mistyped prefix fails on every run.
+    // Unlike the key, it is matched verbatim: profile names are user-chosen.
+    let mut scope = DirectiveScope::Bare;
     let mut key = raw_key;
     if let Some((first_segment, rest)) = raw_key.split_once('.')
         && !TOP_LEVEL_KEYS.contains(&first_segment)
     {
-        if !SUPPORTED_PROFILES.contains(&first_segment) {
-            return Err(located(InlineConfigError::UnsupportedProfile {
+        if !profiles.is_declared(first_segment) {
+            return Err(located(InlineConfigError::UndeclaredProfile {
                 profile: first_segment.to_owned(),
+                declared: profiles.declared_names(),
             }));
         }
+        scope = DirectiveScope::Profile(first_segment.to_owned());
         key = rest;
     }
 
     let key = delimiter_to_camel(&delimiter_to_camel(key, '-'), '_');
 
     Ok(Some(RawOverride {
+        scope,
         key,
         raw_key: raw_key.to_owned(),
         raw_value: raw_value.to_owned(),
@@ -366,19 +429,26 @@ fn parse_u32(value: &str, raw_key: &str) -> Result<u32, InlineConfigError> {
 }
 
 /// Parses the inline configuration attached to `target` from its leading
-/// NatSpec blocks.
+/// NatSpec blocks, resolved against `profiles`.
 ///
-/// Returns `Ok(None)` when no inline-config directive is present. On a
-/// malformed directive, the error carries the byte offset of the offending line
-/// so the caller can resolve it to a source line number.
+/// An unprefixed directive applies under every profile; a prefixed one applies
+/// only under its own, overriding the unprefixed value of the same key whatever
+/// order they were written in. Duplicates are rejected per scope, so
+/// `fuzz.runs` alongside `ci.fuzz.runs` is allowed. Every directive is
+/// validated, whichever profile it names.
+///
+/// Returns `Ok(None)` when no directive applies under the selected profile. On
+/// a malformed directive, the error carries the byte offset of the offending
+/// line so the caller can resolve it to a source line number.
 pub(super) fn parse_inline_config(
     blocks: &[NatSpecBlock],
     target: DirectiveTarget<'_>,
+    profiles: &InlineConfigProfiles,
 ) -> Result<Option<TestFunctionConfigOverride>, LocatedDirectiveError> {
     let mut raw_overrides = Vec::new();
     for block in blocks {
         for line in block_to_lines(block) {
-            if let Some(raw) = parse_line(&line)? {
+            if let Some(raw) = parse_line(&line, profiles)? {
                 raw_overrides.push(raw);
             }
         }
@@ -388,52 +458,55 @@ pub(super) fn parse_inline_config(
         return Ok(None);
     }
 
-    let mut config = TestFunctionConfigOverride::default();
-    let mut seen = Vec::new();
-
+    // Every directive is validated in a scratch config, whichever profile it names,
+    // so a bad key or value fails on every run.
+    let mut scratch = TestFunctionConfigOverride::default();
+    let mut validated = Vec::with_capacity(raw_overrides.len());
+    // The (scope, key) pairs already seen. Duplicates are rejected per target
+    // and scope: the same key at contract and function level is not a
+    // duplicate (the function's value wins), nor is the same key under two
+    // profiles.
+    let mut seen = HashSet::new();
     for raw in &raw_overrides {
         let located = |error: InlineConfigError| LocatedDirectiveError {
             offset: raw.offset,
             error,
         };
 
-        let Some(key) = Key::from_canonical(&raw.key) else {
-            return Err(located(InlineConfigError::InvalidKey {
+        let key = Key::from_canonical(&raw.key).ok_or_else(|| {
+            located(InlineConfigError::InvalidKey {
                 key: raw.raw_key.clone(),
-            }));
-        };
-
-        // On a function the key must match the test kind; top-level keys are
-        // valid on both. A contract accepts both sections; each affects only
-        // the tests of its kind.
-        if let DirectiveTarget::Function(function) = target {
-            let is_fuzz_test = function.starts_with("test");
-            let valid_for_kind = match key.category() {
-                KeyCategory::Any => true,
-                KeyCategory::Fuzz => is_fuzz_test,
-                KeyCategory::Invariant => is_invariant_function(function),
-            };
-            if !valid_for_kind {
-                return Err(located(InlineConfigError::InvalidKeyForTestType {
-                    key: raw.raw_key.clone(),
-                    test_type: if is_fuzz_test { "fuzz" } else { "invariant" }.to_owned(),
-                }));
-            }
-        }
-
-        // Reject duplicate keys within one target. The same key at contract
-        // and function level is not a duplicate; the function's value wins.
-        if seen.contains(&key) {
+            })
+        })?;
+        key.check_target(target, &raw.raw_key).map_err(located)?;
+        if !seen.insert((&raw.scope, key)) {
             return Err(located(InlineConfigError::DuplicateKey {
                 key: raw.raw_key.clone(),
             }));
         }
-        seen.push(key);
-
-        key.apply(&mut config, raw).map_err(located)?;
+        key.apply(&mut scratch, raw).map_err(located)?;
+        validated.push((raw, key));
     }
 
-    Ok(Some(config))
+    // Unprefixed directives first, then the selected profile's, so the latter
+    // win irrespective of the order they were written in.
+    let bare = validated
+        .iter()
+        .filter(|(raw, _)| raw.scope == DirectiveScope::Bare);
+    let selected = validated
+        .iter()
+        .filter(|(raw, _)| raw.scope.is_profile(profiles.selected()));
+
+    let mut config = None;
+    for (raw, key) in bare.chain(selected) {
+        key.apply(config.get_or_insert_default(), raw)
+            .map_err(|error| LocatedDirectiveError {
+                offset: raw.offset,
+                error,
+            })?;
+    }
+
+    Ok(config)
 }
 
 #[cfg(test)]
@@ -447,17 +520,57 @@ mod tests {
         }
     }
 
+    /// Parses `lines`, each its own NatSpec block, on `function` against
+    /// `profiles`.
+    fn parse_with(
+        profiles: &InlineConfigProfiles,
+        lines: &[&str],
+        function: &str,
+    ) -> Result<Option<TestFunctionConfigOverride>, InlineConfigError> {
+        let blocks: Vec<NatSpecBlock> = lines.iter().map(|line| block(line)).collect();
+        parse_inline_config(&blocks, DirectiveTarget::Function(function), profiles)
+            .map_err(|located| located.error)
+    }
+
+    /// Parses `text` under a project that declares only `default`.
     fn parse(
         text: &str,
         function: &str,
     ) -> Result<Option<TestFunctionConfigOverride>, InlineConfigError> {
-        parse_inline_config(&[block(text)], DirectiveTarget::Function(function))
+        parse_with(&InlineConfigProfiles::default(), &[text], function)
+    }
+
+    /// Parses `lines`, each its own NatSpec block, on a contract against
+    /// `profiles`.
+    fn parse_contract_with(
+        profiles: &InlineConfigProfiles,
+        lines: &[&str],
+    ) -> Result<Option<TestFunctionConfigOverride>, InlineConfigError> {
+        let blocks: Vec<NatSpecBlock> = lines.iter().map(|line| block(line)).collect();
+        parse_inline_config(&blocks, DirectiveTarget::Contract, profiles)
             .map_err(|located| located.error)
     }
 
+    /// Parses `text` on a contract under a project that declares only
+    /// `default`.
     fn parse_contract(text: &str) -> Result<Option<TestFunctionConfigOverride>, InlineConfigError> {
-        parse_inline_config(&[block(text)], DirectiveTarget::Contract)
-            .map_err(|located| located.error)
+        parse_contract_with(&InlineConfigProfiles::default(), &[text])
+    }
+
+    /// Builds a profile context selecting `selected` out of `declared`.
+    fn profiles(selected: &str, declared: &[&str]) -> InlineConfigProfiles {
+        InlineConfigProfiles::new(selected, declared.iter().map(|&name| name.to_owned()))
+            .expect("valid profiles")
+    }
+
+    /// Unwraps a parse and returns the `fuzz.runs` it resolved to, if any.
+    fn fuzz_runs(
+        result: Result<Option<TestFunctionConfigOverride>, InlineConfigError>,
+    ) -> Option<u32> {
+        result
+            .expect("parses")
+            .and_then(|config| config.fuzz)
+            .and_then(|fuzz| fuzz.runs)
     }
 
     #[test]
@@ -535,13 +648,14 @@ mod tests {
 
     #[test]
     fn top_level_keys() {
-        let cfg = parse_inline_config(
+        let cfg = parse_with(
+            &InlineConfigProfiles::default(),
             &[
-                block("/// hardhat-config: isolate = true"),
-                block("/// hardhat-config: evmVersion = \"cancun\""),
-                block("/// hardhat-config: allow-internal-expect-revert = true"),
+                "/// hardhat-config: isolate = true",
+                "/// hardhat-config: evmVersion = \"cancun\"",
+                "/// hardhat-config: allow-internal-expect-revert = true",
             ],
-            DirectiveTarget::Function("testFoo"),
+            "testFoo",
         )
         .unwrap()
         .unwrap();
@@ -557,9 +671,239 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_profile() {
-        let err = parse("/// forge-config: ci.fuzz.runs = 100", "testFoo").unwrap_err();
-        assert!(matches!(err, InlineConfigError::UnsupportedProfile { .. }));
+    fn undeclared_profile_fails_whichever_profile_is_selected() {
+        // The prefix is validated against the declared profiles, not the
+        // selected one, so a typo fails on every run.
+        for selected in ["default", "ci"] {
+            let err = parse_with(
+                &profiles(selected, &["ci"]),
+                &["/// forge-config: nope.fuzz.runs = 100"],
+                "testFoo",
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                InlineConfigError::UndeclaredProfile {
+                    profile: "nope".to_owned(),
+                    declared: vec!["ci".to_owned(), "default".to_owned()],
+                },
+                "selected: {selected}"
+            );
+            assert!(err
+                .to_string()
+                .contains("declared profiles are: ci, default"));
+        }
+    }
+
+    #[test]
+    fn unprefixed_directive_applies_under_every_profile() {
+        for selected in ["default", "ci"] {
+            let runs = fuzz_runs(parse_with(
+                &profiles(selected, &["ci"]),
+                &["/// forge-config: fuzz.runs = 3"],
+                "testFoo",
+            ));
+            assert_eq!(runs, Some(3), "selected: {selected}");
+        }
+    }
+
+    #[test]
+    fn prefixed_directive_applies_only_when_its_profile_is_selected() {
+        let directive = ["/// forge-config: ci.fuzz.runs = 8"];
+
+        assert_eq!(
+            fuzz_runs(parse_with(&profiles("ci", &["ci"]), &directive, "testFoo")),
+            Some(8)
+        );
+        // Under another profile the directive is inert, and since it is the
+        // function's only one, nothing is collected for it at all.
+        assert_eq!(
+            parse_with(&profiles("default", &["ci"]), &directive, "testFoo"),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn default_prefix_does_not_apply_under_another_profile() {
+        // `default.` is just another profile prefix: unlike Foundry, it is not
+        // a base that every profile inherits.
+        assert_eq!(
+            parse_with(
+                &profiles("ci", &["ci"]),
+                &["/// forge-config: default.fuzz.runs = 10"],
+                "testFoo",
+            ),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn selected_profile_overrides_unprefixed_regardless_of_order() {
+        let unprefixed_first = [
+            "/// forge-config: fuzz.runs = 3",
+            "/// forge-config: ci.fuzz.runs = 8",
+        ];
+        let prefixed_first = [
+            "/// forge-config: ci.fuzz.runs = 8",
+            "/// forge-config: fuzz.runs = 3",
+        ];
+
+        for directives in [unprefixed_first, prefixed_first] {
+            assert_eq!(
+                fuzz_runs(parse_with(&profiles("ci", &["ci"]), &directives, "testFoo")),
+                Some(8),
+                "{directives:?}"
+            );
+            // Under `default` the prefixed one is inert, leaving the
+            // unprefixed value.
+            assert_eq!(
+                fuzz_runs(parse_with(
+                    &profiles("default", &["ci"]),
+                    &directives,
+                    "testFoo"
+                )),
+                Some(3),
+                "{directives:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn duplicate_keys_are_detected_per_scope() {
+        // An unprefixed value plus a profile-specific override of the same key
+        // is the intended way to vary a setting per profile.
+        for selected in ["default", "ci"] {
+            assert!(parse_with(
+                &profiles(selected, &["ci"]),
+                &[
+                    "/// forge-config: fuzz.runs = 3",
+                    "/// forge-config: ci.fuzz.runs = 8",
+                ],
+                "testFoo",
+            )
+            .is_ok());
+        }
+
+        // Two directives sharing a scope are still a duplicate, whether that
+        // scope is selected or not.
+        for directives in [
+            [
+                "/// forge-config: fuzz.runs = 1",
+                "/// forge-config: fuzz.runs = 2",
+            ],
+            [
+                "/// forge-config: ci.fuzz.runs = 1",
+                "/// forge-config: ci.fuzz.runs = 2",
+            ],
+        ] {
+            for selected in ["default", "ci"] {
+                let err =
+                    parse_with(&profiles(selected, &["ci"]), &directives, "testFoo").unwrap_err();
+                assert!(
+                    matches!(err, InlineConfigError::DuplicateKey { .. }),
+                    "{directives:?} under {selected}: {err:?}"
+                );
+            }
+        }
+
+        // Two profiles setting the same key are not duplicates of each other.
+        assert!(parse_with(
+            &profiles("ci", &["ci", "nightly"]),
+            &[
+                "/// forge-config: ci.fuzz.runs = 1",
+                "/// forge-config: nightly.fuzz.runs = 2",
+            ],
+            "testFoo",
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn unselected_profile_directives_are_still_validated() {
+        // A directive scoped to a profile that isn't selected can't affect the
+        // run, but a mistake in it still fails the run — so a typo surfaces
+        // locally instead of only in the environment that selects it.
+        let selected = profiles("default", &["ci"]);
+
+        let err = parse_with(
+            &selected,
+            &["/// forge-config: ci.fuzz.runs = -1"],
+            "testFoo",
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, InlineConfigError::InvalidValue { .. }),
+            "{err:?}"
+        );
+
+        let err = parse_with(
+            &selected,
+            &["/// forge-config: ci.fuzz.bogus = 1"],
+            "testFoo",
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, InlineConfigError::InvalidKey { .. }),
+            "{err:?}"
+        );
+
+        let err = parse_with(
+            &selected,
+            &["/// forge-config: ci.invariant.runs = 1"],
+            "testFoo",
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, InlineConfigError::InvalidKeyForTestType { .. }),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn diagnostics_keep_the_profile_prefix() {
+        // Consumers echo `raw_key` back to the user, so it must read exactly as
+        // it was written.
+        let err = parse_with(
+            &profiles("default", &["ci"]),
+            &["/// forge-config: ci.fuzz.bogus = 1"],
+            "testFoo",
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            InlineConfigError::InvalidKey {
+                key: "ci.fuzz.bogus".to_owned(),
+            }
+        );
+    }
+
+    #[test]
+    fn profile_prefix_is_matched_verbatim() {
+        // Keys are normalized from kebab/snake case, but profile names are
+        // user-chosen config keys, so they are matched as written.
+        let selected = profiles("my-ci", &["my-ci"]);
+
+        assert_eq!(
+            fuzz_runs(parse_with(
+                &selected,
+                &["/// forge-config: my-ci.fuzz.runs = 8"],
+                "testFoo"
+            )),
+            Some(8)
+        );
+
+        let err = parse_with(
+            &selected,
+            &["/// forge-config: myCi.fuzz.runs = 8"],
+            "testFoo",
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, InlineConfigError::UndeclaredProfile { .. }),
+            "{err:?}"
+        );
     }
 
     #[test]
@@ -660,15 +1004,15 @@ mod tests {
 
     #[test]
     fn duplicate_key() {
-        let err = parse_inline_config(
+        let err = parse_with(
+            &InlineConfigProfiles::default(),
             &[
-                block("/// forge-config: fuzz.runs = 1"),
-                block("/// forge-config: fuzz.runs = 2"),
+                "/// forge-config: fuzz.runs = 1",
+                "/// forge-config: fuzz.runs = 2",
             ],
-            DirectiveTarget::Function("testFoo"),
+            "testFoo",
         )
-        .unwrap_err()
-        .error;
+        .unwrap_err();
         assert!(matches!(err, InlineConfigError::DuplicateKey { .. }));
     }
 
@@ -700,10 +1044,84 @@ mod tests {
                 block("/// forge-config: invariant.runs = 2"),
             ],
             DirectiveTarget::Contract,
+            &InlineConfigProfiles::default(),
         )
         .unwrap_err()
         .error;
         assert!(matches!(err, InlineConfigError::DuplicateKey { .. }));
+    }
+
+    #[test]
+    fn contract_target_resolves_profiles() {
+        // The contract level scopes and overrides exactly like a function does:
+        // the selected profile's directive wins, an unselected one is inert.
+        let directives = [
+            "/// forge-config: fuzz.runs = 15",
+            "/// forge-config: ci.fuzz.runs = 8",
+            "/// forge-config: ci.invariant.depth = 3",
+        ];
+
+        let cfg = parse_contract_with(&profiles("ci", &["ci"]), &directives)
+            .unwrap()
+            .unwrap();
+        assert_eq!(cfg.fuzz.unwrap().runs, Some(8));
+        assert_eq!(cfg.invariant.unwrap().depth, Some(3));
+
+        let cfg = parse_contract_with(&profiles("default", &["ci"]), &directives)
+            .unwrap()
+            .unwrap();
+        assert_eq!(cfg.fuzz.unwrap().runs, Some(15));
+        assert_eq!(cfg.invariant, None);
+    }
+
+    #[test]
+    fn contract_target_with_only_unselected_directives_yields_none() {
+        // The runner layers a contract's configuration under every test; a
+        // contract whose directives all target another profile must contribute
+        // nothing rather than an empty override.
+        assert_eq!(
+            parse_contract_with(
+                &profiles("default", &["ci"]),
+                &[
+                    "/// forge-config: ci.fuzz.runs = 8",
+                    "/// forge-config: ci.invariant.depth = 3",
+                ],
+            ),
+            Ok(None)
+        );
+    }
+
+    #[test]
+    fn contract_target_validates_unselected_profile_directives() {
+        let selected = profiles("default", &["ci"]);
+
+        let err =
+            parse_contract_with(&selected, &["/// forge-config: ci.fuzz.runs = -1"]).unwrap_err();
+        assert!(
+            matches!(err, InlineConfigError::InvalidValue { .. }),
+            "{err:?}"
+        );
+
+        let err =
+            parse_contract_with(&selected, &["/// forge-config: nope.fuzz.runs = 1"]).unwrap_err();
+        assert!(
+            matches!(err, InlineConfigError::UndeclaredProfile { .. }),
+            "{err:?}"
+        );
+
+        // Duplicates are per scope on a contract too.
+        let err = parse_contract_with(
+            &selected,
+            &[
+                "/// forge-config: ci.invariant.runs = 1",
+                "/// forge-config: ci.invariant.runs = 2",
+            ],
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, InlineConfigError::DuplicateKey { .. }),
+            "{err:?}"
+        );
     }
 
     #[test]
