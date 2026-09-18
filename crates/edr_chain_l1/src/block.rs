@@ -211,14 +211,18 @@ impl<
             execution_gas: remaining_execution_gas,
             state_gas: remaining_state_gas,
         } = self.gas_remaining();
+
+        let tx_fits_both_dimensions = || {
+            // Only up to the cap can become execution gas; all of `tx.gas_limit()` can
+            // become state gas.
+            let execution_limit =
+                std::cmp::min(self.cfg.tx_gas_limit_cap(), transaction.gas_limit());
+            execution_limit <= remaining_execution_gas
+                && transaction.gas_limit() <= remaining_state_gas
+        };
         // The transaction must fit the remaining gas of both dimensions, unless the
-        // block gas limit check is disabled. Only the capped gas limit can become
-        // execution gas, so that is what is reserved on the execution dimension.
-        if !self.cfg.disable_block_gas_limit
-            && (std::cmp::min(self.cfg.tx_gas_limit_cap(), transaction.gas_limit())
-                > remaining_execution_gas
-                || transaction.gas_limit() > remaining_state_gas)
-        {
+        // block gas limit check is disabled.
+        if !self.cfg.disable_block_gas_limit && !tx_fits_both_dimensions() {
             return Err(BlockTransactionError::ExceedsBlockGasLimit);
         }
 
