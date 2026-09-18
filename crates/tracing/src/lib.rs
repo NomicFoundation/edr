@@ -36,7 +36,7 @@ use revm_inspector::JournalExt;
 /// settled values must read revm's [`ExecutionResult`].
 fn result_gas_from_spent(gas: &Gas) -> ResultGas {
     // TODO: replace `ResultGas` here with a frame-level gas type and remove
-    // discalimer from rustdoc.
+    // disclaimer from rustdoc.
     ResultGas::new_with_state_gas(
         gas.total_gas_spent(),
         gas.refunded() as u64,
