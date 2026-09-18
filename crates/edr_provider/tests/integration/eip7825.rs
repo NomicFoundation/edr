@@ -1,5 +1,6 @@
 #![cfg(feature = "test-utils")]
 
+use alloy_eips::eip7825::MAX_TX_GAS_LIMIT_OSAKA;
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     InvalidTransaction, L1ChainSpec,
@@ -18,6 +19,8 @@ use crate::common::provider::new_provider_with_config;
 
 const TRANSACTION_GAS_CAP: u64 = 50_000;
 const EXCEEDS_TRANSACTION_GAS_LIMIT: u64 = TRANSACTION_GAS_CAP + 1;
+/// Above `MAX_TX_GAS_LIMIT_OSAKA` (2^24), below the default block gas limit.
+const EXCEEDS_OSAKA_CAP: u64 = 20_000_000;
 
 fn new_provider(
     auto_mine: bool,
@@ -28,6 +31,17 @@ fn new_provider(
         config.transaction_gas_cap =
             transaction_gas_cap.map_or(ConfigOption::Disable, ConfigOption::Custom);
         config.mining.auto_mine = auto_mine;
+    })
+}
+
+/// Provider leaving the transaction gas cap at its hardfork default.
+fn new_provider_with_default_cap(
+    hardfork: edr_chain_l1::Hardfork,
+) -> anyhow::Result<Provider<L1ChainSpec>> {
+    new_provider_with_config(|config| {
+        config.hardfork = hardfork;
+        config.transaction_gas_cap = ConfigOption::Default;
+        config.mining.auto_mine = false;
     })
 }
 
@@ -166,8 +180,41 @@ async fn test_disable_transaction_gas_cap_accepts_excess_gas() -> anyhow::Result
     // limit (30M) to keep this test focused on the transaction gas cap.
     let provider = new_provider(false, None)?;
 
-    let exceeds_osaka_cap = 20_000_000u64;
-    send_transaction(&provider, exceeds_osaka_cap)?;
+    send_transaction(&provider, EXCEEDS_OSAKA_CAP)?;
+
+    Ok(())
+}
+
+/// The default cap resolves to `MAX_TX_GAS_LIMIT_OSAKA` from Osaka on.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_default_cap_rejects_excess_gas_on_osaka() -> anyhow::Result<()> {
+    let provider = new_provider_with_default_cap(edr_chain_l1::Hardfork::Osaka)?;
+
+    let result = send_transaction(&provider, EXCEEDS_OSAKA_CAP);
+
+    assert!(
+        matches!(
+            result,
+            Err(ProviderError::MemPoolAddTransaction(
+                MemPoolAddTransactionError::ExceedsTransactionGasCap {
+                    transaction_gas_cap: MAX_TX_GAS_LIMIT_OSAKA,
+                    transaction_gas_limit: EXCEEDS_OSAKA_CAP
+                }
+            ))
+        ),
+        "{result:?}"
+    );
+
+    Ok(())
+}
+
+/// Before Osaka there is no cap to resolve, so any gas limit within the block
+/// gas limit is accepted.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_default_cap_is_absent_before_osaka() -> anyhow::Result<()> {
+    let provider = new_provider_with_default_cap(edr_chain_l1::Hardfork::Prague)?;
+
+    send_transaction(&provider, EXCEEDS_OSAKA_CAP)?;
 
     Ok(())
 }

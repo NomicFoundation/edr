@@ -517,7 +517,7 @@ fn admits_transaction_whose_capped_execution_gas_fits() -> anyhow::Result<()> {
     const FIRST_GAS_LIMIT: u64 = 12_000_000;
 
     let mut fixture = new_fixture_with(DEFAULT_BLOCK_GAS_LIMIT, |config| {
-        config.transaction_gas_cap = ConfigOption::Custom(MAX_TX_GAS_LIMIT_OSAKA);
+        config.transaction_gas_cap = ConfigOption::Default;
     })?;
 
     let transactions = vec![
@@ -556,11 +556,11 @@ fn admits_transaction_whose_capped_execution_gas_fits() -> anyhow::Result<()> {
 /// Well above the EIP-7825 cap (2^24), below the default block gas limit.
 const EXCEEDS_TRANSACTION_GAS_CAP: u64 = 20_000_000;
 
-/// Amsterdam provider with the EIP-7825 cap configured.
+/// Amsterdam provider with the default EIP-7825 cap.
 fn new_capped_provider() -> anyhow::Result<Provider<L1ChainSpec>> {
     new_provider_with_config(|config| {
         config.hardfork = edr_chain_l1::Hardfork::Amsterdam;
-        config.transaction_gas_cap = ConfigOption::Custom(MAX_TX_GAS_LIMIT_OSAKA);
+        config.transaction_gas_cap = ConfigOption::Default;
     })
 }
 
