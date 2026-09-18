@@ -16,7 +16,7 @@ tracing = { workspace = true, optional = true }
 anyhow.workspace = true
 edr_test_mem_pool.workspace = true
 edr_test_transaction.workspace = true
-paste.workspace = true
+pastey.workspace = true
 
 [features]
 tracing = ["dep:tracing"]

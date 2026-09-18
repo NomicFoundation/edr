@@ -502,7 +502,7 @@ mod tests {
             $name:ident => $request:expr,
         )+) => {
             $(
-                paste::item! {
+                pastey::item! {
                     #[test]
                     fn [<signed_transaction_encoding_round_trip_ $name>]() -> anyhow::Result<()> {
                         use edr_test_utils::secret_key::secret_key_from_str;

@@ -3,7 +3,7 @@
 #[macro_export]
 macro_rules! impl_test_blockchain_tests {
     ($name:ident: $error_ty:ty => $blockchain_constructor:expr) => {
-        $crate::paste::item! {
+        $crate::pastey::item! {
             #[tokio::test(flavor = "multi_thread")]
             #[serial]
             async fn [<test_get_last_block_from_ $name _blockchain>]() -> anyhow::Result<()> {

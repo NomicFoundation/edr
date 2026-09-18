@@ -26,7 +26,7 @@ edr_chain_l1.workspace = true
 edr_test_utils.workspace = true
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 mockito = { version = "1.0.2", default-features = false }
-paste = { version = "1.0.14", default-features = false }
+pastey.workspace = true
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "json"] }
 serde_json.workspace = true
 tempfile = { version = "3.25.0", default-features = false }

@@ -31,7 +31,7 @@ use crate::helpers::{
 
 macro_rules! remote_test_repro {
     ($issue_number:literal $(,)?) => {
-         paste::paste! {
+         pastey::paste! {
             #[tokio::test(flavor = "multi_thread")]
             #[cfg(feature = "test-remote")]
             async fn [< issue_ $issue_number >]() {
@@ -40,7 +40,7 @@ macro_rules! remote_test_repro {
         }
     };
     ($issue_number:literal, $should_fail:expr, $sender:expr $(,)?) => {
-        paste::paste! {
+        pastey::paste! {
             #[tokio::test(flavor = "multi_thread")]
             #[cfg(feature = "test-remote")]
             async fn [< issue_ $issue_number >]() {
@@ -58,7 +58,7 @@ macro_rules! test_repro {
         test_repro!($issue_number, $should_fail, None);
     };
     ($issue_number:literal, $should_fail:expr, $sender:expr $(,)?) => {
-        paste::paste! {
+        pastey::paste! {
             #[tokio::test(flavor = "multi_thread")]
             async fn [< issue_ $issue_number >]() {
                 repro_config($issue_number, $should_fail, $sender.into(), &*TEST_DATA_DEFAULT, false).await.run().await;
@@ -66,7 +66,7 @@ macro_rules! test_repro {
         }
     };
     ($issue_number:literal, $should_fail:expr, $sender:expr, |$res:ident| $e:expr $(,)?) => {
-        paste::paste! {
+        pastey::paste! {
             #[tokio::test(flavor = "multi_thread")]
             async fn [< issue_ $issue_number >]() {
                 let mut $res = repro_config($issue_number, $should_fail, $sender.into(), &*TEST_DATA_DEFAULT, false).await.test().await;
@@ -75,7 +75,7 @@ macro_rules! test_repro {
         }
     };
     ($issue_number:literal; |$runner_config:ident| $e:expr $(,)?) => {
-        paste::paste! {
+        pastey::paste! {
             #[tokio::test(flavor = "multi_thread")]
             async fn [< issue_ $issue_number >]() {
                 let mut $runner_config = runner_config(None, &*TEST_DATA_DEFAULT, false).await;
