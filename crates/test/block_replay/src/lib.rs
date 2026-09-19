@@ -582,7 +582,7 @@ macro_rules! impl_full_block_tests {
         },
     )+) => {
         $(
-            paste::item! {
+            pastey::item! {
                 #[serial_test::serial]
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<full_block_ $name>]() -> anyhow::Result<()> {

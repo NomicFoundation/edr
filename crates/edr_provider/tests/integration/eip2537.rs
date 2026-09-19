@@ -37,7 +37,7 @@ macro_rules! impl_precompile_activated_in_prague_test {
         $name:ident($call_request:expr) => $expected_output:expr,
     )+) => {
         $(
-            paste::item! {
+            pastey::item! {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<$name _inactive_before_prague>]() -> anyhow::Result<()> {
                     let provider = new_provider(edr_chain_l1::Hardfork::Cancun)?;

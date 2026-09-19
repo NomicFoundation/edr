@@ -2418,7 +2418,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2758,7 +2758,7 @@ dependencies = [
  "edr_test_utils",
  "edr_transaction",
  "log",
- "paste",
+ "pastey",
  "revm-context-interface",
  "revm-primitives",
  "serde",
@@ -3063,7 +3063,7 @@ dependencies = [
  "edr_utils",
  "log",
  "parking_lot",
- "paste",
+ "pastey",
  "serde",
  "serde_json",
  "serial_test",
@@ -3114,7 +3114,7 @@ dependencies = [
  "edr_test_transaction",
  "edr_transaction",
  "indexmap 2.14.2",
- "paste",
+ "pastey",
  "thiserror 2.0.20",
  "tracing",
 ]
@@ -3259,7 +3259,7 @@ dependencies = [
  "op-alloy-rpc-types",
  "op-revm",
  "parking_lot",
- "paste",
+ "pastey",
  "revm-context",
  "revm-context-interface",
  "serde",
@@ -3357,7 +3357,7 @@ dependencies = [
  "log",
  "lru",
  "parking_lot",
- "paste",
+ "pastey",
  "rand 0.9.5",
  "revm-inspector",
  "revm-inspectors",
@@ -3391,7 +3391,7 @@ dependencies = [
  "edr_rpc_eth",
  "edr_test_utils",
  "edr_transaction",
- "paste",
+ "pastey",
  "revm-context-interface",
  "revm-primitives",
  "serde",
@@ -3460,7 +3460,7 @@ dependencies = [
  "futures",
  "hex",
  "mockito",
- "paste",
+ "pastey",
  "reqwest 0.13.4",
  "serde",
  "serde_json",
@@ -3497,7 +3497,7 @@ dependencies = [
  "edr_utils",
  "lazy_static",
  "parking_lot",
- "paste",
+ "pastey",
  "revm-handler",
  "revm-inspector",
  "revm-interpreter",
@@ -3612,7 +3612,7 @@ dependencies = [
  "num-traits",
  "once_cell",
  "parking_lot",
- "paste",
+ "pastey",
  "proptest",
  "rayon",
  "regex",
@@ -3758,7 +3758,7 @@ dependencies = [
  "edr_receipt_builder_api",
  "edr_state_api",
  "edr_test_transaction",
- "paste",
+ "pastey",
 ]
 
 [[package]]
@@ -3899,7 +3899,7 @@ dependencies = [
  "edr_test_utils",
  "hex",
  "k256",
- "paste",
+ "pastey",
  "revm-context-interface",
  "revm-primitives",
  "serde",
@@ -5024,7 +5024,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.9",
+ "socket2 0.6.3",
  "system-configuration",
  "tokio",
  "tower-service",
@@ -6032,7 +6032,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6355,6 +6355,12 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
+name = "pastey"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
 
 [[package]]
 name = "path-slash"
@@ -7537,7 +7543,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7603,7 +7609,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8665,10 +8671,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.2",
+ "getrandom 0.4.1",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8677,7 +8683,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8c27177b12a6399ffc08b98f76f7c9a1f4fe9fc967c784c5a071fa8d93cf7e1"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

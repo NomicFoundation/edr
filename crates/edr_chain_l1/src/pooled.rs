@@ -420,7 +420,7 @@ mod tests {
             $name:ident => $transaction:expr,
         )+) => {
             $(
-                paste::item! {
+                pastey::item! {
                     #[test]
                     fn [<pooled_transaction_encoding_round_trip_ $name>]() -> anyhow::Result<()> {
                         let transaction = $transaction;

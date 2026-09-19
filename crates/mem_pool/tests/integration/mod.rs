@@ -175,7 +175,7 @@ fn replace_future_transaction() -> anyhow::Result<()> {
 macro_rules! impl_test_replace_transaction_gas_price_too_low {
     ($($name:ident => $nonce:expr,)+) => {
         $(
-            paste::item! {
+            pastey::item! {
                 #[test]
                 fn [<replace_ $name _gas_price_too_low>]() -> anyhow::Result<()> {
                     let sender = Address::random();

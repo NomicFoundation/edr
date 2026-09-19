@@ -211,7 +211,7 @@ mod tests {
             $name:ident => $receipt:expr,
         )+) => {
             $(
-                paste::item! {
+                pastey::item! {
                     #[test]
                     fn [<typed_receipt_rlp_encoding_ $name>]() -> anyhow::Result<()> {
                         let receipt = $receipt;
