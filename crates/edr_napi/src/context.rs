@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use edr_decoder_revert::RevertDecoder;
+use edr_napi_callback::DeferredOwner;
 use edr_napi_core::{provider::SyncProvider, solidity};
 use edr_primitives::HashMap;
 use edr_solidity_tests::{
@@ -55,6 +56,22 @@ macro_rules! try_or_reject_promise {
     };
 }
 
+/// Unwraps `$expr`, or completes `$deferred_provider` with the error and
+/// returns `Ok($promise)` from the enclosing function. A bare `?` would
+/// discard the promise instead of returning it, so `Drop`'s rejection would
+/// go unhandled.
+macro_rules! try_or_complete_provider {
+    ($deferred_provider:ident, $promise:ident, $expr:expr) => {
+        match $expr {
+            Ok(value) => value,
+            Err(error) => {
+                $deferred_provider.complete(Err(error));
+                return Ok($promise);
+            }
+        }
+    };
+}
+
 #[napi]
 pub struct EdrContext {
     inner: Arc<AsyncMutex<Context>>,
@@ -83,7 +100,7 @@ impl EdrContext {
         subscription_config: SubscriptionConfig<'env>,
         contract_decoder: &ContractDecoder,
     ) -> napi::Result<Object<'env>> {
-        let (deferred, promise) = env.create_deferred()?;
+        let (mut deferred_provider, promise) = DeferredOwner::<GcProvider>::new(env)?;
 
         let runtime = runtime::Handle::current();
 
@@ -91,20 +108,22 @@ impl EdrContext {
             logger_config,
             provider_config,
             subscription_callback,
-        } = try_or_reject_promise!(
-            deferred,
+        } = try_or_complete_provider!(
+            deferred_provider,
             promise,
             resolve_configs(
+                env,
                 runtime.clone(),
                 provider_config,
                 logger_config,
                 subscription_config,
+                deferred_provider.callbacks(),
             )
         );
 
         #[cfg(feature = "scenarios")]
-        let scenario_file = try_or_reject_promise!(
-            deferred,
+        let scenario_file = try_or_complete_provider!(
+            deferred_provider,
             promise,
             runtime.clone().block_on(crate::scenarios::scenario_file(
                 chain_type.clone(),
@@ -118,8 +137,8 @@ impl EdrContext {
             // TODO: Don't block the JS event loop
             let context = runtime.block_on(async { self.inner.lock().await });
 
-            let factory = try_or_reject_promise!(
-                deferred,
+            let factory = try_or_complete_provider!(
+                deferred_provider,
                 promise,
                 context.get_provider_factory(&chain_type)
             );
@@ -149,7 +168,7 @@ impl EdrContext {
                     ))
                 });
 
-            deferred.resolve(|_env| result);
+            deferred_provider.complete(result);
         });
 
         Ok(promise)
@@ -233,7 +252,7 @@ impl EdrContext {
 
         let runtime = runtime::Handle::current();
         let config =
-            try_or_reject_promise!(deferred, promise, config_args.resolve(runtime.clone()));
+            try_or_reject_promise!(deferred, promise, config_args.resolve(env, runtime.clone()));
 
         let context = self.inner.clone();
         runtime.clone().spawn(async move {
@@ -431,7 +450,7 @@ impl EdrContext {
         use edr_generic::GenericChainSpec;
         use edr_napi_core::logger::Logger;
 
-        let (deferred, promise) = env.create_deferred()?;
+        let (mut deferred_provider, promise) = DeferredOwner::<GcProvider>::new(env)?;
 
         let runtime = runtime::Handle::current();
 
@@ -439,14 +458,16 @@ impl EdrContext {
             logger_config,
             provider_config,
             subscription_callback,
-        } = try_or_reject_promise!(
-            deferred,
+        } = try_or_complete_provider!(
+            deferred_provider,
             promise,
             resolve_configs(
+                env,
                 runtime.clone(),
                 provider_config,
                 logger_config,
                 subscription_config,
+                deferred_provider.callbacks(),
             )
         );
 
@@ -501,8 +522,7 @@ impl EdrContext {
                 )))
             };
 
-            let result = create_provider();
-            deferred.resolve(|_env| result);
+            deferred_provider.complete(create_provider());
         });
 
         Ok(promise)
