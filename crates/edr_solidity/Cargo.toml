@@ -37,9 +37,11 @@ strum = { version = "0.28.0", features = ["derive"] }
 semver = { workspace = true, features = ["std"] }
 thiserror.workspace = true
 itertools = "0.15.0"
+walkdir.workspace = true
 
 [dev-dependencies]
 criterion = "0.8"
+tempfile.workspace = true
 
 [features]
 tracing = ["edr_chain_spec_evm/tracing"]
