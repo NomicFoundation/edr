@@ -47,7 +47,7 @@ edr_defaults.workspace = true
 edr_test_receipt.workspace = true
 edr_test_utils.workspace = true
 hex.workspace = true
-paste.workspace = true
+pastey.workspace = true
 serde_json.workspace = true
 
 [features]

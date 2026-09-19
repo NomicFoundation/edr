@@ -81,7 +81,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
 macro_rules! impl_test_chain_id {
     ($($name:ident: $url:expr => $result:expr,)+) => {
         $(
-            paste::item! {
+            pastey::item! {
                 #[test]
                 fn [<chain_id_for_ $name>]() -> anyhow::Result<()> {
                     let url = $url;

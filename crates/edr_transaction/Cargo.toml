@@ -24,7 +24,7 @@ thiserror.workspace = true
 edr_defaults.workspace = true
 edr_test_utils.workspace = true
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
-paste.workspace = true
+pastey.workspace = true
 
 [lints]
 workspace = true

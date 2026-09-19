@@ -23,7 +23,7 @@ use edr_receipt_builder_api::ExecutionReceiptBuilder as _;
 use edr_state_api::StateDiff;
 use edr_test_transaction::dummy_eip155_transaction;
 // Re-export types that are used by the macros.
-pub use paste;
+pub use pastey;
 
 /// Helper type for a chain-specific [`BlockAndTotalDifficulty`].
 pub type BlockAndTotalDifficultyForChainSpec<ChainSpecT> = BlockAndTotalDifficulty<

@@ -195,15 +195,28 @@ pub struct TestRunnerConfig {
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
     /// Maps the solc source names of the test-suite sources to their absolute
-    /// paths on disk. Used to parse inline test configuration
-    /// (`forge-config:`/`hardhat-config:` NatSpec directives) from the sources.
-    /// A test source without an entry has no inline configuration collected.
+    /// paths on disk. The test sources are parsed to collect inline test
+    /// configuration (`forge-config:`/`hardhat-config:` NatSpec directives)
+    /// and the EIP-712 struct definitions served to the `eip712HashType` and
+    /// `eip712HashStruct` cheatcodes.
+    ///
+    /// An empty map disables collection: no source is read or parsed. A
+    /// non-empty map must name the source of every test suite a run selects,
+    /// and every source backing a selected suite is parsed. An entry no
+    /// selected suite uses is never opened.
+    ///
+    /// Each problem is accumulated and reported together when the run starts,
+    /// rather than silently leaving a suite without inline configuration or
+    /// EIP-712 types. A suite with no entry, an unreadable file, a solc
+    /// version older than 0.8 and a source that does not parse all count.
+    ///
+    /// Only the sources of the suites a run selects are read and parsed.
     pub test_source_paths: HashMap<PathBuf, PathBuf>,
     /// Maps non-relative Solidity import paths (as written in `import`
     /// statements, e.g. `forge-std/src/Test.sol`) to absolute file paths on
-    /// disk, for parsing inline test configuration. Relative import paths
-    /// (`./`, `../`) are resolved against the importing file and need no entry
-    /// here.
+    /// disk, for resolving imports while parsing the test sources. Relative
+    /// import paths (`./`, `../`) are resolved against the importing file and
+    /// need no entry here.
     pub import_mappings: HashMap<String, PathBuf>,
 }
 
@@ -359,11 +372,10 @@ impl TestRunnerConfig {
 
         evm_opts.transaction_gas_cap = transaction_gas_cap;
 
+        let import_resolver = ImportResolver::new(import_mappings);
         let local_predeploys = local_predeploys.unwrap_or_default();
 
         let generate_gas_report = generate_gas_report.unwrap_or(false);
-
-        let import_resolver = ImportResolver::new(import_mappings);
 
         Ok(SolidityTestRunnerConfig {
             project_root,

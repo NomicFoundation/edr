@@ -1,27 +1,18 @@
 //! Structural extraction of contracts and functions via Slang's compilation
 //! unit.
 //!
-//! We build a full [`CompilationUnit`] over the on-disk root file — resolving
-//! imports (see [`super::resolver`]) and reading them from disk — then walk the
-//! root file's resolved AST for contract and function positions. The NatSpec
-//! text itself is recovered from the raw source by
+//! Given a [`CompilationUnit`] already built over the root file — by
+//! [`crate::test_sources`], which resolves imports and reads them from disk —
+//! this walks that file's resolved AST for contract and function positions.
+//! The NatSpec text itself is recovered from the raw source by
 //! [`super::natspec::collect_natspec`], which scans backwards from each
 //! definition.
 //!
 //! [`CompilationUnit`]: slang_solidity_v2::compilation::CompilationUnit
 
-use std::path::Path;
-
-use semver::Version;
 use slang_solidity_v2::{
     ast::{ContractMember, SourceUnitMember},
-    compilation::CompilationBuilder,
-    utils::{FromSemverError, LanguageVersion},
-};
-
-use super::{
-    error::InlineConfigCollectError,
-    resolver::{ImportResolver, SourceProvider},
+    compilation::CompilationUnit,
 };
 
 /// A function definition located in the source, with the offset needed to
@@ -51,44 +42,17 @@ pub struct LocatedContract {
     pub functions: Vec<LocatedFunction>,
 }
 
-/// Maps a solc [`Version`] to a Slang [`LanguageVersion`]; clamping versions
-/// newer than Slang supports down to its latest grammar.
-fn to_language_version(solc_version: Version) -> Result<LanguageVersion, FromSemverError> {
-    // Fall back to the latest Slang grammar for any solc version newer than what
-    // Slang supports.
-    let latest: Version = LanguageVersion::LATEST.into();
-    if solc_version > latest {
-        Ok(LanguageVersion::LATEST)
-    } else {
-        LanguageVersion::try_from(solc_version)
-    }
-}
-
-/// Parses the file at `root_path` (with its imports resolved by
-/// `import_resolver` and read from disk) and returns every contract definition
-/// together with its functions and the offsets required to recover their
-/// leading NatSpec.
-///
-/// Builds a full compilation unit — resolving imports and running IR and
-/// semantic analysis — then reads the root file's AST. Unresolvable imports
-/// degrade gracefully: the root file's contracts are still recovered.
-///
-/// Fails if `version` maps to no supported Slang grammar.
-pub fn locate_contracts(
-    root_path: &Path,
-    version: Version,
-    import_resolver: &ImportResolver,
-) -> Result<Vec<LocatedContract>, InlineConfigCollectError> {
-    let mut builder = CompilationBuilder::create(
-        to_language_version(version)?,
-        SourceProvider::new(import_resolver),
-    );
-    let file_id = root_path.to_string_lossy().into_owned();
-    builder.add_file(file_id.clone());
-    let unit = builder.build();
-
-    let Some(file) = unit.file(&file_id) else {
-        return Ok(Vec::new());
+/// Walks the already-built `unit`'s file `file_id` (the id the root was added
+/// under) and returns every contract definition together with its functions
+/// and the offsets required to recover their leading NatSpec. A file id
+/// missing from the unit (e.g. the root file could not be read) yields no
+/// contracts.
+pub(crate) fn locate_contracts_in_unit(
+    unit: &CompilationUnit,
+    file_id: &str,
+) -> Vec<LocatedContract> {
+    let Some(file) = unit.file(file_id) else {
+        return Vec::new();
     };
 
     let mut contracts = Vec::new();
@@ -118,14 +82,42 @@ pub fn locate_contracts(
         });
     }
 
-    Ok(contracts)
+    contracts
 }
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write as _;
+    use std::{io::Write as _, path::Path};
+
+    use edr_solidity_parser_slang::{
+        build_compilation_unit, language_version_for_solc, ImportResolver,
+    };
+    use semver::Version;
 
     use super::*;
+
+    /// Parses the file at `root_path` (with its imports resolved by
+    /// `import_resolver` and read from disk) and returns every contract
+    /// definition together with its functions and the offsets required to
+    /// recover their leading NatSpec.
+    ///
+    /// Builds a full compilation unit — resolving imports and running IR and
+    /// semantic analysis — then reads the root file's AST. Unresolvable imports
+    /// degrade gracefully: the root file's contracts are still recovered.
+    ///
+    /// Panics if `version` maps to no supported Slang grammar.
+    fn locate_contracts(
+        root_path: &Path,
+        version: Version,
+        import_resolver: &ImportResolver,
+    ) -> Vec<LocatedContract> {
+        let language_version =
+            language_version_for_solc(&version).expect("supported solc version");
+        let unit = build_compilation_unit(root_path, language_version, import_resolver);
+        let file_id = root_path.to_string_lossy().into_owned();
+
+        locate_contracts_in_unit(&unit, &file_id)
+    }
 
     #[test]
     fn locates_contracts_and_functions_with_offsets() {
@@ -137,8 +129,7 @@ mod tests {
         file.write_all(source.as_bytes()).expect("write source");
 
         let version = Version::new(0, 8, 0);
-        let contracts = locate_contracts(file.path(), version, &ImportResolver::default())
-            .expect("0.8.0 is supported");
+        let contracts = locate_contracts(file.path(), version, &ImportResolver::default());
         assert_eq!(contracts.len(), 1, "contracts: {contracts:#?}");
 
         let contract = &contracts[0];

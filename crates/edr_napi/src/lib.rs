@@ -47,6 +47,7 @@ pub mod scenarios;
 /// Native secp256k1 operations.
 pub mod secp256k1;
 mod serde;
+mod structured_error;
 /// Solidity test runner.
 pub mod solidity_tests;
 /// Types for subscribing to events.

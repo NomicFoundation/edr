@@ -11,7 +11,7 @@ macro_rules! impl_test_hardfork_activation {
     },)+) => {
         $(
             $(
-                paste::item! {
+                pastey::item! {
                     #[test]
                     fn [<hardfork_activation_ $net _ $hardfork>]() -> anyhow::Result<()> {
                         let url = $url;

@@ -1,7 +1,10 @@
 import { assert } from "chai";
+import * as path from "path";
 
 import {
   EdrContext,
+  TestSourceError,
+  TestSourceFileError,
   L1_CHAIN_TYPE,
   l1HardforkLatest,
   l1HardforkToString,
@@ -144,36 +147,253 @@ describe("Solidity Tests", () => {
     );
   });
 
-  it("rejects invalid eip712CanonicalTypes as InvalidArg", async function () {
-    // Boundary check only: an invalid eip712CanonicalTypes entry must
-    // reject with an InvalidArg error. The exhaustive semantics
-    // (collecting every bad entry, duplicate detection, etc.) are covered
-    // by `parse_eip712_canonical_types` unit tests in the cheatcodes crate.
+  // The EIP-712 type cheatcodes resolve type names by parsing the running
+  // test contract's Solidity sources. The sources are read from the absolute
+  // paths supplied via `testSourcePaths` (keyed by the artifacts' solc source
+  // names); mapped (non-relative) imports resolve through `importMappings`.
+  const eip712TestSourcePaths = {
+    "data/contracts/Eip712ResolveTest.t.sol": path.join(
+      __dirname,
+      "data/contracts/Eip712ResolveTest.t.sol"
+    ),
+    "data/contracts/Eip712UnknownTest.t.sol": path.join(
+      __dirname,
+      "data/contracts/Eip712UnknownTest.t.sol"
+    ),
+  };
+  const eip712ImportMappings = {
+    "@fixtures/Eip712External.sol": path.join(
+      __dirname,
+      "data/contracts/external/Eip712External.sol"
+    ),
+  };
+
+  it("resolves EIP-712 types from the test contract's sources", async function () {
     const artifacts = [
-      loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
+      loadContract("./data/artifacts/default/Eip712ResolveTest.json"),
     ];
     const testSuites = artifacts.map((artifact) => artifact.id);
-    const config = {
-      projectRoot: __dirname,
-      hardfork: l1HardforkToString(l1HardforkLatest()),
-      eip712CanonicalTypes: ["gibberish"],
-    };
 
-    let error: any;
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        testSourcePaths: eip712TestSourcePaths,
+        importMappings: eip712ImportMappings,
+      }
+    );
+
+    assert.equal(results.length, 1);
+    const suite = results[0];
+    assert.isAbove(suite.testResults.length, 0);
+    for (const res of suite.testResults) {
+      assert.equal(
+        res.status,
+        "Success",
+        `${res.name} failed: ${JSON.stringify(res.reason)}`
+      );
+    }
+  });
+
+  it("fails when an EIP-712 type cannot be resolved from sources", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        testSourcePaths: eip712TestSourcePaths,
+      }
+    );
+
+    assert.equal(results.length, 1);
+    const suite = results[0];
+    assert.equal(suite.testResults.length, 1);
+    assert.equal(suite.testResults[0].status, "Failure");
+  });
+
+  it("resolves EIP-712 types across multiple suites in one run", async function () {
+    // Exercises collection over two different root sources within a single
+    // test run (the sources are parsed in parallel when the run starts).
+    const artifacts = [
+      loadContract("./data/artifacts/default/Eip712ResolveTest.json"),
+      loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const [, results] = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        testSourcePaths: eip712TestSourcePaths,
+        importMappings: eip712ImportMappings,
+      }
+    );
+
+    assert.equal(results.length, 2);
+    for (const suite of results) {
+      if (suite.id.name.includes("Eip712ResolveTest")) {
+        for (const res of suite.testResults) {
+          assert.equal(res.status, "Success", `${res.name} failed`);
+        }
+      } else if (suite.id.name.includes("Eip712UnknownTest")) {
+        assert.equal(suite.testResults[0].status, "Failure");
+      } else {
+        assert.fail("Unexpected test suite name: " + suite.id.name);
+      }
+    }
+  });
+
+  // A non-empty `testSourcePaths` must name the source of every selected test
+  // suite, with no exceptions; a missing entry rejects the run before any test
+  // executes, carrying the structured `testSourceErrors` array on the thrown
+  // error.
+  // Typed against the generated `TestSourceError` union rather than a
+  // hand-written shape, so a typings regression fails to compile here.
+  async function expectSourceErrors(
+    run: Promise<unknown>
+  ): Promise<TestSourceFileError[]> {
+    let caught: unknown = null;
     try {
-      await runAllSolidityTests(
+      await run;
+    } catch (error) {
+      caught = error;
+    }
+    assert.isNotNull(caught, "expected the run to reject");
+    const { testSourceErrors } = caught as {
+      testSourceErrors?: TestSourceError[];
+    };
+    assert.isArray(testSourceErrors);
+    const sourceErrors = testSourceErrors!.filter(
+      (entry): entry is TestSourceFileError => entry.kind === "source"
+    );
+    assert.equal(
+      sourceErrors.length,
+      testSourceErrors!.length,
+      "expected only source-level problems"
+    );
+    return sourceErrors;
+  }
+
+  it("rejects when a test suite's source path is not provided", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/Eip712ResolveTest.json"),
+      loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const errors = await expectSourceErrors(
+      runAllSolidityTests(context, L1_CHAIN_TYPE, artifacts, testSuites, {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        // Non-empty, but missing the entry for Eip712UnknownTest.t.sol.
+        testSourcePaths: {
+          "data/contracts/Eip712ResolveTest.t.sol": path.join(
+            __dirname,
+            "data/contracts/Eip712ResolveTest.t.sol"
+          ),
+        },
+        importMappings: eip712ImportMappings,
+      })
+    );
+
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].kind, "source");
+    assert.equal(
+      errors[0].sourceName,
+      "data/contracts/Eip712UnknownTest.t.sol"
+    );
+    assert.equal(errors[0].problem.kind, "TestSourcePathNotProvided");
+  });
+
+  it("rejects when a test source cannot be parsed", async function () {
+    const artifacts = [
+      loadContract("./data/artifacts/default/Eip712UnknownTest.json"),
+    ];
+    const testSuites = artifacts.map((artifact) => artifact.id);
+
+    const errors = await expectSourceErrors(
+      runAllSolidityTests(context, L1_CHAIN_TYPE, artifacts, testSuites, {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        // Point the suite's source at a file that cannot be parsed to an
+        // AST, simulating an on-disk source that diverged from its compiled
+        // artifact.
+        testSourcePaths: {
+          "data/contracts/Eip712UnknownTest.t.sol": path.join(
+            __dirname,
+            "data/contracts/Eip712SyntaxError.sol"
+          ),
+        },
+      })
+    );
+
+    assert.equal(errors.length, 1);
+    assert.equal(
+      errors[0].sourceName,
+      "data/contracts/Eip712UnknownTest.t.sol"
+    );
+    assert.equal(errors[0].problem.kind, "TestSourceParseErrors");
+  });
+
+  it("rejects when a test source predates the oldest Solidity grammar", async function () {
+    const artifact = loadContract(
+      "./data/artifacts/default/Eip712UnknownTest.json"
+    );
+    // Collection requires solc 0.8; the artifact's own version is irrelevant
+    // to this run, which never executes a test.
+    artifact.id = { ...artifact.id, solcVersion: "0.7.6" };
+
+    const errors = await expectSourceErrors(
+      runAllSolidityTests(
         context,
         L1_CHAIN_TYPE,
-        artifacts,
-        testSuites,
-        config
-      );
-    } catch (e) {
-      error = e;
-    }
+        [artifact],
+        [artifact.id],
+        {
+          disableTransactionGasCap: true,
+          projectRoot: __dirname,
+          hardfork: l1HardforkToString(l1HardforkLatest()),
+          testSourcePaths: {
+            "data/contracts/Eip712UnknownTest.t.sol": path.join(
+              __dirname,
+              "data/contracts/Eip712UnknownTest.t.sol"
+            ),
+          },
+        }
+      )
+    );
 
-    assert.isDefined(error);
-    assert.equal(error.code, "InvalidArg");
+    assert.equal(errors.length, 1);
+    assert.equal(
+      errors[0].sourceName,
+      "data/contracts/Eip712UnknownTest.t.sol"
+    );
+    const { problem } = errors[0];
+    assert.equal(problem.kind, "TestSourceUnsupportedSolcVersion");
+    if (problem.kind === "TestSourceUnsupportedSolcVersion") {
+      assert.equal(problem.version, "0.7.6");
+    }
   });
 
   it("filters tests according to pattern", async function () {

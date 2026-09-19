@@ -159,7 +159,7 @@ mod tests {
             $name:ident: $execution_log_ty:ty => $receipt:expr,
         )+) => {
             $(
-                paste::item! {
+                pastey::item! {
                     #[test]
                     fn [<typed_receipt_rlp_encoding_ $name>]() -> anyhow::Result<()> {
                         let receipt = $receipt;

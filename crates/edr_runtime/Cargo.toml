@@ -32,7 +32,7 @@ edr_test_utils.workspace = true
 edr_utils.workspace = true
 lazy_static = "1.4.0"
 parking_lot.workspace = true
-paste = { version = "1.0.14", default-features = false }
+pastey.workspace = true
 serial_test = "4.0.0"
 tempfile.workspace = true
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }

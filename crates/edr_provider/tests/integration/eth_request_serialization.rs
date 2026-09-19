@@ -414,7 +414,7 @@ macro_rules! impl_serde_eth_subscribe_tests {
         $name:ident => $variant:expr,
     )+) => {
         $(
-            paste::item! {
+            pastey::item! {
                 #[test]
                 fn [<test_serde_eth_subscribe_ $name _without_filter>]() {
                     use edr_eth::filter::SubscriptionType;

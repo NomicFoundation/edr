@@ -9,7 +9,7 @@ import {
   CheatcodeErrorCode,
   CollectStackTraces,
   InlineConfigDirectiveError,
-  InlineConfigError,
+  TestSourceError,
   L1_CHAIN_TYPE,
   OP_CHAIN_TYPE,
   SuiteResult,
@@ -43,11 +43,11 @@ describe("Unit tests", () => {
     // user at each one.
     await assert.rejects(
       testContext.runTestsWithStats("InlineConfigInvalidTest"),
-      (error: Error & { inlineConfigErrors?: InlineConfigError[] }) => {
-        const errors = error.inlineConfigErrors;
+      (error: Error & { testSourceErrors?: TestSourceError[] }) => {
+        const errors = error.testSourceErrors;
         if (!Array.isArray(errors)) {
           throw new Error(
-            "expected structured `inlineConfigErrors` on the thrown error"
+            "expected structured `testSourceErrors` on the thrown error"
           );
         }
 
@@ -314,8 +314,11 @@ describe("Unit tests", () => {
   });
 
   it("CounterDifferentSolc", async function () {
+    // This suite is compiled with solc 0.7.6, which has no Solidity grammar.
+    // Collection requires 0.8, so it is disabled for this run.
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
-      "CounterDifferentSolcTest"
+      "CounterDifferentSolcTest",
+      { testSourcePaths: {} }
     );
 
     assert.equal(failedTests, 0);
