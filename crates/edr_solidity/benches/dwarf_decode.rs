@@ -122,11 +122,8 @@ impl Corpus {
 /// the fixture setup in `debug_info::dwarf`'s tests: the committed input
 /// carries empty source bodies, so the live sources are spliced back in.
 fn committed_corpus() -> Corpus {
-    // Each side of an A/B builds its corpus from its own revision, so a
-    // change that makes blobs fail to decode would shrink the timed work on
-    // one side only and read as a speedup. Pin what the committed fixture
-    // yields today; a regeneration that lands below either is a signal to
-    // investigate, not to relax the floor (see fixtures/README.md).
+    // Each A/B side builds its corpus from its own revision, so blobs that stop
+    // decoding on one side read as a speedup. Exact for the committed fixture.
     const MIN_BLOBS: usize = 74;
     const MIN_DWARF_BYTES: u64 = 100_212;
 
@@ -144,6 +141,13 @@ fn committed_corpus() -> Corpus {
         .get_mut("project/contracts/StackTraceScenariosBase.sol")
         .expect("input must contain StackTraceScenariosBase.sol")
         .content = include_str!("../fixtures/sources/StackTraceScenariosBase.sol").to_string();
+    assert!(
+        input
+            .sources
+            .values()
+            .all(|source| !source.content.is_empty()),
+        "the committed input has empty source bodies; every source must be spliced back in above"
+    );
 
     let output: CompilerOutput<SolxBytecode> = serde_json::from_str(include_str!(
         "../fixtures/solx_compiler_output_stack_trace_scenarios.json"
@@ -222,12 +226,9 @@ fn bench_corpus(c: &mut Criterion, corpus: &Corpus) {
         });
     });
 
-    // The largest blob alone. The full pass is dominated by the corpus's many
-    // small blobs and their fixed per-blob costs, and because decode time
-    // grows super-linearly (~bytes^1.7) the cheap regime does not predict the
-    // expensive one, so the latter gets its own bench. The blob's size goes
-    // into the throughput, not the id: a fixture regeneration that changes it
-    // must not rename the bench out from under `--baseline`.
+    // One blob's cost undiluted by the rest, so a per-blob regression is not
+    // averaged away. Its size goes in the throughput, not the id, which a
+    // fixture regeneration must not rename out from under `--baseline`.
     let largest = corpus
         .blobs
         .iter()
