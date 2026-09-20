@@ -131,7 +131,8 @@ test("evaluate gates on the CI lower bound, not the mean", () => {
     // A large mean with an interval that still reaches below the threshold
     // is noise, not a confident regression.
     estimate(FULL_PASS, 0.3, 0.05, 0.55),
-    estimate(LARGEST_BLOB, 0.12, THRESHOLD - 0.001, 0.14),
+    // Exactly at the threshold is not beyond it.
+    estimate(LARGEST_BLOB, 0.12, THRESHOLD, 0.14),
   ]);
   assert.deepEqual(passing.failures, []);
 
