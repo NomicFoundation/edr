@@ -66,8 +66,10 @@ concurrency:
 
 jobs:
   dwarf-decode-benchmark:
-    name: A/B benchmark DWARF decode against the PR base
+    name: Benchmark DWARF decode (A/B against the base on pull requests)
     runs-on: ubuntu-24.04
+    # Two edr_solidity builds plus four criterion benches: ~8 minutes cold.
+    timeout-minutes: 30
     env:
       # Same value as the sibling Rust jobs (repo convention). Cargo's
       # fingerprint includes RUSTFLAGS, so this job's restored cache only
