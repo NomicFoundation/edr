@@ -20,7 +20,7 @@
 //! `severity == "error"` — a failed compile emits `contracts: {}` and the
 //! driver would measure nothing.
 
-use std::{hint::black_box, time::Instant};
+use std::{fmt::Write as _, hint::black_box, time::Instant};
 
 use edr_primitives::hex;
 use edr_solidity::{
@@ -53,7 +53,6 @@ fn equivalence_digest(all: &[Vec<Instruction>]) -> String {
     for insns in all {
         let mut digest = String::new();
         for i in insns {
-            use std::fmt::Write as _;
             let loc = i.location.as_ref().map(|l| {
                 let name = l
                     .file()
@@ -61,7 +60,7 @@ fn equivalence_digest(all: &[Vec<Instruction>]) -> String {
                     .unwrap_or_default();
                 (name, l.offset, l.length)
             });
-            let _ = write!(
+            write!(
                 digest,
                 "{}:{}:{:?}:{:?}:{:?}:{};",
                 i.pc,
@@ -74,7 +73,8 @@ fn equivalence_digest(all: &[Vec<Instruction>]) -> String {
                     .map(|l| format!("{}+{}", l.offset, l.length))
                     .collect::<Vec<_>>()
                     .join(",")
-            );
+            )
+            .expect("writing to a String is infallible");
         }
         blob_digests.push(hex::encode(edr_primitives::keccak256(digest.as_bytes())));
     }
@@ -214,7 +214,7 @@ fn main() {
                 }
             }
             if ok {
-                let ns = t.elapsed().as_nanos() as f64 / f64::from(iters);
+                let ns = t.elapsed().as_secs_f64() * 1e9 / f64::from(iters);
                 println!("BLOB\t{bytes}\t{ns:.0}");
             }
         }
