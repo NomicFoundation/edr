@@ -35,7 +35,7 @@ importers:
     devDependencies:
       '@napi-rs/cli':
         specifier: ^3.7.0
-        version: 3.9.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@22.20.2)(emnapi@1.11.3)(supports-color@8.1.1)
+        version: 3.9.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@22.20.2)(emnapi@1.11.3)(supports-color@8.1.1)
       '@nomicfoundation/ethereumjs-util':
         specifier: ^9.0.4
         version: 9.0.4
@@ -954,8 +954,8 @@ packages:
     resolution: {integrity: sha512-tghyZKLHZjcdlDqCA3gNZmLeR0XvOE9U1qoQO9ohyAZT6Pya+H9vkBPcsyXytmYLNgVoin7CKCmweo/R43V+tQ==}
     engines: {node: '>=12.0.0'}
 
-  '@napi-rs/cli@3.9.0':
-    resolution: {integrity: sha512-ZlerYOCLgVdaqbVDt8+uQxmU9j8bKMVFcYo6zRHJJHTO9jN5060+y953aIVc/0zkVSKq+fHjDAtTGOrbxpeZCw==}
+  '@napi-rs/cli@3.9.1':
+    resolution: {integrity: sha512-2DYBrM2j4n00L+O7fKAS38q19rVQK2HXz5RxSuJgFyZrd9TrdVQFmHOfqvqqsRIRBTZmqiMqBd/yzn4X1a23DQ==}
     engines: {node: ^20.17.0 || ^22.13.0 || >= 23.5.0}
     hasBin: true
     peerDependencies:
@@ -2830,6 +2830,10 @@ packages:
     resolution: {integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==}
     hasBin: true
 
+  js-yaml@5.4.2:
+    resolution: {integrity: sha512-m+aqu+LwO1O6sIopafj8HUVl5aawITwZQe/yHpMCKjaWBaA/d07B/QdMb3529REftiU+RMMHL3Vlsw3hON7vWg==}
+    hasBin: true
+
   json-buffer@3.0.1:
     resolution: {integrity: sha512-4bV5BfR2mqfQTJm+V5tPPdf+ZpuhiIvTuAB5g8kcrXOZpTT/QwwVRWBywX1ozr6lEuPdbHxwaJlm9G6mI2sfSQ==}
 
@@ -4328,7 +4332,7 @@ snapshots:
       tweetnacl: 1.0.3
       tweetnacl-util: 0.15.1
 
-  '@napi-rs/cli@3.9.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@22.20.2)(emnapi@1.11.3)(supports-color@8.1.1)':
+  '@napi-rs/cli@3.9.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@22.20.2)(emnapi@1.11.3)(supports-color@8.1.1)':
     dependencies:
       '@inquirer/prompts': 8.5.2(@types/node@22.20.2)
       '@napi-rs/cross-toolchain': 1.0.3(supports-color@8.1.1)
@@ -4337,7 +4341,7 @@ snapshots:
       clipanion: 4.0.0-rc.4(typanion@3.14.0)
       colorette: 2.0.20
       es-toolkit: 1.50.0
-      js-yaml: 4.3.1
+      js-yaml: 5.4.2
       obug: 2.1.4
       semver: 7.8.5
       typanion: 3.14.0
@@ -6413,6 +6417,10 @@ snapshots:
       argparse: 2.0.1
 
   js-yaml@4.3.1:
+    dependencies:
+      argparse: 2.0.1
+
+  js-yaml@5.4.2:
     dependencies:
       argparse: 2.0.1
 
