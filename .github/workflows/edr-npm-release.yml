@@ -112,12 +112,12 @@ jobs:
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         if: ${{ !matrix.settings.docker_tag }}
+        uses: ./.github/actions/setup-rust
         with:
-          toolchain: stable
-          targets: ${{ matrix.settings.target }}
+          target: ${{ matrix.settings.target }}
           components: rust-src
+          cache: false
 
       - name: Setup node and pnpm
         if: ${{ !matrix.settings.docker_tag }}
