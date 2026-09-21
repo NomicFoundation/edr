@@ -7,7 +7,7 @@ mod remote {
             $name:ident => $block_number:literal,
         )+) => {
             $(
-                paste::item! {
+                pastey::item! {
                     #[tokio::test]
                     #[serial]
                     async fn [<remote_block_receipt_root_ $name>]() -> anyhow::Result<()> {
@@ -56,7 +56,7 @@ mod remote {
             $name:ident: $transaction_hash:literal => $encoding:literal,
         )+) => {
             $(
-                paste::item! {
+                pastey::item! {
                     #[tokio::test]
                     async fn [<receipt_rlp_encoding_ $name>]() -> anyhow::Result<()> {
                         use alloy_rlp::Decodable as _;

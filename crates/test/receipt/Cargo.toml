@@ -9,6 +9,7 @@ edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_chain_spec_receipt.workspace = true
 edr_chain_spec_rpc.workspace = true
+pastey.workspace = true
 
 [features]
 tracing = ["edr_chain_spec_receipt/tracing"]

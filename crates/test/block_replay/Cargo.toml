@@ -26,6 +26,7 @@ edr_state_api.workspace = true
 edr_utils.workspace = true
 futures = "0.3"
 parking_lot.workspace = true
+pastey.workspace = true
 serde.workspace = true
 tokio.workspace = true
 

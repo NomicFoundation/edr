@@ -5,7 +5,7 @@ mod alchemy {
             $name:ident => $block_number:literal,
         )+) => {
             $(
-                paste::item! {
+                pastey::item! {
                     #[tokio::test]
                     async fn [<transaction_remote_ $name _hash>]() {
                         use edr_chain_l1::{L1ChainSpec, L1SignedTransaction};
