@@ -320,9 +320,12 @@ pub struct ProviderConfig<HardforkT> {
     pub observability: ObservabilityConfig,
     pub owned_accounts: Vec<k256::SecretKey>,
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
-    /// [EIP-7825] transaction gas cap; execution gas only from Amsterdam.
+    /// Transaction gas cap, introduced in [EIP-7825].
+    ///
+    /// From Amsterdam ([EIP-8037]) it bounds execution gas only
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    /// [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     pub transaction_gas_cap: ConfigOption<u64>,
 }
 

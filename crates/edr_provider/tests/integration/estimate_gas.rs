@@ -143,8 +143,9 @@ async fn binary_search_does_not_probe_above_transaction_gas_cap() -> anyhow::Res
     config.hardfork = edr_chain_l1::Hardfork::Osaka;
     // Mirrors the default behaviour of the napi layer: transaction_gas_cap and
     // default_transaction_gas_limit are both derived from the hardfork.
-    let transaction_gas_cap = edr_eip7825::transaction_gas_cap_for_hardfork(EvmSpecId::OSAKA)
-        .expect("Osaka activates EIP-7825");
+    let transaction_gas_cap =
+        edr_transaction::gas_bounds::execution_gas_bound_for_hardfork(EvmSpecId::OSAKA)
+            .expect("Osaka activates EIP-7825");
     config.transaction_gas_cap = ConfigOption::Custom(transaction_gas_cap);
     config.default_transaction_gas_limit =
         NonZeroU64::new(transaction_gas_cap).expect("cap is non-zero");

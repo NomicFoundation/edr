@@ -5,6 +5,7 @@
 //! Ethereum transaction types
 
 /// Types for transaction gossip (aka pooled transactions)
+pub mod gas_bounds;
 pub mod pooled;
 /// Types for transaction requests.
 pub mod request;

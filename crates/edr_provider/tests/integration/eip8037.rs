@@ -37,7 +37,7 @@ use edr_provider::{
 use edr_receipt::ExecutionReceipt as _;
 use edr_test_utils::secret_key::secret_key_from_str;
 use edr_transaction::{
-    request::TransactionRequestAndSender, TxKind,
+    gas_bounds::TX_MAX_TOTAL_GAS_LIMIT, request::TransactionRequestAndSender, TxKind,
 };
 use tokio::runtime;
 
@@ -603,11 +603,10 @@ async fn send_transaction_accepts_gas_above_cap_from_amsterdam() -> anyhow::Resu
 }
 
 /// From Amsterdam `tx.gas` may exceed the EIP-7825 cap but not
-/// `TX_MAX_TOTAL_GAS_LIMIT`. No realistic block gas limit exceeds the latter, so
-/// the block gas limit is disabled to exercise the cap on its own.
+/// `TX_MAX_TOTAL_GAS_LIMIT`. No realistic block gas limit exceeds the latter,
+/// so the block gas limit is disabled to exercise the cap on its own.
 #[tokio::test(flavor = "multi_thread")]
 async fn send_transaction_rejects_gas_above_total_limit_from_amsterdam() -> anyhow::Result<()> {
-    const TX_MAX_TOTAL_GAS_LIMIT : u64 = u32::MAX as u64;
     // Fund the sender so that only the total gas limit can reject the transaction.
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
     let provider = new_provider_with_config(|config| {
