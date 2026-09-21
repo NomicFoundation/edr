@@ -33,6 +33,8 @@ use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec};
 use edr_state_api::{irregular::IrregularState, DynState};
 use edr_utils::random::RandomHashGenerator;
 use futures::try_join;
+// Re-export types that are used by the macros.
+pub use pastey;
 
 type ForkedStateAndBlockchainForChainSpec<ChainSpecT> = ForkedStateAndBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
@@ -582,7 +584,7 @@ macro_rules! impl_full_block_tests {
         },
     )+) => {
         $(
-            pastey::item! {
+            $crate::pastey::item! {
                 #[serial_test::serial]
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<full_block_ $name>]() -> anyhow::Result<()> {

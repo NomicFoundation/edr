@@ -3734,6 +3734,7 @@ dependencies = [
  "edr_utils",
  "futures",
  "parking_lot",
+ "pastey",
  "serde",
  "tokio",
 ]
@@ -3781,6 +3782,7 @@ dependencies = [
  "edr_chain_spec_rpc",
  "edr_primitives",
  "edr_receipt",
+ "pastey",
 ]
 
 [[package]]
