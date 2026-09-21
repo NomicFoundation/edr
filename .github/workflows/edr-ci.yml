@@ -217,6 +217,10 @@ jobs:
           # shellcheck disable=SC1090 # generated env from cargo-llvm-cov, not a static file
           source <(cargo llvm-cov show-env --sh)
           pnpm -C crates/edr_napi test
+          # Own process, with GC exposed, so provider thread reclamation is
+          # measured against a clean thread baseline. The suite skips on
+          # non-Linux. The binary the preceding step built is reused.
+          pnpm -C crates/edr_napi testNoBuild:isolated
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
 
