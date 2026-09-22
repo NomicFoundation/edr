@@ -382,7 +382,7 @@ impl EdrContext {
             deferred.resolve(move |env| match outcome {
                 RunOutcome::Completed(test_result) => Ok(SolidityTestResult::from(test_result)),
                 RunOutcome::InvalidInlineConfig(errors) => {
-                    Err(test_source_error::to_napi_error(&env, &errors))
+                    Err(test_source_error::to_napi_error(&env, errors))
                 }
             });
         });

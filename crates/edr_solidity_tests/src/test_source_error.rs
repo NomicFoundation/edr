@@ -221,6 +221,11 @@ pub struct TestSourceErrors {
 }
 
 impl TestSourceErrors {
+    /// Converts the errors into their inner representation.
+    pub fn into_items(self) -> Vec<TestSourceErrorItem> {
+        self.items
+    }
+
     /// The individual problems, each with its location, for structured
     /// reporting to consumers.
     pub fn items(&self) -> &[TestSourceErrorItem] {
