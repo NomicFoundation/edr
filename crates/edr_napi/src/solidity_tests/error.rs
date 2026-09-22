@@ -3,6 +3,9 @@
 //! The problems span two halves — the source itself, and the directives within
 //! it — so the union that joins them lives here rather than in either half.
 
+pub mod inline_config;
+pub mod parsing;
+
 use edr_solidity_tests::test_source_error as collect_error;
 use napi::{
     bindgen_prelude::{Either, Either5, Either6},
@@ -10,13 +13,13 @@ use napi::{
 };
 use napi_derive::napi;
 
-use super::{
-    inline_config::error::{
+use self::{
+    inline_config::{
         InlineConfigDirectiveError, InlineConfigDirectiveProblem, InlineConfigDuplicateKey,
         InlineConfigInvalidKey, InlineConfigInvalidKeyForTestType, InlineConfigInvalidSyntax,
         InlineConfigInvalidValue, InlineConfigUnsupportedProfile,
     },
-    parsing::error::{
+    parsing::{
         TestSourceDirectiveLocation, TestSourceFileError, TestSourceFileNotFound,
         TestSourceFileProblem, TestSourceParseErrors, TestSourcePathNotProvided,
         TestSourceUnsupportedSolcVersion,
