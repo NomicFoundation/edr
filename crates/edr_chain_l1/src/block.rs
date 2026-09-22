@@ -6,8 +6,8 @@ use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
     BlockTransactionError, BlockTransactionErrorForChainSpec, Blockchain, BuiltBlockAndState,
-    BuiltBlockAndStateWithMetadata, CfgEnv, DatabaseComponents, ExecutionResult, PrecompileFn,
-    WrapDatabaseRef,
+    BuiltBlockAndStateWithMetadata, Cfg as _, CfgEnv, DatabaseComponents, ExecutionResult,
+    PrecompileFn, WrapDatabaseRef,
 };
 use edr_block_header::{
     blob_params_for_hardfork, BlobGas, BlockConfig, HeaderAndEvmSpec, HeaderOverrides,
@@ -36,7 +36,6 @@ use edr_receipt::{
 };
 use edr_receipt_builder_api::ExecutionReceiptBuilder;
 use edr_state_api::{AccountModifierFn, DynState, StateDiff, StateError};
-use revm_context_interface::Cfg;
 
 use crate::{reward::miner_reward, Hardfork};
 
@@ -215,8 +214,7 @@ impl<
         let tx_fits_both_dimensions = || {
             // Only up to the cap can become execution gas; all of `tx.gas_limit()` can
             // become state gas.
-            let execution_limit =
-                std::cmp::min(self.cfg.tx_gas_limit_cap(), transaction.gas_limit());
+            let execution_limit = self.cfg.tx_gas_limit_cap().min(transaction.gas_limit());
             execution_limit <= remaining_execution_gas
                 && transaction.gas_limit() <= remaining_state_gas
         };
@@ -580,9 +578,11 @@ impl<
     }
 }
 
-/// Gas a transaction contributes to the block, per dimension. From Amsterdam
-/// the execution gas is gross (EIP-7778) and state gas is metered separately
-/// (EIP-8037); before, its net gas used is all execution gas.
+/// Gas a transaction adds to the block's counters, per dimension.
+///
+/// From Amsterdam the execution gas is counted before refunds (EIP-7778) and the
+/// state gas is counted on its own (EIP-8037). Before Amsterdam there is no state
+/// dimension: the transaction's gas used, after refunds, is all execution gas.
 fn transaction_block_gas_contribution<ChainSpecT: ChainSpec + ProtocolHardforkChainSpec>(
     hardfork: ChainSpecT::ProtocolHardfork,
     execution_result: &ExecutionResult<ChainSpecT::HaltReason>,

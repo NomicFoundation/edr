@@ -1,8 +1,7 @@
 #![cfg(feature = "test-utils")]
 
-//! EIP-8037: State Creation Gas Cost Increase.
-//! see <https://eips.ethereum.org/EIPS/eip-8037>
-//
+//! [EIP-8037]: State Creation Gas Cost Increase.
+//!
 //! From Amsterdam onward, block gas is metered in two dimensions: execution
 //! gas and state gas. The header's `gas_used` is the maximum of the two block
 //! totals, receipts keep summing the per-transaction total, and a transaction
@@ -10,6 +9,8 @@
 //! `min(TX_MAX_GAS_LIMIT, tx.gas) <= execution_gas_available` and
 //! `tx.gas <= state_gas_available`. The EIP-7825 cap applies to execution
 //! gas only, so `tx.gas` itself may exceed it, up to `TX_MAX_TOTAL_GAS_LIMIT`.
+//!
+//! [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
 
 use std::num::NonZeroU64;
 
