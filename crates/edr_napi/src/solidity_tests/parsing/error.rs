@@ -38,8 +38,7 @@ impl_structured_napi_error! {
 impl_structured_napi_error! {
     /// The test source has no `testSourcePaths` entry, so it is not located,
     /// read, or parsed.
-    pub struct TestSourcePathNotProvided {
-    }
+    pub struct TestSourcePathNotProvided {}
 }
 
 impl_structured_napi_error! {
