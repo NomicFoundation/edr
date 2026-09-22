@@ -580,9 +580,10 @@ impl<
 
 /// Gas a transaction adds to the block's counters, per dimension.
 ///
-/// From Amsterdam the execution gas is counted before refunds (EIP-7778) and the
-/// state gas is counted on its own (EIP-8037). Before Amsterdam there is no state
-/// dimension: the transaction's gas used, after refunds, is all execution gas.
+/// From Amsterdam the execution gas is counted before refunds (EIP-7778) and
+/// the state gas is counted on its own (EIP-8037). Before Amsterdam there is no
+/// state dimension: the transaction's gas used, after refunds, is all execution
+/// gas.
 fn transaction_block_gas_contribution<ChainSpecT: ChainSpec + ProtocolHardforkChainSpec>(
     hardfork: ChainSpecT::ProtocolHardfork,
     execution_result: &ExecutionResult<ChainSpecT::HaltReason>,

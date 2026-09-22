@@ -7,8 +7,9 @@
 //! totals, receipts keep summing the per-transaction total, and a transaction
 //! is admitted only if it fits the remaining gas of both dimensions:
 //! `min(TX_MAX_GAS_LIMIT, tx.gas) <= execution_gas_available` and
-//! `tx.gas <= state_gas_available`. The EIP-7825 cap applies to execution
-//! gas only, so `tx.gas` itself may exceed it, up to `TX_MAX_TOTAL_GAS_LIMIT`.
+//! `tx.gas <= state_gas_available`, where `TX_MAX_GAS_LIMIT` is the EIP-7825
+//! cap. That cap applies to execution gas only, so `tx.gas` itself may exceed
+//! it, up to the `TX_MAX_TOTAL_GAS_LIMIT` this EIP introduces.
 //!
 //! [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
 
@@ -516,12 +517,16 @@ fn rejects_transaction_exceeding_remaining_execution_gas() -> anyhow::Result<()>
     Ok(())
 }
 
-/// Only `min(TX_MAX_GAS_LIMIT, tx.gas)` is checked against the remaining
-/// execution gas: a transaction whose `tx.gas` exceeds both the cap and the
-/// remaining execution gas is still admitted when the capped amount fits.
+/// Admission reserves `tx.gas` on the state dimension but only up to the
+/// EIP-7825 cap on the execution dimension, since no more than the cap can
+/// become execution gas. A transaction whose `tx.gas` exceeds the remaining
+/// execution gas is therefore still admitted when the capped amount fits.
 #[test]
 fn admits_transaction_whose_capped_execution_gas_fits() -> anyhow::Result<()> {
+    // Burnt entirely on execution, leaving 18M of execution headroom in the block.
     const FIRST_GAS_LIMIT: u64 = 12_000_000;
+    // Above both the cap and the 18M headroom; only `min(cap, tx.gas)` fits.
+    const SECOND_GAS_LIMIT: u64 = EXCEEDS_TRANSACTION_EXECUTION_GAS_CAP;
 
     let mut fixture = new_fixture_with(DEFAULT_BLOCK_GAS_LIMIT, |config| {
         config.transaction_gas_cap = ConfigOption::Default;
@@ -529,31 +534,38 @@ fn admits_transaction_whose_capped_execution_gas_fits() -> anyhow::Result<()> {
 
     let transactions = vec![
         call(&fixture, 0, FIRST_GAS_LIMIT, GAS_LOOP)?,
-        transfer(&fixture, 1, EXCEEDS_TRANSACTION_GAS_CAP)?,
+        transfer(&fixture, 1, SECOND_GAS_LIMIT)?,
     ];
     let result = mine(&mut fixture, transactions)?;
 
-    // The gas loop halts out of gas, so it spends its whole limit on execution.
+    // Premises, from the gas the first transaction actually spent.
     let first = &result.transaction_results[0];
     assert!(
         first.is_halt(),
-        "premise: the gas loop should halt: {first:?}"
+        "the gas loop should halt, spending its whole limit on execution: {first:?}"
     );
-    let execution = first.gas().block_regular_gas_used();
-    let state = first.gas().block_state_gas_used();
+    let remaining_execution_gas = DEFAULT_BLOCK_GAS_LIMIT - first.gas().block_regular_gas_used();
+    let remaining_state_gas = DEFAULT_BLOCK_GAS_LIMIT - first.gas().block_state_gas_used();
     assert!(
-        EXCEEDS_TRANSACTION_GAS_CAP > DEFAULT_BLOCK_GAS_LIMIT - execution
-            && MAX_TX_GAS_LIMIT_OSAKA <= DEFAULT_BLOCK_GAS_LIMIT - execution
-            && EXCEEDS_TRANSACTION_GAS_CAP <= DEFAULT_BLOCK_GAS_LIMIT - state,
-        "premise: tx.gas {EXCEEDS_TRANSACTION_GAS_CAP} should exceed the remaining execution gas \
-         (used {execution}) while the cap {MAX_TX_GAS_LIMIT_OSAKA} fits it, and fit the remaining \
-         state gas (used {state})"
+        SECOND_GAS_LIMIT > remaining_execution_gas,
+        "tx.gas ({SECOND_GAS_LIMIT}) should exceed the remaining execution gas \
+         ({remaining_execution_gas})"
+    );
+    assert!(
+        MAX_TX_GAS_LIMIT_OSAKA <= remaining_execution_gas,
+        "the cap ({MAX_TX_GAS_LIMIT_OSAKA}) should fit the remaining execution gas \
+         ({remaining_execution_gas})"
+    );
+    assert!(
+        SECOND_GAS_LIMIT <= remaining_state_gas,
+        "tx.gas ({SECOND_GAS_LIMIT}) should fit the remaining state gas ({remaining_state_gas})"
     );
 
     assert_eq!(
         result.block.transactions().len(),
         2,
-        "the second transaction should be admitted"
+        "the second transaction should be admitted: its capped execution gas fits the \
+         remaining execution gas even though its tx.gas does not"
     );
     assert_eq!(fixture.provider_data.pending_transactions().count(), 0);
 
@@ -561,7 +573,7 @@ fn admits_transaction_whose_capped_execution_gas_fits() -> anyhow::Result<()> {
 }
 
 /// Well above the EIP-7825 cap (2^24), below the default block gas limit.
-const EXCEEDS_TRANSACTION_GAS_CAP: u64 = 20_000_000;
+const EXCEEDS_TRANSACTION_EXECUTION_GAS_CAP: u64 = 20_000_000;
 
 /// Amsterdam provider with the default EIP-7825 cap.
 fn new_capped_provider() -> anyhow::Result<Provider<L1ChainSpec>> {
@@ -590,7 +602,7 @@ async fn send_transaction_accepts_gas_above_cap_from_amsterdam() -> anyhow::Resu
     let request = TransactionRequest {
         from: caller(&provider),
         to: Some(Address::ZERO),
-        gas: Some(EXCEEDS_TRANSACTION_GAS_CAP),
+        gas: Some(EXCEEDS_TRANSACTION_EXECUTION_GAS_CAP),
         ..TransactionRequest::default()
     };
     let transaction_hash = send_transaction(&provider, request)?;
@@ -656,7 +668,7 @@ async fn call_accepts_gas_above_cap_from_amsterdam() -> anyhow::Result<()> {
     let call = L1CallRequest {
         from: Some(caller(&provider)),
         to: Some(Address::ZERO),
-        gas: Some(EXCEEDS_TRANSACTION_GAS_CAP),
+        gas: Some(EXCEEDS_TRANSACTION_EXECUTION_GAS_CAP),
         ..L1CallRequest::default()
     };
     provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
@@ -675,7 +687,7 @@ async fn estimate_gas_accepts_gas_above_cap_from_amsterdam() -> anyhow::Result<(
     let call = L1CallRequest {
         from: Some(caller(&provider)),
         to: Some(Address::ZERO),
-        gas: Some(EXCEEDS_TRANSACTION_GAS_CAP),
+        gas: Some(EXCEEDS_TRANSACTION_EXECUTION_GAS_CAP),
         ..L1CallRequest::default()
     };
     provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
@@ -685,10 +697,9 @@ async fn estimate_gas_accepts_gas_above_cap_from_amsterdam() -> anyhow::Result<(
     Ok(())
 }
 
-/// `eth_estimateGas` covers both dimensions: state gas is drawn from `tx.gas`
-/// too, so a slot-creating transaction succeeds with exactly the estimate, and
-/// the estimate exceeds the pre-Amsterdam one although slot creation got
-/// cheaper in execution gas.
+/// This EIP makes state creation more expensive, so the same slot-creating
+/// transaction costs more on Amsterdam than on Osaka, and `eth_estimateGas`
+/// must account for it: its estimate is higher and funds the transaction.
 #[tokio::test(flavor = "multi_thread")]
 async fn estimate_gas_covers_state_gas() -> anyhow::Result<()> {
     let new_provider = |hardfork| {
@@ -731,8 +742,8 @@ async fn estimate_gas_covers_state_gas() -> anyhow::Result<()> {
     assert!(
         estimate > pre_amsterdam_estimate,
         "the Amsterdam estimate ({estimate}) should exceed the Osaka one \
-         ({pre_amsterdam_estimate}): each new slot now costs state gas on top of a \
-         lower execution charge"
+         ({pre_amsterdam_estimate}): creating a slot costs more once state gas is \
+         metered, and the estimate must fund it"
     );
 
     // The pre-Amsterdam estimate does not account for the state gas.
