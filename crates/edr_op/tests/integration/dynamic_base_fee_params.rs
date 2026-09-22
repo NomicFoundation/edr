@@ -12,7 +12,7 @@ macro_rules! impl_test_dynamic_base_fee_params{
     ],)+) => {
         $(
             $(
-                paste::item! {
+                pastey::item! {
                     #[serial_test::serial]
                     #[tokio::test(flavor = "multi_thread")]
                     async fn [<test_dynamic_base_fee_ $net _ $block_number>]() -> anyhow::Result<()> {

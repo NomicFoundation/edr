@@ -9,6 +9,7 @@ pub use edr_receipt::{
     log::{FilterLog, FullBlockLog, ReceiptLog},
     MapReceiptLogs, TransactionReceipt,
 };
+pub use pastey;
 
 /// Helper macro for testing serialization and deserialization roundtrips of
 /// execution receipts.
@@ -20,7 +21,7 @@ macro_rules! impl_execution_receipt_serde_tests {
         )+
     }) => {
         $(
-            paste::item! {
+            $crate::pastey::item! {
                 #[test]
                 fn [<typed_receipt_rpc_receipt_roundtrip_ $name>]() -> anyhow::Result<()> {
                     use $crate::{MapReceiptLogs as _, RpcTypeFrom as _};

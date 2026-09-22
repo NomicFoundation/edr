@@ -94,7 +94,7 @@ anyhow = "1.0.100"
 edr_test_block_replay.workspace = true
 hex = "0.4"
 edr_test_utils.workspace = true
-paste = { version = "1.0.14", default-features = false }
+pastey.workspace = true
 serial_test = "4.0.0"
 tempfile = "3.25.0"
 

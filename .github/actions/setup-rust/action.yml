@@ -4,6 +4,9 @@ inputs:
   toolchain:
     description: The Rust toolchain to use
     required: false
+  target:
+    description: Target triple to install for this toolchain
+    required: false
   components:
     description: Comma-separated list of components to install
     required: false
@@ -19,6 +22,7 @@ runs:
       with:
         # Empty string means rust-toolchain if it exists, otherwise stable
         toolchain: ${{ inputs.toolchain }}
+        target: ${{ inputs.target }}
         components: ${{ inputs.components }}
         cache: ${{ inputs.cache }}
         cache-save-if: ${{ github.ref == 'refs/heads/main' }}
