@@ -22,6 +22,7 @@
   - [Predeploys](./02_development/09_predeploys.md)
   - [Dynamic Base Fee Parameters](./02_development/10_dynamic_base_fee_params.md)
   - [CI Docker image mirror](./02_development/11_ci_docker_mirror.md)
+  - [Hardhat regression benchmark](./02_development/12_hardhat_regression_benchmark.md)
 
 - [Release](./03_release.md)
 
