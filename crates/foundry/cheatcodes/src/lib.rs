@@ -14,8 +14,7 @@ extern crate tracing;
 
 use alloy_primitives::Address;
 pub use config::{
-    parse_eip712_canonical_types, CheatsConfig, CheatsConfigOptions, ExecutionContextConfig,
-    TestFunctionIdentifier,
+    CheatsConfig, CheatsConfigOptions, ExecutionContextConfig, TestFunctionIdentifier,
 };
 pub use crypto::WalletCache;
 pub use endpoints::{RpcEndpoint, RpcEndpointUrl, RpcEndpoints};

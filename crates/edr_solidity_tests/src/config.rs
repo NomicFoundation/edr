@@ -12,7 +12,7 @@ use foundry_evm::{
 
 use crate::{
     fork::CreateFork,
-    inline_config::{ImportResolver, InlineConfigErrors},
+    inline_config::ImportResolver,
     opts::{effective_transaction_gas_cap, Env as EvmEnv, EvmOpts},
 };
 
@@ -27,10 +27,6 @@ pub enum SolidityTestRunnerConfigError {
     /// Failed to normalize project root
     #[error("Failed to normalize project root with error: {0}")]
     InvalidProjectRoot(std::io::Error),
-    /// One or more test sources carry invalid inline configuration. Carries
-    /// every problem found, each located at its source line.
-    #[error("Found invalid inline configuration in test sources:\n{0}")]
-    InlineConfig(InlineConfigErrors),
 }
 
 /// Solidity tests configuration
@@ -66,11 +62,26 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// Whether to generate a gas report after running tests
     pub generate_gas_report: bool,
     /// Maps each test source's solc source name to its absolute path on disk,
-    /// used to read and parse the source for inline configuration. A source
-    /// without an entry has no inline configuration collected.
+    /// used to read and parse the source for inline configuration
+    /// (`forge-config:`/`hardhat-config:` NatSpec directives) and for the
+    /// EIP-712 struct definitions served to the `eip712HashType` and
+    /// `eip712HashStruct` cheatcodes.
+    ///
+    /// An empty map disables collection: no source is read or parsed. A
+    /// non-empty map must name the source of every test suite a run selects,
+    /// and every source backing a selected suite is parsed. An entry no
+    /// selected suite uses is never opened.
+    ///
+    /// Each problem is accumulated and reported together when the run starts,
+    /// rather than silently leaving a suite without inline configuration or
+    /// EIP-712 types. A suite with no entry, an unreadable file, a solc
+    /// version older than 0.8 and a source that does not parse all count.
+    ///
+    /// Only the sources of the suites a run selects are read and parsed, so a
+    /// filtered run does not pay for the rest of the project.
     pub test_source_paths: HashMap<PathBuf, PathBuf>,
-    /// Resolves the imports of test sources when parsing their inline
-    /// configuration (`forge-config:`/`hardhat-config:` NatSpec directives).
+    /// Resolves the imports of test sources while parsing them (see
+    /// [`Self::test_source_paths`]).
     pub import_resolver: ImportResolver,
 }
 

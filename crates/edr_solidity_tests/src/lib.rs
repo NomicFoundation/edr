@@ -17,12 +17,15 @@ pub use config::{
 };
 
 pub mod inline_config;
+pub mod test_source_error;
+
+mod test_sources;
 
 pub mod result;
 
 pub use foundry_evm::executors::stack_trace::SolidityTestStackTraceError;
 
-mod error;
+pub mod error;
 mod test_filter;
 mod trace_retention;
 

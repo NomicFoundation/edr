@@ -8,7 +8,11 @@ use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
 async fn test_table() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*table/");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await.suite_results;
+    let results = runner
+        .test_collect(filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,

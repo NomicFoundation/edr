@@ -27,7 +27,11 @@ async fn test_function_override_evm_version() {
     // fails.
     let config = TEST_DATA_PARIS.config_with_mock_rpc();
     let runner = TEST_DATA_PARIS.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(filter.clone()).await.suite_results;
+    let results = runner
+        .test_collect(filter.clone())
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -43,7 +47,11 @@ async fn test_function_override_evm_version() {
         SolidityTestFilter::new(".*", ".*", ".*spec/ShanghaiCompatOverride.t.sol");
     let config = TEST_DATA_PARIS.config_with_mock_rpc();
     let runner = TEST_DATA_PARIS.runner_with_fuzz_persistence(config).await;
-    let results = runner.test_collect(override_filter).await.suite_results;
+    let results = runner
+        .test_collect(override_filter)
+        .await
+        .expect("the run produces results")
+        .suite_results;
 
     assert_multiple(
         &results,

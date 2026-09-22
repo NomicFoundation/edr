@@ -1,5 +1,5 @@
-//! [`CompilationBuilderConfig`] implementation that reads Solidity sources from
-//! disk and resolves imports.
+//! Resolving Solidity imports to on-disk files, and reading those files for
+//! Slang's compilation builder.
 
 use std::{
     collections::HashMap,
@@ -46,17 +46,20 @@ impl ImportResolver {
 }
 
 /// Reads files from disk and resolves imports.
-pub(super) struct SourceProvider<'resolver> {
+pub(crate) struct SourceProvider<'resolver> {
     import_resolver: &'resolver ImportResolver,
 }
 
 impl<'resolver> SourceProvider<'resolver> {
-    pub(super) fn new(import_resolver: &'resolver ImportResolver) -> Self {
+    pub fn new(import_resolver: &'resolver ImportResolver) -> Self {
         Self { import_resolver }
     }
 }
 
 impl CompilationBuilderConfig for SourceProvider<'_> {
+    /// Reads a project source the same way the compiler does — driven by the
+    /// paths the test runner was configured with, never by paths a test
+    /// controls — and so intentionally does not go through `fs_permissions`.
     fn read_file(&mut self, file_id: &str) -> Result<String, String> {
         std::fs::read_to_string(Path::new(file_id)).map_err(|error| error.to_string())
     }
