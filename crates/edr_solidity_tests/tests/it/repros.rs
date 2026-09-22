@@ -1011,7 +1011,9 @@ async fn always_mode_frees_arenas_nothing_consumes() {
             "AlwaysStackTraceTest",
             ".*repros/StackTraceAlwaysMode.t.sol",
         );
-        let suite_results = runner.test_collect(filter).await
+        let suite_results = runner
+            .test_collect(filter)
+            .await
             .expect("the run produces results")
             .suite_results;
         let suite = suite_results
@@ -1057,7 +1059,9 @@ async fn always_mode_frees_passing_tests_arenas_unless_all_are_included() {
         config.include_traces = include_traces;
 
         let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-        let suite_results = runner.test_collect(repro_filter(3347)).await
+        let suite_results = runner
+            .test_collect(repro_filter(3347))
+            .await
             .expect("the run produces results")
             .suite_results;
         let suite = suite_results

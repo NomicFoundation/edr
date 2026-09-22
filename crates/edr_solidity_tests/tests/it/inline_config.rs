@@ -4,10 +4,8 @@ use std::{io::Write as _, path::PathBuf};
 
 use edr_solidity_tests::{
     error::TestRunnerError,
-    test_source_error::{
-        TestSourceCollectError, InlineConfigDirectiveError, TestSourceProblem,
-    },
     result::TestKind,
+    test_source_error::{InlineConfigDirectiveError, TestSourceCollectError, TestSourceProblem},
 };
 
 use crate::helpers::{SolidityTestFilter, TEST_DATA_DEFAULT};
@@ -303,7 +301,11 @@ async fn source_without_a_path_aborts_whole_run() {
 
     let errors = expect_inline_config_errors(
         config,
-        SolidityTestFilter::new(".*", ".*", ".*(fuzz/Fuzz|inline/ContractLevelConfig)\\.t\\.sol"),
+        SolidityTestFilter::new(
+            ".*",
+            ".*",
+            ".*(fuzz/Fuzz|inline/ContractLevelConfig)\\.t\\.sol",
+        ),
     )
     .await;
 
@@ -317,10 +319,8 @@ async fn source_without_a_path_aborts_whole_run() {
         "{items:#?}"
     );
     assert!(
-        items
-            .iter()
-            .any(|item| item.source_name == malformed
-                && matches!(&item.problem, TestSourceProblem::Directive(_))),
+        items.iter().any(|item| item.source_name == malformed
+            && matches!(&item.problem, TestSourceProblem::Directive(_))),
         "{items:#?}"
     );
 }

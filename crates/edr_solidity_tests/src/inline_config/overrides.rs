@@ -9,15 +9,15 @@ use std::{collections::HashMap, path::Path};
 
 use slang_solidity_v2::compilation::CompilationUnit;
 
-use crate::test_source_error::{
-    InlineConfigDirectiveError, TestSourceCollectError, TestSourceErrorItem,
-};
 use super::{
     directives::{self, DirectiveTarget, LocatedDirectiveError},
     natspec,
     parse::{locate_contracts_in_unit, LocatedContract, LocatedFunction},
 };
-use crate::config::TestFunctionConfigOverride;
+use crate::{
+    config::TestFunctionConfigOverride,
+    test_source_error::{InlineConfigDirectiveError, TestSourceCollectError, TestSourceErrorItem},
+};
 
 /// The inline configuration parsed for a single test function.
 #[derive(Clone, Debug)]

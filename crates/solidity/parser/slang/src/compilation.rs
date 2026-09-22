@@ -72,7 +72,8 @@ mod tests {
 
     #[test]
     fn ignores_build_and_prerelease_metadata() {
-        let version = Version::parse("0.8.24-nightly.2024.1.1+commit.abcdef").expect("valid semver");
+        let version =
+            Version::parse("0.8.24-nightly.2024.1.1+commit.abcdef").expect("valid semver");
 
         assert_eq!(
             language_version_for_solc(&version),

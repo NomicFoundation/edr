@@ -32,20 +32,16 @@ use super::{
 #[napi]
 pub type TestSourceError = Either<TestSourceFileError, InlineConfigDirectiveError>;
 
-fn to_source_problem(error: &collect_error::TestSourceCollectError) -> TestSourceFileProblem {
+fn to_source_problem(error: collect_error::TestSourceCollectError) -> TestSourceFileProblem {
     match error {
         collect_error::TestSourceCollectError::RootFileNotFound { path, reason } => {
-            Either5::A(TestSourceFileNotFound::new(path.clone(), reason.clone()))
+            Either5::A(TestSourceFileNotFound::new(path, reason))
         }
         collect_error::TestSourceCollectError::DirectiveLocation {
             contract,
             function,
             reason,
-        } => Either5::B(TestSourceDirectiveLocation::new(
-            contract.clone(),
-            function.clone(),
-            reason.clone(),
-        )),
+        } => Either5::B(TestSourceDirectiveLocation::new(contract, function, reason)),
         collect_error::TestSourceCollectError::SourcePathNotProvided => {
             Either5::C(TestSourcePathNotProvided::new())
         }
@@ -53,33 +49,33 @@ fn to_source_problem(error: &collect_error::TestSourceCollectError) -> TestSourc
             Either5::D(TestSourceUnsupportedSolcVersion::new(version.to_string()))
         }
         collect_error::TestSourceCollectError::SourceParseErrors { reasons } => {
-            Either5::E(TestSourceParseErrors::new(reasons.clone()))
+            Either5::E(TestSourceParseErrors::new(reasons))
         }
     }
 }
 
-fn to_directive_problem(error: &collect_error::InlineConfigError) -> InlineConfigDirectiveProblem {
+fn to_directive_problem(error: collect_error::InlineConfigError) -> InlineConfigDirectiveProblem {
     match error {
         collect_error::InlineConfigError::InvalidSyntax { line } => {
-            Either6::A(InlineConfigInvalidSyntax::new(line.clone()))
+            Either6::A(InlineConfigInvalidSyntax::new(line))
         }
         collect_error::InlineConfigError::UnsupportedProfile { profile } => {
-            Either6::B(InlineConfigUnsupportedProfile::new(profile.clone()))
+            Either6::B(InlineConfigUnsupportedProfile::new(profile))
         }
         collect_error::InlineConfigError::InvalidKey { key } => {
-            Either6::C(InlineConfigInvalidKey::new(key.clone()))
+            Either6::C(InlineConfigInvalidKey::new(key))
         }
-        collect_error::InlineConfigError::InvalidKeyForTestType { key, test_type } => Either6::D(
-            InlineConfigInvalidKeyForTestType::new(key.clone(), test_type.clone()),
-        ),
+        collect_error::InlineConfigError::InvalidKeyForTestType { key, test_type } => {
+            Either6::D(InlineConfigInvalidKeyForTestType::new(key, test_type))
+        }
         collect_error::InlineConfigError::InvalidValue {
             key,
             value,
             expected,
         } => Either6::E(InlineConfigInvalidValue::new(
-            key.clone(),
-            value.clone(),
-            (*expected).to_owned(),
+            key,
+            value,
+            expected.to_owned(),
         )),
         collect_error::InlineConfigError::DuplicateKey { key } => {
             Either6::F(InlineConfigDuplicateKey::new(key.clone()))
@@ -87,9 +83,9 @@ fn to_directive_problem(error: &collect_error::InlineConfigError) -> InlineConfi
     }
 }
 
-fn to_entry(item: &collect_error::TestSourceErrorItem) -> TestSourceError {
+fn to_entry(item: collect_error::TestSourceErrorItem) -> TestSourceError {
     let source_name = item.source_name.to_string_lossy().into_owned();
-    match &item.problem {
+    match item.problem {
         collect_error::TestSourceProblem::Source(error) => Either::A(TestSourceFileError::new(
             source_name,
             to_source_problem(error),
@@ -105,7 +101,7 @@ fn to_entry(item: &collect_error::TestSourceErrorItem) -> TestSourceError {
             source_name,
             contract.clone(),
             function.clone(),
-            *line,
+            line,
             to_directive_problem(error),
         )),
     }
@@ -118,21 +114,19 @@ fn to_entry(item: &collect_error::TestSourceErrorItem) -> TestSourceError {
 /// Must be called on the JS thread (it builds JS values); the reject path in
 /// [`crate::context`] does so from the deferred's resolver. Falls back to a
 /// plain message-only error if building the structured object fails.
-pub(crate) fn to_napi_error(env: &Env, errors: &collect_error::TestSourceErrors) -> napi::Error {
-    build_structured_error(env, errors)
-        .unwrap_or_else(|_| napi::Error::from_reason(summary(errors)))
-}
+pub(crate) fn to_napi_error(env: &Env, errors: collect_error::TestSourceErrors) -> napi::Error {
+    fn build_structured_error(
+        env: &Env,
+        summary: &str,
+        errors: collect_error::TestSourceErrors,
+    ) -> napi::Result<napi::Error> {
+        let mut error_object = env.create_error(napi::Error::from_reason(summary))?;
+        let items: Vec<TestSourceError> = errors.into_items().into_iter().map(to_entry).collect();
+        error_object.set("testSourceErrors", items)?;
+        Ok(napi::Error::from(error_object.to_unknown()))
+    }
 
-fn build_structured_error(
-    env: &Env,
-    errors: &collect_error::TestSourceErrors,
-) -> napi::Result<napi::Error> {
-    let mut error_object = env.create_error(napi::Error::from_reason(summary(errors)))?;
-    let items: Vec<TestSourceError> = errors.items().iter().map(to_entry).collect();
-    error_object.set("testSourceErrors", items)?;
-    Ok(napi::Error::from(error_object.to_unknown()))
-}
-
-fn summary(errors: &collect_error::TestSourceErrors) -> String {
-    format!("Could not collect from the test sources:\n{errors}")
+    let summary = format!("Could not collect from the test sources:\n{errors}");
+    build_structured_error(env, &summary, errors.clone())
+        .unwrap_or_else(|_| napi::Error::from_reason(summary))
 }

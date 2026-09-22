@@ -111,8 +111,7 @@ mod tests {
         version: Version,
         import_resolver: &ImportResolver,
     ) -> Vec<LocatedContract> {
-        let language_version =
-            language_version_for_solc(&version).expect("supported solc version");
+        let language_version = language_version_for_solc(&version).expect("supported solc version");
         let unit = build_compilation_unit(root_path, language_version, import_resolver);
         let file_id = root_path.to_string_lossy().into_owned();
 

@@ -44,10 +44,10 @@ use crate::{
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inline_config::{self, ImportResolver},
     result::{SuiteResult, SuiteRunOutcome, TestRunOutcome},
+    runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     test_source_error::{
         TestSourceCollectError, TestSourceErrorItem, TestSourceErrors, TestSourceProblem,
     },
-    runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     test_sources::{collect_test_sources, SourceCollections, TestSourceRoot},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
     TestFunctionConfigOverride,

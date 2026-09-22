@@ -1456,7 +1456,9 @@ async fn test_invariant_gas_report_samples_bound_collected_run_traces() {
         config.invariant.gas_report_samples = gas_report_samples;
 
         let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
-        let test_result = runner.test_collect(filter).await
+        let test_result = runner
+            .test_collect(filter)
+            .await
             .expect("the run produces results")
             .test_result;
         let bump_calls = test_result

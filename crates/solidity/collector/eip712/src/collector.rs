@@ -58,7 +58,11 @@ impl Eip712Type {
                     continue;
                 }
 
-                stack.extend(dependency(encodables, root, &next)?.direct_struct_deps.clone());
+                stack.extend(
+                    dependency(encodables, root, &next)?
+                        .direct_struct_deps
+                        .clone(),
+                );
                 visited.insert(next);
             }
 
@@ -529,10 +533,7 @@ fn dedup_by_name(collected: Vec<CollectedStruct>, root_file_id: &str) -> Deduped
                 struct_defs.iter().map(|def| def.file_id.clone()).collect();
             file_ids.sort();
             file_ids.dedup();
-            duplicates.insert(
-                struct_name.clone(),
-                RejectReason::Duplicate { file_ids },
-            );
+            duplicates.insert(struct_name.clone(), RejectReason::Duplicate { file_ids });
         }
     }
 

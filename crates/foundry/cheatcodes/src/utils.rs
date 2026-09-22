@@ -1098,7 +1098,8 @@ impl Cheatcode for eip712HashType_0Call {
             typeNameOrDefinition,
         } = self;
 
-        let type_def = get_canonical_type_def(typeNameOrDefinition, state.config.eip712_types.as_deref())?;
+        let type_def =
+            get_canonical_type_def(typeNameOrDefinition, state.config.eip712_types.as_deref())?;
         Ok(keccak256(type_def.canonical_definition().as_bytes()).to_vec())
     }
 }
@@ -1139,7 +1140,8 @@ impl Cheatcode for eip712HashStruct_0Call {
             abiEncodedData,
         } = self;
 
-        let type_def = get_canonical_type_def(typeNameOrDefinition, state.config.eip712_types.as_deref())?;
+        let type_def =
+            get_canonical_type_def(typeNameOrDefinition, state.config.eip712_types.as_deref())?;
 
         get_struct_hash(&type_def, abiEncodedData)
     }

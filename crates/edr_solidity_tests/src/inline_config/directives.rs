@@ -10,8 +10,10 @@
 //! ```
 
 use super::natspec::NatSpecBlock;
-use crate::test_source_error::InlineConfigError;
-use crate::config::{TestFunctionConfigOverride, TimeoutConfig};
+use crate::{
+    config::{TestFunctionConfigOverride, TimeoutConfig},
+    test_source_error::InlineConfigError,
+};
 
 const HARDHAT_CONFIG_PREFIX: &str = "hardhat-config:";
 const FORGE_CONFIG_PREFIX: &str = "forge-config:";
