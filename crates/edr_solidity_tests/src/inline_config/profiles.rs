@@ -24,9 +24,9 @@ pub const DEFAULT_PROFILE: &str = "default";
 ///
 /// Every declared name must be usable as a directive prefix, which
 /// [`new`](Self::new) enforces: it must be non-empty, contain none of `.`, `=`,
-/// or whitespace, and not collide with an inline-config key category (`fuzz`,
-/// `invariant`, `isolate`, `evmVersion`, `allowInternalExpectRevert`), which
-/// the parser always reads as the key.
+/// or whitespace, not start with `-` or `_`, and not collide with an
+/// inline-config key category (`fuzz`, `invariant`, `isolate`, `evmVersion`,
+/// `allowInternalExpectRevert`), which the parser always reads as the key.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InlineConfigProfiles {
     selected: String,
@@ -97,6 +97,11 @@ fn validate_name(name: &str) -> Result<(), InlineConfigProfilesError> {
     }
     if name.contains(['.', '=']) || name.chars().any(char::is_whitespace) {
         return Err(InlineConfigProfilesError::UnrepresentableName {
+            name: name.to_owned(),
+        });
+    }
+    if name.starts_with(['-', '_']) {
+        return Err(InlineConfigProfilesError::LeadingSeparator {
             name: name.to_owned(),
         });
     }
@@ -191,6 +196,27 @@ mod tests {
                 },
                 "{name:?}"
             );
+        }
+    }
+
+    #[test]
+    fn names_starting_with_a_separator_are_rejected() {
+        for name in ["-ci", "_ci", "-", "_", "--ci", "_-ci"] {
+            let error =
+                InlineConfigProfiles::new(DEFAULT_PROFILE, [name.to_owned()]).expect_err(name);
+
+            assert_eq!(
+                error,
+                InlineConfigProfilesError::LeadingSeparator {
+                    name: name.to_owned(),
+                },
+                "{name:?}"
+            );
+        }
+
+        // Only the first character is restricted.
+        for name in ["ci-", "ci_", "my-ci", "my_ci"] {
+            InlineConfigProfiles::new(DEFAULT_PROFILE, [name.to_owned()]).expect(name);
         }
     }
 

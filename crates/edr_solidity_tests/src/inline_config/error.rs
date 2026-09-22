@@ -147,6 +147,14 @@ pub enum InlineConfigProfilesError {
         /// The offending name.
         name: String,
     },
+    /// A declared profile name starts with `-` or `_`.
+    #[error(
+        "invalid Solidity test profile name `{name}`: a profile name must not start with `-` or `_`"
+    )]
+    LeadingSeparator {
+        /// The offending name.
+        name: String,
+    },
     /// A declared profile name is an inline-config key category (`fuzz`,
     /// `invariant`, ...), which the directive parser always reads as the key
     /// rather than as a profile prefix.
