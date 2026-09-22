@@ -14,13 +14,42 @@ Every measured entry is reported as `<scenario> / <name>` with its wall-clock ti
 
 ## How the local EDR reaches the scenarios
 
-Scenarios only see EDR through the `hardhat` package, so the workflow has to get a locally published Hardhat to depend on a locally published EDR:
+Scenarios only see EDR through the `hardhat` package, so a run, in CI or locally, has to get a locally published Hardhat to depend on a locally published EDR. Both are published to a Verdaccio registry started from the Hardhat checkout:
 
-1. EDR is built and published to Verdaccio as `<version>-local.<sha>` via `scripts/publish_to_verdaccio.sh`, with only the runner's platform package wired in. The sha keeps the benchmarked commit traceable in the version.
-2. Hardhat's `@nomicfoundation/edr` dependency is repointed at that version, and Hardhat's own version is bumped one patch above the newer of the checkout and the latest npm release. A release version is required because plugins' peer ranges exclude prereleases; it must exceed the npm release so `--use-local` republishes Hardhat instead of skipping it, which would leave scenarios on the npm Hardhat and its npm EDR.
-3. Hardhat is reinstalled and built against the local EDR, and `bench:regression --use-local --force-publish` reuses the running Verdaccio to republish Hardhat and pin every scenario to it.
+1. EDR is built and published to Verdaccio as `<version>-local.<sha>` via `scripts/publish_to_verdaccio.sh`, with only the host's platform package wired in. The sha keeps the benchmarked commit traceable in the version.
+2. Hardhat's `@nomicfoundation/edr` dependency is repointed at that version, the `@nomicfoundation` scope is pointed at Verdaccio, and Hardhat's own version is bumped one patch above the newer of the checkout and the latest npm release. A release version is required because plugins' peer ranges exclude prereleases; it must exceed the npm release so `--use-local` republishes Hardhat instead of skipping it, which would leave scenarios on the npm Hardhat and its npm EDR.
+3. Hardhat is reinstalled and built against the local EDR, and `bench:regression --use-local --force-publish` reuses the running Verdaccio to republish Hardhat and pin every scenario to it. Some scenarios fork mainnet and read `ALCHEMY_URL` from the environment; without it they fail and the run continues with the next scenario.
 
-A final step reads the EDR version each scenario's Hardhat actually resolves and fails the run unless all of them match the local build.
+In CI, a final step reads the EDR version each scenario's Hardhat actually resolves and fails the run unless all of them match the local build.
+
+## Running locally
+
+Without `--use-local`, `pnpm bench:regression` in a Hardhat checkout benchmarks whatever EDR is pinned on npm. To benchmark a local build, run the steps above by hand. You need Node 24, a Rust toolchain, `hyperfine`, `jq` and GNU `time` (peak-RSS sampling is Linux-only), and a Hardhat clone with full history and tags, which `--use-local` needs to decide which packages to republish.
+
+```bash
+# Registry (Hardhat checkout). Auth lands in .verdaccio/.npmrc.
+pnpm install && pnpm verdaccio start --background
+
+# 1. Build and publish EDR (EDR checkout). <edr-version> must not exist on npm.
+pnpm install && pnpm -C crates/edr_napi build
+scripts/publish_to_verdaccio.sh --version <edr-version> --registry http://127.0.0.1:4873/ --npmrc <hardhat>/.verdaccio/.npmrc
+
+# 2. Repoint Hardhat (Hardhat checkout). <hardhat-version> is one patch above
+#    the newer of packages/hardhat/package.json and `npm view hardhat version`.
+npm pkg set "dependencies.@nomicfoundation/edr=<edr-version>" --prefix packages/hardhat
+npm pkg set version=<hardhat-version> --prefix packages/hardhat
+echo "@nomicfoundation:registry=http://127.0.0.1:4873/" >> .npmrc
+
+# 3. Rebuild and run (Hardhat checkout). `rebuild -r` relinks bins pnpm 11 skipped at install.
+pnpm install --no-frozen-lockfile
+pnpm build && pnpm rebuild -r
+pnpm bench:regression --use-local --force-publish --output /tmp/regression.json \
+  --scenarios "1inch*" --benchmarks "test solidity*"
+```
+
+`pnpm bench:regression --help` lists all options; scenarios are cloned to the same directory `pnpm e2e` uses unless `--e2e-clone-dir` says otherwise. The report is a JSON array in `github-action-benchmark`'s `customSmallerIsBetter` format. There is no baseline comparison locally: run twice (e.g. npm EDR vs. local EDR) and compare the reports.
+
+To clean up, `pnpm verdaccio stop` in Hardhat and revert its `packages/hardhat/package.json`, `.npmrc` and `pnpm-lock.yaml`; in EDR, `git checkout -- crates/edr_napi`, since the publish script mutates tracked files.
 
 ## Triggers
 
@@ -50,10 +79,14 @@ Every run is compared against the last data point recorded in the `hardhat3` dat
 
 ## Hardhat compat pin
 
-When an EDR change breaks compatibility with current Hardhat `main`, the default target fails until the matching Hardhat PR merges. The compat pin lets an EDR branch benchmark against a commit on that open Hardhat PR instead. Check in `.github/hardhat-compat-pin.json`:
+When an EDR change breaks compatibility with current Hardhat `main`, the default target fails until the matching Hardhat PR merges. The compat pin lets an EDR branch benchmark against a commit on that open Hardhat PR instead. Commit `.github/hardhat-compat-pin.json` on the EDR branch:
 
 ```json
-{ "pr": <Hardhat PR number>, "sha": "<full 40-hex commit sha>", "reason": "..." }
+{
+  "pr": 8574,
+  "sha": "e28e4f5ccb952913046ac4c14b09fb0db45f5b25",
+  "reason": "Support new hardfork API after breaking changes"
+}
 ```
 
 `pr` is a PR in `NomicFoundation/hardhat` — not a fork, so the runner can check the sha out directly. `sha` is a full 40-character commit sha on that PR; the pin follows the sha, not the branch, so update it if the Hardhat PR gains commits you need. `reason` is an optional free-form note.
