@@ -1,9 +1,9 @@
 //! Problems in a single inline-configuration directive
 //! (`forge-config:`/`hardhat-config:` NatSpec).
 //!
-//! Unlike the source-level problems in [`crate::solidity_tests::parsing`],
-//! every one of these is about a directive a test author wrote, and is located
-//! at the line that carries it.
+//! Unlike the source-level problems in
+//! [`crate::solidity_tests::error::parsing`], every one of these is about a
+//! directive a test author wrote, and is located at the line that carries it.
 
 use napi::bindgen_prelude::Either6;
 use napi_derive::napi;
