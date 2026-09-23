@@ -30,6 +30,8 @@ pub const DEFAULT_PROFILE: &str = "default";
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InlineConfigProfiles {
     selected: String,
+    /// Deduplicates and keeps the names sorted, so error messages list them
+    /// deterministically.
     declared: BTreeSet<String>,
 }
 
@@ -54,8 +56,6 @@ impl InlineConfigProfiles {
     ) -> Result<Self, InlineConfigProfilesError> {
         let selected = selected.into();
 
-        // A `BTreeSet` deduplicates and keeps the names sorted, so error
-        // messages list them deterministically.
         let mut declared: BTreeSet<String> = declared.into_iter().collect();
         declared.insert(DEFAULT_PROFILE.to_owned());
 
