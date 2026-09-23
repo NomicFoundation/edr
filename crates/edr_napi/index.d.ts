@@ -878,9 +878,17 @@ export declare enum IncludeTraces {
   All = 2,
 }
 
-/** A directive-level inline-config problem, located at the offending directive. */
+/**
+ * A directive-level problem, located at the offending directive.
+ *
+ * Its tag names the half of the `TestSourceError` union it belongs to,
+ * not its own type, because the two halves differ in shape rather than in
+ * what went wrong.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigDirectiveError {
-  /** Discriminant tag for the `InlineConfigError` union. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "directive"
   /**
    * The solc source name the problem was found in (e.g.
@@ -890,36 +898,14 @@ export interface InlineConfigDirectiveError {
   /** The contract the offending directive belongs to. */
   contract: string
   /**
-   * The test function the offending directive belongs to. Undefined when
-   * the directive is contract-level.
+   * The test function the offending directive belongs to. Undefined
+   * when the directive is contract-level.
    */
   function?: string
   /** The 1-based line of the offending directive within the source. */
   line: number
-  /** The problem itself; discriminate on its `kind` tag. */
+  /** The problem itself, discriminated on its `kind` tag. */
   problem: InlineConfigDirectiveProblem
-}
-
-/**
- * A directive's offset could not be resolved to a line number within its
- * source, meaning the parsing stages disagree about the source text, so its
- * directives cannot be trusted.
- */
-export interface InlineConfigDirectiveLocation {
-  /** Enum tag for JS. */
-  kind: "InlineConfigDirectiveLocation"
-  /** The contract the directive belongs to. */
-  contract: string
-  /**
-   * The test function the directive belongs to. Undefined when the directive
-   * is contract-level.
-   */
-  function?: string
-  /**
-   * Why resolving the location failed, including the directive problem
-   * that was being reported.
-   */
-  reason: string
 }
 
 /**
@@ -930,40 +916,37 @@ export interface InlineConfigDirectiveLocation {
 export type InlineConfigDirectiveProblem = InlineConfigInvalidSyntax | InlineConfigUndeclaredProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey
 
 /**
- * The same key was specified more than once for the same function or
- * contract.
+ * The same key was set twice for the same target.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigDuplicateKey {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigDuplicateKey"
-  /** The duplicated key, exactly as written. */
+  /** The duplicated key. */
   key: string
 }
 
 /**
- * A single ill-formed inline-config entry, located so the user can find and
- * fix it. A discriminated union over `kind`: a `source`-level entry carries no
- * directive location, a `directive`-level entry carries the contract and line,
- * plus the function unless the directive is contract-level. Attached to the
- * rejected `runSolidityTests` promise as the `inlineConfigErrors` array on the
- * thrown error.
+ * An unknown configuration key was used.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
-export type InlineConfigError = InlineConfigSourceError | InlineConfigDirectiveError
-
-/** An unknown configuration key was used. */
 export interface InlineConfigInvalidKey {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidKey"
   /** The offending key, exactly as written. */
   key: string
 }
 
 /**
- * A key was used on a test of the wrong kind (e.g. `fuzz.*` on an invariant
- * test). Only function-level directives can produce this.
+ * A key was used on a test of the wrong kind (e.g. `fuzz.*` on an
+ * invariant test).
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigInvalidKeyForTestType {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidKeyForTestType"
   /** The offending key, exactly as written. */
   key: string
@@ -971,71 +954,41 @@ export interface InlineConfigInvalidKeyForTestType {
   testType: string
 }
 
-/** A directive was missing the `=` separator. */
+/**
+ * A directive was missing the `=` separator.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigInvalidSyntax {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidSyntax"
   /** The offending directive line, stripped of comment decoration. */
   directive: string
 }
 
-/** A value did not match the expected type for its key. */
+/**
+ * A value did not match the expected type for its key.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
+ */
 export interface InlineConfigInvalidValue {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidValue"
   /** The offending key, exactly as written. */
   key: string
   /** The offending value, exactly as written. */
   value: string
-  /** A description of the expected value type. */
+  /** What the key expects instead. */
   expected: string
 }
 
 /**
- * A source-level inline-config problem: one that could not be tied to a single
- * directive (e.g. an unreadable source, or one with no `testSourcePaths`
- * entry).
+ * A directive named a profile the project does not declare.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
-export interface InlineConfigSourceError {
-  /** Discriminant tag for the `InlineConfigError` union. */
-  kind: "source"
-  /**
-   * The solc source name the problem was found in (e.g.
-   * `project/test/Foo.t.sol`).
-   */
-  sourceName: string
-  /** The problem itself; discriminate on its `kind` tag. */
-  problem: InlineConfigSourceProblem
-}
-
-/** The source's file could not be read at the path it was declared at. */
-export interface InlineConfigSourceFileNotFound {
-  /** Enum tag for JS. */
-  kind: "InlineConfigSourceFileNotFound"
-  /** The path the source was expected at. */
-  path: string
-  /** Why reading it failed. */
-  reason: string
-}
-
-/**
- * The test source has no `testSourcePaths` entry, so it is not located, read,
- * or parsed.
- */
-export interface InlineConfigSourcePathNotProvided {
-  /** Enum tag for JS. */
-  kind: "InlineConfigSourcePathNotProvided"
-}
-
-/**
- * A source-level problem, as a discriminated union over its `kind` tag. These
- * cannot be pinned to a single directive line, so they carry no line.
- */
-export type InlineConfigSourceProblem = InlineConfigSourceFileNotFound | InlineConfigDirectiveLocation | InlineConfigSourcePathNotProvided
-
-/** A directive named a profile the project does not declare. */
 export interface InlineConfigUndeclaredProfile {
-  /** Enum tag for JS. */
+  /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigUndeclaredProfile"
   /** The undeclared profile name, exactly as written. */
   profile: string
@@ -1738,23 +1691,25 @@ export interface SolidityTestRunnerConfigArgs {
    * struct definitions served to the `eip712HashType` and
    * `eip712HashStruct` cheatcodes.
    *
-   * Both features require solc 0.8 or newer. A source compiled with an
-   * older one is never parsed, so it needs no entry and its suites get
-   * neither inline configuration nor EIP-712 types.
-   *
    * Omitting the map (or passing an empty one) disables collection
-   * entirely. A non-empty map must name the source of every 0.8-or-newer
-   * test suite a run selects: a missing entry rejects that run before any
-   * test executes, rather than silently leaving the suite without inline
-   * configuration or EIP-712 types.
+   * entirely: no source is read or parsed, and no run can be rejected for a
+   * source-level problem. Both features require solc 0.8 or newer, so
+   * disabling collection is how a project whose test sources predate that
+   * keeps running its tests.
    *
-   * Only the sources of the suites a run selects are read and parsed, so
-   * filtering to one test file does not pay for parsing the project. An
-   * entry for a suite no run selects is simply unused.
+   * A non-empty map must name the source of every test suite a run selects,
+   * with no exceptions, and every source backing a selected suite is
+   * parsed. An entry no selected suite uses is never opened. Each problem
+   * found across all of them — a suite with no entry, an unreadable file, a
+   * solc version older than 0.8, a source that does not parse, an
+   * ill-formed directive — is accumulated and reported together on
+   * `testSourceErrors`, rejecting the run before any test executes rather
+   * than silently leaving a suite without inline configuration or EIP-712
+   * types.
    *
-   * It is safe to list a source Slang's grammar rejects: it is skipped, and
-   * every suite it declares reports that as a warning instead of failing
-   * the run.
+   * Only the sources of the suites a run selects are read and parsed. Since
+   * `testPattern` and `excludeTestPattern` filter test functions rather
+   * than suites, that is every suite passed to the run.
    */
   testSourcePaths?: Record<string, string>
   /**
@@ -1922,6 +1877,127 @@ export interface SuiteResult {
   testResults: Array<TestResult>
   /** See [`edr_solidity_tests::result::SuiteResult::warnings`]. */
   warnings: Array<string>
+}
+
+/**
+ * A directive's offset could not be resolved to a line number within its
+ * source, meaning the parsing stages disagree about the source text, so
+ * its directives cannot be trusted.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
+ */
+export interface TestSourceDirectiveLocation {
+  /** Discriminant tag for the union this belongs to. */
+  kind: "TestSourceDirectiveLocation"
+  /** The contract the directive belongs to. */
+  contract: string
+  /**
+   * The test function the directive belongs to. Undefined when the
+   * directive is contract-level.
+   */
+  function?: string
+  /**
+   * Why resolving the location failed, including the directive problem
+   * that was being reported.
+   */
+  reason: string
+}
+
+/**
+ * A single problem found in the test sources, located so the user can find and
+ * fix it. A discriminated union over `kind`: a `source`-level entry carries no
+ * directive location, a `directive`-level entry carries the contract and line,
+ * plus the function unless the directive is contract-level. Attached to the
+ * rejected `runSolidityTests` promise as the `testSourceErrors` array on the
+ * thrown error.
+ */
+export type TestSourceError = TestSourceFileError | InlineConfigDirectiveError
+
+/**
+ * A problem with the source itself, which no single directive can be
+ * blamed for.
+ *
+ * Its tag names the half of the `TestSourceError` union it belongs to,
+ * not its own type, because the two halves differ in shape rather than in
+ * what went wrong.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
+ */
+export interface TestSourceFileError {
+  /** Discriminant tag for the union this belongs to. */
+  kind: "source"
+  /**
+   * The solc source name the problem was found in (e.g.
+   * `project/test/Foo.t.sol`).
+   */
+  sourceName: string
+  /** The problem itself, discriminated on its `kind` tag. */
+  problem: TestSourceFileProblem
+}
+
+/**
+ * The source's file could not be read at the path it was declared at.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
+ */
+export interface TestSourceFileNotFound {
+  /** Discriminant tag for the union this belongs to. */
+  kind: "TestSourceFileNotFound"
+  /** The path the source was expected at. */
+  path: string
+  /** Why reading it failed. */
+  reason: string
+}
+
+/**
+ * A source-level problem, as a discriminated union over its `kind` tag. These
+ * cannot be pinned to a single directive line, so they carry no line.
+ */
+export type TestSourceFileProblem = TestSourceFileNotFound | TestSourceDirectiveLocation | TestSourcePathNotProvided | TestSourceUnsupportedSolcVersion | TestSourceParseErrors
+
+/**
+ * The source does not parse, so nothing could be collected from it. A
+ * partially-parsed source would silently miss struct definitions and
+ * directives, so it is reported rather than half-collected.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
+ */
+export interface TestSourceParseErrors {
+  /** Discriminant tag for the union this belongs to. */
+  kind: "TestSourceParseErrors"
+  /**
+   * The syntax diagnostics, each located at its source line. Truncated
+   * to the first few, followed by a count of the rest.
+   */
+  reasons: Array<string>
+}
+
+/**
+ * The test source has no `testSourcePaths` entry, so it is not located,
+ * read, or parsed.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
+ */
+export interface TestSourcePathNotProvided {
+  /** Discriminant tag for the union this belongs to. */
+  kind: "TestSourcePathNotProvided"
+}
+
+/**
+ * The solc version the source was compiled with predates the oldest
+ * Solidity grammar available, so the source cannot be parsed at all.
+ * Collecting inline configuration and EIP-712 struct definitions requires
+ * solc 0.8.0 or newer, and no source is exempt. A run that selects this
+ * one can only proceed with collection disabled entirely, by omitting
+ * `testSourcePaths`.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
+ */
+export interface TestSourceUnsupportedSolcVersion {
+  /** Discriminant tag for the union this belongs to. */
+  kind: "TestSourceUnsupportedSolcVersion"
+  /** The solc version the source's artifact was compiled with. */
+  version: string
 }
 
 /** The result of a test execution. */

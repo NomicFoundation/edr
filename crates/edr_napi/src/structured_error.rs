@@ -35,9 +35,7 @@
 /// }
 /// ```
 ///
-/// The tag's TypeScript type is derived from the tag, never written out:
-/// `pastey!` rewrites the token stream before `napi_derive` parses the
-/// attribute, so it can build the quoted literal that `ts_type` requires.
+/// The tag's TypeScript type is derived from the tag, never written out.
 macro_rules! impl_structured_napi_error {
     (
         @define
@@ -49,7 +47,10 @@ macro_rules! impl_structured_napi_error {
         )*]
     ) => {
         pastey::paste! {
-            $(#[doc = $type_doc])*
+            // Concatenating the empty literal onto `$type_doc` ensures that
+            // pastey re-emits it as a plain string literal. Otherwise, napi-rs
+            // renders it into the `.d.ts` with its `r"` prefix intact.
+            $(#[doc = "" $type_doc])*
             ///
             /// Build it with [`Self::new`], which sets the `kind` tag.
             #[napi_derive::napi(object)]
@@ -59,7 +60,7 @@ macro_rules! impl_structured_napi_error {
                 #[napi(ts_type = "\"" $($tag)* "\"")]
                 pub kind: String,
                 $(
-                    $(#[doc = $field_doc])*
+                    $(#[doc = "" $field_doc])*
                     pub $field: $field_ty,
                 )*
             }
