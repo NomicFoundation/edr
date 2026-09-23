@@ -466,9 +466,10 @@ async fn test_fuzz_function_overrides() {
 /// applies under every profile. See `fuzz/FuzzProfileOverride.t.sol`.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_profile_overrides() {
-    // The run counts each test resolves to under each selected profile. The
-    // global config sets 100 runs, so a test with no directive that applies
-    // lands there.
+    const GLOBAL_RUNS: usize = 100;
+
+    // The run counts each test resolves to under each selected profile. A test
+    // with no directive that applies lands on the global config's `GLOBAL_RUNS`.
     let expected_runs = [
         (
             "default",
@@ -483,7 +484,7 @@ async fn test_fuzz_profile_overrides() {
             [
                 ("testFuzz_Unprefixed", 3),
                 ("testFuzz_ProfileWinsOverUnprefixed", 8),
-                ("testFuzz_DefaultProfileOnly", 100),
+                ("testFuzz_DefaultProfileOnly", GLOBAL_RUNS),
             ],
         ),
     ];
@@ -491,7 +492,7 @@ async fn test_fuzz_profile_overrides() {
     for (selected, cases) in expected_runs {
         let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzProfileOverride.t.sol");
         let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-        config.fuzz.runs = 100;
+        config.fuzz.runs = u32::try_from(GLOBAL_RUNS).expect("runs fit in u32");
         config.fuzz.max_test_rejects = 0;
         config.inline_config_profiles =
             InlineConfigProfiles::new(selected, ["ci".to_owned()]).expect("valid profiles");
