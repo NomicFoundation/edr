@@ -4451,6 +4451,7 @@ dependencies = [
  "edr_common",
  "edr_defaults",
  "edr_macros",
+ "edr_rpc_client",
  "edr_test_utils",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
