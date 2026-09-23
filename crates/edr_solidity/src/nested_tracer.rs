@@ -3,9 +3,8 @@
 use std::{cell::RefCell, rc::Rc};
 
 use edr_chain_spec::HaltReasonTrait;
-use edr_chain_spec_evm::result::ExecutionResult;
 use edr_primitives::{Address, Bytes, U160, U256};
-use edr_tracing::{BeforeMessage, Step};
+use edr_tracing::{BeforeMessage, MessageOutcome, MessageResult, Step};
 
 use crate::{
     exit_code::ExitCode,
@@ -94,7 +93,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTracer<HaltReasonT> {
                     self.add_step(step)?;
                 }
                 edr_tracing::TraceMessage::After(after) => {
-                    self.add_after_message(after.execution_result)?;
+                    self.add_after_message(after.result)?;
                 }
             }
         }
@@ -218,15 +217,15 @@ impl<HaltReasonT: HaltReasonTrait> NestedTracer<HaltReasonT> {
 
     fn add_after_message(
         &mut self,
-        result: ExecutionResult<HaltReasonT>,
+        result: MessageResult<HaltReasonT>,
     ) -> Result<(), NestedTracerError> {
         if let Some(trace) = self.message_traces.last_mut() {
             let mut trace = trace.borrow_mut();
 
-            trace.set_gas_used(result.tx_gas_used());
+            trace.set_gas_used(result.gas.used());
 
-            match result {
-                ExecutionResult::Success { output, .. } => {
+            match result.outcome {
+                MessageOutcome::Success { output, .. } => {
                     trace.set_exit_code(ExitCode::Success);
                     trace.set_return_data(output.data().clone());
 
@@ -238,11 +237,11 @@ impl<HaltReasonT: HaltReasonTrait> NestedTracer<HaltReasonT> {
                         trace.deployed_contract = Some(address.as_slice().to_vec().into());
                     }
                 }
-                ExecutionResult::Halt { reason, .. } => {
+                MessageOutcome::Halt { reason } => {
                     trace.set_exit_code(ExitCode::Halt(reason));
                     trace.set_return_data(Bytes::new());
                 }
-                ExecutionResult::Revert { output, .. } => {
+                MessageOutcome::Revert { output } => {
                     trace.set_exit_code(ExitCode::Revert);
                     trace.set_return_data(output);
                 }

@@ -1,5 +1,5 @@
 use edr_chain_spec::EvmHaltReason;
-use edr_tracing::AfterMessage;
+use edr_tracing::{AfterMessage, MessageOutcome, MessageResult};
 use napi::{
     bindgen_prelude::{BigInt, Either3, Uint8Array},
     Either,
@@ -158,60 +158,45 @@ pub struct ExecutionResult {
 impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
     fn from(value: &AfterMessage<EvmHaltReason>) -> Self {
         let AfterMessage {
-            execution_result,
+            result: MessageResult { gas, logs, outcome },
             contract_address,
         } = value;
 
-        let result = match execution_result {
-            edr_chain_spec_evm::result::ExecutionResult::Success {
-                reason,
-                gas,
+        let gas_used = BigInt::from(gas.used());
+        let logs = logs.iter().map(ExecutionLog::from).collect();
+
+        let result = match outcome {
+            MessageOutcome::Success { reason, output } => Either3::A(SuccessResult {
+                reason: SuccessReason::from(*reason),
+                gas_used,
+                gas_refunded: BigInt::from(gas.refunded),
                 logs,
-                output,
-            } => {
-                let logs = logs.iter().map(ExecutionLog::from).collect();
+                output: match output {
+                    edr_chain_spec_evm::result::Output::Call(return_value) => {
+                        let return_value = Uint8Array::with_data_copied(return_value);
 
-                Either3::A(SuccessResult {
-                    reason: SuccessReason::from(*reason),
-                    gas_used: BigInt::from(gas.tx_gas_used()),
-                    gas_refunded: BigInt::from(gas.final_refunded()),
-                    logs,
-                    output: match output {
-                        edr_chain_spec_evm::result::Output::Call(return_value) => {
-                            let return_value = Uint8Array::with_data_copied(return_value);
+                        Either::A(CallOutput { return_value })
+                    }
+                    edr_chain_spec_evm::result::Output::Create(return_value, address) => {
+                        let return_value = Uint8Array::with_data_copied(return_value);
 
-                            Either::A(CallOutput { return_value })
-                        }
-                        edr_chain_spec_evm::result::Output::Create(return_value, address) => {
-                            let return_value = Uint8Array::with_data_copied(return_value);
-
-                            Either::B(CreateOutput {
-                                return_value,
-                                address: address.as_ref().map(Uint8Array::with_data_copied),
-                            })
-                        }
-                    },
-                })
-            }
-            edr_chain_spec_evm::result::ExecutionResult::Revert { gas, logs, output } => {
-                let logs = logs.iter().map(ExecutionLog::from).collect();
-                let output = Uint8Array::with_data_copied(output);
-
-                Either3::B(RevertResult {
-                    gas_used: BigInt::from(gas.tx_gas_used()),
-                    logs,
-                    output,
-                })
-            }
-            edr_chain_spec_evm::result::ExecutionResult::Halt { reason, gas, logs } => {
-                let logs = logs.iter().map(ExecutionLog::from).collect();
-
-                Either3::C(HaltResult {
-                    reason: ExceptionalHalt::from(reason.clone()),
-                    gas_used: BigInt::from(gas.tx_gas_used()),
-                    logs,
-                })
-            }
+                        Either::B(CreateOutput {
+                            return_value,
+                            address: address.as_ref().map(Uint8Array::with_data_copied),
+                        })
+                    }
+                },
+            }),
+            MessageOutcome::Revert { output } => Either3::B(RevertResult {
+                gas_used,
+                logs,
+                output: Uint8Array::with_data_copied(output),
+            }),
+            MessageOutcome::Halt { reason } => Either3::C(HaltResult {
+                reason: ExceptionalHalt::from(reason.clone()),
+                gas_used,
+                logs,
+            }),
         };
 
         let contract_address = contract_address.as_ref().map(Uint8Array::with_data_copied);

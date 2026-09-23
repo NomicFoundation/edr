@@ -3872,6 +3872,7 @@ dependencies = [
  "edr_chain_spec_evm",
  "edr_database_components",
  "edr_primitives",
+ "edr_receipt",
  "edr_state_api",
  "revm-inspector",
 ]

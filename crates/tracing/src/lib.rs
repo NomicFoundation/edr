@@ -12,46 +12,89 @@ use edr_chain_spec_evm::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         EthInterpreter, Gas, Interpreter, Jumps as _, SuccessOrHalt,
     },
-    result::{ExecutionResult, Output, ResultGas},
+    result::{Output, SuccessReason},
     ContextTrait, Inspector, JournalTrait,
 };
 use edr_database_components::DatabaseComponents;
 use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
+use edr_receipt::log::ExecutionLog;
 use edr_state_api::State;
 use revm_inspector::JournalExt;
 
-/// Build a [`ResultGas`] from a frame's [`Gas`] accumulator at
-/// end-of-execution, for Success/Revert outcomes that did not consume the
-/// entire gas limit.
-///
-/// `ResultGas` is a transaction-level summary, reused here for per-frame values
-/// with two workarounds. `floor_gas` is `0`: the EIP-7623 calldata floor is
-/// applied by revm in post-execution, after the outermost frame returns, so a
-/// frame has no floor value; consequently `tx_gas_used` and `final_refunded`
-/// derived here are not floor-adjusted. State gas is clamped to zero: the
-/// frame's counter is signed (a frame can net-refill state gas created by a
-/// parent), `ResultGas` stores it unsigned.
-///
-/// These figures are for the trace surface only; consumers that need the
-/// settled values must read revm's [`ExecutionResult`].
-fn result_gas_from_spent(gas: &Gas) -> ResultGas {
-    // TODO: replace `ResultGas` here with a frame-level gas type and remove
-    // disclaimer from rustdoc.
-    ResultGas::new_with_state_gas(
-        gas.total_gas_spent(),
-        gas.refunded() as u64,
-        0,
-        gas.state_gas_spent().max(0) as u64,
-    )
+/// Gas of a single call or create message, as charged to its caller.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FrameGas {
+    /// Gas limit of the message.
+    pub limit: u64,
+    /// Gas spent by the message, including state gas (EIP-8037).
+    pub spent: u64,
+    /// Refund recorded by the message. Negative when the message revoked
+    /// refunds earned by a parent message.
+    pub refunded: i64,
+    /// State gas spent by the message (EIP-8037). Negative when the message
+    /// refilled state gas charged by a parent message.
+    pub state_gas_spent: i64,
 }
 
-/// Build a [`ResultGas`] from a [`Gas`] accumulator where the full limit was
-/// consumed (e.g. for a Halt outcome).
-///
-/// `floor_gas` is `0` and state gas is clamped for the same reasons as in
-/// [`result_gas_from_spent`].
-fn result_gas_from_limit(gas: &Gas) -> ResultGas {
-    ResultGas::new_with_state_gas(gas.limit(), 0, 0, gas.state_gas_spent().max(0) as u64)
+impl From<&Gas> for FrameGas {
+    fn from(gas: &Gas) -> Self {
+        Self {
+            limit: gas.limit(),
+            spent: gas.total_gas_spent(),
+            refunded: gas.refunded(),
+            state_gas_spent: gas.state_gas_spent(),
+        }
+    }
+}
+
+impl FrameGas {
+    /// Gas that spent its whole limit and has no refund, as charged for a
+    /// halted message.
+    fn exhausted(self) -> Self {
+        Self {
+            spent: self.limit,
+            refunded: 0,
+            ..self
+        }
+    }
+
+    /// Gas spent net of the refund.
+    pub const fn used(&self) -> u64 {
+        self.spent.saturating_sub_signed(self.refunded)
+    }
+}
+
+/// Result of a single call or create message.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MessageResult<HaltReasonT: HaltReasonTrait> {
+    /// The gas of the message.
+    pub gas: FrameGas,
+    /// The logs emitted so far in the transaction.
+    pub logs: Vec<ExecutionLog>,
+    /// How the message ended.
+    pub outcome: MessageOutcome<HaltReasonT>,
+}
+
+/// How a call or create message ended.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MessageOutcome<HaltReasonT: HaltReasonTrait> {
+    /// The message returned successfully.
+    Success {
+        /// The reason for termination.
+        reason: SuccessReason,
+        /// The output of the message.
+        output: Output,
+    },
+    /// The message reverted.
+    Revert {
+        /// The revert data.
+        output: Bytes,
+    },
+    /// The message halted, consuming all of its gas.
+    Halt {
+        /// The reason for the halt.
+        reason: HaltReasonT,
+    },
 }
 
 /// Stack tracing message
@@ -91,8 +134,8 @@ pub struct BeforeMessage {
 /// Event that occurs after a call or create message.
 #[derive(Clone, Debug)]
 pub struct AfterMessage<HaltReasonT: HaltReasonTrait> {
-    /// The execution result
-    pub execution_result: ExecutionResult<HaltReasonT>,
+    /// The result of the message
+    pub result: MessageResult<HaltReasonT>,
     /// The newly created contract address if it's a create tx. `None`
     /// if there was an error creating the contract.
     pub contract_address: Option<Address>,
@@ -332,22 +375,27 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         };
 
         let outcome_gas = outcome.gas();
-        let execution_result = match SuccessOrHalt::from(safe_ret) {
-            SuccessOrHalt::Success(reason) => ExecutionResult::Success {
-                reason,
-                gas: result_gas_from_spent(&outcome_gas),
-                logs: context.journal().logs().to_vec(),
-                output: Output::Call(outcome.output().clone()),
+        let logs = context.journal().logs().to_vec();
+        let result = match SuccessOrHalt::from(safe_ret) {
+            SuccessOrHalt::Success(reason) => MessageResult {
+                gas: (&outcome_gas).into(),
+                logs,
+                outcome: MessageOutcome::Success {
+                    reason,
+                    output: Output::Call(outcome.output().clone()),
+                },
             },
-            SuccessOrHalt::Revert => ExecutionResult::Revert {
-                gas: result_gas_from_spent(&outcome_gas),
-                logs: context.journal().logs().to_vec(),
-                output: outcome.output().clone(),
+            SuccessOrHalt::Revert => MessageResult {
+                gas: (&outcome_gas).into(),
+                logs,
+                outcome: MessageOutcome::Revert {
+                    output: outcome.output().clone(),
+                },
             },
-            SuccessOrHalt::Halt(reason) => ExecutionResult::Halt {
-                reason,
-                gas: result_gas_from_limit(&outcome_gas),
-                logs: context.journal().logs().to_vec(),
+            SuccessOrHalt::Halt(reason) => MessageResult {
+                gas: FrameGas::from(&outcome_gas).exhausted(),
+                logs,
+                outcome: MessageOutcome::Halt { reason },
             },
             SuccessOrHalt::Internal(_) => {
                 panic!("Internal error: {safe_ret:?}")
@@ -358,7 +406,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         };
 
         self.add_after_message(AfterMessage {
-            execution_result,
+            result,
             contract_address: None,
         });
     }
@@ -424,22 +472,27 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 ret
             };
 
-        let execution_result = match SuccessOrHalt::from(safe_ret) {
-            SuccessOrHalt::Success(reason) => ExecutionResult::Success {
-                reason,
-                gas: result_gas_from_spent(outcome.gas()),
-                logs: context.journal().logs().to_vec(),
-                output: Output::Create(outcome.output().clone(), outcome.address),
+        let logs = context.journal().logs().to_vec();
+        let result = match SuccessOrHalt::from(safe_ret) {
+            SuccessOrHalt::Success(reason) => MessageResult {
+                gas: outcome.gas().into(),
+                logs,
+                outcome: MessageOutcome::Success {
+                    reason,
+                    output: Output::Create(outcome.output().clone(), outcome.address),
+                },
             },
-            SuccessOrHalt::Revert => ExecutionResult::Revert {
-                gas: result_gas_from_spent(outcome.gas()),
-                logs: context.journal().logs().to_vec(),
-                output: outcome.output().clone(),
+            SuccessOrHalt::Revert => MessageResult {
+                gas: outcome.gas().into(),
+                logs,
+                outcome: MessageOutcome::Revert {
+                    output: outcome.output().clone(),
+                },
             },
-            SuccessOrHalt::Halt(reason) => ExecutionResult::Halt {
-                reason,
-                gas: result_gas_from_limit(outcome.gas()),
-                logs: context.journal().logs().to_vec(),
+            SuccessOrHalt::Halt(reason) => MessageResult {
+                gas: FrameGas::from(outcome.gas()).exhausted(),
+                logs,
+                outcome: MessageOutcome::Halt { reason },
             },
             SuccessOrHalt::Internal(error) => {
                 panic!("Internal error: {error:?}")
@@ -450,7 +503,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         };
 
         self.add_after_message(AfterMessage {
-            execution_result,
+            result,
             contract_address: outcome.address,
         });
     }
@@ -556,5 +609,66 @@ impl<
 
     fn step(&mut self, interpreter: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
         self.notify_step_start(interpreter, context.journal());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn gas(limit: u64, cost: u64, refund: i64, state_gas: i64) -> Gas {
+        let mut gas = Gas::new(limit);
+        assert!(gas.record_regular_cost(cost));
+        gas.record_refund(refund);
+        gas.set_state_gas_spent(state_gas);
+        gas
+    }
+
+    #[test]
+    fn from_gas_keeps_signed_counters() {
+        let frame = FrameGas::from(&gas(100_000, 40_000, -4_800, -20_000));
+
+        assert_eq!(
+            frame,
+            FrameGas {
+                limit: 100_000,
+                spent: 40_000,
+                refunded: -4_800,
+                state_gas_spent: -20_000,
+            }
+        );
+    }
+
+    #[test]
+    fn exhausted_spends_limit_without_refund() {
+        let frame = FrameGas::from(&gas(100_000, 40_000, 4_800, 20_000)).exhausted();
+
+        assert_eq!(
+            frame,
+            FrameGas {
+                limit: 100_000,
+                spent: 100_000,
+                refunded: 0,
+                state_gas_spent: 20_000,
+            }
+        );
+    }
+
+    #[test]
+    fn used_subtracts_refund() {
+        let frame = FrameGas::from(&gas(100_000, 40_000, 4_800, 0));
+        assert_eq!(frame.used(), 35_200);
+    }
+
+    #[test]
+    fn used_saturates_when_refund_exceeds_spent() {
+        let frame = FrameGas::from(&gas(100_000, 2_900, 4_800, 0));
+        assert_eq!(frame.used(), 0);
+    }
+
+    #[test]
+    fn used_adds_revoked_refund() {
+        let frame = FrameGas::from(&gas(100_000, 40_000, -4_800, 0));
+        assert_eq!(frame.used(), 44_800);
     }
 }
