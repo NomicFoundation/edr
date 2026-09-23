@@ -10,5 +10,7 @@ mod client;
 pub mod error;
 /// Types specific to JSON-RPC
 pub mod jsonrpc;
+/// HTTP proxy helpers.
+pub mod proxy;
 
 pub use self::client::*;
