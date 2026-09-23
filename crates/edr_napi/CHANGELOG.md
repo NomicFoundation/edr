@@ -1,5 +1,17 @@
 # @nomicfoundation/edr
 
+## 0.22.0
+
+### Minor Changes
+
+- 451b5d1: Added profile support to Solidity test inline configuration. `SolidityTestRunnerConfigArgs` now accepts `testProfile` and `declaredTestProfiles`. Unprefixed directives apply to every profile, while profile-prefixed directives apply only when that profile is selected and override unprefixed directives with the same key. Undeclared profile prefixes are rejected.
+
+  BREAKING CHANGE: Renamed the `InlineConfigUnsupportedProfile` inline config problem to `InlineConfigUndeclaredProfile`. The replacement also includes the declared profile names in `declaredProfiles`.
+
+### Patch Changes
+
+- 3b35410: Fixed fork requests to loopback URLs (`localhost`, `*.localhost`, `127.0.0.0/8`, `0.0.0.0`, `::1`) being sent through `HTTP_PROXY`/`HTTPS_PROXY`.
+
 ## 0.21.0
 
 ### Minor Changes
