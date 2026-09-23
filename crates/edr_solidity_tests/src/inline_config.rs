@@ -27,15 +27,6 @@
 //!   - directives parse a block's lines into a config
 //!   - overrides  compose the above into a source's per-contract overrides
 //! ```
-//!
-//! The unit itself is built by `crate::test_sources`, which reads the source
-//! and its imports from disk.
-//!
-//! The test runner drives extraction through
-//! `crate::test_sources::collect_test_sources`, which parses each test
-//! source once and extracts both its inline configuration (entering the
-//! pipeline at `overrides`) and its EIP-712 struct definitions from the same
-//! compilation unit.
 
 mod directives;
 mod natspec;
