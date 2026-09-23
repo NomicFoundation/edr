@@ -871,32 +871,32 @@ export declare enum IncludeTraces {
 }
 
 /**
- * r" A directive-level problem, located at the offending directive.
- * r"
- * r" Its tag names the half of the `TestSourceError` union it belongs to,
- * r" not its own type, because the two halves differ in shape rather than in
- * r" what went wrong.
+ * A directive-level problem, located at the offending directive.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Its tag names the half of the `TestSourceError` union it belongs to,
+ * not its own type, because the two halves differ in shape rather than in
+ * what went wrong.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigDirectiveError {
   /** Discriminant tag for the union this belongs to. */
   kind: "directive"
   /**
-   * r" The solc source name the problem was found in (e.g.
-   * r" `project/test/Foo.t.sol`).
+   * The solc source name the problem was found in (e.g.
+   * `project/test/Foo.t.sol`).
    */
   sourceName: string
-  /** r" The contract the offending directive belongs to. */
+  /** The contract the offending directive belongs to. */
   contract: string
   /**
-   * r" The test function the offending directive belongs to. Undefined
-   * r" when the directive is contract-level.
+   * The test function the offending directive belongs to. Undefined
+   * when the directive is contract-level.
    */
   function?: string
-  /** r" The 1-based line of the offending directive within the source. */
+  /** The 1-based line of the offending directive within the source. */
   line: number
-  /** r" The problem itself; discriminate on its `kind` tag. */
+  /** The problem itself; discriminate on its `kind` tag. */
   problem: InlineConfigDirectiveProblem
 }
 
@@ -908,81 +908,81 @@ export interface InlineConfigDirectiveError {
 export type InlineConfigDirectiveProblem = InlineConfigInvalidSyntax | InlineConfigUnsupportedProfile | InlineConfigInvalidKey | InlineConfigInvalidKeyForTestType | InlineConfigInvalidValue | InlineConfigDuplicateKey
 
 /**
- * r" The same key was set twice for the same target.
+ * The same key was set twice for the same target.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigDuplicateKey {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigDuplicateKey"
-  /** r" The duplicated key. */
+  /** The duplicated key. */
   key: string
 }
 
 /**
- * r" An unknown configuration key was used.
+ * An unknown configuration key was used.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigInvalidKey {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidKey"
-  /** r" The offending key, exactly as written. */
+  /** The offending key, exactly as written. */
   key: string
 }
 
 /**
- * r" A key was used on a test of the wrong kind (e.g. `fuzz.*` on an
- * r" invariant test).
+ * A key was used on a test of the wrong kind (e.g. `fuzz.*` on an
+ * invariant test).
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigInvalidKeyForTestType {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidKeyForTestType"
-  /** r" The offending key, exactly as written. */
+  /** The offending key, exactly as written. */
   key: string
-  /** r" The kind of test the function is (`fuzz` or `invariant`). */
+  /** The kind of test the function is (`fuzz` or `invariant`). */
   testType: string
 }
 
 /**
- * r" A directive was missing the `=` separator.
+ * A directive was missing the `=` separator.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigInvalidSyntax {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidSyntax"
-  /** r" The offending directive line, stripped of comment decoration. */
+  /** The offending directive line, stripped of comment decoration. */
   directive: string
 }
 
 /**
- * r" A value did not match the expected type for its key.
+ * A value did not match the expected type for its key.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigInvalidValue {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigInvalidValue"
-  /** r" The offending key, exactly as written. */
+  /** The offending key, exactly as written. */
   key: string
-  /** r" The offending value, exactly as written. */
+  /** The offending value, exactly as written. */
   value: string
-  /** r" What the key expects instead. */
+  /** What the key expects instead. */
   expected: string
 }
 
 /**
- * r" A profile other than `default` was used.
+ * A profile other than `default` was used.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface InlineConfigUnsupportedProfile {
   /** Discriminant tag for the union this belongs to. */
   kind: "InlineConfigUnsupportedProfile"
-  /** r" The unsupported profile name. */
+  /** The unsupported profile name. */
   profile: string
 }
 
@@ -1853,25 +1853,25 @@ export interface SuiteResult {
 }
 
 /**
- * r" A directive's offset could not be resolved to a line number within its
- * r" source, meaning the parsing stages disagree about the source text, so
- * r" its directives cannot be trusted.
+ * A directive's offset could not be resolved to a line number within its
+ * source, meaning the parsing stages disagree about the source text, so
+ * its directives cannot be trusted.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceDirectiveLocation {
   /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceDirectiveLocation"
-  /** r" The contract the directive belongs to. */
+  /** The contract the directive belongs to. */
   contract: string
   /**
-   * r" The test function the directive belongs to. Undefined when the
-   * r" directive is contract-level.
+   * The test function the directive belongs to. Undefined when the
+   * directive is contract-level.
    */
   function?: string
   /**
-   * r" Why resolving the location failed, including the directive problem
-   * r" that was being reported.
+   * Why resolving the location failed, including the directive problem
+   * that was being reported.
    */
   reason: string
 }
@@ -1887,38 +1887,38 @@ export interface TestSourceDirectiveLocation {
 export type TestSourceError = TestSourceFileError | InlineConfigDirectiveError
 
 /**
- * r" A problem with the source itself, which no single directive can be
- * r" blamed for.
- * r"
- * r" Its tag names the half of the `TestSourceError` union it belongs to,
- * r" not its own type, because the two halves differ in shape rather than in
- * r" what went wrong.
+ * A problem with the source itself, which no single directive can be
+ * blamed for.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Its tag names the half of the `TestSourceError` union it belongs to,
+ * not its own type, because the two halves differ in shape rather than in
+ * what went wrong.
+ *
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceFileError {
   /** Discriminant tag for the union this belongs to. */
   kind: "source"
   /**
-   * r" The solc source name the problem was found in (e.g.
-   * r" `project/test/Foo.t.sol`).
+   * The solc source name the problem was found in (e.g.
+   * `project/test/Foo.t.sol`).
    */
   sourceName: string
-  /** r" The problem itself; discriminate on its `kind` tag. */
+  /** The problem itself; discriminate on its `kind` tag. */
   problem: TestSourceFileProblem
 }
 
 /**
- * r" The source's file could not be read at the path it was declared at.
+ * The source's file could not be read at the path it was declared at.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceFileNotFound {
   /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceFileNotFound"
-  /** r" The path the source was expected at. */
+  /** The path the source was expected at. */
   path: string
-  /** r" Why reading it failed. */
+  /** Why reading it failed. */
   reason: string
 }
 
@@ -1929,27 +1929,27 @@ export interface TestSourceFileNotFound {
 export type TestSourceFileProblem = TestSourceFileNotFound | TestSourceDirectiveLocation | TestSourcePathNotProvided | TestSourceUnsupportedSolcVersion | TestSourceParseErrors
 
 /**
- * r" The source does not parse, so nothing could be collected from it. A
- * r" partially-parsed source would silently miss struct definitions and
- * r" directives, so it is reported rather than half-collected.
+ * The source does not parse, so nothing could be collected from it. A
+ * partially-parsed source would silently miss struct definitions and
+ * directives, so it is reported rather than half-collected.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceParseErrors {
   /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceParseErrors"
   /**
-   * r" The syntax diagnostics, each located at its source line. Truncated
-   * r" to the first few, followed by a count of the rest.
+   * The syntax diagnostics, each located at its source line. Truncated
+   * to the first few, followed by a count of the rest.
    */
   reasons: Array<string>
 }
 
 /**
- * r" The test source has no `testSourcePaths` entry, so it is not located,
- * r" read, or parsed.
+ * The test source has no `testSourcePaths` entry, so it is not located,
+ * read, or parsed.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourcePathNotProvided {
   /** Discriminant tag for the union this belongs to. */
@@ -1957,19 +1957,19 @@ export interface TestSourcePathNotProvided {
 }
 
 /**
- * r" The solc version the source was compiled with predates the oldest
- * r" Solidity grammar available, so the source cannot be parsed at all.
- * r" Collecting inline configuration and EIP-712 struct definitions requires
- * r" solc 0.8.0 or newer, and no source is exempt: a run that selects this
- * r" one can only proceed with collection disabled entirely, by omitting
- * r" `testSourcePaths`.
+ * The solc version the source was compiled with predates the oldest
+ * Solidity grammar available, so the source cannot be parsed at all.
+ * Collecting inline configuration and EIP-712 struct definitions requires
+ * solc 0.8.0 or newer, and no source is exempt: a run that selects this
+ * one can only proceed with collection disabled entirely, by omitting
+ * `testSourcePaths`.
  *
- *  Build it with [`Self::new`], which sets the `kind` tag.
+ * Build it with [`Self::new`], which sets the `kind` tag.
  */
 export interface TestSourceUnsupportedSolcVersion {
   /** Discriminant tag for the union this belongs to. */
   kind: "TestSourceUnsupportedSolcVersion"
-  /** r" The solc version the source's artifact was compiled with. */
+  /** The solc version the source's artifact was compiled with. */
   version: string
 }
 
