@@ -84,8 +84,8 @@ impl InlineConfigProfiles {
     }
 
     /// Every declared profile, sorted, for error messages.
-    pub(super) fn declared_names(&self) -> Vec<String> {
-        self.declared.iter().cloned().collect()
+    pub fn declared(&self) -> impl Iterator<Item = &str> {
+        self.declared.iter().map(String::as_str)
     }
 }
 
@@ -123,7 +123,7 @@ mod tests {
         assert_eq!(profiles.selected(), DEFAULT_PROFILE);
         assert!(profiles.is_declared(DEFAULT_PROFILE));
         assert!(!profiles.is_declared("ci"));
-        assert_eq!(profiles.declared_names(), vec![DEFAULT_PROFILE.to_owned()]);
+        assert_eq!(profiles.declared().collect::<Vec<_>>(), [DEFAULT_PROFILE]);
     }
 
     #[test]
@@ -133,13 +133,13 @@ mod tests {
 
         assert!(profiles.is_declared(DEFAULT_PROFILE));
         assert_eq!(
-            profiles.declared_names(),
-            vec!["ci".to_owned(), DEFAULT_PROFILE.to_owned()]
+            profiles.declared().collect::<Vec<_>>(),
+            ["ci", DEFAULT_PROFILE]
         );
     }
 
     #[test]
-    fn declared_names_are_sorted_and_deduplicated() {
+    fn declared_is_sorted_and_deduplicated() {
         let profiles = InlineConfigProfiles::new(
             DEFAULT_PROFILE,
             ["nightly".to_owned(), "ci".to_owned(), "ci".to_owned()],
@@ -147,12 +147,8 @@ mod tests {
         .expect("valid profiles");
 
         assert_eq!(
-            profiles.declared_names(),
-            vec![
-                "ci".to_owned(),
-                DEFAULT_PROFILE.to_owned(),
-                "nightly".to_owned()
-            ]
+            profiles.declared().collect::<Vec<_>>(),
+            ["ci", DEFAULT_PROFILE, "nightly"]
         );
     }
 

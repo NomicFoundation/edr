@@ -380,7 +380,7 @@ fn parse_line(
         if !profiles.is_declared(first_segment) {
             return Err(located(InlineConfigError::UndeclaredProfile {
                 profile: first_segment.to_owned(),
-                declared: profiles.declared_names(),
+                declared: profiles.declared().map(str::to_owned).collect(),
             }));
         }
         scope = DirectiveScope::Profile(first_segment.to_owned());
