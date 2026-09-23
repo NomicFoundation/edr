@@ -4,7 +4,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{Address, Bytes, U160, U256};
-use edr_tracing::{BeforeMessage, MessageOutcome, MessageResult, Step};
+use edr_tracing::{BeforeMessage, MessageExit, MessageResult, Step};
 
 use crate::{
     exit_code::ExitCode,
@@ -224,8 +224,8 @@ impl<HaltReasonT: HaltReasonTrait> NestedTracer<HaltReasonT> {
 
             trace.set_gas_used(result.gas.used());
 
-            match result.outcome {
-                MessageOutcome::Success { output, .. } => {
+            match result.exit {
+                MessageExit::Success { output, .. } => {
                     trace.set_exit_code(ExitCode::Success);
                     trace.set_return_data(output.data().clone());
 
@@ -237,11 +237,11 @@ impl<HaltReasonT: HaltReasonTrait> NestedTracer<HaltReasonT> {
                         trace.deployed_contract = Some(address.as_slice().to_vec().into());
                     }
                 }
-                MessageOutcome::Halt { reason } => {
+                MessageExit::Halt { reason } => {
                     trace.set_exit_code(ExitCode::Halt(reason));
                     trace.set_return_data(Bytes::new());
                 }
-                MessageOutcome::Revert { output } => {
+                MessageExit::Revert { output } => {
                     trace.set_exit_code(ExitCode::Revert);
                     trace.set_return_data(output);
                 }

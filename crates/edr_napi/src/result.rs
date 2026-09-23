@@ -1,5 +1,5 @@
 use edr_chain_spec::EvmHaltReason;
-use edr_tracing::{AfterMessage, MessageOutcome, MessageResult};
+use edr_tracing::{AfterMessage, MessageExit, MessageResult};
 use napi::{
     bindgen_prelude::{BigInt, Either3, Uint8Array},
     Either,
@@ -158,15 +158,15 @@ pub struct ExecutionResult {
 impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
     fn from(value: &AfterMessage<EvmHaltReason>) -> Self {
         let AfterMessage {
-            result: MessageResult { gas, logs, outcome },
+            result: MessageResult { gas, logs, exit },
             contract_address,
         } = value;
 
         let gas_used = BigInt::from(gas.used());
         let logs = logs.iter().map(ExecutionLog::from).collect();
 
-        let result = match outcome {
-            MessageOutcome::Success { reason, output } => Either3::A(SuccessResult {
+        let result = match exit {
+            MessageExit::Success { reason, output } => Either3::A(SuccessResult {
                 reason: SuccessReason::from(*reason),
                 gas_used,
                 gas_refunded: BigInt::from(gas.refunded),
@@ -187,12 +187,12 @@ impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
                     }
                 },
             }),
-            MessageOutcome::Revert { output } => Either3::B(RevertResult {
+            MessageExit::Revert { output } => Either3::B(RevertResult {
                 gas_used,
                 logs,
                 output: Uint8Array::with_data_copied(output),
             }),
-            MessageOutcome::Halt { reason } => Either3::C(HaltResult {
+            MessageExit::Halt { reason } => Either3::C(HaltResult {
                 reason: ExceptionalHalt::from(reason.clone()),
                 gas_used,
                 logs,

@@ -23,7 +23,7 @@ use revm_inspector::JournalExt;
 
 /// Gas of a single call or create message, as charged to its caller.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct FrameGas {
+pub struct MessageGas {
     /// Gas limit of the message.
     pub limit: u64,
     /// Gas spent by the message, including state gas (EIP-8037).
@@ -36,7 +36,7 @@ pub struct FrameGas {
     pub state_gas_spent: i64,
 }
 
-impl From<&Gas> for FrameGas {
+impl From<&Gas> for MessageGas {
     fn from(gas: &Gas) -> Self {
         Self {
             limit: gas.limit(),
@@ -47,7 +47,7 @@ impl From<&Gas> for FrameGas {
     }
 }
 
-impl FrameGas {
+impl MessageGas {
     /// Gas that spent its whole limit and has no refund, as charged for a
     /// halted message.
     fn exhausted(self) -> Self {
@@ -68,16 +68,16 @@ impl FrameGas {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MessageResult<HaltReasonT: HaltReasonTrait> {
     /// The gas of the message.
-    pub gas: FrameGas,
+    pub gas: MessageGas,
     /// The logs emitted so far in the transaction.
     pub logs: Vec<ExecutionLog>,
-    /// How the message ended.
-    pub outcome: MessageOutcome<HaltReasonT>,
+    /// How the message exited.
+    pub exit: MessageExit<HaltReasonT>,
 }
 
-/// How a call or create message ended.
+/// How a call or create message exited.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum MessageOutcome<HaltReasonT: HaltReasonTrait> {
+pub enum MessageExit<HaltReasonT: HaltReasonTrait> {
     /// The message returned successfully.
     Success {
         /// The reason for termination.
@@ -90,11 +90,24 @@ pub enum MessageOutcome<HaltReasonT: HaltReasonTrait> {
         /// The revert data.
         output: Bytes,
     },
-    /// The message halted, consuming all of its gas.
+    /// The message halted.
     Halt {
         /// The reason for the halt.
         reason: HaltReasonT,
     },
+}
+
+impl<HaltReasonT: HaltReasonTrait> MessageResult<HaltReasonT> {
+    /// Builds the result of a message from its gas accumulator at exit. A
+    /// halted message is charged its whole gas limit.
+    pub fn new(gas: &Gas, logs: Vec<ExecutionLog>, exit: MessageExit<HaltReasonT>) -> Self {
+        let gas = match exit {
+            MessageExit::Halt { .. } => MessageGas::from(gas).exhausted(),
+            MessageExit::Success { .. } | MessageExit::Revert { .. } => gas.into(),
+        };
+
+        Self { gas, logs, exit }
+    }
 }
 
 /// Stack tracing message
@@ -374,29 +387,15 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             ret
         };
 
-        let outcome_gas = outcome.gas();
-        let logs = context.journal().logs().to_vec();
-        let result = match SuccessOrHalt::from(safe_ret) {
-            SuccessOrHalt::Success(reason) => MessageResult {
-                gas: (&outcome_gas).into(),
-                logs,
-                outcome: MessageOutcome::Success {
-                    reason,
-                    output: Output::Call(outcome.output().clone()),
-                },
+        let exit = match SuccessOrHalt::from(safe_ret) {
+            SuccessOrHalt::Success(reason) => MessageExit::Success {
+                reason,
+                output: Output::Call(outcome.output().clone()),
             },
-            SuccessOrHalt::Revert => MessageResult {
-                gas: (&outcome_gas).into(),
-                logs,
-                outcome: MessageOutcome::Revert {
-                    output: outcome.output().clone(),
-                },
+            SuccessOrHalt::Revert => MessageExit::Revert {
+                output: outcome.output().clone(),
             },
-            SuccessOrHalt::Halt(reason) => MessageResult {
-                gas: FrameGas::from(&outcome_gas).exhausted(),
-                logs,
-                outcome: MessageOutcome::Halt { reason },
-            },
+            SuccessOrHalt::Halt(reason) => MessageExit::Halt { reason },
             SuccessOrHalt::Internal(_) => {
                 panic!("Internal error: {safe_ret:?}")
             }
@@ -406,7 +405,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         };
 
         self.add_after_message(AfterMessage {
-            result,
+            result: MessageResult::new(&outcome.gas(), context.journal().logs().to_vec(), exit),
             contract_address: None,
         });
     }
@@ -472,28 +471,15 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 ret
             };
 
-        let logs = context.journal().logs().to_vec();
-        let result = match SuccessOrHalt::from(safe_ret) {
-            SuccessOrHalt::Success(reason) => MessageResult {
-                gas: outcome.gas().into(),
-                logs,
-                outcome: MessageOutcome::Success {
-                    reason,
-                    output: Output::Create(outcome.output().clone(), outcome.address),
-                },
+        let exit = match SuccessOrHalt::from(safe_ret) {
+            SuccessOrHalt::Success(reason) => MessageExit::Success {
+                reason,
+                output: Output::Create(outcome.output().clone(), outcome.address),
             },
-            SuccessOrHalt::Revert => MessageResult {
-                gas: outcome.gas().into(),
-                logs,
-                outcome: MessageOutcome::Revert {
-                    output: outcome.output().clone(),
-                },
+            SuccessOrHalt::Revert => MessageExit::Revert {
+                output: outcome.output().clone(),
             },
-            SuccessOrHalt::Halt(reason) => MessageResult {
-                gas: FrameGas::from(outcome.gas()).exhausted(),
-                logs,
-                outcome: MessageOutcome::Halt { reason },
-            },
+            SuccessOrHalt::Halt(reason) => MessageExit::Halt { reason },
             SuccessOrHalt::Internal(error) => {
                 panic!("Internal error: {error:?}")
             }
@@ -503,7 +489,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         };
 
         self.add_after_message(AfterMessage {
-            result,
+            result: MessageResult::new(outcome.gas(), context.journal().logs().to_vec(), exit),
             contract_address: outcome.address,
         });
     }
@@ -614,6 +600,8 @@ impl<
 
 #[cfg(test)]
 mod tests {
+    use edr_chain_spec::EvmHaltReason;
+
     use super::*;
 
     fn gas(limit: u64, cost: u64, refund: i64, state_gas: i64) -> Gas {
@@ -626,11 +614,11 @@ mod tests {
 
     #[test]
     fn from_gas_keeps_signed_counters() {
-        let frame = FrameGas::from(&gas(100_000, 40_000, -4_800, -20_000));
+        let frame = MessageGas::from(&gas(100_000, 40_000, -4_800, -20_000));
 
         assert_eq!(
             frame,
-            FrameGas {
+            MessageGas {
                 limit: 100_000,
                 spent: 40_000,
                 refunded: -4_800,
@@ -640,12 +628,18 @@ mod tests {
     }
 
     #[test]
-    fn exhausted_spends_limit_without_refund() {
-        let frame = FrameGas::from(&gas(100_000, 40_000, 4_800, 20_000)).exhausted();
+    fn new_charges_whole_limit_on_halt() {
+        let result = MessageResult::new(
+            &gas(100_000, 40_000, 4_800, 20_000),
+            Vec::new(),
+            MessageExit::<EvmHaltReason>::Halt {
+                reason: EvmHaltReason::OpcodeNotFound,
+            },
+        );
 
         assert_eq!(
-            frame,
-            FrameGas {
+            result.gas,
+            MessageGas {
                 limit: 100_000,
                 spent: 100_000,
                 refunded: 0,
@@ -655,20 +649,34 @@ mod tests {
     }
 
     #[test]
+    fn new_keeps_gas_on_revert() {
+        let gas = gas(100_000, 40_000, 4_800, 20_000);
+        let result = MessageResult::new(
+            &gas,
+            Vec::new(),
+            MessageExit::<EvmHaltReason>::Revert {
+                output: Bytes::new(),
+            },
+        );
+
+        assert_eq!(result.gas, MessageGas::from(&gas));
+    }
+
+    #[test]
     fn used_subtracts_refund() {
-        let frame = FrameGas::from(&gas(100_000, 40_000, 4_800, 0));
+        let frame = MessageGas::from(&gas(100_000, 40_000, 4_800, 0));
         assert_eq!(frame.used(), 35_200);
     }
 
     #[test]
     fn used_saturates_when_refund_exceeds_spent() {
-        let frame = FrameGas::from(&gas(100_000, 2_900, 4_800, 0));
+        let frame = MessageGas::from(&gas(100_000, 2_900, 4_800, 0));
         assert_eq!(frame.used(), 0);
     }
 
     #[test]
     fn used_adds_revoked_refund() {
-        let frame = FrameGas::from(&gas(100_000, 40_000, -4_800, 0));
+        let frame = MessageGas::from(&gas(100_000, 40_000, -4_800, 0));
         assert_eq!(frame.used(), 44_800);
     }
 }
