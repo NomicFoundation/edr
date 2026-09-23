@@ -95,13 +95,11 @@ fn validate_name(name: &str) -> Result<(), InlineConfigProfilesError> {
     if name.is_empty() {
         return Err(InlineConfigProfilesError::EmptyName);
     }
-    if name.contains(['.', '=']) || name.chars().any(char::is_whitespace) {
-        return Err(InlineConfigProfilesError::UnrepresentableName {
-            name: name.to_owned(),
-        });
-    }
-    if name.starts_with(['-', '_']) {
-        return Err(InlineConfigProfilesError::LeadingSeparator {
+    if name.contains(['.', '='])
+        || name.chars().any(char::is_whitespace)
+        || name.starts_with(['-', '_'])
+    {
+        return Err(InlineConfigProfilesError::InvalidName {
             name: name.to_owned(),
         });
     }
@@ -191,7 +189,7 @@ mod tests {
 
             assert_eq!(
                 error,
-                InlineConfigProfilesError::UnrepresentableName {
+                InlineConfigProfilesError::InvalidName {
                     name: name.to_owned(),
                 },
                 "{name:?}"
@@ -207,7 +205,7 @@ mod tests {
 
             assert_eq!(
                 error,
-                InlineConfigProfilesError::LeadingSeparator {
+                InlineConfigProfilesError::InvalidName {
                     name: name.to_owned(),
                 },
                 "{name:?}"

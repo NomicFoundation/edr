@@ -139,19 +139,12 @@ pub enum InlineConfigProfilesError {
     #[error("a Solidity test profile name must not be empty")]
     EmptyName,
     /// A declared profile name contains a character the directive grammar
-    /// cannot carry in a prefix (`.`, `=`, or whitespace).
+    /// cannot carry in a prefix (`.`, `=`, or whitespace), or starts with `-`
+    /// or `_`.
     #[error(
-        "invalid Solidity test profile name `{name}`: a profile name must not contain `.`, `=`, or whitespace"
+        "invalid Solidity test profile name `{name}`: a profile name must not contain `.`, `=`, or whitespace, and must not start with `-` or `_`"
     )]
-    UnrepresentableName {
-        /// The offending name.
-        name: String,
-    },
-    /// A declared profile name starts with `-` or `_`.
-    #[error(
-        "invalid Solidity test profile name `{name}`: a profile name must not start with `-` or `_`"
-    )]
-    LeadingSeparator {
+    InvalidName {
         /// The offending name.
         name: String,
     },
