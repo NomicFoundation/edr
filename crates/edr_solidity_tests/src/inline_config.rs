@@ -31,11 +31,15 @@
 //! function testFoo(uint256 x) public { /* ... */ }
 //! ```
 //!
-//! Profiles are resolved separately for the contracts and functions,
-//! and only then are the contract's directives applied underneath the
-//! function's. Level precedence therefore outranks profile precedence: a
-//! function's unprefixed `fuzz.runs` beats the contract's `ci.fuzz.runs` even
-//! under `ci`.
+//! Directives are handled in this order of priority:
+//!  1. Function-level > Contract-level
+//!  2. Profile > bare
+//!
+//! Therefore, function-level directives always take precedence over
+//! contract-level ones, and profile-specific directives take precedence over
+//! unprefixed ones within the same level.
+//!
+//! Custom profiles do not inherit from the "default" profile.
 //!
 //! The work flows through the submodules as a pipeline:
 //!
