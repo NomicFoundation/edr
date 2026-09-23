@@ -18,6 +18,8 @@ async fn loopback_fork_url_bypasses_http_proxy() {
     // SAFETY: this test binary is single-test, so nothing reads the
     // environment concurrently.
     unsafe {
+        std::env::remove_var("NO_PROXY");
+        std::env::remove_var("no_proxy");
         std::env::set_var("HTTP_PROXY", proxy.url());
         std::env::set_var("http_proxy", proxy.url());
     }
