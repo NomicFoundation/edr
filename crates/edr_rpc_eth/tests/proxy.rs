@@ -52,6 +52,5 @@ async fn loopback_fork_url_bypasses_http_proxy() {
         .expect("request reaches the node directly");
     assert_eq!(chain_id, 1);
 
-    node_mock.assert_async().await;
-    proxy_mock.assert_async().await;
+    tokio::join!(node_mock.assert_async(), proxy_mock.assert_async());
 }
