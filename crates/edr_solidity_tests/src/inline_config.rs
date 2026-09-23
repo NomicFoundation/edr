@@ -50,17 +50,8 @@
 //!   - overrides  compose the above into a source's per-contract overrides
 //! ```
 //!
-//! The unit itself is built by `crate::test_sources`, which reads the source
-//! and its imports from disk.
-//!
 //! `profiles` carries the run's selected and declared profiles through that
 //! pipeline, so `directives` can scope each one.
-//!
-//! The test runner drives extraction through
-//! `crate::test_sources::collect_test_sources`, which parses each test
-//! source once and extracts both its inline configuration (entering the
-//! pipeline at `overrides`) and its EIP-712 struct definitions from the same
-//! compilation unit.
 
 mod directives;
 mod natspec;
