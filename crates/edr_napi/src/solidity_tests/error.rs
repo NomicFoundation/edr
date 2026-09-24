@@ -114,7 +114,7 @@ fn to_entry(item: collect_error::TestSourceErrorItem) -> TestSourceError {
 /// carrying the structured, located problems on the JS error as its
 /// `testSourceErrors` property.
 ///
-/// Must be called on the JS thread (it builds JS values); the reject path in
+/// Must be called on the JS thread (it builds JS values). The reject path in
 /// [`crate::context`] does so from the deferred's resolver. Falls back to a
 /// plain message-only error if building the structured object fails.
 pub(crate) fn to_napi_error(env: &Env, errors: collect_error::TestSourceErrors) -> napi::Error {

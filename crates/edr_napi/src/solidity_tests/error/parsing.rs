@@ -1,7 +1,7 @@
 //! Problems found while locating, reading or parsing a test source.
 //!
 //! These are not about inline configuration, though ill-formed directives are
-//! reported alongside them: a run using no directives at all can still be
+//! reported alongside them. A run using no directives at all can still be
 //! rejected by one of these.
 
 use napi::bindgen_prelude::Either5;
@@ -45,7 +45,7 @@ impl_structured_napi_error! {
     /// The solc version the source was compiled with predates the oldest
     /// Solidity grammar available, so the source cannot be parsed at all.
     /// Collecting inline configuration and EIP-712 struct definitions requires
-    /// solc 0.8.0 or newer, and no source is exempt: a run that selects this
+    /// solc 0.8.0 or newer, and no source is exempt. A run that selects this
     /// one can only proceed with collection disabled entirely, by omitting
     /// `testSourcePaths`.
     pub struct TestSourceUnsupportedSolcVersion {
@@ -87,7 +87,7 @@ impl_structured_napi_error! {
         /// The solc source name the problem was found in (e.g.
         /// `project/test/Foo.t.sol`).
         pub source_name: String,
-        /// The problem itself; discriminate on its `kind` tag.
+        /// The problem itself, discriminated on its `kind` tag.
         pub problem: TestSourceFileProblem,
     }
 }
