@@ -442,6 +442,61 @@ async fn test_fuzz_runs_with_rejects() {
     assert_eq!(runs, 256);
 }
 
+/// Runs the `FuzzWithRejects` fixture with `counterexample` persisted for its
+/// test and returns the number of runs of the (passing) test.
+async fn fuzz_runs_with_persisted_failure(counterexample: &BaseCounterExample) -> usize {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzWithRejects.t.sol");
+    let persist_dir = tempfile::tempdir().unwrap();
+    let failure_dir = persist_dir
+        .path()
+        .join("testfailure")
+        .join("FuzzWithRejectsTest");
+    std::fs::create_dir_all(&failure_dir).unwrap();
+    std::fs::write(
+        failure_dir.join("testFuzzWithRejects"),
+        serde_json::to_vec(counterexample).unwrap(),
+    )
+    .unwrap();
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 256;
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+    let result = results
+        .get("default/fuzz/FuzzWithRejects.t.sol:FuzzWithRejectsTest")
+        .unwrap()
+        .test_results
+        .get("testFuzzWithRejects(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Success, "{:?}", result.reason);
+    let TestKind::Fuzz { runs, .. } = result.kind else {
+        panic!("not a fuzz test: {:?}", result.kind);
+    };
+    runs
+}
+
+// Test that a persisted counterexample is only replayed if it targets the same
+// test selector, and that a replayed input does not count as a run.
+// <https://github.com/foundry-rs/foundry/issues/11927>
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_replay_only_with_same_selector() {
+    let arg = alloy_primitives::U256::from(2_000_000u32).to_be_bytes::<32>();
+
+    // A counterexample recorded for a different function signature is ignored.
+    let other_selector = &alloy_primitives::keccak256("testFuzzWithRejects(uint8)")[..4];
+    let calldata = Bytes::from([other_selector, arg.as_slice()].concat());
+    let counterexample = BaseCounterExample::from_fuzz_call(calldata, &[], None, None);
+    assert_eq!(fuzz_runs_with_persisted_failure(&counterexample).await, 256);
+
+    // A counterexample for the current signature is replayed first. Its input
+    // is rejected by `vm.assume`, which must not eat into the configured runs.
+    let selector = &alloy_primitives::keccak256("testFuzzWithRejects(uint256)")[..4];
+    let calldata = Bytes::from([selector, arg.as_slice()].concat());
+    let counterexample = BaseCounterExample::from_fuzz_call(calldata, &[], None, None);
+    assert_eq!(fuzz_runs_with_persisted_failure(&counterexample).await, 256);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_fail_on_revert() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailOnRevert.t.sol");
