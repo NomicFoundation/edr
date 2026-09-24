@@ -497,6 +497,37 @@ async fn test_fuzz_replay_only_with_same_selector() {
     assert_eq!(fuzz_runs_with_persisted_failure(&counterexample).await, 256);
 }
 
+// Tests that `vm.randomUint()` produces different values across fuzz runs.
+// Regression test for <https://github.com/foundry-rs/foundry/issues/12817>
+//
+// The issue was that `vm.randomUint()` would produce the same sequence of
+// values in every fuzz run because the RNG was seeded identically for each
+// run. This test verifies that with many fuzz runs and a small range, we
+// eventually hit value 0, which proves the RNG varies across runs.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_random_uint_varies_across_runs() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/RandomFuzz.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.seed = Some(U256::from(1u32));
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/RandomFuzz.t.sol:RandomFuzzTest",
+            // `DSTest::assertTrue` logs the message instead of reverting.
+            vec![(
+                "testFuzz_randomUint_shouldFail(uint256)",
+                false,
+                None,
+                None,
+                None,
+            )],
+        )]),
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_fail_on_revert() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailOnRevert.t.sol");

@@ -239,6 +239,14 @@ impl<
             } else {
                 test_data.runs += 1;
 
+                // Reseed the cheatcode RNG (`vm.random*`) so that every run draws a
+                // different, yet reproducible, sequence of values.
+                if let Some(cheats) = self.executor.inspector_mut().cheatcodes.as_mut()
+                    && let Some(seed) = self.config.seed
+                {
+                    cheats.set_seed(seed.wrapping_add(U256::from(test_data.runs)));
+                }
+
                 match strategy.new_tree(&mut self.runner) {
                     Ok(tree) => tree.current(),
                     Err(err) => {
