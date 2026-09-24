@@ -43,9 +43,9 @@ pub enum TestSourceCollectError {
     /// read, or parsed.
     #[error("no `test_source_paths` entry for this source")]
     SourcePathNotProvided,
-    /// A directive's offset could not be resolved to a line number: it lies
-    /// outside the source text (or the line count overflows), meaning the
-    /// parsing stages disagree about the source, so its directives cannot be
+    /// A directive's offset could not be resolved to a line number. It lies
+    /// outside the source text, or the line count overflows. The parsing stages
+    /// therefore disagree about the source, so its directives cannot be
     /// trusted.
     #[error(
         "could not locate a directive of `{contract}{}{}`: {reason}",
@@ -159,11 +159,12 @@ pub struct TestSourceErrorItem {
 pub enum TestSourceProblem {
     /// A problem found while collecting the source, before its directives could
     /// be parsed. Kept structured so consumers can map it onto their own error
-    /// types; render it with `to_string()` for a human.
+    /// types. Render it with `to_string()` for a human.
     #[error(transparent)]
     Source(#[from] TestSourceCollectError),
     /// A problem in a specific directive. Kept structured so consumers can map
-    /// it onto their own error types; render it with `to_string()` for a human.
+    /// it onto their own error types. Render it with `to_string()` for a
+    /// human.
     #[error(transparent)]
     Directive(#[from] InlineConfigDirectiveError),
 }
@@ -208,8 +209,9 @@ impl std::fmt::Display for TestSourceErrors {
 impl TryFrom<Vec<TestSourceErrorItem>> for TestSourceErrors {
     type Error = NoTestSourceProblems;
 
-    /// Fails on an empty vector: an `TestSourceErrors` carrying no problem
-    /// would render as an empty report and abort a run for no stated reason.
+    /// Fails on an empty vector because a `TestSourceErrors` carrying no
+    /// problem would render as an empty report and abort a run for no stated
+    /// reason.
     fn try_from(items: Vec<TestSourceErrorItem>) -> Result<Self, Self::Error> {
         if items.is_empty() {
             Err(NoTestSourceProblems)

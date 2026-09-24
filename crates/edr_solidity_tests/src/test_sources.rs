@@ -28,7 +28,7 @@ use crate::{
 };
 
 /// A source far enough out of sync with the grammar yields a syntax diagnostic
-/// per token; the first few say what is wrong just as well as all of them, and
+/// per token. The first few say what is wrong just as well as all of them, so
 /// the rest are summarised as a count.
 const MAX_REPORTED_PARSE_ERRORS: usize = 5;
 
@@ -52,7 +52,8 @@ pub(crate) struct TestSourceRoot {
 #[derive(Debug)]
 pub(crate) struct SourceCollections {
     /// The EIP-712 struct definitions reachable from the source. Shared rather
-    /// than copied: every suite declared in the source serves the same types.
+    /// than copied because every suite declared in the source serves the same
+    /// types.
     pub eip712_types: Arc<Eip712TypeCollection>,
     /// The successfully-parsed inline configuration, keyed by contract name.
     pub overrides: SourceOverrides,
@@ -108,8 +109,8 @@ fn collect_root(
     root: &TestSourceRoot,
     import_resolver: &ImportResolver,
 ) -> Result<SourceCollections, Vec<TestSourceErrorItem>> {
-    // Read the content up front: the NatSpec directives are recovered from the
-    // raw source text, and a build over a missing root only yields a
+    // Read the content up front because the NatSpec directives are recovered
+    // from the raw source text. A build over a missing root only yields a
     // diagnostic and an empty unit, which must not be mistaken for "no types".
     let content = match std::fs::read_to_string(&root.path) {
         Ok(content) => content,
@@ -130,7 +131,7 @@ fn collect_root(
     let file_id = root.path.to_string_lossy();
 
     // Slang is error-tolerant and yields a partial AST, so a root file that
-    // doesn't fully parse could silently miss structs and directives; report it
+    // doesn't fully parse could silently miss structs and directives. Report it
     // rather than collect half of it. Other diagnostic kinds — unresolvable
     // imports in particular, which are legitimately optional — keep degrading
     // gracefully.
@@ -150,8 +151,9 @@ fn collect_root(
             .map(|diagnostic| {
                 match line_of(&content, diagnostic.text_range().start) {
                     Ok(line) => format!("{} (line {line})", diagnostic.message()),
-                    // The line is decoration on the reported problem: an
-                    // offset we cannot place still reports its diagnostic.
+                    // The line is decoration on the reported problem
+                    // because an offset we cannot place still reports its
+                    // diagnostic.
                     Err(_unplaceable) => diagnostic.message(),
                 }
             })

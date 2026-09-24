@@ -2,7 +2,8 @@
 //! parsing them with Slang v2 and walking the resolved AST.
 //!
 //! This is a Rust port of Hardhat's TypeScript `collectEip712CanonicalTypes`,
-//! which walks solc JSON ASTs; here we parse `.sol` files directly with Slang.
+//! which walks solc JSON ASTs, while here we parse `.sol` files directly with
+//! Slang.
 //! The canonicalization semantics (member-type encoding, struct dependency
 //! ordering, encodability propagation, deduplication) mirror that
 //! implementation and `forge bind-json`.
@@ -636,8 +637,9 @@ fn reject_non_encodable(
         rejected.extend(std::mem::take(&mut newly_rejected));
 
         for (name, encodable) in &encodables {
-            // These are struct *type* names, not member names — reporting them
-            // as members would name the wrong thing in the error.
+            // These are struct *type* names, not member names, because
+            // reporting them as members would name the wrong thing in the
+            // error.
             let unusable_dependencies = encodable
                 .direct_struct_deps
                 .iter()
@@ -981,9 +983,9 @@ mod tests {
             collection.get("Inner"),
             Err(Eip712CollectionLookupError::Rejected( Eip712TypeRejected { reason: RejectReason::NonEncodableMembers { members } ,.. })) if members.iter().any(|member| member.contains("m"))
         ));
-        // `Outer`'s own members are all encodable; it falls because `Inner`
-        // does, so it is reported as an unusable dependency rather than as a
-        // non-encodable member.
+        // `Outer`'s own members are all encodable. It falls only because
+        // `Inner` does, so it is reported as an unusable dependency rather
+        // than as a non-encodable member.
         let outer = collection.get("Outer").unwrap_err();
         assert!(
             matches!(
@@ -1116,7 +1118,7 @@ mod tests {
     }
 
     /// Root-preference settles a direct lookup, but it must not leak into
-    /// dependency resolution: a struct referencing the contested name could be
+    /// dependency resolution. A struct referencing the contested name could be
     /// encoded with either body.
     #[test]
     fn root_preference_does_not_extend_to_dependents() {
@@ -1137,8 +1139,8 @@ mod tests {
         // The direct lookup still resolves to the asking source's definition.
         assert_eq!(get_canonical_type(&collection, "Point"), "Point(uint256 x)");
 
-        // Neither dependent is encodable: both would inline a `Point` chosen
-        // by name alone.
+        // Neither dependent is encodable because both would inline a `Point`
+        // chosen by name alone.
         for name in ["Order", "RootUses"] {
             let error = collection.get(name).unwrap_err();
             assert!(
@@ -1155,9 +1157,10 @@ mod tests {
              contract C { struct S { uint256 b; } }
              struct Uses { S s; }",
         );
-        // `Uses` is well-formed in isolation; it is rejected because `S` names
-        // two different structs, so there is no saying which body to inline.
-        // The report names the struct type, not the member holding it.
+        // `Uses` is well-formed in isolation. It is rejected because `S`
+        // names two different structs, so there is no saying which body to
+        // inline. The report names the struct type rather than the member
+        // holding it.
         let uses = collection.get("Uses").unwrap_err();
         assert!(
             matches!(&uses, Eip712CollectionLookupError::Rejected(Eip712TypeRejected { reason: RejectReason::AmbiguousDependencies { dependencies }, .. }) if dependencies.iter().any(|dependency| dependency == "S")),

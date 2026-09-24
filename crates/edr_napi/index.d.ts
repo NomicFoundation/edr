@@ -896,7 +896,7 @@ export interface InlineConfigDirectiveError {
   function?: string
   /** The 1-based line of the offending directive within the source. */
   line: number
-  /** The problem itself; discriminate on its `kind` tag. */
+  /** The problem itself, discriminated on its `kind` tag. */
   problem: InlineConfigDirectiveProblem
 }
 
@@ -1904,7 +1904,7 @@ export interface TestSourceFileError {
    * `project/test/Foo.t.sol`).
    */
   sourceName: string
-  /** The problem itself; discriminate on its `kind` tag. */
+  /** The problem itself, discriminated on its `kind` tag. */
   problem: TestSourceFileProblem
 }
 
@@ -1960,7 +1960,7 @@ export interface TestSourcePathNotProvided {
  * The solc version the source was compiled with predates the oldest
  * Solidity grammar available, so the source cannot be parsed at all.
  * Collecting inline configuration and EIP-712 struct definitions requires
- * solc 0.8.0 or newer, and no source is exempt: a run that selects this
+ * solc 0.8.0 or newer, and no source is exempt. A run that selects this
  * one can only proceed with collection disabled entirely, by omitting
  * `testSourcePaths`.
  *

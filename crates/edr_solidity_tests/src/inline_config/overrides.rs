@@ -49,8 +49,8 @@ impl ContractInlineConfig {
 
 /// The successfully-parsed inline configuration of every contract in one source
 /// that declares any, keyed by contract name. A contract with no directives is
-/// simply absent; a contract whose directives were all malformed is likewise
-/// absent — the whole collection fails with those problems instead.
+/// simply absent, and so is a contract whose directives were all malformed. The
+/// whole collection fails with those problems instead.
 pub(crate) type SourceOverrides = HashMap<String, ContractInlineConfig>;
 
 /// Extracts the inline configuration of every contract in the already-built

@@ -50,8 +50,8 @@ contract BadInlineConfig {
 /// The solc source name of the test source these tests redirect or remove to
 /// provoke a collection problem.
 ///
-/// It must be one Slang parses: collection uses the grammar of the version its
-/// artifact was compiled with, so standing in for e.g. the 0.5.17
+/// It must be one Slang parses, because collection uses the grammar of the
+/// version its artifact was compiled with. Standing in for e.g. the 0.5.17
 /// `FuzzPreBytecodeHash.t.sol` would report an unsupported-version problem
 /// instead of the one under test.
 const STAND_IN_SOURCE: &str = "default/fuzz/Fuzz.t.sol";
@@ -109,8 +109,8 @@ fn pre_0_8_filter() -> SolidityTestFilter {
 async fn malformed_inline_config_aborts_whole_run() {
     let file = malformed_source_file();
 
-    // Point the stand-in source at the malformed file on disk; collection
-    // parses it under that source's name.
+    // Point the stand-in source at the malformed file on disk, because
+    // collection parses it under that source's name.
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     let source = stand_in_source_name(&config);
     config
@@ -326,7 +326,7 @@ async fn source_without_a_path_aborts_whole_run() {
 }
 
 /// Disabling collection stops inline configuration taking effect, not just
-/// EIP-712 resolution: the contract-level `fuzz.runs` is ignored and the
+/// EIP-712 resolution. The contract-level `fuzz.runs` is ignored, so the
 /// runner's own default applies.
 #[tokio::test(flavor = "multi_thread")]
 async fn collection_disabled_ignores_inline_config() {
@@ -387,7 +387,7 @@ async fn pre_0_8_source_aborts_whole_run() {
 
 /// Omitting the source-path map disables collection entirely, which is how a
 /// project whose test sources predate solc 0.8 keeps running its tests. The
-/// suite runs; it simply gets no inline configuration and no EIP-712 types.
+/// suite runs, and simply gets no inline configuration and no EIP-712 types.
 #[tokio::test(flavor = "multi_thread")]
 async fn pre_0_8_source_runs_when_collection_is_disabled() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();

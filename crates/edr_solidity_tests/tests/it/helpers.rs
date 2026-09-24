@@ -581,10 +581,10 @@ impl<
         let known_contracts = ContractsByArtifact::new(linked_contracts);
 
         // The runner parses inline configuration and EIP-712 struct
-        // definitions from the test sources on disk; the testdata source
+        // definitions from the test sources on disk. The testdata source
         // names are real paths relative to the project root, so joining them
-        // onto the root yields the absolute path (production callers provide
-        // these paths explicitly instead). Imports to e.g. forge-std have no
+        // onto the root yields the absolute path. Production callers provide
+        // these paths explicitly instead. Imports to e.g. forge-std have no
         // import mapping and simply stay unresolved, which still recovers the
         // root file's functions. Every testdata source is listed here; a run
         // whose filter selects a pre-0.8 one needs

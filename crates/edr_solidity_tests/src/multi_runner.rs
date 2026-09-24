@@ -705,9 +705,11 @@ fn test_source_roots<'a>(
         return (Vec::new(), Vec::new());
     }
 
-    // One source can back artifacts compiled at several versions. Parse it
-    // with the newest grammar any of them needs: an older one would reject
-    // syntax the newer artifact legitimately uses.
+    // One source can back several artifacts. A file can declare multiple
+    // contracts, and the same file can be compiled at more than one version
+    // when its pragma admits a range. Parse it with the newest of those
+    // versions because the oldest may predate Slang's grammars. That costs a
+    // suite compiled at a supported version its collection.
     let mut versions_by_source: BTreeMap<&PathBuf, &Version> = BTreeMap::new();
     for artifact_id in test_contracts {
         versions_by_source
@@ -790,8 +792,8 @@ impl SuiteSourceData {
 
         let mut warnings = Vec::new();
 
-        // Key the overrides by selector: every overload is a distinct test
-        // with a distinct selector.
+        // Key the overrides by selector because every overload is a
+        // distinct test with a distinct selector.
         let mut by_selector: HashMap<String, TestFunctionConfigOverride> = HashMap::new();
         for function_override in parsed.functions {
             let mut matched = false;
@@ -807,7 +809,7 @@ impl SuiteSourceData {
             }
             // A name matching no ABI function (e.g. not externally callable)
             // can't be run as a test, so its override would silently do
-            // nothing; warn instead.
+            // nothing. Warn instead.
             if !matched {
                 warnings.push(format!(
                     "Found inline configuration for function \"{}\" in contract \"{}\", but no \
@@ -915,7 +917,7 @@ mod tests {
         ));
     }
 
-    /// Collection requires solc 0.8, and a listed source is never exempt: one
+    /// Collection requires solc 0.8, and a listed source is never exempt. One
     /// compiled with an older version is reported alongside every other
     /// problem rather than silently going uncollected.
     #[test]
@@ -954,8 +956,8 @@ mod tests {
         );
     }
 
-    /// An empty map disables collection, so a pre-0.8 source is not a problem
-    /// — the run simply collects nothing.
+    /// An empty map disables collection, so a pre-0.8 source is not a
+    /// problem. The run simply collects nothing.
     #[test]
     fn pre_0_8_source_is_fine_when_collection_is_disabled() {
         let contracts = test_contracts(&[("test/Legacy.t.sol", Version::new(0, 6, 12))]);

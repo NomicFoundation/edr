@@ -87,7 +87,7 @@ mod tests {
     fn sorts_referenced_types_alphabetically() {
         // EIP-712: "the set of referenced struct types is collected,
         // sorted by name and appended to the encoding". Input here has
-        // Person before Asset; canonical output must swap them.
+        // Person before Asset, so canonical output must swap them.
         let non_canonical = "Transaction(Person from,Person to,Asset tx)\
                              Person(address wallet,string name)\
                              Asset(address token,uint256 amount)";

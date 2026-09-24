@@ -95,7 +95,7 @@ impl_structured_napi_error! {
         pub function: Option<String>,
         /// The 1-based line of the offending directive within the source.
         pub line: u32,
-        /// The problem itself; discriminate on its `kind` tag.
+        /// The problem itself, discriminated on its `kind` tag.
         pub problem: InlineConfigDirectiveProblem,
     }
 }
