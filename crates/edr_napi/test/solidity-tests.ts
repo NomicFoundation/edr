@@ -263,7 +263,7 @@ describe("Solidity Tests", () => {
   });
 
   // A non-empty `testSourcePaths` must name the source of every selected test
-  // suite, with no exceptions; a missing entry rejects the run before any test
+  // suite, with no exceptions. A missing entry rejects the run before any test
   // executes, carrying the structured `testSourceErrors` array on the thrown
   // error.
   // Typed against the generated `TestSourceError` union rather than a
@@ -360,28 +360,22 @@ describe("Solidity Tests", () => {
     const artifact = loadContract(
       "./data/artifacts/default/Eip712UnknownTest.json"
     );
-    // Collection requires solc 0.8; the artifact's own version is irrelevant
-    // to this run, which never executes a test.
+    // Collection requires solc 0.8, but the artifact's own version is
+    // irrelevant to this run, which never executes a test.
     artifact.id = { ...artifact.id, solcVersion: "0.7.6" };
 
     const errors = await expectSourceErrors(
-      runAllSolidityTests(
-        context,
-        L1_CHAIN_TYPE,
-        [artifact],
-        [artifact.id],
-        {
-          disableTransactionGasCap: true,
-          projectRoot: __dirname,
-          hardfork: l1HardforkToString(l1HardforkLatest()),
-          testSourcePaths: {
-            "data/contracts/Eip712UnknownTest.t.sol": path.join(
-              __dirname,
-              "data/contracts/Eip712UnknownTest.t.sol"
-            ),
-          },
-        }
-      )
+      runAllSolidityTests(context, L1_CHAIN_TYPE, [artifact], [artifact.id], {
+        disableTransactionGasCap: true,
+        projectRoot: __dirname,
+        hardfork: l1HardforkToString(l1HardforkLatest()),
+        testSourcePaths: {
+          "data/contracts/Eip712UnknownTest.t.sol": path.join(
+            __dirname,
+            "data/contracts/Eip712UnknownTest.t.sol"
+          ),
+        },
+      })
     );
 
     assert.equal(errors.length, 1);

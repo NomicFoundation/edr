@@ -65,9 +65,10 @@ fn resolves_mapped_imports() {
 
 #[test]
 fn unmapped_import_leaves_dependency_unresolved_but_unit_builds() {
-    // No import mapping supplied: the import is unresolved (a diagnostic, not a
-    // hard error). Collection still succeeds, but `Payment`'s member type does
-    // not resolve, so `Payment` is rejected rather than encoded without it.
+    // No import mapping is supplied, so the import is unresolved (a
+    // diagnostic, not a hard error). Collection still succeeds, but
+    // `Payment`'s member type does not resolve. `Payment` is therefore
+    // rejected rather than encoded without it.
     let types = collect("mapped/Root.sol", solc(), &ImportResolver::default());
 
     assert!(types.get("Token").is_err());
@@ -80,7 +81,7 @@ fn unmapped_import_leaves_dependency_unresolved_but_unit_builds() {
 
 #[test]
 fn missing_root_file_yields_no_types() {
-    // A build over a missing root yields a diagnostic and an empty unit; the
+    // A build over a missing root yields a diagnostic and an empty unit. The
     // test runner pre-checks the root's existence to tell this apart from a
     // source that genuinely declares no structs.
     let types = collect("does/not/exist.sol", solc(), &ImportResolver::default());
