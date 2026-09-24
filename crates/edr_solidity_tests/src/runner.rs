@@ -740,7 +740,7 @@ impl<
                 )
                 .entered();
 
-                let mut outcome = FunctionRunner::new(&self, &executor, &setup).run(
+                let mut outcome = FunctionRunner::new(&self, &executor, &setup, tokio_handle).run(
                     func,
                     kind,
                     call_after_invariant,
@@ -814,6 +814,9 @@ struct FunctionRunner<
     >,
     /// The test setup result.
     setup: &'a TestSetup<HaltReasonT>,
+    /// The tokio runtime handle, entered by fuzz workers so that fork-mode
+    /// RPC calls made from their threads find a reactor.
+    tokio_handle: &'a tokio::runtime::Handle,
     /// The test result. Returned after running the test.
     result: TestResult<HaltReasonT>,
     /// The trace arenas the test sampled for the gas report; `None` when no
@@ -824,7 +827,7 @@ struct FunctionRunner<
 impl<
         'a,
         BlockT: BlockEnvTr,
-        ChainContextT: 'static + ChainContextTr,
+        ChainContextT: 'static + ChainContextTr + Send + Sync,
         EvmBuilderT: 'static
             + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: 'static + HaltReasonTrait + TryInto<HaltReason>,
@@ -867,11 +870,13 @@ impl<
             ChainContextT,
         >,
         setup: &'a TestSetup<HaltReasonT>,
+        tokio_handle: &'a tokio::runtime::Handle,
     ) -> Self {
         Self {
             executor: Cow::Borrowed(executor),
             cr,
             setup,
+            tokio_handle,
             result: TestResult::new(setup),
             gas_report_samples: None,
         }
@@ -1557,7 +1562,7 @@ impl<
         });
 
         // Run fuzz test.
-        let mut fuzzed_executor = FuzzedExecutor::new(
+        let fuzzed_executor = FuzzedExecutor::new(
             self.executor.into_owned(),
             runner,
             self.cr.sender,
@@ -1570,6 +1575,7 @@ impl<
             &self.setup.deployed_libs,
             self.setup.address,
             self.cr.revert_decoder,
+            self.tokio_handle,
         );
 
         // Record counterexample.

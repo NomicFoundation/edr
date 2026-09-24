@@ -312,6 +312,8 @@ async fn test_should_not_shrink_fuzz_failure() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 256;
     config.fuzz.seed = Some(U256::from(100));
+    // The number of runs before the failure depends on worker scheduling.
+    config.fuzz.workers = Some(1);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let suite_results = runner.test_collect(filter).await.suite_results;
     let suite_result = suite_results
@@ -334,6 +336,8 @@ async fn test_fuzz_can_scrape_bytecode() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 2100;
     config.fuzz.seed = Some(U256::from(107u32));
+    // Keep the seeded input stream independent of the number of threads.
+    config.fuzz.workers = Some(1);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
@@ -526,6 +530,108 @@ async fn test_fuzz_random_uint_varies_across_runs() {
             )],
         )]),
     );
+}
+
+const FUZZ_WITH_REJECTS: &str = "default/fuzz/FuzzWithRejects.t.sol:FuzzWithRejectsTest";
+const FUZZ_WITH_REJECTS_TEST: &str = "testFuzzWithRejects(uint256)";
+const FUZZ_FAILURE_PERSIST: &str = "default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest";
+const FUZZ_FAILURE_PERSIST_TEST: &str =
+    "test_persist_fuzzed_failure(uint256,int256,address,bool,string,(address,uint256),address[])";
+
+/// Returns the status and `(runs, mean_gas, median_gas)` of a fuzz test.
+macro_rules! fuzz_outcome {
+    ($results:expr, $contract:expr, $test_name:expr) => {{
+        let result = $results
+            .get($contract)
+            .unwrap()
+            .test_results
+            .get($test_name)
+            .unwrap();
+        let TestKind::Fuzz {
+            runs,
+            mean_gas,
+            median_gas,
+        } = result.kind
+        else {
+            panic!("not a fuzz test: {:?}", result.kind);
+        };
+        (result.status, (runs, mean_gas, median_gas))
+    }};
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_parallel_workers_run_all_runs() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzWithRejects.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 1000;
+    config.fuzz.workers = Some(4);
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let (status, (runs, _, _)) = fuzz_outcome!(results, FUZZ_WITH_REJECTS, FUZZ_WITH_REJECTS_TEST);
+    assert_eq!(status, TestStatus::Success);
+    assert_eq!(runs, 1000);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_parallel_workers_report_failure() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 1000;
+    config.fuzz.workers = Some(4);
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let result = results
+        .get(FUZZ_FAILURE_PERSIST)
+        .unwrap()
+        .test_results
+        .get(FUZZ_FAILURE_PERSIST_TEST)
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Failure);
+    assert!(matches!(
+        result.counterexample,
+        Some(CounterExample::Single(_))
+    ));
+    let (_, (runs, _, _)) = fuzz_outcome!(results, FUZZ_FAILURE_PERSIST, FUZZ_FAILURE_PERSIST_TEST);
+    assert!(runs <= 1000, "{runs}");
+}
+
+/// The same seed and worker count must produce the same inputs on every run.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_parallel_workers_are_deterministic() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzWithRejects.t.sol");
+    let mut outcomes = Vec::new();
+    for _ in 0..2 {
+        let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+        config.fuzz.runs = 512;
+        config.fuzz.seed = Some(U256::from(1234u32));
+        config.fuzz.workers = Some(2);
+        let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+        let results = runner.test_collect(filter.clone()).await.suite_results;
+        outcomes.push(fuzz_outcome!(
+            results,
+            FUZZ_WITH_REJECTS,
+            FUZZ_WITH_REJECTS_TEST
+        ));
+    }
+    assert_eq!(outcomes[0].0, TestStatus::Success);
+    assert_eq!(outcomes[0].1 .0, 512);
+    assert_eq!(outcomes[0], outcomes[1]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_zero_runs() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 0;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let (status, (runs, _, _)) =
+        fuzz_outcome!(results, FUZZ_FAILURE_PERSIST, FUZZ_FAILURE_PERSIST_TEST);
+    assert_eq!(status, TestStatus::Success);
+    assert_eq!(runs, 0);
 }
 
 #[tokio::test(flavor = "multi_thread")]

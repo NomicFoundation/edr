@@ -760,6 +760,13 @@ export interface FuzzConfigArgs {
    * Defaults to none (no timeout).
    */
   timeout?: number
+  /**
+   * Number of parallel workers used to run each fuzz test. The number of
+   * runs is split between the workers, each of which needs at least 64
+   * runs.
+   * Defaults to the number of available threads.
+   */
+  workers?: number
 }
 
 /** See [`edr_solidity_tests::result::TestKind::Fuzz`] */

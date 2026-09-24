@@ -486,6 +486,11 @@ pub struct FuzzConfigArgs {
     /// Optional timeout (in seconds) for each property test.
     /// Defaults to none (no timeout).
     pub timeout: Option<u32>,
+    /// Number of parallel workers used to run each fuzz test. The number of
+    /// runs is split between the workers, each of which needs at least 64
+    /// runs.
+    /// Defaults to the number of available threads.
+    pub workers: Option<u32>,
 }
 
 impl TryFrom<FuzzConfigArgs> for FuzzConfig {
@@ -503,6 +508,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             include_push_bytes,
             show_logs,
             timeout,
+            workers,
         } = value;
 
         let failure_persist_dir = failure_persist_dir.map(PathBuf::from);
@@ -522,6 +528,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             // TODO https://github.com/NomicFoundation/edr/issues/657
             gas_report_samples: 0,
             timeout,
+            workers,
             ..FuzzConfig::default()
         };
 
@@ -636,6 +643,7 @@ impl InvariantConfigArgs {
             max_test_rejects: _,
             seed: _,
             show_logs: _,
+            workers: _,
             timeout,
         } = fuzz;
 

@@ -27,6 +27,9 @@ pub struct FuzzConfig {
     pub show_logs: bool,
     /// Optional timeout (in seconds) for each property test
     pub timeout: Option<u32>,
+    /// Number of parallel workers used to run each fuzz test. `None` picks
+    /// the number of available threads, bounded by the number of runs.
+    pub workers: Option<u32>,
 }
 
 impl Default for FuzzConfig {
@@ -42,6 +45,7 @@ impl Default for FuzzConfig {
             failure_persist_file: "failures".to_string(),
             show_logs: false,
             timeout: None,
+            workers: None,
         }
     }
 }
