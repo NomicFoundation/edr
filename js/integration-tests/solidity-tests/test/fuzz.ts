@@ -511,9 +511,7 @@ describe("Fuzz and invariant testing", function () {
       }
     );
 
-    // Rejected inputs currently count as runs, so `testFuzz_NoOverrideTimeout`
-    // runs out of runs before it hits its reject limit.
-    assert.equal(result.failedTests, 1);
+    assert.equal(result.failedTests, 2);
     assert.equal(result.totalTests, 5);
 
     assert.equal(
@@ -522,8 +520,8 @@ describe("Fuzz and invariant testing", function () {
     );
 
     assert.equal(
-      result.stackTraces.get("testFuzz_NoOverrideTimeout(uint256)"),
-      undefined
+      result.stackTraces.get("testFuzz_NoOverrideTimeout(uint256)")?.reason,
+      "`vm.assume` rejected too many inputs (5000 allowed)"
     );
 
     const suite_result = result.suiteResults[0];

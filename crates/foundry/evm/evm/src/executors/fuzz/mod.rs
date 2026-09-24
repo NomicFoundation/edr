@@ -288,7 +288,8 @@ impl<
                         break 'stop;
                     }
                     TestCaseError::Reject(_) => {
-                        // Apply max rejects only if configured, otherwise silently discard run.
+                        // Discard run and apply max rejects if configured.
+                        test_data.runs -= 1;
                         if self.config.max_test_rejects > 0 {
                             test_data.rejects += 1;
                             if test_data.rejects >= self.config.max_test_rejects {

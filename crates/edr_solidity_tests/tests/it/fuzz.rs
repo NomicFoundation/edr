@@ -28,6 +28,7 @@ async fn test_fuzz() {
                 r"test_fuzz_bound\(uint256\)",
                 r"testImmutableOwner\(address\)",
                 r"testStorageOwner\(address\)",
+                r"testFuzzWithRejects\(uint256\)",
             ]
             .join("|"),
         )
@@ -418,6 +419,29 @@ async fn test_fuzz_timeout() {
     );
 }
 
+// Test 256 runs regardless number of test rejects.
+// <https://github.com/foundry-rs/foundry/issues/9054>
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_runs_with_rejects() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzWithRejects.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 256;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let result = results
+        .get("default/fuzz/FuzzWithRejects.t.sol:FuzzWithRejectsTest")
+        .unwrap()
+        .test_results
+        .get("testFuzzWithRejects(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Success);
+    let TestKind::Fuzz { runs, .. } = result.kind else {
+        panic!("not a fuzz test: {:?}", result.kind);
+    };
+    assert_eq!(runs, 256);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_fail_on_revert() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailOnRevert.t.sol");
@@ -479,12 +503,10 @@ async fn test_fuzz_function_overrides() {
                     None,
                     None,
                 ),
-                // Rejected inputs currently count as runs, so this test runs
-                // out of runs before it hits its reject limit.
                 (
                     "testFuzz_NoOverrideTimeout(uint256)",
-                    true,
-                    None,
+                    false,
+                    Some("`vm.assume` rejected too many inputs (5000 allowed)".into()),
                     None,
                     None,
                 ),
