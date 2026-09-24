@@ -707,7 +707,11 @@ export interface FuzzCase {
 export interface FuzzConfigArgs {
   /** Path where fuzz failures are recorded and replayed if set. */
   failurePersistDir?: string
-  /** Name of the file to record fuzz failures, defaults to `failures`. */
+  /**
+   * Name of the directory under `failure_persist_dir` in which fuzz
+   * failures are recorded, one JSON counterexample per test. Defaults to
+   * `failures`.
+   */
   failurePersistFile?: string
   /**
    * The amount of fuzz runs to perform for each fuzz test case. Higher
@@ -717,9 +721,8 @@ export interface FuzzConfigArgs {
    */
   runs?: number
   /**
-   * The maximum number of combined inputs that may be rejected before the
-   * test as a whole aborts. “Global” filters apply to the whole test
-   * case. If the test case is rejected, the whole thing is regenerated.
+   * The maximum number of inputs that `vm.assume` may reject before the
+   * test as a whole aborts. Set to 0 to disable the limit.
    * Defaults to 65536.
    */
   maxTestRejects?: number

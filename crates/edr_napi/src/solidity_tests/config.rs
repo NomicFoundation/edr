@@ -451,16 +451,17 @@ impl SolidityTestRunnerConfigArgs<'_> {
 pub struct FuzzConfigArgs {
     /// Path where fuzz failures are recorded and replayed if set.
     pub failure_persist_dir: Option<String>,
-    /// Name of the file to record fuzz failures, defaults to `failures`.
+    /// Name of the directory under `failure_persist_dir` in which fuzz
+    /// failures are recorded, one JSON counterexample per test. Defaults to
+    /// `failures`.
     pub failure_persist_file: Option<String>,
     /// The amount of fuzz runs to perform for each fuzz test case. Higher
     /// values gives more confidence in results at the cost of testing
     /// speed.
     /// Defaults to 256.
     pub runs: Option<u32>,
-    /// The maximum number of combined inputs that may be rejected before the
-    /// test as a whole aborts. “Global” filters apply to the whole test
-    /// case. If the test case is rejected, the whole thing is regenerated.
+    /// The maximum number of inputs that `vm.assume` may reject before the
+    /// test as a whole aborts. Set to 0 to disable the limit.
     /// Defaults to 65536.
     pub max_test_rejects: Option<u32>,
     /// Hexadecimal string.

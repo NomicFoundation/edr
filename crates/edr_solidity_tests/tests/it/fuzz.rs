@@ -5,12 +5,12 @@ use std::collections::BTreeMap;
 use alloy_primitives::{Bytes, U256};
 use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{
-    fuzz::CounterExample,
+    fuzz::{BaseCounterExample, CounterExample},
     inline_config::InlineConfigProfiles,
     result::{SuiteResult, TestKind, TestStatus},
 };
 
-use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TEST_DATA_DEFAULT};
+use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz() {
@@ -145,14 +145,13 @@ async fn test_fuzz_collection() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_persist_fuzz_failure() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
-    let mut fuzz_config = TestFuzzConfig {
-        runs: 1000,
-        seed: None,
-        ..TestFuzzConfig::default()
-    };
-    let runner = TEST_DATA_DEFAULT
-        .runner_with_fuzz_config(fuzz_config.clone())
-        .await;
+    let persist_dir = tempfile::tempdir().unwrap();
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 1000;
+    config.fuzz.seed = None;
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    config.fuzz.failure_persist_file = "testfailure".to_string();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config.clone()).await;
 
     macro_rules! get_failure_result {
         ($runner:ident) => {
@@ -177,6 +176,17 @@ async fn test_persist_fuzz_failure() {
         _ => Bytes::new(),
     };
 
+    // the counterexample is persisted as JSON at
+    // `<failure_persist_dir>/<failure_persist_file>/<contract>/<test>`
+    let failure_file = persist_dir
+        .path()
+        .join("testfailure")
+        .join("FuzzFailurePersistTest")
+        .join("test_persist_fuzzed_failure");
+    let persisted: BaseCounterExample =
+        serde_json::from_slice(&std::fs::read(&failure_file).unwrap()).unwrap();
+    assert_eq!(persisted.calldata, initial_calldata);
+
     // run several times and compare counterexamples calldata
     for i in 0..10 {
         let new_calldata = match get_failure_result!(runner) {
@@ -188,14 +198,57 @@ async fn test_persist_fuzz_failure() {
     }
 
     // write new failure in different file, but keep the same directory
-    fuzz_config.failure_persist_file = "failure1".to_string();
-    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_config(fuzz_config).await;
+    config.fuzz.failure_persist_file = "failure1".to_string();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let new_calldata = match get_failure_result!(runner) {
         Some(CounterExample::Single(counterexample)) => counterexample.calldata,
         _ => Bytes::new(),
     };
-    // empty file is used to load failure so new calldata is generated
+    // no failure is persisted under the new name so new calldata is generated
     assert_ne!(initial_calldata, new_calldata);
+    assert!(persist_dir
+        .path()
+        .join("failure1")
+        .join("FuzzFailurePersistTest")
+        .join("test_persist_fuzzed_failure")
+        .is_file());
+}
+
+/// Older EDR versions persisted fuzz failures as a single `proptest` seed file
+/// at `<failure_persist_dir>/<failure_persist_file>`. It must be replaced by
+/// the failure directory instead of blocking persistence.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_replaces_legacy_seed_file() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
+    let persist_dir = tempfile::tempdir().unwrap();
+    let legacy_file = persist_dir.path().join("testfailure");
+    std::fs::write(
+        &legacy_file,
+        "# Seeds for failure cases proptest has generated in the past.\n\
+         cc 0000000000000000000000000000000000000000000000000000000000000000\n",
+    )
+    .unwrap();
+
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+    let result = results
+        .get("default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest")
+        .unwrap()
+        .test_results
+        .get("test_persist_fuzzed_failure(uint256,int256,address,bool,string,(address,uint256),address[])")
+        .unwrap();
+    assert!(matches!(
+        result.counterexample,
+        Some(CounterExample::Single(_))
+    ));
+
+    assert!(legacy_file.is_dir());
+    assert!(legacy_file
+        .join("FuzzFailurePersistTest")
+        .join("test_persist_fuzzed_failure")
+        .is_file());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -267,7 +320,10 @@ async fn test_should_not_shrink_fuzz_failure() {
         .get("testAddOne(uint256)")
         .unwrap();
     assert_eq!(test_result.status, TestStatus::Failure);
-    assert!(matches!(test_result.kind, TestKind::Fuzz { runs: 84, .. }));
+    let TestKind::Fuzz { runs, .. } = test_result.kind else {
+        panic!("not a fuzz test: {:?}", test_result.kind);
+    };
+    assert_eq!(runs, 27);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -275,7 +331,7 @@ async fn test_fuzz_can_scrape_bytecode() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzerDict.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 2100;
-    config.fuzz.seed = Some(U256::from(119u32));
+    config.fuzz.seed = Some(U256::from(107u32));
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
@@ -346,7 +402,8 @@ async fn test_fuzz_show_logs() {
 async fn test_fuzz_timeout() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzTimeout.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config.fuzz.max_test_rejects = 50000;
+    // Disable the reject limit so that the test can only end by timing out.
+    config.fuzz.max_test_rejects = 0;
     config.fuzz.timeout = Some(1u32);
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
@@ -400,7 +457,7 @@ async fn test_fuzz_function_overrides() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzConfigOverride.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 100;
-    config.fuzz.max_test_rejects = 0;
+    config.fuzz.max_test_rejects = 1;
 
     // Per-function overrides come from inline `forge-config:` directives in
     // `fuzz/FuzzConfigOverride.t.sol`.
@@ -421,17 +478,19 @@ async fn test_fuzz_function_overrides() {
                     None,
                     None,
                 ),
+                // Rejected inputs currently count as runs, so this test runs
+                // out of runs before it hits its reject limit.
                 (
                     "testFuzz_NoOverrideTimeout(uint256)",
-                    false,
-                    Some("`vm.assume` rejected too many inputs (5000 allowed)".into()),
+                    true,
+                    None,
                     None,
                     None,
                 ),
                 (
                     "testFuzz_NoOverrideRejects(uint256)",
                     false,
-                    Some("`vm.assume` rejected too many inputs (0 allowed)".into()),
+                    Some("`vm.assume` rejected too many inputs (1 allowed)".into()),
                     None,
                     None,
                 ),

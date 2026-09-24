@@ -499,7 +499,7 @@ describe("Fuzz and invariant testing", function () {
 
     const fuzzConfig = {
       runs: GLOBAL_RUNS,
-      maxTestRejects: 0,
+      maxTestRejects: 1,
     };
 
     // Per-function overrides come from inline `forge-config:` directives in
@@ -511,17 +511,19 @@ describe("Fuzz and invariant testing", function () {
       }
     );
 
-    assert.equal(result.failedTests, 2);
+    // Rejected inputs currently count as runs, so `testFuzz_NoOverrideTimeout`
+    // runs out of runs before it hits its reject limit.
+    assert.equal(result.failedTests, 1);
     assert.equal(result.totalTests, 5);
 
     assert.equal(
       result.stackTraces.get("testFuzz_NoOverrideRejects(uint256)")?.reason,
-      "`vm.assume` rejected too many inputs (0 allowed)"
+      "`vm.assume` rejected too many inputs (1 allowed)"
     );
 
     assert.equal(
-      result.stackTraces.get("testFuzz_NoOverrideTimeout(uint256)")?.reason,
-      "`vm.assume` rejected too many inputs (5000 allowed)"
+      result.stackTraces.get("testFuzz_NoOverrideTimeout(uint256)"),
+      undefined
     );
 
     const suite_result = result.suiteResults[0];
