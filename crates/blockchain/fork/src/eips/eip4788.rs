@@ -1,5 +1,5 @@
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes, U256};
-use edr_state_api::{account::AccountInfo, StateDiff};
+use edr_state_api::account::AccountInfo;
 
 /// The address of the beacon roots contract.
 pub const BEACON_ROOTS_ADDRESS: Address = address!("0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02");
@@ -50,10 +50,6 @@ pub(crate) fn beacon_roots_contract() -> AccountInfo {
         code: Some(code),
         ..AccountInfo::default()
     }
-}
-
-pub(crate) fn add_beacon_roots_contract_to_state_diff(state_diff: &mut StateDiff) {
-    state_diff.apply_account_change(BEACON_ROOTS_ADDRESS, beacon_roots_contract());
 }
 
 #[cfg(test)]

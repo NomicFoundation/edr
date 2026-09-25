@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use edr_blockchain_fork::ForkedBlockchainCreationError;
 use edr_chain_l1::L1ChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec as _;
 use edr_provider::spec::ForkedBlockchainForChainSpec;
@@ -47,4 +48,36 @@ pub async fn create_dummy_forked_blockchain(
     )
     .await
     .expect("Failed to construct forked blockchain")
+}
+
+/// Forks Ethereum mainnet at `fork_block_number`, running `local_hardfork`
+/// locally and recording any predeploy overrides in `irregular_state`.
+pub async fn create_forked_blockchain(
+    irregular_state: &mut IrregularState,
+    fork_block_number: u64,
+    local_hardfork: edr_chain_l1::Hardfork,
+) -> Result<
+    ForkedBlockchainForChainSpec<L1ChainSpec>,
+    ForkedBlockchainCreationError<edr_chain_l1::Hardfork>,
+> {
+    let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
+        &json_rpc_url_provider::ethereum_mainnet(),
+        edr_defaults::CACHE_DIR.into(),
+        None,
+    )
+    .expect("url ok");
+
+    ForkedBlockchainForChainSpec::<L1ChainSpec>::new(
+        local_hardfork,
+        tokio::runtime::Handle::current(),
+        Arc::new(rpc_client),
+        irregular_state,
+        Arc::new(Mutex::new(RandomHashGenerator::with_seed(
+            edr_defaults::STATE_ROOT_HASH_SEED,
+        ))),
+        L1ChainSpec::chain_configs(),
+        Some(fork_block_number),
+        Some(0x7a69),
+    )
+    .await
 }

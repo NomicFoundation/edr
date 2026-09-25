@@ -37,7 +37,7 @@ use edr_rpc_eth::{
     fork::ForkMetadata,
 };
 use edr_state_api::{
-    account::{Account, AccountStatus},
+    account::{Account, AccountInfo, AccountStatus},
     irregular::IrregularState,
     DynState, EvmState, StateDiff, StateOverride,
 };
@@ -47,14 +47,44 @@ use parking_lot::Mutex;
 use tokio::runtime;
 
 use crate::eips::{
-    eip2935::{
-        add_history_storage_contract_to_state_diff, history_storage_contract,
-        HISTORY_STORAGE_ADDRESS,
-    },
-    eip4788::{
-        add_beacon_roots_contract_to_state_diff, beacon_roots_contract, BEACON_ROOTS_ADDRESS,
-    },
+    eip2935::{history_storage_contract, HISTORY_STORAGE_ADDRESS},
+    eip4788::{beacon_roots_contract, BEACON_ROOTS_ADDRESS},
+    eip7997::{deterministic_factory_contract, DETERMINISTIC_FACTORY_ADDRESS},
 };
+
+/// Adds `predeploys` to the irregular state override at the fork block,
+/// creating the override if none exists.
+fn add_predeploys_at_fork_block(
+    irregular_state: &mut IrregularState,
+    fork_block_number: u64,
+    state_root_generator: &Mutex<RandomHashGenerator>,
+    predeploys: Vec<(Address, AccountInfo)>,
+) {
+    irregular_state
+        .state_override_at_block_number(fork_block_number)
+        .and_modify(|state_override| {
+            for (address, account_info) in &predeploys {
+                state_override
+                    .diff
+                    .apply_account_change(*address, account_info.clone());
+            }
+        })
+        .or_insert_with(|| {
+            let accounts: EvmState = predeploys
+                .into_iter()
+                .map(|(address, account_info)| {
+                    let mut account = Account::from(account_info);
+                    account.status = AccountStatus::Created | AccountStatus::Touched;
+                    (address, account)
+                })
+                .collect();
+
+            StateOverride {
+                diff: StateDiff::from(accounts),
+                state_root: state_root_generator.lock().next_value(),
+            }
+        });
+}
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
 #[derive(Debug, thiserror::Error)]
@@ -319,63 +349,41 @@ impl<
             let remote_evm_spec_id = remote_hardfork.clone().into();
             let local_evm_spec_id = hardfork.clone().into();
             if remote_evm_spec_id < EvmSpecId::PRAGUE && local_evm_spec_id >= EvmSpecId::PRAGUE {
-                let state_root = state_root_generator.lock().next_value();
-
-                irregular_state
-                    .state_override_at_block_number(fork_block_number)
-                    .and_modify(|state_override| {
-                        add_beacon_roots_contract_to_state_diff(&mut state_override.diff);
-                        add_history_storage_contract_to_state_diff(&mut state_override.diff);
-                    })
-                    .or_insert_with(|| {
-                        let beacon_root_account = beacon_roots_contract();
-                        let history_storage_account = history_storage_contract();
-
-                        let accounts: EvmState = [
-                            (BEACON_ROOTS_ADDRESS, {
-                                let mut account = Account::from(beacon_root_account);
-                                account.status = AccountStatus::Created | AccountStatus::Touched;
-                                account
-                            }),
-                            (HISTORY_STORAGE_ADDRESS, {
-                                let mut account = Account::from(history_storage_account);
-                                account.status = AccountStatus::Created | AccountStatus::Touched;
-                                account
-                            }),
-                        ]
-                        .into_iter()
-                        .collect();
-
-                        StateOverride {
-                            diff: StateDiff::from(accounts),
-                            state_root,
-                        }
-                    });
+                add_predeploys_at_fork_block(
+                    irregular_state,
+                    fork_block_number,
+                    &state_root_generator,
+                    vec![
+                        (BEACON_ROOTS_ADDRESS, beacon_roots_contract()),
+                        (HISTORY_STORAGE_ADDRESS, history_storage_contract()),
+                    ],
+                );
             } else if remote_evm_spec_id < EvmSpecId::CANCUN
                 && local_evm_spec_id >= EvmSpecId::CANCUN
             {
-                let state_root = state_root_generator.lock().next_value();
+                add_predeploys_at_fork_block(
+                    irregular_state,
+                    fork_block_number,
+                    &state_root_generator,
+                    vec![(BEACON_ROOTS_ADDRESS, beacon_roots_contract())],
+                );
+            }
 
-                irregular_state
-                    .state_override_at_block_number(fork_block_number)
-                    .and_modify(|state_override| {
-                        add_beacon_roots_contract_to_state_diff(&mut state_override.diff);
-                    })
-                    .or_insert_with(|| {
-                        let beacon_root_account = beacon_roots_contract();
-                        let accounts: EvmState = [(BEACON_ROOTS_ADDRESS, {
-                            let mut account = Account::from(beacon_root_account);
-                            account.status = AccountStatus::Created | AccountStatus::Touched;
-                            account
-                        })]
-                        .into_iter()
-                        .collect();
-
-                        StateOverride {
-                            diff: StateDiff::from(accounts),
-                            state_root,
-                        }
-                    });
+            // EIP-7997 requires the factory in post-Amsterdam state. Injecting it
+            // mirrors the EIP's genesis insertion; the override replaces any
+            // remote account at that address.
+            if remote_evm_spec_id < EvmSpecId::AMSTERDAM
+                && local_evm_spec_id >= EvmSpecId::AMSTERDAM
+            {
+                add_predeploys_at_fork_block(
+                    irregular_state,
+                    fork_block_number,
+                    &state_root_generator,
+                    vec![(
+                        DETERMINISTIC_FACTORY_ADDRESS,
+                        deterministic_factory_contract(),
+                    )],
+                );
             }
         }
 
