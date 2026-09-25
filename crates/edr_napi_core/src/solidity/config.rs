@@ -523,9 +523,10 @@ mod tests {
             .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
-        let expected_cap =
-            edr_eip7825::transaction_gas_cap_for_hardfork(edr_chain_l1::Hardfork::Osaka)
-                .expect("Osaka activates the EIP-7825 transaction gas cap");
+        let expected_cap = edr_transaction::gas_bounds::execution_gas_bound_for_hardfork(
+            edr_chain_l1::Hardfork::Osaka,
+        )
+        .expect("Osaka activates the EIP-7825 transaction gas cap");
 
         assert_eq!(
             solidity_config.evm_opts.env.gas_limit, expected_cap,

@@ -4,27 +4,15 @@ use std::str::FromStr;
 use edr_chain_config::{ChainOverride, HardforkActivation, HardforkActivations};
 use edr_chain_spec::EvmSpecId;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_eip7825::transaction_gas_cap_for_hardfork;
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, ChainId, HashMap, UnknownHardfork, B256};
+pub use edr_provider::config::ConfigOption;
 use edr_provider::{
     config::{ForkConfig, GasEstimationMode, MiningConfig, NetworkConfig},
     observability::ObservabilityConfig,
     AccountOverride,
 };
 use edr_signer::SecretKey;
-
-/// Configuration option.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ConfigOption<T> {
-    /// A custom configuration value.
-    Custom(T),
-    /// Use the default value for this configuration option.
-    Default,
-    /// Disable the configured option.
-    Disable,
-}
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]
@@ -156,11 +144,6 @@ where
         };
 
         let hardfork = parse_hardfork::<HardforkT>(value.hardfork)?;
-        let transaction_gas_cap = match value.transaction_gas_cap {
-            ConfigOption::Custom(transaction_gas_cap) => Some(transaction_gas_cap),
-            ConfigOption::Default => transaction_gas_cap_for_hardfork(hardfork.clone()),
-            ConfigOption::Disable => None,
-        };
 
         Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
@@ -183,7 +166,7 @@ where
             observability: value.observability,
             owned_accounts: value.owned_accounts,
             precompile_overrides: value.precompile_overrides,
-            transaction_gas_cap,
+            transaction_gas_cap: value.transaction_gas_cap,
         })
     }
 }

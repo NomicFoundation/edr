@@ -6,8 +6,8 @@ use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
     BlockTransactionError, BlockTransactionErrorForChainSpec, Blockchain, BuiltBlockAndState,
-    BuiltBlockAndStateWithMetadata, CfgEnv, DatabaseComponents, ExecutionResult, PrecompileFn,
-    WrapDatabaseRef,
+    BuiltBlockAndStateWithMetadata, Cfg as _, CfgEnv, DatabaseComponents, ExecutionResult,
+    PrecompileFn, WrapDatabaseRef,
 };
 use edr_block_header::{
     blob_params_for_hardfork, BlobGas, BlockConfig, HeaderAndEvmSpec, HeaderOverrides,
@@ -70,6 +70,8 @@ pub struct EthBlockBuilder<
         EvmChainSpecT::SignedTransaction,
     >,
     block_config: &'builder BlockConfig<EvmChainSpecT::ProtocolHardfork>,
+    block_execution_gas_used: u64,
+    block_state_gas_used: u64,
     cfg: CfgEnv<EvmChainSpecT::ProtocolHardfork>,
     context: EvmChainSpecT::Context,
     header: PartialHeader,
@@ -149,9 +151,18 @@ impl<
         &self.precompile_addresses
     }
 
-    /// Retrieves the amount of gas left in the block.
-    pub fn gas_remaining(&self) -> u64 {
-        self.header.gas_limit - self.gas_used()
+    /// Retrieves the amount of gas left in the block, per dimension.
+    pub fn gas_remaining(&self) -> DimensionalGas {
+        DimensionalGas {
+            execution_gas: self
+                .header
+                .gas_limit
+                .saturating_sub(self.block_execution_gas_used),
+            state_gas: self
+                .header
+                .gas_limit
+                .saturating_sub(self.block_state_gas_used),
+        }
     }
 
     /// Retrieves the state of the block builder.
@@ -195,9 +206,21 @@ impl<
             DatabaseComponentError<BlockchainErrorT, StateError>,
         >,
     > {
-        // The transaction's gas limit cannot be greater than the remaining gas in the
-        // block, unless the block gas limit check is disabled.
-        if !self.cfg.disable_block_gas_limit && transaction.gas_limit() > self.gas_remaining() {
+        let DimensionalGas {
+            execution_gas: remaining_execution_gas,
+            state_gas: remaining_state_gas,
+        } = self.gas_remaining();
+
+        let tx_fits_both_dimensions = || {
+            // Only up to the cap can become execution gas; all of `tx.gas_limit()` can
+            // become state gas.
+            let execution_limit = self.cfg.tx_gas_limit_cap().min(transaction.gas_limit());
+            execution_limit <= remaining_execution_gas
+                && transaction.gas_limit() <= remaining_state_gas
+        };
+        // The transaction must fit the remaining gas of both dimensions, unless the
+        // block gas limit check is disabled.
+        if !self.cfg.disable_block_gas_limit && !tx_fits_both_dimensions() {
             return Err(BlockTransactionError::ExceedsBlockGasLimit);
         }
 
@@ -363,6 +386,8 @@ impl<
         Ok(Self {
             blockchain,
             block_config,
+            block_execution_gas_used: 0,
+            block_state_gas_used: 0,
             cfg,
             context,
             header,
@@ -512,10 +537,19 @@ impl<
         self.state.commit(state_diff);
 
         self.cumulative_gas_used += transaction_result.tx_gas_used();
-        self.header.gas_used += transaction_block_gas_contribution::<ChainSpecT>(
+
+        // The header reports the bottleneck dimension.
+        let DimensionalGas {
+            execution_gas: tx_execution_gas,
+            state_gas: tx_state_gas,
+        } = transaction_block_gas_contribution::<ChainSpecT>(
             self.cfg.spec.clone(),
             &transaction_result,
         );
+        self.block_execution_gas_used += tx_execution_gas;
+        self.block_state_gas_used += tx_state_gas;
+        self.header.gas_used =
+            std::cmp::max(self.block_execution_gas_used, self.block_state_gas_used);
 
         if let Some(BlobGas { gas_used, .. }) = self.header.blob_gas.as_mut() {
             let blob_gas_used = transaction.total_blob_gas().unwrap_or_default();
@@ -544,21 +578,42 @@ impl<
     }
 }
 
-/// Gas a transaction contributes to the block's `gas_used`: from Amsterdam
-/// (EIP-7778) the gross gas before refunds, otherwise its net gas used.
+/// Gas a transaction adds to the block's counters, per dimension.
+///
+/// From Amsterdam the execution gas is counted before refunds (EIP-7778) and
+/// the state gas is counted on its own (EIP-8037). Before Amsterdam there is no
+/// state dimension: the transaction's gas used, after refunds, is all execution
+/// gas.
 fn transaction_block_gas_contribution<ChainSpecT: ChainSpec + ProtocolHardforkChainSpec>(
     hardfork: ChainSpecT::ProtocolHardfork,
     execution_result: &ExecutionResult<ChainSpecT::HaltReason>,
-) -> u64 {
+) -> DimensionalGas {
     let evm_spec_id: EvmSpecId = hardfork.into();
-
     if evm_spec_id >= EvmSpecId::AMSTERDAM {
         let execution_gas = execution_result.gas();
-        execution_gas
-            .total_gas_spent()
-            .max(execution_gas.floor_gas())
+        DimensionalGas {
+            execution_gas: execution_gas.block_regular_gas_used(),
+            state_gas: execution_gas.block_state_gas_used(),
+        }
     } else {
-        execution_result.tx_gas_used()
+        DimensionalGas::execution(execution_result.tx_gas_used())
+    }
+}
+
+/// Gas split into the two dimensions metered from Amsterdam (EIP-8037).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct DimensionalGas {
+    pub execution_gas: u64,
+    pub state_gas: u64,
+}
+
+impl DimensionalGas {
+    /// Gas that is entirely execution gas.
+    fn execution(execution_gas: u64) -> DimensionalGas {
+        DimensionalGas {
+            execution_gas,
+            state_gas: 0,
+        }
     }
 }
 
@@ -1031,12 +1086,23 @@ mod tests {
             refunded: u64,
             floor_gas: u64,
         ) -> ExecutionResult<HaltReason> {
+            execution_result_with_state_gas(total_gas_spent, refunded, floor_gas, 0)
+        }
+
+        // Like `execution_result`, with part of `total_gas_spent` being state gas.
+        fn execution_result_with_state_gas(
+            total_gas_spent: u64,
+            refunded: u64,
+            floor_gas: u64,
+            state_gas_spent: u64,
+        ) -> ExecutionResult<HaltReason> {
             ExecutionResult::Success {
                 reason: SuccessReason::Stop,
                 gas: ResultGas::default()
                     .with_total_gas_spent(total_gas_spent)
                     .with_refunded(refunded)
-                    .with_floor_gas(floor_gas),
+                    .with_floor_gas(floor_gas)
+                    .with_state_gas_spent(state_gas_spent),
                 logs: Vec::new(),
                 output: Output::Call(Bytes::new()),
             }
@@ -1048,17 +1114,23 @@ mod tests {
             let result = execution_result(50_000, 10_000, 30_000);
             assert_eq!(
                 transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Osaka, &result),
-                40_000
+                DimensionalGas {
+                    execution_gas: 40_000,
+                    state_gas: 0
+                }
             );
         }
 
         #[test]
         fn from_amsterdam_uses_gas_before_refunds() {
-            // EIP-7778: the refund is not subtracted from the block gas.
+            // EIP-7778: the refund is not subtracted from the execution gas.
             let result = execution_result(50_000, 10_000, 0);
             assert_eq!(
                 transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Amsterdam, &result),
-                50_000
+                DimensionalGas {
+                    execution_gas: 50_000,
+                    state_gas: 0
+                }
             );
         }
 
@@ -1068,7 +1140,50 @@ mod tests {
             let result = execution_result(20_000, 0, 25_000);
             assert_eq!(
                 transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Amsterdam, &result),
-                25_000
+                DimensionalGas {
+                    execution_gas: 25_000,
+                    state_gas: 0
+                }
+            );
+        }
+
+        #[test]
+        fn from_amsterdam_splits_state_gas_from_execution_gas() {
+            // EIP-8037: the state gas is metered apart from the rest of the gas spent.
+            let result = execution_result_with_state_gas(150_000, 0, 0, 100_000);
+            assert_eq!(
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Amsterdam, &result),
+                DimensionalGas {
+                    execution_gas: 50_000,
+                    state_gas: 100_000
+                }
+            );
+        }
+
+        #[test]
+        fn from_amsterdam_applies_calldata_floor_to_execution_gas_only() {
+            // The floor (30_000) exceeds the execution gas (20_000) but not the total
+            // spent: state gas does not count towards the floor at block level.
+            let result = execution_result_with_state_gas(120_000, 0, 30_000, 100_000);
+            assert_eq!(
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Amsterdam, &result),
+                DimensionalGas {
+                    execution_gas: 30_000,
+                    state_gas: 100_000
+                }
+            );
+        }
+
+        #[test]
+        fn before_amsterdam_has_no_state_dimension() {
+            // Whatever the result reports as state gas stays in the net gas used.
+            let result = execution_result_with_state_gas(150_000, 10_000, 0, 100_000);
+            assert_eq!(
+                transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Osaka, &result),
+                DimensionalGas {
+                    execution_gas: 140_000,
+                    state_gas: 0
+                }
             );
         }
 
@@ -1078,7 +1193,10 @@ mod tests {
             let result = execution_result(50_000, 10_000, 45_000);
             assert_eq!(
                 transaction_block_gas_contribution::<L1ChainSpec>(Hardfork::Osaka, &result),
-                45_000
+                DimensionalGas {
+                    execution_gas: 45_000,
+                    state_gas: 0
+                }
             );
         }
     }

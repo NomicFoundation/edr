@@ -33,7 +33,7 @@ use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait,
-    TransactionValidation,
+    ProtocolHardfork, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
@@ -69,8 +69,10 @@ use edr_state_api::{
     AccountModifierFn, DynState, EvmState, EvmStorageSlot, StateDiff, StateOverride, TransactionId,
 };
 use edr_transaction::{
-    request::TransactionRequestAndSender, BlockDataForTransaction, IsEip4844, IsSupported as _,
-    TransactionAndBlock, TransactionMut, TransactionType, TxKind,
+    gas_bounds::{execution_gas_bound_for_hardfork, total_gas_bound_for_hardfork},
+    request::TransactionRequestAndSender,
+    BlockDataForTransaction, IsEip4844, IsSupported as _, TransactionAndBlock, TransactionMut,
+    TransactionType, TxKind,
 };
 use edr_utils::{random::RandomHashGenerator, CastArcInto};
 use foundry_evm_traces::CallTraceArena;
@@ -85,8 +87,8 @@ use tokio::runtime;
 
 use crate::{
     config::{
-        ForkConfig, GasEstimationMode, IntervalConfig, LocalConfig, MemPoolConfig, MiningConfig,
-        NetworkConfig, ProviderConfig,
+        ConfigOption, ForkConfig, GasEstimationMode, IntervalConfig, LocalConfig, MemPoolConfig,
+        MiningConfig, NetworkConfig, ProviderConfig,
     },
     data::{
         call::BlockEnvWithZeroBaseFee,
@@ -260,6 +262,7 @@ pub struct ProviderData<
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     bail_on_transaction_failure: bool,
     beneficiary: Address,
+    transaction_gas_bounds: TransactionGasBounds,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     block_config: BlockConfig<ChainSpecT::ProtocolHardfork>,
     default_transaction_gas_limit: NonZeroU64,
@@ -476,9 +479,10 @@ where
         std::mem::take(&mut self.interval_reconfigured)
     }
 
-    /// Returns the transaction gas cap, if set.
-    pub fn transaction_gas_cap(&self) -> Option<u64> {
-        self.mem_pool.transaction_gas_cap()
+    /// Returns the EIP-7825 bound on execution gas, or `u64::MAX` when there is
+    /// none.
+    pub fn transaction_execution_gas_bound(&self) -> u64 {
+        self.transaction_gas_bounds.execution.unwrap_or(u64::MAX)
     }
 
     fn add_state_to_cache(&mut self, state: Box<dyn DynState>, block_number: u64) -> StateId {
@@ -769,6 +773,9 @@ where
             transaction_gas_cap,
         } = config;
 
+        let transaction_gas_bounds =
+            resolve_transaction_gas_bounds(blockchain.hardfork(), transaction_gas_cap);
+
         let local_accounts = owned_accounts
             .iter()
             .map(|secret_key| {
@@ -787,12 +794,15 @@ where
                 RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
             };
 
+        let mem_pool = MemPool::new(block_gas_limit, transaction_gas_bounds.total);
+
         Ok(Self {
             runtime_handle,
             bail_on_call_failure,
             bail_on_transaction_failure,
             base_fee_params,
             beneficiary,
+            transaction_gas_bounds,
             blockchain,
             block_config,
             default_transaction_gas_limit,
@@ -801,7 +811,7 @@ where
             interval_config,
             interval_reconfigured: false,
             irregular_state,
-            mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
+            mem_pool,
             mining_order,
             network_id,
             observability,
@@ -1230,12 +1240,14 @@ where
     ) -> Result<ChainSpecT::SignedTransaction, ProviderErrorForChainSpec<ChainSpecT>> {
         let TransactionRequestAndSender { request, sender } = transaction_request;
 
-        let transaction_gas_cap = self.mem_pool.transaction_gas_cap().unwrap_or(u64::MAX);
-
         if self.impersonated_accounts.contains(&sender) {
             let signed_transaction = request.fake_sign(sender);
-            transaction::validate(signed_transaction, self.evm_spec_id(), transaction_gas_cap)
-                .map_err(ProviderError::TransactionCreationError)
+            transaction::validate(
+                signed_transaction,
+                self.evm_spec_id(),
+                self.transaction_execution_gas_bound(),
+            )
+            .map_err(ProviderError::TransactionCreationError)
         } else {
             let secret_key = self
                 .local_accounts
@@ -1247,8 +1259,12 @@ where
             let signed_transaction =
                 unsafe { request.sign_for_sender_unchecked(secret_key, sender) }?;
 
-            transaction::validate(signed_transaction, self.evm_spec_id(), transaction_gas_cap)
-                .map_err(ProviderError::TransactionCreationError)
+            transaction::validate(
+                signed_transaction,
+                self.evm_spec_id(),
+                self.transaction_execution_gas_bound(),
+            )
+            .map_err(ProviderError::TransactionCreationError)
         }
     }
 
@@ -1380,9 +1396,7 @@ where
             } else {
                 None
             },
-            // We set the transaction gas cap to `u64::MAX` as it's REVM's way of circumventing the
-            // gas limit check at the transaction level.
-            transaction_gas_cap: Some(self.mem_pool.transaction_gas_cap().unwrap_or(u64::MAX)),
+            transaction_gas_cap: Some(self.transaction_execution_gas_bound()),
         }
     }
 
@@ -3220,6 +3234,53 @@ fn get_max_cached_states_from_env<
                 .map_err(|_err| CreationError::InvalidMaxCachedStates(s.into()))
         },
     )
+}
+
+/// The per-transaction gas bounds to enforce.
+struct TransactionGasBounds {
+    /// Bound on execution gas.
+    execution: Option<u64>,
+    /// Bound on `tx.gas`.
+    total: Option<u64>,
+}
+
+/// Resolves the `transaction_gas_cap` option into the bounds to enforce.
+///
+/// The option configures the EIP-7825 cap, whose meaning changes with EIP-8037:
+/// before Amsterdam `tx.gas` is execution gas, so the cap bounds it as a whole;
+/// from Amsterdam `tx.gas` funds execution and state gas, the cap bounds
+/// execution gas only and `tx.gas` itself is bounded by
+/// `TX_MAX_TOTAL_GAS_LIMIT`.
+fn resolve_transaction_gas_bounds<HardforkT: ProtocolHardfork>(
+    hardfork: HardforkT,
+    transaction_gas_cap: ConfigOption<u64>,
+) -> TransactionGasBounds {
+    match transaction_gas_cap {
+        ConfigOption::Default => TransactionGasBounds {
+            execution: execution_gas_bound_for_hardfork(hardfork.clone()),
+            total: total_gas_bound_for_hardfork(hardfork),
+        },
+        ConfigOption::Custom(execution_gas_cap) => {
+            let evm_spec_id: EvmSpecId = hardfork.clone().into();
+            // A custom value replaces the EIP-7825 cap, so it bounds `tx.gas` before
+            // Amsterdam and execution gas only from Amsterdam.
+            if evm_spec_id >= EvmSpecId::AMSTERDAM {
+                TransactionGasBounds {
+                    execution: Some(execution_gas_cap),
+                    total: total_gas_bound_for_hardfork(hardfork),
+                }
+            } else {
+                TransactionGasBounds {
+                    execution: Some(execution_gas_cap),
+                    total: Some(execution_gas_cap),
+                }
+            }
+        }
+        ConfigOption::Disable => TransactionGasBounds {
+            execution: None,
+            total: None,
+        },
+    }
 }
 
 #[cfg(test)]

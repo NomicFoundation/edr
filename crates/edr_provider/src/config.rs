@@ -322,12 +322,23 @@ pub struct ProviderConfig<HardforkT> {
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
     /// Transaction gas cap, introduced in [EIP-7825].
     ///
-    /// When not set, enforcement of the transaction gas cap is disabled and
-    /// transactions with any `gas` value are accepted by the mempool and
-    /// executed without REVM's transaction gas cap check.
+    /// From Amsterdam ([EIP-8037]) it bounds execution gas only
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
-    pub transaction_gas_cap: Option<u64>,
+    /// [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    pub transaction_gas_cap: ConfigOption<u64>,
+}
+
+/// Configuration option.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ConfigOption<T> {
+    /// A custom configuration value.
+    Custom(T),
+    /// Use the default value for this configuration option.
+    Default,
+    /// Disable the configured option.
+    Disable,
 }
 
 impl Default for MemPoolConfig {
