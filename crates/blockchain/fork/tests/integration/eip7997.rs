@@ -5,8 +5,9 @@
 //!
 //! Forking a pre-Amsterdam block with a local Amsterdam hardfork injects the
 //! factory as an irregular-state override at the fork block, replacing the
-//! whole account. Mainnet has had the factory for years, so a pre-Amsterdam
-//! local hardfork sees the remote account untouched, with its real nonce.
+//! whole account. Ethereum mainnet has had the factory for years, so a
+//! pre-Amsterdam local hardfork sees the remote account untouched, with its
+//! real nonce.
 
 use edr_blockchain_api::StateAtBlock as _;
 use edr_blockchain_fork::eips::eip7997::{
@@ -17,7 +18,7 @@ use edr_state_api::{account::AccountInfo, irregular::IrregularState};
 
 use crate::common::create_forked_blockchain;
 
-/// Mainnet block with Osaka active and Amsterdam not yet scheduled.
+/// Ethereum mainnet block with Osaka active and Amsterdam not yet scheduled.
 const POST_OSAKA_BLOCK_NUMBER: u64 = 24_500_000;
 
 async fn factory_account_at_fork_block(
@@ -62,13 +63,13 @@ async fn forked_pre_amsterdam_with_amsterdam_injects_factory() -> anyhow::Result
 
 #[tokio::test(flavor = "multi_thread")]
 #[serial_test::serial]
-async fn forked_pre_amsterdam_with_osaka_keeps_remote_factory() -> anyhow::Result<()> {
+async fn forked_mainnet_pre_amsterdam_with_osaka_keeps_remote_factory() -> anyhow::Result<()> {
     let (account, code) = factory_account_at_fork_block(edr_chain_l1::Hardfork::Osaka).await?;
 
     assert_eq!(code, Bytecode::new_raw(DETERMINISTIC_FACTORY_BYTECODE));
     assert!(
         account.nonce > 1,
-        "the remote factory has performed many CREATE2s; its nonce must be preserved, got {}",
+        "the mainnet factory has performed many CREATE2s; its nonce must be preserved, got {}",
         account.nonce
     );
 

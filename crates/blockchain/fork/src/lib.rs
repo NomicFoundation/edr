@@ -52,14 +52,58 @@ use crate::eips::{
     eip7997::{deterministic_factory_contract, DETERMINISTIC_FACTORY_ADDRESS},
 };
 
-/// Adds `predeploys` to the irregular state override at the fork block,
-/// creating the override if none exists.
-fn add_predeploys_at_fork_block(
+/// Predeploy accounts, each paired with its constructor.
+type Predeploys = &'static [(Address, fn() -> AccountInfo)];
+
+/// Predeploys that a hardfork requires in state, keyed by the EVM spec that
+/// introduces them.
+const PREDEPLOY_ACTIVATIONS: &[(EvmSpecId, Predeploys)] = &[
+    (
+        EvmSpecId::CANCUN,
+        &[(BEACON_ROOTS_ADDRESS, beacon_roots_contract)],
+    ),
+    (
+        EvmSpecId::PRAGUE,
+        &[(HISTORY_STORAGE_ADDRESS, history_storage_contract)],
+    ),
+    (
+        EvmSpecId::AMSTERDAM,
+        &[(
+            DETERMINISTIC_FACTORY_ADDRESS,
+            deterministic_factory_contract,
+        )],
+    ),
+];
+
+/// Returns the predeploys introduced after `from`, up to and including `to`.
+fn predeploys_activated_between(from: EvmSpecId, to: EvmSpecId) -> Vec<(Address, AccountInfo)> {
+    PREDEPLOY_ACTIVATIONS
+        .iter()
+        .filter(|(activation, _)| from < *activation && *activation <= to)
+        .flat_map(|(_, predeploys)| {
+            predeploys
+                .iter()
+                .map(|(address, predeploy_constructor)| (*address, predeploy_constructor()))
+        })
+        .collect()
+}
+
+/// Injects, at the fork block, every predeploy introduced after the `remote`
+/// hardfork up to and including the `local` one. The injection does not depend
+/// on whether the remote chain already has the accounts, so the local hardfork
+/// behaves the same on every forked chain.
+fn apply_hardfork_predeploys(
     irregular_state: &mut IrregularState,
     fork_block_number: u64,
     state_root_generator: &Mutex<RandomHashGenerator>,
-    predeploys: Vec<(Address, AccountInfo)>,
+    remote: EvmSpecId,
+    local: EvmSpecId,
 ) {
+    let predeploys = predeploys_activated_between(remote, local);
+    if predeploys.is_empty() {
+        return;
+    }
+
     irregular_state
         .state_override_at_block_number(fork_block_number)
         .and_modify(|state_override| {
@@ -346,45 +390,13 @@ impl<
                         .clone(),
                 })?;
 
-            let remote_evm_spec_id = remote_hardfork.clone().into();
-            let local_evm_spec_id = hardfork.clone().into();
-            if remote_evm_spec_id < EvmSpecId::PRAGUE && local_evm_spec_id >= EvmSpecId::PRAGUE {
-                add_predeploys_at_fork_block(
-                    irregular_state,
-                    fork_block_number,
-                    &state_root_generator,
-                    vec![
-                        (BEACON_ROOTS_ADDRESS, beacon_roots_contract()),
-                        (HISTORY_STORAGE_ADDRESS, history_storage_contract()),
-                    ],
-                );
-            } else if remote_evm_spec_id < EvmSpecId::CANCUN
-                && local_evm_spec_id >= EvmSpecId::CANCUN
-            {
-                add_predeploys_at_fork_block(
-                    irregular_state,
-                    fork_block_number,
-                    &state_root_generator,
-                    vec![(BEACON_ROOTS_ADDRESS, beacon_roots_contract())],
-                );
-            }
-
-            // EIP-7997 requires the factory in post-Amsterdam state. Injecting it
-            // mirrors the EIP's genesis insertion; the override replaces any
-            // remote account at that address.
-            if remote_evm_spec_id < EvmSpecId::AMSTERDAM
-                && local_evm_spec_id >= EvmSpecId::AMSTERDAM
-            {
-                add_predeploys_at_fork_block(
-                    irregular_state,
-                    fork_block_number,
-                    &state_root_generator,
-                    vec![(
-                        DETERMINISTIC_FACTORY_ADDRESS,
-                        deterministic_factory_contract(),
-                    )],
-                );
-            }
+            apply_hardfork_predeploys(
+                irregular_state,
+                fork_block_number,
+                &state_root_generator,
+                remote_hardfork.clone().into(),
+                hardfork.clone().into(),
+            );
         }
 
         Ok(Self {
@@ -1212,6 +1224,43 @@ mod tests {
     const ROPSTEN_CHAIN_ID: u64 = 3;
 
     use super::*;
+
+    fn predeploy_addresses(from: EvmSpecId, to: EvmSpecId) -> Vec<Address> {
+        predeploys_activated_between(from, to)
+            .into_iter()
+            .map(|(address, _)| address)
+            .collect()
+    }
+
+    #[test]
+    fn predeploys_span_every_hardfork_after_from_up_to_to() {
+        assert_eq!(
+            predeploy_addresses(EvmSpecId::SHANGHAI, EvmSpecId::AMSTERDAM),
+            vec![
+                BEACON_ROOTS_ADDRESS,
+                HISTORY_STORAGE_ADDRESS,
+                DETERMINISTIC_FACTORY_ADDRESS
+            ]
+        );
+    }
+
+    #[test]
+    fn predeploys_exclude_hardforks_up_to_from() {
+        assert_eq!(
+            predeploy_addresses(EvmSpecId::CANCUN, EvmSpecId::PRAGUE),
+            vec![HISTORY_STORAGE_ADDRESS]
+        );
+        assert_eq!(
+            predeploy_addresses(EvmSpecId::OSAKA, EvmSpecId::AMSTERDAM),
+            vec![DETERMINISTIC_FACTORY_ADDRESS]
+        );
+    }
+
+    #[test]
+    fn no_predeploys_when_to_does_not_exceed_from() {
+        assert!(predeploy_addresses(EvmSpecId::PRAGUE, EvmSpecId::PRAGUE).is_empty());
+        assert!(predeploy_addresses(EvmSpecId::AMSTERDAM, EvmSpecId::CANCUN).is_empty());
+    }
 
     #[test]
     fn recommended_fork_block_number_with_safe_blocks() {
