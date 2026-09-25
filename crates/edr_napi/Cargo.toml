@@ -14,9 +14,9 @@ derive-where.workspace = true
 edr_artifact.workspace = true
 edr_block_header.workspace = true
 edr_block_miner.workspace = true
-edr_blockchain_fork.workspace = true
 edr_chain_config.workspace = true
 edr_chain_l1.workspace = true
+edr_blockchain_predeploys.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_block.workspace = true
 edr_chain_spec_evm.workspace = true
@@ -105,7 +105,6 @@ scenarios = ["dep:edr_scenarios", "dep:rand"]
 test-mock = ["edr_provider/test-utils"]
 tracing = [
     "edr_block_miner/tracing",
-    "edr_blockchain_fork/tracing",
     "edr_chain_l1/tracing",
     "edr_chain_spec_block/tracing",
     "edr_chain_spec_evm/tracing",

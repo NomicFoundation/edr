@@ -1,18 +1,11 @@
 use std::{str::FromStr, sync::Arc};
 
-use edr_blockchain_fork::eips::{
-    eip2935::{HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE},
-    eip4788::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
-    eip7997::{DETERMINISTIC_FACTORY_ADDRESS, DETERMINISTIC_FACTORY_BYTECODE},
-};
+use edr_blockchain_predeploys::predeploys_for_hardfork;
 use edr_chain_l1::L1ChainSpec;
 use edr_napi_core::{logger::Logger, provider::SyncProvider};
 use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
-use napi::{
-    bindgen_prelude::{BigInt, Uint8Array},
-    tokio::runtime,
-};
+use napi::tokio::runtime;
 use napi_derive::napi;
 use parking_lot::RwLock;
 
@@ -58,52 +51,12 @@ pub const L1_CHAIN_TYPE: &str = edr_chain_l1::CHAIN_TYPE;
 
 #[napi(catch_unwind)]
 pub fn l1_genesis_state(hardfork: L1Hardfork) -> Vec<AccountOverride> {
-    // Use closures for lazy execution
-    let beacon_roots_account_constructor = || AccountOverride {
-        address: Uint8Array::with_data_copied(BEACON_ROOTS_ADDRESS),
-        balance: Some(BigInt::from(0u64)),
-        nonce: Some(BigInt::from(0u64)),
-        code: Some(Uint8Array::with_data_copied(&BEACON_ROOTS_BYTECODE)),
-        storage: Some(Vec::new()),
-    };
+    let hardfork: edr_chain_l1::Hardfork = hardfork.into();
 
-    let history_storage_account_constructor = || AccountOverride {
-        address: Uint8Array::with_data_copied(HISTORY_STORAGE_ADDRESS),
-        balance: Some(BigInt::from(0u64)),
-        nonce: Some(BigInt::from(0u64)),
-        code: Some(Uint8Array::with_data_copied(
-            &HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
-        )),
-        storage: Some(Vec::new()),
-    };
-
-    // EIP-7997 requires a nonzero nonce; genesis insertion uses 1.
-    let deterministic_factory_account_constructor = || AccountOverride {
-        address: Uint8Array::with_data_copied(DETERMINISTIC_FACTORY_ADDRESS),
-        balance: Some(BigInt::from(0u64)),
-        nonce: Some(BigInt::from(1u64)),
-        code: Some(Uint8Array::with_data_copied(
-            &DETERMINISTIC_FACTORY_BYTECODE,
-        )),
-        storage: Some(Vec::new()),
-    };
-
-    if hardfork < L1Hardfork::Cancun {
-        Vec::new()
-    } else if hardfork < L1Hardfork::Prague {
-        vec![beacon_roots_account_constructor()]
-    } else if hardfork < L1Hardfork::Amsterdam {
-        vec![
-            beacon_roots_account_constructor(),
-            history_storage_account_constructor(),
-        ]
-    } else {
-        vec![
-            beacon_roots_account_constructor(),
-            history_storage_account_constructor(),
-            deterministic_factory_account_constructor(),
-        ]
-    }
+    predeploys_for_hardfork(hardfork.into())
+        .into_iter()
+        .map(AccountOverride::from)
+        .collect()
 }
 
 #[napi(catch_unwind)]

@@ -12,13 +12,11 @@
 //! the factory themselves and exercise the contract's behaviour rather than
 //! the hardfork gating, which lives in the N-API `l1GenesisState`.
 
-use edr_blockchain_fork::eips::eip7997::{
-    DETERMINISTIC_FACTORY_ADDRESS, DETERMINISTIC_FACTORY_BYTECODE,
-};
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
 };
+use edr_eip7997::{DETERMINISTIC_FACTORY_ADDRESS, DETERMINISTIC_FACTORY_BYTECODE};
 use edr_primitives::{address, b256, Address, Bytecode, Bytes, B256};
 use edr_provider::{
     config::AccountOverride, MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec,

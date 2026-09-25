@@ -1,5 +1,7 @@
+//! EIP-4788: beacon roots contract, introduced in the Cancun hardfork.
+
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes, U256};
-use edr_state_api::account::AccountInfo;
+use revm_state::AccountInfo;
 
 /// The address of the beacon roots contract.
 pub const BEACON_ROOTS_ADDRESS: Address = address!("0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02");
@@ -41,7 +43,8 @@ pub fn beacon_root_storage_slots(timestamp: u64) -> BeaconRootStorageSlots {
     }
 }
 
-pub(crate) fn beacon_roots_contract() -> AccountInfo {
+/// The beacon roots account as deployed on the chain.
+pub fn beacon_roots_contract() -> AccountInfo {
     let code = Bytecode::new_raw(BEACON_ROOTS_BYTECODE);
 
     AccountInfo {
@@ -54,8 +57,6 @@ pub(crate) fn beacon_roots_contract() -> AccountInfo {
 
 #[cfg(test)]
 mod tests {
-    use edr_primitives::U256;
-
     use super::*;
 
     #[test]

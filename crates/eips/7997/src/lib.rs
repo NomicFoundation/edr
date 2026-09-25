@@ -1,18 +1,20 @@
-use edr_primitives::{address, bytes, Address, Bytecode, Bytes};
-use edr_state_api::account::AccountInfo;
+//! EIP-7997: deterministic `CREATE2` factory, required from the Amsterdam
+//! hardfork.
 
-/// Address of the deterministic `CREATE2` factory, required from the Amsterdam
-/// hardfork by EIP-7997.
+use edr_primitives::{address, bytes, Address, Bytecode, Bytes};
+use revm_state::AccountInfo;
+
+/// Address of the deterministic `CREATE2` factory.
 pub const DETERMINISTIC_FACTORY_ADDRESS: Address =
     address!("0x4e59b44847b379578588920cA78FbF26c0B4956C");
 
-/// Runtime code of the deterministic `CREATE2` factory, as specified by
-/// EIP-7997.
+/// Runtime code of the deterministic `CREATE2` factory.
 pub const DETERMINISTIC_FACTORY_BYTECODE: Bytes = bytes!(
     "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
 );
 
-pub(crate) fn deterministic_factory_contract() -> AccountInfo {
+/// The deterministic factory account as inserted at genesis.
+pub fn deterministic_factory_contract() -> AccountInfo {
     let code = Bytecode::new_raw(DETERMINISTIC_FACTORY_BYTECODE);
 
     AccountInfo {

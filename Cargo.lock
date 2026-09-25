@@ -2629,6 +2629,7 @@ dependencies = [
  "edr_block_remote",
  "edr_block_storage",
  "edr_blockchain_api",
+ "edr_blockchain_predeploys",
  "edr_blockchain_remote",
  "edr_chain_config",
  "edr_chain_l1",
@@ -2636,6 +2637,8 @@ dependencies = [
  "edr_chain_spec_provider",
  "edr_chain_spec_rpc",
  "edr_defaults",
+ "edr_eip2935",
+ "edr_eip7997",
  "edr_eth",
  "edr_primitives",
  "edr_provider",
@@ -2666,11 +2669,11 @@ dependencies = [
  "edr_block_header",
  "edr_block_storage",
  "edr_blockchain_api",
- "edr_blockchain_fork",
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_chain_spec_provider",
  "edr_defaults",
+ "edr_eip2935",
  "edr_primitives",
  "edr_provider",
  "edr_receipt",
@@ -2683,6 +2686,18 @@ dependencies = [
  "thiserror 2.0.20",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "edr_blockchain_predeploys"
+version = "0.3.8"
+dependencies = [
+ "edr_chain_spec",
+ "edr_eip2935",
+ "edr_eip4788",
+ "edr_eip7997",
+ "edr_primitives",
+ "edr_state_api",
 ]
 
 [[package]]
@@ -2948,6 +2963,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip2935"
+version = "0.3.8"
+dependencies = [
+ "edr_primitives",
+ "revm-state",
+]
+
+[[package]]
+name = "edr_eip4788"
+version = "0.3.8"
+dependencies = [
+ "edr_primitives",
+ "revm-state",
+]
+
+[[package]]
 name = "edr_eip4844"
 version = "0.3.8"
 dependencies = [
@@ -2978,6 +3009,14 @@ dependencies = [
  "alloy-eips",
  "alloy-hardforks",
  "serde",
+]
+
+[[package]]
+name = "edr_eip7997"
+version = "0.3.8"
+dependencies = [
+ "edr_primitives",
+ "revm-state",
 ]
 
 [[package]]
@@ -3132,7 +3171,7 @@ dependencies = [
  "edr_artifact",
  "edr_block_header",
  "edr_block_miner",
- "edr_blockchain_fork",
+ "edr_blockchain_predeploys",
  "edr_chain_config",
  "edr_chain_l1",
  "edr_chain_spec",
@@ -3331,6 +3370,7 @@ dependencies = [
  "edr_eip7702",
  "edr_eip7825",
  "edr_eip7892",
+ "edr_eip7997",
  "edr_eth",
  "edr_evm",
  "edr_gas_report",
@@ -3728,6 +3768,7 @@ dependencies = [
  "edr_chain_spec_receipt",
  "edr_chain_spec_rpc",
  "edr_defaults",
+ "edr_eip4788",
  "edr_eth",
  "edr_primitives",
  "edr_receipt",
