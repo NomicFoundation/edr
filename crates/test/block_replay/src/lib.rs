@@ -13,16 +13,14 @@ use edr_block_builder_api::{BlockBuilder as _, BlockInputs};
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_block_remote::RemoteBlock;
 use edr_blockchain_api::{BlockchainMetadata as _, StateAtBlock as _};
-use edr_blockchain_fork::{
-    eips::eip4788::{beacon_root_storage_slots, BeaconRootStorageSlots, BEACON_ROOTS_ADDRESS},
-    ForkedBlockchain,
-};
+use edr_blockchain_fork::ForkedBlockchain;
 use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction, ProtocolHardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::config::EvmConfig;
 use edr_chain_spec_provider::SyncProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec, RpcEthBlock};
+use edr_eip4788::{beacon_root_storage_slots, BeaconRootStorageSlots, BEACON_ROOTS_ADDRESS};
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{HashMap, B256};
 use edr_receipt::{

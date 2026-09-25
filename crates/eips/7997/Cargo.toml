@@ -1,0 +1,11 @@
+[package]
+name = "edr_eip7997"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_primitives.workspace = true
+revm-state.workspace = true
+
+[lints]
+workspace = true

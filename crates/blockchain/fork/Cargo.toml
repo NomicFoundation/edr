@@ -10,6 +10,7 @@ edr_block_header.workspace = true
 edr_block_remote.workspace = true
 edr_block_storage.workspace = true
 edr_blockchain_api.workspace = true
+edr_blockchain_predeploys.workspace = true
 edr_blockchain_remote.workspace = true
 edr_chain_config.workspace = true
 edr_chain_spec.workspace = true
@@ -44,6 +45,8 @@ workspace = true
 [dev-dependencies]
 anyhow.workspace = true
 edr_chain_l1.workspace = true
+edr_eip2935.workspace = true
+edr_eip7997.workspace = true
 edr_chain_spec_provider.workspace = true
 edr_defaults.workspace = true
 edr_provider.workspace = true

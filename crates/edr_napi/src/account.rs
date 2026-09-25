@@ -11,6 +11,7 @@ use crate::{
         serialize_bigint_as_struct, serialize_optional_bigint_as_struct,
         serialize_optional_uint8array_as_hex, serialize_uint8array_as_hex,
     },
+    trace::u256_to_bigint,
 };
 
 /// Specification of overrides for an account and its storage.
@@ -35,6 +36,20 @@ pub struct AccountOverride {
     ///
     /// If present, the overwriting storage.
     pub storage: Option<Vec<StorageSlot>>,
+}
+
+impl From<(Address, AccountInfo)> for AccountOverride {
+    fn from((address, account): (Address, AccountInfo)) -> Self {
+        Self {
+            address: Uint8Array::with_data_copied(address),
+            balance: Some(u256_to_bigint(&account.balance)),
+            nonce: Some(BigInt::from(account.nonce)),
+            code: account
+                .code
+                .map(|code| Uint8Array::with_data_copied(code.original_byte_slice())),
+            storage: Some(Vec::new()),
+        }
+    }
 }
 
 impl TryFrom<AccountOverride> for (Address, edr_provider::AccountOverride) {

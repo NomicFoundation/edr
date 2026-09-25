@@ -1,0 +1,11 @@
+[package]
+name = "edr_eip2935"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_primitives.workspace = true
+revm-state.workspace = true
+
+[lints]
+workspace = true
