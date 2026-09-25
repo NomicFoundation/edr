@@ -2,3 +2,5 @@
 pub mod eip2935;
 /// Functions and constants for EIP-4788
 pub mod eip4788;
+/// Functions and constants for EIP-7997
+pub mod eip7997;
