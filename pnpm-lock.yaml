@@ -35,7 +35,7 @@ importers:
     devDependencies:
       '@napi-rs/cli':
         specifier: ^3.7.0
-        version: 3.9.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@22.20.2)(emnapi@1.11.3)(supports-color@8.1.1)
+        version: 3.10.4(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@22.20.2)(emnapi@1.11.3)(supports-color@8.1.1)
       '@nomicfoundation/ethereumjs-util':
         specifier: ^9.0.4
         version: 9.0.4
@@ -954,8 +954,8 @@ packages:
     resolution: {integrity: sha512-tghyZKLHZjcdlDqCA3gNZmLeR0XvOE9U1qoQO9ohyAZT6Pya+H9vkBPcsyXytmYLNgVoin7CKCmweo/R43V+tQ==}
     engines: {node: '>=12.0.0'}
 
-  '@napi-rs/cli@3.9.1':
-    resolution: {integrity: sha512-2DYBrM2j4n00L+O7fKAS38q19rVQK2HXz5RxSuJgFyZrd9TrdVQFmHOfqvqqsRIRBTZmqiMqBd/yzn4X1a23DQ==}
+  '@napi-rs/cli@3.10.4':
+    resolution: {integrity: sha512-7yvXpu/m4p1Re1/DViAooSYAyivYEhqDrjuq66a6haXLEAKrZSzndG7B850g1irngI1pAdZS5xL4tsu0xQ8P9Q==}
     engines: {node: ^20.17.0 || ^22.13.0 || >= 23.5.0}
     hasBin: true
     peerDependencies:
@@ -3078,8 +3078,8 @@ packages:
   obliterator@2.0.5:
     resolution: {integrity: sha512-42CPE9AhahZRsMNslczq0ctAEtqk8Eka26QofnqC346BZdHDySk3LWka23LI7ULIw11NmltpiLagIq8gBozxTw==}
 
-  obug@2.1.4:
-    resolution: {integrity: sha512-4a+OsYv9UktOJKE+l1A4OufDgdRF9PifWj+tJnHURo/P+WOxpG4GzUFL9qCalmWauao6ogiG+QvnCovwPoyAWA==}
+  obug@3.0.0:
+    resolution: {integrity: sha512-5vvB5+W7ePv+p3uqxi+RcW1XAzLW0/hxt3/4X4Lc4qHudzOhmBiBwOY6DRob4WnanAEGvNcLjF+KNOufrUoEQw==}
     engines: {node: '>=12.20.0'}
 
   once@1.4.0:
@@ -4387,7 +4387,7 @@ snapshots:
       tweetnacl: 1.0.3
       tweetnacl-util: 0.15.1
 
-  '@napi-rs/cli@3.9.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@22.20.2)(emnapi@1.11.3)(supports-color@8.1.1)':
+  '@napi-rs/cli@3.10.4(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@22.20.2)(emnapi@1.11.3)(supports-color@8.1.1)':
     dependencies:
       '@inquirer/prompts': 8.5.2(@types/node@22.20.2)
       '@napi-rs/cross-toolchain': 1.0.3(supports-color@8.1.1)
@@ -4397,7 +4397,7 @@ snapshots:
       colorette: 2.0.20
       es-toolkit: 1.50.0
       js-yaml: 5.4.2
-      obug: 2.1.4
+      obug: 3.0.0
       semver: 7.8.5
       typanion: 3.14.0
       typescript: 6.0.3
@@ -6774,7 +6774,7 @@ snapshots:
 
   obliterator@2.0.5: {}
 
-  obug@2.1.4: {}
+  obug@3.0.0: {}
 
   once@1.4.0:
     dependencies:
