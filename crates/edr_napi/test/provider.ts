@@ -23,10 +23,12 @@ import {
   DEFAULT_GENESIS_ADDRESS,
   fundedGenesisState,
   getContext,
+  intervalMiningConfig,
   l1ProviderConfig,
   loadContract,
   registerGenericProviderFactory,
   silentLoggerConfig,
+  subscribeToNewHeads,
 } from "./helpers";
 
 chai.use(chaiAsPromised);
@@ -82,6 +84,19 @@ describe("Provider", () => {
 
   it("initialize local generic provider", async function () {
     await assert.isFulfilled(createGenericProvider(context));
+  });
+
+  it("rejects an unregistered chain type with the lookup's own error", async function () {
+    await assert.isRejected(
+      context.createProvider(
+        "unregistered",
+        l1ProviderConfig(),
+        silentLoggerConfig(),
+        { subscriptionCallback: (_event: SubscriptionEvent) => {} },
+        new ContractDecoder()
+      ),
+      /Provider for provided chain type does not exist/
+    );
   });
 
   it("initialize remote", async function () {
@@ -664,7 +679,7 @@ describe("Provider", () => {
   });
 
   describe("decodeConsoleLogInputsCallback", () => {
-    it("surfaces a throwing callback as an error instead of crashing", async function () {
+    it("forwards a thrown primitive to the caller untouched", async function () {
       const ERROR_MESSAGE = "decode exploded";
       const provider = await createGenericProvider(
         context,
@@ -674,7 +689,10 @@ describe("Provider", () => {
           decodeConsoleLogInputsCallback: (
             _inputs: ArrayBuffer[]
           ): string[] => {
-            throw new Error(ERROR_MESSAGE);
+            // A bare string: the coercing exception path cannot reference a
+            // primitive and would replace it.
+            // eslint-disable-next-line @typescript-eslint/only-throw-error
+            throw ERROR_MESSAGE;
           },
         }
       );
@@ -769,6 +787,151 @@ describe("Provider", () => {
 
       assertHasNumber(event.result);
       assert.equal(typeof event.result.number, "string");
+    });
+
+    it("delivers ordered events from the provider's own thread under interval mining", async function () {
+      const INTERVAL_MS = 50n;
+      const EXPECTED = 5;
+
+      const blockNumbers: bigint[] = [];
+      let resolveEnough!: () => void;
+      const enoughEvents = new Promise<void>((resolve) => {
+        resolveEnough = resolve;
+      });
+
+      const provider = await createGenericProvider(
+        context,
+        { mining: intervalMiningConfig(INTERVAL_MS) },
+        silentLoggerConfig(),
+        (event) => {
+          function assertHasNumber(
+            x: unknown
+          ): asserts x is { number: string } {
+            if (
+              typeof x !== "object" ||
+              x === null ||
+              !("number" in x) ||
+              typeof x.number !== "string"
+            ) {
+              throw new Error("missing string `number` field");
+            }
+          }
+
+          assertHasNumber(event.result);
+          blockNumbers.push(BigInt(event.result.number));
+          if (blockNumbers.length >= EXPECTED) {
+            resolveEnough();
+          }
+        }
+      );
+
+      const subscriptionId = await subscribeToNewHeads(provider);
+
+      await enoughEvents;
+
+      // Stops deliveries, so a late event cannot throw into the callback
+      // after the test has finished. Mining itself continues until the
+      // provider is collected.
+      const unsubscribeResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 2,
+          jsonrpc: "2.0",
+          method: "eth_unsubscribe",
+          params: [subscriptionId],
+        })
+      );
+      assert.strictEqual(JSON.parse(unsubscribeResponse.data).result, true);
+
+      // Blocking call mode is what keeps events in order.
+      assert.isAtLeast(blockNumbers.length, EXPECTED);
+      for (let i = 1; i < blockNumbers.length; i++) {
+        assert.equal(
+          blockNumbers[i],
+          blockNumbers[i - 1] + 1n,
+          `block ${blockNumbers[i]} did not follow ${blockNumbers[i - 1]}`
+        );
+      }
+    });
+  });
+
+  describe("callback ownership", () => {
+    it("owns every configured callback under a hidden property", async function () {
+      const CALLBACKS_PROPERTY = "__edrCallbacks";
+      const provider = await createGenericProvider(context, {
+        observability: {
+          codeCoverage: {
+            onCollectedCoverageCallback: (): Promise<void> => Promise.resolve(),
+          },
+          gasReport: {
+            onCollectedGasReportCallback: (): Promise<void> =>
+              Promise.resolve(),
+          },
+        },
+      });
+      const firstOverride = (): Promise<CallOverrideResult | undefined> =>
+        Promise.resolve(undefined);
+      const secondOverride = (): Promise<CallOverrideResult | undefined> =>
+        Promise.resolve(undefined);
+      await provider.setCallOverrideCallback(firstOverride);
+
+      // The replacement takes the `callOverride` entry only after the
+      // provider holds the new callback. A synchronous read therefore still
+      // sees the predecessor.
+      const replacement = provider.setCallOverrideCallback(secondOverride);
+      const replacementDescriptor = Object.getOwnPropertyDescriptor(
+        provider,
+        CALLBACKS_PROPERTY
+      );
+      assert.isDefined(replacementDescriptor);
+      const holderDuringReplacement = replacementDescriptor.value as Record<
+        string,
+        unknown
+      >;
+      assert.strictEqual(holderDuringReplacement.callOverride, firstOverride);
+      await replacement;
+
+      // `__edrCallbacks` is part of the published contract: non-enumerable,
+      // non-writable, non-configurable.
+      const descriptor = Object.getOwnPropertyDescriptor(
+        provider,
+        CALLBACKS_PROPERTY
+      );
+      assert.isDefined(descriptor);
+      assert.deepInclude(descriptor, {
+        enumerable: false,
+        writable: false,
+        configurable: false,
+      });
+
+      // A callback registered without ending up here would be silently
+      // collectable, which reclamation tests cannot detect.
+      const holder = descriptor.value as Record<string, unknown>;
+      assert.hasAllKeys(holder, [
+        "subscription",
+        "decodeConsoleLogInputs",
+        "printLine",
+        "onCollectedCoverage",
+        "onCollectedGasReport",
+        "callOverride",
+      ]);
+
+      // Setting the override again replaces its entry rather than adding one.
+      assert.strictEqual(holder.callOverride, secondOverride);
+
+      // Entries stay replaceable but cannot be deleted from under a live
+      // callback.
+      const entryDescriptor = Object.getOwnPropertyDescriptor(
+        holder,
+        "callOverride"
+      );
+      assert.isDefined(entryDescriptor);
+      assert.deepInclude(entryDescriptor, {
+        writable: true,
+        enumerable: true,
+        configurable: false,
+      });
+
+      assert.notInclude(Object.keys(provider), CALLBACKS_PROPERTY);
     });
   });
 
