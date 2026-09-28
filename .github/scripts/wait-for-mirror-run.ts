@@ -85,8 +85,8 @@ export async function waitForMirrorRun({
     case "success":
       core.info(`Mirror run succeeded: ${url}`);
       break;
-    // The mirror job skips itself on fork PRs; the tags it would have
-    // re-copied already exist.
+    // The mirror job skips itself on fork PRs; a tag such a PR adds fails
+    // the pull.
     case "skipped":
       core.info(`Mirror run was skipped: ${url}`);
       break;

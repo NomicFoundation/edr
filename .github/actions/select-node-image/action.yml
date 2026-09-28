@@ -20,7 +20,7 @@ runs:
     # Pulls can otherwise race ahead of the mirror run for the same commit
     # and fail with "manifest unknown".
     - name: Wait for in-flight mirror run
-      if: inputs.is-release != 'true'
+      if: inputs.is-release == 'false'
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       with:
         script: |
