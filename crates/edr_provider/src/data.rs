@@ -478,12 +478,9 @@ where
         std::mem::take(&mut self.interval_reconfigured)
     }
 
-    /// Returns the EIP-7825 bound on execution gas, or `u64::MAX` when there is
-    /// none.
-    pub fn transaction_execution_gas_bound(&self) -> u64 {
-        self.transaction_gas_bounds
-            .execution_gas
-            .unwrap_or(u64::MAX)
+    /// Returns the EIP-7825 bound on execution gas, if any.
+    pub fn transaction_execution_gas_bound(&self) -> Option<u64> {
+        self.transaction_gas_bounds.execution_gas
     }
 
     fn add_state_to_cache(&mut self, state: Box<dyn DynState>, block_number: u64) -> StateId {
@@ -1406,7 +1403,8 @@ where
             } else {
                 None
             },
-            transaction_gas_cap: Some(self.transaction_execution_gas_bound()),
+            // revm falls back to the spec's cap when `None`; `u64::MAX` disables it.
+            transaction_gas_cap: Some(self.transaction_execution_gas_bound().unwrap_or(u64::MAX)),
         }
     }
 
