@@ -33,12 +33,13 @@ use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait,
-    ProtocolHardfork, TransactionValidation,
+    TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
 use edr_eip1559::BaseFeeParams;
 use edr_eip7892::ScheduledBlobParams;
+use edr_eip8037::TransactionGasBounds;
 use edr_eth::{
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
@@ -69,10 +70,8 @@ use edr_state_api::{
     AccountModifierFn, DynState, EvmState, EvmStorageSlot, StateDiff, StateOverride, TransactionId,
 };
 use edr_transaction::{
-    gas_bounds::{execution_gas_bound_for_hardfork, total_gas_bound_for_hardfork},
-    request::TransactionRequestAndSender,
-    BlockDataForTransaction, IsEip4844, IsSupported as _, TransactionAndBlock, TransactionMut,
-    TransactionType, TxKind,
+    request::TransactionRequestAndSender, BlockDataForTransaction, IsEip4844, IsSupported as _,
+    TransactionAndBlock, TransactionMut, TransactionType, TxKind,
 };
 use edr_utils::{random::RandomHashGenerator, CastArcInto};
 use foundry_evm_traces::CallTraceArena;
@@ -482,7 +481,9 @@ where
     /// Returns the EIP-7825 bound on execution gas, or `u64::MAX` when there is
     /// none.
     pub fn transaction_execution_gas_bound(&self) -> u64 {
-        self.transaction_gas_bounds.execution.unwrap_or(u64::MAX)
+        self.transaction_gas_bounds
+            .execution_gas
+            .unwrap_or(u64::MAX)
     }
 
     fn add_state_to_cache(&mut self, state: Box<dyn DynState>, block_number: u64) -> StateId {
@@ -773,8 +774,14 @@ where
             transaction_gas_cap,
         } = config;
 
-        let transaction_gas_bounds =
-            resolve_transaction_gas_bounds(blockchain.hardfork(), transaction_gas_cap);
+        // The option configures the EIP-7825 cap, whose meaning changes with EIP-8037.
+        let transaction_gas_bounds = match transaction_gas_cap {
+            ConfigOption::Default => TransactionGasBounds::for_hardfork(blockchain.hardfork()),
+            ConfigOption::Custom(transaction_gas_cap) => {
+                TransactionGasBounds::custom(blockchain.hardfork(), transaction_gas_cap)
+            }
+            ConfigOption::Disable => TransactionGasBounds::disabled(),
+        };
 
         let local_accounts = owned_accounts
             .iter()
@@ -794,7 +801,10 @@ where
                 RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
             };
 
-        let mem_pool = MemPool::new(block_gas_limit, transaction_gas_bounds.total);
+        let mem_pool = MemPool::new(
+            block_gas_limit,
+            transaction_gas_bounds.total_transaction_gas,
+        );
 
         Ok(Self {
             runtime_handle,
@@ -3234,53 +3244,6 @@ fn get_max_cached_states_from_env<
                 .map_err(|_err| CreationError::InvalidMaxCachedStates(s.into()))
         },
     )
-}
-
-/// The per-transaction gas bounds to enforce.
-struct TransactionGasBounds {
-    /// Bound on execution gas.
-    execution: Option<u64>,
-    /// Bound on `tx.gas`.
-    total: Option<u64>,
-}
-
-/// Resolves the `transaction_gas_cap` option into the bounds to enforce.
-///
-/// The option configures the EIP-7825 cap, whose meaning changes with EIP-8037:
-/// before Amsterdam `tx.gas` is execution gas, so the cap bounds it as a whole;
-/// from Amsterdam `tx.gas` funds execution and state gas, the cap bounds
-/// execution gas only and `tx.gas` itself is bounded by
-/// `TX_MAX_TOTAL_GAS_LIMIT`.
-fn resolve_transaction_gas_bounds<HardforkT: ProtocolHardfork>(
-    hardfork: HardforkT,
-    transaction_gas_cap: ConfigOption<u64>,
-) -> TransactionGasBounds {
-    match transaction_gas_cap {
-        ConfigOption::Default => TransactionGasBounds {
-            execution: execution_gas_bound_for_hardfork(hardfork.clone()),
-            total: total_gas_bound_for_hardfork(hardfork),
-        },
-        ConfigOption::Custom(execution_gas_cap) => {
-            let evm_spec_id: EvmSpecId = hardfork.clone().into();
-            // A custom value replaces the EIP-7825 cap, so it bounds `tx.gas` before
-            // Amsterdam and execution gas only from Amsterdam.
-            if evm_spec_id >= EvmSpecId::AMSTERDAM {
-                TransactionGasBounds {
-                    execution: Some(execution_gas_cap),
-                    total: total_gas_bound_for_hardfork(hardfork),
-                }
-            } else {
-                TransactionGasBounds {
-                    execution: Some(execution_gas_cap),
-                    total: Some(execution_gas_cap),
-                }
-            }
-        }
-        ConfigOption::Disable => TransactionGasBounds {
-            execution: None,
-            total: None,
-        },
-    }
 }
 
 #[cfg(test)]

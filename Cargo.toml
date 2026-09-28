@@ -48,7 +48,9 @@ members = [
     "crates/eips/2930",
     "crates/eips/4844",
     "crates/eips/7702",
+    "crates/eips/7825",
     "crates/eips/7892",
+    "crates/eips/8037",
     "crates/evm",
     "crates/mem_pool",
     "crates/precompile",
@@ -158,7 +160,9 @@ edr_eip1559 = { path = "crates/eips/1559" }
 edr_eip2930 = { path = "crates/eips/2930" }
 edr_eip4844 = { path = "crates/eips/4844" }
 edr_eip7702 = { path = "crates/eips/7702" }
+edr_eip7825 = { path = "crates/eips/7825" }
 edr_eip7892 = { path = "crates/eips/7892" }
+edr_eip8037 = { path = "crates/eips/8037" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/evm" }
 edr_gas_report = { path = "crates/edr_gas_report" }

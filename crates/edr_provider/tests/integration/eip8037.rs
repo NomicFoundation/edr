@@ -25,6 +25,7 @@ use edr_chain_l1::{
 };
 use edr_chain_spec::ExecutableTransaction as _;
 use edr_chain_spec_evm::result::ResultGas;
+use edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT;
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::{address, Address, Bytecode, Bytes, U256};
 use edr_provider::{
@@ -38,9 +39,7 @@ use edr_provider::{
 };
 use edr_receipt::ExecutionReceipt as _;
 use edr_test_utils::secret_key::secret_key_from_str;
-use edr_transaction::{
-    gas_bounds::TX_MAX_TOTAL_GAS_LIMIT, request::TransactionRequestAndSender, TxKind,
-};
+use edr_transaction::{request::TransactionRequestAndSender, TxKind};
 use tokio::runtime;
 
 use crate::common::{

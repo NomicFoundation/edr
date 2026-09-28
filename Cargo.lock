@@ -2964,12 +2964,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip7825"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+ "revm-primitives",
+]
+
+[[package]]
 name = "edr_eip7892"
 version = "0.3.8"
 dependencies = [
  "alloy-eips",
  "alloy-hardforks",
  "serde",
+]
+
+[[package]]
+name = "edr_eip8037"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+ "edr_eip7825",
+ "revm-primitives",
 ]
 
 [[package]]
@@ -3185,6 +3202,7 @@ dependencies = [
  "edr_chain_spec_evm",
  "edr_decoder_revert",
  "edr_eip1559",
+ "edr_eip7825",
  "edr_eth",
  "edr_generic",
  "edr_precompile",
@@ -3320,7 +3338,9 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_eip7825",
  "edr_eip7892",
+ "edr_eip8037",
  "edr_eth",
  "edr_evm",
  "edr_gas_report",
