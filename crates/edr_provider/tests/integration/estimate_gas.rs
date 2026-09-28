@@ -141,8 +141,6 @@ impl Fixture {
 async fn binary_search_does_not_probe_above_transaction_gas_cap() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.hardfork = edr_chain_l1::Hardfork::Osaka;
-    // Mirrors the default behaviour of the napi layer: transaction_gas_cap and
-    // default_transaction_gas_limit are both derived from the hardfork.
     let transaction_gas_cap = edr_eip7825::transaction_gas_cap_for_hardfork(EvmSpecId::OSAKA)
         .expect("Osaka activates EIP-7825");
     config.transaction_gas_cap = ConfigOption::Custom(transaction_gas_cap);

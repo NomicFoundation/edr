@@ -603,7 +603,9 @@ fn transaction_block_gas_contribution<ChainSpecT: ChainSpec + ProtocolHardforkCh
 /// Gas split into the two dimensions metered from Amsterdam (EIP-8037).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct DimensionalGas {
+    /// Gas charged to the execution dimension.
     pub execution_gas: u64,
+    /// Gas charged to the state dimension.
     pub state_gas: u64,
 }
 

@@ -478,7 +478,8 @@ where
         std::mem::take(&mut self.interval_reconfigured)
     }
 
-    /// Returns the EIP-7825 bound on execution gas, if any.
+    /// Returns the bound on the gas a transaction may spend on execution, if
+    /// any.
     pub fn transaction_execution_gas_bound(&self) -> Option<u64> {
         self.transaction_gas_bounds.execution_gas
     }
@@ -771,7 +772,6 @@ where
             transaction_gas_cap,
         } = config;
 
-        // The option configures the EIP-7825 cap, whose meaning changes with EIP-8037.
         let transaction_gas_bounds = match transaction_gas_cap {
             ConfigOption::Default => TransactionGasBounds::for_hardfork(blockchain.hardfork()),
             ConfigOption::Custom(transaction_gas_cap) => {

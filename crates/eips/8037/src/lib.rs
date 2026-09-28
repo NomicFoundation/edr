@@ -51,7 +51,7 @@ pub struct TransactionGasBounds {
 }
 
 impl TransactionGasBounds {
-    /// The protocol's bounds.
+    /// The protocol's bounds for the given hardfork.
     pub fn for_hardfork<HardforkT: Into<EvmSpecId>>(hardfork: HardforkT) -> Self {
         let evm_spec_id = hardfork.into();
         Self {

@@ -571,14 +571,59 @@ fn admits_transaction_whose_capped_execution_gas_fits() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// From Amsterdam a transaction spends no more than the confgured execution gas
+/// cap, default EIP-7825 or configured, on execution, however large its
+/// `tx.gas`.
+#[test]
+fn execution_gas_is_capped_from_amsterdam() -> anyhow::Result<()> {
+    for (transaction_gas_cap, expected_execution_gas) in [
+        (ConfigOption::Default, MAX_TX_GAS_LIMIT_OSAKA),
+        (
+            ConfigOption::Custom(CUSTOM_TRANSACTION_GAS_CAP),
+            CUSTOM_TRANSACTION_GAS_CAP,
+        ),
+    ] {
+        let mut fixture = new_fixture_with(DEFAULT_BLOCK_GAS_LIMIT, |config| {
+            config.transaction_gas_cap = transaction_gas_cap;
+        })?;
+
+        let transactions = vec![call(
+            &fixture,
+            0,
+            EXCEEDS_TRANSACTION_EXECUTION_GAS_CAP,
+            GAS_LOOP,
+        )?];
+        let result = mine(&mut fixture, transactions)?;
+
+        let gas_loop = &result.transaction_results[0];
+        assert!(
+            gas_loop.is_halt(),
+            "the gas loop should run out of gas: {gas_loop:?}"
+        );
+        assert_eq!(
+            gas_loop.gas().block_regular_gas_used(),
+            expected_execution_gas,
+            "the gas loop should spend exactly the cap on execution"
+        );
+    }
+
+    Ok(())
+}
+
 /// Well above the EIP-7825 cap (2^24), below the default block gas limit.
 const EXCEEDS_TRANSACTION_EXECUTION_GAS_CAP: u64 = 20_000_000;
 
-/// Amsterdam provider with the default EIP-7825 cap.
-fn new_capped_provider() -> anyhow::Result<Provider<L1ChainSpec>> {
+/// A configured cap, between the EIP-7825 cap and
+/// [`EXCEEDS_TRANSACTION_EXECUTION_GAS_CAP`].
+const CUSTOM_TRANSACTION_GAS_CAP: u64 = 18_000_000;
+
+/// Amsterdam provider with the given EIP-7825 cap configuration.
+fn new_capped_provider(
+    transaction_gas_cap: ConfigOption<u64>,
+) -> anyhow::Result<Provider<L1ChainSpec>> {
     new_provider_with_config(|config| {
         config.hardfork = edr_chain_l1::Hardfork::Amsterdam;
-        config.transaction_gas_cap = ConfigOption::Default;
+        config.transaction_gas_cap = transaction_gas_cap;
     })
 }
 
@@ -593,23 +638,29 @@ fn caller(provider: &Provider<L1ChainSpec>) -> Address {
 }
 
 /// From Amsterdam the EIP-7825 cap applies to execution gas only, so a
-/// transaction whose `tx.gas` exceeds the cap is accepted and mined.
+/// transaction whose `tx.gas` exceeds the cap, default or configured, is
+/// accepted and mined.
 #[tokio::test(flavor = "multi_thread")]
 async fn send_transaction_accepts_gas_above_cap_from_amsterdam() -> anyhow::Result<()> {
-    let provider = new_capped_provider()?;
+    for transaction_gas_cap in [
+        ConfigOption::Default,
+        ConfigOption::Custom(CUSTOM_TRANSACTION_GAS_CAP),
+    ] {
+        let provider = new_capped_provider(transaction_gas_cap)?;
 
-    let request = TransactionRequest {
-        from: caller(&provider),
-        to: Some(Address::ZERO),
-        gas: Some(EXCEEDS_TRANSACTION_EXECUTION_GAS_CAP),
-        ..TransactionRequest::default()
-    };
-    let transaction_hash = send_transaction(&provider, request)?;
+        let request = TransactionRequest {
+            from: caller(&provider),
+            to: Some(Address::ZERO),
+            gas: Some(EXCEEDS_TRANSACTION_EXECUTION_GAS_CAP),
+            ..TransactionRequest::default()
+        };
+        let transaction_hash = send_transaction(&provider, request)?;
 
-    assert!(
-        crate::common::provider::gas_used(&provider, transaction_hash) > 0,
-        "the transaction should be mined"
-    );
+        assert!(
+            crate::common::provider::gas_used(&provider, transaction_hash) > 0,
+            "the transaction should be mined"
+        );
+    }
 
     Ok(())
 }
@@ -620,7 +671,11 @@ async fn send_transaction_accepts_gas_above_cap_from_amsterdam() -> anyhow::Resu
 /// disabled to exercise the total limit on its own.
 #[tokio::test(flavor = "multi_thread")]
 async fn send_transaction_rejects_gas_above_total_limit_from_amsterdam() -> anyhow::Result<()> {
-    for transaction_gas_cap in [ConfigOption::Default, ConfigOption::Disable] {
+    for transaction_gas_cap in [
+        ConfigOption::Default,
+        ConfigOption::Custom(CUSTOM_TRANSACTION_GAS_CAP),
+        ConfigOption::Disable,
+    ] {
         // Fund the sender so that only the total gas limit can reject the
         // transaction.
         let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
@@ -666,7 +721,7 @@ async fn send_transaction_rejects_gas_above_total_limit_from_amsterdam() -> anyh
 /// From Amsterdam `eth_call` accepts a gas limit above the EIP-7825 cap.
 #[tokio::test(flavor = "multi_thread")]
 async fn call_accepts_gas_above_cap_from_amsterdam() -> anyhow::Result<()> {
-    let provider = new_capped_provider()?;
+    let provider = new_capped_provider(ConfigOption::Default)?;
 
     let call = L1CallRequest {
         from: Some(caller(&provider)),
@@ -685,7 +740,7 @@ async fn call_accepts_gas_above_cap_from_amsterdam() -> anyhow::Result<()> {
 /// cap.
 #[tokio::test(flavor = "multi_thread")]
 async fn estimate_gas_accepts_gas_above_cap_from_amsterdam() -> anyhow::Result<()> {
-    let provider = new_capped_provider()?;
+    let provider = new_capped_provider(ConfigOption::Default)?;
 
     let call = L1CallRequest {
         from: Some(caller(&provider)),
