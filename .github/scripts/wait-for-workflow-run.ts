@@ -18,6 +18,19 @@ export interface GitHub {
   };
 }
 
+export interface Clock {
+  sleep: (ms: number) => Promise<unknown>;
+  now: () => number;
+}
+
+const REAL_CLOCK: Clock = {
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  now: () => Date.now(),
+};
+
+export const POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
+export const RUNS_PER_PAGE = 10;
+
 export type WaitResult =
   | { outcome: "concluded"; run: WorkflowRun }
   | { outcome: "missing" }
@@ -26,8 +39,6 @@ export type WaitResult =
 // `onMissing` says what an empty run list means: "wait" for a run the caller
 // knows was triggered and that may not be registered yet, "stop" when the run
 // is optional and its absence is itself the answer.
-//
-// Tests pass `sleep` and `now` to fake the clock.
 export async function waitForWorkflowRun({
   github,
   core,
@@ -36,10 +47,8 @@ export async function waitForWorkflowRun({
   workflowId,
   headSha,
   timeoutMs,
-  pollIntervalMs,
   onMissing,
-  sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
-  now = () => Date.now(),
+  clock = REAL_CLOCK,
 }: {
   github: GitHub;
   core: Core;
@@ -48,12 +57,10 @@ export async function waitForWorkflowRun({
   workflowId: string;
   headSha: string;
   timeoutMs: number;
-  pollIntervalMs: number;
   onMissing: "wait" | "stop";
-  sleep?: (ms: number) => Promise<unknown>;
-  now?: () => number;
+  clock?: Clock;
 }): Promise<WaitResult> {
-  const deadline = now() + timeoutMs;
+  const deadline = clock.now() + timeoutMs;
 
   while (true) {
     const { data } = await github.rest.actions.listWorkflowRuns({
@@ -63,7 +70,7 @@ export async function waitForWorkflowRun({
       head_sha: headSha,
       // Newest first, but a re-run keeps its original created_at, so an
       // in-flight run can sit behind a newer completed one.
-      per_page: 10,
+      per_page: RUNS_PER_PAGE,
     });
     const runs = data.workflow_runs;
     const newest = runs[0];
@@ -75,15 +82,15 @@ export async function waitForWorkflowRun({
     if (newest !== undefined && pending === undefined) {
       return { outcome: "concluded", run: newest };
     }
-    if (now() >= deadline) {
+    if (clock.now() >= deadline) {
       return { outcome: "timeout" };
     }
 
     core.info(
       `${workflowId} for ${headSha.slice(0, 12)} has not concluded ` +
         `(status: ${pending?.status ?? "not started"}); re-checking in ` +
-        `${pollIntervalMs / 1000}s`
+        `${POLL_INTERVAL_MS / 1000}s`
     );
-    await sleep(pollIntervalMs);
+    await clock.sleep(POLL_INTERVAL_MS);
   }
 }

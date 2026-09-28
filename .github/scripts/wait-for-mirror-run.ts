@@ -11,12 +11,15 @@
 // See README.md for the conventions these scripts follow.
 
 import type { Core } from "./github-script.ts";
-import { waitForWorkflowRun, type GitHub } from "./wait-for-workflow-run.ts";
+import {
+  waitForWorkflowRun,
+  type Clock,
+  type GitHub,
+} from "./wait-for-workflow-run.ts";
 
 // Copying the node tags takes a couple of minutes; the margin is for a queued
 // run. Overshooting costs a wait, not a failure.
 const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
-const POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
 
 export interface Context {
   repo: { owner: string; repo: string };
@@ -29,14 +32,12 @@ export async function waitForMirrorRun({
   github,
   context,
   core,
-  sleep,
-  now,
+  clock,
 }: {
   github: GitHub;
   context: Context;
   core: Core;
-  sleep?: (ms: number) => Promise<unknown>;
-  now?: () => number;
+  clock?: Clock;
 }): Promise<void> {
   const { owner, repo } = context.repo;
   // For pull_request events the mirror run is recorded against the PR head
@@ -54,10 +55,8 @@ export async function waitForMirrorRun({
       workflowId: "mirror-docker-images.yml",
       headSha,
       timeoutMs: TIMEOUT_MS,
-      pollIntervalMs: POLL_INTERVAL_MS,
       onMissing: "stop",
-      sleep,
-      now,
+      clock,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

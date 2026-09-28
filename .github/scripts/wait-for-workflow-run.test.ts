@@ -6,43 +6,36 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { fakeClock, runsOf, sequence, type RunPage } from "./fakes.ts";
 import type { WorkflowRun } from "./github-script.ts";
-import { waitForWorkflowRun, type GitHub } from "./wait-for-workflow-run.ts";
+import {
+  POLL_INTERVAL_MS,
+  RUNS_PER_PAGE,
+  waitForWorkflowRun,
+  type GitHub,
+} from "./wait-for-workflow-run.ts";
 
 const OWNER = "NomicFoundation";
 const REPO = "edr";
 const SHA = "a2f7cf2131d0bd58d29e8a0d84a1ae61dfc7f8e1";
 const WORKFLOW = "edr-ci.yml";
-const TIMEOUT_MS = 90_000;
-const POLL_INTERVAL_MS = 30_000;
+const TIMEOUT_MS = 3 * POLL_INTERVAL_MS;
 
-// One entry per `listWorkflowRuns` call, in order; the last entry repeats for
-// any further call. A single run stands for a one-run page, `undefined` for
-// an empty one.
+// One page per `listWorkflowRuns` call, in order; the last one repeats.
 function makeDeps(
-  responses: Array<WorkflowRun | WorkflowRun[] | undefined>,
+  pages: RunPage[],
   { timeoutMs = TIMEOUT_MS }: { timeoutMs?: number } = {}
 ) {
   const calls: Array<Record<string, unknown>> = [];
   const infos: string[] = [];
-  // Fake clock, advanced only by the fake `sleep`, so the timeout path costs
-  // no wall-clock time.
-  let clock = 0;
+  const nextPage = sequence(pages);
 
   const github: GitHub = {
     rest: {
       actions: {
         listWorkflowRuns: async (params) => {
           calls.push(params);
-          const response =
-            responses[Math.min(calls.length - 1, responses.length - 1)];
-          const workflow_runs =
-            response === undefined
-              ? []
-              : Array.isArray(response)
-                ? response
-                : [response];
-          return { data: { workflow_runs } };
+          return { data: { workflow_runs: runsOf(nextPage()) } };
         },
       },
     },
@@ -60,11 +53,7 @@ function makeDeps(
     workflowId: WORKFLOW,
     headSha: SHA,
     timeoutMs,
-    pollIntervalMs: POLL_INTERVAL_MS,
-    sleep: async (ms: number) => {
-      clock += ms;
-    },
-    now: () => clock,
+    clock: fakeClock(),
     calls,
     infos,
   };
@@ -84,7 +73,7 @@ test("a completed run is returned on the first poll", async () => {
     repo: REPO,
     workflow_id: WORKFLOW,
     head_sha: SHA,
-    per_page: 10,
+    per_page: RUNS_PER_PAGE,
   });
 });
 

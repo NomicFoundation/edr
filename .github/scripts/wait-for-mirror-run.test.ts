@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { fakeClock } from "./fakes.ts";
 import type { WorkflowRun } from "./github-script.ts";
 import { waitForMirrorRun, type Context } from "./wait-for-mirror-run.ts";
 import type { GitHub } from "./wait-for-workflow-run.ts";
@@ -27,7 +28,6 @@ function makeDeps({
   const shas: string[] = [];
   const infos: string[] = [];
   const warnings: string[] = [];
-  let clock = 0;
 
   const github: GitHub = {
     rest: {
@@ -62,10 +62,7 @@ function makeDeps({
       notice: () => {},
       warning: (m: string) => warnings.push(m),
     },
-    sleep: async (ms: number) => {
-      clock += ms;
-    },
-    now: () => clock,
+    clock: fakeClock(),
     shas,
     infos,
     warnings,

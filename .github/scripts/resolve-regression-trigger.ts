@@ -15,10 +15,8 @@
 // Loaded by `actions/github-script` in hh3-regression-benchmark.yml.
 // See README.md for the conventions these scripts follow.
 
-// How long to wait for the EDR CI run to conclude before giving up, and how
-// often to re-check while waiting. Tunable independently.
+// How long to wait for the EDR CI run to conclude before giving up.
 const CI_WAIT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-const CI_POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
 
 // Default filters when a run doesn't specify them. The resolver always emits a
 // concrete value for both (never empty), so the workflow can pass --scenarios /
@@ -50,7 +48,7 @@ import {
   parseHardhatPin,
   type HardhatPin,
 } from "./hardhat-compat-pin.ts";
-import { waitForWorkflowRun } from "./wait-for-workflow-run.ts";
+import { waitForWorkflowRun, type Clock } from "./wait-for-workflow-run.ts";
 
 // `pulls.get` is called for both an EDR PR (fork check) and the pinned Hardhat
 // PR (open/merged check); the real API returns `repo` for either.
@@ -124,19 +122,16 @@ export interface Context {
   };
 }
 
-// Tests pass `sleep` and `now` to fake the clock of the CI wait.
 export async function resolveRegressionTrigger({
   github,
   context,
   core,
-  sleep,
-  now,
+  clock,
 }: {
   github: GitHub;
   context: Context;
   core: CoreWithOutputs;
-  sleep?: (ms: number) => Promise<unknown>;
-  now?: () => number;
+  clock?: Clock;
 }): Promise<void> {
   const { owner, repo } = context.repo;
   const fullName = `${owner}/${repo}`;
@@ -165,11 +160,9 @@ export async function resolveRegressionTrigger({
       workflowId: "edr-ci.yml",
       headSha: sha,
       timeoutMs: CI_WAIT_TIMEOUT_MS,
-      pollIntervalMs: CI_POLL_INTERVAL_MS,
       // A `/bench` comment can land before CI registers its run.
       onMissing: "wait",
-      sleep,
-      now,
+      clock,
     });
     if (result.outcome !== "concluded") {
       core.warning("Timed out waiting for EDR CI to conclude");

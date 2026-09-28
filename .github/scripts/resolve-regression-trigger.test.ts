@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { fakeClock, sequence } from "./fakes.ts";
 import type { WorkflowRun } from "./github-script.ts";
 import {
   resolveRegressionTrigger,
@@ -72,11 +73,7 @@ function makeDeps({
     reactions: [],
   };
 
-  // Fake clock, advanced only by the fake `sleep`, so the CI wait's timeout
-  // path costs no wall-clock time.
-  let clock = 0;
-  const ciResponses = Array.isArray(ci) ? ci : [ci];
-  let ciCalls = 0;
+  const nextCiRun = sequence(Array.isArray(ci) ? ci : [ci]);
 
   const core = {
     setOutput: (name: string, value: string) => {
@@ -101,7 +98,7 @@ function makeDeps({
         }) => {
           assert.equal(workflow_id, "edr-ci.yml");
           assert.equal(head_sha, pr?.head.sha);
-          const run = ciResponses[Math.min(ciCalls++, ciResponses.length - 1)];
+          const run = nextCiRun();
           return { data: { workflow_runs: run === undefined ? [] : [run] } };
         },
       },
@@ -177,10 +174,7 @@ function makeDeps({
     github,
     context,
     core,
-    sleep: async (ms: number) => {
-      clock += ms;
-    },
-    now: () => clock,
+    clock: fakeClock(),
     captured,
   };
 }
