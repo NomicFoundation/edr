@@ -7,8 +7,5 @@ edition.workspace = true
 edr_eip7825.workspace = true
 revm-primitives = { workspace = true, default-features = false }
 
-[dev-dependencies]
-alloy-eips = { workspace = true, default-features = false }
-
 [lints]
 workspace = true

@@ -15,7 +15,6 @@
 
 use std::num::NonZeroU64;
 
-use alloy_eips::eip7825::MAX_TX_GAS_LIMIT_OSAKA;
 use edr_block_api::Block as _;
 use edr_block_header::HeaderOverrides;
 use edr_chain_l1::{
@@ -25,6 +24,7 @@ use edr_chain_l1::{
 };
 use edr_chain_spec::ExecutableTransaction as _;
 use edr_chain_spec_evm::result::ResultGas;
+use edr_eip7825::OSAKA_TRANSACTION_GAS_CAP;
 use edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT;
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::{address, Address, Bytecode, Bytes, U256};
@@ -551,8 +551,8 @@ fn admits_transaction_whose_capped_execution_gas_fits() -> anyhow::Result<()> {
          ({remaining_execution_gas})"
     );
     assert!(
-        MAX_TX_GAS_LIMIT_OSAKA <= remaining_execution_gas,
-        "the cap ({MAX_TX_GAS_LIMIT_OSAKA}) should fit the remaining execution gas \
+        OSAKA_TRANSACTION_GAS_CAP <= remaining_execution_gas,
+        "the cap ({OSAKA_TRANSACTION_GAS_CAP}) should fit the remaining execution gas \
          ({remaining_execution_gas})"
     );
     assert!(
@@ -577,7 +577,7 @@ fn admits_transaction_whose_capped_execution_gas_fits() -> anyhow::Result<()> {
 #[test]
 fn execution_gas_is_capped_from_amsterdam() -> anyhow::Result<()> {
     for (transaction_gas_cap, expected_execution_gas) in [
-        (ConfigOption::Default, MAX_TX_GAS_LIMIT_OSAKA),
+        (ConfigOption::Default, OSAKA_TRANSACTION_GAS_CAP),
         (
             ConfigOption::Custom(CUSTOM_TRANSACTION_GAS_CAP),
             CUSTOM_TRANSACTION_GAS_CAP,

@@ -2984,7 +2984,6 @@ dependencies = [
 name = "edr_eip8037"
 version = "0.3.8"
 dependencies = [
- "alloy-eips",
  "edr_eip7825",
  "revm-primitives",
 ]

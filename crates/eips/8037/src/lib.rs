@@ -93,7 +93,7 @@ impl TransactionGasBounds {
 
 #[cfg(test)]
 mod tests {
-    use alloy_eips::eip7825::MAX_TX_GAS_LIMIT_OSAKA;
+    use edr_eip7825::OSAKA_TRANSACTION_GAS_CAP;
 
     use super::*;
 
@@ -111,14 +111,14 @@ mod tests {
         assert_eq!(
             TransactionGasBounds::for_hardfork(EvmSpecId::OSAKA),
             TransactionGasBounds {
-                execution_gas: Some(MAX_TX_GAS_LIMIT_OSAKA),
-                total_transaction_gas: Some(MAX_TX_GAS_LIMIT_OSAKA),
+                execution_gas: Some(OSAKA_TRANSACTION_GAS_CAP),
+                total_transaction_gas: Some(OSAKA_TRANSACTION_GAS_CAP),
             }
         );
         assert_eq!(
             TransactionGasBounds::for_hardfork(EvmSpecId::AMSTERDAM),
             TransactionGasBounds {
-                execution_gas: Some(MAX_TX_GAS_LIMIT_OSAKA),
+                execution_gas: Some(OSAKA_TRANSACTION_GAS_CAP),
                 total_transaction_gas: Some(TX_MAX_TOTAL_GAS_LIMIT),
             }
         );
