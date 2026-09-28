@@ -510,7 +510,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.ref }}
+          # The PR head commit, whose message the check reads; a fork's branch name doesn't exist here.
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Check if commit message is a release commit
         id: check_commit
