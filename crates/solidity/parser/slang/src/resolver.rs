@@ -57,9 +57,9 @@ impl<'resolver> SourceProvider<'resolver> {
 }
 
 impl CompilationBuilderConfig for SourceProvider<'_> {
-    /// Reads a project source the same way the compiler does — driven by the
-    /// paths the test runner was configured with, never by paths a test
-    /// controls — and so intentionally does not go through `fs_permissions`.
+    /// Keep `fs_permissions` out of this path. The file ids come from the
+    /// paths the test runner was configured with, never from paths a test
+    /// controls, so this reads a project source exactly as the compiler does.
     fn read_file(&mut self, file_id: &str) -> Result<String, String> {
         std::fs::read_to_string(Path::new(file_id)).map_err(|error| error.to_string())
     }
