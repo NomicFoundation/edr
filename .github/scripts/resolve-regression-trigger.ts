@@ -15,10 +15,8 @@
 // Loaded by `actions/github-script` in hh3-regression-benchmark.yml.
 // See README.md for the conventions these scripts follow.
 
-// How long to wait for the EDR CI run to conclude before giving up, and how
-// often to re-check while waiting. Tunable independently.
+// How long to wait for the EDR CI run to conclude before giving up.
 const CI_WAIT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-const CI_POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
 
 // Default filters when a run doesn't specify them. The resolver always emits a
 // concrete value for both (never empty), so the workflow can pass --scenarios /
@@ -50,6 +48,7 @@ import {
   parseHardhatPin,
   type HardhatPin,
 } from "./hardhat-compat-pin.ts";
+import { waitForWorkflowRun, type Clock } from "./wait-for-workflow-run.ts";
 
 // `pulls.get` is called for both an EDR PR (fork check) and the pinned Hardhat
 // PR (open/merged check); the real API returns `repo` for either.
@@ -127,10 +126,12 @@ export async function resolveRegressionTrigger({
   github,
   context,
   core,
+  clock,
 }: {
   github: GitHub;
   context: Context;
   core: CoreWithOutputs;
+  clock?: Clock;
 }): Promise<void> {
   const { owner, repo } = context.repo;
   const fullName = `${owner}/${repo}`;
@@ -151,28 +152,27 @@ export async function resolveRegressionTrigger({
   // Wait for the EDR CI workflow run for `sha` to conclude. Returns true only
   // if it completed successfully. Polls until CI_WAIT_TIMEOUT_MS elapses.
   async function waitForEdrCi(sha: string): Promise<boolean> {
-    const deadline = Date.now() + CI_WAIT_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      const { data } = await github.rest.actions.listWorkflowRuns({
-        owner,
-        repo,
-        workflow_id: "edr-ci.yml",
-        head_sha: sha,
-        per_page: 1,
-      });
-      const run = data.workflow_runs[0];
-      if (run !== undefined && run.status === "completed") {
-        core.info(`EDR CI run ${run.id} concluded: ${run.conclusion}`);
-        return run.conclusion === "success";
-      }
-      core.info(
-        `EDR CI for ${sha.slice(0, 12)} not finished yet ` +
-          `(status: ${run?.status ?? "not started"}); waiting...`
-      );
-      await new Promise((resolve) => setTimeout(resolve, CI_POLL_INTERVAL_MS));
+    const result = await waitForWorkflowRun({
+      github,
+      core,
+      owner,
+      repo,
+      workflowId: "edr-ci.yml",
+      headSha: sha,
+      timeoutMs: CI_WAIT_TIMEOUT_MS,
+      // A `/bench` comment can land before CI registers its run.
+      onMissing: "wait",
+      waitFor: "newest",
+      clock,
+    });
+    if (result.outcome !== "concluded") {
+      core.warning("Timed out waiting for EDR CI to conclude");
+      return false;
     }
-    core.warning("Timed out waiting for EDR CI to conclude");
-    return false;
+    core.info(
+      `EDR CI run ${result.run.id} concluded: ${result.run.conclusion}`
+    );
+    return result.run.conclusion === "success";
   }
 
   // Resolve the Hardhat ref for runs that didn't name one explicitly: `main`,

@@ -1,7 +1,9 @@
 #![cfg(feature = "test-utils")]
 
 use std::{
-    sync::{mpsc, Arc},
+    panic,
+    sync::{mpsc, Arc, Once},
+    thread,
     time::Duration,
 };
 
@@ -14,8 +16,13 @@ use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::RwLock;
 use tokio::runtime;
 
-/// Generous: a correct implementation settles the callback immediately.
-const RESPONSE_TIMEOUT: Duration = Duration::from_secs(10);
+/// Generous: a correct implementation settles the callback immediately, so
+/// this only has to turn a hang into a failure.
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// The message that [`PanickingLogger`] panics with, matched by
+/// [`suppress_deliberate_panic_backtraces`].
+const LOGGER_PANIC_MESSAGE: &str = "PanickingLogger deliberately panicked";
 
 /// A logger that panics once its method logs are printed, killing the event
 /// loop's thread while a request is in flight.
@@ -34,13 +41,50 @@ impl Logger<L1ChainSpec, CurrentTime> for PanickingLogger {
         _method: &str,
         _error: Option<&ProviderErrorForChainSpec<L1ChainSpec>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        panic!("logger panic");
+        panic!("{LOGGER_PANIC_MESSAGE}");
     }
 }
 
+/// Reports a [`LOGGER_PANIC_MESSAGE`] panic as a single line, leaving every
+/// other panic to the hook it replaces.
+///
+/// Symbolizing a backtrace costs seconds on a coverage-instrumented Windows
+/// build, and the default hook serializes that work process-wide. The three
+/// deliberate panics in this file stalled the test binary for 11s in CI.
+fn suppress_deliberate_panic_backtraces() {
+    static INSTALL_HOOK: Once = Once::new();
+
+    INSTALL_HOOK.call_once(|| {
+        let previous_hook = panic::take_hook();
+
+        panic::set_hook(Box::new(move |info| {
+            if info.payload_as_str() != Some(LOGGER_PANIC_MESSAGE) {
+                previous_hook(info);
+                return;
+            }
+
+            // Never unwrap here: a panic inside a panic hook aborts the
+            // process.
+            let thread = thread::current();
+            let thread = thread.name().unwrap_or("<unnamed>");
+            let location = info
+                .location()
+                .map_or_else(|| "an unknown location".to_owned(), ToString::to_string);
+
+            eprintln!(
+                "thread '{thread}' panicked at {location}: {LOGGER_PANIC_MESSAGE}; backtrace suppressed"
+            );
+        }));
+    });
+}
+
+/// Constructs a provider whose deliberate panics report without a backtrace,
+/// as [`suppress_deliberate_panic_backtraces`] describes.
 fn provider_with_logger(
     logger: Box<dyn edr_provider::SyncLogger<L1ChainSpec, CurrentTime>>,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
+    suppress_deliberate_panic_backtraces();
+
     Ok(Provider::new(
         runtime::Handle::current(),
         logger,

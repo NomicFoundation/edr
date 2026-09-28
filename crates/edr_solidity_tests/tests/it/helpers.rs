@@ -31,7 +31,7 @@ use edr_solidity::{
 };
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
-    inline_config::ImportResolver,
+    inline_config::{ImportResolver, InlineConfigProfiles, DEFAULT_PROFILE},
     multi_runner::{TestContract, TestContracts},
     revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, MultiContractRunner, SolidityTestRunnerConfig,
@@ -200,6 +200,11 @@ impl ForgeTestProfile {
             // mappings (relative imports resolve, others degrade gracefully).
             test_source_paths: HashMap::new(),
             import_resolver: ImportResolver::default(),
+            // Collection covers every test source, not just the ones a run
+            // filters to, so testdata must declare every profile its sources
+            // mention: `ci`, in `fuzz/FuzzProfileOverride.t.sol`.
+            inline_config_profiles: InlineConfigProfiles::new(DEFAULT_PROFILE, ["ci".to_owned()])
+                .expect("valid profiles"),
         }
     }
 

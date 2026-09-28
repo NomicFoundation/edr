@@ -33,6 +33,7 @@ use crate::{
     },
     error::{MiddlewareError, ReqwestError},
     jsonrpc,
+    proxy::is_loopback_url,
 };
 
 const RPC_CACHE_DIR: &str = "rpc_cache";
@@ -178,6 +179,8 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
         cache_dir: PathBuf,
         extra_headers: Option<HeaderMap>,
     ) -> Result<Self, RpcClientError> {
+        let url = url.parse()?;
+
         let retry_policy = ExponentialBackoff::builder()
             .retry_bounds(MIN_RETRY_INTERVAL, MAX_RETRY_INTERVAL)
             .base(EXPONENT_BASE)
@@ -194,8 +197,12 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
                 .expect("Version string is valid header value"),
         );
 
-        let client = HttpClient::builder()
-            .default_headers(headers)
+        let mut client_builder = HttpClient::builder().default_headers(headers);
+        if is_loopback_url(&url) {
+            // Requests to a node on this machine bypass `HTTP(S)_PROXY`.
+            client_builder = client_builder.no_proxy();
+        }
+        let client = client_builder
             .build()
             .expect("Default construction nor setting default headers can cause an error");
 
@@ -216,7 +223,7 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
         let tmp_dir = rpc_cache_dir.join(TMP_DIR);
 
         Ok(RpcClient {
-            url: url.parse()?,
+            url,
             chain_id: OnceCell::new(),
             cached_block_number: RwLock::new(None),
             client,

@@ -5,6 +5,7 @@ use edr_primitives::hex;
 use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
+    inline_config::DEFAULT_PROFILE,
     inspectors::cheatcodes::{CheatsConfigOptions, ExecutionContextConfig},
     TestFilterConfig,
 };
@@ -223,6 +224,19 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     /// file and need no entry here; only non-relative paths (package imports)
     /// do.
     pub import_mappings: Option<HashMap<String, String>>,
+    /// The Solidity test profile this run was started with.
+    ///
+    /// An inline-config directive prefixed with a profile name
+    /// (`forge-config: ci.fuzz.runs = 8`) applies only under that profile; an
+    /// unprefixed one applies under every profile, and the prefixed one wins
+    /// where both set the same key. Defaults to `default`.
+    pub test_profile: Option<String>,
+    /// Every Solidity test profile the project declares.
+    ///
+    /// A prefix naming a profile that is not declared is an error, so a
+    /// mistyped one fails whichever profile is selected. `default` is always
+    /// declared. Defaults to `["default"]`.
+    pub declared_test_profiles: Option<Vec<String>>,
 }
 
 impl SolidityTestRunnerConfigArgs<'_> {
@@ -274,6 +288,8 @@ impl SolidityTestRunnerConfigArgs<'_> {
             eip712_canonical_types,
             test_source_paths,
             import_mappings,
+            test_profile,
+            declared_test_profiles,
         } = self;
 
         let test_source_paths = test_source_paths.map_or_else(HashMap::new, |paths| {
@@ -289,6 +305,10 @@ impl SolidityTestRunnerConfigArgs<'_> {
                 .map(|(import_path, path)| (import_path, PathBuf::from(path)))
                 .collect()
         });
+
+        let test_profile = test_profile.unwrap_or_else(|| DEFAULT_PROFILE.to_owned());
+        let declared_test_profiles =
+            declared_test_profiles.unwrap_or_else(|| vec![DEFAULT_PROFILE.to_owned()]);
 
         let test_pattern = TestFilterConfig {
             test_pattern: test_pattern
@@ -417,6 +437,8 @@ impl SolidityTestRunnerConfigArgs<'_> {
             generate_gas_report,
             test_source_paths,
             import_mappings,
+            test_profile,
+            declared_test_profiles,
         };
 
         Ok(config)

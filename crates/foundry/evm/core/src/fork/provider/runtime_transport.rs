@@ -14,6 +14,7 @@ use alloy_transport_http::Http;
 use alloy_transport_ipc::IpcConnect;
 use alloy_transport_ws::WsConnect;
 use edr_defaults::DEFAULT_USER_AGENT;
+use edr_rpc_client::proxy::is_loopback_url;
 use reqwest::header::{HeaderName, HeaderValue};
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -173,6 +174,10 @@ impl RuntimeTransport {
         let mut client_builder = reqwest::Client::builder()
             .timeout(self.timeout)
             .danger_accept_invalid_certs(self.accept_invalid_certs);
+        if is_loopback_url(&self.url) {
+            // Requests to a node on this machine bypass `HTTP(S)_PROXY`.
+            client_builder = client_builder.no_proxy();
+        }
         let mut headers = reqwest::header::HeaderMap::new();
 
         // If there's a JWT, add it to the headers if we can decode it.
