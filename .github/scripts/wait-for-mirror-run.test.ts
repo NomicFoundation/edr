@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fakeClock } from "./fakes.ts";
+import { fakeClock, runsOf, sequence, type RunPage } from "./fakes.ts";
 import type { WorkflowRun } from "./github-script.ts";
 import { waitForMirrorRun, type Context } from "./wait-for-mirror-run.ts";
 import type { GitHub } from "./wait-for-workflow-run.ts";
@@ -16,15 +16,20 @@ const REPO = "edr";
 const PUSH_SHA = "1e5fbd883f58b0f0b1a6c52e5cf0f7b9cf0b7a01";
 const PR_HEAD_SHA = "b63ac3702506637a8c4b51a9ee1f4a0c5e2d6a19";
 
+// `pages` is one listWorkflowRuns page per call, the last repeating; `run`
+// is shorthand for a single one-run page.
 function makeDeps({
   run,
+  pages = [run],
   prHeadSha,
   apiError,
 }: {
   run?: WorkflowRun;
+  pages?: RunPage[];
   prHeadSha?: string;
   apiError?: unknown;
 } = {}) {
+  const nextPage = sequence(pages);
   const shas: string[] = [];
   const infos: string[] = [];
   const warnings: string[] = [];
@@ -38,7 +43,7 @@ function makeDeps({
           if (apiError !== undefined) {
             throw apiError;
           }
-          return { data: { workflow_runs: run === undefined ? [] : [run] } };
+          return { data: { workflow_runs: runsOf(nextPage()) } };
         },
       },
     },
@@ -117,6 +122,28 @@ test("a completed run without a conclusion warns and proceeds", async () => {
   await waitForMirrorRun(deps);
 
   assert.match(deps.warnings.join("\n"), /concluded 'null'.*proceeding anyway/);
+});
+
+test("a failed re-run behind a successful run warns with the re-run's URL", async () => {
+  const deps = makeDeps({
+    pages: [
+      [
+        completed("success"),
+        { id: 3, status: "in_progress", conclusion: null },
+      ],
+      [
+        completed("success"),
+        { id: 3, status: "completed", conclusion: "failure" },
+      ],
+    ],
+  });
+  await waitForMirrorRun(deps);
+
+  assert.deepEqual(
+    deps.infos.filter((m) => /succeeded/.test(m)),
+    []
+  );
+  assert.match(deps.warnings.join("\n"), /concluded 'failure'.*runs\/3\)/);
 });
 
 test("a mirror run that never concludes warns and proceeds", async () => {

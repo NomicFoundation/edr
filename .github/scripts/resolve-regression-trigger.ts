@@ -162,6 +162,7 @@ export async function resolveRegressionTrigger({
       timeoutMs: CI_WAIT_TIMEOUT_MS,
       // A `/bench` comment can land before CI registers its run.
       onMissing: "wait",
+      waitFor: "newest",
       clock,
     });
     if (result.outcome !== "concluded") {

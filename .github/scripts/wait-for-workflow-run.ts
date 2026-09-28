@@ -39,6 +39,10 @@ export type WaitResult =
 // `onMissing` says what an empty run list means: "wait" for a run the caller
 // knows was triggered and that may not be registered yet, "stop" when the run
 // is optional and its absence is itself the answer.
+//
+// `waitFor` says which runs must complete. "newest" waits for the newest run
+// only. "any" waits until no run on the page is in flight and reports the one
+// it waited on last, for callers where an older re-run still does the work.
 export async function waitForWorkflowRun({
   github,
   core,
@@ -48,6 +52,7 @@ export async function waitForWorkflowRun({
   headSha,
   timeoutMs,
   onMissing,
+  waitFor,
   clock = REAL_CLOCK,
 }: {
   github: GitHub;
@@ -58,9 +63,11 @@ export async function waitForWorkflowRun({
   headSha: string;
   timeoutMs: number;
   onMissing: "wait" | "stop";
+  waitFor: "newest" | "any";
   clock?: Clock;
 }): Promise<WaitResult> {
   const deadline = clock.now() + timeoutMs;
+  let waitedOn: number | undefined;
 
   while (true) {
     const { data } = await github.rest.actions.listWorkflowRuns({
@@ -74,14 +81,18 @@ export async function waitForWorkflowRun({
     });
     const runs = data.workflow_runs;
     const newest = runs[0];
-    const pending = runs.find((run) => run.status !== "completed");
+    const pending = (waitFor === "newest" ? runs.slice(0, 1) : runs).find(
+      (run) => run.status !== "completed"
+    );
 
     if (newest === undefined && onMissing === "stop") {
       return { outcome: "missing" };
     }
     if (newest !== undefined && pending === undefined) {
-      return { outcome: "concluded", run: newest };
+      const run = runs.find((run) => run.id === waitedOn) ?? newest;
+      return { outcome: "concluded", run };
     }
+    waitedOn = pending?.id;
     if (clock.now() >= deadline) {
       return { outcome: "timeout" };
     }

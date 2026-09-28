@@ -53,6 +53,7 @@ function makeDeps(
     workflowId: WORKFLOW,
     headSha: SHA,
     timeoutMs,
+    waitFor: "any" as const,
     clock: fakeClock(),
     calls,
     infos,
@@ -90,21 +91,38 @@ test("polls until the run concludes", async () => {
 
 // A re-run of an older run keeps its created_at, so it lists behind the
 // newest run even while in flight.
-test("an in-flight run behind a completed one is still waited for", async () => {
-  const older: WorkflowRun = { id: 3, status: "in_progress", conclusion: null };
-  const olderDone: WorkflowRun = {
-    id: 3,
-    status: "completed",
-    conclusion: "success",
-  };
+const rerun: WorkflowRun = { id: 3, status: "in_progress", conclusion: null };
+const rerunFailed: WorkflowRun = {
+  id: 3,
+  status: "completed",
+  conclusion: "failure",
+};
+
+test("'any' waits for an in-flight run behind a completed one and reports it", async () => {
   const deps = makeDeps([
-    [done, older],
-    [done, olderDone],
+    [done, rerun],
+    [done, rerunFailed],
   ]);
-  const result = await waitForWorkflowRun({ ...deps, onMissing: "stop" });
+  const result = await waitForWorkflowRun({
+    ...deps,
+    onMissing: "stop",
+    waitFor: "any",
+  });
+
+  assert.deepEqual(result, { outcome: "concluded", run: rerunFailed });
+  assert.equal(deps.calls.length, 2);
+});
+
+test("'newest' reports a completed newest run despite an older one in flight", async () => {
+  const deps = makeDeps([[done, rerun]]);
+  const result = await waitForWorkflowRun({
+    ...deps,
+    onMissing: "stop",
+    waitFor: "newest",
+  });
 
   assert.deepEqual(result, { outcome: "concluded", run: done });
-  assert.equal(deps.calls.length, 2);
+  assert.equal(deps.calls.length, 1);
 });
 
 test("onMissing 'stop' returns immediately when there is no run", async () => {

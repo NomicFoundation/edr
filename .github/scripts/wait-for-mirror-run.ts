@@ -56,6 +56,8 @@ export async function waitForMirrorRun({
       headSha,
       timeoutMs: TIMEOUT_MS,
       onMissing: "stop",
+      // A re-run of an older mirror run may be the one still copying a tag.
+      waitFor: "any",
       clock,
     });
   } catch (e) {

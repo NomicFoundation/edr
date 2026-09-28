@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fakeClock, sequence } from "./fakes.ts";
+import { fakeClock, runsOf, sequence, type RunPage } from "./fakes.ts";
 import type { WorkflowRun } from "./github-script.ts";
 import {
   resolveRegressionTrigger,
@@ -41,7 +41,7 @@ interface Captured {
 
 // `pinFile` is the raw content of .github/hardhat-compat-pin.json (absent →
 // repos.getContent 404s, i.e. no pin). `hardhatPr` is the Hardhat PR that a
-// valid pin's pulls.get resolves to. `ci` is the EDR CI run, or one entry per
+// valid pin's pulls.get resolves to. `ci` is the EDR CI run, or one page per
 // listWorkflowRuns call with the last repeating (`undefined` = no run yet).
 function makeDeps({
   eventName,
@@ -57,7 +57,7 @@ function makeDeps({
   eventName: string;
   sha?: string;
   payload?: Context["payload"];
-  ci?: WorkflowRun | Array<WorkflowRun | undefined>;
+  ci?: WorkflowRun | RunPage[];
   pr?: EdrPullRequest;
   pinFile?: string;
   hardhatPr?: HardhatPullRequest;
@@ -73,7 +73,7 @@ function makeDeps({
     reactions: [],
   };
 
-  const nextCiRun = sequence(Array.isArray(ci) ? ci : [ci]);
+  const nextCiPage = sequence(Array.isArray(ci) ? ci : [ci]);
 
   const core = {
     setOutput: (name: string, value: string) => {
@@ -98,8 +98,7 @@ function makeDeps({
         }) => {
           assert.equal(workflow_id, "edr-ci.yml");
           assert.equal(head_sha, pr?.head.sha);
-          const run = nextCiRun();
-          return { data: { workflow_runs: run === undefined ? [] : [run] } };
+          return { data: { workflow_runs: runsOf(nextCiPage()) } };
         },
       },
       pulls: {
@@ -570,6 +569,24 @@ test("issue_comment → waits for in-progress CI, then runs", async () => {
   assert.equal(captured.outputs.should_run, "true");
   assert.match(captured.infos.join("\n"), /status: not started/);
   assert.match(captured.infos.join("\n"), /status: in_progress/);
+});
+
+// A workflow_dispatch of EDR CI on the same sha lists behind the push run.
+test("issue_comment → a passing newest CI run is not held up by an older queued one", async () => {
+  const { captured, ...deps } = makeDeps({
+    eventName: "issue_comment",
+    payload: commentPayload("/bench"),
+    pr: { head: { repo: { full_name: FULL }, sha: "1234567890ab" } },
+    ci: [
+      [
+        { id: 9, status: "completed", conclusion: "success" },
+        { id: 3, status: "queued", conclusion: null },
+      ],
+    ],
+  });
+  await resolveRegressionTrigger(deps);
+  assert.equal(captured.outputs.should_run, "true");
+  assert.deepEqual(captured.warnings, []);
 });
 
 test("issue_comment → CI that never registers times out and does not run", async () => {
