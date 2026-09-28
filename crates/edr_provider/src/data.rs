@@ -777,7 +777,7 @@ where
             ConfigOption::Custom(transaction_gas_cap) => {
                 TransactionGasBounds::custom(blockchain.hardfork(), transaction_gas_cap)
             }
-            ConfigOption::Disable => TransactionGasBounds::disabled(),
+            ConfigOption::Disable => TransactionGasBounds::disabled(blockchain.hardfork()),
         };
 
         let local_accounts = owned_accounts

@@ -615,46 +615,50 @@ async fn send_transaction_accepts_gas_above_cap_from_amsterdam() -> anyhow::Resu
 }
 
 /// From Amsterdam `tx.gas` may exceed the EIP-7825 cap but not
-/// `TX_MAX_TOTAL_GAS_LIMIT`. No realistic block gas limit exceeds the latter,
-/// so the block gas limit is disabled to exercise the cap on its own.
+/// `TX_MAX_TOTAL_GAS_LIMIT`, whether or not the cap is configured. No
+/// realistic block gas limit exceeds the latter, so the block gas limit is
+/// disabled to exercise the total limit on its own.
 #[tokio::test(flavor = "multi_thread")]
 async fn send_transaction_rejects_gas_above_total_limit_from_amsterdam() -> anyhow::Result<()> {
-    // Fund the sender so that only the total gas limit can reject the transaction.
-    let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
-    let provider = new_provider_with_config(|config| {
-        config.hardfork = edr_chain_l1::Hardfork::Amsterdam;
-        config.transaction_gas_cap = ConfigOption::Default;
-        config.mining.block_gas_limit = None;
-        set_genesis_state_with_owned_accounts(
-            config,
-            vec![secret_key],
-            U256::from(1_000u64) * one_ether(),
+    for transaction_gas_cap in [ConfigOption::Default, ConfigOption::Disable] {
+        // Fund the sender so that only the total gas limit can reject the
+        // transaction.
+        let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
+        let provider = new_provider_with_config(|config| {
+            config.hardfork = edr_chain_l1::Hardfork::Amsterdam;
+            config.transaction_gas_cap = transaction_gas_cap;
+            config.mining.block_gas_limit = None;
+            set_genesis_state_with_owned_accounts(
+                config,
+                vec![secret_key],
+                U256::from(1_000u64) * one_ether(),
+            );
+        })?;
+
+        let exceeds_total_limit = TX_MAX_TOTAL_GAS_LIMIT + 1;
+        let request = TransactionRequest {
+            from: caller(&provider),
+            to: Some(Address::ZERO),
+            gas: Some(exceeds_total_limit),
+            ..TransactionRequest::default()
+        };
+        let result = provider.handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(request),
+        ));
+
+        assert!(
+            matches!(
+                result,
+                Err(ProviderError::MemPoolAddTransaction(
+                    MemPoolAddTransactionError::ExceedsTransactionGasCap {
+                        transaction_gas_cap: TX_MAX_TOTAL_GAS_LIMIT,
+                        transaction_gas_limit,
+                    }
+                )) if transaction_gas_limit == exceeds_total_limit
+            ),
+            "{result:?}"
         );
-    })?;
-
-    let exceeds_total_limit = TX_MAX_TOTAL_GAS_LIMIT + 1;
-    let request = TransactionRequest {
-        from: caller(&provider),
-        to: Some(Address::ZERO),
-        gas: Some(exceeds_total_limit),
-        ..TransactionRequest::default()
-    };
-    let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(request),
-    ));
-
-    assert!(
-        matches!(
-            result,
-            Err(ProviderError::MemPoolAddTransaction(
-                MemPoolAddTransactionError::ExceedsTransactionGasCap {
-                    transaction_gas_cap: TX_MAX_TOTAL_GAS_LIMIT,
-                    transaction_gas_limit,
-                }
-            )) if transaction_gas_limit == exceeds_total_limit
-        ),
-        "{result:?}"
-    );
+    }
 
     Ok(())
 }

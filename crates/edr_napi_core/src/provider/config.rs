@@ -44,11 +44,13 @@ pub struct Config {
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
     /// Transaction gas cap, introduced in [EIP-7825].
     ///
-    /// When not set, enforcement of the transaction gas cap is disabled and
-    /// transactions with any `gas` value are accepted by the mempool and
-    /// executed without REVM's transaction gas cap check.
+    /// Before Amsterdam it bounds a transaction's `gas`. From Amsterdam
+    /// ([EIP-8037]) it bounds execution gas only: `gas` may exceed it, up to
+    /// the protocol's `TX_MAX_TOTAL_GAS_LIMIT` (2^32 - 1), which this
+    /// option does not affect.
     ///
     /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    /// [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     pub transaction_gas_cap: ConfigOption<u64>,
 }
 
