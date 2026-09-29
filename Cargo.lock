@@ -2967,7 +2967,7 @@ name = "edr_eip2935"
 version = "0.3.8"
 dependencies = [
  "edr_primitives",
- "revm-state",
+ "edr_state_api",
 ]
 
 [[package]]
@@ -2975,7 +2975,7 @@ name = "edr_eip4788"
 version = "0.3.8"
 dependencies = [
  "edr_primitives",
- "revm-state",
+ "edr_state_api",
 ]
 
 [[package]]
@@ -3016,7 +3016,7 @@ name = "edr_eip7997"
 version = "0.3.8"
 dependencies = [
  "edr_primitives",
- "revm-state",
+ "edr_state_api",
 ]
 
 [[package]]

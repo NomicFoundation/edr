@@ -2,7 +2,7 @@
 //! hardfork.
 
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes};
-use revm_state::AccountInfo;
+use edr_state_api::account::AccountInfo;
 
 /// Address of the deterministic `CREATE2` factory.
 pub const DETERMINISTIC_FACTORY_ADDRESS: Address =

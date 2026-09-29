@@ -1,7 +1,7 @@
 //! EIP-2935: history storage contract, introduced in the Prague hardfork.
 
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes};
-use revm_state::AccountInfo;
+use edr_state_api::account::AccountInfo;
 
 /// Address of the history storage contract.
 pub const HISTORY_STORAGE_ADDRESS: Address = address!("0x0000F90827F1C53a10cb7A02335B175320002935");

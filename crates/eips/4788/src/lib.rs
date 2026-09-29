@@ -1,7 +1,7 @@
 //! EIP-4788: beacon roots contract, introduced in the Cancun hardfork.
 
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes, U256};
-use revm_state::AccountInfo;
+use edr_state_api::account::AccountInfo;
 
 /// The address of the beacon roots contract.
 pub const BEACON_ROOTS_ADDRESS: Address = address!("0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02");
