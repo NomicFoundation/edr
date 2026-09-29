@@ -1,3 +1,5 @@
+//! Functions and constants for EIP-4788
+
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes, U256};
 use edr_state_api::account::AccountInfo;
 

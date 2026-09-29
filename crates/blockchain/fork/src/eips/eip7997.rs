@@ -1,3 +1,5 @@
+//! Functions and constants for EIP-7997
+
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes};
 use edr_state_api::account::AccountInfo;
 

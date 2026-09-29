@@ -1,13 +1,14 @@
 #![cfg(feature = "test-remote")]
 
-//! EIP-7997: Deterministic Factory Contract.
-//! see <https://eips.ethereum.org/EIPS/eip-7997>
+//! [EIP-7997]: Deterministic Factory Contract.
 //!
 //! Forking a pre-Amsterdam block with a local Amsterdam hardfork injects the
 //! factory as an irregular-state override at the fork block, replacing the
 //! whole account. Ethereum mainnet has had the factory for years, so a
 //! pre-Amsterdam local hardfork sees the remote account untouched, with its
 //! real nonce.
+//!
+//! [EIP-7997]: https://eips.ethereum.org/EIPS/eip-7997
 
 use edr_blockchain_api::StateAtBlock as _;
 use edr_blockchain_fork::eips::eip7997::{
