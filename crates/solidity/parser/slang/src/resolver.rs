@@ -64,13 +64,26 @@ impl CompilationBuilderConfig for SourceProvider<'_> {
         std::fs::read_to_string(Path::new(file_id)).map_err(|error| error.to_string())
     }
 
+    /// Reports an import whose resolved path holds no file as unresolved,
+    /// because Slang's binder panics when a contract inherits from an import
+    /// it resolved but could not read. An unresolved import only yields a
+    /// diagnostic.
     fn resolve_import(
         &mut self,
         source_file_id: &str,
         import_path: &str,
     ) -> Result<String, String> {
-        self.import_resolver
-            .resolve_import(source_file_id, import_path)
+        let resolved = self
+            .import_resolver
+            .resolve_import(source_file_id, import_path)?;
+
+        if Path::new(&resolved).is_file() {
+            Ok(resolved)
+        } else {
+            Err(format!(
+                "import '{import_path}' resolves to '{resolved}', which is not a file"
+            ))
+        }
     }
 }
 
@@ -118,6 +131,19 @@ mod tests {
             resolver.resolve_import("/project/A.sol", "@oz/contracts/token/ERC20.sol"),
             "/deps/@oz/contracts/token/ERC20.sol",
         );
+    }
+
+    #[test]
+    fn provider_reports_a_missing_file_as_unresolved() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        std::fs::write(dir.path().join("Dep.sol"), "").expect("write dependency");
+        let root_id = dir.path().join("Root.sol").to_string_lossy().into_owned();
+
+        let resolver = ImportResolver::default();
+        let mut provider = SourceProvider::new(&resolver);
+
+        assert!(provider.resolve_import(&root_id, "./Dep.sol").is_ok());
+        assert!(provider.resolve_import(&root_id, "./Missing.sol").is_err());
     }
 
     #[test]

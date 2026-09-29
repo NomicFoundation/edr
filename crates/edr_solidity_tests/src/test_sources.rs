@@ -13,14 +13,14 @@
 //! parse, ill-formed directives — and returned together, so one run reports
 //! every problem rather than the first.
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf, sync::Arc};
 
 use edr_solidity_collector_eip712::collector::{
     collect_eip712_types_from_compilation_unit, Eip712TypeCollection,
 };
 use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver, LanguageVersion};
 use rayon::prelude::*;
-use slang_solidity_v2::diagnostics::{DiagnosticExtensions as _, DiagnosticKind};
+use slang_solidity_v2::diagnostics::{Diagnostic, DiagnosticExtensions as _, DiagnosticKind};
 
 use crate::{
     inline_config::{
@@ -139,33 +139,23 @@ fn collect_root(
 
     let file_id = root.path.to_string_lossy();
 
-    // Slang is error-tolerant and yields a partial AST, so a root file that
-    // doesn't fully parse could silently miss structs and directives. Report it
-    // rather than collect half of it. Other diagnostic kinds — unresolvable
-    // imports in particular, which are legitimately optional — keep degrading
-    // gracefully.
+    // Slang is error-tolerant and yields a partial AST, so a file that doesn't
+    // fully parse could silently miss structs and directives. An import counts
+    // as much as the root because the EIP-712 types are collected from the
+    // whole unit. Report it rather than collect half of it. Unresolvable
+    // imports keep degrading gracefully because they are legitimately
+    // optional.
     let mut syntax_diagnostics = unit
         .diagnostics()
         .iter()
-        .filter(|diagnostic| {
-            diagnostic.file_id() == file_id
-                && matches!(diagnostic.kind(), DiagnosticKind::Syntax(_))
-        })
+        .filter(|diagnostic| matches!(diagnostic.kind(), DiagnosticKind::Syntax(_)))
         .peekable();
 
     if syntax_diagnostics.peek().is_some() {
         let mut reasons: Vec<String> = syntax_diagnostics
             .by_ref()
             .take(MAX_REPORTED_PARSE_ERRORS)
-            .map(|diagnostic| {
-                match line_of(&content, diagnostic.text_range().start) {
-                    Ok(line) => format!("{} (line {line})", diagnostic.message()),
-                    // The line is decoration on the reported problem
-                    // because an offset we cannot place still reports its
-                    // diagnostic.
-                    Err(_unplaceable) => diagnostic.message(),
-                }
-            })
+            .map(|diagnostic| describe_syntax_diagnostic(diagnostic, &file_id, &content))
             .collect();
 
         let unreported = syntax_diagnostics.count();
@@ -187,6 +177,47 @@ fn collect_root(
         eip712_types,
         overrides,
     })
+}
+
+/// Formats a syntax diagnostic as its message followed by where it was found:
+/// the line, and the file when it is an import rather than the root.
+///
+/// The location is decoration on the reported problem because an offset we
+/// cannot place, or an import we cannot read back, still reports its
+/// diagnostic.
+fn describe_syntax_diagnostic(
+    diagnostic: &Diagnostic,
+    root_file_id: &str,
+    root_content: &str,
+) -> String {
+    let diagnostic_file_id = diagnostic.file_id();
+    let is_root = diagnostic_file_id == root_file_id;
+
+    // The root's text is already in hand. An import's is read again because
+    // the unit does not expose it.
+    let diagnostic_content: Option<Cow<'_, str>> = if is_root {
+        Some(Cow::Borrowed(root_content))
+    } else {
+        std::fs::read_to_string(diagnostic_file_id)
+            .ok()
+            .map(Cow::Owned)
+    };
+
+    let mut location = Vec::new();
+    if let Some(line) =
+        diagnostic_content.and_then(|content| line_of(&content, diagnostic.text_range().start).ok())
+    {
+        location.push(format!("line {line}"));
+    }
+    if !is_root {
+        location.push(format!("in {diagnostic_file_id}"));
+    }
+
+    if location.is_empty() {
+        diagnostic.message()
+    } else {
+        format!("{} ({})", diagnostic.message(), location.join(" "))
+    }
 }
 
 #[cfg(test)]
@@ -316,6 +347,56 @@ contract C {
             &errors[0].problem,
             TestSourceProblem::Source(TestSourceCollectError::SourceParseErrors { .. })
         ));
+    }
+
+    #[test]
+    fn imported_file_parse_errors_are_reported_with_their_file() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        std::fs::write(
+            dir.path().join("Dep.sol"),
+            "pragma solidity ^0.8.0;
+
+struct Person { address wallet; string name;
+",
+        )
+        .expect("write dependency");
+        let root_path = dir.path().join("C.t.sol");
+        std::fs::write(
+            &root_path,
+            "pragma solidity ^0.8.0;
+
+import {Person} from \"./Dep.sol\";
+
+contract C {
+    function testFoo() public {}
+}
+",
+        )
+        .expect("write root");
+        let root = TestSourceRoot {
+            source: PathBuf::from(FIXTURE_SOURCE),
+            path: root_path,
+            version: fixture_grammar(),
+        };
+
+        let errors = collect_test_sources(
+            &[root],
+            &ImportResolver::default(),
+            &InlineConfigProfiles::default(),
+        )
+        .expect_err("an import that does not parse cannot be collected");
+
+        assert_eq!(errors.len(), 1, "{errors:#?}");
+        assert_eq!(errors[0].source_name, PathBuf::from(FIXTURE_SOURCE));
+        let TestSourceProblem::Source(TestSourceCollectError::SourceParseErrors { reasons }) =
+            &errors[0].problem
+        else {
+            panic!("expected parse errors, got {:?}", errors[0].problem);
+        };
+        assert!(
+            !reasons.is_empty() && reasons.iter().all(|reason| reason.contains("Dep.sol")),
+            "{reasons:?}"
+        );
     }
 
     /// Both directive prefixes are recognized, and a directive that is not in
