@@ -30,9 +30,10 @@ pub fn language_version_for_solc(solc_version: &Version) -> Option<LanguageVersi
 /// disk.
 ///
 /// Parse errors and unresolvable imports degrade gracefully: they surface as
-/// diagnostics on the unit, and whatever still resolves is available. A
-/// missing root file yields an empty unit — callers that need to distinguish
-/// that case must check the root's existence themselves.
+/// diagnostics on the unit, and whatever still resolves is available. An
+/// import that resolves to a path with no file behind it counts as
+/// unresolvable. A missing root file yields an empty unit, so callers that
+/// need to distinguish that case must check the root's existence themselves.
 pub fn build_compilation_unit(
     root_path: &Path,
     language_version: LanguageVersion,
@@ -47,7 +48,37 @@ pub fn build_compilation_unit(
 
 #[cfg(test)]
 mod tests {
+    use slang_solidity_v2::diagnostics::{
+        kinds::compilation::CompilationDiagnosticKind, DiagnosticKind,
+    };
+
     use super::*;
+
+    #[test]
+    fn inheriting_from_a_missing_import_reports_it_as_unresolved() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join("Root.sol");
+        std::fs::write(
+            &root,
+            "pragma solidity ^0.8.0;
+import {Base} from \"./Missing.sol\";
+contract Derived is Base {}
+",
+        )
+        .expect("write root");
+
+        let unit =
+            build_compilation_unit(&root, LanguageVersion::LATEST, &ImportResolver::default());
+
+        assert!(
+            unit.diagnostics().iter().any(|diagnostic| matches!(
+                diagnostic.kind(),
+                DiagnosticKind::Compilation(CompilationDiagnosticKind::UnresolvedImport(_))
+            )),
+            "{:?}",
+            unit.diagnostics()
+        );
+    }
 
     #[test]
     fn exact_supported_version() {

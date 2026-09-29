@@ -55,12 +55,14 @@ impl_structured_napi_error! {
 }
 
 impl_structured_napi_error! {
-    /// The source does not parse, so nothing could be collected from it. A
-    /// partially-parsed source would silently miss struct definitions and
-    /// directives, so it is reported rather than half-collected.
+    /// The source, or a file it imports, does not parse, so nothing could be
+    /// collected from it. A partially-parsed file would silently miss struct
+    /// definitions and directives, so it is reported rather than
+    /// half-collected.
     pub struct TestSourceParseErrors {
-        /// The syntax diagnostics, each located at its source line. Truncated
-        /// to the first few, followed by a count of the rest.
+        /// The syntax diagnostics, each located at its line and, for an
+        /// import, its file. Truncated to the first few, followed by a count
+        /// of the rest.
         pub reasons: Vec<String>,
     }
 }

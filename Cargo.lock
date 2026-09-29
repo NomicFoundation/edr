@@ -3601,6 +3601,7 @@ dependencies = [
  "edr_common",
  "semver 1.0.28",
  "slang_solidity_v2",
+ "tempfile",
 ]
 
 [[package]]
