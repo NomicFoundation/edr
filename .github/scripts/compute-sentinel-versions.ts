@@ -25,14 +25,19 @@ export function edrVersion(edrBaseVersion: string, shortSha: string): string {
 // Hardhat plugins whose `peerDependencies` use ranges like `hardhat@^3.8.0`.
 // node-semver excludes prereleases from such ranges.
 //
-// It must also be strictly ahead of the *last npm release*, not just of the
-// checked-out repo's version: the harness's publish step patch-bumps any
-// workspace package whose version doesn't exceed its last release, which would
-// desync the published version from this prediction and fail the workflow's
-// "Validate scenarios used the local EDR build" step. The Hardhat checkout can
-// lag npm (its package.json only catches up when a release lands on the
-// benchmarked ref), so floor the sentinel at the published version before
-// bumping.
+// It must also outrank the *last npm release*, not just the checked-out repo's
+// version. The harness republishes any workspace package that doesn't exceed
+// its last release, which desyncs the published version from this prediction
+// and fails the workflow's "Validate scenarios used the local EDR build" step.
+// The Hardhat checkout can lag npm, because its package.json only catches up
+// when a release lands on the benchmarked ref.
+//
+// The bump is a minor one, because a Hardhat release can land on npm while the
+// ~2h benchmark is still running. Verdaccio hands `dist-tags.latest` to its npm
+// uplink as soon as npm's version is higher, which a patch release would make
+// it. Hardhat never bumps its major, so a minor-bumped sentinel can at worst be
+// matched by such a release, and an exact match still resolves to the locally
+// published tarball.
 export function hardhatVersion(
   hardhatBaseVersion: string,
   lastPublishedVersion?: string
@@ -44,8 +49,8 @@ export function hardhatVersion(
       core = published;
     }
   }
-  const [major, minor, patch] = core;
-  return `${major}.${minor}.${patch + 1}`;
+  const [major, minor] = core;
+  return `${major}.${minor + 1}.0`;
 }
 
 // Parses `major.minor.patch` out of a semver string, dropping any prerelease

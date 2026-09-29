@@ -245,9 +245,9 @@ jobs:
         working-directory: hardhat
         # Repoint the EDR dependency and point the @nomicfoundation scope at
         # Verdaccio, where the sentinel lives. Also bump hardhat's own version
-        # so `decidePublishAction` returns "publish" instead of "skip".
-        # Without the bump, `--use-local` would not republish hardhat right
-        # after a Hardhat release.
+        # so the harness publishes it instead of skipping. Without the bump,
+        # `--use-local` would not republish hardhat right after a Hardhat
+        # release.
         #
         # The override is scoped: install-wide, pnpm's whole-lockfile
         # `minimumReleaseAge` verification would route through Verdaccio's
