@@ -45,14 +45,25 @@ impl ImportResolver {
     }
 }
 
-/// Reads files from disk and resolves imports.
-pub(crate) struct SourceProvider<'resolver> {
-    import_resolver: &'resolver ImportResolver,
+/// The root file's id and its already-read text.
+pub(crate) struct RootSource<'root> {
+    pub id: &'root str,
+    pub content: &'root str,
 }
 
-impl<'resolver> SourceProvider<'resolver> {
-    pub fn new(import_resolver: &'resolver ImportResolver) -> Self {
-        Self { import_resolver }
+/// Serves the root from the text the caller read, reads every other file from
+/// disk, and resolves imports.
+pub(crate) struct SourceProvider<'a> {
+    import_resolver: &'a ImportResolver,
+    root: RootSource<'a>,
+}
+
+impl<'a> SourceProvider<'a> {
+    pub fn new(import_resolver: &'a ImportResolver, root: RootSource<'a>) -> Self {
+        Self {
+            import_resolver,
+            root,
+        }
     }
 }
 
@@ -61,6 +72,10 @@ impl CompilationBuilderConfig for SourceProvider<'_> {
     /// paths the test runner was configured with, never from paths a test
     /// controls, so this reads a project source exactly as the compiler does.
     fn read_file(&mut self, file_id: &str) -> Result<String, String> {
+        if file_id == self.root.id {
+            return Ok(self.root.content.to_owned());
+        }
+
         std::fs::read_to_string(Path::new(file_id)).map_err(|error| error.to_string())
     }
 
@@ -140,10 +155,39 @@ mod tests {
         let root_id = dir.path().join("Root.sol").to_string_lossy().into_owned();
 
         let resolver = ImportResolver::default();
-        let mut provider = SourceProvider::new(&resolver);
+        let mut provider = SourceProvider::new(
+            &resolver,
+            RootSource {
+                id: &root_id,
+                content: "",
+            },
+        );
 
         assert!(provider.resolve_import(&root_id, "./Dep.sol").is_ok());
         assert!(provider.resolve_import(&root_id, "./Missing.sol").is_err());
+    }
+
+    #[test]
+    fn provider_serves_the_root_from_memory_and_imports_from_disk() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dep = dir.path().join("Dep.sol");
+        std::fs::write(&dep, "on disk").expect("write dependency");
+        let root_id = dir.path().join("Root.sol").to_string_lossy().into_owned();
+
+        let resolver = ImportResolver::default();
+        let mut provider = SourceProvider::new(
+            &resolver,
+            RootSource {
+                id: &root_id,
+                content: "in memory",
+            },
+        );
+
+        assert_eq!(provider.read_file(&root_id), Ok("in memory".to_owned()));
+        assert_eq!(
+            provider.read_file(&dep.to_string_lossy()),
+            Ok("on disk".to_owned())
+        );
     }
 
     #[test]

@@ -9,6 +9,8 @@ mod resolver;
 pub use slang_solidity_v2::utils::LanguageVersion;
 
 pub use crate::{
-    compilation::{build_compilation_unit, language_version_for_solc},
+    compilation::{
+        build_compilation_unit, language_version_for_solc, ReadRootError, RootCompilation,
+    },
     resolver::ImportResolver,
 };
