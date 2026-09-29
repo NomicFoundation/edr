@@ -3602,6 +3602,7 @@ dependencies = [
  "semver 1.0.28",
  "slang_solidity_v2",
  "tempfile",
+ "thiserror 2.0.20",
 ]
 
 [[package]]

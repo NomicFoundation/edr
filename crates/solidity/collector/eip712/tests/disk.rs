@@ -33,7 +33,9 @@ fn collect(
 ) -> Eip712TypeCollection {
     let root = fixture(relative);
     let language_version = language_version_for_solc(&version).expect("supported solc version");
-    let unit = build_compilation_unit(&root, language_version, import_resolver);
+    let unit = build_compilation_unit(&root, language_version, import_resolver)
+        .expect("the fixture exists")
+        .unit;
 
     collect_eip712_types_from_compilation_unit(&unit, &root.to_string_lossy())
 }
@@ -77,14 +79,4 @@ fn unmapped_import_leaves_dependency_unresolved_but_unit_builds() {
         .get("Payment")
         .expect_err("a member behind an unresolved import cannot be encoded");
     assert!(error.to_string().contains("token"), "{error}");
-}
-
-#[test]
-fn missing_root_file_yields_no_types() {
-    // A build over a missing root yields a diagnostic and an empty unit. The
-    // test runner pre-checks the root's existence to tell this apart from a
-    // source that genuinely declares no structs.
-    let types = collect("does/not/exist.sol", solc(), &ImportResolver::default());
-
-    assert!(types.is_empty());
 }
