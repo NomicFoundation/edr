@@ -152,14 +152,19 @@ mod tests {
     fn provider_reports_a_missing_file_as_unresolved() {
         let dir = tempfile::tempdir().expect("temp dir");
         std::fs::write(dir.path().join("Dep.sol"), "").expect("write dependency");
-        let root_id = dir.path().join("Root.sol").to_string_lossy().into_owned();
+
+        let root_path = dir.path().join("Root.sol");
+        let root_content = "content";
+        std::fs::write(&root_path, root_content).expect("write root");
+
+        let root_id = root_path.to_string_lossy().into_owned();
 
         let resolver = ImportResolver::default();
         let mut provider = SourceProvider::new(
             &resolver,
             RootSource {
                 id: &root_id,
-                content: "",
+                content: root_content,
             },
         );
 
