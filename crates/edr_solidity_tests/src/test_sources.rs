@@ -120,22 +120,20 @@ fn collect_root(
     import_resolver: &ImportResolver,
     profiles: &InlineConfigProfiles,
 ) -> Result<SourceCollections, Vec<TestSourceErrorItem>> {
-    let RootCompilation {
-        unit,
-        root_content: content,
-    } = match build_compilation_unit(&root.path, root.version, import_resolver) {
-        Ok(compilation) => compilation,
-        Err(error) => {
-            return Err(vec![TestSourceErrorItem {
-                source_name: root.source.clone(),
-                problem: TestSourceCollectError::RootFileNotFound {
-                    path: error.path.display().to_string(),
-                    reason: error.source.to_string(),
-                }
-                .into(),
-            }]);
-        }
-    };
+    let RootCompilation { unit, root_content } =
+        match build_compilation_unit(&root.path, root.version, import_resolver) {
+            Ok(compilation) => compilation,
+            Err(error) => {
+                return Err(vec![TestSourceErrorItem {
+                    source_name: root.source.clone(),
+                    problem: TestSourceCollectError::RootFileNotFound {
+                        path: error.path.display().to_string(),
+                        reason: error.source.to_string(),
+                    }
+                    .into(),
+                }]);
+            }
+        };
 
     let file_id = root.path.to_string_lossy();
 
@@ -155,7 +153,7 @@ fn collect_root(
         let mut reasons: Vec<String> = syntax_diagnostics
             .by_ref()
             .take(MAX_REPORTED_PARSE_ERRORS)
-            .map(|diagnostic| describe_syntax_diagnostic(diagnostic, &file_id, &content))
+            .map(|diagnostic| describe_syntax_diagnostic(diagnostic, &file_id, &root_content))
             .collect();
 
         let unreported = syntax_diagnostics.count();
@@ -170,7 +168,7 @@ fn collect_root(
     }
 
     let overrides =
-        collect_source_overrides_from_unit(&root.source, &content, &unit, &file_id, profiles)?;
+        collect_source_overrides_from_unit(&root.source, &root_content, &unit, &file_id, profiles)?;
     let eip712_types = Arc::new(collect_eip712_types_from_compilation_unit(&unit, &file_id));
 
     Ok(SourceCollections {
