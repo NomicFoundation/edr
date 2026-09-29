@@ -13,13 +13,11 @@
 //!
 //! [EIP-7997]: https://eips.ethereum.org/EIPS/eip-7997
 
-use edr_blockchain_fork::eips::eip7997::{
-    DETERMINISTIC_FACTORY_ADDRESS, DETERMINISTIC_FACTORY_BYTECODE,
-};
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
 };
+use edr_eip7997::{DETERMINISTIC_FACTORY_ADDRESS, DETERMINISTIC_FACTORY_BYTECODE};
 use edr_primitives::{address, b256, Address, Bytecode, Bytes, B256};
 use edr_provider::{
     config::AccountOverride, MethodInvocation, Provider, ProviderError, ProviderErrorForChainSpec,

@@ -3,13 +3,12 @@ use std::collections::BTreeMap;
 use edr_block_api::{GenesisBlockFactory as _, GenesisBlockOptions};
 use edr_block_header::BlockConfig;
 use edr_blockchain_api::StateAtBlock as _;
-use edr_blockchain_fork::eips::eip2935::{
-    add_history_storage_contract_to_state_diff, HISTORY_STORAGE_ADDRESS,
-    HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
-};
 use edr_blockchain_local::LocalBlockchain;
 use edr_chain_l1::L1ChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec as _;
+use edr_eip2935::{
+    history_storage_contract, HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
+};
 use edr_primitives::Bytecode;
 use edr_provider::spec::LocalBlockchainForChainSpec;
 use edr_state_api::StateDiff;
@@ -58,7 +57,7 @@ fn test_local_blockchain_without_history() -> anyhow::Result<()> {
 fn test_local_blockchain_with_history() -> anyhow::Result<()> {
     // Add the history storage contract to the state diff.
     let mut state_diff = StateDiff::default();
-    add_history_storage_contract_to_state_diff(&mut state_diff);
+    state_diff.apply_account_change(HISTORY_STORAGE_ADDRESS, history_storage_contract());
 
     let post_prague = local_blockchain(state_diff)?;
 

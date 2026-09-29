@@ -1,4 +1,4 @@
-//! Functions and constants for EIP-4788
+//! EIP-4788: beacon roots contract, introduced in the Cancun hardfork.
 
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes, U256};
 use edr_state_api::account::AccountInfo;
@@ -43,7 +43,8 @@ pub fn beacon_root_storage_slots(timestamp: u64) -> BeaconRootStorageSlots {
     }
 }
 
-pub(crate) fn beacon_roots_contract() -> AccountInfo {
+/// The beacon roots account as deployed on the chain.
+pub fn beacon_roots_contract() -> AccountInfo {
     let code = Bytecode::new_raw(BEACON_ROOTS_BYTECODE);
 
     AccountInfo {
@@ -56,8 +57,6 @@ pub(crate) fn beacon_roots_contract() -> AccountInfo {
 
 #[cfg(test)]
 mod tests {
-    use edr_primitives::U256;
-
     use super::*;
 
     #[test]

@@ -1,9 +1,7 @@
 #![cfg(feature = "test-remote")]
 
 use edr_blockchain_api::StateAtBlock as _;
-use edr_blockchain_fork::eips::eip2935::{
-    HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
-};
+use edr_eip2935::{HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE};
 use edr_primitives::{bytes, Bytecode, Bytes};
 use edr_state_api::irregular::IrregularState;
 
