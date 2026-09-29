@@ -3,6 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use edr_blockchain_fork::eips::{
     eip2935::{HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE},
     eip4788::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
+    eip7997::{DETERMINISTIC_FACTORY_ADDRESS, DETERMINISTIC_FACTORY_BYTECODE},
 };
 use edr_chain_l1::L1ChainSpec;
 use edr_napi_core::{logger::Logger, provider::SyncProvider};
@@ -76,14 +77,31 @@ pub fn l1_genesis_state(hardfork: L1Hardfork) -> Vec<AccountOverride> {
         storage: Some(Vec::new()),
     };
 
+    // EIP-7997 requires a nonzero nonce; genesis insertion uses 1.
+    let deterministic_factory_account_constructor = || AccountOverride {
+        address: Uint8Array::with_data_copied(DETERMINISTIC_FACTORY_ADDRESS),
+        balance: Some(BigInt::from(0u64)),
+        nonce: Some(BigInt::from(1u64)),
+        code: Some(Uint8Array::with_data_copied(
+            &DETERMINISTIC_FACTORY_BYTECODE,
+        )),
+        storage: Some(Vec::new()),
+    };
+
     if hardfork < L1Hardfork::Cancun {
         Vec::new()
     } else if hardfork < L1Hardfork::Prague {
         vec![beacon_roots_account_constructor()]
+    } else if hardfork < L1Hardfork::Amsterdam {
+        vec![
+            beacon_roots_account_constructor(),
+            history_storage_account_constructor(),
+        ]
     } else {
         vec![
             beacon_roots_account_constructor(),
             history_storage_account_constructor(),
+            deterministic_factory_account_constructor(),
         ]
     }
 }

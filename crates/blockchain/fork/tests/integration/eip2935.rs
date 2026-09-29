@@ -1,57 +1,17 @@
 #![cfg(feature = "test-remote")]
 
-use std::sync::Arc;
-
 use edr_blockchain_api::StateAtBlock as _;
-use edr_blockchain_fork::{
-    eips::eip2935::{HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE},
-    ForkedBlockchainCreationError,
+use edr_blockchain_fork::eips::eip2935::{
+    HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
 };
-use edr_chain_l1::L1ChainSpec;
-use edr_chain_spec_provider::ProviderChainSpec;
 use edr_primitives::{bytes, Bytecode, Bytes};
-use edr_provider::spec::ForkedBlockchainForChainSpec;
-use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::irregular::IrregularState;
-use edr_test_utils::env::json_rpc_url_provider;
-use edr_utils::random::RandomHashGenerator;
-use parking_lot::Mutex;
+
+use crate::common::create_forked_blockchain;
 
 const HISTORY_STORAGE_BYTECODE: Bytes = bytes!(
         "0x3373fffffffffffffffffffffffffffffffffffffffe14604657602036036042575f35600143038111604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500"
     );
-
-async fn forked_blockchain(
-    irregular_state: &mut IrregularState,
-    block_number: u64,
-    local_hardfork: edr_chain_l1::Hardfork,
-) -> Result<
-    ForkedBlockchainForChainSpec<L1ChainSpec>,
-    ForkedBlockchainCreationError<edr_chain_l1::Hardfork>,
-> {
-    let runtime = tokio::runtime::Handle::current();
-
-    let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
-        &json_rpc_url_provider::ethereum_mainnet(),
-        edr_defaults::CACHE_DIR.into(),
-        None,
-    )
-    .expect("url ok");
-
-    ForkedBlockchainForChainSpec::<L1ChainSpec>::new(
-        local_hardfork,
-        runtime,
-        Arc::new(rpc_client),
-        irregular_state,
-        Arc::new(Mutex::new(RandomHashGenerator::with_seed(
-            edr_defaults::STATE_ROOT_HASH_SEED,
-        ))),
-        L1ChainSpec::chain_configs(),
-        Some(block_number),
-        Some(0x7a69),
-    )
-    .await
-}
 
 #[tokio::test(flavor = "multi_thread")]
 #[serial_test::serial]
@@ -61,7 +21,7 @@ async fn forked_blockchain_pre_prague_activation_with_cancun() -> anyhow::Result
     const PRE_PRAGUE_BLOCK_NUMBER: u64 = 19_426_589;
 
     let mut irregular_state = IrregularState::default();
-    let pre_prague = forked_blockchain(
+    let pre_prague = create_forked_blockchain(
         &mut irregular_state,
         PRE_PRAGUE_BLOCK_NUMBER,
         edr_chain_l1::Hardfork::Cancun,
@@ -92,7 +52,7 @@ async fn forked_blockchain_pre_prague_activation_with_prague() -> anyhow::Result
     const PRE_PRAGUE_BLOCK_NUMBER: u64 = 19_426_589;
 
     let mut irregular_state = IrregularState::default();
-    let pre_prague = forked_blockchain(
+    let pre_prague = create_forked_blockchain(
         &mut irregular_state,
         PRE_PRAGUE_BLOCK_NUMBER,
         edr_chain_l1::Hardfork::Prague,
@@ -123,7 +83,7 @@ async fn forked_blockchain_post_eip2935_deployment_with_cancun() -> anyhow::Resu
     const POST_DEPLOYMENT_BLOCK_NUMBER: u64 = 21_890_520;
 
     let mut irregular_state = IrregularState::default();
-    let post_prague = forked_blockchain(
+    let post_prague = create_forked_blockchain(
         &mut irregular_state,
         POST_DEPLOYMENT_BLOCK_NUMBER,
         edr_chain_l1::Hardfork::Cancun,
@@ -160,7 +120,7 @@ async fn forked_blockchain_post_prague() -> anyhow::Result<()> {
     const POST_PRAGUE_BLOCK_NUMBER: u64 = 21_890_520;
 
     let mut irregular_state = IrregularState::default();
-    let post_prague = forked_blockchain(
+    let post_prague = create_forked_blockchain(
         &mut irregular_state,
         POST_PRAGUE_BLOCK_NUMBER,
         edr_chain_l1::Hardfork::Prague,
