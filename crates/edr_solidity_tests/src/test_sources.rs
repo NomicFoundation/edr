@@ -18,7 +18,9 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf, sync::Arc};
 use edr_solidity_collector_eip712::collector::{
     collect_eip712_types_from_compilation_unit, Eip712TypeCollection,
 };
-use edr_solidity_parser_slang::{build_compilation_unit, ImportResolver, LanguageVersion};
+use edr_solidity_parser_slang::{
+    build_compilation_unit, ImportResolver, LanguageVersion, RootCompilation,
+};
 use rayon::prelude::*;
 use slang_solidity_v2::diagnostics::{Diagnostic, DiagnosticExtensions as _, DiagnosticKind};
 
@@ -106,8 +108,8 @@ pub(crate) fn collect_test_sources(
     }
 }
 
-/// Collects one root: read the file, build its compilation unit, and run both
-/// extractions on it.
+/// Collects one root: build its compilation unit and run both extractions on
+/// it.
 ///
 /// Each root gets its own unit rather than sharing one. A merged unit would
 /// widen `all_definitions()` across unrelated test files, so a struct name
@@ -118,24 +120,22 @@ fn collect_root(
     import_resolver: &ImportResolver,
     profiles: &InlineConfigProfiles,
 ) -> Result<SourceCollections, Vec<TestSourceErrorItem>> {
-    // Read the content up front because the NatSpec directives are recovered
-    // from the raw source text. A build over a missing root only yields a
-    // diagnostic and an empty unit, which must not be mistaken for "no types".
-    let content = match std::fs::read_to_string(&root.path) {
-        Ok(content) => content,
+    let RootCompilation {
+        unit,
+        root_content: content,
+    } = match build_compilation_unit(&root.path, root.version, import_resolver) {
+        Ok(compilation) => compilation,
         Err(error) => {
             return Err(vec![TestSourceErrorItem {
                 source_name: root.source.clone(),
                 problem: TestSourceCollectError::RootFileNotFound {
-                    path: root.path.display().to_string(),
-                    reason: error.to_string(),
+                    path: error.path.display().to_string(),
+                    reason: error.source.to_string(),
                 }
                 .into(),
             }]);
         }
     };
-
-    let unit = build_compilation_unit(&root.path, root.version, import_resolver);
 
     let file_id = root.path.to_string_lossy();
 
