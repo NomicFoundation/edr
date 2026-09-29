@@ -23,9 +23,10 @@ pub enum TestSourceCollectError {
         /// The solc version the source's artifact was compiled with.
         version: Version,
     },
-    /// The source does not parse. Slang is error-tolerant and yields a partial
-    /// AST, which could silently miss struct definitions and directives, so
-    /// nothing is collected from a source that does not parse cleanly.
+    /// The source, or a file it imports, does not parse. Slang is
+    /// error-tolerant and yields a partial AST, which could silently miss
+    /// struct definitions and directives, so nothing is collected from a unit
+    /// that does not parse cleanly.
     #[error("the source did not parse: {}", reasons.join("; "))]
     SourceParseErrors {
         /// The syntax diagnostics, each located at its source line.
