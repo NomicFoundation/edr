@@ -18,7 +18,7 @@ use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReport
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{config::IncludeTraces, contract_decoder::SyncNestedTraceDecoder};
 use edr_solidity_collector_eip712::collector::Eip712TypeCollection;
-use edr_solidity_parser_slang::language_version_for_solc;
+use edr_solidity_parser_slang::compilation::language_version_for_solc;
 use eyre::Result;
 use foundry_cheatcodes::TestFunctionIdentifier;
 use foundry_evm::{

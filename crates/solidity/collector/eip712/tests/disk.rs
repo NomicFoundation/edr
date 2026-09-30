@@ -2,8 +2,8 @@
 //! exercising the on-disk file reading and import resolution that the
 //! in-memory unit tests in the crate cannot.
 //!
-//! These build the compilation unit the same way the test runner does, via
-//! [`build_compilation_unit`].
+//! These build a single-root compilation unit, so collection is not scoped
+//! the way the runner's shared unit is.
 
 use std::{collections::HashMap, path::PathBuf};
 
@@ -11,7 +11,9 @@ use edr_solidity_collector_eip712::{
     collector::{collect_eip712_types_from_compilation_unit, Eip712TypeCollection},
     ImportResolver,
 };
-use edr_solidity_parser_slang::{build_compilation_unit, language_version_for_solc};
+use edr_solidity_parser_slang::compilation::{
+    build_multi_root_compilation_unit, file_id_of, language_version_for_solc,
+};
 use semver::Version;
 
 fn fixture(relative: &str) -> PathBuf {
@@ -33,11 +35,10 @@ fn collect(
 ) -> Eip712TypeCollection {
     let root = fixture(relative);
     let language_version = language_version_for_solc(&version).expect("supported solc version");
-    let unit = build_compilation_unit(&root, language_version, import_resolver)
-        .expect("the fixture exists")
-        .unit;
+    let unit =
+        build_multi_root_compilation_unit([root.as_path()], language_version, import_resolver).unit;
 
-    collect_eip712_types_from_compilation_unit(&unit, &root.to_string_lossy())
+    collect_eip712_types_from_compilation_unit(&unit, &file_id_of(&root))
 }
 
 #[test]

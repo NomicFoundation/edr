@@ -90,7 +90,8 @@ mod tests {
     use std::{io::Write as _, path::Path};
 
     use edr_solidity_parser_slang::{
-        build_compilation_unit, language_version_for_solc, ImportResolver,
+        compilation::{build_multi_root_compilation_unit, file_id_of, language_version_for_solc},
+        resolver::ImportResolver,
     };
     use semver::Version;
 
@@ -112,10 +113,9 @@ mod tests {
         import_resolver: &ImportResolver,
     ) -> Vec<LocatedContract> {
         let language_version = language_version_for_solc(&version).expect("supported solc version");
-        let unit = build_compilation_unit(root_path, language_version, import_resolver)
-            .expect("the root exists")
-            .unit;
-        let file_id = root_path.to_string_lossy().into_owned();
+        let unit =
+            build_multi_root_compilation_unit([root_path], language_version, import_resolver).unit;
+        let file_id = file_id_of(root_path);
 
         locate_contracts_in_unit(&unit, &file_id)
     }
