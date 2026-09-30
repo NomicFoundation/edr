@@ -1,11 +1,13 @@
 //! Combined collection over the test sources.
 //!
-//! Each unique test source is read from disk and parsed with Slang exactly
-//! once; both its inline test configuration (`forge-config:`/
-//! `hardhat-config:` NatSpec directives) and its EIP-712 struct definitions
-//! (served to the `eip712HashType`/`eip712HashStruct` cheatcodes) are
-//! extracted from that same compilation unit. The unit is dropped afterwards
-//! — nothing is cached beyond the extracted data.
+//! The selected test sources are parsed with Slang in one compilation unit per
+//! language version. A file imported by several test sources is therefore
+//! parsed and analysed once instead of once per source. Each source's inline
+//! test configuration (`forge-config:`/`hardhat-config:` NatSpec directives)
+//! and EIP-712 struct definitions are then extracted from that shared unit.
+//! The EIP-712 collection is scoped to the files the root reaches, while
+//! directives come from the root's own text. The units are dropped
+//! afterwards, so nothing is cached beyond the extracted data.
 //!
 //! Every source named by `test_source_paths` is parsed; nothing is exempt and
 //! nothing is skipped. Problems are accumulated across all of them — an
@@ -13,16 +15,26 @@
 //! parse, ill-formed directives — and returned together, so one run reports
 //! every problem rather than the first.
 
-use std::{borrow::Cow, collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use edr_solidity_collector_eip712::collector::{
-    collect_eip712_types_from_compilation_unit, Eip712TypeCollection,
+    collect_unit_structs, Eip712TypeCollection, UnitStructs,
 };
 use edr_solidity_parser_slang::{
-    build_compilation_unit, ImportResolver, LanguageVersion, RootCompilation,
+    compilation::{build_multi_root_compilation_unit, file_id_of, MultiRootCompilation},
+    resolver::{ImportResolver, ProvidedSources},
+    LanguageVersion,
 };
 use rayon::prelude::*;
-use slang_solidity_v2::diagnostics::{Diagnostic, DiagnosticExtensions as _, DiagnosticKind};
+use slang_solidity_v2::{
+    compilation::CompilationUnit,
+    diagnostics::{Diagnostic, DiagnosticExtensions as _, DiagnosticKind},
+};
 
 use crate::{
     inline_config::{
@@ -52,7 +64,7 @@ pub(crate) struct TestSourceRoot {
     pub version: LanguageVersion,
 }
 
-/// Everything extracted from one test source's single parse.
+/// Everything extracted from one test source.
 #[derive(Debug)]
 pub(crate) struct SourceCollections {
     /// The EIP-712 struct definitions reachable from the source. Shared rather
@@ -63,12 +75,14 @@ pub(crate) struct SourceCollections {
     pub overrides: SourceOverrides,
 }
 
-/// Reads and parses every root, extracting both collections from each root's
-/// single compilation unit, keyed by the root's source name.
+/// Reads and parses every root, extracting both collections for each root,
+/// keyed by the root's source name.
 ///
-/// Roots are parsed on rayon's global pool. Collection runs synchronously and
-/// completes before any test suite is dispatched, so it never contends with
-/// suite execution.
+/// Roots compiled with the same solc grammar share one compilation unit. One
+/// unit is held at a time, because each spans every root of its version.
+/// Extraction from a built unit runs on rayon's global pool. Collection runs
+/// synchronously and completes before any test suite is dispatched, so it never
+/// contends with suite execution.
 ///
 /// Every problem across every source is accumulated rather than
 /// short-circuited, so one run reports them all.
@@ -77,86 +91,141 @@ pub(crate) fn collect_test_sources(
     import_resolver: &ImportResolver,
     profiles: &InlineConfigProfiles,
 ) -> Result<HashMap<PathBuf, SourceCollections>, Vec<TestSourceErrorItem>> {
-    let results: Vec<_> = roots
-        .par_iter()
-        .map(|root| {
-            (
-                root.source.clone(),
-                collect_root(root, import_resolver, profiles),
-            )
-        })
-        .collect();
+    // Roots of different versions cannot share a unit because a unit parses
+    // every file it holds with one grammar.
+    let mut roots_by_version: BTreeMap<LanguageVersion, Vec<&TestSourceRoot>> = BTreeMap::new();
+    for root in roots {
+        roots_by_version.entry(root.version).or_default().push(root);
+    }
 
-    let (collected, errors) = results.into_iter().fold(
-        (HashMap::new(), Vec::new()),
-        |(mut collected, mut errors), (source, result)| {
+    let mut collected = HashMap::new();
+    let mut errors = Vec::new();
+    for (version, version_roots) in roots_by_version {
+        // Build the next version's unit only after this one is dropped.
+        let MultiRootCompilation { unit, sources } = build_multi_root_compilation_unit(
+            version_roots.iter().map(|root| root.path.as_path()),
+            version,
+            import_resolver,
+        );
+
+        // Several source names can point at one file.
+        let mut roots_by_file_id: HashMap<String, Vec<&TestSourceRoot>> = HashMap::new();
+        for root in &version_roots {
+            roots_by_file_id
+                .entry(file_id_of(&root.path))
+                .or_default()
+                .push(root);
+        }
+        let roots_for = |file_id: &str| -> &[&TestSourceRoot] {
+            roots_by_file_id
+                .get(file_id)
+                .expect("every root of this version is keyed by its file id")
+        };
+
+        for (file_id, error) in sources.unreadable_roots() {
+            for root in roots_for(file_id) {
+                errors.push(TestSourceErrorItem {
+                    source_name: root.source.clone(),
+                    problem: TestSourceCollectError::RootFileNotFound {
+                        path: root.path.display().to_string(),
+                        reason: error.to_string(),
+                    }
+                    .into(),
+                });
+            }
+        }
+
+        // Slang is error-tolerant and yields a partial AST, so a file that
+        // doesn't fully parse could silently miss structs and directives.
+        let syntax_diagnostics: Vec<&Diagnostic> = unit
+            .diagnostics()
+            .iter()
+            .filter(|diagnostic| matches!(diagnostic.kind(), DiagnosticKind::Syntax(_)))
+            .collect();
+
+        let structs = collect_unit_structs(&unit);
+        let version_unit = &VersionUnit {
+            unit: &unit,
+            sources: &sources,
+            structs: &structs,
+            syntax_diagnostics: &syntax_diagnostics,
+        };
+
+        let results: Vec<_> = sources
+            .root_contents()
+            .par_iter()
+            .flat_map_iter(|(file_id, root_content)| {
+                roots_for(file_id).iter().map(move |root| {
+                    let collections =
+                        collect_root(root, file_id, root_content, version_unit, profiles);
+
+                    (root.source.clone(), collections)
+                })
+            })
+            .collect();
+
+        for (source, result) in results {
             match result {
                 Ok(collected_source) => {
                     collected.insert(source, collected_source);
                 }
                 Err(source_errors) => errors.extend(source_errors),
             }
-
-            (collected, errors)
-        },
-    );
+        }
+    }
 
     if errors.is_empty() {
         Ok(collected)
     } else {
+        // Roots are extracted in map order, so sort the report by source to
+        // keep it identical on every run. The sort is stable, so a source's
+        // own problems keep their order.
+        errors.sort_by(|left, right| left.source_name.cmp(&right.source_name));
         Err(errors)
     }
 }
 
-/// Collects one root: build its compilation unit and run both extractions on
-/// it.
+/// The shared unit of one language version and what every root extracts
+/// from it.
+struct VersionUnit<'a> {
+    unit: &'a CompilationUnit,
+    sources: &'a ProvidedSources,
+    structs: &'a UnitStructs,
+    syntax_diagnostics: &'a [&'a Diagnostic],
+}
+
+/// Extracts one root's collections from the unit its version was built into.
 ///
-/// Each root gets its own unit rather than sharing one. A merged unit would
-/// widen `all_definitions()` across unrelated test files, so a struct name
-/// that is unambiguous within one root could be rejected because another
-/// root's import closure disagrees about it.
+/// EIP-712 collection is scoped to the files the root reaches through resolved
+/// imports. A struct declared in another root's closure neither shadows the
+/// root's own nor is served to it. Inline-config directives come only from the
+/// root's own text. A syntax error anywhere in the closure rejects the root,
+/// because the EIP-712 types are collected from the whole closure. An
+/// unresolvable import does not reject the root, because such imports are
+/// legitimately optional.
 fn collect_root(
     root: &TestSourceRoot,
-    import_resolver: &ImportResolver,
+    file_id: &str,
+    root_content: &str,
+    version_unit: &VersionUnit<'_>,
     profiles: &InlineConfigProfiles,
 ) -> Result<SourceCollections, Vec<TestSourceErrorItem>> {
-    let RootCompilation { unit, root_content } =
-        match build_compilation_unit(&root.path, root.version, import_resolver) {
-            Ok(compilation) => compilation,
-            Err(error) => {
-                return Err(vec![TestSourceErrorItem {
-                    source_name: root.source.clone(),
-                    problem: TestSourceCollectError::RootFileNotFound {
-                        path: error.path.display().to_string(),
-                        reason: error.source.to_string(),
-                    }
-                    .into(),
-                }]);
-            }
-        };
+    let reachable = version_unit.sources.reachable_from(file_id);
 
-    let file_id = root.path.to_string_lossy();
-
-    // Slang is error-tolerant and yields a partial AST, so a file that doesn't
-    // fully parse could silently miss structs and directives. An import counts
-    // as much as the root because the EIP-712 types are collected from the
-    // whole unit. Report it rather than collect half of it. Unresolvable
-    // imports keep degrading gracefully because they are legitimately
-    // optional.
-    let mut syntax_diagnostics = unit
-        .diagnostics()
+    let mut reachable_diagnostics = version_unit
+        .syntax_diagnostics
         .iter()
-        .filter(|diagnostic| matches!(diagnostic.kind(), DiagnosticKind::Syntax(_)))
+        .filter(|diagnostic| reachable.contains(diagnostic.file_id()))
         .peekable();
 
-    if syntax_diagnostics.peek().is_some() {
-        let mut reasons: Vec<String> = syntax_diagnostics
+    if reachable_diagnostics.peek().is_some() {
+        let mut reasons: Vec<String> = reachable_diagnostics
             .by_ref()
             .take(MAX_REPORTED_PARSE_ERRORS)
-            .map(|diagnostic| describe_syntax_diagnostic(diagnostic, &file_id, &root_content))
+            .map(|diagnostic| describe_syntax_diagnostic(diagnostic, file_id, root_content))
             .collect();
 
-        let unreported = syntax_diagnostics.count();
+        let unreported = reachable_diagnostics.count();
         if unreported > 0 {
             reasons.push(format!("and {unreported} more"));
         }
@@ -167,9 +236,14 @@ fn collect_root(
         }]);
     }
 
-    let overrides =
-        collect_source_overrides_from_unit(&root.source, &root_content, &unit, &file_id, profiles)?;
-    let eip712_types = Arc::new(collect_eip712_types_from_compilation_unit(&unit, &file_id));
+    let overrides = collect_source_overrides_from_unit(
+        &root.source,
+        root_content,
+        version_unit.unit,
+        file_id,
+        profiles,
+    )?;
+    let eip712_types = Arc::new(version_unit.structs.types_for(file_id, &reachable));
 
     Ok(SourceCollections {
         eip712_types,
@@ -229,9 +303,9 @@ fn describe_syntax_diagnostic(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashSet, io::Write as _};
+    use std::{collections::HashSet, io::Write as _, path::Path};
 
-    use edr_solidity_parser_slang::language_version_for_solc;
+    use edr_solidity_parser_slang::compilation::language_version_for_solc;
     use semver::Version;
 
     use super::*;
@@ -255,6 +329,12 @@ mod tests {
         language_version_for_solc(&Version::new(0, 8, 24)).expect("supported solc version")
     }
 
+    /// A second supported grammar, so a root using it lands in a different
+    /// unit than one using [`fixture_grammar`].
+    fn older_fixture_grammar() -> LanguageVersion {
+        language_version_for_solc(&Version::new(0, 8, 4)).expect("supported solc version")
+    }
+
     fn root_for(file: &tempfile::NamedTempFile, source: &str) -> TestSourceRoot {
         TestSourceRoot {
             source: PathBuf::from(source),
@@ -263,8 +343,67 @@ mod tests {
         }
     }
 
+    /// Collects `roots` with no import mappings and the default profile.
+    fn collect_with_defaults(
+        roots: &[TestSourceRoot],
+    ) -> Result<HashMap<PathBuf, SourceCollections>, Vec<TestSourceErrorItem>> {
+        collect_test_sources(
+            roots,
+            &ImportResolver::default(),
+            &InlineConfigProfiles::default(),
+        )
+    }
+
+    fn unwrap_collected<T>(result: Result<T, Vec<TestSourceErrorItem>>) -> T {
+        result.unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"))
+    }
+
+    /// Collects a lone root, keeping the per-root result the tests assert on.
+    fn collect_one(root: TestSourceRoot) -> Result<SourceCollections, Vec<TestSourceErrorItem>> {
+        let source = root.source.clone();
+
+        collect_with_defaults(&[root])
+            .map(|mut collected| collected.remove(&source).expect("the root was collected"))
+    }
+
+    fn root_at(path: PathBuf, source: &str) -> TestSourceRoot {
+        TestSourceRoot {
+            source: PathBuf::from(source),
+            path,
+            version: fixture_grammar(),
+        }
+    }
+
+    fn write_source(dir: &tempfile::TempDir, name: &str, content: &str) -> PathBuf {
+        let path = dir.path().join(name);
+        std::fs::write(&path, content).expect("write source");
+        path
+    }
+
+    fn collect_all(roots: &[TestSourceRoot]) -> HashMap<PathBuf, SourceCollections> {
+        unwrap_collected(collect_with_defaults(roots))
+    }
+
+    fn collected_for<'a>(
+        collected: &'a HashMap<PathBuf, SourceCollections>,
+        source: &str,
+    ) -> &'a SourceCollections {
+        collected
+            .get(Path::new(source))
+            .unwrap_or_else(|| panic!("`{source}` was not collected"))
+    }
+
+    fn canonical_type(collected: &SourceCollections, name: &str) -> String {
+        collected
+            .eip712_types
+            .get(name)
+            .unwrap_or_else(|error| panic!("expected `{name}`: {error}"))
+            .canonical_definition()
+            .to_owned()
+    }
+
     #[test]
-    fn collects_both_from_a_single_parse() {
+    fn collects_overrides_and_eip712_types_from_one_source() {
         let file = temp_source(
             "// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
@@ -279,12 +418,7 @@ contract C {
         );
         let root = root_for(&file, FIXTURE_SOURCE);
 
-        let collected = collect_root(
-            &root,
-            &ImportResolver::default(),
-            &InlineConfigProfiles::default(),
-        )
-        .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"));
+        let collected = unwrap_collected(collect_one(root));
 
         let overrides = collected.overrides.get("C").expect("C has overrides");
         assert_eq!(overrides.functions.len(), 1);
@@ -313,12 +447,7 @@ contract C {
         );
         let root = root_for(&file, FIXTURE_SOURCE);
 
-        let collected = collect_root(
-            &root,
-            &ImportResolver::default(),
-            &InlineConfigProfiles::default(),
-        )
-        .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"));
+        let collected = unwrap_collected(collect_one(root));
 
         assert!(collected.overrides.is_empty());
         assert!(collected.eip712_types.is_empty());
@@ -425,12 +554,7 @@ contract C {
         );
         let root = root_for(&file, FIXTURE_SOURCE);
 
-        let collected = collect_root(
-            &root,
-            &ImportResolver::default(),
-            &InlineConfigProfiles::default(),
-        )
-        .unwrap_or_else(|errors| panic!("unexpected errors: {errors:?}"));
+        let collected = unwrap_collected(collect_one(root));
 
         let overrides = collected.overrides.get("C").expect("C has overrides");
         assert_eq!(overrides.functions.len(), 1, "{:#?}", overrides.functions);
@@ -462,12 +586,7 @@ contract BadTest {
         );
         let root = root_for(&file, "project/BadTest.t.sol");
 
-        let errors = collect_root(
-            &root,
-            &ImportResolver::default(),
-            &InlineConfigProfiles::default(),
-        )
-        .expect_err("expected errors");
+        let errors = collect_one(root).expect_err("expected errors");
 
         assert_eq!(errors.len(), 1, "{errors:#?}");
         let TestSourceProblem::Directive(InlineConfigDirectiveError { function, line, .. }) =
@@ -534,12 +653,7 @@ contract BadContractLevel {
         );
         let root = root_for(&file, "project/BadContractLevel.t.sol");
 
-        let errors = collect_root(
-            &root,
-            &ImportResolver::default(),
-            &InlineConfigProfiles::default(),
-        )
-        .expect_err("expected errors");
+        let errors = collect_one(root).expect_err("expected errors");
 
         assert_eq!(errors.len(), 1, "{errors:#?}");
         let error = errors.first().expect("should contain an error");
@@ -582,5 +696,428 @@ contract BadContractLevel {
             &error.problem,
             TestSourceProblem::Source(TestSourceCollectError::RootFileNotFound { .. })
         ));
+    }
+
+    #[test]
+    fn roots_sharing_a_unit_resolve_names_in_their_own_closure() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        write_source(
+            &dir,
+            "WalletDep.sol",
+            "pragma solidity ^0.8.0;\n\nstruct Person { address wallet; }\n",
+        );
+        write_source(
+            &dir,
+            "NameDep.sol",
+            "pragma solidity ^0.8.0;\n\nstruct Person { string name; }\n",
+        );
+        let wallet_root = write_source(
+            &dir,
+            "Wallet.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {Person} from \"./WalletDep.sol\";\n\ncontract WalletTest {}\n",
+        );
+        let name_root = write_source(
+            &dir,
+            "Name.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {Person} from \"./NameDep.sol\";\n\ncontract NameTest {}\n",
+        );
+        let wallet_source = "project/Wallet.t.sol";
+        let name_source = "project/Name.t.sol";
+
+        let collected = collect_all(&[
+            root_at(wallet_root, wallet_source),
+            root_at(name_root, name_source),
+        ]);
+
+        assert_eq!(
+            canonical_type(collected_for(&collected, wallet_source), "Person"),
+            "Person(address wallet)"
+        );
+        assert_eq!(
+            canonical_type(collected_for(&collected, name_source), "Person"),
+            "Person(string name)"
+        );
+    }
+
+    #[test]
+    fn a_root_does_not_see_another_roots_imports() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        write_source(
+            &dir,
+            "Dep.sol",
+            "pragma solidity ^0.8.0;\n\nstruct Person { address wallet; }\n",
+        );
+        let importer = write_source(
+            &dir,
+            "Importer.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {Person} from \"./Dep.sol\";\n\ncontract ImporterTest {}\n",
+        );
+        let other = write_source(
+            &dir,
+            "Other.t.sol",
+            "pragma solidity ^0.8.0;\n\ncontract OtherTest {}\n",
+        );
+
+        let other_source = "project/Other.t.sol";
+
+        let collected = collect_all(&[
+            root_at(importer, "project/Importer.t.sol"),
+            root_at(other, other_source),
+        ]);
+
+        let other = collected_for(&collected, other_source);
+        assert!(other.eip712_types.is_empty());
+        assert!(other.eip712_types.get("Person").is_err());
+    }
+
+    #[test]
+    fn a_syntax_error_in_a_shared_import_rejects_exactly_the_roots_reaching_it() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        write_source(
+            &dir,
+            "Dep.sol",
+            "pragma solidity ^0.8.0;\n\nstruct Person { address wallet;\n",
+        );
+        let first = write_source(
+            &dir,
+            "First.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {Person} from \"./Dep.sol\";\n\ncontract FirstTest {}\n",
+        );
+        let second = write_source(
+            &dir,
+            "Second.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {Person} from \"./Dep.sol\";\n\ncontract SecondTest {}\n",
+        );
+        let unaffected = write_source(
+            &dir,
+            "Unaffected.t.sol",
+            "pragma solidity ^0.8.0;\n\ncontract UnaffectedTest {}\n",
+        );
+
+        let first_source = "project/First.t.sol";
+        let second_source = "project/Second.t.sol";
+
+        let errors = collect_with_defaults(&[
+            root_at(first, first_source),
+            root_at(second, second_source),
+            root_at(unaffected, "project/Unaffected.t.sol"),
+        ])
+        .expect_err("an import that does not parse cannot be collected");
+
+        assert_eq!(errors.len(), 2, "{errors:#?}");
+        let sources: HashSet<_> = errors.iter().map(|item| item.source_name.clone()).collect();
+        assert_eq!(
+            sources,
+            HashSet::from([PathBuf::from(first_source), PathBuf::from(second_source)])
+        );
+        assert!(
+            errors.iter().all(|item| matches!(
+                &item.problem,
+                TestSourceProblem::Source(TestSourceCollectError::SourceParseErrors { reasons })
+                    if reasons.iter().all(|reason| reason.contains("Dep.sol"))
+            )),
+            "{errors:#?}"
+        );
+    }
+
+    #[test]
+    fn a_root_imported_by_another_root_is_collected_from_its_retained_text() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let imported = write_source(
+            &dir,
+            "Base.t.sol",
+            "pragma solidity ^0.8.0;\n\nstruct Person { address wallet; }\n\ncontract BaseTest {\n    /// forge-config: default.fuzz.runs = 7\n    function testBase(uint256 x) public {}\n}\n",
+        );
+        let importer = write_source(
+            &dir,
+            "Derived.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {BaseTest} from \"./Base.t.sol\";\n\ncontract DerivedTest is BaseTest {\n    /// forge-config: default.fuzz.runs = 3\n    function testDerived(uint256 x) public {}\n}\n",
+        );
+
+        let derived_source = "project/Derived.t.sol";
+        let base_source = "project/Base.t.sol";
+        // The importer is collected first, so the imported root's text is read
+        // as an import before it is added as a root.
+        let collected = collect_all(&[
+            root_at(importer, derived_source),
+            root_at(imported, base_source),
+        ]);
+
+        let base = collected_for(&collected, base_source);
+        let overrides = base.overrides.get("BaseTest").expect("BaseTest overrides");
+        assert_eq!(overrides.functions.len(), 1, "{:#?}", overrides.functions);
+        assert_eq!(overrides.functions[0].function_name, "testBase");
+        assert_eq!(
+            overrides.functions[0].config.fuzz.as_ref().unwrap().runs,
+            Some(7)
+        );
+        assert_eq!(canonical_type(base, "Person"), "Person(address wallet)");
+
+        let derived = collected_for(&collected, derived_source);
+        assert!(!derived.overrides.contains_key("BaseTest"));
+        assert_eq!(
+            derived
+                .overrides
+                .get("DerivedTest")
+                .expect("DerivedTest overrides")
+                .functions[0]
+                .function_name,
+            "testDerived"
+        );
+    }
+
+    #[test]
+    fn a_missing_root_fails_only_itself() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let present = write_source(
+            &dir,
+            "Present.t.sol",
+            "pragma solidity ^0.8.0;\n\ncontract PresentTest {}\n",
+        );
+
+        let missing_source = "project/Missing.t.sol";
+
+        let missing_path = dir.path().join("Missing.t.sol");
+
+        let errors = collect_with_defaults(&[
+            root_at(missing_path.clone(), missing_source),
+            root_at(present, "project/Present.t.sol"),
+        ])
+        .expect_err("expected errors");
+
+        assert_eq!(errors.len(), 1, "{errors:#?}");
+        assert_eq!(errors[0].source_name, PathBuf::from(missing_source));
+        let TestSourceProblem::Source(TestSourceCollectError::RootFileNotFound { path, .. }) =
+            &errors[0].problem
+        else {
+            panic!("expected a missing root, got {:?}", errors[0].problem);
+        };
+        assert_eq!(*path, missing_path.display().to_string());
+    }
+
+    #[test]
+    fn roots_of_different_versions_each_collect_a_shared_import() {
+        assert_ne!(older_fixture_grammar(), fixture_grammar());
+
+        let dir = tempfile::tempdir().expect("temp dir");
+        write_source(
+            &dir,
+            "Shared.sol",
+            "pragma solidity ^0.8.0;\n\nstruct Shared { uint256 a; }\n",
+        );
+        let older = write_source(
+            &dir,
+            "Older.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {Shared} from \"./Shared.sol\";\n\ncontract OlderTest {}\n",
+        );
+        let newer = write_source(
+            &dir,
+            "Newer.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {Shared} from \"./Shared.sol\";\n\ncontract NewerTest {}\n",
+        );
+        let older_source = "project/Older.t.sol";
+        let newer_source = "project/Newer.t.sol";
+        let roots = vec![
+            TestSourceRoot {
+                source: PathBuf::from(older_source),
+                path: older,
+                version: older_fixture_grammar(),
+            },
+            root_at(newer, newer_source),
+        ];
+
+        let collected = collect_all(&roots);
+
+        assert_eq!(
+            canonical_type(collected_for(&collected, older_source), "Shared"),
+            "Shared(uint256 a)"
+        );
+        assert_eq!(
+            canonical_type(collected_for(&collected, newer_source), "Shared"),
+            "Shared(uint256 a)"
+        );
+    }
+
+    #[test]
+    fn an_imported_root_with_a_syntax_error_rejects_itself_and_its_importer() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let base = write_source(
+            &dir,
+            "Base.t.sol",
+            "pragma solidity ^0.8.0;\n\ncontract BaseTest {\n    function testBase() public { this is not solidity\n}\n",
+        );
+        let derived = write_source(
+            &dir,
+            "Derived.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {BaseTest} from \"./Base.t.sol\";\n\ncontract DerivedTest is BaseTest {}\n",
+        );
+        let base_source = "project/Base.t.sol";
+        let derived_source = "project/Derived.t.sol";
+
+        let errors =
+            collect_with_defaults(&[root_at(base, base_source), root_at(derived, derived_source)])
+                .expect_err("a root that does not parse cannot be collected");
+
+        assert_eq!(errors.len(), 2, "{errors:#?}");
+        let reasons_for = |source: &str| -> &Vec<String> {
+            let item = errors
+                .iter()
+                .find(|item| item.source_name == Path::new(source))
+                .unwrap_or_else(|| panic!("`{source}` was not rejected"));
+            let TestSourceProblem::Source(TestSourceCollectError::SourceParseErrors { reasons }) =
+                &item.problem
+            else {
+                panic!(
+                    "expected parse errors for `{source}`, got {:?}",
+                    item.problem
+                );
+            };
+            reasons
+        };
+        // The root's own file is located by line alone, while an import names
+        // its file as well.
+        assert!(
+            reasons_for(base_source)
+                .iter()
+                .all(|reason| reason.contains("(line ") && !reason.contains(" in ")),
+            "{:?}",
+            reasons_for(base_source)
+        );
+        assert!(
+            reasons_for(derived_source)
+                .iter()
+                .all(|reason| reason.contains(" in ") && reason.contains("Base.t.sol")),
+            "{:?}",
+            reasons_for(derived_source)
+        );
+    }
+
+    #[test]
+    fn parse_error_reasons_are_truncated_with_a_count_of_the_rest() {
+        const UNREPORTED_IMPORTS: usize = 3;
+
+        let dir = tempfile::tempdir().expect("temp dir");
+        // Each import is truncated mid-struct, which Slang recovers from with
+        // one diagnostic, so each contributes one reason.
+        let broken_import_count = MAX_REPORTED_PARSE_ERRORS + UNREPORTED_IMPORTS;
+        let imports: String = (0..broken_import_count)
+            .map(|index| {
+                write_source(
+                    &dir,
+                    &format!("Broken{index}.sol"),
+                    "pragma solidity ^0.8.0;\n\nstruct Broken { uint256 a;\n",
+                );
+                format!("import \"./Broken{index}.sol\";\n")
+            })
+            .collect();
+        let root = write_source(
+            &dir,
+            "Importer.t.sol",
+            &format!("pragma solidity ^0.8.0;\n\n{imports}\ncontract ImporterTest {{}}\n"),
+        );
+
+        let errors = collect_one(root_at(root, FIXTURE_SOURCE)).expect_err("expected errors");
+
+        let TestSourceProblem::Source(TestSourceCollectError::SourceParseErrors { reasons }) =
+            &errors[0].problem
+        else {
+            panic!("expected parse errors, got {:?}", errors[0].problem);
+        };
+        assert_eq!(reasons.len(), MAX_REPORTED_PARSE_ERRORS + 1, "{reasons:#?}");
+        assert_eq!(
+            reasons[MAX_REPORTED_PARSE_ERRORS],
+            format!("and {UNREPORTED_IMPORTS} more")
+        );
+    }
+
+    #[test]
+    fn two_source_names_for_one_file_are_both_collected() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let shared = write_source(
+            &dir,
+            "Shared.t.sol",
+            "pragma solidity ^0.8.0;\n\nstruct Person { address wallet; }\n\ncontract SharedTest {}\n",
+        );
+        let first_source = "project/First.t.sol";
+        let second_source = "project/Second.t.sol";
+
+        let collected = collect_all(&[
+            root_at(shared.clone(), first_source),
+            root_at(shared, second_source),
+        ]);
+
+        assert_eq!(
+            canonical_type(collected_for(&collected, first_source), "Person"),
+            "Person(address wallet)"
+        );
+        assert_eq!(
+            canonical_type(collected_for(&collected, second_source), "Person"),
+            "Person(address wallet)"
+        );
+    }
+
+    #[test]
+    fn two_source_names_for_one_missing_file_are_both_reported() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let missing = dir.path().join("Missing.t.sol");
+
+        let errors = collect_with_defaults(&[
+            root_at(missing.clone(), "project/First.t.sol"),
+            root_at(missing, "project/Second.t.sol"),
+        ])
+        .expect_err("expected errors");
+
+        let sources: Vec<_> = errors.iter().map(|item| item.source_name.clone()).collect();
+        assert_eq!(
+            sources,
+            vec![
+                PathBuf::from("project/First.t.sol"),
+                PathBuf::from("project/Second.t.sol"),
+            ]
+        );
+        assert!(errors.iter().all(|item| matches!(
+            &item.problem,
+            TestSourceProblem::Source(TestSourceCollectError::RootFileNotFound { .. })
+        )));
+    }
+
+    #[test]
+    fn an_unresolvable_import_narrows_the_closure_without_rejecting_the_root() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = write_source(
+            &dir,
+            "Unmapped.t.sol",
+            "pragma solidity ^0.8.0;\n\nimport {Person} from \"@dep/Person.sol\";\n\ncontract UnmappedTest {}\n",
+        );
+
+        let collected = unwrap_collected(collect_one(root_at(root, FIXTURE_SOURCE)));
+
+        assert!(collected.eip712_types.is_empty());
+    }
+
+    #[test]
+    fn problems_are_reported_in_source_order() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let roots: Vec<TestSourceRoot> = ["Zeta", "Alpha", "Mid"]
+            .into_iter()
+            .map(|name| {
+                root_at(
+                    dir.path().join(format!("{name}.t.sol")),
+                    &format!("project/{name}.t.sol"),
+                )
+            })
+            .collect();
+
+        let errors = collect_with_defaults(&roots).expect_err("every root is missing");
+
+        let sources: Vec<_> = errors.iter().map(|item| item.source_name.clone()).collect();
+        assert_eq!(
+            sources,
+            vec![
+                PathBuf::from("project/Alpha.t.sol"),
+                PathBuf::from("project/Mid.t.sol"),
+                PathBuf::from("project/Zeta.t.sol"),
+            ]
+        );
     }
 }

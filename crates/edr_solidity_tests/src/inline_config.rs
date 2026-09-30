@@ -59,7 +59,7 @@ mod overrides;
 mod parse;
 mod profiles;
 
-pub use edr_solidity_parser_slang::ImportResolver;
+pub use edr_solidity_parser_slang::resolver::ImportResolver;
 
 pub(crate) use self::{
     directives::is_test_function,
