@@ -1292,7 +1292,13 @@ fn get_canonical_type_def(
         eip712_types_by_name
             .get(name_or_def)
             .cloned()
-            .ok_or_else(|| fmt_err!("'{name_or_def}' not defined in `eip712CanonicalTypes`"))
+            .ok_or_else(|| {
+                fmt_err!(
+                    "unknown EIP-712 type name '{name_or_def}'. Pass the full type definition \
+                     instead, or make the type available by name via the test runner \
+                     configuration"
+                )
+            })
     }
 }
 
@@ -1305,21 +1311,18 @@ fn get_struct_hash(type_def: &Eip712TypeDef, abi_encoded_data: &Bytes) -> Result
     // get the corresponding `DynSolType` of the primary type.
     resolver
         .ingest_string(type_def.canonical_definition())
-        .map_err(|e| fmt_err!("Resolver failed to ingest type definition: {e}"))?;
+        .map_err(|e| fmt_err!("failed parsing EIP-712 type definition: {e}"))?;
 
-    let resolved_sol_type = resolver.resolve(type_def.name()).map_err(|e| {
-        fmt_err!(
-            "Failed to resolve EIP-712 primary type '{}': {e}",
-            type_def.name()
-        )
-    })?;
+    let resolved_sol_type = resolver
+        .resolve(type_def.name())
+        .map_err(|e| fmt_err!("failed resolving EIP-712 type '{}': {e}", type_def.name()))?;
 
     // ABI-decode the bytes into `DynSolValue::CustomStruct`.
     let sol_value = resolved_sol_type
         .abi_decode(abi_encoded_data.as_ref())
         .map_err(|e| {
             fmt_err!(
-                "Failed to ABI decode using resolved_sol_type directly for '{}': {e}.",
+                "failed ABI-decoding data as EIP-712 type '{}': {e}",
                 type_def.name()
             )
         })?;
@@ -1329,13 +1332,13 @@ fn get_struct_hash(type_def: &Eip712TypeDef, abi_encoded_data: &Bytes) -> Result
         .encode_data(&sol_value)
         .map_err(|e| {
             fmt_err!(
-                "Failed to EIP-712 encode data for struct '{}': {e}",
+                "failed EIP-712 encoding data for type '{}': {e}",
                 type_def.name()
             )
         })?
         .ok_or_else(|| {
             fmt_err!(
-                "EIP-712 data encoding returned 'None' for struct '{}'",
+                "failed EIP-712 encoding data for type '{}': not a struct",
                 type_def.name()
             )
         })?;
@@ -1343,7 +1346,7 @@ fn get_struct_hash(type_def: &Eip712TypeDef, abi_encoded_data: &Bytes) -> Result
     // Compute the type hash of the primary type.
     let type_hash = resolver.type_hash(type_def.name()).map_err(|e| {
         fmt_err!(
-            "Failed to compute typeHash for EIP712 type '{}': {e}",
+            "failed computing type hash for EIP-712 type '{}': {e}",
             type_def.name()
         )
     })?;
