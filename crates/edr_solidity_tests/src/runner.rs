@@ -1576,7 +1576,6 @@ impl<
         if let Some((failure_dir, failure_file)) = failure_paths
             && let Some(CounterExample::Single(counterexample)) = &result.counterexample
         {
-            remove_legacy_fuzz_failure_file(&failure_dir);
             if let Err(err) = edr_common::fs::create_dir_all(&failure_dir) {
                 error!(%err, "Failed to create fuzz failure dir");
             } else if let Err(err) =
@@ -1893,27 +1892,6 @@ fn fuzzer_with_cases(seed: Option<U256>, cases: u32, max_global_rejects: u32) ->
     } else {
         trace!(target: "forge::test", "building stochastic fuzzer");
         TestRunner::new(config)
-    }
-}
-
-/// Removes the fuzz failure file written by versions of EDR that persisted
-/// fuzz failures as a single `proptest` seed file at
-/// `<failure_persist_dir>/<failure_persist_file>`.
-///
-/// Fuzz failures are now persisted as one JSON counterexample per test in a
-/// directory of the same name, so a leftover regular file at that path would
-/// prevent the directory from being created.
-fn remove_legacy_fuzz_failure_file(failure_dir: &Path) {
-    if let Some(legacy_file) = failure_dir.parent()
-        && legacy_file.is_file()
-    {
-        warn!(
-            "Removing legacy fuzz failure file {} to make room for the fuzz failure directory.",
-            legacy_file.display()
-        );
-        if let Err(err) = edr_common::fs::remove_file(legacy_file) {
-            error!(%err, "Failed to remove legacy fuzz failure file");
-        }
     }
 }
 

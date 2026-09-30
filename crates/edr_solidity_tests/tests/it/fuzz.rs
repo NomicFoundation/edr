@@ -231,6 +231,7 @@ async fn test_persist_fuzz_failure_replaces_legacy_seed_file() {
 
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    config.fuzz.failure_persist_file = "testfailure".to_string();
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let results = runner.test_collect(filter).await.suite_results;
     let result = results

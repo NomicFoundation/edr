@@ -56,6 +56,15 @@ impl FuzzConfig {
         }
     }
 
+    /// Returns the root directory under which fuzz failures are persisted,
+    /// `<failure_persist_dir>/<failure_persist_file>`, if failure persistence
+    /// is enabled.
+    pub fn failure_persist_root(&self) -> Option<PathBuf> {
+        self.failure_persist_dir
+            .as_ref()
+            .map(|failure_persist_dir| failure_persist_dir.join(&self.failure_persist_file))
+    }
+
     /// Returns the failure directory and failure file of the given fuzz test,
     /// if failure persistence is enabled.
     ///
@@ -67,18 +76,16 @@ impl FuzzConfig {
         contract_name: &str,
         test_name: &str,
     ) -> Option<(PathBuf, PathBuf)> {
-        self.failure_persist_dir
-            .as_ref()
-            .map(|failure_persist_dir| {
-                let dir = failure_persist_dir.join(&self.failure_persist_file).join(
-                    contract_name
-                        .split(':')
-                        .next_back()
-                        .expect("split always yields at least one element"),
-                );
-                let file = dir.join(test_name);
-                (dir, file)
-            })
+        self.failure_persist_root().map(|root| {
+            let dir = root.join(
+                contract_name
+                    .split(':')
+                    .next_back()
+                    .expect("split always yields at least one element"),
+            );
+            let file = dir.join(test_name);
+            (dir, file)
+        })
     }
 }
 
