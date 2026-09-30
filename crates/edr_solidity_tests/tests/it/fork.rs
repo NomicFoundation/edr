@@ -21,7 +21,11 @@ mod remote {
         let runner = TEST_DATA_DEFAULT
             .runner_with_fuzz_persistence(TEST_DATA_DEFAULT.config_with_remote_rpc())
             .await;
-        let suite_result = runner.test_collect(filter).await.suite_results;
+        let suite_result = runner
+            .test_collect(filter)
+            .await
+            .expect("the run produces results")
+            .suite_results;
         assert_eq!(suite_result.len(), 1);
 
         for (_, SuiteResult { test_results, .. }) in suite_result {
@@ -109,7 +113,11 @@ mod remote {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_launch_fork() {
         let rpc_url = edr_test_utils::env::json_rpc_url_provider::ethereum_mainnet();
-        let runner = TEST_DATA_DEFAULT.forked_runner(&rpc_url).await;
+        // `LaunchFork.t.sol` is compiled with solc 0.6.12, which Slang has no
+        // grammar for, so collection stays disabled for this run.
+        let runner = TEST_DATA_DEFAULT
+            .forked_runner_without_source_collection(&rpc_url)
+            .await;
         let filter =
             SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
         TestConfig::with_filter(runner, filter).run().await;
@@ -120,7 +128,10 @@ mod remote {
     async fn test_launch_fork_ws() {
         let rpc_url = edr_test_utils::env::json_rpc_url_provider::ethereum_mainnet()
             .replace("https://", "wss://");
-        let runner = TEST_DATA_DEFAULT.forked_runner(&rpc_url).await;
+        // As above, `LaunchFork.t.sol` is compiled with solc 0.6.12.
+        let runner = TEST_DATA_DEFAULT
+            .forked_runner_without_source_collection(&rpc_url)
+            .await;
         let filter =
             SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Launch"));
         TestConfig::with_filter(runner, filter).run().await;

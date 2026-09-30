@@ -44,33 +44,28 @@
 //! The work flows through the submodules as a pipeline:
 //!
 //! ```text
-//!   - parse      locate contract/function definitions via Slang
+//!   - parse      locate contract/function definitions in a Slang unit
 //!   - natspec    scan the NatSpec comment blocks above each definition
 //!   - directives parse a block's lines into a config
 //!   - overrides  compose the above into a source's per-contract overrides
-//!   - provider   cache the overrides and serve them
 //! ```
 //!
 //! `profiles` carries the run's selected and declared profiles through that
 //! pipeline, so `directives` can scope each one.
 
 mod directives;
-mod error;
 mod natspec;
 mod overrides;
 mod parse;
 mod profiles;
-mod provider;
-mod resolver;
 
-pub(crate) use self::directives::is_test_function;
+pub use edr_solidity_parser_slang::ImportResolver;
+
+pub(crate) use self::{
+    directives::is_test_function,
+    overrides::{collect_source_overrides_from_unit, line_of, SourceOverrides},
+};
 pub use self::{
-    error::{
-        InlineConfigCollectError, InlineConfigError, InlineConfigErrorItem, InlineConfigErrors,
-        InlineConfigProblem, InlineConfigProfilesError,
-    },
     overrides::{ContractInlineConfig, FunctionOverride},
     profiles::{InlineConfigProfiles, DEFAULT_PROFILE},
-    provider::{CachedInlineConfigProvider, InlineConfigRoot, SharedInlineConfigProvider},
-    resolver::ImportResolver,
 };

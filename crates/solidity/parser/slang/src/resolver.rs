@@ -1,5 +1,5 @@
-//! [`CompilationBuilderConfig`] implementation that reads Solidity sources from
-//! disk and resolves imports.
+//! Resolving Solidity imports to on-disk files, and reading those files for
+//! Slang's compilation builder.
 
 use std::{
     collections::HashMap,
@@ -45,29 +45,60 @@ impl ImportResolver {
     }
 }
 
-/// Reads files from disk and resolves imports.
-pub(super) struct SourceProvider<'resolver> {
-    import_resolver: &'resolver ImportResolver,
+/// The root file's id and its already-read text.
+pub(crate) struct RootSource<'root> {
+    pub id: &'root str,
+    pub content: &'root str,
 }
 
-impl<'resolver> SourceProvider<'resolver> {
-    pub(super) fn new(import_resolver: &'resolver ImportResolver) -> Self {
-        Self { import_resolver }
+/// Serves the root from the text the caller read, reads every other file from
+/// disk, and resolves imports.
+pub(crate) struct SourceProvider<'a> {
+    import_resolver: &'a ImportResolver,
+    root: RootSource<'a>,
+}
+
+impl<'a> SourceProvider<'a> {
+    pub fn new(import_resolver: &'a ImportResolver, root: RootSource<'a>) -> Self {
+        Self {
+            import_resolver,
+            root,
+        }
     }
 }
 
 impl CompilationBuilderConfig for SourceProvider<'_> {
+    /// Keep `fs_permissions` out of this path. The file ids come from the
+    /// paths the test runner was configured with, never from paths a test
+    /// controls, so this reads a project source exactly as the compiler does.
     fn read_file(&mut self, file_id: &str) -> Result<String, String> {
+        if file_id == self.root.id {
+            return Ok(self.root.content.to_owned());
+        }
+
         std::fs::read_to_string(Path::new(file_id)).map_err(|error| error.to_string())
     }
 
+    /// Reports an import whose resolved path holds no file as unresolved,
+    /// because Slang's binder panics when a contract inherits from an import
+    /// it resolved but could not read. An unresolved import only yields a
+    /// diagnostic.
     fn resolve_import(
         &mut self,
         source_file_id: &str,
         import_path: &str,
     ) -> Result<String, String> {
-        self.import_resolver
-            .resolve_import(source_file_id, import_path)
+        let resolved = self
+            .import_resolver
+            .resolve_import(source_file_id, import_path)?;
+
+        if Path::new(&resolved).is_file() {
+            Ok(resolved)
+        } else {
+            Err(format!(
+                "import '{import_path}' resolves to '{resolved}', which is not a file"
+            ))
+        }
     }
 }
 
@@ -114,6 +145,53 @@ mod tests {
         assert_resolves(
             resolver.resolve_import("/project/A.sol", "@oz/contracts/token/ERC20.sol"),
             "/deps/@oz/contracts/token/ERC20.sol",
+        );
+    }
+
+    #[test]
+    fn provider_reports_a_missing_file_as_unresolved() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        std::fs::write(dir.path().join("Dep.sol"), "").expect("write dependency");
+
+        let root_path = dir.path().join("Root.sol");
+        let root_content = "content";
+        std::fs::write(&root_path, root_content).expect("write root");
+
+        let root_id = root_path.to_string_lossy().into_owned();
+
+        let resolver = ImportResolver::default();
+        let mut provider = SourceProvider::new(
+            &resolver,
+            RootSource {
+                id: &root_id,
+                content: root_content,
+            },
+        );
+
+        assert!(provider.resolve_import(&root_id, "./Dep.sol").is_ok());
+        assert!(provider.resolve_import(&root_id, "./Missing.sol").is_err());
+    }
+
+    #[test]
+    fn provider_serves_the_root_from_memory_and_imports_from_disk() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dep = dir.path().join("Dep.sol");
+        std::fs::write(&dep, "on disk").expect("write dependency");
+        let root_id = dir.path().join("Root.sol").to_string_lossy().into_owned();
+
+        let resolver = ImportResolver::default();
+        let mut provider = SourceProvider::new(
+            &resolver,
+            RootSource {
+                id: &root_id,
+                content: "in memory",
+            },
+        );
+
+        assert_eq!(provider.read_file(&root_id), Ok("in memory".to_owned()));
+        assert_eq!(
+            provider.read_file(&dep.to_string_lossy()),
+            Ok("on disk".to_owned())
         );
     }
 

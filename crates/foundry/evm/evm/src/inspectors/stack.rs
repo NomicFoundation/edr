@@ -53,7 +53,7 @@ pub struct InspectorStackBuilder<HardforkT: HardforkTr, ChainContextT: ChainCont
     /// Used in the cheatcode handler to overwrite the gas price separately from
     /// the gas price in the execution environment.
     pub gas_price: Option<u128>,
-    /// The cheatcodes config.
+    /// The cheatcodes config, shared between inspectors.
     pub cheatcodes: Option<Arc<CheatsConfig<HardforkT>>>,
     /// The fuzzer inspector and its state, if it exists.
     pub fuzzer: Option<Fuzzer>,
@@ -95,8 +95,8 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
 
     /// Enable cheatcodes with the given config.
     #[inline]
-    pub fn cheatcodes(mut self, config: Arc<CheatsConfig<HardforkT>>) -> Self {
-        self.cheatcodes = Some(config);
+    pub fn cheatcodes(mut self, config: CheatsConfig<HardforkT>) -> Self {
+        self.cheatcodes = Some(Arc::new(config));
         self
     }
 

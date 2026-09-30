@@ -14,8 +14,11 @@
 
 use std::collections::HashSet;
 
-use super::{error::InlineConfigError, natspec::NatSpecBlock, profiles::InlineConfigProfiles};
-use crate::config::{TestFunctionConfigOverride, TimeoutConfig};
+use super::{natspec::NatSpecBlock, profiles::InlineConfigProfiles};
+use crate::{
+    config::{TestFunctionConfigOverride, TimeoutConfig},
+    test_source_error::InlineConfigError,
+};
 
 const HARDHAT_CONFIG_PREFIX: &str = "hardhat-config:";
 const FORGE_CONFIG_PREFIX: &str = "forge-config:";
@@ -37,12 +40,6 @@ pub(super) struct LocatedDirectiveError {
     pub(super) offset: usize,
     /// The problem.
     pub(super) error: InlineConfigError,
-}
-
-/// Returns `true` if `source` contains an inline-config directive prefix. Used
-/// to skip the (expensive) parse of sources that carry no directive.
-pub(super) fn contains_inline_config_directive(source: &str) -> bool {
-    source.contains(FORGE_CONFIG_PREFIX) || source.contains(HARDHAT_CONFIG_PREFIX)
 }
 
 /// Top-level inline-config key categories. A leading dot-segment that is not

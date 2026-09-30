@@ -684,7 +684,7 @@ async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
     repoPath
   );
 
-  const { artifacts, testSuiteIds, tracingConfig, testSourcePaths } =
+  const { artifacts, testSuiteIds, tracingConfig } =
     await buildSolidityTestsInput(hre);
   // The resolved profile, not `userConfig.test.solidity`: only Hardhat's
   // config resolution turns `forking.rpcEndpoints` into the
@@ -708,8 +708,9 @@ async function createSolidityTestsInput(repoPath: string, verbosity = 0) {
 
   solidityTestsConfig.projectRoot = repoPath;
   solidityTestsConfig.rpcCachePath = RPC_CACHE_PATH;
-  // Absolute paths of the test sources, for inline-config parsing.
-  solidityTestsConfig.testSourcePaths = testSourcePaths;
+  // Keep `testSourcePaths` unset here. These benchmarks measure test
+  // execution, so collecting inline configuration and EIP-712 types stays
+  // off; the end-to-end scenarios cover that path.
   const rootPermission = {
     path: repoPath,
     access: FsAccessPermission.DangerouslyReadWriteDirectory,

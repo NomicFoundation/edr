@@ -62,6 +62,13 @@ contract Eip712Test is DSTest {
         assertEq(vm.eip712HashType(MAIL_TYPE), keccak256(bytes(MAIL_TYPE)));
     }
 
+    function testEip712HashTypeByName() public {
+        // A bare name resolves against the structs collected from this
+        // contract's own source, rather than being parsed as a definition.
+        assertEq(vm.eip712HashType("Mail"), keccak256(bytes(MAIL_TYPE)));
+        assertEq(vm.eip712HashType("Person"), keccak256(bytes(PERSON_TYPE)));
+    }
+
     function testEip712HashTypeNormalizesWhitespace() public {
         // Non-canonical whitespace after commas should be normalized before hashing.
         assertEq(
