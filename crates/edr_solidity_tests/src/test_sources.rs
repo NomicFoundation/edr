@@ -197,6 +197,15 @@ fn describe_syntax_diagnostic(
         Some(Cow::Borrowed(root_content))
     } else {
         std::fs::read_to_string(diagnostic_file_id)
+            .inspect_err(|error| {
+                // Slang read this file moments ago to parse it, so failing to
+                // read it back means it changed underneath the run.
+                tracing::error!(
+                    file = diagnostic_file_id,
+                    %error,
+                    "could not read back an import to locate its syntax error"
+                );
+            })
             .ok()
             .map(Cow::Owned)
     };
