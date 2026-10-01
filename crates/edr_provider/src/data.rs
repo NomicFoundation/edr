@@ -1404,7 +1404,9 @@ where
                 None
             },
             // revm falls back to the spec's cap when `None`; `u64::MAX` disables it.
-            transaction_gas_cap: Some(self.transaction_execution_gas_bound().unwrap_or(u64::MAX)),
+            transaction_execution_gas_bound: Some(
+                self.transaction_execution_gas_bound().unwrap_or(u64::MAX),
+            ),
         }
     }
 

@@ -29,12 +29,12 @@ pub enum CreationError {
     },
 }
 
-/// Validates the transaction. `None` disables the EIP-7825 transaction gas
-/// cap check.
+/// Validates the transaction. `None` disables the EIP-7825 check on execution
+/// gas.
 pub fn validate<TransactionT: Transaction>(
     transaction: TransactionT,
     spec_id: EvmSpecId,
-    transaction_gas_cap: Option<u64>,
+    transaction_execution_gas_bound: Option<u64>,
 ) -> Result<TransactionT, CreationError> {
     const EIP7623_DISABLED: bool = false;
 
@@ -48,7 +48,7 @@ pub fn validate<TransactionT: Transaction>(
         EIP7623_DISABLED,
         spec_id >= EvmSpecId::AMSTERDAM,
         // `u64::MAX` is REVM's way of circumventing the transaction gas cap check.
-        transaction_gas_cap.unwrap_or(u64::MAX),
+        transaction_execution_gas_bound.unwrap_or(u64::MAX),
     ) {
         Ok(_) => Ok(transaction),
         Err(EvmTransactionValidationError::CallGasCostMoreThanGasLimit {

@@ -29,12 +29,12 @@ pub struct EvmConfig {
     /// EIP-7907) at runtime. If Some, this specific limit will be used
     /// regardless of hardfork.
     pub limit_contract_code_size: Option<usize>,
-    /// Configures the gas limit cap for the transaction.
+    /// Configures the maximum gas a transaction may spend on execution.
     ///
     /// If `None`, default value defined by spec will be used.
     ///
     /// Introduced in [EIP-7825: Transaction Gas Limit Cap](https://eips.ethereum.org/EIPS/eip-7825).
-    pub transaction_gas_cap: Option<u64>,
+    pub transaction_execution_gas_bound: Option<u64>,
 }
 
 impl EvmConfig {
@@ -47,7 +47,7 @@ impl EvmConfig {
             disable_block_gas_limit: false,
             disable_eip3607: false,
             limit_contract_code_size: None,
-            transaction_gas_cap: None,
+            transaction_execution_gas_bound: None,
         }
     }
 
@@ -62,7 +62,7 @@ impl EvmConfig {
         cfg_env.disable_block_gas_limit = self.disable_block_gas_limit;
         cfg_env.disable_eip3607 = self.disable_eip3607;
         cfg_env.limit_contract_code_size = self.limit_contract_code_size;
-        cfg_env.tx_gas_limit_cap = self.transaction_gas_cap;
+        cfg_env.tx_gas_limit_cap = self.transaction_execution_gas_bound;
 
         cfg_env
     }
