@@ -49,6 +49,7 @@ pub fn validate<TransactionT: Transaction>(
         spec_id >= EvmSpecId::AMSTERDAM,
         // `u64::MAX` is REVM's way of circumventing the transaction gas cap check.
         transaction_execution_gas_bound.unwrap_or(u64::MAX),
+        edr_eip2780::transaction_intrinsic_gas_info_for_hardfork(&transaction, spec_id),
     ) {
         Ok(_) => Ok(transaction),
         Err(EvmTransactionValidationError::CallGasCostMoreThanGasLimit {
