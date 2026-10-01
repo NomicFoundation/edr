@@ -74,7 +74,10 @@ impl From<OpHardfork> for op_revm::OpSpecId {
             OpHardfork::Holocene => op_revm::OpSpecId::HOLOCENE,
             OpHardfork::Isthmus => op_revm::OpSpecId::ISTHMUS,
             OpHardfork::Jovian => op_revm::OpSpecId::JOVIAN,
-            OpHardfork::Interop => op_revm::OpSpecId::INTEROP,
+            // op-revm renamed this spec to `LAGOON` (the hardfork that activates
+            // interop). TODO: analyze renaming `OpHardfork::Interop` and its
+            // "interop" name to match; it is a breaking change for consumers.
+            OpHardfork::Interop => op_revm::OpSpecId::LAGOON,
         }
     }
 }

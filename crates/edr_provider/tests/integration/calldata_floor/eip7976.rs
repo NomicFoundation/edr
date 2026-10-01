@@ -8,8 +8,8 @@ use crate::{
     common::provider::new_provider, integration::calldata_floor::assert_transaction_gas_usage,
 };
 
-/// A transfer to an EOA carrying 4 nonzero and 4 zero calldata bytes, so the
-/// floor exceeds the intrinsic gas and determines the transaction's gas usage.
+/// A self-transfer carrying 4 nonzero and 4 zero calldata bytes, so the floor
+/// exceeds the intrinsic gas and determines the transaction's gas usage.
 fn transaction_request() -> TransactionRequest {
     TransactionRequest {
         from: address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
@@ -25,9 +25,10 @@ async fn calldata_floor_increases_in_amsterdam() -> anyhow::Result<()> {
     let osaka_provider = new_provider(edr_chain_l1::Hardfork::Osaka)?;
     assert_transaction_gas_usage(&osaka_provider, transaction_request(), 21_200);
 
-    // 21_000 + 16 * 4 * (4 zero + 4 nonzero) = 21_512
+    // EIP-2780 base cost 12_000 (a self-transfer pays no `to` or value charge)
+    // + 16 * 4 * (4 zero + 4 nonzero) = 12_512
     let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
-    assert_transaction_gas_usage(&amsterdam_provider, transaction_request(), 21_512);
+    assert_transaction_gas_usage(&amsterdam_provider, transaction_request(), 12_512);
 
     Ok(())
 }
