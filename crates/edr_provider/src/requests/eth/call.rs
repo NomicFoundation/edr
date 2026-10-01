@@ -77,7 +77,10 @@ pub(crate) fn resolve_call_request<
     let transaction = request.fake_sign(sender);
 
     let hardfork = data.hardfork_at_block_spec(block_spec)?;
-    let transaction_gas_cap = data.transaction_gas_cap().unwrap_or(u64::MAX);
-    transaction::validate(transaction, hardfork.into(), transaction_gas_cap)
-        .map_err(ProviderError::TransactionCreationError)
+    transaction::validate(
+        transaction,
+        hardfork.into(),
+        data.transaction_execution_gas_bound(),
+    )
+    .map_err(ProviderError::TransactionCreationError)
 }

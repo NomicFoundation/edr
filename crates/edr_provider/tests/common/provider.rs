@@ -4,10 +4,10 @@
 use std::sync::Arc;
 
 use edr_chain_l1::{
-    rpc::{receipt::L1RpcTransactionReceipt, TransactionRequest},
+    rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_primitives::B256;
+use edr_primitives::{B256, U64};
 use edr_provider::{
     config::ProviderConfig, test_utils::create_test_config, time::CurrentTime, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,
@@ -49,21 +49,39 @@ pub fn new_provider_from_config(
     Ok(provider)
 }
 
+/// Returns the transaction's receipt via `eth_getTransactionReceipt`.
+pub fn transaction_receipt(
+    provider: &Provider<L1ChainSpec>,
+    transaction_hash: B256,
+) -> anyhow::Result<L1RpcTransactionReceipt> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetTransactionReceipt(transaction_hash),
+    ))?;
+
+    let receipt: Option<L1RpcTransactionReceipt> = response.deserialize_result()?;
+    receipt.ok_or_else(|| anyhow::anyhow!("receipt should exist"))
+}
+
 /// Returns the `gasUsed` from the transaction's receipt.
 pub fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
+    transaction_receipt(provider, transaction_hash)
+        .expect("receipt should exist")
+        .gas_used
+}
+
+/// Estimates the request's gas usage via `eth_estimateGas`.
+pub fn estimate_gas(provider: &Provider<L1ChainSpec>, request: L1CallRequest) -> u64 {
     let response = provider
-        .handle_request(ProviderRequest::with_single(
-            MethodInvocation::GetTransactionReceipt(transaction_hash),
-        ))
-        .expect("eth_getTransactionReceipt should succeed");
+        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
+            request, None,
+        )))
+        .expect("eth_estimateGas should succeed");
 
-    let receipt: Option<L1RpcTransactionReceipt> = response
+    let gas: U64 = response
         .deserialize_result()
-        .expect("response should be Receipt");
+        .expect("response should be U64");
 
-    let receipt = receipt.expect("receipt should exist");
-
-    receipt.gas_used
+    gas.into_limbs()[0]
 }
 
 /// Sends the transaction via `eth_sendTransaction`, returning its hash.

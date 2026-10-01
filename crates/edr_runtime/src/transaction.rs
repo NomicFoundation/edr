@@ -29,11 +29,12 @@ pub enum CreationError {
     },
 }
 
-/// Validates the transaction.
+/// Validates the transaction. `None` disables the EIP-7825 check on execution
+/// gas.
 pub fn validate<TransactionT: Transaction>(
     transaction: TransactionT,
     spec_id: EvmSpecId,
-    transaction_gas_cap: u64,
+    transaction_execution_gas_bound: Option<u64>,
 ) -> Result<TransactionT, CreationError> {
     const EIP7623_DISABLED: bool = false;
 
@@ -46,7 +47,8 @@ pub fn validate<TransactionT: Transaction>(
         spec_id,
         EIP7623_DISABLED,
         spec_id >= EvmSpecId::AMSTERDAM,
-        transaction_gas_cap,
+        // `u64::MAX` is REVM's way of circumventing the transaction gas cap check.
+        transaction_execution_gas_bound.unwrap_or(u64::MAX),
     ) {
         Ok(_) => Ok(transaction),
         Err(EvmTransactionValidationError::CallGasCostMoreThanGasLimit {
@@ -92,8 +94,7 @@ mod tests {
         let transaction = request.fake_sign(caller);
         let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
 
-        let transaction_gas_cap = u64::MAX;
-        let result = validate(transaction, EvmSpecId::BERLIN, transaction_gas_cap);
+        let result = validate(transaction, EvmSpecId::BERLIN, None);
 
         let expected_gas_cost = 21_000;
         assert!(matches!(
@@ -129,8 +130,7 @@ mod tests {
         let transaction = request.fake_sign(caller);
         let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
 
-        let transaction_gas_cap = u64::MAX;
-        let result = validate(transaction, EvmSpecId::BERLIN, transaction_gas_cap);
+        let result = validate(transaction, EvmSpecId::BERLIN, None);
 
         assert!(matches!(result, Err(CreationError::ContractMissingData)));
 

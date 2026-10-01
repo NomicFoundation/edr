@@ -61,10 +61,7 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
                 memory_offset: inputs.return_memory_offset.clone(),
                 was_precompile_called: false,
                 precompile_call_logs: vec![],
-                // `false` matches upstream foundry. TODO: revisit when fully
-                // implementing EIP-8037 before deciding to diverge
-                // (candidate: copy from `inputs`).
-                charged_new_account_state_gas: false,
+                charged_new_account_state_gas: inputs.charged_new_account_state_gas,
             })
         } else {
             None

@@ -900,10 +900,7 @@ impl<
                         memory_offset: call.return_memory_offset.clone(),
                         was_precompile_called: false,
                         precompile_call_logs: vec![],
-                        // `false` matches upstream foundry. TODO: revisit when fully
-                        // implementing EIP-8037 before deciding to diverge
-                        // (candidate: copy from `call`).
-                        charged_new_account_state_gas: false,
+                        charged_new_account_state_gas: call.charged_new_account_state_gas,
                     });
                 }
             };
@@ -924,10 +921,7 @@ impl<
                     memory_offset: call.return_memory_offset.clone(),
                     was_precompile_called: true,
                     precompile_call_logs: vec![],
-                    // `false` matches upstream foundry. TODO: revisit when fully
-                    // implementing EIP-8037 before deciding to diverge
-                    // (candidate: copy from `call`).
-                    charged_new_account_state_gas: false,
+                    charged_new_account_state_gas: call.charged_new_account_state_gas,
                 }),
                 Err(err) => Some(CallOutcome {
                     result: InterpreterResult {
@@ -938,10 +932,7 @@ impl<
                     memory_offset: call.return_memory_offset.clone(),
                     was_precompile_called: false,
                     precompile_call_logs: vec![],
-                    // `false` matches upstream foundry. TODO: revisit when fully
-                    // implementing EIP-8037 before deciding to diverge
-                    // (candidate: copy from `call`).
-                    charged_new_account_state_gas: false,
+                    charged_new_account_state_gas: call.charged_new_account_state_gas,
                 }),
             };
         }
@@ -1021,10 +1012,7 @@ impl<
                     memory_offset: call.return_memory_offset.clone(),
                     was_precompile_called: true,
                     precompile_call_logs: vec![],
-                    // `false` matches upstream foundry. TODO: revisit when fully
-                    // implementing EIP-8037 before deciding to diverge
-                    // (candidate: copy from `call`).
-                    charged_new_account_state_gas: false,
+                    charged_new_account_state_gas: call.charged_new_account_state_gas,
                 });
             }
         }

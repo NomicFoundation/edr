@@ -223,7 +223,7 @@ pub async fn run_full_block<
         disable_block_gas_limit: false,
         disable_eip3607: true,
         limit_contract_code_size: None,
-        transaction_gas_cap: None,
+        transaction_execution_gas_bound: None,
     };
 
     let state = {
@@ -527,7 +527,7 @@ pub async fn assert_replay_header<
         disable_block_gas_limit: false,
         disable_eip3607: true,
         limit_contract_code_size: None,
-        transaction_gas_cap: None,
+        transaction_execution_gas_bound: None,
     };
 
     let state = prior_blockchain

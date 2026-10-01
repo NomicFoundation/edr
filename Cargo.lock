@@ -3020,6 +3020,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip8037"
+version = "0.3.8"
+dependencies = [
+ "edr_eip7825",
+ "revm-primitives",
+]
+
+[[package]]
 name = "edr_eth"
 version = "0.3.8"
 dependencies = [
@@ -3371,6 +3379,7 @@ dependencies = [
  "edr_eip7825",
  "edr_eip7892",
  "edr_eip7997",
+ "edr_eip8037",
  "edr_eth",
  "edr_evm",
  "edr_gas_report",
