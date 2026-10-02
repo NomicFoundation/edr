@@ -1310,6 +1310,16 @@ export interface ObservabilityConfig {
    * Defaults to `IncludeTraces.None`.
    */
   includeCallTraces?: IncludeTraces
+  /**
+   * How much of the stack each step of `Response.traces()` records.
+   * Hardhat 2 sets this to `StackSnapshotType.Top` for its VM step events.
+   *
+   * `Provider.setVerboseTracing(true)` records the full stack until it is
+   * disabled again.
+   *
+   * Defaults to `StackSnapshotType.None`.
+   */
+  recordStack?: StackSnapshotType
 }
 
 export declare const OP_CHAIN_TYPE: string
@@ -1772,6 +1782,16 @@ export interface SourceReference {
   range: Array<number>
 }
 
+/** How much of the stack each step of a raw trace records. */
+export declare enum StackSnapshotType {
+  /** No stack entries. */
+  None = 0,
+  /** The full stack. */
+  Full = 1,
+  /** Only the top entry of the stack. */
+  Top = 2,
+}
+
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -1963,9 +1983,9 @@ export interface TracingStep {
   readonly depth: number
   /** The executed opcode */
   readonly opcode: TracingOpcode
-  /** The entries on the stack. */
+  /** The stack entries, as many as `ObservabilityConfig.recordStack` records. */
   readonly stack: Array<bigint>
-  /** The memory at the step. None unless memory snapshots are recorded. */
+  /** The memory at the step. None unless verbose tracing is enabled. */
   readonly memory?: Uint8Array
 }
 

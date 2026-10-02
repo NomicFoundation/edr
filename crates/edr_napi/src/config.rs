@@ -254,6 +254,27 @@ impl TryFrom<LocalConfig> for edr_provider::config::Local {
     }
 }
 
+/// How much of the stack each step of a raw trace records.
+#[napi]
+pub enum StackSnapshotType {
+    /// No stack entries.
+    None,
+    /// The full stack.
+    Full,
+    /// Only the top entry of the stack.
+    Top,
+}
+
+impl From<StackSnapshotType> for edr_provider::observability::StackSnapshotType {
+    fn from(value: StackSnapshotType) -> Self {
+        match value {
+            StackSnapshotType::None => Self::None,
+            StackSnapshotType::Full => Self::Full,
+            StackSnapshotType::Top => Self::Top,
+        }
+    }
+}
+
 /// Configuration for runtime observability.
 #[napi(object)]
 pub struct ObservabilityConfig<'env> {
@@ -266,6 +287,14 @@ pub struct ObservabilityConfig<'env> {
     ///
     /// Defaults to `IncludeTraces.None`.
     pub include_call_traces: Option<IncludeTraces>,
+    /// How much of the stack each step of `Response.traces()` records.
+    /// Hardhat 2 sets this to `StackSnapshotType.Top` for its VM step events.
+    ///
+    /// `Provider.setVerboseTracing(true)` records the full stack until it is
+    /// disabled again.
+    ///
+    /// Defaults to `StackSnapshotType.None`.
+    pub record_stack: Option<StackSnapshotType>,
 }
 
 /// Configuration for a provider.
@@ -656,6 +685,10 @@ impl ObservabilityConfig<'_> {
             ),
             on_collected_coverage_fn,
             on_collected_gas_report_fn,
+            record_memory: default_config.record_memory,
+            record_stack: self
+                .record_stack
+                .map_or(default_config.record_stack, Into::into),
             verbose_raw_tracing: default_config.verbose_raw_tracing,
         })
     }
