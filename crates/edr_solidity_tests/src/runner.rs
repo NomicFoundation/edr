@@ -1549,6 +1549,16 @@ impl<
             }
         }
 
+        // Without a reject limit only the timeout can end a test whose
+        // `vm.assume` never passes.
+        if fuzz_config.max_test_rejects == 0 && fuzz_config.timeout.is_none() {
+            self.result.single_fail(
+                Some("`maxTestRejects` = 0 requires a fuzz `timeout`".to_string()),
+                start.elapsed(),
+            );
+            return self.outcome();
+        }
+
         let runner = fuzzer_with_cases(
             fuzz_config.seed,
             fuzz_config.runs,

@@ -722,7 +722,7 @@ export interface FuzzConfigArgs {
   runs?: number
   /**
    * The maximum number of inputs that `vm.assume` may reject before the
-   * test as a whole aborts. Set to 0 to disable the limit.
+   * test as a whole aborts. 0 disables the limit and requires a `timeout`.
    * Defaults to 65536.
    */
   maxTestRejects?: number

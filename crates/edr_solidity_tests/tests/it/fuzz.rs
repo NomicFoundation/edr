@@ -543,6 +543,32 @@ async fn test_fuzz_timeout() {
     );
 }
 
+/// Disabling the reject limit without a timeout fails the test up front
+/// instead of letting a never-passing `vm.assume` run forever.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_no_reject_limit_requires_timeout() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzTimeout.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.max_test_rejects = 0;
+    config.fuzz.timeout = None;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/FuzzTimeout.t.sol:FuzzTimeoutTest",
+            vec![(
+                "test_fuzz_bound(uint256)",
+                false,
+                Some("`maxTestRejects` = 0 requires a fuzz `timeout`".to_string()),
+                None,
+                None,
+            )],
+        )]),
+    );
+}
+
 // Test 256 runs regardless number of test rejects.
 // <https://github.com/foundry-rs/foundry/issues/9054>
 #[tokio::test(flavor = "multi_thread")]
@@ -918,7 +944,6 @@ async fn test_fuzz_profile_overrides() {
         let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzProfileOverride.t.sol");
         let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
         config.fuzz.runs = u32::try_from(GLOBAL_RUNS).expect("runs fit in u32");
-        config.fuzz.max_test_rejects = 0;
         config.inline_config_profiles =
             InlineConfigProfiles::new(selected, ["ci".to_owned()]).expect("valid profiles");
 

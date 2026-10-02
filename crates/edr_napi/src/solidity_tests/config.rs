@@ -461,7 +461,7 @@ pub struct FuzzConfigArgs {
     /// Defaults to 256.
     pub runs: Option<u32>,
     /// The maximum number of inputs that `vm.assume` may reject before the
-    /// test as a whole aborts. Set to 0 to disable the limit.
+    /// test as a whole aborts. 0 disables the limit and requires a `timeout`.
     /// Defaults to 65536.
     pub max_test_rejects: Option<u32>,
     /// Hexadecimal string.

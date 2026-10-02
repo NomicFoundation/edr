@@ -633,7 +633,7 @@ describe("Fuzz and invariant testing", function () {
       const result = await testContext.runTestsWithStats(
         "InlineConfigProfilesTest",
         {
-          fuzz: { runs: GLOBAL_RUNS, maxTestRejects: 0 },
+          fuzz: { runs: GLOBAL_RUNS },
           testProfile,
           declaredTestProfiles: ["default", "ci"],
         }

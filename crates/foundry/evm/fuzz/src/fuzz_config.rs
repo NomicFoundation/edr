@@ -10,7 +10,8 @@ pub struct FuzzConfig {
     /// Fails the fuzzed test if a revert occurs.
     pub fail_on_revert: bool,
     /// The maximum number of test case rejections allowed, to be encountered
-    /// during usage of `vm.assume` cheatcode. Set to `0` to disable the limit.
+    /// during usage of `vm.assume` cheatcode. `0` disables the limit and
+    /// requires a `timeout`.
     pub max_test_rejects: u32,
     /// Optional seed for the fuzzing RNG algorithm
     pub seed: Option<U256>,

@@ -302,11 +302,9 @@ pub struct TimeoutConfig {
 pub struct FuzzConfigOverride {
     /// The number of test cases that must execute for each property test
     pub runs: Option<u32>,
-    /// The maximum number of test case rejections allowed by proptest, to be
-    /// encountered during usage of `vm.assume` cheatcode. This will be used
-    /// to set the `max_global_rejects` value in proptest test runner config.
-    /// `max_local_rejects` option isn't exposed here since we're not using
-    /// `prop_filter`.
+    /// The maximum number of test case rejections allowed, to be encountered
+    /// during usage of `vm.assume` cheatcode. `0` disables the limit and
+    /// requires a `timeout`.
     pub max_test_rejects: Option<u32>,
     /// Show `console.log` in fuzz test.
     pub show_logs: Option<bool>,
