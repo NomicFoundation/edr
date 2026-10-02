@@ -8,7 +8,7 @@ overrides:
   hardhat>@nomicfoundation/edr: workspace:*
 
 patchedDependencies:
-  hardhat@2.28.6: 4dc3ac5c0b77c19c6d95064daa93fc58bbbaa9e07339bb2dbec5516ee9c25696
+  hardhat@2.28.6: 23e512147c57488357bcfa161f43ffdc345c591923629ab35d5d394d06a67762
   hardhat@3.18.0: a06714727fa15e18d65840ee713f8400cd01daa9e4837354fe7ad532bdda2b68
 
 importers:
@@ -215,7 +215,7 @@ importers:
         version: 7.0.1
       hardhat:
         specifier: 2.28.6
-        version: 2.28.6(patch_hash=4dc3ac5c0b77c19c6d95064daa93fc58bbbaa9e07339bb2dbec5516ee9c25696)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.4)(typescript@5.8.3))(typescript@5.8.3)
+        version: 2.28.6(patch_hash=23e512147c57488357bcfa161f43ffdc345c591923629ab35d5d394d06a67762)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.4)(typescript@5.8.3))(typescript@5.8.3)
       mocha:
         specifier: ^11.1.0
         version: 11.8.0
@@ -297,7 +297,7 @@ importers:
         version: 3.18.0(patch_hash=a06714727fa15e18d65840ee713f8400cd01daa9e4837354fe7ad532bdda2b68)
       hardhat2:
         specifier: npm:hardhat@2.28.6
-        version: hardhat@2.28.6(patch_hash=4dc3ac5c0b77c19c6d95064daa93fc58bbbaa9e07339bb2dbec5516ee9c25696)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.4)(typescript@5.8.3))(typescript@5.8.3)
+        version: hardhat@2.28.6(patch_hash=23e512147c57488357bcfa161f43ffdc345c591923629ab35d5d394d06a67762)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.4)(typescript@5.8.3))(typescript@5.8.3)
       lodash:
         specifier: ^4.17.11
         version: 4.18.1
@@ -6193,7 +6193,7 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  hardhat@2.28.6(patch_hash=4dc3ac5c0b77c19c6d95064daa93fc58bbbaa9e07339bb2dbec5516ee9c25696)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.4)(typescript@5.8.3))(typescript@5.8.3):
+  hardhat@2.28.6(patch_hash=23e512147c57488357bcfa161f43ffdc345c591923629ab35d5d394d06a67762)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.4)(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
       '@ethereumjs/util': 9.1.0
       '@ethersproject/abi': 5.8.0
