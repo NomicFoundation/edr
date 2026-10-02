@@ -457,20 +457,29 @@ impl<
             TestRunner::new(runner_config)
         };
 
+        // Number of inputs this worker generated, rejected ones included.
+        let mut generated_inputs: u32 = 0;
+
         // Continue while:
         // 1. Global state allows (not timed out, no failure found)
         // 2. Worker hasn't reached its specific run limit
         'stop: while shared_state.should_continue() && worker.runs < worker_runs {
             // Reseed the cheatcode RNG (`vm.random*`) so that every run draws a
-            // different, yet reproducible, sequence of values.
+            // different, yet reproducible, sequence of values. The seed advances
+            // with every generated input, not only with every accepted run, so
+            // that a run rejected by `vm.assume` based on `vm.random*` output is
+            // not retried with the very same values.
             if let Some(cheats) = executor.inspector_mut().cheatcodes.as_mut()
                 && let Some(worker_seed) = worker_seed
             {
-                cheats.set_seed(worker_seed.wrapping_add(U256::from(worker.runs)));
+                cheats.set_seed(worker_seed.wrapping_add(U256::from(generated_inputs)));
             }
 
             let input = match strategy.new_tree(&mut runner) {
-                Ok(tree) => tree.current(),
+                Ok(tree) => {
+                    generated_inputs += 1;
+                    tree.current()
+                }
                 Err(err) => {
                     worker.failure = Some(TestCaseError::fail(format!(
                         "failed to generate fuzzed input in worker {worker_id}: {err}"

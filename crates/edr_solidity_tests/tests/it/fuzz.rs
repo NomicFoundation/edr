@@ -29,6 +29,7 @@ async fn test_fuzz() {
                 r"testImmutableOwner\(address\)",
                 r"testStorageOwner\(address\)",
                 r"testFuzzWithRejects\(uint256\)",
+                r"testFuzz_assumeRandom\(uint256\)",
             ]
             .join("|"),
         )
@@ -557,6 +558,37 @@ async fn test_fuzz_random_uint_varies_across_runs() {
             )],
         )]),
     );
+}
+
+// Tests that a run rejected by `vm.assume` based on `vm.random*` output is not
+// retried with the same cheatcode RNG seed, which would reject it forever.
+// Regression test for <https://github.com/foundry-rs/foundry/pull/16033>
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_reseeds_random_after_reject() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzAssumeRandom.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 256;
+    config.fuzz.seed = Some(U256::from(1u32));
+    // The NAPI layer seeds the cheatcode RNG with the fuzz seed; mirror it so
+    // that `vm.randomUint` is deterministic.
+    config.cheats_config_options.seed = config.fuzz.seed;
+    // About half of the inputs are rejected; the limit is only reached if a
+    // rejected run is retried with the same seed over and over.
+    config.fuzz.max_test_rejects = 10_000;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let result = results
+        .get("default/fuzz/FuzzAssumeRandom.t.sol:FuzzAssumeRandomTest")
+        .unwrap()
+        .test_results
+        .get("testFuzz_assumeRandom(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Success, "{:?}", result.reason);
+    let TestKind::Fuzz { runs, .. } = result.kind else {
+        panic!("not a fuzz test: {:?}", result.kind);
+    };
+    assert_eq!(runs, 256);
 }
 
 const FUZZ_WITH_REJECTS: &str = "default/fuzz/FuzzWithRejects.t.sol:FuzzWithRejectsTest";
