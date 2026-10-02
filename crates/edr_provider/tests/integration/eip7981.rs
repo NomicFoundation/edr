@@ -6,6 +6,9 @@
 //! From Amsterdam onward, access-list data is charged at 64 gas per byte as a
 //! flat surcharge on top of both the intrinsic gas and the gas floor,
 //! so access lists can no longer bypass the floor pricing.
+//!
+//! Amsterdam also lowers the base cost (EIP-2780) and reprices the per-item
+//! access list costs (EIP-8038), which the expected values account for.
 
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_eip2930::AccessListItem;
@@ -30,9 +33,18 @@ fn assert_transaction_gas_usage(
 
 const TX_BASE_COST: u64 = 21_000;
 
+/// EIP-2780 base cost from Amsterdam onward. The fixtures are self-transfers,
+/// which pay neither the `to`- nor the value-based charge on top of it.
+const EIP2780_TX_BASE_COST: u64 = 12_000;
+
 /// EIP-2930 per-item access list costs, unchanged by EIP-7981.
 const ACCESS_LIST_ADDRESS_COST: u64 = 2_400;
 const ACCESS_LIST_STORAGE_KEY_COST: u64 = 1_900;
+
+/// EIP-8038 per-item access list costs from Amsterdam onward (cold account
+/// and cold storage access).
+const EIP8038_ACCESS_LIST_ADDRESS_COST: u64 = 3_000;
+const EIP8038_ACCESS_LIST_STORAGE_KEY_COST: u64 = 3_000;
 
 /// Intrinsic cost of a nonzero calldata byte (EIP-2028).
 const NONZERO_CALLDATA_BYTE_COST: u64 = 16;
@@ -47,7 +59,10 @@ const ACCESS_LIST_DATA_COST: u64 = 64 * (20 + 32);
 /// EIP-7976 floor cost of a calldata byte (4 tokens at 16 gas each).
 const EIP7976_CALLDATA_FLOOR_COST_PER_BYTE: u64 = 64;
 
-const CALLDATA_BYTES: u64 = 100;
+/// Chosen so that the intrinsic gas exceeds the floor before Amsterdam and
+/// the floor exceeds the intrinsic gas from Amsterdam onward; both tests
+/// assert these premises.
+const CALLDATA_BYTES: u64 = 150;
 
 /// An access list with one address (20 bytes) and one storage key (32 bytes).
 fn access_list() -> Vec<AccessListItem> {
@@ -57,13 +72,18 @@ fn access_list() -> Vec<AccessListItem> {
     }]
 }
 
-/// Intrinsic gas of [`access_list_transfer`]: base cost plus the EIP-2930
-/// per-item charges, unchanged by EIP-7981.
+/// Intrinsic gas of [`access_list_transfer`] before Amsterdam: base cost plus
+/// the EIP-2930 per-item charges, unchanged by EIP-7981.
 const ACCESS_LIST_TRANSFER_INTRINSIC_GAS: u64 =
     TX_BASE_COST + ACCESS_LIST_ADDRESS_COST + ACCESS_LIST_STORAGE_KEY_COST;
 
-/// Intrinsic gas of [`access_list_and_calldata_transfer`], adding the calldata
-/// cost. Also unchanged by EIP-7981.
+/// Intrinsic gas of [`access_list_transfer`] from Amsterdam onward, before the
+/// EIP-7981 data surcharge.
+const AMSTERDAM_ACCESS_LIST_TRANSFER_INTRINSIC_GAS: u64 =
+    EIP2780_TX_BASE_COST + EIP8038_ACCESS_LIST_ADDRESS_COST + EIP8038_ACCESS_LIST_STORAGE_KEY_COST;
+
+/// Intrinsic gas of [`access_list_and_calldata_transfer`] before Amsterdam,
+/// adding the calldata cost. Also unchanged by EIP-7981.
 const ACCESS_LIST_AND_CALLDATA_TRANSFER_INTRINSIC_GAS: u64 =
     ACCESS_LIST_TRANSFER_INTRINSIC_GAS + CALLDATA_BYTES * NONZERO_CALLDATA_BYTE_COST;
 
@@ -97,7 +117,8 @@ async fn access_list_item_costs_increase_in_amsterdam() -> anyhow::Result<()> {
         osaka_expected_gas_used,
     );
 
-    let amsterdam_expected_gas_used = osaka_expected_gas_used + ACCESS_LIST_DATA_COST;
+    let amsterdam_expected_gas_used =
+        AMSTERDAM_ACCESS_LIST_TRANSFER_INTRINSIC_GAS + ACCESS_LIST_DATA_COST;
     let amsterdam_provider = new_provider(edr_chain_l1::Hardfork::Amsterdam)?;
     assert_transaction_gas_usage(
         &amsterdam_provider,
@@ -112,11 +133,11 @@ async fn access_list_item_costs_increase_in_amsterdam() -> anyhow::Result<()> {
 async fn access_list_bytes_count_toward_gas_floor_in_amsterdam() -> anyhow::Result<()> {
     // The intrinsic gas and the floor are unchanged by EIP-7981; the data
     // surcharge is added on top of whichever the transaction pays.
-    let intrinsic_gas = ACCESS_LIST_AND_CALLDATA_TRANSFER_INTRINSIC_GAS;
+    let osaka_intrinsic_gas = ACCESS_LIST_AND_CALLDATA_TRANSFER_INTRINSIC_GAS;
 
     let osaka_floor_gas = TX_BASE_COST + CALLDATA_BYTES * EIP7623_FLOOR_COST_PER_NONZERO_BYTE;
     assert!(
-        intrinsic_gas > osaka_floor_gas,
+        osaka_intrinsic_gas > osaka_floor_gas,
         "fixture must exceed the EIP-7623 floor before Amsterdam, so the intrinsic gas is used"
     );
 
@@ -124,12 +145,15 @@ async fn access_list_bytes_count_toward_gas_floor_in_amsterdam() -> anyhow::Resu
     assert_transaction_gas_usage(
         &osaka_provider,
         access_list_and_calldata_transfer(),
-        intrinsic_gas,
+        osaka_intrinsic_gas,
     );
 
-    let amsterdam_floor_gas = TX_BASE_COST + CALLDATA_BYTES * EIP7976_CALLDATA_FLOOR_COST_PER_BYTE;
+    let amsterdam_intrinsic_gas =
+        AMSTERDAM_ACCESS_LIST_TRANSFER_INTRINSIC_GAS + CALLDATA_BYTES * NONZERO_CALLDATA_BYTE_COST;
+    let amsterdam_floor_gas =
+        EIP2780_TX_BASE_COST + CALLDATA_BYTES * EIP7976_CALLDATA_FLOOR_COST_PER_BYTE;
     assert!(
-        amsterdam_floor_gas > intrinsic_gas,
+        amsterdam_floor_gas > amsterdam_intrinsic_gas,
         "fixture must stay below the EIP-7976 floor from Amsterdam, so the floor is paid"
     );
 

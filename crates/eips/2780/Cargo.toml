@@ -1,0 +1,12 @@
+[package]
+name = "edr_eip2780"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_chain_spec.workspace = true
+edr_transaction.workspace = true
+revm-context-interface = { workspace = true, default-features = false }
+
+[lints]
+workspace = true
