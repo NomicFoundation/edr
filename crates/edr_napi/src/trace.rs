@@ -68,10 +68,10 @@ pub struct TracingStep {
     /// The executed opcode
     #[napi(readonly)]
     pub opcode: TracingOpcode,
-    /// The entries on the stack.
+    /// The stack entries, as many as `ObservabilityConfig.recordStack` records.
     #[napi(readonly)]
     pub stack: Vec<BigInt>,
-    /// The memory at the step. None unless memory snapshots are recorded.
+    /// The memory at the step. None unless verbose tracing is enabled.
     #[napi(readonly)]
     pub memory: Option<Uint8Array>,
 }

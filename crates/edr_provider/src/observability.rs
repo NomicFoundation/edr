@@ -24,6 +24,7 @@ use edr_state_api::State;
 use foundry_evm_traces::CallTraceArena;
 use parking_lot::RwLock;
 use revm_inspector::JournalExt;
+pub use revm_inspectors::tracing::StackSnapshotType;
 use revm_inspectors::tracing::{TracingInspector, TracingInspectorConfig};
 
 use crate::{
@@ -49,7 +50,40 @@ pub struct ObservabilityConfig {
     pub include_call_traces: IncludeTraces,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     pub on_collected_gas_report_fn: Option<Box<dyn SyncOnCollectedGasReportCallback>>,
+    /// Whether each recorded step carries a memory snapshot.
+    pub record_memory: bool,
+    /// How much of the stack each recorded step carries.
+    pub record_stack: StackSnapshotType,
+    /// Whether calls to precompiles are recorded as call trace nodes.
+    pub include_precompile_calls: bool,
+    /// Records the full stack and memory while enabled. `record_memory` and
+    /// `record_stack` keep their configured values meanwhile.
     pub verbose_raw_tracing: bool,
+}
+
+impl ObservabilityConfig {
+    /// Whether recorded steps carry a memory snapshot.
+    pub fn records_memory(&self) -> bool {
+        self.record_memory || self.verbose_raw_tracing
+    }
+
+    /// How much of the stack recorded steps carry.
+    pub fn recorded_stack(&self) -> StackSnapshotType {
+        recorded_stack(self.record_stack, self.verbose_raw_tracing)
+    }
+}
+
+/// How much of the stack recorded steps carry, given the configured amount and
+/// whether verbose raw tracing is enabled.
+pub const fn recorded_stack(
+    record_stack: StackSnapshotType,
+    verbose_raw_tracing: bool,
+) -> StackSnapshotType {
+    if verbose_raw_tracing {
+        StackSnapshotType::Full
+    } else {
+        record_stack
+    }
 }
 
 impl Debug for ObservabilityConfig {
@@ -65,7 +99,10 @@ impl Debug for ObservabilityConfig {
                 "on_collected_gas_report_fn",
                 &self.on_collected_gas_report_fn.is_some(),
             )
-            .field("verbose_raw_traces", &self.verbose_raw_tracing)
+            .field("record_memory", &self.record_memory)
+            .field("record_stack", &self.record_stack)
+            .field("include_precompile_calls", &self.include_precompile_calls)
+            .field("verbose_raw_tracing", &self.verbose_raw_tracing)
             .finish()
     }
 }
@@ -77,7 +114,9 @@ pub struct EvmObserverConfig {
     pub include_call_traces: IncludeTraces,
     pub contract_decoder: Arc<RwLock<ContractDecoder>>,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
-    pub verbose_raw_tracing: bool,
+    pub record_memory: bool,
+    pub record_stack: StackSnapshotType,
+    pub include_precompile_calls: bool,
 }
 
 impl EvmObserverConfig {
@@ -91,7 +130,9 @@ impl EvmObserverConfig {
             contract_decoder,
             include_call_traces: config.include_call_traces,
             on_collected_coverage_fn: config.on_collected_coverage_fn.clone(),
-            verbose_raw_tracing: config.verbose_raw_tracing,
+            record_memory: config.records_memory(),
+            record_stack: config.recorded_stack(),
+            include_precompile_calls: config.include_precompile_calls,
         }
     }
 }
@@ -160,13 +201,12 @@ impl EvmObserver {
             .on_collected_coverage_fn
             .map(CodeCoverageReporter::new);
 
-        let tracing_config = if config.verbose_raw_tracing {
-            TracingInspectorConfig::all()
-        } else {
-            TracingInspectorConfig::default_parity()
-                .set_steps(true)
-                .set_record_logs(true)
-        };
+        let tracing_config = TracingInspectorConfig::none()
+            .set_steps(true)
+            .set_memory_snapshots(config.record_memory)
+            .set_stack_snapshots(config.record_stack)
+            .set_exclude_precompile_calls(!config.include_precompile_calls)
+            .set_record_logs(true);
 
         Self {
             bytecode_collector: ExecutedBytecodeCollector::default(),
