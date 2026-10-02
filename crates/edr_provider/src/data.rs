@@ -468,6 +468,11 @@ where
         self.observability.verbose_raw_tracing = verbose_tracing;
     }
 
+    /// Sets which transactions' call traces responses include.
+    pub fn set_include_call_traces(&mut self, include_call_traces: IncludeTraces) {
+        self.observability.include_call_traces = include_call_traces;
+    }
+
     pub fn stop_impersonating_account(&mut self, address: Address) -> bool {
         self.impersonated_accounts.remove(&address)
     }
