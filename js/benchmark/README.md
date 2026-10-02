@@ -18,6 +18,12 @@ pnpm providerBenchmark --benchmark-output provider-report.json
 
 This will run all the provider benchmarks, and it will save the measurements to `./provider-report.json` as json.
 
+Hardhat 2 only reads the EVM traces of a response when a plugin listens to VM events, like coverage or tracer plugins do. To benchmark that path, pass `--vm-step-listener`; it registers a no-op `step` listener:
+
+```shell
+pnpm providerBenchmark --benchmark-output provider-report.json --vm-step-listener
+```
+
 The CI is set up to run `providerBenchmark` on every commit in `main`, save the measurements and then compare PRs against the latest measurements from `main`. The measurements from `main` are visualized [here.](https://nomic-foundation-automation.github.io/edr-benchmark-results/bench/)
 
 ## Solidity Test Benchmarks
