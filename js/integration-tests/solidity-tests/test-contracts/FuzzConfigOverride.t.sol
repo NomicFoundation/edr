@@ -30,7 +30,7 @@ contract FuzzConfigOverrideTest is Test {
         vm.assume(a < 0);
     }
 
-    // vm.assume(a < 0) is never true. Test rejects max_test_rejects = 1 input and fails immediately.
+    // vm.assume(a < 0) is never true. Test allows max_test_rejects = 1 rejected input and fails on the second.
     function testFuzz_NoOverrideRejects(uint256 a) public pure {
         vm.assume(a < 0);
     }
