@@ -404,6 +404,33 @@ async fn test_fuzz_show_logs() {
     }
 }
 
+/// The logs of the failing fuzz run are reported even when `show_logs` is
+/// disabled; only the logs of passing runs are omitted.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_failure_logs_without_show_logs() {
+    let filter = SolidityTestFilter::new("testShouldFailFuzz", ".*", ".*fuzz/Fuzz.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.show_logs = false;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let suite_result = runner.test_collect(filter).await.suite_results;
+
+    let result = suite_result
+        .get("default/fuzz/Fuzz.t.sol:FuzzTest")
+        .unwrap()
+        .test_results
+        .get("testShouldFailFuzz(uint8)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Failure);
+    // Every run logs `testFailFuzz`, so exactly one occurrence means that the
+    // failing run's logs are reported and the passing runs' logs are not.
+    let occurrences = result
+        .decoded_logs
+        .iter()
+        .filter(|log| log.contains("testFailFuzz"))
+        .count();
+    assert_eq!(occurrences, 1, "logs: {:?}", result.decoded_logs);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_timeout() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzTimeout.t.sol");

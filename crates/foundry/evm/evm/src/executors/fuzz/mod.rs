@@ -78,7 +78,8 @@ struct WorkerState<
     traces: Vec<SparsedTraceArena>,
     /// Coverage collected by this worker.
     coverage: Option<HitMaps>,
-    /// Logs from all cases this worker ran.
+    /// Logs of the failing call and, with `show_logs`, of all passing cases
+    /// this worker ran.
     logs: Vec<Log>,
     /// Deprecated cheatcodes seen by this worker.
     deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
@@ -603,7 +604,8 @@ impl<
             .max_by_key(|(_, worker)| worker.last_run_timestamp)
             .map_or(0, |(idx, _)| idx);
 
-        if let Some(&failed_worker_id) = shared_state.failed_worker_id.get() {
+        let failed_worker_id = shared_state.failed_worker_id.get().copied();
+        if let Some(failed_worker_id) = failed_worker_id {
             result.success = false;
 
             let failed_worker = workers
@@ -663,7 +665,10 @@ impl<
 
         for worker in workers {
             result.gas_by_case.extend(worker.gas_by_case);
-            if self.config.show_logs {
+            // The logs of the failing call are always reported. Those of passing
+            // runs, and of a failure another worker claimed first, only with
+            // `show_logs`.
+            if self.config.show_logs || Some(worker.id) == failed_worker_id {
                 result.logs.extend(worker.logs);
             }
             result.gas_report_traces.extend(
