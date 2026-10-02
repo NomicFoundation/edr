@@ -50,9 +50,11 @@ pub struct ObservabilityConfig {
     pub include_call_traces: IncludeTraces,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     pub on_collected_gas_report_fn: Option<Box<dyn SyncOnCollectedGasReportCallback>>,
-    /// Whether each recorded step carries a memory snapshot.
+    /// Whether each recorded step carries a memory snapshot while call traces
+    /// are included.
     pub record_memory: bool,
-    /// How much of the stack each recorded step carries.
+    /// How much of the stack each recorded step carries while call traces are
+    /// included.
     pub record_stack: StackSnapshotType,
     /// Whether calls to precompiles are recorded as call trace nodes.
     pub include_precompile_calls: bool,
@@ -63,18 +65,33 @@ pub struct ObservabilityConfig {
 
 impl ObservabilityConfig {
     /// Whether recorded steps carry a memory snapshot.
+    ///
+    /// Never while call traces are excluded from responses. Only
+    /// `Response::traces()` reads step snapshots, and it only has call traces
+    /// to read when they are included.
     pub fn records_memory(&self) -> bool {
-        self.record_memory || self.verbose_raw_tracing
+        self.includes_call_traces() && (self.record_memory || self.verbose_raw_tracing)
     }
 
     /// How much of the stack recorded steps carry.
+    ///
+    /// Nothing while call traces are excluded from responses, for the same
+    /// reason as [`Self::records_memory`].
     pub fn recorded_stack(&self) -> StackSnapshotType {
-        recorded_stack(self.record_stack, self.verbose_raw_tracing)
+        if self.includes_call_traces() {
+            recorded_stack(self.record_stack, self.verbose_raw_tracing)
+        } else {
+            StackSnapshotType::None
+        }
+    }
+
+    fn includes_call_traces(&self) -> bool {
+        !matches!(self.include_call_traces, IncludeTraces::None)
     }
 }
 
-/// How much of the stack recorded steps carry, given the configured amount and
-/// whether verbose raw tracing is enabled.
+/// How much of the stack recorded steps carry while call traces are included,
+/// given the configured amount and whether verbose raw tracing is enabled.
 pub const fn recorded_stack(
     record_stack: StackSnapshotType,
     verbose_raw_tracing: bool,
@@ -461,4 +478,37 @@ pub(crate) fn observe_execution<
         execution_result,
         include_call_traces,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config_recording_everything(include_call_traces: IncludeTraces) -> ObservabilityConfig {
+        ObservabilityConfig {
+            include_call_traces,
+            record_memory: true,
+            record_stack: StackSnapshotType::Top,
+            verbose_raw_tracing: true,
+            ..ObservabilityConfig::default()
+        }
+    }
+
+    #[test]
+    fn records_no_snapshots_while_call_traces_are_excluded() {
+        let config = config_recording_everything(IncludeTraces::None);
+
+        assert!(!config.records_memory());
+        assert_eq!(config.recorded_stack(), StackSnapshotType::None);
+    }
+
+    #[test]
+    fn records_snapshots_while_call_traces_are_included() {
+        for include_call_traces in [IncludeTraces::Failing, IncludeTraces::All] {
+            let config = config_recording_everything(include_call_traces);
+
+            assert!(config.records_memory());
+            assert_eq!(config.recorded_stack(), StackSnapshotType::Full);
+        }
+    }
 }

@@ -38,8 +38,9 @@ pub struct Provider {
     /// enabled.
     record_stack: StackSnapshotType,
     /// What a response reports to V8 for each call trace arena it carries.
-    /// Follows the recorded stack snapshots, which
-    /// [`Self::set_verbose_tracing`] changes.
+    /// Follows the stack snapshots recorded while call traces are included,
+    /// which [`Self::set_verbose_tracing`] changes. Responses carry no arenas
+    /// otherwise.
     call_trace_external_mem_size: AtomicI64,
     #[cfg(feature = "scenarios")]
     scenario_file: Option<Arc<napi::tokio::sync::Mutex<napi::tokio::fs::File>>>,
