@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+    env:
+      # renovate: datasource=npm depName=renovate
+      RENOVATE_VERSION: "44.115.2"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,8 +49,8 @@ jobs:
               - renovate.json
               - .github/workflows/check-renovate-config.yml
 
-      # ubuntu-24.04's default Node 20 is too old for renovate@latest, so
-      # npx would otherwise pull a stale renovate whose schema lags the bot's.
+      # ubuntu-24.04's default Node 20 is too old for the pinned renovate
+      # (engines: node ^24.11).
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: github.event_name != 'merge_group' || steps.filter.outputs.renovate == 'true'
         with:
@@ -55,7 +58,7 @@ jobs:
 
       - name: Renovate schema check
         if: github.event_name != 'merge_group' || steps.filter.outputs.renovate == 'true'
-        run: npx --yes --package renovate -- renovate-config-validator renovate.json
+        run: npx --yes --package "renovate@${RENOVATE_VERSION}" -- renovate-config-validator renovate.json
 
       - name: Renovate extraction dry-run
         if: github.event_name != 'merge_group' || steps.filter.outputs.renovate == 'true'
@@ -64,4 +67,4 @@ jobs:
           # anonymous 60 req/hr rate limit shared across the runner IP.
           GITHUB_COM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LOG_LEVEL: debug
-        run: npx --yes renovate --platform=local --dry-run=full
+        run: npx --yes "renovate@${RENOVATE_VERSION}" --platform=local --dry-run=full
