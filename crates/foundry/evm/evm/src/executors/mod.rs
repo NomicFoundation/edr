@@ -1799,6 +1799,11 @@ impl FuzzTestTimer {
         }
     }
 
+    /// Whether the fuzz test timer is enabled.
+    pub fn is_enabled(&self) -> bool {
+        self.inner.is_some()
+    }
+
     /// Whether the current fuzz test timed out and should be stopped.
     pub fn is_timed_out(&self) -> bool {
         self.inner

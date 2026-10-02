@@ -18,9 +18,9 @@ contract FuzzConfigOverrideTest is DSTest {
         assertEq(a, a);
     }
 
-    // Test times out after 1s and is marked as succeeded. max_test_rejects = 50000 to ensure it doesn't fail.
+    // Test times out after 1s and is marked as succeeded. max_test_rejects = 0 disables the reject limit to ensure it doesn't fail.
     /// forge-config: default.fuzz.runs = 256
-    /// forge-config: default.fuzz.max-test-rejects = 50000
+    /// forge-config: default.fuzz.max-test-rejects = 0
     /// forge-config: default.fuzz.timeout = 1
     function testFuzz_OverrideTimeoutAndRejects(uint256 a) public {
         vm.assume(a == 0);
@@ -32,7 +32,7 @@ contract FuzzConfigOverrideTest is DSTest {
         vm.assume(a < 0);
     }
 
-    // vm.assume(a < 0) is never true. Test rejects max_test_rejects = 0 inputs and fails immediately.
+    // vm.assume(a < 0) is never true. Test rejects max_test_rejects = 1 input and fails immediately.
     function testFuzz_NoOverrideRejects(uint256 a) public {
         vm.assume(a < 0);
     }

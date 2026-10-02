@@ -3,7 +3,7 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
     time::Instant,
 };
@@ -684,6 +684,10 @@ impl<
     ) -> Result<SolidityTestResult, TestRunnerError> {
         trace!("running all tests");
 
+        if let Some(failure_persist_root) = self.fuzz_config.failure_persist_root() {
+            remove_legacy_fuzz_failure_file(&failure_persist_root);
+        }
+
         let fork = self.fork.take();
 
         let find_timer = Instant::now();
@@ -735,6 +739,30 @@ impl<
         });
 
         Ok(SolidityTestResult { gas_report })
+    }
+}
+
+/// Removes the fuzz failure file written by versions of EDR that persisted
+/// fuzz failures as a single `proptest` seed file at
+/// `<failure_persist_dir>/<failure_persist_file>`.
+///
+/// Fuzz failures are now persisted as one JSON counterexample per test in a
+/// directory of the same name, so a leftover regular file at that path would
+/// prevent the directory from being created.
+///
+/// This runs once per test run, before any suite starts, so that suites running
+/// in parallel never race on the removal.
+fn remove_legacy_fuzz_failure_file(failure_persist_root: &Path) {
+    if !failure_persist_root.is_file() {
+        return;
+    }
+
+    warn!(
+        "Removing legacy fuzz failure file {} to make room for the fuzz failure directory.",
+        failure_persist_root.display()
+    );
+    if let Err(err) = edr_common::fs::remove_file(failure_persist_root) {
+        error!(%err, "Failed to remove legacy fuzz failure file");
     }
 }
 

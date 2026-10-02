@@ -50,7 +50,7 @@ use foundry_evm::{
     },
 };
 use itertools::Itertools;
-use proptest::test_runner::{FailurePersistence, RngAlgorithm, TestError, TestRng, TestRunner};
+use proptest::test_runner::{RngAlgorithm, TestError, TestRng, TestRunner};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tracing::Span;
@@ -1225,7 +1225,6 @@ impl<
             self.cr.fuzz_config.seed,
             invariant_config.runs,
             invariant_config.max_assume_rejects,
-            None,
         );
 
         let mut executor = self.clone_executor();
@@ -1549,15 +1548,21 @@ impl<
             fuzz_config.seed,
             fuzz_config.runs,
             fuzz_config.max_test_rejects,
-            fuzz_config.file_failure_persistence(),
         );
 
+        let failure_paths = fuzz_config.failure_paths(self.cr.name, &func.name);
+        // Load persisted counterexample, if any.
+        let persisted_failure = failure_paths.as_ref().and_then(|(_, failure_file)| {
+            edr_common::fs::read_json_file::<BaseCounterExample>(failure_file).ok()
+        });
+
         // Run fuzz test.
-        let fuzzed_executor = FuzzedExecutor::new(
+        let mut fuzzed_executor = FuzzedExecutor::new(
             self.executor.into_owned(),
             runner,
             self.cr.sender,
             fuzz_config,
+            persisted_failure,
         );
         let mut result = fuzzed_executor.fuzz(
             func,
@@ -1566,6 +1571,19 @@ impl<
             self.setup.address,
             self.cr.revert_decoder,
         );
+
+        // Record counterexample.
+        if let Some((failure_dir, failure_file)) = failure_paths
+            && let Some(CounterExample::Single(counterexample)) = &result.counterexample
+        {
+            if let Err(err) = edr_common::fs::create_dir_all(&failure_dir) {
+                error!(%err, "Failed to create fuzz failure dir");
+            } else if let Err(err) =
+                edr_common::fs::write_json_file(failure_file.as_path(), counterexample)
+            {
+                error!(%err, "Failed to record fuzz counterexample");
+            }
+        }
         self.gas_report_samples = self
             .cr
             .trace_retention
@@ -1857,14 +1875,8 @@ fn re_run_fuzz_counterexample_for_stack_traces<
     .map_err(SolidityTestStackTraceError::Creation)
 }
 
-fn fuzzer_with_cases(
-    seed: Option<U256>,
-    cases: u32,
-    max_global_rejects: u32,
-    file_failure_persistence: Option<Box<dyn FailurePersistence>>,
-) -> TestRunner {
+fn fuzzer_with_cases(seed: Option<U256>, cases: u32, max_global_rejects: u32) -> TestRunner {
     let config = proptest::test_runner::Config {
-        failure_persistence: file_failure_persistence,
         cases,
         max_global_rejects,
         // Disable proptest shrink: for fuzz tests we provide single counterexample,

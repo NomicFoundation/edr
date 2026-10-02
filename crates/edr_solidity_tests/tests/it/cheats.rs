@@ -258,7 +258,9 @@ async fn test_assume_no_revert() {
 async fn test_assume_no_revert_with_data() {
     let filter = SolidityTestFilter::new(".*", "AssumeNoRevertWithDataTest", ".*cheats/");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config.fuzz.seed = Some(U256::from(100));
+    // The count-zero tests fail differently for `x == 2` and `x == 3`, so the
+    // expected reasons depend on the seed.
+    config.fuzz.seed = Some(U256::from(101));
     // It's important to disable failure persistence, otherwise saved seeds from
     // tests can influence each other's execution.
     config.fuzz.failure_persist_dir = None;
