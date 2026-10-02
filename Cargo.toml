@@ -274,7 +274,11 @@ c-kzg = { version = "2.1.8", default-features = false, features = [
     "ethereum_kzg_settings",
 ] }
 
-revm-inspectors = { version = "0.42.2", features = ["serde"] }
+# Temporary fork: revm-inspectors 0.42.2 with paradigmxyz/revm-inspectors#468
+# applied, which adds `StackSnapshotType::Top`. That change ships in
+# revm-inspectors 0.44, which needs revm 43. Drop the fork once EDR is on
+# revm >= 43.
+revm-inspectors = { git = "https://github.com/Wodann/revm-inspectors", branch = "feat/top-of-stack-snapshot-0.42", features = ["serde"] }
 # No foundry-fork-db release supports revm 42 (0.27.0 on crates.io pins revm
 # ^41; the next fork-db bump goes straight to revm 43), so a foundry-core git
 # revision is used: the one Foundry v1.8.0 and v1.8.1 (the stable releases on

@@ -1,3 +1,4 @@
+use edr_provider::observability::StackSnapshotType;
 use edr_solidity::solidity_stack_trace::StackTraceCreationResult;
 use napi::{bindgen_prelude::Either3, Either};
 use napi_derive::napi;
@@ -15,7 +16,8 @@ use crate::{
     },
 };
 
-/// Bytes reported for one recorded call trace arena, without stack snapshots.
+/// Bytes reported for one recorded call trace arena, without full stack
+/// snapshots.
 ///
 /// A `CallTraceNode` is 384 bytes, so this stands for roughly 85 calls. The
 /// EVM steps that an arena also records are deliberately not counted.
@@ -26,7 +28,7 @@ use crate::{
 const CALL_TRACE_EXTERNAL_MEM_SIZE: i64 = 32 * 1024;
 
 /// Bytes reported for one recorded call trace arena whose steps also carry
-/// stack snapshots, as `verbose_raw_tracing` records them.
+/// full stack snapshots, as verbose tracing records them.
 ///
 /// PR #1301 measured 4.9x more retained memory in this configuration, so 4x
 /// stays on the low side of the only figures available.
@@ -44,10 +46,10 @@ const VALUE_DATA_EXTERNAL_MEM_SIZE: i64 = 256 * 1024 * 1024;
 
 /// Bytes a response reports for each call trace arena it carries.
 ///
-/// Recording stack snapshots retains several times as much, so a verbosely
-/// recorded arena stands for more.
-pub(crate) const fn call_trace_external_mem_size(verbose_tracing: bool) -> i64 {
-    if verbose_tracing {
+/// Recording full stack snapshots retains several times as much, so such an
+/// arena stands for more.
+pub(crate) const fn call_trace_external_mem_size(recorded_stack: StackSnapshotType) -> i64 {
+    if recorded_stack.is_full() || recorded_stack.is_all() {
         VERBOSE_CALL_TRACE_EXTERNAL_MEM_SIZE
     } else {
         CALL_TRACE_EXTERNAL_MEM_SIZE
@@ -178,7 +180,7 @@ mod tests {
         let envelope = "a".repeat(2_048);
         let response = Response::new(
             response(Either::A(envelope.clone())),
-            call_trace_external_mem_size(false),
+            call_trace_external_mem_size(StackSnapshotType::None),
         );
 
         assert_eq!(response.external_memory, envelope.len() as i64);
@@ -189,7 +191,7 @@ mod tests {
         let mut inner = response(Either::A("a".repeat(2_048)));
         inner.stack_trace_result = Some(StackTraceCreationResult::HeuristicFailed);
 
-        let response = Response::new(inner, call_trace_external_mem_size(false));
+        let response = Response::new(inner, call_trace_external_mem_size(StackSnapshotType::None));
 
         assert_eq!(
             response.external_memory,
@@ -204,11 +206,11 @@ mod tests {
         let mut inner = response(Either::A("a".repeat(2_048)));
         inner.call_trace_arenas = vec![CallTraceArena::default()];
 
-        let response = Response::new(inner, call_trace_external_mem_size(false));
+        let response = Response::new(inner, call_trace_external_mem_size(StackSnapshotType::None));
 
         assert_eq!(
             response.external_memory,
-            2_048 + call_trace_external_mem_size(false)
+            2_048 + call_trace_external_mem_size(StackSnapshotType::None)
         );
     }
 
@@ -217,9 +219,12 @@ mod tests {
         let mut inner = response(Either::A(String::new()));
         inner.call_trace_arenas = vec![CallTraceArena::default()];
 
-        let response = Response::new(inner, call_trace_external_mem_size(true));
+        let response = Response::new(inner, call_trace_external_mem_size(StackSnapshotType::Full));
 
-        assert_eq!(response.external_memory, call_trace_external_mem_size(true));
+        assert_eq!(
+            response.external_memory,
+            call_trace_external_mem_size(StackSnapshotType::Full)
+        );
     }
 
     #[test]
@@ -227,11 +232,19 @@ mod tests {
         let mut inner = response(Either::A(String::new()));
         inner.call_trace_arenas = vec![CallTraceArena::default(); 3];
 
-        let response = Response::new(inner, call_trace_external_mem_size(false));
+        let response = Response::new(inner, call_trace_external_mem_size(StackSnapshotType::None));
 
         assert_eq!(
             response.external_memory,
-            3 * call_trace_external_mem_size(false)
+            3 * call_trace_external_mem_size(StackSnapshotType::None)
+        );
+    }
+
+    #[test]
+    fn recording_the_top_of_the_stack_reports_the_base_figure() {
+        assert_eq!(
+            call_trace_external_mem_size(StackSnapshotType::Top),
+            call_trace_external_mem_size(StackSnapshotType::None)
         );
     }
 
@@ -240,8 +253,8 @@ mod tests {
     #[test]
     fn recording_stack_snapshots_reports_four_times_as_much() {
         assert_eq!(
-            call_trace_external_mem_size(true),
-            4 * call_trace_external_mem_size(false)
+            call_trace_external_mem_size(StackSnapshotType::Full),
+            4 * call_trace_external_mem_size(StackSnapshotType::None)
         );
     }
 
@@ -251,7 +264,7 @@ mod tests {
     fn external_memory_of_an_oversized_response_is_the_value_floor() {
         let response = Response::new(
             response(Either::B(serde_json::Value::Null)),
-            call_trace_external_mem_size(false),
+            call_trace_external_mem_size(StackSnapshotType::None),
         );
 
         assert_eq!(response.external_memory, VALUE_DATA_EXTERNAL_MEM_SIZE);

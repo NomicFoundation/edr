@@ -833,6 +833,7 @@ module.exports.precompileP256Verify = nativeBinding.precompileP256Verify
 module.exports.printStackTrace = nativeBinding.printStackTrace
 module.exports.RECEIVE_FUNCTION_NAME = nativeBinding.RECEIVE_FUNCTION_NAME
 module.exports.secp256k1PublicKeyFromSecretKey = nativeBinding.secp256k1PublicKeyFromSecretKey
+module.exports.StackSnapshotType = nativeBinding.StackSnapshotType
 module.exports.StackTraceEntryType = nativeBinding.StackTraceEntryType
 module.exports.stackTraceEntryTypeToString = nativeBinding.stackTraceEntryTypeToString
 module.exports.SuccessReason = nativeBinding.SuccessReason
