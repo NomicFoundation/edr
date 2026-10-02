@@ -1,5 +1,14 @@
 # @nomicfoundation/edr
 
+## 0.22.1
+
+### Patch Changes
+
+- 7f3fbca: Added the EIP-7997 deterministic `CREATE2` factory to the genesis state from the Amsterdam hardfork onward.
+- 1a84229: Added experimental EIP-8037 support: from the Amsterdam hardfork, blocks meter execution gas and state gas separately, `gasUsed` reports the larger of the two, transactions are admitted per dimension, the EIP-7825 gas cap (including a configured `transactionGasCap`) applies to execution gas only, and `tx.gas` is capped at 2^32 − 1. Transaction receipts are unchanged.
+- 161434a: Improved the error messages of the `eip712HashType` and `eip712HashStruct` cheatcodes.
+- 169493d: Fixed the EIP-4788 beacon roots and EIP-2935 history storage genesis accounts to have nonce `1`, matching their on-chain deployments, which changes the genesis block hash of local Cancun+ networks.
+
 ## 0.22.0
 
 ### Minor Changes
