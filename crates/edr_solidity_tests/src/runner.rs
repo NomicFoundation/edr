@@ -10,8 +10,8 @@ use std::{
 };
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
-use alloy_json_abi::Function;
-use alloy_primitives::{Address, Bytes, U256};
+use alloy_json_abi::{Function, JsonAbi};
+use alloy_primitives::{hex, Address, Bytes, U256};
 use derive_where::derive_where;
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
@@ -1555,11 +1555,33 @@ impl<
             fuzz_config.max_test_rejects,
         );
 
-        let failure_paths = fuzz_config.failure_paths(self.cr.name, &func.name);
+        let test_name =
+            fuzz_test_path_name(&self.cr.contract.abi, func, &fuzz_config, self.cr.name);
+        let failure_paths = fuzz_config.failure_paths(self.cr.name, &test_name);
         // Load persisted counterexample, if any.
-        let persisted_failure = failure_paths.as_ref().and_then(|(_, failure_file)| {
-            edr_common::fs::read_json_file::<BaseCounterExample>(failure_file).ok()
-        });
+        let persisted_failure = failure_paths
+            .as_ref()
+            .and_then(|(failure_dir, failure_file)| {
+                edr_common::fs::read_json_file::<BaseCounterExample>(failure_file)
+                    .ok()
+                    .or_else(|| {
+                        // Fall back to a failure persisted under the bare function
+                        // name before the overload was qualified, if it targets
+                        // this overload.
+                        if test_name == func.name {
+                            return None;
+                        }
+                        let legacy_file = failure_dir.join(&func.name);
+                        let failure =
+                            edr_common::fs::read_json_file::<BaseCounterExample>(&legacy_file)
+                                .ok()?;
+                        failure
+                            .calldata
+                            .get(..4)
+                            .is_some_and(|selector| func.selector() == selector)
+                            .then_some(failure)
+                    })
+            });
 
         // Run fuzz test.
         let fuzzed_executor = FuzzedExecutor::new(
@@ -1879,6 +1901,35 @@ fn re_run_fuzz_counterexample_for_stack_traces<
         DeployedCode::default(),
     )
     .map_err(SolidityTestStackTraceError::Creation)
+}
+
+/// Returns the path component under which the fuzz failures of `func` are
+/// persisted.
+///
+/// Overloaded test functions are qualified with their selector,
+/// `<name>-<selector hex>`, so that they do not share one failure file. A
+/// function that is not overloaded keeps its bare name, unless a qualified
+/// failure file already exists for it because it used to be overloaded.
+fn fuzz_test_path_name<'a>(
+    abi: &JsonAbi,
+    func: &'a Function,
+    config: &FuzzConfig,
+    contract_name: &str,
+) -> Cow<'a, str> {
+    let qualified_name = format!("{}-{}", func.name, hex::encode(func.selector()));
+    let overloaded = abi
+        .functions
+        .get(&func.name)
+        .is_some_and(|functions| functions.len() > 1);
+    let has_qualified_failure = config
+        .failure_paths(contract_name, &qualified_name)
+        .is_some_and(|(_, failure_file)| failure_file.exists());
+
+    if overloaded || has_qualified_failure {
+        Cow::Owned(qualified_name)
+    } else {
+        Cow::Borrowed(&func.name)
+    }
 }
 
 fn fuzzer_with_cases(seed: Option<U256>, cases: u32, max_global_rejects: u32) -> TestRunner {

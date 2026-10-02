@@ -216,6 +216,98 @@ async fn test_persist_fuzz_failure() {
         .is_file());
 }
 
+/// Overloaded fuzz tests persist their failures under `<name>-<selector>`
+/// instead of sharing one file, and a failure persisted under the bare name is
+/// still replayed by the overload it targets.
+/// <https://github.com/foundry-rs/foundry/pull/16307>
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_overloaded_tests() {
+    const CONTRACT: &str = "default/fuzz/FuzzOverload.t.sol:FuzzOverloadTest";
+    const ADDRESS_TEST: &str = "testFuzz_overload(address)";
+    const UINT_TEST: &str = "testFuzz_overload(uint256)";
+
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzOverload.t.sol");
+    let persist_dir = tempfile::tempdir().unwrap();
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 10;
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    config.fuzz.failure_persist_file = "testfailure".to_string();
+
+    let failure_dir = persist_dir
+        .path()
+        .join("testfailure")
+        .join("FuzzOverloadTest");
+    let qualified_name = |signature: &str| {
+        let selector = &alloy_primitives::keccak256(signature)[..4];
+        format!(
+            "testFuzz_overload-{}",
+            alloy_primitives::hex::encode(selector)
+        )
+    };
+    let address_file = failure_dir.join(qualified_name(ADDRESS_TEST));
+    let uint_file = failure_dir.join(qualified_name(UINT_TEST));
+    let legacy_file = failure_dir.join("testFuzz_overload");
+
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config.clone()).await;
+    let results = runner.test_collect(filter.clone()).await.suite_results;
+    let test_results = &results.get(CONTRACT).unwrap().test_results;
+    for (test_name, failure_file) in [(ADDRESS_TEST, &address_file), (UINT_TEST, &uint_file)] {
+        let result = test_results.get(test_name).unwrap();
+        assert_eq!(result.status, TestStatus::Failure);
+        let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+            panic!("no counterexample for {test_name}");
+        };
+        let persisted: BaseCounterExample =
+            serde_json::from_slice(&std::fs::read(failure_file).unwrap()).unwrap();
+        assert_eq!(persisted.calldata, counterexample.calldata);
+        assert_eq!(
+            &persisted.calldata[..4],
+            &alloy_primitives::keccak256(test_name)[..4]
+        );
+    }
+    assert!(!legacy_file.exists());
+
+    // A failure persisted under the bare name is replayed by the overload
+    // whose selector it carries.
+    let uint_selector = &alloy_primitives::keccak256(UINT_TEST)[..4];
+    let legacy_calldata = Bytes::from(
+        [
+            uint_selector,
+            U256::from(424_242u32).to_be_bytes::<32>().as_slice(),
+        ]
+        .concat(),
+    );
+    std::fs::write(
+        &legacy_file,
+        serde_json::to_vec(&BaseCounterExample::from_fuzz_call(
+            legacy_calldata.clone(),
+            &[],
+            None,
+            None,
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::remove_file(&uint_file).unwrap();
+
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+    let result = results
+        .get(CONTRACT)
+        .unwrap()
+        .test_results
+        .get(UINT_TEST)
+        .unwrap();
+    let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+        panic!("no counterexample for {UINT_TEST}");
+    };
+    assert_eq!(counterexample.calldata, legacy_calldata);
+    // The replayed failure is persisted under the qualified name again.
+    let persisted: BaseCounterExample =
+        serde_json::from_slice(&std::fs::read(&uint_file).unwrap()).unwrap();
+    assert_eq!(persisted.calldata, legacy_calldata);
+}
+
 /// Older EDR versions persisted fuzz failures as a single `proptest` seed file
 /// at `<failure_persist_dir>/<failure_persist_file>`. It must be replaced by
 /// the failure directory instead of blocking persistence.
