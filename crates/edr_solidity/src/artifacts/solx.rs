@@ -94,6 +94,16 @@ pub fn extract_solx_contract_metadata(
     }
 
     let build_model = SolxBuildModel::new(compiler_input, &compiler_output)?;
+    identify_contracts(solc_version, build_model, &compiler_output)
+}
+
+/// Decodes the bytecodes of `build_model`'s contracts through their DWARF
+/// debug info.
+pub(super) fn identify_contracts(
+    solc_version: String,
+    build_model: SolxBuildModel,
+    compiler_output: &CompilerOutput<SolxBytecode>,
+) -> Result<Vec<IdentifiedContract>, ContractMetadataExtractionError> {
     let sources = Arc::from(
         build_model
             .file_id_to_source_file
@@ -103,8 +113,8 @@ pub fn extract_solx_contract_metadata(
             .into_boxed_slice(),
     );
 
-    let contracts = decode_bytecodes(solc_version, &compiler_output, build_model, &sources)?;
-    correct_selectors(&contracts, &compiler_output)?;
+    let contracts = decode_bytecodes(solc_version, compiler_output, build_model, &sources)?;
+    correct_selectors(&contracts, compiler_output)?;
 
     Ok(contracts
         .into_iter()
@@ -115,10 +125,10 @@ pub fn extract_solx_contract_metadata(
         .collect())
 }
 
-/// A resolved build model from a solx Solidity compiler standard JSON output.
+/// A resolved build model from a solx or slang compiler standard JSON output.
 #[derive(Debug)]
 pub struct SolxBuildModel {
-    /// Per-file AST `src` spans (`file_id` → sorted `(offset, length)`).
+    /// Per-file syntax-node spans (`file_id` → sorted `(offset, length)`).
     /// The DWARF parser uses this to derive `SourceLocation.length` from a
     /// `(file, line, column)` triple.
     ast_spans: HashMap<u32, Vec<(u32, u32)>>,
@@ -139,18 +149,29 @@ impl SolxBuildModel {
         compiler_output: &CompilerOutput<SolxBytecode>,
     ) -> anyhow::Result<Self> {
         let ast_spans = collect_ast_spans(compiler_output.sources.values());
+        let contracts_and_files =
+            collect_compiled_contracts_and_files(compiler_input, compiler_output)?;
 
+        Ok(Self::from_parts(contracts_and_files, ast_spans))
+    }
+
+    /// Creates a new instance from already-resolved contracts and files plus
+    /// their sorted per-file syntax-node spans.
+    pub(super) fn from_parts(
+        contracts_and_files: CompiledContractsAndFiles,
+        ast_spans: HashMap<u32, Vec<(u32, u32)>>,
+    ) -> Self {
         let CompiledContractsAndFiles {
             contract_id_to_contract,
             file_id_to_source_file,
-        } = collect_compiled_contracts_and_files(compiler_input, compiler_output)?;
+        } = contracts_and_files;
 
-        Ok(Self {
+        Self {
             ast_spans,
             contract_id_to_contract,
             file_id_to_source_file: Arc::new(file_id_to_source_file),
             name_to_file_id: OnceLock::new(),
-        })
+        }
     }
 
     #[cfg(test)]
