@@ -1,4 +1,4 @@
-//! Regenerates the solx compiler-output fixtures in
+//! Regenerates the solx and slang compiler-output fixtures in
 //! `crates/edr_solidity/fixtures` from their inputs.
 //!
 //! Splices each fixture's source files (from `fixtures/sources/`) into its
@@ -19,6 +19,9 @@
 //! is statement-attributed since solx 0.1.6, so only mode-3 artifacts
 //! still reach the inference's declaration-attributed and unmapped-revert
 //! compat paths.
+//!
+//! The slang fixtures compile the same sources with the same settings, but
+//! select the per-source `debugSymbols` output instead of `ast`.
 
 use std::{
     io::Write,
@@ -49,7 +52,7 @@ const STACK_TRACE_SCENARIOS_SOURCES: &[(&str, &str)] = &[
     ),
 ];
 
-const FIXTURES: &[Fixture] = &[
+const SOLX_FIXTURES: &[Fixture] = &[
     Fixture {
         name: "counter",
         input: "solx_compiler_input.json",
@@ -70,18 +73,62 @@ const FIXTURES: &[Fixture] = &[
     },
 ];
 
+const SLANG_FIXTURES: &[Fixture] = &[
+    Fixture {
+        name: "counter",
+        input: "slang_compiler_input.json",
+        sources: &[("Counter.sol", "Counter.sol")],
+        output: "slang_compiler_output.json",
+    },
+    Fixture {
+        name: "stack_trace_scenarios",
+        input: "slang_compiler_input_stack_trace_scenarios.json",
+        sources: STACK_TRACE_SCENARIOS_SOURCES,
+        output: "slang_compiler_output_stack_trace_scenarios.json",
+    },
+    Fixture {
+        name: "stack_trace_scenarios_mode3",
+        input: "slang_compiler_input_stack_trace_scenarios_mode3.json",
+        sources: STACK_TRACE_SCENARIOS_SOURCES,
+        output: "slang_compiler_output_stack_trace_scenarios_mode3.json",
+    },
+];
+
+/// Regenerates the solx fixtures with a solx release binary.
 pub fn generate(solx: &Path) -> anyhow::Result<()> {
-    let version = run_solx(solx, &["--version"], None)?;
+    generate_all(solx, &["--standard-json"], SOLX_FIXTURES)
+}
+
+/// Regenerates the slang fixtures with a slang compiler binary.
+pub fn generate_slang(compiler: &Path) -> anyhow::Result<()> {
+    generate_all(
+        compiler,
+        &["--standard-json", "--no-import-callback"],
+        SLANG_FIXTURES,
+    )
+}
+
+fn generate_all(
+    compiler: &Path,
+    standard_json_args: &[&str],
+    fixtures: &[Fixture],
+) -> anyhow::Result<()> {
+    let version = run_solx(compiler, &["--version"], None)?;
     println!("using: {}", version.trim());
 
     let fixtures_dir = project_root().join("crates/edr_solidity/fixtures");
-    for fixture in FIXTURES {
-        generate_fixture(solx, &fixtures_dir, fixture)?;
+    for fixture in fixtures {
+        generate_fixture(compiler, standard_json_args, &fixtures_dir, fixture)?;
     }
     Ok(())
 }
 
-fn generate_fixture(solx: &Path, fixtures_dir: &Path, fixture: &Fixture) -> anyhow::Result<()> {
+fn generate_fixture(
+    solx: &Path,
+    standard_json_args: &[&str],
+    fixtures_dir: &Path,
+    fixture: &Fixture,
+) -> anyhow::Result<()> {
     let input_path = fixtures_dir.join(fixture.input);
     let input = std::fs::read_to_string(&input_path)
         .with_context(|| format!("failed to read {}", input_path.display()))?;
@@ -116,7 +163,7 @@ fn generate_fixture(solx: &Path, fixtures_dir: &Path, fixture: &Fixture) -> anyh
 
     let compiler_output = run_solx(
         solx,
-        &["--standard-json"],
+        standard_json_args,
         Some(&serde_json::to_string(&compiler_input)?),
     )?;
 
