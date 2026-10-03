@@ -1,0 +1,40 @@
+{
+ "language": "Solidity",
+ "sources": {
+  "project/contracts/StackTraceScenarios.sol": {
+   "content": ""
+  },
+  "project/contracts/StackTraceScenariosBase.sol": {
+   "content": ""
+  }
+ },
+ "settings": {
+  "optimizer": {
+   "mode": "3"
+  },
+  "outputSelection": {
+   "*": {
+    "*": [
+     "abi",
+     "evm.bytecode.object",
+     "evm.bytecode.opcodes",
+     "evm.bytecode.sourceMap",
+     "evm.bytecode.debugInfo",
+     "evm.bytecode.linkReferences",
+     "evm.deployedBytecode.object",
+     "evm.deployedBytecode.opcodes",
+     "evm.deployedBytecode.sourceMap",
+     "evm.deployedBytecode.debugInfo",
+     "evm.deployedBytecode.linkReferences",
+     "evm.deployedBytecode.immutableReferences",
+     "evm.methodIdentifiers"
+    ],
+    "": [
+     "debugSymbols"
+    ]
+   }
+  },
+  "evmVersion": "cancun",
+  "viaIR": false
+ }
+}
