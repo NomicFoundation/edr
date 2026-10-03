@@ -19,7 +19,7 @@ use crate::{
     build_model::{BuildModel, Contract, Instruction, SourceFile},
     compiler::{correct_selectors, decode_bytecodes, FIRST_SOLC_VERSION_SUPPORTED},
     contracts_identifier::IdentifiedContract,
-    debug_info::dwarf,
+    debug_info::dwarf::{self, SourceLookup},
     trace_strategy::SOLX_TRACE_STRATEGY,
 };
 
@@ -168,10 +168,12 @@ impl SolxBuildModel {
     pub fn file_id_by_name(&self, source_name: &str) -> Option<u32> {
         self.name_to_file_id().get(source_name).copied()
     }
+}
 
+impl SourceLookup for SolxBuildModel {
     /// Reverse-index of `file_id_to_source_file` keyed by source name.
     /// Lazily populated on first call, reused thereafter.
-    pub fn name_to_file_id(&self) -> &HashMap<String, u32> {
+    fn name_to_file_id(&self) -> &HashMap<String, u32> {
         self.name_to_file_id.get_or_init(|| {
             self.file_id_to_source_file
                 .iter()
@@ -182,7 +184,7 @@ impl SolxBuildModel {
 
     /// Smallest (leafmost) AST `(offset, length)` span containing `offset`.
     /// Returns `None` if no span in `ast_spans[file_id]` covers `offset`.
-    pub fn smallest_enclosing_span(&self, file_id: u32, offset: u32) -> Option<(u32, u32)> {
+    fn smallest_enclosing_span(&self, file_id: u32, offset: u32) -> Option<(u32, u32)> {
         let spans = self.ast_spans.get(&file_id)?;
         let mut best: Option<(u32, u32)> = None;
         for &(span_offset, span_length) in spans {

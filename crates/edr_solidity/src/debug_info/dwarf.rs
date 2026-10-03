@@ -10,12 +10,20 @@ use edr_primitives::{bytecode::opcode::OpCode, hex};
 use gimli::{EndianRcSlice, Reader, RunTimeEndian};
 use object::{Endianness, Object, ObjectSection};
 
-use crate::{
-    artifacts::solx::SolxBuildModel,
-    build_model::{BuildModel as _, Instruction, JumpType, SourceLocation},
-};
+use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
 
 type DwarfReader = EndianRcSlice<RunTimeEndian>;
+
+/// Source lookups that resolve DWARF `(file, line, column)` triples to
+/// [`SourceLocation`]s and their enclosing functions.
+pub trait SourceLookup: BuildModel {
+    /// Source name → file ID, for matching DWARF file names.
+    fn name_to_file_id(&self) -> &HashMap<String, u32>;
+
+    /// Smallest syntax-node `(offset, length)` span in `file_id` containing
+    /// `offset`.
+    fn smallest_enclosing_span(&self, file_id: u32, offset: u32) -> Option<(u32, u32)>;
+}
 
 /// Failure modes when decoding a solx DWARF blob. Replaces previous
 /// `anyhow::Error` returns so callers (and tests) can match on the specific
@@ -131,7 +139,7 @@ fn is_stack_shuffle(opcode: OpCode) -> bool {
 pub fn decode_instructions(
     normalized_code: &[u8],
     debug_info_hex: &str,
-    build_model: &SolxBuildModel,
+    build_model: &impl SourceLookup,
     _is_deployment: bool,
 ) -> Result<Vec<Instruction>, DwarfError> {
     // 1. Hex → ELF → gimli::Dwarf.
@@ -557,7 +565,7 @@ impl ParsedDwarf {
         pc: u64,
         dwarf_file_names: &[String],
         name_to_file_id: &HashMap<String, u32>,
-        build_model: &SolxBuildModel,
+        build_model: &impl SourceLookup,
         line_starts_cache: &mut HashMap<u32, Vec<usize>>,
     ) -> Option<SourceLocation> {
         let containing = self.containing_ranges(pc);
@@ -701,7 +709,7 @@ impl ParsedDwarf {
         pc: u64,
         dwarf_file_names: &[String],
         name_to_file_id: &HashMap<String, u32>,
-        build_model: &SolxBuildModel,
+        build_model: &impl SourceLookup,
         line_starts_cache: &mut HashMap<u32, Vec<usize>>,
     ) -> Box<[SourceLocation]> {
         let containing = self.containing_ranges(pc);
@@ -835,7 +843,7 @@ fn range_call_site_to_location(
     r: &InlinedRange,
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &SolxBuildModel,
+    build_model: &impl SourceLookup,
     line_starts_cache: &mut HashMap<u32, Vec<usize>>,
 ) -> Option<SourceLocation> {
     // DWARF writes "no line" as 0, so both flavours of missing collapse to
@@ -899,7 +907,7 @@ fn resolve_location(
     column: u64,
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &SolxBuildModel,
+    build_model: &impl SourceLookup,
     line_starts_cache: &mut HashMap<u32, Vec<usize>>,
 ) -> Option<(u32, usize)> {
     let dwarf_name = dwarf_file_names.get(dwarf_file_index as usize)?.as_str();
@@ -920,7 +928,7 @@ fn resolve_location_by_name(
     line: NonZeroU64,
     column: u64,
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &SolxBuildModel,
+    build_model: &impl SourceLookup,
     line_starts_cache: &mut HashMap<u32, Vec<usize>>,
 ) -> Option<(u32, usize)> {
     let file_id = match_dwarf_to_build_model(dwarf_name, name_to_file_id)?;
@@ -988,7 +996,7 @@ fn pick_unambiguous(candidates: &[(&String, u32)], dwarf_name: &str) -> Option<u
     longest.first().map(|(_, id)| *id)
 }
 
-fn compute_line_starts(build_model: &SolxBuildModel, file_id: u32) -> Vec<usize> {
+fn compute_line_starts(build_model: &impl SourceLookup, file_id: u32) -> Vec<usize> {
     let Some(file) = build_model.source_model_by_file_id(file_id) else {
         return Vec::new();
     };
@@ -1010,7 +1018,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        artifacts::{CompilerOutput, SolxBytecode},
+        artifacts::{solx::SolxBuildModel, CompilerOutput, SolxBytecode},
         build_model::SourceFile,
     };
 
