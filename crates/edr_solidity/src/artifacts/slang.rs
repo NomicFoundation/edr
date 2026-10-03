@@ -196,7 +196,7 @@ pub fn extract_slang_contract_metadata(
 
 /// Builds the model from every source's `debugSymbols`, or returns `None`
 /// when a source lacks them.
-fn slang_build_model(
+pub(crate) fn slang_build_model(
     compiler_input: CompilerInput,
     compiler_output: &CompilerOutput<SolxBytecode>,
 ) -> anyhow::Result<Option<SolxBuildModel>> {
