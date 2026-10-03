@@ -1179,8 +1179,57 @@ fn to_decimal_string(value: &U256, exponent: u8) -> String {
     let (integer, remainder) = value.div_rem(U256::from(10).pow(U256::from(exponent)));
     let decimal = remainder / U256::from(10).pow(U256::from(exponent - MAX_DECIMALS));
 
-    // Remove trailing zeros
-    let decimal = decimal.to_string().trim_end_matches('0').to_string();
+    // Keep the leading zeros of the fractional part (e.g. `0.01` has the digits
+    // `0100`), then remove the trailing zeros.
+    let decimal = format!("{decimal:0>width$}", width = usize::from(MAX_DECIMALS));
+    let decimal = decimal.trim_end_matches('0');
 
-    format!("{integer}.{decimal}")
+    if decimal.is_empty() {
+        integer.to_string()
+    } else {
+        format!("{integer}.{decimal}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const GWEI: u64 = 1_000_000_000;
+    const ETH: u64 = 1_000_000_000_000_000_000;
+
+    #[test]
+    fn wei_to_human_readable_keeps_leading_fractional_zeros() {
+        assert_eq!(wei_to_human_readable(&U256::from(ETH / 100)), "0.01 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(ETH / 1_000)), "0.001 ETH");
+        assert_eq!(
+            wei_to_human_readable(&U256::from(ETH / 10_000)),
+            "0.0001 ETH"
+        );
+        assert_eq!(
+            wei_to_human_readable(&U256::from(ETH + ETH / 20)),
+            "1.05 ETH"
+        );
+        assert_eq!(wei_to_human_readable(&U256::from(GWEI / 100)), "0.01 gwei");
+    }
+
+    #[test]
+    fn wei_to_human_readable_omits_empty_fractional_part() {
+        assert_eq!(wei_to_human_readable(&U256::from(ETH)), "1 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(3 * ETH)), "3 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(ETH + 1)), "1 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(GWEI)), "1 gwei");
+    }
+
+    #[test]
+    fn wei_to_human_readable_unchanged_cases() {
+        assert_eq!(wei_to_human_readable(&U256::ZERO), "0 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(99_999u64)), "99999 wei");
+        assert_eq!(wei_to_human_readable(&U256::from(ETH / 10)), "0.1 ETH");
+        assert_eq!(wei_to_human_readable(&U256::from(ETH + ETH / 2)), "1.5 ETH");
+        assert_eq!(
+            wei_to_human_readable(&U256::from(12_345_678_900_000_000_000u128)),
+            "12.3456 ETH"
+        );
+    }
 }
