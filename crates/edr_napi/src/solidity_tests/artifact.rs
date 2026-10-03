@@ -53,6 +53,22 @@ impl TryFrom<ArtifactId> for edr_artifact::ArtifactId {
     }
 }
 
+/// A reference to a test suite contract within an artifacts directory.
+///
+/// Unlike [`ArtifactId`], it doesn't require knowing the solc version that
+/// produced the contract; the version is resolved from the artifacts on disk.
+#[derive(Clone, Debug)]
+#[napi(object)]
+pub struct TestSuiteReference {
+    /// The source name of the Solidity file containing the test suite, e.g.
+    /// `contracts/Counter.t.sol`. Both the user-facing source name and the
+    /// compiler input source name (e.g. `project/contracts/Counter.t.sol`)
+    /// are accepted.
+    pub source: String,
+    /// The name of the test suite contract, e.g. `CounterTest`.
+    pub name: String,
+}
+
 /// A test contract to execute.
 #[derive(Clone, Debug)]
 #[napi(object)]
