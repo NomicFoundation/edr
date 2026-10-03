@@ -10,16 +10,24 @@ use edr_primitives::{bytecode::opcode::OpCode, hex};
 use gimli::{EndianRcSlice, Reader, RunTimeEndian};
 use object::{Endianness, Object, ObjectSection};
 
-use crate::{
-    artifacts::solx::SolxBuildModel,
-    build_model::{BuildModel as _, ContractFunction, Instruction, JumpType, SourceLocation},
-};
+use crate::build_model::{BuildModel, ContractFunction, Instruction, JumpType, SourceLocation};
 
 mod decode_caches;
 
 use decode_caches::DecodeCaches;
 
 type DwarfReader = EndianRcSlice<RunTimeEndian>;
+
+/// Source lookups that resolve DWARF `(file, line, column)` triples to
+/// [`SourceLocation`]s and their enclosing functions.
+pub trait SourceLookup: BuildModel {
+    /// Source name → file ID, for matching DWARF file names.
+    fn name_to_file_id(&self) -> &HashMap<String, u32>;
+
+    /// Smallest syntax-node `(offset, length)` span in `file_id` containing
+    /// `offset`.
+    fn smallest_enclosing_span(&self, file_id: u32, offset: u32) -> Option<(u32, u32)>;
+}
 
 /// Failure modes when decoding a solx DWARF blob. Replaces previous
 /// `anyhow::Error` returns so callers (and tests) can match on the specific
@@ -135,7 +143,7 @@ fn is_stack_shuffle(opcode: OpCode) -> bool {
 pub fn decode_instructions(
     normalized_code: &[u8],
     debug_info_hex: &str,
-    build_model: &SolxBuildModel,
+    build_model: &impl SourceLookup,
     _is_deployment: bool,
 ) -> Result<Vec<Instruction>, DwarfError> {
     // 1. Hex → ELF → gimli::Dwarf.
@@ -603,7 +611,7 @@ impl ParsedDwarf {
         containing: &[InlinedRange],
         dwarf_file_names: &[String],
         name_to_file_id: &HashMap<String, u32>,
-        build_model: &SolxBuildModel,
+        build_model: &impl SourceLookup,
         caches: &mut DecodeCaches,
     ) -> Option<SourceLocation> {
         let row_at_pc = self.location_for_pc(pc);
@@ -829,7 +837,7 @@ fn inline_call_sites_for_ranges(
     containing: &[InlinedRange],
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &SolxBuildModel,
+    build_model: &impl SourceLookup,
     caches: &mut DecodeCaches,
 ) -> Box<[SourceLocation]> {
     let mut out: Vec<SourceLocation> = Vec::with_capacity(containing.len());
@@ -856,7 +864,7 @@ fn range_call_site_to_location(
     r: &InlinedRange,
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &SolxBuildModel,
+    build_model: &impl SourceLookup,
     caches: &mut DecodeCaches,
 ) -> Option<SourceLocation> {
     // DWARF writes "no line" as 0, so both flavours of missing collapse to
@@ -920,7 +928,7 @@ fn resolve_location(
     column: u64,
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &SolxBuildModel,
+    build_model: &impl SourceLookup,
     caches: &mut DecodeCaches,
 ) -> Option<(u32, usize)> {
     let dwarf_name = dwarf_file_names.get(dwarf_file_index as usize)?.as_str();
@@ -941,7 +949,7 @@ fn resolve_location_by_name(
     line: NonZeroU64,
     column: u64,
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &SolxBuildModel,
+    build_model: &impl SourceLookup,
     caches: &mut DecodeCaches,
 ) -> Option<(u32, usize)> {
     let file_id = caches.resolve_file_id(dwarf_name, name_to_file_id)?;
@@ -1014,7 +1022,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        artifacts::{CompilerOutput, SolxBytecode},
+        artifacts::{solx::SolxBuildModel, CompilerOutput, SolxBytecode},
         build_model::SourceFile,
     };
 
