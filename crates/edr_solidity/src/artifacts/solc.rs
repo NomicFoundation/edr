@@ -69,10 +69,14 @@ pub(super) fn collect_compiled_contracts_and_files<ArtifactT: CompilerArtifact>(
             .expect("source.id should exist in sources")
             .write();
 
+        let ast = source.ast.as_ref().with_context(|| {
+            format!("Compiler output for {source_name} has no AST; select the \"ast\" output")
+        })?;
+
         process_ast_nodes(
             &mut file,
             source_name,
-            &source.ast,
+            ast,
             &file_id_to_source_file,
             output,
             &mut contract_id_to_linearized_base_contract_ids,
