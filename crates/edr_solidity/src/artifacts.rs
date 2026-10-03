@@ -12,11 +12,13 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use self::{
+    slang::{parse_slang_compiler_metadata, parse_split_slang_compiler_metadata, DebugSymbols},
     solc::{parse_solc_compiler_metadata, parse_split_solc_compiler_metadata},
     solx::{parse_solx_compiler_metadata, parse_split_solx_compiler_metadata},
 };
 use crate::contracts_identifier::IdentifiedContract;
 
+pub mod slang;
 pub mod solc;
 pub mod solx;
 
@@ -153,6 +155,8 @@ pub enum CompilerType {
     /// Slang solx compiler
     #[strum(serialize = "slang-solx")]
     SlangSolx,
+    /// Slang compiler
+    Slang,
 }
 
 /// Configuration for the [`crate::contract_decoder::ContractDecoder`].
@@ -239,6 +243,7 @@ impl BuildInfoBuffers<'_> {
                     match to_compiler_type(peek.compiler_type) {
                         CompilerType::Solc => parse_solc_compiler_metadata(*item),
                         CompilerType::SlangSolx => parse_solx_compiler_metadata(*item),
+                        CompilerType::Slang => parse_slang_compiler_metadata(*item),
                     }
                     // Silently ignore unsupported solc versions
                     .or_else(|error| {
@@ -262,6 +267,9 @@ impl BuildInfoBuffers<'_> {
                         }
                         CompilerType::SlangSolx => {
                             parse_split_solx_compiler_metadata(item.build_info, item.output)
+                        }
+                        CompilerType::Slang => {
+                            parse_split_slang_compiler_metadata(item.build_info, item.output)
                         }
                     }
                     // Silently ignore unsupported solc versions
@@ -422,11 +430,16 @@ pub struct CompilerOutputEvm<ArtifactT: CompilerArtifact> {
     pub method_identifiers: HashMap<String, String>,
 }
 
-/// The ID and the AST of the compiled sources.
+/// The ID and the per-file outputs of the compiled sources.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CompilerOutputSource {
     pub id: u32,
-    pub ast: serde_json::Value,
+    /// The solc AST; the slang compiler omits it or emits its own format.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ast: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debug_symbols: Option<DebugSymbols>,
 }
 
 /// Solc-emitted bytecode.
@@ -458,8 +471,8 @@ pub fn collect_ast_spans<'a>(
     sources: impl Iterator<Item = &'a CompilerOutputSource>,
 ) -> HashMap<u32, Vec<(u32, u32)>> {
     let mut spans: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
-    for source in sources {
-        collect_node_spans(&source.ast, &mut spans);
+    for ast in sources.filter_map(|source| source.ast.as_ref()) {
+        collect_node_spans(ast, &mut spans);
     }
     // Sorted so `BuildModel::smallest_enclosing_span` can scan in order
     // and break early.
@@ -580,12 +593,14 @@ mod tests {
     fn to_compiler_type_reads_the_build_info_sentinel() {
         const SOLC_COMPILER_TYPE: &str = "solc";
         const SLANG_SOLX_COMPILER_TYPE: &str = "slang-solx";
+        const SLANG_COMPILER_TYPE: &str = "slang";
 
         assert_eq!(CompilerType::Solc.to_string(), SOLC_COMPILER_TYPE);
         assert_eq!(
             CompilerType::SlangSolx.to_string(),
             SLANG_SOLX_COMPILER_TYPE
         );
+        assert_eq!(CompilerType::Slang.to_string(), SLANG_COMPILER_TYPE);
 
         assert_eq!(
             to_compiler_type(Some(SOLC_COMPILER_TYPE)),
@@ -594,6 +609,10 @@ mod tests {
         assert_eq!(
             to_compiler_type(Some(SLANG_SOLX_COMPILER_TYPE)),
             CompilerType::SlangSolx
+        );
+        assert_eq!(
+            to_compiler_type(Some(SLANG_COMPILER_TYPE)),
+            CompilerType::Slang
         );
 
         assert_eq!(to_compiler_type(None), CompilerType::Solc);
