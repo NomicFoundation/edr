@@ -9,10 +9,11 @@ Don't edit the JSON files by hand — each pair is the output of a build flow. T
 | `solx_compiler_{input,output}.json` | solx compile of `sources/Counter.sol` | `cargo run -p edr_tool_cli -- gen-solx-fixtures <path-to-solx>` (regenerates every solx pair) |
 | `solx_compiler_{input,output}_stack_trace_scenarios.json` | solx compile of `sources/StackTraceScenarios{,Base}.sol`, the stack-trace scenario corpus | Same `gen-solx-fixtures` run |
 | `solx_compiler_{input,output}_stack_trace_scenarios_mode3.json` | The same sources at optimizer mode 3 — the only committed artifacts that reach the inference's declaration-attributed/unmapped-revert compat paths | Same `gen-solx-fixtures` run |
+| `slang_compiler_{input,output}{,_stack_trace_scenarios,_stack_trace_scenarios_mode3}.json` | The same three compiles with the slang compiler: identical sources and settings, but the per-source output is `debugSymbols` instead of `ast` | `cargo run -p edr_tool_cli -- gen-slang-fixtures <path-to-slang-compiler>` (regenerates every slang pair) |
 | `compiler_{input,output}.json` | Minimal solc pair (a single inline `literal.sol`) for the artifact-parsing unit tests | Hand-maintained (predates this index) |
 
 Conventions:
 
-- Solidity source text lives once, in `sources/`. The committed solx inputs have `"content": ""`, and the tests fill the source back in when loading the fixture.
+- Solidity source text lives once, in `sources/`. The committed solx and slang inputs have `"content": ""`, and the tests fill the source back in when loading the fixture.
 - Tests pin line numbers (and a few PCs) in the scenario sources — append new scenarios rather than shifting existing lines. After a regen that changes codegen (solx bump, optimizer change), re-derive moved PC anchors with a temporary probe next to the failing test: iterate `decode_deployed_for(...)`, filter for the opcode you're after (`REVERT`, `INVALID`), print each candidate's `pc` and resolved line under `cargo test -p edr_solidity -- --nocapture`, and pick the instruction whose line matches the test's intent.
 - To see which solx built an output, check the bytecode's trailing CBOR metadata: the `solcx` key holds e.g. `solx:0.1.8;solc:0.8.34`.
