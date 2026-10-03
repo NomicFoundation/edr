@@ -19,7 +19,7 @@ use crate::{
     build_model::{BuildModel, Contract, Instruction, SourceFile},
     compiler::{correct_selectors, decode_bytecodes, FIRST_SOLC_VERSION_SUPPORTED},
     contracts_identifier::IdentifiedContract,
-    debug_info::dwarf,
+    debug_info::dwarf::{self, SourceLookup},
     trace_strategy::SOLX_TRACE_STRATEGY,
 };
 
@@ -94,6 +94,16 @@ pub fn extract_solx_contract_metadata(
     }
 
     let build_model = SolxBuildModel::new(compiler_input, &compiler_output)?;
+    identify_contracts(solc_version, build_model, &compiler_output)
+}
+
+/// Decodes the bytecodes of `build_model`'s contracts through their DWARF
+/// debug info.
+pub(super) fn identify_contracts(
+    solc_version: String,
+    build_model: SolxBuildModel,
+    compiler_output: &CompilerOutput<SolxBytecode>,
+) -> Result<Vec<IdentifiedContract>, ContractMetadataExtractionError> {
     let sources = Arc::from(
         build_model
             .file_id_to_source_file
@@ -103,8 +113,8 @@ pub fn extract_solx_contract_metadata(
             .into_boxed_slice(),
     );
 
-    let contracts = decode_bytecodes(solc_version, &compiler_output, build_model, &sources)?;
-    correct_selectors(&contracts, &compiler_output)?;
+    let contracts = decode_bytecodes(solc_version, compiler_output, build_model, &sources)?;
+    correct_selectors(&contracts, compiler_output)?;
 
     Ok(contracts
         .into_iter()
@@ -115,10 +125,10 @@ pub fn extract_solx_contract_metadata(
         .collect())
 }
 
-/// A resolved build model from a solx Solidity compiler standard JSON output.
+/// A resolved build model from a solx or slang compiler standard JSON output.
 #[derive(Debug)]
 pub struct SolxBuildModel {
-    /// Per-file AST `src` spans (`file_id` → sorted `(offset, length)`).
+    /// Per-file syntax-node spans (`file_id` → sorted `(offset, length)`).
     /// The DWARF parser uses this to derive `SourceLocation.length` from a
     /// `(file, line, column)` triple.
     ast_spans: HashMap<u32, Vec<(u32, u32)>>,
@@ -139,18 +149,29 @@ impl SolxBuildModel {
         compiler_output: &CompilerOutput<SolxBytecode>,
     ) -> anyhow::Result<Self> {
         let ast_spans = collect_ast_spans(compiler_output.sources.values());
+        let contracts_and_files =
+            collect_compiled_contracts_and_files(compiler_input, compiler_output)?;
 
+        Ok(Self::from_parts(contracts_and_files, ast_spans))
+    }
+
+    /// Creates a new instance from already-resolved contracts and files plus
+    /// their sorted per-file syntax-node spans.
+    pub(super) fn from_parts(
+        contracts_and_files: CompiledContractsAndFiles,
+        ast_spans: HashMap<u32, Vec<(u32, u32)>>,
+    ) -> Self {
         let CompiledContractsAndFiles {
             contract_id_to_contract,
             file_id_to_source_file,
-        } = collect_compiled_contracts_and_files(compiler_input, compiler_output)?;
+        } = contracts_and_files;
 
-        Ok(Self {
+        Self {
             ast_spans,
             contract_id_to_contract,
             file_id_to_source_file: Arc::new(file_id_to_source_file),
             name_to_file_id: OnceLock::new(),
-        })
+        }
     }
 
     #[cfg(test)]
@@ -168,10 +189,12 @@ impl SolxBuildModel {
     pub fn file_id_by_name(&self, source_name: &str) -> Option<u32> {
         self.name_to_file_id().get(source_name).copied()
     }
+}
 
+impl SourceLookup for SolxBuildModel {
     /// Reverse-index of `file_id_to_source_file` keyed by source name.
     /// Lazily populated on first call, reused thereafter.
-    pub fn name_to_file_id(&self) -> &HashMap<String, u32> {
+    fn name_to_file_id(&self) -> &HashMap<String, u32> {
         self.name_to_file_id.get_or_init(|| {
             self.file_id_to_source_file
                 .iter()
@@ -182,7 +205,7 @@ impl SolxBuildModel {
 
     /// Smallest (leafmost) AST `(offset, length)` span containing `offset`.
     /// Returns `None` if no span in `ast_spans[file_id]` covers `offset`.
-    pub fn smallest_enclosing_span(&self, file_id: u32, offset: u32) -> Option<(u32, u32)> {
+    fn smallest_enclosing_span(&self, file_id: u32, offset: u32) -> Option<(u32, u32)> {
         let spans = self.ast_spans.get(&file_id)?;
         let mut best: Option<(u32, u32)> = None;
         for &(span_offset, span_length) in spans {

@@ -87,6 +87,17 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
         bottom_source_reference: &SourceReference,
     ) -> Result<Vec<StackTraceEntry>, TraceStrategyError>;
 
+    /// Whether a revert at `inst_location` in `failing_function` may come
+    /// from the function's entry checks (calldata decoding) rather than its
+    /// body: solx gives a function's dispatch code its declaration line,
+    /// where solc's source map gives that code no function at all.
+    fn may_revert_in_entry_checks(
+        &self,
+        contract_meta: &ContractMetadata,
+        inst_location: Option<&SourceLocation>,
+        failing_function: &ContractFunction,
+    ) -> Result<bool, TraceStrategyError>;
+
     /// Source anchor for a revert that happened inside a known function;
     /// `inst_location` is `None` when the reverting instruction is unmapped
     /// (solx shared bare-revert helpers). `step_pcs` lazily yields the
@@ -152,6 +163,15 @@ impl TraceStrategy for SolcTraceStrategy {
         _bottom_source_reference: &SourceReference,
     ) -> Result<Vec<StackTraceEntry>, TraceStrategyError> {
         Ok(Vec::new())
+    }
+
+    fn may_revert_in_entry_checks(
+        &self,
+        _contract_meta: &ContractMetadata,
+        _inst_location: Option<&SourceLocation>,
+        _failing_function: &ContractFunction,
+    ) -> Result<bool, TraceStrategyError> {
+        Ok(false)
     }
 
     fn revert_source_reference(
@@ -261,6 +281,18 @@ impl TraceStrategy for SolxTraceStrategy {
                 function_type: ContractFunctionType::Function,
             })
             .collect())
+    }
+
+    fn may_revert_in_entry_checks(
+        &self,
+        contract_meta: &ContractMetadata,
+        inst_location: Option<&SourceLocation>,
+        failing_function: &ContractFunction,
+    ) -> Result<bool, TraceStrategyError> {
+        match inst_location {
+            Some(location) => is_declaration_attributed(contract_meta, location, failing_function),
+            None => Ok(true),
+        }
     }
 
     fn revert_source_reference(

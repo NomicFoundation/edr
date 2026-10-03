@@ -9,7 +9,8 @@ use std::sync::{
 
 use edr_napi_core::provider::SyncProvider;
 use edr_solidity::artifacts::{
-    solc::extract_solc_contract_metadata, solx::extract_solx_contract_metadata, to_compiler_type,
+    slang::extract_slang_contract_metadata, solc::extract_solc_contract_metadata,
+    solx::extract_solx_contract_metadata, to_compiler_type,
 };
 use napi::{
     bindgen_prelude::{FnArgs, Function, Object, Promise, Uint8Array},
@@ -146,6 +147,20 @@ impl Provider {
                         } else {
                             Err(error)
                         })
+                        .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    }),
+                    edr_solidity::artifacts::CompilerType::Slang => serde_json::from_value::<
+                        edr_solidity::artifacts::CompilerOutput<
+                            edr_solidity::artifacts::SolxBytecode,
+                        >,
+                    >(remainder)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))
+                    .and_then(|compiler_output| {
+                        extract_slang_contract_metadata(
+                            solc_version,
+                            compiler_input,
+                            compiler_output,
+                        )
                         .map_err(|error| napi::Error::from_reason(error.to_string()))
                     }),
                 }?;
