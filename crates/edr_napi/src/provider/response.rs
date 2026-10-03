@@ -3,6 +3,7 @@ use napi::{bindgen_prelude::Either3, Either};
 use napi_derive::napi;
 
 use crate::{
+    async_deallocator::AsyncDeallocatorSender,
     gc::gc_tracked,
     solidity_tests::test_results::{CallTrace, HeuristicFailed, StackTrace, UnexpectedError},
     trace::solidity_stack_trace::{
@@ -52,6 +53,7 @@ pub(crate) const fn call_trace_external_mem_size(verbose_tracing: bool) -> i64 {
 
 #[napi(custom_finalize)]
 pub struct Response {
+    dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
     inner: edr_napi_core::spec::Response,
     /// Reported to V8 on the way in and released on finalize, so it is stored
     /// rather than recomputed.
@@ -67,6 +69,7 @@ impl Response {
     pub(crate) fn new(
         inner: edr_napi_core::spec::Response,
         call_trace_external_mem_size: i64,
+        dropped_response_sender: AsyncDeallocatorSender<edr_napi_core::spec::Response>,
     ) -> Self {
         let mut external_memory = match &inner.data {
             Either::A(envelope) => i64::try_from(envelope.len()).unwrap_or(i64::MAX),
@@ -81,6 +84,7 @@ impl Response {
         external_memory += call_trace_external_mem_size.saturating_mul(arena_count);
 
         Self {
+            dropped_response_sender,
             inner,
             external_memory,
         }
@@ -97,7 +101,15 @@ gc_tracked! {
     }
 
     fn drop(self) {
-        // Nothing beyond dropping the response itself.
+        let Self {
+            dropped_response_sender,
+            inner,
+            ..
+        } = self;
+
+        // Finalizers run on the JS thread, where freeing the response's
+        // `call_trace_arenas` would hold up request dispatch.
+        dropped_response_sender.deallocate(inner);
     }
 }
 
@@ -157,8 +169,22 @@ impl Response {
 #[cfg(test)]
 mod tests {
     use edr_solidity_tests::traces::CallTraceArena;
+    use napi::tokio::runtime;
 
     use super::*;
+    use crate::async_deallocator::{AsyncDeallocator, RESPONSE_THREAD_NAME};
+
+    /// The tests never finalize a response, so the deallocator's thread and
+    /// runtime need not outlive the sender.
+    fn dropped_response_sender() -> AsyncDeallocatorSender<edr_napi_core::spec::Response> {
+        let runtime = runtime::Builder::new_current_thread()
+            .build()
+            .expect("failed to build a runtime");
+
+        AsyncDeallocator::new(RESPONSE_THREAD_NAME.to_owned(), runtime.handle().clone())
+            .expect("failed to spawn the deallocator thread")
+            .sender()
+    }
 
     fn response(data: edr_napi_core::spec::ResponseData) -> edr_napi_core::spec::Response {
         edr_napi_core::spec::Response {
@@ -174,6 +200,7 @@ mod tests {
         let response = Response::new(
             response(Either::A(envelope.clone())),
             call_trace_external_mem_size(false),
+            dropped_response_sender(),
         );
 
         assert_eq!(response.external_memory, envelope.len() as i64);
@@ -184,7 +211,11 @@ mod tests {
         let mut inner = response(Either::A("a".repeat(2_048)));
         inner.stack_trace_result = Some(StackTraceCreationResult::HeuristicFailed);
 
-        let response = Response::new(inner, call_trace_external_mem_size(false));
+        let response = Response::new(
+            inner,
+            call_trace_external_mem_size(false),
+            dropped_response_sender(),
+        );
 
         assert_eq!(
             response.external_memory,
@@ -199,7 +230,11 @@ mod tests {
         let mut inner = response(Either::A("a".repeat(2_048)));
         inner.call_trace_arenas = vec![CallTraceArena::default()];
 
-        let response = Response::new(inner, call_trace_external_mem_size(false));
+        let response = Response::new(
+            inner,
+            call_trace_external_mem_size(false),
+            dropped_response_sender(),
+        );
 
         assert_eq!(
             response.external_memory,
@@ -212,7 +247,11 @@ mod tests {
         let mut inner = response(Either::A(String::new()));
         inner.call_trace_arenas = vec![CallTraceArena::default()];
 
-        let response = Response::new(inner, call_trace_external_mem_size(true));
+        let response = Response::new(
+            inner,
+            call_trace_external_mem_size(true),
+            dropped_response_sender(),
+        );
 
         assert_eq!(response.external_memory, call_trace_external_mem_size(true));
     }
@@ -222,7 +261,11 @@ mod tests {
         let mut inner = response(Either::A(String::new()));
         inner.call_trace_arenas = vec![CallTraceArena::default(); 3];
 
-        let response = Response::new(inner, call_trace_external_mem_size(false));
+        let response = Response::new(
+            inner,
+            call_trace_external_mem_size(false),
+            dropped_response_sender(),
+        );
 
         assert_eq!(
             response.external_memory,
@@ -247,6 +290,7 @@ mod tests {
         let response = Response::new(
             response(Either::B(serde_json::Value::Null)),
             call_trace_external_mem_size(false),
+            dropped_response_sender(),
         );
 
         assert_eq!(response.external_memory, VALUE_DATA_EXTERNAL_MEM_SIZE);
