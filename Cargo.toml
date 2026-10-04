@@ -272,7 +272,10 @@ c-kzg = { version = "2.1.7", default-features = false, features = [
     "ethereum_kzg_settings",
 ] }
 
-revm-inspectors = { version = "0.41.2", features = ["serde"] }
+# Temporary fork adding `StackSnapshotType::Top` from
+# paradigmxyz/revm-inspectors#468. That change ships in revm-inspectors 0.44,
+# which needs revm 43. Drop the fork once EDR is on revm >= 43.
+revm-inspectors = { git = "https://github.com/Wodann/revm-inspectors", branch = "feat/top-of-stack-snapshot-0.41", features = ["serde"] }
 foundry-fork-db = "0.27"
 
 ## ethers

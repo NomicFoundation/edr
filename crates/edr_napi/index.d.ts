@@ -91,10 +91,6 @@ export declare class Provider {
 
 export declare class ProviderFactory {}
 
-export declare class RawTrace {
-  get trace(): Array<TracingMessage | TracingStep | TracingMessageResult>
-}
-
 export declare class Response {
   /** Returns the response data as a JSON string or a JSON object. */
   get data(): string | any
@@ -108,6 +104,12 @@ export declare class Response {
    * request's call itself.
    */
   callTraces(): Array<CallTrace>
+  /**
+   * Returns the raw traces of executed contracts. This may contain zero or
+   * more traces. Uses a function instead of a getter to avoid repeated
+   * expensive conversions.
+   */
+  traces(): Array<Array<TracingMessage | TracingStep | TracingMessageResult>>
 }
 
 export declare class ReturnData {
@@ -314,11 +316,6 @@ export declare enum CallKind {
   Create = 4,
 }
 
-export interface CallOutput {
-  /** Return value */
-  returnValue: Uint8Array
-}
-
 /** The result of executing a call override. */
 export interface CallOverrideResult {
   result: Uint8Array
@@ -493,13 +490,6 @@ export interface CounterExampleSequence {
 /** The instrumentation coverage library file name. */
 export declare const COVERAGE_LIBRARY_FILE_NAME: string
 
-export interface CreateOutput {
-  /** Return value */
-  returnValue: Uint8Array
-  /** Optionally, a 160-bit address */
-  address?: Uint8Array
-}
-
 export interface CustomErrorStackTraceEntry {
   type: StackTraceEntryType.CUSTOM_ERROR
   message: string
@@ -589,14 +579,6 @@ export interface ExecutionLog {
   address: Uint8Array
   topics: Array<Uint8Array>
   data: Uint8Array
-}
-
-/** The result of executing a transaction. */
-export interface ExecutionResult {
-  /** The transaction result */
-  result: SuccessResult | RevertResult | HaltResult
-  /** Optional contract address if the transaction created a new contract. */
-  contractAddress?: Uint8Array
 }
 
 /** Represents the exit code of the EVM. */
@@ -813,19 +795,6 @@ export declare enum GasReportExecutionStatus {
 export declare const GENERIC_CHAIN_TYPE: string
 
 export declare function genericChainProviderFactory(): ProviderFactory
-
-/** The result when the EVM terminates due to an exceptional halt. */
-export interface HaltResult {
-  /** The exceptional halt that occurred */
-  reason: ExceptionalHalt
-  /**
-   * Halting will spend all the gas and will thus be equal to the specified
-   * gas limit
-   */
-  gasUsed: bigint
-  /** The logs */
-  logs: Array<ExecutionLog>
-}
 
 /** Configuration for a hardfork activation */
 export interface HardforkActivation {
@@ -1341,6 +1310,24 @@ export interface ObservabilityConfig {
    * Defaults to `IncludeTraces.None`.
    */
   includeCallTraces?: IncludeTraces
+  /**
+   * How much of the stack each step of `Response.traces()` records.
+   * Hardhat 2 sets this to `StackSnapshotType.Top` for its VM step events.
+   *
+   * `Provider.setVerboseTracing(true)` records the full stack until it is
+   * disabled again.
+   *
+   * Defaults to `StackSnapshotType.None`.
+   */
+  recordStack?: StackSnapshotType
+  /**
+   * Whether calls to precompiles are recorded in call traces and in
+   * `Response.traces()`. Hardhat 2 enables this, as its VM message events
+   * include precompile calls.
+   *
+   * Defaults to `false`.
+   */
+  includePrecompileCalls?: boolean
 }
 
 export declare const OP_CHAIN_TYPE: string
@@ -1511,16 +1498,6 @@ export interface RevertErrorStackTraceEntry {
   returnData: Uint8Array
   sourceReference: SourceReference
   isInvalidOpcodeError: boolean
-}
-
-/** The result when the EVM terminates due to a revert. */
-export interface RevertResult {
-  /** The amount of gas used */
-  gasUsed: bigint
-  /** The logs */
-  logs: Array<ExecutionLog>
-  /** The transaction output */
-  output: Uint8Array
 }
 
 /**
@@ -1813,6 +1790,16 @@ export interface SourceReference {
   range: Array<number>
 }
 
+/** How much of the stack each step of a raw trace records. */
+export declare enum StackSnapshotType {
+  /** No stack entries. */
+  None = 0,
+  /** The full stack. */
+  Full = 1,
+  /** Only the top entry of the stack. */
+  Top = 2,
+}
+
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -1897,20 +1884,6 @@ export declare enum SuccessReason {
   SelfDestruct = 2,
 }
 
-/** The result when the EVM terminates successfully. */
-export interface SuccessResult {
-  /** The reason for termination */
-  reason: SuccessReason
-  /** The amount of gas used */
-  gasUsed: bigint
-  /** The amount of gas refunded */
-  gasRefunded: bigint
-  /** The logs */
-  logs: Array<ExecutionLog>
-  /** The transaction output */
-  output: CallOutput | CreateOutput
-}
-
 /**
  * See [`edr_solidity_tests::result::SuiteResult`]
  *
@@ -1963,49 +1936,64 @@ export interface TracingConfigWithBuffers {
   ignoreContracts?: boolean
 }
 
+/** Matches Hardhat's `MinimalExecResult` interface. */
+export interface TracingExecResult {
+  /** Whether execution succeeded */
+  readonly success: boolean
+  /** Gas used during execution */
+  readonly executionGasUsed: bigint
+  /** Address of the created contract, if any */
+  readonly contractAddress?: Uint8Array
+  /** The reason for the exit (success or halt) */
+  readonly reason?: SuccessReason | ExceptionalHalt
+  /** The output data */
+  readonly output?: Uint8Array
+}
+
+/** Matches Hardhat's `MinimalMessage` interface. */
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Uint8Array
   /** Recipient address. None if it is a Create message. */
   readonly to?: Uint8Array
-  /** Whether it's a static call */
-  readonly isStaticCall: boolean
-  /** Transaction gas limit */
-  readonly gasLimit: bigint
-  /** Depth of the message */
-  readonly depth: number
-  /** Input data of the message */
-  readonly data: Uint8Array
-  /** Value sent in the message */
-  readonly value: bigint
   /**
    * Address of the code that is being executed. Can be different from `to`
    * if a delegate call is being done.
    */
   readonly codeAddress?: Uint8Array
-  /** Code of the contract that is being executed. */
-  readonly code?: Uint8Array
+  /** Value sent in the message */
+  readonly value: bigint
+  /** Input data of the message */
+  readonly data: Uint8Array
+  /** Transaction gas limit */
+  readonly gasLimit: bigint
+  /** Whether it's a static call */
+  readonly isStaticCall: boolean
 }
 
+/** Matches Hardhat's `MinimalEVMResult` interface. */
 export interface TracingMessageResult {
-  /** Execution result */
-  readonly executionResult: ExecutionResult
+  /** The execution result */
+  readonly execResult: TracingExecResult
 }
 
+/** Opcode information for a tracing step. */
+export interface TracingOpcode {
+  /** The name of the opcode */
+  readonly name: string
+}
+
+/** Matches Hardhat's `MinimalInterpreterStep` interface. */
 export interface TracingStep {
+  /** The program counter */
+  readonly pc: number
   /** Call depth */
   readonly depth: number
-  /** The program counter */
-  readonly pc: bigint
-  /** The executed op code */
-  readonly opcode: string
-  /**
-   * The entries on the stack. It only contains the top element unless
-   * verbose tracing is enabled. The vector is empty if there are no elements
-   * on the stack.
-   */
+  /** The executed opcode */
+  readonly opcode: TracingOpcode
+  /** The stack entries, as many as `ObservabilityConfig.recordStack` records. */
   readonly stack: Array<bigint>
-  /** The memory at the step. None if verbose tracing is disabled. */
+  /** The memory at the step. None unless verbose tracing is enabled. */
   readonly memory?: Uint8Array
 }
 
