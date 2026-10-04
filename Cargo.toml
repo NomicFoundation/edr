@@ -272,7 +272,7 @@ c-kzg = { version = "2.1.7", default-features = false, features = [
     "ethereum_kzg_settings",
 ] }
 
-revm-inspectors = { version = "0.41.2", features = ["serde"] }
+revm-inspectors = { git = "https://github.com/Wodann/revm-inspectors", branch = "feat/top-of-stack-snapshot-0.41", features = ["serde"] }
 foundry-fork-db = "0.27"
 
 ## ethers
