@@ -659,22 +659,28 @@ async fn test_fuzz_random_uint_varies_across_runs() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/RandomFuzz.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.seed = Some(U256::from(1u32));
+    // The NAPI layer seeds the cheatcode RNG with the fuzz seed; mirror it,
+    // since without a cheatcode seed every run draws from a fresh random RNG
+    // and the test passes even if the runs are not reseeded.
+    config.cheats_config_options.seed = config.fuzz.seed;
     let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
-    assert_multiple(
-        &results,
-        BTreeMap::from([(
-            "default/fuzz/RandomFuzz.t.sol:RandomFuzzTest",
-            // `DSTest::assertTrue` logs the message instead of reverting.
-            vec![(
-                "testFuzz_randomUint_shouldFail(uint256)",
-                false,
-                None,
-                None,
-                None,
-            )],
-        )]),
+    let result = results
+        .get("default/fuzz/RandomFuzz.t.sol:RandomFuzzTest")
+        .unwrap()
+        .test_results
+        .get("testFuzz_randomUint_shouldFail(uint256)")
+        .unwrap();
+    assert_eq!(result.status, TestStatus::Failure);
+    // `DSTest::assertTrue` logs the message instead of reverting.
+    assert!(
+        result
+            .decoded_logs
+            .iter()
+            .any(|log| log.contains("hit value 0")),
+        "logs: {:?}",
+        result.decoded_logs
     );
 }
 
