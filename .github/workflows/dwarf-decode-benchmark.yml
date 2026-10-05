@@ -1,60 +1,18 @@
 name: DWARF decode benchmark
 
-# Same-machine A/B: benchmark the solx DWARF decode path at the PR's merge
-# commit against its base (the merge commit's first parent), on one runner in
-# one job so machine variance cancels. Criterion compares the two runs
-# statistically; the gate (.github/scripts/check-dwarf-benchmark-regression.ts)
-# only fails when the 95% confidence interval says the regression exceeds the
-# threshold, so runner noise (a few percent per side) cannot fail an innocent
-# PR. Subtle regressions below the threshold are out of scope here — catching
-# those needs deterministic counters (planned: iai-callgrind + Bencher, the
-# slang pattern).
-#
-# Only the committed stack-trace scenarios fixture runs in CI (small blobs).
-# The expensive-regime corpora are local-only via EDR_DWARF_BENCH_DIR — they
-# embed third-party contract sources with UNLICENSED SPDX headers, so they
-# cannot be committed. See crates/edr_solidity/benches/dwarf_decode.rs.
+# Counts the instructions of loading solx build info
+# (crates/edr_solidity/benches/solx_build_info.rs) at the PR's merge commit and
+# at its first parent, in one job, and fails when the count grows by more than
+# 2%. Not a required check: a PR that makes decode slower on purpose is merged
+# over it by hand.
 
 on:
   pull_request:
-    # Everything the bench compiles against, plus the dependency-bump vector
-    # (Cargo.lock). Paths filters rot silently when code moves — if the decode
-    # path grows a new module outside these, add it here. Keep the two lists
-    # identical.
-    paths:
-      - "crates/edr_solidity/src/debug_info.rs"
-      - "crates/edr_solidity/src/debug_info/**"
-      - "crates/edr_solidity/src/artifacts.rs"
-      - "crates/edr_solidity/src/artifacts/**"
-      - "crates/edr_solidity/src/build_model.rs"
-      - "crates/edr_solidity/benches/dwarf_decode.rs"
-      - "crates/edr_solidity/fixtures/**"
-      - "crates/edr_solidity/Cargo.toml"
-      - "Cargo.lock"
-      - ".github/scripts/check-dwarf-benchmark-regression.ts"
-      - ".github/scripts/package.json"
-      - ".github/workflows/dwarf-decode-benchmark.yml"
-  # Pushes to main take the informational single-run path (nothing to compare
-  # against). They exist to seed the cargo cache: setup-rust only saves it on
-  # main and rust-cache keys it per job, so without this trigger no run ever
-  # saved this job's cache and every PR run compiled from scratch.
+  # Takes the single-run path. It seeds the cargo cache, which setup-rust saves
+  # only on main and rust-cache keys per job.
   push:
     branches:
       - "main"
-    paths:
-      - "crates/edr_solidity/src/debug_info.rs"
-      - "crates/edr_solidity/src/debug_info/**"
-      - "crates/edr_solidity/src/artifacts.rs"
-      - "crates/edr_solidity/src/artifacts/**"
-      - "crates/edr_solidity/src/build_model.rs"
-      - "crates/edr_solidity/benches/dwarf_decode.rs"
-      - "crates/edr_solidity/fixtures/**"
-      - "crates/edr_solidity/Cargo.toml"
-      - "Cargo.lock"
-      - ".github/scripts/check-dwarf-benchmark-regression.ts"
-      - ".github/scripts/package.json"
-      - ".github/workflows/dwarf-decode-benchmark.yml"
-  # Informational single run (no baseline to compare against).
   workflow_dispatch:
 
 permissions:
@@ -66,9 +24,8 @@ concurrency:
 
 jobs:
   dwarf-decode-benchmark:
-    name: Benchmark DWARF decode (A/B against the base on pull requests)
+    name: Count instructions for solx build-info load
     runs-on: ubuntu-24.04
-    # Two edr_solidity builds plus four criterion benches: ~8 minutes cold.
     timeout-minutes: 30
     env:
       # Same value as the sibling Rust jobs (repo convention). Cargo's
@@ -79,40 +36,35 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # HEAD is the merge commit; its first parent is the base side of the
-          # A/B. Depth 2 reaches both parents and nothing more.
+          # HEAD is the merge commit; depth 2 reaches its first parent.
           fetch-depth: 2
       - uses: ./.github/actions/setup-rust
+      - name: Install valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends valgrind=1:3.22.0-0ubuntu3
+      # Must match the `gungraun` dev-dependency of edr_solidity.
+      - uses: taiki-e/install-action@84f5ac3124727fb3d284d4d22ee9ab3654fd09a6 # v2.87.7
+        with:
+          tool: gungraun-runner@0.19.4
 
       - name: Benchmark the base (merge commit's first parent)
         if: github.event_name == 'pull_request'
         run: |
-          # A restored cache may carry criterion data from another run; start
-          # clean so `change/` reflects only this job's comparison.
-          rm -rf target/criterion
-          # A PR that introduces (or moves) the bench has no base side to
-          # compare against — run the PR side informationally instead of
-          # failing on the missing bench target.
-          if ! git cat-file -e HEAD^1:crates/edr_solidity/benches/dwarf_decode.rs; then
-            echo "bench does not exist at the base commit; skipping the A/B comparison"
+          if ! git cat-file -e HEAD^1:crates/edr_solidity/benches/solx_build_info.rs; then
+            echo "bench does not exist at the base commit; skipping the comparison"
             echo "HAS_BASELINE=false" >> "$GITHUB_ENV"
             exit 0
           fi
           echo "HAS_BASELINE=true" >> "$GITHUB_ENV"
           git checkout --detach HEAD^1
-          cargo bench --locked -p edr_solidity --bench dwarf_decode -- --noplot --save-baseline pr-base
+          cargo bench --locked -p edr_solidity --bench solx_build_info -- --save-baseline=base
           git checkout --detach "$GITHUB_SHA"
 
       - name: Benchmark the PR merge commit
         run: |
           if [ "${HAS_BASELINE:-false}" = "true" ]; then
-            cargo bench --locked -p edr_solidity --bench dwarf_decode -- --noplot --baseline pr-base
+            cargo bench --locked -p edr_solidity --bench solx_build_info -- --baseline=base --callgrind-limits='ir=2%'
           else
-            cargo bench --locked -p edr_solidity --bench dwarf_decode -- --noplot
+            cargo bench --locked -p edr_solidity --bench solx_build_info
           fi
-
-      - uses: ./.github/actions/setup-node
-        if: github.event_name == 'pull_request' && env.HAS_BASELINE == 'true'
-      - name: Fail on a confident regression
-        if: github.event_name == 'pull_request' && env.HAS_BASELINE == 'true'
-        run: node .github/scripts/check-dwarf-benchmark-regression.ts
