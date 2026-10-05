@@ -2,6 +2,7 @@
 
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_primitives::{Address, Bytes, HashMap, U160};
+use foundry_evm_core::constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 use revm_interpreter::{InternalResult, SuccessOrHalt};
 
@@ -36,18 +37,6 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
     arena: &CallTraceArena,
     node_idx: usize,
 ) -> Result<NestedTrace<HaltReasonT>, CallTraceArenaConversionError> {
-    // Handle regular calls
-    // HACK: use address as code for contracts implemented in Rust
-    // (console/cheatcodes)
-    const CHEATCODE_ADDRESS: Address = Address::new([
-        0x71, 0x09, 0x70, 0x9E, 0xcf, 0xa9, 0x1a, 0x80, 0x62, 0x6f, 0xf3, 0x98, 0x9d, 0x68, 0xf6,
-        0x7f, 0x5b, 0x1d, 0xd1, 0x2d,
-    ]);
-    const HARDHAT_CONSOLE_ADDRESS: Address = Address::new([
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x01,
-    ]);
-
     let node = arena
         .nodes()
         .get(node_idx)
@@ -121,6 +110,8 @@ fn convert_node<HaltReasonT: HaltReasonTrait>(
         }));
     }
 
+    // HACK: use address as code for contracts implemented in Rust
+    // (console/cheatcodes)
     let code = if trace.address == HARDHAT_CONSOLE_ADDRESS || trace.address == CHEATCODE_ADDRESS {
         Bytes::from(trace.address.to_vec())
     } else {
@@ -212,4 +203,34 @@ fn is_calllike_op(step: &CallTraceStep) -> bool {
             | opcode::CALLCODE
             | opcode::CREATE2
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use edr_chain_spec::EvmHaltReason;
+
+    use super::*;
+
+    fn convert_call_without_known_code(address: Address) -> CallMessage<EvmHaltReason> {
+        let mut arena = CallTraceArena::default();
+        arena.nodes_mut()[0].trace.address = address;
+
+        let no_code = HashMap::default();
+        match convert_from_arena(&no_code, &no_code, &arena).expect("arena has a root node") {
+            NestedTrace::Call(call) => call,
+            _ => panic!("root node is a call"),
+        }
+    }
+
+    #[test]
+    fn console_call_uses_address_as_code() {
+        let call = convert_call_without_known_code(HARDHAT_CONSOLE_ADDRESS);
+        assert_eq!(call.code, *HARDHAT_CONSOLE_ADDRESS.as_slice());
+    }
+
+    #[test]
+    fn cheatcode_call_uses_address_as_code() {
+        let call = convert_call_without_known_code(CHEATCODE_ADDRESS);
+        assert_eq!(call.code, *CHEATCODE_ADDRESS.as_slice());
+    }
 }
