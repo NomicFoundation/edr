@@ -23,7 +23,7 @@ use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::{
     strategies::{fuzz_calldata, fuzz_calldata_from_state, EvmFuzzState},
     BaseCounterExample, CounterExample, FuzzCase, FuzzConfig, FuzzError, FuzzFixtures,
-    FuzzTestResult,
+    FuzzRunMetadata, FuzzTestResult,
 };
 use foundry_evm_traces::SparsedTraceArena;
 use proptest::{
@@ -87,6 +87,8 @@ struct WorkerState<
     runs: u32,
     /// Failure reason if this worker failed.
     failure: Option<TestCaseError>,
+    /// Fuzz run that produced the failure.
+    failure_run: Option<FuzzRunMetadata>,
     /// Last run timestamp in milliseconds.
     ///
     /// Used to identify which worker ran last and collect its traces.
@@ -383,7 +385,22 @@ impl<
 
         let mut worker = WorkerState::new(WORKER_ID);
         worker.last_run_timestamp = unix_timestamp_millis();
-        match self.single_fuzz(&self.executor, address, failure.calldata.clone()) {
+
+        // Reseed `vm.random*` as in the run that produced the counterexample.
+        // Counterexamples persisted before the run was recorded fall back to
+        // the first run of the first worker under the configured seed.
+        let mut executor = self.executor.clone();
+        let seed = failure.fuzz.seed.or(self.config.seed);
+        let run = failure.fuzz.run.unwrap_or(1);
+        let worker_id = failure.fuzz.worker.unwrap_or(WORKER_ID as u32);
+        if let Some(cheats) = executor.inspector_mut().cheatcodes.as_mut()
+            && let Some(seed) = seed
+        {
+            cheats.set_seed(fuzz_run_seed(seed, worker_id as usize, run));
+        }
+        let failure_run = Some(FuzzRunMetadata::new(seed, Some(run), Some(worker_id)));
+
+        match self.single_fuzz(&executor, address, failure.calldata.clone()) {
             Ok(FuzzOutcome::Case(_)) | Err(TestCaseError::Reject(_)) => None,
             Ok(FuzzOutcome::CounterExample(CounterExampleOutcome {
                 exit_reason: status,
@@ -397,6 +414,7 @@ impl<
                 worker.counterexample = outcome;
                 // HACK: we have to use an empty string here to denote `None`.
                 worker.failure = Some(TestCaseError::fail(reason.unwrap_or_default()));
+                worker.failure_run = failure_run;
                 shared_state.try_claim_failure(WORKER_ID);
                 Some(worker)
             }
@@ -470,9 +488,9 @@ impl<
             // that a run rejected by `vm.assume` based on `vm.random*` output is
             // not retried with the very same values.
             if let Some(cheats) = executor.inspector_mut().cheatcodes.as_mut()
-                && let Some(worker_seed) = worker_seed
+                && let Some(seed) = self.config.seed
             {
-                cheats.set_seed(worker_seed.wrapping_add(U256::from(generated_inputs)));
+                cheats.set_seed(fuzz_run_seed(seed, worker_id, generated_inputs + 1));
             }
 
             let input = match strategy.new_tree(&mut runner) {
@@ -536,6 +554,13 @@ impl<
                         worker.counterexample = outcome;
                         // HACK: we have to use an empty string here to denote `None`.
                         worker.failure = Some(TestCaseError::fail(reason.unwrap_or_default()));
+                        worker.failure_run = self.config.seed.map(|seed| {
+                            FuzzRunMetadata::new(
+                                Some(seed),
+                                Some(generated_inputs),
+                                Some(u32::try_from(worker_id).expect("worker count fits in u32")),
+                            )
+                        });
                         shared_state.try_claim_failure(worker_id);
                         break 'stop;
                     }
@@ -640,14 +665,16 @@ impl<
                         vec![]
                     };
 
-                    result.counterexample =
-                        Some(CounterExample::Single(BaseCounterExample::from_fuzz_call(
+                    result.counterexample = Some(CounterExample::Single(
+                        BaseCounterExample::from_fuzz_call(
                             calldata,
                             &args,
                             // Nothing consumes counterexample arenas; see above.
                             None,
                             call.indeterminism_reasons,
-                        )));
+                        )
+                        .with_fuzz_metadata(failed_worker.failure_run.unwrap_or_default()),
+                    ));
                 }
                 Some(TestCaseError::Reject(reason)) => {
                     let reason = reason.to_string();
@@ -833,6 +860,13 @@ fn fuzz_worker_seed(seed: U256, worker_id: usize) -> U256 {
     let worker_id = u32::try_from(worker_id).expect("worker count fits in u32");
     let seed_data = [&seed.to_be_bytes::<32>()[..], &worker_id.to_be_bytes()[..]].concat();
     U256::from_be_bytes(keccak256(seed_data).0)
+}
+
+/// Derives the cheatcode RNG seed of the `run`-th (1-based) input generated by
+/// a worker, so that `vm.random*` draws the same values when the input is
+/// replayed.
+fn fuzz_run_seed(seed: U256, worker_id: usize, run: u32) -> U256 {
+    fuzz_worker_seed(seed, worker_id).wrapping_add(U256::from(run.saturating_sub(1)))
 }
 
 #[cfg(test)]

@@ -685,6 +685,63 @@ async fn test_fuzz_random_uint_varies_across_runs() {
     );
 }
 
+/// A persisted failure that depends on `vm.random*` is reproduced on replay,
+/// because the counterexample records the run that produced it and the
+/// cheatcode RNG is reseeded accordingly.
+/// <https://github.com/foundry-rs/foundry/pull/14522>.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_persist_fuzz_failure_replays_random_uint() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/RandomFuzz.t.sol");
+    let persist_dir = tempfile::tempdir().unwrap();
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.seed = Some(U256::from(1u32));
+    config.cheats_config_options.seed = config.fuzz.seed;
+    config.fuzz.failure_persist_dir = Some(persist_dir.path().to_path_buf());
+    config.fuzz.failure_persist_file = "failures".to_string();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+
+    let outcome = |results: &BTreeMap<String, SuiteResult<_>>| {
+        let result = results
+            .get("default/fuzz/RandomFuzz.t.sol:RandomFuzzTest")
+            .unwrap()
+            .test_results
+            .get("testFuzz_randomUint_shouldFail(uint256)")
+            .unwrap();
+        let TestKind::Fuzz { runs, .. } = result.kind else {
+            panic!("not a fuzz test: {:?}", result.kind);
+        };
+        let Some(CounterExample::Single(counterexample)) = &result.counterexample else {
+            panic!("no counterexample: {:?}", result.counterexample);
+        };
+        (result.status, runs, counterexample.calldata.clone())
+    };
+
+    let results = runner
+        .clone()
+        .test_collect(filter.clone())
+        .await
+        .suite_results;
+    let (status, _runs, calldata) = outcome(&results);
+    assert_eq!(status, TestStatus::Failure);
+
+    let failure_file = persist_dir
+        .path()
+        .join("failures")
+        .join("RandomFuzzTest")
+        .join("testFuzz_randomUint_shouldFail");
+    let persisted: BaseCounterExample =
+        serde_json::from_slice(&std::fs::read(&failure_file).unwrap()).unwrap();
+    assert_eq!(persisted.calldata, calldata);
+    assert_eq!(persisted.fuzz.seed, Some(U256::from(1u32)));
+    assert!(persisted.fuzz.run.is_some(), "{:?}", persisted.fuzz);
+    assert!(persisted.fuzz.worker.is_some(), "{:?}", persisted.fuzz);
+
+    // The replay alone reproduces the failure, so nothing is fuzzed; a replayed
+    // counterexample is not counted as a run.
+    let results = runner.test_collect(filter).await.suite_results;
+    assert_eq!(outcome(&results), (TestStatus::Failure, 0, calldata));
+}
+
 // Tests that a run rejected by `vm.assume` based on `vm.random*` output is not
 // retried with the same cheatcode RNG seed, which would reject it forever.
 // Regression test for <https://github.com/foundry-rs/foundry/pull/16033>

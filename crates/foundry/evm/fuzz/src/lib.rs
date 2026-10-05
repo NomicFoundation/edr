@@ -13,7 +13,7 @@ use std::{fmt, sync::Arc};
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_primitives::{
     map::{AddressHashMap, HashMap},
-    Address, Bytes, Log,
+    Address, Bytes, Log, U256,
 };
 use edr_common::calc;
 use foundry_evm_coverage::HitMaps;
@@ -45,6 +45,35 @@ pub enum CounterExample {
     Sequence(usize, Vec<BaseCounterExample>),
 }
 
+/// Metadata needed to reproduce the fuzz run that produced a counterexample.
+///
+/// All fields are optional so that counterexamples persisted by earlier
+/// versions remain readable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FuzzRunMetadata {
+    /// Seed the worker's input stream was derived from.
+    #[serde(default, rename = "fuzz_seed", skip_serializing_if = "Option::is_none")]
+    pub seed: Option<U256>,
+    /// 1-based index of the input in the worker's input stream, rejected
+    /// inputs included.
+    #[serde(default, rename = "fuzz_run", skip_serializing_if = "Option::is_none")]
+    pub run: Option<u32>,
+    /// Worker that generated the input.
+    #[serde(
+        default,
+        rename = "fuzz_worker",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub worker: Option<u32>,
+}
+
+impl FuzzRunMetadata {
+    /// Creates the metadata of a fuzz run.
+    pub const fn new(seed: Option<U256>, run: Option<u32>, worker: Option<u32>) -> Self {
+        Self { seed, run, worker }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BaseCounterExample {
     /// Address which makes the call.
@@ -69,6 +98,9 @@ pub struct BaseCounterExample {
     /// If re-executing the counter example is not guaranteed to yield the same
     /// results, this field contains the reason why.
     pub indeterminism_reasons: Option<IndeterminismReasons>,
+    /// Fuzz run that produced this counterexample.
+    #[serde(flatten)]
+    pub fuzz: FuzzRunMetadata,
 }
 
 impl BaseCounterExample {
@@ -111,6 +143,7 @@ impl BaseCounterExample {
                         ),
                         traces,
                         indeterminism_reasons,
+                        fuzz: FuzzRunMetadata::default(),
                     };
                 }
             }
@@ -127,6 +160,7 @@ impl BaseCounterExample {
             raw_args: None,
             traces,
             indeterminism_reasons,
+            fuzz: FuzzRunMetadata::default(),
         }
     }
 
@@ -156,7 +190,16 @@ impl BaseCounterExample {
             ),
             traces,
             indeterminism_reasons,
+            fuzz: FuzzRunMetadata::default(),
         }
+    }
+}
+
+impl BaseCounterExample {
+    /// Records the fuzz run that produced this counterexample.
+    pub const fn with_fuzz_metadata(mut self, fuzz: FuzzRunMetadata) -> Self {
+        self.fuzz = fuzz;
+        self
     }
 }
 
