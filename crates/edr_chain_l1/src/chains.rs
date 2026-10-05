@@ -85,47 +85,6 @@ fn mainnet_config() -> &'static ChainConfig<Hardfork> {
     })
 }
 
-/// Holesky chain ID
-pub const HOLESKY_CHAIN_ID: u64 = 0x4268;
-
-const HOLESKY_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
-    HardforkActivation {
-        condition: ForkCondition::Block(0),
-        hardfork: Hardfork::Merge,
-    },
-    HardforkActivation {
-        condition: ForkCondition::Block(6_698),
-        hardfork: Hardfork::Shanghai,
-    },
-    HardforkActivation {
-        condition: ForkCondition::Block(894_733),
-        hardfork: Hardfork::Cancun,
-    },
-    HardforkActivation {
-        condition: ForkCondition::Timestamp(1_740_434_112),
-        hardfork: Hardfork::Prague,
-    },
-    HardforkActivation {
-        condition: ForkCondition::Timestamp(1_759_308_480),
-        hardfork: Hardfork::Osaka,
-    },
-];
-
-fn holesky_config() -> &'static ChainConfig<Hardfork> {
-    static CONFIG: OnceLock<ChainConfig<Hardfork>> = OnceLock::new();
-
-    CONFIG.get_or_init(|| {
-        let hardfork_activations = HOLESKY_HARDFORKS.into();
-
-        ChainConfig {
-            name: "Holesky".to_owned(),
-            hardfork_activations,
-            base_fee_params: L1_BASE_FEE_PARAMS,
-            bpo_hardfork_schedule: Some(ScheduledBlobParams::holesky()),
-        }
-    })
-}
-
 /// Hoodi chain ID
 pub const HOODI_CHAIN_ID: u64 = 0x88bb0;
 
@@ -210,7 +169,6 @@ pub(crate) fn l1_chain_configs() -> &'static HashMap<u64, ChainConfig<Hardfork>>
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::default();
         hardforks.insert(L1_MAINNET_CHAIN_ID, mainnet_config().clone());
-        hardforks.insert(HOLESKY_CHAIN_ID, holesky_config().clone());
         hardforks.insert(HOODI_CHAIN_ID, hoodi_config().clone());
         hardforks.insert(SEPOLIA_CHAIN_ID, sepolia_config().clone());
 
