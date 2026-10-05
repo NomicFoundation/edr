@@ -30,6 +30,7 @@ async fn test_fuzz() {
                 r"testStorageOwner\(address\)",
                 r"testFuzzWithRejects\(uint256\)",
                 r"testFuzz_assumeRandom\(uint256\)",
+                r"testFuzz_gasByInput\(uint256\)",
             ]
             .join("|"),
         )
@@ -781,26 +782,29 @@ async fn test_fuzz_parallel_workers_report_failure() {
 }
 
 /// The same seed and worker count must produce the same inputs on every run.
+/// The fixture's gas depends on the input, so equal gas statistics mean equal
+/// inputs; a different seed must produce different ones.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz_parallel_workers_are_deterministic() {
-    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzWithRejects.t.sol");
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzGasByInput.t.sol");
     let mut outcomes = Vec::new();
-    for _ in 0..2 {
+    for seed in [1234u32, 1234, 4321] {
         let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
         config.fuzz.runs = 512;
-        config.fuzz.seed = Some(U256::from(1234u32));
+        config.fuzz.seed = Some(U256::from(seed));
         config.fuzz.workers = Some(2);
         let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
         let results = runner.test_collect(filter.clone()).await.suite_results;
         outcomes.push(fuzz_outcome!(
             results,
-            FUZZ_WITH_REJECTS,
-            FUZZ_WITH_REJECTS_TEST
+            "default/fuzz/FuzzGasByInput.t.sol:FuzzGasByInputTest",
+            "testFuzz_gasByInput(uint256)"
         ));
     }
     assert_eq!(outcomes[0].0, TestStatus::Success);
     assert_eq!(outcomes[0].1 .0, 512);
     assert_eq!(outcomes[0], outcomes[1]);
+    assert_ne!(outcomes[0], outcomes[2]);
 }
 
 #[tokio::test(flavor = "multi_thread")]
