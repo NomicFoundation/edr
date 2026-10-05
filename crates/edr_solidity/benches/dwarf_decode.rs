@@ -16,23 +16,23 @@
 use std::{fs, hint::black_box, path::PathBuf, time::Duration};
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use edr_primitives::hex;
 use edr_solidity::{
     artifacts::{
         solx::SolxBuildModel, CompilerArtifact as _, CompilerInput, CompilerOutput, SolxBytecode,
     },
     build_model::BuildModel as _,
+    library_utils::{get_library_address_positions, normalize_compiler_output_bytecode},
 };
 
 const CORPUS_DIR_VAR: &str = "EDR_DWARF_BENCH_DIR";
 
-/// One DWARF-carrying bytecode section that decodes successfully.
+/// One DWARF-carrying bytecode section.
 struct Blob {
     source: String,
     contract: String,
     is_deployment: bool,
     artifact: SolxBytecode,
-    /// The hex-decoded bytecode.
+    /// The bytecode with library placeholders zeroed, as production decodes it.
     code: Vec<u8>,
 }
 
@@ -68,17 +68,15 @@ impl Corpus {
                     if artifact.debug_info.is_empty() {
                         continue;
                     }
-                    let Ok(code) = hex::decode(artifact.object()) else {
-                        continue;
-                    };
-                    // Probe once so the timed loop only sees blobs that
-                    // decode; unlinked or truncated sections error early and
-                    // would understate the per-pass cost.
-                    if model
-                        .decode_instructions(artifact, &code, is_deployment)
-                        .is_err()
-                    {
-                        continue;
+                    let code = normalize_compiler_output_bytecode(
+                        artifact.object().to_owned(),
+                        &get_library_address_positions(artifact),
+                    )
+                    .unwrap_or_else(|error| {
+                        panic!("{source}:{contract} bytecode must normalize: {error}")
+                    });
+                    if let Err(error) = model.decode_instructions(artifact, &code, is_deployment) {
+                        panic!("{source}:{contract} must decode: {error}");
                     }
                     blobs.push(Blob {
                         source: source.clone(),
@@ -97,14 +95,11 @@ impl Corpus {
                 b.is_deployment,
             ))
         });
-        assert!(
-            !blobs.is_empty(),
-            "corpus '{name}' has no decodable DWARF blobs"
-        );
+        assert!(!blobs.is_empty(), "corpus '{name}' has no DWARF blobs");
 
         let dwarf_bytes = blobs.iter().map(Blob::dwarf_bytes).sum();
         println!(
-            "corpus '{name}': {} decodable DWARF blobs, {dwarf_bytes} bytes of DWARF",
+            "corpus '{name}': {} DWARF blobs, {dwarf_bytes} bytes of DWARF",
             blobs.len()
         );
 
@@ -123,9 +118,8 @@ impl Corpus {
 /// carries empty source bodies, so the live sources are spliced back in.
 fn committed_corpus() -> Corpus {
     // Each A/B side builds its corpus from its own revision, so blobs that stop
-    // decoding on one side read as a speedup. Exact for the committed fixture.
-    const MIN_BLOBS: usize = 74;
-    const MIN_DWARF_BYTES: u64 = 100_212;
+    // being read on one side would show up as a speedup.
+    const BLOBS: usize = 76;
 
     let mut input: CompilerInput = serde_json::from_str(include_str!(
         "../fixtures/solx_compiler_input_stack_trace_scenarios.json"
@@ -155,15 +149,10 @@ fn committed_corpus() -> Corpus {
     .expect("solx_compiler_output_stack_trace_scenarios.json must parse");
 
     let corpus = Corpus::new("stack_trace_scenarios".to_string(), input, output);
-    assert!(
-        corpus.blobs.len() >= MIN_BLOBS,
-        "stack-trace fixture yields {} decodable DWARF blobs, expected at least {MIN_BLOBS}",
-        corpus.blobs.len()
-    );
-    assert!(
-        corpus.dwarf_bytes >= MIN_DWARF_BYTES,
-        "stack-trace fixture yields {} bytes of DWARF, expected at least {MIN_DWARF_BYTES}",
-        corpus.dwarf_bytes
+    assert_eq!(
+        corpus.blobs.len(),
+        BLOBS,
+        "stack-trace fixture has 76 DWARF-carrying bytecode sections"
     );
     corpus
 }
@@ -220,7 +209,7 @@ fn bench_corpus(c: &mut Criterion, corpus: &Corpus) {
                 let instructions = corpus
                     .model
                     .decode_instructions(&blob.artifact, &blob.code, blob.is_deployment)
-                    .expect("probed decode must succeed");
+                    .expect("decoded once when the corpus was built");
                 black_box(instructions);
             }
         });
@@ -240,7 +229,7 @@ fn bench_corpus(c: &mut Criterion, corpus: &Corpus) {
             let instructions = corpus
                 .model
                 .decode_instructions(&largest.artifact, &largest.code, largest.is_deployment)
-                .expect("probed decode must succeed");
+                .expect("decoded once when the corpus was built");
             black_box(instructions);
         });
     });
