@@ -46,6 +46,7 @@ members = [
     "crates/edr_test_utils",
     "crates/edr_transaction",
     "crates/eips/1559",
+    "crates/eips/2780",
     "crates/eips/2930",
     "crates/eips/2935",
     "crates/eips/4788",
@@ -162,6 +163,7 @@ edr_database_components = { path = "crates/database/components" }
 edr_decoder_revert = { path = "crates/decoder/revert" }
 edr_defaults = { path = "crates/edr_defaults" }
 edr_eip1559 = { path = "crates/eips/1559" }
+edr_eip2780 = { path = "crates/eips/2780" }
 edr_eip2930 = { path = "crates/eips/2930" }
 edr_eip2935 = { path = "crates/eips/2935" }
 edr_eip4788 = { path = "crates/eips/4788" }
