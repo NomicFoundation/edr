@@ -3026,6 +3026,7 @@ dependencies = [
 name = "edr_eip2780"
 version = "0.3.8"
 dependencies = [
+ "edr_chain_l1",
  "edr_chain_spec",
  "edr_transaction",
  "revm-context-interface",

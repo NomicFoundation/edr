@@ -8,5 +8,8 @@ edr_chain_spec.workspace = true
 edr_transaction.workspace = true
 revm-context-interface = { workspace = true, default-features = false }
 
+[dev-dependencies]
+edr_chain_l1.workspace = true
+
 [lints]
 workspace = true
