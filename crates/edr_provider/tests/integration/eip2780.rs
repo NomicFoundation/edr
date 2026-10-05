@@ -152,7 +152,7 @@ async fn transaction_funding_only_the_intrinsic_gas_is_included_and_halts_from_a
         code.runtime()
     }
 
-    /// A provider on `hardfork` with [`CONTRACT`] in its genesis state.
+    /// A provider on `hardfork` with [`CONTRACT_ADDRESS`] in its genesis state.
     fn new_provider_with_contract(
         hardfork: edr_chain_l1::Hardfork,
     ) -> anyhow::Result<Provider<L1ChainSpec>> {
@@ -170,7 +170,7 @@ async fn transaction_funding_only_the_intrinsic_gas_is_included_and_halts_from_a
         })
     }
 
-    /// A call to [`CONTRACT`] with exactly the intrinsic gas.
+    /// A call to [`CONTRACT_ADDRESS`] with exactly the intrinsic gas.
     fn call_contract_with_intrinsic_gas() -> TransactionRequest {
         TransactionRequest {
             from: SENDER,
