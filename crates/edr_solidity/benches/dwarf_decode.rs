@@ -6,11 +6,11 @@
 //! context construction, and the per-PC location work.
 //!
 //! Always runs against the committed stack-trace scenarios fixture. That
-//! corpus tops out at ~3.5 KB blobs while decode time grows ~bytes^1.7, so a
+//! corpus tops out at 3.6 KB blobs while decode time grows ~bytes^1.7, so a
 //! null result here does not transfer to large projects. To also cover the
 //! expensive regime, point `EDR_DWARF_BENCH_DIR` at a directory of
 //! `<name>.input.json` / `<name>.output.json` solx standard-JSON pairs; each
-//! pair becomes its own corpus; the book's benchmark page has the recipe.
+//! pair becomes its own corpus. The book's benchmark page has the recipe.
 mod common;
 
 use std::{fs, hint::black_box, path::PathBuf, time::Duration};
@@ -130,7 +130,7 @@ fn committed_corpus() -> Corpus {
 fn corpora_from_env() -> Vec<Corpus> {
     let Ok(dir) = std::env::var(CORPUS_DIR_VAR) else {
         println!(
-            "{CORPUS_DIR_VAR} not set; benchmarking only the committed stack-trace scenarios fixture (cheap regime, blobs <= ~3.5 KB)"
+            "{CORPUS_DIR_VAR} not set; benchmarking only the committed stack-trace scenarios fixture (cheap regime, blobs <= 3.6 KB)"
         );
         return Vec::new();
     };
