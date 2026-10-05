@@ -1312,10 +1312,9 @@ export interface ObservabilityConfig {
   includeCallTraces?: IncludeTraces
   /**
    * How much of the stack each step of `Response.traces()` records.
-   * Hardhat 2 sets this to `StackSnapshotType.Top` for its VM step events.
    *
-   * `Provider.setVerboseTracing(true)` records the full stack until it is
-   * disabled again.
+   * This will be overridden if `Provider.setVerboseTracing(true)` is called,
+   * which records the full stack until it is disabled again.
    *
    * Defaults to `StackSnapshotType.None`.
    */
