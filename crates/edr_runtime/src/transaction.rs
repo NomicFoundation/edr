@@ -142,4 +142,43 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn insufficient_gas_reports_the_eip2780_intrinsic_cost_from_amsterdam() -> anyhow::Result<()> {
+        // EIP-2780 base cost: the whole intrinsic gas of a self-transfer.
+        const TX_BASE_COST: u64 = 12_000;
+        const TOO_LOW_GAS_LIMIT: u64 = TX_BASE_COST - 1;
+
+        let caller = Address::random();
+
+        let request = edr_chain_l1::request::Eip155 {
+            nonce: 0,
+            gas_price: 0,
+            gas_limit: TOO_LOW_GAS_LIMIT,
+            kind: TxKind::Call(caller),
+            value: U256::from(1),
+            input: Bytes::new(),
+            chain_id: 123,
+        };
+
+        let transaction = request.fake_sign(caller);
+        let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
+
+        let result = validate(transaction, EvmSpecId::AMSTERDAM, None);
+
+        assert!(matches!(
+            result,
+            Err(CreationError::InsufficientGas {
+                initial_gas_cost: TX_BASE_COST,
+                gas_limit: TOO_LOW_GAS_LIMIT,
+            })
+        ));
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("Transaction requires at least {TX_BASE_COST} gas but got {TOO_LOW_GAS_LIMIT}")
+        );
+
+        Ok(())
+    }
 }
