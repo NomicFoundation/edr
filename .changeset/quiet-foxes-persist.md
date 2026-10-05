@@ -2,6 +2,7 @@
 "@nomicfoundation/edr": minor
 ---
 
-Fuzz tests now drive their runs directly instead of through the `proptest` test runner. Fuzz failures are persisted as one JSON counterexample per test at `<failurePersistDir>/<failurePersistFile>/<contract name>/<test name>` (overloaded test functions use `<test name>-<selector>`) and replayed first on the next run; a leftover `proptest` seed file at `<failurePersistDir>/<failurePersistFile>` from earlier versions is removed at the start of the test run.
-
-BREAKING CHANGE: A `maxTestRejects` of `0` now disables the `vm.assume` reject limit instead of failing the test on the first rejected input. Disabling the limit requires a fuzz `timeout`, otherwise the test fails, since only the timeout can end a test whose `vm.assume` never passes.
+- Added parallel workers for fuzz tests, capped by the new `workers` fuzz option (defaults to the available threads). With more than one worker, the runs before a failure and the reported counterexample depend on scheduling; set `workers: 1` for full reproducibility. Inputs for a given `seed` differ from earlier versions.
+- Fixed `vm.random*` repeating the same sequence in every fuzz run under a fixed `seed`.
+- Changed fuzz failure persistence to one JSON counterexample per test at `<failurePersistDir>/<failurePersistFile>/<contract>/<test>` (`<test>-<selector>` for overloaded functions), replayed first on the next run. A leftover `proptest` seed file at `<failurePersistDir>/<failurePersistFile>` is removed when the test run starts.
+- BREAKING CHANGE: `maxTestRejects = 0` now disables the `vm.assume` reject limit instead of failing on the first rejected input, and requires a fuzz `timeout`.
