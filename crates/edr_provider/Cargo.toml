@@ -35,6 +35,7 @@ edr_coverage.workspace = true
 edr_database_components.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
+edr_eip2780.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_eip8037.workspace = true
