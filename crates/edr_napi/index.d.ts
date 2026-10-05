@@ -708,7 +708,7 @@ export interface FuzzConfigArgs {
   /** Path where fuzz failures are recorded and replayed if set. */
   failurePersistDir?: string
   /**
-   * Name of the directory under `failure_persist_dir` in which fuzz
+   * Name of the directory under `failurePersistDir` in which fuzz
    * failures are recorded, one JSON counterexample per test. Defaults to
    * `failures`.
    */
