@@ -8,7 +8,7 @@ overrides:
   hardhat>@nomicfoundation/edr: workspace:*
 
 patchedDependencies:
-  hardhat@2.28.4: d8456b4328ad7b07fc176942b27b07c36eb5060ae7ff2dd9312ed4853c823b0d
+  hardhat@2.28.6: 4dc3ac5c0b77c19c6d95064daa93fc58bbbaa9e07339bb2dbec5516ee9c25696
   hardhat@3.18.0: a06714727fa15e18d65840ee713f8400cd01daa9e4837354fe7ad532bdda2b68
 
 importers:
@@ -214,8 +214,8 @@ importers:
         specifier: ^7.0.1
         version: 7.0.1
       hardhat:
-        specifier: 2.28.4
-        version: 2.28.4(patch_hash=d8456b4328ad7b07fc176942b27b07c36eb5060ae7ff2dd9312ed4853c823b0d)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.5)(typescript@5.8.3))(typescript@5.8.3)
+        specifier: 2.28.6
+        version: 2.28.6(patch_hash=4dc3ac5c0b77c19c6d95064daa93fc58bbbaa9e07339bb2dbec5516ee9c25696)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.5)(typescript@5.8.3))(typescript@5.8.3)
       mocha:
         specifier: ^11.1.0
         version: 11.8.0
@@ -296,8 +296,8 @@ importers:
         specifier: 3.18.0
         version: 3.18.0(patch_hash=a06714727fa15e18d65840ee713f8400cd01daa9e4837354fe7ad532bdda2b68)
       hardhat2:
-        specifier: npm:hardhat@2.28.4
-        version: hardhat@2.28.4(patch_hash=d8456b4328ad7b07fc176942b27b07c36eb5060ae7ff2dd9312ed4853c823b0d)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.5)(typescript@5.8.3))(typescript@5.8.3)
+        specifier: npm:hardhat@2.28.6
+        version: hardhat@2.28.6(patch_hash=4dc3ac5c0b77c19c6d95064daa93fc58bbbaa9e07339bb2dbec5516ee9c25696)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.5)(typescript@5.8.3))(typescript@5.8.3)
       lodash:
         specifier: ^4.17.11
         version: 4.18.1
@@ -2591,8 +2591,8 @@ packages:
   graphemer@1.4.0:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
 
-  hardhat@2.28.4:
-    resolution: {integrity: sha512-iQC4WNWjWMz7cVVFqzEBNisUQ/EEEJrWysJ2hRAMTnfXJx6Y11UXdmtz4dHIzvGL0z27XCCaJrcApDPH0KaZEg==}
+  hardhat@2.28.6:
+    resolution: {integrity: sha512-zQze7qe+8ltwHvhX5NQ8sN1N37WWZGw8L63y+2XcPxGwAjc/SMF829z3NS6o1krX0sryhAsVBK/xrwUqlsot4Q==}
     hasBin: true
     peerDependencies:
       ts-node: '*'
@@ -6200,7 +6200,7 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  hardhat@2.28.4(patch_hash=d8456b4328ad7b07fc176942b27b07c36eb5060ae7ff2dd9312ed4853c823b0d)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.5)(typescript@5.8.3))(typescript@5.8.3):
+  hardhat@2.28.6(patch_hash=4dc3ac5c0b77c19c6d95064daa93fc58bbbaa9e07339bb2dbec5516ee9c25696)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@22.20.5)(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
       '@ethereumjs/util': 9.1.0
       '@ethersproject/abi': 5.8.0
