@@ -32,6 +32,11 @@ jobs:
       # fingerprint includes RUSTFLAGS, so this job's restored cache only
       # helps while the value stays put.
       RUSTFLAGS: -Dwarnings
+      # Must match the `gungraun` dev-dependency of edr_solidity.
+      # renovate: datasource=crate depName=gungraun-runner
+      GUNGRAUN_RUNNER_VERSION: "0.19.4"
+      # renovate: datasource=deb depName=valgrind
+      VALGRIND_VERSION: "1:3.22.0-0ubuntu3"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,11 +47,10 @@ jobs:
       - name: Install valgrind
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends valgrind=1:3.22.0-0ubuntu3
-      # Must match the `gungraun` dev-dependency of edr_solidity.
+          sudo apt-get install -y --no-install-recommends "valgrind=$VALGRIND_VERSION"
       - uses: taiki-e/install-action@84f5ac3124727fb3d284d4d22ee9ab3654fd09a6 # v2.87.7
         with:
-          tool: gungraun-runner@0.19.4
+          tool: gungraun-runner@${{ env.GUNGRAUN_RUNNER_VERSION }}
 
       - name: Benchmark the base (merge commit's first parent)
         if: github.event_name == 'pull_request'
