@@ -22,3 +22,13 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
+
+# mimalloc 3 on Apple stores its per-thread heap in a fixed TLS slot. The slot
+# is process-wide, so a second copy of the addon loaded from another path
+# treats the first copy's heap as its own and segfaults during initialization
+# (https://github.com/NomicFoundation/edr/issues/1815). cc-rs forwards these to
+# every C compilation for that target, which makes mimalloc use pthread
+# thread-local storage instead. That storage is private to each loaded copy.
+[env]
+CFLAGS_aarch64_apple_darwin = "-DMI_HAS_TLS_SLOT=0"
+CFLAGS_x86_64_apple_darwin = "-DMI_HAS_TLS_SLOT=0"
