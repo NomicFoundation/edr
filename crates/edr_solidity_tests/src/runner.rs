@@ -15,6 +15,7 @@ use alloy_primitives::{hex, Address, Bytes, U256};
 use derive_where::derive_where;
 use edr_artifact::ArtifactId;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_common::errors::FsPathError;
 use edr_decoder_revert::RevertDecoder;
 use edr_solidity::{
     config::IncludeTraces,
@@ -1572,25 +1573,21 @@ impl<
         let persisted_failure = failure_paths
             .as_ref()
             .and_then(|(failure_dir, failure_file)| {
-                edr_common::fs::read_json_file::<BaseCounterExample>(failure_file)
-                    .ok()
-                    .or_else(|| {
-                        // Fall back to a failure persisted under the bare function
-                        // name before the overload was qualified, if it targets
-                        // this overload.
-                        if test_name == func.name {
-                            return None;
-                        }
-                        let legacy_file = failure_dir.join(&func.name);
-                        let failure =
-                            edr_common::fs::read_json_file::<BaseCounterExample>(&legacy_file)
-                                .ok()?;
-                        failure
-                            .calldata
-                            .get(..4)
-                            .is_some_and(|selector| func.selector() == selector)
-                            .then_some(failure)
-                    })
+                read_persisted_fuzz_failure(failure_file).or_else(|| {
+                    // Fall back to a failure persisted under the bare function
+                    // name before the overload was qualified, if it targets
+                    // this overload.
+                    if test_name == func.name {
+                        return None;
+                    }
+                    let legacy_file = failure_dir.join(&func.name);
+                    let failure = read_persisted_fuzz_failure(&legacy_file)?;
+                    failure
+                        .calldata
+                        .get(..4)
+                        .is_some_and(|selector| func.selector() == selector)
+                        .then_some(failure)
+                })
             });
 
         // Run fuzz test.
@@ -1940,6 +1937,23 @@ fn fuzz_test_path_name<'a>(
     } else {
         Cow::Borrowed(&func.name)
     }
+}
+
+/// Loads a persisted fuzz counterexample. A missing file is the normal case;
+/// any other failure is logged so that a corrupt file is not mistaken for a
+/// clean slate.
+fn read_persisted_fuzz_failure(path: &Path) -> Option<BaseCounterExample> {
+    edr_common::fs::read_json_file::<BaseCounterExample>(path)
+        .inspect_err(|err| {
+            let not_found = matches!(
+                err,
+                FsPathError::Read { source, .. } if source.kind() == std::io::ErrorKind::NotFound
+            );
+            if !not_found {
+                tracing::warn!("Ignoring persisted fuzz failure: {err}");
+            }
+        })
+        .ok()
 }
 
 fn fuzzer_with_cases(seed: Option<U256>, cases: u32, max_global_rejects: u32) -> TestRunner {
