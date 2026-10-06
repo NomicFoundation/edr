@@ -829,7 +829,8 @@ fn num_workers(runs: u32, workers: Option<u32>) -> usize {
     let max_workers = Ord::max(1, runs / MIN_RUNS_PER_WORKER) as usize;
     match workers {
         Some(workers) => Ord::min(Ord::max(1, workers as usize), max_workers),
-        None => Ord::min(rayon::current_num_threads(), max_workers),
+        // BENCH EXPERIMENT, DO NOT MERGE: measure the single-worker floor.
+        None => 1,
     }
 }
 
