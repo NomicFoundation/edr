@@ -146,6 +146,10 @@ const SEPOLIA_HARDFORKS: &[HardforkActivation<Hardfork>] = &[
         condition: ForkCondition::Timestamp(1_760_427_360),
         hardfork: Hardfork::Osaka,
     },
+    HardforkActivation {
+        condition: ForkCondition::Timestamp(1_791_294_816),
+        hardfork: Hardfork::Amsterdam,
+    },
 ];
 
 fn sepolia_config() -> &'static ChainConfig<Hardfork> {
