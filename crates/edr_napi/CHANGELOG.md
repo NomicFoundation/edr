@@ -1,5 +1,12 @@
 # @nomicfoundation/edr
 
+## 0.22.2
+
+### Patch Changes
+
+- 2a14608: Added the Amsterdam hardfork activation on Sepolia, so EDR infers it from the block timestamp when forking
+- 7493ae1: Removed the built-in chain configuration of the Holesky testnet (chain ID 17000), which was shut down in 2025: EDR no longer ships its hardfork activation history and blob parameter schedule, nor a default RPC URL for the `holesky` chain alias in Solidity tests.
+
 ## 0.22.1
 
 ### Patch Changes
