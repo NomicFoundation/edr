@@ -21,7 +21,7 @@ index 9d31ee4326d66725b85b5ce45de79ba29c252deb..ea82219d526e39c64215c5cf2aa4b6fb
 +{"version":3,"file":"provider.d.ts","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":";AAAA,OAAO,KAAK,EACV,SAAS,EAGT,eAAe,EAEf,0BAA0B,EAC1B,gBAAgB,EACjB,MAAM,gBAAgB,CAAC;AAExB,OAAO,KAAK,EACV,UAAU,EAKV,wBAAwB,EAKzB,MAAM,sBAAsB,CAAC;AAK9B,OAAO,EAAE,YAAY,EAAE,MAAM,QAAQ,CAAC;AAoCtC,OAAO,EACL,UAAU,EACV,cAAc,EACd,oBAAoB,EACpB,YAAY,EACb,MAAM,cAAc,CAAC;AAUtB,OAAO,EAAE,YAAY,EAA8B,MAAM,kBAAkB,CAAC;AAO5E,eAAO,MAAM,gBAAgB,+CAA+C,CAAC;AAI7E,wBAAsB,mBAAmB,IAAI,OAAO,CAAC,UAAU,CAAC,CAgB/D;AAED,UAAU,4BAA4B;IACpC,QAAQ,EAAE,MAAM,CAAC;IACjB,OAAO,EAAE,MAAM,CAAC;IAChB,SAAS,EAAE,MAAM,CAAC;IAClB,aAAa,EAAE,MAAM,CAAC;IACtB,WAAW,EAAE,MAAM,CAAC;IACpB,QAAQ,EAAE,OAAO,CAAC;IAClB,cAAc,EAAE,oBAAoB,CAAC;IACrC,YAAY,EAAE,YAAY,CAAC;IAC3B,MAAM,EAAE,0BAA0B,CAAC;IACnC,eAAe,EAAE,cAAc,EAAE,CAAC;IAClC,0BAA0B,EAAE,OAAO,CAAC;IACpC,0BAA0B,EAAE,OAAO,CAAC;IACpC,mBAAmB,EAAE,OAAO,CAAC;IAC7B,4BAA4B,EAAE,OAAO,CAAC;IAEtC,oBAAoB,CAAC,EAAE,MAAM,CAAC;IAC9B,WAAW,CAAC,EAAE,IAAI,CAAC;IACnB,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,UAAU,CAAC,EAAE,UAAU,CAAC;IACxB,aAAa,CAAC,EAAE,MAAM,CAAC;IACvB,sBAAsB,EAAE,OAAO,CAAC;IAChC,aAAa,EAAE,OAAO,CAAC;CACxB;AAWD,qBAAa,kBACX,SAAQ,YACR,YAAW,eAAe;IAQxB,OAAO,CAAC,SAAS;IACjB,OAAO,CAAC,QAAQ,CAAC,eAAe;IAChC,OAAO,CAAC,QAAQ,CAAC,aAAa;IAE9B,OAAO,CAAC,KAAK;IAGb,OAAO,CAAC,QAAQ,CAAC,mBAAmB;IAIpC,OAAO,CAAC,QAAQ,CAAC,wBAAwB;IACzC,OAAO,CAAC,QAAQ,CAAC,iBAAiB;IAClC,OAAO,CAAC,QAAQ,CAAC,uBAAuB;IACxC,OAAO,CAAC,QAAQ,CAAC,6BAA6B;IAC9C,OAAO,CAAC,QAAQ,CAAC,yBAAyB;IArB5C,OAAO,CAAC,kBAAkB,CAAK;IAG/B,OAAO,CAAC,qBAAqB,CAAC,CAAuB;IAErD,OAAO;WAqBa,MAAM,CACxB,MAAM,EAAE,4BAA4B,EACpC,YAAY,EAAE,YAAY,EAC1B,aAAa,CAAC,EAAE,wBAAwB,GACvC,OAAO,CAAC,kBAAkB,CAAC;IAsLjB,OAAO,CAAC,IAAI,EAAE,gBAAgB,GAAG,OAAO,CAAC,OAAO,CAAC;YAyJhD,qBAAqB;YAerB,MAAM;YA0EN,wBAAwB;YAexB,kBAAkB;IAIhC,OAAO,CAAC,iBAAiB;IASzB,OAAO,CAAC,4BAA4B;IAOpC,OAAO,CAAC,6BAA6B;CAWtC;AAQD,wBAAsB,4BAA4B,CAChD,4BAA4B,EAAE,4BAA4B,EAC1D,YAAY,EAAE,YAAY,EAC1B,SAAS,CAAC,EAAE,SAAS,GACpB,OAAO,CAAC,eAAe,CAAC,CAY1B"}
 \ No newline at end of file
 diff --git a/internal/hardhat-network/provider/provider.js b/internal/hardhat-network/provider/provider.js
-index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d8e51268d 100644
+index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..233092ac49e242d32f4df8590cacd32d292c0086 100644
 --- a/internal/hardhat-network/provider/provider.js
 +++ b/internal/hardhat-network/provider/provider.js
 @@ -64,15 +64,14 @@ async function getGlobalEdrContext() {
@@ -69,7 +69,7 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d
                  blockNumber: config.forkConfig.blockNumber !== undefined
                      ? BigInt(config.forkConfig.blockNumber)
                      : undefined,
-@@ -112,17 +117,22 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -112,59 +117,65 @@ class EdrProviderWrapper extends events_1.EventEmitter {
                  url: config.forkConfig.jsonRpcUrl,
              };
          }
@@ -99,14 +99,27 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d
          const precompileOverrides = config.enableRip7212
              ? (0, hardforks_1.hardforkGte)(hardforkName, hardforks_1.HardforkName.OSAKA)
                  ? [] // Osaka includes the P256 precompile natively
-@@ -133,25 +143,25 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+                 : [(0, edr_1.precompileP256Verify)()]
+             : [];
++        // Turn off the Osaka EIP-7825 per transaction gas limit for HH2
++        // when being run from `solidity-coverage`.
++        // We detect the magic number that `solidity-coverage` sets the block
++        // gas limit to, see https://github.com/sc-forks/solidity-coverage/blob/8e52fd7eae73803edf50c5af2faeeca8e5a57e27/lib/api.js#L55
++        // We turn it off the transaction gas limit by setting it
++        // to a large number (the same number `solidity-coverage` uses for
++        // setting gas).
++        const transactionGasCap = config.blockGasLimit === 0x1fffffffffffff
++            ? BigInt(0xfffffffffffff)
++            : undefined;
+         const edrProviderConfig = {
+             allowBlocksWithSameTimestamp: config.allowBlocksWithSameTimestamp ?? false,
              allowUnlimitedContractSize: config.allowUnlimitedContractSize,
              bailOnCallFailure: config.throwOnCallFailures,
              bailOnTransactionFailure: config.throwOnTransactionFailures,
 -            blockGasLimit: BigInt(config.blockGasLimit),
              chainId: BigInt(config.chainId),
              coinbase: Buffer.from(coinbase.slice(2), "hex"),
-+            defaultTransactionGasLimit: BigInt(config.blockGasLimit),
++            defaultTransactionGasLimit: _resolveDefaultTransactionGasLimit(hardforkName, config.blockGasLimit, transactionGasCap),
              precompileOverrides,
 -            fork,
              genesisState,
@@ -128,7 +141,21 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d
              networkId: BigInt(config.networkId),
              observability: {},
              ownedAccounts,
-@@ -184,7 +194,7 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+-            // Turn off the Osaka EIP-7825 per transaction gas limit for HH2
+-            // when being run from `solidity-coverage`.
+-            // We detect the magic number that `solidity-coverage` sets the block
+-            // gas limit to, see https://github.com/sc-forks/solidity-coverage/blob/8e52fd7eae73803edf50c5af2faeeca8e5a57e27/lib/api.js#L55
+-            // We turn it off the transaction gas limit by setting it
+-            // to a large number (the same number `solidity-coverage` uses for
+-            // setting gas).
+-            transactionGasCap: config.blockGasLimit === 0x1fffffffffffff
+-                ? BigInt(0xfffffffffffff)
+-                : undefined,
++            transactionGasCap,
+         };
+         const edrLoggerConfig = {
+             enable: loggerConfig.enabled,
+@@ -184,7 +195,7 @@ class EdrProviderWrapper extends events_1.EventEmitter {
          };
          const edrSubscriptionConfig = {
              subscriptionCallback: (event) => {
@@ -137,7 +164,7 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d
              },
          };
          const edrTracingConfig = tracingConfig ?? {};
-@@ -194,9 +204,10 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -194,9 +205,10 @@ class EdrProviderWrapper extends events_1.EventEmitter {
          const minimalEthereumJsNode = {
              _vm: (0, minimal_vm_1.getMinimalEthereumJsVm)(provider),
          };
@@ -151,7 +178,7 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d
          return wrapper;
      }
      async request(args) {
-@@ -231,60 +242,75 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -231,60 +243,75 @@ class EdrProviderWrapper extends events_1.EventEmitter {
          else {
              response = responseObject.data;
          }
@@ -273,7 +300,7 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d
                  if (response.error.code === errors_1.InvalidArgumentsError.CODE) {
                      error = new errors_1.InvalidArgumentsError(response.error.message);
                  }
-@@ -304,10 +330,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -304,10 +331,6 @@ class EdrProviderWrapper extends events_1.EventEmitter {
          if (args.method === "web3_clientVersion") {
              return clientVersion(response.result);
          }
@@ -284,7 +311,7 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d
          else {
              return response.result;
          }
-@@ -328,14 +350,16 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -328,14 +351,16 @@ class EdrProviderWrapper extends events_1.EventEmitter {
          const [genesisState, ownedAccounts] = _genesisStateAndOwnedAccounts(forkConfig !== undefined, this._providerConfig.hardfork, this._originalGenesisAccounts);
          this._providerConfig.genesisState = genesisState;
          this._providerConfig.ownedAccounts = ownedAccounts;
@@ -308,7 +335,7 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d
                  blockNumber: forkConfig.blockNumber !== undefined
                      ? BigInt(forkConfig.blockNumber)
                      : undefined,
-@@ -346,7 +370,16 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+@@ -346,7 +371,16 @@ class EdrProviderWrapper extends events_1.EventEmitter {
              };
          }
          else {
@@ -326,6 +353,22 @@ index 8f6a795176e0ccb5e78a96143be1dab4b8d78593..e64fdf0b1679599573290486b8f67b1d
          }
          const context = await getGlobalEdrContext();
          const provider = await context.createProvider(GENERIC_CHAIN_TYPE, this._providerConfig, this._loggerConfig, this._subscriptionConfig, this._provider.contractDecoder());
+@@ -429,6 +463,15 @@ function _addCompilationResultParams(params) {
+ function _resetParams(params) {
+     return (0, validation_1.validateParams)(params, hardhat_network_1.optionalRpcHardhatNetworkConfig);
+ }
++function _resolveDefaultTransactionGasLimit(hardfork, blockGasLimit, transactionGasCap) {
++    if (transactionGasCap !== undefined) {
++        return transactionGasCap;
++    }
++    if ((0, hardforks_1.hardforkGte)(hardfork, hardforks_1.HardforkName.OSAKA)) {
++        return BigInt(Math.min(constants_1.FUSAKA_TRANSACTION_GAS_LIMIT, blockGasLimit));
++    }
++    return BigInt(blockGasLimit);
++}
+ function _genesisStateAndOwnedAccounts(isForked, hardfork, genesisAccounts) {
+     const { l1GenesisState, l1HardforkFromString } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
+     const genesisState = isForked
 diff --git a/internal/hardhat-network/provider/provider.js.map b/internal/hardhat-network/provider/provider.js.map
 index c2bd27290c8ceab5d014a86bd50a891aa24ab07c..623ba6268d5cfaad3ebf463b73880be2e11a027b 100644
 --- a/internal/hardhat-network/provider/provider.js.map
@@ -538,10 +581,18 @@ index f83df9fdce13dcce820f520b556ec9dce9537ff8..b97968227b38b48845d60e4a93e8dd21
 +{"version":3,"file":"convertToEdr.js","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/convertToEdr.ts"],"names":[],"mappings":"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"}
 \ No newline at end of file
 diff --git a/src/internal/hardhat-network/provider/provider.ts b/src/internal/hardhat-network/provider/provider.ts
-index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afca0a8662f 100644
+index 7e4276a589668b96c16243f547c0a2caecdb0d46..2c66beed0ccf52984129eb104cc5d700fc7be3db 100644
 --- a/src/internal/hardhat-network/provider/provider.ts
 +++ b/src/internal/hardhat-network/provider/provider.ts
-@@ -67,7 +67,6 @@ import {
+@@ -30,6 +30,7 @@ import * as t from "io-ts";
+ 
+ import { requireNapiRsModule } from "../../../common/napi-rs";
+ import {
++  FUSAKA_TRANSACTION_GAS_LIMIT,
+   HARDHAT_NETWORK_RESET_EVENT,
+   HARDHAT_NETWORK_REVERT_SNAPSHOT_EVENT,
+ } from "../../constants";
+@@ -67,7 +68,6 @@ import {
    MempoolOrder,
  } from "./node-types";
  import {
@@ -549,7 +600,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
    edrTracingMessageResultToMinimalEVMResult,
    edrTracingMessageToMinimalMessage,
    edrTracingStepToMinimalInterpreterStep,
-@@ -130,8 +129,6 @@ interface HardhatNetworkProviderConfig {
+@@ -130,8 +130,6 @@ interface HardhatNetworkProviderConfig {
    enableRip7212: boolean;
  }
  
@@ -558,7 +609,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
  type CallOverrideCallback = (
    address: Buffer,
    data: Buffer
-@@ -157,11 +154,14 @@ export class EdrProviderWrapper
+@@ -157,11 +155,14 @@ export class EdrProviderWrapper
        _vm: MinimalEthereumJsVm;
      },
      private readonly _subscriptionConfig: SubscriptionConfig,
@@ -576,7 +627,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
    ) {
      super();
    }
-@@ -200,9 +200,15 @@ export class EdrProviderWrapper
+@@ -200,9 +201,15 @@ export class EdrProviderWrapper
  
      const cacheDir = config.forkCachePath;
  
@@ -594,7 +645,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
          blockNumber:
            config.forkConfig.blockNumber !== undefined
              ? BigInt(config.forkConfig.blockNumber)
-@@ -212,16 +218,18 @@ export class EdrProviderWrapper
+@@ -212,16 +219,18 @@ export class EdrProviderWrapper
          httpHeaders: httpHeadersToEdr(config.forkConfig.httpHeaders),
          url: config.forkConfig.jsonRpcUrl,
        };
@@ -621,7 +672,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
  
      const printLineFn = loggerConfig.printLineFn ?? printLine;
      const replaceLastLineFn = loggerConfig.replaceLastLineFn ?? replaceLastLine;
-@@ -230,7 +238,7 @@ export class EdrProviderWrapper
+@@ -230,7 +239,7 @@ export class EdrProviderWrapper
      const edrHardfork = ethereumsjsHardforkToEdrSpecId(hardforkName);
  
      const [genesisState, ownedAccounts] = _genesisStateAndOwnedAccounts(
@@ -630,14 +681,36 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
        edrHardfork,
        config.genesisAccounts
      );
-@@ -247,14 +255,12 @@ export class EdrProviderWrapper
+@@ -241,20 +250,34 @@ export class EdrProviderWrapper
+         : [precompileP256Verify()]
+       : [];
+ 
++    // Turn off the Osaka EIP-7825 per transaction gas limit for HH2
++    // when being run from `solidity-coverage`.
++    // We detect the magic number that `solidity-coverage` sets the block
++    // gas limit to, see https://github.com/sc-forks/solidity-coverage/blob/8e52fd7eae73803edf50c5af2faeeca8e5a57e27/lib/api.js#L55
++    // We turn it off the transaction gas limit by setting it
++    // to a large number (the same number `solidity-coverage` uses for
++    // setting gas).
++    const transactionGasCap =
++      config.blockGasLimit === 0x1fffffffffffff
++        ? BigInt(0xfffffffffffff)
++        : undefined;
++
+     const edrProviderConfig = {
+       allowBlocksWithSameTimestamp:
+         config.allowBlocksWithSameTimestamp ?? false,
        allowUnlimitedContractSize: config.allowUnlimitedContractSize,
        bailOnCallFailure: config.throwOnCallFailures,
        bailOnTransactionFailure: config.throwOnTransactionFailures,
 -      blockGasLimit: BigInt(config.blockGasLimit),
        chainId: BigInt(config.chainId),
        coinbase: Buffer.from(coinbase.slice(2), "hex"),
-+      defaultTransactionGasLimit: BigInt(config.blockGasLimit),
++      defaultTransactionGasLimit: _resolveDefaultTransactionGasLimit(
++        hardforkName,
++        config.blockGasLimit,
++        transactionGasCap
++      ),
        precompileOverrides,
 -      fork,
        genesisState,
@@ -646,7 +719,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
        initialBaseFeePerGas:
          config.initialBaseFeePerGas !== undefined
            ? BigInt(config.initialBaseFeePerGas!)
-@@ -262,11 +268,13 @@ export class EdrProviderWrapper
+@@ -262,25 +285,17 @@ export class EdrProviderWrapper
        minGasPrice: config.minGasPrice,
        mining: {
          autoMine: config.automine,
@@ -660,7 +733,22 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
        networkId: BigInt(config.networkId),
        observability: {},
        ownedAccounts,
-@@ -303,7 +311,7 @@ export class EdrProviderWrapper
+-      // Turn off the Osaka EIP-7825 per transaction gas limit for HH2
+-      // when being run from `solidity-coverage`.
+-      // We detect the magic number that `solidity-coverage` sets the block
+-      // gas limit to, see https://github.com/sc-forks/solidity-coverage/blob/8e52fd7eae73803edf50c5af2faeeca8e5a57e27/lib/api.js#L55
+-      // We turn it off the transaction gas limit by setting it
+-      // to a large number (the same number `solidity-coverage` uses for
+-      // setting gas).
+-      transactionGasCap:
+-        config.blockGasLimit === 0x1fffffffffffff
+-          ? BigInt(0xfffffffffffff)
+-          : undefined,
++      transactionGasCap,
+     };
+ 
+     const edrLoggerConfig = {
+@@ -303,7 +318,7 @@ export class EdrProviderWrapper
  
      const edrSubscriptionConfig = {
        subscriptionCallback: (event: SubscriptionEvent) => {
@@ -669,7 +757,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
        },
      };
  
-@@ -332,14 +340,14 @@ export class EdrProviderWrapper
+@@ -332,14 +347,14 @@ export class EdrProviderWrapper
        edrSubscriptionConfig,
        config.genesisAccounts,
        cacheDir,
@@ -690,7 +778,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
  
      return wrapper;
    }
-@@ -387,75 +395,88 @@ export class EdrProviderWrapper
+@@ -387,75 +402,88 @@ export class EdrProviderWrapper
        response = responseObject.data;
      }
  
@@ -838,7 +926,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
          if (response.error.code === InvalidArgumentsError.CODE) {
            error = new InvalidArgumentsError(response.error.message);
          } else {
-@@ -479,11 +500,6 @@ export class EdrProviderWrapper
+@@ -479,11 +507,6 @@ export class EdrProviderWrapper
      // e.g. `HardhatNetwork/2.19.0/@nomicfoundation/edr/0.2.0-dev`
      if (args.method === "web3_clientVersion") {
        return clientVersion(response.result);
@@ -850,7 +938,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
      } else {
        return response.result;
      }
-@@ -519,18 +535,19 @@ export class EdrProviderWrapper
+@@ -519,18 +542,19 @@ export class EdrProviderWrapper
      this._providerConfig.genesisState = genesisState;
      this._providerConfig.ownedAccounts = ownedAccounts;
  
@@ -879,7 +967,7 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
          blockNumber:
            forkConfig.blockNumber !== undefined
              ? BigInt(forkConfig.blockNumber)
-@@ -541,7 +558,18 @@ export class EdrProviderWrapper
+@@ -541,7 +565,18 @@ export class EdrProviderWrapper
          url: forkConfig.jsonRpcUrl,
        };
      } else {
@@ -899,6 +987,29 @@ index 7e4276a589668b96c16243f547c0a2caecdb0d46..68a7a2e343ad8170455f994743e22afc
      }
  
      const context = await getGlobalEdrContext();
+@@ -677,6 +712,22 @@ function _resetParams(params: any[]): [RpcHardhatNetworkConfig | undefined] {
+   return validateParams(params, optionalRpcHardhatNetworkConfig);
+ }
+ 
++function _resolveDefaultTransactionGasLimit(
++  hardfork: HardforkName,
++  blockGasLimit: number,
++  transactionGasCap: bigint | undefined
++): bigint {
++  if (transactionGasCap !== undefined) {
++    return transactionGasCap;
++  }
++
++  if (hardforkGte(hardfork, HardforkName.OSAKA)) {
++    return BigInt(Math.min(FUSAKA_TRANSACTION_GAS_LIMIT, blockGasLimit));
++  }
++
++  return BigInt(blockGasLimit);
++}
++
+ function _genesisStateAndOwnedAccounts(
+   isForked: boolean,
+   hardfork: string,
 diff --git a/src/internal/hardhat-network/provider/utils/convertToEdr.ts b/src/internal/hardhat-network/provider/utils/convertToEdr.ts
 index 7fc17b29c0483c4f72ec471f8be60ce7d563add8..6e29625e68e2b6d45f91042bd10fbbabfe70f518 100644
 --- a/src/internal/hardhat-network/provider/utils/convertToEdr.ts
