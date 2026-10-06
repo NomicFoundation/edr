@@ -20,6 +20,7 @@ edr_defaults.workspace = true
 edr_primitives.workspace = true
 edr_tracing.workspace = true
 foundry-compilers.workspace = true
+foundry-evm-core.workspace = true
 foundry-evm-traces.workspace = true
 addr2line = { version = "0.25", default-features = false, features = ["std", "fallible-iterator", "smallvec"] }
 gimli = { version = "0.32", default-features = false, features = ["read", "std", "endian-reader"] }
