@@ -1,7 +1,7 @@
 //! Types and utilities for tracing EVM execution with Solidity-specific
 //! decoding.
 
-use std::sync::Arc;
+use std::{hash::BuildHasher, sync::Arc};
 
 use edr_chain_spec_evm::{ContextTrait, Inspector};
 use edr_primitives::{Address, Bytes, HashMap, HashSet, U256};
@@ -11,6 +11,28 @@ use revm_inspectors::tracing::{CallTraceArena, TracingInspector};
 use revm_interpreter::CallOutcome;
 
 use crate::contract_decoder::ContractDecoder;
+
+/// Marks the calls to `precompile_addresses` in `arena`, so that
+/// [`CallTraceNode::is_precompile`] identifies them.
+///
+/// The [`TracingInspector`] only identifies precompile calls when it excludes
+/// them from the call trace. Like [`TracingInspector::is_precompile_call`],
+/// this treats neither the root call nor a call that transfers value as a
+/// precompile call.
+///
+/// [`CallTraceNode::is_precompile`]: revm_inspectors::tracing::types::CallTraceNode::is_precompile
+pub fn mark_precompile_calls<HasherT: BuildHasher>(
+    arena: &mut CallTraceArena,
+    precompile_addresses: &HashSet<Address, HasherT>,
+) {
+    for node in arena.nodes_mut() {
+        let is_precompile_call = node.parent.is_some()
+            && node.trace.value.is_zero()
+            && precompile_addresses.contains(&node.trace.address);
+
+        node.trace.maybe_precompile = Some(is_precompile_call);
+    }
+}
 
 /// A tracing inspector that uses a [`ContractDecoder`] to decode
 /// Solidity-specific information.
@@ -142,5 +164,81 @@ impl<ContextT: ContextTrait<Journal: JournalExt>> Inspector<ContextT> for Solidi
 
     fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {
         Inspector::<ContextT>::selfdestruct(&mut self.inspector, contract, target, value);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use edr_primitives::address;
+    use revm_inspectors::tracing::types::{CallTrace, CallTraceNode};
+
+    use super::*;
+
+    const PRECOMPILE: Address = address!("0x0000000000000000000000000000000000000004");
+    const CONTRACT: Address = address!("0x5FbDB2315678afecb367f032d93F642f64180aa3");
+    const ROOT_IDX: usize = 0;
+
+    /// Builds an arena whose root calls each of `child_calls`, given as
+    /// `(address, value)`.
+    fn arena_with_root_calls(
+        root_address: Address,
+        child_calls: &[(Address, U256)],
+    ) -> CallTraceArena {
+        let mut arena = CallTraceArena::default();
+        arena.nodes_mut()[ROOT_IDX].trace.address = root_address;
+
+        for &(address, value) in child_calls {
+            let idx = arena.nodes().len();
+            arena.nodes_mut()[ROOT_IDX].children.push(idx);
+            arena.nodes_mut().push(CallTraceNode {
+                parent: Some(ROOT_IDX),
+                idx,
+                trace: CallTrace {
+                    address,
+                    value,
+                    ..CallTrace::default()
+                },
+                ..CallTraceNode::default()
+            });
+        }
+
+        arena
+    }
+
+    fn precompile_addresses() -> HashSet<Address> {
+        HashSet::from_iter([PRECOMPILE])
+    }
+
+    fn precompile_flags(arena: &CallTraceArena) -> Vec<bool> {
+        arena
+            .nodes()
+            .iter()
+            .map(CallTraceNode::is_precompile)
+            .collect()
+    }
+
+    #[test]
+    fn mark_precompile_calls_marks_value_free_child_calls_to_precompiles() {
+        let mut arena = arena_with_root_calls(
+            CONTRACT,
+            &[
+                (PRECOMPILE, U256::ZERO),
+                (PRECOMPILE, U256::from(1)),
+                (CONTRACT, U256::ZERO),
+            ],
+        );
+
+        mark_precompile_calls(&mut arena, &precompile_addresses());
+
+        assert_eq!(precompile_flags(&arena), [false, true, false, false]);
+    }
+
+    #[test]
+    fn mark_precompile_calls_skips_root_call_to_precompile() {
+        let mut arena = arena_with_root_calls(PRECOMPILE, &[]);
+
+        mark_precompile_calls(&mut arena, &precompile_addresses());
+
+        assert_eq!(precompile_flags(&arena), [false]);
     }
 }

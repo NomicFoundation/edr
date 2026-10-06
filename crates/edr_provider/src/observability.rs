@@ -165,6 +165,8 @@ impl EvmObserver {
         } else {
             TracingInspectorConfig::default_parity()
                 .set_steps(true)
+                // Call traces include precompile calls, like Solidity test call traces.
+                .set_exclude_precompile_calls(false)
                 .set_record_logs(true)
         };
 
