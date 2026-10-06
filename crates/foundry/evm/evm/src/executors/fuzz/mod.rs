@@ -33,7 +33,10 @@ use proptest::{
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use revm::context::result::{HaltReason, HaltReasonTr};
 
-use crate::executors::{Executor, FuzzTestTimer};
+use crate::{
+    executors::{Executor, FuzzTestTimer},
+    inspectors::InspectorStack,
+};
 
 mod types;
 pub use types::{CaseOutcome, CounterExampleOutcome, FuzzOutcome};
@@ -375,18 +378,18 @@ impl<
         // Reseed `vm.random*` as in the run that produced the counterexample.
         // Counterexamples persisted before the run was recorded fall back to
         // the first run of the first worker under the configured seed.
-        let mut executor = self.executor.clone();
+        let mut inspector = self.executor.inspector().clone();
         let seed = failure.fuzz.seed.or(self.config.seed);
         let run = failure.fuzz.run.unwrap_or(1);
         let worker_id = failure.fuzz.worker.unwrap_or(WORKER_ID as u32);
-        if let Some(cheats) = executor.inspector_mut().cheatcodes.as_mut()
+        if let Some(cheats) = inspector.cheatcodes.as_mut()
             && let Some(seed) = seed
         {
             cheats.set_seed(fuzz_run_seed(seed, worker_id as usize, run));
         }
         let failure_run = Some(FuzzRunMetadata::new(seed, Some(run), Some(worker_id)));
 
-        match self.single_fuzz(&executor, address, failure.calldata.clone()) {
+        match self.single_fuzz(&inspector, address, failure.calldata.clone()) {
             Ok(FuzzOutcome::Case(_)) | Err(TestCaseError::Reject(_)) => None,
             Ok(FuzzOutcome::CounterExample(CounterExampleOutcome {
                 exit_reason: status,
@@ -438,7 +441,9 @@ impl<
             dictionary_weight => fuzz_calldata_from_state(func.clone(), &shared_state.state),
         ];
 
-        let mut executor = self.executor.clone();
+        // The executor, and with it the database, is shared between workers;
+        // every worker only needs its own inspector for its cheatcode RNG seed.
+        let mut inspector = self.executor.inspector().clone();
         let mut worker = WorkerState::new(worker_id);
         // We want to collect at least one trace which will be displayed to user.
         let max_traces_to_collect =
@@ -475,7 +480,7 @@ impl<
             // with every generated input, not only with every accepted run, so
             // that a run rejected by `vm.assume` based on `vm.random*` output is
             // not retried with the very same values.
-            if let Some(cheats) = executor.inspector_mut().cheatcodes.as_mut()
+            if let Some(cheats) = inspector.cheatcodes.as_mut()
                 && let Some(seed) = self.config.seed
             {
                 cheats.set_seed(fuzz_run_seed(seed, worker_id, generated_inputs + 1));
@@ -506,7 +511,7 @@ impl<
             };
 
             worker.last_run_timestamp = unix_timestamp_millis();
-            match self.single_fuzz(&executor, address, input) {
+            match self.single_fuzz(&inspector, address, input) {
                 Ok(fuzz_outcome) => match fuzz_outcome {
                     FuzzOutcome::Case(case) => {
                         let total_runs = inc_runs(&mut worker);
@@ -723,7 +728,7 @@ impl<
     #[allow(clippy::type_complexity)]
     fn single_fuzz(
         &self,
-        executor: &Executor<
+        inspector: &InspectorStack<
             BlockT,
             TxT,
             EvmBuilderT,
@@ -746,8 +751,15 @@ impl<
         >,
         TestCaseError,
     > {
-        let mut call = executor
-            .call_raw(self.sender, address, calldata.clone(), U256::ZERO)
+        let mut call = self
+            .executor
+            .call_raw_with_inspector(
+                inspector,
+                self.sender,
+                address,
+                calldata.clone(),
+                U256::ZERO,
+            )
             // Alternate formatting includes the error's chain: `to_string`
             // yields only the outermost layer — a bare "EVM error".
             .map_err(|e| TestCaseError::fail(format!("{e:#}")))?;
@@ -773,7 +785,7 @@ impl<
         {
             true
         } else {
-            executor.is_raw_call_mut_success(&mut call, false)
+            self.executor.is_raw_call_mut_success(&mut call, false)
         };
 
         if success {

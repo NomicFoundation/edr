@@ -682,6 +682,42 @@ impl<
         self.call_with_env(env)
     }
 
+    /// Performs a raw call to an account on the current state of the VM, with
+    /// a copy of `inspector` instead of a copy of this executor's own.
+    ///
+    /// Lets callers that need their own inspector state, such as fuzz workers
+    /// with their own cheatcode RNG seed, share the executor instead of
+    /// cloning it along with its database.
+    pub fn call_raw_with_inspector(
+        &self,
+        inspector: &InspectorStack<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+        from: Address,
+        to: Address,
+        calldata: Bytes,
+        value: U256,
+    ) -> eyre::Result<
+        RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
+        let env = self.build_test_env(from, TxKind::Call(to), calldata, value);
+        self.call_with_env_and_inspector(env, inspector.clone())
+    }
+
     /// Performs a raw call to an account on the current state of the VM.
     pub fn transact_raw(
         &mut self,
@@ -710,7 +746,7 @@ impl<
     #[instrument(name = "call", level = "debug", skip_all)]
     pub fn call_with_env(
         &self,
-        mut env: EvmEnv<BlockT, TxT, HardforkT>,
+        env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> eyre::Result<
         RawCallResult<
             BlockT,
@@ -722,7 +758,36 @@ impl<
             TransactionErrorT,
         >,
     > {
-        let mut inspector = self.inspector().clone();
+        self.call_with_env_and_inspector(env, self.inspector().clone())
+    }
+
+    /// Executes the transaction configured in `env.tx` with the given
+    /// inspector, which is consumed to build the result.
+    ///
+    /// The state after the call is **not** persisted.
+    fn call_with_env_and_inspector(
+        &self,
+        mut env: EvmEnv<BlockT, TxT, HardforkT>,
+        mut inspector: InspectorStack<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    ) -> eyre::Result<
+        RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         let mut backend = CowBackend::new_borrowed(self.backend());
         let result_and_state =
             backend.inspect(&mut env, self.chain_context.clone(), &mut inspector)?;
