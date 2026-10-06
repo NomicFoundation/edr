@@ -218,8 +218,8 @@ async fn test_persist_fuzz_failure() {
 }
 
 /// Overloaded fuzz tests persist their failures under `<name>-<selector>`
-/// instead of sharing one file, and a failure persisted under the bare name is
-/// still replayed by the overload it targets.
+/// instead of sharing one file, and a failure persisted under the bare name,
+/// as Forge did before v1.8.2, is still replayed by the overload it targets.
 /// <https://github.com/foundry-rs/foundry/pull/16307>
 #[tokio::test(flavor = "multi_thread")]
 async fn test_persist_fuzz_failure_overloaded_tests() {
@@ -268,8 +268,8 @@ async fn test_persist_fuzz_failure_overloaded_tests() {
     }
     assert!(!legacy_file.exists());
 
-    // A failure persisted under the bare name is replayed by the overload
-    // whose selector it carries.
+    // A failure persisted under the bare name by an older Forge is replayed by
+    // the overload whose selector it carries.
     let uint_selector = &alloy_primitives::keccak256(UINT_TEST)[..4];
     let legacy_calldata = Bytes::from(
         [

@@ -1575,8 +1575,8 @@ impl<
             .and_then(|(failure_dir, failure_file)| {
                 read_persisted_fuzz_failure(failure_file).or_else(|| {
                     // Fall back to a failure persisted under the bare function
-                    // name before the overload was qualified, if it targets
-                    // this overload.
+                    // name by Forge before v1.8.2 qualified overloads, if it
+                    // targets this overload.
                     if test_name == func.name {
                         return None;
                     }

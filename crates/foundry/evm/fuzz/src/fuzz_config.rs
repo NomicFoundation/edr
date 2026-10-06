@@ -70,12 +70,15 @@ impl FuzzConfig {
             .map(|failure_persist_dir| failure_persist_dir.join(&self.failure_persist_file))
     }
 
-    /// Returns the failure directory and failure file of the given fuzz test,
-    /// if failure persistence is enabled.
+    /// Returns the failure directory of the given contract and the failure file
+    /// of the given fuzz test in it, if failure persistence is enabled.
     ///
     /// Failures are persisted as
     /// `<failure_persist_dir>/<failure_persist_file>/<contract name>/<test
     /// name>`.
+    ///
+    /// `test_name` is the function name, or `<name>-<selector>` for an
+    /// overloaded function; see `fuzz_test_path_name` in `edr_solidity_tests`.
     pub fn failure_paths(
         &self,
         contract_name: &str,

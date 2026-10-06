@@ -120,12 +120,7 @@ struct SharedFuzzState {
     state: EvmFuzzState,
     /// Total runs across workers.
     total_runs: AtomicU32,
-    /// Found failure.
-    ///
-    /// The worker that found the failure sets its ID.
-    ///
-    /// This ID is then used to correctly extract the failure reason and
-    /// counterexample.
+    /// ID of the worker that found the failure, whose state is reported.
     failed_worker_id: OnceLock<usize>,
     /// Total rejects across workers.
     total_rejects: AtomicU32,
@@ -162,12 +157,7 @@ impl SharedFuzzState {
     /// Returns true if the worker was able to claim the failure, false if
     /// failure was set by another worker.
     fn try_claim_failure(&self, worker_id: usize) -> bool {
-        let mut claimed = false;
-        let _ = self.failed_worker_id.get_or_init(|| {
-            claimed = true;
-            worker_id
-        });
-        claimed
+        self.failed_worker_id.set(worker_id).is_ok()
     }
 }
 
@@ -273,11 +263,6 @@ impl<
     pub fn tracer_records_steps(&self) -> bool {
         self.executor.tracer_records_steps()
     }
-
-    /// The number of parallel workers the fuzz test is split between.
-    pub fn num_workers(&self) -> usize {
-        self.num_workers
-    }
 }
 
 impl<
@@ -337,6 +322,7 @@ impl<
             .into_par_iter()
             .map(|worker_id| {
                 let _tokio_guard = tokio_handle.enter();
+                // Attributes the worker's log output to it.
                 let _span_guard = info_span!("fuzz_worker", id = worker_id).entered();
                 self.run_worker(worker_id, func, fuzz_fixtures, address, rd, &shared_state)
             })
@@ -415,12 +401,14 @@ impl<
                 // HACK: we have to use an empty string here to denote `None`.
                 worker.failure = Some(TestCaseError::fail(reason.unwrap_or_default()));
                 worker.failure_run = failure_run;
-                shared_state.try_claim_failure(WORKER_ID);
+                let claimed = shared_state.try_claim_failure(WORKER_ID);
+                debug_assert!(claimed, "the replay runs before any worker");
                 Some(worker)
             }
             Err(err @ TestCaseError::Fail(_)) => {
                 worker.failure = Some(err);
-                shared_state.try_claim_failure(WORKER_ID);
+                let claimed = shared_state.try_claim_failure(WORKER_ID);
+                debug_assert!(claimed, "the replay runs before any worker");
                 Some(worker)
             }
         }
@@ -468,7 +456,7 @@ impl<
             .seed
             .map(|seed| fuzz_worker_seed(seed, worker_id));
         let mut runner = if let Some(worker_seed) = worker_seed {
-            trace!(target: "forge::test", ?worker_seed, "deterministic seed for worker {worker_id}");
+            trace!(?worker_seed, "deterministic seed for worker {worker_id}");
             let rng = TestRng::from_seed(RngAlgorithm::ChaCha, &worker_seed.to_be_bytes::<32>());
             TestRunner::new_with_rng(runner_config, rng)
         } else {

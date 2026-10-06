@@ -58,7 +58,8 @@ pub struct FuzzRunMetadata {
     /// inputs included.
     #[serde(default, rename = "fuzz_run", skip_serializing_if = "Option::is_none")]
     pub run: Option<u32>,
-    /// Worker that generated the input.
+    /// Worker that generated the input; each worker derives its own RNG seed
+    /// from `seed`.
     #[serde(
         default,
         rename = "fuzz_worker",
