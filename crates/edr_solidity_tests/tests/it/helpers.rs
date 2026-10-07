@@ -1042,6 +1042,12 @@ pub static TEST_DATA_DEFAULT: Lazy<L1ForgeTestData> = Lazy::new(|| {
         .expect("linking ok")
 });
 
+/// Default data run on the Amsterdam hardfork.
+pub static TEST_DATA_AMSTERDAM: Lazy<L1ForgeTestData> = Lazy::new(|| {
+    ForgeTestData::new(ForgeTestProfile::Default, edr_chain_l1::Hardfork::Amsterdam)
+        .expect("linking ok")
+});
+
 /// Data for tests requiring Paris support on Solc and EVM level.
 pub static TEST_DATA_PARIS: Lazy<L1ForgeTestData> = Lazy::new(|| {
     ForgeTestData::new(ForgeTestProfile::Paris, edr_chain_l1::Hardfork::Merge).expect("linking ok")

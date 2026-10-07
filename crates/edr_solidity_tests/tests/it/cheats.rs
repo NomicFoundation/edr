@@ -4,8 +4,8 @@ use edr_solidity_tests::result::{TestKind, TestStatus};
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 
 use crate::helpers::{
-    L1ForgeTestData, SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_DEFAULT,
-    TEST_DATA_MULTI_VERSION, TEST_DATA_PARIS,
+    L1ForgeTestData, SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_AMSTERDAM,
+    TEST_DATA_DEFAULT, TEST_DATA_MULTI_VERSION, TEST_DATA_PARIS,
 };
 
 /// Executes all cheat code tests but not fork cheat codes or tests that require
@@ -286,4 +286,20 @@ async fn test_assume_no_revert_with_data() {
         assert_eq!(test_result.reason, Some(reason.into()));
         assert!(test_result.counterexample.is_some());
     }
+}
+
+/// EIP-8037 state gas is only metered from Amsterdam, so this fixture runs on
+/// its own data set.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_cheats_eip8037_state_gas_amsterdam() {
+    let filter = SolidityTestFilter::new(
+        ".*",
+        "Eip8037StateGasTest",
+        &format!(".*cheats{RE_PATH_SEPARATOR}*"),
+    );
+    let runner = TEST_DATA_AMSTERDAM
+        .runner_with_fuzz_persistence(TEST_DATA_AMSTERDAM.config_with_mock_rpc())
+        .await;
+
+    TestConfig::with_filter(runner, filter).run().await;
 }
