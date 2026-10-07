@@ -409,6 +409,10 @@ impl<
                 Some(worker)
             }
             Err(err @ TestCaseError::Fail(_)) => {
+                // Keep the replayed input and its metadata, so that the
+                // persisted counterexample survives an executor error.
+                worker.counterexample.calldata = failure.calldata.clone();
+                worker.failure_run = failure_run;
                 worker.failure = Some(err);
                 let claimed = shared_state.try_claim_failure(WORKER_ID);
                 debug_assert!(claimed, "the replay runs before any worker");
@@ -511,7 +515,14 @@ impl<
             };
 
             worker.last_run_timestamp = unix_timestamp_millis();
-            match self.single_fuzz(&inspector, address, input) {
+            let failure_run = self.config.seed.map(|seed| {
+                FuzzRunMetadata::new(
+                    Some(seed),
+                    Some(generated_inputs),
+                    Some(u32::try_from(worker_id).expect("worker count fits in u32")),
+                )
+            });
+            match self.single_fuzz(&inspector, address, input.clone()) {
                 Ok(fuzz_outcome) => match fuzz_outcome {
                     FuzzOutcome::Case(case) => {
                         let total_runs = inc_runs(&mut worker);
@@ -547,19 +558,17 @@ impl<
                         worker.counterexample = outcome;
                         // HACK: we have to use an empty string here to denote `None`.
                         worker.failure = Some(TestCaseError::fail(reason.unwrap_or_default()));
-                        worker.failure_run = self.config.seed.map(|seed| {
-                            FuzzRunMetadata::new(
-                                Some(seed),
-                                Some(generated_inputs),
-                                Some(u32::try_from(worker_id).expect("worker count fits in u32")),
-                            )
-                        });
+                        worker.failure_run = failure_run;
                         shared_state.try_claim_failure(worker_id);
                         break 'stop;
                     }
                 },
                 Err(err) => match err {
                     TestCaseError::Fail(_) => {
+                        // Executor errors carry no call result; keep the input and
+                        // its metadata so that the failure can be reproduced.
+                        worker.counterexample.calldata = input;
+                        worker.failure_run = failure_run;
                         worker.failure = Some(err);
                         shared_state.try_claim_failure(worker_id);
                         break 'stop;
