@@ -240,10 +240,8 @@ describe("Provider", () => {
       assert.deepEqual(steps[3].stack, [1n, 2n, 3n]);
     });
 
-    async function pushThreeAndStopStacks(
-      provider: Provider
-    ): Promise<bigint[][]> {
-      const responseObject = await provider.handleRequest(
+    function sendPushThreeAndStop(provider: Provider): Promise<Response> {
+      return provider.handleRequest(
         JSON.stringify({
           id: 1,
           jsonrpc: "2.0",
@@ -261,6 +259,12 @@ describe("Provider", () => {
           ],
         })
       );
+    }
+
+    async function pushThreeAndStopStacks(
+      provider: Provider
+    ): Promise<bigint[][]> {
+      const responseObject = await sendPushThreeAndStop(provider);
 
       const rawTraces = responseObject.traces();
       assert.lengthOf(rawTraces, 1);
@@ -307,6 +311,23 @@ describe("Provider", () => {
 
       await provider.setVerboseTracing(false);
       assert.deepEqual(await pushThreeAndStopStacks(provider), TOP_OF_STACK);
+    });
+
+    it("should follow setIncludeCallTraces for subsequent requests", async function () {
+      const provider = await createGenericProvider(context, {
+        genesisState: fundedGenesisState(),
+        observability: {
+          recordStack: StackSnapshotType.Top,
+        },
+      });
+
+      assert.lengthOf((await sendPushThreeAndStop(provider)).traces(), 0);
+
+      await provider.setIncludeCallTraces(IncludeTraces.All);
+      assert.deepEqual(await pushThreeAndStopStacks(provider), TOP_OF_STACK);
+
+      await provider.setIncludeCallTraces(IncludeTraces.None);
+      assert.lengthOf((await sendPushThreeAndStop(provider)).traces(), 0);
     });
 
     it("should include the top of the stack across nested call frames", async function () {
