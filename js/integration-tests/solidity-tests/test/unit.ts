@@ -443,7 +443,7 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, suiteResults } =
       await testContext.runTestsWithStats("GasSnapshotTest", {}, L1_CHAIN_TYPE);
 
-    assert.equal(totalTests, 15);
+    assert.equal(totalTests, 16);
     assert.equal(failedTests, 3);
 
     let snapshots = new Map<string, Map<string, string>>();
@@ -511,7 +511,7 @@ describe("Unit tests", () => {
             ["i", "456"],
             ["o", "123"],
             ["q", "789"],
-            ["testSnapshotGasLastCallGroupName", "45084"],
+            ["testSnapshotGasLastFrameGroupName", "45084"],
             ["testSnapshotGasSection", "5857385"],
             ["testSnapshotGasSectionGroupName", "5857815"],
             ["x", "123"],
@@ -533,7 +533,8 @@ describe("Unit tests", () => {
             ["testAssertGasInternalC", "1010"],
             ["testAssertGasInternalD", "20911"],
             ["testAssertGasInternalE", "1011"],
-            ["testSnapshotGasLastCallName", "45084"],
+            ["testLastFrameGasAbi", "45084"],
+            ["testSnapshotGasLastFrameName", "45084"],
             ["testSnapshotGasSection", "5857385"],
             ["testSnapshotGasSectionName", "5857625"],
           ]),

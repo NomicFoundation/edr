@@ -497,32 +497,37 @@
     },
     {
       "name": "Gas",
-      "description": "Gas used. Returned by `lastCallGas`.",
+      "description": "Gas used. Returned by `lastCallGas` and `lastFrameGas`.",
       "fields": [
         {
           "name": "gasLimit",
           "ty": "uint64",
-          "description": "The gas limit of the call."
+          "description": "Regular gas available to the frame at entry. Excludes the EIP-8037 state gas reservoir."
         },
         {
           "name": "gasTotalUsed",
           "ty": "uint64",
-          "description": "The total gas used."
+          "description": "Regular gas spent by the frame, before refunds. Excludes EIP-8037 state gas; see `gasStateUsed`.\n With isolation, includes intrinsic gas and the regular-gas calldata floor."
         },
         {
           "name": "gasMemoryUsed",
           "ty": "uint64",
-          "description": "DEPRECATED: The amount of gas used for memory expansion. Ref: <https://github.com/foundry-rs/foundry/pull/7934#pullrequestreview-2069236939>"
+          "description": "DEPRECATED: always zero. Memory expansion costs are included in `gasTotalUsed`.\n Ref: <https://github.com/foundry-rs/foundry/pull/7934#pullrequestreview-2069236939>."
         },
         {
           "name": "gasRefunded",
           "ty": "int64",
-          "description": "The amount of gas refunded."
+          "description": "Ordinary refund counter before transaction settlement; finalized for an isolated transaction.\n Can be negative in nested frames. State gas refills are already netted into `gasStateUsed`."
         },
         {
           "name": "gasRemaining",
           "ty": "uint64",
-          "description": "The amount of gas remaining."
+          "description": "Regular gas left at frame end. Excludes the EIP-8037 state gas reservoir.\n State charges can draw from this allowance, so `gasLimit - gasRemaining` can include state gas."
+        },
+        {
+          "name": "gasStateUsed",
+          "ty": "int64",
+          "description": "Net EIP-8037 state gas: state creation charges minus refills, including nested execution.\n Zero without EIP-8037 or if the frame reverted or halted. Can be negative when the frame\n undoes state created earlier in the same transaction; use signed arithmetic with `gasTotalUsed`.\n Their sum measures net consumption, not the gas limit needed to execute."
         }
       ]
     },
@@ -6698,7 +6703,7 @@
     {
       "func": {
         "id": "lastCallGas",
-        "description": "Gets the gas used in the last call from the callee perspective.",
+        "description": "DEPRECATED: use `lastFrameGas` instead.\nGets gas measurements for the last completed call, from the callee's perspective.\nUnlike `lastFrameGas`, CREATE and CREATE2 frames are not recorded; calls made by a constructor are.\nSee `Gas` for field semantics.",
         "declaration": "function lastCallGas() external view returns (Gas memory gas);",
         "visibility": "external",
         "mutability": "view",
@@ -6709,6 +6714,28 @@
           88,
           155,
           40
+        ]
+      },
+      "group": "evm",
+      "status": {
+        "deprecated": "replaced by `lastFrameGas`"
+      },
+      "safety": "safe"
+    },
+    {
+      "func": {
+        "id": "lastFrameGas",
+        "description": "Gets gas measurements for the last completed call or create, from the callee's perspective.\nUnlike `lastCallGas`, CREATE and CREATE2 frames are recorded too. Cheatcode calls are never recorded.\nSee `Gas` for field semantics.",
+        "declaration": "function lastFrameGas() external view returns (Gas memory gas);",
+        "visibility": "external",
+        "mutability": "view",
+        "signature": "lastFrameGas()",
+        "selector": "0x995d5b03",
+        "selectorBytes": [
+          153,
+          93,
+          91,
+          3
         ]
       },
       "group": "evm",
@@ -10024,7 +10051,7 @@
     {
       "func": {
         "id": "snapshotGasLastCall_0",
-        "description": "Snapshot capture the gas usage of the last call by name from the callee perspective.",
+        "description": "DEPRECATED: use `snapshotGasLastFrame` instead.\nSnapshot capture the gas usage of the last call by name from the callee perspective.",
         "declaration": "function snapshotGasLastCall(string calldata name) external returns (uint256 gasUsed);",
         "visibility": "external",
         "mutability": "",
@@ -10038,13 +10065,15 @@
         ]
       },
       "group": "evm",
-      "status": "stable",
+      "status": {
+        "deprecated": "replaced by `snapshotGasLastFrame`"
+      },
       "safety": "unsafe"
     },
     {
       "func": {
         "id": "snapshotGasLastCall_1",
-        "description": "Snapshot capture the gas usage of the last call by name in a group from the callee perspective.",
+        "description": "DEPRECATED: use `snapshotGasLastFrame` instead.\nSnapshot capture the gas usage of the last call by name in a group from the callee perspective.",
         "declaration": "function snapshotGasLastCall(string calldata group, string calldata name) external returns (uint256 gasUsed);",
         "visibility": "external",
         "mutability": "",
@@ -10055,6 +10084,48 @@
           12,
           103,
           114
+        ]
+      },
+      "group": "evm",
+      "status": {
+        "deprecated": "replaced by `snapshotGasLastFrame`"
+      },
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "snapshotGasLastFrame_0",
+        "description": "Snapshot capture the gas usage of the last call or create by name from the callee perspective.",
+        "declaration": "function snapshotGasLastFrame(string calldata name) external returns (uint256 gasUsed);",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "snapshotGasLastFrame(string)",
+        "selector": "0xb95207cc",
+        "selectorBytes": [
+          185,
+          82,
+          7,
+          204
+        ]
+      },
+      "group": "evm",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "snapshotGasLastFrame_1",
+        "description": "Snapshot capture the gas usage of the last call or create by name in a group from the callee perspective.",
+        "declaration": "function snapshotGasLastFrame(string calldata group, string calldata name) external returns (uint256 gasUsed);",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "snapshotGasLastFrame(string,string)",
+        "selector": "0x04eedcdf",
+        "selectorBytes": [
+          4,
+          238,
+          220,
+          223
         ]
       },
       "group": "evm",

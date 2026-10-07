@@ -199,6 +199,9 @@ pub struct GasMetering {
     /// Cache of the amount of gas used in previous call.
     /// This is used by the `lastCallGas` cheatcode.
     pub last_call_gas: Option<crate::Vm::Gas>,
+    /// Cache of the amount of gas used in the previous call or create frame.
+    /// This is used by the `lastFrameGas` cheatcode.
+    pub last_frame_gas: Option<crate::Vm::Gas>,
 
     /// True if gas recording is enabled.
     pub recording: bool,
@@ -1577,6 +1580,10 @@ impl<
                             if expected_revert.actual_count < expected_revert.count {
                                 self.expected_revert = Some(expected_revert.clone());
                             }
+                            // A call swallowed by `expectRevert` leaves no meaningful last frame.
+                            if matches!(expected_revert.kind, ExpectedRevertKind::Default) {
+                                self.gas_metering.last_frame_gas = None;
+                            }
                             outcome.result.result = InstructionResult::Return;
                             outcome.result.output = retdata;
                         }
@@ -1599,16 +1606,11 @@ impl<
             return;
         }
 
-        // Record the gas usage of the call, this allows the `lastCallGas` cheatcode to
-        // retrieve the gas usage of the last call.
-        let gas = outcome.result.gas;
-        self.gas_metering.last_call_gas = Some(crate::Vm::Gas {
-            gasLimit: gas.limit(),
-            gasTotalUsed: gas.total_gas_spent(),
-            gasMemoryUsed: 0,
-            gasRefunded: gas.refunded(),
-            gasRemaining: gas.remaining(),
-        });
+        // Record the gas usage of the call, this allows the `lastCallGas` and
+        // `lastFrameGas` cheatcodes to retrieve the gas usage of the last call.
+        let frame_gas = frame_gas(&outcome.result);
+        self.gas_metering.last_call_gas = Some(frame_gas.clone());
+        self.gas_metering.last_frame_gas = Some(frame_gas);
 
         // If `startStateDiffRecording` has been called, update the `reverted` status of
         // the previous call depth's recorded accesses, if any
@@ -2015,12 +2017,17 @@ impl<
                     outcome.result.result = InstructionResult::Return;
                     outcome.result.output = retdata;
                     outcome.address = address;
+                    self.gas_metering.last_frame_gas = None;
                 }
                 Err(err) => {
                     outcome.result.result = InstructionResult::Revert;
                     outcome.result.output = Error::encode(err);
                 }
             };
+        }
+
+        if curr_depth > 0 {
+            self.gas_metering.last_frame_gas = Some(frame_gas(&outcome.result));
         }
 
         // If `startStateDiffRecording` has been called, update the `reverted` status of
@@ -2945,4 +2952,66 @@ fn find_upstream_cheatcode_signature(selector: alloy_primitives::FixedBytes<4>) 
         }
     }
     None
+}
+
+/// Builds the `Vm.Gas` report for a finished call or create frame.
+const fn frame_gas(result: &InterpreterResult) -> crate::Vm::Gas {
+    let gas = &result.gas;
+    // TODO(revm 42): subtract `gas.state_gas_spilled()` from `total_gas_spent()`
+    // unless `result.is_halt()`, so that `gasTotalUsed` excludes state gas that
+    // spilled into the regular counter under EIP-8037.
+    crate::Vm::Gas {
+        gasLimit: gas.limit(),
+        gasTotalUsed: gas.total_gas_spent(),
+        gasMemoryUsed: 0,
+        gasRefunded: gas.refunded(),
+        gasRemaining: gas.remaining(),
+        gasStateUsed: if result.is_ok() {
+            gas.state_gas_spent()
+        } else {
+            0
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frame_gas_reports_settled_components() {
+        // TODO(revm 42): once `frame_gas` subtracts `state_gas_spilled()`, the
+        // no-reservoir case reports `gasTotalUsed == 1_000` as well.
+        for (mut gas, expected_total_used) in [
+            (Gas::new(100_000), 21_000),
+            (
+                Gas::new_with_regular_gas_and_reservoir(100_000, 50_000),
+                1_000,
+            ),
+        ] {
+            assert!(gas.record_regular_cost(1_000));
+            assert!(gas.record_state_cost(20_000));
+
+            let mut result = InterpreterResult::new(InstructionResult::Stop, Bytes::new(), gas);
+            let reported = frame_gas(&result);
+            assert_eq!(reported.gasTotalUsed, expected_total_used);
+            assert_eq!(reported.gasStateUsed, 20_000);
+
+            result.result = InstructionResult::Revert;
+            assert_eq!(frame_gas(&result).gasStateUsed, 0);
+        }
+
+        let mut gas = Gas::new(100_000);
+        gas.refill_reservoir(20_000);
+        let result = InterpreterResult::new(InstructionResult::Stop, Bytes::new(), gas);
+        assert_eq!(frame_gas(&result).gasStateUsed, -20_000);
+
+        let mut gas = Gas::new(100_000);
+        assert!(gas.record_state_cost(20_000));
+        gas.spend_all();
+        let result = InterpreterResult::new(InstructionResult::OutOfGas, Bytes::new(), gas);
+        let reported = frame_gas(&result);
+        assert_eq!(reported.gasTotalUsed, 100_000);
+        assert_eq!(reported.gasStateUsed, 0);
+    }
 }
