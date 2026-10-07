@@ -422,8 +422,8 @@ importers:
         specifier: ^22.0.0
         version: 22.20.4
       forge-std:
-        specifier: github:foundry-rs/forge-std#v1.14.0
-        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6
+        specifier: github:foundry-rs/forge-std#v1.17.0
+        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/f3dae6e6ee381f25eb6a246f7da9b85c91a68219
       hardhat:
         specifier: 3.18.0
         version: 3.18.0(patch_hash=a06714727fa15e18d65840ee713f8400cd01daa9e4837354fe7ad532bdda2b68)
@@ -2498,10 +2498,6 @@ packages:
   foreground-child@3.3.1:
     resolution: {integrity: sha512-gIXjKqtFuWEgzFRJA9WCQeSJLZDjgJUOMCMzxtvFq/37KojM1BFGufqsCy0r4qSQmYLsZYMeyRqzIWOMup03sw==}
     engines: {node: '>=14'}
-
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6:
-    resolution: {gitHosted: true, integrity: sha512-+IFIpknZX7lJ5sa24bCqwSxXuejcpIygxyr+m0F3h1flJsz7COHxwdOEzfLQQciKNyC8o/TPUf9G9Vq1qynVzA==, tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6}
-    version: 1.14.0
 
   forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/f3dae6e6ee381f25eb6a246f7da9b85c91a68219:
     resolution: {gitHosted: true, integrity: sha512-kWTY+yO15MFwX8d4b4KhXEv7rJzNRRGToLJUoSvjYeDpv1Pq20Kd2HKhi3mtR6ABH9OvAt9MQN9l0rfyCfG/bQ==, tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/f3dae6e6ee381f25eb6a246f7da9b85c91a68219}
@@ -6093,8 +6089,6 @@ snapshots:
     dependencies:
       cross-spawn: 7.0.6
       signal-exit: 4.1.0
-
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6: {}
 
   forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/f3dae6e6ee381f25eb6a246f7da9b85c91a68219: {}
 
