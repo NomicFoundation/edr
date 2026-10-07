@@ -34,10 +34,10 @@ const LOG_TOPIC: B256 = B256::new({
 });
 
 // https://github.com/NomicFoundation/edr/issues/1542
-async fn transaction_call_trace_includes_logs(verbose_raw_tracing: bool) -> anyhow::Result<()> {
+#[tokio::test(flavor = "multi_thread")]
+async fn transaction_call_trace_includes_logs() -> anyhow::Result<()> {
     let mut config = create_test_config();
     config.observability.include_call_traces = IncludeTraces::All;
-    config.observability.verbose_raw_tracing = verbose_raw_tracing;
 
     let from = public_key_to_address(
         config
@@ -91,14 +91,4 @@ async fn transaction_call_trace_includes_logs(verbose_raw_tracing: bool) -> anyh
     );
 
     Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn transaction_call_trace_includes_logs_default_tracing() -> anyhow::Result<()> {
-    transaction_call_trace_includes_logs(false).await
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn transaction_call_trace_includes_logs_verbose_raw_tracing() -> anyhow::Result<()> {
-    transaction_call_trace_includes_logs(true).await
 }
