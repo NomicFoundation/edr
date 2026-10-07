@@ -340,6 +340,10 @@ impl StateProof for PersistentStateTrie {
 #[cfg(test)]
 mod tests {
     use edr_primitives::Bytes;
+    use edr_state_api::{
+        account::{Account, AccountStatus},
+        EvmStorageSlot, TransactionId,
+    };
 
     use super::*;
 
@@ -395,6 +399,65 @@ mod tests {
 
         assert_eq!(state1.basic(address1)?.unwrap().nonce, 0);
         assert_eq!(state2.basic(address1)?.unwrap().nonce, 200);
+
+        Ok(())
+    }
+
+    /// The account revm returns at Amsterdam for a contract that
+    /// self-destructed in the transaction that created it (EIP-8246):
+    /// balance kept, nonce reset, code cleared and written slots zeroed in
+    /// place.
+    fn selfdestructed_in_creation(balance: U256) -> Account {
+        let mut account = Account::from(AccountInfo {
+            balance,
+            nonce: 0,
+            code_hash: KECCAK_EMPTY,
+            code: Some(Bytecode::default()),
+            ..AccountInfo::default()
+        });
+        account.status = AccountStatus::Created | AccountStatus::Touched;
+        account.storage.insert(
+            U256::from(1),
+            EvmStorageSlot::new(U256::ZERO, TransactionId::ZERO),
+        );
+
+        account
+    }
+
+    #[test]
+    fn commit_keeps_balance_of_account_selfdestructed_in_creation() -> anyhow::Result<()> {
+        let mut state = PersistentStateTrie::default();
+        let address = Address::random();
+        let balance = U256::from(1000);
+
+        state.commit(EvmState::from_iter([(
+            address,
+            selfdestructed_in_creation(balance),
+        )]));
+
+        let account = state.basic(address)?.expect("account should be kept");
+        assert_eq!(account.balance, balance);
+        assert_eq!(account.nonce, 0);
+        assert_eq!(account.code_hash, KECCAK_EMPTY);
+        assert_eq!(state.storage(address, U256::from(1))?, U256::ZERO);
+        assert_eq!(state.account_storage_root(&address)?, Some(KECCAK_NULL_RLP));
+
+        Ok(())
+    }
+
+    #[test]
+    fn commit_removes_account_selfdestructed_in_creation_with_zero_balance() -> anyhow::Result<()> {
+        let mut state = PersistentStateTrie::default();
+        let address = Address::random();
+
+        // Zero-balance accounts keep the self-destruct flag (EIP-161 deletion).
+        let mut account = selfdestructed_in_creation(U256::ZERO);
+        account.status |= AccountStatus::SelfDestructed;
+
+        state.commit(EvmState::from_iter([(address, account)]));
+
+        assert_eq!(state.basic(address)?, None);
+        assert!(state.is_empty());
 
         Ok(())
     }
