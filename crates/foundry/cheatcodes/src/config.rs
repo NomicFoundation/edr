@@ -546,15 +546,6 @@ fn create_default_chains() -> HashMap<String, ChainData> {
     );
 
     chains.insert(
-        "holesky".to_string(),
-        ChainData {
-            name: "Holesky".to_string(),
-            chain_id: 17000,
-            default_rpc_url: "https://rpc.holesky.ethpandaops.io".to_string(),
-        },
-    );
-
-    chains.insert(
         "optimism".to_string(),
         ChainData {
             name: "Optimism".to_string(),
