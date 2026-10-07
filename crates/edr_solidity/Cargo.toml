@@ -54,9 +54,12 @@ harness = false
 name = "dwarf_decode"
 harness = false
 
+# Needs valgrind and gungraun-runner, so `--all-targets` must skip it; run it
+# with `--bench solx_build_info`.
 [[bench]]
 name = "solx_build_info"
 harness = false
+bench = false
 
 [lints]
 workspace = true
