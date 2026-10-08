@@ -225,11 +225,10 @@ foundry-compilers = { version = "0.18.0", default-features = false, features = [
 
 ## revm
 # No op-revm release supports revm 42 (op-revm 20.0.0 on crates.io pins revm
-# ^38), so a shallow mirror of the ethereum-optimism monorepo is used instead.
-# The mirrored commit (bf4fc514f, `develop` 2026-09-25) pins revm 42.0.1 (tag
-# v115) and includes the deposit gas-cap fix (#22993) that op-reth v2.5.0-rc.2
-# lacks.
-op-revm = { git = "https://github.com/NomicFoundation/op-revm", rev = "08ea9bc76ae93801e9f88a0248de73627082bc38", default-features = false, features = [
+# ^38), so a shallow mirror of the ethereum-optimism monorepo commit matching
+# the op-reth v2.6.0 release (workspace pins revm 42.0.1, the revm version at
+# tag v115) is used instead. See the mirror's PROVENANCE.md.
+op-revm = { git = "https://github.com/NomicFoundation/op-revm", tag = "op-reth-v2.6.0-da6d325", default-features = false, features = [
     "c-kzg",
     "dev",
     "serde",

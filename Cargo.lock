@@ -6355,7 +6355,7 @@ dependencies = [
 [[package]]
 name = "op-revm"
 version = "20.0.0"
-source = "git+https://github.com/NomicFoundation/op-revm?rev=08ea9bc76ae93801e9f88a0248de73627082bc38#08ea9bc76ae93801e9f88a0248de73627082bc38"
+source = "git+https://github.com/NomicFoundation/op-revm?tag=op-reth-v2.6.0-da6d325#adafe7b88e1514b829cf07de5f1191e6d22867da"
 dependencies = [
  "alloy-eips",
  "auto_impl",
