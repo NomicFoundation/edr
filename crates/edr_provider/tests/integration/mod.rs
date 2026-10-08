@@ -2,6 +2,7 @@ mod block_timestamp_in_logs;
 mod call_traces;
 mod calldata_floor;
 mod coverage;
+mod default_transaction_gas_limit;
 mod disable_balance_check;
 mod disable_block_gas_limit;
 mod eip2537;

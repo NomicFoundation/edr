@@ -251,6 +251,45 @@ pub type ExecutionResultAndObservedData<'provider, HaltReasonT> = (
     &'provider EvmObservedData,
 );
 
+/// Returns the protocol's transaction gas bounds for `hardfork`, with the
+/// configured transaction gas cap applied.
+fn transaction_gas_bounds_for_hardfork<HardforkT: Into<EvmSpecId>>(
+    transaction_gas_cap: &ConfigOption<u64>,
+    hardfork: HardforkT,
+) -> TransactionGasBounds {
+    match transaction_gas_cap {
+        ConfigOption::Default => TransactionGasBounds::for_hardfork(hardfork),
+        ConfigOption::Custom(transaction_gas_cap) => {
+            TransactionGasBounds::custom(hardfork, *transaction_gas_cap)
+        }
+        ConfigOption::Disable => TransactionGasBounds::disabled(hardfork),
+    }
+}
+
+/// Returns the gas limit of a request without a `gas` value, for a block with
+/// the given hardfork and gas limit.
+///
+/// This is the block's bound on a transaction's gas limit with the configured
+/// transaction gas cap applied. The block gas limit and the bounds the
+/// provider enforces cap it further.
+fn default_transaction_gas_limit_for_block<HardforkT: Into<EvmSpecId>>(
+    transaction_gas_cap: &ConfigOption<u64>,
+    enforced_bounds: &TransactionGasBounds,
+    hardfork: HardforkT,
+    block_gas_limit: u64,
+) -> u64 {
+    let evm_spec_id = hardfork.into();
+    let block_bounds = transaction_gas_bounds_for_hardfork(transaction_gas_cap, evm_spec_id);
+
+    [
+        block_bounds.gas_limit_bound(evm_spec_id),
+        enforced_bounds.gas_limit_bound(evm_spec_id),
+    ]
+    .into_iter()
+    .flatten()
+    .fold(block_gas_limit, u64::min)
+}
+
 pub struct ProviderData<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch = CurrentTime,
@@ -262,9 +301,10 @@ pub struct ProviderData<
     bail_on_transaction_failure: bool,
     beneficiary: Address,
     transaction_gas_bounds: TransactionGasBounds,
+    transaction_gas_cap: ConfigOption<u64>,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     block_config: BlockConfig<ChainSpecT::ProtocolHardfork>,
-    default_transaction_gas_limit: NonZeroU64,
+    default_transaction_gas_limit: Option<NonZeroU64>,
     gas_estimation_mode: GasEstimationMode,
     is_auto_mining: bool,
     interval_config: Option<IntervalConfig>,
@@ -360,11 +400,6 @@ where
             .next()
             .copied()
             .unwrap_or(Address::ZERO)
-    }
-
-    /// Returns the default transaction gas limit.
-    pub fn default_transaction_gas_limit(&self) -> u64 {
-        self.default_transaction_gas_limit.get()
     }
 
     /// Returns the metadata of the forked blockchain, if it exists.
@@ -772,13 +807,8 @@ where
             transaction_gas_cap,
         } = config;
 
-        let transaction_gas_bounds = match transaction_gas_cap {
-            ConfigOption::Default => TransactionGasBounds::for_hardfork(blockchain.hardfork()),
-            ConfigOption::Custom(transaction_gas_cap) => {
-                TransactionGasBounds::custom(blockchain.hardfork(), transaction_gas_cap)
-            }
-            ConfigOption::Disable => TransactionGasBounds::disabled(blockchain.hardfork()),
-        };
+        let transaction_gas_bounds =
+            transaction_gas_bounds_for_hardfork(&transaction_gas_cap, blockchain.hardfork());
 
         let local_accounts = owned_accounts
             .iter()
@@ -810,6 +840,7 @@ where
             base_fee_params,
             beneficiary,
             transaction_gas_bounds,
+            transaction_gas_cap,
             blockchain,
             block_config,
             default_transaction_gas_limit,
@@ -902,6 +933,41 @@ where
             Filter::new_log_filter(criteria, logs, IS_SUBSCRIPTION),
         );
         Ok(filter_id)
+    }
+
+    /// Returns the gas limit of a request without a `gas` value, executing in
+    /// the block at `block_spec`.
+    ///
+    /// The configured default takes precedence. Otherwise, the limit is
+    /// derived from the block's hardfork and gas limit. Before Amsterdam, a
+    /// configured transaction gas cap also bounds the derived limit. The
+    /// pending block uses the local hardfork and the gas limit it would be
+    /// mined with.
+    pub fn default_transaction_gas_limit(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
+        if let Some(default_transaction_gas_limit) = self.default_transaction_gas_limit {
+            return Ok(default_transaction_gas_limit.get());
+        }
+
+        let hardfork = self.hardfork_at_block_spec(block_spec)?;
+        let block_gas_limit = if let Some(block) = self.block_by_block_spec(block_spec)? {
+            block.block_header().gas_limit
+        } else {
+            match self.mem_pool.block_gas_limit() {
+                Some(block_gas_limit) => block_gas_limit.get(),
+                // The miner falls back to the parent's gas limit.
+                None => self.blockchain.last_block()?.block_header().gas_limit,
+            }
+        };
+
+        Ok(default_transaction_gas_limit_for_block(
+            &self.transaction_gas_cap,
+            &self.transaction_gas_bounds,
+            hardfork,
+            block_gas_limit,
+        ))
     }
 
     /// Fetch a block by block spec.
@@ -4249,6 +4315,128 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn default_transaction_gas_limit_for_block_bounds() {
+        /// Above every hardfork's transaction gas bound.
+        const LARGE_BLOCK_GAS_LIMIT: u64 = 1 << 40;
+        /// Below every hardfork's transaction gas bound.
+        const SMALL_BLOCK_GAS_LIMIT: u64 = 1_000_000;
+        /// Below the Osaka cap and above `SMALL_BLOCK_GAS_LIMIT`.
+        const CUSTOM_CAP: u64 = 5_000_000;
+
+        let osaka_cap = edr_eip7825::OSAKA_TRANSACTION_GAS_CAP;
+        let amsterdam_cap = edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT;
+
+        for (provider_hardfork, block_hardfork, transaction_gas_cap, block_gas_limit, expected) in [
+            (
+                EvmSpecId::PRAGUE,
+                EvmSpecId::PRAGUE,
+                ConfigOption::Default,
+                LARGE_BLOCK_GAS_LIMIT,
+                LARGE_BLOCK_GAS_LIMIT,
+            ),
+            (
+                EvmSpecId::OSAKA,
+                EvmSpecId::OSAKA,
+                ConfigOption::Default,
+                LARGE_BLOCK_GAS_LIMIT,
+                osaka_cap,
+            ),
+            (
+                EvmSpecId::OSAKA,
+                EvmSpecId::OSAKA,
+                ConfigOption::Default,
+                SMALL_BLOCK_GAS_LIMIT,
+                SMALL_BLOCK_GAS_LIMIT,
+            ),
+            (
+                EvmSpecId::OSAKA,
+                EvmSpecId::OSAKA,
+                ConfigOption::Custom(CUSTOM_CAP),
+                LARGE_BLOCK_GAS_LIMIT,
+                CUSTOM_CAP,
+            ),
+            (
+                EvmSpecId::OSAKA,
+                EvmSpecId::OSAKA,
+                ConfigOption::Disable,
+                LARGE_BLOCK_GAS_LIMIT,
+                LARGE_BLOCK_GAS_LIMIT,
+            ),
+            (
+                EvmSpecId::OSAKA,
+                EvmSpecId::PRAGUE,
+                ConfigOption::Default,
+                LARGE_BLOCK_GAS_LIMIT,
+                osaka_cap,
+            ),
+            (
+                EvmSpecId::PRAGUE,
+                EvmSpecId::OSAKA,
+                ConfigOption::Default,
+                LARGE_BLOCK_GAS_LIMIT,
+                osaka_cap,
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Default,
+                LARGE_BLOCK_GAS_LIMIT,
+                amsterdam_cap,
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Default,
+                SMALL_BLOCK_GAS_LIMIT,
+                SMALL_BLOCK_GAS_LIMIT,
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Custom(CUSTOM_CAP),
+                LARGE_BLOCK_GAS_LIMIT,
+                amsterdam_cap,
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Disable,
+                LARGE_BLOCK_GAS_LIMIT,
+                amsterdam_cap,
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                EvmSpecId::PRAGUE,
+                ConfigOption::Default,
+                LARGE_BLOCK_GAS_LIMIT,
+                osaka_cap,
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                EvmSpecId::OSAKA,
+                ConfigOption::Custom(CUSTOM_CAP),
+                LARGE_BLOCK_GAS_LIMIT,
+                CUSTOM_CAP,
+            ),
+        ] {
+            let enforced_bounds =
+                transaction_gas_bounds_for_hardfork(&transaction_gas_cap, provider_hardfork);
+
+            assert_eq!(
+                default_transaction_gas_limit_for_block(
+                    &transaction_gas_cap,
+                    &enforced_bounds,
+                    block_hardfork,
+                    block_gas_limit,
+                ),
+                expected,
+                "provider hardfork {provider_hardfork:?}, block hardfork {block_hardfork:?}, \
+                 cap {transaction_gas_cap:?}, block gas limit {block_gas_limit}"
+            );
+        }
+    }
+
     #[cfg(feature = "test-remote")]
     mod alchemy {
         use edr_chain_l1::L1ChainSpec;
@@ -4325,7 +4513,9 @@ mod tests {
 
             let config = ProviderConfig {
                 // SAFETY: literal is non-zero
-                default_transaction_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
+                default_transaction_gas_limit: Some(unsafe {
+                    NonZeroU64::new_unchecked(1_000_000)
+                }),
                 chain_id: 1,
                 coinbase: Address::ZERO,
                 hardfork: edr_chain_l1::Hardfork::London,

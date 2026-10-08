@@ -75,6 +75,22 @@ impl TransactionGasBounds {
         Self::with_execution_gas(hardfork, None)
     }
 
+    /// Returns the bound these bounds impose on the gas limit of a transaction
+    /// executed under `hardfork`.
+    ///
+    /// Before Amsterdam `tx.gas` is a single quantity, so the execution gas
+    /// bound applies to it as well.
+    pub fn gas_limit_bound<HardforkT: Into<EvmSpecId>>(&self, hardfork: HardforkT) -> Option<u64> {
+        if hardfork.into() >= EvmSpecId::AMSTERDAM {
+            self.total_transaction_gas
+        } else {
+            [self.execution_gas, self.total_transaction_gas]
+                .into_iter()
+                .flatten()
+                .min()
+        }
+    }
+
     fn with_execution_gas(hardfork: impl Into<EvmSpecId>, execution_gas: Option<u64>) -> Self {
         let evm_spec_id = hardfork.into();
         if evm_spec_id >= EvmSpecId::AMSTERDAM {
@@ -154,6 +170,24 @@ mod tests {
                 execution_gas: None,
                 total_transaction_gas: None,
             }
+        );
+    }
+
+    #[test]
+    fn execution_gas_bounds_gas_limit_before_amsterdam() {
+        let amsterdam_bounds = TransactionGasBounds::for_hardfork(EvmSpecId::AMSTERDAM);
+
+        assert_eq!(
+            amsterdam_bounds.gas_limit_bound(EvmSpecId::PRAGUE),
+            Some(OSAKA_TRANSACTION_GAS_CAP)
+        );
+        assert_eq!(
+            amsterdam_bounds.gas_limit_bound(EvmSpecId::AMSTERDAM),
+            Some(TX_MAX_TOTAL_GAS_LIMIT)
+        );
+        assert_eq!(
+            TransactionGasBounds::disabled(EvmSpecId::OSAKA).gas_limit_bound(EvmSpecId::OSAKA),
+            None
         );
     }
 
