@@ -1,7 +1,21 @@
 use revm::{
     context::{CfgEnv, JournalInner, JournalTr},
+    primitives::hardfork::SpecId,
     Context, Database, Journal, JournalEntry,
 };
+
+/// Sets the hardfork of `cfg` with its mainnet gas params and EIP-8037 flag.
+///
+/// revm's setter only ever enables EIP-8037, but an inline `evm_version`
+/// override can lower the hardfork below Amsterdam for a single test, so the
+/// flag is set explicitly.
+pub fn set_cfg_spec_id<HardforkT: Into<SpecId> + Clone>(
+    cfg: &mut CfgEnv<HardforkT>,
+    spec_id: HardforkT,
+) {
+    cfg.set_spec_and_mainnet_gas_params(spec_id.clone());
+    cfg.enable_amsterdam_eip8037 = spec_id.into().is_enabled_in(SpecId::AMSTERDAM);
+}
 
 /// Helper container type for `block`, `cfg`, and `tx`.
 #[derive(Clone, Debug)]
@@ -34,10 +48,11 @@ where
     TxT: Default,
 {
     pub fn default_with_spec_id(spec_id: HardforkT) -> Self {
-        let mut cfg = CfgEnv::default();
-        cfg.spec = spec_id;
-
-        Self::new(cfg, BlockT::default(), TxT::default())
+        Self::new(
+            CfgEnv::new_with_spec(spec_id),
+            BlockT::default(),
+            TxT::default(),
+        )
     }
 
     pub fn new(cfg: CfgEnv<HardforkT>, block: BlockT, tx: TxT) -> Self {
@@ -51,7 +66,7 @@ where
         spec_id: HardforkT,
     ) -> Self {
         let mut cfg = cfg;
-        cfg.spec = spec_id;
+        set_cfg_spec_id(&mut cfg, spec_id);
 
         Self::new(cfg, block, tx)
     }

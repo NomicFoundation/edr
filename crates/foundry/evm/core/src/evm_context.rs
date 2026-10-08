@@ -775,10 +775,11 @@ impl<BlockT, TxT, HardforkT, ChainContextT>
 // `EvmEnvWithChainContext` implementation with mainnet types.
 impl EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()> {
     pub fn default_mainnet_with_spec_id(spec_id: SpecId) -> Self {
-        let mut cfg = CfgEnv::<SpecId>::default();
-        cfg.spec = spec_id;
-
-        Self::from_mainnet(cfg, BlockEnv::default(), TxEnv::default())
+        Self::from_mainnet(
+            CfgEnv::new_with_spec(spec_id),
+            BlockEnv::default(),
+            TxEnv::default(),
+        )
     }
 
     pub fn from_mainnet(cfg: CfgEnv<SpecId>, block: BlockEnv, tx: TxEnv) -> Self {
