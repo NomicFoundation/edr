@@ -1,7 +1,7 @@
 //! Instruction counts for loading solx build info: model construction plus
 //! DWARF decode of every bytecode section, as `extract_solx_contract_metadata`
 //! does when EDR loads a build info. CI gates on these counts (see
-//! `.github/workflows/dwarf-decode-benchmark.yml`); `dwarf_decode` is the
+//! `.github/workflows/solx-build-info-benchmark.yml`); `dwarf_decode` is the
 //! wall-time counterpart for local runs.
 //!
 //! Needs valgrind and a `gungraun-runner` matching the `gungraun`

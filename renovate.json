@@ -200,7 +200,7 @@
       "minimumReleaseAge": "0 days"
     },
     {
-      "description": "gungraun + gungraun-runner: the runner refuses to start unless its version matches the library's, so the dev-dependency in edr_solidity and the runner pinned in dwarf-decode-benchmark.yml must move in one PR. Placed after the pre-1.0 ungrouping rule so it wins.",
+      "description": "gungraun + gungraun-runner: the runner refuses to start unless its version matches the library's, so the dev-dependency in edr_solidity and the runner pinned in solx-build-info-benchmark.yml must move in one PR. Placed after the pre-1.0 ungrouping rule so it wins.",
       "matchPackageNames": ["gungraun", "gungraun-runner"],
       "groupName": "gungraun"
     },

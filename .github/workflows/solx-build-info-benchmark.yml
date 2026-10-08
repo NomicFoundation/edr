@@ -1,4 +1,4 @@
-name: DWARF decode benchmark
+name: solx build-info benchmark
 
 # Counts the instructions of loading solx build info
 # (crates/edr_solidity/benches/solx_build_info.rs) at the PR's merge commit and
@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  dwarf-decode-benchmark:
+  solx-build-info-benchmark:
     name: Count instructions for solx build-info load
     runs-on: ubuntu-24.04
     timeout-minutes: 30

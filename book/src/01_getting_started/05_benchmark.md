@@ -20,7 +20,7 @@ cargo bench -p edr_solidity --bench solx_build_info
 
 To compare two revisions, run with `-- --save-baseline=base` on the first and `-- --baseline=base` on the second. Inside a container that forbids `setarch`, add `--allow-aslr`.
 
-In CI, `.github/workflows/dwarf-decode-benchmark.yml` does exactly that on every pull request: it benchmarks the merge commit's first parent and then the merge commit in the same job, and fails when the instruction count grows by more than 2%. The check is not required; if your PR makes decode slower on purpose, say so in the PR and merge over it.
+In CI, `.github/workflows/solx-build-info-benchmark.yml` does exactly that on every pull request: it benchmarks the merge commit's first parent and then the merge commit in the same job, and fails when the instruction count grows by more than 2%. The check is not required; if your PR makes decode slower on purpose, say so in the PR and merge over it.
 
 ### `dwarf_decode`
 
