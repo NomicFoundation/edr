@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
+use edr_eip8037::TransactionGasBounds;
 use edr_primitives::{Address, B256, U256};
 use edr_solidity::config::IncludeTraces;
 use foundry_evm::{
@@ -13,7 +14,7 @@ use foundry_evm::{
 use crate::{
     fork::CreateFork,
     inline_config::{ImportResolver, InlineConfigErrors, InlineConfigProfiles},
-    opts::{effective_transaction_gas_cap, Env as EvmEnv, EvmOpts},
+    opts::{Env as EvmEnv, EvmOpts},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -131,11 +132,10 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
     /// The default evm options for the Solidity test runner.
     pub fn default_evm_opts() -> EvmOpts<HardforkT> {
         let spec = HardforkT::default();
-        // Solidity tests want as much gas as possible, but a transaction whose
-        // gas limit exceeds the EIP-7825 cap (active by default from Osaka on)
-        // is rejected. Lower the default gas limit to the effective cap when
-        // one applies; otherwise use the maximum.
-        let gas_limit = effective_transaction_gas_cap(spec, None, false)
+        // Solidity tests want as much gas as possible, so the default gas limit
+        // is the most a transaction may carry on the hardfork, or the maximum.
+        let gas_limit = TransactionGasBounds::for_hardfork(spec)
+            .total_transaction_gas
             .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT);
 
         EvmOpts {

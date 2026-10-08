@@ -5,6 +5,7 @@ mod tracing;
 
 pub use config::{assert_multiple, TestConfig};
 use edr_decoder_revert::RevertDecoder;
+use edr_eip8037::TransactionGasBounds;
 use parking_lot::RwLock;
 mod integration_test_config;
 mod solidity_error_code;
@@ -54,7 +55,7 @@ use foundry_evm::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
     inspectors::cheatcodes::CheatsConfigOptions,
-    opts::{effective_transaction_gas_cap, Env, EvmOpts},
+    opts::{Env, EvmOpts},
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -147,11 +148,11 @@ impl ForgeTestProfile {
     fn evm_opts<HardforkT: HardforkTr>(hardfork: HardforkT) -> EvmOpts<HardforkT> {
         EvmOpts {
             env: Env {
-                // Solidity tests want as much gas as possible, but a transaction whose
-                // gas limit exceeds the EIP-7825 cap (active by default from Osaka on)
-                // is rejected. Lower the default gas limit to the effective cap when
-                // one applies; otherwise use the maximum.
-                gas_limit: effective_transaction_gas_cap(hardfork, None, false)
+                // Solidity tests want as much gas as possible, so the default gas
+                // limit is the most a transaction may carry on the hardfork, or the
+                // maximum.
+                gas_limit: TransactionGasBounds::for_hardfork(hardfork)
+                    .total_transaction_gas
                     .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT),
                 chain_id: None,
                 tx_origin: CALLER,
