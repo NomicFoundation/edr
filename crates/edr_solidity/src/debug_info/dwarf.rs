@@ -299,21 +299,24 @@ struct AbstractOriginMeta {
 }
 
 /// Sweep over the `low_pc`-sorted inlined ranges yielding, for monotonically
-/// increasing PCs, the ranges containing each PC. Replaces a full scan per
-/// PC, which scaled with blob size and dominated decode time.
+/// increasing PCs, the ranges containing each PC.
 struct RangeSweep<'a> {
     /// Must be sorted by `low_pc`, as `ParsedDwarf::from_elf_bytes` produces.
     ranges: &'a [InlinedRange],
     /// Index of the first range not yet moved into `active`.
     next: usize,
-    /// Entered but not yet expired ranges, in `low_pc` order so the stable
-    /// depth sort ties break the same way the previous filter scan did.
+    /// Entered but not yet expired ranges, in `low_pc` order, so depth ties
+    /// keep input order.
     active: Vec<InlinedRange>,
     prev_pc: u64,
 }
 
 impl<'a> RangeSweep<'a> {
     fn new(ranges: &'a [InlinedRange]) -> Self {
+        debug_assert!(
+            ranges.is_sorted_by_key(|r| r.low_pc),
+            "RangeSweep requires ranges sorted by low_pc"
+        );
         Self {
             ranges,
             next: 0,
@@ -345,10 +348,7 @@ impl<'a> RangeSweep<'a> {
     }
 }
 
-/// Memo caches for one `decode_instructions` call. Thousands of PCs resolve
-/// to few distinct keys, so caching turns per-PC linear scans over
-/// size-dependent tables (AST spans, source names, a file's functions) into
-/// hash hits. Keys are only meaningful within one `SolxBuildModel`.
+/// Per-decode memos; thousands of PCs resolve to few distinct keys.
 #[derive(Default)]
 struct DecodeCaches {
     /// `file_id` → byte offset of each line start.
@@ -397,20 +397,19 @@ impl DecodeCaches {
         decl_line: u32,
         dwarf_name: &str,
     ) -> Option<Arc<ContractFunction>> {
-        if let Some(cached) = self.functions_by_decl_line.get(&(file_id, decl_line)) {
-            return cached.clone();
-        }
-        let func = if let Some(file) = build_model.source_model_by_file_id(file_id) {
-            file.read().get_function_by_decl_line(decl_line).cloned()
-        } else {
-            log::debug!(
-                "DWARF decoder: no source file for file_id {file_id} (dwarf_name={dwarf_name})"
-            );
-            None
-        };
         self.functions_by_decl_line
-            .insert((file_id, decl_line), func.clone());
-        func
+            .entry((file_id, decl_line))
+            .or_insert_with(|| {
+                if let Some(file) = build_model.source_model_by_file_id(file_id) {
+                    file.read().get_function_by_decl_line(decl_line).cloned()
+                } else {
+                    log::debug!(
+                        "DWARF decoder: no source file for file_id {file_id} (dwarf_name={dwarf_name})"
+                    );
+                    None
+                }
+            })
+            .clone()
     }
 
     fn containing_function(
@@ -420,21 +419,20 @@ impl DecodeCaches {
         offset: u32,
         row_file: &str,
     ) -> Option<Arc<ContractFunction>> {
-        if let Some(cached) = self.containing_functions.get(&(file_id, offset)) {
-            return cached.clone();
-        }
-        let func = if let Some(source_file) = build_model.source_model_by_file_id(file_id) {
-            let probe = SourceLocation::new(source_file, offset, 0);
-            probe.get_containing_function().ok().flatten()
-        } else {
-            log::debug!(
-                "DWARF decoder: no source file for file_id {file_id} (row.file={row_file})"
-            );
-            None
-        };
         self.containing_functions
-            .insert((file_id, offset), func.clone());
-        func
+            .entry((file_id, offset))
+            .or_insert_with(|| {
+                if let Some(source_file) = build_model.source_model_by_file_id(file_id) {
+                    let probe = SourceLocation::new(source_file, offset, 0);
+                    probe.get_containing_function().ok().flatten()
+                } else {
+                    log::debug!(
+                        "DWARF decoder: no source file for file_id {file_id} (row.file={row_file})"
+                    );
+                    None
+                }
+            })
+            .clone()
     }
 }
 
@@ -1817,10 +1815,6 @@ mod tests {
     mod edge_cases {
         use super::*;
 
-        /// G1 — innermost-first by DIE depth, not range width.
-        /// A parent's `DW_AT_ranges` union can be wider than a child's
-        /// contiguous range; width-based sorting would invert or tie
-        /// the chain.
         fn r(depth: u32, low_pc: u64, high_pc: u64) -> InlinedRange {
             InlinedRange {
                 low_pc,
@@ -1864,6 +1858,10 @@ mod tests {
             }
         }
 
+        /// G1 — innermost-first by DIE depth, not range width.
+        /// A parent's `DW_AT_ranges` union can be wider than a child's
+        /// contiguous range; width-based sorting would invert or tie
+        /// the chain.
         #[test]
         fn range_sweep_orders_by_die_depth_not_width() {
             // Two ranges with **identical** PC span [10, 50). Width-based
