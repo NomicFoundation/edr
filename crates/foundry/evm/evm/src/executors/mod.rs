@@ -226,7 +226,7 @@ impl<
 
     /// Sets the EVM spec ID.
     pub fn set_spec_id(&mut self, spec_id: HardforkT) {
-        self.env.cfg.spec = spec_id;
+        foundry_evm_core::set_cfg_spec_id(&mut self.env.cfg, spec_id);
     }
 
     /// Returns the gas limit for calls and deployments.
@@ -929,8 +929,7 @@ impl<
         data: Bytes,
         value: U256,
     ) -> EvmEnv<BlockT, TxT, HardforkT> {
-        let mut cfg = self.env.cfg.clone();
-        cfg.spec = self.spec_id();
+        let cfg = self.env.cfg.clone();
 
         let mut block = self.env.block.clone();
         // We always set the gas price to 0 so we can execute the transaction regardless

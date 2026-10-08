@@ -507,7 +507,7 @@
         {
           "name": "gasTotalUsed",
           "ty": "uint64",
-          "description": "Regular gas spent by the frame, before refunds. Excludes EIP-8037 state gas; see `gasStateUsed`.\n With isolation, the receipt's gas used instead: net of refunds, including intrinsic gas and the\n calldata floor."
+          "description": "Regular gas spent by the frame, before refunds. Excludes EIP-8037 state gas paid from the\n reservoir; see `gasStateUsed`.\n With isolation, the receipt's gas used instead: net of refunds, including intrinsic gas and the\n calldata floor."
         },
         {
           "name": "gasMemoryUsed",
@@ -527,7 +527,7 @@
         {
           "name": "gasStateUsed",
           "ty": "int64",
-          "description": "Net EIP-8037 state gas: state creation charges minus refills, including nested execution.\n Always zero for now, including on Amsterdam: EIP-8037 state gas is not supported yet. Once it is:\n zero if the frame reverted or halted; can be negative when the frame undoes state created earlier\n in the same transaction, so use signed arithmetic with `gasTotalUsed`.\n Their sum measures net consumption, not the gas limit needed to execute."
+          "description": "Net EIP-8037 state gas: state creation charges minus refills, including nested execution.\n Zero before Amsterdam or if the frame reverted or halted. Can be negative when the frame undoes\n state created earlier in the same transaction, so use signed arithmetic with `gasTotalUsed`.\n Their sum measures net consumption, not the gas limit needed to execute. State gas that spills\n past the reservoir into regular gas is currently counted in both fields, so the sum overstates\n it by the spilled amount."
         }
       ]
     },
