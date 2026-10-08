@@ -3,9 +3,13 @@ use std::{
     sync::Arc,
 };
 
-use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, TxKind, U256};
+use alloy_primitives::{
+    map::{AddressHashMap, AddressSet},
+    Address, Bytes, Log, TxKind, U256,
+};
 use derive_where::derive_where;
 use edr_coverage::CodeCoverageReporter;
+use edr_solidity::tracing::mark_precompile_calls;
 use eyre::eyre;
 use foundry_cheatcodes::CheatcodesExecutor;
 use foundry_evm_core::{
@@ -331,6 +335,9 @@ pub struct InspectorStackInner<ChainContextT> {
     pub in_inner_context: bool,
     pub inner_context_data: Option<InnerContextData>,
     pub top_frame_journal: EvmState,
+    /// The precompiles of the last top-level frame, which identify the
+    /// precompile calls in the collected call trace arena.
+    pub precompile_addresses: AddressSet,
     /// Address that reverted the call, if any.
     pub reverter: Option<Address>,
     pub chain_context: ChainContextT,
@@ -553,13 +560,16 @@ impl<
                     log_collector,
                     tracer,
                     reverter,
+                    precompile_addresses,
                     ..
                 },
         } = self;
 
         let call_trace_arena = tracer
             .map(foundry_evm_traces::TracingInspector::into_traces)
-            .map(|arena| {
+            .map(|mut arena| {
+                mark_precompile_calls(&mut arena, &precompile_addresses);
+
                 let ignored = cheatcodes
                     .as_mut()
                     .map(|cheatcodes| {
@@ -1050,6 +1060,11 @@ impl<
             ChainContextT,
         >,
     ) {
+        if self.tracer.is_some() {
+            self.precompile_addresses
+                .clone_from(ecx.journal_ref().precompile_addresses());
+        }
+
         if self.enable_isolation {
             // If we're in isolation mode, we need to keep track of the state at the
             // beginning of the frame to be able to roll back on revert
