@@ -4,11 +4,12 @@ use revm::{
     Context, Database, Journal, JournalEntry,
 };
 
-/// Sets the hardfork of `cfg` with its mainnet gas params and EIP-8037 flag.
+/// Sets the hardfork of `cfg` with its mainnet gas params and Amsterdam
+/// feature flags.
 ///
-/// revm's setter only ever enables EIP-8037, but an inline `evm_version`
-/// override can lower the hardfork below Amsterdam for a single test, so the
-/// flag is set explicitly.
+/// revm's setter only ever enables the Amsterdam flags, but an inline
+/// `evm_version` override can lower the hardfork below Amsterdam for a single
+/// test, so they are set explicitly.
 pub fn set_cfg_spec_id<HardforkT: Into<SpecId> + Clone>(
     cfg: &mut CfgEnv<HardforkT>,
     spec_id: HardforkT,
