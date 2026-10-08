@@ -41,9 +41,13 @@ pub struct ScenarioProviderConfig {
     pub chain_id: ChainId,
     pub chain_overrides: HashMap<ChainId, ChainOverride<String>>,
     pub coinbase: Address,
-    /// The default transaction gas limit to use for RPC call and transaction
-    /// requests that do not specify a `gas` value.
-    pub default_transaction_gas_limit: NonZeroU64,
+    /// The gas limit of RPC call and transaction requests that do not specify
+    /// a `gas` value.
+    ///
+    /// When not set, it is derived from the hardfork and gas limit of the
+    /// request's block. Before Amsterdam, the transaction gas cap also
+    /// bounds it.
+    pub default_transaction_gas_limit: Option<NonZeroU64>,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
     #[serde(with = "alloy_serde::quantity::opt")]

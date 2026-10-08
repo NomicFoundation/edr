@@ -102,6 +102,33 @@ export async function getGasPrice(provider: Provider): Promise<bigint> {
   return BigInt(response);
 }
 
+const GAS_REPORTER_ADDRESS = "0x1000000000000000000000000000000000000001";
+// Returns the gas left after executing `GAS` as a 32-byte word.
+const GAS_REPORTER_CODE = "0x5a60005260206000f3";
+const TX_BASE_COST = 21_000n;
+const GAS_OPCODE_COST = 2n;
+// The gas left that `GAS` reports excludes its own cost.
+const GAS_SPENT_BEFORE_REPORT = TX_BASE_COST + GAS_OPCODE_COST;
+
+/** Returns the gas limit of an `eth_call` without `gas` at the latest block. */
+export async function callGasLimitWithoutGas(
+  provider: Provider
+): Promise<bigint> {
+  await handleRequest(provider, "hardhat_setCode", [
+    GAS_REPORTER_ADDRESS,
+    GAS_REPORTER_CODE,
+  ]);
+  const gasLeft = await handleRequest(provider, "eth_call", [
+    { to: GAS_REPORTER_ADDRESS },
+    "latest",
+  ]);
+  if (gasLeft === undefined) {
+    throw new Error("The call to the gas reporter failed");
+  }
+
+  return BigInt(gasLeft) + GAS_SPENT_BEFORE_REPORT;
+}
+
 async function handleRequest(
   provider: Provider,
   method: string,

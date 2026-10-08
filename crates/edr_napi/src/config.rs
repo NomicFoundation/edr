@@ -292,9 +292,20 @@ pub struct ProviderConfig<'env> {
     pub chain_id: BigInt,
     /// The address of the coinbase
     pub coinbase: Uint8Array,
-    /// The default transaction gas limit to use for RPC call and transaction
-    /// requests that do not specify a `gas` value.
-    pub default_transaction_gas_limit: BigInt,
+    /// The gas limit of RPC call and transaction requests that do not specify
+    /// a `gas` value.
+    ///
+    /// When not set, it is derived from the hardfork of the request's block.
+    /// It is `2^32 - 1` from Amsterdam ([EIP-8037]), `2^24` from Osaka
+    /// ([EIP-7825]), and the block gas limit before. The block gas limit caps
+    /// each of these. Before Amsterdam, a configured `transactionGasCap` also
+    /// bounds the derived value. The transaction gas cap that EDR enforces for
+    /// its configured hardfork bounds it for earlier blocks too. For example,
+    /// an Osaka provider gives `2^24` for a call at a Prague block.
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    /// [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    pub default_transaction_gas_limit: Option<BigInt>,
     /// The gas estimation mode to use for `eth_estimateGas`. Defaults to
     /// `GasEstimationMode::TopLevelSuccess` if not set.
     pub gas_estimation_mode: Option<GasEstimationMode>,
@@ -729,16 +740,19 @@ impl ProviderConfig<'_> {
             base_fee_params,
             chain_id: self.chain_id.try_cast()?,
             coinbase: self.coinbase.try_cast()?,
-            default_transaction_gas_limit: self.default_transaction_gas_limit.try_cast().and_then(
-                |default_transaction_gas_limit| {
-                    NonZeroU64::new(default_transaction_gas_limit).ok_or_else(|| {
-                        napi::Error::new(
-                            napi::Status::GenericFailure,
-                            "Default transaction gas limit must not be zero",
-                        )
+            default_transaction_gas_limit: self
+                .default_transaction_gas_limit
+                .map(|limit| {
+                    limit.try_cast().and_then(|limit: u64| {
+                        NonZeroU64::new(limit).ok_or_else(|| {
+                            napi::Error::new(
+                                napi::Status::GenericFailure,
+                                "Default transaction gas limit must not be zero",
+                            )
+                        })
                     })
-                },
-            )?,
+                })
+                .transpose()?,
             gas_estimation_mode: self.gas_estimation_mode.map(Into::into),
             genesis_state,
             hardfork: self.hardfork,
