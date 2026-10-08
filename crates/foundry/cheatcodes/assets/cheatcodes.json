@@ -527,7 +527,7 @@
         {
           "name": "gasStateUsed",
           "ty": "int64",
-          "description": "Net EIP-8037 state gas: state creation charges minus refills, including nested execution.\n Zero before Amsterdam or if the frame reverted or halted. Can be negative when the frame undoes\n state created earlier in the same transaction, so use signed arithmetic with `gasTotalUsed`.\n Their sum measures net consumption, not the gas limit needed to execute."
+          "description": "Net EIP-8037 state gas: state creation charges minus refills, including nested execution.\n Zero before Amsterdam or if the frame reverted or halted. Can be negative when the frame undoes\n state created earlier in the same transaction, so use signed arithmetic with `gasTotalUsed`.\n Their sum measures net consumption, not the gas limit needed to execute. State gas that spills\n past the reservoir into regular gas is currently counted in both fields, so the sum overstates\n it by the spilled amount."
         }
       ]
     },

@@ -134,7 +134,9 @@ interface Vm {
         /// Net EIP-8037 state gas: state creation charges minus refills, including nested execution.
         /// Zero before Amsterdam or if the frame reverted or halted. Can be negative when the frame undoes
         /// state created earlier in the same transaction, so use signed arithmetic with `gasTotalUsed`.
-        /// Their sum measures net consumption, not the gas limit needed to execute.
+        /// Their sum measures net consumption, not the gas limit needed to execute. State gas that spills
+        /// past the reservoir into regular gas is currently counted in both fields, so the sum overstates
+        /// it by the spilled amount.
         int64 gasStateUsed;
     }
 
