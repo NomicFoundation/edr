@@ -146,12 +146,13 @@ impl ForgeTestProfile {
     }
 
     fn evm_opts<HardforkT: HardforkTr>(hardfork: HardforkT) -> EvmOpts<HardforkT> {
+        let transaction_gas_bounds = TransactionGasBounds::for_hardfork(hardfork);
         EvmOpts {
             env: Env {
                 // Solidity tests want as much gas as possible, so the default gas
                 // limit is the most a transaction may carry on the hardfork, or the
                 // maximum.
-                gas_limit: TransactionGasBounds::for_hardfork(hardfork)
+                gas_limit: transaction_gas_bounds
                     .total_transaction_gas
                     .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT),
                 chain_id: None,
@@ -165,10 +166,7 @@ impl ForgeTestProfile {
             ffi: true,
             memory_limit: 1 << 26,
             spec: hardfork,
-            // Set to `None` so revm applies the hardfork-default cap for the
-            // test's `hardfork` rather than the default spec's cap inherited from
-            // `EvmOpts::default()`.
-            transaction_gas_cap: None,
+            transaction_execution_gas_bound: transaction_gas_bounds.execution_gas,
             ..EvmOpts::default()
         }
     }

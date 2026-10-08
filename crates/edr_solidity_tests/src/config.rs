@@ -132,9 +132,10 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
     /// The default evm options for the Solidity test runner.
     pub fn default_evm_opts() -> EvmOpts<HardforkT> {
         let spec = HardforkT::default();
+        let transaction_gas_bounds = TransactionGasBounds::for_hardfork(spec);
         // Solidity tests want as much gas as possible, so the default gas limit
         // is the most a transaction may carry on the hardfork, or the maximum.
-        let gas_limit = TransactionGasBounds::for_hardfork(spec)
+        let gas_limit = transaction_gas_bounds
             .total_transaction_gas
             .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT);
 
@@ -166,8 +167,7 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
             memory_limit: 1 << 25, // 2**25 = 32MiB
             isolate: false,
             disable_block_gas_limit: false,
-            transaction_gas_cap: None,
-            disable_transaction_gas_cap: false,
+            transaction_execution_gas_bound: transaction_gas_bounds.execution_gas,
             fork_headers: None,
         }
     }

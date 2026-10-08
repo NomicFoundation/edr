@@ -285,17 +285,14 @@ impl TestRunnerConfig {
             evm_opts.disable_block_gas_limit = disable_block_gas_limit;
         }
 
-        if let Some(disable_transaction_gas_cap) = disable_transaction_gas_cap {
-            evm_opts.disable_transaction_gas_cap = disable_transaction_gas_cap;
-        }
-
-        let transaction_gas_bounds = if evm_opts.disable_transaction_gas_cap {
+        let transaction_gas_bounds = if disable_transaction_gas_cap.unwrap_or(false) {
             TransactionGasBounds::disabled(evm_opts.spec)
         } else if let Some(transaction_gas_cap) = transaction_gas_cap {
             TransactionGasBounds::custom(evm_opts.spec, transaction_gas_cap)
         } else {
             TransactionGasBounds::for_hardfork(evm_opts.spec)
         };
+        evm_opts.transaction_execution_gas_bound = transaction_gas_bounds.execution_gas;
         let block_gas_limit = block_gas_limit.filter(|_| !evm_opts.disable_block_gas_limit);
 
         // The default gas limit is the most gas a transaction may carry: the
@@ -367,8 +364,6 @@ impl TestRunnerConfig {
         if let Some(memory_limit) = memory_limit {
             evm_opts.memory_limit = memory_limit;
         }
-
-        evm_opts.transaction_gas_cap = transaction_gas_cap;
 
         let local_predeploys = local_predeploys.unwrap_or_default();
 
@@ -634,6 +629,46 @@ mod tests {
             solidity_config.evm_opts.env.gas_limit,
             edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT,
             "On Amsterdam `tx.gas` is bounded by the total limit regardless of the transaction gas cap option"
+        );
+    }
+
+    #[test]
+    fn test_amsterdam_custom_transaction_gas_cap_bounds_execution_gas() {
+        const TRANSACTION_GAS_CAP: u64 = 1_000_000;
+        let config = TestRunnerConfig {
+            hardfork: edr_chain_l1::Hardfork::Amsterdam.to_string(),
+            transaction_gas_cap: Some(TRANSACTION_GAS_CAP),
+            disable_transaction_gas_cap: Some(false),
+            ..default_config()
+        };
+
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.transaction_execution_gas_bound,
+            Some(TRANSACTION_GAS_CAP),
+            "A custom transaction gas cap should bound execution gas"
+        );
+    }
+
+    #[test]
+    fn test_disabled_transaction_gas_cap_lifts_execution_gas_bound() {
+        let config = TestRunnerConfig {
+            hardfork: edr_chain_l1::Hardfork::Amsterdam.to_string(),
+            transaction_gas_cap: Some(1_000_000),
+            disable_transaction_gas_cap: Some(true),
+            ..default_config()
+        };
+
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.transaction_execution_gas_bound, None,
+            "Disabling the transaction gas cap should lift the execution gas bound"
         );
     }
 
