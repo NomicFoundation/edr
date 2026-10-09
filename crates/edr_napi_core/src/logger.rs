@@ -1179,16 +1179,15 @@ fn to_decimal_string(value: &U256, exponent: u8) -> String {
     let (integer, remainder) = value.div_rem(U256::from(10).pow(U256::from(exponent)));
     let decimal = remainder / U256::from(10).pow(U256::from(exponent - MAX_DECIMALS));
 
-    // Keep the leading zeros of the fractional part (e.g. `0.01` has the digits
-    // `0100`), then remove the trailing zeros.
-    let decimal = format!("{decimal:0>width$}", width = usize::from(MAX_DECIMALS));
-    let decimal = decimal.trim_end_matches('0');
-
-    if decimal.is_empty() {
-        integer.to_string()
-    } else {
-        format!("{integer}.{decimal}")
-    }
+    // Zero-pad `decimal` to restore the leading zeros lost by the division
+    // (`0.01` yields `100`, not `0100`).
+    format!(
+        "{integer}.{decimal:0width$}",
+        width = usize::from(MAX_DECIMALS)
+    )
+    .trim_end_matches('0')
+    .trim_end_matches('.')
+    .to_string()
 }
 
 #[cfg(test)]
