@@ -88,7 +88,7 @@ pub enum ContractSymbolKind {
 /// A contract identified by its source path and name.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ContractRef {
-    pub file: String,
+    pub path: String,
     pub name: String,
 }
 
@@ -303,7 +303,7 @@ pub(crate) fn slang_build_model(
             let mut contract = contract.write();
 
             for base in &contract_symbol.bases {
-                let base_key = (base.file.as_str(), base.name.as_str());
+                let base_key = (base.path.as_str(), base.name.as_str());
                 if base_key == key {
                     continue;
                 }
@@ -572,8 +572,8 @@ contract Diamond is Left, Right {
         function
     }
 
-    fn base(file: &str, name: &str) -> serde_json::Value {
-        json!({ "file": file, "name": name })
+    fn base(path: &str, name: &str) -> serde_json::Value {
+        json!({ "path": path, "name": name })
     }
 
     fn a_sol_debug_symbols() -> serde_json::Value {
@@ -603,7 +603,6 @@ contract Diamond is Left, Right {
                 {
                     "name": "Lib", "kind": "library", "abstract": false,
                     "range": range(s, "library Lib", root_body),
-                    "bases": [base("A.sol", "Lib")],
                     "functions": [function(
                         "twice", "function", "internal", "pure", None,
                         range(s, "function twice", "\n    }"),
@@ -615,7 +614,7 @@ contract Diamond is Left, Right {
                     "bases": [base("A.sol", "Root"), base("A.sol", "IThing")],
                     "functions": [
                         function(
-                            "count", "getter", "public", "view", Some("count()"),
+                            "count", "getter", "external", "view", Some("count()"),
                             range(s, "uint256 public count", ";"),
                         ),
                         function(
@@ -824,11 +823,11 @@ contract Diamond is Left, Right {
             "contracts": [{
                 "name": "Counter", "kind": "contract", "abstract": false,
                 "range": [120, 860],
-                "bases": [{"file": "Counter.sol", "name": "Counter"}, {"file": "Base.sol", "name": "Base"}],
+                "bases": [{"path": "Counter.sol", "name": "Counter"}, {"path": "Base.sol", "name": "Base"}],
                 "functions": [
                     {"name": "inc", "kind": "function", "visibility": "public", "mutability": "nonpayable", "selector": "371303c0", "range": [300, 120], "implemented": true},
                     {"name": "onlyOwner", "kind": "modifier", "visibility": "internal", "mutability": "nonpayable", "range": [200, 90], "implemented": true},
-                    {"name": "count", "kind": "getter", "visibility": "public", "mutability": "view", "selector": "06661abd", "range": [140, 30], "implemented": true},
+                    {"name": "count", "kind": "getter", "visibility": "external", "mutability": "view", "selector": "06661abd", "range": [140, 30], "implemented": true},
                     {"name": "constructor", "kind": "constructor", "visibility": "public", "mutability": "nonpayable", "range": [230, 60], "implemented": true}
                 ]
             }],
@@ -853,11 +852,11 @@ contract Diamond is Left, Right {
             contract.bases,
             vec![
                 ContractRef {
-                    file: "Counter.sol".into(),
+                    path: "Counter.sol".into(),
                     name: "Counter".into()
                 },
                 ContractRef {
-                    file: "Base.sol".into(),
+                    path: "Base.sol".into(),
                     name: "Base".into()
                 },
             ]
@@ -1143,7 +1142,7 @@ contract Diamond is Left, Right {
                     "bases": [base("Counter.sol", "Counter")],
                     "functions": [
                         function(
-                            "count", "getter", "public", "view", Some("count()"),
+                            "count", "getter", "external", "view", Some("count()"),
                             range(content, "uint256 public count", ";"),
                         ),
                         function(
