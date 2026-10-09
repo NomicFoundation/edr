@@ -451,16 +451,17 @@ impl SolidityTestRunnerConfigArgs<'_> {
 pub struct FuzzConfigArgs {
     /// Path where fuzz failures are recorded and replayed if set.
     pub failure_persist_dir: Option<String>,
-    /// Name of the file to record fuzz failures, defaults to `failures`.
+    /// Name of the directory under `failurePersistDir` in which fuzz
+    /// failures are recorded, one JSON counterexample per test. Defaults to
+    /// `failures`.
     pub failure_persist_file: Option<String>,
     /// The amount of fuzz runs to perform for each fuzz test case. Higher
     /// values gives more confidence in results at the cost of testing
     /// speed.
     /// Defaults to 256.
     pub runs: Option<u32>,
-    /// The maximum number of combined inputs that may be rejected before the
-    /// test as a whole aborts. “Global” filters apply to the whole test
-    /// case. If the test case is rejected, the whole thing is regenerated.
+    /// The maximum number of inputs that `vm.assume` may reject before the
+    /// test as a whole aborts. 0 disables the limit and requires a `timeout`.
     /// Defaults to 65536.
     pub max_test_rejects: Option<u32>,
     /// Hexadecimal string.
@@ -485,6 +486,11 @@ pub struct FuzzConfigArgs {
     /// Optional timeout (in seconds) for each property test.
     /// Defaults to none (no timeout).
     pub timeout: Option<u32>,
+    /// Number of parallel workers used to run each fuzz test. The number of
+    /// runs is split between the workers, each of which needs at least 64
+    /// runs.
+    /// Defaults to the number of available threads.
+    pub workers: Option<u32>,
 }
 
 impl TryFrom<FuzzConfigArgs> for FuzzConfig {
@@ -502,6 +508,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             include_push_bytes,
             show_logs,
             timeout,
+            workers,
         } = value;
 
         let failure_persist_dir = failure_persist_dir.map(PathBuf::from);
@@ -521,6 +528,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
             // TODO https://github.com/NomicFoundation/edr/issues/657
             gas_report_samples: 0,
             timeout,
+            workers,
             ..FuzzConfig::default()
         };
 
@@ -635,6 +643,7 @@ impl InvariantConfigArgs {
             max_test_rejects: _,
             seed: _,
             show_logs: _,
+            workers: _,
             timeout,
         } = fuzz;
 

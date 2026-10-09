@@ -267,6 +267,7 @@ pub struct TestFuzzConfig {
     pub failure_persist_dir: Option<PathBuf>,
     pub failure_persist_file: String,
     pub show_logs: bool,
+    pub workers: Option<u32>,
 }
 
 impl TestFuzzConfig {
@@ -290,6 +291,7 @@ impl Default for TestFuzzConfig {
             failure_persist_dir: None,
             failure_persist_file: "testfailure".into(),
             show_logs: false,
+            workers: None,
         }
     }
 }
@@ -307,6 +309,7 @@ impl From<TestFuzzConfig> for FuzzConfig {
             failure_persist_file: value.failure_persist_file,
             show_logs: value.show_logs,
             timeout: None,
+            workers: value.workers,
         }
     }
 }

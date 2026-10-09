@@ -715,7 +715,11 @@ export interface FuzzCase {
 export interface FuzzConfigArgs {
   /** Path where fuzz failures are recorded and replayed if set. */
   failurePersistDir?: string
-  /** Name of the file to record fuzz failures, defaults to `failures`. */
+  /**
+   * Name of the directory under `failurePersistDir` in which fuzz
+   * failures are recorded, one JSON counterexample per test. Defaults to
+   * `failures`.
+   */
   failurePersistFile?: string
   /**
    * The amount of fuzz runs to perform for each fuzz test case. Higher
@@ -725,9 +729,8 @@ export interface FuzzConfigArgs {
    */
   runs?: number
   /**
-   * The maximum number of combined inputs that may be rejected before the
-   * test as a whole aborts. “Global” filters apply to the whole test
-   * case. If the test case is rejected, the whole thing is regenerated.
+   * The maximum number of inputs that `vm.assume` may reject before the
+   * test as a whole aborts. 0 disables the limit and requires a `timeout`.
    * Defaults to 65536.
    */
   maxTestRejects?: number
@@ -765,6 +768,13 @@ export interface FuzzConfigArgs {
    * Defaults to none (no timeout).
    */
   timeout?: number
+  /**
+   * Number of parallel workers used to run each fuzz test. The number of
+   * runs is split between the workers, each of which needs at least 64
+   * runs.
+   * Defaults to the number of available threads.
+   */
+  workers?: number
 }
 
 /** See [`edr_solidity_tests::result::TestKind::Fuzz`] */
