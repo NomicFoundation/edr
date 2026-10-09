@@ -404,9 +404,13 @@ mod tests {
     }
 
     /// The account revm returns at Amsterdam for a contract that
-    /// self-destructed in the transaction that created it (EIP-8246):
+    /// self-destructed in the transaction that created it ([EIP-8246]):
     /// balance kept, nonce reset, code cleared and written slots zeroed in
-    /// place.
+    /// place. revm removes the self-destruct flag for these accounts at
+    /// finalization; zero-balance ones keep it and are deleted ([EIP-161]).
+    ///
+    /// [EIP-8246]: https://eips.ethereum.org/EIPS/eip-8246
+    /// [EIP-161]: https://eips.ethereum.org/EIPS/eip-161
     fn selfdestructed_in_creation(balance: U256) -> Account {
         let mut account = Account::from(AccountInfo {
             balance,
