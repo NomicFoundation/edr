@@ -193,7 +193,7 @@ jobs:
 
             # Install Rust toolchain
             apt-get update
-            apt-get install -y curl ca-certificates build-essential pkg-config
+            apt-get install -y curl ca-certificates build-essential pkg-config cmake
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
