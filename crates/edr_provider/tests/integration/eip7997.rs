@@ -26,7 +26,7 @@ use edr_provider::{
 
 use crate::common::{
     bytecode::BytecodeBuilder,
-    provider::{new_provider_with_config, send_transaction},
+    provider::{code_at, new_provider_with_config, send_transaction},
 };
 
 const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
@@ -131,14 +131,6 @@ fn deploy_through_factory(
     );
 
     Ok(deployed)
-}
-
-fn code_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<Bytes> {
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetCode(address, None),
-    ))?;
-
-    Ok(response.deserialize_result()?)
 }
 
 #[tokio::test(flavor = "multi_thread")]
