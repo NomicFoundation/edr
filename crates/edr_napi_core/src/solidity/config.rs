@@ -293,14 +293,17 @@ impl TestRunnerConfig {
             TransactionGasBounds::for_hardfork(evm_opts.spec)
         };
         evm_opts.transaction_execution_gas_bound = transaction_gas_bounds.execution_gas;
-        let block_gas_limit = block_gas_limit.filter(|_| !evm_opts.disable_block_gas_limit);
+        // Disabling the block gas limit lifts its enforcement; the configured
+        // value is still `block.gaslimit`.
+        let enforced_block_gas_limit =
+            block_gas_limit.filter(|_| !evm_opts.disable_block_gas_limit);
 
         // The default gas limit is the most gas a transaction may carry: the
-        // smallest of the hardfork's bound on `tx.gas` and the block gas limit,
-        // or the maximum when neither applies.
+        // smallest of the hardfork's bound on `tx.gas` and the enforced block
+        // gas limit, or the maximum when neither applies.
         evm_opts.env.gas_limit = [
             transaction_gas_bounds.total_transaction_gas,
-            block_gas_limit,
+            enforced_block_gas_limit,
         ]
         .into_iter()
         .flatten()
@@ -629,6 +632,26 @@ mod tests {
             solidity_config.evm_opts.env.gas_limit,
             edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT,
             "On Amsterdam `tx.gas` is bounded by the total limit regardless of the transaction gas cap option"
+        );
+    }
+
+    #[test]
+    fn test_disabled_block_gas_limit_keeps_configured_block_gas_limit() {
+        const BLOCK_GAS_LIMIT: u64 = 1_000_000;
+        let config = TestRunnerConfig {
+            block_gas_limit: Some(BLOCK_GAS_LIMIT),
+            disable_block_gas_limit: Some(true),
+            ..default_config()
+        };
+
+        let solidity_config = config
+            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
+            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
+
+        assert_eq!(
+            solidity_config.evm_opts.env.block_gas_limit,
+            Some(BLOCK_GAS_LIMIT),
+            "Disabling the block gas limit should only lift its enforcement, not drop the configured `block.gaslimit`"
         );
     }
 

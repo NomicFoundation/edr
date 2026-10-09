@@ -1605,7 +1605,8 @@ export interface SolidityTestRunnerConfigArgs {
   hardfork: string
   /**
    * The gas limit for each test case.
-   * Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
+   * Defaults to the most gas a transaction may carry on the configured
+   * hardfork, bounded by `blockGasLimit` when it is enforced.
    */
   gasLimit?: bigint
   /**
