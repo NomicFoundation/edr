@@ -37,5 +37,6 @@ If you would like to set up the environment manually, you will need to install t
    rustup toolchain install nightly-2026-08-29 --profile minimal --component rustfmt
   ```
 
+- [CMake](https://cmake.org/download/), used to build the mimalloc allocator
 - [NodeJS 22](https://nodejs.org/en)
 - [pnpm](https://pnpm.io/installation)

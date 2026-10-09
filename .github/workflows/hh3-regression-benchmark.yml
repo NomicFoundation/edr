@@ -159,9 +159,17 @@ jobs:
       - name: Install system dependencies
         # `time` is GNU /usr/bin/time — bench:regression wraps each benchmark in
         # it to capture peak RSS (memory) alongside timing.
+        #
+        # CMake builds mimalloc for EDR. The self-hosted runner persists
+        # between runs, so only install it when no cmake is on the PATH, to
+        # keep any version already provided there.
         run: |
           sudo apt-get update
           sudo apt-get install -y hyperfine jq time
+          if ! command -v cmake >/dev/null 2>&1; then
+            sudo apt-get install -y cmake
+          fi
+          cmake --version
 
       - name: Configure E2E clone directory
         # Use the runner's temp dir for the scenario clones.
