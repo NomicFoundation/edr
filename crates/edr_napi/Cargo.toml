@@ -43,8 +43,14 @@ edr_solidity.workspace = true
 edr_tracing.workspace = true
 edr_utils_sync.workspace = true
 k256.workspace = true
-mimalloc = { version = "0.1.39", default-features = false, features = [
+# `mimalloc-safe` keeps each loaded copy of the addon's heap private on macOS,
+# so loading the addon from two paths in one process doesn't crash
+# (https://github.com/NomicFoundation/edr/issues/1815). `no_opt_arch` stops
+# mimalloc from building for armv8.1-a, which would crash older Linux arm64 CPUs.
+mimalloc-safe = { version = "0.1.67", default-features = false, features = [
     "local_dynamic_tls",
+    "no_opt_arch",
+    "v3",
 ] }
 # The `async` feature ensures that a tokio runtime is available.
 napi = { version = "3", default-features = false, features = [
