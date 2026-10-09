@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/src/Test.sol";
+import {Test, Vm} from "forge-std/src/Test.sol";
 
 // Adapted from `crates/edr_solidity_tests/tests/testdata/default/cheats/GasSnapshots.t.sol`.
 contract GasSnapshotTest is Test {
@@ -134,22 +134,38 @@ contract GasSnapshotTest is Test {
     }
 
     // Writes to `GasSnapshotTest` group with `testSnapshotGas` name.
-    function testSnapshotGasLastCallName() public {
+    function testSnapshotGasLastFrameName() public {
         flare.run(1);
 
-        uint256 gasUsed = vm.snapshotGasLastCall("testSnapshotGasLastCallName");
+        uint256 gasUsed = vm.snapshotGasLastFrame("testSnapshotGasLastFrameName");
         assertGt(gasUsed, 0);
     }
 
     // Writes to `CustomGroup` group with `testSnapshotGas` name.
-    function testSnapshotGasLastCallGroupName() public {
+    function testSnapshotGasLastFrameGroupName() public {
         flare.run(1);
 
-        uint256 gasUsed = vm.snapshotGasLastCall(
+        uint256 gasUsed = vm.snapshotGasLastFrame(
             "CustomGroup",
-            "testSnapshotGasLastCallGroupName"
+            "testSnapshotGasLastFrameGroupName"
         );
         assertGt(gasUsed, 0);
+    }
+
+    // Decodes the six-field `Vm.Gas` struct declared by forge-std >= v1.17.0.
+    function testLastFrameGasAbi() public {
+        flare.run(1);
+
+        Vm.Gas memory callGas = vm.lastCallGas();
+        Vm.Gas memory frameGas = vm.lastFrameGas();
+        assertGt(callGas.gasTotalUsed, 0);
+        assertEq(callGas.gasTotalUsed, frameGas.gasTotalUsed);
+        assertEq(frameGas.gasStateUsed, 0);
+        assertEq(vm.snapshotGasLastFrame("testLastFrameGasAbi"), frameGas.gasTotalUsed);
+
+        new Flare();
+        assertGt(vm.lastFrameGas().gasTotalUsed, 0);
+        assertEq(vm.lastCallGas().gasTotalUsed, callGas.gasTotalUsed);
     }
 
     // Calls stopSnapshotGas with a name that doesn't match the startSnapshotGas call.
