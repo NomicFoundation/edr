@@ -79,7 +79,8 @@ pub struct SolidityTestRunnerConfigArgs<'env> {
     pub hardfork: String,
     /// The gas limit for each test case.
     /// Defaults to the most gas a transaction may carry on the configured
-    /// hardfork, bounded by `blockGasLimit` when it is enforced.
+    /// hardfork, bounded by `blockGasLimit` when it is enforced, or
+    /// `9_223_372_036_854_775_807` (`i64::MAX`) when no bound applies.
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub gas_limit: Option<BigInt>,
     /// The price of gas (in wei) in tests.
