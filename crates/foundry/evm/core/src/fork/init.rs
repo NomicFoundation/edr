@@ -24,8 +24,7 @@ pub async fn environment<NetworkT, ProviderT, BlockT, TxT, HardforkT>(
     pin_block: Option<u64>,
     origin: Address,
     disable_block_gas_limit: bool,
-    transaction_gas_cap: Option<u64>,
-    disable_transaction_gas_cap: bool,
+    transaction_execution_gas_bound: Option<u64>,
 ) -> eyre::Result<(
     EvmEnv<BlockT, TxT, HardforkT>,
     <NetworkT as Network>::BlockResponse,
@@ -72,8 +71,7 @@ where
         override_chain_id.unwrap_or(rpc_chain_id),
         memory_limit,
         disable_block_gas_limit,
-        transaction_gas_cap,
-        disable_transaction_gas_cap,
+        transaction_execution_gas_bound,
     );
 
     let mut env = EvmEnv {
@@ -110,8 +108,7 @@ pub fn configure_env<HardforkT>(
     chain_id: u64,
     memory_limit: u64,
     disable_block_gas_limit: bool,
-    transaction_gas_cap: Option<u64>,
-    disable_transaction_gas_cap: bool,
+    transaction_execution_gas_bound: Option<u64>,
 ) -> CfgEnv<HardforkT>
 where
     HardforkT: Default + Into<revm::primitives::hardfork::SpecId> + Clone,
@@ -126,13 +123,7 @@ where
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
     cfg.disable_nonce_check = true;
-    if disable_transaction_gas_cap {
-        // Setting to `u64::MAX` is REVM's idiom for opting out of the EIP-7825 cap.
-        cfg.tx_gas_limit_cap = Some(u64::MAX);
-    } else if let Some(cap) = transaction_gas_cap {
-        cfg.tx_gas_limit_cap = Some(cap);
-    } else {
-        // Otherwise keep `CfgEnv`'s hardfork-specific default.
-    }
+    // revm falls back to the spec's cap when `None`; `u64::MAX` disables it.
+    cfg.tx_gas_limit_cap = Some(transaction_execution_gas_bound.unwrap_or(u64::MAX));
     cfg
 }
