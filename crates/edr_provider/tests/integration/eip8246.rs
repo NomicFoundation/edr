@@ -10,11 +10,14 @@
 
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_primitives::{address, Address, Bytes, U256, U64};
-use edr_provider::{test_utils::transfer_value, MethodInvocation, Provider, ProviderRequest};
+use edr_provider::{test_utils::transfer_value, Provider};
 
 use crate::common::{
     bytecode::{opcode, BytecodeBuilder},
-    provider::{new_provider, send_transaction, transaction_receipt},
+    provider::{
+        balance_at, code_at, new_provider, nonce_at, send_transaction, storage_at,
+        transaction_receipt,
+    },
 };
 
 const SENDER: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
@@ -49,42 +52,6 @@ fn create_with_value(provider: &Provider<L1ChainSpec>, value: U256) -> anyhow::R
     Ok(receipt
         .contract_address
         .expect("creation should report the contract address"))
-}
-
-fn balance_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<U256> {
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetBalance(address, None),
-    ))?;
-
-    Ok(response.deserialize_result()?)
-}
-
-fn code_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<Bytes> {
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetCode(address, None),
-    ))?;
-
-    Ok(response.deserialize_result()?)
-}
-
-fn nonce_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<U64> {
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetTransactionCount(address, None),
-    ))?;
-
-    Ok(response.deserialize_result()?)
-}
-
-fn storage_at(
-    provider: &Provider<L1ChainSpec>,
-    address: Address,
-    index: U256,
-) -> anyhow::Result<U256> {
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::GetStorageAt(address, index, None),
-    ))?;
-
-    Ok(response.deserialize_result()?)
 }
 
 #[tokio::test(flavor = "multi_thread")]
