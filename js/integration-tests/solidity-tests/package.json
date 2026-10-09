@@ -6,7 +6,7 @@
     "@nomicfoundation/edr-helpers": "workspace:*",
     "@tsconfig/node22": "^22.0.0",
     "@types/node": "^22.0.0",
-    "forge-std": "github:foundry-rs/forge-std#v1.14.0",
+    "forge-std": "github:foundry-rs/forge-std#v1.17.0",
     "hardhat": "3.18.0",
     "prettier": "^3.2.5",
     "tsx": "^4.19.3",

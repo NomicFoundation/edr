@@ -147,6 +147,30 @@ contract GasSnapshotTest is DSTest {
         uint256 gasUsed = vm.snapshotGasLastCall("CustomGroup", "testSnapshotGasLastCallGroupName");
         assertGt(gasUsed, 0);
     }
+
+    // Writes to `GasSnapshotTest` group with `testSnapshotGasLastFrameCallName` name.
+    function testSnapshotGasLastFrameCallName() public {
+        flare.run(1);
+
+        uint256 gasUsed = vm.snapshotGasLastFrame("testSnapshotGasLastFrameCallName");
+        assertGt(gasUsed, 0);
+    }
+
+    // Writes to `GasSnapshotTest` group with `testSnapshotGasLastFrameCreateName` name.
+    function testSnapshotGasLastFrameCreateName() public {
+        new CreateFlare(1);
+
+        uint256 gasUsed = vm.snapshotGasLastFrame("testSnapshotGasLastFrameCreateName");
+        assertGt(gasUsed, 0);
+    }
+
+    // Writes to `CustomGroup` group with `testSnapshotGasLastFrameCreate2GroupName` name.
+    function testSnapshotGasLastFrameCreate2GroupName() public {
+        new CreateFlare{salt: "salt"}(1);
+
+        uint256 gasUsed = vm.snapshotGasLastFrame("CustomGroup", "testSnapshotGasLastFrameCreate2GroupName");
+        assertGt(gasUsed, 0);
+    }
 }
 
 contract GasComparisonTest is DSTest {
@@ -295,6 +319,14 @@ contract Flare {
         for (uint256 i = 0; i < n_; i++) {
             data.push(keccak256(abi.encodePacked(i)));
         }
+    }
+}
+
+contract CreateFlare {
+    uint256 public slot0;
+
+    constructor(uint256 value) {
+        slot0 = value;
     }
 }
 
