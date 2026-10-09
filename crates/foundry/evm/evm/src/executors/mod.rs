@@ -33,8 +33,11 @@ use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::{SparsedTraceArena, TracingMode};
 use revm::{
     bytecode::Bytecode,
-    context::result::{ExecutionResult, HaltReason, HaltReasonTr, ResultAndState},
-    context_interface::result::Output,
+    context::{
+        result::{ExecutionResult, HaltReason, HaltReasonTr, ResultAndState},
+        Cfg,
+    },
+    context_interface::{cfg::gas_params::Eip2780TxInfo, result::Output},
     database::{DatabaseCommit, DatabaseRef},
     interpreter::{return_ok, InstructionResult},
 };
@@ -1736,6 +1739,13 @@ fn convert_executed_result<
             (reason.into(), 0_u64, gas.tx_gas_used(), None, logs)
         }
     };
+    let eip2780 = env
+        .cfg
+        .is_amsterdam_eip2780_enabled()
+        .then(|| Eip2780TxInfo {
+            value: env.tx.value(),
+            is_self_transfer: env.tx.kind().to() == Some(&env.tx.caller()),
+        });
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
         env.cfg.spec.into(),
         env.tx.input(),
@@ -1743,8 +1753,7 @@ fn convert_executed_result<
         env.tx.access_list().map_or(0, Iterator::count).try_into()?,
         0,
         0,
-        // TODO: pass the EIP-2780 transaction info once EIP-2780 is wired.
-        None,
+        eip2780,
     );
 
     let result = match &out {
