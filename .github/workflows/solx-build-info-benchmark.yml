@@ -1,0 +1,74 @@
+name: solx build-info benchmark
+
+# Counts the instructions of loading solx build info
+# (crates/edr_solidity/benches/solx_build_info.rs) at the PR's merge commit and
+# at its first parent, in one job, and fails when the count grows by more than
+# 2%. Not a required check: a PR that makes decode slower on purpose is merged
+# over it by hand.
+
+on:
+  pull_request:
+  # Takes the single-run path. It seeds the cargo cache, which setup-rust saves
+  # only on main and rust-cache keys per job.
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  solx-build-info-benchmark:
+    name: Count instructions for solx build-info load
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Same value as the sibling Rust jobs (repo convention). Cargo's
+      # fingerprint includes RUSTFLAGS, so this job's restored cache only
+      # helps while the value stays put.
+      RUSTFLAGS: -Dwarnings
+      # Must match the `gungraun` dev-dependency of edr_solidity.
+      # renovate: datasource=crate depName=gungraun-runner
+      GUNGRAUN_RUNNER_VERSION: "0.19.4"
+      # renovate: datasource=deb depName=valgrind
+      VALGRIND_VERSION: "1:3.22.0-0ubuntu3"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # HEAD is the merge commit; depth 2 reaches its first parent.
+          fetch-depth: 2
+      - uses: ./.github/actions/setup-rust
+      - name: Install valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "valgrind=$VALGRIND_VERSION"
+      - uses: taiki-e/install-action@84f5ac3124727fb3d284d4d22ee9ab3654fd09a6 # v2.87.7
+        with:
+          tool: gungraun-runner@${{ env.GUNGRAUN_RUNNER_VERSION }}
+
+      - name: Benchmark the base (merge commit's first parent)
+        if: github.event_name == 'pull_request'
+        run: |
+          if ! git cat-file -e HEAD^1:crates/edr_solidity/benches/solx_build_info.rs; then
+            echo "bench does not exist at the base commit; skipping the comparison"
+            echo "HAS_BASELINE=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "HAS_BASELINE=true" >> "$GITHUB_ENV"
+          git checkout --detach HEAD^1
+          cargo bench --locked -p edr_solidity --bench solx_build_info -- --save-baseline=base
+          git checkout --detach "$GITHUB_SHA"
+
+      - name: Benchmark the PR merge commit
+        run: |
+          if [ "${HAS_BASELINE:-false}" = "true" ]; then
+            cargo bench --locked -p edr_solidity --bench solx_build_info -- --baseline=base --callgrind-limits='ir=2%'
+          else
+            cargo bench --locked -p edr_solidity --bench solx_build_info
+          fi
