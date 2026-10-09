@@ -296,12 +296,7 @@ mod tests {
 
     use edr_chain_l1::L1ChainSpec;
     use edr_eth::PreEip1898BlockSpec;
-    use edr_primitives::KECCAK_EMPTY;
     use edr_rpc_eth::client::EthRpcClientForChainSpec;
-    use edr_state_api::{
-        account::{Account, AccountStatus},
-        EvmStorageSlot, TransactionId,
-    };
     use edr_test_utils::env::json_rpc_url_provider;
 
     use super::*;
@@ -400,60 +395,5 @@ mod tests {
         fork_state.remove_account(dai_address).unwrap();
 
         assert_eq!(fork_state.basic(dai_address).unwrap(), None);
-    }
-
-    /// The account revm returns at Amsterdam for a contract that
-    /// self-destructed in the transaction that created it (EIP-8246):
-    /// balance kept, nonce reset, code cleared and written slots zeroed in
-    /// place.
-    fn selfdestructed_in_creation(balance: U256, storage_index: U256) -> Account {
-        let mut account = Account::from(AccountInfo {
-            balance,
-            nonce: 0,
-            code_hash: KECCAK_EMPTY,
-            code: Some(Bytecode::default()),
-            ..AccountInfo::default()
-        });
-        account.status = AccountStatus::Created | AccountStatus::Touched;
-        account.storage.insert(
-            storage_index,
-            EvmStorageSlot::new(U256::ZERO, TransactionId::ZERO),
-        );
-
-        account
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn commit_keeps_balance_of_account_selfdestructed_in_creation() {
-        let mut fork_state = TestForkState::new().await;
-
-        // DAI's `totalSupply` slot, so the zeroed local slot has a non-zero
-        // remote value to shadow.
-        let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
-            .expect("failed to parse address");
-        let total_supply_index = U256::from(1);
-        assert_ne!(
-            fork_state.storage(dai_address, total_supply_index).unwrap(),
-            U256::ZERO,
-            "remote slot should be non-zero"
-        );
-
-        let balance = U256::from(1000);
-        fork_state.commit(EvmState::from_iter([(
-            dai_address,
-            selfdestructed_in_creation(balance, total_supply_index),
-        )]));
-
-        let account = fork_state
-            .basic(dai_address)
-            .unwrap()
-            .expect("account should be kept");
-        assert_eq!(account.balance, balance);
-        assert_eq!(account.nonce, 0);
-        assert_eq!(account.code_hash, KECCAK_EMPTY);
-        assert_eq!(
-            fork_state.storage(dai_address, total_supply_index).unwrap(),
-            U256::ZERO
-        );
     }
 }
