@@ -98,7 +98,7 @@ pub struct FunctionSymbol {
     pub name: String,
     pub kind: FunctionSymbolKind,
     pub visibility: Option<String>,
-    pub mutability: Option<String>,
+    pub state_mutability: Option<String>,
     /// Hex-encoded 4-byte selector of externally visible functions and
     /// getters.
     pub selector: Option<String>,
@@ -428,7 +428,7 @@ fn contract_function(
         location,
         contract_name,
         visibility: Some(visibility),
-        is_payable: Some(symbol.mutability.as_deref() == Some("payable")),
+        is_payable: Some(symbol.state_mutability.as_deref() == Some("payable")),
         selector: RwLock::new(selector),
         param_types: abi_entry.and_then(|entry| entry.inputs.clone()),
     })))
@@ -554,7 +554,7 @@ contract Diamond is Left, Right {
         name: &str,
         kind: &str,
         visibility: &str,
-        mutability: &str,
+        state_mutability: &str,
         signature: Option<&str>,
         range: SourceRange,
     ) -> serde_json::Value {
@@ -562,7 +562,7 @@ contract Diamond is Left, Right {
             "name": name,
             "kind": kind,
             "visibility": visibility,
-            "mutability": mutability,
+            "stateMutability": state_mutability,
             "range": range,
             "implemented": true,
         });
@@ -825,13 +825,13 @@ contract Diamond is Left, Right {
                 "range": [120, 860],
                 "bases": [{"path": "Counter.sol", "name": "Counter"}, {"path": "Base.sol", "name": "Base"}],
                 "functions": [
-                    {"name": "inc", "kind": "function", "visibility": "public", "mutability": "nonpayable", "selector": "371303c0", "range": [300, 120], "implemented": true},
-                    {"name": "onlyOwner", "kind": "modifier", "visibility": "internal", "mutability": "nonpayable", "range": [200, 90], "implemented": true},
-                    {"name": "count", "kind": "getter", "visibility": "external", "mutability": "view", "selector": "06661abd", "range": [140, 30], "implemented": true},
-                    {"name": "constructor", "kind": "constructor", "visibility": "public", "mutability": "nonpayable", "range": [230, 60], "implemented": true}
+                    {"name": "inc", "kind": "function", "visibility": "public", "stateMutability": "nonpayable", "selector": "371303c0", "range": [300, 120], "implemented": true},
+                    {"name": "onlyOwner", "kind": "modifier", "visibility": "internal", "stateMutability": "nonpayable", "range": [200, 90], "implemented": true},
+                    {"name": "count", "kind": "getter", "visibility": "external", "stateMutability": "view", "selector": "06661abd", "range": [140, 30], "implemented": true},
+                    {"name": "constructor", "kind": "constructor", "visibility": "public", "stateMutability": "nonpayable", "range": [230, 60], "implemented": true}
                 ]
             }],
-            "freeFunctions": [{"name": "helper", "kind": "free", "visibility": "internal", "mutability": "pure", "range": [20, 90], "implemented": true}],
+            "freeFunctions": [{"name": "helper", "kind": "free", "visibility": "internal", "stateMutability": "pure", "range": [20, 90], "implemented": true}],
             "spans": [[0, 1200], [20, 90], [120, 860]],
             "unknownField": {"ignored": true}
         }))
@@ -874,7 +874,7 @@ contract Diamond is Left, Right {
         let inc = contract.functions.first().unwrap();
         assert_eq!(inc.selector.as_deref(), Some("371303c0"));
         assert_eq!(inc.visibility.as_deref(), Some("public"));
-        assert_eq!(inc.mutability.as_deref(), Some("nonpayable"));
+        assert_eq!(inc.state_mutability.as_deref(), Some("nonpayable"));
         assert_eq!(
             inc.range,
             SourceRange {
