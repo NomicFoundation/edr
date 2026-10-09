@@ -1900,6 +1900,7 @@ impl<
                     gas,
                 },
                 address: None,
+                charged_create_state_gas: input.charged_create_state_gas(),
             });
         }
 

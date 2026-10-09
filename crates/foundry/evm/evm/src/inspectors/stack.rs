@@ -1522,7 +1522,11 @@ impl<
                 create.gas_limit(),
                 create.value(),
             );
-            return Some(CreateOutcome { result, address });
+            return Some(CreateOutcome {
+                result,
+                address,
+                charged_create_state_gas: create.charged_create_state_gas(),
+            });
         }
 
         None

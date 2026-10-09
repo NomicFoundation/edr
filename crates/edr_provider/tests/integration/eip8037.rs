@@ -414,7 +414,7 @@ fn next_base_fee_follows_header_gas_used_when_state_is_bottleneck() -> anyhow::R
 /// its gas limit exceeds the block gas limit.
 #[test]
 fn admits_transaction_fitting_both_dimensions() -> anyhow::Result<()> {
-    const BLOCK_GAS_LIMIT: u64 = 1_100_000;
+    const BLOCK_GAS_LIMIT: u64 = 1_150_000;
     const SECOND_GAS_LIMIT: u64 = 100_000;
 
     let mut fixture = new_fixture(BLOCK_GAS_LIMIT)?;
@@ -450,7 +450,7 @@ fn admits_transaction_fitting_both_dimensions() -> anyhow::Result<()> {
 /// even though it fits the remaining execution gas.
 #[test]
 fn rejects_transaction_exceeding_remaining_state_gas() -> anyhow::Result<()> {
-    const BLOCK_GAS_LIMIT: u64 = 1_100_000;
+    const BLOCK_GAS_LIMIT: u64 = 1_150_000;
     const SECOND_GAS_LIMIT: u64 = 200_000;
 
     let mut fixture = new_fixture(BLOCK_GAS_LIMIT)?;
@@ -485,7 +485,7 @@ fn rejects_transaction_exceeding_remaining_state_gas() -> anyhow::Result<()> {
 /// gas, even though it fits the remaining state gas.
 #[test]
 fn rejects_transaction_exceeding_remaining_execution_gas() -> anyhow::Result<()> {
-    const BLOCK_GAS_LIMIT: u64 = 320_000;
+    const BLOCK_GAS_LIMIT: u64 = 400_000;
     const SECOND_GAS_LIMIT: u64 = 150_000;
 
     let mut fixture = new_fixture(BLOCK_GAS_LIMIT)?;
