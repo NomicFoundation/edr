@@ -33,9 +33,9 @@ pub struct DebugSymbols {
     pub contracts: Vec<ContractSymbol>,
     #[serde(default)]
     pub free_functions: Vec<FunctionSymbol>,
-    /// Range of every syntax node in the source.
+    /// Range of every nonterminal node that covers source text.
     #[serde(default)]
-    pub spans: Vec<SourceRange>,
+    pub ranges: Vec<SourceRange>,
 }
 
 /// A `[byteOffset, byteLength]` range into the source content.
@@ -285,7 +285,7 @@ pub(crate) fn slang_build_model(
         file.write().finalize(functions.into_boxed_slice());
 
         let mut spans: Vec<(u32, u32)> = debug_symbols
-            .spans
+            .ranges
             .iter()
             .map(|range| (range.offset, range.length))
             .collect();
@@ -643,7 +643,7 @@ contract Diamond is Left, Right {
                 range(s, "function helper", "\n}"),
             )],
             // Unsorted, with a duplicate.
-            "spans": [
+            "ranges": [
                 range(s, "count = x;", ";"),
                 [0, s.len()],
                 range(s, "abstract contract Root", root_body),
@@ -712,7 +712,7 @@ contract Diamond is Left, Right {
                     ],
                 },
             ],
-            "spans": [[0, s.len()]],
+            "ranges": [[0, s.len()]],
         })
     }
 
@@ -832,7 +832,7 @@ contract Diamond is Left, Right {
                 ]
             }],
             "freeFunctions": [{"name": "helper", "kind": "free", "visibility": "internal", "stateMutability": "pure", "range": [20, 90], "implemented": true}],
-            "spans": [[0, 1200], [20, 90], [120, 860]],
+            "ranges": [[0, 1200], [20, 90], [120, 860]],
             "unknownField": {"ignored": true}
         }))
         .unwrap();
@@ -890,7 +890,7 @@ contract Diamond is Left, Right {
 
         let helper = table.free_functions.first().unwrap();
         assert_eq!(helper.kind, FunctionSymbolKind::Free);
-        assert_eq!(table.spans.len(), 3);
+        assert_eq!(table.ranges.len(), 3);
     }
 
     #[test]
@@ -910,7 +910,7 @@ contract Diamond is Left, Right {
         assert_eq!(function.kind, FunctionSymbolKind::Unknown);
         assert!(function.implemented);
         assert!(table.free_functions.is_empty());
-        assert!(table.spans.is_empty());
+        assert!(table.ranges.is_empty());
     }
 
     #[test]
@@ -1155,7 +1155,7 @@ contract Diamond is Left, Right {
                         ),
                     ],
                 }],
-                "spans": [
+                "ranges": [
                     [0, content.len()],
                     range(content, "contract Counter", "\n}"),
                     range(content, "function _checkPositive", "\n  }"),
@@ -1198,7 +1198,7 @@ contract Diamond is Left, Right {
         assert_eq!(function.name, "_checkPositive");
         assert!(
             require_line.length > 0,
-            "length comes from debugSymbols spans"
+            "length comes from debugSymbols ranges"
         );
     }
 
