@@ -60,6 +60,14 @@ jobs:
             echo "HAS_BASELINE=false" >> "$GITHUB_ENV"
             exit 0
           fi
+          # The runner refuses a library of another version, which is the base
+          # side of every gungraun bump.
+          base_gungraun=$(git show HEAD^1:Cargo.lock | awk '$0 == "name = \"gungraun\"" { getline; gsub(/"/, "", $3); print $3 }')
+          if [ "$base_gungraun" != "$GUNGRAUN_RUNNER_VERSION" ]; then
+            echo "::warning::base uses gungraun $base_gungraun, runner is $GUNGRAUN_RUNNER_VERSION; skipping the comparison"
+            echo "HAS_BASELINE=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
           echo "HAS_BASELINE=true" >> "$GITHUB_ENV"
           git checkout --detach HEAD^1
           cargo bench --locked -p edr_solidity --bench solx_build_info -- --save-baseline=base
