@@ -308,6 +308,10 @@ jobs:
           # them against scenario directory / benchmark (command or step) names.
           SCENARIO_FILTER: ${{ needs.setup.outputs.scenario_filter }}
           BENCHMARK_FILTER: ${{ needs.setup.outputs.benchmark_filter }}
+          # Experiment: mimalloc 3.5 defaults to THP mode 2 (never split huge
+          # pages when purging); main's 3.3.2 ran mode 1. Pin mode 1 to see
+          # whether the openzeppelin mocha regression comes from THP.
+          MIMALLOC_ALLOW_THP: "1"
         # --force-publish: reuse our already-running Verdaccio (instead of
         #   erroring) and run the global sinceReleasePublish once up front.
         # --use-local: republish the (repointed) hardhat workspace packages and
@@ -315,6 +319,7 @@ jobs:
         # --scenarios / --benchmarks: always passed; `*` means "all".
         run: |
           set -euo pipefail
+          echo "THP: $(cat /sys/kernel/mm/transparent_hugepage/enabled)"
           pnpm bench:regression \
             --use-local \
             --force-publish \
