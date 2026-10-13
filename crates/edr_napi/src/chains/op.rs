@@ -60,7 +60,7 @@ impl SyncProviderFactory for OpProviderFactory {
 //
 // N-API projection of [`edr_op::Hardfork`], which only exists to generate
 // the TS enum; string conversions delegate to the domain type. Excludes
-// hardforks that are not exposed over N-API yet (Jovian, Interop).
+// hardforks that are not exposed over N-API yet (Jovian, Lagoon).
 #[napi]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OpHardfork {
@@ -119,7 +119,7 @@ impl FromStr for OpHardfork {
             edr_op::Hardfork::Holocene => Ok(OpHardfork::Holocene),
             edr_op::Hardfork::Isthmus => Ok(OpHardfork::Isthmus),
             // Not exposed over N-API yet.
-            edr_op::Hardfork::Jovian | edr_op::Hardfork::Interop => Err(unsupported()),
+            edr_op::Hardfork::Jovian | edr_op::Hardfork::Lagoon => Err(unsupported()),
         }
     }
 }
