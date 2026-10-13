@@ -557,9 +557,11 @@ function preprocessConfig(config: any) {
     });
   config = removeNull(config);
 
-  config.providerConfig.blockGasLimit = BigInt(
-    config.providerConfig.defaultTransactionGasLimit
-  );
+  if (config.providerConfig.defaultTransactionGasLimit !== undefined) {
+    config.providerConfig.blockGasLimit = BigInt(
+      config.providerConfig.defaultTransactionGasLimit
+    );
+  }
   delete config.providerConfig.defaultTransactionGasLimit;
 
   config.providerConfig.hardfork = normalizeHardfork(

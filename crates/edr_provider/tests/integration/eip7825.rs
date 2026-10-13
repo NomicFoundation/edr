@@ -227,7 +227,7 @@ async fn call_and_transaction_without_gas_cap_configured_default_on_osaka_provid
     let provider = new_provider_with_config(|config| {
         config.hardfork = edr_chain_l1::Hardfork::Osaka;
         config.transaction_gas_cap = ConfigOption::Default;
-        config.default_transaction_gas_limit = DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP;
+        config.default_transaction_gas_limit = Some(DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP);
     })?;
     deploy_gas_reporter(&provider)?;
 
@@ -376,7 +376,7 @@ mod fork {
         let mut config = mainnet_fork_config(OSAKA_MAINNET_BLOCK_NUMBER);
         config.hardfork = edr_chain_l1::Hardfork::Prague;
         config.transaction_gas_cap = ConfigOption::Default;
-        config.default_transaction_gas_limit = DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP;
+        config.default_transaction_gas_limit = Some(DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP);
         let provider = new_provider_from_config(config)?;
         deploy_gas_reporter(&provider)?;
 
