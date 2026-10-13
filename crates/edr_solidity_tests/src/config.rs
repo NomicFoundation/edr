@@ -123,9 +123,9 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
     }
 }
 
-/// The gas limit Solidity tests run with when no EIP-7825 transaction gas cap
-/// applies. Tests intentionally use a very large limit so they never run out of
-/// gas.
+/// The gas limit Solidity tests run with when the hardfork imposes no bound on
+/// `tx.gas`. Tests intentionally use a very large limit so they never run out
+/// of gas.
 pub const MAX_TEST_TRANSACTION_GAS_LIMIT: u64 = i64::MAX as u64;
 
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {

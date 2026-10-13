@@ -293,22 +293,13 @@ impl TestRunnerConfig {
             TransactionGasBounds::for_hardfork(evm_opts.spec)
         };
         evm_opts.transaction_execution_gas_bound = transaction_gas_bounds.execution_gas;
-        // Disabling the block gas limit lifts its enforcement; the configured
-        // value is still `block.gaslimit`.
-        let enforced_block_gas_limit =
-            block_gas_limit.filter(|_| !evm_opts.disable_block_gas_limit);
 
-        // The default gas limit is the most gas a transaction may carry: the
-        // smallest of the hardfork's bound on `tx.gas` and the enforced block
-        // gas limit, or the maximum when neither applies.
-        evm_opts.env.gas_limit = [
-            transaction_gas_bounds.total_transaction_gas,
-            enforced_block_gas_limit,
-        ]
-        .into_iter()
-        .flatten()
-        .min()
-        .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT);
+        // The default gas limit is the most gas a transaction may carry on the
+        // hardfork, or the maximum when it imposes no bound. A configured block
+        // gas limit takes precedence through `EvmOpts::gas_limit()`.
+        evm_opts.env.gas_limit = transaction_gas_bounds
+            .total_transaction_gas
+            .unwrap_or(MAX_TEST_TRANSACTION_GAS_LIMIT);
 
         if let Some(gas_limit) = gas_limit {
             evm_opts.env.gas_limit = gas_limit;
@@ -636,26 +627,6 @@ mod tests {
     }
 
     #[test]
-    fn test_disabled_block_gas_limit_keeps_configured_block_gas_limit() {
-        const BLOCK_GAS_LIMIT: u64 = 1_000_000;
-        let config = TestRunnerConfig {
-            block_gas_limit: Some(BLOCK_GAS_LIMIT),
-            disable_block_gas_limit: Some(true),
-            ..default_config()
-        };
-
-        let solidity_config = config
-            .try_into_runner_config::<edr_chain_l1::L1ChainSpec>()
-            .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
-
-        assert_eq!(
-            solidity_config.evm_opts.env.block_gas_limit,
-            Some(BLOCK_GAS_LIMIT),
-            "Disabling the block gas limit should only lift its enforcement, not drop the configured `block.gaslimit`"
-        );
-    }
-
-    #[test]
     fn test_amsterdam_custom_transaction_gas_cap_bounds_execution_gas() {
         const TRANSACTION_GAS_CAP: u64 = 1_000_000;
         let config = TestRunnerConfig {
@@ -696,7 +667,7 @@ mod tests {
     }
 
     #[test]
-    fn test_amsterdam_block_gas_limit_lowers_default_gas_limit_below_total_limit() {
+    fn test_amsterdam_block_gas_limit_takes_precedence_over_total_gas_limit() {
         const BLOCK_GAS_LIMIT: u64 = 30_000_000;
         let config = TestRunnerConfig {
             hardfork: edr_chain_l1::Hardfork::Amsterdam.to_string(),
@@ -712,13 +683,14 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit, BLOCK_GAS_LIMIT,
-            "On Amsterdam a block gas limit below the total limit should bound the default gas limit"
+            solidity_config.evm_opts.gas_limit(),
+            BLOCK_GAS_LIMIT,
+            "A configured block gas limit should take precedence over the hardfork's total gas limit"
         );
     }
 
     #[test]
-    fn test_amsterdam_disabled_block_gas_limit_keeps_total_gas_limit() {
+    fn test_amsterdam_disabled_block_gas_limit_still_takes_precedence() {
         const BLOCK_GAS_LIMIT: u64 = 30_000_000;
         let config = TestRunnerConfig {
             hardfork: edr_chain_l1::Hardfork::Amsterdam.to_string(),
@@ -736,12 +708,17 @@ mod tests {
         assert_eq!(
             solidity_config.evm_opts.env.gas_limit,
             edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT,
-            "On Amsterdam a disabled block gas limit should not bound the default gas limit"
+            "The default gas limit should be the hardfork's total gas limit"
+        );
+        assert_eq!(
+            solidity_config.evm_opts.gas_limit(),
+            BLOCK_GAS_LIMIT,
+            "A configured block gas limit should take precedence even when its enforcement is disabled"
         );
     }
 
     #[test]
-    fn test_enabled_custom_block_gas_limit_lowers_default_gas_limit() {
+    fn test_enabled_custom_block_gas_limit_takes_precedence_over_default_gas_limit() {
         const BLOCK_GAS_LIMIT: u64 = 1_000_000;
         let config = TestRunnerConfig {
             block_gas_limit: Some(BLOCK_GAS_LIMIT),
@@ -754,9 +731,9 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit,
+            solidity_config.evm_opts.gas_limit(),
             BLOCK_GAS_LIMIT,
-            "EVM gas limit should be set to the block gas limit when it is provided and not disabled"
+            "A configured block gas limit should take precedence over the default gas limit"
         );
     }
 
@@ -773,14 +750,14 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit,
+            solidity_config.evm_opts.gas_limit(),
             MAX_TEST_TRANSACTION_GAS_LIMIT,
-            "EVM gas limit should use the default gas limit when the default block gas limit is requested"
+            "Without a block gas limit the runner should use the default gas limit"
         );
     }
 
     #[test]
-    fn test_disabled_block_gas_limit_doesnt_lower_default_gas_limit() {
+    fn test_disabled_block_gas_limit_still_takes_precedence() {
         const BLOCK_GAS_LIMIT: u64 = 1_000_000;
         let config = TestRunnerConfig {
             block_gas_limit: Some(BLOCK_GAS_LIMIT),
@@ -793,9 +770,14 @@ mod tests {
             .expect("Failed to convert TestRunnerConfig to SolidityTestRunnerConfig");
 
         assert_eq!(
-            solidity_config.evm_opts.env.gas_limit,
-            MAX_TEST_TRANSACTION_GAS_LIMIT,
-            "EVM gas limit should not be set to the block gas limit when the block gas limit is disabled"
+            solidity_config.evm_opts.env.block_gas_limit,
+            Some(BLOCK_GAS_LIMIT),
+            "Disabling the block gas limit should only lift its enforcement, not drop the configured `block.gaslimit`"
+        );
+        assert_eq!(
+            solidity_config.evm_opts.gas_limit(),
+            BLOCK_GAS_LIMIT,
+            "A configured block gas limit should take precedence even when its enforcement is disabled"
         );
     }
 

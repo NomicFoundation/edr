@@ -1606,8 +1606,9 @@ export interface SolidityTestRunnerConfigArgs {
   /**
    * The gas limit for each test case.
    * Defaults to the most gas a transaction may carry on the configured
-   * hardfork, bounded by `blockGasLimit` when it is enforced, or
-   * `9_223_372_036_854_775_807` (`i64::MAX`) when no bound applies.
+   * hardfork, or `9_223_372_036_854_775_807` (`i64::MAX`) when the hardfork
+   * imposes no bound. A configured `blockGasLimit` takes precedence over
+   * both.
    */
   gasLimit?: bigint
   /**
@@ -1646,11 +1647,13 @@ export interface SolidityTestRunnerConfigArgs {
    */
   disableBlockGasLimit?: boolean
   /**
-   * Transaction gas cap, introduced in [EIP-7825].
+   * Transaction gas cap, introduced in [EIP-7825]. From Amsterdam
+   * ([EIP-8037]) it bounds execution gas only.
    *
    * When not set, defaults to the value defined by the used hardfork.
    *
    * [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+   * [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
    */
   transactionGasCap?: bigint
   /**
