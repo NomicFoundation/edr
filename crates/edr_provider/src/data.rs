@@ -251,6 +251,33 @@ pub type ExecutionResultAndObservedData<'provider, HaltReasonT> = (
     &'provider EvmObservedData,
 );
 
+/// Returns the protocol's transaction gas bounds for `hardfork`, with the
+/// configured transaction gas cap applied.
+fn transaction_gas_bounds_for_hardfork<HardforkT: Into<EvmSpecId>>(
+    transaction_gas_cap: &ConfigOption<u64>,
+    hardfork: HardforkT,
+) -> TransactionGasBounds {
+    match transaction_gas_cap {
+        ConfigOption::Default => TransactionGasBounds::for_hardfork(hardfork),
+        ConfigOption::Custom(transaction_gas_cap) => {
+            TransactionGasBounds::custom(hardfork, *transaction_gas_cap)
+        }
+        ConfigOption::Disable => TransactionGasBounds::disabled(hardfork),
+    }
+}
+
+/// Caps `gas_limit` by the bound on a transaction's gas limit in a block with
+/// the given hardfork.
+fn cap_by_transaction_gas_bound<HardforkT: Into<EvmSpecId>>(
+    gas_limit: u64,
+    transaction_gas_cap: &ConfigOption<u64>,
+    hardfork: HardforkT,
+) -> u64 {
+    transaction_gas_bounds_for_hardfork(transaction_gas_cap, hardfork)
+        .total_transaction_gas
+        .map_or(gas_limit, |bound| gas_limit.min(bound))
+}
+
 pub struct ProviderData<
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch = CurrentTime,
@@ -261,7 +288,7 @@ pub struct ProviderData<
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     bail_on_transaction_failure: bool,
     beneficiary: Address,
-    transaction_gas_bounds: TransactionGasBounds,
+    transaction_gas_cap: ConfigOption<u64>,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     block_config: BlockConfig<ChainSpecT::ProtocolHardfork>,
     default_transaction_gas_limit: NonZeroU64,
@@ -360,11 +387,6 @@ where
             .next()
             .copied()
             .unwrap_or(Address::ZERO)
-    }
-
-    /// Returns the default transaction gas limit.
-    pub fn default_transaction_gas_limit(&self) -> u64 {
-        self.default_transaction_gas_limit.get()
     }
 
     /// Returns the metadata of the forked blockchain, if it exists.
@@ -478,10 +500,19 @@ where
         std::mem::take(&mut self.interval_reconfigured)
     }
 
-    /// Returns the bound on the gas a transaction may spend on execution, if
-    /// any.
+    /// Returns the bound on the gas a transaction may spend on execution in a
+    /// block with the given hardfork, if any.
+    pub fn transaction_execution_gas_bound_at_hardfork<HardforkT: Into<EvmSpecId>>(
+        &self,
+        hardfork: HardforkT,
+    ) -> Option<u64> {
+        transaction_gas_bounds_for_hardfork(&self.transaction_gas_cap, hardfork).execution_gas
+    }
+
+    /// Returns the bound on the gas a transaction may spend on execution for
+    /// the local hardfork, if any.
     pub fn transaction_execution_gas_bound(&self) -> Option<u64> {
-        self.transaction_gas_bounds.execution_gas
+        self.transaction_execution_gas_bound_at_hardfork(self.blockchain.hardfork())
     }
 
     fn add_state_to_cache(&mut self, state: Box<dyn DynState>, block_number: u64) -> StateId {
@@ -772,13 +803,8 @@ where
             transaction_gas_cap,
         } = config;
 
-        let transaction_gas_bounds = match transaction_gas_cap {
-            ConfigOption::Default => TransactionGasBounds::for_hardfork(blockchain.hardfork()),
-            ConfigOption::Custom(transaction_gas_cap) => {
-                TransactionGasBounds::custom(blockchain.hardfork(), transaction_gas_cap)
-            }
-            ConfigOption::Disable => TransactionGasBounds::disabled(blockchain.hardfork()),
-        };
+        let transaction_gas_bounds =
+            transaction_gas_bounds_for_hardfork(&transaction_gas_cap, blockchain.hardfork());
 
         let local_accounts = owned_accounts
             .iter()
@@ -809,7 +835,7 @@ where
             bail_on_transaction_failure,
             base_fee_params,
             beneficiary,
-            transaction_gas_bounds,
+            transaction_gas_cap,
             blockchain,
             block_config,
             default_transaction_gas_limit,
@@ -902,6 +928,24 @@ where
             Filter::new_log_filter(criteria, logs, IS_SUBSCRIPTION),
         );
         Ok(filter_id)
+    }
+
+    /// Returns the gas limit of a request without a `gas` value, executing in
+    /// the block at `block_spec`.
+    ///
+    /// The bound on a transaction's gas limit in that block caps the
+    /// configured default. The pending block uses the local hardfork.
+    pub fn default_transaction_gas_limit(
+        &self,
+        block_spec: &BlockSpec,
+    ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
+        let hardfork = self.hardfork_at_block_spec(block_spec)?;
+
+        Ok(cap_by_transaction_gas_bound(
+            self.default_transaction_gas_limit.get(),
+            &self.transaction_gas_cap,
+            hardfork,
+        ))
     }
 
     /// Fetch a block by block spec.
@@ -1392,8 +1436,13 @@ where
         Ok(block_number)
     }
 
-    /// Creates an [`EvmConfig`] with the provided chain id
-    fn create_evm_config(&self, chain_id: u64) -> EvmConfig {
+    /// Creates an [`EvmConfig`] with the provided chain id and transaction
+    /// execution gas bound. `None` disables the bound.
+    fn create_evm_config(
+        &self,
+        chain_id: u64,
+        transaction_execution_gas_bound: Option<u64>,
+    ) -> EvmConfig {
         EvmConfig {
             chain_id,
             disable_block_gas_limit: self.mem_pool.block_gas_limit().is_none(),
@@ -1405,7 +1454,7 @@ where
             },
             // revm falls back to the spec's cap when `None`; `u64::MAX` disables it.
             transaction_execution_gas_bound: Some(
-                self.transaction_execution_gas_bound().unwrap_or(u64::MAX),
+                transaction_execution_gas_bound.unwrap_or(u64::MAX),
             ),
         }
     }
@@ -1440,7 +1489,12 @@ where
             self.blockchain.chain_id()
         };
 
-        Ok(self.create_evm_config(chain_id).to_cfg_env(hardfork))
+        let transaction_execution_gas_bound =
+            self.transaction_execution_gas_bound_at_hardfork(hardfork.clone());
+
+        Ok(self
+            .create_evm_config(chain_id, transaction_execution_gas_bound)
+            .to_cfg_env(hardfork))
     }
 
     /// Retrieves the hardfork at the provided block spec, if it exists.
@@ -1595,7 +1649,10 @@ where
             options.gas_limit = Some(self.next_block_gas_limit()?);
         }
 
-        let evm_config = self.create_evm_config(self.blockchain.chain_id());
+        let evm_config = self.create_evm_config(
+            self.blockchain.chain_id(),
+            self.transaction_execution_gas_bound(),
+        );
 
         let evm_spec_id: EvmSpecId = self.blockchain.hardfork().into();
         if options.mix_hash.is_none() && evm_spec_id >= EvmSpecId::MERGE {
@@ -4260,6 +4317,88 @@ mod tests {
         assert_eq!(hex::decode(expected_signature)?, signature.to_vec(),);
 
         Ok(())
+    }
+
+    #[test]
+    fn transaction_gas_bound_caps_gas_limit() {
+        /// Above every hardfork's transaction gas bound.
+        const LARGE_GAS_LIMIT: u64 = 1 << 40;
+        /// Below every hardfork's transaction gas bound.
+        const SMALL_GAS_LIMIT: u64 = 1_000_000;
+        /// Below the Osaka cap and above `SMALL_GAS_LIMIT`.
+        const CUSTOM_CAP: u64 = 5_000_000;
+
+        let osaka_cap = edr_eip7825::OSAKA_TRANSACTION_GAS_CAP;
+        let amsterdam_cap = edr_eip8037::TX_MAX_TOTAL_GAS_LIMIT;
+
+        for (hardfork, transaction_gas_cap, gas_limit, expected) in [
+            (
+                EvmSpecId::PRAGUE,
+                ConfigOption::Default,
+                LARGE_GAS_LIMIT,
+                LARGE_GAS_LIMIT,
+            ),
+            (
+                EvmSpecId::PRAGUE,
+                ConfigOption::Custom(CUSTOM_CAP),
+                LARGE_GAS_LIMIT,
+                CUSTOM_CAP,
+            ),
+            (
+                EvmSpecId::OSAKA,
+                ConfigOption::Default,
+                LARGE_GAS_LIMIT,
+                osaka_cap,
+            ),
+            (
+                EvmSpecId::OSAKA,
+                ConfigOption::Default,
+                SMALL_GAS_LIMIT,
+                SMALL_GAS_LIMIT,
+            ),
+            (
+                EvmSpecId::OSAKA,
+                ConfigOption::Custom(CUSTOM_CAP),
+                LARGE_GAS_LIMIT,
+                CUSTOM_CAP,
+            ),
+            (
+                EvmSpecId::OSAKA,
+                ConfigOption::Disable,
+                LARGE_GAS_LIMIT,
+                LARGE_GAS_LIMIT,
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Default,
+                LARGE_GAS_LIMIT,
+                amsterdam_cap,
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Default,
+                SMALL_GAS_LIMIT,
+                SMALL_GAS_LIMIT,
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Custom(CUSTOM_CAP),
+                LARGE_GAS_LIMIT,
+                amsterdam_cap,
+            ),
+            (
+                EvmSpecId::AMSTERDAM,
+                ConfigOption::Disable,
+                LARGE_GAS_LIMIT,
+                amsterdam_cap,
+            ),
+        ] {
+            assert_eq!(
+                cap_by_transaction_gas_bound(gas_limit, &transaction_gas_cap, hardfork),
+                expected,
+                "hardfork {hardfork:?}, cap {transaction_gas_cap:?}, gas limit {gas_limit}"
+            );
+        }
     }
 
     #[cfg(feature = "test-remote")]

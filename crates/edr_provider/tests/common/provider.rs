@@ -1,18 +1,27 @@
 //! Helpers for constructing an L1 test provider and issuing common requests.
 #![cfg(feature = "test-utils")]
 
-use std::sync::Arc;
+use std::{num::NonZeroU64, sync::Arc};
 
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
+#[cfg(feature = "test-remote")]
+use edr_primitives::HashMap;
 use edr_primitives::{Address, Bytes, B256, U256, U64};
+#[cfg(feature = "test-remote")]
+use edr_provider::{
+    config::ForkConfig,
+    test_utils::{create_test_config_with, MinimalProviderConfig},
+};
 use edr_provider::{
     config::ProviderConfig, test_utils::create_test_config, time::CurrentTime, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
+#[cfg(feature = "test-remote")]
+use edr_test_utils::env::json_rpc_url_provider;
 use parking_lot::RwLock;
 use tokio::runtime;
 
@@ -144,4 +153,31 @@ pub fn storage_at(
     ))?;
 
     Ok(response.deserialize_result()?)
+}
+
+/// A configured default transaction gas limit above
+/// `OSAKA_TRANSACTION_GAS_CAP`, as Hardhat 2 configures it.
+pub const DEFAULT_TRANSACTION_GAS_LIMIT_ABOVE_OSAKA_CAP: NonZeroU64 =
+    NonZeroU64::new(30_000_000).expect("gas limit should be non-zero");
+
+/// A mainnet block before the Osaka activation, with a gas limit of at least
+/// 30M.
+#[cfg(feature = "test-remote")]
+pub const PRAGUE_MAINNET_BLOCK_NUMBER: u64 = 23_000_000;
+
+/// A mainnet block after the Osaka activation.
+#[cfg(feature = "test-remote")]
+pub const OSAKA_MAINNET_BLOCK_NUMBER: u64 = 24_000_000;
+
+/// Returns the test config with accounts, forking Ethereum mainnet at
+/// `block_number`.
+#[cfg(feature = "test-remote")]
+pub fn mainnet_fork_config(block_number: u64) -> ProviderConfig<edr_chain_l1::Hardfork> {
+    create_test_config_with(MinimalProviderConfig::fork_with_accounts(ForkConfig {
+        block_number: Some(block_number),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::default(),
+        http_headers: None,
+        url: json_rpc_url_provider::ethereum_mainnet(),
+    }))
 }
