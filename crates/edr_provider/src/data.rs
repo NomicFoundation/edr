@@ -291,7 +291,7 @@ pub struct ProviderData<
     transaction_gas_cap: ConfigOption<u64>,
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     block_config: BlockConfig<ChainSpecT::ProtocolHardfork>,
-    default_transaction_gas_limit: NonZeroU64,
+    default_transaction_gas_limit: Option<NonZeroU64>,
     gas_estimation_mode: GasEstimationMode,
     is_auto_mining: bool,
     interval_config: Option<IntervalConfig>,
@@ -933,16 +933,32 @@ where
     /// Returns the gas limit of a request without a `gas` value, executing in
     /// the block at `block_spec`.
     ///
-    /// The bound on a transaction's gas limit in that block caps the
-    /// configured default. The pending block uses the local hardfork.
+    /// The limit is the configured default, or else the block's gas limit. The
+    /// bound on a transaction's gas limit in that block caps it. Before
+    /// Amsterdam, a configured transaction gas cap replaces the hardfork's
+    /// bound. The pending block uses the local hardfork and the gas limit
+    /// it would be mined with.
     pub fn default_transaction_gas_limit(
         &self,
         block_spec: &BlockSpec,
     ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
         let hardfork = self.hardfork_at_block_spec(block_spec)?;
 
+        let gas_limit =
+            if let Some(default_transaction_gas_limit) = self.default_transaction_gas_limit {
+                default_transaction_gas_limit.get()
+            } else if let Some(block) = self.block_by_block_spec(block_spec)? {
+                block.block_header().gas_limit
+            } else {
+                match self.mem_pool.block_gas_limit() {
+                    Some(block_gas_limit) => block_gas_limit.get(),
+                    // The miner falls back to the parent's gas limit.
+                    None => self.blockchain.last_block()?.block_header().gas_limit,
+                }
+            };
+
         Ok(cap_by_transaction_gas_bound(
-            self.default_transaction_gas_limit.get(),
+            gas_limit,
             &self.transaction_gas_cap,
             hardfork,
         ))
@@ -4477,7 +4493,9 @@ mod tests {
 
             let config = ProviderConfig {
                 // SAFETY: literal is non-zero
-                default_transaction_gas_limit: unsafe { NonZeroU64::new_unchecked(1_000_000) },
+                default_transaction_gas_limit: Some(unsafe {
+                    NonZeroU64::new_unchecked(1_000_000)
+                }),
                 chain_id: 1,
                 coinbase: Address::ZERO,
                 hardfork: edr_chain_l1::Hardfork::London,
