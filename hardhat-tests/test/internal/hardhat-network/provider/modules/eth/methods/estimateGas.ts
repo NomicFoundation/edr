@@ -5,6 +5,7 @@ import {
 import { assert } from "chai";
 import { Client } from "undici";
 
+import { defaultHardhatNetworkParams } from "hardhat/internal/core/config/default-config";
 import {
   numberToRpcQuantity,
   rpcQuantityToNumber,
@@ -268,6 +269,25 @@ describe("Eth module", function () {
                 "maxPriorityFeePerGas (2) is bigger than maxFeePerGas (1)"
               );
             });
+          });
+        });
+
+        describe("default gas limit", function () {
+          useProvider({
+            hardfork: defaultHardhatNetworkParams.hardfork,
+            blockGasLimit: BigInt(defaultHardhatNetworkParams.blockGasLimit),
+          });
+
+          it("Should estimate a transfer when gas is omitted", async function () {
+            const estimation = await this.provider.send("eth_estimateGas", [
+              {
+                from: DEFAULT_ACCOUNTS_ADDRESSES[0],
+                to: zeroAddress(),
+                value: numberToRpcQuantity(1),
+              },
+            ]);
+
+            assert.closeTo(Number(estimation), 21_000, 5);
           });
         });
 

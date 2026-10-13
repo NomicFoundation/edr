@@ -1184,3 +1184,42 @@ async fn fuzz_executor_error_reports_no_stack_trace() {
         "no recorded arena describes an executor error, so there is no stack trace"
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_trace_marks_precompile_calls() {
+    const POINT_EVALUATION_PRECOMPILE: Address = Address::with_last_byte(0x0a);
+
+    let config = runner_config(None, &TEST_DATA_VIA_IR, false).await;
+    let runner = TEST_DATA_VIA_IR.runner_with_config(config).await;
+    let filter = SolidityTestFilter::path(".*repros/PrecompileCall.t.sol");
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite = suite_results
+        .get("via-ir/repros/PrecompileCall.t.sol:PrecompileCallTest")
+        .expect("the PrecompileCall suite should have run");
+    let result = suite
+        .test_results
+        .get("testPrecompileCallFails()")
+        .expect("testPrecompileCallFails should have run");
+
+    assert_eq!(result.status, TestStatus::Failure, "{:?}", result.reason);
+
+    let failing_trace = result
+        .execution_traces
+        .last()
+        .expect("the failing test call should have a trace");
+    let precompile_flags: Vec<(Address, bool)> = failing_trace
+        .arena
+        .nodes()
+        .iter()
+        .map(|node| (node.trace.address, node.is_precompile()))
+        .collect();
+
+    assert_eq!(
+        precompile_flags,
+        [
+            (failing_trace.arena.nodes()[0].trace.address, false),
+            (POINT_EVALUATION_PRECOMPILE, true),
+        ]
+    );
+}

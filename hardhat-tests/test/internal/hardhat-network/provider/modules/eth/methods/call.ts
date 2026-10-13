@@ -1,6 +1,8 @@
 import { bytesToHex as bufferToHex } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 import { ethers } from "ethers";
+import { FUSAKA_TRANSACTION_GAS_LIMIT } from "hardhat/internal/constants";
+import { defaultHardhatNetworkParams } from "hardhat/internal/core/config/default-config";
 import {
   numberToRpcQuantity,
   rpcDataToNumber,
@@ -1620,6 +1622,41 @@ contract C {
             ],
             "An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182"
           );
+        });
+
+        describe("default gas limit", function () {
+          // GAS PUSH1 0 MSTORE PUSH1 32 PUSH1 0 RETURN
+          const RETURN_GAS_LEFT_CODE = "0x5a60005260206000f3";
+          const GAS_LEFT_REPORTER =
+            "0x00000000000000000000000000000000000000aa";
+          const TRANSACTION_BASE_GAS = 21_000n;
+          const GAS_OPCODE_COST = 2n;
+
+          useProvider({
+            hardfork: defaultHardhatNetworkParams.hardfork,
+            blockGasLimit: BigInt(defaultHardhatNetworkParams.blockGasLimit),
+          });
+
+          it("Should use the EIP-7825 transaction gas cap when gas is omitted", async function () {
+            await this.provider.send("hardhat_setCode", [
+              GAS_LEFT_REPORTER,
+              RETURN_GAS_LEFT_CODE,
+            ]);
+
+            const gasLeft = await this.provider.send("eth_call", [
+              {
+                from: DEFAULT_ACCOUNTS_ADDRESSES[0],
+                to: GAS_LEFT_REPORTER,
+              },
+            ]);
+
+            assert.equal(
+              rpcDataToBigInt(gasLeft),
+              BigInt(FUSAKA_TRANSACTION_GAS_LIMIT) -
+                TRANSACTION_BASE_GAS -
+                GAS_OPCODE_COST
+            );
+          });
         });
 
         describe("http JSON-RPC response", function () {
