@@ -224,17 +224,17 @@ foundry-compilers = { version = "0.18.0", default-features = false, features = [
 ] }
 
 ## revm
-# No op-revm release supports revm 41 (op-revm 20.0.0 on crates.io pins revm
+# No op-revm release supports revm 42 (op-revm 20.0.0 on crates.io pins revm
 # ^38), so a shallow mirror of the ethereum-optimism monorepo commit matching
-# the op-reth v2.4.1 release (workspace pins revm 41.0.0, the revm version at
-# tag v113) is used instead. See the mirror's PROVENANCE.md.
-op-revm = { git = "https://github.com/NomicFoundation/op-revm", tag = "op-reth-v2.4.1-a9a8dad", default-features = false, features = [
+# the op-reth v2.6.0 release (workspace pins revm 42.0.1, the revm version at
+# tag v115) is used instead. See the mirror's PROVENANCE.md.
+op-revm = { git = "https://github.com/NomicFoundation/op-revm", tag = "op-reth-v2.6.0-da6d325", default-features = false, features = [
     "c-kzg",
     "dev",
     "serde",
     "std",
 ] }
-revm = { version = "41.0.0", default-features = false, features = [
+revm = { version = "42.0.1", default-features = false, features = [
     "arbitrary",
     "blst",
     "c-kzg",
@@ -246,34 +246,39 @@ revm = { version = "41.0.0", default-features = false, features = [
     "serde",
     "std",
 ] }
-revm-bytecode = { version = "41.0.0", default-features = false, features = [
+revm-bytecode = { version = "42.0.0", default-features = false, features = [
     "serde",
     "std",
 ] }
-revm-context = { version = "41.0.0", default-features = false }
-revm-context-interface = { version = "41.0.0", default-features = false }
-revm-database-interface = { version = "=41.0.0", default-features = false }
-revm-handler = { version = "41.0.0", default-features = false }
-revm-inspector = { version = "41.0.0", default-features = false }
-revm-interpreter = { version = "41.0.0", default-features = false }
-revm-precompile = { version = "41.0.0", default-features = false, features = [
+revm-context = { version = "42.0.0", default-features = false }
+revm-context-interface = { version = "42.0.0", default-features = false }
+revm-database-interface = { version = "=42.0.0", default-features = false }
+revm-handler = { version = "42.0.1", default-features = false }
+revm-inspector = { version = "42.0.1", default-features = false }
+revm-interpreter = { version = "42.0.0", default-features = false }
+revm-precompile = { version = "42.0.1", default-features = false, features = [
     "blst",
     "c-kzg",
     "std",
 ] }
-revm-primitives = { version = "41.0.0", default-features = false, features = [
+revm-primitives = { version = "42.0.0", default-features = false, features = [
     "hashbrown",
     "rand",
     "serde",
     "std",
 ] }
-revm-state = { version = "41.0.0", default-features = false }
-c-kzg = { version = "2.1.7", default-features = false, features = [
+revm-state = { version = "42.0.0", default-features = false }
+c-kzg = { version = "2.1.8", default-features = false, features = [
     "ethereum_kzg_settings",
 ] }
 
-revm-inspectors = { version = "0.41.2", features = ["serde"] }
-foundry-fork-db = "0.27"
+revm-inspectors = { version = "0.42.2", features = ["serde"] }
+# No foundry-fork-db release supports revm 42 (0.27.0 on crates.io pins revm
+# ^41; the next fork-db bump goes straight to revm 43), so a foundry-core git
+# revision is used: the one Foundry v1.8.0 and v1.8.1 (the stable releases on
+# revm 42) resolve foundry-fork-db to in their Cargo.lock; see
+# https://github.com/foundry-rs/foundry/releases/tag/v1.8.1.
+foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-core", rev = "78e5b57f86986eabd969a5fdf238b8159f7086fd" }
 
 ## ethers
 ethers-contract-abigen = { version = "2.0.14", default-features = false }

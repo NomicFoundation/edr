@@ -1743,6 +1743,8 @@ fn convert_executed_result<
         env.tx.access_list().map_or(0, Iterator::count).try_into()?,
         0,
         0,
+        // TODO: pass the EIP-2780 transaction info once EIP-2780 is wired.
+        None,
     );
 
     let result = match &out {
