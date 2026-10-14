@@ -266,9 +266,9 @@ fn transaction_gas_bounds_for_hardfork<HardforkT: Into<EvmSpecId>>(
     }
 }
 
-/// Caps `gas_limit` by the bound on a transaction's gas limit in a block with
-/// the given hardfork.
-fn cap_by_transaction_gas_bound<HardforkT: Into<EvmSpecId>>(
+/// Returns `gas_limit`, capped by the bound on a transaction's gas limit in a
+/// block with the given hardfork.
+fn transaction_gas_limit_within_bound<HardforkT: Into<EvmSpecId>>(
     gas_limit: u64,
     transaction_gas_cap: &ConfigOption<u64>,
     hardfork: HardforkT,
@@ -954,7 +954,7 @@ where
                 }
             };
 
-        Ok(cap_by_transaction_gas_bound(
+        Ok(transaction_gas_limit_within_bound(
             gas_limit,
             &self.transaction_gas_cap,
             hardfork,
@@ -4407,7 +4407,7 @@ mod tests {
             ),
         ] {
             assert_eq!(
-                cap_by_transaction_gas_bound(gas_limit, &transaction_gas_cap, hardfork),
+                transaction_gas_limit_within_bound(gas_limit, &transaction_gas_cap, hardfork),
                 expected,
                 "hardfork {hardfork:?}, cap {transaction_gas_cap:?}, gas limit {gas_limit}"
             );
