@@ -3035,6 +3035,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip2780"
+version = "0.3.8"
+dependencies = [
+ "edr_chain_l1",
+ "edr_chain_spec",
+ "edr_transaction",
+ "revm-context-interface",
+]
+
+[[package]]
 name = "edr_eip2930"
 version = "0.3.8"
 dependencies = [
@@ -3454,6 +3464,7 @@ dependencies = [
  "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
+ "edr_eip2780",
  "edr_eip2930",
  "edr_eip7702",
  "edr_eip7825",
@@ -3492,6 +3503,7 @@ dependencies = [
  "rand 0.9.5",
  "revm-inspector",
  "revm-inspectors",
+ "revm-primitives",
  "rpds",
  "serde",
  "serde_json",
@@ -3613,6 +3625,7 @@ dependencies = [
  "edr_chain_spec_evm",
  "edr_chain_spec_provider",
  "edr_defaults",
+ "edr_eip2780",
  "edr_eth",
  "edr_generic",
  "edr_primitives",
