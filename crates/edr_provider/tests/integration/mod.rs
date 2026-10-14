@@ -14,6 +14,7 @@ mod eip7778;
 mod eip7825;
 mod eip7843;
 mod eip7928;
+mod eip7954;
 mod eip7981;
 mod eip7997;
 mod eip8024;
