@@ -10,8 +10,8 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
 use super::{
+    dwarf_model::{identify_contracts, DwarfBuildModel},
     solc::CompiledContractsAndFiles,
-    solx::{identify_contracts, SolxBuildModel},
     BuildInfo, BuildInfoOutput, BuildInfoWithOutput, CompilerInput, CompilerMetadataParseError,
     CompilerOutput, ContractAbiEntry, ContractMetadataExtractionError, JsonSource, SolxBytecode,
     SplitCompilerMetadataParseError,
@@ -199,7 +199,7 @@ pub fn extract_slang_contract_metadata(
 pub(crate) fn slang_build_model(
     compiler_input: CompilerInput,
     compiler_output: &CompilerOutput<SolxBytecode>,
-) -> anyhow::Result<Option<SolxBuildModel>> {
+) -> anyhow::Result<Option<DwarfBuildModel>> {
     let mut sources = Vec::with_capacity(compiler_output.sources.len());
     for (source_name, source) in &compiler_output.sources {
         let Some(debug_symbols) = source.debug_symbols.as_ref() else {
@@ -336,7 +336,7 @@ pub(crate) fn slang_build_model(
         .map(|(_, file_id, file, _)| (file_id, file))
         .collect();
 
-    Ok(Some(SolxBuildModel::from_parts(
+    Ok(Some(DwarfBuildModel::from_parts(
         CompiledContractsAndFiles {
             contract_id_to_contract,
             file_id_to_source_file,
@@ -465,7 +465,6 @@ mod tests {
             BuildInfoConfigWithBuffers,
         },
         build_model::BuildModel as _,
-        debug_info::dwarf::SourceLookup as _,
     };
 
     const A_SOL: &str = r#"// SPDX-License-Identifier: MIT
@@ -779,7 +778,7 @@ contract Diamond is Left, Right {
         (input, output)
     }
 
-    fn diamond_build_model() -> SolxBuildModel {
+    fn diamond_build_model() -> DwarfBuildModel {
         let (input, output) = diamond_input_output();
         let input: CompilerInput = serde_json::from_value(input).unwrap();
         let output: CompilerOutput<SolxBytecode> = serde_json::from_value(output).unwrap();
@@ -788,7 +787,7 @@ contract Diamond is Left, Right {
             .expect("every source has debugSymbols")
     }
 
-    fn contract_named(model: &SolxBuildModel, name: &str) -> Arc<RwLock<Contract>> {
+    fn contract_named(model: &DwarfBuildModel, name: &str) -> Arc<RwLock<Contract>> {
         model
             .contracts()
             .find(|contract| contract.read().name == name)
@@ -806,7 +805,7 @@ contract Diamond is Left, Right {
     }
 
     fn function_containing(
-        model: &SolxBuildModel,
+        model: &DwarfBuildModel,
         file_id: u32,
         marker: &str,
     ) -> Option<Arc<ContractFunction>> {

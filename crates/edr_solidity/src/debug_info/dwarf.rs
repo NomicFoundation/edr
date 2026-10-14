@@ -10,20 +10,12 @@ use edr_primitives::{bytecode::opcode::OpCode, hex};
 use gimli::{EndianRcSlice, Reader, RunTimeEndian};
 use object::{Endianness, Object, ObjectSection};
 
-use crate::build_model::{BuildModel, ContractFunction, Instruction, JumpType, SourceLocation};
+use crate::{
+    artifacts::dwarf_model::DwarfBuildModel,
+    build_model::{BuildModel as _, ContractFunction, Instruction, JumpType, SourceLocation},
+};
 
 type DwarfReader = EndianRcSlice<RunTimeEndian>;
-
-/// Source lookups that resolve DWARF `(file, line, column)` triples to
-/// [`SourceLocation`]s and their enclosing functions.
-pub trait SourceLookup: BuildModel {
-    /// Source name → file ID, for matching DWARF file names.
-    fn name_to_file_id(&self) -> &HashMap<String, u32>;
-
-    /// Smallest syntax-node `(offset, length)` span in `file_id` containing
-    /// `offset`.
-    fn smallest_enclosing_span(&self, file_id: u32, offset: u32) -> Option<(u32, u32)>;
-}
 
 /// Failure modes when decoding a solx DWARF blob. Replaces previous
 /// `anyhow::Error` returns so callers (and tests) can match on the specific
@@ -139,7 +131,7 @@ fn is_stack_shuffle(opcode: OpCode) -> bool {
 pub fn decode_instructions(
     normalized_code: &[u8],
     debug_info_hex: &str,
-    build_model: &impl SourceLookup,
+    build_model: &DwarfBuildModel,
     _is_deployment: bool,
 ) -> Result<Vec<Instruction>, DwarfError> {
     // 1. Hex → ELF → gimli::Dwarf.
@@ -388,7 +380,7 @@ impl DecodeCaches {
 
     fn enclosing_span(
         &mut self,
-        build_model: &impl SourceLookup,
+        build_model: &DwarfBuildModel,
         file_id: u32,
         offset: u32,
     ) -> Option<(u32, u32)> {
@@ -400,7 +392,7 @@ impl DecodeCaches {
 
     fn function_by_decl_line(
         &mut self,
-        build_model: &impl SourceLookup,
+        build_model: &DwarfBuildModel,
         file_id: u32,
         decl_line: u32,
         dwarf_name: &str,
@@ -422,7 +414,7 @@ impl DecodeCaches {
 
     fn containing_function(
         &mut self,
-        build_model: &impl SourceLookup,
+        build_model: &DwarfBuildModel,
         file_id: u32,
         offset: u32,
         row_file: &str,
@@ -694,7 +686,7 @@ impl ParsedDwarf {
         containing: &[InlinedRange],
         dwarf_file_names: &[String],
         name_to_file_id: &HashMap<String, u32>,
-        build_model: &impl SourceLookup,
+        build_model: &DwarfBuildModel,
         caches: &mut DecodeCaches,
     ) -> Option<SourceLocation> {
         let row_at_pc = self.location_for_pc(pc);
@@ -920,7 +912,7 @@ fn inline_call_sites_for_ranges(
     containing: &[InlinedRange],
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &impl SourceLookup,
+    build_model: &DwarfBuildModel,
     caches: &mut DecodeCaches,
 ) -> Box<[SourceLocation]> {
     let mut out: Vec<SourceLocation> = Vec::with_capacity(containing.len());
@@ -947,7 +939,7 @@ fn range_call_site_to_location(
     r: &InlinedRange,
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &impl SourceLookup,
+    build_model: &DwarfBuildModel,
     caches: &mut DecodeCaches,
 ) -> Option<SourceLocation> {
     // DWARF writes "no line" as 0, so both flavours of missing collapse to
@@ -1011,7 +1003,7 @@ fn resolve_location(
     column: u64,
     dwarf_file_names: &[String],
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &impl SourceLookup,
+    build_model: &DwarfBuildModel,
     caches: &mut DecodeCaches,
 ) -> Option<(u32, usize)> {
     let dwarf_name = dwarf_file_names.get(dwarf_file_index as usize)?.as_str();
@@ -1032,7 +1024,7 @@ fn resolve_location_by_name(
     line: NonZeroU64,
     column: u64,
     name_to_file_id: &HashMap<String, u32>,
-    build_model: &impl SourceLookup,
+    build_model: &DwarfBuildModel,
     caches: &mut DecodeCaches,
 ) -> Option<(u32, usize)> {
     let file_id = caches.resolve_file_id(dwarf_name, name_to_file_id)?;
@@ -1101,7 +1093,7 @@ fn pick_unambiguous(candidates: &[(&String, u32)], dwarf_name: &str) -> Option<u
     longest.first().map(|(_, id)| *id)
 }
 
-fn compute_line_starts(build_model: &impl SourceLookup, file_id: u32) -> Vec<usize> {
+fn compute_line_starts(build_model: &DwarfBuildModel, file_id: u32) -> Vec<usize> {
     let Some(file) = build_model.source_model_by_file_id(file_id) else {
         return Vec::new();
     };
@@ -1124,8 +1116,8 @@ mod tests {
     use super::*;
     use crate::{
         artifacts::{
-            slang::slang_build_model, solx::SolxBuildModel, CompilerInput, CompilerOutput,
-            SolxBytecode,
+            dwarf_model::DwarfBuildModel, slang::slang_build_model, solx::solx_build_model,
+            CompilerInput, CompilerOutput, SolxBytecode,
         },
         build_model::SourceFile,
     };
@@ -1177,7 +1169,7 @@ mod tests {
 
     /// Counter.sol model for `(file, line, column)` resolution tests: sources
     /// only for solx, the `debugSymbols` reader's model for slang.
-    fn make_build_model_for_counter(compiler: Compiler) -> SolxBuildModel {
+    fn make_build_model_for_counter(compiler: Compiler) -> DwarfBuildModel {
         let counter_src = include_str!("../../fixtures/sources/Counter.sol");
         match compiler {
             Compiler::Solx => {
@@ -1186,7 +1178,7 @@ mod tests {
                 let mut file_id_to_source_file = std::collections::HashMap::new();
                 file_id_to_source_file.insert(0u32, Arc::new(RwLock::new(file)));
 
-                SolxBuildModel::with_sources(file_id_to_source_file)
+                DwarfBuildModel::with_sources(file_id_to_source_file)
             }
             Compiler::Slang => {
                 let mut input: CompilerInput =
@@ -1224,7 +1216,7 @@ mod tests {
     /// regenerated by `edr_tool_cli`'s `gen-solx-fixtures` and
     /// `gen-slang-fixtures` (see the fixtures README). Line pins move with
     /// the sources, so prefer appending.
-    fn make_build_model_for_stack_trace_scenarios(compiler: Compiler) -> SolxBuildModel {
+    fn make_build_model_for_stack_trace_scenarios(compiler: Compiler) -> DwarfBuildModel {
         let input_json = match compiler {
             Compiler::Solx => {
                 include_str!("../../fixtures/solx_compiler_input_stack_trace_scenarios.json")
@@ -1249,7 +1241,7 @@ mod tests {
 
         let output = load_stack_trace_scenarios_output(compiler);
         match compiler {
-            Compiler::Solx => SolxBuildModel::new(input, &output)
+            Compiler::Solx => solx_build_model(input, &output)
                 .expect("AST processor must accept the stack-trace-scenarios fixture"),
             Compiler::Slang => slang_build_model(input, &output)
                 .expect("debugSymbols reader must accept the stack-trace-scenarios fixture")
@@ -1260,7 +1252,7 @@ mod tests {
     fn decode_deployed_for(
         output: &CompilerOutput<SolxBytecode>,
         contract: &str,
-        model: &SolxBuildModel,
+        model: &DwarfBuildModel,
     ) -> Vec<Instruction> {
         let bc = &output
             .contracts
