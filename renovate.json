@@ -198,6 +198,22 @@
       "matchDatasources": ["custom.rust-nightly"],
       "schedule": ["on the first day of the month"],
       "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": "gungraun + gungraun-runner: the runner refuses to start unless its version matches the library's, so the dev-dependency in edr_solidity and the runner pinned in solx-build-info-benchmark.yml must move in one PR. Placed after the pre-1.0 ungrouping rule so it wins.",
+      "matchPackageNames": ["gungraun", "gungraun-runner"],
+      "groupName": "gungraun"
+    },
+    {
+      "description": "valgrind for the instruction-count benchmark, resolved against the ubuntu-24.04 runner's archive: noble's release, updates and security pockets, merged. The deb datasource carries no release timestamps, so minimumReleaseAge is 0 here; under the global 7-day floor with timestamps required, no update would ever be proposed.",
+      "matchDatasources": ["deb"],
+      "matchDepNames": ["valgrind"],
+      "registryUrls": [
+        "https://archive.ubuntu.com/ubuntu?suite=noble&components=main&binaryArch=amd64",
+        "https://archive.ubuntu.com/ubuntu?suite=noble-updates&components=main&binaryArch=amd64",
+        "https://security.ubuntu.com/ubuntu?suite=noble-security&components=main&binaryArch=amd64"
+      ],
+      "minimumReleaseAge": "0 days"
     }
   ],
   "customManagers": [
