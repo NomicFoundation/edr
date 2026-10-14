@@ -185,38 +185,32 @@ size_t _mi_prim_numa_node_count(void) {
 
 #include <time.h>
 
-// low resolution timer
-static mi_msecs_t mi_prim_clock_now_lowres(void) {
-  const int64_t ticks = (int64_t)clock();
-  #if !defined(CLOCKS_PER_SEC) 
-    return ticks;
+#if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
+
+mi_msecs_t _mi_prim_clock_now(void) {
+  struct timespec t;
+  #ifdef CLOCK_MONOTONIC
+  clock_gettime(CLOCK_MONOTONIC, &t);
   #else
-    if (CLOCKS_PER_SEC <= 0 || CLOCKS_PER_SEC == 1000) {
-      return ticks;
-    }
-    else if (CLOCKS_PER_SEC > 0 && CLOCKS_PER_SEC < 1000) {
-      return ticks * (1000 / (mi_msecs_t)CLOCKS_PER_SEC);
-    }
-    else {
-      return ticks / ((mi_msecs_t)CLOCKS_PER_SEC / 1000);
-    }
+  clock_gettime(CLOCK_REALTIME, &t);
+  #endif
+  return ((mi_msecs_t)t.tv_sec * 1000) + ((mi_msecs_t)t.tv_nsec / 1000000);
+}
+
+#else
+
+// low resolution timer
+mi_msecs_t _mi_prim_clock_now(void) {
+  #if !defined(CLOCKS_PER_SEC) || (CLOCKS_PER_SEC == 1000) || (CLOCKS_PER_SEC == 0)
+  return (mi_msecs_t)clock();
+  #elif (CLOCKS_PER_SEC < 1000)
+  return (mi_msecs_t)clock() * (1000 / (mi_msecs_t)CLOCKS_PER_SEC);
+  #else
+  return (mi_msecs_t)clock() / ((mi_msecs_t)CLOCKS_PER_SEC / 1000);
   #endif
 }
 
-mi_msecs_t _mi_prim_clock_now(void) {
-  #if defined(CLOCK_REALTIME) || defined(CLOCK_MONOTONIC)
-    #ifdef CLOCK_MONOTONIC
-    const clockid_t clockid = CLOCK_MONOTONIC;
-    #else
-    const clockid_t clockid = CLOCK_REALTIME;
-    #endif
-    struct timespec t;  
-    if (clock_gettime(clockid,&t) == 0) {
-      return ((mi_msecs_t)t.tv_sec * 1000) + ((mi_msecs_t)t.tv_nsec / 1000000L);
-    }
-  #endif  
-  return mi_prim_clock_now_lowres();  
-}
+#endif
 
 
 //----------------------------------------------------------------
@@ -243,9 +237,9 @@ void _mi_prim_out_stderr( const char* msg ) {
 // Environment
 //----------------------------------------------------------------
 
-int _mi_prim_getenv(const char* name, char* result, size_t result_size) {
+bool _mi_prim_getenv(const char* name, char* result, size_t result_size) {
   // cannot call getenv() when still initializing the C runtime.
-  if (_mi_preloading()) return -1;  // error, try again later
+  if (_mi_preloading()) return false;
   const char* s = getenv(name);
   if (s == NULL) {
     // we check the upper case name too.
@@ -257,9 +251,9 @@ int _mi_prim_getenv(const char* name, char* result, size_t result_size) {
     buf[len] = 0;
     s = getenv(buf);
   }
-  if (s == NULL || _mi_strnlen(s,result_size) >= result_size)  return 0; // not found
+  if (s == NULL || _mi_strnlen(s,result_size) >= result_size)  return false;
   _mi_strlcpy(result, s, result_size);
-  return 1; // found
+  return true;
 }
 
 
