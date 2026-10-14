@@ -7,7 +7,7 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_primitives::{B256, U64};
+use edr_primitives::{Address, Bytes, B256, U256, U64};
 use edr_provider::{
     config::ProviderConfig, test_utils::create_test_config, time::CurrentTime, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,
@@ -91,6 +91,46 @@ pub fn send_transaction(
 ) -> anyhow::Result<B256> {
     let response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendTransaction(request),
+    ))?;
+
+    Ok(response.deserialize_result()?)
+}
+
+/// Returns the account's balance via `eth_getBalance`.
+pub fn balance_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<U256> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetBalance(address, None),
+    ))?;
+
+    Ok(response.deserialize_result()?)
+}
+
+/// Returns the account's code via `eth_getCode`.
+pub fn code_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<Bytes> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetCode(address, None),
+    ))?;
+
+    Ok(response.deserialize_result()?)
+}
+
+/// Returns the account's nonce via `eth_getTransactionCount`.
+pub fn nonce_at(provider: &Provider<L1ChainSpec>, address: Address) -> anyhow::Result<U64> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetTransactionCount(address, None),
+    ))?;
+
+    Ok(response.deserialize_result()?)
+}
+
+/// Returns the account's storage slot via `eth_getStorageAt`.
+pub fn storage_at(
+    provider: &Provider<L1ChainSpec>,
+    address: Address,
+    index: U256,
+) -> anyhow::Result<U256> {
+    let response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetStorageAt(address, index, None),
     ))?;
 
     Ok(response.deserialize_result()?)

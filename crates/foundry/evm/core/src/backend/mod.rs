@@ -2831,6 +2831,8 @@ mod tests {
             chain: None,
             block_env: env.block,
             hosts: BTreeSet::default(),
+            fork_hash: None,
+            source_id: None,
         };
 
         let db = BlockchainDb::new(

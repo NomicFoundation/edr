@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Fixed EIP-8037 state gas accounting not being enabled in Solidity tests running on the Amsterdam hardfork, so `Vm.Gas.gasStateUsed` is now reported.
+Fixed EIP-8037 state gas accounting not being enabled in Solidity tests running on the Amsterdam hardfork, so `Vm.Gas.gasStateUsed` is now reported. `Vm.Gas.gasTotalUsed` excludes state gas that spilled past the reservoir.

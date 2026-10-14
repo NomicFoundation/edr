@@ -261,6 +261,11 @@ jobs:
       - name: Run cargo clippy
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
+      # `bench = false` keeps it out of --all-targets, and cargo ignores
+      # --bench next to --all-targets.
+      - name: Run cargo clippy on the gungraun bench
+        run: cargo clippy -p edr_solidity --bench solx_build_info --all-features --locked -- -D warnings
+
   edr-docs:
     name: Build EDR Docs
     runs-on: ubuntu-24.04
