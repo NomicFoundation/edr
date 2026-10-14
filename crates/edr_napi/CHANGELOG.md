@@ -1,5 +1,20 @@
 # @nomicfoundation/edr
 
+## 0.23.0
+
+### Minor Changes
+
+- c50b85f: Added the `lastFrameGas` and `snapshotGasLastFrame` cheatcodes, which also record CREATE and CREATE2 frames, and deprecated `lastCallGas` and `snapshotGasLastCall` in their favour. The `Vm.Gas` struct gained a sixth field, `int64 gasStateUsed`; the field is always zero for now, as EIP-8037 state gas is not supported yet.
+- 994eba4: Fixed Solidity stack traces after a precompile call. A call that follows a precompile call in the same function is now attributed to the right line. A failing precompile call now produces a `PRECOMPILE_ERROR` entry instead of an unrecognized-contract error. JSON-RPC call traces therefore include calls to precompiles, as Solidity test call traces already did.
+
+### Patch Changes
+
+- 4906ddf: Fixed the default gas limit of Solidity test transactions being lowered to the EIP-7825 cap from the Amsterdam hardfork, where the cap bounds execution gas only.
+- e577740: Added support for EIP-8246 to the Amsterdam hardfork: a contract that self-destructs in the transaction that created it keeps its balance instead of burning it.
+- d1666ba: Fixed Solidity stack-trace construction to recognise `console.log` calls by the Hardhat console address.
+- 40ebe1b: Fixed the transaction `Value` shown in the node logs dropping the leading zeros of the fractional part (e.g. 0.01 ETH was logged as `0.1 ETH`), and whole amounts being logged with a trailing dot (e.g. `1. ETH`).
+- 2b0fc35: Added experimental EIP-2780 support: from the Amsterdam hardfork, intrinsic transaction gas is priced per resource instead of a flat 21,000
+
 ## 0.22.2
 
 ### Patch Changes
