@@ -89,8 +89,11 @@ pub trait TraceStrategy: std::fmt::Debug + Send + Sync + 'static {
 
     /// Whether a revert at `inst_location` in `failing_function` may come
     /// from the function's entry checks (calldata decoding) rather than its
-    /// body: solx gives a function's dispatch code its declaration line,
-    /// where solc's source map gives that code no function at all.
+    /// body: the slang compiler gives a function's dispatch code its
+    /// declaration line, where solc's source map gives that code no function
+    /// at all.
+    // TODO: remove once the slang compiler gives dispatch code line 0 in its
+    // DWARF instead of the declaration line.
     fn may_revert_in_entry_checks(
         &self,
         contract_meta: &ContractMetadata,
